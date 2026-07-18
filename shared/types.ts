@@ -8,6 +8,14 @@ export type Repo = { id: string, path: string, name: string, display_name: strin
 
 export type Project = { id: string, name: string, default_agent_working_dir: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
+export type ProjectIssue = { id: string, project_id: string, number: bigint, title: string, body: string | null, state: string,
+/**
+ * JSON-encoded array of label names.
+ */
+labels: string, author: string | null, updated_at: Date, synced_at: Date, };
+
+export type ProjectIssuesSyncResult = { synced: number, };
+
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 
 export type SearchResult = { path: string, is_file: boolean, match_type: SearchMatchType, 

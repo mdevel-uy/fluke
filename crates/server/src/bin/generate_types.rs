@@ -13,6 +13,8 @@ fn generate_types_content() -> String {
     let decls: Vec<String> = vec![
         db::models::repo::Repo::decl(),
         db::models::project::Project::decl(),
+        db::models::project_issue::ProjectIssue::decl(),
+        server::routes::projects::ProjectIssuesSyncResult::decl(),
         db::models::repo::UpdateRepo::decl(),
         db::models::repo::SearchResult::decl(),
         db::models::repo::SearchMatchType::decl(),
