@@ -13,5 +13,7 @@ pub mod scratch;
 pub mod session;
 pub mod tag;
 pub mod task;
+pub mod worker;
+pub mod worker_task;
 pub mod workspace;
 pub mod workspace_repo;
