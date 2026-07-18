@@ -8977,6 +8977,7 @@ dependencies = [
  "url",
  "utils",
  "uuid",
+ "workspace-manager",
  "worktree-manager",
 ]
 
