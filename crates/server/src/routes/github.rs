@@ -1,17 +1,25 @@
-//! Routes for the local `gh` CLI-based GitHub authentication flow.
+//! Routes for the local `gh` CLI-based GitHub integration.
 //!
 //! These endpoints wrap the `gh` binary already used elsewhere in the
-//! backend (see `crates/git-host/src/github/cli.rs`). They expose two
-//! operations to the web client:
+//! backend (see `crates/git-host/src/github/cli.rs`). They expose:
 //!
+//! Authentication flow:
 //! - `GET  /api/github/status` — reports whether the user is authenticated
 //!   with `gh` and the state of any in-flight login attempt.
 //! - `POST /api/github/login` — starts (or resumes) a `gh auth login` web
 //!   flow, captures the one-time code plus verification URL from `gh`'s
 //!   output, and returns them to the client for display. Progress can be
 //!   polled from the status endpoint.
+//!
+//! Repository management:
+//! - `GET  /api/github/repos` — lists the authenticated user's repos plus
+//!   repos from every org they belong to.
+//! - `POST /api/github/clone` — clones `<owner>/<repo>` into the local
+//!   repos directory, ready to be used as a project path.
 
 use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{Arc, OnceLock},
     time::Duration,
@@ -19,20 +27,44 @@ use std::{
 
 use axum::{
     Router,
+    http::StatusCode,
     response::Json as ResponseJson,
     routing::{get, post},
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::{Mutex, oneshot},
+    task,
     time::timeout,
 };
 use ts_rs::TS;
-use utils::{command_ext::NoWindowExt, response::ApiResponse, shell::resolve_executable_path};
+use utils::{
+    assets::asset_dir,
+    command_ext::NoWindowExt,
+    response::ApiResponse,
+    shell::{resolve_executable_path, resolve_executable_path_blocking},
+};
 
 use crate::{DeploymentImpl, error::ApiError};
+
+// ============================================================================
+// Router
+// ============================================================================
+
+pub fn router() -> Router<DeploymentImpl> {
+    Router::new()
+        .route("/github/status", get(get_status))
+        .route("/github/login", post(post_login))
+        .route("/github/repos", get(list_github_repos))
+        .route("/github/clone", post(clone_github_repo))
+}
+
+// ============================================================================
+// Authentication flow (status / login)
+// ============================================================================
 
 /// State of the in-progress `gh auth login` flow.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -80,12 +112,6 @@ fn flow_state() -> Arc<Mutex<LoginFlowState>> {
     LOGIN_FLOW
         .get_or_init(|| Arc::new(Mutex::new(LoginFlowState::default())))
         .clone()
-}
-
-pub fn router() -> Router<DeploymentImpl> {
-    Router::new()
-        .route("/github/status", get(get_status))
-        .route("/github/login", post(post_login))
 }
 
 async fn get_status() -> Result<ResponseJson<ApiResponse<GithubStatusResponse>>, ApiError> {
@@ -433,9 +459,282 @@ impl MergedLines {
     }
 }
 
+// ============================================================================
+// Repository listing and cloning
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct GitHubRepoSummary {
+    pub name_with_owner: String,
+    pub visibility: String,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub description: Option<String>,
+    /// Owner login when the repo comes from an organization list;
+    /// `None` when it comes from the authenticated user's own repos.
+    pub owner_org: Option<String>,
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct CloneRepoRequest {
+    pub name_with_owner: String,
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct CloneRepoResponse {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GhRepoListItem {
+    name_with_owner: String,
+    #[serde(default)]
+    visibility: String,
+    updated_at: Option<DateTime<Utc>>,
+    description: Option<String>,
+}
+
+const REPO_LIST_JSON_FIELDS: &str = "nameWithOwner,visibility,updatedAt,description";
+const REPO_LIST_LIMIT: &str = "200";
+
+async fn list_github_repos() -> Result<ResponseJson<ApiResponse<Vec<GitHubRepoSummary>>>, ApiError>
+{
+    let repos = task::spawn_blocking(collect_all_repos_blocking)
+        .await
+        .map_err(|e| ApiError::BadGateway(format!("gh task join failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(repos)))
+}
+
+fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
+    let user_raw = run_gh_blocking(
+        &[
+            "repo",
+            "list",
+            "--json",
+            REPO_LIST_JSON_FIELDS,
+            "--limit",
+            REPO_LIST_LIMIT,
+        ],
+        None,
+    )?;
+    let user_repos: Vec<GhRepoListItem> = serde_json::from_str(user_raw.trim())
+        .map_err(|e| ApiError::BadGateway(format!("Failed to parse `gh repo list` output: {e}")))?;
+
+    let orgs_raw = run_gh_blocking(
+        &["api", "user/orgs", "--paginate", "--jq", ".[].login"],
+        None,
+    )?;
+    let orgs: Vec<String> = orgs_raw
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut summaries: Vec<GitHubRepoSummary> = Vec::new();
+    for r in user_repos {
+        if seen.insert(r.name_with_owner.clone()) {
+            summaries.push(to_summary(r, None));
+        }
+    }
+
+    for org in &orgs {
+        let org_raw = run_gh_blocking(
+            &[
+                "repo",
+                "list",
+                org,
+                "--json",
+                REPO_LIST_JSON_FIELDS,
+                "--limit",
+                REPO_LIST_LIMIT,
+            ],
+            None,
+        )?;
+        let org_repos: Vec<GhRepoListItem> = serde_json::from_str(org_raw.trim()).map_err(|e| {
+            ApiError::BadGateway(format!("Failed to parse `gh repo list {org}` output: {e}"))
+        })?;
+        for r in org_repos {
+            if seen.insert(r.name_with_owner.clone()) {
+                summaries.push(to_summary(r, Some(org.clone())));
+            }
+        }
+    }
+
+    summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    Ok(summaries)
+}
+
+fn to_summary(r: GhRepoListItem, owner_org: Option<String>) -> GitHubRepoSummary {
+    GitHubRepoSummary {
+        name_with_owner: r.name_with_owner,
+        visibility: r.visibility,
+        updated_at: r.updated_at,
+        description: r.description,
+        owner_org,
+    }
+}
+
+async fn clone_github_repo(
+    ResponseJson(payload): ResponseJson<CloneRepoRequest>,
+) -> Result<(StatusCode, ResponseJson<ApiResponse<CloneRepoResponse>>), ApiError> {
+    let repo_name = validate_name_with_owner(&payload.name_with_owner)?;
+
+    let target = repos_root().join(&repo_name);
+    if target.exists() {
+        return Err(ApiError::Conflict(format!(
+            "Repository already cloned at {}",
+            target.display()
+        )));
+    }
+    std::fs::create_dir_all(repos_root())?;
+
+    let name_with_owner = payload.name_with_owner.trim().to_string();
+    let target_for_task = target.clone();
+    let cloned_path = task::spawn_blocking(move || -> Result<PathBuf, ApiError> {
+        let target_str = target_for_task.to_string_lossy().to_string();
+        run_gh_blocking(&["repo", "clone", &name_with_owner, &target_str], None)?;
+        Ok(target_for_task)
+    })
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("gh task join failed: {e}")))??;
+
+    Ok((
+        StatusCode::CREATED,
+        ResponseJson(ApiResponse::success(CloneRepoResponse {
+            path: cloned_path.to_string_lossy().to_string(),
+        })),
+    ))
+}
+
+fn repos_root() -> PathBuf {
+    asset_dir().join("repos")
+}
+
+fn validate_name_with_owner(input: &str) -> Result<String, ApiError> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err(ApiError::BadRequest(
+            "name_with_owner is required".to_string(),
+        ));
+    }
+    let (owner, name) = trimmed
+        .split_once('/')
+        .ok_or_else(|| ApiError::BadRequest("Expected 'owner/repo' format".to_string()))?;
+    if owner.is_empty() || name.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Expected 'owner/repo' format".to_string(),
+        ));
+    }
+    if name.contains('/') || trimmed.contains('\\') {
+        return Err(ApiError::BadRequest(
+            "name_with_owner must not contain path separators".to_string(),
+        ));
+    }
+    if !is_safe_segment(owner) || !is_safe_segment(name) {
+        return Err(ApiError::BadRequest(
+            "name_with_owner contains unsupported characters".to_string(),
+        ));
+    }
+    Ok(name.to_string())
+}
+
+fn is_safe_segment(s: &str) -> bool {
+    if s == "." || s == ".." || s.starts_with('-') {
+        return false;
+    }
+    s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
+fn run_gh_blocking(args: &[&str], dir: Option<&Path>) -> Result<String, ApiError> {
+    let gh = resolve_executable_path_blocking("gh").ok_or_else(|| {
+        ApiError::BadRequest(
+            "GitHub CLI (`gh`) not found in PATH. Install it and run `gh auth login`.".to_string(),
+        )
+    })?;
+
+    let mut cmd = std::process::Command::new(&gh);
+    if let Some(d) = dir {
+        cmd.current_dir(d);
+    }
+    for a in args {
+        cmd.arg(a);
+    }
+
+    let output = cmd
+        .no_window()
+        .output()
+        .map_err(|e| ApiError::BadGateway(format!("Failed to spawn gh: {e}")))?;
+
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(classify_gh_failure(output.status.code(), &stderr))
+}
+
+fn classify_gh_failure(exit_code: Option<i32>, stderr: &str) -> ApiError {
+    let lower = stderr.to_ascii_lowercase();
+
+    if exit_code == Some(4)
+        || lower.contains("authentication failed")
+        || lower.contains("must authenticate")
+        || lower.contains("bad credentials")
+        || lower.contains("gh auth login")
+    {
+        return ApiError::Unauthorized;
+    }
+
+    if lower.contains("403") || lower.contains("forbidden") {
+        return ApiError::Forbidden(format!("gh: {stderr}"));
+    }
+
+    if lower.contains("no space left on device")
+        || lower.contains("disk full")
+        || lower.contains("write error: no space")
+    {
+        return ApiError::BadGateway(format!("Disk full while running gh: {stderr}"));
+    }
+
+    if lower.contains("already exists")
+        || lower.contains("destination path")
+        || lower.contains("fatal: destination")
+    {
+        return ApiError::Conflict(format!("gh: {stderr}"));
+    }
+
+    if lower.contains("could not resolve host")
+        || lower.contains("network is unreachable")
+        || lower.contains("connection refused")
+        || lower.contains("temporary failure in name resolution")
+    {
+        return ApiError::BadGateway(format!("gh network error: {stderr}"));
+    }
+
+    if lower.contains("could not resolve to a repository")
+        || lower.contains("404")
+        || lower.contains("not found")
+    {
+        return ApiError::BadRequest(format!("Repository not found or no access: {stderr}"));
+    }
+
+    ApiError::BadGateway(format!("gh command failed: {stderr}"))
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---------- auth parsing ----------
 
     #[test]
     fn parses_device_code() {
@@ -480,5 +779,110 @@ github.com
     fn parses_username_legacy_format() {
         let text = "  ✓ Logged in to github.com as octocat (oauth_token)\n";
         assert_eq!(parse_username(text), Some("octocat".to_string()));
+    }
+
+    // ---------- name_with_owner validation ----------
+
+    #[test]
+    fn accepts_standard_name_with_owner() {
+        assert_eq!(validate_name_with_owner("facebook/react").unwrap(), "react");
+    }
+
+    #[test]
+    fn accepts_dots_and_dashes() {
+        assert_eq!(
+            validate_name_with_owner("some-org/repo.name-1").unwrap(),
+            "repo.name-1"
+        );
+    }
+
+    #[test]
+    fn rejects_missing_slash() {
+        assert!(matches!(
+            validate_name_with_owner("justarepo"),
+            Err(ApiError::BadRequest(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        assert!(matches!(
+            validate_name_with_owner("owner/../evil"),
+            Err(ApiError::BadRequest(_))
+        ));
+        assert!(matches!(
+            validate_name_with_owner("../owner/repo"),
+            Err(ApiError::BadRequest(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_backslash_and_extra_slash() {
+        assert!(matches!(
+            validate_name_with_owner("owner\\repo"),
+            Err(ApiError::BadRequest(_))
+        ));
+        assert!(matches!(
+            validate_name_with_owner("owner/sub/repo"),
+            Err(ApiError::BadRequest(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_or_whitespace() {
+        assert!(matches!(
+            validate_name_with_owner("   "),
+            Err(ApiError::BadRequest(_))
+        ));
+        assert!(matches!(
+            validate_name_with_owner(""),
+            Err(ApiError::BadRequest(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_shell_metacharacters() {
+        assert!(matches!(
+            validate_name_with_owner("owner/repo;rm -rf"),
+            Err(ApiError::BadRequest(_))
+        ));
+    }
+
+    // ---------- gh failure classifier ----------
+
+    #[test]
+    fn classifies_auth_failure_by_exit_code() {
+        let err = classify_gh_failure(Some(4), "some noise");
+        assert!(matches!(err, ApiError::Unauthorized));
+    }
+
+    #[test]
+    fn classifies_auth_failure_by_stderr() {
+        let err = classify_gh_failure(Some(1), "You must authenticate first. Run gh auth login");
+        assert!(matches!(err, ApiError::Unauthorized));
+    }
+
+    #[test]
+    fn classifies_disk_full() {
+        let err = classify_gh_failure(Some(1), "fatal: write error: No space left on device");
+        assert!(matches!(err, ApiError::BadGateway(_)));
+    }
+
+    #[test]
+    fn classifies_repo_not_found() {
+        let err = classify_gh_failure(
+            Some(1),
+            "GraphQL: Could not resolve to a Repository with the name 'foo/bar'.",
+        );
+        assert!(matches!(err, ApiError::BadRequest(_)));
+    }
+
+    #[test]
+    fn classifies_already_exists() {
+        let err = classify_gh_failure(
+            Some(1),
+            "fatal: destination path 'foo' already exists and is not an empty directory.",
+        );
+        assert!(matches!(err, ApiError::Conflict(_)));
     }
 }

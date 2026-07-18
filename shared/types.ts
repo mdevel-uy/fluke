@@ -262,6 +262,12 @@ export type RegisterRepoRequest = { path: string, display_name: string | null, }
 
 export type InitRepoRequest = { parent_path: string, folder_name: string, };
 
+export type GitHubRepoSummary = { nameWithOwner: string, visibility: string, updatedAt: string | null, description: string | null, ownerOrg: string | null, };
+
+export type CloneRepoRequest = { name_with_owner: string, };
+
+export type CloneRepoResponse = { path: string, };
+
 export type TagSearchParams = { search: string | null, };
 
 export type TokenResponse = { access_token: string, expires_at: string | null, };
