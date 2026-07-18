@@ -534,6 +534,7 @@
     "no": "No"
   },
   "appBar": {
+    "issues": "Tickets",
     "kanban": {
       "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
@@ -558,6 +559,10 @@
     "refreshing": "Actualisation...",
     "loading": "Chargement des issues...",
     "loadError": "Échec du chargement des issues.",
+    "loadingRepos": "Chargement des dépôts...",
+    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour voir ses issues.",
+    "selectRepoPrompt": "Sélectionnez un dépôt pour voir ses issues.",
+    "repoSelectorPlaceholder": "Sélectionner un dépôt",
     "openGroup": "Ouverts",
     "closedGroup": "Fermés",
     "authorPrefix": "par",
@@ -572,8 +577,8 @@
       "promptLabel": "Prompt",
       "cancel": "Annuler",
       "confirm": "Créer l'espace de travail",
-      "loadingRepos": "Chargement des dépôts du projet...",
-      "reposError": "Impossible de charger les dépôts du projet. L'espace de travail démarrera sans dépôt présélectionné."
+      "loadingRepo": "Chargement du dépôt...",
+      "repoError": "Impossible de charger le dépôt. L'espace de travail démarrera sans dépôt présélectionné."
     }
   }
 }

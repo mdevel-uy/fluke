@@ -534,6 +534,7 @@
     "no": "No"
   },
   "appBar": {
+    "issues": "問題",
     "kanban": {
       "tooltip": "登入以查看專案",
       "title": "看板",
@@ -558,6 +559,10 @@
     "refreshing": "正在重新整理...",
     "loading": "正在載入 Issue...",
     "loadError": "載入 Issue 失敗。",
+    "loadingRepos": "正在載入儲存庫...",
+    "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以查看其 Issue。",
+    "selectRepoPrompt": "請選擇一個儲存庫以查看其 Issue。",
+    "repoSelectorPlaceholder": "選擇儲存庫",
     "openGroup": "開啟",
     "closedGroup": "已關閉",
     "authorPrefix": "作者：",
@@ -572,8 +577,8 @@
       "promptLabel": "提示詞",
       "cancel": "取消",
       "confirm": "建立工作區",
-      "loadingRepos": "正在載入專案的儲存庫...",
-      "reposError": "無法載入專案儲存庫。工作區將在未預選儲存庫的情況下啟動。"
+      "loadingRepo": "正在載入儲存庫...",
+      "repoError": "無法載入儲存庫。工作區將在未預選儲存庫的情況下啟動。"
     }
   }
 }

@@ -7,12 +7,19 @@ use axum::{
     response::Json as ResponseJson,
     routing::{get, post},
 };
-use db::models::repo::{Repo, SearchResult, UpdateRepo};
+use chrono::{DateTime, Utc};
+use db::models::{
+    repo::{Repo, SearchResult, UpdateRepo},
+    repo_issue::RepoIssue,
+};
 use deployment::Deployment;
 use git::{GitBranch, GitRemote};
 use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, PullRequestDetail};
 use serde::{Deserialize, Serialize};
-use services::services::file_search::SearchQuery;
+use services::services::{
+    file_search::SearchQuery,
+    repo_issues::{RepoIssuesError, RepoIssuesService},
+};
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -365,6 +372,102 @@ pub async fn delete_repo(
     Ok((StatusCode::OK, ResponseJson(ApiResponse::success(()))))
 }
 
+#[derive(Debug, Serialize, TS)]
+pub struct RepoIssueResponse {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    #[ts(type = "number")]
+    pub number: i64,
+    pub title: String,
+    pub body: String,
+    pub state: String,
+    pub labels: Vec<String>,
+    pub author: String,
+    #[ts(type = "Date")]
+    pub updated_at: DateTime<Utc>,
+    #[ts(type = "Date")]
+    pub synced_at: DateTime<Utc>,
+}
+
+impl From<RepoIssue> for RepoIssueResponse {
+    fn from(issue: RepoIssue) -> Self {
+        let labels: Vec<String> = serde_json::from_str(&issue.labels).unwrap_or_default();
+        Self {
+            id: issue.id,
+            repo_id: issue.repo_id,
+            number: issue.number,
+            title: issue.title,
+            body: issue.body.unwrap_or_default(),
+            state: issue.state,
+            labels,
+            author: issue.author.unwrap_or_default(),
+            updated_at: issue.updated_at,
+            synced_at: issue.synced_at,
+        }
+    }
+}
+
+pub async fn list_repo_issues(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<RepoIssueResponse>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let issues = RepoIssuesService::new().list(&pool, repo_id).await?;
+    let response: Vec<RepoIssueResponse> = issues.into_iter().map(Into::into).collect();
+
+    // Kick off a background refresh so the list stays fresh without
+    // blocking the request. Errors are logged only.
+    let git = deployment.git().clone();
+    tokio::spawn(async move {
+        if let Err(err) = RepoIssuesService::new().sync(&pool, &git, repo_id).await {
+            tracing::debug!(
+                repo_id = %repo_id,
+                "background repo issues sync failed: {}",
+                err
+            );
+        }
+    });
+
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+pub async fn sync_repo_issues(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<RepoIssueResponse>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let service = RepoIssuesService::new();
+    service.sync(&pool, deployment.git(), repo_id).await?;
+    let issues = service.list(&pool, repo_id).await?;
+    let response: Vec<RepoIssueResponse> = issues.into_iter().map(Into::into).collect();
+
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+impl From<RepoIssuesError> for ApiError {
+    fn from(err: RepoIssuesError) -> Self {
+        match err {
+            RepoIssuesError::Sqlx(e) => ApiError::Database(e),
+            RepoIssuesError::Io(e) => ApiError::Io(e),
+            RepoIssuesError::Json(e) => {
+                ApiError::BadGateway(format!("Failed to parse gh output: {e}"))
+            }
+            RepoIssuesError::RepoNotFound => {
+                ApiError::BadRequest("Repository not found".to_string())
+            }
+            RepoIssuesError::NoGithubRemote => {
+                ApiError::BadRequest("Repository has no GitHub remote".to_string())
+            }
+            RepoIssuesError::GhCliNotAvailable => {
+                ApiError::BadRequest("`gh` CLI is not installed or not on PATH".to_string())
+            }
+            RepoIssuesError::GhCommandFailed(msg) => {
+                ApiError::BadGateway(format!("`gh issue list` failed: {msg}"))
+            }
+        }
+    }
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/repos", get(get_repos).post(register_repo))
@@ -381,4 +484,6 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/repos/pr-info", get(get_pr_info))
         .route("/repos/{repo_id}/search", get(search_repo))
         .route("/repos/{repo_id}/open-editor", post(open_repo_in_editor))
+        .route("/repos/{repo_id}/issues", get(list_repo_issues))
+        .route("/repos/{repo_id}/issues/sync", post(sync_repo_issues))
 }

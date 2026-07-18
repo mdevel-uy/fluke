@@ -14,7 +14,6 @@ pub mod filesystem_watcher;
 pub mod notification;
 pub mod oauth_credentials;
 pub mod pr_monitor;
-pub mod project_issues;
 
 #[cfg(feature = "qa-mode")]
 pub mod qa_repos;
@@ -22,3 +21,4 @@ pub mod queued_message;
 pub mod remote_client;
 pub mod remote_sync;
 pub mod repo;
+pub mod repo_issues;

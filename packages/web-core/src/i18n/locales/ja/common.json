@@ -534,6 +534,7 @@
     "no": "No"
   },
   "appBar": {
+    "issues": "課題",
     "kanban": {
       "tooltip": "サインインしてプロジェクトを表示",
       "title": "カンバンボード",
@@ -558,6 +559,10 @@
     "refreshing": "更新中...",
     "loading": "Issue を読み込み中...",
     "loadError": "Issue の読み込みに失敗しました。",
+    "loadingRepos": "リポジトリを読み込み中...",
+    "noReposMessage": "登録されているリポジトリがありません。Issue を表示するにはリポジトリを追加してください。",
+    "selectRepoPrompt": "Issue を表示するリポジトリを選択してください。",
+    "repoSelectorPlaceholder": "リポジトリを選択",
     "openGroup": "オープン",
     "closedGroup": "クローズ",
     "authorPrefix": "作成者:",
@@ -572,8 +577,8 @@
       "promptLabel": "プロンプト",
       "cancel": "キャンセル",
       "confirm": "ワークスペースを作成",
-      "loadingRepos": "プロジェクトのリポジトリを読み込み中...",
-      "reposError": "プロジェクトのリポジトリを読み込めませんでした。ワークスペースはリポジトリが選択されていない状態で開始します。"
+      "loadingRepo": "リポジトリを読み込み中...",
+      "repoError": "リポジトリを読み込めませんでした。ワークスペースはリポジトリが選択されていない状態で開始します。"
     }
   }
 }

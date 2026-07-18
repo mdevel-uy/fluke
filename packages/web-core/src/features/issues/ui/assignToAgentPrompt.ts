@@ -1,6 +1,6 @@
-import type { ProjectIssue } from '@/features/issues/types';
+import type { RepoIssue } from '@/features/issues/types';
 
-export function buildAssignToAgentPrompt(issue: ProjectIssue): string {
+export function buildAssignToAgentPrompt(issue: RepoIssue): string {
   const body = issue.body?.trim() ?? '';
   const bodySection = body ? `${body}\n\n` : '';
   return `Resolvé el issue #${issue.number}: ${issue.title}
