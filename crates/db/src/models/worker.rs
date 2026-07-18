@@ -158,4 +158,33 @@ impl Worker {
         .fetch_one(pool)
         .await
     }
+
+    /// Attach a workspace to a worker.
+    pub async fn attach_workspace(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+        workspace_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workspaces SET worker_id = ?2 WHERE id = ?1")
+            .bind(workspace_id)
+            .bind(worker_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Worker that owns the given workspace, if any.
+    pub async fn find_by_workspace_id(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT worker_id
+               FROM workspaces
+               WHERE id = ?1 AND worker_id IS NOT NULL",
+        )
+        .bind(workspace_id)
+        .fetch_optional(pool)
+        .await
+    }
 }

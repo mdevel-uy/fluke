@@ -14,14 +14,18 @@ use git_host::{GitHostError, GitHostProvider, GitHostService};
 use serde_json::json;
 use sqlx::error::Error as SqlxError;
 use thiserror::Error;
-use tokio::{sync::Notify, time::interval};
+use tokio::{
+    sync::{Notify, RwLock},
+    time::interval,
+};
 use tracing::{debug, error, info, warn};
 
 use crate::services::{
     analytics::AnalyticsContext,
+    config::Config,
     container::ContainerService,
     remote_client::{RemoteClient, RemoteClientError},
-    remote_sync,
+    remote_sync, worker_orchestrator,
 };
 
 #[derive(Debug, Error)]
@@ -53,6 +57,7 @@ pub struct PrMonitorService<C: ContainerService> {
     container: C,
     remote_client: Option<RemoteClient>,
     sync_notify: Arc<Notify>,
+    config: Arc<RwLock<Config>>,
 }
 
 impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
@@ -62,6 +67,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         container: C,
         remote_client: Option<RemoteClient>,
         sync_notify: Arc<Notify>,
+        config: Arc<RwLock<Config>>,
     ) -> tokio::task::JoinHandle<()> {
         let service = Self {
             db,
@@ -70,6 +76,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             container,
             remote_client,
             sync_notify,
+            config,
         };
         tokio::spawn(async move {
             service.start().await;
@@ -136,6 +143,18 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         );
 
         if matches!(&status.status, MergeStatus::Open) {
+            // PR is still open — reconcile the worker-task state machine.
+            // This is idempotent: it only transitions in_progress → in_review
+            // for a worker-owned workspace, and no-ops otherwise.
+            if let Some(workspace_id) = pr.workspace_id
+                && let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await
+            {
+                warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to reconcile worker task on PR open: {}",
+                    e
+                );
+            }
             return Ok(());
         }
 
@@ -160,6 +179,29 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         {
             self.try_archive_workspace(workspace_id, pr.pr_number)
                 .await?;
+
+            // Reconcile worker orchestration: task → done, then try to take
+            // the next queued task for the worker. Errors here are logged
+            // but never bubbled up: PR bookkeeping already succeeded.
+            match worker_orchestrator::on_pr_merged(
+                &self.config,
+                &self.db,
+                &self.container,
+                workspace_id,
+            )
+            .await
+            {
+                Ok(true) => info!(
+                    workspace_id = %workspace_id,
+                    "Worker took next task after PR merge",
+                ),
+                Ok(false) => {}
+                Err(e) => warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to reconcile worker task on PR merge: {}",
+                    e
+                ),
+            }
         }
 
         info!("PR #{} status changed to {:?}", pr.pr_number, status.status);

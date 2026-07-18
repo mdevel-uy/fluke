@@ -428,7 +428,7 @@ export type GitRemote = { name: string, url: string, };
 
 export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
 
-export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, created_at: Date, };
+export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, pr_url: string | null, pr_state: string | null, created_at: Date, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, };
 
@@ -437,6 +437,8 @@ export type UpdateWorkerRequest = { name: string | null, emoji: string | null, s
 export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, };
 
 export type UpdateWorkerTaskRequest = { position?: number | null, status?: string, };
+
+export type StartWorkerResponse = { task: WorkerTaskResponse, workspace_id: string, };
 
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 

@@ -2,15 +2,18 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     response::Json as ResponseJson,
-    routing::get,
+    routing::{get, post},
 };
 use chrono::{DateTime, Utc};
 use db::models::{
+    merge::MergeStatus,
+    pull_request::PullRequest,
     worker::{CreateWorker, UpdateWorker, Worker},
     worker_task::{self, CreateWorkerTask, WorkerTask},
 };
 use deployment::Deployment;
 use serde::{Deserialize, Serialize};
+use services::services::worker_orchestrator::{self, StartError};
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -45,24 +48,53 @@ pub struct WorkerTaskResponse {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// URL of the most recent pull request tracked for this task's workspace,
+    /// or `null` when no PR has been created yet.
+    pub pr_url: Option<String>,
+    /// State of the most recent PR: `"open" | "merged" | "closed"`, or
+    /// `null` when there is no tracked PR.
+    pub pr_state: Option<String>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
 
-impl From<WorkerTask> for WorkerTaskResponse {
-    fn from(t: WorkerTask) -> Self {
-        Self {
-            id: t.id,
-            worker_id: t.worker_id,
-            repo_id: t.repo_id,
-            position: t.position,
-            title: t.title,
-            prompt: t.prompt,
-            issue_number: t.issue_number,
-            status: t.status,
-            workspace_id: t.workspace_id,
-            created_at: t.created_at,
+async fn worker_task_to_response(
+    pool: &sqlx::SqlitePool,
+    task: WorkerTask,
+) -> Result<WorkerTaskResponse, ApiError> {
+    let (pr_url, pr_state) = match task.workspace_id {
+        Some(workspace_id) => {
+            let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
+            match prs.into_iter().next() {
+                Some(pr) => (Some(pr.pr_url), Some(merge_status_str(&pr.pr_status))),
+                None => (None, None),
+            }
         }
+        None => (None, None),
+    };
+
+    Ok(WorkerTaskResponse {
+        id: task.id,
+        worker_id: task.worker_id,
+        repo_id: task.repo_id,
+        position: task.position,
+        title: task.title,
+        prompt: task.prompt,
+        issue_number: task.issue_number,
+        status: task.status,
+        workspace_id: task.workspace_id,
+        pr_url,
+        pr_state,
+        created_at: task.created_at,
+    })
+}
+
+fn merge_status_str(status: &MergeStatus) -> String {
+    match status {
+        MergeStatus::Open => "open".to_string(),
+        MergeStatus::Merged => "merged".to_string(),
+        MergeStatus::Closed => "closed".to_string(),
+        MergeStatus::Unknown => "unknown".to_string(),
     }
 }
 
@@ -218,7 +250,10 @@ pub async fn list_worker_tasks(
         .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
 
     let tasks = WorkerTask::list_by_worker(pool, worker_id).await?;
-    let response: Vec<WorkerTaskResponse> = tasks.into_iter().map(Into::into).collect();
+    let mut response = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        response.push(worker_task_to_response(pool, task).await?);
+    }
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
@@ -260,7 +295,8 @@ pub async fn create_worker_task(
     )
     .await?;
 
-    Ok(ResponseJson(ApiResponse::success(task.into())))
+    let response = worker_task_to_response(pool, task).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
 }
 
 pub async fn update_worker_task(
@@ -293,7 +329,64 @@ pub async fn update_worker_task(
     )
     .await?;
 
-    Ok(ResponseJson(ApiResponse::success(updated.into())))
+    let response = worker_task_to_response(pool, updated).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct StartWorkerResponse {
+    pub task: WorkerTaskResponse,
+    pub workspace_id: Uuid,
+}
+
+/// Attempt to take the next queued task for the worker and start an agent
+/// run for it. Returns 409 when the worker is not currently eligible to
+/// take a task (already in_progress, at the in_review cap, or nothing
+/// queued).
+pub async fn start_worker(
+    State(deployment): State<DeploymentImpl>,
+    Path(worker_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<StartWorkerResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+
+    let started = worker_orchestrator::try_take_next(
+        deployment.config(),
+        deployment.db(),
+        deployment.container(),
+        worker_id,
+    )
+    .await
+    .map_err(map_start_error)?;
+
+    let task = worker_task_to_response(pool, started.task).await?;
+    Ok(ResponseJson(ApiResponse::success(StartWorkerResponse {
+        task,
+        workspace_id: started.workspace_id,
+    })))
+}
+
+fn map_start_error(err: StartError) -> ApiError {
+    match err {
+        StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
+        StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
+        StartError::RepoMissingDefaultBranch => ApiError::BadRequest(
+            "Repo is missing default_target_branch; configure it before starting a worker".into(),
+        ),
+        StartError::NothingQueued => ApiError::Conflict("No queued tasks for worker".into()),
+        StartError::AlreadyInProgress => {
+            ApiError::Conflict("Worker already has a task in progress".into())
+        }
+        StartError::InReviewCapReached(cap) => {
+            ApiError::Conflict(format!("Worker in-review cap reached ({cap})"))
+        }
+        StartError::Sqlx(e) => e.into(),
+        StartError::Container(e) => e.into(),
+        StartError::Workspace(e) => ApiError::Conflict(e.to_string()),
+        StartError::DbWorkspace(e) => e.into(),
+    }
 }
 
 pub async fn delete_worker_task(
@@ -327,6 +420,7 @@ pub fn router() -> Router<DeploymentImpl> {
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),
         )
+        .route("/workers/{worker_id}/start", post(start_worker))
         .route(
             "/workers/{worker_id}/tasks",
             get(list_worker_tasks).post(create_worker_task),

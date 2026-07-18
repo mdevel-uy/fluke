@@ -22,3 +22,4 @@ pub mod remote_client;
 pub mod remote_sync;
 pub mod repo;
 pub mod repo_issues;
+pub mod worker_orchestrator;
