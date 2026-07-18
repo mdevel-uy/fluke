@@ -17,6 +17,7 @@ import { getFirstProjectDestination } from '@/shared/lib/firstProjectDestination
 import { useOrganizationStore } from '@/shared/stores/useOrganizationStore';
 import { isTauriApp } from '@/shared/lib/platform';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { getRemoteApiUrl } from '@/shared/lib/remoteApi';
 
 type OnboardingDestination =
   | { kind: 'workspaces-create' }
@@ -84,6 +85,10 @@ export function OnboardingSignInPage() {
   const isCompletingOnboardingRef = useRef(false);
   const hasTrackedStageViewRef = useRef(false);
   const hasRedirectedToRootRef = useRef(false);
+  const hasAutoSkippedSignInRef = useRef(false);
+  // When VK_SHARED_API_BASE isn't wired up (build-time or runtime), the Vibe
+  // Kanban cloud is unreachable and the sign-in gate can't do anything useful.
+  const isCloudConfigured = Boolean(getRemoteApiUrl());
   const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(
     null
   );
@@ -249,6 +254,19 @@ export function OnboardingSignInPage() {
     }
   };
 
+  useEffect(() => {
+    if (hasAutoSkippedSignInRef.current) return;
+    if (loading || !config) return;
+    if (config.remote_onboarding_acknowledged) return;
+    if (isCloudConfigured) return;
+
+    hasAutoSkippedSignInRef.current = true;
+    void finishOnboarding({ method: 'skip_sign_in' });
+    // finishOnboarding closes over saving/config but re-runs are gated by the
+    // ref + isCompletingOnboardingRef check inside finishOnboarding itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, config, isCloudConfigured]);
+
   if (loading || !config) {
     return (
       <div className="h-screen bg-primary flex items-center justify-center">
@@ -262,6 +280,14 @@ export function OnboardingSignInPage() {
     !isCompletingOnboardingRef.current
   ) {
     return null;
+  }
+
+  if (!isCloudConfigured) {
+    return (
+      <div className="h-screen bg-primary flex items-center justify-center">
+        <p className="text-low">Loading...</p>
+      </div>
+    );
   }
 
   return (
