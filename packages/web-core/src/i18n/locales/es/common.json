@@ -564,6 +564,16 @@
     "countLabel": "{{count}} issue",
     "countLabel_other": "{{count}} issues",
     "emptyTitle": "No hay issues todavía",
-    "emptyDescription": "Actualizá para sincronizar los issues desde la fuente."
+    "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
+    "assignToAgent": "Asignar a un agente",
+    "assignDialog": {
+      "title": "Asignar issue #{{number}} a un agente",
+      "description": "Revisá y editá el prompt debajo. El agente arrancará con estas instrucciones en un workspace nuevo.",
+      "promptLabel": "Prompt",
+      "cancel": "Cancelar",
+      "confirm": "Crear workspace",
+      "loadingRepos": "Cargando repositorios del proyecto...",
+      "reposError": "No se pudieron cargar los repositorios del proyecto. El workspace se abrirá sin un repositorio preseleccionado."
+    }
   }
 }

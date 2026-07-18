@@ -84,11 +84,13 @@ export function IssuesPage() {
               title={t('issues.openGroup')}
               count={open.length}
               issues={open}
+              projectId={projectId}
             />
             <IssuesGroup
               title={t('issues.closedGroup')}
               count={closed.length}
               issues={closed}
+              projectId={projectId}
             />
           </div>
         )}

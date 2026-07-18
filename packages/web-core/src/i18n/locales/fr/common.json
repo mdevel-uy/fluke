@@ -564,6 +564,16 @@
     "countLabel": "{{count}} issue",
     "countLabel_other": "{{count}} issues",
     "emptyTitle": "Aucun issue pour l'instant",
-    "emptyDescription": "Actualisez pour synchroniser les issues depuis la source."
+    "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
+    "assignToAgent": "Assigner à un agent",
+    "assignDialog": {
+      "title": "Assigner l'issue #{{number}} à un agent",
+      "description": "Vérifiez et modifiez le prompt ci-dessous. L'agent démarrera avec ces instructions dans un nouvel espace de travail.",
+      "promptLabel": "Prompt",
+      "cancel": "Annuler",
+      "confirm": "Créer l'espace de travail",
+      "loadingRepos": "Chargement des dépôts du projet...",
+      "reposError": "Impossible de charger les dépôts du projet. L'espace de travail démarrera sans dépôt présélectionné."
+    }
   }
 }

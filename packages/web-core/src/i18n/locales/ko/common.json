@@ -564,6 +564,16 @@
     "countLabel": "{{count}}개의 이슈",
     "countLabel_other": "{{count}}개의 이슈",
     "emptyTitle": "아직 이슈가 없습니다",
-    "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요."
+    "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
+    "assignToAgent": "에이전트에게 할당",
+    "assignDialog": {
+      "title": "이슈 #{{number}}를 에이전트에게 할당",
+      "description": "아래 프롬프트를 확인하고 편집하세요. 에이전트는 이 지침으로 새 워크스페이스를 시작합니다.",
+      "promptLabel": "프롬프트",
+      "cancel": "취소",
+      "confirm": "워크스페이스 만들기",
+      "loadingRepos": "프로젝트 저장소를 불러오는 중...",
+      "reposError": "프로젝트 저장소를 불러올 수 없습니다. 저장소가 선택되지 않은 상태로 워크스페이스를 시작합니다."
+    }
   }
 }

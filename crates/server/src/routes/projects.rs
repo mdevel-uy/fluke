@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
-use db::models::project_issue::ProjectIssue;
+use db::models::{project::Project, project_issue::ProjectIssue, repo::Repo};
 use deployment::Deployment;
 use serde::Serialize;
 use services::services::project_issues::{ProjectIssuesError, ProjectIssuesService};
@@ -114,6 +114,19 @@ impl From<ProjectIssuesError> for ApiError {
     }
 }
 
+pub async fn list_project_repos(
+    State(deployment): State<DeploymentImpl>,
+    Path(project_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<Repo>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    if Project::find_by_id(pool, project_id).await?.is_none() {
+        return Err(ApiError::BadRequest("Project not found".to_string()));
+    }
+    let repo_ids = Project::repo_ids(pool, project_id).await?;
+    let repos = Repo::find_by_ids(pool, &repo_ids).await?;
+    Ok(ResponseJson(ApiResponse::success(repos)))
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/projects/{project_id}/issues", get(list_project_issues))
@@ -121,4 +134,5 @@ pub fn router() -> Router<DeploymentImpl> {
             "/projects/{project_id}/issues/sync",
             post(sync_project_issues),
         )
+        .route("/projects/{project_id}/repos", get(list_project_repos))
 }

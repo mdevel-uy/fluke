@@ -564,6 +564,16 @@
     "countLabel": "{{count}} issue",
     "countLabel_other": "{{count}} issues",
     "emptyTitle": "No issues yet",
-    "emptyDescription": "Refresh to sync issues from the source."
+    "emptyDescription": "Refresh to sync issues from the source.",
+    "assignToAgent": "Assign to agent",
+    "assignDialog": {
+      "title": "Assign issue #{{number}} to agent",
+      "description": "Review and edit the prompt below. The agent will start with these instructions in a new workspace.",
+      "promptLabel": "Prompt",
+      "cancel": "Cancel",
+      "confirm": "Create workspace",
+      "loadingRepos": "Loading project repositories...",
+      "reposError": "Could not load project repositories. The workspace will start without a preselected repo."
+    }
   }
 }

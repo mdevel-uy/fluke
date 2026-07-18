@@ -564,6 +564,16 @@
     "countLabel": "{{count}} 件の Issue",
     "countLabel_other": "{{count}} 件の Issue",
     "emptyTitle": "Issue はまだありません",
-    "emptyDescription": "更新してソースから Issue を同期してください。"
+    "emptyDescription": "更新してソースから Issue を同期してください。",
+    "assignToAgent": "エージェントに割り当てる",
+    "assignDialog": {
+      "title": "Issue #{{number}} をエージェントに割り当てる",
+      "description": "下のプロンプトを確認・編集してください。エージェントはこの指示で新しいワークスペースを開始します。",
+      "promptLabel": "プロンプト",
+      "cancel": "キャンセル",
+      "confirm": "ワークスペースを作成",
+      "loadingRepos": "プロジェクトのリポジトリを読み込み中...",
+      "reposError": "プロジェクトのリポジトリを読み込めませんでした。ワークスペースはリポジトリが選択されていない状態で開始します。"
+    }
   }
 }
