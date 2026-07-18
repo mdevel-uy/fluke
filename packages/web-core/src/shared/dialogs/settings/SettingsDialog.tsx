@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { CaretLeftIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
+import { CaretLeftIcon, XIcon } from '@phosphor-icons/react';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/shared/lib/modals';
 
@@ -67,13 +67,7 @@ function SettingsDialogNavigation({
   const hostSettingsDisabled = !hostsResolved || !selectedHost;
   const hostHint = !hostsResolved
     ? t('settings.general.loading')
-    : availableHosts.length === 0
-      ? t('settings.hostPicker.pairMachineHint')
-      : t('settings.hostPicker.selectMachineHint');
-
-  const handlePairOtherMachines = () => {
-    onSectionSelect('relay');
-  };
+    : t('settings.hostPicker.selectMachineHint');
 
   const renderSectionButton = (sectionId: SettingsSectionType) => {
     const section = SETTINGS_SECTION_DEFINITIONS.find(
@@ -120,13 +114,6 @@ function SettingsDialogNavigation({
           <SettingsSelect
             value={selectedHostId ?? undefined}
             options={hostOptions}
-            actions={[
-              {
-                label: t('settings.layout.nav.pairOtherMachines'),
-                icon: PlusIcon,
-                onClick: handlePairOtherMachines,
-              },
-            ]}
             onChange={setSelectedHostId}
             placeholder={t('settings.layout.nav.selectHost')}
           />
@@ -171,12 +158,8 @@ function SettingsDialogContent({
       return initialSection;
     }
 
-    if (hostsResolved && availableHosts.length === 0) {
-      return 'organizations';
-    }
-
     return 'general';
-  }, [availableHosts.length, hostsResolved, initialSection]);
+  }, [initialSection]);
 
   const [activeSection, setActiveSection] = useState<SettingsSectionType>(
     resolvedInitialSection
@@ -222,7 +205,7 @@ function SettingsDialogContent({
       isHostSpecificSettingsSection(activeSection) &&
       availableHosts.length === 0
     ) {
-      setActiveSection('organizations');
+      setActiveSection('github');
     }
   }, [activeSection, availableHosts.length, hostsResolved]);
 
