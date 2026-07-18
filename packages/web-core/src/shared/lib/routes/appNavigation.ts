@@ -8,6 +8,7 @@ export type AppDestination =
   | { kind: 'workspace-vscode'; workspaceId: string; hostId?: string }
   | { kind: 'export' }
   | { kind: 'issues'; repoId?: string }
+  | { kind: 'workers' }
   | { kind: 'project'; projectId: string }
   | {
       kind: 'project-issue';
@@ -53,6 +54,7 @@ export interface AppNavigation {
   ): void;
   goToExport(transition?: NavigationTransition): void;
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
+  goToWorkers(transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
   goToProjectIssue(
     projectId: string,
@@ -195,6 +197,12 @@ export function isIssuesDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'issues' }> {
   return destination?.kind === 'issues';
+}
+
+export function isWorkersDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'workers' }> {
+  return destination?.kind === 'workers';
 }
 
 function isValidUuid(value: string): boolean {

@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingSignInRouteImport } from './routes/onboarding_.sign-in'
 import { Route as AppWorkspacesRouteImport } from './routes/_app.workspaces'
+import { Route as AppWorkersRouteImport } from './routes/_app.workers'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
 import { Route as AppExportRouteImport } from './routes/_app.export'
@@ -56,6 +57,11 @@ const OnboardingSignInRoute = OnboardingSignInRouteImport.update({
 const AppWorkspacesRoute = AppWorkspacesRouteImport.update({
   id: '/workspaces',
   path: '/workspaces',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkersRoute = AppWorkersRouteImport.update({
+  id: '/workers',
+  path: '/workers',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/_app/export': typeof AppExportRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/workers': typeof AppWorkersRoute
   '/_app/workspaces': typeof AppWorkspacesRoute
   '/onboarding_/sign-in': typeof OnboardingSignInRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
     | '/projects/$projectId'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
     | '/projects/$projectId'
@@ -308,6 +319,7 @@ export interface FileRouteTypes {
     | '/_app/export'
     | '/_app/issues'
     | '/_app/notifications'
+    | '/_app/workers'
     | '/_app/workspaces'
     | '/onboarding_/sign-in'
     | '/_app/projects/$projectId'
@@ -372,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/workspaces'
       fullPath: '/workspaces'
       preLoaderRoute: typeof AppWorkspacesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workers': {
+      id: '/_app/workers'
+      path: '/workers'
+      fullPath: '/workers'
+      preLoaderRoute: typeof AppWorkersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notifications': {
@@ -514,6 +533,7 @@ interface AppRouteChildren {
   AppExportRoute: typeof AppExportRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppWorkersRoute: typeof AppWorkersRoute
   AppWorkspacesRoute: typeof AppWorkspacesRoute
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
   AppWorkspacesWorkspaceIdRoute: typeof AppWorkspacesWorkspaceIdRoute
@@ -535,6 +555,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportRoute: AppExportRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppWorkersRoute: AppWorkersRoute,
   AppWorkspacesRoute: AppWorkspacesRoute,
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
   AppWorkspacesWorkspaceIdRoute: AppWorkspacesWorkspaceIdRoute,

@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "问题",
+    "workers": "工作者",
     "kanban": {
       "tooltip": "登录以查看项目",
       "title": "看板",
@@ -568,6 +569,64 @@
       "confirm": "创建工作区",
       "loadingRepo": "正在加载仓库...",
       "repoError": "无法加载仓库。工作区将在未预选仓库的情况下启动。"
+    }
+  },
+  "workers": {
+    "title": "工作者",
+    "countLabel": "{{count}} 个工作者",
+    "countLabel_other": "{{count}} 个工作者",
+    "newWorker": "新建工作者",
+    "loading": "正在加载工作者...",
+    "loadError": "加载工作者失败。",
+    "emptyTitle": "尚无工作者",
+    "emptyDescription": "创建一个工作者以开始分配任务。",
+    "confirmDelete": "删除工作者“{{worker}}”？此操作不可撤销。",
+    "templates": {
+      "backend": "后端专家",
+      "frontend": "前端专家",
+      "generalist": "通才"
+    },
+    "card": {
+      "statusWorking": "工作中",
+      "statusIdle": "空闲",
+      "currentTaskLink": "打开当前工作区",
+      "noCurrentTask": "无进行中的任务",
+      "menuLabel": "工作者操作",
+      "edit": "编辑",
+      "delete": "删除",
+      "queuedCount": "{{count}} 个排队",
+      "queuedCount_other": "{{count}} 个排队",
+      "completedCount": "{{count}} 个完成",
+      "completedCount_other": "{{count}} 个完成",
+      "startNext": "开始下一个",
+      "expandQueue": "显示队列",
+      "collapseQueue": "隐藏队列",
+      "queueLoading": "正在加载队列...",
+      "queueError": "加载队列失败。",
+      "queueEmpty": "队列为空。"
+    },
+    "form": {
+      "newTitle": "新建工作者",
+      "editTitle": "编辑工作者",
+      "description": "为工作者指定名称、表情和灵魂。灵魂是引导其工作方式的提示词。",
+      "nameLabel": "名称",
+      "namePlaceholder": "例如：Backend Bee",
+      "emojiLabel": "表情",
+      "templatesLabel": "从模板开始",
+      "soulLabel": "灵魂 (Soul)",
+      "soulPlaceholder": "描述领域、标准与 Definition of Done...",
+      "cancel": "取消",
+      "saveNew": "创建工作者",
+      "saveEdit": "保存更改"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} 已开始“{{title}}”。",
+      "startConflict": "{{worker}} 没有排队任务或已在工作中。",
+      "startError": "启动 {{worker}} 失败：{{message}}",
+      "createSuccess": "工作者已创建。",
+      "updateSuccess": "工作者已更新。",
+      "deleteSuccess": "{{worker}} 已删除。",
+      "dismiss": "关闭"
     }
   }
 }

@@ -528,6 +528,7 @@
   },
   "appBar": {
     "issues": "Issues",
+    "workers": "Workers",
     "kanban": {
       "tooltip": "Sign in to view projects",
       "title": "Kanban Boards",
@@ -568,6 +569,64 @@
       "confirm": "Create workspace",
       "loadingRepo": "Loading repository...",
       "repoError": "Could not load the repository. The workspace will start without a preselected repo."
+    }
+  },
+  "workers": {
+    "title": "Workers",
+    "countLabel": "{{count}} worker",
+    "countLabel_other": "{{count}} workers",
+    "newWorker": "New worker",
+    "loading": "Loading workers...",
+    "loadError": "Failed to load workers.",
+    "emptyTitle": "No workers yet",
+    "emptyDescription": "Create a worker to start assigning tasks.",
+    "confirmDelete": "Delete worker \"{{worker}}\"? This cannot be undone.",
+    "templates": {
+      "backend": "Backend Specialist",
+      "frontend": "Frontend Specialist",
+      "generalist": "Generalist"
+    },
+    "card": {
+      "statusWorking": "Working",
+      "statusIdle": "Idle",
+      "currentTaskLink": "Open current workspace",
+      "noCurrentTask": "No task in progress",
+      "menuLabel": "Worker actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "queuedCount": "{{count}} queued",
+      "queuedCount_other": "{{count}} queued",
+      "completedCount": "{{count}} completed",
+      "completedCount_other": "{{count}} completed",
+      "startNext": "Start next",
+      "expandQueue": "Show queue",
+      "collapseQueue": "Hide queue",
+      "queueLoading": "Loading queue...",
+      "queueError": "Failed to load queue.",
+      "queueEmpty": "The queue is empty."
+    },
+    "form": {
+      "newTitle": "New worker",
+      "editTitle": "Edit worker",
+      "description": "Give the worker a name, an emoji and a soul. The soul is the prompt that shapes how it works.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Backend Bee",
+      "emojiLabel": "Emoji",
+      "templatesLabel": "Start from a template",
+      "soulLabel": "Soul",
+      "soulPlaceholder": "Describe territory, standards and Definition of Done...",
+      "cancel": "Cancel",
+      "saveNew": "Create worker",
+      "saveEdit": "Save changes"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} started \"{{title}}\".",
+      "startConflict": "{{worker}} has no queued tasks or is already working.",
+      "startError": "Failed to start {{worker}}: {{message}}",
+      "createSuccess": "Worker created.",
+      "updateSuccess": "Worker updated.",
+      "deleteSuccess": "{{worker}} deleted.",
+      "dismiss": "Dismiss"
     }
   }
 }

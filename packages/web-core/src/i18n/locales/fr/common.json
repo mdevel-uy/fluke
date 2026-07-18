@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "Tickets",
+    "workers": "Workers",
     "kanban": {
       "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
@@ -568,6 +569,64 @@
       "confirm": "Créer l'espace de travail",
       "loadingRepo": "Chargement du dépôt...",
       "repoError": "Impossible de charger le dépôt. L'espace de travail démarrera sans dépôt présélectionné."
+    }
+  },
+  "workers": {
+    "title": "Workers",
+    "countLabel": "{{count}} worker",
+    "countLabel_other": "{{count}} workers",
+    "newWorker": "Nouveau worker",
+    "loading": "Chargement des workers...",
+    "loadError": "Échec du chargement des workers.",
+    "emptyTitle": "Aucun worker pour l'instant",
+    "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
+    "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "templates": {
+      "backend": "Spécialiste Backend",
+      "frontend": "Spécialiste Frontend",
+      "generalist": "Généraliste"
+    },
+    "card": {
+      "statusWorking": "En cours",
+      "statusIdle": "En attente",
+      "currentTaskLink": "Ouvrir l'espace de travail actuel",
+      "noCurrentTask": "Aucune tâche en cours",
+      "menuLabel": "Actions du worker",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "queuedCount": "{{count}} en file",
+      "queuedCount_other": "{{count}} en file",
+      "completedCount": "{{count}} terminée",
+      "completedCount_other": "{{count}} terminées",
+      "startNext": "Démarrer la suivante",
+      "expandQueue": "Voir la file",
+      "collapseQueue": "Masquer la file",
+      "queueLoading": "Chargement de la file...",
+      "queueError": "Échec du chargement de la file.",
+      "queueEmpty": "La file est vide."
+    },
+    "form": {
+      "newTitle": "Nouveau worker",
+      "editTitle": "Modifier le worker",
+      "description": "Donnez un nom, un emoji et une âme au worker. L'âme est le prompt qui guide son travail.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "ex. Abeille Backend",
+      "emojiLabel": "Emoji",
+      "templatesLabel": "Partir d'un modèle",
+      "soulLabel": "Âme (soul)",
+      "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "cancel": "Annuler",
+      "saveNew": "Créer le worker",
+      "saveEdit": "Enregistrer"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} a démarré « {{title}} ».",
+      "startConflict": "{{worker}} n'a aucune tâche en file ou en a déjà une en cours.",
+      "startError": "Échec du démarrage de {{worker}} : {{message}}",
+      "createSuccess": "Worker créé.",
+      "updateSuccess": "Worker mis à jour.",
+      "deleteSuccess": "{{worker}} supprimé.",
+      "dismiss": "Fermer"
     }
   }
 }

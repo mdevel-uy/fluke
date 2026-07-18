@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "이슈",
+    "workers": "워커",
     "kanban": {
       "tooltip": "프로젝트를 보려면 로그인하세요",
       "title": "칸반 보드",
@@ -568,6 +569,64 @@
       "confirm": "워크스페이스 만들기",
       "loadingRepo": "저장소를 불러오는 중...",
       "repoError": "저장소를 불러올 수 없습니다. 저장소가 선택되지 않은 상태로 워크스페이스를 시작합니다."
+    }
+  },
+  "workers": {
+    "title": "워커",
+    "countLabel": "{{count}}명의 워커",
+    "countLabel_other": "{{count}}명의 워커",
+    "newWorker": "새 워커",
+    "loading": "워커를 불러오는 중...",
+    "loadError": "워커를 불러오지 못했습니다.",
+    "emptyTitle": "아직 워커가 없습니다",
+    "emptyDescription": "워커를 만들어 작업을 할당해 보세요.",
+    "confirmDelete": "워커 \"{{worker}}\"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "templates": {
+      "backend": "백엔드 전문가",
+      "frontend": "프론트엔드 전문가",
+      "generalist": "제너럴리스트"
+    },
+    "card": {
+      "statusWorking": "작업 중",
+      "statusIdle": "대기 중",
+      "currentTaskLink": "현재 워크스페이스 열기",
+      "noCurrentTask": "진행 중인 작업 없음",
+      "menuLabel": "워커 작업",
+      "edit": "편집",
+      "delete": "삭제",
+      "queuedCount": "{{count}}개 대기",
+      "queuedCount_other": "{{count}}개 대기",
+      "completedCount": "{{count}}개 완료",
+      "completedCount_other": "{{count}}개 완료",
+      "startNext": "다음 작업 시작",
+      "expandQueue": "대기열 보기",
+      "collapseQueue": "대기열 숨기기",
+      "queueLoading": "대기열을 불러오는 중...",
+      "queueError": "대기열을 불러오지 못했습니다.",
+      "queueEmpty": "대기열이 비었습니다."
+    },
+    "form": {
+      "newTitle": "새 워커",
+      "editTitle": "워커 편집",
+      "description": "이름, 이모지, 소울을 지정하세요. 소울은 워커의 동작을 이끄는 프롬프트입니다.",
+      "nameLabel": "이름",
+      "namePlaceholder": "예: Backend Bee",
+      "emojiLabel": "이모지",
+      "templatesLabel": "템플릿으로 시작",
+      "soulLabel": "소울(Soul)",
+      "soulPlaceholder": "영역, 표준, Definition of Done을 설명하세요...",
+      "cancel": "취소",
+      "saveNew": "워커 만들기",
+      "saveEdit": "변경 사항 저장"
+    },
+    "toast": {
+      "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
+      "startConflict": "{{worker}}에는 대기 중인 작업이 없거나 이미 작업 중입니다.",
+      "startError": "{{worker}} 시작 실패: {{message}}",
+      "createSuccess": "워커를 만들었습니다.",
+      "updateSuccess": "워커를 업데이트했습니다.",
+      "deleteSuccess": "{{worker}}를 삭제했습니다.",
+      "dismiss": "닫기"
     }
   }
 }

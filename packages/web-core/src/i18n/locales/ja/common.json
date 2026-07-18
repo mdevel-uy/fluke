@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "課題",
+    "workers": "ワーカー",
     "kanban": {
       "tooltip": "サインインしてプロジェクトを表示",
       "title": "カンバンボード",
@@ -568,6 +569,64 @@
       "confirm": "ワークスペースを作成",
       "loadingRepo": "リポジトリを読み込み中...",
       "repoError": "リポジトリを読み込めませんでした。ワークスペースはリポジトリが選択されていない状態で開始します。"
+    }
+  },
+  "workers": {
+    "title": "ワーカー",
+    "countLabel": "{{count}} 人のワーカー",
+    "countLabel_other": "{{count}} 人のワーカー",
+    "newWorker": "新しいワーカー",
+    "loading": "ワーカーを読み込み中...",
+    "loadError": "ワーカーの読み込みに失敗しました。",
+    "emptyTitle": "まだワーカーはいません",
+    "emptyDescription": "ワーカーを作成してタスクを割り当てましょう。",
+    "confirmDelete": "ワーカー「{{worker}}」を削除しますか？この操作は元に戻せません。",
+    "templates": {
+      "backend": "バックエンドスペシャリスト",
+      "frontend": "フロントエンドスペシャリスト",
+      "generalist": "ジェネラリスト"
+    },
+    "card": {
+      "statusWorking": "作業中",
+      "statusIdle": "待機中",
+      "currentTaskLink": "現在のワークスペースを開く",
+      "noCurrentTask": "進行中のタスクなし",
+      "menuLabel": "ワーカーのアクション",
+      "edit": "編集",
+      "delete": "削除",
+      "queuedCount": "{{count}} 件待機",
+      "queuedCount_other": "{{count}} 件待機",
+      "completedCount": "{{count}} 件完了",
+      "completedCount_other": "{{count}} 件完了",
+      "startNext": "次のタスクを開始",
+      "expandQueue": "キューを表示",
+      "collapseQueue": "キューを隠す",
+      "queueLoading": "キューを読み込み中...",
+      "queueError": "キューの読み込みに失敗しました。",
+      "queueEmpty": "キューは空です。"
+    },
+    "form": {
+      "newTitle": "新しいワーカー",
+      "editTitle": "ワーカーを編集",
+      "description": "名前、絵文字、ソウルを設定します。ソウルはワーカーの動作を導くプロンプトです。",
+      "nameLabel": "名前",
+      "namePlaceholder": "例：Backend Bee",
+      "emojiLabel": "絵文字",
+      "templatesLabel": "テンプレートから始める",
+      "soulLabel": "ソウル",
+      "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
+      "cancel": "キャンセル",
+      "saveNew": "ワーカーを作成",
+      "saveEdit": "変更を保存"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
+      "startConflict": "{{worker}} には待機中のタスクがない、またはすでに作業中です。",
+      "startError": "{{worker}} の開始に失敗しました：{{message}}",
+      "createSuccess": "ワーカーを作成しました。",
+      "updateSuccess": "ワーカーを更新しました。",
+      "deleteSuccess": "{{worker}} を削除しました。",
+      "dismiss": "閉じる"
     }
   }
 }
