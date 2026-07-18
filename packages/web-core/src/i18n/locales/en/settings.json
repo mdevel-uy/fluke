@@ -444,9 +444,34 @@
       "loadError": "Failed to load repositories.",
       "addRepo": {
         "button": "Add Repository",
-        "dialogTitle": "Select Git Repository",
-        "dialogDescription": "Choose an existing git repository to register.",
-        "error": "Failed to register repository"
+        "dialogTitle": "Add Repository",
+        "dialogDescription": "Register a repository from a local folder or clone one from GitHub.",
+        "error": "Failed to register repository",
+        "tabs": {
+          "folder": "Local folder",
+          "github": "From GitHub"
+        },
+        "folder": {
+          "pathLabel": "Repository path",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "Provide the absolute path to an existing local git repository.",
+          "browse": "Browse for folder",
+          "submit": "Add repository"
+        },
+        "github": {
+          "searchPlaceholder": "Filter repositories by name",
+          "loading": "Loading repositories…",
+          "cloning": "Cloning repository…",
+          "cloneInProgress": "A clone is in progress",
+          "noRepos": "No repositories available. Make sure you are logged into `gh`.",
+          "noMatches": "No repositories match your search.",
+          "notAuthenticated": "You are not authenticated with GitHub. Run `gh auth login` and try again."
+        },
+        "errors": {
+          "pathRequired": "Repository path is required",
+          "cloneFailed": "Failed to clone repository",
+          "listFailed": "Failed to load repositories"
+        }
       },
       "selector": {
         "label": "Select Repository",

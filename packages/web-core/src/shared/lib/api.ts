@@ -102,6 +102,9 @@ import {
   OpenRemoteWorkspaceInEditorRequest,
   OpenRemoteEditorResponse,
   ProfileResponse,
+  GitHubRepoSummary,
+  CloneRepoRequest,
+  CloneRepoResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { WorkspaceWithSession } from '@/shared/types/attempt';
@@ -1684,17 +1687,31 @@ export const releasesApi = {
   },
 };
 
-// GitHub API (local `gh` CLI-based auth)
+// GitHub API (local `gh` CLI-backed)
 export const githubApi = {
   getStatus: async (): Promise<GithubStatusResponse> => {
     const response = await makeRequest('/api/github/status');
     return handleApiResponse<GithubStatusResponse>(response);
   },
+
   login: async (): Promise<GithubLoginResponse> => {
     const response = await makeRequest('/api/github/login', {
       method: 'POST',
     });
     return handleApiResponse<GithubLoginResponse>(response);
+  },
+
+  listRepos: async (): Promise<GitHubRepoSummary[]> => {
+    const response = await makeRequest('/api/github/repos');
+    return handleApiResponse<GitHubRepoSummary[]>(response);
+  },
+
+  clone: async (data: CloneRepoRequest): Promise<CloneRepoResponse> => {
+    const response = await makeRequest('/api/github/clone', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<CloneRepoResponse>(response);
   },
 };
 
