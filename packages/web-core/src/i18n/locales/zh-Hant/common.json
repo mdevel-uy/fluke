@@ -564,6 +564,16 @@
     "countLabel": "{{count}} 個 Issue",
     "countLabel_other": "{{count}} 個 Issue",
     "emptyTitle": "尚無 Issue",
-    "emptyDescription": "重新整理以從來源同步 Issue。"
+    "emptyDescription": "重新整理以從來源同步 Issue。",
+    "assignToAgent": "指派給代理",
+    "assignDialog": {
+      "title": "將 Issue #{{number}} 指派給代理",
+      "description": "檢閱並編輯下方提示詞。代理將以這些指令在新的工作區中開始。",
+      "promptLabel": "提示詞",
+      "cancel": "取消",
+      "confirm": "建立工作區",
+      "loadingRepos": "正在載入專案的儲存庫...",
+      "reposError": "無法載入專案儲存庫。工作區將在未預選儲存庫的情況下啟動。"
+    }
   }
 }

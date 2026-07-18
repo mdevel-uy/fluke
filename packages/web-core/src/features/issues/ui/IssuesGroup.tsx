@@ -5,9 +5,15 @@ interface IssuesGroupProps {
   title: string;
   count: number;
   issues: ProjectIssue[];
+  projectId: string | undefined;
 }
 
-export function IssuesGroup({ title, count, issues }: IssuesGroupProps) {
+export function IssuesGroup({
+  title,
+  count,
+  issues,
+  projectId,
+}: IssuesGroupProps) {
   if (issues.length === 0) return null;
 
   return (
@@ -18,7 +24,11 @@ export function IssuesGroup({ title, count, issues }: IssuesGroupProps) {
       </header>
       <ul className="flex flex-col">
         {issues.map((issue) => (
-          <IssueListItem key={issue.id} issue={issue} />
+          <IssueListItem
+            key={issue.id}
+            issue={issue}
+            projectId={projectId}
+          />
         ))}
       </ul>
     </section>

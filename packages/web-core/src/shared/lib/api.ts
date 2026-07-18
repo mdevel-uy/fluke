@@ -1493,8 +1493,6 @@ export const remoteProjectsApi = {
 };
 
 // Project Issues API
-// Uses the local `ProjectIssue` type until the shared/types entry lands
-// alongside the backend for this endpoint.
 export const projectIssuesApi = {
   list: async (projectId: string): Promise<ProjectIssue[]> => {
     const response = await makeRequest(
@@ -1508,6 +1506,12 @@ export const projectIssuesApi = {
       { method: 'POST' }
     );
     return handleApiResponse<ProjectIssue[]>(response);
+  },
+  repos: async (projectId: string): Promise<Repo[]> => {
+    const response = await makeRequest(
+      `/api/projects/${encodeURIComponent(projectId)}/repos`
+    );
+    return handleApiResponse<Repo[]>(response);
   },
 };
 
