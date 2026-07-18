@@ -551,5 +551,19 @@
     "submitting": "正在提交回答...",
     "answeredCount": "已回答{{count}}個問題",
     "answeredCount_other": "已回答{{count}}個問題"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "重新整理",
+    "refreshing": "正在重新整理...",
+    "loading": "正在載入 Issue...",
+    "loadError": "載入 Issue 失敗。",
+    "openGroup": "開啟",
+    "closedGroup": "已關閉",
+    "authorPrefix": "作者：",
+    "countLabel": "{{count}} 個 Issue",
+    "countLabel_other": "{{count}} 個 Issue",
+    "emptyTitle": "尚無 Issue",
+    "emptyDescription": "重新整理以從來源同步 Issue。"
   }
 }

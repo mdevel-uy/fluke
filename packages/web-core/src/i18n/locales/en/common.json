@@ -551,5 +551,19 @@
     "submitting": "Submitting answers...",
     "answeredCount": "Answered {{count}} question",
     "answeredCount_other": "Answered {{count}} questions"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "loading": "Loading issues...",
+    "loadError": "Failed to load issues.",
+    "openGroup": "Open",
+    "closedGroup": "Closed",
+    "authorPrefix": "by",
+    "countLabel": "{{count}} issue",
+    "countLabel_other": "{{count}} issues",
+    "emptyTitle": "No issues yet",
+    "emptyDescription": "Refresh to sync issues from the source."
   }
 }

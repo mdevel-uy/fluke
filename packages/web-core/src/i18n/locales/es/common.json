@@ -551,5 +551,19 @@
     "submitting": "Enviando respuestas...",
     "answeredCount": "Respondió {{count}} pregunta",
     "answeredCount_other": "Respondió {{count}} preguntas"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando...",
+    "loading": "Cargando issues...",
+    "loadError": "No se pudieron cargar los issues.",
+    "openGroup": "Abiertas",
+    "closedGroup": "Cerradas",
+    "authorPrefix": "por",
+    "countLabel": "{{count}} issue",
+    "countLabel_other": "{{count}} issues",
+    "emptyTitle": "No hay issues todavía",
+    "emptyDescription": "Actualizá para sincronizar los issues desde la fuente."
   }
 }

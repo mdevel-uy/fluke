@@ -551,5 +551,19 @@
     "submitting": "Envoi des réponses...",
     "answeredCount": "Répondu à {{count}} question",
     "answeredCount_other": "Répondu à {{count}} questions"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "loading": "Chargement des issues...",
+    "loadError": "Échec du chargement des issues.",
+    "openGroup": "Ouverts",
+    "closedGroup": "Fermés",
+    "authorPrefix": "par",
+    "countLabel": "{{count}} issue",
+    "countLabel_other": "{{count}} issues",
+    "emptyTitle": "Aucun issue pour l'instant",
+    "emptyDescription": "Actualisez pour synchroniser les issues depuis la source."
   }
 }
