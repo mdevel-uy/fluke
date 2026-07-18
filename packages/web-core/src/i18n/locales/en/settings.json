@@ -32,7 +32,9 @@
         "remote-projects": "Projects",
         "remote-projectsDesc": "Manage projects",
         "relay": "Remote Access",
-        "relayDesc": "Relay tunnel and enrollment"
+        "relayDesc": "Relay tunnel and enrollment",
+        "github": "GitHub",
+        "githubDesc": "Sign in to GitHub with the gh CLI"
       }
     },
     "hostPicker": {
@@ -553,6 +555,36 @@
       },
       "client": {
         "label": "Client"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub Connection",
+        "description": "Sign in to GitHub via the local gh CLI to enable git operations and pull requests.",
+        "status": {
+          "label": "Status"
+        }
+      },
+      "status": {
+        "loading": "Checking connection…",
+        "connected": "Connected to GitHub",
+        "connectedAs": "Connected as @{{username}}",
+        "notConnected": "Not connected"
+      },
+      "actions": {
+        "connect": "Connect GitHub"
+      },
+      "deviceFlow": {
+        "title": "Authorize on GitHub",
+        "description": "Copy the one-time code below, then open GitHub and paste it to complete the sign-in.",
+        "codeLabel": "One-time code",
+        "copyHint": "Click to copy",
+        "openGitHub": "Open github.com/login/device",
+        "checkStatus": "Refresh status",
+        "waiting": "Waiting for authorization… this dialog will update automatically once you finish on GitHub."
+      },
+      "errors": {
+        "loginFailed": "Failed to start GitHub login."
       }
     },
     "remoteProjects": {
