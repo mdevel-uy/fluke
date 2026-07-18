@@ -426,6 +426,18 @@ export type PullRequestDetail = { number: bigint, url: string, status: MergeStat
 
 export type GitRemote = { name: string, url: string, };
 
+export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+
+export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, created_at: Date, };
+
+export type CreateWorkerRequest = { name: string, emoji: string, soul: string, };
+
+export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, };
+
+export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, };
+
+export type UpdateWorkerTaskRequest = { position?: number | null, status?: string, };
+
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 
 export type LinkPrToIssueRequest = { pr_url: string, pr_number: number, base_branch: string, };
