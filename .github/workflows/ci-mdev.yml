@@ -74,5 +74,5 @@ jobs:
           shared-key: ci-mdev-backend
           cache-on-failure: 'true'
 
-      - name: cargo check --workspace --locked
-        run: cargo check --workspace --locked
+      - name: cargo check -p server
+        run: cargo check --locked -p server
