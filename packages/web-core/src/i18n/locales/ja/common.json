@@ -551,5 +551,19 @@
     "submitting": "回答を送信中...",
     "answeredCount": "{{count}}件の質問に回答済み",
     "answeredCount_other": "{{count}}件の質問に回答済み"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "更新",
+    "refreshing": "更新中...",
+    "loading": "Issue を読み込み中...",
+    "loadError": "Issue の読み込みに失敗しました。",
+    "openGroup": "オープン",
+    "closedGroup": "クローズ",
+    "authorPrefix": "作成者:",
+    "countLabel": "{{count}} 件の Issue",
+    "countLabel_other": "{{count}} 件の Issue",
+    "emptyTitle": "Issue はまだありません",
+    "emptyDescription": "更新してソースから Issue を同期してください。"
   }
 }

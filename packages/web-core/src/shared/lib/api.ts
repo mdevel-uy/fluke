@@ -107,6 +107,7 @@ import {
   CloneRepoResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
+import type { ProjectIssue } from '@/features/issues/types';
 import type { WorkspaceWithSession } from '@/shared/types/attempt';
 import { createWorkspaceWithSession } from '@/shared/types/attempt';
 import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
@@ -1488,6 +1489,25 @@ export const remoteProjectsApi = {
     const result =
       await handleApiResponse<ListRemoteProjectsResponse>(response);
     return result.projects;
+  },
+};
+
+// Project Issues API
+// Uses the local `ProjectIssue` type until the shared/types entry lands
+// alongside the backend for this endpoint.
+export const projectIssuesApi = {
+  list: async (projectId: string): Promise<ProjectIssue[]> => {
+    const response = await makeRequest(
+      `/api/projects/${encodeURIComponent(projectId)}/issues`
+    );
+    return handleApiResponse<ProjectIssue[]>(response);
+  },
+  sync: async (projectId: string): Promise<ProjectIssue[]> => {
+    const response = await makeRequest(
+      `/api/projects/${encodeURIComponent(projectId)}/issues/sync`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<ProjectIssue[]>(response);
   },
 };
 
