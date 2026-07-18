@@ -43,6 +43,8 @@ import {
   RunAgentSetupRequest,
   RunAgentSetupResponse,
   GhCliSetupError,
+  GithubLoginResponse,
+  GithubStatusResponse,
   RunScriptError,
   StatusResponse,
   CreateOrganizationRequest,
@@ -1679,6 +1681,20 @@ export const releasesApi = {
     const response = await makeRequest('/api/releases');
     const result = await handleApiResponse<ReleasesResponse>(response);
     return result.releases;
+  },
+};
+
+// GitHub API (local `gh` CLI-based auth)
+export const githubApi = {
+  getStatus: async (): Promise<GithubStatusResponse> => {
+    const response = await makeRequest('/api/github/status');
+    return handleApiResponse<GithubStatusResponse>(response);
+  },
+  login: async (): Promise<GithubLoginResponse> => {
+    const response = await makeRequest('/api/github/login', {
+      method: 'POST',
+    });
+    return handleApiResponse<GithubLoginResponse>(response);
   },
 };
 

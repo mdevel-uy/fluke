@@ -1,6 +1,7 @@
 import {
   GearIcon,
   GitBranchIcon,
+  GithubLogoIcon,
   BuildingsIcon,
   CloudIcon,
   CpuIcon,
@@ -15,6 +16,7 @@ import { RemoteProjectsSettingsSection } from './RemoteProjectsSettingsSection';
 import { AgentsSettingsSection } from './AgentsSettingsSection';
 import { McpSettingsSection } from './McpSettingsSection';
 import { RelaySettingsSectionContent } from './RelaySettingsSection';
+import { GitHubSettingsSection } from './GitHubSettingsSection';
 
 export type SettingsSectionType =
   | 'general'
@@ -23,7 +25,8 @@ export type SettingsSectionType =
   | 'remote-projects'
   | 'agents'
   | 'mcp'
-  | 'relay';
+  | 'relay'
+  | 'github';
 
 export type SettingsSectionGroup = 'host' | 'universal';
 
@@ -37,6 +40,7 @@ export type SettingsSectionInitialState = {
   agents: { executor?: string; variant?: string } | undefined;
   mcp: undefined;
   relay: { hostId?: string } | undefined;
+  github: undefined;
 };
 
 export interface SettingsSectionDefinition {
@@ -52,6 +56,7 @@ export const SETTINGS_SECTION_DEFINITIONS: SettingsSectionDefinition[] = [
   { id: 'mcp', icon: PlugIcon, group: 'host' },
   { id: 'organizations', icon: BuildingsIcon, group: 'universal' },
   { id: 'remote-projects', icon: CloudIcon, group: 'universal' },
+  { id: 'github', icon: GithubLogoIcon, group: 'universal' },
   { id: 'relay', icon: BroadcastIcon, group: 'universal' },
 ];
 
@@ -99,6 +104,8 @@ export function renderSettingsSection(
           onClose={onClose}
         />
       );
+    case 'github':
+      return <GitHubSettingsSection />;
     default:
       return <GeneralSettingsSection />;
   }
