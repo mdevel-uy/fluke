@@ -9,6 +9,7 @@ export type AppDestination =
   | { kind: 'export' }
   | { kind: 'issues'; repoId?: string }
   | { kind: 'workers' }
+  | { kind: 'sprint'; repoId?: string }
   | { kind: 'project'; projectId: string }
   | {
       kind: 'project-issue';
@@ -55,6 +56,7 @@ export interface AppNavigation {
   goToExport(transition?: NavigationTransition): void;
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
   goToWorkers(transition?: NavigationTransition): void;
+  goToSprint(repoId?: string, transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
   goToProjectIssue(
     projectId: string,
@@ -203,6 +205,12 @@ export function isWorkersDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'workers' }> {
   return destination?.kind === 'workers';
+}
+
+export function isSprintDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'sprint' }> {
+  return destination?.kind === 'sprint';
 }
 
 function isValidUuid(value: string): boolean {

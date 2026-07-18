@@ -525,6 +525,7 @@
   "appBar": {
     "issues": "課題",
     "workers": "ワーカー",
+    "sprint": "スプリント",
     "kanban": {
       "tooltip": "サインインしてプロジェクトを表示",
       "title": "カンバンボード",
@@ -627,6 +628,49 @@
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
       "dismiss": "閉じる"
+    }
+  },
+  "sprint": {
+    "title": "スプリント",
+    "repoSelectorPlaceholder": "リポジトリを選択",
+    "loadingRepos": "リポジトリを読み込み中...",
+    "noReposMessage": "登録されているリポジトリがありません。スプリントを計画するにはリポジトリを追加してください。",
+    "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
+    "loading": "スプリントを読み込み中...",
+    "loadError": "スプリントボードの読み込みに失敗しました。",
+    "columns": {
+      "backlog": "バックログ",
+      "queued": "キュー",
+      "inProgress": "進行中",
+      "inReview": "レビュー中",
+      "done": "完了"
+    },
+    "backlog": {
+      "assign": "割り当てる",
+      "noWorkers": "利用可能なワーカーがありません",
+      "empty": "着手待ちのオープン Issue はありません。"
+    },
+    "composer": {
+      "title": "新しい自由記述タスク",
+      "titlePlaceholder": "タスクのタイトル",
+      "promptPlaceholder": "エージェントに何をさせますか？",
+      "assign": "ワーカーに送る"
+    },
+    "queued": {
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "remove": "削除",
+      "empty": "キューは空です。"
+    },
+    "inProgress": {
+      "openWorkspace": "ワークスペースを開く",
+      "empty": "進行中のタスクはありません。"
+    },
+    "inReview": {
+      "empty": "レビュー待ちはありません。"
+    },
+    "done": {
+      "empty": "完了したタスクはまだありません。"
     }
   }
 }

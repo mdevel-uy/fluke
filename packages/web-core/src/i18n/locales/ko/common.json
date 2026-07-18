@@ -525,6 +525,7 @@
   "appBar": {
     "issues": "이슈",
     "workers": "워커",
+    "sprint": "스프린트",
     "kanban": {
       "tooltip": "프로젝트를 보려면 로그인하세요",
       "title": "칸반 보드",
@@ -627,6 +628,49 @@
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
       "dismiss": "닫기"
+    }
+  },
+  "sprint": {
+    "title": "스프린트",
+    "repoSelectorPlaceholder": "저장소 선택",
+    "loadingRepos": "저장소를 불러오는 중...",
+    "noReposMessage": "등록된 저장소가 없습니다. 스프린트를 계획하려면 저장소를 추가하세요.",
+    "selectRepoPrompt": "스프린트 보드를 보려면 저장소를 선택하세요.",
+    "loading": "스프린트를 불러오는 중...",
+    "loadError": "스프린트 보드를 불러오지 못했습니다.",
+    "columns": {
+      "backlog": "백로그",
+      "queued": "대기열",
+      "inProgress": "진행 중",
+      "inReview": "검토 중",
+      "done": "완료"
+    },
+    "backlog": {
+      "assign": "할당",
+      "noWorkers": "사용 가능한 워커가 없습니다",
+      "empty": "대기 중인 오픈 이슈가 없습니다."
+    },
+    "composer": {
+      "title": "새 자유 형식 태스크",
+      "titlePlaceholder": "태스크 제목",
+      "promptPlaceholder": "에이전트가 무엇을 해야 하나요?",
+      "assign": "워커에게 전송"
+    },
+    "queued": {
+      "moveUp": "위로",
+      "moveDown": "아래로",
+      "remove": "제거",
+      "empty": "대기열이 비어 있습니다."
+    },
+    "inProgress": {
+      "openWorkspace": "워크스페이스 열기",
+      "empty": "진행 중인 태스크가 없습니다."
+    },
+    "inReview": {
+      "empty": "검토 대기 중인 항목이 없습니다."
+    },
+    "done": {
+      "empty": "아직 완료된 태스크가 없습니다."
     }
   }
 }

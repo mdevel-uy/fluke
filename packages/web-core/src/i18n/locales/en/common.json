@@ -529,6 +529,7 @@
   "appBar": {
     "issues": "Issues",
     "workers": "Workers",
+    "sprint": "Sprint",
     "kanban": {
       "tooltip": "Sign in to view projects",
       "title": "Kanban Boards",
@@ -627,6 +628,49 @@
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
       "dismiss": "Dismiss"
+    }
+  },
+  "sprint": {
+    "title": "Sprint",
+    "repoSelectorPlaceholder": "Select repository",
+    "loadingRepos": "Loading repositories...",
+    "noReposMessage": "No repositories registered. Add a repository first to plan a sprint.",
+    "selectRepoPrompt": "Select a repository to see its sprint board.",
+    "loading": "Loading sprint...",
+    "loadError": "Failed to load the sprint board.",
+    "columns": {
+      "backlog": "Backlog",
+      "queued": "Queued",
+      "inProgress": "In Progress",
+      "inReview": "In Review",
+      "done": "Done"
+    },
+    "backlog": {
+      "assign": "Assign",
+      "noWorkers": "No workers available",
+      "empty": "No open issues waiting to be picked up."
+    },
+    "composer": {
+      "title": "New free-form task",
+      "titlePlaceholder": "Task title",
+      "promptPlaceholder": "What should the agent do?",
+      "assign": "Send to worker"
+    },
+    "queued": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "remove": "Remove",
+      "empty": "Nothing queued."
+    },
+    "inProgress": {
+      "openWorkspace": "Open workspace",
+      "empty": "No task in progress."
+    },
+    "inReview": {
+      "empty": "Nothing awaiting review."
+    },
+    "done": {
+      "empty": "No completed tasks yet."
     }
   }
 }

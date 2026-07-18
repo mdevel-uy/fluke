@@ -525,6 +525,7 @@
   "appBar": {
     "issues": "Tickets",
     "workers": "Workers",
+    "sprint": "Sprint",
     "kanban": {
       "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
@@ -627,6 +628,49 @@
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
       "dismiss": "Fermer"
+    }
+  },
+  "sprint": {
+    "title": "Sprint",
+    "repoSelectorPlaceholder": "Sélectionner un dépôt",
+    "loadingRepos": "Chargement des dépôts...",
+    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier un sprint.",
+    "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
+    "loading": "Chargement du sprint...",
+    "loadError": "Échec du chargement du tableau de sprint.",
+    "columns": {
+      "backlog": "Backlog",
+      "queued": "En file",
+      "inProgress": "En cours",
+      "inReview": "En revue",
+      "done": "Terminé"
+    },
+    "backlog": {
+      "assign": "Assigner",
+      "noWorkers": "Aucun worker disponible",
+      "empty": "Aucun ticket ouvert en attente."
+    },
+    "composer": {
+      "title": "Nouvelle tâche libre",
+      "titlePlaceholder": "Titre de la tâche",
+      "promptPlaceholder": "Que doit faire l'agent ?",
+      "assign": "Envoyer à un worker"
+    },
+    "queued": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "remove": "Retirer",
+      "empty": "Rien en file."
+    },
+    "inProgress": {
+      "openWorkspace": "Ouvrir l'espace de travail",
+      "empty": "Aucune tâche en cours."
+    },
+    "inReview": {
+      "empty": "Rien en attente de revue."
+    },
+    "done": {
+      "empty": "Aucune tâche terminée pour l'instant."
     }
   }
 }

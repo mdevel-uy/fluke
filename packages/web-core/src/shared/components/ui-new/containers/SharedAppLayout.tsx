@@ -6,6 +6,7 @@ import {
   LayoutIcon,
   UsersIcon,
   WarningCircleIcon,
+  LightningIcon,
 } from '@phosphor-icons/react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -26,6 +27,7 @@ import {
   getProjectDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
+  isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
 import { useTranslation } from 'react-i18next';
@@ -156,6 +158,7 @@ export function SharedAppLayout() {
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
+  const isSprintActive = isSprintDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
     !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
   const activeProjectId = projectDestination?.projectId ?? null;
@@ -184,6 +187,10 @@ export function SharedAppLayout() {
 
   const handleWorkersClick = useCallback(() => {
     appNavigation.goToWorkers();
+  }, [appNavigation]);
+
+  const handleSprintClick = useCallback(() => {
+    appNavigation.goToSprint();
   }, [appNavigation]);
 
   const handleProjectClick = useCallback(
@@ -260,12 +267,14 @@ export function SharedAppLayout() {
               onWorkspacesClick={handleWorkspacesClick}
               onIssuesClick={handleIssuesClick}
               onWorkersClick={handleWorkersClick}
+              onSprintClick={handleSprintClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
               isIssuesActive={isIssuesActive}
               isWorkersActive={isWorkersActive}
+              isSprintActive={isSprintActive}
               activeProjectId={activeProjectId}
               isSignedIn
               isLoadingProjects={false}
@@ -372,6 +381,18 @@ export function SharedAppLayout() {
             >
               <UsersIcon className="h-4 w-4" />
               {t('appBar.workers')}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                handleSprintClick();
+                setIsDrawerOpen(false);
+              }}
+              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
+            >
+              <LightningIcon className="h-4 w-4" />
+              {t('appBar.sprint')}
             </button>
           </div>
         </MobileDrawer>

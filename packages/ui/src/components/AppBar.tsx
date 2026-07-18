@@ -14,6 +14,7 @@ import {
   SpinnerIcon,
   UsersIcon,
   WarningCircleIcon,
+  LightningIcon,
   type Icon,
 } from '@phosphor-icons/react';
 import { cn } from '../lib/cn';
@@ -47,16 +48,19 @@ interface AppBarProps {
   onWorkspacesClick: () => void;
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
+  onSprintClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
+  showSprintButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
+  isSprintActive?: boolean;
   isExportActive?: boolean;
   activeProjectId: string | null;
   isSignedIn?: boolean;
@@ -201,16 +205,19 @@ export function AppBar({
   onWorkspacesClick,
   onIssuesClick,
   onWorkersClick,
+  onSprintClick,
   onHostClick,
   showWorkspacesButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
+  showSprintButton = true,
   onProjectClick,
   onProjectsDragEnd,
   isSavingProjectOrder,
   isWorkspacesActive,
   isIssuesActive = false,
   isWorkersActive = false,
+  isSprintActive = false,
   isExportActive = false,
   activeProjectId,
   isSignedIn,
@@ -227,7 +234,12 @@ export function AppBar({
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
-  if (showWorkspacesButton || showIssuesButton || showWorkersButton) {
+  if (
+    showWorkspacesButton ||
+    showIssuesButton ||
+    showWorkersButton ||
+    showSprintButton
+  ) {
     const localItems: AppBarSectionItem[] = [];
     if (showWorkspacesButton) {
       localItems.push({
@@ -257,6 +269,16 @@ export function AppBar({
         icon: UsersIcon,
         isActive: isWorkersActive,
         onClick: onWorkersClick,
+      });
+    }
+    if (showSprintButton && onSprintClick) {
+      localItems.push({
+        key: 'local-sprint',
+        kind: 'icon-button',
+        label: t('appBar.sprint'),
+        icon: LightningIcon,
+        isActive: isSprintActive,
+        onClick: onSprintClick,
       });
     }
     if (localItems.length > 0) {

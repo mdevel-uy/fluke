@@ -525,6 +525,7 @@
   "appBar": {
     "issues": "问题",
     "workers": "工作者",
+    "sprint": "冲刺",
     "kanban": {
       "tooltip": "登录以查看项目",
       "title": "看板",
@@ -627,6 +628,49 @@
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
       "dismiss": "关闭"
+    }
+  },
+  "sprint": {
+    "title": "冲刺",
+    "repoSelectorPlaceholder": "选择仓库",
+    "loadingRepos": "正在加载仓库...",
+    "noReposMessage": "未注册任何仓库。请先添加仓库以规划冲刺。",
+    "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
+    "loading": "正在加载冲刺...",
+    "loadError": "加载冲刺看板失败。",
+    "columns": {
+      "backlog": "待办",
+      "queued": "排队中",
+      "inProgress": "进行中",
+      "inReview": "审核中",
+      "done": "已完成"
+    },
+    "backlog": {
+      "assign": "分配",
+      "noWorkers": "没有可用的工人",
+      "empty": "没有等待处理的开放 Issue。"
+    },
+    "composer": {
+      "title": "新自由任务",
+      "titlePlaceholder": "任务标题",
+      "promptPlaceholder": "代理应该做什么？",
+      "assign": "发送给工人"
+    },
+    "queued": {
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "remove": "移除",
+      "empty": "队列为空。"
+    },
+    "inProgress": {
+      "openWorkspace": "打开工作区",
+      "empty": "没有进行中的任务。"
+    },
+    "inReview": {
+      "empty": "没有待审核的项目。"
+    },
+    "done": {
+      "empty": "尚未完成任何任务。"
     }
   }
 }
