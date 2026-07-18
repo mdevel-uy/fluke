@@ -168,11 +168,15 @@ struct GhIssue {
 impl GhIssue {
     fn into_upsert(self) -> UpsertProjectIssue {
         let labels: Vec<String> = self.labels.into_iter().map(|l| l.name).collect();
+        let state = self
+            .state
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "open".to_string());
         UpsertProjectIssue {
             number: self.number,
             title: self.title,
             body: self.body,
-            state: self.state.unwrap_or_else(|| "OPEN".to_string()),
+            state,
             labels: serde_json::to_string(&labels).unwrap_or_else(|_| "[]".to_string()),
             author: self.author.and_then(|a| a.login),
             updated_at: self.updated_at.unwrap_or_else(Utc::now),

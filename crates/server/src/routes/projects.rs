@@ -4,6 +4,7 @@ use axum::{
     response::Json as ResponseJson,
     routing::{get, post},
 };
+use chrono::{DateTime, Utc};
 use db::models::project_issue::ProjectIssue;
 use deployment::Deployment;
 use serde::Serialize;
@@ -15,16 +16,47 @@ use uuid::Uuid;
 use crate::{DeploymentImpl, error::ApiError};
 
 #[derive(Debug, Serialize, TS)]
-pub struct ProjectIssuesSyncResult {
-    pub synced: usize,
+pub struct ProjectIssueResponse {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    #[ts(type = "number")]
+    pub number: i64,
+    pub title: String,
+    pub body: String,
+    pub state: String,
+    pub labels: Vec<String>,
+    pub author: String,
+    #[ts(type = "Date")]
+    pub updated_at: DateTime<Utc>,
+    #[ts(type = "Date")]
+    pub synced_at: DateTime<Utc>,
+}
+
+impl From<ProjectIssue> for ProjectIssueResponse {
+    fn from(issue: ProjectIssue) -> Self {
+        let labels: Vec<String> = serde_json::from_str(&issue.labels).unwrap_or_default();
+        Self {
+            id: issue.id,
+            project_id: issue.project_id,
+            number: issue.number,
+            title: issue.title,
+            body: issue.body.unwrap_or_default(),
+            state: issue.state,
+            labels,
+            author: issue.author.unwrap_or_default(),
+            updated_at: issue.updated_at,
+            synced_at: issue.synced_at,
+        }
+    }
 }
 
 pub async fn list_project_issues(
     State(deployment): State<DeploymentImpl>,
     Path(project_id): Path<Uuid>,
-) -> Result<ResponseJson<ApiResponse<Vec<ProjectIssue>>>, ApiError> {
+) -> Result<ResponseJson<ApiResponse<Vec<ProjectIssueResponse>>>, ApiError> {
     let pool = deployment.db().pool.clone();
     let issues = ProjectIssuesService::new().list(&pool, project_id).await?;
+    let response: Vec<ProjectIssueResponse> = issues.into_iter().map(Into::into).collect();
 
     // On project open, kick off a background refresh so the list stays
     // fresh without blocking the request. Errors are logged only.
@@ -42,22 +74,20 @@ pub async fn list_project_issues(
         }
     });
 
-    Ok(ResponseJson(ApiResponse::success(issues)))
+    Ok(ResponseJson(ApiResponse::success(response)))
 }
 
 pub async fn sync_project_issues(
     State(deployment): State<DeploymentImpl>,
     Path(project_id): Path<Uuid>,
-) -> Result<ResponseJson<ApiResponse<ProjectIssuesSyncResult>>, ApiError> {
-    let outcome = ProjectIssuesService::new()
-        .sync(&deployment.db().pool, deployment.git(), project_id)
-        .await?;
+) -> Result<ResponseJson<ApiResponse<Vec<ProjectIssueResponse>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let service = ProjectIssuesService::new();
+    service.sync(&pool, deployment.git(), project_id).await?;
+    let issues = service.list(&pool, project_id).await?;
+    let response: Vec<ProjectIssueResponse> = issues.into_iter().map(Into::into).collect();
 
-    Ok(ResponseJson(ApiResponse::success(
-        ProjectIssuesSyncResult {
-            synced: outcome.synced,
-        },
-    )))
+    Ok(ResponseJson(ApiResponse::success(response)))
 }
 
 impl From<ProjectIssuesError> for ApiError {

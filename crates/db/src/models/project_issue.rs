@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
-use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct ProjectIssue {
     pub id: Uuid,
     pub project_id: Uuid,
@@ -15,9 +14,7 @@ pub struct ProjectIssue {
     /// JSON-encoded array of label names.
     pub labels: String,
     pub author: Option<String>,
-    #[ts(type = "Date")]
     pub updated_at: DateTime<Utc>,
-    #[ts(type = "Date")]
     pub synced_at: DateTime<Utc>,
 }
 
