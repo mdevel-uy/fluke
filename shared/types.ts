@@ -290,6 +290,14 @@ export type AgentPresetOptionsQuery = { executor: BaseCodingAgent, variant: stri
 
 export type CurrentUserResponse = { user_id: string, };
 
+export type GithubLoginState = "pending" | "completed" | "failed";
+
+export type GithubLoginProgress = { state: GithubLoginState, user_code: string | null, verification_uri: string | null, error: string | null, };
+
+export type GithubStatusResponse = { authenticated: boolean, username: string | null, login: GithubLoginProgress | null, };
+
+export type GithubLoginResponse = { user_code: string, verification_uri: string, };
+
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
 export type FinishSpake2EnrollmentRequest = { enrollment_id: string, client_id: string, client_name: string, client_browser: string, client_os: string, client_device: string, public_key_b64: string, client_proof_b64: string, };
