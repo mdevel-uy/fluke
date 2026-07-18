@@ -12,6 +12,7 @@ import {
   PlusIcon,
   KanbanIcon,
   SpinnerIcon,
+  WarningCircleIcon,
   type Icon,
 } from '@phosphor-icons/react';
 import { cn } from '../lib/cn';
@@ -43,12 +44,15 @@ interface AppBarProps {
   onCreateProject: () => void;
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
+  onIssuesClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
+  showIssuesButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
+  isIssuesActive?: boolean;
   isExportActive?: boolean;
   activeProjectId: string | null;
   isSignedIn?: boolean;
@@ -191,12 +195,15 @@ export function AppBar({
   onCreateProject,
   onExportClick,
   onWorkspacesClick,
+  onIssuesClick,
   onHostClick,
   showWorkspacesButton = true,
+  showIssuesButton = true,
   onProjectClick,
   onProjectsDragEnd,
   isSavingProjectOrder,
   isWorkspacesActive,
+  isIssuesActive = false,
   isExportActive = false,
   activeProjectId,
   isSignedIn,
@@ -213,21 +220,35 @@ export function AppBar({
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
-  if (showWorkspacesButton) {
-    sections.push({
-      key: 'local',
-      label: 'Local',
-      items: [
-        {
-          key: 'local-workspaces',
-          kind: 'icon-button',
-          label: 'Local workspaces',
-          icon: LayoutIcon,
-          isActive: isWorkspacesActive,
-          onClick: onWorkspacesClick,
-        },
-      ],
-    });
+  if (showWorkspacesButton || showIssuesButton) {
+    const localItems: AppBarSectionItem[] = [];
+    if (showWorkspacesButton) {
+      localItems.push({
+        key: 'local-workspaces',
+        kind: 'icon-button',
+        label: 'Local workspaces',
+        icon: LayoutIcon,
+        isActive: isWorkspacesActive,
+        onClick: onWorkspacesClick,
+      });
+    }
+    if (showIssuesButton && onIssuesClick) {
+      localItems.push({
+        key: 'local-issues',
+        kind: 'icon-button',
+        label: t('appBar.issues'),
+        icon: WarningCircleIcon,
+        isActive: isIssuesActive,
+        onClick: onIssuesClick,
+      });
+    }
+    if (localItems.length > 0) {
+      sections.push({
+        key: 'local',
+        label: 'Local',
+        items: localItems,
+      });
+    }
   }
 
   if (hosts.length > 0 || onPairHostClick) {

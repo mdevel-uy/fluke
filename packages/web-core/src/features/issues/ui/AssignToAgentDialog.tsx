@@ -15,28 +15,28 @@ import {
   DialogTitle,
 } from '@vibe/ui/components/KeyboardDialog';
 import { defineModal } from '@/shared/lib/modals';
-import { projectIssuesApi } from '@/shared/lib/api';
-import type { ProjectIssue } from '@/features/issues/types';
+import { repoApi } from '@/shared/lib/api';
+import type { RepoIssue } from '@/features/issues/types';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 import { setCreateModeSeedState } from '@/features/create-mode/model/createModeSeedStore';
 import { buildWorkspaceCreateInitialState } from '@/shared/lib/workspaceCreateState';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 export interface AssignToAgentDialogProps {
-  issue: ProjectIssue;
-  projectId: string;
+  issue: RepoIssue;
+  repoId: string;
 }
 
 export type AssignToAgentResult = 'created' | 'canceled';
 
 const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
-  ({ issue, projectId }) => {
+  ({ issue, repoId }) => {
     const modal = useModal();
     const { t } = useTranslation('common');
     const appNavigation = useAppNavigation();
 
     const [prompt, setPrompt] = useState(() => buildAssignToAgentPrompt(issue));
-    const [loadingRepos, setLoadingRepos] = useState(true);
+    const [loadingRepo, setLoadingRepo] = useState(true);
     const [repoLoadError, setRepoLoadError] = useState(false);
     const [preferredRepos, setPreferredRepos] = useState<
       Array<{ repo_id: string; target_branch: string | null }>
@@ -44,18 +44,18 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
 
     useEffect(() => {
       let cancelled = false;
-      setLoadingRepos(true);
+      setLoadingRepo(true);
       setRepoLoadError(false);
-      projectIssuesApi
-        .repos(projectId)
-        .then((repos) => {
+      repoApi
+        .getById(repoId)
+        .then((repo) => {
           if (cancelled) return;
-          setPreferredRepos(
-            repos.map((repo) => ({
+          setPreferredRepos([
+            {
               repo_id: repo.id,
               target_branch: repo.default_target_branch ?? null,
-            }))
-          );
+            },
+          ]);
         })
         .catch(() => {
           if (cancelled) return;
@@ -63,13 +63,13 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         })
         .finally(() => {
           if (cancelled) return;
-          setLoadingRepos(false);
+          setLoadingRepo(false);
         });
 
       return () => {
         cancelled = true;
       };
-    }, [projectId]);
+    }, [repoId]);
 
     const handleCancel = () => {
       modal.resolve('canceled' as AssignToAgentResult);
@@ -82,8 +82,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
 
       const createState = buildWorkspaceCreateInitialState({
         prompt: trimmed,
-        defaults:
-          preferredRepos.length > 0 ? { preferredRepos } : null,
+        defaults: preferredRepos.length > 0 ? { preferredRepos } : null,
       });
       setCreateModeSeedState(createState);
       appNavigation.goToWorkspacesCreate();
@@ -120,14 +119,14 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                 autoFocus
               />
             </div>
-            {loadingRepos && (
+            {loadingRepo && (
               <p className="text-xs text-muted-foreground">
-                {t('issues.assignDialog.loadingRepos')}
+                {t('issues.assignDialog.loadingRepo')}
               </p>
             )}
             {repoLoadError && (
               <Alert variant="destructive">
-                {t('issues.assignDialog.reposError')}
+                {t('issues.assignDialog.repoError')}
               </Alert>
             )}
           </div>
@@ -137,11 +136,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={loadingRepos || !prompt.trim()}
+              disabled={loadingRepo || !prompt.trim()}
             >
-              {loadingRepos && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {loadingRepo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('issues.assignDialog.confirm')}
             </Button>
           </DialogFooter>

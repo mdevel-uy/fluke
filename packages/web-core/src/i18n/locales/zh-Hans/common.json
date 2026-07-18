@@ -534,6 +534,7 @@
     "no": "No"
   },
   "appBar": {
+    "issues": "问题",
     "kanban": {
       "tooltip": "登录以查看项目",
       "title": "看板",
@@ -558,6 +559,10 @@
     "refreshing": "正在刷新...",
     "loading": "正在加载 Issue...",
     "loadError": "加载 Issue 失败。",
+    "loadingRepos": "正在加载仓库...",
+    "noReposMessage": "未注册任何仓库。请先添加仓库以查看其 Issue。",
+    "selectRepoPrompt": "请选择一个仓库以查看其 Issue。",
+    "repoSelectorPlaceholder": "选择仓库",
     "openGroup": "打开",
     "closedGroup": "已关闭",
     "authorPrefix": "作者:",
@@ -572,8 +577,8 @@
       "promptLabel": "提示词",
       "cancel": "取消",
       "confirm": "创建工作区",
-      "loadingRepos": "正在加载项目仓库...",
-      "reposError": "无法加载项目仓库。工作区将在未预选仓库的情况下启动。"
+      "loadingRepo": "正在加载仓库...",
+      "repoError": "无法加载仓库。工作区将在未预选仓库的情况下启动。"
     }
   }
 }

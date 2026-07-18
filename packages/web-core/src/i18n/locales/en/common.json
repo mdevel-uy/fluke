@@ -538,6 +538,7 @@
     "remoteAuthUnavailable": "Remote authentication is temporarily unavailable. Some remote features may not work until it recovers."
   },
   "appBar": {
+    "issues": "Issues",
     "kanban": {
       "tooltip": "Sign in to view projects",
       "title": "Kanban Boards",
@@ -558,6 +559,10 @@
     "refreshing": "Refreshing...",
     "loading": "Loading issues...",
     "loadError": "Failed to load issues.",
+    "loadingRepos": "Loading repositories...",
+    "noReposMessage": "No repositories registered. Add a repository first to see its issues.",
+    "selectRepoPrompt": "Select a repository to see its issues.",
+    "repoSelectorPlaceholder": "Select repository",
     "openGroup": "Open",
     "closedGroup": "Closed",
     "authorPrefix": "by",
@@ -572,8 +577,8 @@
       "promptLabel": "Prompt",
       "cancel": "Cancel",
       "confirm": "Create workspace",
-      "loadingRepos": "Loading project repositories...",
-      "reposError": "Could not load project repositories. The workspace will start without a preselected repo."
+      "loadingRepo": "Loading repository...",
+      "repoError": "Could not load the repository. The workspace will start without a preselected repo."
     }
   }
 }

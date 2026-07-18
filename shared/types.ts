@@ -8,7 +8,7 @@ export type Repo = { id: string, path: string, name: string, display_name: strin
 
 export type Project = { id: string, name: string, default_agent_working_dir: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
-export type ProjectIssueResponse = { id: string, project_id: string, number: number, title: string, body: string, state: string, labels: Array<string>, author: string, updated_at: Date, synced_at: Date, };
+export type RepoIssueResponse = { id: string, repo_id: string, number: number, title: string, body: string, state: string, labels: Array<string>, author: string, updated_at: Date, synced_at: Date, };
 
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 

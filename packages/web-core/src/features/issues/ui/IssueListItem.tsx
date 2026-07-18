@@ -1,22 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { PlayIcon } from '@phosphor-icons/react';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
-import type { ProjectIssue } from '@/features/issues/types';
+import type { RepoIssue } from '@/features/issues/types';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 
 interface IssueListItemProps {
-  issue: ProjectIssue;
-  projectId: string | undefined;
+  issue: RepoIssue;
+  repoId: string | undefined;
 }
 
-export function IssueListItem({ issue, projectId }: IssueListItemProps) {
+export function IssueListItem({ issue, repoId }: IssueListItemProps) {
   const { t } = useTranslation('common');
   const isOpen = issue.state === 'open';
 
   const handleAssign = () => {
-    if (!projectId) return;
-    void AssignToAgentDialog.show({ issue, projectId });
+    if (!repoId) return;
+    void AssignToAgentDialog.show({ issue, repoId });
   };
 
   return (
@@ -50,7 +50,7 @@ export function IssueListItem({ issue, projectId }: IssueListItemProps) {
           value={t('issues.assignToAgent')}
           actionIcon={PlayIcon}
           onClick={handleAssign}
-          disabled={!projectId}
+          disabled={!repoId}
           className="shrink-0"
         />
       )}

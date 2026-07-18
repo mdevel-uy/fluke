@@ -50,24 +50,4 @@ impl Project {
 
         Ok(())
     }
-
-    pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, Project>(
-            "SELECT id, name, default_agent_working_dir, remote_project_id,
-                    created_at, updated_at
-               FROM projects
-               WHERE id = ?1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await
-    }
-
-    /// Return the repo IDs linked to a project via `project_repos`.
-    pub async fn repo_ids(pool: &SqlitePool, id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        sqlx::query_scalar::<_, Uuid>("SELECT repo_id FROM project_repos WHERE project_id = ?1")
-            .bind(id)
-            .fetch_all(pool)
-            .await
-    }
 }

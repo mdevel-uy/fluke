@@ -7,6 +7,7 @@ import {
   LayoutIcon,
   KanbanIcon,
   DownloadSimpleIcon,
+  WarningCircleIcon,
 } from '@phosphor-icons/react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -28,6 +29,7 @@ import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestinatio
 import {
   getDestinationHostId,
   getProjectDestination,
+  isIssuesDestination,
   isProjectDestination,
   isLocalWorkspacesDestination,
 } from '@/shared/lib/routes/appNavigation';
@@ -167,6 +169,7 @@ export function SharedAppLayout() {
     [currentDestination]
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
+  const isIssuesActive = isIssuesDestination(currentDestination);
   const isExportActive = currentDestination?.kind === 'export';
   const showCloudShutdownBanner =
     isExportActive || (isSignedIn && isProjectDestination(currentDestination));
@@ -193,6 +196,10 @@ export function SharedAppLayout() {
   const handleWorkspacesClick = useCallback(() => {
     void navigate({ to: '/workspaces' });
   }, [navigate]);
+
+  const handleIssuesClick = useCallback(() => {
+    appNavigation.goToIssues();
+  }, [appNavigation]);
 
   const handleExportClick = useCallback(() => {
     appNavigation.goToExport();
@@ -332,12 +339,14 @@ export function SharedAppLayout() {
               onCreateProject={handleCreateProject}
               onExportClick={handleExportClick}
               onWorkspacesClick={handleWorkspacesClick}
+              onIssuesClick={handleIssuesClick}
               onHostClick={handleHostClick}
               onPairHostClick={handlePairHostClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
+              isIssuesActive={isIssuesActive}
               isExportActive={isExportActive}
               activeProjectId={activeProjectId}
               isSignedIn={isSignedIn}
@@ -442,6 +451,19 @@ export function SharedAppLayout() {
             >
               <LayoutIcon className="h-4 w-4" />
               Workspaces
+            </button>
+
+            {/* Issues link */}
+            <button
+              type="button"
+              onClick={() => {
+                handleIssuesClick();
+                setIsDrawerOpen(false);
+              }}
+              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
+            >
+              <WarningCircleIcon className="h-4 w-4" />
+              Issues
             </button>
 
             {/* Divider */}

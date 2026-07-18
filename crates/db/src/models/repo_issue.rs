@@ -4,9 +4,9 @@ use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct ProjectIssue {
+pub struct RepoIssue {
     pub id: Uuid,
-    pub project_id: Uuid,
+    pub repo_id: Uuid,
     pub number: i64,
     pub title: String,
     pub body: Option<String>,
@@ -19,7 +19,7 @@ pub struct ProjectIssue {
 }
 
 #[derive(Debug, Clone)]
-pub struct UpsertProjectIssue {
+pub struct UpsertRepoIssue {
     pub number: i64,
     pub title: String,
     pub body: Option<String>,
@@ -29,34 +29,34 @@ pub struct UpsertProjectIssue {
     pub updated_at: DateTime<Utc>,
 }
 
-impl ProjectIssue {
-    pub async fn list_by_project(
+impl RepoIssue {
+    pub async fn list_by_repo(
         pool: &SqlitePool,
-        project_id: Uuid,
+        repo_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ProjectIssue>(
-            "SELECT id, project_id, number, title, body, state, labels, author,
+        sqlx::query_as::<_, RepoIssue>(
+            "SELECT id, repo_id, number, title, body, state, labels, author,
                     updated_at, synced_at
-               FROM project_issues
-               WHERE project_id = ?1
+               FROM repo_issues
+               WHERE repo_id = ?1
                ORDER BY updated_at DESC",
         )
-        .bind(project_id)
+        .bind(repo_id)
         .fetch_all(pool)
         .await
     }
 
     pub async fn upsert(
         pool: &SqlitePool,
-        project_id: Uuid,
-        issue: &UpsertProjectIssue,
+        repo_id: Uuid,
+        issue: &UpsertRepoIssue,
     ) -> Result<(), sqlx::Error> {
         let id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO project_issues
-                 (id, project_id, number, title, body, state, labels, author, updated_at)
+            "INSERT INTO repo_issues
+                 (id, repo_id, number, title, body, state, labels, author, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-             ON CONFLICT(project_id, number) DO UPDATE SET
+             ON CONFLICT(repo_id, number) DO UPDATE SET
                  title      = excluded.title,
                  body       = excluded.body,
                  state      = excluded.state,
@@ -66,7 +66,7 @@ impl ProjectIssue {
                  synced_at  = datetime('now', 'subsec')",
         )
         .bind(id)
-        .bind(project_id)
+        .bind(repo_id)
         .bind(issue.number)
         .bind(&issue.title)
         .bind(&issue.body)

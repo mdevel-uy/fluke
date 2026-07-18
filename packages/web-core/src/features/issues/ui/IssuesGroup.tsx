@@ -1,18 +1,18 @@
-import type { ProjectIssue } from '@/features/issues/types';
+import type { RepoIssue } from '@/features/issues/types';
 import { IssueListItem } from './IssueListItem';
 
 interface IssuesGroupProps {
   title: string;
   count: number;
-  issues: ProjectIssue[];
-  projectId: string | undefined;
+  issues: RepoIssue[];
+  repoId: string | undefined;
 }
 
 export function IssuesGroup({
   title,
   count,
   issues,
-  projectId,
+  repoId,
 }: IssuesGroupProps) {
   if (issues.length === 0) return null;
 
@@ -24,11 +24,7 @@ export function IssuesGroup({
       </header>
       <ul className="flex flex-col">
         {issues.map((issue) => (
-          <IssueListItem
-            key={issue.id}
-            issue={issue}
-            projectId={projectId}
-          />
+          <IssueListItem key={issue.id} issue={issue} repoId={repoId} />
         ))}
       </ul>
     </section>

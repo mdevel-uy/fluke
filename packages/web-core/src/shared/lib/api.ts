@@ -107,7 +107,7 @@ import {
   CloneRepoResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
-import type { ProjectIssue } from '@/features/issues/types';
+import type { RepoIssue } from '@/features/issues/types';
 import type { WorkspaceWithSession } from '@/shared/types/attempt';
 import { createWorkspaceWithSession } from '@/shared/types/attempt';
 import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
@@ -1492,26 +1492,20 @@ export const remoteProjectsApi = {
   },
 };
 
-// Project Issues API
-export const projectIssuesApi = {
-  list: async (projectId: string): Promise<ProjectIssue[]> => {
+// Repo Issues API
+export const repoIssuesApi = {
+  list: async (repoId: string): Promise<RepoIssue[]> => {
     const response = await makeRequest(
-      `/api/projects/${encodeURIComponent(projectId)}/issues`
+      `/api/repos/${encodeURIComponent(repoId)}/issues`
     );
-    return handleApiResponse<ProjectIssue[]>(response);
+    return handleApiResponse<RepoIssue[]>(response);
   },
-  sync: async (projectId: string): Promise<ProjectIssue[]> => {
+  sync: async (repoId: string): Promise<RepoIssue[]> => {
     const response = await makeRequest(
-      `/api/projects/${encodeURIComponent(projectId)}/issues/sync`,
+      `/api/repos/${encodeURIComponent(repoId)}/issues/sync`,
       { method: 'POST' }
     );
-    return handleApiResponse<ProjectIssue[]>(response);
-  },
-  repos: async (projectId: string): Promise<Repo[]> => {
-    const response = await makeRequest(
-      `/api/projects/${encodeURIComponent(projectId)}/repos`
-    );
-    return handleApiResponse<Repo[]>(response);
+    return handleApiResponse<RepoIssue[]>(response);
   },
 };
 
