@@ -16,7 +16,6 @@ import { useAllOrganizationProjects } from '@/shared/hooks/useAllOrganizationPro
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
 import { RemoteIssueLink } from './RemoteIssueLink';
-import { AppBarUserPopoverContainer } from './AppBarUserPopoverContainer';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { NavbarActionGroups } from '@/shared/actions';
 import {
@@ -115,11 +114,9 @@ function toNavbarSectionItems(
 
 export function NavbarContainer({
   mobileMode = false,
-  onOrgSelect,
   onOpenDrawer,
 }: {
   mobileMode?: boolean;
-  onOrgSelect?: (orgId: string) => void;
   onOpenDrawer?: () => void;
 }) {
   const { t } = useTranslation('common');
@@ -295,18 +292,6 @@ export function NavbarContainer({
     };
   }, [isOnProjectPage, projectId, appNavigation]);
 
-  // Build user popover slot for mobile mode
-  const userPopoverSlot = useMemo(() => {
-    if (!mobileMode) return undefined;
-    return (
-      <AppBarUserPopoverContainer
-        organizations={orgsData?.organizations ?? []}
-        selectedOrgId={selectedOrgId ?? ''}
-        onOrgSelect={onOrgSelect ?? (() => {})}
-      />
-    );
-  }, [mobileMode, orgsData?.organizations, selectedOrgId, onOrgSelect]);
-
   const syncErrors = useMemo(() => {
     const errors = syncErrorContext?.errors ? [...syncErrorContext.errors] : [];
 
@@ -332,7 +317,6 @@ export function NavbarContainer({
       rightItems={rightItems}
       syncErrors={syncErrors}
       mobileMode={mobileMode}
-      mobileUserSlot={userPopoverSlot}
       isOnProjectPage={isOnProjectPage}
       isOnProjectSubRoute={isOnProjectSubRoute}
       onOpenCommandBar={handleOpenCommandBar}
