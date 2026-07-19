@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import {
-  XIcon,
-  LayoutIcon,
-  UsersIcon,
-  WarningCircleIcon,
-  LightningIcon,
-} from '@phosphor-icons/react';
+import { X, Layout, Users, AlertCircle, Zap } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
@@ -255,7 +249,7 @@ export function SharedAppLayout() {
             {/* Desktop corner spacer. */}
             <div
               data-tauri-drag-region
-              className="bg-secondary"
+              className="bg-secondary/60 border-b border-r border-border/60"
               style={isTauriMac() ? { minWidth: 56 } : undefined}
             />
             {/* Desktop navbar. */}
@@ -337,63 +331,65 @@ export function SharedAppLayout() {
           onClose={() => setIsDrawerOpen(false)}
         >
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-end p-4 border-b border-border">
+            <div className="flex items-center justify-end p-4 border-b border-border/60">
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(false)}
-                className="p-1 rounded-sm text-low hover:text-normal cursor-pointer"
+                className="p-1.5 rounded-md text-low hover:bg-secondary hover:text-high transition-colors cursor-pointer"
               >
-                <XIcon className="h-4 w-4" weight="bold" />
+                <X className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                void navigate({ to: '/workspaces' });
-                setIsDrawerOpen(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
-            >
-              <LayoutIcon className="h-4 w-4" />
-              Workspaces
-            </button>
+            <div className="flex flex-col gap-1 p-3">
+              <button
+                type="button"
+                onClick={() => {
+                  void navigate({ to: '/workspaces' });
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <Layout className="h-4 w-4" strokeWidth={2} />
+                Workspaces
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                handleIssuesClick();
-                setIsDrawerOpen(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
-            >
-              <WarningCircleIcon className="h-4 w-4" />
-              Issues
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleIssuesClick();
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <AlertCircle className="h-4 w-4" strokeWidth={2} />
+                Issues
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                handleWorkersClick();
-                setIsDrawerOpen(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
-            >
-              <UsersIcon className="h-4 w-4" />
-              {t('appBar.workers')}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleWorkersClick();
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <Users className="h-4 w-4" strokeWidth={2} />
+                {t('appBar.workers')}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                handleSprintClick();
-                setIsDrawerOpen(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
-            >
-              <LightningIcon className="h-4 w-4" />
-              {t('appBar.sprint')}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSprintClick();
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <Zap className="h-4 w-4" strokeWidth={2} />
+                {t('appBar.sprint')}
+              </button>
+            </div>
           </div>
         </MobileDrawer>
       </div>

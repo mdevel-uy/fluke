@@ -10,13 +10,15 @@ export function WorkerChip({ worker, className }: WorkerChipProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-half h-5 px-base rounded-sm',
-        'bg-panel text-normal text-xs font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1.5 h-6 px-2 rounded-full',
+        'bg-secondary text-normal text-xs font-medium whitespace-nowrap border border-border/60',
         className
       )}
       title={worker.name}
     >
-      <span aria-hidden="true">{worker.emoji}</span>
+      <span className="text-sm leading-none" aria-hidden="true">
+        {worker.emoji}
+      </span>
       <span className="truncate max-w-[10rem]">{worker.name}</span>
     </span>
   );

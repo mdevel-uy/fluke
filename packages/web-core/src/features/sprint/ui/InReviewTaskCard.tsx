@@ -1,4 +1,4 @@
-import { GitPullRequestIcon } from '@phosphor-icons/react';
+import { GitPullRequest } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import type { WorkerTask } from '@/features/sprint/types';
 
@@ -6,11 +6,15 @@ interface InReviewTaskCardProps {
   task: WorkerTask;
 }
 
-function stateClassName(state: string | null | undefined): string {
+function stateBadgeClass(state: string | null | undefined): string {
   const normalized = (state ?? '').toLowerCase();
-  if (normalized === 'merged') return 'bg-brand/10 text-brand';
-  if (normalized === 'closed') return 'bg-panel text-low';
-  return 'bg-panel text-normal';
+  if (normalized === 'merged')
+    return 'bg-merged/10 text-merged border border-merged/20';
+  if (normalized === 'closed')
+    return 'bg-secondary text-low border border-border/60';
+  if (normalized === 'open')
+    return 'bg-success/10 text-success border border-success/20';
+  return 'bg-secondary text-normal border border-border/60';
 }
 
 export function InReviewTaskCard({ task }: InReviewTaskCardProps) {
@@ -18,31 +22,31 @@ export function InReviewTaskCard({ task }: InReviewTaskCardProps) {
   const prState = task.pr_state ?? null;
 
   return (
-    <article className="flex flex-col gap-half p-base bg-primary border border-border rounded-sm">
+    <article className="group flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft transition-all duration-150 hover:shadow-card hover:border-border">
       <p
-        className="text-sm text-normal font-medium truncate"
+        className="text-sm text-high font-medium leading-snug line-clamp-2"
         title={task.title}
       >
         {task.title}
       </p>
       {(prUrl || prState) && (
-        <div className="flex items-center gap-half flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {prUrl && (
             <a
               href={prUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex items-center gap-half text-xs text-brand hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs text-brand hover:text-brand-hover hover:underline"
             >
-              <GitPullRequestIcon className="size-icon-sm" weight="bold" />
+              <GitPullRequest className="h-3.5 w-3.5" />
               <span className="truncate max-w-[10rem]">{prUrl}</span>
             </a>
           )}
           {prState && (
             <span
               className={cn(
-                'inline-flex items-center h-5 px-base rounded-sm text-xs font-medium uppercase',
-                stateClassName(prState)
+                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide',
+                stateBadgeClass(prState)
               )}
             >
               {prState}
