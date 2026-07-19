@@ -84,7 +84,8 @@ module.exports = {
         `,
       },
       ringColor: {
-        DEFAULT: 'hsl(var(--brand))',
+        DEFAULT: 'hsl(var(--ring))',
+        brand: 'hsl(var(--brand))',
       },
       fontSize: {
         xs: [getSize('xs'), { lineHeight: getSize('xs', lineHeightMultiplier) }],      // 8px
@@ -128,16 +129,17 @@ module.exports = {
         border: "hsl(var(--border))",
       },
       borderRadius: {
-        lg: getSize('lg', radiusMultiplier),
-        md: getSize('sm', radiusMultiplier),
-        sm: getSize('xs', radiusMultiplier),
+        DEFAULT: '0.375rem',
+        lg: '0.5rem',
+        md: '0.375rem',
+        sm: '0.25rem',
       },
       borderWidth: {
         base: getSize('base'),
         half: getSize('base', 0.5),
       },
       fontFamily: {
-        'ibm-plex-sans': ['"IBM Plex Sans"', '"Noto Emoji"', 'sans-serif'],
+        'ibm-plex-sans': ['"Plus Jakarta Sans"', '"Noto Emoji"', 'sans-serif'],
         'ibm-plex-mono': ['"IBM Plex Mono"', 'monospace'],
       },
       keyframes: {
