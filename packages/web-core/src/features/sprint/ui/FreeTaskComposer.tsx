@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PlusIcon, SpinnerIcon } from '@phosphor-icons/react';
+import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -49,10 +49,10 @@ export function FreeTaskComposer({
 
   return (
     <form
-      className="flex flex-col gap-half p-base bg-primary border border-border rounded-sm"
+      className="flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft"
       onSubmit={(e) => e.preventDefault()}
     >
-      <p className="text-xs font-semibold text-normal">
+      <p className="text-xs font-semibold uppercase tracking-wide text-high">
         {t('sprint.composer.title')}
       </p>
       <Input
@@ -67,21 +67,21 @@ export function FreeTaskComposer({
         placeholder={t('sprint.composer.promptPlaceholder')}
         rows={3}
         disabled={disabled || isSubmitting}
-        className="font-mono text-xs"
+        className="font-mono text-xs rounded-lg"
       />
       <div className="flex justify-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
-              size="xs"
+              variant="primary"
+              size="sm"
               disabled={!canSubmit}
               type="button"
             >
               {isSubmitting ? (
-                <SpinnerIcon className="mr-1 size-icon-sm animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <PlusIcon className="mr-1 size-icon-sm" weight="bold" />
+                <Plus className="h-3.5 w-3.5" />
               )}
               {t('sprint.composer.assign')}
             </Button>
@@ -97,7 +97,7 @@ export function FreeTaskComposer({
                   key={worker.id}
                   onSelect={() => handleSelect(worker.id)}
                 >
-                  <span className="mr-1" aria-hidden="true">
+                  <span className="mr-1.5 text-base" aria-hidden="true">
                     {worker.emoji}
                   </span>
                   <span className="truncate">{worker.name}</span>

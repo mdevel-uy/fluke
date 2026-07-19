@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { CaretUpIcon, CaretDownIcon, TrashIcon } from '@phosphor-icons/react';
+import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import type { WorkerTask } from '@/features/sprint/types';
 
@@ -25,14 +25,14 @@ export function QueuedTaskCard({
   const { t } = useTranslation('common');
 
   return (
-    <article className="flex flex-col gap-half p-base bg-primary border border-border rounded-sm">
+    <article className="group flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft transition-all duration-150 hover:shadow-card hover:border-border">
       <p
-        className="text-sm text-normal font-medium truncate"
+        className="text-sm text-high font-medium leading-snug line-clamp-2"
         title={task.title}
       >
         {task.title}
       </p>
-      <div className="flex items-center justify-end gap-half">
+      <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
         <Button
           variant="icon"
           size="icon"
@@ -41,7 +41,7 @@ export function QueuedTaskCard({
           aria-label={t('sprint.queued.moveUp')}
           title={t('sprint.queued.moveUp')}
         >
-          <CaretUpIcon className="size-icon-sm" weight="bold" />
+          <ChevronUp className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="icon"
@@ -51,7 +51,7 @@ export function QueuedTaskCard({
           aria-label={t('sprint.queued.moveDown')}
           title={t('sprint.queued.moveDown')}
         >
-          <CaretDownIcon className="size-icon-sm" weight="bold" />
+          <ChevronDown className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="icon"
@@ -60,8 +60,9 @@ export function QueuedTaskCard({
           disabled={isBusy}
           aria-label={t('sprint.queued.remove')}
           title={t('sprint.queued.remove')}
+          className="hover:text-destructive"
         >
-          <TrashIcon className="size-icon-sm" weight="bold" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
     </article>
