@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -66,16 +67,33 @@ export function SprintPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToSprint(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToSprint(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -84,8 +102,11 @@ export function SprintPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -268,6 +289,7 @@ export function SprintPage() {
   }, [repoTasks]);
 
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToSprint(repoId);
   };
 
