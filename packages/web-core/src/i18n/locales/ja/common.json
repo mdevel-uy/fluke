@@ -638,6 +638,8 @@
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
     "loading": "スプリントを読み込み中...",
     "loadError": "スプリントボードの読み込みに失敗しました。",
+    "sync": "同期",
+    "syncing": "同期中...",
     "columns": {
       "backlog": "バックログ",
       "queued": "キュー",

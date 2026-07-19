@@ -638,6 +638,8 @@
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
     "loading": "正在加载冲刺...",
     "loadError": "加载冲刺看板失败。",
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待办",
       "queued": "排队中",
