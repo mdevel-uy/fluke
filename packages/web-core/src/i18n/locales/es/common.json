@@ -563,13 +563,17 @@
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
     "assignDialog": {
-      "title": "Asignar issue #{{number}} a un agente",
-      "description": "Revisá y editá el prompt debajo. El agente arrancará con estas instrucciones en un workspace nuevo.",
+      "title": "Asignar issue #{{number}} a un worker",
+      "description": "Elegí un worker y revisá el prompt. La tarea se va a agregar a la cola del worker.",
       "promptLabel": "Prompt",
+      "workerLabel": "Asignar a",
+      "workerPlaceholder": "Seleccioná un worker...",
+      "noWorkers": "No hay workers disponibles. Creá un worker primero.",
+      "workerLoadError": "No se pudieron cargar los workers.",
+      "loadingWorkers": "Cargando workers...",
       "cancel": "Cancelar",
-      "confirm": "Crear workspace",
-      "loadingRepo": "Cargando repositorio...",
-      "repoError": "No se pudo cargar el repositorio. El workspace se abrirá sin un repositorio preseleccionado."
+      "confirm": "Encolar tarea",
+      "enqueuedError": "No se pudo encolar la tarea."
     }
   },
   "workers": {
@@ -638,6 +642,27 @@
     "selectRepoPrompt": "Seleccioná un repositorio para ver su tablero de sprint.",
     "loading": "Cargando sprint...",
     "loadError": "No se pudo cargar el tablero de sprint.",
+    "startSprint": "Comenzar sprint",
+    "startSprintDisabled": "No hay workers listos para arrancar",
+    "startSprintDialog": {
+      "title": "Comenzar sprint",
+      "description": "Los siguientes workers van a arrancar su próxima tarea en cola.",
+      "willStart": "Van a arrancar ({{count}})",
+      "skipped": "Se saltean",
+      "cancel": "Cancelar",
+      "confirm": "Comenzar sprint",
+      "reason": {
+        "already_working": "Ya está trabajando",
+        "no_queue": "Sin tareas en cola",
+        "cap_reached": "Límite de reviews alcanzado"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker arrancado.",
+      "startAllSuccess_other": "{{count}} workers arrancados.",
+      "startAllNoneStarted": "No había workers listos para arrancar.",
+      "startAllError": "Error al comenzar el sprint: {{message}}"
+    },
     "columns": {
       "backlog": "Backlog",
       "queued": "En cola",

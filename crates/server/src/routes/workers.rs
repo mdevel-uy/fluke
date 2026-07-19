@@ -339,6 +339,76 @@ pub struct StartWorkerResponse {
     pub workspace_id: Uuid,
 }
 
+#[derive(Debug, Serialize, TS)]
+pub struct StartAllWorkersItemResponse {
+    pub worker_id: Uuid,
+    pub worker_name: String,
+    pub started: bool,
+    pub task_title: Option<String>,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct StartAllWorkersResponse {
+    pub results: Vec<StartAllWorkersItemResponse>,
+}
+
+fn start_error_reason(err: &StartError) -> String {
+    match err {
+        StartError::NothingQueued => "nothing_queued".to_string(),
+        StartError::AlreadyInProgress => "already_in_progress".to_string(),
+        StartError::InReviewCapReached(_) => "in_review_cap_reached".to_string(),
+        _ => "error".to_string(),
+    }
+}
+
+/// Iterate all workers and attempt to start the next queued task for each
+/// eligible one. One failure does not block the others. Idempotent-friendly:
+/// a second call simply finds nothing startable.
+pub async fn start_all_workers(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<StartAllWorkersResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let workers = Worker::list_all(pool).await?;
+
+    let mut results = Vec::with_capacity(workers.len());
+    for worker in workers {
+        let worker_name = worker.name.clone();
+        let worker_id = worker.id;
+        match worker_orchestrator::try_take_next(
+            deployment.config(),
+            deployment.db(),
+            deployment.container(),
+            worker_id,
+        )
+        .await
+        {
+            Ok(started) => {
+                results.push(StartAllWorkersItemResponse {
+                    worker_id,
+                    worker_name,
+                    started: true,
+                    task_title: Some(started.task.title),
+                    reason: None,
+                });
+            }
+            Err(err) => {
+                results.push(StartAllWorkersItemResponse {
+                    worker_id,
+                    worker_name,
+                    started: false,
+                    task_title: None,
+                    reason: Some(start_error_reason(&err)),
+                });
+            }
+        }
+    }
+
+    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
+        results,
+    })))
+}
+
 /// Attempt to take the next queued task for the worker and start an agent
 /// run for it. Returns 409 when the worker is not currently eligible to
 /// take a task (already in_progress, at the in_review cap, or nothing
@@ -416,6 +486,7 @@ pub async fn delete_worker_task(
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
+        .route("/workers/start-all", post(start_all_workers))
         .route(
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),

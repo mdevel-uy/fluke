@@ -3,6 +3,7 @@ import {
   workersApi,
   type CreateWorkerRequest,
   type UpdateWorkerRequest,
+  type StartAllWorkersResponse,
 } from '@/shared/lib/api';
 import { workersKeys } from './workersKeys';
 
@@ -66,6 +67,16 @@ export function useStartNextWorkerTask() {
       queryClient.invalidateQueries({
         queryKey: workersKeys.tasks(workerId),
       });
+    },
+  });
+}
+
+export function useStartAllWorkers() {
+  const queryClient = useQueryClient();
+  return useMutation<StartAllWorkersResponse>({
+    mutationFn: () => workersApi.startAll(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.list() });
     },
   });
 }

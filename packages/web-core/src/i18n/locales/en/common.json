@@ -563,13 +563,17 @@
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
     "assignDialog": {
-      "title": "Assign issue #{{number}} to agent",
-      "description": "Review and edit the prompt below. The agent will start with these instructions in a new workspace.",
+      "title": "Assign issue #{{number}} to worker",
+      "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",
       "promptLabel": "Prompt",
+      "workerLabel": "Assign to",
+      "workerPlaceholder": "Select a worker...",
+      "noWorkers": "No workers available. Create a worker first.",
+      "workerLoadError": "Could not load workers.",
+      "loadingWorkers": "Loading workers...",
       "cancel": "Cancel",
-      "confirm": "Create workspace",
-      "loadingRepo": "Loading repository...",
-      "repoError": "Could not load the repository. The workspace will start without a preselected repo."
+      "confirm": "Enqueue task",
+      "enqueuedError": "Failed to enqueue task."
     }
   },
   "workers": {
@@ -638,6 +642,27 @@
     "selectRepoPrompt": "Select a repository to see its sprint board.",
     "loading": "Loading sprint...",
     "loadError": "Failed to load the sprint board.",
+    "startSprint": "Start sprint",
+    "startSprintDisabled": "No workers are ready to start",
+    "startSprintDialog": {
+      "title": "Start sprint",
+      "description": "The following workers will start their next queued task.",
+      "willStart": "Will start ({{count}})",
+      "skipped": "Skipped",
+      "cancel": "Cancel",
+      "confirm": "Start sprint",
+      "reason": {
+        "already_working": "Already working",
+        "no_queue": "No queued tasks",
+        "cap_reached": "In-review cap reached"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker started.",
+      "startAllSuccess_other": "{{count}} workers started.",
+      "startAllNoneStarted": "No workers were ready to start.",
+      "startAllError": "Failed to start sprint: {{message}}"
+    },
     "columns": {
       "backlog": "Backlog",
       "queued": "Queued",

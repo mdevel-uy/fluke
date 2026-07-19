@@ -563,13 +563,17 @@
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
     "assignDialog": {
-      "title": "Issue #{{number}} をエージェントに割り当てる",
-      "description": "下のプロンプトを確認・編集してください。エージェントはこの指示で新しいワークスペースを開始します。",
+      "title": "Issue #{{number}} をワーカーに割り当てる",
+      "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",
       "promptLabel": "プロンプト",
+      "workerLabel": "担当ワーカー",
+      "workerPlaceholder": "ワーカーを選択...",
+      "noWorkers": "利用可能なワーカーがいません。先にワーカーを作成してください。",
+      "workerLoadError": "ワーカーを読み込めませんでした。",
+      "loadingWorkers": "ワーカーを読み込み中...",
       "cancel": "キャンセル",
-      "confirm": "ワークスペースを作成",
-      "loadingRepo": "リポジトリを読み込み中...",
-      "repoError": "リポジトリを読み込めませんでした。ワークスペースはリポジトリが選択されていない状態で開始します。"
+      "confirm": "タスクをキューに追加",
+      "enqueuedError": "タスクのキュー追加に失敗しました。"
     }
   },
   "workers": {
@@ -638,6 +642,26 @@
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
     "loading": "スプリントを読み込み中...",
     "loadError": "スプリントボードの読み込みに失敗しました。",
+    "startSprint": "スプリントを開始",
+    "startSprintDisabled": "開始可能なワーカーがいません",
+    "startSprintDialog": {
+      "title": "スプリントを開始",
+      "description": "以下のワーカーが次のキュータスクを開始します。",
+      "willStart": "開始予定（{{count}}件）",
+      "skipped": "スキップ",
+      "cancel": "キャンセル",
+      "confirm": "スプリントを開始",
+      "reason": {
+        "already_working": "作業中",
+        "no_queue": "キューにタスクなし",
+        "cap_reached": "レビュー上限に達しました"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}}件のワーカーを開始しました。",
+      "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
+      "startAllError": "スプリント開始に失敗しました: {{message}}"
+    },
     "columns": {
       "backlog": "バックログ",
       "queued": "キュー",
