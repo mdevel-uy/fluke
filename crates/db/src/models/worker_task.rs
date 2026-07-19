@@ -55,10 +55,7 @@ impl WorkerTask {
         .await
     }
 
-    pub async fn find_by_id(
-        pool: &SqlitePool,
-        id: Uuid,
-    ) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, created_at
@@ -182,10 +179,7 @@ impl WorkerTask {
         .await
     }
 
-    pub async fn count_in_review(
-        pool: &SqlitePool,
-        worker_id: Uuid,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn count_in_review(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
                FROM worker_tasks
@@ -224,6 +218,39 @@ impl WorkerTask {
             .execute(pool)
             .await?;
         Ok(())
+    }
+
+    /// Clear the workspace_id link for every task that points at a given
+    /// workspace. Used during orchestrator rollback so a failed start does
+    /// not leave dangling references to an archived workspace.
+    pub async fn clear_workspace_link(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET workspace_id = NULL WHERE workspace_id = ?1")
+            .bind(workspace_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// True when the given workspace has a task with status in
+    /// (`in_progress`, `in_review`). Used to distinguish healthy workspaces
+    /// from orphans left behind by a failed start.
+    pub async fn workspace_has_active_task(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks
+               WHERE workspace_id = ?1
+                 AND status IN ('in_progress', 'in_review')",
+        )
+        .bind(workspace_id)
+        .fetch_one(pool)
+        .await?;
+        Ok(count > 0)
     }
 
     /// Set status without changing position. Returns the updated row.
