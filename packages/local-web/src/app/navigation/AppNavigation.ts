@@ -53,6 +53,13 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
     }
     case '/_app/workers':
       return { kind: 'workers' };
+    case '/_app/sprint': {
+      const params = new URLSearchParams(
+        new URL(path, 'http://localhost').search
+      );
+      const repoId = params.get('repo');
+      return { kind: 'sprint', ...(repoId ? { repoId } : {}) };
+    }
     case '/_app/hosts/$hostId/workspaces': {
       const hostId = getPathParam(routeParams, 'hostId');
       return hostId ? { kind: 'workspaces', hostId } : null;
@@ -249,6 +256,11 @@ function destinationToLocalTarget(
       } as const;
     case 'workers':
       return { to: '/workers' } as const;
+    case 'sprint':
+      return {
+        to: '/sprint',
+        search: destination.repoId ? { repo: destination.repoId } : {},
+      } as const;
     case 'project':
       return {
         to: '/projects/$projectId',
@@ -360,6 +372,8 @@ export function createLocalAppNavigation(): AppNavigation {
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: 'sprint', ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: 'project', projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>

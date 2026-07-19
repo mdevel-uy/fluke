@@ -107,6 +107,8 @@ import {
   CloneRepoResponse,
   WorkerResponse,
   WorkerTaskResponse,
+  CreateWorkerTaskRequest,
+  UpdateWorkerTaskRequest,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -1779,6 +1781,42 @@ export const workersApi = {
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`);
     return handleApiResponse<WorkerTaskResponse[]>(response);
+  },
+
+  createTask: async (
+    workerId: string,
+    data: CreateWorkerTaskRequest
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  updateTask: async (
+    workerId: string,
+    taskId: string,
+    data: UpdateWorkerTaskRequest
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  deleteTask: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    return handleApiResponse<void>(response);
   },
 
   startNext: async (workerId: string): Promise<WorkerTaskResponse> => {

@@ -173,6 +173,9 @@ function destinationToRemoteTarget(
     case "workers":
       // No dedicated workers route on the remote web; fall back to root.
       return { to: "/" } as const;
+    case "sprint":
+      // No dedicated sprint route on the remote web; fall back to root.
+      return { to: "/" } as const;
     case "project":
       return {
         to: "/projects/$projectId",
@@ -250,11 +253,10 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
       navigateTo({ kind: "workspace-vscode", hostId, workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
     goToIssues: (repoId, transition) =>
-      navigateTo(
-        { kind: "issues", ...(repoId ? { repoId } : {}) },
-        transition,
-      ),
+      navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: "sprint", ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>
@@ -328,11 +330,10 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
       navigateTo({ kind: "workspace-vscode", workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
     goToIssues: (repoId, transition) =>
-      navigateTo(
-        { kind: "issues", ...(repoId ? { repoId } : {}) },
-        transition,
-      ),
+      navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: "sprint", ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>

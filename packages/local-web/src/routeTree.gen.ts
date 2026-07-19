@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingSignInRouteImport } from './routes/onboarding_.sign-in'
 import { Route as AppWorkspacesRouteImport } from './routes/_app.workspaces'
 import { Route as AppWorkersRouteImport } from './routes/_app.workers'
+import { Route as AppSprintRouteImport } from './routes/_app.sprint'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
 import { Route as AppExportRouteImport } from './routes/_app.export'
@@ -62,6 +63,11 @@ const AppWorkspacesRoute = AppWorkspacesRouteImport.update({
 const AppWorkersRoute = AppWorkersRouteImport.update({
   id: '/workers',
   path: '/workers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSprintRoute = AppSprintRouteImport.update({
+  id: '/sprint',
+  path: '/sprint',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/sprint': typeof AppSprintRoute
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/sprint': typeof AppSprintRoute
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/_app/export': typeof AppExportRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/sprint': typeof AppSprintRoute
   '/_app/workers': typeof AppWorkersRoute
   '/_app/workspaces': typeof AppWorkspacesRoute
   '/onboarding_/sign-in': typeof OnboardingSignInRoute
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/sprint'
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
@@ -292,6 +302,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/sprint'
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/_app/export'
     | '/_app/issues'
     | '/_app/notifications'
+    | '/_app/sprint'
     | '/_app/workers'
     | '/_app/workspaces'
     | '/onboarding_/sign-in'
@@ -391,6 +403,13 @@ declare module '@tanstack/react-router' {
       path: '/workers'
       fullPath: '/workers'
       preLoaderRoute: typeof AppWorkersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/sprint': {
+      id: '/_app/sprint'
+      path: '/sprint'
+      fullPath: '/sprint'
+      preLoaderRoute: typeof AppSprintRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notifications': {
@@ -533,6 +552,7 @@ interface AppRouteChildren {
   AppExportRoute: typeof AppExportRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppSprintRoute: typeof AppSprintRoute
   AppWorkersRoute: typeof AppWorkersRoute
   AppWorkspacesRoute: typeof AppWorkspacesRoute
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
@@ -555,6 +575,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportRoute: AppExportRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppSprintRoute: AppSprintRoute,
   AppWorkersRoute: AppWorkersRoute,
   AppWorkspacesRoute: AppWorkspacesRoute,
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
