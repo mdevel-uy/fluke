@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json as ResponseJson,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use chrono::{DateTime, Utc};
 use db::models::{
@@ -18,7 +18,9 @@ use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, Pull
 use serde::{Deserialize, Serialize};
 use services::services::{
     file_search::SearchQuery,
-    repo_issues::{RepoIssuesError, RepoIssuesService},
+    repo_issues::{
+        RepoIssuesError, RepoIssuesService, StoredLabel, derive_priority, parse_stored_labels,
+    },
 };
 use ts_rs::TS;
 use utils::response::ApiResponse;
@@ -372,6 +374,26 @@ pub async fn delete_repo(
     Ok((StatusCode::OK, ResponseJson(ApiResponse::success(()))))
 }
 
+// ---------------------------------------------------------------------------
+// Issue types and handlers
+// ---------------------------------------------------------------------------
+
+/// A GitHub label as returned by the API. `color` is a 6-digit hex without '#'.
+#[derive(Debug, Serialize, TS)]
+pub struct IssueLabel {
+    pub name: String,
+    pub color: String,
+}
+
+impl From<StoredLabel> for IssueLabel {
+    fn from(l: StoredLabel) -> Self {
+        Self {
+            name: l.name,
+            color: l.color,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, TS)]
 pub struct RepoIssueResponse {
     pub id: Uuid,
@@ -381,17 +403,21 @@ pub struct RepoIssueResponse {
     pub title: String,
     pub body: String,
     pub state: String,
-    pub labels: Vec<String>,
+    pub labels: Vec<IssueLabel>,
     pub author: String,
     #[ts(type = "Date")]
     pub updated_at: DateTime<Utc>,
     #[ts(type = "Date")]
     pub synced_at: DateTime<Utc>,
+    pub milestone: Option<String>,
+    pub priority: Option<String>,
 }
 
 impl From<RepoIssue> for RepoIssueResponse {
     fn from(issue: RepoIssue) -> Self {
-        let labels: Vec<String> = serde_json::from_str(&issue.labels).unwrap_or_default();
+        let stored = parse_stored_labels(&issue.labels);
+        let priority = derive_priority(&stored);
+        let labels: Vec<IssueLabel> = stored.into_iter().map(Into::into).collect();
         Self {
             id: issue.id,
             repo_id: issue.repo_id,
@@ -403,6 +429,8 @@ impl From<RepoIssue> for RepoIssueResponse {
             author: issue.author.unwrap_or_default(),
             updated_at: issue.updated_at,
             synced_at: issue.synced_at,
+            milestone: issue.milestone,
+            priority,
         }
     }
 }
@@ -444,6 +472,31 @@ pub async fn sync_repo_issues(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct SetIssuePriorityRequest {
+    pub priority: Option<String>,
+}
+
+pub async fn set_issue_priority(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<SetIssuePriorityRequest>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .set_priority(&pool, repo_id, issue_number, payload.priority.as_deref())
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
 impl From<RepoIssuesError> for ApiError {
     fn from(err: RepoIssuesError) -> Self {
         match err {
@@ -465,7 +518,13 @@ impl From<RepoIssuesError> for ApiError {
                 ApiError::BadRequest("`gh` CLI is not installed or not on PATH".to_string())
             }
             RepoIssuesError::GhCommandFailed(msg) => {
-                ApiError::BadGateway(format!("`gh issue list` failed: {msg}"))
+                ApiError::BadGateway(format!("`gh` command failed: {msg}"))
+            }
+            RepoIssuesError::IssueNotFound => {
+                ApiError::BadRequest("Issue not found".to_string())
+            }
+            RepoIssuesError::InvalidPriority(p) => {
+                ApiError::BadRequest(format!("Invalid priority value: {p}"))
             }
         }
     }
@@ -489,4 +548,8 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/repos/{repo_id}/open-editor", post(open_repo_in_editor))
         .route("/repos/{repo_id}/issues", get(list_repo_issues))
         .route("/repos/{repo_id}/issues/sync", post(sync_repo_issues))
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/priority",
+            put(set_issue_priority),
+        )
 }

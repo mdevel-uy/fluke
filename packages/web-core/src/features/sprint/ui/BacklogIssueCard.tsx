@@ -42,7 +42,7 @@ export function BacklogIssueCard({
       {issue.labels.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
           {issue.labels.map((label) => (
-            <IssueLabelChip key={label} label={label} />
+            <IssueLabelChip key={label.name} label={label.name} />
           ))}
         </div>
       )}
