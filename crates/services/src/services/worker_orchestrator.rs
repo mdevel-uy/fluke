@@ -108,7 +108,7 @@ pub struct StartedTask {
 pub async fn try_take_next(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
-    container: &impl ContainerService,
+    container: &(impl ContainerService + Send + Sync),
     worker_id: Uuid,
 ) -> Result<StartedTask, StartError> {
     let pool = &db.pool;
@@ -263,7 +263,7 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::
 pub async fn on_pr_merged(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
-    container: &impl ContainerService,
+    container: &(impl ContainerService + Send + Sync),
     workspace_id: Uuid,
 ) -> Result<bool, sqlx::Error> {
     let pool = &db.pool;
