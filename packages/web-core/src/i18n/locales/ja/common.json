@@ -616,6 +616,8 @@
       "templatesLabel": "テンプレートから始める",
       "soulLabel": "ソウル",
       "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
+      "systemInstructionsTitle": "システム指示",
+      "systemInstructionsReadOnly": "(読み取り専用 — 全ワーカーに適用)",
       "cancel": "キャンセル",
       "saveNew": "ワーカーを作成",
       "saveEdit": "変更を保存"

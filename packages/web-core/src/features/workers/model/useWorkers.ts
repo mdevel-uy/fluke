@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  systemApi,
   workersApi,
   type CreateWorkerRequest,
   type UpdateWorkerRequest,
 } from '@/shared/lib/api';
 import { workersKeys } from './workersKeys';
+
+export function useBaseInstructions() {
+  return useQuery({
+    queryKey: ['system', 'base-instructions'],
+    queryFn: () => systemApi.getBaseInstructions(),
+    staleTime: Infinity,
+  });
+}
 
 export function useWorkers() {
   return useQuery({

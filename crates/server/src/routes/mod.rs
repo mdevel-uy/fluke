@@ -31,6 +31,7 @@ pub mod ssh_session;
 pub mod tags;
 pub mod terminal;
 pub mod webrtc;
+pub mod system;
 pub mod workers;
 pub mod workspaces;
 
@@ -58,6 +59,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .route("/ssh-session", get(ssh_session::ssh_session_ws))
         .nest("/remote", remote::router())
         .merge(webrtc::router())
+        .merge(system::router())
         .merge(workers::router())
         .nest("/attachments", attachments::routes())
         .layer(axum::middleware::from_fn_with_state(

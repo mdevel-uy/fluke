@@ -616,6 +616,8 @@
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
       "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "systemInstructionsTitle": "Instructions système",
+      "systemInstructionsReadOnly": "(lecture seule — appliquées à tous les workers)",
       "cancel": "Annuler",
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer"
