@@ -1738,6 +1738,18 @@ export const githubApi = {
 };
 
 // Workers API
+export interface StartAllWorkersItemResponse {
+  worker_id: string;
+  worker_name: string;
+  started: boolean;
+  task_title: string | null;
+  reason: string | null;
+}
+
+export interface StartAllWorkersResponse {
+  results: StartAllWorkersItemResponse[];
+}
+
 export interface CreateWorkerRequest {
   name: string;
   emoji: string;
@@ -1824,6 +1836,21 @@ export const workersApi = {
       method: 'POST',
     });
     return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  startAll: async (): Promise<StartAllWorkersResponse> => {
+    const response = await makeRequest('/api/workers/start-all', {
+      method: 'POST',
+    });
+    return handleApiResponse<StartAllWorkersResponse>(response);
+  },
+};
+
+export const systemApi = {
+  getBaseInstructions: async (): Promise<string> => {
+    const response = await makeRequest('/api/system/base-instructions');
+    const data = await handleApiResponse<{ content: string }>(response);
+    return data.content;
   },
 };
 

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { ArrowClockwiseIcon } from '@phosphor-icons/react';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { Button } from '@vibe/ui/components/Button';
 import {
   Select,
   SelectContent,
@@ -13,19 +14,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@vibe/ui/components/KeyboardDialog';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi, workersApi } from '@/shared/lib/api';
-import {
-  useRepoIssues,
-  useSyncRepoIssues,
-} from '@/features/issues';
+import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type { RepoIssue } from '@/features/issues';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
 import { workersKeys } from '@/features/workers';
+import { useStartAllWorkers } from '@/features/workers/model/useWorkers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
@@ -40,6 +47,50 @@ import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
 const DONE_LIMIT = 20;
+const IN_REVIEW_CAP = 2;
+
+type Toast = {
+  id: number;
+  variant: 'success' | 'error' | 'info';
+  message: string;
+};
+
+const TOAST_DURATION_MS = 4000;
+
+function useToasts() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const nextIdRef = useRef(1);
+  const timersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
+  const dismiss = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    const timer = timersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timersRef.current.delete(id);
+    }
+  }, []);
+
+  const push = useCallback(
+    (variant: Toast['variant'], message: string) => {
+      const id = nextIdRef.current++;
+      setToasts((prev) => [...prev, { id, variant, message }]);
+      const timer = setTimeout(() => dismiss(id), TOAST_DURATION_MS);
+      timersRef.current.set(id, timer);
+    },
+    [dismiss]
+  );
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
+
+  return { toasts, push, dismiss };
+}
 
 function findWorker(workers: Worker[], id: string): Worker | undefined {
   return workers.find((w) => w.id === id);
@@ -132,6 +183,8 @@ export function SprintPage() {
   } = useAllWorkerTasks(workers);
 
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [sprintDialogOpen, setSprintDialogOpen] = useState(false);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
 
   const invalidateWorkerData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: workersKeys.all });
@@ -175,6 +228,8 @@ export function SprintPage() {
     },
     onSuccess: () => invalidateWorkerData(),
   });
+
+  const startAllMutation = useStartAllWorkers();
 
   const handleAssignIssue = useCallback(
     (issue: RepoIssue, workerId: string) => {
@@ -288,6 +343,71 @@ export function SprintPage() {
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
 
+  // Per-worker in_review count across ALL repos (cap is global).
+  const inReviewCountByWorker = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const task of allTasks) {
+      if (task.status === 'in_review') {
+        map.set(task.worker_id, (map.get(task.worker_id) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [allTasks]);
+
+  // First queued task per worker across ALL repos.
+  const firstQueuedByWorker = useMemo(() => {
+    const map = new Map<string, WorkerTask>();
+    const queued = allTasks
+      .filter((t) => t.status === 'queued')
+      .sort((a, b) => a.position - b.position);
+    for (const task of queued) {
+      if (!map.has(task.worker_id)) {
+        map.set(task.worker_id, task);
+      }
+    }
+    return map;
+  }, [allTasks]);
+
+  const { eligibleWorkers, ineligibleWorkers } = useMemo(() => {
+    const eligible: Array<{ worker: Worker; firstTask: WorkerTask }> = [];
+    const ineligible: Array<{ worker: Worker; reason: string }> = [];
+    for (const worker of workers) {
+      const inReview = inReviewCountByWorker.get(worker.id) ?? 0;
+      const firstTask = firstQueuedByWorker.get(worker.id);
+      if (worker.active_workspace_id) {
+        ineligible.push({ worker, reason: 'already_working' });
+      } else if (inReview >= IN_REVIEW_CAP) {
+        ineligible.push({ worker, reason: 'cap_reached' });
+      } else if (!firstTask) {
+        ineligible.push({ worker, reason: 'no_queue' });
+      } else {
+        eligible.push({ worker, firstTask });
+      }
+    }
+    return { eligibleWorkers: eligible, ineligibleWorkers: ineligible };
+  }, [workers, inReviewCountByWorker, firstQueuedByWorker]);
+
+  const handleStartSprint = async () => {
+    setSprintDialogOpen(false);
+    try {
+      const result = await startAllMutation.mutateAsync();
+      const started = result.results.filter((r) => r.started).length;
+      const total = result.results.length;
+      invalidateWorkerData();
+      if (started === 0) {
+        pushToast('info', t('sprint.toast.startAllNoneStarted'));
+      } else {
+        pushToast(
+          'success',
+          t('sprint.toast.startAllSuccess', { count: started, total })
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast('error', t('sprint.toast.startAllError', { message }));
+    }
+  };
+
   const syncMutation = useSyncRepoIssues(selectedRepoId);
   const isSyncing = syncMutation.isPending;
 
@@ -314,6 +434,9 @@ export function SprintPage() {
     !isIssuesError &&
     !isWorkersError &&
     !isTasksError;
+
+  const startSprintDisabled =
+    !showBoard || eligibleWorkers.length === 0 || startAllMutation.isPending;
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
@@ -351,8 +474,53 @@ export function SprintPage() {
             onClick={handleSync}
             disabled={!selectedRepoId || isSyncing}
           />
+          <span
+            title={
+              showBoard && eligibleWorkers.length === 0
+                ? t('sprint.startSprintDisabled')
+                : undefined
+            }
+          >
+            <PrimaryButton
+              variant="default"
+              value={t('sprint.startSprint')}
+              onClick={() => setSprintDialogOpen(true)}
+              disabled={startSprintDisabled}
+            />
+          </span>
         </div>
       </header>
+
+      {toasts.length > 0 && (
+        <div className="px-6 pt-4 flex flex-col gap-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              role="status"
+              className={
+                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
+                (toast.variant === 'success'
+                  ? 'border-success/30 bg-success/10 text-success'
+                  : toast.variant === 'error'
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-border/60 bg-secondary text-normal')
+              }
+            >
+              <span className="min-w-0 flex-1 leading-relaxed">
+                {toast.message}
+              </span>
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                aria-label={t('workers.toast.dismiss')}
+                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
@@ -507,6 +675,67 @@ export function SprintPage() {
           )
         )}
       </div>
+
+      <Dialog open={sprintDialogOpen} onOpenChange={setSprintDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>{t('sprint.startSprintDialog.title')}</DialogTitle>
+            <DialogDescription>
+              {t('sprint.startSprintDialog.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {eligibleWorkers.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-1">
+                  {t('sprint.startSprintDialog.willStart', {
+                    count: eligibleWorkers.length,
+                  })}
+                </p>
+                <ul className="space-y-1">
+                  {eligibleWorkers.map(({ worker, firstTask }) => (
+                    <li key={worker.id} className="text-sm text-normal">
+                      {worker.emoji} {worker.name}{' '}
+                      <span className="text-low">→</span> {firstTask.title}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {ineligibleWorkers.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-low mb-1">
+                  {t('sprint.startSprintDialog.skipped')}
+                </p>
+                <ul className="space-y-1">
+                  {ineligibleWorkers.map(({ worker, reason }) => (
+                    <li key={worker.id} className="text-sm text-low">
+                      {worker.emoji} {worker.name} —{' '}
+                      {t(`sprint.startSprintDialog.reason.${reason}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSprintDialogOpen(false)}
+            >
+              {t('sprint.startSprintDialog.cancel')}
+            </Button>
+            <Button
+              onClick={handleStartSprint}
+              disabled={
+                startAllMutation.isPending || eligibleWorkers.length === 0
+              }
+            >
+              {t('sprint.startSprintDialog.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

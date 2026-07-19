@@ -14,13 +14,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@vibe/ui/components/KeyboardDialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@vibe/ui/components/Select';
 import { defineModal } from '@/shared/lib/modals';
-import { repoApi } from '@/shared/lib/api';
+import { workersApi } from '@/shared/lib/api';
+import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
-import { setCreateModeSeedState } from '@/features/create-mode/model/createModeSeedStore';
-import { buildWorkspaceCreateInitialState } from '@/shared/lib/workspaceCreateState';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 export interface AssignToAgentDialogProps {
   issue: RepoIssue;
@@ -33,66 +38,75 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
   ({ issue, repoId }) => {
     const modal = useModal();
     const { t } = useTranslation('common');
-    const appNavigation = useAppNavigation();
 
     const [prompt, setPrompt] = useState(() => buildAssignToAgentPrompt(issue));
-    const [loadingRepo, setLoadingRepo] = useState(true);
-    const [repoLoadError, setRepoLoadError] = useState(false);
-    const [preferredRepos, setPreferredRepos] = useState<
-      Array<{ repo_id: string; target_branch: string | null }>
-    >([]);
+    const [workers, setWorkers] = useState<WorkerResponse[]>([]);
+    const [loadingWorkers, setLoadingWorkers] = useState(true);
+    const [workerLoadError, setWorkerLoadError] = useState(false);
+    const [selectedWorkerId, setSelectedWorkerId] = useState<string>('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     useEffect(() => {
       let cancelled = false;
-      setLoadingRepo(true);
-      setRepoLoadError(false);
-      repoApi
-        .getById(repoId)
-        .then((repo) => {
+      setLoadingWorkers(true);
+      setWorkerLoadError(false);
+      workersApi
+        .list()
+        .then((data) => {
           if (cancelled) return;
-          setPreferredRepos([
-            {
-              repo_id: repo.id,
-              target_branch: repo.default_target_branch ?? null,
-            },
-          ]);
+          setWorkers(data);
+          if (data.length > 0) setSelectedWorkerId(data[0].id);
         })
         .catch(() => {
           if (cancelled) return;
-          setRepoLoadError(true);
+          setWorkerLoadError(true);
         })
         .finally(() => {
           if (cancelled) return;
-          setLoadingRepo(false);
+          setLoadingWorkers(false);
         });
-
       return () => {
         cancelled = true;
       };
-    }, [repoId]);
+    }, []);
 
     const handleCancel = () => {
       modal.resolve('canceled' as AssignToAgentResult);
       modal.hide();
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
       const trimmed = prompt.trim();
-      if (!trimmed) return;
-
-      const createState = buildWorkspaceCreateInitialState({
-        prompt: trimmed,
-        defaults: preferredRepos.length > 0 ? { preferredRepos } : null,
-      });
-      setCreateModeSeedState(createState);
-      appNavigation.goToWorkspacesCreate();
-      modal.resolve('created' as AssignToAgentResult);
-      modal.hide();
+      if (!trimmed || !selectedWorkerId) return;
+      setIsSubmitting(true);
+      setSubmitError(null);
+      try {
+        await workersApi.createTask(selectedWorkerId, {
+          repo_id: repoId,
+          title: `#${issue.number} ${issue.title}`,
+          prompt: trimmed,
+          issue_number: issue.number,
+        });
+        modal.resolve('created' as AssignToAgentResult);
+        modal.hide();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setSubmitError(message);
+        setIsSubmitting(false);
+      }
     };
 
     const handleOpenChange = (open: boolean) => {
       if (!open) handleCancel();
     };
+
+    const canConfirm =
+      !loadingWorkers &&
+      !isSubmitting &&
+      !!selectedWorkerId &&
+      !!prompt.trim() &&
+      workers.length > 0;
 
     return (
       <Dialog open={modal.visible} onOpenChange={handleOpenChange}>
@@ -107,6 +121,40 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
+              <Label htmlFor="assign-worker-select">
+                {t('issues.assignDialog.workerLabel')}
+              </Label>
+              {loadingWorkers ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('issues.assignDialog.loadingWorkers')}
+                </p>
+              ) : workerLoadError || workers.length === 0 ? (
+                <Alert variant="destructive" className="mt-1">
+                  {workerLoadError
+                    ? t('issues.assignDialog.workerLoadError')
+                    : t('issues.assignDialog.noWorkers')}
+                </Alert>
+              ) : (
+                <Select
+                  value={selectedWorkerId}
+                  onValueChange={setSelectedWorkerId}
+                >
+                  <SelectTrigger id="assign-worker-select" className="mt-1">
+                    <SelectValue
+                      placeholder={t('issues.assignDialog.workerPlaceholder')}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workers.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.emoji} {w.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
               <Label htmlFor="assign-to-agent-prompt">
                 {t('issues.assignDialog.promptLabel')}
               </Label>
@@ -119,14 +167,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                 autoFocus
               />
             </div>
-            {loadingRepo && (
-              <p className="text-xs text-muted-foreground">
-                {t('issues.assignDialog.loadingRepo')}
-              </p>
-            )}
-            {repoLoadError && (
+            {submitError && (
               <Alert variant="destructive">
-                {t('issues.assignDialog.repoError')}
+                {t('issues.assignDialog.enqueuedError')}
               </Alert>
             )}
           </div>
@@ -134,11 +177,10 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             <Button variant="outline" onClick={handleCancel}>
               {t('issues.assignDialog.cancel')}
             </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={loadingRepo || !prompt.trim()}
-            >
-              {loadingRepo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleConfirm} disabled={!canConfirm}>
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {t('issues.assignDialog.confirm')}
             </Button>
           </DialogFooter>
