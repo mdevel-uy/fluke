@@ -105,6 +105,8 @@ import {
   GitHubRepoSummary,
   CloneRepoRequest,
   CloneRepoResponse,
+  WorkerResponse,
+  WorkerTaskResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -1730,6 +1732,60 @@ export const githubApi = {
       body: JSON.stringify(data),
     });
     return handleApiResponse<CloneRepoResponse>(response);
+  },
+};
+
+// Workers API
+export interface CreateWorkerRequest {
+  name: string;
+  emoji: string;
+  soul: string;
+}
+
+export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
+
+export const workersApi = {
+  list: async (): Promise<WorkerResponse[]> => {
+    const response = await makeRequest('/api/workers');
+    return handleApiResponse<WorkerResponse[]>(response);
+  },
+
+  create: async (data: CreateWorkerRequest): Promise<WorkerResponse> => {
+    const response = await makeRequest('/api/workers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  update: async (
+    workerId: string,
+    data: UpdateWorkerRequest
+  ): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  delete: async (workerId: string): Promise<void> => {
+    const response = await makeRequest(`/api/workers/${workerId}`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
+    const response = await makeRequest(`/api/workers/${workerId}/tasks`);
+    return handleApiResponse<WorkerTaskResponse[]>(response);
+  },
+
+  startNext: async (workerId: string): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/start`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 };
 

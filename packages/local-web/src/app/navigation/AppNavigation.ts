@@ -51,6 +51,8 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       const repoId = params.get('repo');
       return { kind: 'issues', ...(repoId ? { repoId } : {}) };
     }
+    case '/_app/workers':
+      return { kind: 'workers' };
     case '/_app/hosts/$hostId/workspaces': {
       const hostId = getPathParam(routeParams, 'hostId');
       return hostId ? { kind: 'workspaces', hostId } : null;
@@ -245,6 +247,8 @@ function destinationToLocalTarget(
         to: '/issues',
         search: destination.repoId ? { repo: destination.repoId } : {},
       } as const;
+    case 'workers':
+      return { to: '/workers' } as const;
     case 'project':
       return {
         to: '/projects/$projectId',
@@ -355,6 +359,7 @@ export function createLocalAppNavigation(): AppNavigation {
     goToExport: (transition) => navigateTo({ kind: 'export' }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
+    goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: 'project', projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>

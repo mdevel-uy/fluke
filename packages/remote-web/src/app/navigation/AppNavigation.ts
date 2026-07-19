@@ -170,6 +170,9 @@ function destinationToRemoteTarget(
     case "issues":
       // No dedicated issues route on the remote web; fall back to root.
       return { to: "/" } as const;
+    case "workers":
+      // No dedicated workers route on the remote web; fall back to root.
+      return { to: "/" } as const;
     case "project":
       return {
         to: "/projects/$projectId",
@@ -251,6 +254,7 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
         { kind: "issues", ...(repoId ? { repoId } : {}) },
         transition,
       ),
+    goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>
@@ -328,6 +332,7 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
         { kind: "issues", ...(repoId ? { repoId } : {}) },
         transition,
       ),
+    goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>

@@ -12,6 +12,7 @@ import {
   PlusIcon,
   KanbanIcon,
   SpinnerIcon,
+  UsersIcon,
   WarningCircleIcon,
   type Icon,
 } from '@phosphor-icons/react';
@@ -45,14 +46,17 @@ interface AppBarProps {
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
   onIssuesClick?: () => void;
+  onWorkersClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showIssuesButton?: boolean;
+  showWorkersButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
   isIssuesActive?: boolean;
+  isWorkersActive?: boolean;
   isExportActive?: boolean;
   activeProjectId: string | null;
   isSignedIn?: boolean;
@@ -196,14 +200,17 @@ export function AppBar({
   onExportClick,
   onWorkspacesClick,
   onIssuesClick,
+  onWorkersClick,
   onHostClick,
   showWorkspacesButton = true,
   showIssuesButton = true,
+  showWorkersButton = true,
   onProjectClick,
   onProjectsDragEnd,
   isSavingProjectOrder,
   isWorkspacesActive,
   isIssuesActive = false,
+  isWorkersActive = false,
   isExportActive = false,
   activeProjectId,
   isSignedIn,
@@ -220,7 +227,7 @@ export function AppBar({
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
-  if (showWorkspacesButton || showIssuesButton) {
+  if (showWorkspacesButton || showIssuesButton || showWorkersButton) {
     const localItems: AppBarSectionItem[] = [];
     if (showWorkspacesButton) {
       localItems.push({
@@ -240,6 +247,16 @@ export function AppBar({
         icon: WarningCircleIcon,
         isActive: isIssuesActive,
         onClick: onIssuesClick,
+      });
+    }
+    if (showWorkersButton && onWorkersClick) {
+      localItems.push({
+        key: 'local-workers',
+        kind: 'icon-button',
+        label: t('appBar.workers'),
+        icon: UsersIcon,
+        isActive: isWorkersActive,
+        onClick: onWorkersClick,
       });
     }
     if (localItems.length > 0) {

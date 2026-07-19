@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "問題",
+    "workers": "工作者",
     "kanban": {
       "tooltip": "登入以查看專案",
       "title": "看板",
@@ -568,6 +569,64 @@
       "confirm": "建立工作區",
       "loadingRepo": "正在載入儲存庫...",
       "repoError": "無法載入儲存庫。工作區將在未預選儲存庫的情況下啟動。"
+    }
+  },
+  "workers": {
+    "title": "工作者",
+    "countLabel": "{{count}} 位工作者",
+    "countLabel_other": "{{count}} 位工作者",
+    "newWorker": "新增工作者",
+    "loading": "正在載入工作者...",
+    "loadError": "載入工作者失敗。",
+    "emptyTitle": "尚無工作者",
+    "emptyDescription": "建立一位工作者以開始指派任務。",
+    "confirmDelete": "刪除工作者「{{worker}}」？此操作無法復原。",
+    "templates": {
+      "backend": "後端專家",
+      "frontend": "前端專家",
+      "generalist": "通才"
+    },
+    "card": {
+      "statusWorking": "工作中",
+      "statusIdle": "閒置",
+      "currentTaskLink": "開啟目前工作區",
+      "noCurrentTask": "無進行中的任務",
+      "menuLabel": "工作者動作",
+      "edit": "編輯",
+      "delete": "刪除",
+      "queuedCount": "{{count}} 個排隊",
+      "queuedCount_other": "{{count}} 個排隊",
+      "completedCount": "{{count}} 個完成",
+      "completedCount_other": "{{count}} 個完成",
+      "startNext": "開始下一個",
+      "expandQueue": "顯示佇列",
+      "collapseQueue": "隱藏佇列",
+      "queueLoading": "正在載入佇列...",
+      "queueError": "載入佇列失敗。",
+      "queueEmpty": "佇列為空。"
+    },
+    "form": {
+      "newTitle": "新增工作者",
+      "editTitle": "編輯工作者",
+      "description": "為工作者指定名稱、表情符號與靈魂。靈魂是引導其工作的提示詞。",
+      "nameLabel": "名稱",
+      "namePlaceholder": "例如：Backend Bee",
+      "emojiLabel": "表情符號",
+      "templatesLabel": "從範本開始",
+      "soulLabel": "靈魂 (Soul)",
+      "soulPlaceholder": "描述領域、標準與 Definition of Done...",
+      "cancel": "取消",
+      "saveNew": "建立工作者",
+      "saveEdit": "儲存變更"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} 已開始「{{title}}」。",
+      "startConflict": "{{worker}} 沒有排隊任務或已在工作中。",
+      "startError": "啟動 {{worker}} 失敗：{{message}}",
+      "createSuccess": "工作者已建立。",
+      "updateSuccess": "工作者已更新。",
+      "deleteSuccess": "{{worker}} 已刪除。",
+      "dismiss": "關閉"
     }
   }
 }

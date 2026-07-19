@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { XIcon, LayoutIcon, WarningCircleIcon } from '@phosphor-icons/react';
+import {
+  XIcon,
+  LayoutIcon,
+  UsersIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
@@ -21,7 +26,9 @@ import {
   getProjectDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
+  isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
+import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
@@ -38,6 +45,7 @@ import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSideba
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
   const currentDestination = useCurrentAppDestination();
+  const { t } = useTranslation('common');
   const isMobile = useIsMobile();
   const mobileFontScale = useUiPreferencesStore((s) => s.mobileFontScale);
   const isLeftSidebarVisible = useUiPreferencesStore(
@@ -147,6 +155,7 @@ export function SharedAppLayout() {
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
+  const isWorkersActive = isWorkersDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
     !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
   const activeProjectId = projectDestination?.projectId ?? null;
@@ -171,6 +180,10 @@ export function SharedAppLayout() {
 
   const handleIssuesClick = useCallback(() => {
     appNavigation.goToIssues();
+  }, [appNavigation]);
+
+  const handleWorkersClick = useCallback(() => {
+    appNavigation.goToWorkers();
   }, [appNavigation]);
 
   const handleProjectClick = useCallback(
@@ -246,11 +259,13 @@ export function SharedAppLayout() {
               onCreateProject={handleCreateProject}
               onWorkspacesClick={handleWorkspacesClick}
               onIssuesClick={handleIssuesClick}
+              onWorkersClick={handleWorkersClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
               isIssuesActive={isIssuesActive}
+              isWorkersActive={isWorkersActive}
               activeProjectId={activeProjectId}
               isSignedIn
               isLoadingProjects={false}
@@ -345,6 +360,18 @@ export function SharedAppLayout() {
             >
               <WarningCircleIcon className="h-4 w-4" />
               Issues
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                handleWorkersClick();
+                setIsDrawerOpen(false);
+              }}
+              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
+            >
+              <UsersIcon className="h-4 w-4" />
+              {t('appBar.workers')}
             </button>
           </div>
         </MobileDrawer>

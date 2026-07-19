@@ -524,6 +524,7 @@
   },
   "appBar": {
     "issues": "Issues",
+    "workers": "Workers",
     "kanban": {
       "tooltip": "Inicia sesión para ver proyectos",
       "title": "Tableros Kanban",
@@ -568,6 +569,64 @@
       "confirm": "Crear workspace",
       "loadingRepo": "Cargando repositorio...",
       "repoError": "No se pudo cargar el repositorio. El workspace se abrirá sin un repositorio preseleccionado."
+    }
+  },
+  "workers": {
+    "title": "Workers",
+    "countLabel": "{{count}} worker",
+    "countLabel_other": "{{count}} workers",
+    "newWorker": "Nuevo worker",
+    "loading": "Cargando workers...",
+    "loadError": "No se pudieron cargar los workers.",
+    "emptyTitle": "Todavía no hay workers",
+    "emptyDescription": "Creá un worker para empezar a asignarle tareas.",
+    "confirmDelete": "¿Eliminar el worker \"{{worker}}\"? Esta acción no se puede deshacer.",
+    "templates": {
+      "backend": "Especialista Backend",
+      "frontend": "Especialista Frontend",
+      "generalist": "Generalista"
+    },
+    "card": {
+      "statusWorking": "Trabajando",
+      "statusIdle": "En espera",
+      "currentTaskLink": "Abrir workspace actual",
+      "noCurrentTask": "Sin tarea en curso",
+      "menuLabel": "Acciones del worker",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "queuedCount": "{{count}} en cola",
+      "queuedCount_other": "{{count}} en cola",
+      "completedCount": "{{count}} completada",
+      "completedCount_other": "{{count}} completadas",
+      "startNext": "Iniciar próxima",
+      "expandQueue": "Ver cola",
+      "collapseQueue": "Ocultar cola",
+      "queueLoading": "Cargando cola...",
+      "queueError": "No se pudo cargar la cola.",
+      "queueEmpty": "La cola está vacía."
+    },
+    "form": {
+      "newTitle": "Nuevo worker",
+      "editTitle": "Editar worker",
+      "description": "Dale un nombre, un emoji y un alma. El alma es el prompt que guía cómo trabaja.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "por ej. Abeja Backend",
+      "emojiLabel": "Emoji",
+      "templatesLabel": "Arrancar desde una plantilla",
+      "soulLabel": "Alma (soul)",
+      "soulPlaceholder": "Describí territorio, estándares y Definition of Done...",
+      "cancel": "Cancelar",
+      "saveNew": "Crear worker",
+      "saveEdit": "Guardar cambios"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} arrancó con \"{{title}}\".",
+      "startConflict": "{{worker}} no tiene tareas en cola o ya hay una en curso.",
+      "startError": "No se pudo iniciar {{worker}}: {{message}}",
+      "createSuccess": "Worker creado.",
+      "updateSuccess": "Worker actualizado.",
+      "deleteSuccess": "{{worker}} eliminado.",
+      "dismiss": "Cerrar"
     }
   }
 }
