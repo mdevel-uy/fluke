@@ -19,7 +19,7 @@ import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
-import { sprintKeys } from '@/features/sprint/model/sprintKeys';
+import { workersKeys } from '@/features/workers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
@@ -108,13 +108,8 @@ export function SprintPage() {
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
 
   const invalidateWorkerData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: sprintKeys.workers });
-    for (const worker of workers) {
-      queryClient.invalidateQueries({
-        queryKey: sprintKeys.tasksByWorker(worker.id),
-      });
-    }
-  }, [queryClient, workers]);
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
