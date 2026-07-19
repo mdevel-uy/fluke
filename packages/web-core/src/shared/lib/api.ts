@@ -1511,6 +1511,17 @@ export const repoIssuesApi = {
     );
     return handleApiResponse<RepoIssue[]>(response);
   },
+  setPriority: async (
+    repoId: string,
+    issueNumber: number,
+    priority: 'urgent' | 'high' | 'medium' | 'low' | null
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/priority`,
+      { method: 'PUT', body: JSON.stringify({ priority }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
 };
 
 // Scratch API
