@@ -3,7 +3,8 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { SpinnerIcon } from '@phosphor-icons/react';
+import { ArrowClockwiseIcon, SpinnerIcon } from '@phosphor-icons/react';
+import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import {
   Select,
   SelectContent,
@@ -14,7 +15,10 @@ import {
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi, workersApi } from '@/shared/lib/api';
-import { useRepoIssues } from '@/features/issues/model/useRepoIssues';
+import {
+  useRepoIssues,
+  useSyncRepoIssues,
+} from '@/features/issues';
 import type { RepoIssue } from '@/features/issues';
 import {
   useAllWorkerTasks,
@@ -283,6 +287,14 @@ export function SprintPage() {
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
 
+  const syncMutation = useSyncRepoIssues(selectedRepoId);
+  const isSyncing = syncMutation.isPending;
+
+  const handleSync = () => {
+    if (!selectedRepoId || isSyncing) return;
+    syncMutation.mutate();
+  };
+
   const handleRepoChange = (repoId: string) => {
     setStoredRepoId(repoId);
     appNavigation.goToSprint(repoId);
@@ -331,6 +343,13 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
+          <PrimaryButton
+            variant="tertiary"
+            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+            onClick={handleSync}
+            disabled={!selectedRepoId || isSyncing}
+          />
         </div>
       </header>
 

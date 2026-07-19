@@ -640,6 +640,8 @@
     "selectRepoPrompt": "請選擇一個儲存庫以查看其衝刺看板。",
     "loading": "正在載入衝刺...",
     "loadError": "載入衝刺看板失敗。",
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待辦",
       "queued": "排隊中",

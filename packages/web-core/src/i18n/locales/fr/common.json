@@ -640,6 +640,8 @@
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
     "loading": "Chargement du sprint...",
     "loadError": "Échec du chargement du tableau de sprint.",
+    "sync": "Synchroniser",
+    "syncing": "Synchronisation...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En file",

@@ -640,6 +640,8 @@
     "selectRepoPrompt": "Select a repository to see its sprint board.",
     "loading": "Loading sprint...",
     "loadError": "Failed to load the sprint board.",
+    "sync": "Sync",
+    "syncing": "Syncing...",
     "columns": {
       "backlog": "Backlog",
       "queued": "Queued",
