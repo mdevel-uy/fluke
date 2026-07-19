@@ -618,6 +618,8 @@
       "templatesLabel": "从模板开始",
       "soulLabel": "灵魂 (Soul)",
       "soulPlaceholder": "描述领域、标准与 Definition of Done...",
+      "systemInstructionsTitle": "系统指令",
+      "systemInstructionsReadOnly": "(只读 — 适用于所有工作者)",
       "cancel": "取消",
       "saveNew": "创建工作者",
       "saveEdit": "保存更改"
@@ -640,6 +642,8 @@
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
     "loading": "正在加载冲刺...",
     "loadError": "加载冲刺看板失败。",
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待办",
       "queued": "排队中",

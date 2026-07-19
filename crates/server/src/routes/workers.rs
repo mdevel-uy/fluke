@@ -129,10 +129,7 @@ pub struct UpdateWorkerTaskRequest {
     pub status: Option<String>,
 }
 
-async fn to_response(
-    pool: &sqlx::SqlitePool,
-    worker: Worker,
-) -> Result<WorkerResponse, ApiError> {
+async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {
     let active_workspace_id = Worker::active_workspace_id(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
@@ -218,8 +215,14 @@ pub async fn update_worker(
         pool,
         worker_id,
         &UpdateWorker {
-            name: payload.name.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
-            emoji: payload.emoji.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            name: payload
+                .name
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+            emoji: payload
+                .emoji
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
             soul: payload.soul,
         },
     )
@@ -269,10 +272,7 @@ pub async fn create_worker_task(
 
     // Validate the referenced repo exists (surfaced as 400 rather than
     // a FK violation).
-    deployment
-        .repo()
-        .get_by_id(pool, payload.repo_id)
-        .await?;
+    deployment.repo().get_by_id(pool, payload.repo_id).await?;
 
     let title = payload.title.trim();
     if title.is_empty() {
@@ -321,13 +321,8 @@ pub async fn update_worker_task(
         return Err(ApiError::BadRequest(format!("Invalid status: {status}")));
     }
 
-    let updated = WorkerTask::update(
-        pool,
-        task_id,
-        payload.position,
-        payload.status.as_deref(),
-    )
-    .await?;
+    let updated =
+        WorkerTask::update(pool, task_id, payload.position, payload.status.as_deref()).await?;
 
     let response = worker_task_to_response(pool, updated).await?;
     Ok(ResponseJson(ApiResponse::success(response)))

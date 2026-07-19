@@ -618,6 +618,8 @@
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
       "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "systemInstructionsTitle": "Instructions système",
+      "systemInstructionsReadOnly": "(lecture seule — appliquées à tous les workers)",
       "cancel": "Annuler",
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer"
@@ -640,6 +642,8 @@
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
     "loading": "Chargement du sprint...",
     "loadError": "Échec du chargement du tableau de sprint.",
+    "sync": "Synchroniser",
+    "syncing": "Synchronisation...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En file",

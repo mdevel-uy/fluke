@@ -19,6 +19,7 @@ import {
   useSyncRepoIssues,
 } from '@/features/issues/model/useRepoIssues';
 import type { RepoIssue } from '@/features/issues/types';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
 
@@ -41,17 +42,33 @@ export function IssuesPage() {
   const appNavigation = useAppNavigation();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
-  // Auto-select the first repo when the URL has none and repos are loaded.
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToIssues(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToIssues(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -60,8 +77,11 @@ export function IssuesPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -80,6 +100,7 @@ export function IssuesPage() {
   };
 
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToIssues(repoId);
   };
 

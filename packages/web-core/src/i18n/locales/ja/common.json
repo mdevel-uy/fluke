@@ -618,6 +618,8 @@
       "templatesLabel": "テンプレートから始める",
       "soulLabel": "ソウル",
       "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
+      "systemInstructionsTitle": "システム指示",
+      "systemInstructionsReadOnly": "(読み取り専用 — 全ワーカーに適用)",
       "cancel": "キャンセル",
       "saveNew": "ワーカーを作成",
       "saveEdit": "変更を保存"
@@ -640,6 +642,8 @@
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
     "loading": "スプリントを読み込み中...",
     "loadError": "スプリントボードの読み込みに失敗しました。",
+    "sync": "同期",
+    "syncing": "同期中...",
     "columns": {
       "backlog": "バックログ",
       "queued": "キュー",

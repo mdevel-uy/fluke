@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
+import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import {
   Select,
   SelectContent,
@@ -13,13 +16,16 @@ import {
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi, workersApi } from '@/shared/lib/api';
-import { useRepoIssues } from '@/features/issues/model/useRepoIssues';
+import {
+  useRepoIssues,
+  useSyncRepoIssues,
+} from '@/features/issues';
 import type { RepoIssue } from '@/features/issues';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
-import { sprintKeys } from '@/features/sprint/model/sprintKeys';
+import { workersKeys } from '@/features/workers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
@@ -66,16 +72,33 @@ export function SprintPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToSprint(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToSprint(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -84,8 +107,11 @@ export function SprintPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -108,13 +134,8 @@ export function SprintPage() {
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
 
   const invalidateWorkerData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: sprintKeys.workers });
-    for (const worker of workers) {
-      queryClient.invalidateQueries({
-        queryKey: sprintKeys.tasksByWorker(worker.id),
-      });
-    }
-  }, [queryClient, workers]);
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
@@ -267,7 +288,16 @@ export function SprintPage() {
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
 
+  const syncMutation = useSyncRepoIssues(selectedRepoId);
+  const isSyncing = syncMutation.isPending;
+
+  const handleSync = () => {
+    if (!selectedRepoId || isSyncing) return;
+    syncMutation.mutate();
+  };
+
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToSprint(repoId);
   };
 
@@ -314,6 +344,13 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
+          <PrimaryButton
+            variant="tertiary"
+            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+            onClick={handleSync}
+            disabled={!selectedRepoId || isSyncing}
+          />
         </div>
       </header>
 

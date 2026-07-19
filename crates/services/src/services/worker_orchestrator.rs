@@ -432,11 +432,22 @@ fn worker_workspace_name(worker: &Worker, task: &WorkerTask) -> String {
 }
 
 fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str) -> String {
+    let base = crate::services::base_instructions::effective_base_instructions();
     let soul = soul.trim();
     let task_prompt = task_prompt.trim();
     let final_instruction =
         WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch);
-    format!("{soul}\n\n---\n\n{task_prompt}\n\n---\n\n{final_instruction}")
+    format!(
+        "[SYSTEM BASE INSTRUCTIONS — these take precedence over the worker soul in any conflict]\n\n\
+         {base}\n\n\
+         ---\n\n\
+         [WORKER SOUL]\n\n\
+         {soul}\n\n\
+         ---\n\n\
+         {task_prompt}\n\n\
+         ---\n\n\
+         {final_instruction}"
+    )
 }
 
 #[cfg(test)]
@@ -450,11 +461,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builds_prompt_with_soul_task_and_final_instruction() {
+    fn builds_prompt_with_base_instructions_soul_task_and_final_instruction() {
         let prompt = build_worker_prompt("  soul  ", "  do it  ", "main");
-        assert!(prompt.starts_with("soul\n\n---\n\ndo it\n\n---\n\n"));
+        // Base instructions come first
+        assert!(prompt.starts_with("[SYSTEM BASE INSTRUCTIONS"));
+        // All sections are present
+        assert!(prompt.contains("[WORKER SOUL]"));
+        assert!(prompt.contains("soul"));
+        assert!(prompt.contains("do it"));
         assert!(prompt.contains("`main`"));
         assert!(prompt.contains("gh pr create"));
+        // Base instructions precede the soul
+        let base_pos = prompt.find("[SYSTEM BASE INSTRUCTIONS").unwrap();
+        let soul_pos = prompt.find("[WORKER SOUL]").unwrap();
+        let task_pos = prompt.find("do it").unwrap();
+        assert!(base_pos < soul_pos);
+        assert!(soul_pos < task_pos);
     }
 
     async fn setup_test_db() -> DBService {
