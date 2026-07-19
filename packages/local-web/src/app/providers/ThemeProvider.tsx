@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ThemeMode } from 'shared/types';
 import { ThemeProviderContext } from '@/shared/hooks/useTheme';
 
+export const THEME_STORAGE_KEY = 'vk-theme';
+
 type ThemeProviderProps = {
   children: React.ReactNode;
   initialTheme?: ThemeMode;
@@ -14,7 +16,7 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeMode>(initialTheme);
 
-  // Update theme when initialTheme changes
+  // Update theme when initialTheme changes (from backend config)
   useEffect(() => {
     setThemeState(initialTheme);
   }, [initialTheme]);
@@ -39,6 +41,12 @@ export function ThemeProvider({
 
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
+    // Cache in localStorage for flash prevention on next load
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch {
+      // localStorage may be unavailable
+    }
   };
 
   const value = {

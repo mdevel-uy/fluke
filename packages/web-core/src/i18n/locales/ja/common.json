@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "ライトテーマ",
+      "dark": "ダークテーマ",
+      "system": "システムテーマ"
+    }
+  },
   "appBar": {
     "issues": "課題",
     "workers": "ワーカー",
@@ -582,6 +589,11 @@
     "emptyTitle": "まだワーカーはいません",
     "emptyDescription": "ワーカーを作成してタスクを割り当てましょう。",
     "confirmDelete": "ワーカー「{{worker}}」を削除しますか？この操作は元に戻せません。",
+    "stats": {
+      "working": "作業中",
+      "queued": "待機中",
+      "completed": "完了"
+    },
     "templates": {
       "backend": "バックエンドスペシャリスト",
       "frontend": "フロントエンドスペシャリスト",

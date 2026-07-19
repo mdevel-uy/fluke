@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "Thème clair",
+      "dark": "Thème sombre",
+      "system": "Thème système"
+    }
+  },
   "appBar": {
     "issues": "Tickets",
     "workers": "Workers",
@@ -582,6 +589,11 @@
     "emptyTitle": "Aucun worker pour l'instant",
     "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
     "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "stats": {
+      "working": "En cours",
+      "queued": "En file d'attente",
+      "completed": "Complétés"
+    },
     "templates": {
       "backend": "Spécialiste Backend",
       "frontend": "Spécialiste Frontend",

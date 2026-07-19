@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "Tema claro",
+      "dark": "Tema oscuro",
+      "system": "Tema del sistema"
+    }
+  },
   "appBar": {
     "issues": "Issues",
     "workers": "Workers",
@@ -582,6 +589,11 @@
     "emptyTitle": "Todavía no hay workers",
     "emptyDescription": "Creá un worker para empezar a asignarle tareas.",
     "confirmDelete": "¿Eliminar el worker \"{{worker}}\"? Esta acción no se puede deshacer.",
+    "stats": {
+      "working": "Trabajando",
+      "queued": "En cola",
+      "completed": "Completadas"
+    },
     "templates": {
       "backend": "Especialista Backend",
       "frontend": "Especialista Frontend",

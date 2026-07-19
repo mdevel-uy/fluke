@@ -18,6 +18,23 @@
 <body>
     <div id="root"></div>
     <script>
+      // Apply theme class before React mounts to prevent flash of wrong theme
+      (function () {
+        try {
+          var stored = localStorage.getItem('vk-theme');
+          var theme = stored || 'SYSTEM';
+          if (theme === 'DARK') {
+            document.documentElement.classList.add('dark');
+          } else if (theme === 'LIGHT') {
+            document.documentElement.classList.add('light');
+          } else {
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // Polyfill crypto.randomUUID for non-secure contexts (e.g. HTTP access
       // via LAN IP). Required because @tanstack/db calls crypto.randomUUID()
       // directly without a fallback.

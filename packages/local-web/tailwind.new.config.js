@@ -115,6 +115,13 @@ module.exports = {
         'brand-secondary': "hsl(var(--brand-secondary))",
         error: "hsl(var(--error))",
         success: "hsl(var(--success))",
+        'success-foreground': "hsl(var(--success-foreground))",
+        warning: "hsl(var(--warning))",
+        'warning-foreground': "hsl(var(--warning-foreground))",
+        info: "hsl(var(--info))",
+        'info-foreground': "hsl(var(--info-foreground))",
+        neutral: "hsl(var(--neutral))",
+        'neutral-foreground': "hsl(var(--neutral-foreground))",
         merged: "hsl(var(--merged))",
         // Text on accent
         'on-brand': "hsl(var(--text-on-brand))",

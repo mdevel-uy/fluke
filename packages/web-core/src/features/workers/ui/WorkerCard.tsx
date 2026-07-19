@@ -19,6 +19,28 @@ import {
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { WorkerTaskList } from './WorkerTaskList';
 
+function WorkerAvatar({
+  emoji,
+  isWorking,
+}: {
+  emoji: string;
+  isWorking: boolean;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary text-xl leading-none select-none color-emoji">
+        {emoji}
+      </div>
+      <span
+        className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-primary ${
+          isWorking ? 'bg-success' : 'bg-low/50'
+        }`}
+        aria-hidden
+      />
+    </div>
+  );
+}
+
 interface WorkerCardProps {
   worker: WorkerResponse;
   isStarting: boolean;
@@ -47,18 +69,16 @@ export function WorkerCard({
   };
 
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-secondary p-base gap-base">
+    <div className="flex flex-col rounded-lg border border-border bg-secondary p-base gap-base transition-shadow hover:shadow-sm">
       <div className="flex items-start gap-base">
-        <div className="text-4xl leading-none select-none" aria-hidden>
-          {worker.emoji}
-        </div>
+        <WorkerAvatar emoji={worker.emoji} isWorking={isWorking} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-high truncate">
               {worker.name}
             </h3>
             <Badge
-              variant={isWorking ? 'default' : 'secondary'}
+              variant={isWorking ? 'success' : 'neutral'}
               className="shrink-0"
             >
               {isWorking
