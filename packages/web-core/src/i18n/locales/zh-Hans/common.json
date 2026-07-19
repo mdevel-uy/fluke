@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "浅色主题",
+      "dark": "深色主题",
+      "system": "系统主题"
+    }
+  },
   "appBar": {
     "issues": "问题",
     "workers": "工作者",
@@ -585,7 +592,12 @@
     "loadError": "加载工作者失败。",
     "emptyTitle": "尚无工作者",
     "emptyDescription": "创建一个工作者以开始分配任务。",
-    "confirmDelete": "删除工作者“{{worker}}”？此操作不可撤销。",
+    "confirmDelete": "删除工作者 \"{{worker}}\"？此操作不可撤销。",
+    "stats": {
+      "working": "工作中",
+      "queued": "排队中",
+      "completed": "已完成"
+    },
     "templates": {
       "backend": "后端专家",
       "frontend": "前端专家",

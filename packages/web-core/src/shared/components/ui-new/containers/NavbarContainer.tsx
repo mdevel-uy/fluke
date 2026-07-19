@@ -1,5 +1,11 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  SunIcon,
+  MoonIcon,
+  DesktopIcon,
+} from '@phosphor-icons/react';
+import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
@@ -17,6 +23,7 @@ import { useShape } from '@/shared/integrations/electric/hooks';
 import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
 import { RemoteIssueLink } from './RemoteIssueLink';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
+import { useTheme } from '@/shared/hooks/useTheme';
 import { NavbarActionGroups } from '@/shared/actions';
 import {
   NavbarDivider,
@@ -38,6 +45,12 @@ import { getProjectDestination } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
+
+const THEME_CYCLE: ThemeMode[] = [
+  ThemeMode.LIGHT,
+  ThemeMode.DARK,
+  ThemeMode.SYSTEM,
+];
 
 /**
  * Check if a NavbarItem is a divider
@@ -124,8 +137,37 @@ export function NavbarContainer({
   const { workspace: selectedWorkspace, isCreateMode } = useWorkspaceContext();
   const { workspaces } = useUserContext();
   const syncErrorContext = useSyncErrorContext();
-  const { remoteAuthDegraded } = useUserSystem();
+  const { remoteAuthDegraded, updateAndSaveConfig } = useUserSystem();
+  const { theme, setTheme } = useTheme();
   const appNavigation = useAppNavigation();
+
+  const handleThemeToggle = useCallback(() => {
+    const currentIndex = THEME_CYCLE.indexOf(theme);
+    const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
+    setTheme(nextTheme);
+    updateAndSaveConfig({ theme: nextTheme }).catch(() => {});
+  }, [theme, setTheme, updateAndSaveConfig]);
+
+  const themeToggleItem: NavbarSectionItem = useMemo(
+    () => ({
+      type: 'action',
+      id: 'toggle-theme',
+      icon:
+        theme === ThemeMode.LIGHT
+          ? SunIcon
+          : theme === ThemeMode.DARK
+            ? MoonIcon
+            : DesktopIcon,
+      tooltip:
+        theme === ThemeMode.LIGHT
+          ? t('navbar.theme.light')
+          : theme === ThemeMode.DARK
+            ? t('navbar.theme.dark')
+            : t('navbar.theme.system'),
+      onClick: handleThemeToggle,
+    }),
+    [theme, t, handleThemeToggle]
+  );
   const destination = useCurrentAppDestination();
   const projectDestination = useMemo(
     () => getProjectDestination(destination),
@@ -177,13 +219,16 @@ export function NavbarContainer({
   );
 
   const rightItems = useMemo(
-    () =>
-      toNavbarSectionItems(
+    () => [
+      themeToggleItem,
+      { type: 'divider' as const },
+      ...toNavbarSectionItems(
         filterNavbarItems(NavbarActionGroups.right, actionCtx),
         actionCtx,
         handleExecuteAction
       ),
-    [actionCtx, handleExecuteAction]
+    ],
+    [actionCtx, handleExecuteAction, themeToggleItem]
   );
 
   const navbarTitle = isCreateMode

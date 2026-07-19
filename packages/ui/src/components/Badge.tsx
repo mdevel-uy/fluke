@@ -17,6 +17,11 @@ const badgeVariants = cva(
           "bg-success/10 text-success dark:bg-success/15 border border-transparent",
         warning:
           "bg-warning/10 text-warning dark:bg-warning/15 border border-transparent",
+        info: "bg-info/10 text-info dark:bg-info/15 border border-transparent",
+        neutral:
+          "bg-neutral text-neutral-foreground border border-transparent",
+        merged:
+          "bg-merged/10 text-merged dark:bg-merged/15 border border-transparent",
         outline: "text-normal border border-border/70 bg-transparent",
       },
     },

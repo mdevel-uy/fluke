@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "라이트 테마",
+      "dark": "다크 테마",
+      "system": "시스템 테마"
+    }
+  },
   "appBar": {
     "issues": "이슈",
     "workers": "워커",
@@ -586,6 +593,11 @@
     "emptyTitle": "아직 워커가 없습니다",
     "emptyDescription": "워커를 만들어 작업을 할당해 보세요.",
     "confirmDelete": "워커 \"{{worker}}\"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "stats": {
+      "working": "작업 중",
+      "queued": "대기 중",
+      "completed": "완료"
+    },
     "templates": {
       "backend": "백엔드 전문가",
       "frontend": "프론트엔드 전문가",

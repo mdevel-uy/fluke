@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
+import { Button } from '@vibe/ui/components/Button';
 
-export function WorkersEmptyState() {
+interface WorkersEmptyStateProps {
+  onCreateWorker?: () => void;
+}
+
+export function WorkersEmptyState({ onCreateWorker }: WorkersEmptyStateProps) {
   const { t } = useTranslation('common');
 
   return (
@@ -20,6 +25,17 @@ export function WorkersEmptyState() {
           {t('workers.emptyDescription')}
         </p>
       </div>
+      {onCreateWorker && (
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onCreateWorker}
+          className="mt-1"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t('workers.newWorker')}
+        </Button>
+      )}
     </div>
   );
 }

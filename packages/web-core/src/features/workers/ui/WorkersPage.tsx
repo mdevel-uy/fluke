@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus, X } from 'lucide-react';
+import {
+  Activity,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { ApiError } from '@/shared/lib/api';
@@ -13,6 +21,32 @@ import {
 import { WorkerCard } from './WorkerCard';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  accent: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-primary p-4 shadow-card">
+      <div
+        className={`flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide ${accent}`}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+        <span>{label}</span>
+      </div>
+      <p className="text-2xl font-semibold text-high tabular-nums leading-none">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 type Toast = {
   id: number;
@@ -64,6 +98,16 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
+
+  const stats = useMemo(() => {
+    const working = workers.filter((w) => w.active_workspace_id !== null).length;
+    const totalQueued = workers.reduce((sum, w) => sum + w.queued_count, 0);
+    const totalCompleted = workers.reduce(
+      (sum, w) => sum + w.completed_count,
+      0
+    );
+    return { working, totalQueued, totalCompleted };
+  }, [workers]);
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
@@ -180,6 +224,29 @@ export function WorkersPage() {
         </div>
       )}
 
+      {workers.length > 0 && !isLoading && !isError && (
+        <div className="grid grid-cols-3 gap-4 px-6 pt-4">
+          <StatCard
+            label={t('workers.stats.working')}
+            value={stats.working}
+            icon={Activity}
+            accent="text-success"
+          />
+          <StatCard
+            label={t('workers.stats.queued')}
+            value={stats.totalQueued}
+            icon={Clock}
+            accent="text-warning"
+          />
+          <StatCard
+            label={t('workers.stats.completed')}
+            value={stats.totalCompleted}
+            icon={CheckCircle2}
+            accent="text-info"
+          />
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoading ? (
           <div className="flex h-full items-center justify-center gap-2 text-low">
@@ -192,7 +259,7 @@ export function WorkersPage() {
           </div>
         ) : workers.length === 0 ? (
           <div className="flex h-full">
-            <WorkersEmptyState />
+            <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 p-6 md:grid-cols-2 xl:grid-cols-3">

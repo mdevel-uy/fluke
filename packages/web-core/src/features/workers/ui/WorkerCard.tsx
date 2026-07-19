@@ -8,6 +8,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
+import { Badge } from '@vibe/ui/components/Badge';
 import { Button } from '@vibe/ui/components/Button';
 import {
   DropdownMenu,
@@ -17,6 +18,32 @@ import {
 } from '@vibe/ui/components/DropdownMenu';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { WorkerTaskList } from './WorkerTaskList';
+
+function WorkerAvatar({
+  emoji,
+  isWorking,
+}: {
+  emoji: string;
+  isWorking: boolean;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-3xl leading-none select-none color-emoji"
+        aria-hidden
+      >
+        {emoji}
+      </div>
+      <span
+        className={
+          'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-primary ' +
+          (isWorking ? 'bg-success' : 'bg-low/50')
+        }
+        aria-hidden
+      />
+    </div>
+  );
+}
 
 interface WorkerCardProps {
   worker: WorkerResponse;
@@ -49,36 +76,27 @@ export function WorkerCard({
     <div className="group flex flex-col rounded-2xl border border-border/60 bg-primary shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
       {/* Header — avatar + name + status pill + menu */}
       <div className="flex items-start gap-4 p-5">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-3xl leading-none select-none"
-          aria-hidden
-        >
-          {worker.emoji}
-        </div>
+        <WorkerAvatar emoji={worker.emoji} isWorking={isWorking} />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-lg font-semibold text-high truncate leading-tight">
               {worker.name}
             </h3>
-            <span
-              className={
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
-                (isWorking
-                  ? 'bg-brand/10 text-brand dark:bg-brand/15'
-                  : 'bg-secondary text-low border border-border/50')
-              }
+            <Badge
+              variant={isWorking ? 'success' : 'neutral'}
+              className="gap-1.5"
             >
               <span
                 className={
                   'h-1.5 w-1.5 rounded-full ' +
-                  (isWorking ? 'bg-brand animate-pulse' : 'bg-low')
+                  (isWorking ? 'bg-success animate-pulse' : 'bg-low')
                 }
                 aria-hidden
               />
               {isWorking
                 ? t('workers.card.statusWorking')
                 : t('workers.card.statusIdle')}
-            </span>
+            </Badge>
           </div>
           <div className="mt-1 text-sm text-low leading-snug">
             {isWorking && worker.active_workspace_id ? (

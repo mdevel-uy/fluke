@@ -526,6 +526,13 @@
     "refreshPage": "Refresh Page",
     "remoteAuthUnavailable": "Remote authentication is temporarily unavailable. Some remote features may not work until it recovers."
   },
+  "navbar": {
+    "theme": {
+      "light": "Light theme",
+      "dark": "Dark theme",
+      "system": "System theme"
+    }
+  },
   "appBar": {
     "issues": "Issues",
     "workers": "Workers",
@@ -586,6 +593,11 @@
     "emptyTitle": "No workers yet",
     "emptyDescription": "Create a worker to start assigning tasks.",
     "confirmDelete": "Delete worker \"{{worker}}\"? This cannot be undone.",
+    "stats": {
+      "working": "Working",
+      "queued": "Queued",
+      "completed": "Completed"
+    },
     "templates": {
       "backend": "Backend Specialist",
       "frontend": "Frontend Specialist",
