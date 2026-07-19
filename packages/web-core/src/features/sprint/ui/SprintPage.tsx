@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
-import { useSearch } from '@tanstack/react-router';
+import { useRouter, useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
@@ -15,18 +15,20 @@ import {
 } from '@vibe/ui/components/Select';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { repoApi, workersApi } from '@/shared/lib/api';
-import {
-  useRepoIssues,
-  useSyncRepoIssues,
-} from '@/features/issues';
-import type { RepoIssue } from '@/features/issues';
+import { repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
+import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
+import type {
+  RepoIssue,
+  IssuePriority,
+  IssueLabel,
+} from '@/features/issues/types';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
 import { workersKeys } from '@/features/workers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
 import { WorkerChip } from './WorkerChip';
@@ -37,9 +39,19 @@ import { InProgressTaskCard } from './InProgressTaskCard';
 import { InReviewTaskCard } from './InReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
+import { SprintFilterBar } from './SprintFilterBar';
+import { IssueDetailPanel } from './IssueDetailPanel';
+import type { SprintFilters } from './SprintFilterBar';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
 const DONE_LIMIT = 20;
+
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
 
 function findWorker(workers: Worker[], id: string): Worker | undefined {
   return workers.find((w) => w.id === id);
@@ -65,12 +77,94 @@ function groupByWorkerOrdered(
   return groups;
 }
 
+function sortByPriority(issues: RepoIssue[]): RepoIssue[] {
+  return [...issues].sort((a, b) => {
+    const pa = a.priority != null ? (PRIORITY_ORDER[a.priority] ?? 4) : 4;
+    const pb = b.priority != null ? (PRIORITY_ORDER[b.priority] ?? 4) : 4;
+    return pa - pb;
+  });
+}
+
+function filterIssues(
+  issues: RepoIssue[],
+  filters: SprintFilters,
+  workersByIssue: Map<number, Worker>
+): RepoIssue[] {
+  const q = filters.q.trim().toLowerCase();
+  return issues.filter((issue) => {
+    if (q) {
+      const matchesTitle = issue.title.toLowerCase().includes(q);
+      const matchesNumber = String(issue.number).includes(q);
+      if (!matchesTitle && !matchesNumber) return false;
+    }
+    if (filters.epic && issue.milestone !== filters.epic) return false;
+    if (filters.label && !issue.labels.some((l) => l.name === filters.label))
+      return false;
+    if (filters.priority && issue.priority !== filters.priority) return false;
+    if (filters.worker) {
+      const worker = workersByIssue.get(issue.number);
+      if (!worker || worker.id !== filters.worker) return false;
+    }
+    return true;
+  });
+}
+
+function uniqueEpics(issues: RepoIssue[]): string[] {
+  const seen = new Set<string>();
+  for (const issue of issues) {
+    if (issue.milestone) seen.add(issue.milestone);
+  }
+  return Array.from(seen).sort();
+}
+
+function uniqueLabels(issues: RepoIssue[]): IssueLabel[] {
+  const seen = new Map<string, IssueLabel>();
+  for (const issue of issues) {
+    for (const label of issue.labels) {
+      if (!seen.has(label.name)) seen.set(label.name, label);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function SprintPage() {
   const { t } = useTranslation('common');
   usePageTitle(t('sprint.title'));
   const appNavigation = useAppNavigation();
   const queryClient = useQueryClient();
-  const search = useSearch({ strict: false }) as { repo?: string };
+  const router = useRouter();
+
+  // Update URL search params without TanStack Router typed navigate
+  // (web-core doesn't have the route type declarations from local-web).
+  const updateSearchParams = useCallback(
+    (updates: Record<string, string | number | undefined>, replace = false) => {
+      const url = new URL(window.location.href);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === undefined || value === '') {
+          url.searchParams.delete(key);
+        } else {
+          url.searchParams.set(key, String(value));
+        }
+      });
+      const target = url.pathname + (url.search || '');
+      if (replace) {
+        router.history.replace(target);
+      } else {
+        router.history.push(target);
+      }
+    },
+    [router]
+  );
+  const search = useSearch({ strict: false }) as {
+    repo?: string;
+    q?: string;
+    epic?: string;
+    label?: string;
+    priority?: IssuePriority;
+    worker?: string;
+    issue?: number;
+  };
+
   const selectedRepoIdFromUrl = search.repo;
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
@@ -80,7 +174,6 @@ export function SprintPage() {
     queryFn: () => repoApi.list(),
   });
 
-  // Sync URL param → store so navigation to this view updates the remembered repo.
   useEffect(() => {
     if (
       selectedRepoIdFromUrl &&
@@ -90,7 +183,6 @@ export function SprintPage() {
     }
   }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
 
-  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
     const targetId =
@@ -112,6 +204,11 @@ export function SprintPage() {
     }
     return repos[0]?.id;
   }, [selectedRepoIdFromUrl, repos, storedRepoId]);
+
+  const selectedRepo = useMemo(
+    () => repos.find((r) => r.id === selectedRepoId),
+    [repos, selectedRepoId]
+  );
 
   const {
     data: issues = [],
@@ -163,9 +260,6 @@ export function SprintPage() {
 
   const swapTasksMutation = useMutation({
     mutationFn: async (params: { a: WorkerTask; b: WorkerTask }) => {
-      // Swap two tasks' positions with two PATCH calls. Sequential because
-      // both belong to the same worker's queue and race-based ordering is
-      // rare here (single user, click-driven).
       await workersApi.updateTask(params.a.worker_id, params.a.id, {
         position: params.b.position,
       });
@@ -176,6 +270,48 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const setPriorityMutation = useMutation({
+    mutationFn: async (params: {
+      issueNumber: number;
+      priority: IssuePriority | null;
+    }) => {
+      if (!selectedRepoId) throw new Error('No repo selected');
+      await repoIssuesApi.setPriority(
+        selectedRepoId,
+        params.issueNumber,
+        params.priority
+      );
+    },
+    onMutate: async ({ issueNumber, priority }) => {
+      // Optimistic update
+      if (!selectedRepoId) return;
+      const key = repoIssuesKeys.byRepo(selectedRepoId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<RepoIssue[]>(key);
+      queryClient.setQueryData<RepoIssue[]>(key, (old) =>
+        old
+          ? old.map((i) => (i.number === issueNumber ? { ...i, priority } : i))
+          : old
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev && selectedRepoId) {
+        queryClient.setQueryData(
+          repoIssuesKeys.byRepo(selectedRepoId),
+          ctx.prev
+        );
+      }
+    },
+    onSettled: () => {
+      if (selectedRepoId) {
+        queryClient.invalidateQueries({
+          queryKey: repoIssuesKeys.byRepo(selectedRepoId),
+        });
+      }
+    },
+  });
+
   const handleAssignIssue = useCallback(
     (issue: RepoIssue, workerId: string) => {
       if (!selectedRepoId) return;
@@ -184,9 +320,7 @@ export function SprintPage() {
       const prompt = buildAssignToAgentPrompt(issue);
       createTaskMutation.mutate(
         { workerId, title, prompt, issueNumber: issue.number },
-        {
-          onSettled: () => setBusyTaskId(null),
-        }
+        { onSettled: () => setBusyTaskId(null) }
       );
     },
     [createTaskMutation, selectedRepoId]
@@ -208,9 +342,7 @@ export function SprintPage() {
       setBusyTaskId(task.id);
       deleteTaskMutation.mutate(
         { workerId: task.worker_id, taskId: task.id },
-        {
-          onSettled: () => setBusyTaskId(null),
-        }
+        { onSettled: () => setBusyTaskId(null) }
       );
     },
     [deleteTaskMutation]
@@ -221,17 +353,12 @@ export function SprintPage() {
       setBusyTaskId(a.id);
       swapTasksMutation.mutate(
         { a, b },
-        {
-          onSettled: () => setBusyTaskId(null),
-        }
+        { onSettled: () => setBusyTaskId(null) }
       );
     },
     [swapTasksMutation]
   );
 
-  // Per repo, split tasks by status. Only tasks belonging to the selected
-  // repo participate in the board (the backlog check further below uses
-  // the same repo filter).
   const repoTasks = useMemo(
     () => allTasks.filter((task) => task.repo_id === selectedRepoId),
     [allTasks, selectedRepoId]
@@ -247,15 +374,73 @@ export function SprintPage() {
     return set;
   }, [repoTasks]);
 
+  // Map issue number → worker currently handling it (for filter + detail panel)
+  const workerByIssueNumber = useMemo(() => {
+    const map = new Map<number, Worker>();
+    for (const task of repoTasks) {
+      if (task.issue_number != null && ACTIVE_STATUSES.has(task.status)) {
+        const worker = findWorker(workers, task.worker_id);
+        if (worker) map.set(task.issue_number, worker);
+      }
+    }
+    return map;
+  }, [repoTasks, workers]);
+
   const openIssues = useMemo(
     () => issues.filter((i) => i.state === 'open'),
     [issues]
   );
 
-  const backlogIssues = useMemo(
+  const backlogIssuesRaw = useMemo(
     () =>
       openIssues.filter((issue) => !activeTasksByIssueNumber.has(issue.number)),
     [openIssues, activeTasksByIssueNumber]
+  );
+
+  // Derived filter state from URL
+  const filters: SprintFilters = useMemo(
+    () => ({
+      q: search.q ?? '',
+      epic: search.epic ?? '',
+      label: search.label ?? '',
+      priority: search.priority ?? '',
+      worker: search.worker ?? '',
+    }),
+    [search.q, search.epic, search.label, search.priority, search.worker]
+  );
+
+  const handleFiltersChange = useCallback(
+    (next: SprintFilters) => {
+      updateSearchParams(
+        {
+          q: next.q || undefined,
+          epic: next.epic || undefined,
+          label: next.label || undefined,
+          priority: next.priority || undefined,
+          worker: next.worker || undefined,
+        },
+        true
+      );
+    },
+    [updateSearchParams]
+  );
+
+  const filteredBacklogIssues = useMemo(
+    () =>
+      sortByPriority(
+        filterIssues(backlogIssuesRaw, filters, workerByIssueNumber)
+      ),
+    [backlogIssuesRaw, filters, workerByIssueNumber]
+  );
+
+  // Available filter options derived from ALL backlog issues (not filtered)
+  const allEpics = useMemo(
+    () => uniqueEpics(backlogIssuesRaw),
+    [backlogIssuesRaw]
+  );
+  const allLabels = useMemo(
+    () => uniqueLabels(backlogIssuesRaw),
+    [backlogIssuesRaw]
   );
 
   const queuedGroups = useMemo(
@@ -279,7 +464,6 @@ export function SprintPage() {
 
   const doneTasks = useMemo(() => {
     const done = repoTasks.filter((task) => task.status === 'done');
-    // Most-recent first by created_at.
     done.sort((a, b) => {
       const aTs = new Date(a.created_at).getTime();
       const bTs = new Date(b.created_at).getTime();
@@ -301,6 +485,34 @@ export function SprintPage() {
     appNavigation.goToSprint(repoId);
   };
 
+  // Detail panel
+  const openIssueNumber = search.issue;
+  const detailIssue = useMemo(
+    () =>
+      openIssueNumber != null
+        ? (issues.find((i) => i.number === openIssueNumber) ?? null)
+        : null,
+    [openIssueNumber, issues]
+  );
+
+  const openDetail = useCallback(
+    (issue: RepoIssue) => {
+      updateSearchParams({ issue: issue.number }, false);
+    },
+    [updateSearchParams]
+  );
+
+  const closeDetail = useCallback(() => {
+    updateSearchParams({ issue: undefined }, false);
+  }, [updateSearchParams]);
+
+  const handlePriorityChange = useCallback(
+    (issueNumber: number, priority: IssuePriority | null) => {
+      setPriorityMutation.mutate({ issueNumber, priority });
+    },
+    [setPriorityMutation]
+  );
+
   const isBoardBusy =
     createTaskMutation.isPending ||
     deleteTaskMutation.isPending ||
@@ -314,6 +526,14 @@ export function SprintPage() {
     !isIssuesError &&
     !isWorkersError &&
     !isTasksError;
+
+  const hasFilters = !!(
+    filters.q ||
+    filters.epic ||
+    filters.label ||
+    filters.priority ||
+    filters.worker
+  );
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
@@ -354,6 +574,17 @@ export function SprintPage() {
         </div>
       </header>
 
+      {/* Filter bar — shown when board is ready */}
+      {showBoard && (
+        <SprintFilterBar
+          filters={filters}
+          epics={allEpics}
+          labels={allLabels}
+          workers={workers}
+          onFiltersChange={handleFiltersChange}
+        />
+      )}
+
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
           <div className="flex h-full items-center justify-center gap-2 text-low">
@@ -382,7 +613,7 @@ export function SprintPage() {
             <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
-                count={backlogIssues.length}
+                count={filteredBacklogIssues.length}
                 className="min-w-[280px]"
               >
                 <FreeTaskComposer
@@ -394,10 +625,16 @@ export function SprintPage() {
                   disabled={!selectedRepoId || isBoardBusy}
                   onCreate={handleFreeTaskCreate}
                 />
-                {backlogIssues.length === 0 ? (
-                  <ColumnEmpty message={t('sprint.backlog.empty')} />
+                {filteredBacklogIssues.length === 0 ? (
+                  <ColumnEmpty
+                    message={
+                      hasFilters
+                        ? t('sprint.filters.noResults')
+                        : t('sprint.backlog.empty')
+                    }
+                  />
                 ) : (
-                  backlogIssues.map((issue) => (
+                  filteredBacklogIssues.map((issue) => (
                     <BacklogIssueCard
                       key={issue.id}
                       issue={issue}
@@ -409,6 +646,10 @@ export function SprintPage() {
                       onAssign={(workerId) =>
                         handleAssignIssue(issue, workerId)
                       }
+                      onPriorityChange={(priority) =>
+                        handlePriorityChange(issue.number, priority)
+                      }
+                      onClick={() => openDetail(issue)}
                     />
                   ))
                 )}
@@ -507,6 +748,19 @@ export function SprintPage() {
           )
         )}
       </div>
+
+      {/* Issue detail panel */}
+      {detailIssue && (
+        <IssueDetailPanel
+          issue={detailIssue}
+          workers={workers}
+          repoName={selectedRepo?.name ?? ''}
+          onClose={closeDetail}
+          onPriorityChange={(priority) =>
+            handlePriorityChange(detailIssue.number, priority)
+          }
+        />
+      )}
     </div>
   );
 }
