@@ -458,6 +458,9 @@ impl From<RepoIssuesError> for ApiError {
             RepoIssuesError::NoGithubRemote => {
                 ApiError::BadRequest("Repository has no GitHub remote".to_string())
             }
+            RepoIssuesError::NotGithubOrigin(url) => {
+                ApiError::BadRequest(format!("origin remote URL is not a GitHub URL: {url}"))
+            }
             RepoIssuesError::GhCliNotAvailable => {
                 ApiError::BadRequest("`gh` CLI is not installed or not on PATH".to_string())
             }
