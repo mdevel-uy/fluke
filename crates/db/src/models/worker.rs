@@ -37,10 +37,7 @@ impl Worker {
         .await
     }
 
-    pub async fn find_by_id(
-        pool: &SqlitePool,
-        id: Uuid,
-    ) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
             "SELECT id, name, emoji, soul, created_at
                FROM workers
@@ -51,10 +48,7 @@ impl Worker {
         .await
     }
 
-    pub async fn create(
-        pool: &SqlitePool,
-        data: &CreateWorker,
-    ) -> Result<Self, sqlx::Error> {
+    pub async fn create(pool: &SqlitePool, data: &CreateWorker) -> Result<Self, sqlx::Error> {
         let id = Uuid::new_v4();
         sqlx::query(
             "INSERT INTO workers (id, name, emoji, soul)
@@ -131,10 +125,7 @@ impl Worker {
         .await
     }
 
-    pub async fn queued_task_count(
-        pool: &SqlitePool,
-        worker_id: Uuid,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn queued_task_count(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
                FROM worker_tasks
@@ -171,6 +162,36 @@ impl Worker {
             .execute(pool)
             .await?;
         Ok(())
+    }
+
+    /// Detach a workspace from any worker (sets worker_id to NULL).
+    pub async fn detach_workspace(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workspaces SET worker_id = NULL WHERE id = ?1")
+            .bind(workspace_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// All non-archived workspaces currently attached to the worker.
+    /// Used by the orchestrator to detect and auto-repair orphan
+    /// workspaces before applying the capacity guard.
+    pub async fn active_workspace_ids(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT id
+               FROM workspaces
+               WHERE worker_id = ?1
+                 AND archived = 0",
+        )
+        .bind(worker_id)
+        .fetch_all(pool)
+        .await
     }
 
     /// Worker that owns the given workspace, if any.

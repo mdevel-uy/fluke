@@ -9,6 +9,12 @@
 //!                                                          worker goes idle,
 //!                                                          a human decides)
 //!
+//! A start attempt that fails *before* the agent begins running (missing
+//! `default_target_branch`, unreachable target branch, workspace creation
+//! error) is transactional: any workspace it created is archived and
+//! detached from the worker, and the linked task stays `queued` so the
+//! next start can retry it.
+//!
 //! Worker capacity check for taking a new task:
 //!   * no `in_progress` task, AND
 //!   * strictly less than `WORKER_MAX_IN_REVIEW` (default 2) `in_review` tasks,
@@ -100,11 +106,17 @@ pub struct StartedTask {
     pub workspace_id: Uuid,
 }
 
-/// Attempt to take the next queued task for the worker. Returns `Ok(None)`
-/// when nothing was taken because there were no queued tasks *and* no other
-/// blocking preconditions applied — i.e. the caller should treat it as a
-/// no-op rather than an error. Returns [`StartError::NothingQueued`] only
-/// when the caller explicitly asked for a start.
+/// Attempt to take the next queued task for the worker. Returns
+/// [`StartError::NothingQueued`] when the caller explicitly asked for a
+/// start but no task was available.
+///
+/// The start is transactional: preconditions are validated up front so
+/// nothing is created on a cheap-fail path (missing repo,
+/// missing `default_target_branch`, etc.), and any failure *after* the
+/// workspace is created rolls the workspace back (archived + detached
+/// from the worker) so the worker is not blocked by a zombie. The linked
+/// task only moves to `in_progress` — and only receives `workspace_id` —
+/// when the agent has actually started.
 pub async fn try_take_next(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -117,7 +129,15 @@ pub async fn try_take_next(
         .await?
         .ok_or(StartError::WorkerNotFound)?;
 
-    if WorkerTask::find_in_progress(pool, worker_id).await?.is_some() {
+    // Auto-repair orphan workspaces attached to this worker before applying
+    // the capacity guard, so a previous failed start does not block the
+    // worker forever (see issue #32).
+    reconcile_worker_workspaces(db, worker_id).await?;
+
+    if WorkerTask::find_in_progress(pool, worker_id)
+        .await?
+        .is_some()
+    {
         return Err(StartError::AlreadyInProgress);
     }
 
@@ -135,6 +155,8 @@ pub async fn try_take_next(
         .await?
         .ok_or(StartError::RepoNotFound)?;
 
+    // Cheap precondition: fail *before* creating any workspace so we do not
+    // leak a zombie on a mis-configured repo (see issues #31 + #32).
     let target_branch = repo
         .default_target_branch
         .clone()
@@ -163,15 +185,29 @@ pub async fn try_take_next(
     )
     .await?;
 
-    // Attach the workspace to the worker + task in the DB *before* touching
-    // the filesystem so that a partial failure still leaves an owned
-    // workspace we can clean up.
-    Worker::attach_workspace(pool, worker.id, workspace.id).await?;
-    WorkerTask::set_workspace_id(pool, task.id, workspace.id).await?;
+    // Attach the workspace to the worker up front so `active_workspace_id`
+    // reflects the busy state during setup. Any failure below rolls this
+    // back via `rollback_workspace`.
+    if let Err(e) = Worker::attach_workspace(pool, worker.id, workspace.id).await {
+        rollback_workspace(db, workspace.id).await;
+        return Err(e.into());
+    }
 
-    let mut managed = workspace_manager
+    // Register the repo through the same workspace_manager path that the UI's
+    // POST /api/workspaces/start uses — this writes workspace_repos and
+    // validates the target branch exists. Without this the worktree can't
+    // be created and the agent surfaces "Workspace has no repositories
+    // configured" (see issue #33).
+    let mut managed = match workspace_manager
         .load_managed_workspace(workspace.clone())
-        .await?;
+        .await
+    {
+        Ok(m) => m,
+        Err(e) => {
+            rollback_workspace(db, workspace.id).await;
+            return Err(e.into());
+        }
+    };
 
     if let Err(e) = managed
         .add_repository(
@@ -183,52 +219,137 @@ pub async fn try_take_next(
         )
         .await
     {
-        // Could not attach the repo — the task was never really started.
-        // Roll the task back to queued and surface the error so the caller
-        // (endpoint or watcher) can decide what to do.
-        let _ = WorkerTask::set_status(pool, task.id, worker_task::STATUS_QUEUED).await;
+        rollback_workspace(db, workspace.id).await;
         return Err(e.into());
     }
 
     let prompt = build_worker_prompt(&worker.soul, &task.prompt, &target_branch);
 
-    let task = WorkerTask::set_status(pool, task.id, worker_task::STATUS_IN_PROGRESS).await?;
-
-    match container
+    // Actually start the agent. This creates the worktree and the coding
+    // agent session. If it fails, roll the workspace back so the worker is
+    // not stuck and the queued task can be retried.
+    if let Err(e) = container
         .start_workspace(&workspace, executor_config, prompt)
         .await
     {
-        Ok(_process) => {
-            info!(
-                worker_id = %worker.id,
-                task_id = %task.id,
-                workspace_id = %workspace.id,
-                "Worker started task"
-            );
-            Ok(StartedTask {
-                task,
-                workspace_id: workspace.id,
-            })
+        rollback_workspace(db, workspace.id).await;
+        error!(
+            worker_id = %worker.id,
+            task_id = %task.id,
+            "Worker task failed to start: {}",
+            e
+        );
+        return Err(e.into());
+    }
+
+    // Commit: only now, after the agent has started, do we link the task to
+    // the workspace and flip it to in_progress. If a caller retries after
+    // an earlier failure, they will still see this task as queued because
+    // the previous attempt rolled back cleanly.
+    if let Err(e) = WorkerTask::set_workspace_id(pool, task.id, workspace.id).await {
+        // The agent is already running; we cannot safely tear it down.
+        // Log loudly and surface the error so the operator can reconcile.
+        error!(
+            worker_id = %worker.id,
+            task_id = %task.id,
+            workspace_id = %workspace.id,
+            "Worker task started but failed to link workspace_id: {}",
+            e
+        );
+        return Err(e.into());
+    }
+    let task = WorkerTask::set_status(pool, task.id, worker_task::STATUS_IN_PROGRESS).await?;
+
+    info!(
+        worker_id = %worker.id,
+        task_id = %task.id,
+        workspace_id = %workspace.id,
+        "Worker started task"
+    );
+
+    Ok(StartedTask {
+        task,
+        workspace_id: workspace.id,
+    })
+}
+
+/// Best-effort cleanup for a workspace whose start failed after it was
+/// created. Archives the workspace, detaches it from any worker, and
+/// clears any lingering worker_task -> workspace link so the worker's
+/// capacity guard and the UI both see a clean slate on the next start.
+///
+/// Errors are logged but not surfaced: the caller is already returning
+/// the underlying failure, and losing a cleanup step should never mask
+/// the real error.
+async fn rollback_workspace(db: &DBService, workspace_id: Uuid) {
+    let pool = &db.pool;
+    if let Err(e) = Workspace::set_archived(pool, workspace_id, true).await {
+        warn!(
+            workspace_id = %workspace_id,
+            "Failed to archive workspace during rollback: {}",
+            e
+        );
+    }
+    if let Err(e) = Worker::detach_workspace(pool, workspace_id).await {
+        warn!(
+            workspace_id = %workspace_id,
+            "Failed to detach worker during rollback: {}",
+            e
+        );
+    }
+    if let Err(e) = WorkerTask::clear_workspace_link(pool, workspace_id).await {
+        warn!(
+            workspace_id = %workspace_id,
+            "Failed to clear worker_task link during rollback: {}",
+            e
+        );
+    }
+}
+
+/// Auto-repair inconsistent worker state: any non-archived workspace that
+/// is attached to `worker_id` but has no associated `in_progress` or
+/// `in_review` task is treated as a zombie left behind by a previous
+/// failed start. Archive it and detach it so it does not block the
+/// capacity guard.
+///
+/// This is idempotent and safe to call before every start attempt.
+pub(crate) async fn reconcile_worker_workspaces(
+    db: &DBService,
+    worker_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    for ws_id in Worker::active_workspace_ids(pool, worker_id).await? {
+        if WorkerTask::workspace_has_active_task(pool, ws_id).await? {
+            continue;
         }
-        Err(e) => {
-            // Agent failed to start — per the design, the worker stays idle
-            // (does NOT automatically pick up the next task).
-            let failed = WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await;
-            if let Err(e) = failed {
-                warn!(
-                    "Failed to mark worker task {} as failed after start error: {}",
-                    task.id, e
-                );
-            }
-            error!(
-                worker_id = %worker.id,
-                task_id = %task.id,
-                "Worker task failed to start: {}",
+        warn!(
+            worker_id = %worker_id,
+            workspace_id = %ws_id,
+            "Auto-repairing orphan workspace attached to worker with no active task"
+        );
+        if let Err(e) = Workspace::set_archived(pool, ws_id, true).await {
+            warn!(
+                workspace_id = %ws_id,
+                "Failed to archive orphan workspace during auto-repair: {}",
                 e
             );
-            Err(e.into())
+        }
+        if let Err(e) = Worker::detach_workspace(pool, ws_id).await {
+            warn!(
+                workspace_id = %ws_id,
+                "Failed to detach orphan workspace during auto-repair: {}",
+                e
+            );
+        }
+        if let Err(e) = WorkerTask::clear_workspace_link(pool, ws_id).await {
+            warn!(
+                workspace_id = %ws_id,
+                "Failed to clear worker_task link during auto-repair: {}",
+                e
+            );
         }
     }
+    Ok(())
 }
 
 /// Reconcile a workspace PR transitioning to *open*: if the workspace
@@ -320,6 +441,12 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str) -> St
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use db::models::{repo::Repo, worker::CreateWorker, worker_task::CreateWorkerTask};
+    use sqlx::SqlitePool;
+    use tempfile::TempDir;
+
     use super::*;
 
     #[test]
@@ -328,5 +455,195 @@ mod tests {
         assert!(prompt.starts_with("soul\n\n---\n\ndo it\n\n---\n\n"));
         assert!(prompt.contains("`main`"));
         assert!(prompt.contains("gh pr create"));
+    }
+
+    async fn setup_test_db() -> DBService {
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("open pool");
+        sqlx::migrate!("../db/migrations")
+            .run(&pool)
+            .await
+            .expect("run migrations");
+        DBService { pool }
+    }
+
+    async fn insert_repo(db: &DBService, name: &str) -> (Repo, TempDir) {
+        let temp = TempDir::new().expect("tempdir");
+        let path: PathBuf = temp.path().join(name);
+        std::fs::create_dir_all(&path).expect("mkdir");
+        let repo = Repo::find_or_create(&db.pool, &path, name)
+            .await
+            .expect("insert repo");
+        (repo, temp)
+    }
+
+    async fn insert_worker(db: &DBService, name: &str) -> Worker {
+        Worker::create(
+            &db.pool,
+            &CreateWorker {
+                name: name.to_string(),
+                emoji: "🤖".to_string(),
+                soul: "test soul".to_string(),
+            },
+        )
+        .await
+        .expect("insert worker")
+    }
+
+    async fn insert_workspace(db: &DBService) -> Workspace {
+        Workspace::create(
+            &db.pool,
+            &CreateWorkspace {
+                branch: format!("test-branch-{}", Uuid::new_v4()),
+                name: Some("test workspace".to_string()),
+            },
+            Uuid::new_v4(),
+        )
+        .await
+        .expect("insert workspace")
+    }
+
+    #[tokio::test]
+    async fn reconcile_archives_orphan_workspace_attached_to_worker() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "wall-e").await;
+        let workspace = insert_workspace(&db).await;
+
+        // Simulate the zombie state: workspace attached to worker, no active
+        // worker_task pointing at it, not archived.
+        Worker::attach_workspace(&db.pool, worker.id, workspace.id)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            Worker::active_workspace_ids(&db.pool, worker.id)
+                .await
+                .unwrap(),
+            vec![workspace.id]
+        );
+
+        reconcile_worker_workspaces(&db, worker.id).await.unwrap();
+
+        // Workspace should now be archived and detached — capacity guard
+        // sees a clean slate.
+        assert!(
+            Worker::active_workspace_ids(&db.pool, worker.id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let refreshed = Workspace::find_by_id(&db.pool, workspace.id)
+            .await
+            .unwrap()
+            .expect("workspace still exists");
+        assert!(refreshed.archived, "workspace should be archived");
+    }
+
+    #[tokio::test]
+    async fn reconcile_leaves_workspace_with_active_task_alone() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "eve").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "eve-repo").await;
+        let workspace = insert_workspace(&db).await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "wire it up".to_string(),
+                prompt: "do the thing".to_string(),
+                issue_number: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        Worker::attach_workspace(&db.pool, worker.id, workspace.id)
+            .await
+            .unwrap();
+        WorkerTask::set_workspace_id(&db.pool, task.id, workspace.id)
+            .await
+            .unwrap();
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_PROGRESS)
+            .await
+            .unwrap();
+
+        reconcile_worker_workspaces(&db, worker.id).await.unwrap();
+
+        // Healthy workspace with in_progress task must not be touched.
+        assert_eq!(
+            Worker::active_workspace_ids(&db.pool, worker.id)
+                .await
+                .unwrap(),
+            vec![workspace.id]
+        );
+        let refreshed = Workspace::find_by_id(&db.pool, workspace.id)
+            .await
+            .unwrap()
+            .expect("workspace still exists");
+        assert!(
+            !refreshed.archived,
+            "healthy workspace must not be archived"
+        );
+    }
+
+    #[tokio::test]
+    async fn rollback_workspace_archives_detaches_and_clears_task_link() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "burn-e").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "burn-repo").await;
+        let workspace = insert_workspace(&db).await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "cleanup".to_string(),
+                prompt: "clean".to_string(),
+                issue_number: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        Worker::attach_workspace(&db.pool, worker.id, workspace.id)
+            .await
+            .unwrap();
+        WorkerTask::set_workspace_id(&db.pool, task.id, workspace.id)
+            .await
+            .unwrap();
+
+        rollback_workspace(&db, workspace.id).await;
+
+        let refreshed_ws = Workspace::find_by_id(&db.pool, workspace.id)
+            .await
+            .unwrap()
+            .expect("workspace still exists");
+        assert!(refreshed_ws.archived, "workspace should be archived");
+        assert!(
+            Worker::find_by_workspace_id(&db.pool, workspace.id)
+                .await
+                .unwrap()
+                .is_none(),
+            "worker link should be cleared",
+        );
+
+        let refreshed_task = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .expect("task still exists");
+        assert!(
+            refreshed_task.workspace_id.is_none(),
+            "task workspace_id should be cleared",
+        );
+    }
+
+    #[tokio::test]
+    async fn rollback_survives_reruns_when_workspace_missing() {
+        // Rollback is best-effort: a caller that runs it twice, or against
+        // a workspace that no longer exists in the DB, must not panic.
+        let db = setup_test_db().await;
+        rollback_workspace(&db, Uuid::new_v4()).await;
     }
 }
