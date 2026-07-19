@@ -1854,6 +1854,14 @@ export const systemApi = {
   },
 };
 
+export const systemApi = {
+  getBaseInstructions: async (): Promise<string> => {
+    const response = await makeRequest('/api/system/base-instructions');
+    const data = await handleApiResponse<{ content: string }>(response);
+    return data.content;
+  },
+};
+
 // Search API (multi-repo file search)
 export const searchApi = {
   searchFiles: async (
