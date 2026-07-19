@@ -1515,15 +1515,12 @@ export const repoIssuesApi = {
     repoId: string,
     issueNumber: number,
     priority: import('@/features/issues/types').IssuePriority | null
-  ): Promise<void> => {
+  ): Promise<RepoIssue> => {
     const response = await makeRequest(
       `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/priority`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ priority }),
-      }
+      { method: 'PUT', body: JSON.stringify({ priority }) }
     );
-    return handleApiResponse<void>(response);
+    return handleApiResponse<RepoIssue>(response);
   },
 };
 
@@ -1752,6 +1749,18 @@ export const githubApi = {
 };
 
 // Workers API
+export interface StartAllWorkersItemResponse {
+  worker_id: string;
+  worker_name: string;
+  started: boolean;
+  task_title: string | null;
+  reason: string | null;
+}
+
+export interface StartAllWorkersResponse {
+  results: StartAllWorkersItemResponse[];
+}
+
 export interface CreateWorkerRequest {
   name: string;
   emoji: string;
@@ -1838,6 +1847,13 @@ export const workersApi = {
       method: 'POST',
     });
     return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  startAll: async (): Promise<StartAllWorkersResponse> => {
+    const response = await makeRequest('/api/workers/start-all', {
+      method: 'POST',
+    });
+    return handleApiResponse<StartAllWorkersResponse>(response);
   },
 };
 

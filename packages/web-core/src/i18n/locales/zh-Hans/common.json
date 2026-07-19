@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "浅色主题",
+      "dark": "深色主题",
+      "system": "系统主题"
+    }
+  },
   "appBar": {
     "issues": "问题",
     "workers": "工作者",
@@ -563,13 +570,17 @@
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
     "assignDialog": {
-      "title": "将 Issue #{{number}} 分配给代理",
-      "description": "查看并编辑下方提示词。代理将使用这些指令在新的工作区中开始。",
+      "title": "将 Issue #{{number}} 分配给工作者",
+      "description": "选择一个工作者并检查提示词。任务将被添加到工作者的队列中。",
       "promptLabel": "提示词",
+      "workerLabel": "分配给",
+      "workerPlaceholder": "选择工作者...",
+      "noWorkers": "没有可用的工作者。请先创建一个工作者。",
+      "workerLoadError": "无法加载工作者。",
+      "loadingWorkers": "正在加载工作者...",
       "cancel": "取消",
-      "confirm": "创建工作区",
-      "loadingRepo": "正在加载仓库...",
-      "repoError": "无法加载仓库。工作区将在未预选仓库的情况下启动。"
+      "confirm": "加入队列",
+      "enqueuedError": "加入队列失败。"
     }
   },
   "workers": {
@@ -581,7 +592,12 @@
     "loadError": "加载工作者失败。",
     "emptyTitle": "尚无工作者",
     "emptyDescription": "创建一个工作者以开始分配任务。",
-    "confirmDelete": "删除工作者“{{worker}}”？此操作不可撤销。",
+    "confirmDelete": "删除工作者 \"{{worker}}\"？此操作不可撤销。",
+    "stats": {
+      "working": "工作中",
+      "queued": "排队中",
+      "completed": "已完成"
+    },
     "templates": {
       "backend": "后端专家",
       "frontend": "前端专家",
@@ -707,6 +723,26 @@
       "noPriority": "无优先级",
       "noBody": "暂无描述。",
       "assignedTo": "已分配给 {{worker}}"
+    },
+    "startSprint": "开始冲刺",
+    "startSprintDisabled": "没有可以开始的工作者",
+    "startSprintDialog": {
+      "title": "开始冲刺",
+      "description": "以下工作者将开始其队列中的下一个任务。",
+      "willStart": "将要开始（{{count}} 个）",
+      "skipped": "跳过",
+      "cancel": "取消",
+      "confirm": "开始冲刺",
+      "reason": {
+        "already_working": "正在工作",
+        "no_queue": "队列中无任务",
+        "cap_reached": "已达审查上限"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "已启动 {{count}} 个工作者。",
+      "startAllNoneStarted": "没有工作者可以开始。",
+      "startAllError": "启动冲刺失败：{{message}}"
     }
   }
 }

@@ -522,6 +522,13 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "Thème clair",
+      "dark": "Thème sombre",
+      "system": "Thème système"
+    }
+  },
   "appBar": {
     "issues": "Tickets",
     "workers": "Workers",
@@ -563,13 +570,17 @@
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
     "assignDialog": {
-      "title": "Assigner l'issue #{{number}} à un agent",
-      "description": "Vérifiez et modifiez le prompt ci-dessous. L'agent démarrera avec ces instructions dans un nouvel espace de travail.",
+      "title": "Assigner l'issue #{{number}} à un worker",
+      "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",
       "promptLabel": "Prompt",
+      "workerLabel": "Assigner à",
+      "workerPlaceholder": "Sélectionner un worker...",
+      "noWorkers": "Aucun worker disponible. Créez un worker d'abord.",
+      "workerLoadError": "Impossible de charger les workers.",
+      "loadingWorkers": "Chargement des workers...",
       "cancel": "Annuler",
-      "confirm": "Créer l'espace de travail",
-      "loadingRepo": "Chargement du dépôt...",
-      "repoError": "Impossible de charger le dépôt. L'espace de travail démarrera sans dépôt présélectionné."
+      "confirm": "Mettre en file d'attente",
+      "enqueuedError": "Impossible de mettre la tâche en file d'attente."
     }
   },
   "workers": {
@@ -582,6 +593,11 @@
     "emptyTitle": "Aucun worker pour l'instant",
     "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
     "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "stats": {
+      "working": "En cours",
+      "queued": "En file d'attente",
+      "completed": "Complétés"
+    },
     "templates": {
       "backend": "Spécialiste Backend",
       "frontend": "Spécialiste Frontend",
@@ -707,6 +723,27 @@
       "noPriority": "Sans priorité",
       "noBody": "Aucune description fournie.",
       "assignedTo": "Assigné à {{worker}}"
+    },
+    "startSprint": "Démarrer le sprint",
+    "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
+    "startSprintDialog": {
+      "title": "Démarrer le sprint",
+      "description": "Les workers suivants démarreront leur prochaine tâche en file d'attente.",
+      "willStart": "Démarreront ({{count}})",
+      "skipped": "Ignorés",
+      "cancel": "Annuler",
+      "confirm": "Démarrer le sprint",
+      "reason": {
+        "already_working": "Déjà en cours",
+        "no_queue": "Aucune tâche en attente",
+        "cap_reached": "Limite de révisions atteinte"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker démarré.",
+      "startAllSuccess_other": "{{count}} workers démarrés.",
+      "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
+      "startAllError": "Échec du démarrage du sprint : {{message}}"
     }
   }
 }
