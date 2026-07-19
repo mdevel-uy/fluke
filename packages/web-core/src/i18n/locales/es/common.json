@@ -616,6 +616,8 @@
       "templatesLabel": "Arrancar desde una plantilla",
       "soulLabel": "Alma (soul)",
       "soulPlaceholder": "Describí territorio, estándares y Definition of Done...",
+      "systemInstructionsTitle": "Instrucciones del sistema",
+      "systemInstructionsReadOnly": "(solo lectura — se aplican a todos los workers)",
       "cancel": "Cancelar",
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios"

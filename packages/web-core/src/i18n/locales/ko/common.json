@@ -616,6 +616,8 @@
       "templatesLabel": "템플릿으로 시작",
       "soulLabel": "소울(Soul)",
       "soulPlaceholder": "영역, 표준, Definition of Done을 설명하세요...",
+      "systemInstructionsTitle": "시스템 지침",
+      "systemInstructionsReadOnly": "(읽기 전용 — 모든 워커에 적용)",
       "cancel": "취소",
       "saveNew": "워커 만들기",
       "saveEdit": "변경 사항 저장"

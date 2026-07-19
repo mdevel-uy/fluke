@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -19,6 +19,7 @@ import type { WorkerResponse } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
 import type { CreateWorkerRequest } from '@/shared/lib/api';
 import {
+  useBaseInstructions,
   useCreateWorker,
   useUpdateWorker,
 } from '@/features/workers/model/useWorkers';
@@ -42,6 +43,10 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [emoji, setEmoji] = useState(worker?.emoji ?? '🤖');
   const [soul, setSoul] = useState(worker?.soul ?? '');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [baseInstructionsExpanded, setBaseInstructionsExpanded] =
+    useState(false);
+  const { data: baseInstructions } = useBaseInstructions();
 
   const createMutation = useCreateWorker();
   const updateMutation = useUpdateWorker();
@@ -160,6 +165,31 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               </div>
             </div>
           )}
+
+          <div className="rounded border">
+            <button
+              type="button"
+              onClick={() => setBaseInstructionsExpanded((prev) => !prev)}
+              className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-low hover:text-normal"
+            >
+              {baseInstructionsExpanded ? (
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0" />
+              )}
+              <span className="font-medium">
+                {t('workers.form.systemInstructionsTitle')}
+              </span>
+              <span className="ml-1 text-low">
+                {t('workers.form.systemInstructionsReadOnly')}
+              </span>
+            </button>
+            {baseInstructionsExpanded && (
+              <pre className="max-h-48 overflow-auto border-t px-3 py-2 font-mono text-xs text-low whitespace-pre-wrap">
+                {baseInstructions ?? '…'}
+              </pre>
+            )}
+          </div>
 
           <div>
             <Label htmlFor="worker-soul">{t('workers.form.soulLabel')}</Label>

@@ -616,6 +616,8 @@
       "templatesLabel": "從範本開始",
       "soulLabel": "靈魂 (Soul)",
       "soulPlaceholder": "描述領域、標準與 Definition of Done...",
+      "systemInstructionsTitle": "系統指令",
+      "systemInstructionsReadOnly": "(唯讀 — 適用於所有工作者)",
       "cancel": "取消",
       "saveNew": "建立工作者",
       "saveEdit": "儲存變更"

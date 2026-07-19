@@ -616,6 +616,8 @@
       "templatesLabel": "Start from a template",
       "soulLabel": "Soul",
       "soulPlaceholder": "Describe territory, standards and Definition of Done...",
+      "systemInstructionsTitle": "System instructions",
+      "systemInstructionsReadOnly": "(read-only — applied to all workers)",
       "cancel": "Cancel",
       "saveNew": "Create worker",
       "saveEdit": "Save changes"
