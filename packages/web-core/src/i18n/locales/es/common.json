@@ -597,8 +597,10 @@
       "delete": "Eliminar",
       "queuedCount": "{{count}} en cola",
       "queuedCount_other": "{{count}} en cola",
+      "queuedLabel": "en cola",
       "completedCount": "{{count}} completada",
       "completedCount_other": "{{count}} completadas",
+      "completedLabel": "hechas",
       "startNext": "Iniciar próxima",
       "expandQueue": "Ver cola",
       "collapseQueue": "Ocultar cola",
@@ -616,6 +618,8 @@
       "templatesLabel": "Arrancar desde una plantilla",
       "soulLabel": "Alma (soul)",
       "soulPlaceholder": "Describí territorio, estándares y Definition of Done...",
+      "systemInstructionsTitle": "Instrucciones del sistema",
+      "systemInstructionsReadOnly": "(solo lectura — se aplican a todos los workers)",
       "cancel": "Cancelar",
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios"
@@ -638,6 +642,8 @@
     "selectRepoPrompt": "Seleccioná un repositorio para ver su tablero de sprint.",
     "loading": "Cargando sprint...",
     "loadError": "No se pudo cargar el tablero de sprint.",
+    "sync": "Sincronizar",
+    "syncing": "Sincronizando...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En cola",

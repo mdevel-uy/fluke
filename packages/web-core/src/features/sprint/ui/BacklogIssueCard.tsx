@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { PlayIcon, SpinnerIcon } from '@phosphor-icons/react';
+import { Loader2, Play } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import {
   DropdownMenu,
@@ -27,35 +27,37 @@ export function BacklogIssueCard({
   const { t } = useTranslation('common');
 
   return (
-    <article className="flex flex-col gap-half p-base bg-primary border border-border rounded-sm">
-      <div className="flex items-baseline gap-half min-w-0">
-        <span className="text-xs text-low shrink-0">#{issue.number}</span>
+    <article className="group flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft transition-all duration-150 hover:shadow-card hover:border-border">
+      <div className="flex items-baseline gap-2 min-w-0">
+        <span className="font-ibm-plex-mono text-xs text-low shrink-0">
+          #{issue.number}
+        </span>
         <span
-          className="text-sm text-normal font-medium truncate"
+          className="text-sm text-high font-medium leading-snug line-clamp-2"
           title={issue.title}
         >
           {issue.title}
         </span>
       </div>
       {issue.labels.length > 0 && (
-        <div className="flex items-center gap-half flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {issue.labels.map((label) => (
             <IssueLabelChip key={label.name} label={label.name} />
           ))}
         </div>
       )}
-      <div className="flex justify-end pt-half">
+      <div className="flex justify-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
+              variant="tonal"
               size="xs"
               disabled={isAssigning || workers.length === 0}
             >
               {isAssigning ? (
-                <SpinnerIcon className="mr-1 size-icon-sm animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <PlayIcon className="mr-1 size-icon-sm" weight="bold" />
+                <Play className="h-3 w-3" />
               )}
               {t('sprint.backlog.assign')}
             </Button>
@@ -71,7 +73,7 @@ export function BacklogIssueCard({
                   key={worker.id}
                   onSelect={() => onAssign(worker.id)}
                 >
-                  <span className="mr-1" aria-hidden="true">
+                  <span className="mr-1.5 text-base" aria-hidden="true">
                     {worker.emoji}
                   </span>
                   <span className="truncate">{worker.name}</span>

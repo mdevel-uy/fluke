@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { SpinnerIcon } from '@phosphor-icons/react';
+import { Loader2 } from 'lucide-react';
+import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import {
   Select,
   SelectContent,
@@ -13,13 +16,16 @@ import {
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi, workersApi } from '@/shared/lib/api';
-import { useRepoIssues } from '@/features/issues/model/useRepoIssues';
+import {
+  useRepoIssues,
+  useSyncRepoIssues,
+} from '@/features/issues';
 import type { RepoIssue } from '@/features/issues';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
-import { sprintKeys } from '@/features/sprint/model/sprintKeys';
+import { workersKeys } from '@/features/workers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
@@ -66,16 +72,33 @@ export function SprintPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToSprint(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToSprint(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -84,8 +107,11 @@ export function SprintPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -108,13 +134,8 @@ export function SprintPage() {
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
 
   const invalidateWorkerData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: sprintKeys.workers });
-    for (const worker of workers) {
-      queryClient.invalidateQueries({
-        queryKey: sprintKeys.tasksByWorker(worker.id),
-      });
-    }
-  }, [queryClient, workers]);
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
@@ -267,7 +288,16 @@ export function SprintPage() {
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
 
+  const syncMutation = useSyncRepoIssues(selectedRepoId);
+  const isSyncing = syncMutation.isPending;
+
+  const handleSync = () => {
+    if (!selectedRepoId || isSyncing) return;
+    syncMutation.mutate();
+  };
+
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToSprint(repoId);
   };
 
@@ -287,13 +317,13 @@ export function SprintPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-double py-base border-b border-border gap-base">
-        <div className="flex items-baseline gap-base min-w-0">
-          <h1 className="text-lg font-semibold text-high">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h1 className="text-xl font-semibold text-high tracking-tight">
             {t('sprint.title')}
           </h1>
         </div>
-        <div className="flex items-center gap-base">
+        <div className="flex items-center gap-3">
           <div className="min-w-[240px]">
             <Select
               value={selectedRepoId ?? ''}
@@ -314,39 +344,46 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
+          <PrimaryButton
+            variant="tertiary"
+            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+            onClick={handleSync}
+            disabled={!selectedRepoId || isSyncing}
+          />
         </div>
       </header>
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('sprint.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('sprint.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('sprint.selectRepoPrompt')}
           </div>
         ) : isLoadingIssues || isLoadingWorkers || isLoadingTasks ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('sprint.loading')}</span>
           </div>
         ) : isIssuesError || isWorkersError || isTasksError ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
             {t('sprint.loadError')}
           </div>
         ) : (
           showBoard && (
-            <div className="flex flex-row gap-base h-full min-h-0 p-base overflow-x-auto">
+            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
                 count={backlogIssues.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 <FreeTaskComposer
                   workers={workers}
@@ -380,13 +417,13 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.queued')}
                 count={queuedGroups.reduce((sum, g) => sum + g.tasks.length, 0)}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {queuedGroups.length === 0 ? (
                   <ColumnEmpty message={t('sprint.queued.empty')} />
                 ) : (
                   queuedGroups.map(({ worker, tasks }) => (
-                    <div key={worker.id} className="flex flex-col gap-half">
+                    <div key={worker.id} className="flex flex-col gap-2">
                       <WorkerChip worker={worker} />
                       {tasks.map((task, index) => (
                         <QueuedTaskCard
@@ -410,7 +447,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.inProgress')}
                 count={inProgressTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {inProgressTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.inProgress.empty')} />
@@ -418,7 +455,7 @@ export function SprintPage() {
                   inProgressTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <InProgressTaskCard task={task} />
                       </div>
@@ -430,7 +467,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.inReview')}
                 count={inReviewTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {inReviewTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.inReview.empty')} />
@@ -438,7 +475,7 @@ export function SprintPage() {
                   inReviewTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <InReviewTaskCard task={task} />
                       </div>
@@ -450,7 +487,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.done')}
                 count={doneTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {doneTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.done.empty')} />
@@ -458,7 +495,7 @@ export function SprintPage() {
                   doneTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <DoneTaskCard task={task} />
                       </div>

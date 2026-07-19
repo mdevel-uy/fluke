@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { workersApi } from '@/shared/lib/api';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
-import { sprintKeys } from './sprintKeys';
 
 export function useWorkers() {
   return useQuery({
-    queryKey: sprintKeys.workers,
+    queryKey: workersKeys.list(),
     queryFn: () => workersApi.list() as Promise<Worker[]>,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -22,8 +24,10 @@ export function useAllWorkerTasks(
 ): AllWorkerTasksResult {
   const results = useQueries({
     queries: (workers ?? []).map((worker) => ({
-      queryKey: sprintKeys.tasksByWorker(worker.id),
+      queryKey: workersKeys.tasks(worker.id),
       queryFn: () => workersApi.listTasks(worker.id) as Promise<WorkerTask[]>,
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: true,
     })),
   });
 

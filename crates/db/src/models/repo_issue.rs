@@ -32,10 +32,7 @@ pub struct UpsertRepoIssue {
 }
 
 impl RepoIssue {
-    pub async fn list_by_repo(
-        pool: &SqlitePool,
-        repo_id: Uuid,
-    ) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn list_by_repo(pool: &SqlitePool, repo_id: Uuid) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, RepoIssue>(
             "SELECT id, repo_id, number, title, body, state, labels, author,
                     updated_at, synced_at, milestone
@@ -118,5 +115,37 @@ impl RepoIssue {
         .execute(pool)
         .await?;
         Ok(())
+    }
+
+    /// Delete all issues for `repo_id` whose number is not in `keep_numbers`.
+    /// Call this after a successful sync to prune stale rows.
+    pub async fn delete_not_in(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        keep_numbers: &[i64],
+    ) -> Result<u64, sqlx::Error> {
+        if keep_numbers.is_empty() {
+            let result = sqlx::query("DELETE FROM repo_issues WHERE repo_id = ?1")
+                .bind(repo_id)
+                .execute(pool)
+                .await?;
+            return Ok(result.rows_affected());
+        }
+
+        // Build "?2, ?3, ..." positional placeholders for the NOT IN list.
+        let placeholders: String = (2..=keep_numbers.len() + 1)
+            .map(|i| format!("?{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let sql = format!(
+            "DELETE FROM repo_issues WHERE repo_id = ?1 AND number NOT IN ({placeholders})"
+        );
+
+        let mut q = sqlx::query(&sql).bind(repo_id);
+        for n in keep_numbers {
+            q = q.bind(*n);
+        }
+        q.execute(pool).await.map(|r| r.rows_affected())
     }
 }
