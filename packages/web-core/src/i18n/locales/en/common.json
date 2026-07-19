@@ -609,8 +609,10 @@
       "delete": "Delete",
       "queuedCount": "{{count}} queued",
       "queuedCount_other": "{{count}} queued",
+      "queuedLabel": "queued",
       "completedCount": "{{count}} completed",
       "completedCount_other": "{{count}} completed",
+      "completedLabel": "done",
       "startNext": "Start next",
       "expandQueue": "Show queue",
       "collapseQueue": "Hide queue",
@@ -628,6 +630,8 @@
       "templatesLabel": "Start from a template",
       "soulLabel": "Soul",
       "soulPlaceholder": "Describe territory, standards and Definition of Done...",
+      "systemInstructionsTitle": "System instructions",
+      "systemInstructionsReadOnly": "(read-only — applied to all workers)",
       "cancel": "Cancel",
       "saveNew": "Create worker",
       "saveEdit": "Save changes"
@@ -650,6 +654,8 @@
     "selectRepoPrompt": "Select a repository to see its sprint board.",
     "loading": "Loading sprint...",
     "loadError": "Failed to load the sprint board.",
+    "sync": "Sync",
+    "syncing": "Syncing...",
     "columns": {
       "backlog": "Backlog",
       "queued": "Queued",

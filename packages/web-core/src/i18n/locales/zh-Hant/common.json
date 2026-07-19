@@ -609,8 +609,10 @@
       "delete": "刪除",
       "queuedCount": "{{count}} 個排隊",
       "queuedCount_other": "{{count}} 個排隊",
+      "queuedLabel": "排隊",
       "completedCount": "{{count}} 個完成",
       "completedCount_other": "{{count}} 個完成",
+      "completedLabel": "完成",
       "startNext": "開始下一個",
       "expandQueue": "顯示佇列",
       "collapseQueue": "隱藏佇列",
@@ -628,6 +630,8 @@
       "templatesLabel": "從範本開始",
       "soulLabel": "靈魂 (Soul)",
       "soulPlaceholder": "描述領域、標準與 Definition of Done...",
+      "systemInstructionsTitle": "系統指令",
+      "systemInstructionsReadOnly": "(唯讀 — 適用於所有工作者)",
       "cancel": "取消",
       "saveNew": "建立工作者",
       "saveEdit": "儲存變更"
@@ -650,6 +654,8 @@
     "selectRepoPrompt": "請選擇一個儲存庫以查看其衝刺看板。",
     "loading": "正在載入衝刺...",
     "loadError": "載入衝刺看板失敗。",
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待辦",
       "queued": "排隊中",

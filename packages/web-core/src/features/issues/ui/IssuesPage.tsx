@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useSearch } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowClockwiseIcon, SpinnerIcon } from '@phosphor-icons/react';
+import { Loader2, RefreshCcw } from 'lucide-react';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import {
   Select,
@@ -19,6 +19,7 @@ import {
   useSyncRepoIssues,
 } from '@/features/issues/model/useRepoIssues';
 import type { RepoIssue } from '@/features/issues/types';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
 
@@ -41,17 +42,33 @@ export function IssuesPage() {
   const appNavigation = useAppNavigation();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
-  // Auto-select the first repo when the URL has none and repos are loaded.
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToIssues(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToIssues(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -60,8 +77,11 @@ export function IssuesPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -80,14 +100,15 @@ export function IssuesPage() {
   };
 
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToIssues(repoId);
   };
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-double py-base border-b border-border gap-base">
-        <div className="flex items-baseline gap-base min-w-0">
-          <h1 className="text-lg font-semibold text-high">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h1 className="text-xl font-semibold text-high tracking-tight">
             {t('issues.title')}
           </h1>
           {hasIssues && (
@@ -96,7 +117,7 @@ export function IssuesPage() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-base">
+        <div className="flex items-center gap-3">
           <div className="min-w-[240px]">
             <Select
               value={selectedRepoId ?? ''}
@@ -120,7 +141,7 @@ export function IssuesPage() {
           <PrimaryButton
             variant="tertiary"
             value={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+            actionIcon={isSyncing ? 'spinner' : RefreshCcw}
             onClick={handleRefresh}
             disabled={!selectedRepoId || isSyncing}
           />
@@ -129,25 +150,25 @@ export function IssuesPage() {
 
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('issues.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('issues.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('issues.selectRepoPrompt')}
           </div>
         ) : isLoading ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('issues.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
             {t('issues.loadError')}
           </div>
         ) : !hasIssues ? (
@@ -155,7 +176,7 @@ export function IssuesPage() {
             <IssuesEmptyState />
           </div>
         ) : (
-          <div className="flex flex-col gap-double py-base">
+          <div className="flex flex-col gap-6 py-6">
             <IssuesGroup
               title={t('issues.openGroup')}
               count={open.length}

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  CheckCircleIcon,
-  CircleNotchIcon,
-  PlusIcon,
-  QueueIcon,
-  SpinnerIcon,
-  XIcon,
-  type Icon,
-} from '@phosphor-icons/react';
+  Activity,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { ApiError } from '@/shared/lib/api';
@@ -30,16 +30,20 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  icon: FC<{ className?: string; weight?: string }>;
+  icon: LucideIcon;
   accent: string;
 }) {
   return (
-    <div className="flex flex-col gap-half rounded-lg border border-border bg-secondary p-base">
-      <div className={`flex items-center gap-half text-xs font-medium ${accent}`}>
-        <Icon className="size-icon-sm" weight="bold" />
+    <div className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-primary p-4 shadow-card">
+      <div
+        className={`flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide ${accent}`}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
         <span>{label}</span>
       </div>
-      <p className="text-xl font-bold text-high">{value}</p>
+      <p className="text-2xl font-semibold text-high tabular-nums leading-none">
+        {value}
+      </p>
     </div>
   );
 }
@@ -170,9 +174,9 @@ export function WorkersPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-double py-base border-b border-border gap-base">
-        <div className="flex items-baseline gap-base min-w-0">
-          <h1 className="text-lg font-semibold text-high">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h1 className="text-xl font-semibold text-high tracking-tight">
             {t('workers.title')}
           </h1>
           {workers.length > 0 && (
@@ -184,34 +188,36 @@ export function WorkersPage() {
         <PrimaryButton
           variant="default"
           value={t('workers.newWorker')}
-          actionIcon={PlusIcon}
+          actionIcon={Plus}
           onClick={handleNewWorker}
         />
       </header>
 
       {toasts.length > 0 && (
-        <div className="px-double pt-base flex flex-col gap-1">
+        <div className="px-6 pt-4 flex flex-col gap-2">
           {toasts.map((toast) => (
             <div
               key={toast.id}
               role="status"
               className={
-                'flex items-start justify-between gap-base rounded-md border px-base py-half text-sm ' +
+                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
                 (toast.variant === 'success'
-                  ? 'border-success/40 bg-success/10 text-success'
+                  ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
-                    ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                    : 'border-border bg-secondary text-normal')
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-border/60 bg-secondary text-normal')
               }
             >
-              <span className="min-w-0 flex-1">{toast.message}</span>
+              <span className="min-w-0 flex-1 leading-relaxed">
+                {toast.message}
+              </span>
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 text-low hover:text-normal cursor-pointer"
+                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
               >
-                <XIcon className="size-icon-sm" weight="bold" />
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>
             </div>
           ))}
@@ -219,23 +225,23 @@ export function WorkersPage() {
       )}
 
       {workers.length > 0 && !isLoading && !isError && (
-        <div className="grid grid-cols-3 gap-base px-double pt-base">
+        <div className="grid grid-cols-3 gap-4 px-6 pt-4">
           <StatCard
             label={t('workers.stats.working')}
             value={stats.working}
-            icon={CircleNotchIcon}
+            icon={Activity}
             accent="text-success"
           />
           <StatCard
             label={t('workers.stats.queued')}
             value={stats.totalQueued}
-            icon={QueueIcon}
+            icon={Clock}
             accent="text-warning"
           />
           <StatCard
             label={t('workers.stats.completed')}
             value={stats.totalCompleted}
-            icon={CheckCircleIcon}
+            icon={CheckCircle2}
             accent="text-info"
           />
         </div>
@@ -243,12 +249,12 @@ export function WorkersPage() {
 
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoading ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('workers.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
             {t('workers.loadError')}
           </div>
         ) : workers.length === 0 ? (
@@ -256,7 +262,7 @@ export function WorkersPage() {
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-base p-double md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 p-6 md:grid-cols-2 xl:grid-cols-3">
             {workers.map((worker) => (
               <WorkerCard
                 key={worker.id}

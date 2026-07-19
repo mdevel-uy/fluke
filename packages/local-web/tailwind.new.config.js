@@ -84,7 +84,8 @@ module.exports = {
         `,
       },
       ringColor: {
-        DEFAULT: 'hsl(var(--brand))',
+        DEFAULT: 'hsl(var(--ring))',
+        brand: 'hsl(var(--brand))',
       },
       fontSize: {
         xs: [getSize('xs'), { lineHeight: getSize('xs', lineHeightMultiplier) }],      // 8px
@@ -122,6 +123,8 @@ module.exports = {
         'info-foreground': "hsl(var(--info-foreground))",
         neutral: "hsl(var(--neutral))",
         'neutral-foreground': "hsl(var(--neutral-foreground))",
+        destructive: "hsl(var(--destructive))",
+        'destructive-foreground': "hsl(var(--destructive-foreground))",
         merged: "hsl(var(--merged))",
         // Text on accent
         'on-brand': "hsl(var(--text-on-brand))",
@@ -135,16 +138,30 @@ module.exports = {
         border: "hsl(var(--border))",
       },
       borderRadius: {
-        lg: getSize('lg', radiusMultiplier),
-        md: getSize('sm', radiusMultiplier),
-        sm: getSize('xs', radiusMultiplier),
+        DEFAULT: '0.5rem',
+        none: '0',
+        sm: '0.375rem',
+        md: '0.5rem',
+        lg: '0.625rem',
+        xl: '0.875rem',
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        full: '9999px',
+      },
+      boxShadow: {
+        'soft': '0 1px 2px 0 rgb(15 23 42 / 0.04)',
+        'card': '0 1px 3px 0 rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.04)',
+        'card-hover': '0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05)',
+        'elevated': '0 8px 24px -6px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.06)',
+        'overlay': '0 20px 40px -12px rgb(15 23 42 / 0.18), 0 8px 16px -6px rgb(15 23 42 / 0.08)',
+        'focus': '0 0 0 3px hsl(var(--brand) / 0.18)',
       },
       borderWidth: {
         base: getSize('base'),
         half: getSize('base', 0.5),
       },
       fontFamily: {
-        'ibm-plex-sans': ['"IBM Plex Sans"', '"Noto Emoji"', 'sans-serif'],
+        'ibm-plex-sans': ['"Plus Jakarta Sans"', '"Noto Emoji"', 'sans-serif'],
         'ibm-plex-mono': ['"IBM Plex Mono"', 'monospace'],
       },
       keyframes: {

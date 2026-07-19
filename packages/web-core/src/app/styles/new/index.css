@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&family=Noto+Emoji:wght@300..700&family=Roboto:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&family=Noto+Emoji:wght@300..700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,38 +14,38 @@ html {
   /* Light defaults */
   :root {
     color-scheme: light;
-    --_background: 0 0% 95%;
-    --_foreground: 0 0% 5%;
-    --_primary: 0 0% 5%;
+    --_background: 210 40% 98%;
+    --_foreground: 222 47% 11%;
+    --_primary: 222 47% 11%;
     --_primary-foreground: 0 0% 100%;
-    --_secondary: 0 0% 95%;
-    --_secondary-foreground: 0 0% 16%;
-    --_muted: 0 0% 89%;
-    --_muted-foreground: 0 0% 56%;
-    --_accent: 0 0% 92%;
-    --_accent-foreground: 0 0% 5%;
-    --_destructive: 0 59% 57%;
+    --_secondary: 214 32% 96%;
+    --_secondary-foreground: 215 25% 27%;
+    --_muted: 214 32% 92%;
+    --_muted-foreground: 215 16% 47%;
+    --_accent: 214 32% 92%;
+    --_accent-foreground: 222 47% 11%;
+    --_destructive: 0 72% 51%;
     --_destructive-foreground: 0 0% 100%;
-    --_border: 0 0% 85%;
-    --_input: 0 0% 96%;
-    --_ring: 0 0% 5%;
-    --_radius: 0.125rem;
+    --_border: 214 32% 88%;
+    --_input: 214 32% 96%;
+    --_ring: 219 89% 53%;
+    --_radius: 0.5rem;
 
     /* Status (light) */
-    --_success: 117 38% 50%;
-    --_success-foreground: 117 38% 20%;
-    --_warning: 32 95% 44%;
-    --_warning-foreground: 32 95% 14%;
+    --_success: 142 76% 36%;
+    --_success-foreground: 142 76% 15%;
+    --_warning: 38 92% 50%;
+    --_warning-foreground: 38 92% 20%;
     --_info: 217 91% 60%;
-    --_info-foreground: 0 0% 5%;
-    --_neutral: 0 0% 92%;
-    --_neutral-foreground: 0 0% 5%;
+    --_info-foreground: 222 47% 11%;
+    --_neutral: 214 32% 92%;
+    --_neutral-foreground: 222 47% 11%;
 
     /* Console (light) */
     --_console-background: 0 0% 100%;
-    --_console-foreground: 0 0% 5%;
-    --_console-success: 117 38% 50%;
-    --_console-error: 0 59% 57%;
+    --_console-foreground: 222 47% 11%;
+    --_console-success: 142 76% 36%;
+    --_console-error: 0 72% 51%;
 
     /* Syntax highlighting (light) */
     --_syntax-keyword: #d73a49;
@@ -59,14 +59,14 @@ html {
     --_syntax-deleted: #b31d28;
 
     /* Text (light) */
-    --text-high: 0 0% 5%;
-    --text-normal: 0 0% 20%;
-    --text-low: 0 0% 39%;
+    --text-high: 222 47% 11%;
+    --text-normal: 215 25% 27%;
+    --text-low: 215 16% 47%;
 
     /* Background (light) - with VS Code overrides */
     --_bg-primary-default: 0 0% 100%;
-    --_bg-secondary-default: 0 0% 95%;
-    --_bg-panel-default: 0 0% 89%;
+    --_bg-secondary-default: 210 40% 97%;
+    --_bg-panel-default: 214 32% 94%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -75,11 +75,11 @@ html {
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
     /* Accent (light) */
-    --brand: 25 82% 54%;
-    --brand-hover: 25 75% 62%;
-    --brand-secondary: 25 82% 37%;
-    --error: 0 59% 57%;
-    --success: 117 38% 50%;
+    --brand: 219 89% 53%;
+    --brand-hover: 217 91% 60%;
+    --brand-secondary: 221 83% 47%;
+    --error: 0 72% 51%;
+    --success: 142 76% 36%;
     --merged: 271 81% 46%;
 
     /* Text on accent */
@@ -90,42 +90,42 @@ html {
   .dark {
     color-scheme: dark;
 
-    /* Internal variables (dark) - needed for public tokens */
-    --_background: 0 0% 13%;
-    --_foreground: 0 0% 96%;
-    --_primary: 240 4.8% 95.9%;
-    --_primary-foreground: 240 5.9% 10%;
-    --_secondary: 0 0% 12%;
-    --_secondary-foreground: 0 0% 77%;
-    --_muted: 0 0% 16%;
-    --_muted-foreground: 0 0% 64%;
-    --_accent: 0 0% 20%;
-    --_accent-foreground: 0 0% 96%;
-    --_destructive: 0 59% 57%;
-    --_destructive-foreground: 0 0% 96%;
-    --_border: 0 0% 20%;
-    --_input: 0 0% 20%;
-    --_ring: 0 0% 77%;
+    /* Internal variables (dark) */
+    --_background: 222 47% 8%;
+    --_foreground: 210 40% 98%;
+    --_primary: 210 40% 98%;
+    --_primary-foreground: 222 47% 8%;
+    --_secondary: 215 28% 14%;
+    --_secondary-foreground: 215 20% 65%;
+    --_muted: 215 25% 17%;
+    --_muted-foreground: 215 20% 60%;
+    --_accent: 215 25% 20%;
+    --_accent-foreground: 210 40% 98%;
+    --_destructive: 0 72% 51%;
+    --_destructive-foreground: 210 40% 98%;
+    --_border: 215 25% 20%;
+    --_input: 215 25% 17%;
+    --_ring: 217 91% 60%;
 
     /* Status (dark) */
-    --_success: 117 38% 50%;
-    --_success-foreground: 117 38% 90%;
-    --_warning: 32.2 95% 44.1%;
-    --_warning-foreground: 32.2 95% 90%;
-    --_info: 217.2 91.2% 59.8%;
-    --_info-foreground: 217.2 91.2% 90%;
-    --_neutral: 0 0% 20%;
-    --_neutral-foreground: 0 0% 90%;
+    --_success: 142 76% 42%;
+    --_success-foreground: 142 76% 90%;
+    --_warning: 38 92% 50%;
+    --_warning-foreground: 38 92% 90%;
+    --_info: 217 91% 60%;
+    --_info-foreground: 217 91% 90%;
+    --_neutral: 215 25% 20%;
+    --_neutral-foreground: 210 40% 90%;
 
     /* Text (dark) */
-    --text-high: 0 0% 96%;
-    --text-normal: 0 0% 77%;
-    --text-low: 0 0% 56%;
+    --text-high: 210 40% 98%;
+    --text-normal: 214 32% 80%;
+    --text-low: 215 20% 52%;
 
     /* Background (dark) - with VS Code overrides */
-    --_bg-primary-default: 0 0% 13%;
-    --_bg-secondary-default: 0 0% 11%;
-    --_bg-panel-default: 0 0% 16%;
+    --_bg-primary-default: 222 47% 8%;
+    --_bg-secondary-default: 222 47% 6%;
+    --_bg-panel-default: 215 25% 14%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -134,20 +134,20 @@ html {
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
     /* Accent (dark) */
-    --brand: 25 82% 54%;
-    --brand-hover: 25 75% 62%;
-    --brand-secondary: 25 82% 37%;
-    --error: 0 59% 57%;
-    --success: 117 38% 50%;
+    --brand: 217 91% 60%;
+    --brand-hover: 213 93% 68%;
+    --brand-secondary: 219 89% 48%;
+    --error: 0 72% 51%;
+    --success: 142 76% 42%;
     --merged: 271 81% 66%;
 
     /* Text on accent */
     --text-on-brand: 0 0% 100%;
     /* Console (dark) */
-    --_console-background: 0 0% 0%;
+    --_console-background: 222 47% 5%;
     --_console-foreground: 210 40% 98%;
-    --_console-success: 138.5 76.5% 47.7%;
-    --_console-error: 0 84.2% 60.2%;
+    --_console-success: 142 76% 47%;
+    --_console-error: 0 84% 60%;
 
     /* Syntax highlighting (dark) */
     --_syntax-keyword: #ff7b72;
@@ -474,11 +474,11 @@ html {
   /* Background colors for PWA safe-area */
   html,
   body {
-    background-color: #f2f2f2;
+    background-color: #f8fafc;
   }
 
   html.dark body,
   html.dark {
-    background-color: #212121;
+    background-color: #0a0f1e;
   }
 }

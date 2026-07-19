@@ -609,8 +609,10 @@
       "delete": "Supprimer",
       "queuedCount": "{{count}} en file",
       "queuedCount_other": "{{count}} en file",
+      "queuedLabel": "en file",
       "completedCount": "{{count}} terminée",
       "completedCount_other": "{{count}} terminées",
+      "completedLabel": "terminées",
       "startNext": "Démarrer la suivante",
       "expandQueue": "Voir la file",
       "collapseQueue": "Masquer la file",
@@ -628,6 +630,8 @@
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
       "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "systemInstructionsTitle": "Instructions système",
+      "systemInstructionsReadOnly": "(lecture seule — appliquées à tous les workers)",
       "cancel": "Annuler",
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer"
@@ -650,6 +654,8 @@
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
     "loading": "Chargement du sprint...",
     "loadError": "Échec du chargement du tableau de sprint.",
+    "sync": "Synchroniser",
+    "syncing": "Synchronisation...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En file",

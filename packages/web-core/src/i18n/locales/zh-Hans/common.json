@@ -588,13 +588,13 @@
     "loadError": "加载工作者失败。",
     "emptyTitle": "尚无工作者",
     "emptyDescription": "创建一个工作者以开始分配任务。",
-    “confirmDelete”: “删除工作者”{{worker}}”？此操作不可撤销。”,
-    “stats”: {
-      “working”: “工作中”,
-      “queued”: “排队中”,
-      “completed”: “已完成”
+    "confirmDelete": "删除工作者 \"{{worker}}\"？此操作不可撤销。",
+    "stats": {
+      "working": "工作中",
+      "queued": "排队中",
+      "completed": "已完成"
     },
-    “templates”: {
+    "templates": {
       "backend": "后端专家",
       "frontend": "前端专家",
       "generalist": "通才"
@@ -609,8 +609,10 @@
       "delete": "删除",
       "queuedCount": "{{count}} 个排队",
       "queuedCount_other": "{{count}} 个排队",
+      "queuedLabel": "排队",
       "completedCount": "{{count}} 个完成",
       "completedCount_other": "{{count}} 个完成",
+      "completedLabel": "完成",
       "startNext": "开始下一个",
       "expandQueue": "显示队列",
       "collapseQueue": "隐藏队列",
@@ -628,6 +630,8 @@
       "templatesLabel": "从模板开始",
       "soulLabel": "灵魂 (Soul)",
       "soulPlaceholder": "描述领域、标准与 Definition of Done...",
+      "systemInstructionsTitle": "系统指令",
+      "systemInstructionsReadOnly": "(只读 — 适用于所有工作者)",
       "cancel": "取消",
       "saveNew": "创建工作者",
       "saveEdit": "保存更改"
@@ -650,6 +654,8 @@
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
     "loading": "正在加载冲刺...",
     "loadError": "加载冲刺看板失败。",
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待办",
       "queued": "排队中",
