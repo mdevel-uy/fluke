@@ -9,8 +9,8 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center h-5 px-base rounded-sm',
-        'bg-panel text-low text-sm font-medium whitespace-nowrap',
+        'inline-flex items-center h-5 px-2 rounded-full',
+        'bg-secondary text-low text-xs font-medium whitespace-nowrap border border-border/50',
         className
       )}
     >

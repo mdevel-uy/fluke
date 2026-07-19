@@ -601,8 +601,10 @@
       "delete": "削除",
       "queuedCount": "{{count}} 件待機",
       "queuedCount_other": "{{count}} 件待機",
+      "queuedLabel": "待機",
       "completedCount": "{{count}} 件完了",
       "completedCount_other": "{{count}} 件完了",
+      "completedLabel": "完了",
       "startNext": "次のタスクを開始",
       "expandQueue": "キューを表示",
       "collapseQueue": "キューを隠す",
@@ -620,6 +622,8 @@
       "templatesLabel": "テンプレートから始める",
       "soulLabel": "ソウル",
       "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
+      "systemInstructionsTitle": "システム指示",
+      "systemInstructionsReadOnly": "(読み取り専用 — 全ワーカーに適用)",
       "cancel": "キャンセル",
       "saveNew": "ワーカーを作成",
       "saveEdit": "変更を保存"
@@ -642,26 +646,8 @@
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
     "loading": "スプリントを読み込み中...",
     "loadError": "スプリントボードの読み込みに失敗しました。",
-    "startSprint": "スプリントを開始",
-    "startSprintDisabled": "開始可能なワーカーがいません",
-    "startSprintDialog": {
-      "title": "スプリントを開始",
-      "description": "以下のワーカーが次のキュータスクを開始します。",
-      "willStart": "開始予定（{{count}}件）",
-      "skipped": "スキップ",
-      "cancel": "キャンセル",
-      "confirm": "スプリントを開始",
-      "reason": {
-        "already_working": "作業中",
-        "no_queue": "キューにタスクなし",
-        "cap_reached": "レビュー上限に達しました"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "{{count}}件のワーカーを開始しました。",
-      "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
-      "startAllError": "スプリント開始に失敗しました: {{message}}"
-    },
+    "sync": "同期",
+    "syncing": "同期中...",
     "columns": {
       "backlog": "バックログ",
       "queued": "キュー",
@@ -695,6 +681,26 @@
     },
     "done": {
       "empty": "完了したタスクはまだありません。"
+    },
+    "startSprint": "スプリントを開始",
+    "startSprintDisabled": "開始可能なワーカーがいません",
+    "startSprintDialog": {
+      "title": "スプリントを開始",
+      "description": "以下のワーカーが次のキュータスクを開始します。",
+      "willStart": "開始予定（{{count}}件）",
+      "skipped": "スキップ",
+      "cancel": "キャンセル",
+      "confirm": "スプリントを開始",
+      "reason": {
+        "already_working": "作業中",
+        "no_queue": "キューにタスクなし",
+        "cap_reached": "レビュー上限に達しました"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}}件のワーカーを開始しました。",
+      "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
+      "startAllError": "スプリント開始に失敗しました: {{message}}"
     }
   }
 }

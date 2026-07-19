@@ -601,8 +601,10 @@
       "delete": "删除",
       "queuedCount": "{{count}} 个排队",
       "queuedCount_other": "{{count}} 个排队",
+      "queuedLabel": "排队",
       "completedCount": "{{count}} 个完成",
       "completedCount_other": "{{count}} 个完成",
+      "completedLabel": "完成",
       "startNext": "开始下一个",
       "expandQueue": "显示队列",
       "collapseQueue": "隐藏队列",
@@ -620,6 +622,8 @@
       "templatesLabel": "从模板开始",
       "soulLabel": "灵魂 (Soul)",
       "soulPlaceholder": "描述领域、标准与 Definition of Done...",
+      "systemInstructionsTitle": "系统指令",
+      "systemInstructionsReadOnly": "(只读 — 适用于所有工作者)",
       "cancel": "取消",
       "saveNew": "创建工作者",
       "saveEdit": "保存更改"
@@ -642,26 +646,8 @@
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
     "loading": "正在加载冲刺...",
     "loadError": "加载冲刺看板失败。",
-    "startSprint": "开始冲刺",
-    "startSprintDisabled": "没有可以开始的工作者",
-    "startSprintDialog": {
-      "title": "开始冲刺",
-      "description": "以下工作者将开始其队列中的下一个任务。",
-      "willStart": "将要开始（{{count}} 个）",
-      "skipped": "跳过",
-      "cancel": "取消",
-      "confirm": "开始冲刺",
-      "reason": {
-        "already_working": "正在工作",
-        "no_queue": "队列中无任务",
-        "cap_reached": "已达审查上限"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "已启动 {{count}} 个工作者。",
-      "startAllNoneStarted": "没有工作者可以开始。",
-      "startAllError": "启动冲刺失败：{{message}}"
-    },
+    "sync": "同步",
+    "syncing": "同步中...",
     "columns": {
       "backlog": "待办",
       "queued": "排队中",
@@ -695,6 +681,26 @@
     },
     "done": {
       "empty": "尚未完成任何任务。"
+    },
+    "startSprint": "开始冲刺",
+    "startSprintDisabled": "没有可以开始的工作者",
+    "startSprintDialog": {
+      "title": "开始冲刺",
+      "description": "以下工作者将开始其队列中的下一个任务。",
+      "willStart": "将要开始（{{count}} 个）",
+      "skipped": "跳过",
+      "cancel": "取消",
+      "confirm": "开始冲刺",
+      "reason": {
+        "already_working": "正在工作",
+        "no_queue": "队列中无任务",
+        "cap_reached": "已达审查上限"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "已启动 {{count}} 个工作者。",
+      "startAllNoneStarted": "没有工作者可以开始。",
+      "startAllError": "启动冲刺失败：{{message}}"
     }
   }
 }

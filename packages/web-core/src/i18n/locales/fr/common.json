@@ -601,8 +601,10 @@
       "delete": "Supprimer",
       "queuedCount": "{{count}} en file",
       "queuedCount_other": "{{count}} en file",
+      "queuedLabel": "en file",
       "completedCount": "{{count}} terminée",
       "completedCount_other": "{{count}} terminées",
+      "completedLabel": "terminées",
       "startNext": "Démarrer la suivante",
       "expandQueue": "Voir la file",
       "collapseQueue": "Masquer la file",
@@ -620,6 +622,8 @@
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
       "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "systemInstructionsTitle": "Instructions système",
+      "systemInstructionsReadOnly": "(lecture seule — appliquées à tous les workers)",
       "cancel": "Annuler",
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer"
@@ -642,27 +646,8 @@
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
     "loading": "Chargement du sprint...",
     "loadError": "Échec du chargement du tableau de sprint.",
-    "startSprint": "Démarrer le sprint",
-    "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
-    "startSprintDialog": {
-      "title": "Démarrer le sprint",
-      "description": "Les workers suivants démarreront leur prochaine tâche en file d'attente.",
-      "willStart": "Démarreront ({{count}})",
-      "skipped": "Ignorés",
-      "cancel": "Annuler",
-      "confirm": "Démarrer le sprint",
-      "reason": {
-        "already_working": "Déjà en cours",
-        "no_queue": "Aucune tâche en attente",
-        "cap_reached": "Limite de révisions atteinte"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "{{count}} worker démarré.",
-      "startAllSuccess_other": "{{count}} workers démarrés.",
-      "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
-      "startAllError": "Échec du démarrage du sprint : {{message}}"
-    },
+    "sync": "Synchroniser",
+    "syncing": "Synchronisation...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En file",
@@ -696,6 +681,27 @@
     },
     "done": {
       "empty": "Aucune tâche terminée pour l'instant."
+    },
+    "startSprint": "Démarrer le sprint",
+    "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
+    "startSprintDialog": {
+      "title": "Démarrer le sprint",
+      "description": "Les workers suivants démarreront leur prochaine tâche en file d'attente.",
+      "willStart": "Démarreront ({{count}})",
+      "skipped": "Ignorés",
+      "cancel": "Annuler",
+      "confirm": "Démarrer le sprint",
+      "reason": {
+        "already_working": "Déjà en cours",
+        "no_queue": "Aucune tâche en attente",
+        "cap_reached": "Limite de révisions atteinte"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker démarré.",
+      "startAllSuccess_other": "{{count}} workers démarrés.",
+      "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
+      "startAllError": "Échec du démarrage du sprint : {{message}}"
     }
   }
 }

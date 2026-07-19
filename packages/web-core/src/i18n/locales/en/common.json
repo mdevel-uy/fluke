@@ -601,8 +601,10 @@
       "delete": "Delete",
       "queuedCount": "{{count}} queued",
       "queuedCount_other": "{{count}} queued",
+      "queuedLabel": "queued",
       "completedCount": "{{count}} completed",
       "completedCount_other": "{{count}} completed",
+      "completedLabel": "done",
       "startNext": "Start next",
       "expandQueue": "Show queue",
       "collapseQueue": "Hide queue",
@@ -620,6 +622,8 @@
       "templatesLabel": "Start from a template",
       "soulLabel": "Soul",
       "soulPlaceholder": "Describe territory, standards and Definition of Done...",
+      "systemInstructionsTitle": "System instructions",
+      "systemInstructionsReadOnly": "(read-only — applied to all workers)",
       "cancel": "Cancel",
       "saveNew": "Create worker",
       "saveEdit": "Save changes"
@@ -642,27 +646,8 @@
     "selectRepoPrompt": "Select a repository to see its sprint board.",
     "loading": "Loading sprint...",
     "loadError": "Failed to load the sprint board.",
-    "startSprint": "Start sprint",
-    "startSprintDisabled": "No workers are ready to start",
-    "startSprintDialog": {
-      "title": "Start sprint",
-      "description": "The following workers will start their next queued task.",
-      "willStart": "Will start ({{count}})",
-      "skipped": "Skipped",
-      "cancel": "Cancel",
-      "confirm": "Start sprint",
-      "reason": {
-        "already_working": "Already working",
-        "no_queue": "No queued tasks",
-        "cap_reached": "In-review cap reached"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "{{count}} worker started.",
-      "startAllSuccess_other": "{{count}} workers started.",
-      "startAllNoneStarted": "No workers were ready to start.",
-      "startAllError": "Failed to start sprint: {{message}}"
-    },
+    "sync": "Sync",
+    "syncing": "Syncing...",
     "columns": {
       "backlog": "Backlog",
       "queued": "Queued",
@@ -696,6 +681,27 @@
     },
     "done": {
       "empty": "No completed tasks yet."
+    },
+    "startSprint": "Start sprint",
+    "startSprintDisabled": "No workers are ready to start",
+    "startSprintDialog": {
+      "title": "Start sprint",
+      "description": "The following workers will start their next queued task.",
+      "willStart": "Will start ({{count}})",
+      "skipped": "Skipped",
+      "cancel": "Cancel",
+      "confirm": "Start sprint",
+      "reason": {
+        "already_working": "Already working",
+        "no_queue": "No queued tasks",
+        "cap_reached": "In-review cap reached"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker started.",
+      "startAllSuccess_other": "{{count}} workers started.",
+      "startAllNoneStarted": "No workers were ready to start.",
+      "startAllError": "Failed to start sprint: {{message}}"
     }
   }
 }

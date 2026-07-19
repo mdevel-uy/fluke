@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { PlayIcon } from '@phosphor-icons/react';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { Play } from 'lucide-react';
+import { Button } from '@vibe/ui/components/Button';
 import type { RepoIssue } from '@/features/issues/types';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
@@ -20,20 +20,22 @@ export function IssueListItem({ issue, repoId }: IssueListItemProps) {
   };
 
   return (
-    <li className="flex items-start gap-base px-base py-base border-b border-border last:border-b-0">
-      <div className="flex-1 min-w-0 flex flex-col gap-half">
-        <div className="flex items-baseline gap-half min-w-0">
-          <span className="text-sm text-low shrink-0">#{issue.number}</span>
+    <li className="group flex items-start gap-4 px-5 py-4 border-b border-border/50 last:border-b-0 transition-colors hover:bg-secondary/60">
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-ibm-plex-mono text-xs text-low shrink-0">
+            #{issue.number}
+          </span>
           <span
-            className="text-sm text-normal font-medium truncate"
+            className="text-sm text-high font-medium truncate leading-snug"
             title={issue.title}
           >
             {issue.title}
           </span>
         </div>
-        <div className="flex items-center gap-half flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {issue.labels.length > 0 && (
-            <div className="flex items-center gap-half flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {issue.labels.map((label) => (
                 <IssueLabelChip key={label} label={label} />
               ))}
@@ -45,14 +47,16 @@ export function IssueListItem({ issue, repoId }: IssueListItemProps) {
         </div>
       </div>
       {isOpen && (
-        <PrimaryButton
-          variant="tertiary"
-          value={t('issues.assignToAgent')}
-          actionIcon={PlayIcon}
+        <Button
+          variant="tonal"
+          size="sm"
           onClick={handleAssign}
           disabled={!repoId}
-          className="shrink-0"
-        />
+          className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+        >
+          <Play className="h-3.5 w-3.5" />
+          {t('issues.assignToAgent')}
+        </Button>
       )}
     </li>
   );

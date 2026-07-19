@@ -6,7 +6,6 @@ use db::models::{
     repo_issue::{RepoIssue, UpsertRepoIssue},
 };
 use git::GitService;
-use git_host::ProviderKind;
 use serde::Deserialize;
 use sqlx::SqlitePool;
 use thiserror::Error;
@@ -29,6 +28,8 @@ pub enum RepoIssuesError {
     RepoNotFound,
     #[error("Repository has no GitHub remote")]
     NoGithubRemote,
+    #[error("origin remote URL is not a GitHub URL: {0}")]
+    NotGithubOrigin(String),
     #[error("`gh` CLI is not installed or not on PATH")]
     GhCliNotAvailable,
     #[error("`gh issue list` failed: {0}")]
@@ -71,54 +72,65 @@ impl RepoIssuesService {
             .await?
             .ok_or(RepoIssuesError::RepoNotFound)?;
 
-        if !repo_has_github_remote(git, &repo.path) {
-            return Err(RepoIssuesError::NoGithubRemote);
-        }
+        let nwo = get_github_nwo(git, &repo.path)?;
 
-        let issues = fetch_issues(&repo.path).await?;
+        let issues = fetch_issues(&repo.path, &nwo).await?;
         let mut synced = 0usize;
+        let mut numbers: Vec<i64> = Vec::with_capacity(issues.len());
         for issue in issues {
+            numbers.push(issue.number);
             RepoIssue::upsert(pool, repo_id, &issue.into_upsert()).await?;
             synced += 1;
+        }
+
+        let pruned = RepoIssue::delete_not_in(pool, repo_id, &numbers).await?;
+        if pruned > 0 {
+            tracing::info!(repo_id = %repo_id, pruned, "pruned stale issues after sync");
         }
 
         Ok(SyncOutcome { synced })
     }
 }
 
-fn repo_has_github_remote(git: &GitService, path: &Path) -> bool {
-    let remotes = match git.list_remotes(path) {
-        Ok(remotes) => remotes,
-        Err(err) => {
-            tracing::warn!("Failed to list remotes for {}: {}", path.display(), err);
-            return false;
-        }
-    };
+/// Resolve `owner/repo` from the `origin` remote of the given repository.
+///
+/// Returns an error if the remote is missing or its URL is not a GitHub URL,
+/// so callers get a clear diagnostic instead of silently syncing the wrong repo.
+fn get_github_nwo(git: &GitService, path: &Path) -> Result<String, RepoIssuesError> {
+    let url = git
+        .get_remote_url(path, "origin")
+        .map_err(|_| RepoIssuesError::NoGithubRemote)?;
 
-    remotes
-        .iter()
-        .any(|r| detect_provider(&r.url) == ProviderKind::GitHub)
+    extract_github_nwo(&url).ok_or_else(|| RepoIssuesError::NotGithubOrigin(url))
 }
 
-fn detect_provider(url: &str) -> ProviderKind {
-    // git-host does not expose its detection helper publicly, but its
-    // `GitHostService::from_url` returns `UnsupportedProvider` for
-    // non-GitHub / non-Azure remotes, and constructs a `GitHub` variant
-    // for GitHub URLs. Use a lightweight local check with the same rules
-    // so we do not have to instantiate a provider just to test the URL.
+/// Parse `owner/repo` out of a GitHub remote URL.
+///
+/// Handles both HTTPS (`https://github.com/owner/repo[.git]`) and
+/// SSH (`git@github.com:owner/repo[.git]`) formats.
+fn extract_github_nwo(url: &str) -> Option<String> {
     let lower = url.to_lowercase();
-    if lower.contains("github.com") || lower.contains("github.") {
-        // Exclude Azure DevOps URLs that happen to contain "github." — none
-        // are expected in practice, but guard the /_git/ path just in case.
-        if lower.contains("dev.azure.com")
-            || lower.contains(".visualstudio.com")
-            || lower.contains("/_git/")
-        {
-            return ProviderKind::AzureDevOps;
-        }
-        return ProviderKind::GitHub;
+
+    // Find the start of the path component after the host.
+    // SSH uses a colon separator; HTTPS uses a slash.
+    let path = if let Some(pos) = lower.find("github.com:") {
+        &url[pos + "github.com:".len()..]
+    } else if let Some(pos) = lower.find("github.com/") {
+        &url[pos + "github.com/".len()..]
+    } else {
+        return None;
+    };
+
+    // Strip optional trailing .git suffix and slashes.
+    let path = path.strip_suffix(".git").unwrap_or(path);
+    let path = path.trim_end_matches('/');
+
+    // Accept exactly owner/repo — one slash, non-empty on both sides.
+    if path.matches('/').count() == 1 && !path.starts_with('/') {
+        Some(path.to_string())
+    } else {
+        None
     }
-    ProviderKind::Unknown
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,7 +180,54 @@ impl GhIssue {
     }
 }
 
-async fn fetch_issues(repo_path: &Path) -> Result<Vec<GhIssue>, RepoIssuesError> {
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_github_nwo_https() {
+        assert_eq!(
+            extract_github_nwo("https://github.com/owner/repo.git"),
+            Some("owner/repo".to_string())
+        );
+        assert_eq!(
+            extract_github_nwo("https://github.com/owner/repo"),
+            Some("owner/repo".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_github_nwo_ssh() {
+        assert_eq!(
+            extract_github_nwo("git@github.com:owner/repo.git"),
+            Some("owner/repo".to_string())
+        );
+        assert_eq!(
+            extract_github_nwo("git@github.com:owner/repo"),
+            Some("owner/repo".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_github_nwo_non_github() {
+        assert_eq!(
+            extract_github_nwo("https://gitlab.com/owner/repo.git"),
+            None
+        );
+        assert_eq!(extract_github_nwo("git@bitbucket.org:owner/repo.git"), None);
+        assert_eq!(extract_github_nwo(""), None);
+    }
+
+    #[test]
+    fn test_extract_github_nwo_rejects_deep_path() {
+        assert_eq!(
+            extract_github_nwo("https://github.com/owner/repo/extra"),
+            None
+        );
+    }
+}
+
+async fn fetch_issues(repo_path: &Path, nwo: &str) -> Result<Vec<GhIssue>, RepoIssuesError> {
     let gh = resolve_executable_path("gh")
         .await
         .ok_or(RepoIssuesError::GhCliNotAvailable)?;
@@ -177,6 +236,8 @@ async fn fetch_issues(repo_path: &Path) -> Result<Vec<GhIssue>, RepoIssuesError>
     cmd.current_dir(repo_path)
         .arg("issue")
         .arg("list")
+        .arg("-R")
+        .arg(nwo)
         .arg("--state")
         .arg("all")
         .arg("--json")

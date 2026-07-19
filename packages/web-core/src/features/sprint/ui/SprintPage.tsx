@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { SpinnerIcon, XIcon } from '@phosphor-icons/react';
+import { Loader2, X } from 'lucide-react';
+import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { Button } from '@vibe/ui/components/Button';
 import {
   Select,
   SelectContent,
@@ -10,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
-import { Button } from '@vibe/ui/components/Button';
 import {
   Dialog,
   DialogContent,
@@ -22,14 +25,14 @@ import {
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi, workersApi } from '@/shared/lib/api';
-import { useRepoIssues } from '@/features/issues/model/useRepoIssues';
+import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type { RepoIssue } from '@/features/issues';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
+import { workersKeys } from '@/features/workers';
 import { useStartAllWorkers } from '@/features/workers/model/useWorkers';
-import { sprintKeys } from '@/features/sprint/model/sprintKeys';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
@@ -120,16 +123,33 @@ export function SprintPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { repo?: string };
   const selectedRepoIdFromUrl = search.repo;
+  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
+  // Sync URL param → store so navigation to this view updates the remembered repo.
+  useEffect(() => {
+    if (
+      selectedRepoIdFromUrl &&
+      repos.some((r) => r.id === selectedRepoIdFromUrl)
+    ) {
+      setStoredRepoId(selectedRepoIdFromUrl);
+    }
+  }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
+
+  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
-    appNavigation.goToSprint(repos[0].id, { replace: true });
-  }, [selectedRepoIdFromUrl, repos, appNavigation]);
+    const targetId =
+      storedRepoId && repos.some((r) => r.id === storedRepoId)
+        ? storedRepoId
+        : repos[0].id;
+    appNavigation.goToSprint(targetId, { replace: true });
+  }, [selectedRepoIdFromUrl, repos, storedRepoId, appNavigation]);
 
   const selectedRepoId = useMemo(() => {
     if (
@@ -138,8 +158,11 @@ export function SprintPage() {
     ) {
       return selectedRepoIdFromUrl;
     }
+    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
+      return storedRepoId;
+    }
     return repos[0]?.id;
-  }, [selectedRepoIdFromUrl, repos]);
+  }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
   const {
     data: issues = [],
@@ -164,13 +187,8 @@ export function SprintPage() {
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
 
   const invalidateWorkerData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: sprintKeys.workers });
-    for (const worker of workers) {
-      queryClient.invalidateQueries({
-        queryKey: sprintKeys.tasksByWorker(worker.id),
-      });
-    }
-  }, [queryClient, workers]);
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
@@ -325,7 +343,7 @@ export function SprintPage() {
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
 
-  // Compute per-worker in_review count across ALL repos (cap is global).
+  // Per-worker in_review count across ALL repos (cap is global).
   const inReviewCountByWorker = useMemo(() => {
     const map = new Map<string, number>();
     for (const task of allTasks) {
@@ -336,7 +354,7 @@ export function SprintPage() {
     return map;
   }, [allTasks]);
 
-  // Compute first queued task per worker across ALL repos.
+  // First queued task per worker across ALL repos.
   const firstQueuedByWorker = useMemo(() => {
     const map = new Map<string, WorkerTask>();
     const queued = allTasks
@@ -390,7 +408,16 @@ export function SprintPage() {
     }
   };
 
+  const syncMutation = useSyncRepoIssues(selectedRepoId);
+  const isSyncing = syncMutation.isPending;
+
+  const handleSync = () => {
+    if (!selectedRepoId || isSyncing) return;
+    syncMutation.mutate();
+  };
+
   const handleRepoChange = (repoId: string) => {
+    setStoredRepoId(repoId);
     appNavigation.goToSprint(repoId);
   };
 
@@ -408,26 +435,18 @@ export function SprintPage() {
     !isWorkersError &&
     !isTasksError;
 
+  const startSprintDisabled =
+    !showBoard || eligibleWorkers.length === 0 || startAllMutation.isPending;
+
   return (
     <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-double py-base border-b border-border gap-base">
-        <div className="flex items-baseline gap-base min-w-0">
-          <h1 className="text-lg font-semibold text-high">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h1 className="text-xl font-semibold text-high tracking-tight">
             {t('sprint.title')}
           </h1>
         </div>
-        <div className="flex items-center gap-base">
-          <Button
-            onClick={() => setSprintDialogOpen(true)}
-            disabled={!showBoard || eligibleWorkers.length === 0}
-            title={
-              showBoard && eligibleWorkers.length === 0
-                ? t('sprint.startSprintDisabled')
-                : undefined
-            }
-          >
-            {t('sprint.startSprint')}
-          </Button>
+        <div className="flex items-center gap-3">
           <div className="min-w-[240px]">
             <Select
               value={selectedRepoId ?? ''}
@@ -448,32 +467,55 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
+          <PrimaryButton
+            variant="tertiary"
+            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+            onClick={handleSync}
+            disabled={!selectedRepoId || isSyncing}
+          />
+          <span
+            title={
+              showBoard && eligibleWorkers.length === 0
+                ? t('sprint.startSprintDisabled')
+                : undefined
+            }
+          >
+            <PrimaryButton
+              variant="default"
+              value={t('sprint.startSprint')}
+              onClick={() => setSprintDialogOpen(true)}
+              disabled={startSprintDisabled}
+            />
+          </span>
         </div>
       </header>
 
       {toasts.length > 0 && (
-        <div className="px-double pt-base flex flex-col gap-1">
+        <div className="px-6 pt-4 flex flex-col gap-2">
           {toasts.map((toast) => (
             <div
               key={toast.id}
               role="status"
               className={
-                'flex items-start justify-between gap-base rounded-md border px-base py-half text-sm ' +
+                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
                 (toast.variant === 'success'
-                  ? 'border-success/40 bg-success/10 text-success'
+                  ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
-                    ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                    : 'border-border bg-secondary text-normal')
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-border/60 bg-secondary text-normal')
               }
             >
-              <span className="min-w-0 flex-1">{toast.message}</span>
+              <span className="min-w-0 flex-1 leading-relaxed">
+                {toast.message}
+              </span>
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 text-low hover:text-normal cursor-pointer"
+                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
               >
-                <XIcon className="size-icon-sm" weight="bold" />
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>
             </div>
           ))}
@@ -482,34 +524,34 @@ export function SprintPage() {
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('sprint.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('sprint.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
             {t('sprint.selectRepoPrompt')}
           </div>
         ) : isLoadingIssues || isLoadingWorkers || isLoadingTasks ? (
-          <div className="flex h-full items-center justify-center gap-half text-low">
-            <SpinnerIcon className="size-icon-base animate-spin" />
+          <div className="flex h-full items-center justify-center gap-2 text-low">
+            <Loader2 className="h-4 w-4 animate-spin text-brand" />
             <span className="text-sm">{t('sprint.loading')}</span>
           </div>
         ) : isIssuesError || isWorkersError || isTasksError ? (
-          <div className="flex h-full items-center justify-center px-base text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
             {t('sprint.loadError')}
           </div>
         ) : (
           showBoard && (
-            <div className="flex flex-row gap-base h-full min-h-0 p-base overflow-x-auto">
+            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
                 count={backlogIssues.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 <FreeTaskComposer
                   workers={workers}
@@ -543,13 +585,13 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.queued')}
                 count={queuedGroups.reduce((sum, g) => sum + g.tasks.length, 0)}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {queuedGroups.length === 0 ? (
                   <ColumnEmpty message={t('sprint.queued.empty')} />
                 ) : (
                   queuedGroups.map(({ worker, tasks }) => (
-                    <div key={worker.id} className="flex flex-col gap-half">
+                    <div key={worker.id} className="flex flex-col gap-2">
                       <WorkerChip worker={worker} />
                       {tasks.map((task, index) => (
                         <QueuedTaskCard
@@ -573,7 +615,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.inProgress')}
                 count={inProgressTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {inProgressTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.inProgress.empty')} />
@@ -581,7 +623,7 @@ export function SprintPage() {
                   inProgressTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <InProgressTaskCard task={task} />
                       </div>
@@ -593,7 +635,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.inReview')}
                 count={inReviewTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {inReviewTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.inReview.empty')} />
@@ -601,7 +643,7 @@ export function SprintPage() {
                   inReviewTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <InReviewTaskCard task={task} />
                       </div>
@@ -613,7 +655,7 @@ export function SprintPage() {
               <SprintColumn
                 title={t('sprint.columns.done')}
                 count={doneTasks.length}
-                className="min-w-[260px]"
+                className="min-w-[280px]"
               >
                 {doneTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.done.empty')} />
@@ -621,7 +663,7 @@ export function SprintPage() {
                   doneTasks.map((task) => {
                     const worker = findWorker(workers, task.worker_id);
                     return (
-                      <div key={task.id} className="flex flex-col gap-half">
+                      <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
                         <DoneTaskCard task={task} />
                       </div>
@@ -685,7 +727,9 @@ export function SprintPage() {
             </Button>
             <Button
               onClick={handleStartSprint}
-              disabled={startAllMutation.isPending}
+              disabled={
+                startAllMutation.isPending || eligibleWorkers.length === 0
+              }
             >
               {t('sprint.startSprintDialog.confirm')}
             </Button>

@@ -601,8 +601,10 @@
       "delete": "삭제",
       "queuedCount": "{{count}}개 대기",
       "queuedCount_other": "{{count}}개 대기",
+      "queuedLabel": "대기",
       "completedCount": "{{count}}개 완료",
       "completedCount_other": "{{count}}개 완료",
+      "completedLabel": "완료",
       "startNext": "다음 작업 시작",
       "expandQueue": "대기열 보기",
       "collapseQueue": "대기열 숨기기",
@@ -620,6 +622,8 @@
       "templatesLabel": "템플릿으로 시작",
       "soulLabel": "소울(Soul)",
       "soulPlaceholder": "영역, 표준, Definition of Done을 설명하세요...",
+      "systemInstructionsTitle": "시스템 지침",
+      "systemInstructionsReadOnly": "(읽기 전용 — 모든 워커에 적용)",
       "cancel": "취소",
       "saveNew": "워커 만들기",
       "saveEdit": "변경 사항 저장"
@@ -642,26 +646,8 @@
     "selectRepoPrompt": "스프린트 보드를 보려면 저장소를 선택하세요.",
     "loading": "스프린트를 불러오는 중...",
     "loadError": "스프린트 보드를 불러오지 못했습니다.",
-    "startSprint": "스프린트 시작",
-    "startSprintDisabled": "시작할 준비가 된 워커가 없습니다",
-    "startSprintDialog": {
-      "title": "스프린트 시작",
-      "description": "다음 워커들이 대기열의 다음 작업을 시작합니다.",
-      "willStart": "시작 예정 ({{count}})",
-      "skipped": "건너뜀",
-      "cancel": "취소",
-      "confirm": "스프린트 시작",
-      "reason": {
-        "already_working": "이미 작업 중",
-        "no_queue": "대기열에 작업 없음",
-        "cap_reached": "리뷰 한도 초과"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
-      "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
-      "startAllError": "스프린트 시작 실패: {{message}}"
-    },
+    "sync": "동기화",
+    "syncing": "동기화 중...",
     "columns": {
       "backlog": "백로그",
       "queued": "대기열",
@@ -695,6 +681,26 @@
     },
     "done": {
       "empty": "아직 완료된 태스크가 없습니다."
+    },
+    "startSprint": "스프린트 시작",
+    "startSprintDisabled": "시작할 준비가 된 워커가 없습니다",
+    "startSprintDialog": {
+      "title": "스프린트 시작",
+      "description": "다음 워커들이 대기열의 다음 작업을 시작합니다.",
+      "willStart": "시작 예정 ({{count}})",
+      "skipped": "건너뜀",
+      "cancel": "취소",
+      "confirm": "스프린트 시작",
+      "reason": {
+        "already_working": "이미 작업 중",
+        "no_queue": "대기열에 작업 없음",
+        "cap_reached": "리뷰 한도 초과"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
+      "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
+      "startAllError": "스프린트 시작 실패: {{message}}"
     }
   }
 }

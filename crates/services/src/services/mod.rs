@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod base_instructions;
 pub mod approvals;
 pub mod auth;
 pub mod config;

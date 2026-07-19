@@ -601,8 +601,10 @@
       "delete": "Eliminar",
       "queuedCount": "{{count}} en cola",
       "queuedCount_other": "{{count}} en cola",
+      "queuedLabel": "en cola",
       "completedCount": "{{count}} completada",
       "completedCount_other": "{{count}} completadas",
+      "completedLabel": "hechas",
       "startNext": "Iniciar próxima",
       "expandQueue": "Ver cola",
       "collapseQueue": "Ocultar cola",
@@ -620,6 +622,8 @@
       "templatesLabel": "Arrancar desde una plantilla",
       "soulLabel": "Alma (soul)",
       "soulPlaceholder": "Describí territorio, estándares y Definition of Done...",
+      "systemInstructionsTitle": "Instrucciones del sistema",
+      "systemInstructionsReadOnly": "(solo lectura — se aplican a todos los workers)",
       "cancel": "Cancelar",
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios"
@@ -642,27 +646,8 @@
     "selectRepoPrompt": "Seleccioná un repositorio para ver su tablero de sprint.",
     "loading": "Cargando sprint...",
     "loadError": "No se pudo cargar el tablero de sprint.",
-    "startSprint": "Comenzar sprint",
-    "startSprintDisabled": "No hay workers listos para arrancar",
-    "startSprintDialog": {
-      "title": "Comenzar sprint",
-      "description": "Los siguientes workers van a arrancar su próxima tarea en cola.",
-      "willStart": "Van a arrancar ({{count}})",
-      "skipped": "Se saltean",
-      "cancel": "Cancelar",
-      "confirm": "Comenzar sprint",
-      "reason": {
-        "already_working": "Ya está trabajando",
-        "no_queue": "Sin tareas en cola",
-        "cap_reached": "Límite de reviews alcanzado"
-      }
-    },
-    "toast": {
-      "startAllSuccess": "{{count}} worker arrancado.",
-      "startAllSuccess_other": "{{count}} workers arrancados.",
-      "startAllNoneStarted": "No había workers listos para arrancar.",
-      "startAllError": "Error al comenzar el sprint: {{message}}"
-    },
+    "sync": "Sincronizar",
+    "syncing": "Sincronizando...",
     "columns": {
       "backlog": "Backlog",
       "queued": "En cola",
@@ -696,6 +681,27 @@
     },
     "done": {
       "empty": "Todavía no hay tareas completadas."
+    },
+    "startSprint": "Comenzar sprint",
+    "startSprintDisabled": "No hay workers listos para arrancar",
+    "startSprintDialog": {
+      "title": "Comenzar sprint",
+      "description": "Los siguientes workers van a arrancar su próxima tarea en cola.",
+      "willStart": "Van a arrancar ({{count}})",
+      "skipped": "Se saltean",
+      "cancel": "Cancelar",
+      "confirm": "Comenzar sprint",
+      "reason": {
+        "already_working": "Ya está trabajando",
+        "no_queue": "Sin tareas en cola",
+        "cap_reached": "Límite de reviews alcanzado"
+      }
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker arrancado.",
+      "startAllSuccess_other": "{{count}} workers arrancados.",
+      "startAllNoneStarted": "No había workers listos para arrancar.",
+      "startAllError": "Error al comenzar el sprint: {{message}}"
     }
   }
 }
