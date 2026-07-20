@@ -129,7 +129,7 @@ export function WorkerCard({
               variant="icon"
               size="icon"
               aria-label={t('workers.card.menuLabel')}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              className="text-md-on-surface-variant hover:text-md-on-surface transition-colors"
             >
               <MaterialIcon name="more_vert" size="base" />
             </Button>

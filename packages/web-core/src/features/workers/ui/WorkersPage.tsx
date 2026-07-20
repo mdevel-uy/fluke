@@ -170,9 +170,14 @@ export function WorkersPage() {
   };
 
   const handleEditWorker = async (worker: WorkerResponse) => {
-    const result = await WorkerFormDialog.show({ worker });
-    if (result === 'saved') {
-      pushToast('success', t('workers.toast.updateSuccess'));
+    try {
+      const result = await WorkerFormDialog.show({ worker });
+      if (result === 'saved') {
+        pushToast('success', t('workers.toast.updateSuccess'));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast('error', message);
     }
   };
 
