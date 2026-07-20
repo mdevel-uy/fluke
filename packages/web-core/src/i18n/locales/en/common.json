@@ -680,7 +680,10 @@
     "backlog": {
       "assign": "Assign",
       "noWorkers": "No workers available",
-      "empty": "No open issues waiting to be picked up."
+      "empty": "No open issues waiting to be picked up.",
+      "moreActions": "More actions",
+      "setPriority": "Set priority",
+      "assignTo": "Assign to worker"
     },
     "composer": {
       "title": "New free-form task",
@@ -703,6 +706,33 @@
     },
     "done": {
       "empty": "No completed tasks yet."
+    },
+    "filters": {
+      "searchPlaceholder": "Search issues...",
+      "clearSearch": "Clear search",
+      "epic": "Epic",
+      "allEpics": "All epics",
+      "label": "Label",
+      "allLabels": "All labels",
+      "priority": "Priority",
+      "allPriorities": "All priorities",
+      "worker": "Worker",
+      "allWorkers": "All workers",
+      "clearAll": "Clear filters",
+      "noResults": "No issues match the active filters."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "detail": {
+      "panelLabel": "Issue detail",
+      "close": "Close panel",
+      "noPriority": "No priority",
+      "noBody": "No description provided.",
+      "assignedTo": "Assigned to {{worker}}"
     },
     "startSprint": "Start sprint",
     "startSprintDisabled": "No workers are ready to start",

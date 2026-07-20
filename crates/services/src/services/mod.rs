@@ -1,7 +1,7 @@
 pub mod analytics;
-pub mod base_instructions;
 pub mod approvals;
 pub mod auth;
+pub mod base_instructions;
 pub mod config;
 pub mod container;
 pub mod diff_stream;

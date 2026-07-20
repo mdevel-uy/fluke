@@ -2,8 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useSearch } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCcw } from 'lucide-react';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import {
   Select,
   SelectContent,
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
+import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi } from '@/shared/lib/api';
@@ -58,7 +58,6 @@ export function IssuesPage() {
     queryFn: () => repoApi.list(),
   });
 
-  // Sync URL param → store so navigation to this view updates the remembered repo.
   useEffect(() => {
     if (
       selectedRepoIdFromUrl &&
@@ -68,7 +67,6 @@ export function IssuesPage() {
     }
   }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
 
-  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
     const targetId =
@@ -131,70 +129,119 @@ export function IssuesPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('issues.title')}
-          </h1>
-          {hasIssues && (
-            <span className="text-sm text-low">
-              {t('issues.countLabel', { count: issues.length })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="min-w-[240px]">
-            <Select
-              value={selectedRepoId ?? ''}
-              onValueChange={handleRepoChange}
-              disabled={repos.length === 0}
+    <div className="flex h-full w-full flex-col bg-md-background">
+      {/* MD3 top bar — 64px, surface-bright, border bottom */}
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight shrink-0">
+          {t('issues.title')}
+        </h1>
+
+        {/* Segmented control: repo picker + refresh */}
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="flex bg-md-surface-container-low rounded-lg p-1 border border-md-outline-variant gap-1">
+            <div className="min-w-[180px]">
+              <Select
+                value={selectedRepoId ?? ''}
+                onValueChange={handleRepoChange}
+                disabled={repos.length === 0}
+              >
+                <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-body-sm px-2 font-semibold text-md-on-surface">
+                  <SelectValue
+                    placeholder={t('issues.repoSelectorPlaceholder')}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {repos.map((repo) => (
+                    <SelectItem key={repo.id} value={repo.id}>
+                      {repo.display_name || repo.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={!selectedRepoId || isSyncing}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded-md text-body-sm text-md-on-surface-variant',
+                'hover:bg-md-surface-container transition-colors duration-200',
+                'active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
             >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t('issues.repoSelectorPlaceholder')}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {repos.map((repo) => (
-                  <SelectItem key={repo.id} value={repo.id}>
-                    {repo.display_name || repo.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <MaterialIcon
+                name="refresh"
+                size="sm"
+                className={isSyncing ? 'animate-spin' : ''}
+              />
+              <span className="hidden sm:inline">
+                {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+              </span>
+            </button>
           </div>
-          <PrimaryButton
-            variant="tertiary"
-            value={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-            actionIcon={isSyncing ? 'spinner' : RefreshCcw}
-            onClick={handleRefresh}
-            disabled={!selectedRepoId || isSyncing}
-          />
         </div>
       </header>
 
+      {/* Open / Closed chip filters */}
+      {hasIssues && (
+        <div className="flex items-center gap-2 px-container-padding py-4 border-b border-md-outline-variant bg-md-surface-bright">
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-body-sm font-semibold',
+              'bg-md-surface-container-highest text-md-primary transition-all duration-200 active:scale-95'
+            )}
+          >
+            {t('issues.openGroup')}
+            <span className="inline-flex items-center justify-center min-w-[1.25rem] h-[18px] px-1.5 rounded-full bg-md-primary text-md-on-primary text-label-caps font-geist font-semibold tabular-nums">
+              {open.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-body-sm',
+              'text-md-on-surface-variant hover:bg-md-surface-container-low transition-all duration-200 active:scale-95'
+            )}
+          >
+            {t('issues.closedGroup')}
+            <span className="text-md-outline text-label-caps font-geist font-semibold">
+              {closed.length}
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loadingRepos')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.selectRepoPrompt')}
           </div>
         ) : isLoading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('issues.loadError')}
           </div>
         ) : !hasIssues ? (

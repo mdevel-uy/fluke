@@ -28,10 +28,10 @@ pub mod scratch;
 pub mod search;
 pub mod sessions;
 pub mod ssh_session;
+pub mod system;
 pub mod tags;
 pub mod terminal;
 pub mod webrtc;
-pub mod system;
 pub mod workers;
 pub mod workspaces;
 

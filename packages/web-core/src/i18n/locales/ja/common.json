@@ -569,6 +569,16 @@
     "emptyTitle": "Issue はまだありません",
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
+    "taskStatus": {
+      "queued": "待機中",
+      "in_progress": "進行中",
+      "in_review": "レビュー中",
+      "done": "完了"
+    },
+    "taskLinked": {
+      "openWorkspace": "ワークスペースを開く",
+      "viewInSprint": "スプリントで表示"
+    },
     "assignDialog": {
       "title": "Issue #{{number}} をワーカーに割り当てる",
       "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",
@@ -670,7 +680,10 @@
     "backlog": {
       "assign": "割り当てる",
       "noWorkers": "利用可能なワーカーがありません",
-      "empty": "着手待ちのオープン Issue はありません。"
+      "empty": "着手待ちのオープン Issue はありません。",
+      "moreActions": "その他のアクション",
+      "setPriority": "優先度を設定",
+      "assignTo": "ワーカーに割り当てる"
     },
     "composer": {
       "title": "新しい自由記述タスク",
@@ -693,6 +706,33 @@
     },
     "done": {
       "empty": "完了したタスクはまだありません。"
+    },
+    "filters": {
+      "searchPlaceholder": "Issue を検索...",
+      "clearSearch": "検索をクリア",
+      "epic": "エピック",
+      "allEpics": "すべてのエピック",
+      "label": "ラベル",
+      "allLabels": "すべてのラベル",
+      "priority": "優先度",
+      "allPriorities": "すべての優先度",
+      "worker": "ワーカー",
+      "allWorkers": "すべてのワーカー",
+      "clearAll": "フィルターをクリア",
+      "noResults": "アクティブなフィルターに一致する Issue がありません。"
+    },
+    "priority": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "detail": {
+      "panelLabel": "Issue の詳細",
+      "close": "パネルを閉じる",
+      "noPriority": "優先度なし",
+      "noBody": "説明がありません。",
+      "assignedTo": "{{worker}} に割り当て済み"
     },
     "startSprint": "スプリントを開始",
     "startSprintDisabled": "開始可能なワーカーがいません",
