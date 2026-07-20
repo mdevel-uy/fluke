@@ -393,6 +393,19 @@ impl GitHostProvider for GitHubProvider {
         .await
     }
 
+    async fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_mergeable(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR mergeable check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
     fn provider_kind(&self) -> ProviderKind {
         ProviderKind::GitHub
     }

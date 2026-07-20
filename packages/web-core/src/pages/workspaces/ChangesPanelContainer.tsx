@@ -221,7 +221,8 @@ const PIERRE_DIFFS_THEME_CSS = `
 `;
 
 type ExtendedCommentAnnotation =
-  CommentAnnotation | { type: 'draft'; draft: ReviewDraft; widgetKey: string };
+  | CommentAnnotation
+  | { type: 'draft'; draft: ReviewDraft; widgetKey: string };
 
 function mapSideToAnnotationSide(side: DiffSide): AnnotationSide {
   return side === DiffSide.Old ? 'deletions' : 'additions';
@@ -548,7 +549,8 @@ const DiffFileItem = memo(function DiffFileItem({
   const renderHoverUtility = useCallback(
     (
       getHoveredLine: () =>
-        { lineNumber: number; side: AnnotationSide } | undefined
+        | { lineNumber: number; side: AnnotationSide }
+        | undefined
     ) => (
       <button
         className="flex items-center justify-center size-icon-base rounded text-brand bg-brand/20 transition-transform hover:scale-110"

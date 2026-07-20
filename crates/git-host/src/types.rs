@@ -159,6 +159,7 @@ impl From<PullRequestDetail> for PullRequestInfo {
             status: d.status,
             merged_at: d.merged_at,
             merge_commit_sha: d.merge_commit_sha,
+            mergeable: None,
         }
     }
 }

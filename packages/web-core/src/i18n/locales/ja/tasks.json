@@ -182,6 +182,8 @@
     },
     "states": {
       "createPr": "PRを作成",
+      "resolveConflicts": "コンフリクトを解決",
+      "sendingConflicts": "送信中...",
       "creating": "作成中...",
       "merge": "マージ",
       "merged": "マージ完了！",

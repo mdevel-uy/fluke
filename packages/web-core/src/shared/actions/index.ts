@@ -482,8 +482,9 @@ export const Actions = {
     requiresTarget: ActionTargetType.NONE,
     execute: async () => {
       // Dynamic import to avoid circular dependency (pages.ts imports Actions)
-      const { CommandBarDialog } =
-        await import('@/shared/dialogs/command-bar/CommandBarDialog');
+      const { CommandBarDialog } = await import(
+        '@/shared/dialogs/command-bar/CommandBarDialog'
+      );
       CommandBarDialog.show();
     },
   },
@@ -1229,8 +1230,9 @@ export const Actions = {
     isVisible: (ctx) => ctx.layoutMode === 'kanban' && ctx.isCreatingIssue,
     execute: async (ctx) => {
       if (!ctx.kanbanProjectId) return;
-      const { ProjectSelectionDialog } =
-        await import('@/shared/dialogs/command-bar/selections/ProjectSelectionDialog');
+      const { ProjectSelectionDialog } = await import(
+        '@/shared/dialogs/command-bar/selections/ProjectSelectionDialog'
+      );
       await ProjectSelectionDialog.show({
         projectId: ctx.kanbanProjectId,
         selection: { type: 'status', issueIds: [], isCreateMode: true },
@@ -1260,8 +1262,9 @@ export const Actions = {
     isVisible: (ctx) => ctx.layoutMode === 'kanban' && ctx.isCreatingIssue,
     execute: async (ctx) => {
       if (!ctx.kanbanProjectId) return;
-      const { ProjectSelectionDialog } =
-        await import('@/shared/dialogs/command-bar/selections/ProjectSelectionDialog');
+      const { ProjectSelectionDialog } = await import(
+        '@/shared/dialogs/command-bar/selections/ProjectSelectionDialog'
+      );
       await ProjectSelectionDialog.show({
         projectId: ctx.kanbanProjectId,
         selection: { type: 'priority', issueIds: [], isCreateMode: true },

@@ -57,6 +57,8 @@ pub struct WorkerTaskResponse {
     /// State of the most recent PR: `"open" | "merged" | "closed"`, or
     /// `null` when there is no tracked PR.
     pub pr_state: Option<String>,
+    /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
+    pub pr_mergeable: Option<String>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -65,15 +67,19 @@ async fn worker_task_to_response(
     pool: &sqlx::SqlitePool,
     task: WorkerTask,
 ) -> Result<WorkerTaskResponse, ApiError> {
-    let (pr_url, pr_state) = match task.workspace_id {
+    let (pr_url, pr_state, pr_mergeable) = match task.workspace_id {
         Some(workspace_id) => {
             let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
             match prs.into_iter().next() {
-                Some(pr) => (Some(pr.pr_url), Some(merge_status_str(&pr.pr_status))),
-                None => (None, None),
+                Some(pr) => (
+                    Some(pr.pr_url),
+                    Some(merge_status_str(&pr.pr_status)),
+                    pr.pr_mergeable,
+                ),
+                None => (None, None, None),
             }
         }
-        None => (None, None),
+        None => (None, None, None),
     };
 
     let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
@@ -91,6 +97,7 @@ async fn worker_task_to_response(
         skills,
         pr_url,
         pr_state,
+        pr_mergeable,
         created_at: task.created_at,
     })
 }

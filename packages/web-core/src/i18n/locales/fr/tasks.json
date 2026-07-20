@@ -236,7 +236,9 @@
       "forcePush": "Push forcé",
       "forcePushing": "Push forcé en cours...",
       "creating": "Création en cours...",
-      "createPr": "Créer une PR"
+      "createPr": "Créer une PR",
+      "resolveConflicts": "Résoudre les conflits",
+      "sendingConflicts": "Envoi en cours..."
     },
     "errors": {
       "changeTargetBranch": "Échec du changement de branche cible",

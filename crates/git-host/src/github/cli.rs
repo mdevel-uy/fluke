@@ -400,6 +400,22 @@ impl GhCli {
         Self::parse_pr_review_comments(&raw)
     }
 
+    /// Return the mergeable state of a pull request: "mergeable", "conflicting", or "unknown".
+    pub fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "mergeable"], None)?;
+        let value: serde_json::Value = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse gh pr view --json mergeable: {e}; raw: {raw}"
+            ))
+        })?;
+        let state = value
+            .get("mergeable")
+            .and_then(|v| v.as_str())
+            .unwrap_or("UNKNOWN")
+            .to_ascii_lowercase();
+        Ok(state)
+    }
+
     pub fn pr_checkout(
         &self,
         repo_path: &Path,

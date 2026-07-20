@@ -48,6 +48,9 @@ pub trait GitHostProvider: Send + Sync {
         remote_url: &str,
     ) -> Result<Vec<PullRequestDetail>, GitHostError>;
 
+    /// Return the mergeable state of a PR: "mergeable", "conflicting", or "unknown".
+    async fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GitHostError>;
+
     fn provider_kind(&self) -> ProviderKind;
 }
 

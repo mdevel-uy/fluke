@@ -33,6 +33,7 @@ export interface SidebarWorkspace {
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
   prNumber?: number;
   prUrl?: string;
+  prMergeable?: string;
 }
 
 // Keep the old export name for backwards compatibility
@@ -81,6 +82,12 @@ function toSidebarWorkspace(
     prNumber:
       summary?.pr_number != null ? Number(summary.pr_number) : undefined,
     prUrl: summary?.pr_url ?? undefined,
+    prMergeable:
+      (
+        summary as
+          | (typeof summary & { pr_mergeable?: string | null })
+          | undefined
+      )?.pr_mergeable ?? undefined,
   };
 }
 

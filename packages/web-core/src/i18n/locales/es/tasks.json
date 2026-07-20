@@ -182,6 +182,8 @@
     },
     "states": {
       "createPr": "Crear PR",
+      "resolveConflicts": "Resolver conflictos",
+      "sendingConflicts": "Enviando...",
       "forcePush": "Push forzado",
       "forcePushing": "Push forzado en curso...",
       "creating": "Creando...",
