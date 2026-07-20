@@ -8,6 +8,7 @@ use db::{
         merge::MergeStatus,
         pull_request::PullRequest,
         repo::Repo,
+        worker::Worker,
         worker_task::WorkerTask,
         workspace::{Workspace, WorkspaceError},
         workspace_repo::WorkspaceRepo,
@@ -317,6 +318,28 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             e
                         );
                     }
+
+                    // Dispatch a review task for the adopted open PR.
+                    let author_worker_id =
+                        Worker::find_by_workspace_id(&self.db.pool, workspace_id)
+                            .await
+                            .unwrap_or(None);
+                    if let Err(e) = worker_orchestrator::dispatch_review_task(
+                        &self.config,
+                        &self.db,
+                        &self.container,
+                        pr_info.number,
+                        &pr_info.title,
+                        workspace_repo.repo_id,
+                        author_worker_id,
+                    )
+                    .await
+                    {
+                        warn!(
+                            pr_number = pr_info.number,
+                            "Failed to dispatch review task after PR adoption: {}", e
+                        );
+                    }
                 }
                 MergeStatus::Merged => {
                     if let Err(e) = self
@@ -394,14 +417,84 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             // PR is still open — reconcile the worker-task state machine.
             // This is idempotent: it only transitions in_progress → in_review
             // for a worker-owned workspace, and no-ops otherwise.
-            if let Some(workspace_id) = pr.workspace_id
-                && let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await
-            {
-                warn!(
-                    workspace_id = %workspace_id,
-                    "Failed to reconcile worker task on PR open: {}",
-                    e
-                );
+            if let Some(workspace_id) = pr.workspace_id {
+                if let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await {
+                    warn!(
+                        workspace_id = %workspace_id,
+                        "Failed to reconcile worker task on PR open: {}",
+                        e
+                    );
+                }
+
+                // For worker-owned PRs: dispatch a review task (idempotent — the
+                // dispatch function guards against duplicates and round caps).
+                if let Some(repo_id) = pr.repo_id {
+                    let author_worker_id =
+                        Worker::find_by_workspace_id(&self.db.pool, workspace_id)
+                            .await
+                            .unwrap_or(None);
+
+                    if let Err(e) = worker_orchestrator::dispatch_review_task(
+                        &self.config,
+                        &self.db,
+                        &self.container,
+                        pr.pr_number,
+                        &status.title,
+                        repo_id,
+                        author_worker_id,
+                    )
+                    .await
+                    {
+                        warn!(
+                            pr_number = pr.pr_number,
+                            "Failed to dispatch review task: {}", e
+                        );
+                    }
+
+                    // Detect request-changes reviews and enqueue a fix task for the
+                    // author. Non-fatal: a failure here must never break pr_monitor.
+                    match git_host.get_pr_latest_review_state(&pr.pr_url).await {
+                        Ok(Some(ref state)) if state == "changes_requested" => {
+                            match Worker::find_by_workspace_id(&self.db.pool, workspace_id).await {
+                                Ok(Some(author_id)) => {
+                                    if let Err(e) = worker_orchestrator::dispatch_author_fix_task(
+                                        &self.config,
+                                        &self.db,
+                                        &self.container,
+                                        pr.pr_number,
+                                        repo_id,
+                                        author_id,
+                                    )
+                                    .await
+                                    {
+                                        warn!(
+                                            pr_number = pr.pr_number,
+                                            "Failed to dispatch author fix task: {}", e
+                                        );
+                                    }
+                                }
+                                Ok(None) => {}
+                                Err(e) => warn!(
+                                    pr_number = pr.pr_number,
+                                    "Failed to look up author worker for fix dispatch: {}", e
+                                ),
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            if !matches!(
+                                e,
+                                GitHostError::CliNotInstalled { .. }
+                                    | GitHostError::NotAGitRepository(_)
+                            ) {
+                                warn!(
+                                    pr_number = pr.pr_number,
+                                    "Failed to check PR review state: {}", e
+                                );
+                            }
+                        }
+                    }
+                }
             }
 
             // Poll mergeable state non-fatally — a failure here must not break pr_monitor.

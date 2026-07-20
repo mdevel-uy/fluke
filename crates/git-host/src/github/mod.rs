@@ -406,6 +406,22 @@ impl GitHostProvider for GitHubProvider {
             .map_err(GitHostError::from)
     }
 
+    async fn get_pr_latest_review_state(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<String>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_latest_review_state(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR review state check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
     fn provider_kind(&self) -> ProviderKind {
         ProviderKind::GitHub
     }

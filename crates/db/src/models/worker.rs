@@ -224,6 +224,19 @@ impl Worker {
         .await
     }
 
+    /// First worker with the `reviewer` role (by creation order), if any.
+    pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Worker>(
+            "SELECT id, name, emoji, soul, role, created_at
+               FROM workers
+               WHERE role = 'reviewer'
+               ORDER BY created_at ASC
+               LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Worker that owns the given workspace, if any.
     pub async fn find_by_workspace_id(
         pool: &SqlitePool,
