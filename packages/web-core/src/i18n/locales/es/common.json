@@ -569,6 +569,16 @@
     "emptyTitle": "No hay issues todavía",
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
+    "taskStatus": {
+      "queued": "En cola",
+      "in_progress": "En progreso",
+      "in_review": "En revisión",
+      "done": "Listo"
+    },
+    "taskLinked": {
+      "openWorkspace": "Abrir workspace",
+      "viewInSprint": "Ver en Sprint"
+    },
     "assignDialog": {
       "title": "Asignar issue #{{number}} a un worker",
       "description": "Elegí un worker y revisá el prompt. La tarea se va a agregar a la cola del worker.",
