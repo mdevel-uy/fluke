@@ -48,6 +48,7 @@ export interface ProjectMutations {
 // Workspace type for sidebar (minimal subset needed for workspace selection)
 interface SidebarWorkspace {
   id: string;
+  branch?: string;
   isRunning?: boolean;
 }
 
@@ -108,8 +109,7 @@ export interface ActionVisibilityContext {
   // Layout state
   layoutMode: LayoutMode;
   rightMainPanelMode:
-    | (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES]
-    | null;
+    (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES] | null;
   isLeftSidebarVisible: boolean;
   isLeftMainPanelVisible: boolean;
   isRightSidebarVisible: boolean;
@@ -134,6 +134,7 @@ export interface ActionVisibilityContext {
   hasMultipleRepos: boolean;
   hasOpenPR: boolean;
   hasUnpushedCommits: boolean;
+  isBranchPushed: boolean;
 
   // Execution state
   isAttemptRunning: boolean;

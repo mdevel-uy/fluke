@@ -118,6 +118,15 @@ import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
 import { makeRequest as makeRemoteRequest } from '@/shared/lib/remoteApi';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 
+/** Info about an existing active worker task for a given issue. */
+export interface ActiveIssueTaskInfo {
+  task_id: string;
+  worker_id: string;
+  worker_name: string;
+  worker_emoji: string;
+  status: string;
+}
+
 export class ApiError<E = unknown> extends Error {
   public status?: number;
   public error_data?: E;
@@ -1514,11 +1523,41 @@ export const repoIssuesApi = {
   setPriority: async (
     repoId: string,
     issueNumber: number,
-    priority: 'urgent' | 'high' | 'medium' | 'low' | null
+    priority: import('@/features/issues/types').IssuePriority | null
   ): Promise<RepoIssue> => {
     const response = await makeRequest(
       `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/priority`,
       { method: 'PUT', body: JSON.stringify({ priority }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  addLabel: async (
+    repoId: string,
+    issueNumber: number,
+    label: string,
+    color?: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels`,
+      { method: 'POST', body: JSON.stringify({ label, color }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  removeLabel: async (
+    repoId: string,
+    issueNumber: number,
+    labelName: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`,
+      { method: 'DELETE' }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  closeIssue: async (repoId: string, issueNumber: number): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/close`,
+      { method: 'POST' }
     );
     return handleApiResponse<RepoIssue>(response);
   },
@@ -1789,7 +1828,7 @@ export const workersApi = {
     data: UpdateWorkerRequest
   ): Promise<WorkerResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
     return handleApiResponse<WorkerResponse>(response);
@@ -1807,15 +1846,30 @@ export const workersApi = {
     return handleApiResponse<WorkerTaskResponse[]>(response);
   },
 
+  checkActiveIssueTask: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<ActiveIssueTaskInfo | null> => {
+    const response = await makeRequest(
+      `/api/workers/active-issue-task?repo_id=${encodeURIComponent(repoId)}&issue_number=${issueNumber}`
+    );
+    return handleApiResponse<ActiveIssueTaskInfo | null>(response);
+  },
+
   createTask: async (
     workerId: string,
-    data: CreateWorkerTaskRequest
-  ): Promise<WorkerTaskResponse> => {
+    data: CreateWorkerTaskRequest & {
+      skills?: string[];
+      force_duplicate?: boolean;
+    }
+  ): Promise<WorkerTaskResponse & { skills: string[] }> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    return handleApiResponse<WorkerTaskResponse>(response);
+    return handleApiResponse<WorkerTaskResponse & { skills: string[] }>(
+      response
+    );
   },
 
   updateTask: async (
@@ -1863,6 +1917,35 @@ export const systemApi = {
     const response = await makeRequest('/api/system/base-instructions');
     const data = await handleApiResponse<{ content: string }>(response);
     return data.content;
+  },
+};
+
+// Skills API — manages ~/.claude/skills on the container
+export interface SkillInfo {
+  name: string;
+  description: string;
+}
+
+export const skillsApi = {
+  list: async (): Promise<SkillInfo[]> => {
+    const response = await makeRequest('/api/skills');
+    return handleApiResponse<SkillInfo[]>(response);
+  },
+
+  install: async (url: string): Promise<SkillInfo> => {
+    const response = await makeRequest('/api/skills', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+    return handleApiResponse<SkillInfo>(response);
+  },
+
+  delete: async (name: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/skills/${encodeURIComponent(name)}`,
+      { method: 'DELETE' }
+    );
+    return handleApiResponse<void>(response);
   },
 };
 

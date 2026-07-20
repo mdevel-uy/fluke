@@ -1,6 +1,5 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SunIcon, MoonIcon, DesktopIcon } from '@phosphor-icons/react';
 import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
@@ -148,12 +147,12 @@ export function NavbarContainer({
     () => ({
       type: 'action',
       id: 'toggle-theme',
-      icon:
+      materialIcon:
         theme === ThemeMode.LIGHT
-          ? SunIcon
+          ? 'light_mode'
           : theme === ThemeMode.DARK
-            ? MoonIcon
-            : DesktopIcon,
+            ? 'dark_mode'
+            : 'desktop_windows',
       tooltip:
         theme === ThemeMode.LIGHT
           ? t('navbar.theme.light')

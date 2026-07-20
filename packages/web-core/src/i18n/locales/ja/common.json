@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "カスタム"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "VS Code Web (github.dev) で開く",
+    "branchNotPushed": "ブランチはまだ GitHub にプッシュされていません"
+  },
   "folderPicker": {
     "legend": "フォルダ名をクリックして移動 • アクションボタンで選択",
     "manualPathLabel": "パスを手動入力:",
@@ -569,6 +573,17 @@
     "emptyTitle": "Issue はまだありません",
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
+    "archiveAction": "アーカイブ",
+    "taskStatus": {
+      "queued": "待機中",
+      "in_progress": "進行中",
+      "in_review": "レビュー中",
+      "done": "完了"
+    },
+    "taskLinked": {
+      "openWorkspace": "ワークスペースを開く",
+      "viewInSprint": "スプリントで表示"
+    },
     "assignDialog": {
       "title": "Issue #{{number}} をワーカーに割り当てる",
       "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",
@@ -580,13 +595,62 @@
       "loadingWorkers": "ワーカーを読み込み中...",
       "cancel": "キャンセル",
       "confirm": "タスクをキューに追加",
-      "enqueuedError": "タスクのキュー追加に失敗しました。"
+      "enqueuedError": "タスクのキュー追加に失敗しました。",
+      "checkingConflicts": "既存の割り当てを確認中...",
+      "duplicateWarning": "Issue #{{number}} はすでに {{emoji}} {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
+      "assignAnyway": "それでも割り当てる"
+    },
+    "filters": {
+      "searchPlaceholder": "Issue を検索…",
+      "state": {
+        "all": "すべて",
+        "open": "オープン",
+        "closed": "クローズ"
+      },
+      "priority": "優先度",
+      "priorities": {
+        "urgent": "緊急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "ラベル",
+      "milestone": "マイルストーン",
+      "groupBy": "グループ化",
+      "groupByOptions": {
+        "none": "なし",
+        "label": "ラベル",
+        "milestone": "マイルストーン"
+      },
+      "clear": "フィルターをクリア",
+      "noResults": "現在のフィルターに一致する Issue はありません。",
+      "noLabel": "ラベルなし",
+      "noMilestone": "マイルストーンなし"
+    },
+    "drawer": {
+      "title": "Issue 詳細",
+      "close": "閉じる",
+      "openOnGitHub": "GitHub で開く",
+      "stateOpen": "オープン",
+      "stateClosed": "クローズ",
+      "priority": "優先度",
+      "milestone": "マイルストーン",
+      "author": "作成者",
+      "labels": "ラベル",
+      "addLabel": "ラベルを追加",
+      "searchLabels": "ラベルを検索…",
+      "createLabel": "\"{{name}}\" を作成",
+      "noLabels": "ラベルが見つかりません",
+      "description": "説明",
+      "noDescription": "説明はありません。",
+      "archive": "アーカイブ",
+      "archiveTitle": "Issue をアーカイブ",
+      "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
+      "archiveAction": "Issue をクローズ"
     }
   },
   "workers": {
     "title": "ワーカー",
-    "countLabel": "{{count}} 人のワーカー",
-    "countLabel_other": "{{count}} 人のワーカー",
     "newWorker": "新しいワーカー",
     "loading": "ワーカーを読み込み中...",
     "loadError": "ワーカーの読み込みに失敗しました。",
@@ -611,11 +675,7 @@
       "menuLabel": "ワーカーのアクション",
       "edit": "編集",
       "delete": "削除",
-      "queuedCount": "{{count}} 件待機",
-      "queuedCount_other": "{{count}} 件待機",
       "queuedLabel": "待機",
-      "completedCount": "{{count}} 件完了",
-      "completedCount_other": "{{count}} 件完了",
       "completedLabel": "完了",
       "startNext": "次のタスクを開始",
       "expandQueue": "キューを表示",
@@ -674,18 +734,23 @@
       "queued": "キュー",
       "inProgress": "進行中",
       "inReview": "レビュー中",
-      "done": "完了"
+      "done": "完了",
+      "failed": "失敗"
     },
     "backlog": {
       "assign": "割り当てる",
       "noWorkers": "利用可能なワーカーがありません",
-      "empty": "着手待ちのオープン Issue はありません。"
+      "empty": "着手待ちのオープン Issue はありません。",
+      "moreActions": "その他のアクション",
+      "setPriority": "優先度を設定",
+      "assignTo": "ワーカーに割り当てる"
     },
     "composer": {
       "title": "新しい自由記述タスク",
       "titlePlaceholder": "タスクのタイトル",
       "promptPlaceholder": "エージェントに何をさせますか？",
-      "assign": "ワーカーに送る"
+      "assign": "ワーカーに送る",
+      "skills": "スキル："
     },
     "queued": {
       "moveUp": "上へ移動",
@@ -702,6 +767,33 @@
     },
     "done": {
       "empty": "完了したタスクはまだありません。"
+    },
+    "filters": {
+      "searchPlaceholder": "Issue を検索...",
+      "clearSearch": "検索をクリア",
+      "epic": "エピック",
+      "allEpics": "すべてのエピック",
+      "label": "ラベル",
+      "allLabels": "すべてのラベル",
+      "priority": "優先度",
+      "allPriorities": "すべての優先度",
+      "worker": "ワーカー",
+      "allWorkers": "すべてのワーカー",
+      "clearAll": "フィルターをクリア",
+      "noResults": "アクティブなフィルターに一致する Issue がありません。"
+    },
+    "priority": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "detail": {
+      "panelLabel": "Issue の詳細",
+      "close": "パネルを閉じる",
+      "noPriority": "優先度なし",
+      "noBody": "説明がありません。",
+      "assignedTo": "{{worker}} に割り当て済み"
     },
     "startSprint": "スプリントを開始",
     "startSprintDisabled": "開始可能なワーカーがいません",
@@ -721,7 +813,14 @@
     "toast": {
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
-      "startAllError": "スプリント開始に失敗しました: {{message}}"
+      "startAllError": "スプリント開始に失敗しました: {{message}}",
+      "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
+      "startAllSuccess_other": "{{count}}件のワーカーを開始しました。"
+    },
+    "failed": {
+      "retry": "再試行",
+      "discard": "破棄",
+      "empty": "失敗したタスクはありません。"
     }
   }
 }

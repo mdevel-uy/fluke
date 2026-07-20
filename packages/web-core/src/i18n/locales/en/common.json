@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Custom"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Open in VS Code web (github.dev)",
+    "branchNotPushed": "Branch not on GitHub yet"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
@@ -569,6 +573,17 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "archiveAction": "Archive",
+    "taskStatus": {
+      "queued": "Queued",
+      "in_progress": "In progress",
+      "in_review": "In review",
+      "done": "Done"
+    },
+    "taskLinked": {
+      "openWorkspace": "Open workspace",
+      "viewInSprint": "View in Sprint"
+    },
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
       "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",
@@ -580,13 +595,62 @@
       "loadingWorkers": "Loading workers...",
       "cancel": "Cancel",
       "confirm": "Enqueue task",
-      "enqueuedError": "Failed to enqueue task."
+      "enqueuedError": "Failed to enqueue task.",
+      "checkingConflicts": "Checking for existing assignments...",
+      "duplicateWarning": "Issue #{{number}} is already assigned to {{emoji}} {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
+      "assignAnyway": "Assign anyway"
+    },
+    "filters": {
+      "searchPlaceholder": "Search issues…",
+      "state": {
+        "all": "All",
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "priority": "Priority",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "label": "Label",
+      "milestone": "Milestone",
+      "groupBy": "Group by",
+      "groupByOptions": {
+        "none": "None",
+        "label": "Label",
+        "milestone": "Milestone"
+      },
+      "clear": "Clear filters",
+      "noResults": "No issues match the current filters.",
+      "noLabel": "No label",
+      "noMilestone": "No milestone"
+    },
+    "drawer": {
+      "title": "Issue detail",
+      "close": "Close",
+      "openOnGitHub": "Open on GitHub",
+      "stateOpen": "open",
+      "stateClosed": "closed",
+      "priority": "Priority",
+      "milestone": "Milestone",
+      "author": "Author",
+      "labels": "Labels",
+      "addLabel": "Add label",
+      "searchLabels": "Search labels…",
+      "createLabel": "Create \"{{name}}\"",
+      "noLabels": "No labels found",
+      "description": "Description",
+      "noDescription": "No description provided.",
+      "archive": "Archive",
+      "archiveTitle": "Archive issue",
+      "archiveConfirm": "Close issue #{{number}} on GitHub? This will move it to the Closed filter.",
+      "archiveAction": "Close issue"
     }
   },
   "workers": {
     "title": "Workers",
-    "countLabel": "{{count}} worker",
-    "countLabel_other": "{{count}} workers",
     "newWorker": "New worker",
     "loading": "Loading workers...",
     "loadError": "Failed to load workers.",
@@ -611,11 +675,7 @@
       "menuLabel": "Worker actions",
       "edit": "Edit",
       "delete": "Delete",
-      "queuedCount": "{{count}} queued",
-      "queuedCount_other": "{{count}} queued",
       "queuedLabel": "queued",
-      "completedCount": "{{count}} completed",
-      "completedCount_other": "{{count}} completed",
       "completedLabel": "done",
       "startNext": "Start next",
       "expandQueue": "Show queue",
@@ -674,18 +734,23 @@
       "queued": "Queued",
       "inProgress": "In Progress",
       "inReview": "In Review",
-      "done": "Done"
+      "done": "Done",
+      "failed": "Failed"
     },
     "backlog": {
       "assign": "Assign",
       "noWorkers": "No workers available",
-      "empty": "No open issues waiting to be picked up."
+      "empty": "No open issues waiting to be picked up.",
+      "moreActions": "More actions",
+      "setPriority": "Set priority",
+      "assignTo": "Assign to worker"
     },
     "composer": {
       "title": "New free-form task",
       "titlePlaceholder": "Task title",
       "promptPlaceholder": "What should the agent do?",
-      "assign": "Send to worker"
+      "assign": "Send to worker",
+      "skills": "Skills:"
     },
     "queued": {
       "moveUp": "Move up",
@@ -702,6 +767,33 @@
     },
     "done": {
       "empty": "No completed tasks yet."
+    },
+    "filters": {
+      "searchPlaceholder": "Search issues...",
+      "clearSearch": "Clear search",
+      "epic": "Epic",
+      "allEpics": "All epics",
+      "label": "Label",
+      "allLabels": "All labels",
+      "priority": "Priority",
+      "allPriorities": "All priorities",
+      "worker": "Worker",
+      "allWorkers": "All workers",
+      "clearAll": "Clear filters",
+      "noResults": "No issues match the active filters."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "detail": {
+      "panelLabel": "Issue detail",
+      "close": "Close panel",
+      "noPriority": "No priority",
+      "noBody": "No description provided.",
+      "assignedTo": "Assigned to {{worker}}"
     },
     "startSprint": "Start sprint",
     "startSprintDisabled": "No workers are ready to start",
@@ -722,7 +814,13 @@
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllNoneStarted": "No workers were ready to start.",
-      "startAllError": "Failed to start sprint: {{message}}"
+      "startAllError": "Failed to start sprint: {{message}}",
+      "assignDuplicate": "This issue already has an active task assigned to a worker."
+    },
+    "failed": {
+      "retry": "Retry",
+      "discard": "Discard",
+      "empty": "No failed tasks."
     }
   }
 }
