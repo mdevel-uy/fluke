@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, RotateCcw, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import type { WorkerTask } from '@/features/sprint/types';
 
@@ -19,16 +19,13 @@ export function FailedTaskCard({
   const { t } = useTranslation('common');
 
   return (
-    <article className="group flex flex-col gap-2.5 p-3.5 bg-primary border border-destructive/30 rounded-xl shadow-soft transition-all duration-150 hover:border-destructive/50">
+    <article className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-error/30 rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:border-md-error/50">
       <div className="flex items-start gap-2">
-        <span
-          className="mt-0.5 shrink-0 text-destructive"
-          aria-hidden
-        >
-          <AlertCircle className="h-3.5 w-3.5" />
+        <span className="mt-0.5 shrink-0 text-md-error" aria-hidden>
+          <MaterialIcon name="error" size="xs" />
         </span>
         <p
-          className="text-sm text-high font-medium leading-snug line-clamp-2 flex-1"
+          className="text-body-sm font-hanken text-md-on-surface font-medium leading-snug line-clamp-2 flex-1"
           title={task.title}
         >
           {task.title}
@@ -42,9 +39,9 @@ export function FailedTaskCard({
           disabled={isBusy}
           aria-label={t('sprint.failed.retry')}
           title={t('sprint.failed.retry')}
-          className="hover:text-brand"
+          className="hover:text-md-primary"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
+          <MaterialIcon name="refresh" size="sm" />
         </Button>
         <Button
           variant="icon"
@@ -53,9 +50,9 @@ export function FailedTaskCard({
           disabled={isBusy}
           aria-label={t('sprint.failed.discard')}
           title={t('sprint.failed.discard')}
-          className="hover:text-destructive"
+          className="hover:text-md-error"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <MaterialIcon name="delete" size="sm" />
         </Button>
       </div>
     </article>

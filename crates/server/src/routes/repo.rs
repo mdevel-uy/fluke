@@ -64,6 +64,7 @@ pub async fn register_repo(
         .repo()
         .register(
             &deployment.db().pool,
+            deployment.git(),
             &payload.path,
             payload.display_name.as_deref(),
         )

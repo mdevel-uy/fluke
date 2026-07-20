@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import { workersApi } from '@/shared/lib/api';
 import { workersKeys } from '@/features/workers';
@@ -27,9 +27,7 @@ export function WorkerTaskList({
     mutationFn: async (task: WorkerTaskResponse) => {
       const queued = (tasks ?? []).filter((t) => t.status === 'queued');
       const minPosition =
-        queued.length > 0
-          ? Math.min(...queued.map((t) => t.position))
-          : 0;
+        queued.length > 0 ? Math.min(...queued.map((t) => t.position)) : 0;
       await workersApi.updateTask(task.worker_id, task.id, {
         status: 'queued',
         position: minPosition - 1,
@@ -47,8 +45,12 @@ export function WorkerTaskList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-low text-xs py-1">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+      <div className="flex items-center gap-2 text-md-on-surface-variant text-body-sm py-1">
+        <MaterialIcon
+          name="progress_activity"
+          size="sm"
+          className="animate-spin text-md-primary"
+        />
         <span>{t('workers.card.queueLoading')}</span>
       </div>
     );
@@ -56,7 +58,7 @@ export function WorkerTaskList({
 
   if (isError) {
     return (
-      <div className="text-xs text-error py-1">
+      <div className="text-body-sm text-md-error py-1">
         {t('workers.card.queueError')}
       </div>
     );
@@ -68,7 +70,7 @@ export function WorkerTaskList({
 
   if (visible.length === 0) {
     return (
-      <div className="text-xs text-low py-1 italic">
+      <div className="text-body-sm text-md-on-surface-variant py-1 italic">
         {t('workers.card.queueEmpty')}
       </div>
     );
@@ -86,14 +88,14 @@ export function WorkerTaskList({
             className={
               'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ' +
               (isFailed
-                ? 'bg-destructive/5 border border-destructive/20 hover:bg-destructive/10'
-                : 'hover:bg-secondary/60')
+                ? 'bg-md-error/5 border border-md-error/20 hover:bg-md-error/10'
+                : 'hover:bg-md-surface-container')
             }
           >
-            <span className="w-6 shrink-0 text-low tabular-nums text-xs font-medium">
+            <span className="w-6 shrink-0 text-md-on-surface-variant tabular-nums text-body-sm font-medium">
               {task.position}.
             </span>
-            <span className="min-w-0 truncate text-xs text-normal flex-1">
+            <span className="min-w-0 truncate text-body-sm text-md-on-surface flex-1">
               {task.title}
             </span>
             {isFailed ? (
@@ -105,9 +107,9 @@ export function WorkerTaskList({
                   disabled={isBusy}
                   aria-label={t('sprint.failed.retry')}
                   title={t('sprint.failed.retry')}
-                  className="h-5 w-5 hover:text-brand"
+                  className="h-5 w-5 hover:text-md-primary"
                 >
-                  <RotateCcw className="h-3 w-3" />
+                  <MaterialIcon name="refresh" size="xs" />
                 </Button>
                 <Button
                   variant="icon"
@@ -116,13 +118,13 @@ export function WorkerTaskList({
                   disabled={isBusy}
                   aria-label={t('sprint.failed.discard')}
                   title={t('sprint.failed.discard')}
-                  className="h-5 w-5 hover:text-destructive"
+                  className="h-5 w-5 hover:text-md-error"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <MaterialIcon name="delete" size="xs" />
                 </Button>
               </div>
             ) : (
-              <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-secondary text-low uppercase tracking-wide text-[10px] font-medium border border-border/50">
+              <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-md-surface-container text-md-on-surface-variant uppercase tracking-widest text-[10px] font-geist font-semibold border border-md-outline-variant">
                 {task.status}
               </span>
             )}

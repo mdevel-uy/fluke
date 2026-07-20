@@ -69,8 +69,8 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("repo not found")]
     RepoNotFound,
-    #[error("repo has no default_target_branch configured")]
-    RepoMissingDefaultBranch,
+    #[error("repo '{0}' has no default_target_branch configured")]
+    RepoMissingDefaultBranch(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
@@ -161,7 +161,7 @@ pub async fn try_take_next(
         .default_target_branch
         .clone()
         .filter(|b| !b.is_empty())
-        .ok_or(StartError::RepoMissingDefaultBranch)?;
+        .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
     let executor_config = config.read().await.executor_profile.clone();
     let executor_config: ExecutorConfig = executor_config.into();
