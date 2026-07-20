@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "사용자 지정"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "VS Code 웹(github.dev)에서 열기",
+    "branchNotPushed": "브랜치가 아직 GitHub에 없습니다"
+  },
   "folderPicker": {
     "legend": "폴더 이름을 클릭하여 탐색 • 작업 버튼을 사용하여 선택",
     "manualPathLabel": "경로 직접 입력:",
@@ -569,6 +573,7 @@
     "emptyTitle": "아직 이슈가 없습니다",
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
+    "archiveAction": "보관",
     "taskStatus": {
       "queued": "대기 중",
       "in_progress": "진행 중",
@@ -594,6 +599,54 @@
       "checkingConflicts": "기존 할당 확인 중...",
       "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{emoji}} {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
       "assignAnyway": "그래도 할당"
+    },
+    "filters": {
+      "searchPlaceholder": "이슈 검색…",
+      "state": {
+        "all": "전체",
+        "open": "열림",
+        "closed": "닫힘"
+      },
+      "priority": "우선순위",
+      "priorities": {
+        "urgent": "긴급",
+        "high": "높음",
+        "medium": "보통",
+        "low": "낮음"
+      },
+      "label": "레이블",
+      "milestone": "마일스톤",
+      "groupBy": "그룹화",
+      "groupByOptions": {
+        "none": "없음",
+        "label": "레이블",
+        "milestone": "마일스톤"
+      },
+      "clear": "필터 초기화",
+      "noResults": "현재 필터에 맞는 이슈가 없습니다.",
+      "noLabel": "레이블 없음",
+      "noMilestone": "마일스톤 없음"
+    },
+    "drawer": {
+      "title": "이슈 상세",
+      "close": "닫기",
+      "openOnGitHub": "GitHub에서 열기",
+      "stateOpen": "열림",
+      "stateClosed": "닫힘",
+      "priority": "우선순위",
+      "milestone": "마일스톤",
+      "author": "작성자",
+      "labels": "레이블",
+      "addLabel": "레이블 추가",
+      "searchLabels": "레이블 검색…",
+      "createLabel": "\"{{name}}\" 생성",
+      "noLabels": "레이블을 찾을 수 없습니다",
+      "description": "설명",
+      "noDescription": "설명이 없습니다.",
+      "archive": "보관",
+      "archiveTitle": "이슈 보관",
+      "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
+      "archiveAction": "이슈 닫기"
     }
   },
   "workers": {

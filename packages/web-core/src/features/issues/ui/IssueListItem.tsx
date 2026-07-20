@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
@@ -18,23 +19,56 @@ interface IssueListItemProps {
   issue: RepoIssue;
   repoId: string | undefined;
   linkedTask?: WorkerTask;
+  isSelected?: boolean;
+  onSelect?: (issue: RepoIssue) => void;
+  onRemoveLabel?: (issueNumber: number, labelName: string) => Promise<void>;
+  onArchive?: (issueNumber: number) => Promise<void>;
 }
 
 export function IssueListItem({
   issue,
   repoId,
   linkedTask,
+  isSelected,
+  onSelect,
+  onRemoveLabel,
+  onArchive,
 }: IssueListItemProps) {
   const { t } = useTranslation('common');
   const appNavigation = useAppNavigation();
   const isOpen = issue.state === 'open';
+  const [archiving, setArchiving] = useState(false);
+  const [removingLabel, setRemovingLabel] = useState<string | null>(null);
 
-  const handleAssign = () => {
+  const handleAssign = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!repoId) return;
     void AssignToAgentDialog.show({ issue, repoId });
   };
 
-  const handleViewTask = () => {
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onArchive) return;
+    setArchiving(true);
+    try {
+      await onArchive(issue.number);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleRemoveLabel = async (labelName: string) => {
+    if (!onRemoveLabel) return;
+    setRemovingLabel(labelName);
+    try {
+      await onRemoveLabel(issue.number, labelName);
+    } finally {
+      setRemovingLabel(null);
+    }
+  };
+
+  const handleViewTask = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!linkedTask) return;
     if (linkedTask.workspace_id) {
       appNavigation.goToWorkspace(linkedTask.workspace_id);
@@ -59,11 +93,13 @@ export function IssueListItem({
     <li
       className={cn(
         'group flex items-start gap-4 px-4 py-4',
-        'bg-md-surface-container-lowest border-b border-md-outline-variant last:border-b-0',
-        'transition-all duration-200',
-        'hover:shadow-card-hover hover:border-b-md-outline-variant',
-        'hover:-translate-y-px hover:z-10 hover:relative'
+        'border-b border-md-outline-variant last:border-b-0',
+        'transition-all duration-200 cursor-pointer',
+        isSelected
+          ? 'bg-md-primary-container/20 border-l-2 border-l-md-primary'
+          : 'bg-md-surface-container-lowest hover:shadow-card-hover hover:-translate-y-px hover:z-10 hover:relative'
       )}
+      onClick={() => onSelect?.(issue)}
     >
       <div className="mt-0.5 shrink-0">
         <MaterialIcon
@@ -90,18 +126,41 @@ export function IssueListItem({
           {issue.labels.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               {issue.labels.map((label) => (
-                <IssueLabelChip key={label.name} label={label} />
+                <IssueLabelChip
+                  key={label.name}
+                  label={label}
+                  onRemove={
+                    isOpen && onRemoveLabel
+                      ? () => void handleRemoveLabel(label.name)
+                      : undefined
+                  }
+                />
               ))}
+              {removingLabel && (
+                <MaterialIcon
+                  name="progress_activity"
+                  size="sm"
+                  className="animate-spin text-md-on-surface-variant"
+                />
+              )}
             </div>
           )}
           <span className="text-body-sm text-md-on-surface-variant">
             {t('issues.authorPrefix')} {issue.author}
           </span>
+          {issue.milestone && (
+            <span className="text-body-sm italic text-md-on-surface-variant">
+              {issue.milestone}
+            </span>
+          )}
         </div>
       </div>
 
       {linkedTask ? (
-        <div className="shrink-0 flex items-center gap-2">
+        <div
+          className="shrink-0 flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           <span
             className={cn(
               'inline-flex items-center rounded-full px-2 py-0.5',
@@ -129,23 +188,47 @@ export function IssueListItem({
         </div>
       ) : (
         isOpen && (
-          <button
-            type="button"
-            onClick={handleAssign}
-            disabled={!repoId}
-            className={cn(
-              'shrink-0 flex items-center gap-1.5 px-3 py-1.5',
-              'border border-md-primary text-md-primary rounded-lg',
-              'text-body-sm font-semibold',
-              'hover:bg-md-primary-container/10',
-              'active:scale-95 transition-all duration-200',
-              'opacity-0 group-hover:opacity-100',
-              'disabled:opacity-40 disabled:cursor-not-allowed'
-            )}
+          <div
+            className="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
           >
-            <MaterialIcon name="person_add" size="sm" />
-            {t('issues.assignToAgent')}
-          </button>
+            {onArchive && (
+              <button
+                type="button"
+                onClick={handleArchive}
+                disabled={archiving}
+                title={t('issues.archiveAction')}
+                className={cn(
+                  'flex items-center justify-center h-8 w-8 rounded-lg',
+                  'text-md-on-surface-variant hover:bg-md-surface-container',
+                  'active:scale-95 transition-all duration-200',
+                  'disabled:opacity-40 disabled:cursor-not-allowed'
+                )}
+              >
+                <MaterialIcon
+                  name={archiving ? 'progress_activity' : 'archive'}
+                  size="sm"
+                  className={archiving ? 'animate-spin' : ''}
+                />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAssign}
+              disabled={!repoId}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5',
+                'border border-md-primary text-md-primary rounded-lg',
+                'text-body-sm font-semibold',
+                'hover:bg-md-primary-container/10',
+                'active:scale-95 transition-all duration-200',
+                'disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+            >
+              <MaterialIcon name="person_add" size="sm" />
+              {t('issues.assignToAgent')}
+            </button>
+          </div>
         )
       )}
     </li>

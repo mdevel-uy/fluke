@@ -8,6 +8,10 @@ interface IssuesGroupProps {
   issues: RepoIssue[];
   repoId: string | undefined;
   taskByIssueNumber: Map<number, WorkerTask>;
+  selectedIssueId?: string;
+  onSelectIssue?: (issue: RepoIssue) => void;
+  onRemoveLabel?: (issueNumber: number, labelName: string) => Promise<void>;
+  onArchive?: (issueNumber: number) => Promise<void>;
 }
 
 export function IssuesGroup({
@@ -16,6 +20,10 @@ export function IssuesGroup({
   issues,
   repoId,
   taskByIssueNumber,
+  selectedIssueId,
+  onSelectIssue,
+  onRemoveLabel,
+  onArchive,
 }: IssuesGroupProps) {
   if (issues.length === 0) return null;
 
@@ -36,6 +44,10 @@ export function IssuesGroup({
             issue={issue}
             repoId={repoId}
             linkedTask={taskByIssueNumber.get(issue.number)}
+            isSelected={selectedIssueId === issue.id}
+            onSelect={onSelectIssue}
+            onRemoveLabel={onRemoveLabel}
+            onArchive={onArchive}
           />
         ))}
       </ul>

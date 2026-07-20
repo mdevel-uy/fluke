@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Custom"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Open in VS Code web (github.dev)",
+    "branchNotPushed": "Branch not on GitHub yet"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
@@ -569,6 +573,7 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "archiveAction": "Archive",
     "taskStatus": {
       "queued": "Queued",
       "in_progress": "In progress",
@@ -594,6 +599,54 @@
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{emoji}} {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
       "assignAnyway": "Assign anyway"
+    },
+    "filters": {
+      "searchPlaceholder": "Search issues…",
+      "state": {
+        "all": "All",
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "priority": "Priority",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "label": "Label",
+      "milestone": "Milestone",
+      "groupBy": "Group by",
+      "groupByOptions": {
+        "none": "None",
+        "label": "Label",
+        "milestone": "Milestone"
+      },
+      "clear": "Clear filters",
+      "noResults": "No issues match the current filters.",
+      "noLabel": "No label",
+      "noMilestone": "No milestone"
+    },
+    "drawer": {
+      "title": "Issue detail",
+      "close": "Close",
+      "openOnGitHub": "Open on GitHub",
+      "stateOpen": "open",
+      "stateClosed": "closed",
+      "priority": "Priority",
+      "milestone": "Milestone",
+      "author": "Author",
+      "labels": "Labels",
+      "addLabel": "Add label",
+      "searchLabels": "Search labels…",
+      "createLabel": "Create \"{{name}}\"",
+      "noLabels": "No labels found",
+      "description": "Description",
+      "noDescription": "No description provided.",
+      "archive": "Archive",
+      "archiveTitle": "Archive issue",
+      "archiveConfirm": "Close issue #{{number}} on GitHub? This will move it to the Closed filter.",
+      "archiveAction": "Close issue"
     }
   },
   "workers": {

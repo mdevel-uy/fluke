@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Personalizado"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Abrir en VS Code web (github.dev)",
+    "branchNotPushed": "La rama aún no está en GitHub"
+  },
   "folderPicker": {
     "legend": "Haz clic en los nombres de carpetas para navegar • Usa los botones de acción para seleccionar",
     "manualPathLabel": "Ingresar ruta manualmente:",
@@ -569,6 +573,7 @@
     "emptyTitle": "No hay issues todavía",
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
+    "archiveAction": "Archivar",
     "taskStatus": {
       "queued": "En cola",
       "in_progress": "En progreso",
@@ -594,6 +599,54 @@
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{emoji}} {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
       "assignAnyway": "Asignar igual"
+    },
+    "filters": {
+      "searchPlaceholder": "Buscar issues…",
+      "state": {
+        "all": "Todos",
+        "open": "Abiertos",
+        "closed": "Cerrados"
+      },
+      "priority": "Prioridad",
+      "priorities": {
+        "urgent": "Urgente",
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja"
+      },
+      "label": "Etiqueta",
+      "milestone": "Hito",
+      "groupBy": "Agrupar por",
+      "groupByOptions": {
+        "none": "Ninguno",
+        "label": "Etiqueta",
+        "milestone": "Hito"
+      },
+      "clear": "Limpiar filtros",
+      "noResults": "Ningún issue coincide con los filtros actuales.",
+      "noLabel": "Sin etiqueta",
+      "noMilestone": "Sin hito"
+    },
+    "drawer": {
+      "title": "Detalle del issue",
+      "close": "Cerrar",
+      "openOnGitHub": "Abrir en GitHub",
+      "stateOpen": "abierto",
+      "stateClosed": "cerrado",
+      "priority": "Prioridad",
+      "milestone": "Hito",
+      "author": "Autor",
+      "labels": "Etiquetas",
+      "addLabel": "Agregar etiqueta",
+      "searchLabels": "Buscar etiquetas…",
+      "createLabel": "Crear \"{{name}}\"",
+      "noLabels": "No se encontraron etiquetas",
+      "description": "Descripción",
+      "noDescription": "Sin descripción.",
+      "archive": "Archivar",
+      "archiveTitle": "Archivar issue",
+      "archiveConfirm": "¿Cerrar el issue #{{number}} en GitHub? Se moverá al filtro Cerrados.",
+      "archiveAction": "Cerrar issue"
     }
   },
   "workers": {

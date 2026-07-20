@@ -41,7 +41,7 @@ import {
 } from '@/shared/lib/diffDataAdapter';
 import { DiffSide } from '@/shared/types/diff';
 import { isRealMobileDevice } from '@/shared/hooks/useIsMobile';
-import { useOpenInEditor } from '@/shared/hooks/useOpenInEditor';
+import { useGithubDevUrl } from '@/shared/hooks/useGithubDevUrl';
 import { OpenInIdeButton } from '@/shared/components/OpenInIdeButton';
 import { CopyButton } from '@/shared/components/CopyButton';
 import { writeClipboardViaBridge } from '@/shared/lib/clipboard';
@@ -221,8 +221,7 @@ const PIERRE_DIFFS_THEME_CSS = `
 `;
 
 type ExtendedCommentAnnotation =
-  | CommentAnnotation
-  | { type: 'draft'; draft: ReviewDraft; widgetKey: string };
+  CommentAnnotation | { type: 'draft'; draft: ReviewDraft; widgetKey: string };
 
 function mapSideToAnnotationSide(side: DiffSide): AnnotationSide {
   return side === DiffSide.Old ? 'deletions' : 'additions';
@@ -316,12 +315,16 @@ interface DiffFileItemProps {
   diff: Diff;
   initialExpanded: boolean;
   workspaceId: string;
+  githubDevUrl: string | null;
+  isBranchPushed: boolean;
 }
 
 const DiffFileItem = memo(function DiffFileItem({
   diff,
   initialExpanded,
-  workspaceId,
+  workspaceId: _workspaceId,
+  githubDevUrl,
+  isBranchPushed,
 }: DiffFileItemProps) {
   const { t } = useTranslation('common');
   const filePath = diff.newPath || diff.oldPath || '';
@@ -343,8 +346,6 @@ const DiffFileItem = memo(function DiffFileItem({
 
   const showGitHubComments = useShowGitHubComments();
   const getGitHubCommentsForFile = useGetGitHubCommentsForFile();
-
-  const openInEditor = useOpenInEditor(workspaceId);
 
   const fileDiffMetadata = useMemo(
     () => getCachedFileDiffMetadata(diff, ignoreWhitespace),
@@ -428,8 +429,10 @@ const DiffFileItem = memo(function DiffFileItem({
   }, [filePath]);
 
   const handleOpenInIde = useCallback(() => {
-    openInEditor({ filePath });
-  }, [openInEditor, filePath]);
+    if (githubDevUrl) {
+      window.open(githubDevUrl, '_blank', 'noopener,noreferrer');
+    }
+  }, [githubDevUrl]);
 
   const githubCommentCount = githubCommentsForFile.length;
 
@@ -465,6 +468,7 @@ const DiffFileItem = memo(function DiffFileItem({
         {!IS_MOBILE && (
           <OpenInIdeButton
             onClick={handleOpenInIde}
+            disabled={!isBranchPushed || !githubDevUrl}
             className="size-icon-xs p-0"
           />
         )}
@@ -482,6 +486,8 @@ const DiffFileItem = memo(function DiffFileItem({
       githubCommentCount,
       additions,
       deletions,
+      isBranchPushed,
+      githubDevUrl,
     ]
   );
 
@@ -542,8 +548,7 @@ const DiffFileItem = memo(function DiffFileItem({
   const renderHoverUtility = useCallback(
     (
       getHoveredLine: () =>
-        | { lineNumber: number; side: AnnotationSide }
-        | undefined
+        { lineNumber: number; side: AnnotationSide } | undefined
     ) => (
       <button
         className="flex items-center justify-center size-icon-base rounded text-brand bg-brand/20 transition-transform hover:scale-110"
@@ -599,6 +604,7 @@ export const ChangesPanelContainer = memo(function ChangesPanelContainer({
   workspaceId,
 }: ChangesPanelContainerProps) {
   const diffs = useDiffs();
+  const { githubDevUrl, isBranchPushed } = useGithubDevUrl(workspaceId);
   const { registerScrollToFile } = useChangesView();
   const [processedPaths] = useState(() => new Set<string>());
   const [mountedCount, setMountedCount] = useState(0);
@@ -871,6 +877,8 @@ export const ChangesPanelContainer = memo(function ChangesPanelContainer({
               diff={diff}
               initialExpanded={initialExpanded}
               workspaceId={workspaceId}
+              githubDevUrl={githubDevUrl}
+              isBranchPushed={isBranchPushed}
             />
           );
         })}

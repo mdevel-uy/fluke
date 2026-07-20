@@ -1531,6 +1531,36 @@ export const repoIssuesApi = {
     );
     return handleApiResponse<RepoIssue>(response);
   },
+  addLabel: async (
+    repoId: string,
+    issueNumber: number,
+    label: string,
+    color?: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels`,
+      { method: 'POST', body: JSON.stringify({ label, color }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  removeLabel: async (
+    repoId: string,
+    issueNumber: number,
+    labelName: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`,
+      { method: 'DELETE' }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  closeIssue: async (repoId: string, issueNumber: number): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/close`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
 };
 
 // Scratch API
@@ -1797,7 +1827,7 @@ export const workersApi = {
     data: UpdateWorkerRequest
   ): Promise<WorkerResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
     return handleApiResponse<WorkerResponse>(response);
