@@ -4,7 +4,7 @@ use deployment::{Deployment, DeploymentError};
 use server::{
     DeploymentImpl, middleware::origin::validate_origin, routes, runtime::relay_registration,
 };
-use services::services::container::ContainerService;
+use services::services::{container::ContainerService, worker_orchestrator};
 use sqlx::Error as SqlxError;
 use strip_ansi_escapes::strip;
 use thiserror::Error;
@@ -74,6 +74,9 @@ async fn main() -> Result<(), VibeKanbanError> {
     deployment
         .container()
         .cleanup_orphan_executions()
+        .await
+        .map_err(DeploymentError::from)?;
+    worker_orchestrator::reconcile_in_progress_tasks(deployment.db())
         .await
         .map_err(DeploymentError::from)?;
     deployment
