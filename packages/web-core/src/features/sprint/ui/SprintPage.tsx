@@ -405,10 +405,14 @@ export function SprintPage() {
         .filter(Boolean);
       createTaskMutation.mutate(
         { workerId, title, prompt, issueNumber: issue.number, skills },
-        { onSettled: () => setBusyTaskId(null) }
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
+        }
       );
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleFreeTaskCreate = useCallback(
@@ -422,9 +426,11 @@ export function SprintPage() {
       setBusyTaskId('free-composer');
       createTaskMutation.mutate(params, {
         onSettled: () => setBusyTaskId(null),
+        onError: (err) =>
+          pushToast('error', err instanceof Error ? err.message : String(err)),
       });
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleRemoveTask = useCallback(
@@ -432,10 +438,14 @@ export function SprintPage() {
       setBusyTaskId(task.id);
       deleteTaskMutation.mutate(
         { workerId: task.worker_id, taskId: task.id },
-        { onSettled: () => setBusyTaskId(null) }
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
+        }
       );
     },
-    [deleteTaskMutation]
+    [deleteTaskMutation, pushToast]
   );
 
   const handleReorder = useCallback(
@@ -443,10 +453,14 @@ export function SprintPage() {
       setBusyTaskId(a.id);
       swapTasksMutation.mutate(
         { a, b },
-        { onSettled: () => setBusyTaskId(null) }
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
+        }
       );
     },
-    [swapTasksMutation]
+    [swapTasksMutation, pushToast]
   );
 
   const handleRetryTask = useCallback(

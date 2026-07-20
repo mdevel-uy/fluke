@@ -122,9 +122,16 @@ export function WorkersPage() {
       );
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
+        const serverMessage =
+          err.message &&
+          err.message !== 'API request failed' &&
+          !err.message.startsWith('Request failed with status')
+            ? err.message
+            : null;
         pushToast(
-          'info',
-          t('workers.toast.startConflict', { worker: worker.name })
+          serverMessage ? 'error' : 'info',
+          serverMessage ??
+            t('workers.toast.startConflict', { worker: worker.name })
         );
       } else {
         const message = err instanceof Error ? err.message : String(err);
