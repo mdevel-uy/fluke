@@ -100,7 +100,9 @@ export function WorkersPage() {
   const deleteMutation = useDeleteWorker();
 
   const stats = useMemo(() => {
-    const working = workers.filter((w) => w.active_workspace_id !== null).length;
+    const working = workers.filter(
+      (w) => w.active_workspace_id !== null
+    ).length;
     const totalQueued = workers.reduce((sum, w) => sum + w.queued_count, 0);
     const totalCompleted = workers.reduce(
       (sum, w) => sum + w.completed_count,
