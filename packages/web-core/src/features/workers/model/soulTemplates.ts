@@ -8,9 +8,9 @@ export interface SoulTemplate {
 }
 
 const DOD = `Definition of Done:
-- CI verde en la rama.
-- Push verificado con \`git log origin/<rama>\` mostrando los commits esperados.
-- PR creado contra la rama base del repo con descripción clara (contexto, cambios y verificación).`;
+- Todos los cambios commiteados con mensajes claros.
+- Build/typecheck pasando (\`pnpm run check\` o \`cargo check\` según corresponda).
+- El sistema se encarga del push y de abrir el PR automáticamente al terminar la corrida.`;
 
 const BACKEND_SOUL = `Backend Specialist.
 

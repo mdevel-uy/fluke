@@ -26,20 +26,24 @@
 //!   * strictly less than `WORKER_MAX_IN_REVIEW` (default 2) `in_review` tasks,
 //!   * at least one `queued` task.
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use db::{
     DBService,
     models::{
-        execution_process::ExecutionProcess,
+        execution_process::{ExecutionProcess, ExecutionProcessRunReason},
+        execution_process_repo_state::ExecutionProcessRepoState,
+        pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
         worker::{ROLE_DEVELOPER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
+        workspace_repo::WorkspaceRepo,
     },
 };
 use executors::profile::ExecutorConfig;
+use git_host::{CreatePrRequest, GitHostError, GitHostProvider, GitHostService};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -54,12 +58,14 @@ use crate::services::{
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 2;
 pub const WORKER_MAX_IN_REVIEW_ENV: &str = "WORKER_MAX_IN_REVIEW";
 
-/// Final instruction for developer workers: create a PR after finishing.
+/// Final instruction for developer workers: commit and verify; the system
+/// handles push and PR creation automatically on run completion.
 pub const WORKER_FINAL_INSTRUCTION_TEMPLATE: &str = "\
-When you finish the work above, commit your changes, push the branch to the \
-remote, and open a pull request against `{target_branch}` using \
-`gh pr create`. The PR body must describe the changes you made and reference \
-any linked issue if applicable.";
+When you finish the work above, commit your changes with clear messages and \
+verify that `pnpm run check` (frontend) or `cargo check` (backend) passes. \
+The system will push the branch and open the pull request against \
+`{target_branch}` automatically once your run ends — do NOT create the PR \
+yourself.";
 
 /// Final instruction for analyst and reviewer workers: produce deliverables,
 /// NOT a PR.
@@ -624,13 +630,14 @@ pub async fn on_pr_merged(
     }
 }
 
-/// Reconcile an analyst or reviewer workspace whose coding-agent run just
-/// finished. Transitions the linked task to `done` (on success) or `failed`
-/// (on failure), archives the workspace, and attempts to start the next
-/// queued task.
+/// Reconcile a workspace whose coding-agent run just finished.
 ///
-/// This is a no-op for developer workspaces (their lifecycle is driven by
-/// PR events) and for non-CodingAgent workspaces.
+/// - **Developer workers**: push the branch, adopt or create the PR, then
+///   transition the task to `in_review` via `on_pr_open`. On any failure
+///   (dirty tree, no commits, push error, PR creation error) the task is
+///   marked `failed` immediately — no silent swallowing.
+/// - **Analyst / reviewer workers**: transition to `done` or `failed`,
+///   archive the workspace, and attempt to auto-start the next queued task.
 pub async fn on_agent_finished(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -647,9 +654,9 @@ pub async fn on_agent_finished(
         return Ok(());
     };
 
-    // Developer workers are handled via the PR lifecycle; skip them here.
     if worker.role == ROLE_DEVELOPER {
-        return Ok(());
+        return on_developer_agent_finished(config, db, container, workspace_id, &worker, succeeded)
+            .await;
     }
 
     let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
@@ -713,6 +720,375 @@ pub async fn on_agent_finished(
     }
 
     Ok(())
+}
+
+/// Handle a developer worker's agent run completing: push the branch, adopt
+/// or create a PR, and transition the task to `in_review`. Any failure
+/// (dirty tree, no commits, push error, PR creation error) marks the task
+/// `failed` so the human can see the cause and retry.
+async fn on_developer_agent_finished(
+    _config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    worker: &Worker,
+    succeeded: bool,
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+
+    let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
+        return Ok(());
+    };
+    if task.worker_id != worker.id {
+        return Ok(());
+    }
+    if task.status != worker_task::STATUS_IN_PROGRESS {
+        return Ok(());
+    }
+
+    if !succeeded {
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        info!(
+            worker_id = %worker.id,
+            task_id = %task.id,
+            workspace_id = %workspace_id,
+            "Developer worker task failed — agent did not complete successfully"
+        );
+        if let Err(e) = container.archive_workspace(workspace_id).await {
+            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+        }
+        return Ok(());
+    }
+
+    // --- agent succeeded: push branch and create PR ---
+
+    let Some(workspace) = Workspace::find_by_id(pool, workspace_id).await? else {
+        warn!(workspace_id = %workspace_id, "Workspace not found after agent finished");
+        return Ok(());
+    };
+
+    let workspace_repos = WorkspaceRepo::find_by_workspace_id(pool, workspace_id).await?;
+    let Some(workspace_repo) = workspace_repos.into_iter().next() else {
+        warn!(workspace_id = %workspace_id, "Developer workspace has no repos — marking failed");
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        return Ok(());
+    };
+
+    let Some(repo) = Repo::find_by_id(pool, workspace_repo.repo_id).await? else {
+        warn!(workspace_id = %workspace_id, "Workspace repo record not found — marking failed");
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        return Ok(());
+    };
+
+    let Some(container_ref) = workspace.container_ref.as_ref() else {
+        warn!(workspace_id = %workspace_id, "Workspace has no container_ref — marking failed");
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        return Ok(());
+    };
+
+    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let git = container.git();
+
+    // Fail fast if the agent left uncommitted changes.
+    match git.is_worktree_clean(&worktree_path) {
+        Ok(false) => {
+            warn!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "Developer task ended with uncommitted changes — marking failed"
+            );
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+            if let Err(e) = container.archive_workspace(workspace_id).await {
+                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+            }
+            return Ok(());
+        }
+        Err(e) => {
+            warn!(workspace_id = %workspace_id, "Could not check worktree clean status: {}", e);
+        }
+        Ok(true) => {}
+    }
+
+    // Fail fast if the agent produced no commits above the target branch.
+    // Compare current HEAD to the before_head_commit recorded when the
+    // execution process started; if identical the agent did nothing useful.
+    let no_commits = check_no_new_commits(db, git, workspace_id, &worktree_path).await;
+    if no_commits {
+        warn!(
+            workspace_id = %workspace_id,
+            task_id = %task.id,
+            "Developer task ended with no new commits — marking failed"
+        );
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        if let Err(e) = container.archive_workspace(workspace_id).await {
+            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+        }
+        return Ok(());
+    }
+
+    // Idempotency: if a PR is already recorded (agent created it via gh cli
+    // and the pr_monitor already adopted it), just ensure the task is in_review.
+    match PullRequest::find_by_workspace_id(pool, workspace_id).await {
+        Ok(prs) if !prs.is_empty() => {
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "PR already recorded for workspace — triggering on_pr_open"
+            );
+            return on_pr_open(db, workspace_id).await;
+        }
+        Err(e) => {
+            warn!(workspace_id = %workspace_id, "Could not query existing PRs: {}", e);
+        }
+        Ok(_) => {}
+    }
+
+    // Push the branch. A push failure is terminal for this run (no retry loop
+    // per the spec); the human sees the cause on the card and can retry.
+    if let Err(e) = git.push_to_remote(&worktree_path, &workspace.branch, false) {
+        error!(
+            workspace_id = %workspace_id,
+            task_id = %task.id,
+            "Failed to push branch '{}': {}",
+            workspace.branch,
+            e
+        );
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        if let Err(e) = container.archive_workspace(workspace_id).await {
+            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+        }
+        return Ok(());
+    }
+    info!(
+        workspace_id = %workspace_id,
+        task_id = %task.id,
+        branch = %workspace.branch,
+        "Branch pushed successfully"
+    );
+
+    // Resolve push remote and base branch.
+    let push_remote = match git.resolve_remote_for_branch(&repo.path, &workspace.branch) {
+        Ok(r) => r,
+        Err(e) => {
+            error!(workspace_id = %workspace_id, "Could not resolve remote: {}", e);
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+            if let Err(e) = container.archive_workspace(workspace_id).await {
+                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+            }
+            return Ok(());
+        }
+    };
+
+    let target_branch_ref = &workspace_repo.target_branch;
+    let (target_remote, base_branch) =
+        match git.get_remote_from_branch_name(&repo.path, target_branch_ref) {
+            Ok(remote) => {
+                let branch = target_branch_ref
+                    .strip_prefix(&format!("{}/", remote.name))
+                    .unwrap_or(target_branch_ref);
+                (remote, branch.to_string())
+            }
+            Err(_) => (push_remote.clone(), target_branch_ref.clone()),
+        };
+
+    let git_host = match GitHostService::from_url(&target_remote.url) {
+        Ok(h) => h,
+        Err(GitHostError::UnsupportedProvider) => {
+            error!(workspace_id = %workspace_id, "Unsupported git provider for URL '{}'", target_remote.url);
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+            if let Err(e) = container.archive_workspace(workspace_id).await {
+                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+            }
+            return Ok(());
+        }
+        Err(e) => {
+            error!(workspace_id = %workspace_id, "Failed to create GitHostService: {}", e);
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+            if let Err(e) = container.archive_workspace(workspace_id).await {
+                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+            }
+            return Ok(());
+        }
+    };
+
+    // Adoption: check if the agent already created a PR via `gh pr create`.
+    match git_host
+        .list_prs_for_branch(&repo.path, &target_remote.url, &workspace.branch)
+        .await
+    {
+        Ok(prs) if !prs.is_empty() => {
+            let pr = &prs[0];
+            if let Err(e) = PullRequest::create_for_workspace(
+                pool,
+                workspace_id,
+                workspace_repo.repo_id,
+                &base_branch,
+                pr.number,
+                &pr.url,
+            )
+            .await
+            {
+                warn!(workspace_id = %workspace_id, "Failed to record adopted PR locally: {}", e);
+            }
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                pr_number = pr.number,
+                "Adopted existing PR — triggering on_pr_open"
+            );
+            return on_pr_open(db, workspace_id).await;
+        }
+        Err(e) => {
+            warn!(workspace_id = %workspace_id, "PR list check failed (proceeding to create): {}", e);
+        }
+        Ok(_) => {}
+    }
+
+    // Create the PR programmatically. Retry once on transient failures.
+    let pr_body = build_pr_body(&task);
+    let pr_request = CreatePrRequest {
+        title: task.title.clone(),
+        body: Some(pr_body),
+        head_branch: workspace.branch.clone(),
+        base_branch: base_branch.clone(),
+        draft: None,
+        head_repo_url: Some(push_remote.url.clone()),
+    };
+
+    let pr_result = match git_host
+        .create_pr(&repo.path, &target_remote.url, &pr_request)
+        .await
+    {
+        Ok(info) => Ok(info),
+        Err(first_err) => {
+            warn!(
+                workspace_id = %workspace_id,
+                "First PR creation attempt failed ({}); retrying once",
+                first_err
+            );
+            git_host
+                .create_pr(&repo.path, &target_remote.url, &pr_request)
+                .await
+        }
+    };
+
+    match pr_result {
+        Ok(pr_info) => {
+            if let Err(e) = PullRequest::create_for_workspace(
+                pool,
+                workspace_id,
+                workspace_repo.repo_id,
+                &base_branch,
+                pr_info.number,
+                &pr_info.url,
+            )
+            .await
+            {
+                warn!(workspace_id = %workspace_id, "Failed to record new PR locally: {}", e);
+            }
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                pr_number = pr_info.number,
+                "PR created — triggering on_pr_open"
+            );
+            on_pr_open(db, workspace_id).await
+        }
+        Err(e) => {
+            // "already exists" is a recoverable edge-case: adopt instead.
+            if let GitHostError::PullRequest(ref msg) = e {
+                if msg.to_ascii_lowercase().contains("already exists") {
+                    if let Ok(prs) = git_host
+                        .list_prs_for_branch(&repo.path, &target_remote.url, &workspace.branch)
+                        .await
+                    {
+                        if let Some(pr) = prs.into_iter().next() {
+                            PullRequest::create_for_workspace(
+                                pool,
+                                workspace_id,
+                                workspace_repo.repo_id,
+                                &base_branch,
+                                pr.number,
+                                &pr.url,
+                            )
+                            .await
+                            .ok();
+                            info!(
+                                workspace_id = %workspace_id,
+                                task_id = %task.id,
+                                pr_number = pr.number,
+                                "PR already existed; adopted — triggering on_pr_open"
+                            );
+                            return on_pr_open(db, workspace_id).await;
+                        }
+                    }
+                }
+            }
+            error!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "PR creation failed after retry: {}",
+                e
+            );
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+            if let Err(archive_err) = container.archive_workspace(workspace_id).await {
+                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", archive_err);
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Returns `true` when the current HEAD in `worktree_path` matches the
+/// `before_head_commit` that was recorded when the latest CodingAgent
+/// execution started — meaning the agent made no commits at all.
+///
+/// When the comparison cannot be performed (no execution record, no
+/// before_head_commit, or git error), returns `false` so the caller does
+/// not block a legitimate run on a best-effort check.
+async fn check_no_new_commits(
+    db: &DBService,
+    git: &git::GitService,
+    workspace_id: Uuid,
+    worktree_path: &PathBuf,
+) -> bool {
+    let pool = &db.pool;
+
+    let ep = match ExecutionProcess::find_latest_by_workspace_and_run_reason(
+        pool,
+        workspace_id,
+        &ExecutionProcessRunReason::CodingAgent,
+    )
+    .await
+    {
+        Ok(Some(ep)) => ep,
+        _ => return false,
+    };
+
+    let repo_states =
+        match ExecutionProcessRepoState::find_by_execution_process_id(pool, ep.id).await {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+
+    let Some(before_oid) = repo_states.into_iter().find_map(|s| s.before_head_commit) else {
+        return false;
+    };
+
+    match git.get_head_info(worktree_path) {
+        Ok(head) => head.oid == before_oid,
+        Err(_) => false,
+    }
+}
+
+/// Build a PR body from a worker task: includes the task prompt and, when
+/// an issue number is present, a "Closes #N" line.
+fn build_pr_body(task: &WorkerTask) -> String {
+    let mut body = task.prompt.trim().to_string();
+    if let Some(issue) = task.issue_number {
+        body.push_str(&format!("\n\nCloses #{issue}"));
+    }
+    body
 }
 
 /// Dispatch a review task to the first reviewer worker for the given PR.
@@ -975,7 +1351,9 @@ mod tests {
         assert!(prompt.contains("soul"));
         assert!(prompt.contains("do it"));
         assert!(prompt.contains("`main`"));
-        assert!(prompt.contains("gh pr create"));
+        // System now handles push/PR; agent must NOT be told to use gh pr create
+        assert!(!prompt.contains("gh pr create"), "developer prompt must not instruct agent to create PR");
+        assert!(prompt.contains("do NOT create the PR"));
         // Base instructions precede the soul
         let base_pos = prompt.find("[SYSTEM BASE INSTRUCTIONS").unwrap();
         let soul_pos = prompt.find("[WORKER SOUL]").unwrap();
