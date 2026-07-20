@@ -665,7 +665,8 @@
       "queued": "대기열",
       "inProgress": "진행 중",
       "inReview": "검토 중",
-      "done": "완료"
+      "done": "완료",
+      "failed": "실패"
     },
     "backlog": {
       "assign": "할당",
@@ -743,6 +744,11 @@
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
       "startAllError": "스프린트 시작 실패: {{message}}"
+    },
+    "failed": {
+      "retry": "재시도",
+      "discard": "버리기",
+      "empty": "실패한 태스크가 없습니다."
     }
   }
 }

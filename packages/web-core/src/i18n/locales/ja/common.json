@@ -665,7 +665,8 @@
       "queued": "キュー",
       "inProgress": "進行中",
       "inReview": "レビュー中",
-      "done": "完了"
+      "done": "完了",
+      "failed": "失敗"
     },
     "backlog": {
       "assign": "割り当てる",
@@ -743,6 +744,11 @@
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
       "startAllError": "スプリント開始に失敗しました: {{message}}"
+    },
+    "failed": {
+      "retry": "再試行",
+      "discard": "破棄",
+      "empty": "失敗したタスクはありません。"
     }
   }
 }

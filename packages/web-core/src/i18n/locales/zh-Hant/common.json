@@ -665,7 +665,8 @@
       "queued": "排隊中",
       "inProgress": "進行中",
       "inReview": "審查中",
-      "done": "已完成"
+      "done": "已完成",
+      "failed": "已失敗"
     },
     "backlog": {
       "assign": "指派",
@@ -743,6 +744,11 @@
       "startAllSuccess": "已啟動 {{count}} 個工作者。",
       "startAllNoneStarted": "沒有工作者可以開始。",
       "startAllError": "啟動衝刺失敗：{{message}}"
+    },
+    "failed": {
+      "retry": "重試",
+      "discard": "丟棄",
+      "empty": "沒有失敗的任務。"
     }
   }
 }
