@@ -590,7 +590,10 @@
       "loadingWorkers": "ワーカーを読み込み中...",
       "cancel": "キャンセル",
       "confirm": "タスクをキューに追加",
-      "enqueuedError": "タスクのキュー追加に失敗しました。"
+      "enqueuedError": "タスクのキュー追加に失敗しました。",
+      "checkingConflicts": "既存の割り当てを確認中...",
+      "duplicateWarning": "Issue #{{number}} はすでに {{emoji}} {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
+      "assignAnyway": "それでも割り当てる"
     }
   },
   "workers": {
@@ -754,7 +757,8 @@
     "toast": {
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
-      "startAllError": "スプリント開始に失敗しました: {{message}}"
+      "startAllError": "スプリント開始に失敗しました: {{message}}",
+      "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。"
     },
     "failed": {
       "retry": "再試行",

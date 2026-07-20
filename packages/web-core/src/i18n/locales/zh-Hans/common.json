@@ -590,7 +590,10 @@
       "loadingWorkers": "正在加载工作者...",
       "cancel": "取消",
       "confirm": "加入队列",
-      "enqueuedError": "加入队列失败。"
+      "enqueuedError": "加入队列失败。",
+      "checkingConflicts": "正在检查现有分配...",
+      "duplicateWarning": "Issue #{{number}} 已分配给 {{emoji}} {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
+      "assignAnyway": "仍然分配"
     }
   },
   "workers": {
@@ -754,7 +757,8 @@
     "toast": {
       "startAllSuccess": "已启动 {{count}} 个工作者。",
       "startAllNoneStarted": "没有工作者可以开始。",
-      "startAllError": "启动冲刺失败：{{message}}"
+      "startAllError": "启动冲刺失败：{{message}}",
+      "assignDuplicate": "该 Issue 已有一个分配给工作者的活跃任务。"
     },
     "failed": {
       "retry": "重试",

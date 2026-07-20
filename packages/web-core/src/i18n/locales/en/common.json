@@ -590,7 +590,10 @@
       "loadingWorkers": "Loading workers...",
       "cancel": "Cancel",
       "confirm": "Enqueue task",
-      "enqueuedError": "Failed to enqueue task."
+      "enqueuedError": "Failed to enqueue task.",
+      "checkingConflicts": "Checking for existing assignments...",
+      "duplicateWarning": "Issue #{{number}} is already assigned to {{emoji}} {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
+      "assignAnyway": "Assign anyway"
     }
   },
   "workers": {
@@ -755,7 +758,8 @@
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllNoneStarted": "No workers were ready to start.",
-      "startAllError": "Failed to start sprint: {{message}}"
+      "startAllError": "Failed to start sprint: {{message}}",
+      "assignDuplicate": "This issue already has an active task assigned to a worker."
     },
     "failed": {
       "retry": "Retry",

@@ -118,6 +118,15 @@ import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
 import { makeRequest as makeRemoteRequest } from '@/shared/lib/remoteApi';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 
+/** Info about an existing active worker task for a given issue. */
+export interface ActiveIssueTaskInfo {
+  task_id: string;
+  worker_id: string;
+  worker_name: string;
+  worker_emoji: string;
+  status: string;
+}
+
 export class ApiError<E = unknown> extends Error {
   public status?: number;
   public error_data?: E;
@@ -1806,9 +1815,22 @@ export const workersApi = {
     return handleApiResponse<WorkerTaskResponse[]>(response);
   },
 
+  checkActiveIssueTask: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<ActiveIssueTaskInfo | null> => {
+    const response = await makeRequest(
+      `/api/workers/active-issue-task?repo_id=${encodeURIComponent(repoId)}&issue_number=${issueNumber}`
+    );
+    return handleApiResponse<ActiveIssueTaskInfo | null>(response);
+  },
+
   createTask: async (
     workerId: string,
-    data: CreateWorkerTaskRequest & { skills?: string[] }
+    data: CreateWorkerTaskRequest & {
+      skills?: string[];
+      force_duplicate?: boolean;
+    }
   ): Promise<WorkerTaskResponse & { skills: string[] }> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`, {
       method: 'POST',

@@ -1586,11 +1586,7 @@ impl GitService {
     ///   the missing-local-branch case, issue #36).
     /// - Fetch fails (no network, auth error, etc.) → warns, returns
     ///   `branch_name` unchanged so workspace creation can still proceed.
-    pub fn fetch_and_update_target_branch(
-        &self,
-        repo_path: &Path,
-        branch_name: &str,
-    ) -> String {
+    pub fn fetch_and_update_target_branch(&self, repo_path: &Path, branch_name: &str) -> String {
         let remote = match self.get_default_remote(repo_path) {
             Ok(r) => r,
             Err(e) => {

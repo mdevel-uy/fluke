@@ -590,7 +590,10 @@
       "loadingWorkers": "Chargement des workers...",
       "cancel": "Annuler",
       "confirm": "Mettre en file d'attente",
-      "enqueuedError": "Impossible de mettre la tâche en file d'attente."
+      "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
+      "checkingConflicts": "Vérification des assignations existantes...",
+      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{emoji}} {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
+      "assignAnyway": "Assigner quand même"
     }
   },
   "workers": {
@@ -755,7 +758,8 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
-      "startAllError": "Échec du démarrage du sprint : {{message}}"
+      "startAllError": "Échec du démarrage du sprint : {{message}}",
+      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker."
     },
     "failed": {
       "retry": "Réessayer",
