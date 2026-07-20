@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { useWorkerTasks } from '@/features/workers/model/useWorkers';
 
 interface WorkerTaskListProps {
@@ -16,8 +16,12 @@ export function WorkerTaskList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-low text-xs py-1">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+      <div className="flex items-center gap-2 text-md-on-surface-variant text-body-sm py-1">
+        <MaterialIcon
+          name="progress_activity"
+          size="sm"
+          className="animate-spin text-md-primary"
+        />
         <span>{t('workers.card.queueLoading')}</span>
       </div>
     );
@@ -25,7 +29,7 @@ export function WorkerTaskList({
 
   if (isError) {
     return (
-      <div className="text-xs text-error py-1">
+      <div className="text-body-sm text-md-error py-1">
         {t('workers.card.queueError')}
       </div>
     );
@@ -37,7 +41,7 @@ export function WorkerTaskList({
 
   if (queued.length === 0) {
     return (
-      <div className="text-xs text-low py-1 italic">
+      <div className="text-body-sm text-md-on-surface-variant py-1 italic">
         {t('workers.card.queueEmpty')}
       </div>
     );
@@ -48,15 +52,15 @@ export function WorkerTaskList({
       {queued.map((task) => (
         <li
           key={task.id}
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary/60 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-md-surface-container transition-colors"
         >
-          <span className="w-6 shrink-0 text-low tabular-nums text-xs font-medium">
+          <span className="w-6 shrink-0 text-md-on-surface-variant tabular-nums text-body-sm font-medium">
             {task.position}.
           </span>
-          <span className="min-w-0 truncate text-xs text-normal">
+          <span className="min-w-0 truncate text-body-sm text-md-on-surface">
             {task.title}
           </span>
-          <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-secondary text-low uppercase tracking-wide text-[10px] font-medium border border-border/50">
+          <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-md-surface-container text-md-on-surface-variant uppercase tracking-widest text-[10px] font-geist font-semibold border border-md-outline-variant">
             {task.status}
           </span>
         </li>

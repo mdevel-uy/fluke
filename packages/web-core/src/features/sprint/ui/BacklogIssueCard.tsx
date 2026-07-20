@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2, Play } from 'lucide-react';
-import { DotsThreeIcon } from '@phosphor-icons/react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import {
   DropdownMenu,
@@ -10,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@vibe/ui/components/DropdownMenu';
+import { cn } from '@/shared/lib/utils';
 import type { RepoIssue, IssuePriority } from '@/features/issues/types';
 import type { Worker } from '@/features/sprint/types';
 import { IssueLabelChip } from './IssueLabelChip';
@@ -39,7 +39,7 @@ export function BacklogIssueCard({
 
   return (
     <article
-      className="group flex flex-col gap-2 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft transition-all duration-150 hover:shadow-card hover:border-border cursor-pointer"
+      className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:border-md-primary/30 hover:-translate-y-px cursor-pointer"
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -50,14 +50,14 @@ export function BacklogIssueCard({
         }
       }}
     >
-      {/* Top row: number + priority + title */}
+      {/* Top row: number + title + more menu */}
       <div className="flex items-start gap-2 min-w-0">
-        <span className="font-ibm-plex-mono text-xs text-low shrink-0 mt-0.5">
+        <span className="font-geist text-code-sm text-md-on-surface-variant shrink-0 mt-0.5">
           #{issue.number}
         </span>
         <div className="flex-1 min-w-0">
           <span
-            className="text-sm text-high font-medium leading-snug line-clamp-2"
+            className="text-body-md font-hanken text-md-on-surface font-medium leading-snug line-clamp-2 group-hover:text-md-primary transition-colors duration-200"
             title={issue.title}
           >
             {issue.title}
@@ -68,19 +68,20 @@ export function BacklogIssueCard({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="shrink-0 p-1 rounded-md text-low opacity-0 group-hover:opacity-100 hover:text-high hover:bg-secondary transition-all focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-brand/40"
+                type="button"
+                className="shrink-0 p-1 rounded-md text-md-on-surface-variant opacity-0 group-hover:opacity-100 hover:text-md-on-surface hover:bg-md-surface-container active:scale-95 transition-all duration-200 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-md-primary/40"
                 aria-label={t('sprint.backlog.moreActions')}
               >
-                <DotsThreeIcon className="size-4" weight="bold" />
+                <MaterialIcon name="more_horiz" size="sm" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuLabel className="text-xs text-low">
+              <DropdownMenuLabel className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface-variant">
                 {t('sprint.backlog.setPriority')}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => onPriorityChange(null)}>
-                <span className="text-low text-xs">
+                <span className="text-md-on-surface-variant text-body-sm">
                   {t('sprint.detail.noPriority')}
                 </span>
               </DropdownMenuItem>
@@ -88,7 +89,9 @@ export function BacklogIssueCard({
                 <DropdownMenuItem
                   key={p}
                   onSelect={() => onPriorityChange(p)}
-                  className={issue.priority === p ? 'bg-secondary' : ''}
+                  className={
+                    issue.priority === p ? 'bg-md-surface-container' : ''
+                  }
                 >
                   <PriorityBadge priority={p} showLabel />
                 </DropdownMenuItem>
@@ -96,7 +99,7 @@ export function BacklogIssueCard({
               {workers.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-low">
+                  <DropdownMenuLabel className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface-variant">
                     {t('sprint.backlog.assignTo')}
                   </DropdownMenuLabel>
                   {workers.map((worker) => (
@@ -139,12 +142,13 @@ export function BacklogIssueCard({
               variant="tonal"
               size="xs"
               disabled={isAssigning || workers.length === 0}
+              className="active:scale-95 transition-all duration-200"
             >
-              {isAssigning ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
+              <MaterialIcon
+                name={isAssigning ? 'progress_activity' : 'play_arrow'}
+                size="xs"
+                className={cn(isAssigning && 'animate-spin')}
+              />
               {t('sprint.backlog.assign')}
             </Button>
           </DropdownMenuTrigger>

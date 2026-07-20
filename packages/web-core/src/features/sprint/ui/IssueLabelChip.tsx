@@ -13,10 +13,17 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b];
 }
 
-// Returns a multiplier to darken very light colors for legible text
 function needsDarkText(hex: string): boolean {
   const [r, g, b] = hexToRgb(hex);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.72;
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const darken = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
+  return [darken(r), darken(g), darken(b)]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
@@ -24,12 +31,13 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
   const isValidHex = /^[0-9a-fA-F]{6}$/.test(hex);
 
   if (!isValidHex) {
-    // Graceful fallback for labels without color
     return (
       <span
         className={cn(
-          'inline-flex items-center h-5 px-2 rounded-full',
-          'bg-secondary text-low text-xs font-medium whitespace-nowrap border border-border/50',
+          'inline-flex items-center h-[18px] px-2 rounded-full',
+          'bg-md-secondary-container text-md-on-secondary-container',
+          'text-label-caps font-geist font-semibold uppercase tracking-widest',
+          'border border-md-outline-variant whitespace-nowrap',
           className
         )}
       >
@@ -50,8 +58,9 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center h-5 px-2 rounded-full',
-        'text-xs font-medium whitespace-nowrap border',
+        'inline-flex items-center h-[18px] px-2 rounded-full',
+        'text-label-caps font-geist font-semibold uppercase tracking-widest',
+        'border whitespace-nowrap',
         className
       )}
       style={style}
@@ -60,12 +69,4 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
       {label.name}
     </span>
   );
-}
-
-function darkenHex(hex: string, amount: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  const darken = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
-  return [darken(r), darken(g), darken(b)]
-    .map((v) => v.toString(16).padStart(2, '0'))
-    .join('');
 }

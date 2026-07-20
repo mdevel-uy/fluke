@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Plus, Users } from 'lucide-react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 
 interface WorkersEmptyStateProps {
@@ -12,16 +12,16 @@ export function WorkersEmptyState({ onCreateWorker }: WorkersEmptyStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-16 gap-4 text-center">
       <div
-        className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand/10 text-brand"
+        className="flex h-16 w-16 items-center justify-center rounded-xl bg-md-secondary-container text-md-on-secondary-container"
         aria-hidden
       >
-        <Users className="h-7 w-7" strokeWidth={1.75} />
+        <MaterialIcon name="group" size="lg" />
       </div>
       <div className="flex flex-col gap-1.5 max-w-sm">
-        <h2 className="text-lg font-semibold text-high leading-tight">
+        <h2 className="text-title-sm font-hanken font-semibold text-md-on-surface leading-tight">
           {t('workers.emptyTitle')}
         </h2>
-        <p className="text-sm text-low leading-relaxed">
+        <p className="text-body-sm text-md-on-surface-variant leading-relaxed">
           {t('workers.emptyDescription')}
         </p>
       </div>
@@ -30,9 +30,9 @@ export function WorkersEmptyState({ onCreateWorker }: WorkersEmptyStateProps) {
           variant="primary"
           size="sm"
           onClick={onCreateWorker}
-          className="mt-1"
+          className="mt-1 active:scale-95 transition-all duration-200"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <MaterialIcon name="add" size="xs" />
           {t('workers.newWorker')}
         </Button>
       )}
