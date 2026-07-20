@@ -51,6 +51,15 @@ pub trait GitHostProvider: Send + Sync {
     /// Return the mergeable state of a PR: "mergeable", "conflicting", or "unknown".
     async fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GitHostError>;
 
+    /// Return the latest actionable review state for a PR, if any.
+    /// Possible values: `"approved"`, `"changes_requested"`. Returns `None`
+    /// when there are no submitted reviews with an actionable state (e.g. only
+    /// comments or no reviews at all).
+    async fn get_pr_latest_review_state(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<String>, GitHostError>;
+
     fn provider_kind(&self) -> ProviderKind;
 }
 

@@ -287,6 +287,97 @@ impl WorkerTask {
         Ok(count > 0)
     }
 
+    /// Count all reviewer-role tasks ever dispatched for a given PR (by
+    /// `pr_number` stored in `issue_number`). Used to enforce the review-round cap.
+    pub async fn count_reviewer_tasks_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number = ?1
+                 AND wt.repo_id = ?2",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Return the first active (queued / in_progress / in_review) reviewer task
+    /// for a given PR. Used as a duplicate-dispatch guard.
+    pub async fn find_active_reviewer_task_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
+                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.created_at
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number = ?1
+                 AND wt.repo_id = ?2
+                 AND wt.status IN ('queued', 'in_progress', 'in_review')
+               ORDER BY wt.created_at ASC
+               LIMIT 1",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Count DONE reviewer tasks for a given PR. Used to determine how many
+    /// review rounds have actually completed (vs. been dispatched).
+    pub async fn count_reviewer_tasks_done_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number = ?1
+                 AND wt.repo_id = ?2
+                 AND wt.status = 'done'",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Count ALL fix tasks ever dispatched to an author for a given PR
+    /// (regardless of status). Used alongside `count_reviewer_tasks_done_for_pr`
+    /// to prevent duplicate fix dispatches across poll cycles.
+    pub async fn count_all_author_fix_tasks_for_pr(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks
+               WHERE worker_id = ?1
+                 AND issue_number = ?2
+                 AND repo_id = ?3",
+        )
+        .bind(worker_id)
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+    }
+
     /// Find the first active task (queued, in_progress, or in_review) for the
     /// given repo and issue number, across all workers. Used to detect duplicate
     /// issue assignments before creating a new task.
