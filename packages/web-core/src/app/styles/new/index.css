@@ -93,8 +93,8 @@ html {
     --text-low: var(--md-outline);
 
     --_bg-primary-default: 0 0% 100%;
-    --_bg-secondary-default: 235 100% 97%;
-    --_bg-panel-default: 232 100% 96%;
+    --_bg-secondary-default: 235 20% 97%; /* #f4f5f8 neutro */
+    --_bg-panel-default: 232 22% 95%; /* #eff0f5 neutro */
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -118,7 +118,7 @@ html {
     --_warning-foreground: 38 92% 20%;
     --_info: 217 91% 60%;
     --_info-foreground: 222 47% 11%;
-    --_neutral: 235 100% 97%;
+    --_neutral: 235 20% 97%; /* #f4f5f8 neutro */
     --_neutral-foreground: 222 47% 11%;
     --_destructive: var(--md-error);
     --_destructive-foreground: 0 0% 100%;
