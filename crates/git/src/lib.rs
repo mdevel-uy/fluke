@@ -846,6 +846,17 @@ impl GitService {
         Ok(self.get_head_info(repo_path)?.branch)
     }
 
+    /// Detect the remote's default branch from refs/remotes/origin/HEAD.
+    /// Returns None if the reference doesn't exist or isn't a symbolic ref.
+    pub fn get_remote_default_branch(&self, repo_path: &Path) -> Option<String> {
+        let repo = self.open_repo(repo_path).ok()?;
+        let reference = repo.find_reference("refs/remotes/origin/HEAD").ok()?;
+        let target = reference.symbolic_target()?;
+        target
+            .strip_prefix("refs/remotes/origin/")
+            .map(|s| s.to_string())
+    }
+
     /// Get the commit OID (as hex string) for a given branch without modifying HEAD
     pub fn get_branch_oid(
         &self,
