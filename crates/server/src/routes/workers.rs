@@ -399,9 +399,9 @@ pub async fn start_all_workers(
         }
     }
 
-    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
-        results,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        StartAllWorkersResponse { results },
+    )))
 }
 
 /// Attempt to take the next queued task for the worker and start an agent
@@ -468,9 +468,11 @@ pub async fn delete_worker_task(
             "Worker task does not belong to this worker".into(),
         ));
     }
-    if existing.status != worker_task::STATUS_QUEUED {
+    if existing.status != worker_task::STATUS_QUEUED
+        && existing.status != worker_task::STATUS_FAILED
+    {
         return Err(ApiError::Conflict(
-            "Only queued tasks can be deleted".into(),
+            "Only queued or failed tasks can be deleted".into(),
         ));
     }
 

@@ -665,7 +665,8 @@
       "queued": "En cola",
       "inProgress": "En progreso",
       "inReview": "En revisión",
-      "done": "Hecho"
+      "done": "Hecho",
+      "failed": "Fallidas"
     },
     "backlog": {
       "assign": "Asignar",
@@ -693,6 +694,11 @@
     },
     "done": {
       "empty": "Todavía no hay tareas completadas."
+    },
+    "failed": {
+      "retry": "Reintentar",
+      "discard": "Descartar",
+      "empty": "No hay tareas fallidas."
     },
     "startSprint": "Comenzar sprint",
     "startSprintDisabled": "No hay workers listos para arrancar",

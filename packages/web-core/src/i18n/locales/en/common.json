@@ -665,7 +665,8 @@
       "queued": "Queued",
       "inProgress": "In Progress",
       "inReview": "In Review",
-      "done": "Done"
+      "done": "Done",
+      "failed": "Failed"
     },
     "backlog": {
       "assign": "Assign",
@@ -693,6 +694,11 @@
     },
     "done": {
       "empty": "No completed tasks yet."
+    },
+    "failed": {
+      "retry": "Retry",
+      "discard": "Discard",
+      "empty": "No failed tasks."
     },
     "startSprint": "Start sprint",
     "startSprintDisabled": "No workers are ready to start",

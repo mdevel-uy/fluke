@@ -43,6 +43,7 @@ import { QueuedTaskCard } from './QueuedTaskCard';
 import { InProgressTaskCard } from './InProgressTaskCard';
 import { InReviewTaskCard } from './InReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
+import { FailedTaskCard } from './FailedTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
@@ -229,6 +230,23 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const retryTaskMutation = useMutation({
+    mutationFn: async (params: { task: WorkerTask; minQueuedPosition: number }) => {
+      await workersApi.updateTask(params.task.worker_id, params.task.id, {
+        status: 'queued',
+        position: params.minQueuedPosition - 1,
+      });
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
+  const discardTaskMutation = useMutation({
+    mutationFn: async (params: { workerId: string; taskId: string }) => {
+      await workersApi.deleteTask(params.workerId, params.taskId);
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
   const startAllMutation = useStartAllWorkers();
 
   const handleAssignIssue = useCallback(
@@ -282,6 +300,35 @@ export function SprintPage() {
       );
     },
     [swapTasksMutation]
+  );
+
+  const handleRetryTask = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      const queued = allTasks.filter(
+        (t) => t.worker_id === task.worker_id && t.status === 'queued'
+      );
+      const minPosition =
+        queued.length > 0
+          ? Math.min(...queued.map((t) => t.position))
+          : 0;
+      retryTaskMutation.mutate(
+        { task, minQueuedPosition: minPosition },
+        { onSettled: () => setBusyTaskId(null) }
+      );
+    },
+    [retryTaskMutation, allTasks]
+  );
+
+  const handleDiscardTask = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      discardTaskMutation.mutate(
+        { workerId: task.worker_id, taskId: task.id },
+        { onSettled: () => setBusyTaskId(null) }
+      );
+    },
+    [discardTaskMutation]
   );
 
   // Per repo, split tasks by status. Only tasks belonging to the selected
@@ -342,6 +389,15 @@ export function SprintPage() {
     });
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
+
+  const failedGroups = useMemo(
+    () =>
+      groupByWorkerOrdered(
+        repoTasks.filter((task) => task.status === 'failed'),
+        workers
+      ),
+    [repoTasks, workers]
+  );
 
   // Per-worker in_review count across ALL repos (cap is global).
   const inReviewCountByWorker = useMemo(() => {
@@ -424,7 +480,9 @@ export function SprintPage() {
   const isBoardBusy =
     createTaskMutation.isPending ||
     deleteTaskMutation.isPending ||
-    swapTasksMutation.isPending;
+    swapTasksMutation.isPending ||
+    retryTaskMutation.isPending ||
+    discardTaskMutation.isPending;
 
   const showBoard =
     !!selectedRepoId &&
@@ -649,6 +707,31 @@ export function SprintPage() {
                       </div>
                     );
                   })
+                )}
+              </SprintColumn>
+
+              <SprintColumn
+                title={t('sprint.columns.failed')}
+                count={failedGroups.reduce((sum, g) => sum + g.tasks.length, 0)}
+                className="min-w-[280px]"
+              >
+                {failedGroups.length === 0 ? (
+                  <ColumnEmpty message={t('sprint.failed.empty')} />
+                ) : (
+                  failedGroups.map(({ worker, tasks }) => (
+                    <div key={worker.id} className="flex flex-col gap-2">
+                      <WorkerChip worker={worker} />
+                      {tasks.map((task) => (
+                        <FailedTaskCard
+                          key={task.id}
+                          task={task}
+                          isBusy={busyTaskId === task.id}
+                          onRetry={() => handleRetryTask(task)}
+                          onDiscard={() => handleDiscardTask(task)}
+                        />
+                      ))}
+                    </div>
+                  ))
                 )}
               </SprintColumn>
 

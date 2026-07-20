@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@vibe/ui/components/Button';
+import { workersApi } from '@/shared/lib/api';
+import { workersKeys } from '@/features/workers';
 import { useWorkerTasks } from '@/features/workers/model/useWorkers';
+import type { WorkerTaskResponse } from 'shared/types';
 
 interface WorkerTaskListProps {
   workerId: string;
@@ -12,7 +17,33 @@ export function WorkerTaskList({
   activeWorkspaceId,
 }: WorkerTaskListProps) {
   const { t } = useTranslation('common');
+  const queryClient = useQueryClient();
   const { data: tasks, isLoading, isError } = useWorkerTasks(workerId, true);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+
+  const retryMutation = useMutation({
+    mutationFn: async (task: WorkerTaskResponse) => {
+      const queued = (tasks ?? []).filter((t) => t.status === 'queued');
+      const minPosition =
+        queued.length > 0
+          ? Math.min(...queued.map((t) => t.position))
+          : 0;
+      await workersApi.updateTask(task.worker_id, task.id, {
+        status: 'queued',
+        position: minPosition - 1,
+      });
+    },
+    onSuccess: () => invalidate(),
+  });
+
+  const discardMutation = useMutation({
+    mutationFn: async (task: WorkerTaskResponse) => {
+      await workersApi.deleteTask(task.worker_id, task.id);
+    },
+    onSuccess: () => invalidate(),
+  });
 
   if (isLoading) {
     return (
@@ -31,11 +62,11 @@ export function WorkerTaskList({
     );
   }
 
-  const queued = (tasks ?? []).filter(
+  const visible = (tasks ?? []).filter(
     (task) => task.workspace_id !== activeWorkspaceId
   );
 
-  if (queued.length === 0) {
+  if (visible.length === 0) {
     return (
       <div className="text-xs text-low py-1 italic">
         {t('workers.card.queueEmpty')}
@@ -43,24 +74,61 @@ export function WorkerTaskList({
     );
   }
 
+  const isBusy = retryMutation.isPending || discardMutation.isPending;
+
   return (
     <ol className="flex flex-col gap-1.5">
-      {queued.map((task) => (
-        <li
-          key={task.id}
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary/60 transition-colors"
-        >
-          <span className="w-6 shrink-0 text-low tabular-nums text-xs font-medium">
-            {task.position}.
-          </span>
-          <span className="min-w-0 truncate text-xs text-normal">
-            {task.title}
-          </span>
-          <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-secondary text-low uppercase tracking-wide text-[10px] font-medium border border-border/50">
-            {task.status}
-          </span>
-        </li>
-      ))}
+      {visible.map((task) => {
+        const isFailed = task.status === 'failed';
+        return (
+          <li
+            key={task.id}
+            className={
+              'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ' +
+              (isFailed
+                ? 'bg-destructive/5 border border-destructive/20 hover:bg-destructive/10'
+                : 'hover:bg-secondary/60')
+            }
+          >
+            <span className="w-6 shrink-0 text-low tabular-nums text-xs font-medium">
+              {task.position}.
+            </span>
+            <span className="min-w-0 truncate text-xs text-normal flex-1">
+              {task.title}
+            </span>
+            {isFailed ? (
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  variant="icon"
+                  size="icon"
+                  onClick={() => retryMutation.mutate(task)}
+                  disabled={isBusy}
+                  aria-label={t('sprint.failed.retry')}
+                  title={t('sprint.failed.retry')}
+                  className="h-5 w-5 hover:text-brand"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="icon"
+                  size="icon"
+                  onClick={() => discardMutation.mutate(task)}
+                  disabled={isBusy}
+                  aria-label={t('sprint.failed.discard')}
+                  title={t('sprint.failed.discard')}
+                  className="h-5 w-5 hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <span className="ml-auto shrink-0 inline-flex items-center h-4 px-1.5 rounded-full bg-secondary text-low uppercase tracking-wide text-[10px] font-medium border border-border/50">
+                {task.status}
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }

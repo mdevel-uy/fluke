@@ -665,7 +665,8 @@
       "queued": "排队中",
       "inProgress": "进行中",
       "inReview": "审核中",
-      "done": "已完成"
+      "done": "已完成",
+      "failed": "已失败"
     },
     "backlog": {
       "assign": "分配",
@@ -693,6 +694,11 @@
     },
     "done": {
       "empty": "尚未完成任何任务。"
+    },
+    "failed": {
+      "retry": "重试",
+      "discard": "丢弃",
+      "empty": "没有失败的任务。"
     },
     "startSprint": "开始冲刺",
     "startSprintDisabled": "没有可以开始的工作者",

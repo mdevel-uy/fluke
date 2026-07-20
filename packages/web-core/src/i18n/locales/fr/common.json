@@ -665,7 +665,8 @@
       "queued": "En file",
       "inProgress": "En cours",
       "inReview": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "failed": "Échouées"
     },
     "backlog": {
       "assign": "Assigner",
@@ -693,6 +694,11 @@
     },
     "done": {
       "empty": "Aucune tâche terminée pour l'instant."
+    },
+    "failed": {
+      "retry": "Réessayer",
+      "discard": "Ignorer",
+      "empty": "Aucune tâche échouée."
     },
     "startSprint": "Démarrer le sprint",
     "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
