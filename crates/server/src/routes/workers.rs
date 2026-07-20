@@ -469,9 +469,11 @@ pub async fn delete_worker_task(
             "Worker task does not belong to this worker".into(),
         ));
     }
-    if existing.status != worker_task::STATUS_QUEUED {
+    if existing.status != worker_task::STATUS_QUEUED
+        && existing.status != worker_task::STATUS_FAILED
+    {
         return Err(ApiError::Conflict(
-            "Only queued tasks can be deleted".into(),
+            "Only queued or failed tasks can be deleted".into(),
         ));
     }
 

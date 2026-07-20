@@ -665,7 +665,8 @@
       "queued": "排队中",
       "inProgress": "进行中",
       "inReview": "审核中",
-      "done": "已完成"
+      "done": "已完成",
+      "failed": "已失败"
     },
     "backlog": {
       "assign": "分配",
@@ -743,6 +744,11 @@
       "startAllSuccess": "已启动 {{count}} 个工作者。",
       "startAllNoneStarted": "没有工作者可以开始。",
       "startAllError": "启动冲刺失败：{{message}}"
+    },
+    "failed": {
+      "retry": "重试",
+      "discard": "丢弃",
+      "empty": "没有失败的任务。"
     }
   }
 }
