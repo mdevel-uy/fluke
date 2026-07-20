@@ -752,7 +752,8 @@
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
       "startAllError": "スプリント開始に失敗しました: {{message}}",
-      "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。"
+      "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
+      "startAllSuccess_other": "{{count}}件のワーカーを開始しました。"
     },
     "failed": {
       "retry": "再試行",

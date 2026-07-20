@@ -30,7 +30,9 @@
         "accountSettings": "Account Settings",
         "selectHost": "Select host",
         "skills": "スキル",
-        "skillsDesc": "~/.claude/skills にインストールされたエージェントスキルを管理"
+        "skillsDesc": "~/.claude/skills にインストールされたエージェントスキルを管理",
+        "github": "GitHub",
+        "githubDesc": "gh CLI で GitHub にサインイン"
       }
     },
     "general": {
@@ -434,7 +436,32 @@
         "button": "リポジトリを追加",
         "dialogTitle": "Gitリポジトリを選択",
         "dialogDescription": "登録する既存のgitリポジトリを選択してください。",
-        "error": "リポジトリの登録に失敗しました"
+        "error": "リポジトリの登録に失敗しました",
+        "tabs": {
+          "folder": "ローカルフォルダ",
+          "github": "GitHub から"
+        },
+        "folder": {
+          "pathLabel": "リポジトリのパス",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "既存のローカル git リポジトリの絶対パスを指定してください。",
+          "browse": "フォルダを参照",
+          "submit": "リポジトリを追加"
+        },
+        "github": {
+          "searchPlaceholder": "名前でリポジトリを絞り込む",
+          "loading": "リポジトリを読み込み中…",
+          "cloning": "リポジトリをクローン中…",
+          "cloneInProgress": "クローン処理中です",
+          "noRepos": "利用可能なリポジトリがありません。`gh` にログインしていることを確認してください。",
+          "noMatches": "検索条件に一致するリポジトリはありません。",
+          "notAuthenticated": "GitHub 認証が完了していません。`gh auth login` を実行してから再試行してください。"
+        },
+        "errors": {
+          "pathRequired": "リポジトリのパスは必須です",
+          "cloneFailed": "リポジトリのクローンに失敗しました",
+          "listFailed": "リポジトリの読み込みに失敗しました"
+        }
       },
       "selector": {
         "label": "リポジトリを選択",
@@ -544,6 +571,36 @@
         "urlPlaceholder": "https://github.com/org/skill-name",
         "button": "インストール",
         "error": "スキルのインストールに失敗しました。"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 連携",
+        "description": "ローカルの gh CLI 経由で GitHub にサインインして、git 操作とプルリクエストを有効化します。",
+        "status": {
+          "label": "ステータス"
+        }
+      },
+      "status": {
+        "loading": "接続を確認中…",
+        "connected": "GitHub に接続済み",
+        "connectedAs": "@{{username}} として接続中",
+        "notConnected": "未接続"
+      },
+      "actions": {
+        "connect": "GitHub に接続"
+      },
+      "deviceFlow": {
+        "title": "GitHub で認可する",
+        "description": "下記のワンタイムコードをコピーし、GitHub を開いて貼り付けてサインインを完了してください。",
+        "codeLabel": "ワンタイムコード",
+        "copyHint": "クリックでコピー",
+        "openGitHub": "github.com/login/device を開く",
+        "checkStatus": "ステータスを更新",
+        "waiting": "認可を待機中… GitHub での操作が完了するとこのダイアログは自動的に更新されます。"
+      },
+      "errors": {
+        "loginFailed": "GitHub ログインの開始に失敗しました。"
       }
     }
   },

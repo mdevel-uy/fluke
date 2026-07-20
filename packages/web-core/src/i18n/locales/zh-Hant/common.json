@@ -752,7 +752,8 @@
       "startAllSuccess": "已啟動 {{count}} 個工作者。",
       "startAllNoneStarted": "沒有工作者可以開始。",
       "startAllError": "啟動衝刺失敗：{{message}}",
-      "assignDuplicate": "此 Issue 已有一個分配給工作者的活躍任務。"
+      "assignDuplicate": "此 Issue 已有一個分配給工作者的活躍任務。",
+      "startAllSuccess_other": "已啟動 {{count}} 個工作者。"
     },
     "failed": {
       "retry": "重試",

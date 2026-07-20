@@ -30,7 +30,9 @@
         "accountSettings": "Account Settings",
         "selectHost": "Select host",
         "skills": "技能",
-        "skillsDesc": "管理和安装 Claude 技能"
+        "skillsDesc": "管理和安装 Claude 技能",
+        "github": "GitHub",
+        "githubDesc": "使用 gh CLI 登录 GitHub"
       }
     },
     "general": {
@@ -434,7 +436,32 @@
         "button": "添加仓库",
         "dialogTitle": "选择 Git 仓库",
         "dialogDescription": "选择一个现有的 git 仓库进行注册。",
-        "error": "注册仓库失败"
+        "error": "注册仓库失败",
+        "tabs": {
+          "folder": "本地文件夹",
+          "github": "从 GitHub"
+        },
+        "folder": {
+          "pathLabel": "仓库路径",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "请提供现有本地 git 仓库的绝对路径。",
+          "browse": "浏览文件夹",
+          "submit": "添加仓库"
+        },
+        "github": {
+          "searchPlaceholder": "按名称过滤仓库",
+          "loading": "正在加载仓库…",
+          "cloning": "正在克隆仓库…",
+          "cloneInProgress": "克隆正在进行中",
+          "noRepos": "没有可用的仓库。请确认已登录 `gh`。",
+          "noMatches": "没有仓库与搜索条件匹配。",
+          "notAuthenticated": "尚未通过 GitHub 认证。请运行 `gh auth login` 后重试。"
+        },
+        "errors": {
+          "pathRequired": "仓库路径为必填项",
+          "cloneFailed": "克隆仓库失败",
+          "listFailed": "加载仓库失败"
+        }
       },
       "selector": {
         "label": "选择仓库",
@@ -544,6 +571,36 @@
         "urlPlaceholder": "https://github.com/user/skill-name",
         "button": "安装",
         "error": "安装技能失败。"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 连接",
+        "description": "通过本地 gh CLI 登录 GitHub，以启用 git 操作与 pull request。",
+        "status": {
+          "label": "状态"
+        }
+      },
+      "status": {
+        "loading": "正在检查连接…",
+        "connected": "已连接到 GitHub",
+        "connectedAs": "以 @{{username}} 身份连接",
+        "notConnected": "未连接"
+      },
+      "actions": {
+        "connect": "连接 GitHub"
+      },
+      "deviceFlow": {
+        "title": "在 GitHub 上授权",
+        "description": "复制下方的一次性代码，然后打开 GitHub 并粘贴以完成登录。",
+        "codeLabel": "一次性代码",
+        "copyHint": "点击复制",
+        "openGitHub": "打开 github.com/login/device",
+        "checkStatus": "刷新状态",
+        "waiting": "等待授权… 在 GitHub 上完成后此对话框会自动更新。"
+      },
+      "errors": {
+        "loginFailed": "启动 GitHub 登录失败。"
       }
     }
   },

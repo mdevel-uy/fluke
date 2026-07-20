@@ -752,7 +752,8 @@
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
       "startAllError": "스프린트 시작 실패: {{message}}",
-      "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다."
+      "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
+      "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다."
     },
     "failed": {
       "retry": "재시도",

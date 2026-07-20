@@ -45,7 +45,10 @@ mod tests {
     #[test]
     fn missing_extra_env_returns_embedded_only() {
         // Ensure the env var is not set for this test.
-        std::env::remove_var(ENV_EXTRA);
+        // SAFETY: single-threaded test context.
+        unsafe {
+            std::env::remove_var(ENV_EXTRA);
+        }
         let instructions = effective_base_instructions();
         assert_eq!(instructions, EMBEDDED.trim());
     }
