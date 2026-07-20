@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Custom"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Open in VS Code web (github.dev)",
+    "branchNotPushed": "Branch not on GitHub yet"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",

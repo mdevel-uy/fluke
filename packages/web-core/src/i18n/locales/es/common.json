@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Personalizado"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Abrir en VS Code web (github.dev)",
+    "branchNotPushed": "La rama aún no está en GitHub"
+  },
   "folderPicker": {
     "legend": "Haz clic en los nombres de carpetas para navegar • Usa los botones de acción para seleccionar",
     "manualPathLabel": "Ingresar ruta manualmente:",
