@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create, useModal } from '@ebay/nice-modal-react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Textarea } from '@vibe/ui/components/Textarea';
 import { Label } from '@vibe/ui/components/Label';
@@ -23,6 +23,7 @@ import {
 } from '@vibe/ui/components/Select';
 import { defineModal } from '@/shared/lib/modals';
 import { workersApi } from '@/shared/lib/api';
+import type { ActiveIssueTaskInfo } from '@/shared/lib/api';
 import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
@@ -46,6 +47,11 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
     const [selectedWorkerId, setSelectedWorkerId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+
+    const [conflictInfo, setConflictInfo] =
+      useState<ActiveIssueTaskInfo | null>(null);
+    const [checkingConflict, setCheckingConflict] = useState(true);
+    const [conflictOverridden, setConflictOverridden] = useState(false);
 
     useEffect(() => {
       let cancelled = false;
@@ -71,12 +77,34 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       };
     }, []);
 
+    useEffect(() => {
+      let cancelled = false;
+      setCheckingConflict(true);
+      workersApi
+        .checkActiveIssueTask(repoId, issue.number)
+        .then((info) => {
+          if (cancelled) return;
+          setConflictInfo(info);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Silently ignore — conflict check is a best-effort guard
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setCheckingConflict(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [repoId, issue.number]);
+
     const handleCancel = () => {
       modal.resolve('canceled' as AssignToAgentResult);
       modal.hide();
     };
 
-    const handleConfirm = async () => {
+    const handleConfirm = async (forceOverride = false) => {
       const trimmed = prompt.trim();
       if (!trimmed || !selectedWorkerId) return;
       setIsSubmitting(true);
@@ -87,6 +115,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           title: `#${issue.number} ${issue.title}`,
           prompt: trimmed,
           issue_number: issue.number,
+          ...(forceOverride ? { force_duplicate: true } : {}),
         });
         modal.resolve('created' as AssignToAgentResult);
         modal.hide();
@@ -101,8 +130,13 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       if (!open) handleCancel();
     };
 
+    const isLoading = loadingWorkers || checkingConflict;
+
+    const showConflictWarning =
+      !isLoading && conflictInfo !== null && !conflictOverridden;
+
     const canConfirm =
-      !loadingWorkers &&
+      !isLoading &&
       !isSubmitting &&
       !!selectedWorkerId &&
       !!prompt.trim() &&
@@ -120,53 +154,79 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div>
-              <Label htmlFor="assign-worker-select">
-                {t('issues.assignDialog.workerLabel')}
-              </Label>
-              {loadingWorkers ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t('issues.assignDialog.loadingWorkers')}
-                </p>
-              ) : workerLoadError || workers.length === 0 ? (
-                <Alert variant="destructive" className="mt-1">
-                  {workerLoadError
-                    ? t('issues.assignDialog.workerLoadError')
-                    : t('issues.assignDialog.noWorkers')}
-                </Alert>
-              ) : (
-                <Select
-                  value={selectedWorkerId}
-                  onValueChange={setSelectedWorkerId}
-                >
-                  <SelectTrigger id="assign-worker-select" className="mt-1">
-                    <SelectValue
-                      placeholder={t('issues.assignDialog.workerPlaceholder')}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workers.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.emoji} {w.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="assign-to-agent-prompt">
-                {t('issues.assignDialog.promptLabel')}
-              </Label>
-              <Textarea
-                id="assign-to-agent-prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={12}
-                className="mt-1 font-mono text-sm"
-                autoFocus
-              />
-            </div>
+            {isLoading ? (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t('issues.assignDialog.checkingConflicts')}
+              </p>
+            ) : showConflictWarning ? (
+              <Alert variant="destructive" className="flex items-start gap-2">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {t('issues.assignDialog.duplicateWarning', {
+                    number: issue.number,
+                    emoji: conflictInfo!.worker_emoji,
+                    worker: conflictInfo!.worker_name,
+                    status: conflictInfo!.status,
+                  })}
+                </span>
+              </Alert>
+            ) : null}
+
+            {!showConflictWarning && (
+              <>
+                <div>
+                  <Label htmlFor="assign-worker-select">
+                    {t('issues.assignDialog.workerLabel')}
+                  </Label>
+                  {loadingWorkers ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('issues.assignDialog.loadingWorkers')}
+                    </p>
+                  ) : workerLoadError || workers.length === 0 ? (
+                    <Alert variant="destructive" className="mt-1">
+                      {workerLoadError
+                        ? t('issues.assignDialog.workerLoadError')
+                        : t('issues.assignDialog.noWorkers')}
+                    </Alert>
+                  ) : (
+                    <Select
+                      value={selectedWorkerId}
+                      onValueChange={setSelectedWorkerId}
+                    >
+                      <SelectTrigger id="assign-worker-select" className="mt-1">
+                        <SelectValue
+                          placeholder={t(
+                            'issues.assignDialog.workerPlaceholder'
+                          )}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workers.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.emoji} {w.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="assign-to-agent-prompt">
+                    {t('issues.assignDialog.promptLabel')}
+                  </Label>
+                  <Textarea
+                    id="assign-to-agent-prompt"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={12}
+                    className="mt-1 font-mono text-sm"
+                    autoFocus
+                  />
+                </div>
+              </>
+            )}
+
             {submitError && (
               <Alert variant="destructive">
                 {t('issues.assignDialog.enqueuedError')}
@@ -177,12 +237,27 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             <Button variant="outline" onClick={handleCancel}>
               {t('issues.assignDialog.cancel')}
             </Button>
-            <Button onClick={handleConfirm} disabled={!canConfirm}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {t('issues.assignDialog.confirm')}
-            </Button>
+            {showConflictWarning ? (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setConflictOverridden(true);
+                }}
+                disabled={isSubmitting}
+              >
+                {t('issues.assignDialog.assignAnyway')}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleConfirm(conflictOverridden)}
+                disabled={!canConfirm}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('issues.assignDialog.confirm')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

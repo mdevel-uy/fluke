@@ -595,7 +595,10 @@
       "loadingWorkers": "Chargement des workers...",
       "cancel": "Annuler",
       "confirm": "Mettre en file d'attente",
-      "enqueuedError": "Impossible de mettre la tâche en file d'attente."
+      "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
+      "checkingConflicts": "Vérification des assignations existantes...",
+      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{emoji}} {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
+      "assignAnyway": "Assigner quand même"
     },
     "filters": {
       "searchPlaceholder": "Rechercher des issues…",
@@ -648,8 +651,6 @@
   },
   "workers": {
     "title": "Workers",
-    "countLabel": "{{count}} worker",
-    "countLabel_other": "{{count}} workers",
     "newWorker": "Nouveau worker",
     "loading": "Chargement des workers...",
     "loadError": "Échec du chargement des workers.",
@@ -674,11 +675,7 @@
       "menuLabel": "Actions du worker",
       "edit": "Modifier",
       "delete": "Supprimer",
-      "queuedCount": "{{count}} en file",
-      "queuedCount_other": "{{count}} en file",
       "queuedLabel": "en file",
-      "completedCount": "{{count}} terminée",
-      "completedCount_other": "{{count}} terminées",
       "completedLabel": "terminées",
       "startNext": "Démarrer la suivante",
       "expandQueue": "Voir la file",
@@ -808,7 +805,8 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
-      "startAllError": "Échec du démarrage du sprint : {{message}}"
+      "startAllError": "Échec du démarrage du sprint : {{message}}",
+      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker."
     },
     "failed": {
       "retry": "Réessayer",

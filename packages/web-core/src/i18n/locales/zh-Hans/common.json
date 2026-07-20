@@ -595,7 +595,10 @@
       "loadingWorkers": "正在加载工作者...",
       "cancel": "取消",
       "confirm": "加入队列",
-      "enqueuedError": "加入队列失败。"
+      "enqueuedError": "加入队列失败。",
+      "checkingConflicts": "正在检查现有分配...",
+      "duplicateWarning": "Issue #{{number}} 已分配给 {{emoji}} {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
+      "assignAnyway": "仍然分配"
     },
     "filters": {
       "searchPlaceholder": "搜索 Issue…",
@@ -648,8 +651,6 @@
   },
   "workers": {
     "title": "工作者",
-    "countLabel": "{{count}} 个工作者",
-    "countLabel_other": "{{count}} 个工作者",
     "newWorker": "新建工作者",
     "loading": "正在加载工作者...",
     "loadError": "加载工作者失败。",
@@ -674,11 +675,7 @@
       "menuLabel": "工作者操作",
       "edit": "编辑",
       "delete": "删除",
-      "queuedCount": "{{count}} 个排队",
-      "queuedCount_other": "{{count}} 个排队",
       "queuedLabel": "排队",
-      "completedCount": "{{count}} 个完成",
-      "completedCount_other": "{{count}} 个完成",
       "completedLabel": "完成",
       "startNext": "开始下一个",
       "expandQueue": "显示队列",
@@ -807,7 +804,9 @@
     "toast": {
       "startAllSuccess": "已启动 {{count}} 个工作者。",
       "startAllNoneStarted": "没有工作者可以开始。",
-      "startAllError": "启动冲刺失败：{{message}}"
+      "startAllError": "启动冲刺失败：{{message}}",
+      "assignDuplicate": "该 Issue 已有一个分配给工作者的活跃任务。",
+      "startAllSuccess_other": "已启动 {{count}} 个工作者。"
     },
     "failed": {
       "retry": "重试",

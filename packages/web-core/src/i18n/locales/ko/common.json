@@ -595,7 +595,10 @@
       "loadingWorkers": "워커 불러오는 중...",
       "cancel": "취소",
       "confirm": "작업 대기열에 추가",
-      "enqueuedError": "작업 대기열 추가에 실패했습니다."
+      "enqueuedError": "작업 대기열 추가에 실패했습니다.",
+      "checkingConflicts": "기존 할당 확인 중...",
+      "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{emoji}} {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
+      "assignAnyway": "그래도 할당"
     },
     "filters": {
       "searchPlaceholder": "이슈 검색…",
@@ -648,8 +651,6 @@
   },
   "workers": {
     "title": "워커",
-    "countLabel": "{{count}}명의 워커",
-    "countLabel_other": "{{count}}명의 워커",
     "newWorker": "새 워커",
     "loading": "워커를 불러오는 중...",
     "loadError": "워커를 불러오지 못했습니다.",
@@ -674,11 +675,7 @@
       "menuLabel": "워커 작업",
       "edit": "편집",
       "delete": "삭제",
-      "queuedCount": "{{count}}개 대기",
-      "queuedCount_other": "{{count}}개 대기",
       "queuedLabel": "대기",
-      "completedCount": "{{count}}개 완료",
-      "completedCount_other": "{{count}}개 완료",
       "completedLabel": "완료",
       "startNext": "다음 작업 시작",
       "expandQueue": "대기열 보기",
@@ -807,7 +804,9 @@
     "toast": {
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
-      "startAllError": "스프린트 시작 실패: {{message}}"
+      "startAllError": "스프린트 시작 실패: {{message}}",
+      "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
+      "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다."
     },
     "failed": {
       "retry": "재시도",

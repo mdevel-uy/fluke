@@ -424,6 +424,7 @@ pub fn parse_stored_labels(raw: &str) -> Vec<StoredLabel> {
 // GitHub remote detection
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 fn repo_has_github_remote(git: &GitService, path: &Path) -> bool {
     let remotes = match git.list_remotes(path) {
         Ok(remotes) => remotes,
@@ -438,6 +439,7 @@ fn repo_has_github_remote(git: &GitService, path: &Path) -> bool {
         .any(|r| detect_provider(&r.url) == ProviderKind::GitHub)
 }
 
+#[allow(dead_code)]
 fn detect_provider(url: &str) -> ProviderKind {
     let lower = url.to_lowercase();
     if lower.contains("github.com") || lower.contains("github.") {

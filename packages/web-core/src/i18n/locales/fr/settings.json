@@ -30,7 +30,9 @@
         "accountSettings": "Account Settings",
         "selectHost": "Select host",
         "skills": "Skills",
-        "skillsDesc": "Gérer les skills des agents installés dans ~/.claude/skills"
+        "skillsDesc": "Gérer les skills des agents installés dans ~/.claude/skills",
+        "github": "GitHub",
+        "githubDesc": "Connectez-vous à GitHub avec la CLI gh"
       }
     },
     "general": {
@@ -434,7 +436,32 @@
         "button": "Ajouter un dépôt",
         "dialogTitle": "Sélectionner un dépôt Git",
         "dialogDescription": "Choisissez un dépôt git existant à enregistrer.",
-        "error": "Échec de l'enregistrement du dépôt"
+        "error": "Échec de l'enregistrement du dépôt",
+        "tabs": {
+          "folder": "Dossier local",
+          "github": "Depuis GitHub"
+        },
+        "folder": {
+          "pathLabel": "Chemin du dépôt",
+          "pathPlaceholder": "/chemin/vers/votre/depot",
+          "helper": "Indiquez le chemin absolu vers un dépôt git local existant.",
+          "browse": "Parcourir un dossier",
+          "submit": "Ajouter le dépôt"
+        },
+        "github": {
+          "searchPlaceholder": "Filtrer les dépôts par nom",
+          "loading": "Chargement des dépôts…",
+          "cloning": "Clonage du dépôt…",
+          "cloneInProgress": "Un clonage est en cours",
+          "noRepos": "Aucun dépôt disponible. Assurez-vous d’être connecté à `gh`.",
+          "noMatches": "Aucun dépôt ne correspond à votre recherche.",
+          "notAuthenticated": "Vous n’êtes pas authentifié auprès de GitHub. Exécutez `gh auth login` puis réessayez."
+        },
+        "errors": {
+          "pathRequired": "Le chemin du dépôt est obligatoire",
+          "cloneFailed": "Échec du clonage du dépôt",
+          "listFailed": "Échec du chargement des dépôts"
+        }
       },
       "selector": {
         "label": "Sélectionner un dépôt",
@@ -544,6 +571,36 @@
         "urlPlaceholder": "https://github.com/org/nom-du-skill",
         "button": "Installer",
         "error": "Échec de l'installation du skill."
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "Connexion GitHub",
+        "description": "Connectez-vous à GitHub via la CLI gh locale pour activer les opérations git et les pull requests.",
+        "status": {
+          "label": "État"
+        }
+      },
+      "status": {
+        "loading": "Vérification de la connexion…",
+        "connected": "Connecté à GitHub",
+        "connectedAs": "Connecté en tant que @{{username}}",
+        "notConnected": "Non connecté"
+      },
+      "actions": {
+        "connect": "Se connecter à GitHub"
+      },
+      "deviceFlow": {
+        "title": "Autoriser sur GitHub",
+        "description": "Copiez le code à usage unique ci-dessous, puis ouvrez GitHub et collez-le pour terminer la connexion.",
+        "codeLabel": "Code à usage unique",
+        "copyHint": "Cliquer pour copier",
+        "openGitHub": "Ouvrir github.com/login/device",
+        "checkStatus": "Actualiser l’état",
+        "waiting": "En attente de l’autorisation… cette boîte de dialogue se mettra à jour automatiquement une fois terminée sur GitHub."
+      },
+      "errors": {
+        "loginFailed": "Échec du démarrage de la connexion GitHub."
       }
     }
   },

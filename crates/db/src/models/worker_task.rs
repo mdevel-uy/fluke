@@ -287,6 +287,30 @@ impl WorkerTask {
         Ok(count > 0)
     }
 
+    /// Find the first active task (queued, in_progress, or in_review) for the
+    /// given repo and issue number, across all workers. Used to detect duplicate
+    /// issue assignments before creating a new task.
+    pub async fn find_active_by_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, created_at
+               FROM worker_tasks
+               WHERE repo_id = ?1
+                 AND issue_number = ?2
+                 AND status IN ('queued', 'in_progress', 'in_review')
+               ORDER BY created_at ASC
+               LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Set status without changing position. Returns the updated row.
     pub async fn set_status(
         pool: &SqlitePool,

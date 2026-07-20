@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Json as ResponseJson,
     routing::{get, post},
 };
@@ -129,6 +129,27 @@ pub struct CreateWorkerTaskRequest {
     /// to the stored prompt so the agent receives them automatically.
     #[ts(optional)]
     pub skills: Option<Vec<String>>,
+    /// When true, skip the duplicate-assignment guard and create the task anyway.
+    #[serde(default)]
+    #[ts(optional)]
+    pub force_duplicate: Option<bool>,
+}
+
+/// Returned by `GET /api/workers/active-issue-task` when an issue already has
+/// an active task assigned to a worker.
+#[derive(Debug, Serialize, TS)]
+pub struct ActiveIssueTaskInfo {
+    pub task_id: Uuid,
+    pub worker_id: Uuid,
+    pub worker_name: String,
+    pub worker_emoji: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActiveIssueTaskQuery {
+    pub repo_id: Uuid,
+    pub issue_number: i64,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -270,6 +291,33 @@ pub async fn list_worker_tasks(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
+/// Returns the first active task (queued / in_progress / in_review) for the
+/// given repo + issue number, together with the assigned worker's display info.
+/// Returns `null` when no active task exists for that issue.
+pub async fn get_active_issue_task(
+    State(deployment): State<DeploymentImpl>,
+    Query(params): Query<ActiveIssueTaskQuery>,
+) -> Result<ResponseJson<ApiResponse<Option<ActiveIssueTaskInfo>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    match WorkerTask::find_active_by_issue(pool, params.repo_id, params.issue_number).await? {
+        None => Ok(ResponseJson(ApiResponse::success(None))),
+        Some(task) => {
+            let worker = Worker::find_by_id(pool, task.worker_id)
+                .await?
+                .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+            Ok(ResponseJson(ApiResponse::success(Some(
+                ActiveIssueTaskInfo {
+                    task_id: task.id,
+                    worker_id: task.worker_id,
+                    worker_name: worker.name,
+                    worker_emoji: worker.emoji,
+                    status: task.status,
+                },
+            ))))
+        }
+    }
+}
+
 pub async fn create_worker_task(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
@@ -299,6 +347,25 @@ pub async fn create_worker_task(
     let mut final_prompt = prompt.to_string();
     for skill in &skills {
         final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
+    }
+
+    // Guard against duplicate assignments of the same GitHub issue.
+    // Skip the check when the caller explicitly opts in with force_duplicate.
+    if let Some(issue_number) = payload.issue_number {
+        if !payload.force_duplicate.unwrap_or(false) {
+            if let Some(existing) =
+                WorkerTask::find_active_by_issue(pool, payload.repo_id, issue_number).await?
+            {
+                let existing_worker = Worker::find_by_id(pool, existing.worker_id)
+                    .await?
+                    .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+                return Err(ApiError::Conflict(format!(
+                    "Issue #{} is already assigned to {} {} (status: {}). \
+                     Pass force_duplicate: true to override.",
+                    issue_number, existing_worker.emoji, existing_worker.name, existing.status
+                )));
+            }
+        }
     }
 
     let task = WorkerTask::append(
@@ -504,6 +571,7 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
         .route("/workers/start-all", post(start_all_workers))
+        .route("/workers/active-issue-task", get(get_active_issue_task))
         .route(
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),

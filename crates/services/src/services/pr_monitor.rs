@@ -8,8 +8,8 @@ use db::{
         merge::MergeStatus,
         pull_request::PullRequest,
         repo::Repo,
-        workspace::{Workspace, WorkspaceError},
         worker_task::WorkerTask,
+        workspace::{Workspace, WorkspaceError},
         workspace_repo::WorkspaceRepo,
     },
 };
@@ -115,14 +115,16 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
     /// Errors for individual workspaces are logged and skipped; the sweep never
     /// aborts mid-run.
     async fn check_in_progress_workspaces_for_prs(&self) {
-        let tasks =
-            match WorkerTask::find_all_in_progress_with_workspace(&self.db.pool).await {
-                Ok(t) => t,
-                Err(e) => {
-                    error!("Failed to query in-progress tasks for PR adoption sweep: {}", e);
-                    return;
-                }
-            };
+        let tasks = match WorkerTask::find_all_in_progress_with_workspace(&self.db.pool).await {
+            Ok(t) => t,
+            Err(e) => {
+                error!(
+                    "Failed to query in-progress tasks for PR adoption sweep: {}",
+                    e
+                );
+                return;
+            }
+        };
 
         if tasks.is_empty() {
             return;
@@ -182,11 +184,10 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             };
 
         for workspace_repo in &workspace_repos {
-            let repo =
-                match Repo::find_by_id(&self.db.pool, workspace_repo.repo_id).await {
-                    Ok(Some(r)) => r,
-                    _ => continue,
-                };
+            let repo = match Repo::find_by_id(&self.db.pool, workspace_repo.repo_id).await {
+                Ok(Some(r)) => r,
+                _ => continue,
+            };
 
             let git = self.container.git();
             let remote =
@@ -212,10 +213,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 .await
             {
                 Ok(prs) => prs,
-                Err(
-                    GitHostError::CliNotInstalled { .. }
-                    | GitHostError::NotAGitRepository(_),
-                ) => {
+                Err(GitHostError::CliNotInstalled { .. } | GitHostError::NotAGitRepository(_)) => {
                     debug!(
                         workspace_id = %workspace_id,
                         "Skipping adoption sweep for workspace due to environmental issue"
@@ -312,9 +310,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             // Advance the worker-task state machine.
             match &pr_info.status {
                 MergeStatus::Open => {
-                    if let Err(e) =
-                        worker_orchestrator::on_pr_open(&self.db, workspace_id).await
-                    {
+                    if let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await {
                         warn!(
                             workspace_id = %workspace_id,
                             "Failed to move task to in_review after PR adoption: {}",
@@ -323,8 +319,9 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                     }
                 }
                 MergeStatus::Merged => {
-                    if let Err(e) =
-                        self.try_archive_workspace(workspace_id, pr_info.number).await
+                    if let Err(e) = self
+                        .try_archive_workspace(workspace_id, pr_info.number)
+                        .await
                     {
                         error!(
                             workspace_id = %workspace_id,

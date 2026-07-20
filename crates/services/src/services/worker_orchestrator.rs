@@ -637,6 +637,7 @@ mod tests {
                 title: "wire it up".to_string(),
                 prompt: "do the thing".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await
@@ -685,6 +686,7 @@ mod tests {
                 title: "cleanup".to_string(),
                 prompt: "clean".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await

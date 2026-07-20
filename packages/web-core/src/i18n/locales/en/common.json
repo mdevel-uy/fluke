@@ -595,7 +595,10 @@
       "loadingWorkers": "Loading workers...",
       "cancel": "Cancel",
       "confirm": "Enqueue task",
-      "enqueuedError": "Failed to enqueue task."
+      "enqueuedError": "Failed to enqueue task.",
+      "checkingConflicts": "Checking for existing assignments...",
+      "duplicateWarning": "Issue #{{number}} is already assigned to {{emoji}} {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
+      "assignAnyway": "Assign anyway"
     },
     "filters": {
       "searchPlaceholder": "Search issues…",
@@ -648,8 +651,6 @@
   },
   "workers": {
     "title": "Workers",
-    "countLabel": "{{count}} worker",
-    "countLabel_other": "{{count}} workers",
     "newWorker": "New worker",
     "loading": "Loading workers...",
     "loadError": "Failed to load workers.",
@@ -674,11 +675,7 @@
       "menuLabel": "Worker actions",
       "edit": "Edit",
       "delete": "Delete",
-      "queuedCount": "{{count}} queued",
-      "queuedCount_other": "{{count}} queued",
       "queuedLabel": "queued",
-      "completedCount": "{{count}} completed",
-      "completedCount_other": "{{count}} completed",
       "completedLabel": "done",
       "startNext": "Start next",
       "expandQueue": "Show queue",
@@ -808,7 +805,8 @@
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllNoneStarted": "No workers were ready to start.",
-      "startAllError": "Failed to start sprint: {{message}}"
+      "startAllError": "Failed to start sprint: {{message}}",
+      "assignDuplicate": "This issue already has an active task assigned to a worker."
     },
     "failed": {
       "retry": "Retry",

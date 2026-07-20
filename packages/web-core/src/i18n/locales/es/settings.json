@@ -30,7 +30,9 @@
         "accountSettings": "Account Settings",
         "selectHost": "Select host",
         "skills": "Skills",
-        "skillsDesc": "Gestionar skills de agentes instalados en ~/.claude/skills"
+        "skillsDesc": "Gestionar skills de agentes instalados en ~/.claude/skills",
+        "github": "GitHub",
+        "githubDesc": "Inicia sesión en GitHub con la CLI de gh"
       }
     },
     "general": {
@@ -434,7 +436,32 @@
         "button": "Agregar Repositorio",
         "dialogTitle": "Seleccionar Repositorio Git",
         "dialogDescription": "Elige un repositorio git existente para registrar.",
-        "error": "Error al registrar el repositorio"
+        "error": "Error al registrar el repositorio",
+        "tabs": {
+          "folder": "Carpeta local",
+          "github": "Desde GitHub"
+        },
+        "folder": {
+          "pathLabel": "Ruta del repositorio",
+          "pathPlaceholder": "/ruta/a/tu/repositorio",
+          "helper": "Proporciona la ruta absoluta a un repositorio git local existente.",
+          "browse": "Buscar carpeta",
+          "submit": "Agregar repositorio"
+        },
+        "github": {
+          "searchPlaceholder": "Filtrar repositorios por nombre",
+          "loading": "Cargando repositorios…",
+          "cloning": "Clonando repositorio…",
+          "cloneInProgress": "Hay un clon en progreso",
+          "noRepos": "No hay repositorios disponibles. Asegúrate de haber iniciado sesión en `gh`.",
+          "noMatches": "Ningún repositorio coincide con la búsqueda.",
+          "notAuthenticated": "No estás autenticado en GitHub. Ejecutá `gh auth login` e intentá de nuevo."
+        },
+        "errors": {
+          "pathRequired": "La ruta del repositorio es obligatoria",
+          "cloneFailed": "No se pudo clonar el repositorio",
+          "listFailed": "No se pudieron cargar los repositorios"
+        }
       },
       "selector": {
         "label": "Seleccionar Repositorio",
@@ -544,6 +571,36 @@
         "urlPlaceholder": "https://github.com/org/nombre-del-skill",
         "button": "Instalar",
         "error": "Error al instalar el skill."
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "Conexión con GitHub",
+        "description": "Inicia sesión en GitHub mediante la CLI de gh para habilitar operaciones git y pull requests.",
+        "status": {
+          "label": "Estado"
+        }
+      },
+      "status": {
+        "loading": "Verificando conexión…",
+        "connected": "Conectado a GitHub",
+        "connectedAs": "Conectado como @{{username}}",
+        "notConnected": "No conectado"
+      },
+      "actions": {
+        "connect": "Conectar GitHub"
+      },
+      "deviceFlow": {
+        "title": "Autorizar en GitHub",
+        "description": "Copia el código de un solo uso de abajo, luego abrí GitHub y pegalo para completar el inicio de sesión.",
+        "codeLabel": "Código de un solo uso",
+        "copyHint": "Click para copiar",
+        "openGitHub": "Abrir github.com/login/device",
+        "checkStatus": "Actualizar estado",
+        "waiting": "Esperando la autorización… este diálogo se actualizará automáticamente cuando termines en GitHub."
+      },
+      "errors": {
+        "loginFailed": "No se pudo iniciar el login de GitHub."
       }
     }
   },

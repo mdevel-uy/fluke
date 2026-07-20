@@ -595,7 +595,10 @@
       "loadingWorkers": "Cargando workers...",
       "cancel": "Cancelar",
       "confirm": "Encolar tarea",
-      "enqueuedError": "No se pudo encolar la tarea."
+      "enqueuedError": "No se pudo encolar la tarea.",
+      "checkingConflicts": "Verificando asignaciones existentes...",
+      "duplicateWarning": "El issue #{{number}} ya está asignado a {{emoji}} {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
+      "assignAnyway": "Asignar igual"
     },
     "filters": {
       "searchPlaceholder": "Buscar issues…",
@@ -648,8 +651,6 @@
   },
   "workers": {
     "title": "Workers",
-    "countLabel": "{{count}} worker",
-    "countLabel_other": "{{count}} workers",
     "newWorker": "Nuevo worker",
     "loading": "Cargando workers...",
     "loadError": "No se pudieron cargar los workers.",
@@ -674,11 +675,7 @@
       "menuLabel": "Acciones del worker",
       "edit": "Editar",
       "delete": "Eliminar",
-      "queuedCount": "{{count}} en cola",
-      "queuedCount_other": "{{count}} en cola",
       "queuedLabel": "en cola",
-      "completedCount": "{{count}} completada",
-      "completedCount_other": "{{count}} completadas",
       "completedLabel": "hechas",
       "startNext": "Iniciar próxima",
       "expandQueue": "Ver cola",
@@ -808,7 +805,8 @@
       "startAllSuccess": "{{count}} worker arrancado.",
       "startAllSuccess_other": "{{count}} workers arrancados.",
       "startAllNoneStarted": "No había workers listos para arrancar.",
-      "startAllError": "Error al comenzar el sprint: {{message}}"
+      "startAllError": "Error al comenzar el sprint: {{message}}",
+      "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker."
     },
     "failed": {
       "retry": "Reintentar",

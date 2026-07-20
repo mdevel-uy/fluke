@@ -23,7 +23,7 @@ import {
 } from '@vibe/ui/components/KeyboardDialog';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
+import { ApiError, repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
 import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type {
   RepoIssue,
@@ -297,6 +297,7 @@ export function SprintPage() {
       prompt: string;
       issueNumber?: number | null;
       skills?: string[];
+      forceDuplicate?: boolean;
     }) => {
       return workersApi.createTask(params.workerId, {
         repo_id: selectedRepoId!,
@@ -304,9 +305,15 @@ export function SprintPage() {
         prompt: params.prompt,
         issue_number: params.issueNumber ?? null,
         skills: params.skills ?? [],
+        ...(params.forceDuplicate ? { force_duplicate: true } : {}),
       });
     },
     onSuccess: () => invalidateWorkerData(),
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        pushToast('error', t('sprint.toast.assignDuplicate'));
+      }
+    },
   });
 
   const deleteTaskMutation = useMutation({
@@ -408,7 +415,10 @@ export function SprintPage() {
         {
           onSettled: () => setBusyTaskId(null),
           onError: (err) =>
-            pushToast('error', err instanceof Error ? err.message : String(err)),
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : String(err)
+            ),
         }
       );
     },
@@ -441,7 +451,10 @@ export function SprintPage() {
         {
           onSettled: () => setBusyTaskId(null),
           onError: (err) =>
-            pushToast('error', err instanceof Error ? err.message : String(err)),
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : String(err)
+            ),
         }
       );
     },
@@ -456,7 +469,10 @@ export function SprintPage() {
         {
           onSettled: () => setBusyTaskId(null),
           onError: (err) =>
-            pushToast('error', err instanceof Error ? err.message : String(err)),
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : String(err)
+            ),
         }
       );
     },
