@@ -25,6 +25,15 @@ Roles MD3. El par `on-*` es SIEMPRE el color de contenido sobre su superficie.
 | `error` | `#ba1a1a` · `error-container` `#ffdad6` · `on-error-container` `#93000a` | Errores, badge "bug" |
 
 ### Superficies (escala de elevación por color, no por sombra)
+
+> ⚠️ **Corrección 20-jul (feedback del PM):** los hex de superficie del mockup original
+> tenían saturación 90-100% y teñían la app entera de celeste. Los valores vigentes son
+> los **desaturados** (sat. 16-30%, misma escala de luminosidad): `background/surface
+> #fbfbfe`, `container-low #f5f6f9`, `container #eff0f5`, `container-high #e8eaf0`,
+> `container-highest #e0e2ea`, `dim #dcdee5`, `outline-variant #ccced6`,
+> `secondary-container #dae4f6`. Regla: **el azul es para acentos** (primary, nav activa,
+> focus, chips seleccionados) — **nunca para superficies grandes**. La fuente de verdad
+> ejecutable es `packages/web-core/src/app/styles/new/index.css`.
 | Token | Hex | Uso |
 |---|---|---|
 | `background` / `surface` | `#faf8ff` | Fondo de la app |
