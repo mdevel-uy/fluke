@@ -569,6 +569,16 @@
     "emptyTitle": "아직 이슈가 없습니다",
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
+    "taskStatus": {
+      "queued": "대기 중",
+      "in_progress": "진행 중",
+      "in_review": "검토 중",
+      "done": "완료"
+    },
+    "taskLinked": {
+      "openWorkspace": "워크스페이스 열기",
+      "viewInSprint": "스프린트에서 보기"
+    },
     "assignDialog": {
       "title": "이슈 #{{number}}를 워커에게 할당",
       "description": "워커를 선택하고 프롬프트를 검토하세요. 작업이 워커의 대기열에 추가됩니다.",

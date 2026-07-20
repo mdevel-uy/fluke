@@ -569,6 +569,16 @@
     "emptyTitle": "尚无 Issue",
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
+    "taskStatus": {
+      "queued": "排队中",
+      "in_progress": "进行中",
+      "in_review": "审查中",
+      "done": "已完成"
+    },
+    "taskLinked": {
+      "openWorkspace": "打开工作区",
+      "viewInSprint": "在 Sprint 中查看"
+    },
     "assignDialog": {
       "title": "将 Issue #{{number}} 分配给工作者",
       "description": "选择一个工作者并检查提示词。任务将被添加到工作者的队列中。",

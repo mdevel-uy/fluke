@@ -19,9 +19,17 @@ import {
   useSyncRepoIssues,
 } from '@/features/issues/model/useRepoIssues';
 import type { RepoIssue } from '@/features/issues/types';
+import {
+  useAllWorkerTasks,
+  useWorkers,
+} from '@/features/sprint/model/useWorkers';
+import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
+
+const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
+const EMPTY_TASK_MAP = new Map<number, WorkerTask>();
 
 function partitionByState(issues: RepoIssue[]) {
   const open: RepoIssue[] = [];
@@ -87,6 +95,24 @@ export function IssuesPage() {
     isError,
   } = useRepoIssues(selectedRepoId);
   const syncMutation = useSyncRepoIssues(selectedRepoId);
+
+  const { data: workers } = useWorkers();
+  const { tasks: allTasks } = useAllWorkerTasks(workers);
+
+  const activeTaskByIssueNumber = useMemo(() => {
+    if (!selectedRepoId || allTasks.length === 0) return EMPTY_TASK_MAP;
+    const map = new Map<number, WorkerTask>();
+    for (const task of allTasks) {
+      if (
+        task.repo_id === selectedRepoId &&
+        task.issue_number != null &&
+        ACTIVE_STATUSES.has(task.status)
+      ) {
+        map.set(task.issue_number, task);
+      }
+    }
+    return map;
+  }, [allTasks, selectedRepoId]);
 
   const { open, closed } = useMemo(() => partitionByState(issues), [issues]);
   const isSyncing = syncMutation.isPending;
@@ -229,12 +255,14 @@ export function IssuesPage() {
               count={open.length}
               issues={open}
               repoId={selectedRepoId}
+              taskByIssueNumber={activeTaskByIssueNumber}
             />
             <IssuesGroup
               title={t('issues.closedGroup')}
               count={closed.length}
               issues={closed}
               repoId={selectedRepoId}
+              taskByIssueNumber={activeTaskByIssueNumber}
             />
           </div>
         )}

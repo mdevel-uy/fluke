@@ -569,6 +569,16 @@
     "emptyTitle": "Issue はまだありません",
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
+    "taskStatus": {
+      "queued": "待機中",
+      "in_progress": "進行中",
+      "in_review": "レビュー中",
+      "done": "完了"
+    },
+    "taskLinked": {
+      "openWorkspace": "ワークスペースを開く",
+      "viewInSprint": "スプリントで表示"
+    },
     "assignDialog": {
       "title": "Issue #{{number}} をワーカーに割り当てる",
       "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",

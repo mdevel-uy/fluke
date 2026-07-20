@@ -569,6 +569,16 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "taskStatus": {
+      "queued": "Queued",
+      "in_progress": "In progress",
+      "in_review": "In review",
+      "done": "Done"
+    },
+    "taskLinked": {
+      "openWorkspace": "Open workspace",
+      "viewInSprint": "View in Sprint"
+    },
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
       "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",

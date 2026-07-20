@@ -569,6 +569,16 @@
     "emptyTitle": "尚無 Issue",
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
+    "taskStatus": {
+      "queued": "排隊中",
+      "in_progress": "進行中",
+      "in_review": "審查中",
+      "done": "已完成"
+    },
+    "taskLinked": {
+      "openWorkspace": "開啟工作區",
+      "viewInSprint": "在 Sprint 中檢視"
+    },
     "assignDialog": {
       "title": "將 Issue #{{number}} 指派給工作者",
       "description": "選擇一個工作者並檢閱提示詞。任務將被加入工作者的佇列。",

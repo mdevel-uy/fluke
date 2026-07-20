@@ -569,6 +569,16 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "taskStatus": {
+      "queued": "En attente",
+      "in_progress": "En cours",
+      "in_review": "En revue",
+      "done": "Terminé"
+    },
+    "taskLinked": {
+      "openWorkspace": "Ouvrir le workspace",
+      "viewInSprint": "Voir dans Sprint"
+    },
     "assignDialog": {
       "title": "Assigner l'issue #{{number}} à un worker",
       "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",

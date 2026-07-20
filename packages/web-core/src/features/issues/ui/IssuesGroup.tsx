@@ -1,4 +1,5 @@
 import type { RepoIssue } from '@/features/issues/types';
+import type { WorkerTask } from '@/features/sprint/types';
 import { IssueListItem } from './IssueListItem';
 
 interface IssuesGroupProps {
@@ -6,6 +7,7 @@ interface IssuesGroupProps {
   count: number;
   issues: RepoIssue[];
   repoId: string | undefined;
+  taskByIssueNumber: Map<number, WorkerTask>;
 }
 
 export function IssuesGroup({
@@ -13,6 +15,7 @@ export function IssuesGroup({
   count,
   issues,
   repoId,
+  taskByIssueNumber,
 }: IssuesGroupProps) {
   if (issues.length === 0) return null;
 
@@ -28,7 +31,12 @@ export function IssuesGroup({
       </header>
       <ul className="flex flex-col">
         {issues.map((issue) => (
-          <IssueListItem key={issue.id} issue={issue} repoId={repoId} />
+          <IssueListItem
+            key={issue.id}
+            issue={issue}
+            repoId={repoId}
+            linkedTask={taskByIssueNumber.get(issue.number)}
+          />
         ))}
       </ul>
     </section>
