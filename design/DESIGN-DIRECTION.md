@@ -80,6 +80,11 @@ Opsz 24, weight 400, FILL 0 por defecto; FILL 1 para estados activos/seleccionad
 - **Sidebar** 240px fija: header con nombre de app + subtítulo tenue; items con ícono
   + label `body-md`, item activo = pill `secondary-container` con `rounded-lg`; CTA
   primario full-width abajo; footer Settings/Help tras divider `outline-variant`.
+  ⚠️ **La NAV del mockup es ilustrativa, NO copiarla literal.** Los items del mockup
+  (Dashboard, Projects, Team, Analytics) son genéricos de Stitch. La nav real de esta
+  app es: **Workers · Sprint · Issues** (+ Settings en el footer). "Projects" NO
+  existe — es la entidad muerta de la nube de bloop (ver issue #23, demolición de sus
+  rutas legacy). El CTA primario de abajo mapea a "Nueva tarea", no a "New Issue".
 - **Top bar** 64px `surface-bright` + borde inferior: título de sección en primary,
   search con ícono embebido sobre `surface-container-low` sin borde (focus ring
   primary), tabs de filtro subrayadas (activa: border-b-2 primary + bold),
