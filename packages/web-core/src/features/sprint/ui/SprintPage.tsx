@@ -241,10 +241,12 @@ export function SprintPage() {
         { workerId, title, prompt, issueNumber: issue.number },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleFreeTaskCreate = useCallback(
@@ -253,9 +255,11 @@ export function SprintPage() {
       setBusyTaskId('free-composer');
       createTaskMutation.mutate(params, {
         onSettled: () => setBusyTaskId(null),
+        onError: (err) =>
+          pushToast('error', err instanceof Error ? err.message : String(err)),
       });
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleRemoveTask = useCallback(
@@ -265,10 +269,12 @@ export function SprintPage() {
         { workerId: task.worker_id, taskId: task.id },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [deleteTaskMutation]
+    [deleteTaskMutation, pushToast]
   );
 
   const handleReorder = useCallback(
@@ -278,10 +284,12 @@ export function SprintPage() {
         { a, b },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [swapTasksMutation]
+    [swapTasksMutation, pushToast]
   );
 
   // Per repo, split tasks by status. Only tasks belonging to the selected
