@@ -240,7 +240,10 @@ pub trait ContainerService {
 
     /// Finalize workspace execution by sending notifications and reconciling
     /// analyst/reviewer worker task state.
-    async fn finalize_task(&self, ctx: &ExecutionContext) {
+    async fn finalize_task(&self, ctx: &ExecutionContext)
+    where
+        Self: Sized + Send + Sync,
+    {
         // Skip notification if process was intentionally killed by user
         if matches!(ctx.execution_process.status, ExecutionProcessStatus::Killed) {
             return;
