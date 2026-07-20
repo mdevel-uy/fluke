@@ -9,8 +9,10 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center h-5 px-2 rounded-full',
-        'bg-secondary text-low text-xs font-medium whitespace-nowrap border border-border/50',
+        'inline-flex items-center h-[18px] px-2 rounded-full',
+        'bg-md-secondary-container text-md-on-secondary-container',
+        'text-label-caps font-geist font-semibold uppercase tracking-widest',
+        'border border-md-outline-variant whitespace-nowrap',
         className
       )}
     >

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2, Play } from 'lucide-react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import {
   DropdownMenu,
@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@vibe/ui/components/DropdownMenu';
+import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues';
 import type { Worker } from '@/features/sprint/types';
 import { IssueLabelChip } from './IssueLabelChip';
@@ -27,13 +28,13 @@ export function BacklogIssueCard({
   const { t } = useTranslation('common');
 
   return (
-    <article className="group flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft transition-all duration-150 hover:shadow-card hover:border-border">
+    <article className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:border-md-primary/30 hover:-translate-y-px">
       <div className="flex items-baseline gap-2 min-w-0">
-        <span className="font-ibm-plex-mono text-xs text-low shrink-0">
+        <span className="font-geist text-code-sm text-md-on-surface-variant shrink-0">
           #{issue.number}
         </span>
         <span
-          className="text-sm text-high font-medium leading-snug line-clamp-2"
+          className="text-body-md font-hanken text-md-on-surface font-medium leading-snug line-clamp-2 group-hover:text-md-primary transition-colors duration-200"
           title={issue.title}
         >
           {issue.title}
@@ -53,12 +54,13 @@ export function BacklogIssueCard({
               variant="tonal"
               size="xs"
               disabled={isAssigning || workers.length === 0}
+              className="active:scale-95 transition-all duration-200"
             >
-              {isAssigning ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
+              <MaterialIcon
+                name={isAssigning ? 'progress_activity' : 'play_arrow'}
+                size="xs"
+                className={cn(isAssigning && 'animate-spin')}
+              />
               {t('sprint.backlog.assign')}
             </Button>
           </DropdownMenuTrigger>

@@ -3,8 +3,7 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, X } from 'lucide-react';
-import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { Button } from '@vibe/ui/components/Button';
 import {
@@ -439,13 +438,11 @@ export function SprintPage() {
     !showBoard || eligibleWorkers.length === 0 || startAllMutation.isPending;
 
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('sprint.title')}
-          </h1>
-        </div>
+    <div className="flex h-full w-full flex-col bg-md-background">
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight">
+          {t('sprint.title')}
+        </h1>
         <div className="flex items-center gap-3">
           <div className="min-w-[240px]">
             <Select
@@ -467,13 +464,19 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
-          <PrimaryButton
-            variant="tertiary"
-            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
-            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+          <button
+            type="button"
             onClick={handleSync}
             disabled={!selectedRepoId || isSyncing}
-          />
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-md-outline-variant bg-md-surface-container text-body-sm font-semibold text-md-on-surface hover:bg-md-surface-container-high active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <MaterialIcon
+              name={isSyncing ? 'progress_activity' : 'sync'}
+              size="sm"
+              className={isSyncing ? 'animate-spin' : ''}
+            />
+            {isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+          </button>
           <span
             title={
               showBoard && eligibleWorkers.length === 0
@@ -492,19 +495,19 @@ export function SprintPage() {
       </header>
 
       {toasts.length > 0 && (
-        <div className="px-6 pt-4 flex flex-col gap-2">
+        <div className="px-container-padding pt-4 flex flex-col gap-2">
           {toasts.map((toast) => (
             <div
               key={toast.id}
               role="status"
-              className={
-                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
-                (toast.variant === 'success'
+              className={[
+                'flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-body-sm',
+                toast.variant === 'success'
                   ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
-                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                    : 'border-border/60 bg-secondary text-normal')
-              }
+                    ? 'border-md-error/30 bg-md-error/10 text-md-error'
+                    : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface',
+              ].join(' ')}
             >
               <span className="min-w-0 flex-1 leading-relaxed">
                 {toast.message}
@@ -513,9 +516,9 @@ export function SprintPage() {
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
+                className="shrink-0 p-0.5 rounded-md text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface cursor-pointer transition-colors active:scale-95"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <MaterialIcon name="close" size="sm" />
               </button>
             </div>
           ))}
@@ -524,30 +527,38 @@ export function SprintPage() {
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('sprint.loadingRepos')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('sprint.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('sprint.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('sprint.selectRepoPrompt')}
           </div>
         ) : isLoadingIssues || isLoadingWorkers || isLoadingTasks ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('sprint.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('sprint.loading')}</span>
           </div>
         ) : isIssuesError || isWorkersError || isTasksError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('sprint.loadError')}
           </div>
         ) : (
           showBoard && (
-            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto">
+            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto bg-md-background">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
                 count={backlogIssues.length}
