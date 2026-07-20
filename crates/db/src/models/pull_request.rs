@@ -266,7 +266,8 @@ impl PullRequest {
                 t.merge_commit_sha,
                 t.created_at AS "created_at!: DateTime<Utc>",
                 t.updated_at AS "updated_at!: DateTime<Utc>",
-                t.synced_at AS "synced_at: DateTime<Utc>"
+                t.synced_at AS "synced_at: DateTime<Utc>",
+                t.pr_mergeable
             FROM pull_requests t
             INNER JOIN (
                 SELECT workspace_id, MAX(created_at) as max_created_at
