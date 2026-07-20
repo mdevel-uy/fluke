@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ProjectFlow - Issues Dashboard</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Hanken Grotesk and Geist -->
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;family=Geist:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "primary": "#004ac6",
+                        "inverse-on-surface": "#eef0ff",
+                        "on-primary-fixed": "#00174b",
+                        "surface-tint": "#0053db",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-primary-container": "#eeefff",
+                        "secondary-container": "#d0e1fb",
+                        "on-surface-variant": "#434655",
+                        "outline-variant": "#c3c6d7",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-container": "#bc4800",
+                        "secondary": "#505f76",
+                        "surface-container-highest": "#dae2fd",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#54647a",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "inverse-primary": "#b4c5ff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#dae2fd",
+                        "surface": "#faf8ff",
+                        "background": "#faf8ff",
+                        "outline": "#737686",
+                        "on-tertiary-container": "#ffede6",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "error": "#ba1a1a",
+                        "primary-container": "#2563eb",
+                        "surface-container-low": "#f2f3ff",
+                        "on-surface": "#131b2e",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#131b2e",
+                        "surface-container": "#eaedff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e2e7ff",
+                        "tertiary": "#943700",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-dim": "#d2d9f4",
+                        "primary-fixed": "#dbe1ff",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "inverse-surface": "#283044",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-secondary-fixed": "#0b1c30"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "row-gap": "8px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "mobile-margin": "16px",
+                        "sidebar-width": "240px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "label-caps": ["Geist"],
+                        "body-md": ["Hanken Grotesk"],
+                        "title-sm": ["Hanken Grotesk"],
+                        "code-sm": ["Geist"],
+                        "headline-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "display-lg": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "title-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c3c6d7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #737686;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Sidebar (As defined in JSON) -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-width bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col py-container-padding z-50">
+<div class="px-6 mb-8">
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">ProjectFlow</h1>
+<p class="font-title-sm text-on-surface-variant text-[12px] opacity-70">Enterprise Tier</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out scale-95 active:opacity-80" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-2 bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-secondary-fixed rounded-lg mx-2 transition-colors duration-200 ease-in-out scale-95 active:opacity-80" href="#">
+<span class="material-symbols-outlined mr-3">list_alt</span>
+<span class="font-body-md text-body-md">Issues</span>
+</a>
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out scale-95 active:opacity-80" href="#">
+<span class="material-symbols-outlined mr-3">folder_copy</span>
+<span class="font-body-md text-body-md">Projects</span>
+</a>
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out scale-95 active:opacity-80" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+<span class="font-body-md text-body-md">Team</span>
+</a>
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out scale-95 active:opacity-80" href="#">
+<span class="material-symbols-outlined mr-3">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="px-4 mb-4">
+<button class="w-full bg-primary text-on-primary py-2.5 rounded-lg font-title-sm text-sm transition-all hover:opacity-90 active:scale-95 shadow-md">
+                New Issue
+            </button>
+</div>
+<footer class="mt-auto pt-4 border-t border-outline-variant">
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+<a class="flex items-center px-4 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant rounded-lg mx-2 transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined mr-3">help</span>
+<span class="font-body-md text-body-md">Help</span>
+</a>
+</footer>
+</aside>
+<!-- Top Navigation (As defined in JSON) -->
+<header class="fixed top-0 right-0 w-[calc(100%-var(--sidebar-width))] h-16 bg-surface-bright dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center space-x-6 flex-1">
+<h2 class="font-headline-md text-headline-md font-semibold text-primary dark:text-primary-fixed-dim">Issues</h2>
+<div class="relative w-full max-w-md focus-within:ring-2 focus-within:ring-primary rounded-lg">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-lg font-body-sm focus:ring-0" placeholder="Search issues..." type="text"/>
+</div>
+<nav class="flex items-center space-x-4">
+<a class="font-body-sm text-body-sm text-primary dark:text-primary-fixed-dim border-b-2 border-primary font-bold pb-1" href="#">All</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-on-surface transition-all" href="#">Assigned to me</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-on-surface transition-all" href="#">Watching</a>
+</nav>
+</div>
+<div class="flex items-center space-x-3 ml-4">
+<div class="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant">
+<button class="px-3 py-1 bg-surface rounded-md text-xs font-semibold shadow-sm border border-outline-variant/50">vibe-kanban</button>
+<button class="px-3 py-1 text-xs hover:bg-surface-container transition-colors rounded-md flex items-center">
+                    Refresh <span class="material-symbols-outlined text-[14px] ml-1">refresh</span>
+</button>
+</div>
+<span class="material-symbols-outlined p-2 hover:bg-surface-container-low dark:hover:bg-surface-container transition-all cursor-pointer rounded-full">notifications</span>
+<span class="material-symbols-outlined p-2 hover:bg-surface-container-low dark:hover:bg-surface-container transition-all cursor-pointer rounded-full">filter_list</span>
+<span class="material-symbols-outlined p-2 hover:bg-surface-container-low dark:hover:bg-surface-container transition-all cursor-pointer rounded-full">account_circle</span>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">Create</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-sidebar-width pt-16 min-h-screen">
+<div class="px-container-padding py-8 max-w-7xl mx-auto">
+<!-- Issue Count and View Options -->
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center space-x-2">
+<button class="flex items-center px-4 py-2 bg-surface-container-highest text-primary font-semibold rounded-full text-sm">
+                        Open <span class="ml-2 bg-primary text-on-primary text-[11px] px-1.5 py-0.5 rounded-full">18</span>
+</button>
+<button class="flex items-center px-4 py-2 text-on-surface-variant hover:bg-surface-container-low rounded-full text-sm transition-colors">
+                        Closed <span class="ml-2 text-[11px] opacity-60">8</span>
+</button>
+</div>
+<div class="flex space-x-2">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-white transition-shadow shadow-sm">
+<span class="material-symbols-outlined text-[20px]">sort</span>
+</button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-white transition-shadow shadow-sm">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Issues List -->
+<div class="space-y-row-gap">
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#54</span> Sprint planning real: asignar solo encola + botón 'Comenzar sprint'
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by chewax</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-bold rounded-full uppercase border border-blue-100">sprint-12</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<div class="hidden md:flex -space-x-2">
+<img class="w-8 h-8 rounded-full border-2 border-white object-cover" data-alt="Close up professional headshot of a software engineer with glasses, soft studio lighting, high key background, 8k resolution, minimalist professional style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdZDy_vzknEwcyvQ-EDlNyQDqUI9Y4BG3_bPo0cyw8wbfEDKmmh3Cvg03pyaw-oBbYG_5CinI6NXl72inz4_5eldHWCjDuX_1XYFqowd3qsDZsdxlkDKUz0xUrraVovezykDlf7oYbqH3IwvGaqY-WXVYzSI8kgXriTSduRN0aBfHtxCDMQfN5ipOePrEYjxij8X2jZJc0pdYP6bnSKWApI0lBHvptGVQSLNrZoel1M0YB9q_Z1J5C56Y2DX2mF2mHsO4DMacJSw0"/>
+</div>
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#53</span> [Kanban PRO — UI] Sprint Board estilo GitHub Projects: prioridades, épicas, labels y filtros
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by chewax</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-on-secondary-fixed-variant/10 text-on-secondary-fixed-variant text-[11px] font-bold rounded-full uppercase border border-outline-variant">ui</span>
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed-variant text-[11px] font-bold rounded-full uppercase border border-tertiary-fixed-dim">high-priority</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#52</span> [Kanban PRO — backend] Labels con color, milestone como épica y prioridades en el sync de issues
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by chewax</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-[11px] font-bold rounded-full uppercase border border-outline-variant">backend</span>
+<span class="px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-full uppercase border border-purple-100">sync-engine</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#51</span> [UI] Refactor visual ronda 2: light mode, tags y acentos, componentes complejos, limpieza de barra superior
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by chewax</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-on-secondary-fixed-variant/10 text-on-secondary-fixed-variant text-[11px] font-bold rounded-full uppercase border border-outline-variant">ui</span>
+<span class="px-2 py-0.5 bg-green-50 text-green-700 text-[11px] font-bold rounded-full uppercase border border-green-100">polish</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#49</span> Editar worker desde la UI falla con 'método inválido' (mismatch de verbo HTTP)
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by chewax</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container text-[11px] font-bold rounded-full uppercase border border-error">bug</span>
+<span class="px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed-variant text-[11px] font-bold rounded-full uppercase border border-outline-variant">tech-debt</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+<!-- Issue Item -->
+<div class="group flex items-center justify-between p-4 bg-white border border-outline-variant rounded-lg hover:shadow-md hover:border-primary/30 transition-all duration-200">
+<div class="flex items-start space-x-4">
+<div class="mt-1 flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-[20px]">radio_button_checked</span>
+</div>
+<div class="space-y-1">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">
+<span class="text-on-surface-variant font-normal mr-2">#40</span> PRs creados por agentes via gh no quedan registrados: el pr_monitor no los trackea y el loop no cierra
+                            </h3>
+<div class="flex items-center space-x-3">
+<span class="font-body-sm text-body-sm text-on-surface-variant">by dwaksman-mdev</span>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed-variant text-[11px] font-bold rounded-full uppercase border border-outline-variant">tech-debt</span>
+<span class="px-2 py-0.5 bg-amber-50 text-amber-700 text-[11px] font-bold rounded-full uppercase border border-amber-100">workflow</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="flex items-center space-x-2 px-4 py-2 border border-primary text-primary rounded-lg font-title-sm text-sm hover:bg-primary-container/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Assign to agent</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Empty State / Load More / Stats Bento -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="md:col-span-2 bg-surface-container-low p-8 rounded-xl border border-outline-variant flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-primary/40 text-6xl mb-4">analytics</span>
+<h4 class="font-headline-md text-headline-md text-on-surface mb-2">Team Velocity</h4>
+<p class="font-body-md text-on-surface-variant max-w-sm">Current sprint shows a 15% increase in issue resolution compared to last week. Keep up the momentum!</p>
+<div class="mt-6 w-full max-w-md bg-white p-4 rounded-lg shadow-sm">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant">Completion</span>
+<span class="font-label-caps text-label-caps text-primary">78%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 78%"></div>
+</div>
+</div>
+</div>
+<div class="bg-primary p-8 rounded-xl border border-primary-container flex flex-col justify-between text-on-primary">
+<div>
+<span class="material-symbols-outlined text-4xl mb-4">bolt</span>
+<h4 class="font-headline-md text-headline-md font-bold mb-1">Quick Action</h4>
+<p class="font-body-sm opacity-80">Generate a comprehensive summary for all open high-priority issues.</p>
+</div>
+<button class="mt-8 bg-white text-primary px-6 py-3 rounded-lg font-title-sm flex items-center justify-center hover:bg-surface-bright transition-colors active:scale-95">
+<span class="material-symbols-outlined mr-2">auto_awesome</span> Generate Report
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-90 z-50 group">
+<span class="material-symbols-outlined text-3xl transition-transform group-hover:rotate-90">add</span>
+</button>
+<script>
+        // Simple micro-interactions
+        document.querySelectorAll('.group').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'translateY(-2px)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'translateY(0px)';
+            });
+        });
+
+        // Theme toggle simulation (Optional, UI only)
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
+</body></html>

@@ -30,7 +30,9 @@
         "remote-projectsDesc": "Manage projects",
         "relayDesc": "Relay tunnel and enrollment",
         "github": "GitHub",
-        "githubDesc": "Sign in to GitHub with the gh CLI"
+        "githubDesc": "Sign in to GitHub with the gh CLI",
+        "skills": "Skills",
+        "skillsDesc": "Manage agent skills installed in ~/.claude/skills"
       }
     },
     "hostPicker": {
@@ -550,6 +552,25 @@
         "unsavedChanges": "You have unsaved changes",
         "discard": "Discard",
         "confirmSwitch": "You have unsaved changes. Are you sure you want to switch repositories? Your changes will be lost."
+      }
+    },
+    "skills": {
+      "installed": {
+        "title": "Installed Skills",
+        "description": "Skills available to all agents in ~/.claude/skills.",
+        "loading": "Loading skills...",
+        "loadError": "Failed to load skills.",
+        "empty": "No skills installed yet. Install one from a git repository URL below.",
+        "delete": "Remove {{name}}"
+      },
+      "install": {
+        "title": "Install Skill",
+        "description": "Clone a skill from a git repository into ~/.claude/skills.",
+        "urlLabel": "Repository URL",
+        "urlHelper": "The skill directory name is derived from the last path segment of the URL.",
+        "urlPlaceholder": "https://github.com/org/skill-name",
+        "button": "Install",
+        "error": "Failed to install skill."
       }
     },
     "github": {

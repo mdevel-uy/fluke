@@ -1,15 +1,9 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
-import {
-  PlusIcon,
-  ArrowLeftIcon,
-  ArchiveIcon,
-  StackIcon,
-  SpinnerIcon,
-} from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { InputField } from './InputField';
+import { MaterialIcon } from './MaterialIcon';
 import { WorkspaceSummary } from './WorkspaceSummary';
 import type { AppBarHostStatus } from './AppBar';
 import {
@@ -234,12 +228,12 @@ export function WorkspacesSidebar({
 
   const headerActions: SectionAction[] = [
     {
-      icon: StackIcon,
+      materialIcon: 'layers',
       onClick: () => onToggleLayoutMode?.(),
       isActive: layoutMode === 'accordion',
     },
     {
-      icon: PlusIcon,
+      materialIcon: 'add',
       onClick: () => onAddWorkspace?.(),
     },
   ];
@@ -318,8 +312,12 @@ export function WorkspacesSidebar({
       >
         {isLoading ? (
           <div className="flex h-full min-h-[220px] items-center justify-center px-base">
-            <div className="flex items-center justify-center text-low">
-              <SpinnerIcon className="size-6 animate-spin" weight="bold" />
+            <div className="flex items-center justify-center text-md-on-surface-variant">
+              <MaterialIcon
+                name="progress_activity"
+                size="base"
+                className="animate-spin"
+              />
             </div>
           </div>
         ) : showArchive ? (
@@ -484,12 +482,12 @@ export function WorkspacesSidebar({
         >
           {showArchive ? (
             <>
-              <ArrowLeftIcon className="size-icon-xs" />
+              <MaterialIcon name="arrow_back" size="xs" />
               <span>{t('common:workspaces.backToActive')}</span>
             </>
           ) : (
             <>
-              <ArchiveIcon className="size-icon-xs" />
+              <MaterialIcon name="archive" size="xs" />
               <span>{t('common:workspaces.viewArchive')}</span>
               <span className="ml-auto text-xs bg-tertiary px-1.5 py-0.5 rounded">
                 {archivedWorkspaces.length}

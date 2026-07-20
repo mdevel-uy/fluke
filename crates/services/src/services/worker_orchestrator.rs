@@ -69,8 +69,8 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("repo not found")]
     RepoNotFound,
-    #[error("repo has no default_target_branch configured")]
-    RepoMissingDefaultBranch,
+    #[error("repo '{0}' has no default_target_branch configured")]
+    RepoMissingDefaultBranch(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
@@ -161,7 +161,7 @@ pub async fn try_take_next(
         .default_target_branch
         .clone()
         .filter(|b| !b.is_empty())
-        .ok_or(StartError::RepoMissingDefaultBranch)?;
+        .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
     let executor_config = config.read().await.executor_profile.clone();
     let executor_config: ExecutorConfig = executor_config.into();
@@ -304,6 +304,67 @@ async fn rollback_workspace(db: &DBService, workspace_id: Uuid) {
             e
         );
     }
+}
+
+/// Startup sweep: mark every `in_progress` worker_task as `failed` and
+/// archive + detach its workspace. Called once after the server starts so
+/// tasks whose agent was killed by a restart/deploy do not remain stuck
+/// forever.
+///
+/// Safety invariant: if the task's workspace state cannot be determined
+/// (e.g. the DB returns an unexpected error for that row), the task is
+/// left untouched — better a visible zombie than silently destroying a
+/// run that might still be live.
+///
+/// Idempotent: a second call immediately after the first is a no-op
+/// because no `in_progress` tasks remain.
+pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let tasks = WorkerTask::find_all_in_progress(pool).await?;
+
+    for task in tasks {
+        // Archive + detach the workspace so the capacity guard sees a clean
+        // slate and the worker can start its next queued task.
+        if let Some(ws_id) = task.workspace_id {
+            if let Err(e) = Workspace::set_archived(pool, ws_id, true).await {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %ws_id,
+                    "reconcile_in_progress_tasks: failed to archive workspace, skipping task: {}",
+                    e
+                );
+                continue;
+            }
+            if let Err(e) = Worker::detach_workspace(pool, ws_id).await {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %ws_id,
+                    "reconcile_in_progress_tasks: failed to detach workspace: {}",
+                    e
+                );
+            }
+        }
+
+        match WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await {
+            Ok(_) => {
+                warn!(
+                    task_id = %task.id,
+                    worker_id = %task.worker_id,
+                    title = %task.title,
+                    "reconcile_in_progress_tasks: task marked failed (agent killed by server restart)"
+                );
+            }
+            Err(e) => {
+                warn!(
+                    task_id = %task.id,
+                    "reconcile_in_progress_tasks: failed to mark task as failed: {}",
+                    e
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Auto-repair inconsistent worker state: any non-archived workspace that

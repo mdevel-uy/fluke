@@ -569,6 +569,16 @@
     "emptyTitle": "아직 이슈가 없습니다",
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
+    "taskStatus": {
+      "queued": "대기 중",
+      "in_progress": "진행 중",
+      "in_review": "검토 중",
+      "done": "완료"
+    },
+    "taskLinked": {
+      "openWorkspace": "워크스페이스 열기",
+      "viewInSprint": "스프린트에서 보기"
+    },
     "assignDialog": {
       "title": "이슈 #{{number}}를 워커에게 할당",
       "description": "워커를 선택하고 프롬프트를 검토하세요. 작업이 워커의 대기열에 추가됩니다.",
@@ -665,18 +675,23 @@
       "queued": "대기열",
       "inProgress": "진행 중",
       "inReview": "검토 중",
-      "done": "완료"
+      "done": "완료",
+      "failed": "실패"
     },
     "backlog": {
       "assign": "할당",
       "noWorkers": "사용 가능한 워커가 없습니다",
-      "empty": "대기 중인 오픈 이슈가 없습니다."
+      "empty": "대기 중인 오픈 이슈가 없습니다.",
+      "moreActions": "더 많은 작업",
+      "setPriority": "우선순위 설정",
+      "assignTo": "워커에게 할당"
     },
     "composer": {
       "title": "새 자유 형식 태스크",
       "titlePlaceholder": "태스크 제목",
       "promptPlaceholder": "에이전트가 무엇을 해야 하나요?",
-      "assign": "워커에게 전송"
+      "assign": "워커에게 전송",
+      "skills": "스킬:"
     },
     "queued": {
       "moveUp": "위로",
@@ -693,6 +708,33 @@
     },
     "done": {
       "empty": "아직 완료된 태스크가 없습니다."
+    },
+    "filters": {
+      "searchPlaceholder": "이슈 검색...",
+      "clearSearch": "검색 지우기",
+      "epic": "에픽",
+      "allEpics": "모든 에픽",
+      "label": "레이블",
+      "allLabels": "모든 레이블",
+      "priority": "우선순위",
+      "allPriorities": "모든 우선순위",
+      "worker": "워커",
+      "allWorkers": "모든 워커",
+      "clearAll": "필터 초기화",
+      "noResults": "활성 필터와 일치하는 이슈가 없습니다."
+    },
+    "priority": {
+      "urgent": "긴급",
+      "high": "높음",
+      "medium": "보통",
+      "low": "낮음"
+    },
+    "detail": {
+      "panelLabel": "이슈 상세",
+      "close": "패널 닫기",
+      "noPriority": "우선순위 없음",
+      "noBody": "설명이 없습니다.",
+      "assignedTo": "{{worker}}에게 할당됨"
     },
     "startSprint": "스프린트 시작",
     "startSprintDisabled": "시작할 준비가 된 워커가 없습니다",
@@ -713,6 +755,11 @@
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
       "startAllError": "스프린트 시작 실패: {{message}}"
+    },
+    "failed": {
+      "retry": "재시도",
+      "discard": "버리기",
+      "empty": "실패한 태스크가 없습니다."
     }
   }
 }

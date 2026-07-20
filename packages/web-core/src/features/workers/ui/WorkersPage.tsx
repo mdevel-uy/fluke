@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Activity,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Plus,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { ApiError } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
+import { cn } from '@/shared/lib/utils';
 import {
   useDeleteWorker,
   useStartNextWorkerTask,
@@ -25,23 +17,26 @@ import { WorkerFormDialog } from './WorkerFormDialog';
 function StatCard({
   label,
   value,
-  icon: Icon,
-  accent,
+  materialIcon,
+  accentClass,
 }: {
   label: string;
   value: number;
-  icon: LucideIcon;
-  accent: string;
+  materialIcon: string;
+  accentClass: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-primary p-4 shadow-card">
+    <div className="flex flex-col gap-2 rounded-xl border border-md-outline-variant bg-md-surface-container-low p-4">
       <div
-        className={`flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide ${accent}`}
+        className={cn(
+          'flex items-center gap-1.5 text-label-caps font-geist font-semibold uppercase tracking-widest',
+          accentClass
+        )}
       >
-        <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+        <MaterialIcon name={materialIcon} size="sm" />
         <span>{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-high tabular-nums leading-none">
+      <p className="text-display-lg font-hanken font-bold text-md-on-surface tabular-nums leading-none">
         {value}
       </p>
     </div>
@@ -100,7 +95,9 @@ export function WorkersPage() {
   const deleteMutation = useDeleteWorker();
 
   const stats = useMemo(() => {
-    const working = workers.filter((w) => w.active_workspace_id !== null).length;
+    const working = workers.filter(
+      (w) => w.active_workspace_id !== null
+    ).length;
     const totalQueued = workers.reduce((sum, w) => sum + w.queued_count, 0);
     const totalCompleted = workers.reduce(
       (sum, w) => sum + w.completed_count,
@@ -180,40 +177,41 @@ export function WorkersPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('workers.title')}
-          </h1>
-          {workers.length > 0 && (
-            <span className="text-sm text-low">
-              {t('workers.countLabel', { count: workers.length })}
-            </span>
-          )}
-        </div>
-        <PrimaryButton
-          variant="default"
-          value={t('workers.newWorker')}
-          actionIcon={Plus}
+    <div className="flex h-full w-full flex-col bg-md-background">
+      {/* MD3 top bar */}
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight">
+          {t('workers.title')}
+        </h1>
+        <button
+          type="button"
           onClick={handleNewWorker}
-        />
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2 rounded-lg',
+            'bg-md-primary text-md-on-primary text-body-sm font-semibold',
+            'hover:opacity-90 active:scale-95 transition-all duration-200 shadow-soft'
+          )}
+        >
+          <MaterialIcon name="add" size="sm" />
+          {t('workers.newWorker')}
+        </button>
       </header>
 
+      {/* Toast notifications */}
       {toasts.length > 0 && (
-        <div className="px-6 pt-4 flex flex-col gap-2">
+        <div className="px-container-padding pt-4 flex flex-col gap-2">
           {toasts.map((toast) => (
             <div
               key={toast.id}
               role="status"
-              className={
-                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
-                (toast.variant === 'success'
+              className={cn(
+                'flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-body-sm',
+                toast.variant === 'success'
                   ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
-                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                    : 'border-border/60 bg-secondary text-normal')
-              }
+                    ? 'border-md-error/30 bg-md-error/10 text-md-error'
+                    : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface'
+              )}
             >
               <span className="min-w-0 flex-1 leading-relaxed">
                 {toast.message}
@@ -222,46 +220,51 @@ export function WorkersPage() {
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
+                className="shrink-0 p-0.5 rounded-md text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface cursor-pointer transition-colors active:scale-95"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <MaterialIcon name="close" size="sm" />
               </button>
             </div>
           ))}
         </div>
       )}
 
+      {/* Bento stats */}
       {workers.length > 0 && !isLoading && !isError && (
-        <div className="grid grid-cols-3 gap-4 px-6 pt-4">
+        <div className="grid grid-cols-3 gap-4 px-container-padding pt-4">
           <StatCard
             label={t('workers.stats.working')}
             value={stats.working}
-            icon={Activity}
-            accent="text-success"
+            materialIcon="electric_bolt"
+            accentClass="text-success"
           />
           <StatCard
             label={t('workers.stats.queued')}
             value={stats.totalQueued}
-            icon={Clock}
-            accent="text-warning"
+            materialIcon="schedule"
+            accentClass="text-warning"
           />
           <StatCard
             label={t('workers.stats.completed')}
             value={stats.totalCompleted}
-            icon={CheckCircle2}
-            accent="text-info"
+            materialIcon="check_circle"
+            accentClass="text-md-primary"
           />
         </div>
       )}
 
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('workers.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('workers.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('workers.loadError')}
           </div>
         ) : workers.length === 0 ? (
@@ -269,7 +272,7 @@ export function WorkersPage() {
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 p-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 p-container-padding md:grid-cols-2 xl:grid-cols-3">
             {workers.map((worker) => (
               <WorkerCard
                 key={worker.id}
