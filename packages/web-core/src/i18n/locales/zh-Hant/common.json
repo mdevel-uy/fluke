@@ -569,6 +569,7 @@
     "emptyTitle": "尚無 Issue",
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
+    "archiveAction": "封存",
     "assignDialog": {
       "title": "將 Issue #{{number}} 指派給工作者",
       "description": "選擇一個工作者並檢閱提示詞。任務將被加入工作者的佇列。",
@@ -581,6 +582,54 @@
       "cancel": "取消",
       "confirm": "加入佇列",
       "enqueuedError": "加入佇列失敗。"
+    },
+    "filters": {
+      "searchPlaceholder": "搜尋 Issue…",
+      "state": {
+        "all": "全部",
+        "open": "開啟",
+        "closed": "已關閉"
+      },
+      "priority": "優先順序",
+      "priorities": {
+        "urgent": "緊急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "標籤",
+      "milestone": "里程碑",
+      "groupBy": "分組",
+      "groupByOptions": {
+        "none": "不分組",
+        "label": "標籤",
+        "milestone": "里程碑"
+      },
+      "clear": "清除篩選",
+      "noResults": "沒有 Issue 符合目前的篩選條件。",
+      "noLabel": "無標籤",
+      "noMilestone": "無里程碑"
+    },
+    "drawer": {
+      "title": "Issue 詳情",
+      "close": "關閉",
+      "openOnGitHub": "在 GitHub 開啟",
+      "stateOpen": "開啟",
+      "stateClosed": "已關閉",
+      "priority": "優先順序",
+      "milestone": "里程碑",
+      "author": "作者",
+      "labels": "標籤",
+      "addLabel": "新增標籤",
+      "searchLabels": "搜尋標籤…",
+      "createLabel": "建立「{{name}}」",
+      "noLabels": "找不到標籤",
+      "description": "描述",
+      "noDescription": "尚無描述。",
+      "archive": "封存",
+      "archiveTitle": "封存 Issue",
+      "archiveConfirm": "在 GitHub 上關閉 Issue #{{number}}？它將移至已關閉篩選器。",
+      "archiveAction": "關閉 Issue"
     }
   },
   "workers": {

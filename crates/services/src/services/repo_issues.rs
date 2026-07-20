@@ -202,6 +202,144 @@ impl RepoIssuesService {
 
         Ok(())
     }
+
+    /// Add a label to an issue via `gh`, creating it in the repo first if needed.
+    ///
+    /// `label_name` — label text; `label_color` — optional 6-hex color (no `#`).
+    pub async fn add_label(
+        &self,
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+        label_name: &str,
+        label_color: Option<&str>,
+    ) -> Result<(), RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+
+        let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
+            .await?
+            .ok_or(RepoIssuesError::IssueNotFound)?;
+
+        let gh = resolve_executable_path("gh")
+            .await
+            .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+
+        let color = label_color.unwrap_or("0075ca");
+
+        // Ensure the label exists in the repo.
+        let mut create_cmd = Command::new(&gh);
+        create_cmd
+            .current_dir(&repo.path)
+            .args(["label", "create", label_name, "--color", color, "--force"]);
+        create_cmd.no_window();
+        let out = create_cmd.output().await?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        // Add the label to the issue.
+        let mut edit_cmd = Command::new(&gh);
+        edit_cmd
+            .current_dir(&repo.path)
+            .args(["issue", "edit", &issue_number.to_string(), "--add-label", label_name]);
+        edit_cmd.no_window();
+        let out = edit_cmd.output().await?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        // Update local DB.
+        let mut labels = parse_stored_labels(&issue.labels);
+        if !labels.iter().any(|l| l.name == label_name) {
+            labels.push(StoredLabel {
+                name: label_name.to_string(),
+                color: color.to_string(),
+            });
+        }
+        let new_labels_json = serde_json::to_string(&labels)?;
+        RepoIssue::update_labels(pool, repo_id, issue_number, &new_labels_json).await?;
+
+        Ok(())
+    }
+
+    /// Remove a label from an issue via `gh` and update the local DB row.
+    pub async fn remove_label(
+        &self,
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+        label_name: &str,
+    ) -> Result<(), RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+
+        let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
+            .await?
+            .ok_or(RepoIssuesError::IssueNotFound)?;
+
+        let gh = resolve_executable_path("gh")
+            .await
+            .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+
+        let mut edit_cmd = Command::new(&gh);
+        edit_cmd
+            .current_dir(&repo.path)
+            .args(["issue", "edit", &issue_number.to_string(), "--remove-label", label_name]);
+        edit_cmd.no_window();
+        let out = edit_cmd.output().await?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        // Update local DB.
+        let mut labels = parse_stored_labels(&issue.labels);
+        labels.retain(|l| l.name != label_name);
+        let new_labels_json = serde_json::to_string(&labels)?;
+        RepoIssue::update_labels(pool, repo_id, issue_number, &new_labels_json).await?;
+
+        Ok(())
+    }
+
+    /// Close an issue via `gh issue close` and update the local DB state.
+    pub async fn close_issue(
+        &self,
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<(), RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+
+        // Verify the issue exists locally.
+        RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
+            .await?
+            .ok_or(RepoIssuesError::IssueNotFound)?;
+
+        let gh = resolve_executable_path("gh")
+            .await
+            .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+
+        let mut cmd = Command::new(&gh);
+        cmd.current_dir(&repo.path)
+            .args(["issue", "close", &issue_number.to_string()]);
+        cmd.no_window();
+        let out = cmd.output().await?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        RepoIssue::update_state(pool, repo_id, issue_number, "closed").await?;
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,10 @@ interface IssuesGroupProps {
   count: number;
   issues: RepoIssue[];
   repoId: string | undefined;
+  selectedIssueId?: string;
+  onSelectIssue?: (issue: RepoIssue) => void;
+  onRemoveLabel?: (issueNumber: number, labelName: string) => Promise<void>;
+  onArchive?: (issueNumber: number) => Promise<void>;
 }
 
 export function IssuesGroup({
@@ -13,6 +17,10 @@ export function IssuesGroup({
   count,
   issues,
   repoId,
+  selectedIssueId,
+  onSelectIssue,
+  onRemoveLabel,
+  onArchive,
 }: IssuesGroupProps) {
   if (issues.length === 0) return null;
 
@@ -28,7 +36,15 @@ export function IssuesGroup({
       </header>
       <ul className="flex flex-col">
         {issues.map((issue) => (
-          <IssueListItem key={issue.id} issue={issue} repoId={repoId} />
+          <IssueListItem
+            key={issue.id}
+            issue={issue}
+            repoId={repoId}
+            isSelected={selectedIssueId === issue.id}
+            onSelect={onSelectIssue}
+            onRemoveLabel={onRemoveLabel}
+            onArchive={onArchive}
+          />
         ))}
       </ul>
     </section>

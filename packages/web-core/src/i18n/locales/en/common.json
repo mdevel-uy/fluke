@@ -569,6 +569,7 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "archiveAction": "Archive",
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
       "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",
@@ -581,6 +582,54 @@
       "cancel": "Cancel",
       "confirm": "Enqueue task",
       "enqueuedError": "Failed to enqueue task."
+    },
+    "filters": {
+      "searchPlaceholder": "Search issues…",
+      "state": {
+        "all": "All",
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "priority": "Priority",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "label": "Label",
+      "milestone": "Milestone",
+      "groupBy": "Group by",
+      "groupByOptions": {
+        "none": "None",
+        "label": "Label",
+        "milestone": "Milestone"
+      },
+      "clear": "Clear filters",
+      "noResults": "No issues match the current filters.",
+      "noLabel": "No label",
+      "noMilestone": "No milestone"
+    },
+    "drawer": {
+      "title": "Issue detail",
+      "close": "Close",
+      "openOnGitHub": "Open on GitHub",
+      "stateOpen": "open",
+      "stateClosed": "closed",
+      "priority": "Priority",
+      "milestone": "Milestone",
+      "author": "Author",
+      "labels": "Labels",
+      "addLabel": "Add label",
+      "searchLabels": "Search labels…",
+      "createLabel": "Create \"{{name}}\"",
+      "noLabels": "No labels found",
+      "description": "Description",
+      "noDescription": "No description provided.",
+      "archive": "Archive",
+      "archiveTitle": "Archive issue",
+      "archiveConfirm": "Close issue #{{number}} on GitHub? This will move it to the Closed filter.",
+      "archiveAction": "Close issue"
     }
   },
   "workers": {
