@@ -155,6 +155,34 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                     e
                 );
             }
+
+            // Poll mergeable state non-fatally — a failure here must not break pr_monitor.
+            match git_host.get_pr_mergeable(&pr.pr_url).await {
+                Ok(mergeable) => {
+                    if pr.pr_mergeable.as_deref() != Some(mergeable.as_str()) {
+                        debug!(
+                            "PR #{} mergeable state: {} (was {:?})",
+                            pr.pr_number, mergeable, pr.pr_mergeable
+                        );
+                        if let Err(e) =
+                            PullRequest::update_mergeable(&self.db.pool, &pr.pr_url, &mergeable)
+                                .await
+                        {
+                            warn!(
+                                "Failed to persist mergeable state for PR #{}: {}",
+                                pr.pr_number, e
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to check mergeable state for PR #{}: {}",
+                        pr.pr_number, e
+                    );
+                }
+            }
+
             return Ok(());
         }
 

@@ -48,6 +48,18 @@ function GitActionsDialogContent({ attempt }: GitActionsDialogContentProps) {
     (m: Merge) => m.type === 'pr' && m.pr_info?.status === 'merged'
   );
 
+  const openPR = getSelectedRepoStatus()?.merges?.find(
+    (m: Merge) => m.type === 'pr' && m.pr_info?.status === 'open'
+  );
+  const openPRMergeable =
+    openPR?.type === 'pr'
+      ? ((
+          openPR.pr_info as typeof openPR.pr_info & {
+            mergeable?: string | null;
+          }
+        ).mergeable ?? undefined)
+      : undefined;
+
   return (
     <div className="space-y-4">
       {mergedPR && mergedPR.type === 'pr' && (
@@ -85,6 +97,7 @@ function GitActionsDialogContent({ attempt }: GitActionsDialogContentProps) {
         isAttemptRunning={isAttemptRunning}
         selectedBranch={getSelectedRepoStatus()?.target_branch_name ?? null}
         layout="vertical"
+        prMergeable={openPRMergeable}
       />
     </div>
   );

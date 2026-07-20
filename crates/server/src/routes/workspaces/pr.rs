@@ -843,9 +843,128 @@ pub async fn create_workspace_from_pr(
     )))
 }
 
+const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de merge con {target_branch}. Resolvelos ahora:
+
+1. git fetch origin && git merge origin/{target_branch}
+   (merge REAL con ancestría — nunca resuelvas copiando contenido a mano
+   en un commit normal, y nunca uses squash para esto).
+2. Criterio de resolución: {target_branch} manda para todo lo que otros
+   mergearon (design system, features ajenas); tu rama manda para TU
+   feature. Ante solapamiento directo, combiná ambos lados — no pierdas
+   ninguno. En los locales de i18n conservá los dos grupos de keys y
+   validá que el JSON quede bien formado.
+3. Verificá el build/typecheck que corresponda (pnpm run check) antes de
+   pushear.
+4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
+   nuevo. Verificá el push con git log origin/<rama>.
+5. Mirá el CI del PR con gh pr checks --watch y arreglá lo que falle."#;
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum ResolveMergeConflictsError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+pub async fn resolve_merge_conflicts_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), ResolveMergeConflictsError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    // Find the latest open PR for this workspace to get target_branch
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let target_branch = match &open_pr {
+        Some(pr) => pr.target_branch_name.clone(),
+        None => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                ResolveMergeConflictsError::NoPrAttached,
+            )));
+        }
+    };
+
+    let prompt = RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", &target_branch);
+
+    // Get or create session
+    let session = match Session::find_latest_by_workspace_id(pool, workspace.id).await? {
+        Some(s) => s,
+        None => {
+            Session::create(
+                pool,
+                &CreateSession {
+                    executor: None,
+                    name: None,
+                },
+                Uuid::new_v4(),
+                workspace.id,
+            )
+            .await?
+        }
+    };
+
+    let Some(executor_profile_id) =
+        ExecutionProcess::latest_executor_profile_for_session(pool, session.id).await?
+    else {
+        tracing::warn!(
+            workspace_id = %workspace.id,
+            "No executor profile for resolve-conflicts follow-up; skipping",
+        );
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            ResolveMergeConflictsError::NoAgentSession,
+        )));
+    };
+
+    let latest_session_info = CodingAgentTurn::find_latest_session_info(pool, session.id).await?;
+
+    let working_dir = session
+        .agent_working_dir
+        .as_ref()
+        .filter(|dir| !dir.is_empty())
+        .cloned();
+
+    let action_type = if let Some(info) = latest_session_info {
+        ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
+            prompt,
+            session_id: info.session_id,
+            reset_to_message_id: None,
+            executor_config: executors::profile::ExecutorConfig::from(executor_profile_id),
+            working_dir,
+        })
+    } else {
+        ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
+            prompt,
+            executor_config: executors::profile::ExecutorConfig::from(executor_profile_id),
+            working_dir,
+        })
+    };
+
+    let action = ExecutorAction::new(action_type, None);
+
+    deployment
+        .container()
+        .start_execution(
+            &workspace,
+            &session,
+            &action,
+            &ExecutionProcessRunReason::CodingAgent,
+        )
+        .await?;
+
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/", post(create_pr))
         .route("/attach", post(attach_existing_pr))
         .route("/comments", get(get_pr_comments))
+        .route(
+            "/resolve-merge-conflicts",
+            post(resolve_merge_conflicts_follow_up),
+        )
 }

@@ -256,6 +256,10 @@ impl GitHostProvider for AzureDevOpsProvider {
         Err(GitHostError::UnsupportedProvider)
     }
 
+    async fn get_pr_mergeable(&self, _pr_url: &str) -> Result<String, GitHostError> {
+        Ok("unknown".to_string())
+    }
+
     fn provider_kind(&self) -> ProviderKind {
         ProviderKind::AzureDevOps
     }

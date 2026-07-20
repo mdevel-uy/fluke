@@ -686,6 +686,14 @@ export const workspacesApi = {
     return handleApiResponseAsResult<string, PrError>(response);
   },
 
+  resolveMergeConflicts: async (workspaceId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/resolve-merge-conflicts`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<void>(response);
+  },
+
   /** Try to auto-attach a PR by matching the workspace branch */
   attachPr: async (
     workspaceId: string,

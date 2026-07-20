@@ -20,6 +20,8 @@ pub struct PullRequest {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub synced_at: Option<DateTime<Utc>>,
+    /// GitHub mergeable state: "mergeable", "conflicting", "unknown", or None if not yet polled.
+    pub pr_mergeable: Option<String>,
 }
 
 impl PullRequest {
@@ -39,6 +41,7 @@ impl PullRequest {
             ON CONFLICT(pr_url) DO UPDATE SET
                 workspace_id = COALESCE(pull_requests.workspace_id, excluded.workspace_id),
                 repo_id = COALESCE(pull_requests.repo_id, excluded.repo_id),
+                pr_mergeable = NULL,
                 updated_at = CURRENT_TIMESTAMP",
             id,
             workspace_id,
@@ -91,12 +94,30 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE pr_status = 'open'"#,
         )
         .fetch_all(pool)
         .await
+    }
+
+    pub async fn update_mergeable(
+        pool: &SqlitePool,
+        pr_url: &str,
+        mergeable: &str,
+    ) -> Result<(), sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query!(
+            "UPDATE pull_requests SET pr_mergeable = ?, updated_at = ? WHERE pr_url = ?",
+            mergeable,
+            now,
+            pr_url,
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn update_status(
@@ -144,7 +165,8 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE pr_url = $1"#,
             pr_url,
@@ -171,7 +193,8 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE workspace_id = $1
             ORDER BY created_at DESC"#,
@@ -200,7 +223,8 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE workspace_id = $1 AND repo_id = $2
             ORDER BY created_at DESC"#,
@@ -280,7 +304,8 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE workspace_id IS NOT NULL
             ORDER BY created_at ASC"#,
@@ -304,7 +329,8 @@ impl PullRequest {
                 merge_commit_sha,
                 created_at AS "created_at!: DateTime<Utc>",
                 updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>"
+                synced_at AS "synced_at: DateTime<Utc>",
+                pr_mergeable
             FROM pull_requests
             WHERE synced_at IS NULL OR synced_at < updated_at"#,
         )
@@ -337,6 +363,7 @@ impl PullRequest {
                 status: self.pr_status.clone(),
                 merged_at: self.merged_at,
                 merge_commit_sha: self.merge_commit_sha.clone(),
+                mergeable: self.pr_mergeable.clone(),
             },
         }
     }

@@ -157,7 +157,9 @@
       "forcePush": "强制推送",
       "forcePushing": "强制推送中...",
       "creating": "创建中...",
-      "createPr": "创建 PR"
+      "createPr": "创建 PR",
+      "resolveConflicts": "解决冲突",
+      "sendingConflicts": "发送中..."
     },
     "errors": {
       "changeTargetBranch": "更改目标分支失败",

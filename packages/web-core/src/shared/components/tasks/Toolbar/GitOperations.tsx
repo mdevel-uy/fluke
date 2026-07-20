@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   GitBranch as GitBranchIcon,
+  GitMerge,
   GitPullRequest,
   RefreshCw,
   Settings,
@@ -26,6 +27,8 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceRepo } from '@/shared/hooks/useWorkspaceRepo';
 import { useGitOperations } from '@/shared/hooks/useGitOperations';
 import { useRepoBranches } from '@/shared/hooks/useRepoBranches';
+import { workspacesApi } from '@/shared/lib/api';
+import { cn } from '@/shared/lib/utils';
 
 interface GitOperationsProps {
   selectedAttempt: Workspace;
@@ -35,6 +38,7 @@ interface GitOperationsProps {
   selectedBranch: string | null;
   layout?: 'horizontal' | 'vertical';
   issueIdentifier?: string;
+  prMergeable?: string;
 }
 
 export type GitOperationsInputs = Omit<GitOperationsProps, 'selectedAttempt'>;
@@ -47,6 +51,7 @@ function GitOperations({
   selectedBranch,
   layout = 'horizontal',
   issueIdentifier,
+  prMergeable,
 }: GitOperationsProps) {
   const { t } = useTranslation('tasks');
 
@@ -63,6 +68,7 @@ function GitOperations({
   const [rebasing, setRebasing] = useState(false);
   const [mergeSuccess, setMergeSuccess] = useState(false);
   const [pushSuccess, setPushSuccess] = useState(false);
+  const [sendingConflicts, setSendingConflicts] = useState(false);
 
   // Target branch change handlers
   const handleChangeTargetBranchClick = async (newBranch: string) => {
@@ -165,6 +171,17 @@ function GitOperations({
     }
     return t('git.states.createPr');
   }, [mergeInfo.hasOpenPR, pushSuccess, pushing, t]);
+
+  const handleResolveConflictsClick = async () => {
+    try {
+      setSendingConflicts(true);
+      await workspacesApi.resolveMergeConflicts(selectedAttempt.id);
+    } catch (_err) {
+      // error is non-fatal; agent session will show failure
+    } finally {
+      setSendingConflicts(false);
+    }
+  };
 
   const handleMergeClick = async () => {
     // Directly perform merge without checking branch status
@@ -526,6 +543,29 @@ function GitOperations({
               />
               <span className="truncate max-w-[10ch]">{rebaseButtonLabel}</span>
             </Button>
+
+            {mergeInfo.hasOpenPR && (
+              <Button
+                onClick={handleResolveConflictsClick}
+                disabled={sendingConflicts}
+                variant="outline"
+                size="xs"
+                className={cn(
+                  'gap-1 shrink-0',
+                  prMergeable === 'conflicting'
+                    ? 'border-destructive text-destructive hover:bg-destructive/10'
+                    : 'border-muted-foreground text-muted-foreground hover:bg-muted'
+                )}
+                aria-label={t('git.states.resolveConflicts')}
+              >
+                <GitMerge className="h-3.5 w-3.5" />
+                <span className="truncate max-w-[12ch]">
+                  {sendingConflicts
+                    ? t('git.states.sendingConflicts')
+                    : t('git.states.resolveConflicts')}
+                </span>
+              </Button>
+            )}
           </div>
         ) : null}
       </div>
