@@ -1788,7 +1788,7 @@ export const workersApi = {
     data: UpdateWorkerRequest
   ): Promise<WorkerResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
     return handleApiResponse<WorkerResponse>(response);
