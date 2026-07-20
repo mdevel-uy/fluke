@@ -631,6 +631,7 @@
       "nameLabel": "Nombre",
       "namePlaceholder": "por ej. Abeja Backend",
       "emojiLabel": "Emoji",
+      "roleLabel": "Rol",
       "templatesLabel": "Arrancar desde una plantilla",
       "soulLabel": "Alma (soul)",
       "soulPlaceholder": "Describí territorio, estándares y Definition of Done...",
@@ -639,6 +640,14 @@
       "cancel": "Cancelar",
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios"
+    },
+    "roles": {
+      "developer": "Desarrollador",
+      "analyst": "Analista",
+      "reviewer": "Revisor",
+      "developerDescription": "Implementa funcionalidades y crea pull requests",
+      "analystDescription": "Investiga y produce entregables escritos",
+      "reviewerDescription": "Revisa código y brinda retroalimentación"
     },
     "toast": {
       "startSuccess": "{{worker}} arrancó con \"{{title}}\".",

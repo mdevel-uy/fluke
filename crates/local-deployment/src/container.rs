@@ -1149,6 +1149,10 @@ impl ContainerService for LocalContainerService {
         &self.notification_service
     }
 
+    fn config(&self) -> &Arc<RwLock<Config>> {
+        &self.config
+    }
+
     async fn touch(&self, workspace: &Workspace) -> Result<(), ContainerError> {
         let now = Instant::now();
 

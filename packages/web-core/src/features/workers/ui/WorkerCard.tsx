@@ -37,12 +37,25 @@ function WorkerAvatar({
       <span
         className={
           'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-primary ' +
-          (isWorking ? 'bg-success' : 'bg-low/50')
+          (isWorking ? 'bg-success animate-pulse' : 'bg-low/50')
         }
         aria-hidden
       />
     </div>
   );
+}
+
+type RoleBadgeVariant = 'neutral' | 'info' | 'warning';
+
+function roleBadgeVariant(role: string): RoleBadgeVariant {
+  switch (role) {
+    case 'analyst':
+      return 'info';
+    case 'reviewer':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
 }
 
 interface WorkerCardProps {
@@ -96,6 +109,9 @@ export function WorkerCard({
               {isWorking
                 ? t('workers.card.statusWorking')
                 : t('workers.card.statusIdle')}
+            </Badge>
+            <Badge variant={roleBadgeVariant(worker.role ?? 'developer')}>
+              {t(`workers.roles.${worker.role ?? 'developer'}`)}
             </Badge>
           </div>
           <div className="mt-1 text-sm text-low leading-snug">

@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use db::models::{
     merge::MergeStatus,
     pull_request::PullRequest,
-    worker::{CreateWorker, UpdateWorker, Worker},
+    worker::{CreateWorker, ROLE_ANALYST, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker, Worker},
     worker_task::{self, CreateWorkerTask, WorkerTask},
 };
 use deployment::Deployment;
@@ -26,6 +26,7 @@ pub struct WorkerResponse {
     pub name: String,
     pub emoji: String,
     pub soul: String,
+    pub role: String,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -103,6 +104,8 @@ pub struct CreateWorkerRequest {
     pub name: String,
     pub emoji: String,
     pub soul: String,
+    #[ts(optional)]
+    pub role: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -110,6 +113,8 @@ pub struct UpdateWorkerRequest {
     pub name: Option<String>,
     pub emoji: Option<String>,
     pub soul: Option<String>,
+    #[ts(optional)]
+    pub role: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -129,6 +134,10 @@ pub struct UpdateWorkerTaskRequest {
     pub status: Option<String>,
 }
 
+fn is_valid_role(role: &str) -> bool {
+    matches!(role, ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER)
+}
+
 async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {
     let active_workspace_id = Worker::active_workspace_id(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
@@ -139,6 +148,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         name: worker.name,
         emoji: worker.emoji,
         soul: worker.soul,
+        role: worker.role,
         active_workspace_id,
         queued_count,
         completed_count,
@@ -171,6 +181,11 @@ pub async fn create_worker(
     if emoji.is_empty() {
         return Err(ApiError::BadRequest("emoji is required".into()));
     }
+    if let Some(role) = payload.role.as_deref() {
+        if !is_valid_role(role) {
+            return Err(ApiError::BadRequest(format!("Invalid role: {role}")));
+        }
+    }
 
     let pool = &deployment.db().pool;
     let worker = Worker::create(
@@ -179,6 +194,7 @@ pub async fn create_worker(
             name: name.to_string(),
             emoji: emoji.to_string(),
             soul: payload.soul,
+            role: payload.role,
         },
     )
     .await?;
@@ -207,9 +223,28 @@ pub async fn update_worker(
 ) -> Result<ResponseJson<ApiResponse<WorkerResponse>>, ApiError> {
     let pool = &deployment.db().pool;
 
-    Worker::find_by_id(pool, worker_id)
+    let existing = Worker::find_by_id(pool, worker_id)
         .await?
         .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+
+    // Validate role value before touching the DB.
+    let role = payload
+        .role
+        .as_deref()
+        .map(|r| r.trim().to_string())
+        .filter(|r| !r.is_empty());
+
+    if let Some(ref r) = role {
+        if !is_valid_role(r) {
+            return Err(ApiError::BadRequest(format!("Invalid role: {r}")));
+        }
+        // Block role changes while tasks are in flight to avoid lifecycle confusion.
+        if r != &existing.role && Worker::has_in_flight_tasks(pool, worker_id).await? {
+            return Err(ApiError::Conflict(
+                "Cannot change role while worker has tasks in progress or in review".into(),
+            ));
+        }
+    }
 
     let worker = Worker::update(
         pool,
@@ -224,6 +259,7 @@ pub async fn update_worker(
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty()),
             soul: payload.soul,
+            role,
         },
     )
     .await?;
@@ -399,9 +435,9 @@ pub async fn start_all_workers(
         }
     }
 
-    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
-        results,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        StartAllWorkersResponse { results },
+    )))
 }
 
 /// Attempt to take the next queued task for the worker and start an agent

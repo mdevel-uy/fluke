@@ -1,12 +1,18 @@
 import { cn } from '@/shared/lib/utils';
 import type { Worker } from '@/features/sprint/types';
 
+const ROLE_DOT_CLASS: Record<string, string> = {
+  analyst: 'bg-blue-500',
+  reviewer: 'bg-amber-500',
+};
+
 interface WorkerChipProps {
-  worker: Pick<Worker, 'name' | 'emoji'>;
+  worker: Pick<Worker, 'name' | 'emoji' | 'role'>;
   className?: string;
 }
 
 export function WorkerChip({ worker, className }: WorkerChipProps) {
+  const dotClass = ROLE_DOT_CLASS[worker.role] ?? 'bg-muted-foreground/40';
   return (
     <span
       className={cn(
@@ -16,6 +22,10 @@ export function WorkerChip({ worker, className }: WorkerChipProps) {
       )}
       title={worker.name}
     >
+      <span
+        className={cn('h-2 w-2 rounded-full shrink-0', dotClass)}
+        aria-hidden
+      />
       <span className="text-sm leading-none" aria-hidden="true">
         {worker.emoji}
       </span>

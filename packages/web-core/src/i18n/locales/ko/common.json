@@ -631,6 +631,7 @@
       "nameLabel": "이름",
       "namePlaceholder": "예: Backend Bee",
       "emojiLabel": "이모지",
+      "roleLabel": "역할",
       "templatesLabel": "템플릿으로 시작",
       "soulLabel": "소울(Soul)",
       "soulPlaceholder": "영역, 표준, Definition of Done을 설명하세요...",
@@ -639,6 +640,14 @@
       "cancel": "취소",
       "saveNew": "워커 만들기",
       "saveEdit": "변경 사항 저장"
+    },
+    "roles": {
+      "developer": "개발자",
+      "analyst": "분석가",
+      "reviewer": "리뷰어",
+      "developerDescription": "기능을 구현하고 풀 리퀘스트를 생성합니다",
+      "analystDescription": "조사를 수행하고 서면 결과물을 생성합니다",
+      "reviewerDescription": "코드를 검토하고 피드백을 제공합니다"
     },
     "toast": {
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",

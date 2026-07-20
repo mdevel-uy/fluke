@@ -57,7 +57,9 @@ use utils::{
 use uuid::Uuid;
 use worktree_manager::WorktreeError;
 
-use crate::services::{execution_process, notification::NotificationService};
+use crate::services::{
+    config::Config, execution_process, notification::NotificationService, worker_orchestrator,
+};
 pub type ContainerRef = String;
 
 #[derive(Debug, Error)]
@@ -93,6 +95,8 @@ pub trait ContainerService {
     fn git(&self) -> &GitService;
 
     fn notification_service(&self) -> &NotificationService;
+
+    fn config(&self) -> &Arc<RwLock<Config>>;
 
     async fn touch(&self, workspace: &Workspace) -> Result<(), ContainerError>;
 
@@ -234,7 +238,8 @@ pub trait ContainerService {
         action.next_action.is_none()
     }
 
-    /// Finalize workspace execution by sending notifications
+    /// Finalize workspace execution by sending notifications and reconciling
+    /// analyst/reviewer worker task state.
     async fn finalize_task(&self, ctx: &ExecutionContext) {
         // Skip notification if process was intentionally killed by user
         if matches!(ctx.execution_process.status, ExecutionProcessStatus::Killed) {
@@ -267,6 +272,33 @@ pub trait ContainerService {
         self.notification_service()
             .notify(&title, &message, Some(ctx.workspace.id))
             .await;
+
+        // Analyst and reviewer workers transition to done/failed when their
+        // coding-agent run finishes, rather than waiting for a PR to be merged.
+        if matches!(
+            ctx.execution_process.run_reason,
+            ExecutionProcessRunReason::CodingAgent
+        ) {
+            let succeeded = matches!(
+                ctx.execution_process.status,
+                ExecutionProcessStatus::Completed
+            );
+            if let Err(e) = worker_orchestrator::on_agent_finished(
+                self.config(),
+                self.db(),
+                self,
+                ctx.workspace.id,
+                succeeded,
+            )
+            .await
+            {
+                tracing::warn!(
+                    workspace_id = %ctx.workspace.id,
+                    "Failed to reconcile analyst/reviewer task on agent finish: {}",
+                    e
+                );
+            }
+        }
     }
 
     /// Cleanup executions marked as running in the db, call at startup

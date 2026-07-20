@@ -631,6 +631,7 @@
       "nameLabel": "名前",
       "namePlaceholder": "例：Backend Bee",
       "emojiLabel": "絵文字",
+      "roleLabel": "役割",
       "templatesLabel": "テンプレートから始める",
       "soulLabel": "ソウル",
       "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
@@ -639,6 +640,14 @@
       "cancel": "キャンセル",
       "saveNew": "ワーカーを作成",
       "saveEdit": "変更を保存"
+    },
+    "roles": {
+      "developer": "開発者",
+      "analyst": "アナリスト",
+      "reviewer": "レビュアー",
+      "developerDescription": "機能を実装してプルリクエストを作成します",
+      "analystDescription": "調査を行い、書面による成果物を作成します",
+      "reviewerDescription": "コードをレビューしてフィードバックを提供します"
     },
     "toast": {
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
