@@ -64,12 +64,6 @@ importers:
       '@ebay/nice-modal-react':
         specifier: ^1.2.13
         version: 1.2.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@fontsource/geist':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource/hanken-grotesk':
-        specifier: ^5.3.0
-        version: 5.3.0
       '@git-diff-view/file':
         specifier: ^0.0.30
         version: 0.0.30
@@ -232,9 +226,6 @@ importers:
       lucide-react:
         specifier: ^0.539.0
         version: 0.539.0(react@18.3.1)
-      material-symbols:
-        specifier: ^0.45.8
-        version: 0.45.8
       posthog-js:
         specifier: ^1.276.0
         version: 1.283.0
@@ -631,6 +622,12 @@ importers:
       '@ebay/nice-modal-react':
         specifier: ^1.2.13
         version: 1.2.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@fontsource/geist':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/hanken-grotesk':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@git-diff-view/file':
         specifier: ^0.0.30
         version: 0.0.30
@@ -793,6 +790,9 @@ importers:
       lucide-react:
         specifier: ^0.539.0
         version: 0.539.0(react@18.3.1)
+      material-symbols:
+        specifier: ^0.45.8
+        version: 0.45.8
       mermaid:
         specifier: ^11.4.0
         version: 11.13.0
