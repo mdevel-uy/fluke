@@ -372,6 +372,82 @@ pub async fn create_pr(
                 provider,
                 e
             );
+
+            // If GitHub says the PR already exists (agent created it via gh cli),
+            // fall back to adopting it so the UI sees it as if it were created here.
+            if let GitHostError::PullRequest(msg) = &e {
+                if msg.to_ascii_lowercase().contains("already exists") {
+                    tracing::info!(
+                        workspace_id = %workspace.id,
+                        branch = %workspace.branch,
+                        "PR already exists on GitHub; adopting instead",
+                    );
+                    match git_host
+                        .list_prs_for_branch(&repo_path, &target_remote.url, &workspace.branch)
+                        .await
+                    {
+                        Ok(prs) => {
+                            if let Some(pr_info) = prs.into_iter().next() {
+                                if let Err(db_err) = PullRequest::create_for_workspace(
+                                    pool,
+                                    workspace.id,
+                                    workspace_repo.repo_id,
+                                    &base_branch,
+                                    pr_info.number,
+                                    &pr_info.url,
+                                )
+                                .await
+                                {
+                                    tracing::error!(
+                                        "Failed to create local PR record during adoption fallback: {}",
+                                        db_err
+                                    );
+                                }
+
+                                if let Ok(client) = deployment.remote_client() {
+                                    let pr_status = match &pr_info.status {
+                                        MergeStatus::Open => PullRequestStatus::Open,
+                                        MergeStatus::Merged => PullRequestStatus::Merged,
+                                        MergeStatus::Closed => PullRequestStatus::Closed,
+                                        MergeStatus::Unknown => PullRequestStatus::Open,
+                                    };
+                                    let upsert_req = UpsertPullRequestRequest {
+                                        url: pr_info.url.clone(),
+                                        number: pr_info.number as i32,
+                                        status: pr_status,
+                                        merged_at: pr_info.merged_at,
+                                        merge_commit_sha: pr_info.merge_commit_sha.clone(),
+                                        target_branch_name: base_branch.clone(),
+                                        local_workspace_id: workspace.id,
+                                    };
+                                    tokio::spawn(async move {
+                                        remote_sync::sync_pr_to_remote(&client, upsert_req).await;
+                                    });
+                                }
+
+                                if let Err(open_err) =
+                                    utils::browser::open_browser(&pr_info.url).await
+                                {
+                                    tracing::warn!(
+                                        "Failed to open adopted PR in browser: {}",
+                                        open_err
+                                    );
+                                }
+
+                                return Ok(ResponseJson(ApiResponse::success(pr_info.url)));
+                            }
+                        }
+                        Err(list_err) => {
+                            tracing::warn!(
+                                "Failed to list PRs for adoption fallback (workspace {}): {}",
+                                workspace.id,
+                                list_err
+                            );
+                        }
+                    }
+                }
+            }
+
             match &e {
                 GitHostError::CliNotInstalled { provider } => Ok(ResponseJson(
                     ApiResponse::error_with_data(PrError::CliNotInstalled {
