@@ -622,7 +622,12 @@
       "collapseQueue": "隐藏队列",
       "queueLoading": "正在加载队列...",
       "queueError": "加载队列失败。",
-      "queueEmpty": "队列为空。"
+      "queueEmpty": "队列为空。",
+      "failedLabel": "失败",
+      "failedTasksHeader": "{{count}} 个失败任务",
+      "failedTasksHeader_other": "{{count}} 个失败任务",
+      "taskFailedBadge": "失败",
+      "taskRetry": "重试"
     },
     "form": {
       "newTitle": "新建工作者",
@@ -647,6 +652,8 @@
       "createSuccess": "工作者已创建。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
+      "retrySuccess": "任务已重新加入队列。",
+      "retryError": "重试任务失败：{{message}}",
       "dismiss": "关闭"
     }
   },

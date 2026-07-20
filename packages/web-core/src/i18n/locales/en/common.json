@@ -622,7 +622,12 @@
       "collapseQueue": "Hide queue",
       "queueLoading": "Loading queue...",
       "queueError": "Failed to load queue.",
-      "queueEmpty": "The queue is empty."
+      "queueEmpty": "The queue is empty.",
+      "failedLabel": "failed",
+      "failedTasksHeader": "{{count}} failed task",
+      "failedTasksHeader_other": "{{count}} failed tasks",
+      "taskFailedBadge": "failed",
+      "taskRetry": "Retry"
     },
     "form": {
       "newTitle": "New worker",
@@ -647,6 +652,8 @@
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
+      "retrySuccess": "Task re-queued.",
+      "retryError": "Failed to retry task: {{message}}",
       "dismiss": "Dismiss"
     }
   },

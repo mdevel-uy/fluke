@@ -143,6 +143,19 @@ impl WorkerTask {
         Ok(result.rows_affected())
     }
 
+    /// All in_progress tasks across all workers. Used at startup to detect
+    /// tasks whose agent was killed by a server restart.
+    pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, created_at
+               FROM worker_tasks
+               WHERE status = 'in_progress'",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Task currently in progress for the worker, if any.
     pub async fn find_in_progress(
         pool: &SqlitePool,

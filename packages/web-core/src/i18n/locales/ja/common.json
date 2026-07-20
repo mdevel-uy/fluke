@@ -622,7 +622,12 @@
       "collapseQueue": "キューを隠す",
       "queueLoading": "キューを読み込み中...",
       "queueError": "キューの読み込みに失敗しました。",
-      "queueEmpty": "キューは空です。"
+      "queueEmpty": "キューは空です。",
+      "failedLabel": "失敗",
+      "failedTasksHeader": "{{count}} 件失敗",
+      "failedTasksHeader_other": "{{count}} 件失敗",
+      "taskFailedBadge": "失敗",
+      "taskRetry": "再試行"
     },
     "form": {
       "newTitle": "新しいワーカー",
@@ -647,6 +652,8 @@
       "createSuccess": "ワーカーを作成しました。",
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
+      "retrySuccess": "タスクを再キューに追加しました。",
+      "retryError": "タスクの再試行に失敗しました：{{message}}",
       "dismiss": "閉じる"
     }
   },

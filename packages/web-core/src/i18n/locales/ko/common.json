@@ -622,7 +622,12 @@
       "collapseQueue": "대기열 숨기기",
       "queueLoading": "대기열을 불러오는 중...",
       "queueError": "대기열을 불러오지 못했습니다.",
-      "queueEmpty": "대기열이 비었습니다."
+      "queueEmpty": "대기열이 비었습니다.",
+      "failedLabel": "실패",
+      "failedTasksHeader": "{{count}}개 실패",
+      "failedTasksHeader_other": "{{count}}개 실패",
+      "taskFailedBadge": "실패",
+      "taskRetry": "재시도"
     },
     "form": {
       "newTitle": "새 워커",
@@ -647,6 +652,8 @@
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
+      "retrySuccess": "작업이 대기열에 다시 추가되었습니다.",
+      "retryError": "작업 재시도 실패: {{message}}",
       "dismiss": "닫기"
     }
   },

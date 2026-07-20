@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   MoreVertical,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@vibe/ui/components/DropdownMenu';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useWorkerTasks } from '@/features/workers/model/useWorkers';
 import { WorkerTaskList } from './WorkerTaskList';
 
 function WorkerAvatar({
@@ -65,6 +67,13 @@ export function WorkerCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isWorking = worker.active_workspace_id !== null;
+
+  const { data: tasks } = useWorkerTasks(worker.id, true);
+  const failedCount = (tasks ?? []).filter(
+    (task) =>
+      task.status === 'failed' &&
+      task.workspace_id !== worker.active_workspace_id
+  ).length;
 
   const handleOpenWorkspace = () => {
     if (worker.active_workspace_id) {
@@ -156,6 +165,27 @@ export function WorkerCard({
             {t('workers.card.completedLabel')}
           </span>
         </div>
+        {failedCount > 0 && (
+          <>
+            <span className="h-4 w-px bg-border/70" aria-hidden />
+            <button
+              type="button"
+              onClick={() => setIsExpanded(true)}
+              className="flex items-center gap-1 text-warning hover:text-warning/80 transition-colors cursor-pointer"
+              title={t('workers.card.failedTasksHeader', {
+                count: failedCount,
+              })}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span className="text-base font-semibold tabular-nums">
+                {failedCount}
+              </span>
+              <span className="text-xs uppercase tracking-wide">
+                {t('workers.card.failedLabel')}
+              </span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Actions footer */}

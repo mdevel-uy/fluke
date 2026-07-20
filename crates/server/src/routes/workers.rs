@@ -399,9 +399,9 @@ pub async fn start_all_workers(
         }
     }
 
-    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
-        results,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        StartAllWorkersResponse { results },
+    )))
 }
 
 /// Attempt to take the next queued task for the worker and start an agent

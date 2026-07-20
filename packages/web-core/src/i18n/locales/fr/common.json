@@ -622,7 +622,12 @@
       "collapseQueue": "Masquer la file",
       "queueLoading": "Chargement de la file...",
       "queueError": "Échec du chargement de la file.",
-      "queueEmpty": "La file est vide."
+      "queueEmpty": "La file est vide.",
+      "failedLabel": "échouée",
+      "failedTasksHeader": "{{count}} tâche échouée",
+      "failedTasksHeader_other": "{{count}} tâches échouées",
+      "taskFailedBadge": "échouée",
+      "taskRetry": "Réessayer"
     },
     "form": {
       "newTitle": "Nouveau worker",
@@ -647,6 +652,8 @@
       "createSuccess": "Worker créé.",
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
+      "retrySuccess": "Tâche remise en file.",
+      "retryError": "Impossible de réessayer la tâche : {{message}}",
       "dismiss": "Fermer"
     }
   },

@@ -622,7 +622,12 @@
       "collapseQueue": "隱藏佇列",
       "queueLoading": "正在載入佇列...",
       "queueError": "載入佇列失敗。",
-      "queueEmpty": "佇列為空。"
+      "queueEmpty": "佇列為空。",
+      "failedLabel": "失敗",
+      "failedTasksHeader": "{{count}} 個失敗任務",
+      "failedTasksHeader_other": "{{count}} 個失敗任務",
+      "taskFailedBadge": "失敗",
+      "taskRetry": "重試"
     },
     "form": {
       "newTitle": "新增工作者",
@@ -647,6 +652,8 @@
       "createSuccess": "工作者已建立。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已刪除。",
+      "retrySuccess": "任務已重新加入佇列。",
+      "retryError": "重試任務失敗：{{message}}",
       "dismiss": "關閉"
     }
   },

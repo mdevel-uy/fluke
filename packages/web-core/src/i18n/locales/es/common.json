@@ -622,7 +622,12 @@
       "collapseQueue": "Ocultar cola",
       "queueLoading": "Cargando cola...",
       "queueError": "No se pudo cargar la cola.",
-      "queueEmpty": "La cola está vacía."
+      "queueEmpty": "La cola está vacía.",
+      "failedLabel": "fallida",
+      "failedTasksHeader": "{{count}} tarea fallida",
+      "failedTasksHeader_other": "{{count}} tareas fallidas",
+      "taskFailedBadge": "fallida",
+      "taskRetry": "Reintentar"
     },
     "form": {
       "newTitle": "Nuevo worker",
@@ -647,6 +652,8 @@
       "createSuccess": "Worker creado.",
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
+      "retrySuccess": "Tarea reingresada a la cola.",
+      "retryError": "No se pudo reintentar la tarea: {{message}}",
       "dismiss": "Cerrar"
     }
   },
