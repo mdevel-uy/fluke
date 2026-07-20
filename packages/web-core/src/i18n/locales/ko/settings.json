@@ -28,7 +28,9 @@
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "스킬",
+        "skillsDesc": "~/.claude/skills에 설치된 에이전트 스킬 관리"
       }
     },
     "general": {
@@ -524,6 +526,25 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "설치된 스킬",
+        "description": "~/.claude/skills에서 모든 에이전트가 사용할 수 있는 스킬.",
+        "loading": "스킬 불러오는 중...",
+        "loadError": "스킬을 불러오지 못했습니다.",
+        "empty": "설치된 스킬이 없습니다. 아래 git 저장소 URL에서 설치하세요.",
+        "delete": "{{name}} 삭제"
+      },
+      "install": {
+        "title": "스킬 설치",
+        "description": "git 저장소에서 ~/.claude/skills로 스킬을 복제합니다.",
+        "urlLabel": "저장소 URL",
+        "urlHelper": "스킬 이름은 URL의 마지막 경로 세그먼트에서 파생됩니다.",
+        "urlPlaceholder": "https://github.com/org/skill-name",
+        "button": "설치",
+        "error": "스킬 설치에 실패했습니다."
+      }
     }
   },
   "integrations": {

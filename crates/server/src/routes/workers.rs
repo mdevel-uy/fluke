@@ -48,6 +48,8 @@ pub struct WorkerTaskResponse {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// Skills selected for this task (stored as JSON array, exposed as array).
+    pub skills: Vec<String>,
     /// URL of the most recent pull request tracked for this task's workspace,
     /// or `null` when no PR has been created yet.
     pub pr_url: Option<String>,
@@ -73,6 +75,8 @@ async fn worker_task_to_response(
         None => (None, None),
     };
 
+    let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
+
     Ok(WorkerTaskResponse {
         id: task.id,
         worker_id: task.worker_id,
@@ -83,6 +87,7 @@ async fn worker_task_to_response(
         issue_number: task.issue_number,
         status: task.status,
         workspace_id: task.workspace_id,
+        skills,
         pr_url,
         pr_state,
         created_at: task.created_at,
@@ -119,6 +124,11 @@ pub struct CreateWorkerTaskRequest {
     pub prompt: String,
     #[ts(type = "number | null", optional)]
     pub issue_number: Option<i64>,
+    /// Skills to associate with this task. Each skill name must correspond to
+    /// an installed skill in `~/.claude/skills`. The instructions are appended
+    /// to the stored prompt so the agent receives them automatically.
+    #[ts(optional)]
+    pub skills: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -283,14 +293,23 @@ pub async fn create_worker_task(
         return Err(ApiError::BadRequest("prompt is required".into()));
     }
 
+    let skills = payload.skills.unwrap_or_default();
+
+    // Append skill instructions to the prompt so the agent receives them.
+    let mut final_prompt = prompt.to_string();
+    for skill in &skills {
+        final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
+    }
+
     let task = WorkerTask::append(
         pool,
         worker_id,
         &CreateWorkerTask {
             repo_id: payload.repo_id,
             title: title.to_string(),
-            prompt: prompt.to_string(),
+            prompt: final_prompt,
             issue_number: payload.issue_number,
+            skills,
         },
     )
     .await?;
@@ -399,9 +418,9 @@ pub async fn start_all_workers(
         }
     }
 
-    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
-        results,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        StartAllWorkersResponse { results },
+    )))
 }
 
 /// Attempt to take the next queued task for the worker and start an agent
@@ -437,9 +456,10 @@ fn map_start_error(err: StartError) -> ApiError {
     match err {
         StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
         StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
-        StartError::RepoMissingDefaultBranch => ApiError::BadRequest(
-            "Repo is missing default_target_branch; configure it before starting a worker".into(),
-        ),
+        StartError::RepoMissingDefaultBranch(repo_name) => ApiError::BadRequest(format!(
+            "Repo '{}' is missing a default target branch. Configure it in Settings \u{2192} Repos \u{2192} {} \u{2192} Default target branch",
+            repo_name, repo_name
+        )),
         StartError::NothingQueued => ApiError::Conflict("No queued tasks for worker".into()),
         StartError::AlreadyInProgress => {
             ApiError::Conflict("Worker already has a task in progress".into())
@@ -468,9 +488,11 @@ pub async fn delete_worker_task(
             "Worker task does not belong to this worker".into(),
         ));
     }
-    if existing.status != worker_task::STATUS_QUEUED {
+    if existing.status != worker_task::STATUS_QUEUED
+        && existing.status != worker_task::STATUS_FAILED
+    {
         return Err(ApiError::Conflict(
-            "Only queued tasks can be deleted".into(),
+            "Only queued or failed tasks can be deleted".into(),
         ));
     }
 

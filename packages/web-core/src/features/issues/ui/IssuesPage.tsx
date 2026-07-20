@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCcw } from 'lucide-react';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import {
   Select,
   SelectContent,
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
+import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi } from '@/shared/lib/api';
@@ -21,8 +21,12 @@ import {
   useRemoveIssueLabel,
   useCloseIssue,
 } from '@/features/issues/model/useRepoIssues';
-import type { RepoIssue } from '@/features/issues/types';
-import type { IssueLabel } from 'shared/types';
+import type { RepoIssue, IssueLabel } from '@/features/issues/types';
+import {
+  useAllWorkerTasks,
+  useWorkers,
+} from '@/features/sprint/model/useWorkers';
+import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
@@ -74,16 +78,21 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
 }
 
 // ---------------------------------------------------------------------------
+// Worker-task overlay
+// ---------------------------------------------------------------------------
+
+const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
+const EMPTY_TASK_MAP = new Map<number, WorkerTask>();
+
+// ---------------------------------------------------------------------------
 // Filtering
 // ---------------------------------------------------------------------------
 
 function applyFilters(issues: RepoIssue[], filters: IssueFilters): RepoIssue[] {
   return issues.filter((issue) => {
-    // state
     if (filters.state === 'open' && issue.state !== 'open') return false;
     if (filters.state === 'closed' && issue.state !== 'closed') return false;
 
-    // text search
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const matchesTitle = issue.title.toLowerCase().includes(q);
@@ -92,7 +101,6 @@ function applyFilters(issues: RepoIssue[], filters: IssueFilters): RepoIssue[] {
       if (!matchesTitle && !matchesNumber) return false;
     }
 
-    // priority
     if (filters.priorities.length > 0) {
       if (
         !issue.priority ||
@@ -102,13 +110,11 @@ function applyFilters(issues: RepoIssue[], filters: IssueFilters): RepoIssue[] {
       }
     }
 
-    // labels
     if (filters.labels.length > 0) {
       const issueLabels = new Set(issue.labels.map((l) => l.name));
       if (!filters.labels.some((l) => issueLabels.has(l))) return false;
     }
 
-    // milestones
     if (filters.milestones.length > 0) {
       if (!issue.milestone || !filters.milestones.includes(issue.milestone)) {
         return false;
@@ -173,7 +179,6 @@ function groupIssues(
     });
   }
 
-  // Sort: named groups first, then "no ..." last
   groups.sort((a, b) => {
     if (a.key === '__none__') return 1;
     if (b.key === '__none__') return -1;
@@ -227,7 +232,6 @@ export function IssuesPage() {
     queryFn: () => repoApi.list(),
   });
 
-  // Sync URL param → store
   useEffect(() => {
     if (
       selectedRepoIdFromUrl &&
@@ -237,7 +241,6 @@ export function IssuesPage() {
     }
   }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
 
-  // Auto-select
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
     const targetId =
@@ -275,10 +278,27 @@ export function IssuesPage() {
   const removeLabelMutation = useRemoveIssueLabel(selectedRepoId);
   const closeIssueMutation = useCloseIssue(selectedRepoId);
 
+  const { data: workers } = useWorkers();
+  const { tasks: allTasks } = useAllWorkerTasks(workers);
+
+  const activeTaskByIssueNumber = useMemo(() => {
+    if (!selectedRepoId || allTasks.length === 0) return EMPTY_TASK_MAP;
+    const map = new Map<number, WorkerTask>();
+    for (const task of allTasks) {
+      if (
+        task.repo_id === selectedRepoId &&
+        task.issue_number != null &&
+        ACTIVE_STATUSES.has(task.status)
+      ) {
+        map.set(task.issue_number, task);
+      }
+    }
+    return map;
+  }, [allTasks, selectedRepoId]);
+
   const isSyncing = syncMutation.isPending;
   const hasIssues = issues.length > 0;
 
-  // Available filter options derived from all (unfiltered) issues
   const availableLabels = useMemo(
     () => deriveAvailableLabels(issues),
     [issues]
@@ -288,13 +308,11 @@ export function IssuesPage() {
     [issues]
   );
 
-  // Apply filters
   const filteredIssues = useMemo(
     () => applyFilters(issues, filters),
     [issues, filters]
   );
 
-  // Group filtered issues
   const groups = useMemo(
     () =>
       groupIssues(
@@ -308,7 +326,6 @@ export function IssuesPage() {
     [filteredIssues, filters.groupBy, t]
   );
 
-  // Selected issue for drawer
   const selectedIssue = useMemo(
     () =>
       selectedIssueNumber != null
@@ -323,7 +340,6 @@ export function IssuesPage() {
       void (navigate as any)({
         search: (prev: RawSearch) => {
           const next = { ...prev, ...params };
-          // Remove keys set to undefined
           (Object.keys(next) as (keyof RawSearch)[]).forEach((k) => {
             if (next[k] === undefined) delete next[k];
           });
@@ -380,7 +396,6 @@ export function IssuesPage() {
   const handleCloseIssue = useCallback(
     async (issueNumber: number) => {
       await closeIssueMutation.mutateAsync(issueNumber);
-      // If the archived issue was open in the drawer, close it
       if (selectedIssueNumber === issueNumber) {
         handleCloseDrawer();
       }
@@ -389,50 +404,61 @@ export function IssuesPage() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('issues.title')}
-          </h1>
-          {hasIssues && (
-            <span className="text-sm text-low">
-              {t('issues.countLabel', { count: issues.length })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="min-w-[240px]">
-            <Select
-              value={selectedRepoId ?? ''}
-              onValueChange={handleRepoChange}
-              disabled={repos.length === 0}
+    <div className="flex h-full w-full flex-col bg-md-background">
+      {/* MD3 top bar — 64px, surface-bright, border bottom */}
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight shrink-0">
+          {t('issues.title')}
+        </h1>
+
+        {/* Segmented control: repo picker + refresh */}
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="flex bg-md-surface-container-low rounded-lg p-1 border border-md-outline-variant gap-1">
+            <div className="min-w-[180px]">
+              <Select
+                value={selectedRepoId ?? ''}
+                onValueChange={handleRepoChange}
+                disabled={repos.length === 0}
+              >
+                <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-body-sm px-2 font-semibold text-md-on-surface">
+                  <SelectValue
+                    placeholder={t('issues.repoSelectorPlaceholder')}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {repos.map((repo) => (
+                    <SelectItem key={repo.id} value={repo.id}>
+                      {repo.display_name || repo.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={!selectedRepoId || isSyncing}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded-md text-body-sm text-md-on-surface-variant',
+                'hover:bg-md-surface-container transition-colors duration-200',
+                'active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
             >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t('issues.repoSelectorPlaceholder')}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {repos.map((repo) => (
-                  <SelectItem key={repo.id} value={repo.id}>
-                    {repo.display_name || repo.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <MaterialIcon
+                name="refresh"
+                size="sm"
+                className={isSyncing ? 'animate-spin' : ''}
+              />
+              <span className="hidden sm:inline">
+                {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+              </span>
+            </button>
           </div>
-          <PrimaryButton
-            variant="tertiary"
-            value={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-            actionIcon={isSyncing ? 'spinner' : RefreshCcw}
-            onClick={handleRefresh}
-            disabled={!selectedRepoId || isSyncing}
-          />
         </div>
       </header>
 
-      {/* Toolbar (only when there are issues) */}
+      {/* Filters toolbar (only when there are issues) */}
       {hasIssues && (
         <IssuesToolbar
           filters={filters}
@@ -444,25 +470,33 @@ export function IssuesPage() {
 
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loadingRepos')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.selectRepoPrompt')}
           </div>
         ) : isLoading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('issues.loadError')}
           </div>
         ) : !hasIssues ? (
@@ -470,7 +504,7 @@ export function IssuesPage() {
             <IssuesEmptyState />
           </div>
         ) : filteredIssues.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.filters.noResults')}
           </div>
         ) : (
@@ -483,6 +517,7 @@ export function IssuesPage() {
                   count={group.issues.length}
                   issues={group.issues}
                   repoId={selectedRepoId}
+                  taskByIssueNumber={activeTaskByIssueNumber}
                   selectedIssueId={selectedIssue?.id}
                   onSelectIssue={handleSelectIssue}
                   onRemoveLabel={handleRemoveLabel}

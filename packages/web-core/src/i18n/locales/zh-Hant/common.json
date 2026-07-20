@@ -570,6 +570,16 @@
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
     "archiveAction": "封存",
+    "taskStatus": {
+      "queued": "排隊中",
+      "in_progress": "進行中",
+      "in_review": "審查中",
+      "done": "已完成"
+    },
+    "taskLinked": {
+      "openWorkspace": "開啟工作區",
+      "viewInSprint": "在 Sprint 中檢視"
+    },
     "assignDialog": {
       "title": "將 Issue #{{number}} 指派給工作者",
       "description": "選擇一個工作者並檢閱提示詞。任務將被加入工作者的佇列。",
@@ -714,18 +724,23 @@
       "queued": "排隊中",
       "inProgress": "進行中",
       "inReview": "審查中",
-      "done": "已完成"
+      "done": "已完成",
+      "failed": "已失敗"
     },
     "backlog": {
       "assign": "指派",
       "noWorkers": "沒有可用的工人",
-      "empty": "沒有等待處理的開啟 Issue。"
+      "empty": "沒有等待處理的開啟 Issue。",
+      "moreActions": "更多操作",
+      "setPriority": "設定優先級",
+      "assignTo": "指派給工人"
     },
     "composer": {
       "title": "新自由任務",
       "titlePlaceholder": "任務標題",
       "promptPlaceholder": "代理應該做什麼？",
-      "assign": "傳送給工人"
+      "assign": "傳送給工人",
+      "skills": "技能："
     },
     "queued": {
       "moveUp": "上移",
@@ -742,6 +757,33 @@
     },
     "done": {
       "empty": "尚未完成任何任務。"
+    },
+    "filters": {
+      "searchPlaceholder": "搜尋 Issue...",
+      "clearSearch": "清除搜尋",
+      "epic": "史詩",
+      "allEpics": "所有史詩",
+      "label": "標籤",
+      "allLabels": "所有標籤",
+      "priority": "優先級",
+      "allPriorities": "所有優先級",
+      "worker": "工人",
+      "allWorkers": "所有工人",
+      "clearAll": "清除篩選",
+      "noResults": "沒有 Issue 符合目前的篩選條件。"
+    },
+    "priority": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "detail": {
+      "panelLabel": "Issue 詳情",
+      "close": "關閉面板",
+      "noPriority": "無優先級",
+      "noBody": "暫無描述。",
+      "assignedTo": "已指派給 {{worker}}"
     },
     "startSprint": "開始衝刺",
     "startSprintDisabled": "沒有可以開始的工作者",
@@ -762,6 +804,11 @@
       "startAllSuccess": "已啟動 {{count}} 個工作者。",
       "startAllNoneStarted": "沒有工作者可以開始。",
       "startAllError": "啟動衝刺失敗：{{message}}"
+    },
+    "failed": {
+      "retry": "重試",
+      "discard": "丟棄",
+      "empty": "沒有失敗的任務。"
     }
   }
 }

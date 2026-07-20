@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
-import { useSearch } from '@tanstack/react-router';
+import { useRouter, useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, X } from 'lucide-react';
-import { ArrowClockwiseIcon } from '@phosphor-icons/react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { Button } from '@vibe/ui/components/Button';
 import {
@@ -24,9 +23,13 @@ import {
 } from '@vibe/ui/components/KeyboardDialog';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { repoApi, workersApi } from '@/shared/lib/api';
+import { repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
 import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
-import type { RepoIssue } from '@/features/issues';
+import type {
+  RepoIssue,
+  IssuePriority,
+  IssueLabel,
+} from '@/features/issues/types';
 import {
   useAllWorkerTasks,
   useWorkers,
@@ -34,6 +37,7 @@ import {
 import { workersKeys } from '@/features/workers';
 import { useStartAllWorkers } from '@/features/workers/model/useWorkers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
 import { WorkerChip } from './WorkerChip';
@@ -43,7 +47,11 @@ import { QueuedTaskCard } from './QueuedTaskCard';
 import { InProgressTaskCard } from './InProgressTaskCard';
 import { InReviewTaskCard } from './InReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
+import { FailedTaskCard } from './FailedTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
+import { SprintFilterBar } from './SprintFilterBar';
+import { IssueDetailPanel } from './IssueDetailPanel';
+import type { SprintFilters } from './SprintFilterBar';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
 const DONE_LIMIT = 20;
@@ -92,6 +100,13 @@ function useToasts() {
   return { toasts, push, dismiss };
 }
 
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
 function findWorker(workers: Worker[], id: string): Worker | undefined {
   return workers.find((w) => w.id === id);
 }
@@ -116,12 +131,94 @@ function groupByWorkerOrdered(
   return groups;
 }
 
+function sortByPriority(issues: RepoIssue[]): RepoIssue[] {
+  return [...issues].sort((a, b) => {
+    const pa = a.priority != null ? (PRIORITY_ORDER[a.priority] ?? 4) : 4;
+    const pb = b.priority != null ? (PRIORITY_ORDER[b.priority] ?? 4) : 4;
+    return pa - pb;
+  });
+}
+
+function filterIssues(
+  issues: RepoIssue[],
+  filters: SprintFilters,
+  workersByIssue: Map<number, Worker>
+): RepoIssue[] {
+  const q = filters.q.trim().toLowerCase();
+  return issues.filter((issue) => {
+    if (q) {
+      const matchesTitle = issue.title.toLowerCase().includes(q);
+      const matchesNumber = String(issue.number).includes(q);
+      if (!matchesTitle && !matchesNumber) return false;
+    }
+    if (filters.epic && issue.milestone !== filters.epic) return false;
+    if (filters.label && !issue.labels.some((l) => l.name === filters.label))
+      return false;
+    if (filters.priority && issue.priority !== filters.priority) return false;
+    if (filters.worker) {
+      const worker = workersByIssue.get(issue.number);
+      if (!worker || worker.id !== filters.worker) return false;
+    }
+    return true;
+  });
+}
+
+function uniqueEpics(issues: RepoIssue[]): string[] {
+  const seen = new Set<string>();
+  for (const issue of issues) {
+    if (issue.milestone) seen.add(issue.milestone);
+  }
+  return Array.from(seen).sort();
+}
+
+function uniqueLabels(issues: RepoIssue[]): IssueLabel[] {
+  const seen = new Map<string, IssueLabel>();
+  for (const issue of issues) {
+    for (const label of issue.labels) {
+      if (!seen.has(label.name)) seen.set(label.name, label);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function SprintPage() {
   const { t } = useTranslation('common');
   usePageTitle(t('sprint.title'));
   const appNavigation = useAppNavigation();
   const queryClient = useQueryClient();
-  const search = useSearch({ strict: false }) as { repo?: string };
+  const router = useRouter();
+
+  // Update URL search params without TanStack Router typed navigate
+  // (web-core doesn't have the route type declarations from local-web).
+  const updateSearchParams = useCallback(
+    (updates: Record<string, string | number | undefined>, replace = false) => {
+      const url = new URL(window.location.href);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === undefined || value === '') {
+          url.searchParams.delete(key);
+        } else {
+          url.searchParams.set(key, String(value));
+        }
+      });
+      const target = url.pathname + (url.search || '');
+      if (replace) {
+        router.history.replace(target);
+      } else {
+        router.history.push(target);
+      }
+    },
+    [router]
+  );
+  const search = useSearch({ strict: false }) as {
+    repo?: string;
+    q?: string;
+    epic?: string;
+    label?: string;
+    priority?: IssuePriority;
+    worker?: string;
+    issue?: number;
+  };
+
   const selectedRepoIdFromUrl = search.repo;
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
@@ -131,7 +228,6 @@ export function SprintPage() {
     queryFn: () => repoApi.list(),
   });
 
-  // Sync URL param → store so navigation to this view updates the remembered repo.
   useEffect(() => {
     if (
       selectedRepoIdFromUrl &&
@@ -141,7 +237,6 @@ export function SprintPage() {
     }
   }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
 
-  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
     const targetId =
@@ -163,6 +258,11 @@ export function SprintPage() {
     }
     return repos[0]?.id;
   }, [selectedRepoIdFromUrl, repos, storedRepoId]);
+
+  const selectedRepo = useMemo(
+    () => repos.find((r) => r.id === selectedRepoId),
+    [repos, selectedRepoId]
+  );
 
   const {
     data: issues = [],
@@ -196,12 +296,14 @@ export function SprintPage() {
       title: string;
       prompt: string;
       issueNumber?: number | null;
+      skills?: string[];
     }) => {
       return workersApi.createTask(params.workerId, {
         repo_id: selectedRepoId!,
         title: params.title,
         prompt: params.prompt,
         issue_number: params.issueNumber ?? null,
+        skills: params.skills ?? [],
       });
     },
     onSuccess: () => invalidateWorkerData(),
@@ -216,9 +318,6 @@ export function SprintPage() {
 
   const swapTasksMutation = useMutation({
     mutationFn: async (params: { a: WorkerTask; b: WorkerTask }) => {
-      // Swap two tasks' positions with two PATCH calls. Sequential because
-      // both belong to the same worker's queue and race-based ordering is
-      // rare here (single user, click-driven).
       await workersApi.updateTask(params.a.worker_id, params.a.id, {
         position: params.b.position,
       });
@@ -229,6 +328,67 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const retryTaskMutation = useMutation({
+    mutationFn: async (params: {
+      task: WorkerTask;
+      minQueuedPosition: number;
+    }) => {
+      await workersApi.updateTask(params.task.worker_id, params.task.id, {
+        status: 'queued',
+        position: params.minQueuedPosition - 1,
+      });
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
+  const discardTaskMutation = useMutation({
+    mutationFn: async (params: { workerId: string; taskId: string }) => {
+      await workersApi.deleteTask(params.workerId, params.taskId);
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
+  const setPriorityMutation = useMutation({
+    mutationFn: async (params: {
+      issueNumber: number;
+      priority: IssuePriority | null;
+    }) => {
+      if (!selectedRepoId) throw new Error('No repo selected');
+      await repoIssuesApi.setPriority(
+        selectedRepoId,
+        params.issueNumber,
+        params.priority
+      );
+    },
+    onMutate: async ({ issueNumber, priority }) => {
+      if (!selectedRepoId) return;
+      const key = repoIssuesKeys.byRepo(selectedRepoId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<RepoIssue[]>(key);
+      queryClient.setQueryData<RepoIssue[]>(key, (old) =>
+        old
+          ? old.map((i) => (i.number === issueNumber ? { ...i, priority } : i))
+          : old
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev && selectedRepoId) {
+        queryClient.setQueryData(
+          repoIssuesKeys.byRepo(selectedRepoId),
+          ctx.prev
+        );
+      }
+    },
+    onSettled: () => {
+      if (selectedRepoId) {
+        queryClient.invalidateQueries({
+          queryKey: repoIssuesKeys.byRepo(selectedRepoId),
+        });
+      }
+    },
+  });
+
   const startAllMutation = useStartAllWorkers();
 
   const handleAssignIssue = useCallback(
@@ -237,25 +397,40 @@ export function SprintPage() {
       setBusyTaskId(`issue-${issue.id}`);
       const title = `#${issue.number} ${issue.title}`;
       const prompt = buildAssignToAgentPrompt(issue);
+      // Extract skill names from labels with the convention `skill:<name>`.
+      const skills = issue.labels
+        .map((l) => l.name)
+        .filter((n) => n.startsWith('skill:'))
+        .map((n) => n.slice('skill:'.length))
+        .filter(Boolean);
       createTaskMutation.mutate(
-        { workerId, title, prompt, issueNumber: issue.number },
+        { workerId, title, prompt, issueNumber: issue.number, skills },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleFreeTaskCreate = useCallback(
-    (params: { workerId: string; title: string; prompt: string }) => {
+    (params: {
+      workerId: string;
+      title: string;
+      prompt: string;
+      skills: string[];
+    }) => {
       if (!selectedRepoId) return;
       setBusyTaskId('free-composer');
       createTaskMutation.mutate(params, {
         onSettled: () => setBusyTaskId(null),
+        onError: (err) =>
+          pushToast('error', err instanceof Error ? err.message : String(err)),
       });
     },
-    [createTaskMutation, selectedRepoId]
+    [createTaskMutation, selectedRepoId, pushToast]
   );
 
   const handleRemoveTask = useCallback(
@@ -265,10 +440,12 @@ export function SprintPage() {
         { workerId: task.worker_id, taskId: task.id },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [deleteTaskMutation]
+    [deleteTaskMutation, pushToast]
   );
 
   const handleReorder = useCallback(
@@ -278,15 +455,41 @@ export function SprintPage() {
         { a, b },
         {
           onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast('error', err instanceof Error ? err.message : String(err)),
         }
       );
     },
-    [swapTasksMutation]
+    [swapTasksMutation, pushToast]
   );
 
-  // Per repo, split tasks by status. Only tasks belonging to the selected
-  // repo participate in the board (the backlog check further below uses
-  // the same repo filter).
+  const handleRetryTask = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      const queued = allTasks.filter(
+        (t) => t.worker_id === task.worker_id && t.status === 'queued'
+      );
+      const minPosition =
+        queued.length > 0 ? Math.min(...queued.map((t) => t.position)) : 0;
+      retryTaskMutation.mutate(
+        { task, minQueuedPosition: minPosition },
+        { onSettled: () => setBusyTaskId(null) }
+      );
+    },
+    [retryTaskMutation, allTasks]
+  );
+
+  const handleDiscardTask = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      discardTaskMutation.mutate(
+        { workerId: task.worker_id, taskId: task.id },
+        { onSettled: () => setBusyTaskId(null) }
+      );
+    },
+    [discardTaskMutation]
+  );
+
   const repoTasks = useMemo(
     () => allTasks.filter((task) => task.repo_id === selectedRepoId),
     [allTasks, selectedRepoId]
@@ -302,15 +505,73 @@ export function SprintPage() {
     return set;
   }, [repoTasks]);
 
+  // Map issue number → worker currently handling it (for filter + detail panel)
+  const workerByIssueNumber = useMemo(() => {
+    const map = new Map<number, Worker>();
+    for (const task of repoTasks) {
+      if (task.issue_number != null && ACTIVE_STATUSES.has(task.status)) {
+        const worker = findWorker(workers, task.worker_id);
+        if (worker) map.set(task.issue_number, worker);
+      }
+    }
+    return map;
+  }, [repoTasks, workers]);
+
   const openIssues = useMemo(
     () => issues.filter((i) => i.state === 'open'),
     [issues]
   );
 
-  const backlogIssues = useMemo(
+  const backlogIssuesRaw = useMemo(
     () =>
       openIssues.filter((issue) => !activeTasksByIssueNumber.has(issue.number)),
     [openIssues, activeTasksByIssueNumber]
+  );
+
+  // Derived filter state from URL
+  const filters: SprintFilters = useMemo(
+    () => ({
+      q: search.q ?? '',
+      epic: search.epic ?? '',
+      label: search.label ?? '',
+      priority: search.priority ?? '',
+      worker: search.worker ?? '',
+    }),
+    [search.q, search.epic, search.label, search.priority, search.worker]
+  );
+
+  const handleFiltersChange = useCallback(
+    (next: SprintFilters) => {
+      updateSearchParams(
+        {
+          q: next.q || undefined,
+          epic: next.epic || undefined,
+          label: next.label || undefined,
+          priority: next.priority || undefined,
+          worker: next.worker || undefined,
+        },
+        true
+      );
+    },
+    [updateSearchParams]
+  );
+
+  const filteredBacklogIssues = useMemo(
+    () =>
+      sortByPriority(
+        filterIssues(backlogIssuesRaw, filters, workerByIssueNumber)
+      ),
+    [backlogIssuesRaw, filters, workerByIssueNumber]
+  );
+
+  // Available filter options derived from ALL backlog issues (not filtered)
+  const allEpics = useMemo(
+    () => uniqueEpics(backlogIssuesRaw),
+    [backlogIssuesRaw]
+  );
+  const allLabels = useMemo(
+    () => uniqueLabels(backlogIssuesRaw),
+    [backlogIssuesRaw]
   );
 
   const queuedGroups = useMemo(
@@ -334,7 +595,6 @@ export function SprintPage() {
 
   const doneTasks = useMemo(() => {
     const done = repoTasks.filter((task) => task.status === 'done');
-    // Most-recent first by created_at.
     done.sort((a, b) => {
       const aTs = new Date(a.created_at).getTime();
       const bTs = new Date(b.created_at).getTime();
@@ -342,6 +602,15 @@ export function SprintPage() {
     });
     return done.slice(0, DONE_LIMIT);
   }, [repoTasks]);
+
+  const failedGroups = useMemo(
+    () =>
+      groupByWorkerOrdered(
+        repoTasks.filter((task) => task.status === 'failed'),
+        workers
+      ),
+    [repoTasks, workers]
+  );
 
   // Per-worker in_review count across ALL repos (cap is global).
   const inReviewCountByWorker = useMemo(() => {
@@ -421,10 +690,40 @@ export function SprintPage() {
     appNavigation.goToSprint(repoId);
   };
 
+  // Detail panel
+  const openIssueNumber = search.issue;
+  const detailIssue = useMemo(
+    () =>
+      openIssueNumber != null
+        ? (issues.find((i) => i.number === openIssueNumber) ?? null)
+        : null,
+    [openIssueNumber, issues]
+  );
+
+  const openDetail = useCallback(
+    (issue: RepoIssue) => {
+      updateSearchParams({ issue: issue.number }, false);
+    },
+    [updateSearchParams]
+  );
+
+  const closeDetail = useCallback(() => {
+    updateSearchParams({ issue: undefined }, false);
+  }, [updateSearchParams]);
+
+  const handlePriorityChange = useCallback(
+    (issueNumber: number, priority: IssuePriority | null) => {
+      setPriorityMutation.mutate({ issueNumber, priority });
+    },
+    [setPriorityMutation]
+  );
+
   const isBoardBusy =
     createTaskMutation.isPending ||
     deleteTaskMutation.isPending ||
-    swapTasksMutation.isPending;
+    swapTasksMutation.isPending ||
+    retryTaskMutation.isPending ||
+    discardTaskMutation.isPending;
 
   const showBoard =
     !!selectedRepoId &&
@@ -435,17 +734,23 @@ export function SprintPage() {
     !isWorkersError &&
     !isTasksError;
 
+  const hasFilters = !!(
+    filters.q ||
+    filters.epic ||
+    filters.label ||
+    filters.priority ||
+    filters.worker
+  );
+
   const startSprintDisabled =
     !showBoard || eligibleWorkers.length === 0 || startAllMutation.isPending;
 
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('sprint.title')}
-          </h1>
-        </div>
+    <div className="flex h-full w-full flex-col bg-md-background">
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight">
+          {t('sprint.title')}
+        </h1>
         <div className="flex items-center gap-3">
           <div className="min-w-[240px]">
             <Select
@@ -467,13 +772,19 @@ export function SprintPage() {
               </SelectContent>
             </Select>
           </div>
-          <PrimaryButton
-            variant="tertiary"
-            value={isSyncing ? t('sprint.syncing') : t('sprint.sync')}
-            actionIcon={isSyncing ? 'spinner' : ArrowClockwiseIcon}
+          <button
+            type="button"
             onClick={handleSync}
             disabled={!selectedRepoId || isSyncing}
-          />
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-md-outline-variant bg-md-surface-container text-body-sm font-semibold text-md-on-surface hover:bg-md-surface-container-high active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <MaterialIcon
+              name={isSyncing ? 'progress_activity' : 'sync'}
+              size="sm"
+              className={isSyncing ? 'animate-spin' : ''}
+            />
+            {isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+          </button>
           <span
             title={
               showBoard && eligibleWorkers.length === 0
@@ -491,20 +802,30 @@ export function SprintPage() {
         </div>
       </header>
 
+      {showBoard && (
+        <SprintFilterBar
+          filters={filters}
+          epics={allEpics}
+          labels={allLabels}
+          workers={workers}
+          onFiltersChange={handleFiltersChange}
+        />
+      )}
+
       {toasts.length > 0 && (
-        <div className="px-6 pt-4 flex flex-col gap-2">
+        <div className="px-container-padding pt-4 flex flex-col gap-2">
           {toasts.map((toast) => (
             <div
               key={toast.id}
               role="status"
-              className={
-                'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' +
-                (toast.variant === 'success'
+              className={[
+                'flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-body-sm',
+                toast.variant === 'success'
                   ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
-                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                    : 'border-border/60 bg-secondary text-normal')
-              }
+                    ? 'border-md-error/30 bg-md-error/10 text-md-error'
+                    : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface',
+              ].join(' ')}
             >
               <span className="min-w-0 flex-1 leading-relaxed">
                 {toast.message}
@@ -513,9 +834,9 @@ export function SprintPage() {
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 p-0.5 rounded-md text-low hover:bg-secondary/60 hover:text-normal cursor-pointer transition-colors"
+                className="shrink-0 p-0.5 rounded-md text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface cursor-pointer transition-colors active:scale-95"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <MaterialIcon name="close" size="sm" />
               </button>
             </div>
           ))}
@@ -524,33 +845,41 @@ export function SprintPage() {
 
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('sprint.loadingRepos')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('sprint.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('sprint.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('sprint.selectRepoPrompt')}
           </div>
         ) : isLoadingIssues || isLoadingWorkers || isLoadingTasks ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('sprint.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('sprint.loading')}</span>
           </div>
         ) : isIssuesError || isWorkersError || isTasksError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('sprint.loadError')}
           </div>
         ) : (
           showBoard && (
-            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto">
+            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto bg-md-background">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
-                count={backlogIssues.length}
+                count={filteredBacklogIssues.length}
                 className="min-w-[280px]"
               >
                 <FreeTaskComposer
@@ -562,10 +891,16 @@ export function SprintPage() {
                   disabled={!selectedRepoId || isBoardBusy}
                   onCreate={handleFreeTaskCreate}
                 />
-                {backlogIssues.length === 0 ? (
-                  <ColumnEmpty message={t('sprint.backlog.empty')} />
+                {filteredBacklogIssues.length === 0 ? (
+                  <ColumnEmpty
+                    message={
+                      hasFilters
+                        ? t('sprint.filters.noResults')
+                        : t('sprint.backlog.empty')
+                    }
+                  />
                 ) : (
-                  backlogIssues.map((issue) => (
+                  filteredBacklogIssues.map((issue) => (
                     <BacklogIssueCard
                       key={issue.id}
                       issue={issue}
@@ -577,6 +912,10 @@ export function SprintPage() {
                       onAssign={(workerId) =>
                         handleAssignIssue(issue, workerId)
                       }
+                      onPriorityChange={(priority) =>
+                        handlePriorityChange(issue.number, priority)
+                      }
+                      onClick={() => openDetail(issue)}
                     />
                   ))
                 )}
@@ -653,6 +992,31 @@ export function SprintPage() {
               </SprintColumn>
 
               <SprintColumn
+                title={t('sprint.columns.failed')}
+                count={failedGroups.reduce((sum, g) => sum + g.tasks.length, 0)}
+                className="min-w-[280px]"
+              >
+                {failedGroups.length === 0 ? (
+                  <ColumnEmpty message={t('sprint.failed.empty')} />
+                ) : (
+                  failedGroups.map(({ worker, tasks }) => (
+                    <div key={worker.id} className="flex flex-col gap-2">
+                      <WorkerChip worker={worker} />
+                      {tasks.map((task) => (
+                        <FailedTaskCard
+                          key={task.id}
+                          task={task}
+                          isBusy={busyTaskId === task.id}
+                          onRetry={() => handleRetryTask(task)}
+                          onDiscard={() => handleDiscardTask(task)}
+                        />
+                      ))}
+                    </div>
+                  ))
+                )}
+              </SprintColumn>
+
+              <SprintColumn
                 title={t('sprint.columns.done')}
                 count={doneTasks.length}
                 className="min-w-[280px]"
@@ -675,6 +1039,18 @@ export function SprintPage() {
           )
         )}
       </div>
+
+      {detailIssue && (
+        <IssueDetailPanel
+          issue={detailIssue}
+          workers={workers}
+          repoName={selectedRepo?.name ?? ''}
+          onClose={closeDetail}
+          onPriorityChange={(priority) =>
+            handlePriorityChange(detailIssue.number, priority)
+          }
+        />
+      )}
 
       <Dialog open={sprintDialogOpen} onOpenChange={setSprintDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">

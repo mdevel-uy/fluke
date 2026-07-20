@@ -378,8 +378,7 @@ export function IssueDetailDrawer({
                     {issue.labels.map((lbl) => (
                       <IssueLabelChip
                         key={lbl.name}
-                        label={lbl.name}
-                        color={lbl.color}
+                        label={lbl}
                         onRemove={
                           issue.state === 'open'
                             ? () => void handleRemoveLabel(lbl.name)
