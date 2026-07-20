@@ -1,9 +1,11 @@
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
 import type { IssueLabel } from '@/features/issues/types';
 
 interface IssueLabelChipProps {
   label: IssueLabel;
   className?: string;
+  onRemove?: () => void;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -26,15 +28,33 @@ function darkenHex(hex: string, amount: number): string {
     .join('');
 }
 
-export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
+export function IssueLabelChip({
+  label,
+  className,
+  onRemove,
+}: IssueLabelChipProps) {
   const hex = label.color.replace('#', '');
   const isValidHex = /^[0-9a-fA-F]{6}$/.test(hex);
+
+  const removeButton = onRemove ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+      className="opacity-0 group-hover/chip:opacity-100 transition-opacity rounded-full hover:text-md-error focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-md-primary"
+      aria-label={`Remove label ${label.name}`}
+    >
+      <MaterialIcon name="close" size="sm" />
+    </button>
+  ) : null;
 
   if (!isValidHex) {
     return (
       <span
         className={cn(
-          'inline-flex items-center h-[18px] px-2 rounded-full',
+          'group/chip inline-flex items-center gap-1 h-[18px] px-2 rounded-full',
           'bg-md-secondary-container text-md-on-secondary-container',
           'text-label-caps font-geist font-semibold uppercase tracking-widest',
           'border border-md-outline-variant whitespace-nowrap',
@@ -42,6 +62,7 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
         )}
       >
         {label.name}
+        {removeButton}
       </span>
     );
   }
@@ -58,7 +79,7 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center h-[18px] px-2 rounded-full',
+        'group/chip inline-flex items-center gap-1 h-[18px] px-2 rounded-full',
         'text-label-caps font-geist font-semibold uppercase tracking-widest',
         'border whitespace-nowrap',
         className
@@ -67,6 +88,7 @@ export function IssueLabelChip({ label, className }: IssueLabelChipProps) {
       title={label.name}
     >
       {label.name}
+      {removeButton}
     </span>
   );
 }

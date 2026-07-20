@@ -569,6 +569,7 @@
     "emptyTitle": "尚无 Issue",
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
+    "archiveAction": "归档",
     "taskStatus": {
       "queued": "排队中",
       "in_progress": "进行中",
@@ -591,6 +592,54 @@
       "cancel": "取消",
       "confirm": "加入队列",
       "enqueuedError": "加入队列失败。"
+    },
+    "filters": {
+      "searchPlaceholder": "搜索 Issue…",
+      "state": {
+        "all": "全部",
+        "open": "打开",
+        "closed": "已关闭"
+      },
+      "priority": "优先级",
+      "priorities": {
+        "urgent": "紧急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "标签",
+      "milestone": "里程碑",
+      "groupBy": "分组",
+      "groupByOptions": {
+        "none": "不分组",
+        "label": "标签",
+        "milestone": "里程碑"
+      },
+      "clear": "清除筛选",
+      "noResults": "没有 Issue 符合当前筛选条件。",
+      "noLabel": "无标签",
+      "noMilestone": "无里程碑"
+    },
+    "drawer": {
+      "title": "Issue 详情",
+      "close": "关闭",
+      "openOnGitHub": "在 GitHub 上打开",
+      "stateOpen": "打开",
+      "stateClosed": "已关闭",
+      "priority": "优先级",
+      "milestone": "里程碑",
+      "author": "作者",
+      "labels": "标签",
+      "addLabel": "添加标签",
+      "searchLabels": "搜索标签…",
+      "createLabel": "创建 \"{{name}}\"",
+      "noLabels": "未找到标签",
+      "description": "描述",
+      "noDescription": "暂无描述。",
+      "archive": "归档",
+      "archiveTitle": "归档 Issue",
+      "archiveConfirm": "在 GitHub 上关闭 Issue #{{number}}？它将移至已关闭筛选器。",
+      "archiveAction": "关闭 Issue"
     }
   },
   "workers": {

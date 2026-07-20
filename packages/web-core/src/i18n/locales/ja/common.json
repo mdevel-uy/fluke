@@ -569,6 +569,7 @@
     "emptyTitle": "Issue はまだありません",
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
+    "archiveAction": "アーカイブ",
     "taskStatus": {
       "queued": "待機中",
       "in_progress": "進行中",
@@ -591,6 +592,54 @@
       "cancel": "キャンセル",
       "confirm": "タスクをキューに追加",
       "enqueuedError": "タスクのキュー追加に失敗しました。"
+    },
+    "filters": {
+      "searchPlaceholder": "Issue を検索…",
+      "state": {
+        "all": "すべて",
+        "open": "オープン",
+        "closed": "クローズ"
+      },
+      "priority": "優先度",
+      "priorities": {
+        "urgent": "緊急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "ラベル",
+      "milestone": "マイルストーン",
+      "groupBy": "グループ化",
+      "groupByOptions": {
+        "none": "なし",
+        "label": "ラベル",
+        "milestone": "マイルストーン"
+      },
+      "clear": "フィルターをクリア",
+      "noResults": "現在のフィルターに一致する Issue はありません。",
+      "noLabel": "ラベルなし",
+      "noMilestone": "マイルストーンなし"
+    },
+    "drawer": {
+      "title": "Issue 詳細",
+      "close": "閉じる",
+      "openOnGitHub": "GitHub で開く",
+      "stateOpen": "オープン",
+      "stateClosed": "クローズ",
+      "priority": "優先度",
+      "milestone": "マイルストーン",
+      "author": "作成者",
+      "labels": "ラベル",
+      "addLabel": "ラベルを追加",
+      "searchLabels": "ラベルを検索…",
+      "createLabel": "\"{{name}}\" を作成",
+      "noLabels": "ラベルが見つかりません",
+      "description": "説明",
+      "noDescription": "説明はありません。",
+      "archive": "アーカイブ",
+      "archiveTitle": "Issue をアーカイブ",
+      "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
+      "archiveAction": "Issue をクローズ"
     }
   },
   "workers": {

@@ -569,6 +569,7 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "archiveAction": "Archiver",
     "taskStatus": {
       "queued": "En attente",
       "in_progress": "En cours",
@@ -591,6 +592,54 @@
       "cancel": "Annuler",
       "confirm": "Mettre en file d'attente",
       "enqueuedError": "Impossible de mettre la tâche en file d'attente."
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher des issues…",
+      "state": {
+        "all": "Tous",
+        "open": "Ouverts",
+        "closed": "Fermés"
+      },
+      "priority": "Priorité",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "label": "Étiquette",
+      "milestone": "Jalon",
+      "groupBy": "Grouper par",
+      "groupByOptions": {
+        "none": "Aucun",
+        "label": "Étiquette",
+        "milestone": "Jalon"
+      },
+      "clear": "Effacer les filtres",
+      "noResults": "Aucun issue ne correspond aux filtres actuels.",
+      "noLabel": "Sans étiquette",
+      "noMilestone": "Sans jalon"
+    },
+    "drawer": {
+      "title": "Détail de l'issue",
+      "close": "Fermer",
+      "openOnGitHub": "Ouvrir sur GitHub",
+      "stateOpen": "ouvert",
+      "stateClosed": "fermé",
+      "priority": "Priorité",
+      "milestone": "Jalon",
+      "author": "Auteur",
+      "labels": "Étiquettes",
+      "addLabel": "Ajouter une étiquette",
+      "searchLabels": "Rechercher des étiquettes…",
+      "createLabel": "Créer \"{{name}}\"",
+      "noLabels": "Aucune étiquette trouvée",
+      "description": "Description",
+      "noDescription": "Aucune description fournie.",
+      "archive": "Archiver",
+      "archiveTitle": "Archiver l'issue",
+      "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
+      "archiveAction": "Fermer l'issue"
     }
   },
   "workers": {

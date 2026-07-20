@@ -569,6 +569,7 @@
     "emptyTitle": "아직 이슈가 없습니다",
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
+    "archiveAction": "보관",
     "taskStatus": {
       "queued": "대기 중",
       "in_progress": "진행 중",
@@ -591,6 +592,54 @@
       "cancel": "취소",
       "confirm": "작업 대기열에 추가",
       "enqueuedError": "작업 대기열 추가에 실패했습니다."
+    },
+    "filters": {
+      "searchPlaceholder": "이슈 검색…",
+      "state": {
+        "all": "전체",
+        "open": "열림",
+        "closed": "닫힘"
+      },
+      "priority": "우선순위",
+      "priorities": {
+        "urgent": "긴급",
+        "high": "높음",
+        "medium": "보통",
+        "low": "낮음"
+      },
+      "label": "레이블",
+      "milestone": "마일스톤",
+      "groupBy": "그룹화",
+      "groupByOptions": {
+        "none": "없음",
+        "label": "레이블",
+        "milestone": "마일스톤"
+      },
+      "clear": "필터 초기화",
+      "noResults": "현재 필터에 맞는 이슈가 없습니다.",
+      "noLabel": "레이블 없음",
+      "noMilestone": "마일스톤 없음"
+    },
+    "drawer": {
+      "title": "이슈 상세",
+      "close": "닫기",
+      "openOnGitHub": "GitHub에서 열기",
+      "stateOpen": "열림",
+      "stateClosed": "닫힘",
+      "priority": "우선순위",
+      "milestone": "마일스톤",
+      "author": "작성자",
+      "labels": "레이블",
+      "addLabel": "레이블 추가",
+      "searchLabels": "레이블 검색…",
+      "createLabel": "\"{{name}}\" 생성",
+      "noLabels": "레이블을 찾을 수 없습니다",
+      "description": "설명",
+      "noDescription": "설명이 없습니다.",
+      "archive": "보관",
+      "archiveTitle": "이슈 보관",
+      "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
+      "archiveAction": "이슈 닫기"
     }
   },
   "workers": {
