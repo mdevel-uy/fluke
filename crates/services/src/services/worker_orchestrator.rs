@@ -3,11 +3,17 @@
 //!
 //! State machine (per worker):
 //!
-//!   queued  ─▶  in_progress  ─▶  in_review  ─▶  done
-//!                    │
-//!                    └────────────────────────▶  failed  (agent crashed;
-//!                                                          worker goes idle,
-//!                                                          a human decides)
+//!   developer role:
+//!     queued  ─▶  in_progress  ─▶  in_review  ─▶  done
+//!                     │
+//!                     └────────────────────────▶  failed  (agent crashed;
+//!                                                           worker goes idle,
+//!                                                           a human decides)
+//!
+//!   analyst / reviewer role:
+//!     queued  ─▶  in_progress  ─▶  done   (agent finished OK)
+//!                     │
+//!                     └──────────────────────▶  failed  (agent crashed)
 //!
 //! A start attempt that fails *before* the agent begins running (missing
 //! `default_target_branch`, unreachable target branch, workspace creation
@@ -28,7 +34,7 @@ use db::{
         execution_process::ExecutionProcess,
         repo::Repo,
         requests::WorkspaceRepoInput,
-        worker::Worker,
+        worker::{ROLE_DEVELOPER, Worker},
         worker_task::{self, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
     },
@@ -48,15 +54,19 @@ use crate::services::{
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 2;
 pub const WORKER_MAX_IN_REVIEW_ENV: &str = "WORKER_MAX_IN_REVIEW";
 
-/// Template for the final instruction appended to every worker task prompt.
-/// `{target_branch}` is replaced with the repo's `default_target_branch`.
-/// Kept short so operators can predict what the agent will do at the end
-/// of a run.
+/// Final instruction for developer workers: create a PR after finishing.
 pub const WORKER_FINAL_INSTRUCTION_TEMPLATE: &str = "\
 When you finish the work above, commit your changes, push the branch to the \
 remote, and open a pull request against `{target_branch}` using \
 `gh pr create`. The PR body must describe the changes you made and reference \
 any linked issue if applicable.";
+
+/// Final instruction for analyst and reviewer workers: produce deliverables,
+/// NOT a PR.
+pub const NON_DEVELOPER_FINAL_INSTRUCTION: &str = "\
+Your deliverable is the issues, plans, or reviews you created — NOT a pull \
+request. Do NOT create any PR. When you finish, end with a concise summary of \
+what you produced.";
 
 #[derive(Debug, Error)]
 pub enum StartError {
@@ -224,7 +234,7 @@ pub async fn try_take_next(
         return Err(e.into());
     }
 
-    let prompt = build_worker_prompt(&worker.soul, &task.prompt, &target_branch);
+    let prompt = build_worker_prompt(&worker.soul, &task.prompt, &target_branch, &worker.role);
 
     // Actually start the agent. This creates the worktree and the coding
     // agent session. If it fails, roll the workspace back so the worker is
@@ -490,8 +500,11 @@ pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Err
 }
 
 /// Reconcile a workspace PR transitioning to *open*: if the workspace
-/// belongs to a worker and its linked task is `in_progress`, move the
-/// task to `in_review`.
+/// belongs to a developer worker and its linked task is `in_progress`,
+/// move the task to `in_review`.
+///
+/// Analyst and reviewer workspaces are not subject to PR-based lifecycle
+/// transitions; if they open a PR by mistake, a warning is logged.
 pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
     let Some(worker_id) = Worker::find_by_workspace_id(pool, workspace_id).await? else {
@@ -503,6 +516,21 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::
     if task.worker_id != worker_id {
         return Ok(());
     }
+
+    // Check worker role — only developers follow the PR lifecycle.
+    let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
+        return Ok(());
+    };
+    if worker.role != ROLE_DEVELOPER {
+        warn!(
+            worker_id = %worker_id,
+            workspace_id = %workspace_id,
+            role = %worker.role,
+            "Non-developer worker created a PR — pr_monitor will not adopt it"
+        );
+        return Ok(());
+    }
+
     if task.status == worker_task::STATUS_IN_PROGRESS {
         WorkerTask::set_status(pool, task.id, worker_task::STATUS_IN_REVIEW).await?;
         info!(
@@ -518,6 +546,10 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::
 /// Reconcile a workspace PR transitioning to *merged*: flip the linked
 /// task to `done` and try to take the next queued task. Returns whether
 /// a new task was started.
+///
+/// Analyst and reviewer workspaces are skipped with a warning if a PR
+/// is somehow merged for them — their lifecycle is driven by
+/// `on_agent_finished`, not by PRs.
 pub async fn on_pr_merged(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -534,6 +566,21 @@ pub async fn on_pr_merged(
     if task.worker_id != worker_id {
         return Ok(false);
     }
+
+    // Non-developer workers should not reach here; guard defensively.
+    let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
+        return Ok(false);
+    };
+    if worker.role != ROLE_DEVELOPER {
+        warn!(
+            worker_id = %worker_id,
+            workspace_id = %workspace_id,
+            role = %worker.role,
+            "Non-developer worker PR merged — ignoring (lifecycle driven by on_agent_finished)"
+        );
+        return Ok(false);
+    }
+
     if task.status != worker_task::STATUS_DONE {
         WorkerTask::set_status(pool, task.id, worker_task::STATUS_DONE).await?;
         info!(
@@ -559,6 +606,97 @@ pub async fn on_pr_merged(
     }
 }
 
+/// Reconcile an analyst or reviewer workspace whose coding-agent run just
+/// finished. Transitions the linked task to `done` (on success) or `failed`
+/// (on failure), archives the workspace, and attempts to start the next
+/// queued task.
+///
+/// This is a no-op for developer workspaces (their lifecycle is driven by
+/// PR events) and for non-CodingAgent workspaces.
+pub async fn on_agent_finished(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    succeeded: bool,
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+
+    let Some(worker_id) = Worker::find_by_workspace_id(pool, workspace_id).await? else {
+        return Ok(());
+    };
+    let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
+        return Ok(());
+    };
+
+    // Developer workers are handled via the PR lifecycle; skip them here.
+    if worker.role == ROLE_DEVELOPER {
+        return Ok(());
+    }
+
+    let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
+        return Ok(());
+    };
+    if task.worker_id != worker_id {
+        return Ok(());
+    }
+
+    // Only transition tasks that are still in_progress.
+    if task.status != worker_task::STATUS_IN_PROGRESS {
+        return Ok(());
+    }
+
+    let new_status = if succeeded {
+        worker_task::STATUS_DONE
+    } else {
+        worker_task::STATUS_FAILED
+    };
+
+    WorkerTask::set_status(pool, task.id, new_status).await?;
+    info!(
+        worker_id = %worker_id,
+        task_id = %task.id,
+        workspace_id = %workspace_id,
+        role = %worker.role,
+        succeeded,
+        "Analyst/reviewer worker task finished — status set to {}",
+        new_status
+    );
+
+    // Archive the workspace now that the task is complete.
+    if let Err(e) = container.archive_workspace(workspace_id).await {
+        warn!(
+            workspace_id = %workspace_id,
+            "Failed to archive workspace after agent finished: {}",
+            e
+        );
+    }
+
+    // Auto-start the next queued task for this worker.
+    if succeeded {
+        match try_take_next(config, db, container, worker_id).await {
+            Ok(_) => {}
+            Err(e) if e.is_conflict() => {}
+            Err(StartError::Sqlx(e)) => {
+                warn!(
+                    worker_id = %worker_id,
+                    "Failed to auto-take next task after agent finished: {}",
+                    e
+                );
+            }
+            Err(e) => {
+                warn!(
+                    worker_id = %worker_id,
+                    "Failed to auto-take next task after agent finished: {}",
+                    e
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn worker_workspace_name(worker: &Worker, task: &WorkerTask) -> String {
     let title = task.title.trim();
     if title.is_empty() {
@@ -568,12 +706,15 @@ fn worker_workspace_name(worker: &Worker, task: &WorkerTask) -> String {
     }
 }
 
-fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str) -> String {
+fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role: &str) -> String {
     let base = crate::services::base_instructions::effective_base_instructions();
     let soul = soul.trim();
     let task_prompt = task_prompt.trim();
-    let final_instruction =
-        WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch);
+    let final_instruction = if role == ROLE_DEVELOPER {
+        WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch)
+    } else {
+        NON_DEVELOPER_FINAL_INSTRUCTION.to_string()
+    };
     format!(
         "[SYSTEM BASE INSTRUCTIONS — these take precedence over the worker soul in any conflict]\n\n\
          {base}\n\n\
@@ -599,7 +740,7 @@ mod tests {
 
     #[test]
     fn builds_prompt_with_base_instructions_soul_task_and_final_instruction() {
-        let prompt = build_worker_prompt("  soul  ", "  do it  ", "main");
+        let prompt = build_worker_prompt("  soul  ", "  do it  ", "main", ROLE_DEVELOPER);
         // Base instructions come first
         assert!(prompt.starts_with("[SYSTEM BASE INSTRUCTIONS"));
         // All sections are present
@@ -614,6 +755,21 @@ mod tests {
         let task_pos = prompt.find("do it").unwrap();
         assert!(base_pos < soul_pos);
         assert!(soul_pos < task_pos);
+    }
+
+    #[test]
+    fn builds_prompt_without_pr_instruction_for_analyst() {
+        let prompt = build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_ANALYST);
+        assert!(!prompt.contains("gh pr create"));
+        assert!(prompt.contains("Do NOT create any PR"));
+    }
+
+    #[test]
+    fn builds_prompt_without_pr_instruction_for_reviewer() {
+        let prompt =
+            build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_REVIEWER);
+        assert!(!prompt.contains("gh pr create"));
+        assert!(prompt.contains("Do NOT create any PR"));
     }
 
     async fn setup_test_db() -> DBService {
@@ -644,6 +800,7 @@ mod tests {
                 name: name.to_string(),
                 emoji: "🤖".to_string(),
                 soul: "test soul".to_string(),
+                role: None,
             },
         )
         .await

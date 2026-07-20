@@ -691,6 +691,7 @@
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Backend Bee",
       "emojiLabel": "Emoji",
+      "roleLabel": "Role",
       "templatesLabel": "Start from a template",
       "soulLabel": "Soul",
       "soulPlaceholder": "Describe territory, standards and Definition of Done...",
@@ -699,6 +700,14 @@
       "cancel": "Cancel",
       "saveNew": "Create worker",
       "saveEdit": "Save changes"
+    },
+    "roles": {
+      "developer": "Developer",
+      "analyst": "Analyst",
+      "reviewer": "Reviewer",
+      "developerDescription": "Implements features and creates pull requests",
+      "analystDescription": "Researches and produces written deliverables",
+      "reviewerDescription": "Reviews code and provides feedback"
     },
     "toast": {
       "startSuccess": "{{worker}} started \"{{title}}\".",

@@ -691,6 +691,7 @@
       "nameLabel": "Nom",
       "namePlaceholder": "ex. Abeille Backend",
       "emojiLabel": "Emoji",
+      "roleLabel": "Rôle",
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
       "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
@@ -699,6 +700,14 @@
       "cancel": "Annuler",
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer"
+    },
+    "roles": {
+      "developer": "Développeur",
+      "analyst": "Analyste",
+      "reviewer": "Réviseur",
+      "developerDescription": "Implémente des fonctionnalités et crée des pull requests",
+      "analystDescription": "Effectue des recherches et produit des livrables écrits",
+      "reviewerDescription": "Révise le code et fournit des retours"
     },
     "toast": {
       "startSuccess": "{{worker}} a démarré « {{title}} ».",

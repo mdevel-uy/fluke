@@ -1804,6 +1804,7 @@ export interface CreateWorkerRequest {
   name: string;
   emoji: string;
   soul: string;
+  role?: string;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;

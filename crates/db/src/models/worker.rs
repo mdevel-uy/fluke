@@ -3,12 +3,17 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
+pub const ROLE_DEVELOPER: &str = "developer";
+pub const ROLE_ANALYST: &str = "analyst";
+pub const ROLE_REVIEWER: &str = "reviewer";
+
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Worker {
     pub id: Uuid,
     pub name: String,
     pub emoji: String,
     pub soul: String,
+    pub role: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -17,6 +22,7 @@ pub struct CreateWorker {
     pub name: String,
     pub emoji: String,
     pub soul: String,
+    pub role: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -24,12 +30,13 @@ pub struct UpdateWorker {
     pub name: Option<String>,
     pub emoji: Option<String>,
     pub soul: Option<String>,
+    pub role: Option<String>,
 }
 
 impl Worker {
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, created_at
+            "SELECT id, name, emoji, soul, role, created_at
                FROM workers
                ORDER BY created_at ASC",
         )
@@ -39,7 +46,7 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, created_at
+            "SELECT id, name, emoji, soul, role, created_at
                FROM workers
                WHERE id = ?1",
         )
@@ -50,14 +57,16 @@ impl Worker {
 
     pub async fn create(pool: &SqlitePool, data: &CreateWorker) -> Result<Self, sqlx::Error> {
         let id = Uuid::new_v4();
+        let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO workers (id, name, emoji, soul, role)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
         )
         .bind(id)
         .bind(&data.name)
         .bind(&data.emoji)
         .bind(&data.soul)
+        .bind(&role)
         .execute(pool)
         .await?;
 
@@ -78,18 +87,21 @@ impl Worker {
         let name = data.name.as_ref().unwrap_or(&existing.name);
         let emoji = data.emoji.as_ref().unwrap_or(&existing.emoji);
         let soul = data.soul.as_ref().unwrap_or(&existing.soul);
+        let role = data.role.as_ref().unwrap_or(&existing.role);
 
         sqlx::query(
             "UPDATE workers
                 SET name  = ?2,
                     emoji = ?3,
-                    soul  = ?4
+                    soul  = ?4,
+                    role  = ?5
               WHERE id = ?1",
         )
         .bind(id)
         .bind(name)
         .bind(emoji)
         .bind(soul)
+        .bind(role)
         .execute(pool)
         .await?;
 
@@ -104,6 +116,24 @@ impl Worker {
             .execute(pool)
             .await?;
         Ok(result.rows_affected())
+    }
+
+    /// Returns true when the worker has at least one task in a state that
+    /// would be broken by a role change (in_progress or in_review).
+    pub async fn has_in_flight_tasks(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks
+               WHERE worker_id = ?1
+                 AND status IN ('in_progress', 'in_review')",
+        )
+        .bind(worker_id)
+        .fetch_one(pool)
+        .await?;
+        Ok(count > 0)
     }
 
     /// Non-archived workspace attached to the worker. Returns the most

@@ -40,6 +40,19 @@ function WorkerAvatar({
   );
 }
 
+type RoleBadgeVariant = 'neutral' | 'info' | 'warning';
+
+function roleBadgeVariant(role: string): RoleBadgeVariant {
+  switch (role) {
+    case 'analyst':
+      return 'info';
+    case 'reviewer':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
 interface WorkerCardProps {
   worker: WorkerResponse;
   isStarting: boolean;
@@ -91,6 +104,9 @@ export function WorkerCard({
               {isWorking
                 ? t('workers.card.statusWorking')
                 : t('workers.card.statusIdle')}
+            </Badge>
+            <Badge variant={roleBadgeVariant(worker.role ?? 'developer')}>
+              {t(`workers.roles.${worker.role ?? 'developer'}`)}
             </Badge>
           </div>
           <div className="mt-1 text-body-sm text-md-on-surface-variant leading-snug">

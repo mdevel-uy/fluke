@@ -691,6 +691,7 @@
       "nameLabel": "名稱",
       "namePlaceholder": "例如：Backend Bee",
       "emojiLabel": "表情符號",
+      "roleLabel": "角色",
       "templatesLabel": "從範本開始",
       "soulLabel": "靈魂 (Soul)",
       "soulPlaceholder": "描述領域、標準與 Definition of Done...",
@@ -699,6 +700,14 @@
       "cancel": "取消",
       "saveNew": "建立工作者",
       "saveEdit": "儲存變更"
+    },
+    "roles": {
+      "developer": "開發者",
+      "analyst": "分析師",
+      "reviewer": "審閱者",
+      "developerDescription": "實作功能並建立拉取請求",
+      "analystDescription": "研究並產出書面交付物",
+      "reviewerDescription": "審查程式碼並提供回饋"
     },
     "toast": {
       "startSuccess": "{{worker}} 已開始「{{title}}」。",

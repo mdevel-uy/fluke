@@ -15,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@vibe/ui/components/KeyboardDialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@vibe/ui/components/Select';
 import type { WorkerResponse } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
 import type { CreateWorkerRequest } from '@/shared/lib/api';
@@ -27,6 +34,9 @@ import {
   SOUL_TEMPLATES,
   type SoulTemplateId,
 } from '@/features/workers/model/soulTemplates';
+
+export const WORKER_ROLES = ['developer', 'analyst', 'reviewer'] as const;
+export type WorkerRole = (typeof WORKER_ROLES)[number];
 
 export interface WorkerFormDialogProps {
   worker?: WorkerResponse;
@@ -42,6 +52,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [name, setName] = useState(worker?.name ?? '');
   const [emoji, setEmoji] = useState(worker?.emoji ?? '🤖');
   const [soul, setSoul] = useState(worker?.soul ?? '');
+  const [role, setRole] = useState<WorkerRole>(
+    (worker?.role as WorkerRole) ?? 'developer'
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [baseInstructionsExpanded, setBaseInstructionsExpanded] =
@@ -54,7 +67,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, emoji, soul]);
+  }, [name, emoji, soul, role]);
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
@@ -82,6 +95,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       name: trimmedName,
       emoji: trimmedEmoji,
       soul: trimmedSoul,
+      role,
     };
 
     try {
@@ -142,6 +156,28 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
                 className="mt-1 text-center text-lg"
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="worker-role">{t('workers.form.roleLabel')}</Label>
+            <Select
+              value={role}
+              onValueChange={(v) => setRole(v as WorkerRole)}
+            >
+              <SelectTrigger id="worker-role" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WORKER_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {t(`workers.roles.${r}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-low">
+              {t(`workers.roles.${role}Description`)}
+            </p>
           </div>
 
           {!isEdit && (
