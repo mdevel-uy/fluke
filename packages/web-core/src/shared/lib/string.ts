@@ -37,6 +37,47 @@ export const splitLines = (value: string): string[] => {
   return value.split(/\r\n|\r|\n/);
 };
 
+const SYSTEM_PREAMBLE_START = '[SYSTEM BASE INSTRUCTIONS';
+const WORKER_SOUL_MARKER = '[WORKER SOUL]';
+const SECTION_SEPARATOR = '\n---\n';
+const FINAL_INSTRUCTION_PREFIX = '\n\n---\n\nWhen you finish the work above';
+
+/**
+ * Strips the system-injected preamble (base instructions + worker soul) from a
+ * prompt, returning only the actual task content. If no preamble is detected the
+ * message is returned unchanged.
+ */
+export function stripSystemPreamble(message: string): string {
+  if (!message.startsWith(SYSTEM_PREAMBLE_START)) {
+    return message;
+  }
+
+  const soulIdx = message.indexOf(WORKER_SOUL_MARKER);
+  if (soulIdx === -1) {
+    return message;
+  }
+
+  const separatorAfterSoul = message.indexOf(
+    SECTION_SEPARATOR,
+    soulIdx + WORKER_SOUL_MARKER.length
+  );
+  if (separatorAfterSoul === -1) {
+    return message;
+  }
+
+  let taskContent = message
+    .slice(separatorAfterSoul + SECTION_SEPARATOR.length)
+    .trim();
+
+  // Strip the final automation instruction appended after the task prompt
+  const finalIdx = taskContent.indexOf(FINAL_INSTRUCTION_PREFIX);
+  if (finalIdx !== -1) {
+    taskContent = taskContent.slice(0, finalIdx).trim();
+  }
+
+  return taskContent;
+}
+
 /**
  * Splits a message into title (max 100 chars) and description.
  * - First line becomes the title (truncated at word boundary if > 100 chars)
