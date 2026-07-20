@@ -28,7 +28,9 @@
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "Skills",
+        "skillsDesc": "Gérer les skills des agents installés dans ~/.claude/skills"
       }
     },
     "general": {
@@ -524,6 +526,25 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "Skills installés",
+        "description": "Skills disponibles pour tous les agents dans ~/.claude/skills.",
+        "loading": "Chargement des skills...",
+        "loadError": "Échec du chargement des skills.",
+        "empty": "Aucun skill installé. Installez-en un depuis une URL de dépôt git.",
+        "delete": "Supprimer {{name}}"
+      },
+      "install": {
+        "title": "Installer un skill",
+        "description": "Cloner un skill depuis un dépôt git dans ~/.claude/skills.",
+        "urlLabel": "URL du dépôt",
+        "urlHelper": "Le nom du skill est dérivé du dernier segment de l'URL.",
+        "urlPlaceholder": "https://github.com/org/nom-du-skill",
+        "button": "Installer",
+        "error": "Échec de l'installation du skill."
+      }
     }
   },
   "integrations": {

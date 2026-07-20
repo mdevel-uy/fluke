@@ -28,7 +28,9 @@
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "スキル",
+        "skillsDesc": "~/.claude/skills にインストールされたエージェントスキルを管理"
       }
     },
     "general": {
@@ -524,6 +526,25 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "インストール済みスキル",
+        "description": "~/.claude/skills 内のすべてのエージェントで使用できるスキル。",
+        "loading": "スキルを読み込んでいます...",
+        "loadError": "スキルの読み込みに失敗しました。",
+        "empty": "スキルがインストールされていません。以下のgitリポジトリURLからインストールしてください。",
+        "delete": "{{name}} を削除"
+      },
+      "install": {
+        "title": "スキルをインストール",
+        "description": "gitリポジトリから ~/.claude/skills にスキルをクローンします。",
+        "urlLabel": "リポジトリURL",
+        "urlHelper": "スキル名はURLの最後のパスセグメントから派生します。",
+        "urlPlaceholder": "https://github.com/org/skill-name",
+        "button": "インストール",
+        "error": "スキルのインストールに失敗しました。"
+      }
     }
   },
   "integrations": {

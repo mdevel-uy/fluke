@@ -676,7 +676,8 @@
       "title": "New free-form task",
       "titlePlaceholder": "Task title",
       "promptPlaceholder": "What should the agent do?",
-      "assign": "Send to worker"
+      "assign": "Send to worker",
+      "skills": "Skills:"
     },
     "queued": {
       "moveUp": "Move up",

@@ -676,7 +676,8 @@
       "title": "새 자유 형식 태스크",
       "titlePlaceholder": "태스크 제목",
       "promptPlaceholder": "에이전트가 무엇을 해야 하나요?",
-      "assign": "워커에게 전송"
+      "assign": "워커에게 전송",
+      "skills": "스킬:"
     },
     "queued": {
       "moveUp": "위로",

@@ -48,6 +48,8 @@ pub struct WorkerTaskResponse {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// Skills selected for this task (stored as JSON array, exposed as array).
+    pub skills: Vec<String>,
     /// URL of the most recent pull request tracked for this task's workspace,
     /// or `null` when no PR has been created yet.
     pub pr_url: Option<String>,
@@ -73,6 +75,8 @@ async fn worker_task_to_response(
         None => (None, None),
     };
 
+    let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
+
     Ok(WorkerTaskResponse {
         id: task.id,
         worker_id: task.worker_id,
@@ -83,6 +87,7 @@ async fn worker_task_to_response(
         issue_number: task.issue_number,
         status: task.status,
         workspace_id: task.workspace_id,
+        skills,
         pr_url,
         pr_state,
         created_at: task.created_at,
@@ -119,6 +124,11 @@ pub struct CreateWorkerTaskRequest {
     pub prompt: String,
     #[ts(type = "number | null", optional)]
     pub issue_number: Option<i64>,
+    /// Skills to associate with this task. Each skill name must correspond to
+    /// an installed skill in `~/.claude/skills`. The instructions are appended
+    /// to the stored prompt so the agent receives them automatically.
+    #[ts(optional)]
+    pub skills: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -283,14 +293,23 @@ pub async fn create_worker_task(
         return Err(ApiError::BadRequest("prompt is required".into()));
     }
 
+    let skills = payload.skills.unwrap_or_default();
+
+    // Append skill instructions to the prompt so the agent receives them.
+    let mut final_prompt = prompt.to_string();
+    for skill in &skills {
+        final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
+    }
+
     let task = WorkerTask::append(
         pool,
         worker_id,
         &CreateWorkerTask {
             repo_id: payload.repo_id,
             title: title.to_string(),
-            prompt: prompt.to_string(),
+            prompt: final_prompt,
             issue_number: payload.issue_number,
+            skills,
         },
     )
     .await?;
@@ -399,9 +418,9 @@ pub async fn start_all_workers(
         }
     }
 
-    Ok(ResponseJson(ApiResponse::success(StartAllWorkersResponse {
-        results,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        StartAllWorkersResponse { results },
+    )))
 }
 
 /// Attempt to take the next queued task for the worker and start an agent

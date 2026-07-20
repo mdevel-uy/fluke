@@ -196,12 +196,14 @@ export function SprintPage() {
       title: string;
       prompt: string;
       issueNumber?: number | null;
+      skills?: string[];
     }) => {
       return workersApi.createTask(params.workerId, {
         repo_id: selectedRepoId!,
         title: params.title,
         prompt: params.prompt,
         issue_number: params.issueNumber ?? null,
+        skills: params.skills ?? [],
       });
     },
     onSuccess: () => invalidateWorkerData(),
@@ -237,8 +239,14 @@ export function SprintPage() {
       setBusyTaskId(`issue-${issue.id}`);
       const title = `#${issue.number} ${issue.title}`;
       const prompt = buildAssignToAgentPrompt(issue);
+      // Extract skill names from labels with the convention `skill:<name>`.
+      const skills = issue.labels
+        .map((l) => l.name)
+        .filter((n) => n.startsWith('skill:'))
+        .map((n) => n.slice('skill:'.length))
+        .filter(Boolean);
       createTaskMutation.mutate(
-        { workerId, title, prompt, issueNumber: issue.number },
+        { workerId, title, prompt, issueNumber: issue.number, skills },
         {
           onSettled: () => setBusyTaskId(null),
         }
@@ -248,7 +256,12 @@ export function SprintPage() {
   );
 
   const handleFreeTaskCreate = useCallback(
-    (params: { workerId: string; title: string; prompt: string }) => {
+    (params: {
+      workerId: string;
+      title: string;
+      prompt: string;
+      skills: string[];
+    }) => {
       if (!selectedRepoId) return;
       setBusyTaskId('free-composer');
       createTaskMutation.mutate(params, {
