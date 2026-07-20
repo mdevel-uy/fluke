@@ -306,6 +306,67 @@ async fn rollback_workspace(db: &DBService, workspace_id: Uuid) {
     }
 }
 
+/// Startup sweep: mark every `in_progress` worker_task as `failed` and
+/// archive + detach its workspace. Called once after the server starts so
+/// tasks whose agent was killed by a restart/deploy do not remain stuck
+/// forever.
+///
+/// Safety invariant: if the task's workspace state cannot be determined
+/// (e.g. the DB returns an unexpected error for that row), the task is
+/// left untouched — better a visible zombie than silently destroying a
+/// run that might still be live.
+///
+/// Idempotent: a second call immediately after the first is a no-op
+/// because no `in_progress` tasks remain.
+pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let tasks = WorkerTask::find_all_in_progress(pool).await?;
+
+    for task in tasks {
+        // Archive + detach the workspace so the capacity guard sees a clean
+        // slate and the worker can start its next queued task.
+        if let Some(ws_id) = task.workspace_id {
+            if let Err(e) = Workspace::set_archived(pool, ws_id, true).await {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %ws_id,
+                    "reconcile_in_progress_tasks: failed to archive workspace, skipping task: {}",
+                    e
+                );
+                continue;
+            }
+            if let Err(e) = Worker::detach_workspace(pool, ws_id).await {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %ws_id,
+                    "reconcile_in_progress_tasks: failed to detach workspace: {}",
+                    e
+                );
+            }
+        }
+
+        match WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await {
+            Ok(_) => {
+                warn!(
+                    task_id = %task.id,
+                    worker_id = %task.worker_id,
+                    title = %task.title,
+                    "reconcile_in_progress_tasks: task marked failed (agent killed by server restart)"
+                );
+            }
+            Err(e) => {
+                warn!(
+                    task_id = %task.id,
+                    "reconcile_in_progress_tasks: failed to mark task as failed: {}",
+                    e
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Auto-repair inconsistent worker state: any non-archived workspace that
 /// is attached to `worker_id` but has no associated `in_progress` or
 /// `in_review` task is treated as a zombie left behind by a previous
