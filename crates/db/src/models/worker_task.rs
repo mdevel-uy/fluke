@@ -269,4 +269,45 @@ impl WorkerTask {
             .await?
             .ok_or(sqlx::Error::RowNotFound)
     }
+
+    /// All tasks currently in progress across every worker (startup sweep).
+    pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, created_at
+               FROM worker_tasks
+               WHERE status = 'in_progress'",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
+    /// Reset a task to `queued` at the front of its worker's queue (lowest
+    /// position - 1) and clear its workspace link. Used during startup
+    /// recovery to re-queue tasks whose execution was killed by a restart.
+    pub async fn re_queue_at_front(pool: &SqlitePool, id: Uuid) -> Result<Self, sqlx::Error> {
+        let task = Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)?;
+
+        let min_pos: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MIN(position), 0) FROM worker_tasks WHERE worker_id = ?1",
+        )
+        .bind(task.worker_id)
+        .fetch_one(pool)
+        .await?;
+
+        sqlx::query(
+            "UPDATE worker_tasks SET status = 'queued', position = ?2, workspace_id = NULL
+               WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(min_pos - 1)
+        .execute(pool)
+        .await?;
+
+        Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
 }

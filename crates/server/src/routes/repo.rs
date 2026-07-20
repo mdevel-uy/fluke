@@ -520,9 +520,7 @@ impl From<RepoIssuesError> for ApiError {
             RepoIssuesError::GhCommandFailed(msg) => {
                 ApiError::BadGateway(format!("`gh` command failed: {msg}"))
             }
-            RepoIssuesError::IssueNotFound => {
-                ApiError::BadRequest("Issue not found".to_string())
-            }
+            RepoIssuesError::IssueNotFound => ApiError::BadRequest("Issue not found".to_string()),
             RepoIssuesError::InvalidPriority(p) => {
                 ApiError::BadRequest(format!("Invalid priority value: {p}"))
             }
