@@ -690,7 +690,8 @@
       "title": "新自由任務",
       "titlePlaceholder": "任務標題",
       "promptPlaceholder": "代理應該做什麼？",
-      "assign": "傳送給工人"
+      "assign": "傳送給工人",
+      "skills": "技能："
     },
     "queued": {
       "moveUp": "上移",

@@ -27,6 +27,8 @@ pub struct WorkerTask {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// JSON-encoded array of skill names selected for this task.
+    pub skills: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -36,6 +38,7 @@ pub struct CreateWorkerTask {
     pub title: String,
     pub prompt: String,
     pub issue_number: Option<i64>,
+    pub skills: Vec<String>,
 }
 
 impl WorkerTask {
@@ -45,7 +48,7 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -58,7 +61,7 @@ impl WorkerTask {
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -83,11 +86,13 @@ impl WorkerTask {
         .fetch_one(pool)
         .await?;
 
+        let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued')",
+                  issue_number, status, skills)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8)",
         )
         .bind(id)
         .bind(worker_id)
@@ -96,6 +101,7 @@ impl WorkerTask {
         .bind(&data.title)
         .bind(&data.prompt)
         .bind(data.issue_number)
+        .bind(&skills_json)
         .execute(pool)
         .await?;
 
@@ -163,7 +169,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -181,7 +187,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -225,7 +231,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",

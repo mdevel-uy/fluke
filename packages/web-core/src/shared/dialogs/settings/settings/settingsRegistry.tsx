@@ -4,6 +4,7 @@ import {
   GithubLogoIcon,
   CpuIcon,
   PlugIcon,
+  PuzzlePieceIcon,
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
@@ -11,6 +12,7 @@ import { ReposSettingsSection } from './ReposSettingsSection';
 import { AgentsSettingsSection } from './AgentsSettingsSection';
 import { McpSettingsSection } from './McpSettingsSection';
 import { GitHubSettingsSection } from './GitHubSettingsSection';
+import { SkillsSettingsSection } from './SkillsSettingsSection';
 
 export type SettingsSectionType =
   | 'general'
@@ -20,7 +22,8 @@ export type SettingsSectionType =
   | 'agents'
   | 'mcp'
   | 'relay'
-  | 'github';
+  | 'github'
+  | 'skills';
 
 export type SettingsSectionGroup = 'host' | 'universal';
 
@@ -35,6 +38,7 @@ export type SettingsSectionInitialState = {
   mcp: undefined;
   relay: { hostId?: string } | undefined;
   github: undefined;
+  skills: undefined;
 };
 
 export interface SettingsSectionDefinition {
@@ -48,6 +52,7 @@ export const SETTINGS_SECTION_DEFINITIONS: SettingsSectionDefinition[] = [
   { id: 'repos', icon: GitBranchIcon, group: 'host' },
   { id: 'agents', icon: CpuIcon, group: 'host' },
   { id: 'mcp', icon: PlugIcon, group: 'host' },
+  { id: 'skills', icon: PuzzlePieceIcon, group: 'host' },
   { id: 'github', icon: GithubLogoIcon, group: 'universal' },
 ];
 
@@ -78,6 +83,8 @@ export function renderSettingsSection(
       return <AgentsSettingsSection />;
     case 'mcp':
       return <McpSettingsSection />;
+    case 'skills':
+      return <SkillsSettingsSection />;
     case 'github':
       return <GitHubSettingsSection />;
     default:

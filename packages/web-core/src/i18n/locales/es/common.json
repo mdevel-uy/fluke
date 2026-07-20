@@ -690,7 +690,8 @@
       "title": "Nueva tarea libre",
       "titlePlaceholder": "Título de la tarea",
       "promptPlaceholder": "¿Qué tiene que hacer el agente?",
-      "assign": "Enviar a un worker"
+      "assign": "Enviar a un worker",
+      "skills": "Skills:"
     },
     "queued": {
       "moveUp": "Subir",

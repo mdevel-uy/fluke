@@ -690,7 +690,8 @@
       "title": "新自由任务",
       "titlePlaceholder": "任务标题",
       "promptPlaceholder": "代理应该做什么？",
-      "assign": "发送给工人"
+      "assign": "发送给工人",
+      "skills": "技能："
     },
     "queued": {
       "moveUp": "上移",

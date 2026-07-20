@@ -690,7 +690,8 @@
       "title": "新しい自由記述タスク",
       "titlePlaceholder": "タスクのタイトル",
       "promptPlaceholder": "エージェントに何をさせますか？",
-      "assign": "ワーカーに送る"
+      "assign": "ワーカーに送る",
+      "skills": "スキル："
     },
     "queued": {
       "moveUp": "上へ移動",

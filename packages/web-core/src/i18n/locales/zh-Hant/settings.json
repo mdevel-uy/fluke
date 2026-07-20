@@ -28,7 +28,9 @@
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "技能",
+        "skillsDesc": "管理和安裝 Claude 技能"
       }
     },
     "general": {
@@ -524,6 +526,25 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "已安裝的技能",
+        "description": "在 ~/.claude/skills 中找到的技能",
+        "loading": "載入技能中...",
+        "loadError": "載入技能失敗。",
+        "empty": "尚未安裝任何技能。",
+        "delete": "刪除"
+      },
+      "install": {
+        "title": "安裝技能",
+        "description": "透過 git URL 安裝技能。",
+        "urlLabel": "Git URL",
+        "urlHelper": "技能儲存庫的 URL（例如：https://github.com/user/my-skill）",
+        "urlPlaceholder": "https://github.com/user/skill-name",
+        "button": "安裝",
+        "error": "安裝技能失敗。"
+      }
     }
   },
   "integrations": {
