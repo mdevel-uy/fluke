@@ -416,6 +416,37 @@ impl GhCli {
         Ok(state)
     }
 
+    /// Return the latest actionable review state for a PR.
+    /// Returns `None` when there are no submitted reviews with state
+    /// `"approved"` or `"changes_requested"`.
+    pub fn get_pr_latest_review_state(&self, pr_url: &str) -> Result<Option<String>, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "reviews"], None)?;
+
+        #[derive(serde::Deserialize)]
+        struct Review {
+            state: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct Response {
+            reviews: Vec<Review>,
+        }
+
+        let resp: Response = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse gh pr view --json reviews: {e}; raw: {raw}"
+            ))
+        })?;
+
+        let state = resp
+            .reviews
+            .iter()
+            .rev()
+            .map(|r| r.state.to_ascii_lowercase())
+            .find(|s| s == "approved" || s == "changes_requested");
+
+        Ok(state)
+    }
+
     pub fn pr_checkout(
         &self,
         repo_path: &Path,

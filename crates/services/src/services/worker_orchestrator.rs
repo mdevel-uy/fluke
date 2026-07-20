@@ -37,7 +37,7 @@ use db::{
         repo::Repo,
         requests::WorkspaceRepoInput,
         worker::{ROLE_DEVELOPER, Worker},
-        worker_task::{self, WorkerTask},
+        worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
     },
@@ -46,7 +46,7 @@ use executors::profile::ExecutorConfig;
 use git_host::{CreatePrRequest, GitHostError, GitHostProvider, GitHostService};
 use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use workspace_manager::WorkspaceManager;
 
@@ -116,6 +116,24 @@ pub fn max_in_review_from_env() -> i64 {
         .and_then(|v| v.parse::<i64>().ok())
         .filter(|v| *v >= 0)
         .unwrap_or(DEFAULT_MAX_IN_REVIEW)
+}
+
+pub const WORKER_LEAD_ENABLED_ENV: &str = "WORKER_LEAD_ENABLED";
+pub const WORKER_REVIEW_MAX_ROUNDS_ENV: &str = "WORKER_REVIEW_MAX_ROUNDS";
+pub const DEFAULT_MAX_REVIEW_ROUNDS: i64 = 2;
+
+pub fn lead_enabled_from_env() -> bool {
+    std::env::var(WORKER_LEAD_ENABLED_ENV)
+        .map(|v| v.to_ascii_lowercase() != "false" && v != "0")
+        .unwrap_or(true)
+}
+
+pub fn review_max_rounds_from_env() -> i64 {
+    std::env::var(WORKER_REVIEW_MAX_ROUNDS_ENV)
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(DEFAULT_MAX_REVIEW_ROUNDS)
 }
 
 pub struct StartedTask {
@@ -1071,6 +1089,215 @@ fn build_pr_body(task: &WorkerTask) -> String {
         body.push_str(&format!("\n\nCloses #{issue}"));
     }
     body
+}
+
+/// Dispatch a review task to the first reviewer worker for the given PR.
+///
+/// No-op (with debug/warn logging) when:
+/// - `WORKER_LEAD_ENABLED=false`
+/// - No reviewer worker is registered
+/// - The reviewer is the same worker as the PR author (no self-review)
+/// - An active reviewer task already exists for this PR (idempotent guard)
+/// - The PR has already reached the `WORKER_REVIEW_MAX_ROUNDS` cap (escalated)
+pub async fn dispatch_review_task(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    pr_number: i64,
+    pr_title: &str,
+    repo_id: Uuid,
+    author_worker_id: Option<Uuid>,
+) -> Result<(), sqlx::Error> {
+    if !lead_enabled_from_env() {
+        return Ok(());
+    }
+
+    let pool = &db.pool;
+
+    let Some(reviewer) = Worker::find_first_reviewer(pool).await? else {
+        debug!(
+            pr_number,
+            "No reviewer worker found — skipping review dispatch"
+        );
+        return Ok(());
+    };
+
+    if let Some(author_id) = author_worker_id {
+        if reviewer.id == author_id {
+            debug!(
+                reviewer_id = %reviewer.id,
+                pr_number,
+                "Reviewer is the same as PR author — skipping self-review"
+            );
+            return Ok(());
+        }
+    }
+
+    if WorkerTask::find_active_reviewer_task_for_pr(pool, pr_number, repo_id)
+        .await?
+        .is_some()
+    {
+        debug!(
+            pr_number,
+            "Active reviewer task already exists for PR — skipping duplicate dispatch"
+        );
+        return Ok(());
+    }
+
+    let max_rounds = review_max_rounds_from_env();
+    let rounds = WorkerTask::count_reviewer_tasks_for_pr(pool, pr_number, repo_id).await?;
+    if rounds >= max_rounds {
+        warn!(
+            pr_number,
+            rounds,
+            max_rounds,
+            "PR #{} has reached the maximum review rounds ({}/{}) — escalated, human review required",
+            pr_number,
+            rounds,
+            max_rounds,
+        );
+        return Ok(());
+    }
+
+    let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
+    let task_prompt = format!(
+        "Revisá el PR #{pr_number} según tu checklist. \
+         Usá `gh pr view {pr_number}`, `gh pr diff {pr_number}` y \
+         `gh pr checkout {pr_number}` para examinar los cambios. \
+         Cuando termines: si aprobás, ejecutá \
+         `gh pr review {pr_number} --approve`; si pedís cambios, ejecutá \
+         `gh pr review {pr_number} --request-changes -b '<razón>'`."
+    );
+
+    let task = WorkerTask::append(
+        pool,
+        reviewer.id,
+        &CreateWorkerTask {
+            repo_id,
+            title: task_title,
+            prompt: task_prompt,
+            issue_number: Some(pr_number),
+            skills: Vec::new(),
+        },
+    )
+    .await?;
+
+    info!(
+        reviewer_id = %reviewer.id,
+        pr_number,
+        task_id = %task.id,
+        round = rounds + 1,
+        "Dispatched review task for PR #{} (round {}/{})",
+        pr_number,
+        rounds + 1,
+        max_rounds,
+    );
+
+    match try_take_next(config, db, container, reviewer.id).await {
+        Ok(_) => info!(reviewer_id = %reviewer.id, "Reviewer worker started on review task"),
+        Err(e) if e.is_conflict() => {}
+        Err(StartError::Sqlx(e)) => return Err(e),
+        Err(e) => warn!(
+            reviewer_id = %reviewer.id,
+            "Failed to auto-start reviewer after dispatch: {}",
+            e
+        ),
+    }
+
+    Ok(())
+}
+
+/// Dispatch a fix task to the PR author worker when a reviewer requests changes.
+///
+/// No-op when:
+/// - `WORKER_LEAD_ENABLED=false`
+/// - The author already has an active fix task for this PR (idempotent guard)
+pub async fn dispatch_author_fix_task(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    pr_number: i64,
+    repo_id: Uuid,
+    author_worker_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    if !lead_enabled_from_env() {
+        return Ok(());
+    }
+
+    let pool = &db.pool;
+
+    // Guard: dispatch a fix task only when more review rounds have COMPLETED
+    // than fix tasks have been dispatched. This prevents re-dispatching every
+    // poll cycle while the GitHub review state still shows "changes_requested"
+    // after the author has already pushed a fix.
+    let completed_reviews =
+        WorkerTask::count_reviewer_tasks_done_for_pr(pool, pr_number, repo_id).await?;
+    if completed_reviews == 0 {
+        debug!(
+            pr_number,
+            "No completed reviewer task yet — skipping fix dispatch"
+        );
+        return Ok(());
+    }
+    let dispatched_fixes =
+        WorkerTask::count_all_author_fix_tasks_for_pr(pool, author_worker_id, pr_number, repo_id)
+            .await?;
+    if dispatched_fixes >= completed_reviews {
+        debug!(
+            pr_number,
+            author_worker_id = %author_worker_id,
+            fixes = dispatched_fixes,
+            reviews = completed_reviews,
+            "Author fix already dispatched for current review round — skipping"
+        );
+        return Ok(());
+    }
+
+    let task_title = format!("Atendé el review del PR #{}", pr_number);
+    let task_prompt = format!(
+        "El reviewer solicitó cambios en el PR #{pr_number}. \
+         Revisá los comentarios con `gh pr view {pr_number} --comments`. \
+         Para hacer los cambios: ejecutá `gh pr checkout {pr_number}` para posicionarte \
+         en el branch correcto, corregí los issues señalados por el reviewer, \
+         y pusheá con `git push`. El PR ya existe — NO crees uno nuevo."
+    );
+
+    let task = WorkerTask::append(
+        pool,
+        author_worker_id,
+        &CreateWorkerTask {
+            repo_id,
+            title: task_title,
+            prompt: task_prompt,
+            issue_number: Some(pr_number),
+            skills: Vec::new(),
+        },
+    )
+    .await?;
+
+    info!(
+        author_worker_id = %author_worker_id,
+        pr_number,
+        task_id = %task.id,
+        "Dispatched author fix task for PR #{}",
+        pr_number,
+    );
+
+    match try_take_next(config, db, container, author_worker_id).await {
+        Ok(_) => info!(
+            author_worker_id = %author_worker_id,
+            "Author worker started on fix task"
+        ),
+        Err(e) if e.is_conflict() => {}
+        Err(StartError::Sqlx(e)) => return Err(e),
+        Err(e) => warn!(
+            author_worker_id = %author_worker_id,
+            "Failed to auto-start author after fix dispatch: {}",
+            e
+        ),
+    }
+
+    Ok(())
 }
 
 fn worker_workspace_name(worker: &Worker, task: &WorkerTask) -> String {
