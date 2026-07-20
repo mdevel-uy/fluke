@@ -311,17 +311,40 @@ impl WorkspaceManager {
         for input in repos {
             let worktree_path = workspace_dir.join(&input.repo.name);
 
+            // Fetch and fast-forward the target branch before creating the worktree
+            // so the new workspace branch starts from the latest remote tip, not a
+            // potentially stale local ref. Best-effort: if the fetch fails (no
+            // network, auth error, etc.) we fall through to whatever is locally
+            // available and log a warning.
+            let effective_target = {
+                let repo_path = input.repo.path.clone();
+                let target = input.target_branch.clone();
+                let fallback = input.target_branch.clone();
+                tokio::task::spawn_blocking(move || {
+                    GitService::new().fetch_and_update_target_branch(&repo_path, &target)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    warn!(
+                        "fetch_and_update_target_branch join error for '{}': {}. Using original.",
+                        fallback, e
+                    );
+                    fallback
+                })
+            };
+
             debug!(
-                "Creating worktree for repo '{}' at {}",
+                "Creating worktree for repo '{}' at {} (base: '{}')",
                 input.repo.name,
-                worktree_path.display()
+                worktree_path.display(),
+                effective_target
             );
 
             match WorktreeManager::create_worktree(
                 &input.repo.path,
                 branch_name,
                 &worktree_path,
-                &input.target_branch,
+                &effective_target,
                 true,
             )
             .await

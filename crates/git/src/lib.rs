@@ -1561,6 +1561,144 @@ impl GitService {
         self.fetch_from_remote(repo, remote, &refspec)
     }
 
+    /// Fetch the named branch from the default remote and fast-forward the
+    /// local branch ref if possible. Returns the ref name to use as the base
+    /// for new workspace branches.
+    ///
+    /// Outcomes:
+    /// - Fetch succeeds + local can be fast-forwarded → advances local branch,
+    ///   returns `branch_name` (now up to date).
+    /// - Fetch succeeds + local has diverged → warns, returns
+    ///   `<remote>/<branch_name>` so the workspace starts from the authoritative
+    ///   remote tip instead of the stale local ref.
+    /// - Local branch is absent → returns `<remote>/<branch_name>` (handles
+    ///   the missing-local-branch case, issue #36).
+    /// - Fetch fails (no network, auth error, etc.) → warns, returns
+    ///   `branch_name` unchanged so workspace creation can still proceed.
+    pub fn fetch_and_update_target_branch(
+        &self,
+        repo_path: &Path,
+        branch_name: &str,
+    ) -> String {
+        let remote = match self.get_default_remote(repo_path) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(
+                    "fetch target '{}': no remote for {:?}: {}",
+                    branch_name,
+                    repo_path,
+                    e
+                );
+                return branch_name.to_string();
+            }
+        };
+
+        let refspec = format!(
+            "+refs/heads/{branch_name}:refs/remotes/{}/{branch_name}",
+            remote.name
+        );
+        let cli = GitCli::new();
+        if let Err(e) = cli.fetch_with_refspec(repo_path, &remote.url, &refspec) {
+            tracing::warn!(
+                "fetch target '{}' from '{}' failed: {}. Using local ref (possibly stale).",
+                branch_name,
+                remote.url,
+                e
+            );
+            return branch_name.to_string();
+        }
+
+        let remote_ref = format!("{}/{}", remote.name, branch_name);
+
+        let repo = match self.open_repo(repo_path) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(
+                    "fetch target '{}': could not reopen repo after fetch: {}. Using '{}'.",
+                    branch_name,
+                    e,
+                    remote_ref
+                );
+                return remote_ref;
+            }
+        };
+
+        let remote_oid = match repo
+            .find_branch(&remote_ref, BranchType::Remote)
+            .ok()
+            .and_then(|b| b.get().target())
+        {
+            Some(oid) => oid,
+            None => {
+                tracing::warn!(
+                    "fetch target '{}': remote ref '{}' missing after fetch. Using local ref.",
+                    branch_name,
+                    remote_ref
+                );
+                return branch_name.to_string();
+            }
+        };
+
+        // Local branch absent → use remote tracking ref directly (issue #36).
+        let local_oid = match repo
+            .find_branch(branch_name, BranchType::Local)
+            .ok()
+            .and_then(|b| b.get().target())
+        {
+            Some(oid) => oid,
+            None => {
+                tracing::info!(
+                    "fetch target '{}': local branch absent; using '{}' as workspace base.",
+                    branch_name,
+                    remote_ref
+                );
+                return remote_ref;
+            }
+        };
+
+        if local_oid == remote_oid {
+            return branch_name.to_string();
+        }
+
+        // Fast-forward is possible when remote_oid is a descendant of local_oid.
+        if repo
+            .graph_descendant_of(remote_oid, local_oid)
+            .unwrap_or(false)
+        {
+            match repo.reference(
+                &format!("refs/heads/{branch_name}"),
+                remote_oid,
+                true,
+                "fast-forward before workspace creation",
+            ) {
+                Ok(_) => {
+                    tracing::info!(
+                        "fetch target '{}': fast-forwarded to {} (remote tip).",
+                        branch_name,
+                        &remote_oid.to_string()[..8]
+                    );
+                    branch_name.to_string()
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "fetch target '{}': fast-forward failed: {}. Using '{}'.",
+                        branch_name,
+                        e,
+                        remote_ref
+                    );
+                    remote_ref
+                }
+            }
+        } else {
+            tracing::warn!(
+                "fetch target '{}': local has diverged from remote; using '{}' as workspace base.",
+                branch_name,
+                remote_ref
+            );
+            remote_ref
+        }
+    }
+
     /// Clone a repository to the specified directory
     #[cfg(feature = "cloud")]
     pub fn clone_repository(
