@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "自定义"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "在 VS Code Web (github.dev) 中打开",
+    "branchNotPushed": "分支尚未推送到 GitHub"
+  },
   "buttons": {
     "save": "保存",
     "cancel": "取消",

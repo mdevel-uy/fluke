@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "カスタム"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "VS Code Web (github.dev) で開く",
+    "branchNotPushed": "ブランチはまだ GitHub にプッシュされていません"
+  },
   "folderPicker": {
     "legend": "フォルダ名をクリックして移動 • アクションボタンで選択",
     "manualPathLabel": "パスを手動入力:",
