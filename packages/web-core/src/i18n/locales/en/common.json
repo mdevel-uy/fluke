@@ -569,6 +569,16 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "taskStatus": {
+      "queued": "Queued",
+      "in_progress": "In progress",
+      "in_review": "In review",
+      "done": "Done"
+    },
+    "taskLinked": {
+      "openWorkspace": "Open workspace",
+      "viewInSprint": "View in Sprint"
+    },
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
       "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",
@@ -665,12 +675,16 @@
       "queued": "Queued",
       "inProgress": "In Progress",
       "inReview": "In Review",
-      "done": "Done"
+      "done": "Done",
+      "failed": "Failed"
     },
     "backlog": {
       "assign": "Assign",
       "noWorkers": "No workers available",
-      "empty": "No open issues waiting to be picked up."
+      "empty": "No open issues waiting to be picked up.",
+      "moreActions": "More actions",
+      "setPriority": "Set priority",
+      "assignTo": "Assign to worker"
     },
     "composer": {
       "title": "New free-form task",
@@ -695,6 +709,33 @@
     "done": {
       "empty": "No completed tasks yet."
     },
+    "filters": {
+      "searchPlaceholder": "Search issues...",
+      "clearSearch": "Clear search",
+      "epic": "Epic",
+      "allEpics": "All epics",
+      "label": "Label",
+      "allLabels": "All labels",
+      "priority": "Priority",
+      "allPriorities": "All priorities",
+      "worker": "Worker",
+      "allWorkers": "All workers",
+      "clearAll": "Clear filters",
+      "noResults": "No issues match the active filters."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "detail": {
+      "panelLabel": "Issue detail",
+      "close": "Close panel",
+      "noPriority": "No priority",
+      "noBody": "No description provided.",
+      "assignedTo": "Assigned to {{worker}}"
+    },
     "startSprint": "Start sprint",
     "startSprintDisabled": "No workers are ready to start",
     "startSprintDialog": {
@@ -715,6 +756,11 @@
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllNoneStarted": "No workers were ready to start.",
       "startAllError": "Failed to start sprint: {{message}}"
+    },
+    "failed": {
+      "retry": "Retry",
+      "discard": "Discard",
+      "empty": "No failed tasks."
     }
   }
 }

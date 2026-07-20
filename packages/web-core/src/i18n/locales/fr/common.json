@@ -569,6 +569,16 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "taskStatus": {
+      "queued": "En attente",
+      "in_progress": "En cours",
+      "in_review": "En revue",
+      "done": "Terminé"
+    },
+    "taskLinked": {
+      "openWorkspace": "Ouvrir le workspace",
+      "viewInSprint": "Voir dans Sprint"
+    },
     "assignDialog": {
       "title": "Assigner l'issue #{{number}} à un worker",
       "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",
@@ -665,12 +675,16 @@
       "queued": "En file",
       "inProgress": "En cours",
       "inReview": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "failed": "Échouées"
     },
     "backlog": {
       "assign": "Assigner",
       "noWorkers": "Aucun worker disponible",
-      "empty": "Aucun ticket ouvert en attente."
+      "empty": "Aucun ticket ouvert en attente.",
+      "moreActions": "Plus d'actions",
+      "setPriority": "Définir la priorité",
+      "assignTo": "Assigner à un worker"
     },
     "composer": {
       "title": "Nouvelle tâche libre",
@@ -695,6 +709,33 @@
     "done": {
       "empty": "Aucune tâche terminée pour l'instant."
     },
+    "filters": {
+      "searchPlaceholder": "Rechercher des tickets...",
+      "clearSearch": "Effacer la recherche",
+      "epic": "Épique",
+      "allEpics": "Toutes les épiques",
+      "label": "Étiquette",
+      "allLabels": "Toutes les étiquettes",
+      "priority": "Priorité",
+      "allPriorities": "Toutes les priorités",
+      "worker": "Worker",
+      "allWorkers": "Tous les workers",
+      "clearAll": "Effacer les filtres",
+      "noResults": "Aucun ticket ne correspond aux filtres actifs."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "detail": {
+      "panelLabel": "Détail du ticket",
+      "close": "Fermer le panneau",
+      "noPriority": "Sans priorité",
+      "noBody": "Aucune description fournie.",
+      "assignedTo": "Assigné à {{worker}}"
+    },
     "startSprint": "Démarrer le sprint",
     "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
     "startSprintDialog": {
@@ -715,6 +756,11 @@
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
       "startAllError": "Échec du démarrage du sprint : {{message}}"
+    },
+    "failed": {
+      "retry": "Réessayer",
+      "discard": "Ignorer",
+      "empty": "Aucune tâche échouée."
     }
   }
 }

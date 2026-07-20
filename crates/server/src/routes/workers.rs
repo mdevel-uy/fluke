@@ -456,9 +456,10 @@ fn map_start_error(err: StartError) -> ApiError {
     match err {
         StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
         StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
-        StartError::RepoMissingDefaultBranch => ApiError::BadRequest(
-            "Repo is missing default_target_branch; configure it before starting a worker".into(),
-        ),
+        StartError::RepoMissingDefaultBranch(repo_name) => ApiError::BadRequest(format!(
+            "Repo '{}' is missing a default target branch. Configure it in Settings \u{2192} Repos \u{2192} {} \u{2192} Default target branch",
+            repo_name, repo_name
+        )),
         StartError::NothingQueued => ApiError::Conflict("No queued tasks for worker".into()),
         StartError::AlreadyInProgress => {
             ApiError::Conflict("Worker already has a task in progress".into())
@@ -487,9 +488,11 @@ pub async fn delete_worker_task(
             "Worker task does not belong to this worker".into(),
         ));
     }
-    if existing.status != worker_task::STATUS_QUEUED {
+    if existing.status != worker_task::STATUS_QUEUED
+        && existing.status != worker_task::STATUS_FAILED
+    {
         return Err(ApiError::Conflict(
-            "Only queued tasks can be deleted".into(),
+            "Only queued or failed tasks can be deleted".into(),
         ));
     }
 

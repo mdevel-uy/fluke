@@ -1514,7 +1514,7 @@ export const repoIssuesApi = {
   setPriority: async (
     repoId: string,
     issueNumber: number,
-    priority: 'urgent' | 'high' | 'medium' | 'low' | null
+    priority: import('@/features/issues/types').IssuePriority | null
   ): Promise<RepoIssue> => {
     const response = await makeRequest(
       `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/priority`,
