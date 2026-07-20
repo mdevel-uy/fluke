@@ -7,7 +7,10 @@ use db::{
     models::{
         merge::MergeStatus,
         pull_request::PullRequest,
+        repo::Repo,
+        worker_task::WorkerTask,
         workspace::{Workspace, WorkspaceError},
+        workspace_repo::WorkspaceRepo,
     },
 };
 use git_host::{GitHostError, GitHostProvider, GitHostService};
@@ -97,12 +100,257 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                     if let Err(e) = self.check_all_open_prs().await {
                         error!("Error checking open PRs: {}", e);
                     }
+                    self.check_in_progress_workspaces_for_prs().await;
                 }
                 _ = self.sync_notify.notified() => {
                     debug!("PR sync triggered externally");
                 }
             }
             self.sync_pending_to_remote().await;
+        }
+    }
+
+    /// Sweep all in-progress worker-task workspaces and adopt any GitHub PR
+    /// that was created outside the app (e.g. by the agent via `gh pr create`).
+    /// Errors for individual workspaces are logged and skipped; the sweep never
+    /// aborts mid-run.
+    async fn check_in_progress_workspaces_for_prs(&self) {
+        let tasks = match WorkerTask::find_all_in_progress_with_workspace(&self.db.pool).await {
+            Ok(t) => t,
+            Err(e) => {
+                error!(
+                    "Failed to query in-progress tasks for PR adoption sweep: {}",
+                    e
+                );
+                return;
+            }
+        };
+
+        if tasks.is_empty() {
+            return;
+        }
+
+        debug!(
+            "Checking {} in-progress workspace(s) for unregistered PRs",
+            tasks.len()
+        );
+
+        for task in &tasks {
+            if let Some(workspace_id) = task.workspace_id {
+                self.try_adopt_pr_for_workspace(workspace_id).await;
+            }
+        }
+    }
+
+    /// For a single workspace that has an in-progress worker task, look up
+    /// GitHub for any PR on the workspace's branch and adopt it if not yet
+    /// registered.  All failures are logged and the method always returns
+    /// cleanly so the sweep can continue.
+    async fn try_adopt_pr_for_workspace(&self, workspace_id: uuid::Uuid) {
+        // Skip if the workspace already has at least one PR recorded.
+        match PullRequest::find_by_workspace_id(&self.db.pool, workspace_id).await {
+            Ok(prs) if !prs.is_empty() => return,
+            Err(e) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to query existing PRs for workspace during adoption sweep: {}",
+                    e
+                );
+                return;
+            }
+            Ok(_) => {}
+        }
+
+        let workspace = match Workspace::find_by_id(&self.db.pool, workspace_id).await {
+            Ok(Some(ws)) => ws,
+            Ok(None) => return,
+            Err(e) => {
+                warn!(workspace_id = %workspace_id, "Failed to load workspace during adoption sweep: {}", e);
+                return;
+            }
+        };
+
+        let workspace_repos =
+            match WorkspaceRepo::find_by_workspace_id(&self.db.pool, workspace_id).await {
+                Ok(repos) => repos,
+                Err(e) => {
+                    warn!(
+                        workspace_id = %workspace_id,
+                        "Failed to load workspace repos during adoption sweep: {}",
+                        e
+                    );
+                    return;
+                }
+            };
+
+        for workspace_repo in &workspace_repos {
+            let repo = match Repo::find_by_id(&self.db.pool, workspace_repo.repo_id).await {
+                Ok(Some(r)) => r,
+                _ => continue,
+            };
+
+            let git = self.container.git();
+            let remote =
+                match git.resolve_remote_for_branch(&repo.path, &workspace_repo.target_branch) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        debug!(
+                            workspace_id = %workspace_id,
+                            "Could not resolve remote for adoption sweep: {}",
+                            e
+                        );
+                        continue;
+                    }
+                };
+
+            let git_host = match GitHostService::from_url(&remote.url) {
+                Ok(host) => host,
+                Err(_) => continue,
+            };
+
+            let prs = match git_host
+                .list_prs_for_branch(&repo.path, &remote.url, &workspace.branch)
+                .await
+            {
+                Ok(prs) => prs,
+                Err(GitHostError::CliNotInstalled { .. } | GitHostError::NotAGitRepository(_)) => {
+                    debug!(
+                        workspace_id = %workspace_id,
+                        "Skipping adoption sweep for workspace due to environmental issue"
+                    );
+                    return;
+                }
+                Err(e) => {
+                    warn!(
+                        workspace_id = %workspace_id,
+                        branch = %workspace.branch,
+                        "Failed to list PRs during adoption sweep: {}",
+                        e
+                    );
+                    continue;
+                }
+            };
+
+            let pr_info = match prs.into_iter().next() {
+                Some(pr) => pr,
+                None => continue,
+            };
+
+            info!(
+                workspace_id = %workspace_id,
+                branch = %workspace.branch,
+                pr_number = pr_info.number,
+                pr_status = ?pr_info.status,
+                "Auto-adopting PR for in-progress workspace"
+            );
+
+            // Record the PR locally.
+            if let Err(e) = PullRequest::create_for_workspace(
+                &self.db.pool,
+                workspace_id,
+                workspace_repo.repo_id,
+                &workspace_repo.target_branch,
+                pr_info.number,
+                &pr_info.url,
+            )
+            .await
+            {
+                error!(
+                    workspace_id = %workspace_id,
+                    "Failed to save adopted PR record: {}",
+                    e
+                );
+                continue;
+            }
+
+            // Update status in DB if the PR is already closed/merged.
+            if !matches!(pr_info.status, MergeStatus::Open) {
+                let merged_at = if matches!(&pr_info.status, MergeStatus::Merged) {
+                    pr_info.merged_at
+                } else {
+                    None
+                };
+                if let Err(e) = PullRequest::update_status(
+                    &self.db.pool,
+                    &pr_info.url,
+                    &pr_info.status,
+                    merged_at,
+                    pr_info.merge_commit_sha.clone(),
+                )
+                .await
+                {
+                    error!(
+                        workspace_id = %workspace_id,
+                        "Failed to update adopted PR status: {}",
+                        e
+                    );
+                }
+            }
+
+            // Sync to remote server.
+            if let Some(client) = &self.remote_client {
+                let pr_status = match &pr_info.status {
+                    MergeStatus::Open => PullRequestStatus::Open,
+                    MergeStatus::Merged => PullRequestStatus::Merged,
+                    MergeStatus::Closed => PullRequestStatus::Closed,
+                    MergeStatus::Unknown => PullRequestStatus::Open,
+                };
+                let upsert_req = UpsertPullRequestRequest {
+                    url: pr_info.url.clone(),
+                    number: pr_info.number as i32,
+                    status: pr_status,
+                    merged_at: pr_info.merged_at,
+                    merge_commit_sha: pr_info.merge_commit_sha.clone(),
+                    target_branch_name: workspace_repo.target_branch.clone(),
+                    local_workspace_id: workspace_id,
+                };
+                remote_sync::sync_pr_to_remote(client, upsert_req).await;
+            }
+
+            // Advance the worker-task state machine.
+            match &pr_info.status {
+                MergeStatus::Open => {
+                    if let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await {
+                        warn!(
+                            workspace_id = %workspace_id,
+                            "Failed to move task to in_review after PR adoption: {}",
+                            e
+                        );
+                    }
+                }
+                MergeStatus::Merged => {
+                    if let Err(e) = self
+                        .try_archive_workspace(workspace_id, pr_info.number)
+                        .await
+                    {
+                        error!(
+                            workspace_id = %workspace_id,
+                            "Failed to archive workspace after merged-PR adoption: {}",
+                            e
+                        );
+                    }
+                    match worker_orchestrator::on_pr_merged(
+                        &self.config,
+                        &self.db,
+                        &self.container,
+                        workspace_id,
+                    )
+                    .await
+                    {
+                        Ok(true) => info!(
+                            workspace_id = %workspace_id,
+                            "Worker took next task after adopted PR merge"
+                        ),
+                        Ok(false) => {}
+                        Err(e) => warn!(
+                            workspace_id = %workspace_id,
+                            "Failed to reconcile worker task after adopted PR merge: {}",
+                            e
+                        ),
+                    }
+                }
+                _ => {}
+            }
         }
     }
 

@@ -3,34 +3,22 @@ import {
   Draggable,
   Droppable,
   type DropResult,
-} from "@hello-pangea/dnd";
-import type { ReactNode } from "react";
-import {
-  LayoutIcon,
-  DownloadSimpleIcon,
-  LinkIcon,
-  PlusIcon,
-  KanbanIcon,
-  SpinnerIcon,
-  UsersIcon,
-  WarningCircleIcon,
-  LightningIcon,
-  type Icon,
-} from "@phosphor-icons/react";
-import { cn } from "../lib/cn";
+} from '@hello-pangea/dnd';
+import type { ReactNode } from 'react';
+import { cn } from '../lib/cn';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
   PopoverClose,
-} from "./Popover";
-import { Tooltip } from "./Tooltip";
-import { useTranslation } from "react-i18next";
+} from './Popover';
+import { Tooltip } from './Tooltip';
+import { MaterialIcon } from './MaterialIcon';
+import { useTranslation } from 'react-i18next';
 
 function getProjectInitials(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed) return "??";
-
+  if (!trimmed) return '??';
   const words = trimmed.split(/\s+/);
   if (words.length >= 2) {
     return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
@@ -81,7 +69,7 @@ export interface AppBarProject {
   color: string;
 }
 
-export type AppBarHostStatus = "online" | "offline" | "unpaired";
+export type AppBarHostStatus = 'online' | 'offline' | 'unpaired';
 
 export interface AppBarHost {
   id: string;
@@ -90,30 +78,30 @@ export interface AppBarHost {
 }
 
 function getHostStatusLabel(status: AppBarHostStatus): string {
-  if (status === "online") return "Online";
-  if (status === "offline") return "Offline";
-  return "Unpaired";
+  if (status === 'online') return 'Online';
+  if (status === 'offline') return 'Offline';
+  return 'Unpaired';
 }
 
 function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
-  if (status === "online") return "bg-success";
-  if (status === "offline") return "bg-low";
-  return "bg-white border-warning";
+  if (status === 'online') return 'bg-success';
+  if (status === 'offline') return 'bg-md-outline';
+  return 'bg-white border-warning';
 }
 
 function AppBarSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="w-11 text-center text-[9px] font-semibold leading-none tracking-wider text-low uppercase">
+    <p className="w-11 text-center text-label-caps font-geist font-semibold uppercase tracking-widest text-md-outline">
       {children}
     </p>
   );
 }
 
-const appBarItemBaseClassName =
-  "flex items-center justify-center w-11 h-11 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+const appBarItemBase =
+  'flex items-center justify-center w-11 h-11 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-md-primary focus-visible:ring-offset-1 focus-visible:ring-offset-md-background active:scale-95';
 
 type AppBarSection = {
-  key: "local" | "remote" | "projects" | "export";
+  key: 'local' | 'remote' | 'projects' | 'export';
   label: string;
   items: AppBarSectionItem[];
 };
@@ -121,9 +109,9 @@ type AppBarSection = {
 type AppBarSectionItem =
   | {
       key: string;
-      kind: "icon-button";
+      kind: 'icon-button';
       label: string;
-      icon: Icon;
+      materialIcon: string;
       isActive?: boolean;
       onClick?: () => void;
       className?: string;
@@ -131,7 +119,7 @@ type AppBarSectionItem =
     }
   | {
       key: string;
-      kind: "host-button";
+      kind: 'host-button';
       host: AppBarHost;
       isActive: boolean;
       onClick?: () => void;
@@ -139,17 +127,17 @@ type AppBarSectionItem =
     }
   | {
       key: string;
-      kind: "kanban-cta";
+      kind: 'kanban-cta';
       label: string;
       onSignIn?: () => void;
     }
   | {
       key: string;
-      kind: "loading";
+      kind: 'loading';
     }
   | {
       key: string;
-      kind: "project-list";
+      kind: 'project-list';
       projects: AppBarProject[];
       activeProjectId: string | null;
       isSavingProjectOrder?: boolean;
@@ -165,12 +153,12 @@ function getStandardAppBarButtonClassName({
   className?: string;
 }) {
   return cn(
-    appBarItemBaseClassName,
-    "cursor-pointer",
+    appBarItemBase,
+    'cursor-pointer',
     isActive
-      ? "bg-brand/15 text-brand hover:bg-brand/20 shadow-soft dark:bg-brand/25"
-      : "text-low hover:bg-secondary hover:text-high",
-    className,
+      ? 'bg-md-secondary-container text-md-on-secondary-container shadow-soft'
+      : 'text-md-on-surface-variant hover:bg-md-surface-container-high hover:text-md-on-surface',
+    className
   );
 }
 
@@ -181,17 +169,16 @@ function getHostButtonClassName({
   host: AppBarHost;
   isActive: boolean;
 }) {
-  const isOffline = host.status === "offline";
-
+  const isOffline = host.status === 'offline';
   return cn(
-    appBarItemBaseClassName,
+    appBarItemBase,
     isOffline
-      ? "bg-secondary text-low opacity-50 cursor-not-allowed"
+      ? 'bg-md-surface-container-low text-md-outline opacity-50 cursor-not-allowed'
       : isActive
-        ? "bg-brand/15 text-brand cursor-pointer hover:bg-brand/20 shadow-soft dark:bg-brand/25"
-        : host.status === "unpaired"
-          ? "bg-secondary text-warning cursor-pointer hover:bg-warning/10"
-          : "text-low cursor-pointer hover:bg-secondary hover:text-high",
+        ? 'bg-md-secondary-container text-md-on-secondary-container cursor-pointer shadow-soft'
+        : host.status === 'unpaired'
+          ? 'bg-md-surface-container-low text-warning cursor-pointer hover:bg-warning/10'
+          : 'text-md-on-surface-variant cursor-pointer hover:bg-md-surface-container-high hover:text-md-on-surface'
   );
 }
 
@@ -231,7 +218,7 @@ export function AppBar({
   updateVersion,
   onUpdateClick,
 }: AppBarProps) {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
   if (
@@ -243,81 +230,74 @@ export function AppBar({
     const localItems: AppBarSectionItem[] = [];
     if (showWorkspacesButton) {
       localItems.push({
-        key: "local-workspaces",
-        kind: "icon-button",
-        label: "Local workspaces",
-        icon: LayoutIcon,
+        key: 'local-workspaces',
+        kind: 'icon-button',
+        label: 'Local workspaces',
+        materialIcon: 'grid_view',
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
       });
     }
     if (showIssuesButton && onIssuesClick) {
       localItems.push({
-        key: "local-issues",
-        kind: "icon-button",
-        label: t("appBar.issues"),
-        icon: WarningCircleIcon,
+        key: 'local-issues',
+        kind: 'icon-button',
+        label: t('appBar.issues'),
+        materialIcon: 'list_alt',
         isActive: isIssuesActive,
         onClick: onIssuesClick,
       });
     }
     if (showWorkersButton && onWorkersClick) {
       localItems.push({
-        key: "local-workers",
-        kind: "icon-button",
-        label: t("appBar.workers"),
-        icon: UsersIcon,
+        key: 'local-workers',
+        kind: 'icon-button',
+        label: t('appBar.workers'),
+        materialIcon: 'group',
         isActive: isWorkersActive,
         onClick: onWorkersClick,
       });
     }
     if (showSprintButton && onSprintClick) {
       localItems.push({
-        key: "local-sprint",
-        kind: "icon-button",
-        label: t("appBar.sprint"),
-        icon: LightningIcon,
+        key: 'local-sprint',
+        kind: 'icon-button',
+        label: t('appBar.sprint'),
+        materialIcon: 'bolt',
         isActive: isSprintActive,
         onClick: onSprintClick,
       });
     }
     if (localItems.length > 0) {
-      sections.push({
-        key: "local",
-        label: "Local",
-        items: localItems,
-      });
+      sections.push({ key: 'local', label: 'Local', items: localItems });
     }
   }
 
   if (hosts.length > 0 || onPairHostClick) {
     sections.push({
-      key: "remote",
-      label: "Remote",
+      key: 'remote',
+      label: 'Remote',
       items: [
         ...hosts.map((host) => ({
           key: `host-${host.id}`,
-          kind: "host-button" as const,
+          kind: 'host-button' as const,
           host,
           isActive: host.id === activeHostId,
           onClick: () => {
-            if (host.status === "offline") {
-              return;
-            }
-
+            if (host.status === 'offline') return;
             onHostClick?.(host.id, host.status);
           },
         })),
         ...(onPairHostClick
           ? [
               {
-                key: "pair-remote-device",
-                kind: "icon-button" as const,
-                label: "Pair a remote device",
-                icon: LinkIcon,
+                key: 'pair-remote-device',
+                kind: 'icon-button' as const,
+                label: 'Pair a remote device',
+                materialIcon: 'link',
                 onClick: onPairHostClick,
                 className:
-                  "bg-primary text-muted hover:text-normal hover:bg-tertiary",
+                  'bg-md-surface-container-low text-md-on-surface-variant hover:text-md-on-surface hover:bg-md-surface-container',
               },
             ]
           : []),
@@ -329,21 +309,21 @@ export function AppBar({
 
   if (!isSignedIn) {
     projectSectionItems.push({
-      key: "kanban-cta",
-      kind: "kanban-cta",
-      label: t("appBar.kanban.tooltip"),
+      key: 'kanban-cta',
+      kind: 'kanban-cta',
+      label: t('appBar.kanban.tooltip'),
       onSignIn,
     });
   }
 
   if (isLoadingProjects) {
-    projectSectionItems.push({ key: "projects-loading", kind: "loading" });
+    projectSectionItems.push({ key: 'projects-loading', kind: 'loading' });
   }
 
   if (projects.length > 0) {
     projectSectionItems.push({
-      key: "project-list",
-      kind: "project-list",
+      key: 'project-list',
+      kind: 'project-list',
       projects,
       activeProjectId,
       isSavingProjectOrder,
@@ -354,34 +334,35 @@ export function AppBar({
 
   if (isSignedIn) {
     projectSectionItems.push({
-      key: "create-project",
-      kind: "icon-button",
-      label: "Create project",
-      icon: PlusIcon,
+      key: 'create-project',
+      kind: 'icon-button',
+      label: 'Create project',
+      materialIcon: 'add',
       onClick: onCreateProject,
-      className: "bg-primary text-muted hover:text-normal hover:bg-tertiary",
-      wrapperClassName: "pt-base",
+      className:
+        'bg-md-surface-container-low text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface',
+      wrapperClassName: 'pt-base',
     });
   }
 
   if (projectSectionItems.length > 0) {
     sections.push({
-      key: "projects",
-      label: "Projects",
+      key: 'projects',
+      label: 'Projects',
       items: projectSectionItems,
     });
   }
 
   if (isSignedIn && onExportClick) {
     sections.push({
-      key: "export",
-      label: "Export",
+      key: 'export',
+      label: 'Export',
       items: [
         {
-          key: "export-data",
-          kind: "icon-button",
-          label: "Export data",
-          icon: DownloadSimpleIcon,
+          key: 'export-data',
+          kind: 'icon-button',
+          label: 'Export data',
+          materialIcon: 'download',
           isActive: isExportActive,
           onClick: onExportClick,
         },
@@ -391,7 +372,7 @@ export function AppBar({
 
   function renderSectionItem(item: AppBarSectionItem): ReactNode {
     switch (item.kind) {
-      case "icon-button":
+      case 'icon-button':
         return (
           <Tooltip content={item.label} side="right">
             <button
@@ -403,13 +384,17 @@ export function AppBar({
               })}
               aria-label={item.label}
             >
-              <item.icon className="size-icon-base" weight="bold" />
+              <MaterialIcon
+                name={item.materialIcon}
+                fill={item.isActive ? 1 : 0}
+                size="base"
+              />
             </button>
           </Tooltip>
         );
-      case "host-button": {
-        const isOffline = item.host.status === "offline";
 
+      case 'host-button': {
+        const isOffline = item.host.status === 'offline';
         return (
           <Tooltip
             content={`${item.host.name} · ${getHostStatusLabel(item.host.status)}`}
@@ -418,9 +403,9 @@ export function AppBar({
             <div className="relative">
               <span
                 className={cn(
-                  "absolute -top-1 -right-1 z-10",
-                  "w-3.5 h-3.5 rounded-full border border-secondary",
-                  getHostStatusIndicatorClass(item.host.status),
+                  'absolute -top-1 -right-1 z-10',
+                  'w-3.5 h-3.5 rounded-full border border-md-surface-container-low',
+                  getHostStatusIndicatorClass(item.host.status)
                 )}
                 aria-hidden="true"
               />
@@ -440,7 +425,8 @@ export function AppBar({
           </Tooltip>
         );
       }
-      case "kanban-cta":
+
+      case 'kanban-cta':
         return (
           <Popover>
             <Tooltip content={item.label} side="right">
@@ -450,16 +436,16 @@ export function AppBar({
                   className={getStandardAppBarButtonClassName({})}
                   aria-label={item.label}
                 >
-                  <KanbanIcon className="size-icon-base" weight="bold" />
+                  <MaterialIcon name="view_kanban" size="base" />
                 </button>
               </PopoverTrigger>
             </Tooltip>
             <PopoverContent side="right" sideOffset={8}>
-              <p className="text-sm font-medium text-high">
-                {t("appBar.kanban.title")}
+              <p className="text-title-sm font-semibold text-md-on-surface">
+                {t('appBar.kanban.title')}
               </p>
-              <p className="text-xs text-low mt-1">
-                {t("appBar.kanban.description")}
+              <p className="text-body-sm text-md-on-surface-variant mt-1">
+                {t('appBar.kanban.description')}
               </p>
               <div className="mt-base">
                 <PopoverClose asChild>
@@ -467,24 +453,30 @@ export function AppBar({
                     type="button"
                     onClick={item.onSignIn}
                     className={cn(
-                      "px-base py-1 rounded-sm text-xs",
-                      "bg-brand text-on-brand hover:bg-brand-hover cursor-pointer",
+                      'px-3 py-1.5 rounded-lg text-body-sm font-semibold',
+                      'bg-md-primary text-md-on-primary hover:opacity-90 cursor-pointer active:scale-95 transition-all duration-200'
                     )}
                   >
-                    {t("signIn")}
+                    {t('signIn')}
                   </button>
                 </PopoverClose>
               </div>
             </PopoverContent>
           </Popover>
         );
-      case "loading":
+
+      case 'loading':
         return (
-          <div className="flex items-center justify-center w-10 h-10">
-            <SpinnerIcon className="size-5 animate-spin text-muted" />
+          <div className="flex items-center justify-center w-11 h-11">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-on-surface-variant"
+            />
           </div>
         );
-      case "project-list":
+
+      case 'project-list':
         return (
           <DragDropContext onDragEnd={item.onProjectsDragEnd}>
             <Droppable
@@ -519,12 +511,12 @@ export function AppBar({
                               type="button"
                               onClick={() => item.onProjectClick(project.id)}
                               className={cn(
-                                appBarItemBaseClassName,
-                                "cursor-grab font-semibold",
-                                snapshot.isDragging && "shadow-elevated",
+                                appBarItemBase,
+                                'cursor-grab font-semibold text-title-sm',
+                                snapshot.isDragging && 'shadow-elevated',
                                 item.activeProjectId === project.id
-                                  ? "shadow-soft"
-                                  : "bg-secondary text-normal hover:bg-panel hover:text-high",
+                                  ? 'shadow-soft'
+                                  : 'bg-md-surface-container-low text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface'
                               )}
                               style={
                                 item.activeProjectId === project.id
@@ -557,8 +549,8 @@ export function AppBar({
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       className={cn(
-        "flex flex-col items-center h-full min-h-0 overflow-y-auto py-3 px-2 gap-3",
-        "bg-secondary/60 border-r border-border/60",
+        'flex flex-col items-center h-full min-h-0 overflow-y-auto py-3 px-2 gap-3',
+        'bg-md-surface-container-low border-r border-md-outline-variant'
       )}
     >
       {sections.map((section) => (
@@ -568,7 +560,7 @@ export function AppBar({
             <div
               key={item.key}
               className={
-                "wrapperClassName" in item ? item.wrapperClassName : undefined
+                'wrapperClassName' in item ? item.wrapperClassName : undefined
               }
             >
               {renderSectionItem(item)}
@@ -577,8 +569,7 @@ export function AppBar({
         </div>
       ))}
 
-      {/* Bottom section: Notifications + User popover */}
-      <div className="mt-auto pt-3 flex flex-col items-center gap-3">
+      <div className="mt-auto pt-3 border-t border-md-outline-variant flex flex-col items-center gap-3 w-full">
         {notificationBell}
         {userPopover}
         {updateVersion ? (
@@ -587,10 +578,10 @@ export function AppBar({
               type="button"
               onClick={onUpdateClick}
               className={cn(
-                "flex items-center justify-center py-1 rounded-lg w-11",
-                "text-[9px] font-ibm-plex-mono font-semibold leading-none tracking-wide uppercase",
-                "bg-brand text-on-brand hover:bg-brand-hover shadow-soft",
-                "transition-all duration-150 cursor-pointer",
+                'flex items-center justify-center py-1 rounded-lg w-11',
+                'text-label-caps font-geist font-semibold uppercase tracking-widest',
+                'bg-md-primary text-md-on-primary hover:opacity-90 shadow-soft',
+                'transition-all duration-200 cursor-pointer active:scale-95'
               )}
             >
               Update
@@ -599,7 +590,7 @@ export function AppBar({
         ) : (
           appVersion && (
             <p
-              className="text-[9px] font-ibm-plex-mono text-low leading-none truncate max-w-11 text-center"
+              className="text-label-caps font-geist text-md-outline leading-none truncate max-w-11 text-center"
               title={`v${appVersion}`}
             >
               v{appVersion}

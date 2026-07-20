@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Personnalisé"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Ouvrir dans VS Code web (github.dev)",
+    "branchNotPushed": "La branche n'est pas encore sur GitHub"
+  },
   "buttons": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -569,6 +573,17 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "archiveAction": "Archiver",
+    "taskStatus": {
+      "queued": "En attente",
+      "in_progress": "En cours",
+      "in_review": "En revue",
+      "done": "Terminé"
+    },
+    "taskLinked": {
+      "openWorkspace": "Ouvrir le workspace",
+      "viewInSprint": "Voir dans Sprint"
+    },
     "assignDialog": {
       "title": "Assigner l'issue #{{number}} à un worker",
       "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",
@@ -580,13 +595,62 @@
       "loadingWorkers": "Chargement des workers...",
       "cancel": "Annuler",
       "confirm": "Mettre en file d'attente",
-      "enqueuedError": "Impossible de mettre la tâche en file d'attente."
+      "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
+      "checkingConflicts": "Vérification des assignations existantes...",
+      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{emoji}} {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
+      "assignAnyway": "Assigner quand même"
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher des issues…",
+      "state": {
+        "all": "Tous",
+        "open": "Ouverts",
+        "closed": "Fermés"
+      },
+      "priority": "Priorité",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "label": "Étiquette",
+      "milestone": "Jalon",
+      "groupBy": "Grouper par",
+      "groupByOptions": {
+        "none": "Aucun",
+        "label": "Étiquette",
+        "milestone": "Jalon"
+      },
+      "clear": "Effacer les filtres",
+      "noResults": "Aucun issue ne correspond aux filtres actuels.",
+      "noLabel": "Sans étiquette",
+      "noMilestone": "Sans jalon"
+    },
+    "drawer": {
+      "title": "Détail de l'issue",
+      "close": "Fermer",
+      "openOnGitHub": "Ouvrir sur GitHub",
+      "stateOpen": "ouvert",
+      "stateClosed": "fermé",
+      "priority": "Priorité",
+      "milestone": "Jalon",
+      "author": "Auteur",
+      "labels": "Étiquettes",
+      "addLabel": "Ajouter une étiquette",
+      "searchLabels": "Rechercher des étiquettes…",
+      "createLabel": "Créer \"{{name}}\"",
+      "noLabels": "Aucune étiquette trouvée",
+      "description": "Description",
+      "noDescription": "Aucune description fournie.",
+      "archive": "Archiver",
+      "archiveTitle": "Archiver l'issue",
+      "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
+      "archiveAction": "Fermer l'issue"
     }
   },
   "workers": {
     "title": "Workers",
-    "countLabel": "{{count}} worker",
-    "countLabel_other": "{{count}} workers",
     "newWorker": "Nouveau worker",
     "loading": "Chargement des workers...",
     "loadError": "Échec du chargement des workers.",
@@ -611,11 +675,7 @@
       "menuLabel": "Actions du worker",
       "edit": "Modifier",
       "delete": "Supprimer",
-      "queuedCount": "{{count}} en file",
-      "queuedCount_other": "{{count}} en file",
       "queuedLabel": "en file",
-      "completedCount": "{{count}} terminée",
-      "completedCount_other": "{{count}} terminées",
       "completedLabel": "terminées",
       "startNext": "Démarrer la suivante",
       "expandQueue": "Voir la file",
@@ -665,18 +725,23 @@
       "queued": "En file",
       "inProgress": "En cours",
       "inReview": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "failed": "Échouées"
     },
     "backlog": {
       "assign": "Assigner",
       "noWorkers": "Aucun worker disponible",
-      "empty": "Aucun ticket ouvert en attente."
+      "empty": "Aucun ticket ouvert en attente.",
+      "moreActions": "Plus d'actions",
+      "setPriority": "Définir la priorité",
+      "assignTo": "Assigner à un worker"
     },
     "composer": {
       "title": "Nouvelle tâche libre",
       "titlePlaceholder": "Titre de la tâche",
       "promptPlaceholder": "Que doit faire l'agent ?",
-      "assign": "Envoyer à un worker"
+      "assign": "Envoyer à un worker",
+      "skills": "Skills :"
     },
     "queued": {
       "moveUp": "Monter",
@@ -693,6 +758,33 @@
     },
     "done": {
       "empty": "Aucune tâche terminée pour l'instant."
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher des tickets...",
+      "clearSearch": "Effacer la recherche",
+      "epic": "Épique",
+      "allEpics": "Toutes les épiques",
+      "label": "Étiquette",
+      "allLabels": "Toutes les étiquettes",
+      "priority": "Priorité",
+      "allPriorities": "Toutes les priorités",
+      "worker": "Worker",
+      "allWorkers": "Tous les workers",
+      "clearAll": "Effacer les filtres",
+      "noResults": "Aucun ticket ne correspond aux filtres actifs."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "detail": {
+      "panelLabel": "Détail du ticket",
+      "close": "Fermer le panneau",
+      "noPriority": "Sans priorité",
+      "noBody": "Aucune description fournie.",
+      "assignedTo": "Assigné à {{worker}}"
     },
     "startSprint": "Démarrer le sprint",
     "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
@@ -713,7 +805,13 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
-      "startAllError": "Échec du démarrage du sprint : {{message}}"
+      "startAllError": "Échec du démarrage du sprint : {{message}}",
+      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker."
+    },
+    "failed": {
+      "retry": "Réessayer",
+      "discard": "Ignorer",
+      "empty": "Aucune tâche échouée."
     }
   }
 }

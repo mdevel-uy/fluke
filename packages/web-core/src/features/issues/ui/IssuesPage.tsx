@@ -1,9 +1,8 @@
-import { useEffect, useMemo } from 'react';
-import { useSearch } from '@tanstack/react-router';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCcw } from 'lucide-react';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import {
   Select,
   SelectContent,
@@ -11,46 +10,228 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
+import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { repoApi } from '@/shared/lib/api';
 import {
   useRepoIssues,
   useSyncRepoIssues,
+  useAddIssueLabel,
+  useRemoveIssueLabel,
+  useCloseIssue,
 } from '@/features/issues/model/useRepoIssues';
-import type { RepoIssue } from '@/features/issues/types';
+import type { RepoIssue, IssueLabel } from '@/features/issues/types';
+import {
+  useAllWorkerTasks,
+  useWorkers,
+} from '@/features/sprint/model/useWorkers';
+import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
+import { IssuesToolbar } from './IssuesToolbar';
+import type {
+  IssueFilters,
+  IssuePriorityFilter,
+  IssueGroupBy,
+} from './IssuesToolbar';
+import { IssueDetailDrawer } from './IssueDetailDrawer';
 
-function partitionByState(issues: RepoIssue[]) {
-  const open: RepoIssue[] = [];
-  const closed: RepoIssue[] = [];
+// ---------------------------------------------------------------------------
+// URL params → filter state helpers
+// ---------------------------------------------------------------------------
+
+type RawSearch = {
+  repo?: string;
+  q?: string;
+  state?: 'all' | 'open' | 'closed';
+  priority?: string;
+  labels?: string;
+  milestones?: string;
+  groupBy?: 'none' | 'label' | 'milestone';
+  issue?: number;
+};
+
+function filtersFromUrl(s: RawSearch): IssueFilters {
+  return {
+    search: s.q ?? '',
+    state: s.state ?? 'open',
+    priorities: s.priority
+      ? (s.priority.split(',').filter(Boolean) as IssuePriorityFilter[])
+      : [],
+    labels: s.labels ? s.labels.split(',').filter(Boolean) : [],
+    milestones: s.milestones ? s.milestones.split(',').filter(Boolean) : [],
+    groupBy: (s.groupBy as IssueGroupBy) ?? 'none',
+  };
+}
+
+function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
+  return {
+    q: f.search || undefined,
+    state: f.state !== 'open' ? f.state : undefined,
+    priority: f.priorities.length ? f.priorities.join(',') : undefined,
+    labels: f.labels.length ? f.labels.join(',') : undefined,
+    milestones: f.milestones.length ? f.milestones.join(',') : undefined,
+    groupBy: f.groupBy !== 'none' ? f.groupBy : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Worker-task overlay
+// ---------------------------------------------------------------------------
+
+const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
+const EMPTY_TASK_MAP = new Map<number, WorkerTask>();
+
+// ---------------------------------------------------------------------------
+// Filtering
+// ---------------------------------------------------------------------------
+
+function applyFilters(issues: RepoIssue[], filters: IssueFilters): RepoIssue[] {
+  return issues.filter((issue) => {
+    if (filters.state === 'open' && issue.state !== 'open') return false;
+    if (filters.state === 'closed' && issue.state !== 'closed') return false;
+
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      const matchesTitle = issue.title.toLowerCase().includes(q);
+      const matchesNumber =
+        `#${issue.number}`.includes(q) || String(issue.number).includes(q);
+      if (!matchesTitle && !matchesNumber) return false;
+    }
+
+    if (filters.priorities.length > 0) {
+      if (
+        !issue.priority ||
+        !filters.priorities.includes(issue.priority as IssuePriorityFilter)
+      ) {
+        return false;
+      }
+    }
+
+    if (filters.labels.length > 0) {
+      const issueLabels = new Set(issue.labels.map((l) => l.name));
+      if (!filters.labels.some((l) => issueLabels.has(l))) return false;
+    }
+
+    if (filters.milestones.length > 0) {
+      if (!issue.milestone || !filters.milestones.includes(issue.milestone)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Grouping
+// ---------------------------------------------------------------------------
+
+interface IssueGroup {
+  key: string;
+  title: string;
+  issues: RepoIssue[];
+}
+
+function groupIssues(
+  issues: RepoIssue[],
+  groupBy: IssueGroupBy,
+  openLabel: string,
+  closedLabel: string,
+  noGroupLabel: string,
+  noMilestoneLabel: string
+): IssueGroup[] {
+  if (groupBy === 'none') {
+    const open = issues.filter((i) => i.state === 'open');
+    const closed = issues.filter((i) => i.state !== 'open');
+    return [
+      { key: 'open', title: openLabel, issues: open },
+      { key: 'closed', title: closedLabel, issues: closed },
+    ];
+  }
+
+  const map = new Map<string, RepoIssue[]>();
   for (const issue of issues) {
-    if (issue.state === 'open') {
-      open.push(issue);
+    const keys: string[] = [];
+    if (groupBy === 'label') {
+      if (issue.labels.length === 0) {
+        keys.push('');
+      } else {
+        for (const l of issue.labels) keys.push(l.name);
+      }
     } else {
-      closed.push(issue);
+      keys.push(issue.milestone ?? '');
+    }
+    for (const k of keys) {
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(issue);
     }
   }
-  return { open, closed };
+
+  const groups: IssueGroup[] = [];
+  for (const [key, group] of map.entries()) {
+    groups.push({
+      key: key || '__none__',
+      title: key || (groupBy === 'label' ? noGroupLabel : noMilestoneLabel),
+      issues: group,
+    });
+  }
+
+  groups.sort((a, b) => {
+    if (a.key === '__none__') return 1;
+    if (b.key === '__none__') return -1;
+    return a.title.localeCompare(b.title);
+  });
+
+  return groups;
 }
+
+// ---------------------------------------------------------------------------
+// Derive unique values for filter dropdowns
+// ---------------------------------------------------------------------------
+
+function deriveAvailableLabels(issues: RepoIssue[]): IssueLabel[] {
+  const map = new Map<string, IssueLabel>();
+  for (const issue of issues) {
+    for (const label of issue.labels) {
+      if (!map.has(label.name)) map.set(label.name, label);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function deriveAvailableMilestones(issues: RepoIssue[]): string[] {
+  const set = new Set<string>();
+  for (const issue of issues) {
+    if (issue.milestone) set.add(issue.milestone);
+  }
+  return Array.from(set).sort();
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export function IssuesPage() {
   const { t } = useTranslation('common');
   usePageTitle(t('issues.title'));
   const appNavigation = useAppNavigation();
-  const search = useSearch({ strict: false }) as { repo?: string };
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as RawSearch;
   const selectedRepoIdFromUrl = search.repo;
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
+
+  const filters = useMemo(() => filtersFromUrl(search), [search]);
+  const selectedIssueNumber = search.issue;
 
   const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
     queryKey: ['repos'],
     queryFn: () => repoApi.list(),
   });
 
-  // Sync URL param → store so navigation to this view updates the remembered repo.
   useEffect(() => {
     if (
       selectedRepoIdFromUrl &&
@@ -60,7 +241,6 @@ export function IssuesPage() {
     }
   }, [selectedRepoIdFromUrl, repos, setStoredRepoId]);
 
-  // Auto-select: prefer stored repo, fall back to first repo.
   useEffect(() => {
     if (selectedRepoIdFromUrl || repos.length === 0) return;
     const targetId =
@@ -83,16 +263,100 @@ export function IssuesPage() {
     return repos[0]?.id;
   }, [selectedRepoIdFromUrl, repos, storedRepoId]);
 
+  const selectedRepo = useMemo(
+    () => repos.find((r) => r.id === selectedRepoId),
+    [repos, selectedRepoId]
+  );
+
   const {
     data: issues = [],
     isLoading,
     isError,
   } = useRepoIssues(selectedRepoId);
   const syncMutation = useSyncRepoIssues(selectedRepoId);
+  const addLabelMutation = useAddIssueLabel(selectedRepoId);
+  const removeLabelMutation = useRemoveIssueLabel(selectedRepoId);
+  const closeIssueMutation = useCloseIssue(selectedRepoId);
 
-  const { open, closed } = useMemo(() => partitionByState(issues), [issues]);
+  const { data: workers } = useWorkers();
+  const { tasks: allTasks } = useAllWorkerTasks(workers);
+
+  const activeTaskByIssueNumber = useMemo(() => {
+    if (!selectedRepoId || allTasks.length === 0) return EMPTY_TASK_MAP;
+    const map = new Map<number, WorkerTask>();
+    for (const task of allTasks) {
+      if (
+        task.repo_id === selectedRepoId &&
+        task.issue_number != null &&
+        ACTIVE_STATUSES.has(task.status)
+      ) {
+        map.set(task.issue_number, task);
+      }
+    }
+    return map;
+  }, [allTasks, selectedRepoId]);
+
   const isSyncing = syncMutation.isPending;
   const hasIssues = issues.length > 0;
+
+  const availableLabels = useMemo(
+    () => deriveAvailableLabels(issues),
+    [issues]
+  );
+  const availableMilestones = useMemo(
+    () => deriveAvailableMilestones(issues),
+    [issues]
+  );
+
+  const filteredIssues = useMemo(
+    () => applyFilters(issues, filters),
+    [issues, filters]
+  );
+
+  const groups = useMemo(
+    () =>
+      groupIssues(
+        filteredIssues,
+        filters.groupBy,
+        t('issues.openGroup'),
+        t('issues.closedGroup'),
+        t('issues.filters.noLabel'),
+        t('issues.filters.noMilestone')
+      ),
+    [filteredIssues, filters.groupBy, t]
+  );
+
+  const selectedIssue = useMemo(
+    () =>
+      selectedIssueNumber != null
+        ? (issues.find((i) => i.number === selectedIssueNumber) ?? null)
+        : null,
+    [issues, selectedIssueNumber]
+  );
+
+  const updateUrl = useCallback(
+    (params: Partial<RawSearch>) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      void (navigate as any)({
+        search: (prev: RawSearch) => {
+          const next = { ...prev, ...params };
+          (Object.keys(next) as (keyof RawSearch)[]).forEach((k) => {
+            if (next[k] === undefined) delete next[k];
+          });
+          return next;
+        },
+        replace: true,
+      });
+    },
+    [navigate]
+  );
+
+  const handleFilterChange = useCallback(
+    (newFilters: IssueFilters) => {
+      updateUrl(filtersToUrlParams(newFilters));
+    },
+    [updateUrl]
+  );
 
   const handleRefresh = () => {
     if (!selectedRepoId || isSyncing) return;
@@ -104,94 +368,178 @@ export function IssuesPage() {
     appNavigation.goToIssues(repoId);
   };
 
+  const handleSelectIssue = useCallback(
+    (issue: RepoIssue) => {
+      updateUrl({ issue: issue.number });
+    },
+    [updateUrl]
+  );
+
+  const handleCloseDrawer = useCallback(() => {
+    updateUrl({ issue: undefined });
+  }, [updateUrl]);
+
+  const handleAddLabel = useCallback(
+    async (issueNumber: number, label: string, color?: string) => {
+      await addLabelMutation.mutateAsync({ issueNumber, label, color });
+    },
+    [addLabelMutation]
+  );
+
+  const handleRemoveLabel = useCallback(
+    async (issueNumber: number, labelName: string) => {
+      await removeLabelMutation.mutateAsync({ issueNumber, labelName });
+    },
+    [removeLabelMutation]
+  );
+
+  const handleCloseIssue = useCallback(
+    async (issueNumber: number) => {
+      await closeIssueMutation.mutateAsync(issueNumber);
+      if (selectedIssueNumber === issueNumber) {
+        handleCloseDrawer();
+      }
+    },
+    [closeIssueMutation, selectedIssueNumber, handleCloseDrawer]
+  );
+
   return (
-    <div className="flex h-full w-full flex-col bg-primary">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/60 gap-4">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-semibold text-high tracking-tight">
-            {t('issues.title')}
-          </h1>
-          {hasIssues && (
-            <span className="text-sm text-low">
-              {t('issues.countLabel', { count: issues.length })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="min-w-[240px]">
-            <Select
-              value={selectedRepoId ?? ''}
-              onValueChange={handleRepoChange}
-              disabled={repos.length === 0}
+    <div className="flex h-full w-full flex-col bg-md-background">
+      {/* MD3 top bar — 64px, surface-bright, border bottom */}
+      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
+        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight shrink-0">
+          {t('issues.title')}
+        </h1>
+
+        {/* Segmented control: repo picker + refresh */}
+        <div className="flex items-center gap-2 ml-auto">
+          <div className="flex bg-md-surface-container-low rounded-lg p-1 border border-md-outline-variant gap-1">
+            <div className="min-w-[180px]">
+              <Select
+                value={selectedRepoId ?? ''}
+                onValueChange={handleRepoChange}
+                disabled={repos.length === 0}
+              >
+                <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-body-sm px-2 font-semibold text-md-on-surface">
+                  <SelectValue
+                    placeholder={t('issues.repoSelectorPlaceholder')}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {repos.map((repo) => (
+                    <SelectItem key={repo.id} value={repo.id}>
+                      {repo.display_name || repo.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={!selectedRepoId || isSyncing}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded-md text-body-sm text-md-on-surface-variant',
+                'hover:bg-md-surface-container transition-colors duration-200',
+                'active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
             >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t('issues.repoSelectorPlaceholder')}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {repos.map((repo) => (
-                  <SelectItem key={repo.id} value={repo.id}>
-                    {repo.display_name || repo.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <MaterialIcon
+                name="refresh"
+                size="sm"
+                className={isSyncing ? 'animate-spin' : ''}
+              />
+              <span className="hidden sm:inline">
+                {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+              </span>
+            </button>
           </div>
-          <PrimaryButton
-            variant="tertiary"
-            value={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-            actionIcon={isSyncing ? 'spinner' : RefreshCcw}
-            onClick={handleRefresh}
-            disabled={!selectedRepoId || isSyncing}
-          />
         </div>
       </header>
 
+      {/* Filters toolbar (only when there are issues) */}
+      {hasIssues && (
+        <IssuesToolbar
+          filters={filters}
+          availableLabels={availableLabels}
+          availableMilestones={availableMilestones}
+          onChange={handleFilterChange}
+        />
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoadingRepos ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loadingRepos')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loadingRepos')}</span>
           </div>
         ) : repos.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.noReposMessage')}
           </div>
         ) : !selectedRepoId ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-low">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.selectRepoPrompt')}
           </div>
         ) : isLoading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-low">
-            <Loader2 className="h-4 w-4 animate-spin text-brand" />
-            <span className="text-sm">{t('issues.loading')}</span>
+          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
+            <MaterialIcon
+              name="progress_activity"
+              size="base"
+              className="animate-spin text-md-primary"
+            />
+            <span className="text-body-md">{t('issues.loading')}</span>
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center px-4 text-sm text-error">
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
             {t('issues.loadError')}
           </div>
         ) : !hasIssues ? (
           <div className="flex h-full">
             <IssuesEmptyState />
           </div>
+        ) : filteredIssues.length === 0 ? (
+          <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
+            {t('issues.filters.noResults')}
+          </div>
         ) : (
           <div className="flex flex-col gap-6 py-6">
-            <IssuesGroup
-              title={t('issues.openGroup')}
-              count={open.length}
-              issues={open}
-              repoId={selectedRepoId}
-            />
-            <IssuesGroup
-              title={t('issues.closedGroup')}
-              count={closed.length}
-              issues={closed}
-              repoId={selectedRepoId}
-            />
+            {groups.map((group) =>
+              group.issues.length > 0 ? (
+                <IssuesGroup
+                  key={group.key}
+                  title={group.title}
+                  count={group.issues.length}
+                  issues={group.issues}
+                  repoId={selectedRepoId}
+                  taskByIssueNumber={activeTaskByIssueNumber}
+                  selectedIssueId={selectedIssue?.id}
+                  onSelectIssue={handleSelectIssue}
+                  onRemoveLabel={handleRemoveLabel}
+                  onArchive={handleCloseIssue}
+                />
+              ) : null
+            )}
           </div>
         )}
       </div>
+
+      {/* Issue detail drawer */}
+      <IssueDetailDrawer
+        issue={selectedIssue}
+        repoName={selectedRepo?.name ?? ''}
+        repoId={selectedRepoId ?? ''}
+        availableLabels={availableLabels}
+        onClose={handleCloseDrawer}
+        onAddLabel={handleAddLabel}
+        onRemoveLabel={handleRemoveLabel}
+        onArchiveIssue={handleCloseIssue}
+      />
     </div>
   );
 }

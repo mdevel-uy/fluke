@@ -180,6 +180,7 @@ fn generate_types_content() -> String {
         server::routes::workers::StartWorkerResponse::decl(),
         server::routes::workers::StartAllWorkersItemResponse::decl(),
         server::routes::workers::StartAllWorkersResponse::decl(),
+        server::routes::workers::ActiveIssueTaskInfo::decl(),
         server::routes::repo::ListPrsError::decl(),
         server::routes::remote::pull_requests::LinkPrToIssueRequest::decl(),
         server::routes::workspaces::pr::CreateWorkspaceFromPrBody::decl(),

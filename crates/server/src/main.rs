@@ -76,7 +76,7 @@ async fn main() -> Result<(), VibeKanbanError> {
         .cleanup_orphan_executions()
         .await
         .map_err(DeploymentError::from)?;
-    worker_orchestrator::reconcile_zombie_worker_tasks(deployment.db())
+    worker_orchestrator::reconcile_in_progress_tasks(deployment.db())
         .await
         .map_err(DeploymentError::from)?;
     deployment

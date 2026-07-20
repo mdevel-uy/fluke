@@ -160,7 +160,10 @@ pub async fn initialize_deployment(
         .cleanup_orphan_executions()
         .await
         .map_err(DeploymentError::from)?;
-    worker_orchestrator::reconcile_zombie_worker_tasks(deployment.db())
+    // Sweep in_progress worker tasks whose agent was killed by this restart.
+    // Must run after cleanup_orphan_executions so execution processes are
+    // already settled before we flip task statuses.
+    worker_orchestrator::reconcile_in_progress_tasks(deployment.db())
         .await
         .map_err(DeploymentError::from)?;
     deployment

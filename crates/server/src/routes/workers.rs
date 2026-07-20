@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Json as ResponseJson,
     routing::{get, post},
 };
@@ -48,6 +48,8 @@ pub struct WorkerTaskResponse {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// Skills selected for this task (stored as JSON array, exposed as array).
+    pub skills: Vec<String>,
     /// URL of the most recent pull request tracked for this task's workspace,
     /// or `null` when no PR has been created yet.
     pub pr_url: Option<String>,
@@ -73,6 +75,8 @@ async fn worker_task_to_response(
         None => (None, None),
     };
 
+    let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
+
     Ok(WorkerTaskResponse {
         id: task.id,
         worker_id: task.worker_id,
@@ -83,6 +87,7 @@ async fn worker_task_to_response(
         issue_number: task.issue_number,
         status: task.status,
         workspace_id: task.workspace_id,
+        skills,
         pr_url,
         pr_state,
         created_at: task.created_at,
@@ -119,6 +124,32 @@ pub struct CreateWorkerTaskRequest {
     pub prompt: String,
     #[ts(type = "number | null", optional)]
     pub issue_number: Option<i64>,
+    /// Skills to associate with this task. Each skill name must correspond to
+    /// an installed skill in `~/.claude/skills`. The instructions are appended
+    /// to the stored prompt so the agent receives them automatically.
+    #[ts(optional)]
+    pub skills: Option<Vec<String>>,
+    /// When true, skip the duplicate-assignment guard and create the task anyway.
+    #[serde(default)]
+    #[ts(optional)]
+    pub force_duplicate: Option<bool>,
+}
+
+/// Returned by `GET /api/workers/active-issue-task` when an issue already has
+/// an active task assigned to a worker.
+#[derive(Debug, Serialize, TS)]
+pub struct ActiveIssueTaskInfo {
+    pub task_id: Uuid,
+    pub worker_id: Uuid,
+    pub worker_name: String,
+    pub worker_emoji: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActiveIssueTaskQuery {
+    pub repo_id: Uuid,
+    pub issue_number: i64,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -260,6 +291,33 @@ pub async fn list_worker_tasks(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
+/// Returns the first active task (queued / in_progress / in_review) for the
+/// given repo + issue number, together with the assigned worker's display info.
+/// Returns `null` when no active task exists for that issue.
+pub async fn get_active_issue_task(
+    State(deployment): State<DeploymentImpl>,
+    Query(params): Query<ActiveIssueTaskQuery>,
+) -> Result<ResponseJson<ApiResponse<Option<ActiveIssueTaskInfo>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    match WorkerTask::find_active_by_issue(pool, params.repo_id, params.issue_number).await? {
+        None => Ok(ResponseJson(ApiResponse::success(None))),
+        Some(task) => {
+            let worker = Worker::find_by_id(pool, task.worker_id)
+                .await?
+                .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+            Ok(ResponseJson(ApiResponse::success(Some(
+                ActiveIssueTaskInfo {
+                    task_id: task.id,
+                    worker_id: task.worker_id,
+                    worker_name: worker.name,
+                    worker_emoji: worker.emoji,
+                    status: task.status,
+                },
+            ))))
+        }
+    }
+}
+
 pub async fn create_worker_task(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
@@ -283,14 +341,42 @@ pub async fn create_worker_task(
         return Err(ApiError::BadRequest("prompt is required".into()));
     }
 
+    let skills = payload.skills.unwrap_or_default();
+
+    // Append skill instructions to the prompt so the agent receives them.
+    let mut final_prompt = prompt.to_string();
+    for skill in &skills {
+        final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
+    }
+
+    // Guard against duplicate assignments of the same GitHub issue.
+    // Skip the check when the caller explicitly opts in with force_duplicate.
+    if let Some(issue_number) = payload.issue_number {
+        if !payload.force_duplicate.unwrap_or(false) {
+            if let Some(existing) =
+                WorkerTask::find_active_by_issue(pool, payload.repo_id, issue_number).await?
+            {
+                let existing_worker = Worker::find_by_id(pool, existing.worker_id)
+                    .await?
+                    .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+                return Err(ApiError::Conflict(format!(
+                    "Issue #{} is already assigned to {} {} (status: {}). \
+                     Pass force_duplicate: true to override.",
+                    issue_number, existing_worker.emoji, existing_worker.name, existing.status
+                )));
+            }
+        }
+    }
+
     let task = WorkerTask::append(
         pool,
         worker_id,
         &CreateWorkerTask {
             repo_id: payload.repo_id,
             title: title.to_string(),
-            prompt: prompt.to_string(),
+            prompt: final_prompt,
             issue_number: payload.issue_number,
+            skills,
         },
     )
     .await?;
@@ -437,9 +523,10 @@ fn map_start_error(err: StartError) -> ApiError {
     match err {
         StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
         StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
-        StartError::RepoMissingDefaultBranch => ApiError::BadRequest(
-            "Repo is missing default_target_branch; configure it before starting a worker".into(),
-        ),
+        StartError::RepoMissingDefaultBranch(repo_name) => ApiError::BadRequest(format!(
+            "Repo '{}' is missing a default target branch. Configure it in Settings \u{2192} Repos \u{2192} {} \u{2192} Default target branch",
+            repo_name, repo_name
+        )),
         StartError::NothingQueued => ApiError::Conflict("No queued tasks for worker".into()),
         StartError::AlreadyInProgress => {
             ApiError::Conflict("Worker already has a task in progress".into())
@@ -468,9 +555,11 @@ pub async fn delete_worker_task(
             "Worker task does not belong to this worker".into(),
         ));
     }
-    if existing.status != worker_task::STATUS_QUEUED {
+    if existing.status != worker_task::STATUS_QUEUED
+        && existing.status != worker_task::STATUS_FAILED
+    {
         return Err(ApiError::Conflict(
-            "Only queued tasks can be deleted".into(),
+            "Only queued or failed tasks can be deleted".into(),
         ));
     }
 
@@ -482,6 +571,7 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
         .route("/workers/start-all", post(start_all_workers))
+        .route("/workers/active-issue-task", get(get_active_issue_task))
         .route(
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),

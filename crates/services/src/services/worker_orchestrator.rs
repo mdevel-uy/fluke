@@ -70,8 +70,8 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("repo not found")]
     RepoNotFound,
-    #[error("repo has no default_target_branch configured")]
-    RepoMissingDefaultBranch,
+    #[error("repo '{0}' has no default_target_branch configured")]
+    RepoMissingDefaultBranch(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
@@ -162,7 +162,7 @@ pub async fn try_take_next(
         .default_target_branch
         .clone()
         .filter(|b| !b.is_empty())
-        .ok_or(StartError::RepoMissingDefaultBranch)?;
+        .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
     let executor_config = config.read().await.executor_profile.clone();
     let executor_config: ExecutorConfig = executor_config.into();
@@ -368,7 +368,7 @@ pub(crate) async fn reconcile_worker_workspaces(
 /// Safety rule: if the execution-state check itself errors, the task is
 /// left untouched — a visible zombie is safer than accidentally killing a
 /// live run.
-pub async fn reconcile_zombie_worker_tasks(db: &DBService) -> Result<(), sqlx::Error> {
+pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
     let in_progress = WorkerTask::find_all_in_progress(pool).await?;
 
@@ -713,6 +713,7 @@ mod tests {
                 title: "wire it up".to_string(),
                 prompt: "do the thing".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await
@@ -761,6 +762,7 @@ mod tests {
                 title: "cleanup".to_string(),
                 prompt: "clean".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await

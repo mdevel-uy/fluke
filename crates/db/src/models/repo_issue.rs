@@ -117,6 +117,26 @@ impl RepoIssue {
         Ok(())
     }
 
+    /// Update only the state for a specific issue (used by the close endpoint).
+    pub async fn update_state(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        number: i64,
+        state: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE repo_issues
+                SET state = ?1, synced_at = datetime('now', 'subsec')
+              WHERE repo_id = ?2 AND number = ?3",
+        )
+        .bind(state)
+        .bind(repo_id)
+        .bind(number)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     /// Delete all issues for `repo_id` whose number is not in `keep_numbers`.
     /// Call this after a successful sync to prune stale rows.
     pub async fn delete_not_in(

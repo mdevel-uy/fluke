@@ -28,7 +28,11 @@
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "技能",
+        "skillsDesc": "管理和安裝 Claude 技能",
+        "github": "GitHub",
+        "githubDesc": "使用 gh CLI 登入 GitHub"
       }
     },
     "general": {
@@ -432,7 +436,32 @@
         "button": "新增儲存庫",
         "dialogTitle": "選擇 Git 儲存庫",
         "dialogDescription": "選擇一個現有的 git 儲存庫進行註冊。",
-        "error": "註冊儲存庫失敗"
+        "error": "註冊儲存庫失敗",
+        "tabs": {
+          "folder": "本機資料夾",
+          "github": "從 GitHub"
+        },
+        "folder": {
+          "pathLabel": "儲存庫路徑",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "請提供既有本機 git 儲存庫的絕對路徑。",
+          "browse": "瀏覽資料夾",
+          "submit": "新增儲存庫"
+        },
+        "github": {
+          "searchPlaceholder": "依名稱過濾儲存庫",
+          "loading": "正在載入儲存庫…",
+          "cloning": "正在複製儲存庫…",
+          "cloneInProgress": "複製作業進行中",
+          "noRepos": "沒有可用的儲存庫。請確認已登入 `gh`。",
+          "noMatches": "沒有儲存庫符合搜尋條件。",
+          "notAuthenticated": "尚未通過 GitHub 認證。請執行 `gh auth login` 後再試一次。"
+        },
+        "errors": {
+          "pathRequired": "儲存庫路徑為必填",
+          "cloneFailed": "複製儲存庫失敗",
+          "listFailed": "載入儲存庫失敗"
+        }
       },
       "selector": {
         "label": "選擇儲存庫",
@@ -524,6 +553,55 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "已安裝的技能",
+        "description": "在 ~/.claude/skills 中找到的技能",
+        "loading": "載入技能中...",
+        "loadError": "載入技能失敗。",
+        "empty": "尚未安裝任何技能。",
+        "delete": "刪除"
+      },
+      "install": {
+        "title": "安裝技能",
+        "description": "透過 git URL 安裝技能。",
+        "urlLabel": "Git URL",
+        "urlHelper": "技能儲存庫的 URL（例如：https://github.com/user/my-skill）",
+        "urlPlaceholder": "https://github.com/user/skill-name",
+        "button": "安裝",
+        "error": "安裝技能失敗。"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 連線",
+        "description": "透過本機 gh CLI 登入 GitHub，以啟用 git 操作與 pull request。",
+        "status": {
+          "label": "狀態"
+        }
+      },
+      "status": {
+        "loading": "正在檢查連線…",
+        "connected": "已連線到 GitHub",
+        "connectedAs": "以 @{{username}} 身分連線",
+        "notConnected": "未連線"
+      },
+      "actions": {
+        "connect": "連線到 GitHub"
+      },
+      "deviceFlow": {
+        "title": "在 GitHub 上授權",
+        "description": "複製下方的一次性代碼，然後開啟 GitHub 並貼上以完成登入。",
+        "codeLabel": "一次性代碼",
+        "copyHint": "點擊複製",
+        "openGitHub": "開啟 github.com/login/device",
+        "checkStatus": "重新整理狀態",
+        "waiting": "等待授權中… 在 GitHub 完成後此對話框會自動更新。"
+      },
+      "errors": {
+        "loginFailed": "啟動 GitHub 登入失敗。"
+      }
     }
   },
   "integrations": {
