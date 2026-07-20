@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus } from 'lucide-react';
+import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -49,10 +49,10 @@ export function FreeTaskComposer({
 
   return (
     <form
-      className="flex flex-col gap-2.5 p-3.5 bg-primary border border-border/60 rounded-xl shadow-soft"
+      className="flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card"
       onSubmit={(e) => e.preventDefault()}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-high">
+      <p className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface">
         {t('sprint.composer.title')}
       </p>
       <Input
@@ -77,12 +77,13 @@ export function FreeTaskComposer({
               size="sm"
               disabled={!canSubmit}
               type="button"
+              className="active:scale-95 transition-all duration-200"
             >
-              {isSubmitting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
+              <MaterialIcon
+                name={isSubmitting ? 'progress_activity' : 'add'}
+                size="xs"
+                className={isSubmitting ? 'animate-spin' : ''}
+              />
               {t('sprint.composer.assign')}
             </Button>
           </DropdownMenuTrigger>

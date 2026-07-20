@@ -81,18 +81,6 @@ export function useStartNextWorkerTask() {
   });
 }
 
-export function useRetryWorkerTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ workerId, taskId }: { workerId: string; taskId: string }) =>
-      workersApi.updateTask(workerId, taskId, { status: 'queued' }),
-    onSuccess: (_data, { workerId }) => {
-      queryClient.invalidateQueries({ queryKey: workersKeys.tasks(workerId) });
-      queryClient.invalidateQueries({ queryKey: workersKeys.list() });
-    },
-  });
-}
-
 export function useStartAllWorkers() {
   const queryClient = useQueryClient();
   return useMutation<StartAllWorkersResponse>({

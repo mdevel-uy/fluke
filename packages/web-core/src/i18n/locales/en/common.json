@@ -622,12 +622,7 @@
       "collapseQueue": "Hide queue",
       "queueLoading": "Loading queue...",
       "queueError": "Failed to load queue.",
-      "queueEmpty": "The queue is empty.",
-      "failedLabel": "failed",
-      "failedTasksHeader": "{{count}} failed task",
-      "failedTasksHeader_other": "{{count}} failed tasks",
-      "taskFailedBadge": "failed",
-      "taskRetry": "Retry"
+      "queueEmpty": "The queue is empty."
     },
     "form": {
       "newTitle": "New worker",
@@ -652,8 +647,6 @@
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
-      "retrySuccess": "Task re-queued.",
-      "retryError": "Failed to retry task: {{message}}",
       "dismiss": "Dismiss"
     }
   },
@@ -672,12 +665,16 @@
       "queued": "Queued",
       "inProgress": "In Progress",
       "inReview": "In Review",
-      "done": "Done"
+      "done": "Done",
+      "failed": "Failed"
     },
     "backlog": {
       "assign": "Assign",
       "noWorkers": "No workers available",
-      "empty": "No open issues waiting to be picked up."
+      "empty": "No open issues waiting to be picked up.",
+      "moreActions": "More actions",
+      "setPriority": "Set priority",
+      "assignTo": "Assign to worker"
     },
     "composer": {
       "title": "New free-form task",
@@ -701,6 +698,33 @@
     "done": {
       "empty": "No completed tasks yet."
     },
+    "filters": {
+      "searchPlaceholder": "Search issues...",
+      "clearSearch": "Clear search",
+      "epic": "Epic",
+      "allEpics": "All epics",
+      "label": "Label",
+      "allLabels": "All labels",
+      "priority": "Priority",
+      "allPriorities": "All priorities",
+      "worker": "Worker",
+      "allWorkers": "All workers",
+      "clearAll": "Clear filters",
+      "noResults": "No issues match the active filters."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "detail": {
+      "panelLabel": "Issue detail",
+      "close": "Close panel",
+      "noPriority": "No priority",
+      "noBody": "No description provided.",
+      "assignedTo": "Assigned to {{worker}}"
+    },
     "startSprint": "Start sprint",
     "startSprintDisabled": "No workers are ready to start",
     "startSprintDialog": {
@@ -721,6 +745,11 @@
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllNoneStarted": "No workers were ready to start.",
       "startAllError": "Failed to start sprint: {{message}}"
+    },
+    "failed": {
+      "retry": "Retry",
+      "discard": "Discard",
+      "empty": "No failed tasks."
     }
   }
 }

@@ -17,12 +17,12 @@ export function IssuesGroup({
   if (issues.length === 0) return null;
 
   return (
-    <section className="flex flex-col mx-6 rounded-2xl border border-border/60 bg-primary shadow-soft overflow-hidden">
-      <header className="flex items-center gap-2 px-5 py-3 bg-secondary/40 border-b border-border/60">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-high">
+    <section className="flex flex-col mx-6 rounded-lg border border-md-outline-variant bg-md-surface-container-lowest shadow-card overflow-hidden">
+      <header className="flex items-center gap-2 px-4 py-3 bg-md-surface-container-low border-b border-md-outline-variant">
+        <h3 className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface">
           {title}
         </h3>
-        <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-secondary text-xs font-medium text-low tabular-nums border border-border/50">
+        <span className="inline-flex items-center justify-center min-w-[1.25rem] h-[18px] px-1.5 rounded-full bg-md-primary text-md-on-primary text-label-caps font-geist font-semibold tabular-nums">
           {count}
         </span>
       </header>

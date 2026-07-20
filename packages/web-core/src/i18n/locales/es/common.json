@@ -622,12 +622,7 @@
       "collapseQueue": "Ocultar cola",
       "queueLoading": "Cargando cola...",
       "queueError": "No se pudo cargar la cola.",
-      "queueEmpty": "La cola está vacía.",
-      "failedLabel": "fallida",
-      "failedTasksHeader": "{{count}} tarea fallida",
-      "failedTasksHeader_other": "{{count}} tareas fallidas",
-      "taskFailedBadge": "fallida",
-      "taskRetry": "Reintentar"
+      "queueEmpty": "La cola está vacía."
     },
     "form": {
       "newTitle": "Nuevo worker",
@@ -652,8 +647,6 @@
       "createSuccess": "Worker creado.",
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
-      "retrySuccess": "Tarea reingresada a la cola.",
-      "retryError": "No se pudo reintentar la tarea: {{message}}",
       "dismiss": "Cerrar"
     }
   },
@@ -672,12 +665,16 @@
       "queued": "En cola",
       "inProgress": "En progreso",
       "inReview": "En revisión",
-      "done": "Hecho"
+      "done": "Hecho",
+      "failed": "Fallidas"
     },
     "backlog": {
       "assign": "Asignar",
       "noWorkers": "No hay workers disponibles",
-      "empty": "No hay issues abiertos esperando ser tomados."
+      "empty": "No hay issues abiertos esperando ser tomados.",
+      "moreActions": "Más acciones",
+      "setPriority": "Establecer prioridad",
+      "assignTo": "Asignar a un worker"
     },
     "composer": {
       "title": "Nueva tarea libre",
@@ -701,6 +698,33 @@
     "done": {
       "empty": "Todavía no hay tareas completadas."
     },
+    "filters": {
+      "searchPlaceholder": "Buscar issues...",
+      "clearSearch": "Limpiar búsqueda",
+      "epic": "Épica",
+      "allEpics": "Todas las épicas",
+      "label": "Etiqueta",
+      "allLabels": "Todas las etiquetas",
+      "priority": "Prioridad",
+      "allPriorities": "Todas las prioridades",
+      "worker": "Worker",
+      "allWorkers": "Todos los workers",
+      "clearAll": "Limpiar filtros",
+      "noResults": "Ningún issue coincide con los filtros activos."
+    },
+    "priority": {
+      "urgent": "Urgente",
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "detail": {
+      "panelLabel": "Detalle del issue",
+      "close": "Cerrar panel",
+      "noPriority": "Sin prioridad",
+      "noBody": "Sin descripción.",
+      "assignedTo": "Asignado a {{worker}}"
+    },
     "startSprint": "Comenzar sprint",
     "startSprintDisabled": "No hay workers listos para arrancar",
     "startSprintDialog": {
@@ -721,6 +745,11 @@
       "startAllSuccess_other": "{{count}} workers arrancados.",
       "startAllNoneStarted": "No había workers listos para arrancar.",
       "startAllError": "Error al comenzar el sprint: {{message}}"
+    },
+    "failed": {
+      "retry": "Reintentar",
+      "discard": "Descartar",
+      "empty": "No hay tareas fallidas."
     }
   }
 }

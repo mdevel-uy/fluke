@@ -203,6 +203,21 @@ impl WorkerTask {
         .await
     }
 
+    /// All in-progress tasks that have a workspace assigned (across all workers).
+    /// Used by the pr_monitor to sweep for PRs created outside the app.
+    pub async fn find_all_in_progress_with_workspace(
+        pool: &SqlitePool,
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, created_at
+               FROM worker_tasks
+               WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// The task associated with a given workspace, if any.
     pub async fn find_by_workspace(
         pool: &SqlitePool,

@@ -1,33 +1,24 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
-import type { Icon } from "@phosphor-icons/react";
-import {
-  Layout as LayoutIcon,
-  ChatsTeardrop as ChatsTeardropIcon,
-  GitDiff as GitDiffIcon,
-  Terminal as TerminalIcon,
-  Desktop as DesktopIcon,
-  GitFork as GitForkIcon,
-  List as ListIcon,
-  Gear as GearIcon,
-  Kanban as KanbanIcon,
-  CaretLeft as CaretLeftIcon,
-  ArrowClockwise as ArrowClockwiseIcon,
-  SidebarSimple as SidebarSimpleIcon,
-} from "@phosphor-icons/react";
-import { cn } from "../lib/cn";
-import { Tooltip } from "./Tooltip";
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { Icon } from '@phosphor-icons/react';
+import { cn } from '../lib/cn';
+import { Tooltip } from './Tooltip';
 import {
   SyncErrorIndicator,
   type SyncErrorIndicatorError,
-} from "./SyncErrorIndicator";
+} from './SyncErrorIndicator';
+import { MaterialIcon } from './MaterialIcon';
 
 /**
  * Action item rendered in the navbar.
+ * Accepts either a Phosphor icon component (legacy) or a Material Symbol name.
  */
 export interface NavbarActionItem {
-  type?: "action";
+  type?: 'action';
   id: string;
-  icon: Icon;
+  /** @deprecated Prefer materialIcon */
+  icon?: Icon;
+  /** Material Symbols Outlined icon name — preferred over icon */
+  materialIcon?: string;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -39,19 +30,19 @@ export interface NavbarActionItem {
  * Divider item rendered in the navbar.
  */
 export interface NavbarDividerItem {
-  type: "divider";
+  type: 'divider';
 }
 
 export type NavbarSectionItem = NavbarActionItem | NavbarDividerItem;
 
 function isDivider(item: NavbarSectionItem): item is NavbarDividerItem {
-  return item.type === "divider";
+  return item.type === 'divider';
 }
 
-// NavbarIconButton - inlined from primitives
 interface NavbarIconButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
-  icon: Icon;
+  icon?: Icon;
+  materialIcon?: string;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -59,6 +50,7 @@ interface NavbarIconButtonProps
 
 function NavbarIconButton({
   icon: IconComponent,
+  materialIcon,
   isActive = false,
   tooltip,
   shortcut,
@@ -69,17 +61,22 @@ function NavbarIconButton({
     <button
       type="button"
       className={cn(
-        "flex items-center justify-center p-1.5 rounded-md transition-colors",
-        "text-low hover:bg-secondary hover:text-high",
-        isActive && "bg-secondary text-high",
-        className,
+        'flex items-center justify-center p-1.5 rounded-lg transition-all duration-200',
+        'text-md-on-surface-variant hover:bg-md-surface-container-high hover:text-md-on-surface',
+        isActive && 'bg-md-secondary-container text-md-on-secondary-container',
+        'active:scale-95',
+        className
       )}
       {...props}
     >
-      <IconComponent
-        className="size-icon-base"
-        weight={isActive ? "fill" : "regular"}
-      />
+      {materialIcon ? (
+        <MaterialIcon name={materialIcon} fill={isActive ? 1 : 0} size="base" />
+      ) : IconComponent ? (
+        <IconComponent
+          className="size-icon-base"
+          weight={isActive ? 'fill' : 'regular'}
+        />
+      ) : null}
     </button>
   );
 
@@ -93,20 +90,25 @@ function NavbarIconButton({
 }
 
 export type MobileTabId =
-  | "workspaces"
-  | "chat"
-  | "changes"
-  | "logs"
-  | "preview"
-  | "git";
+  | 'workspaces'
+  | 'chat'
+  | 'changes'
+  | 'logs'
+  | 'preview'
+  | 'git';
 
-export const MOBILE_TABS: { id: MobileTabId; icon: Icon; label: string }[] = [
-  { id: "workspaces", icon: LayoutIcon, label: "Wksps" },
-  { id: "chat", icon: ChatsTeardropIcon, label: "Chat" },
-  { id: "changes", icon: GitDiffIcon, label: "Diff" },
-  { id: "logs", icon: TerminalIcon, label: "Logs" },
-  { id: "preview", icon: DesktopIcon, label: "Preview" },
-  { id: "git", icon: GitForkIcon, label: "Git" },
+export const MOBILE_TABS: {
+  id: MobileTabId;
+  icon?: Icon;
+  materialIcon?: string;
+  label: string;
+}[] = [
+  { id: 'workspaces', materialIcon: 'grid_view', label: 'Wksps' },
+  { id: 'chat', materialIcon: 'chat', label: 'Chat' },
+  { id: 'changes', materialIcon: 'difference', label: 'Diff' },
+  { id: 'logs', materialIcon: 'terminal', label: 'Logs' },
+  { id: 'preview', materialIcon: 'monitor', label: 'Preview' },
+  { id: 'git', materialIcon: 'fork_right', label: 'Git' },
 ];
 
 export interface NavbarBreadcrumbItem {
@@ -124,23 +126,26 @@ function NavbarBreadcrumbs({
   textClassName,
 }: NavbarBreadcrumbsProps) {
   return (
-    <div className={cn("flex items-center gap-1 min-w-0", textClassName)}>
+    <div className={cn('flex items-center gap-1 min-w-0', textClassName)}>
       {breadcrumbs.map((crumb, index) => {
         const isLast = index === breadcrumbs.length - 1;
         return (
           <span key={index} className="flex items-center gap-1 min-w-0">
-            {index > 0 && <span className="text-low shrink-0">/</span>}
+            {index > 0 && <span className="text-md-outline shrink-0">/</span>}
             {crumb.onClick && !isLast ? (
               <button
                 type="button"
-                className="text-low hover:text-normal truncate cursor-pointer"
+                className="text-md-outline hover:text-md-on-surface-variant truncate cursor-pointer"
                 onClick={crumb.onClick}
               >
                 {crumb.label}
               </button>
             ) : (
               <span
-                className={cn("truncate", isLast ? "text-normal" : "text-low")}
+                className={cn(
+                  'truncate',
+                  isLast ? 'text-md-on-surface-variant' : 'text-md-outline'
+                )}
               >
                 {crumb.label}
               </span>
@@ -155,16 +160,11 @@ function NavbarBreadcrumbs({
 export interface NavbarProps {
   workspaceTitle?: string;
   breadcrumbs?: NavbarBreadcrumbItem[];
-  // Items for left side of navbar
   leftItems?: NavbarSectionItem[];
-  // Items for right side of navbar (with dividers inline)
   rightItems?: NavbarSectionItem[];
-  // Optional additional content for left side (after leftItems)
   leftSlot?: ReactNode;
-  // Sync errors shown in the right section
   syncErrors?: readonly SyncErrorIndicatorError[] | null;
   className?: string;
-  // Mobile props
   mobileMode?: boolean;
   mobileUserSlot?: ReactNode;
   isOnProjectPage?: boolean;
@@ -177,7 +177,12 @@ export interface NavbarProps {
   isOnProjectSubRoute?: boolean;
   mobileActiveTab?: MobileTabId;
   onMobileTabChange?: (tab: MobileTabId) => void;
-  mobileTabs?: { id: MobileTabId; icon: Icon; label: string }[];
+  mobileTabs?: {
+    id: MobileTabId;
+    icon?: Icon;
+    materialIcon?: string;
+    label: string;
+  }[];
   showMobileTabs?: boolean;
   mobileShowBack?: boolean;
 }
@@ -200,16 +205,15 @@ export function Navbar({
   onReload,
   onOpenDrawer,
   isOnProjectSubRoute = false,
-  mobileActiveTab = "chat",
+  mobileActiveTab = 'chat',
   onMobileTabChange,
   mobileTabs,
   showMobileTabs,
   mobileShowBack,
 }: NavbarProps) {
   const renderItem = (item: NavbarSectionItem, key: string) => {
-    // Render divider
     if (isDivider(item)) {
-      return <div key={key} className="h-4 w-px bg-border" />;
+      return <div key={key} className="h-4 w-px bg-md-outline-variant" />;
     }
 
     const isDisabled = !!item.disabled;
@@ -218,13 +222,14 @@ export function Navbar({
       <NavbarIconButton
         key={key}
         icon={item.icon}
+        materialIcon={item.materialIcon}
         isActive={item.isActive}
         onClick={item.onClick}
         aria-label={item.tooltip}
         tooltip={item.tooltip}
         shortcut={item.shortcut}
         disabled={isDisabled}
-        className={isDisabled ? "opacity-40 cursor-not-allowed" : ""}
+        className={isDisabled ? 'opacity-40 cursor-not-allowed' : ''}
       />
     );
   };
@@ -234,11 +239,10 @@ export function Navbar({
     return (
       <nav
         className={cn(
-          "flex flex-col bg-secondary border-b shrink-0",
-          className,
+          'flex flex-col bg-md-surface-container-low border-b border-md-outline-variant shrink-0',
+          className
         )}
       >
-        {/* Row 1: Tab bar (workspace pages) or minimal header (project pages) */}
         <div className="flex items-center justify-between px-base py-half">
           {isOnProjectPage ? (
             <div className="flex items-center gap-base">
@@ -246,24 +250,24 @@ export function Navbar({
                 ? onNavigateBack && (
                     <button
                       type="button"
-                      className="flex items-center justify-center text-low hover:text-normal"
+                      className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                       onClick={onNavigateBack}
                       aria-label="Back"
                     >
-                      <CaretLeftIcon className="size-icon-base" />
+                      <MaterialIcon name="chevron_left" size="base" />
                     </button>
                   )
                 : onOpenDrawer && (
                     <button
                       type="button"
-                      className="flex items-center justify-center text-low hover:text-normal"
+                      className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                       onClick={onOpenDrawer}
                       aria-label="Open menu"
                     >
-                      <SidebarSimpleIcon className="size-icon-base" />
+                      <MaterialIcon name="menu_open" size="base" />
                     </button>
                   )}
-              <p className="text-base text-normal font-medium truncate cursor-default select-none">
+              <p className="text-body-md text-md-on-surface font-medium truncate cursor-default select-none">
                 {workspaceTitle}
               </p>
             </div>
@@ -273,49 +277,56 @@ export function Navbar({
                 <>
                   <button
                     type="button"
-                    className="flex items-center justify-center px-1.5 py-1 text-low hover:text-normal"
+                    className="flex items-center justify-center px-1.5 py-1 text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                     onClick={onNavigateBack}
                     aria-label="Back"
                   >
-                    <CaretLeftIcon className="size-icon-sm" />
+                    <MaterialIcon name="chevron_left" size="sm" />
                   </button>
-                  <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+                  <div className="h-4 w-px bg-md-outline-variant mx-0.5 shrink-0" />
                 </>
               ) : (
                 onOpenDrawer && (
                   <>
                     <button
                       type="button"
-                      className="flex items-center justify-center px-1.5 py-1 text-low hover:text-normal"
+                      className="flex items-center justify-center px-1.5 py-1 text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                       onClick={onOpenDrawer}
                       aria-label="Projects"
                     >
-                      <KanbanIcon className="size-icon-sm" />
+                      <MaterialIcon name="view_kanban" size="sm" />
                     </button>
-                    <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+                    <div className="h-4 w-px bg-md-outline-variant mx-0.5 shrink-0" />
                   </>
                 )
               )}
               {showMobileTabs !== false &&
                 (mobileTabs ?? MOBILE_TABS).map((tab) => {
-                  const TabIcon = tab.icon;
                   const isActive = mobileActiveTab === tab.id;
                   return (
                     <button
                       key={tab.id}
                       type="button"
                       className={cn(
-                        "flex items-center gap-1 px-1.5 py-1 text-xs whitespace-nowrap transition-colors",
+                        'flex items-center gap-1 px-1.5 py-1 text-xs whitespace-nowrap transition-all duration-200 active:scale-95',
                         isActive
-                          ? "text-normal border-b-2 border-brand"
-                          : "text-low hover:text-normal",
+                          ? 'text-md-primary border-b-2 border-md-primary font-semibold'
+                          : 'text-md-on-surface-variant hover:text-md-on-surface'
                       )}
                       onClick={() => onMobileTabChange?.(tab.id)}
                     >
-                      <TabIcon
-                        className="size-icon-sm"
-                        weight={isActive ? "fill" : "regular"}
-                      />
+                      {tab.materialIcon ? (
+                        <MaterialIcon
+                          name={tab.materialIcon}
+                          fill={isActive ? 1 : 0}
+                          size="sm"
+                        />
+                      ) : tab.icon ? (
+                        <tab.icon
+                          className="size-icon-sm"
+                          weight={isActive ? 'fill' : 'regular'}
+                        />
+                      ) : null}
                       <span className="hidden min-[480px]:inline">
                         {tab.label}
                       </span>
@@ -325,17 +336,16 @@ export function Navbar({
               {onNavigateToBoard && (
                 <button
                   type="button"
-                  className="flex items-center gap-1 px-1.5 py-1 text-xs text-low hover:text-normal whitespace-nowrap"
+                  className="flex items-center gap-1 px-1.5 py-1 text-xs text-md-on-surface-variant hover:text-md-on-surface whitespace-nowrap active:scale-95 transition-all duration-200"
                   onClick={onNavigateToBoard}
                 >
-                  <KanbanIcon className="size-icon-sm" />
+                  <MaterialIcon name="view_kanban" size="sm" />
                   <span className="hidden min-[480px]:inline">Board</span>
                 </button>
               )}
             </div>
           )}
 
-          {/* Right side: sync indicator + action buttons + user slot */}
           <div className="flex items-center gap-1 shrink-0">
             <SyncErrorIndicator errors={syncErrors} />
             {isOnProjectPage &&
@@ -345,65 +355,65 @@ export function Navbar({
                   <NavbarIconButton
                     key={item.id}
                     icon={item.icon}
+                    materialIcon={item.materialIcon}
                     isActive={item.isActive}
                     onClick={item.onClick}
                     aria-label={item.tooltip}
                     tooltip={item.tooltip}
                     disabled={!!item.disabled}
                     className={
-                      item.disabled ? "opacity-40 cursor-not-allowed" : ""
+                      item.disabled ? 'opacity-40 cursor-not-allowed' : ''
                     }
                   />
                 ))}
             {onReload && (
               <button
                 type="button"
-                className="flex items-center justify-center text-low hover:text-normal"
+                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                 onClick={onReload}
                 aria-label="Reload"
               >
-                <ArrowClockwiseIcon className="size-icon-sm" />
+                <MaterialIcon name="refresh" size="sm" />
               </button>
             )}
             {!isOnProjectPage && onOpenSettings && (
               <button
                 type="button"
-                className="flex items-center justify-center text-low hover:text-normal"
+                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                 onClick={onOpenSettings}
                 aria-label="Settings"
               >
-                <GearIcon className="size-icon-sm" />
+                <MaterialIcon name="settings" size="sm" />
               </button>
             )}
             {!isOnProjectPage && onOpenCommandBar && (
               <button
                 type="button"
-                className="flex items-center justify-center text-low hover:text-normal"
+                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
                 onClick={onOpenCommandBar}
                 aria-label="Command bar"
               >
-                <ListIcon className="size-icon-sm" />
+                <MaterialIcon name="menu" size="sm" />
               </button>
             )}
             {mobileUserSlot && (
-              <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+              <div className="h-4 w-px bg-md-outline-variant mx-0.5 shrink-0" />
             )}
             {mobileUserSlot}
           </div>
         </div>
 
-        {/* Row 2: Info bar with leftSlot + breadcrumbs/title (workspace pages only) */}
         {!isOnProjectPage && (workspaceTitle || breadcrumbs) && (
-          <div className="flex items-center justify-between px-base py-half border-t border-border">
+          <div className="flex items-center justify-between px-base py-half border-t border-md-outline-variant">
             <div className="flex items-center gap-base flex-1 min-w-0">
               {leftSlot}
               {breadcrumbs && breadcrumbs.length > 0 ? (
                 <NavbarBreadcrumbs
                   breadcrumbs={breadcrumbs}
-                  textClassName="text-sm"
+                  textClassName="text-body-sm"
                 />
               ) : (
-                <p className="text-sm text-low truncate cursor-default select-none">
+                <p className="text-body-sm text-md-outline truncate cursor-default select-none">
                   {workspaceTitle}
                 </p>
               )}
@@ -415,28 +425,25 @@ export function Navbar({
   }
 
   // ---- Desktop layout ----
-  // data-tauri-drag-region must be on every non-interactive element for Tauri 2
-  // window dragging to work (the attribute does not propagate to children).
   return (
     <nav
       data-tauri-drag-region
       className={cn(
-        "flex items-center justify-between px-3 py-2 bg-secondary/60 backdrop-blur-sm border-b border-border/60 shrink-0",
-        className,
+        'flex items-center justify-between px-3 py-1.5',
+        'bg-md-surface-bright border-b border-md-outline-variant shrink-0 h-10',
+        className
       )}
     >
-      {/* Left - Archive & Old UI Link + optional slot */}
       <div data-tauri-drag-region className="flex-1 flex items-center gap-base">
         {leftItems.map((item, index) =>
           renderItem(
             item,
-            `left-${isDivider(item) ? "divider" : item.id}-${index}`,
-          ),
+            `left-${isDivider(item) ? 'divider' : item.id}-${index}`
+          )
         )}
         {leftSlot}
       </div>
 
-      {/* Center - Breadcrumbs or Workspace Title */}
       <div
         data-tauri-drag-region
         className="flex-1 flex items-center justify-center min-w-0"
@@ -444,19 +451,18 @@ export function Navbar({
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <NavbarBreadcrumbs
             breadcrumbs={breadcrumbs}
-            textClassName="text-base"
+            textClassName="text-body-sm"
           />
         ) : (
           <p
             data-tauri-drag-region
-            className="text-base text-low truncate cursor-default select-none"
+            className="text-body-sm text-md-outline truncate cursor-default select-none"
           >
-            {workspaceTitle ?? ""}
+            {workspaceTitle ?? ''}
           </p>
         )}
       </div>
 
-      {/* Right - Sync Error Indicator + Diff Controls + Panel Toggles (dividers inline) */}
       <div
         data-tauri-drag-region
         className="flex-1 flex items-center justify-end gap-base"
@@ -465,8 +471,8 @@ export function Navbar({
         {rightItems.map((item, index) =>
           renderItem(
             item,
-            `right-${isDivider(item) ? "divider" : item.id}-${index}`,
-          ),
+            `right-${isDivider(item) ? 'divider' : item.id}-${index}`
+          )
         )}
       </div>
     </nav>
