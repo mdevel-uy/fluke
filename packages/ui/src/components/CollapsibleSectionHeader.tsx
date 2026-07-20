@@ -1,8 +1,8 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
-import { CaretDownIcon } from '@phosphor-icons/react';
 import { cn } from '../lib/cn';
+import { MaterialIcon } from './MaterialIcon';
 
 const STORAGE_KEY_PREFIX = 'vibe.ui.collapsible.';
 
@@ -23,7 +23,9 @@ function getInitialExpanded(
 }
 
 export type SectionAction = {
-  icon: Icon;
+  /** @deprecated Prefer materialIcon */
+  icon?: Icon;
+  materialIcon?: string;
   onClick: () => void;
   isActive?: boolean;
 };
@@ -104,19 +106,30 @@ export function CollapsibleSectionHeader({
               onClick={(e) => handleActionClick(e, action.onClick)}
               onKeyDown={(e) => handleActionKeyDown(e, action.onClick)}
               className={cn(
-                'hover:text-normal',
-                action.isActive ? 'text-brand' : 'text-low'
+                'hover:text-md-on-surface transition-colors duration-200 active:scale-95',
+                action.isActive
+                  ? 'text-md-primary'
+                  : 'text-md-on-surface-variant'
               )}
             >
-              <ActionIcon className="size-icon-xs" weight="bold" />
+              {action.materialIcon ? (
+                <MaterialIcon
+                  name={action.materialIcon}
+                  fill={action.isActive ? 1 : 0}
+                  size="xs"
+                />
+              ) : ActionIcon ? (
+                <ActionIcon className="size-icon-xs" weight="bold" />
+              ) : null}
             </span>
           );
         })}
         {collapsible && (
-          <CaretDownIcon
-            weight="fill"
+          <MaterialIcon
+            name="expand_more"
+            size="xs"
             className={cn(
-              'size-icon-xs text-low transition-transform',
+              'text-md-on-surface-variant transition-transform duration-200',
               !expanded && '-rotate-90'
             )}
           />

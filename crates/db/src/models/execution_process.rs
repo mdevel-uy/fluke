@@ -656,6 +656,28 @@ impl ExecutionProcess {
         Ok(result)
     }
 
+    /// True if any execution for the given workspace recorded a non-NULL
+    /// `after_head_commit` in its repo states — meaning the agent produced
+    /// at least one commit before the process was killed. Used during
+    /// startup recovery to decide re-queue vs. mark-failed.
+    pub async fn workspace_has_any_after_commit(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let count: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM execution_process_repo_states eprs
+               JOIN execution_processes ep ON ep.id = eprs.execution_process_id
+               JOIN sessions s ON ep.session_id = s.id
+               WHERE s.workspace_id = ?1
+                 AND eprs.after_head_commit IS NOT NULL",
+        )
+        .bind(workspace_id)
+        .fetch_one(pool)
+        .await?;
+        Ok(count > 0)
+    }
+
     /// Find all workspaces with running dev servers, filtered by archived status.
     /// Returns a set of workspace IDs that have at least one running dev server.
     pub async fn find_workspaces_with_running_dev_servers(

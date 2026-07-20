@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json as ResponseJson,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 use chrono::{DateTime, Utc};
 use db::models::{
@@ -64,6 +64,7 @@ pub async fn register_repo(
         .repo()
         .register(
             &deployment.db().pool,
+            deployment.git(),
             &payload.path,
             payload.display_name.as_deref(),
         )
@@ -497,6 +498,76 @@ pub async fn set_issue_priority(
     ))))
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct AddIssueLabelRequest {
+    pub label: String,
+    pub color: Option<String>,
+}
+
+pub async fn add_issue_label(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<AddIssueLabelRequest>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .add_label(
+            &pool,
+            repo_id,
+            issue_number,
+            &payload.label,
+            payload.color.as_deref(),
+        )
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+pub async fn remove_issue_label(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number, label_name)): Path<(Uuid, i64, String)>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .remove_label(&pool, repo_id, issue_number, &label_name)
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+pub async fn close_issue(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .close_issue(&pool, repo_id, issue_number)
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
 impl From<RepoIssuesError> for ApiError {
     fn from(err: RepoIssuesError) -> Self {
         match err {
@@ -549,5 +620,17 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/repos/{repo_id}/issues/{issue_number}/priority",
             put(set_issue_priority),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/labels",
+            post(add_issue_label),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/labels/{label_name}",
+            delete(remove_issue_label),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/close",
+            post(close_issue),
         )
 }

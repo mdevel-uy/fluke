@@ -48,6 +48,7 @@ export interface ProjectMutations {
 // Workspace type for sidebar (minimal subset needed for workspace selection)
 interface SidebarWorkspace {
   id: string;
+  branch?: string;
   isRunning?: boolean;
 }
 
@@ -134,6 +135,7 @@ export interface ActionVisibilityContext {
   hasMultipleRepos: boolean;
   hasOpenPR: boolean;
   hasUnpushedCommits: boolean;
+  isBranchPushed: boolean;
 
   // Execution state
   isAttemptRunning: boolean;

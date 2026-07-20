@@ -1,4 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&family=Noto+Emoji:wght@300..700&display=swap');
+/* Self-hosted fonts — no CDN */
+@import '@fontsource/hanken-grotesk/400.css';
+@import '@fontsource/hanken-grotesk/600.css';
+@import '@fontsource/hanken-grotesk/700.css';
+@import '@fontsource/hanken-grotesk/800.css';
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/600.css';
+@import 'material-symbols/outlined.css';
 
 @tailwind base;
 @tailwind components;
@@ -9,27 +16,100 @@ html {
   overscroll-behavior: none;
 }
 
-/* 1) THEME TOKENS */
+/* Material Symbols base config */
+.material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+  line-height: 1;
+}
+
+/* 1) THEME TOKENS — MD3 colour system */
 @layer base {
-  /* Light defaults */
+  /* ── Light defaults ─────────────────────────────────────────── */
   :root {
     color-scheme: light;
-    --_background: 210 40% 98%;
-    --_foreground: 222 47% 11%;
-    --_primary: 222 47% 11%;
-    --_primary-foreground: 0 0% 100%;
-    --_secondary: 214 32% 96%;
-    --_secondary-foreground: 215 25% 27%;
-    --_muted: 214 32% 92%;
-    --_muted-foreground: 215 16% 47%;
-    --_accent: 214 32% 92%;
-    --_accent-foreground: 222 47% 11%;
-    --_destructive: 0 72% 51%;
-    --_destructive-foreground: 0 0% 100%;
-    --_border: 214 32% 88%;
-    --_input: 214 32% 96%;
-    --_ring: 219 89% 53%;
-    --_radius: 0.5rem;
+
+    /* ── MD3 primary ──────────────────────────────────────────── */
+    --md-primary: 218 100% 39%; /* #004ac6 */
+    --md-on-primary: 0 0% 100%;
+    --md-primary-container: 221 83% 53%; /* #2563eb */
+    --md-on-primary-container: 236 100% 97%; /* #eeefff */
+    --md-primary-fixed: 227 100% 92%; /* #dbe1ff */
+    --md-primary-fixed-dim: 226 100% 85%; /* #b4c5ff */
+    --md-inverse-primary: 226 100% 85%; /* #b4c5ff */
+
+    /* ── MD3 secondary ───────────────────────────────────────── */
+    --md-secondary: 216 19% 39%; /* #505f76 */
+    --md-on-secondary: 0 0% 100%;
+    --md-secondary-container: 216 84% 90%; /* #d0e1fb */
+    --md-on-secondary-container: 215 18% 40%; /* #54647a */
+    --md-secondary-fixed: 213 85% 90%; /* #d3e4fe */
+    --md-secondary-fixed-dim: 213 37% 75%; /* #b7c8e1 */
+
+    /* ── MD3 tertiary ────────────────────────────────────────── */
+    --md-tertiary: 22 100% 29%; /* #943700 */
+    --md-on-tertiary: 0 0% 100%;
+    --md-tertiary-container: 23 100% 37%; /* #bc4800 */
+    --md-tertiary-fixed: 17 100% 90%; /* #ffdbcd */
+    --md-tertiary-fixed-dim: 18 100% 80%; /* #ffb596 */
+
+    /* ── MD3 error ───────────────────────────────────────────── */
+    --md-error: 0 75% 42%; /* #ba1a1a */
+    --md-on-error: 0 0% 100%;
+    --md-error-container: 6 100% 92%; /* #ffdad6 */
+    --md-on-error-container: 356 100% 29%; /* #93000a */
+
+    /* ── MD3 surface scale (elevation via colour) ────────────── */
+    --md-background: 256 100% 99%; /* #faf8ff */
+    --md-surface: 256 100% 99%; /* #faf8ff */
+    --md-surface-bright: 256 100% 99%; /* #faf8ff */
+    --md-surface-dim: 228 61% 89%; /* #d2d9f4 */
+    --md-surface-container-lowest: 0 0% 100%; /* #ffffff */
+    --md-surface-container-low: 235 100% 97%; /* #f2f3ff */
+    --md-surface-container: 232 100% 96%; /* #eaedff */
+    --md-surface-container-high: 230 100% 94%; /* #e2e7ff */
+    --md-surface-container-highest: 226 90% 92%; /* #dae2fd */
+
+    /* ── MD3 on-surface ──────────────────────────────────────── */
+    --md-on-surface: 222 41% 13%; /* #131b2e */
+    --md-on-surface-variant: 230 12% 30%; /* #434655 */
+    --md-outline: 230 8% 49%; /* #737686 */
+    --md-outline-variant: 232 20% 80%; /* #c3c6d7 */
+
+    /* ── MD3 inverse ─────────────────────────────────────────── */
+    --md-inverse-surface: 223 26% 21%; /* #283044 */
+    --md-inverse-on-surface: 233 100% 97%; /* #eef0ff */
+    --md-surface-tint: 218 100% 43%; /* #0053db */
+
+    /* ── Legacy compat aliases (map MD3 to the old variable names) */
+    --text-high: var(--md-on-surface);
+    --text-normal: var(--md-on-surface-variant);
+    --text-low: var(--md-outline);
+
+    --_bg-primary-default: 0 0% 100%;
+    --_bg-secondary-default: 235 100% 97%;
+    --_bg-panel-default: 232 100% 96%;
+    --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
+    --bg-secondary: var(
+      --vscode-editorWidget-background,
+      var(--_bg-secondary-default)
+    );
+    --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
+
+    --brand: var(--md-primary);
+    --brand-hover: 221 83% 53%;
+    --brand-secondary: 218 100% 35%;
+    --error: var(--md-error);
+    --success: 142 76% 36%;
+    --success-foreground: 142 76% 15%;
+    --merged: 271 81% 46%;
+    --text-on-brand: 0 0% 100%;
 
     /* Status (light) */
     --_success: 142 76% 36%;
@@ -38,8 +118,10 @@ html {
     --_warning-foreground: 38 92% 20%;
     --_info: 217 91% 60%;
     --_info-foreground: 222 47% 11%;
-    --_neutral: 214 32% 92%;
+    --_neutral: 235 100% 97%;
     --_neutral-foreground: 222 47% 11%;
+    --_destructive: var(--md-error);
+    --_destructive-foreground: 0 0% 100%;
 
     /* Console (light) */
     --_console-background: 0 0% 100%;
@@ -57,16 +139,64 @@ html {
     --_syntax-tag: #22863a;
     --_syntax-punctuation: #24292e;
     --_syntax-deleted: #b31d28;
+  }
 
-    /* Text (light) */
-    --text-high: 222 47% 11%;
-    --text-normal: 215 25% 27%;
-    --text-low: 215 16% 47%;
+  /* ── Dark mode ──────────────────────────────────────────────── */
+  .dark {
+    color-scheme: dark;
 
-    /* Background (light) - with VS Code overrides */
-    --_bg-primary-default: 0 0% 100%;
-    --_bg-secondary-default: 210 40% 97%;
-    --_bg-panel-default: 214 32% 94%;
+    /* Invert the MD3 palette for dark */
+    --md-primary: 226 100% 85%; /* #b4c5ff (primary-fixed-dim) */
+    --md-on-primary: 218 100% 24%; /* #00317a */
+    --md-primary-container: 218 100% 31%; /* #003499 */
+    --md-on-primary-container: 227 100% 92%; /* #dbe1ff */
+    --md-primary-fixed: 227 100% 92%;
+    --md-primary-fixed-dim: 226 100% 85%;
+    --md-inverse-primary: 218 100% 39%; /* #004ac6 */
+
+    --md-secondary: 213 37% 75%; /* #b7c8e1 */
+    --md-on-secondary: 213 38% 20%; /* #22354a */
+    --md-secondary-container: 214 31% 30%; /* #38485d */
+    --md-on-secondary-container: 213 85% 90%; /* #d3e4fe */
+
+    --md-tertiary: 18 100% 80%; /* #ffb596 */
+    --md-on-tertiary: 22 100% 17%; /* #541a00 */
+    --md-tertiary-container: 23 100% 25%; /* #7a2900 */
+    --md-tertiary-fixed: 17 100% 90%;
+    --md-tertiary-fixed-dim: 18 100% 80%;
+
+    --md-error: 4 100% 82%; /* #ffb4ab */
+    --md-on-error: 0 100% 28%; /* #690005 */
+    --md-error-container: 356 100% 43%; /* #93000a */
+    --md-on-error-container: 6 100% 92%; /* #ffdad6 */
+
+    /* Dark surfaces — use inverse-surface as base */
+    --md-background: 222 29% 12%; /* ~#1a2133 */
+    --md-surface: 222 29% 12%;
+    --md-surface-bright: 222 29% 14%;
+    --md-surface-dim: 222 29% 8%; /* #0e1626 */
+    --md-surface-container-lowest: 222 29% 8%; /* #0e1626 */
+    --md-surface-container-low: 222 29% 14%; /* #1b2337 */
+    --md-surface-container: 222 29% 16%; /* #1f2841 */
+    --md-surface-container-high: 222 29% 19%; /* #2a334b */
+    --md-surface-container-highest: 223 26% 24%; /* #353e57 */
+
+    --md-on-surface: 233 100% 97%; /* #eef0ff */
+    --md-on-surface-variant: 232 20% 80%; /* #c3c6d7 */
+    --md-outline: 232 10% 57%; /* #8d90a1 */
+    --md-outline-variant: 230 12% 30%; /* #434655 */
+
+    --md-inverse-surface: 233 100% 97%; /* #eef0ff */
+    --md-inverse-on-surface: 223 26% 21%; /* #283044 */
+
+    /* Legacy compat aliases */
+    --text-high: var(--md-on-surface);
+    --text-normal: var(--md-on-surface-variant);
+    --text-low: var(--md-outline);
+
+    --_bg-primary-default: 222 29% 12%;
+    --_bg-secondary-default: 222 29% 8%;
+    --_bg-panel-default: 222 29% 16%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -74,38 +204,13 @@ html {
     );
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
-    /* Accent (light) */
-    --brand: 219 89% 53%;
-    --brand-hover: 217 91% 60%;
-    --brand-secondary: 221 83% 47%;
-    --error: 0 72% 51%;
-    --success: 142 76% 36%;
-    --merged: 271 81% 46%;
-
-    /* Text on accent */
-    --text-on-brand: 0 0% 100%;
-  }
-
-  /* Dark mode */
-  .dark {
-    color-scheme: dark;
-
-    /* Internal variables (dark) */
-    --_background: 222 47% 8%;
-    --_foreground: 210 40% 98%;
-    --_primary: 210 40% 98%;
-    --_primary-foreground: 222 47% 8%;
-    --_secondary: 215 28% 14%;
-    --_secondary-foreground: 215 20% 65%;
-    --_muted: 215 25% 17%;
-    --_muted-foreground: 215 20% 60%;
-    --_accent: 215 25% 20%;
-    --_accent-foreground: 210 40% 98%;
-    --_destructive: 0 72% 51%;
-    --_destructive-foreground: 210 40% 98%;
-    --_border: 215 25% 20%;
-    --_input: 215 25% 17%;
-    --_ring: 217 91% 60%;
+    --brand: var(--md-primary);
+    --brand-hover: 226 100% 78%;
+    --brand-secondary: 218 100% 39%;
+    --error: var(--md-error);
+    --success: 142 76% 42%;
+    --merged: 271 81% 66%;
+    --text-on-brand: 0 0% 0%;
 
     /* Status (dark) */
     --_success: 142 76% 42%;
@@ -114,35 +219,11 @@ html {
     --_warning-foreground: 38 92% 90%;
     --_info: 217 91% 60%;
     --_info-foreground: 217 91% 90%;
-    --_neutral: 215 25% 20%;
+    --_neutral: 222 29% 16%;
     --_neutral-foreground: 210 40% 90%;
+    --_destructive: var(--md-error);
+    --_destructive-foreground: 0 0% 100%;
 
-    /* Text (dark) */
-    --text-high: 210 40% 98%;
-    --text-normal: 214 32% 80%;
-    --text-low: 215 20% 52%;
-
-    /* Background (dark) - with VS Code overrides */
-    --_bg-primary-default: 222 47% 8%;
-    --_bg-secondary-default: 222 47% 6%;
-    --_bg-panel-default: 215 25% 14%;
-    --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
-    --bg-secondary: var(
-      --vscode-editorWidget-background,
-      var(--_bg-secondary-default)
-    );
-    --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
-
-    /* Accent (dark) */
-    --brand: 217 91% 60%;
-    --brand-hover: 213 93% 68%;
-    --brand-secondary: 219 89% 48%;
-    --error: 0 72% 51%;
-    --success: 142 76% 42%;
-    --merged: 271 81% 66%;
-
-    /* Text on accent */
-    --text-on-brand: 0 0% 100%;
     /* Console (dark) */
     --_console-background: 222 47% 5%;
     --_console-foreground: 210 40% 98%;
@@ -165,81 +246,81 @@ html {
 /* 2) PUBLIC TOKENS */
 @layer base {
   :root {
-    --background: var(--vscode-editor-background, var(--_background));
-    --foreground: var(--vscode-editor-foreground, var(--_foreground));
+    --background: var(--vscode-editor-background, hsl(var(--md-background)));
+    --foreground: var(--vscode-editor-foreground, hsl(var(--md-on-surface)));
 
-    --card: var(--muted);
-    --card-foreground: var(--muted-foreground);
-    --popover: var(--background);
-    --popover-foreground: var(--foreground);
+    --card: hsl(var(--md-surface-container-lowest));
+    --card-foreground: hsl(var(--md-on-surface));
+    --popover: hsl(var(--md-surface-container-lowest));
+    --popover-foreground: hsl(var(--md-on-surface));
 
-    --primary: var(--vscode-button-background, var(--_primary));
+    --primary: var(--vscode-button-background, hsl(var(--md-primary)));
     --primary-foreground: var(
       --vscode-editor-foreground,
-      var(--_primary-foreground)
+      hsl(var(--md-on-primary))
     );
-    --secondary: var(--vscode-input-background, var(--_secondary));
+    --secondary: var(
+      --vscode-input-background,
+      hsl(var(--md-secondary-container))
+    );
     --secondary-foreground: var(
       --vscode-input-foreground,
-      var(--_secondary-foreground)
+      hsl(var(--md-on-secondary-container))
     );
 
-    --muted: var(--vscode-editor-background, var(--_muted));
-    --muted-foreground: var(
-      --vscode-descriptionForeground,
-      var(--_muted-foreground)
-    );
-    --accent: var(--vscode-focusBorder, var(--_accent));
-    --accent-foreground: var(
-      --vscode-editor-foreground,
-      var(--_accent-foreground)
-    );
+    --muted: hsl(var(--md-surface-container-low));
+    --muted-foreground: hsl(var(--md-on-surface-variant));
+    --accent: hsl(var(--md-surface-container-high));
+    --accent-foreground: hsl(var(--md-on-surface));
 
-    --destructive: var(--vscode-errorForeground, var(--_destructive));
-    --destructive-foreground: var(
-      --vscode-button-foreground,
-      var(--_destructive-foreground)
+    --destructive: var(--vscode-errorForeground, hsl(var(--md-error)));
+    --destructive-foreground: hsl(var(--md-on-error));
+
+    --border: var(--vscode-input-background, hsl(var(--md-outline-variant)));
+    --input: var(
+      --vscode-input-background,
+      hsl(var(--md-surface-container-low))
     );
+    --ring: var(--vscode-focusBorder, hsl(var(--md-primary)));
 
-    --border: var(--vscode-input-background, var(--_border));
-    --input: var(--vscode-input-background, var(--_input));
-    --ring: var(--vscode-focusBorder, var(--_ring));
-
-    --radius: var(--_radius);
+    --radius: 0.125rem;
 
     /* Status */
-    --success: var(--vscode-testing-iconPassed, var(--_success));
+    --success: var(--vscode-testing-iconPassed, hsl(var(--_success)));
     --success-foreground: var(
       --vscode-editor-foreground,
-      var(--_success-foreground)
+      hsl(var(--_success-foreground))
     );
-    --warning: var(--vscode-testing-iconQueued, var(--_warning));
+    --warning: var(--vscode-testing-iconQueued, hsl(var(--_warning)));
     --warning-foreground: var(
       --vscode-descriptionForeground,
-      var(--_warning-foreground)
+      hsl(var(--_warning-foreground))
     );
-    --info: var(--vscode-focusBorder, var(--_info));
-    --info-foreground: var(--vscode-editor-foreground, var(--_info-foreground));
-    --neutral: var(--vscode-input-background, var(--_neutral));
+    --info: var(--vscode-focusBorder, hsl(var(--_info)));
+    --info-foreground: var(
+      --vscode-editor-foreground,
+      hsl(var(--_info-foreground))
+    );
+    --neutral: var(--vscode-input-background, hsl(var(--_neutral)));
     --neutral-foreground: var(
       --vscode-editor-foreground,
-      var(--_neutral-foreground)
+      hsl(var(--_neutral-foreground))
     );
 
     /* Console/terminal */
     --console-background: var(
       --vscode-editor-background,
-      var(--_console-background)
+      hsl(var(--_console-background))
     );
     --console-foreground: var(
       --vscode-terminal-foreground,
-      var(--_console-foreground)
+      hsl(var(--_console-foreground))
     );
     --console-success: var(
       --vscode-testing-iconPassed,
-      var(--_console-success)
+      hsl(var(--_console-success))
     );
-    --console-error: var(--vscode-terminal-ansiRed, var(--_console-error));
+    --console-error: var(--vscode-terminal-ansiRed, hsl(var(--_console-error)));
 
     /* Syntax highlighting */
     --syntax-keyword: var(--_syntax-keyword);
@@ -253,8 +334,8 @@ html {
     --syntax-deleted: var(--_syntax-deleted);
 
     /* Allotment */
-    --separator-border: hsl(var(--border));
-    --focus-border: hsl(var(--brand));
+    --separator-border: hsl(var(--md-outline-variant));
+    --focus-border: hsl(var(--md-primary));
   }
 }
 
@@ -271,7 +352,7 @@ html {
   #root {
     @apply min-h-screen;
     @apply font-normal;
-    @apply bg-background text-foreground font-ibm-plex-sans;
+    @apply bg-background text-foreground font-hanken;
   }
 
   *:focus {
@@ -292,79 +373,62 @@ html {
 
 /* ANSI color classes for fancy-ansi - optimized for both light and dark modes */
 @layer components {
-  /* Light mode: use darker shades for contrast on light backgrounds */
   .ansi-red {
-    @apply text-red-700 dark:text-red-400;
+    @apply text-red-700    dark:text-red-400;
   }
-
   .ansi-green {
-    @apply text-green-700 dark:text-green-400;
+    @apply text-green-700  dark:text-green-400;
   }
-
   .ansi-yellow {
     @apply text-yellow-700 dark:text-yellow-400;
   }
-
   .ansi-blue {
-    @apply text-blue-700 dark:text-blue-400;
+    @apply text-blue-700   dark:text-blue-400;
   }
-
   .ansi-magenta {
     @apply text-purple-700 dark:text-purple-400;
   }
-
   .ansi-cyan {
-    @apply text-cyan-700 dark:text-cyan-400;
+    @apply text-cyan-700   dark:text-cyan-400;
   }
-
   .ansi-white {
-    @apply text-gray-600 dark:text-gray-200;
+    @apply text-gray-600   dark:text-gray-200;
   }
-
   .ansi-black {
-    @apply text-black dark:text-gray-900;
+    @apply text-black      dark:text-gray-900;
   }
 
   .ansi-bright-red {
-    @apply text-red-600 dark:text-red-300;
+    @apply text-red-600     dark:text-red-300;
   }
-
   .ansi-bright-green {
-    @apply text-green-600 dark:text-green-300;
+    @apply text-green-600   dark:text-green-300;
   }
-
   .ansi-bright-yellow {
-    @apply text-amber-600 dark:text-yellow-300;
+    @apply text-amber-600   dark:text-yellow-300;
   }
-
   .ansi-bright-blue {
-    @apply text-blue-600 dark:text-blue-300;
+    @apply text-blue-600    dark:text-blue-300;
   }
-
   .ansi-bright-magenta {
-    @apply text-purple-600 dark:text-purple-300;
+    @apply text-purple-600  dark:text-purple-300;
   }
-
   .ansi-bright-cyan {
-    @apply text-cyan-600 dark:text-cyan-300;
+    @apply text-cyan-600    dark:text-cyan-300;
   }
-
   .ansi-bright-white {
-    @apply text-gray-500 dark:text-gray-100;
+    @apply text-gray-500    dark:text-gray-100;
   }
-
   .ansi-bright-black {
-    @apply text-gray-600 dark:text-gray-500;
+    @apply text-gray-600    dark:text-gray-500;
   }
 
   .ansi-bold {
     @apply font-bold;
   }
-
   .ansi-italic {
     @apply italic;
   }
-
   .ansi-underline {
     @apply underline;
   }
@@ -375,7 +439,6 @@ html {
   0% {
     background-position: 200% 0;
   }
-
   100% {
     background-position: -200% 0;
   }
@@ -442,7 +505,7 @@ html {
   }
 }
 
-/* Color emoji utility - uses system color emoji fonts for reactions */
+/* Color emoji utility */
 @layer utilities {
   .color-emoji {
     font-family:
@@ -453,7 +516,7 @@ html {
 
 @config '../../../../../local-web/tailwind.new.config.js';
 
-/* Hide Virtuoso Message List license watermark warning (scoped to virtuoso wrappers only) */
+/* Hide Virtuoso Message List license watermark */
 .virtuoso-license-wrapper
   > div[style*='color: red'][style*='pointer-events: none'] {
   display: none !important;
@@ -471,14 +534,13 @@ html {
     font-size: var(--mobile-font-scale, 100%);
   }
 
-  /* Background colors for PWA safe-area */
   html,
   body {
-    background-color: #f8fafc;
+    background-color: hsl(var(--md-surface-container-lowest, 0 0% 100%));
   }
 
   html.dark body,
   html.dark {
-    background-color: #0a0f1e;
+    background-color: hsl(var(--md-surface-dim, 222 29% 8%));
   }
 }

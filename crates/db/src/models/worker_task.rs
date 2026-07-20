@@ -27,6 +27,8 @@ pub struct WorkerTask {
     pub issue_number: Option<i64>,
     pub status: String,
     pub workspace_id: Option<Uuid>,
+    /// JSON-encoded array of skill names selected for this task.
+    pub skills: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -36,6 +38,7 @@ pub struct CreateWorkerTask {
     pub title: String,
     pub prompt: String,
     pub issue_number: Option<i64>,
+    pub skills: Vec<String>,
 }
 
 impl WorkerTask {
@@ -45,7 +48,7 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -58,7 +61,7 @@ impl WorkerTask {
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -83,11 +86,13 @@ impl WorkerTask {
         .fetch_one(pool)
         .await?;
 
+        let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued')",
+                  issue_number, status, skills)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8)",
         )
         .bind(id)
         .bind(worker_id)
@@ -96,6 +101,7 @@ impl WorkerTask {
         .bind(&data.title)
         .bind(&data.prompt)
         .bind(data.issue_number)
+        .bind(&skills_json)
         .execute(pool)
         .await?;
 
@@ -143,6 +149,19 @@ impl WorkerTask {
         Ok(result.rows_affected())
     }
 
+    /// All in_progress tasks across all workers. Used at startup to detect
+    /// tasks whose agent was killed by a server restart.
+    pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, created_at
+               FROM worker_tasks
+               WHERE status = 'in_progress'",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Task currently in progress for the worker, if any.
     pub async fn find_in_progress(
         pool: &SqlitePool,
@@ -150,7 +169,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -168,7 +187,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -190,6 +209,21 @@ impl WorkerTask {
         .await
     }
 
+    /// All in-progress tasks that have a workspace assigned (across all workers).
+    /// Used by the pr_monitor to sweep for PRs created outside the app.
+    pub async fn find_all_in_progress_with_workspace(
+        pool: &SqlitePool,
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, created_at
+               FROM worker_tasks
+               WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// The task associated with a given workspace, if any.
     pub async fn find_by_workspace(
         pool: &SqlitePool,
@@ -197,7 +231,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, created_at
+                    issue_number, status, workspace_id, skills, created_at
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -253,6 +287,30 @@ impl WorkerTask {
         Ok(count > 0)
     }
 
+    /// Find the first active task (queued, in_progress, or in_review) for the
+    /// given repo and issue number, across all workers. Used to detect duplicate
+    /// issue assignments before creating a new task.
+    pub async fn find_active_by_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, created_at
+               FROM worker_tasks
+               WHERE repo_id = ?1
+                 AND issue_number = ?2
+                 AND status IN ('queued', 'in_progress', 'in_review')
+               ORDER BY created_at ASC
+               LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Set status without changing position. Returns the updated row.
     pub async fn set_status(
         pool: &SqlitePool,
@@ -264,6 +322,35 @@ impl WorkerTask {
             .bind(status)
             .execute(pool)
             .await?;
+
+        Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Reset a task to `queued` at the front of its worker's queue (lowest
+    /// position - 1) and clear its workspace link. Used during startup
+    /// recovery to re-queue tasks whose execution was killed by a restart.
+    pub async fn re_queue_at_front(pool: &SqlitePool, id: Uuid) -> Result<Self, sqlx::Error> {
+        let task = Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)?;
+
+        let min_pos: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MIN(position), 0) FROM worker_tasks WHERE worker_id = ?1",
+        )
+        .bind(task.worker_id)
+        .fetch_one(pool)
+        .await?;
+
+        sqlx::query(
+            "UPDATE worker_tasks SET status = 'queued', position = ?2, workspace_id = NULL
+               WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(min_pos - 1)
+        .execute(pool)
+        .await?;
 
         Self::find_by_id(pool, id)
             .await?

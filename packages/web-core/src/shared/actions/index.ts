@@ -50,7 +50,7 @@ import {
   RIGHT_MAIN_PANEL_MODES,
 } from '@/shared/stores/useUiPreferencesStore';
 
-import { workspacesApi, relayApi, repoApi } from '@/shared/lib/api';
+import { workspacesApi, repoApi } from '@/shared/lib/api';
 import { bulkUpdateIssues } from '@/shared/lib/remoteApi';
 import { workspaceRecordKeys } from '@/shared/hooks/useWorkspaceRecord';
 import { workspaceRepoKeys } from '@/shared/hooks/useWorkspaceRepo';
@@ -64,8 +64,7 @@ import { ResolveConflictsDialog } from '@/shared/dialogs/tasks/ResolveConflictsD
 import { RenameWorkspaceDialog } from '@vibe/ui/components/RenameWorkspaceDialog';
 import { ProjectsGuideDialog } from '@vibe/ui/components/ProjectsGuideDialog';
 import { CreatePRDialog } from '@/shared/dialogs/command-bar/CreatePRDialog';
-import { getIdeName } from '@/shared/lib/ideName';
-import { EditorSelectionDialog } from '@/shared/dialogs/command-bar/EditorSelectionDialog';
+import i18n from '@/i18n';
 import { StartReviewDialog } from '@/shared/dialogs/command-bar/StartReviewDialog';
 import posthog from 'posthog-js';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
@@ -94,6 +93,11 @@ import type {
   NavbarItem,
 } from '@/shared/types/actions';
 import { ActionTargetType, NavbarDivider } from '@/shared/types/actions';
+
+function parseGithubOwnerRepo(url: string): string | null {
+  const match = url.match(/github\.com\/([^/]+\/[^/?#]+)/);
+  return match ? match[1] : null;
+}
 
 async function resolveLinkedIssue(
   workspaceId: string,
@@ -696,34 +700,47 @@ export const Actions = {
   // === ContextBar Actions ===
   OpenInIDE: {
     id: 'open-in-ide',
-    label: 'Open in IDE',
+    label: 'Open in VS Code web',
     icon: 'ide-icon' as const,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.hasWorkspace,
-    getTooltip: (ctx) => `Open in ${getIdeName(ctx.editorType)}`,
+    isEnabled: (ctx) => ctx.isBranchPushed,
+    getTooltip: (ctx) =>
+      ctx.isBranchPushed
+        ? i18n.t('common:githubDev.openInVSCodeWeb')
+        : i18n.t('common:githubDev.branchNotPushed'),
     execute: async (ctx) => {
       if (!ctx.currentWorkspaceId) return;
       try {
-        const response =
-          ctx.appRuntime === 'local' && ctx.currentHostId
-            ? await relayApi.openRemoteWorkspaceInEditor({
-                host_id: ctx.currentHostId,
-                workspace_id: ctx.currentWorkspaceId,
-                editor_type: null,
-                file_path: null,
-              })
-            : await workspacesApi.openEditor(ctx.currentWorkspaceId, {
-                editor_type: null,
-                file_path: null,
-              });
-        if (response.url) {
-          window.open(response.url, '_blank');
+        const branchStatus = await workspacesApi.getBranchStatus(
+          ctx.currentWorkspaceId
+        );
+        let prUrl: string | null = null;
+        outer: for (const status of branchStatus) {
+          for (const merge of status.merges) {
+            if (merge.type === 'pr') {
+              prUrl = merge.pr_info.url;
+              break outer;
+            }
+          }
         }
+        if (!prUrl) return;
+        const ownerRepo = parseGithubOwnerRepo(prUrl);
+        if (!ownerRepo) return;
+
+        // Find current branch from active workspaces
+        const branch = ctx.activeWorkspaces.find(
+          (w) => w.id === ctx.currentWorkspaceId
+        )?.branch;
+        if (!branch) return;
+
+        window.open(
+          `https://github.dev/${ownerRepo}/tree/${branch}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
       } catch {
-        // Show editor selection dialog on failure
-        EditorSelectionDialog.show({
-          selectedAttemptId: ctx.currentWorkspaceId,
-        });
+        // silently ignore — branch may not be pushed yet
       }
     },
   },

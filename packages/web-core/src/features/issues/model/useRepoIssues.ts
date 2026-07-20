@@ -27,3 +27,71 @@ export function useSyncRepoIssues(repoId: string | undefined) {
     },
   });
 }
+
+function updateIssueInCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  repoId: string,
+  updated: RepoIssue
+) {
+  queryClient.setQueryData<RepoIssue[]>(
+    repoIssuesKeys.byRepo(repoId),
+    (prev) =>
+      prev ? prev.map((i) => (i.id === updated.id ? updated : i)) : prev
+  );
+}
+
+export function useAddIssueLabel(repoId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      issueNumber,
+      label,
+      color,
+    }: {
+      issueNumber: number;
+      label: string;
+      color?: string;
+    }) => {
+      if (!repoId) throw new Error('repoId required');
+      return repoIssuesApi.addLabel(repoId, issueNumber, label, color);
+    },
+    onSuccess: (updated) => {
+      if (!repoId) return;
+      updateIssueInCache(queryClient, repoId, updated);
+    },
+  });
+}
+
+export function useRemoveIssueLabel(repoId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      issueNumber,
+      labelName,
+    }: {
+      issueNumber: number;
+      labelName: string;
+    }) => {
+      if (!repoId) throw new Error('repoId required');
+      return repoIssuesApi.removeLabel(repoId, issueNumber, labelName);
+    },
+    onSuccess: (updated) => {
+      if (!repoId) return;
+      updateIssueInCache(queryClient, repoId, updated);
+    },
+  });
+}
+
+export function useCloseIssue(repoId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (issueNumber: number) => {
+      if (!repoId) throw new Error('repoId required');
+      return repoIssuesApi.closeIssue(repoId, issueNumber);
+    },
+    onSuccess: (updated) => {
+      if (!repoId) return;
+      updateIssueInCache(queryClient, repoId, updated);
+    },
+  });
+}

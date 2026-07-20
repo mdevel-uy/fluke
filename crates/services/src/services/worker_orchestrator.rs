@@ -25,6 +25,7 @@ use std::sync::Arc;
 use db::{
     DBService,
     models::{
+        execution_process::ExecutionProcess,
         repo::Repo,
         requests::WorkspaceRepoInput,
         worker::Worker,
@@ -69,8 +70,8 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("repo not found")]
     RepoNotFound,
-    #[error("repo has no default_target_branch configured")]
-    RepoMissingDefaultBranch,
+    #[error("repo '{0}' has no default_target_branch configured")]
+    RepoMissingDefaultBranch(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
@@ -161,7 +162,7 @@ pub async fn try_take_next(
         .default_target_branch
         .clone()
         .filter(|b| !b.is_empty())
-        .ok_or(StartError::RepoMissingDefaultBranch)?;
+        .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
     let executor_config = config.read().await.executor_profile.clone();
     let executor_config: ExecutorConfig = executor_config.into();
@@ -346,6 +347,142 @@ pub(crate) async fn reconcile_worker_workspaces(
                 workspace_id = %ws_id,
                 "Failed to clear worker_task link during auto-repair: {}",
                 e
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Startup sweep: move every `in_progress` worker task that has no live
+/// execution behind it out of the zombie state.
+///
+/// Must be called AFTER `cleanup_orphan_executions()` has already marked
+/// stale `running` execution processes as `failed`, so that the running-
+/// process check below reliably returns false for killed tasks.
+///
+/// Decision tree for each zombie task:
+///   - No commits produced → re-queue at front (most common case: the
+///     agent was killed by a deploy before it finished anything useful).
+///   - Commits exist → mark as `failed` so a human can inspect and retry.
+///
+/// Safety rule: if the execution-state check itself errors, the task is
+/// left untouched — a visible zombie is safer than accidentally killing a
+/// live run.
+pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let in_progress = WorkerTask::find_all_in_progress(pool).await?;
+
+    for task in in_progress {
+        let Some(workspace_id) = task.workspace_id else {
+            // In-progress without a workspace is an unexpected inconsistency.
+            warn!(
+                task_id = %task.id,
+                worker_id = %task.worker_id,
+                "in_progress worker task has no workspace_id — marking failed (startup recovery)"
+            );
+            if let Err(e) = WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await
+            {
+                warn!(
+                    task_id = %task.id,
+                    "Failed to mark no-workspace task as failed during startup recovery: {}",
+                    e
+                );
+            }
+            continue;
+        };
+
+        // Safety: skip if there is somehow still a live execution running.
+        match ExecutionProcess::has_running_non_dev_server_processes_for_workspace(
+            pool,
+            workspace_id,
+        )
+        .await
+        {
+            Ok(true) => {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %workspace_id,
+                    "in_progress worker task still has a running execution — leaving it alone (startup recovery)"
+                );
+                continue;
+            }
+            Err(e) => {
+                warn!(
+                    task_id = %task.id,
+                    workspace_id = %workspace_id,
+                    "Could not determine execution state during startup recovery — leaving task alone: {}",
+                    e
+                );
+                continue;
+            }
+            Ok(false) => {}
+        }
+
+        // No live execution: zombie confirmed. Decide re-queue vs. failed.
+        let has_commits =
+            match ExecutionProcess::workspace_has_any_after_commit(pool, workspace_id).await {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!(
+                        task_id = %task.id,
+                        workspace_id = %workspace_id,
+                        "Could not check commits during startup recovery — leaving task alone: {}",
+                        e
+                    );
+                    continue;
+                }
+            };
+
+        if has_commits {
+            // Agent produced commits before being killed. Mark failed so a
+            // human can inspect the workspace and decide whether to retry.
+            match WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await {
+                Ok(_) => info!(
+                    task_id = %task.id,
+                    worker_id = %task.worker_id,
+                    workspace_id = %workspace_id,
+                    "Zombie worker task had commits — marked as failed (restart recovery)"
+                ),
+                Err(e) => warn!(
+                    task_id = %task.id,
+                    "Failed to mark zombie task as failed during startup recovery: {}",
+                    e
+                ),
+            }
+        } else {
+            // No commits: re-queue at the front so the task runs next time
+            // the worker is started. Clean up the stale workspace so the
+            // capacity guard sees a clear slot.
+            match WorkerTask::re_queue_at_front(pool, task.id).await {
+                Err(e) => {
+                    warn!(
+                        task_id = %task.id,
+                        "Failed to re-queue zombie task during startup recovery: {}",
+                        e
+                    );
+                    continue;
+                }
+                Ok(_) => {}
+            }
+            if let Err(e) = Workspace::set_archived(pool, workspace_id, true).await {
+                warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to archive workspace during startup recovery: {}",
+                    e
+                );
+            }
+            if let Err(e) = Worker::detach_workspace(pool, workspace_id).await {
+                warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to detach workspace during startup recovery: {}",
+                    e
+                );
+            }
+            info!(
+                task_id = %task.id,
+                worker_id = %task.worker_id,
+                workspace_id = %workspace_id,
+                "Zombie worker task had no commits — re-queued at front (restart recovery)"
             );
         }
     }
@@ -576,6 +713,7 @@ mod tests {
                 title: "wire it up".to_string(),
                 prompt: "do the thing".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await
@@ -624,6 +762,7 @@ mod tests {
                 title: "cleanup".to_string(),
                 prompt: "clean".to_string(),
                 issue_number: None,
+                skills: Vec::new(),
             },
         )
         .await
