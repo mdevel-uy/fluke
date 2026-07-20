@@ -26,7 +26,7 @@ import type { IssueLabel } from 'shared/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
-import { IssuesToolbar, DEFAULT_FILTERS } from './IssuesToolbar';
+import { IssuesToolbar } from './IssuesToolbar';
 import type {
   IssueFilters,
   IssuePriorityFilter,

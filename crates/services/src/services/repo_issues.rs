@@ -155,9 +155,14 @@ impl RepoIssuesService {
                 .ok_or_else(|| RepoIssuesError::InvalidPriority(p.to_string()))?;
 
             let mut create_cmd = Command::new(&gh);
-            create_cmd
-                .current_dir(&repo.path)
-                .args(["label", "create", label_name, "--color", label_color, "--force"]);
+            create_cmd.current_dir(&repo.path).args([
+                "label",
+                "create",
+                label_name,
+                "--color",
+                label_color,
+                "--force",
+            ]);
             create_cmd.no_window();
             let out = create_cmd.output().await?;
             if !out.status.success() {
@@ -242,9 +247,13 @@ impl RepoIssuesService {
 
         // Add the label to the issue.
         let mut edit_cmd = Command::new(&gh);
-        edit_cmd
-            .current_dir(&repo.path)
-            .args(["issue", "edit", &issue_number.to_string(), "--add-label", label_name]);
+        edit_cmd.current_dir(&repo.path).args([
+            "issue",
+            "edit",
+            &issue_number.to_string(),
+            "--add-label",
+            label_name,
+        ]);
         edit_cmd.no_window();
         let out = edit_cmd.output().await?;
         if !out.status.success() {
@@ -287,9 +296,13 @@ impl RepoIssuesService {
             .ok_or(RepoIssuesError::GhCliNotAvailable)?;
 
         let mut edit_cmd = Command::new(&gh);
-        edit_cmd
-            .current_dir(&repo.path)
-            .args(["issue", "edit", &issue_number.to_string(), "--remove-label", label_name]);
+        edit_cmd.current_dir(&repo.path).args([
+            "issue",
+            "edit",
+            &issue_number.to_string(),
+            "--remove-label",
+            label_name,
+        ]);
         edit_cmd.no_window();
         let out = edit_cmd.output().await?;
         if !out.status.success() {
@@ -357,9 +370,7 @@ pub fn priority_label_info(priority: &str) -> Option<(&'static str, &'static str
 /// Returns `true` if the label name is any recognised priority label.
 pub fn is_priority_label_name(name: &str) -> bool {
     let lower = name.to_lowercase();
-    PRIORITY_LABELS
-        .iter()
-        .any(|(_, lname, _)| lower == *lname)
+    PRIORITY_LABELS.iter().any(|(_, lname, _)| lower == *lname)
         || matches!(lower.as_str(), "p0" | "p1" | "p2" | "p3")
 }
 
