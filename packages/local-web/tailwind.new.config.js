@@ -116,7 +116,7 @@ module.exports = {
 
         /* ── Background (legacy aliases) */
         primary:   'hsl(var(--bg-primary))',
-        secondary: 'hsl(var(--md-secondary-container))',
+        secondary: 'hsl(var(--bg-secondary))',
         panel:     'hsl(var(--md-surface-container))',
 
         /* ── MD3 primary */

@@ -111,10 +111,19 @@ impl Worker {
     }
 
     pub async fn delete(pool: &SqlitePool, id: Uuid) -> Result<u64, sqlx::Error> {
+        // workspaces.worker_id references workers(id) without ON DELETE, so any
+        // workspace ever attached to the worker (including archived history)
+        // must be detached first or the delete fails with a FK violation.
+        let mut tx = pool.begin().await?;
+        sqlx::query("UPDATE workspaces SET worker_id = NULL WHERE worker_id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         let result = sqlx::query("DELETE FROM workers WHERE id = ?1")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
         Ok(result.rows_affected())
     }
 
