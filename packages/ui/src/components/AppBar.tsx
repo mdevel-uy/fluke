@@ -183,11 +183,9 @@ function getHostButtonClassName({
 }
 
 export function AppBar({
-  projects,
   hosts = [],
   onPairHostClick,
   activeHostId = null,
-  onCreateProject,
   onExportClick,
   onWorkspacesClick,
   onIssuesClick,
@@ -198,18 +196,12 @@ export function AppBar({
   showIssuesButton = true,
   showWorkersButton = true,
   showSprintButton = true,
-  onProjectClick,
-  onProjectsDragEnd,
-  isSavingProjectOrder,
   isWorkspacesActive,
   isIssuesActive = false,
   isWorkersActive = false,
   isSprintActive = false,
   isExportActive = false,
-  activeProjectId,
   isSignedIn,
-  isLoadingProjects,
-  onSignIn,
   onHoverStart,
   onHoverEnd,
   notificationBell,
@@ -305,53 +297,9 @@ export function AppBar({
     });
   }
 
-  const projectSectionItems: AppBarSectionItem[] = [];
-
-  if (!isSignedIn) {
-    projectSectionItems.push({
-      key: 'kanban-cta',
-      kind: 'kanban-cta',
-      label: t('appBar.kanban.tooltip'),
-      onSignIn,
-    });
-  }
-
-  if (isLoadingProjects) {
-    projectSectionItems.push({ key: 'projects-loading', kind: 'loading' });
-  }
-
-  if (projects.length > 0) {
-    projectSectionItems.push({
-      key: 'project-list',
-      kind: 'project-list',
-      projects,
-      activeProjectId,
-      isSavingProjectOrder,
-      onProjectClick,
-      onProjectsDragEnd,
-    });
-  }
-
-  if (isSignedIn) {
-    projectSectionItems.push({
-      key: 'create-project',
-      kind: 'icon-button',
-      label: 'Create project',
-      materialIcon: 'add',
-      onClick: onCreateProject,
-      className:
-        'bg-md-surface-container-low text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface',
-      wrapperClassName: 'pt-base',
-    });
-  }
-
-  if (projectSectionItems.length > 0) {
-    sections.push({
-      key: 'projects',
-      label: 'Projects',
-      items: projectSectionItems,
-    });
-  }
+  // "Projects" was the dead cloud entity (bloop shutdown, Apr 2026). The
+  // section — list, loading state and Create Project button — is intentionally
+  // gone: repos are the local anchor. See issue #23 for the route demolition.
 
   if (isSignedIn && onExportClick) {
     sections.push({
