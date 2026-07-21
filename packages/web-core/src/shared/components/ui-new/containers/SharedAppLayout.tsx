@@ -9,6 +9,7 @@ import { cn } from '@/shared/lib/utils';
 import { isTauriMac } from '@/shared/lib/platform';
 
 import { NavbarContainer } from './NavbarContainer';
+import { StatusBarContainer } from './StatusBarContainer';
 import { AppBar } from '@vibe/ui/components/AppBar';
 import { MobileDrawer } from '@vibe/ui/components/MobileDrawer';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
@@ -241,7 +242,7 @@ export function SharedAppLayout() {
           'bg-primary',
           isMobile
             ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-            : 'grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] h-screen'
+            : 'grid grid-cols-[auto_1fr] grid-rows-[auto_1fr_auto] h-screen'
         )}
       >
         {!isMobile && (
@@ -310,6 +311,13 @@ export function SharedAppLayout() {
 
               <Outlet />
             </div>
+            {/* Workbench status bar (spans rail + content). */}
+            <StatusBarContainer
+              className="col-span-2"
+              appVersion={appVersion}
+              updateVersion={updateVersion}
+              onUpdateClick={restartForUpdate ?? undefined}
+            />
           </>
         )}
 

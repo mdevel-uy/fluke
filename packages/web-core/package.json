@@ -17,7 +17,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@ebay/nice-modal-react": "^1.2.13",
-    "@fontsource/geist": "^5.3.0",
     "@git-diff-view/file": "^0.0.30",
     "@git-diff-view/react": "^0.0.30",
     "@hello-pangea/dnd": "^18.0.1",
@@ -95,8 +94,7 @@
     "tailwindcss-animate": "^1.0.7",
     "wa-sqlite": "^1.0.0",
     "zod": "^3.25.76",
-    "zustand": "^4.5.4",
-    "@fontsource/geist-mono": "^5.2.9"
+    "zustand": "^4.5.4"
   },
   "scripts": {
     "check": "tsc --noEmit",

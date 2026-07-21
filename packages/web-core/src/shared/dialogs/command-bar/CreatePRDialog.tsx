@@ -450,7 +450,6 @@ const CreatePRDialogImpl = create<CreatePRDialogProps>(
               <Button
                 onClick={handleConfirmCreatePR}
                 disabled={creatingPR || !prTitle.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
               >
                 {creatingPR ? (
                   <>

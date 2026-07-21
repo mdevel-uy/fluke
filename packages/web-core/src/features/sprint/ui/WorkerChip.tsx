@@ -2,8 +2,8 @@ import { cn } from '@/shared/lib/utils';
 import type { Worker } from '@/features/sprint/types';
 
 const ROLE_DOT_CLASS: Record<string, string> = {
-  analyst: 'bg-blue-500',
-  reviewer: 'bg-amber-500',
+  analyst: 'bg-brand',
+  reviewer: 'bg-warning',
 };
 
 interface WorkerChipProps {

@@ -295,7 +295,7 @@ function GitOperations({
 
         if (hasConflictsCalculated) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
               {t('git.status.conflicts')}
             </span>
@@ -304,7 +304,7 @@ function GitOperations({
 
         if (selectedRepoStatus?.is_rebase_in_progress) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               {t('git.states.rebasing')}
             </span>
@@ -313,7 +313,7 @@ function GitOperations({
 
         if (mergeInfo.hasMergedPR) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success">
               <CheckCircle className="h-3.5 w-3.5" />
               {t('git.states.merged')}
             </span>
@@ -325,7 +325,7 @@ function GitOperations({
           return (
             <button
               onClick={() => window.open(prMerge.pr_info.url, '_blank')}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100/60 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:underline truncate max-w-[180px] sm:max-w-none"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-info/10 text-info hover:underline truncate max-w-[180px] sm:max-w-none"
               aria-label={t('git.pr.open', {
                 number: Number(prMerge.pr_info.number),
               })}
@@ -344,7 +344,7 @@ function GitOperations({
           chips.push(
             <span
               key="ahead"
-              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success"
             >
               +{commitsAhead} {t('git.status.commits', { count: commitsAhead })}{' '}
               {t('git.status.ahead')}
@@ -355,7 +355,7 @@ function GitOperations({
           chips.push(
             <span
               key="behind"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning"
             >
               {commitsBehind}{' '}
               {t('git.status.commits', { count: commitsBehind })}{' '}
