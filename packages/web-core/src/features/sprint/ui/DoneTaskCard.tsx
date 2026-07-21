@@ -15,7 +15,7 @@ export function DoneTaskCard({ task }: DoneTaskCardProps) {
         <MaterialIcon name="check" size="xs" />
       </span>
       <p
-        className="text-body-sm font-hanken text-md-on-surface-variant font-medium leading-snug line-clamp-2"
+        className="text-body-sm font-sans text-md-on-surface-variant font-medium leading-snug line-clamp-2"
         title={task.title}
       >
         {task.title}

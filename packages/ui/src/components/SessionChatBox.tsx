@@ -587,7 +587,7 @@ export function SessionChatBox<TExecutor extends string = string>({
           key="review-comments"
           className="bg-accent/5 border-b px-double py-base flex items-center gap-base"
         >
-          <ChatCircleIcon className="h-4 w-4 text-brand flex-shrink-0" />
+          <ChatCircleIcon className="h-4 w-4 text-brand-on-surface flex-shrink-0" />
           <span className="text-sm text-normal flex-1">
             {t('conversation.reviewComments.count', {
               count: reviewComments.count,

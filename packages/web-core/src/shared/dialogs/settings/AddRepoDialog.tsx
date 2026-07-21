@@ -269,7 +269,7 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
                               <div className="pt-half flex-shrink-0">
                                 {isCloningThis ? (
                                   <SpinnerIcon
-                                    className="h-4 w-4 animate-spin text-brand"
+                                    className="h-4 w-4 animate-spin text-brand-on-surface"
                                     weight="bold"
                                   />
                                 ) : (
@@ -302,7 +302,7 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
                                   </p>
                                 )}
                                 {isCloningThis && (
-                                  <p className="text-xs text-brand mt-half">
+                                  <p className="text-xs text-brand-on-surface mt-half">
                                     {t('settings.repos.addRepo.github.cloning')}
                                   </p>
                                 )}

@@ -73,7 +73,7 @@ export function IssueDetailPanel({
                 href={githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-ibm-plex-mono text-low hover:text-brand transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-ibm-plex-mono text-low hover:text-brand-on-surface transition-colors"
               >
                 #{issue.number}
                 <ArrowSquareOutIcon className="size-3" />

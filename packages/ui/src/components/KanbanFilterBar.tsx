@@ -198,7 +198,7 @@ export function KanbanFilterBar<
               className={cn(
                 'p-half rounded-sm transition-colors',
                 filters.searchQuery
-                  ? 'text-brand hover:text-brand'
+                  ? 'text-brand-on-surface hover:text-brand-on-surface'
                   : 'text-low hover:text-normal hover:bg-secondary'
               )}
               aria-label={t('kanban.searchPlaceholder', 'Search issues...')}
@@ -223,7 +223,7 @@ export function KanbanFilterBar<
             className={cn(
               'flex items-center justify-center p-half rounded-sm transition-colors',
               hasActiveFilters
-                ? 'text-brand hover:text-brand'
+                ? 'text-brand-on-surface hover:text-brand-on-surface'
                 : 'text-low hover:text-normal hover:bg-secondary'
             )}
             aria-label={t('kanban.filters', 'Open filters')}

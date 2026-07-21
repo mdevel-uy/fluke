@@ -1045,7 +1045,7 @@ export function ElectricTestPage() {
           )}
 
           {selectedProject && (
-            <p className="mt-base text-sm text-brand">
+            <p className="mt-base text-sm text-brand-on-surface">
               Selected project: <strong>{selectedProject.name}</strong> (click a
               row to select)
             </p>
@@ -1108,7 +1108,7 @@ export function ElectricTestPage() {
           )}
 
           {selectedIssue && (
-            <p className="mt-base text-sm text-brand">
+            <p className="mt-base text-sm text-brand-on-surface">
               Selected issue: <strong>{selectedIssue.title}</strong>
             </p>
           )}

@@ -215,7 +215,7 @@ export function IssueWorkspaceCard({
           <div className="flex items-center gap-half shrink-0">
             {hasRunningDevServer && (
               <PlayIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}
@@ -230,7 +230,7 @@ export function IssueWorkspaceCard({
             {isRunning &&
               (hasPendingApproval ? (
                 <HandIcon
-                  className="size-icon-xs text-brand shrink-0"
+                  className="size-icon-xs text-brand-on-surface shrink-0"
                   weight="fill"
                 />
               ) : (
@@ -239,7 +239,7 @@ export function IssueWorkspaceCard({
 
             {hasUnseenActivity && !isRunning && !isFailed && (
               <CircleIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}

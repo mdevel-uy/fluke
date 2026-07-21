@@ -61,9 +61,9 @@ function NavbarIconButton({
     <button
       type="button"
       className={cn(
-        'flex items-center justify-center p-1.5 rounded-lg transition-all duration-200',
-        'text-md-on-surface-variant hover:bg-md-surface-container-high hover:text-md-on-surface',
-        isActive && 'bg-md-secondary-container text-md-on-secondary-container',
+        'flex items-center justify-center p-1.5 rounded-md transition-all duration-150',
+        'text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface',
+        isActive && 'bg-brand/10 text-brand-on-surface',
         'active:scale-95',
         className
       )}
@@ -239,7 +239,7 @@ export function Navbar({
     return (
       <nav
         className={cn(
-          'flex flex-col bg-md-surface-container-low border-b border-md-outline-variant shrink-0',
+          'flex flex-col bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0',
           className
         )}
       >
@@ -267,7 +267,7 @@ export function Navbar({
                       <MaterialIcon name="menu_open" size="base" />
                     </button>
                   )}
-              <p className="text-body-md text-md-on-surface font-medium truncate cursor-default select-none">
+              <p className="text-body-md text-md-on-surface font-semibold truncate cursor-default select-none">
                 {workspaceTitle}
               </p>
             </div>
@@ -308,7 +308,7 @@ export function Navbar({
                       key={tab.id}
                       type="button"
                       className={cn(
-                        'flex items-center gap-1 px-1.5 py-1 text-xs whitespace-nowrap transition-all duration-200 active:scale-95',
+                        'flex items-center gap-1 px-2 py-1 min-h-11 text-xs whitespace-nowrap transition-all duration-150 active:scale-95',
                         isActive
                           ? 'text-md-primary border-b-2 border-md-primary font-semibold'
                           : 'text-md-on-surface-variant hover:text-md-on-surface'
@@ -430,7 +430,7 @@ export function Navbar({
       data-tauri-drag-region
       className={cn(
         'flex items-center justify-between px-3 py-1.5',
-        'bg-md-surface-bright border-b border-md-outline-variant shrink-0 h-10',
+        'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-10',
         className
       )}
     >

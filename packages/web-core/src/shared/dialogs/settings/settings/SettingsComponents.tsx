@@ -83,7 +83,7 @@ export function TwoColumnPickerItem({
       className={cn(
         'group flex items-center gap-half px-base py-half cursor-pointer transition-colors',
         'hover:bg-secondary',
-        selected && 'bg-brand/10 text-brand'
+        selected && 'bg-brand/10 text-brand-on-surface'
       )}
       onClick={onClick}
     >
@@ -91,7 +91,7 @@ export function TwoColumnPickerItem({
       <span
         className={cn(
           'text-sm truncate flex-1',
-          selected ? 'text-brand font-medium' : 'text-normal'
+          selected ? 'text-brand-on-surface font-medium' : 'text-normal'
         )}
       >
         {children}
@@ -115,7 +115,9 @@ export function TwoColumnPickerBadge({
     <span
       className={cn(
         'text-xs px-half rounded font-medium shrink-0',
-        variant === 'brand' ? 'bg-brand/15 text-brand' : 'bg-secondary text-low'
+        variant === 'brand'
+          ? 'bg-brand/15 text-brand-on-surface'
+          : 'bg-secondary text-low'
       )}
     >
       {children}
@@ -219,7 +221,7 @@ export function SettingsCheckbox({
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
         className={cn(
-          'mt-0.5 h-4 w-4 rounded border-border bg-secondary text-brand focus:ring-brand focus:ring-offset-0',
+          'mt-0.5 h-4 w-4 rounded border-border bg-secondary text-brand-on-surface focus:ring-brand focus:ring-offset-0',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
       />

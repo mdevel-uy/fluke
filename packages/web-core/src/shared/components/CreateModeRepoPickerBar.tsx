@@ -308,7 +308,7 @@ export function CreateModeRepoPickerBar({
               recentInlineControlButtonClassName,
               repos.length > 0
                 ? 'text-normal hover:text-high'
-                : 'text-brand hover:text-brand-hover'
+                : 'text-brand-on-surface hover:text-brand-hover'
             )}
           >
             {pendingAction === 'choose' ? (
@@ -369,7 +369,7 @@ export function CreateModeRepoPickerBar({
             </p>
             <button
               type="button"
-              className="mt-quarter cursor-pointer text-sm font-medium text-brand underline hover:text-brand/80"
+              className="mt-quarter cursor-pointer text-sm font-medium text-brand-on-surface underline hover:text-brand-on-surface/80"
               onClick={() => {
                 const unconfiguredRepo = repos.find(
                   (repo) => !repo.setup_script

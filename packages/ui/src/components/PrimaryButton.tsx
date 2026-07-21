@@ -30,7 +30,7 @@ export function PrimaryButton({
     : variant === 'default'
       ? 'bg-brand hover:bg-brand-hover text-on-brand shadow-soft'
       : variant === 'secondary'
-        ? 'bg-brand/10 text-brand hover:bg-brand/15 dark:bg-brand/15 dark:hover:bg-brand/25'
+        ? 'bg-brand/10 text-brand-on-surface hover:bg-brand/15 dark:bg-brand/15 dark:hover:bg-brand/25'
         : 'bg-secondary hover:bg-panel text-normal border border-border/60 hover:text-high';
 
   return (

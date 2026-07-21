@@ -18,7 +18,7 @@ const priorityConfig: Record<
   { icon: typeof ArrowUpIcon; colorClass: string }
 > = {
   urgent: { icon: ArrowFatLineUpIcon, colorClass: 'text-error' },
-  high: { icon: ArrowUpIcon, colorClass: 'text-brand' },
+  high: { icon: ArrowUpIcon, colorClass: 'text-brand-on-surface' },
   medium: { icon: MinusIcon, colorClass: 'text-low' },
   low: { icon: ArrowDownIcon, colorClass: 'text-success' },
 };

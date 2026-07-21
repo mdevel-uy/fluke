@@ -250,7 +250,7 @@ function FilterDropdown({ label, active, children }: FilterDropdownProps) {
             'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium border transition-all',
             'focus:outline-none focus:ring-1 focus:ring-brand/40',
             active
-              ? 'bg-brand/10 border-brand/30 text-brand'
+              ? 'bg-brand/10 border-brand/30 text-brand-on-surface'
               : 'bg-primary border-border/60 text-low hover:text-high hover:border-border hover:bg-secondary'
           )}
         >

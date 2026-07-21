@@ -1,11 +1,18 @@
 ## Design System Styling Guidelines
 
+> **Binding design contract: [`design/UI-SPEC.md`](../../design/UI-SPEC.md)
+> ("Slate & Signal", 21-jul-2026).** On any conflict between this file and the
+> UI-SPEC, the UI-SPEC wins. Summary of the current direction:
+
 ### Design Direction
 
-**Style:** Clean Modern Professional (Minimal SaaS, 2026 rounded/airy)
-**Font:** Plus Jakarta Sans (sans-serif, 300–800) — friendly, modern, approachable
-**Monospace:** IBM Plex Mono (code blocks, terminal output, IDs, version labels)
-**Brand:** Blue (`hsl(var(--brand))` = `#2563EB` light / `#3B82F6` dark)
+**Style:** Slate & Signal — near-neutral zinc surfaces, single indigo accent
+**Font:** Geist (sans, weights 400/600 only) — `font-sans`
+**Monospace:** Geist Mono (code blocks, terminal output, branch names, IDs) — `font-mono`
+**Brand:** Indigo fill `#4F46E5` both themes (`bg-brand`); text/icon accents `text-brand-on-surface` (`#4F46E5` light / `#818CF8` dark). Accent is reserved for CTAs, active nav/tabs, focus rings, links, selection — never large surfaces.
+**Icons:** lucide-react only (Material Symbols retired; no new Phosphor icons)
+**Type roles:** `text-heading` 20/600 · `text-title` 16/600 · `text-body` 14/400 · `text-label` 12/400 — 4 sizes, 2 weights, no exceptions
+**Radii:** `rounded-sm` 6px chips · `rounded-md` 8px buttons/inputs · `rounded-lg` 10px cards/dialogs · `rounded-xl` 14px feature cards · `rounded-full` pills
 **Elevation:** Soft, diffused shadows — never hard black borders
 
 ### CSS Variables & Tailwind Config

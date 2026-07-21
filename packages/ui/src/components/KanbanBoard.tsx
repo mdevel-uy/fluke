@@ -183,7 +183,7 @@ export const KanbanCards = ({ id, children, className }: KanbanCardsProps) => (
     {(provided: DroppableProvided) => (
       <div
         className={cn(
-          'flex flex-1 flex-col gap-2 p-2 bg-secondary/40 border border-border/60 rounded-2xl overflow-hidden',
+          'flex flex-1 flex-col gap-2 p-2 bg-md-surface-container-low border border-border rounded-xl overflow-hidden',
           className
         )}
         ref={provided.innerRef}

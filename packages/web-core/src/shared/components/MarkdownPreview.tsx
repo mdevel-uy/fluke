@@ -72,7 +72,7 @@ export function MarkdownPreview({
       a: ({ children, ...props }: ComponentPropsWithoutRef<'a'>) => (
         <a
           {...props}
-          className="text-brand hover:text-brand-hover hover:underline"
+          className="text-brand-on-surface hover:text-brand-hover hover:underline"
           target="_blank"
           rel="noopener noreferrer"
         >

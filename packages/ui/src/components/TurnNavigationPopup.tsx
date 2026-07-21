@@ -160,7 +160,7 @@ export function TurnNavigationPopup({
                       <span
                         className={cn(
                           'text-xs shrink-0 tabular-nums',
-                          isActive ? 'text-brand' : 'text-low'
+                          isActive ? 'text-brand-on-surface' : 'text-low'
                         )}
                       >
                         #{turn.turnNumber}
@@ -169,7 +169,7 @@ export function TurnNavigationPopup({
                         className={cn(
                           'text-sm truncate',
                           isActive
-                            ? 'text-brand font-medium'
+                            ? 'text-brand-on-surface font-medium'
                             : 'text-normal group-hover:text-high'
                         )}
                       >

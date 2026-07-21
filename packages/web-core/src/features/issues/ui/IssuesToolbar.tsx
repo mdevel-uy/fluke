@@ -149,7 +149,7 @@ export function IssuesToolbar({
           >
             {t('issues.filters.priority')}
             {filters.priorities.length > 0 && (
-              <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand text-xs font-semibold">
+              <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand-on-surface text-xs font-semibold">
                 {filters.priorities.length}
               </span>
             )}
@@ -184,7 +184,7 @@ export function IssuesToolbar({
             >
               {t('issues.filters.label')}
               {filters.labels.length > 0 && (
-                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand text-xs font-semibold">
+                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand-on-surface text-xs font-semibold">
                   {filters.labels.length}
                 </span>
               )}
@@ -231,7 +231,7 @@ export function IssuesToolbar({
             >
               {t('issues.filters.milestone')}
               {filters.milestones.length > 0 && (
-                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand text-xs font-semibold">
+                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand-on-surface text-xs font-semibold">
                   {filters.milestones.length}
                 </span>
               )}
@@ -269,7 +269,7 @@ export function IssuesToolbar({
           >
             {t('issues.filters.groupBy')}
             {filters.groupBy !== 'none' && (
-              <span className="text-brand">
+              <span className="text-brand-on-surface">
                 {t(`issues.filters.groupByOptions.${filters.groupBy}`)}
               </span>
             )}

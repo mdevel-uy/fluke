@@ -76,7 +76,7 @@ export function SkillsSettingsSection() {
 
         {!isLoading && !isError && skills.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="h-12 w-12 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+            <div className="h-12 w-12 rounded-xl bg-brand/10 text-brand-on-surface flex items-center justify-center">
               <Puzzle className="h-6 w-6" />
             </div>
             <p className="text-sm text-low">

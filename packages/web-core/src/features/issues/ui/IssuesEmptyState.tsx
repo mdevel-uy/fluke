@@ -7,7 +7,7 @@ export function IssuesEmptyState() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-16 gap-4 text-center">
       <div
-        className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand/10 text-brand"
+        className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand/10 text-brand-on-surface"
         aria-hidden
       >
         <AlertCircle className="h-7 w-7" strokeWidth={1.75} />

@@ -90,7 +90,7 @@ function SettingsDialogNavigation({
           isDisabled
             ? 'text-low opacity-50 cursor-not-allowed'
             : isActive
-              ? 'bg-brand/10 text-brand font-medium'
+              ? 'bg-brand/10 text-brand-on-surface font-medium'
               : 'text-normal hover:bg-primary/10'
         )}
       >

@@ -1,5 +1,11 @@
 # Dirección de diseño — "ProjectFlow" (Stitch, 19-jul-2026)
 
+> ⚠️ **DEPRECADO (21-jul-2026):** esta dirección fue reemplazada por decisión de Dani
+> por el rediseño completo ["Slate & Signal" en `UI-SPEC.md`](./UI-SPEC.md), que es la
+> nueva fuente de verdad. Se conserva solo como referencia histórica; sus constraints
+> funcionales (nav real Workers · Sprint · Issues, fonts por npm, i18n, tokens-first,
+> superficies neutras) siguen vigentes y están incorporadas al nuevo spec.
+
 Fuente de verdad visual de la app. Sale del análisis de UI hecho con Stitch por Dani;
 el mockup navegable de referencia está en [`stitch-mockup.html`](./stitch-mockup.html)
 (abrilo en un browser). Ante cualquier conflicto entre lo que ya existe y este

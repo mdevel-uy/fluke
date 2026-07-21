@@ -81,13 +81,13 @@ export function WorkerCard({
   };
 
   return (
-    <div className="group flex flex-col rounded-lg border border-md-outline-variant bg-md-surface-container-lowest shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
+    <div className="group flex flex-col rounded-xl border border-md-outline-variant bg-md-surface-container-lowest shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
       {/* Header */}
       <div className="flex items-start gap-4 p-5">
         <WorkerAvatar emoji={worker.emoji} isWorking={isWorking} />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-title-sm font-hanken font-semibold text-md-on-surface truncate leading-tight">
+            <h3 className="text-title-sm font-sans font-semibold text-md-on-surface truncate leading-tight">
               {worker.name}
             </h3>
             <Badge
@@ -170,7 +170,7 @@ export function WorkerCard({
       </div>
 
       {/* Actions footer */}
-      <div className="flex items-center gap-2 border-t border-md-outline-variant bg-md-surface-container-low px-4 py-3 rounded-b-lg">
+      <div className="flex items-center gap-2 border-t border-md-outline-variant bg-md-surface-container-low px-4 py-3 rounded-b-xl">
         <button
           type="button"
           onClick={onStartNext}

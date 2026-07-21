@@ -44,7 +44,7 @@ export function PreviewControls({
           <button
             type="button"
             onClick={onViewFullLogs}
-            className="flex items-center gap-half text-xs text-brand hover:text-brand-hover"
+            className="flex items-center gap-half text-xs text-brand-on-surface hover:text-brand-hover"
           >
             <span>{t('preview.logs.viewFull')}</span>
             <ArrowSquareOutIcon className="size-icon-xs" />

@@ -160,7 +160,7 @@ export const AskUserQuestionBanner = forwardRef<
     <div className="border-b">
       {/* Header */}
       <div className="flex items-center gap-base px-double py-base">
-        <QuestionIcon className="h-4 w-4 text-brand flex-shrink-0" />
+        <QuestionIcon className="h-4 w-4 text-brand-on-surface flex-shrink-0" />
         <span className="text-sm text-normal flex-1">
           {t('askQuestion.title')}
           {questions.length > 1 && (

@@ -371,7 +371,7 @@ function CommentItem({
                     'flex items-center gap-half px-base py-half rounded-sm',
                     'border transition-colors',
                     reaction.hasReacted
-                      ? 'bg-brand/10 border-brand text-brand'
+                      ? 'bg-brand/10 border-brand text-brand-on-surface'
                       : 'bg-secondary border-border text-low hover:text-normal'
                   )}
                 >

@@ -27,7 +27,7 @@ export function InProgressTaskCard({ task }: InProgressTaskCardProps) {
           aria-hidden
         />
         <p
-          className="text-body-sm font-hanken text-md-on-surface font-medium leading-snug line-clamp-2"
+          className="text-body-sm font-sans text-md-on-surface font-semibold leading-snug line-clamp-2"
           title={task.title}
         >
           {task.title}

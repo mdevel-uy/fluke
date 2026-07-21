@@ -27,7 +27,7 @@ export function InReviewTaskCard({ task }: InReviewTaskCardProps) {
   return (
     <article className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px">
       <p
-        className="text-body-sm font-hanken text-md-on-surface font-medium leading-snug line-clamp-2"
+        className="text-body-sm font-sans text-md-on-surface font-medium leading-snug line-clamp-2"
         title={task.title}
       >
         {task.title}

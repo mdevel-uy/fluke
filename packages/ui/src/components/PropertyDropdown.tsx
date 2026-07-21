@@ -51,7 +51,7 @@ export function PropertyDropdown<T extends string = string>({
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'py-half',
             'px-base',
-            iconOnly && isNonDefault && 'text-brand'
+            iconOnly && isNonDefault && 'text-brand-on-surface'
           )}
         >
           {iconOnly && IconComponent ? (
@@ -77,7 +77,10 @@ export function PropertyDropdown<T extends string = string>({
             onClick={() => onChange(option.value)}
             badge={
               option.value === value ? (
-                <CheckIcon className="size-icon-xs text-brand" weight="bold" />
+                <CheckIcon
+                  className="size-icon-xs text-brand-on-surface"
+                  weight="bold"
+                />
               ) : undefined
             }
           >

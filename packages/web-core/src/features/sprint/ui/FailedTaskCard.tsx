@@ -25,7 +25,7 @@ export function FailedTaskCard({
           <MaterialIcon name="error" size="xs" />
         </span>
         <p
-          className="text-body-sm font-hanken text-md-on-surface font-medium leading-snug line-clamp-2 flex-1"
+          className="text-body-sm font-sans text-md-on-surface font-medium leading-snug line-clamp-2 flex-1"
           title={task.title}
         >
           {task.title}

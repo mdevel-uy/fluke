@@ -291,7 +291,7 @@ export function WorkspacesSidebar({
                   <button
                     type="button"
                     onClick={onOpenRemoteHostSettings}
-                    className="text-xs text-brand hover:underline"
+                    className="text-xs text-brand-on-surface hover:underline"
                   >
                     {t('common:workspaces.remoteHostManage', {
                       defaultValue: 'Manage',
