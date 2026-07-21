@@ -109,13 +109,12 @@ export const KanbanCard = ({
         return (
           <Card
             className={cn(
-              'group/card p-3.5 outline-none flex-col border border-border/60 rounded-xl bg-primary shadow-soft transition-all duration-150',
-              'hover:shadow-card hover:border-border hover:-translate-y-0.5',
-              snapshot.isDragging && 'cursor-grabbing shadow-card-hover',
+              'group/card p-3 outline-none flex-col border border-border rounded-lg bg-card transition-colors duration-150',
+              'hover:border-border-strong hover:bg-secondary/40',
+              snapshot.isDragging && 'cursor-grabbing shadow-overlay',
               isSelected
-                ? 'ring-2 ring-brand ring-offset-1 ring-offset-background bg-brand/5'
-                : isOpen &&
-                    'ring-2 ring-brand/60 ring-offset-1 ring-offset-background',
+                ? 'ring-1 ring-brand-on-surface bg-sel/50'
+                : isOpen && 'ring-1 ring-brand-on-surface/50',
               className
             )}
             ref={setRefs}
@@ -183,7 +182,7 @@ export const KanbanCards = ({ id, children, className }: KanbanCardsProps) => (
     {(provided: DroppableProvided) => (
       <div
         className={cn(
-          'flex flex-1 flex-col gap-2 p-2 bg-md-surface-container-low border border-border rounded-xl overflow-hidden',
+          'flex flex-1 flex-col gap-1.5 p-1.5 bg-md-surface-container-lowest border border-border rounded-lg overflow-hidden',
           className
         )}
         ref={provided.innerRef}

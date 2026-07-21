@@ -282,10 +282,10 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                   )}
 
                   {anyDirty && (
-                    <div className="flex items-start gap-3 rounded-md border border-amber-300/60 bg-amber-50/70 dark:border-amber-400/30 dark:bg-amber-900/20 p-3">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div className="flex items-start gap-3 rounded-md border border-warning/30 bg-warning/10 p-3">
+                      <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
                       <div className="text-sm min-w-0 w-full break-words">
-                        <p className="font-medium text-amber-700 dark:text-amber-300">
+                        <p className="font-medium text-warning">
                           {t('restoreLogsDialog.uncommittedChanges.title')}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -319,7 +319,7 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                             <span
                               className={
                                 (acknowledgeUncommitted
-                                  ? 'bg-amber-500'
+                                  ? 'bg-warning'
                                   : 'bg-panel') +
                                 ' absolute inset-0 rounded-full transition-colors'
                               }
@@ -345,7 +345,7 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                           ? 'flex items-start gap-3 rounded-md border p-3'
                           : hasRisk
                             ? 'flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-3'
-                            : 'flex items-start gap-3 rounded-md border p-3 border-amber-300/60 bg-amber-50/70 dark:border-amber-400/30 dark:bg-amber-900/20'
+                            : 'flex items-start gap-3 rounded-md border p-3 border-warning/30 bg-warning/10'
                       }
                     >
                       <AlertTriangle
@@ -354,7 +354,7 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                             ? 'h-4 w-4 text-muted-foreground mt-0.5'
                             : hasRisk
                               ? 'h-4 w-4 text-destructive mt-0.5'
-                              : 'h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5'
+                              : 'h-4 w-4 text-warning mt-0.5'
                         }
                       />
                       <div className="text-sm min-w-0 w-full break-words">
@@ -376,9 +376,7 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                           <div className="ml-auto relative inline-flex h-5 w-9 items-center rounded-full">
                             <span
                               className={
-                                (worktreeResetOn
-                                  ? 'bg-emerald-500'
-                                  : 'bg-panel') +
+                                (worktreeResetOn ? 'bg-success' : 'bg-panel') +
                                 ' absolute inset-0 rounded-full transition-colors'
                               }
                             />
@@ -483,7 +481,7 @@ const RestoreLogsDialogImpl = create<RestoreLogsDialogProps>(
                             <span
                               className={
                                 (worktreeResetOn && forceReset
-                                  ? 'bg-emerald-500'
+                                  ? 'bg-success'
                                   : 'bg-panel') +
                                 ' absolute inset-0 rounded-full transition-colors'
                               }

@@ -10,15 +10,9 @@ export function WorkersEmptyState({ onCreateWorker }: WorkersEmptyStateProps) {
   const { t } = useTranslation('common');
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-8 py-16 gap-4 text-center">
-      <div
-        className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand/10 text-brand-on-surface"
-        aria-hidden
-      >
-        <MaterialIcon name="group" size="lg" />
-      </div>
-      <div className="flex flex-col gap-1.5 max-w-sm">
-        <h2 className="text-title-sm font-sans font-semibold text-md-on-surface leading-tight">
+    <div className="flex flex-1 flex-col items-center justify-center px-8 py-16 gap-3 text-center">
+      <div className="flex flex-col gap-1 max-w-sm">
+        <h2 className="text-title-sm font-sans text-md-on-surface leading-tight">
           {t('workers.emptyTitle')}
         </h2>
         <p className="text-body-sm text-md-on-surface-variant leading-relaxed">
@@ -26,12 +20,7 @@ export function WorkersEmptyState({ onCreateWorker }: WorkersEmptyStateProps) {
         </p>
       </div>
       {onCreateWorker && (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onCreateWorker}
-          className="mt-1 active:scale-95 transition-all duration-200"
-        >
+        <Button variant="primary" size="sm" onClick={onCreateWorker}>
           <MaterialIcon name="add" size="xs" />
           {t('workers.newWorker')}
         </Button>

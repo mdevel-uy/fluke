@@ -242,7 +242,7 @@ export const WebviewContextMenu: React.FC = () => {
         top: (adjustedPos ?? pos).y,
         zIndex: 99999,
       }}
-      className="min-w-[160px] rounded-md border border-gray-300 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+      className="min-w-[160px] rounded-md border border-border bg-card text-high shadow-lg"
       onContextMenu={(e) => e.preventDefault()}
     >
       <MenuItem label="Copy" onClick={onCopy} />
@@ -262,7 +262,7 @@ const MenuItem: React.FC<{ label: string; onClick: () => void }> = ({
   onClick,
 }) => (
   <button
-    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-secondary"
     onClick={onClick}
     type="button"
   >
@@ -270,6 +270,4 @@ const MenuItem: React.FC<{ label: string; onClick: () => void }> = ({
   </button>
 );
 
-const Divider: React.FC = () => (
-  <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
-);
+const Divider: React.FC = () => <div className="my-1 h-px bg-border" />;

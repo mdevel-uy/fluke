@@ -20,14 +20,14 @@ const PRIORITY_CONFIG: Record<
   },
   high: {
     icon: '↑',
-    colorClass: 'text-orange-500 dark:text-orange-400',
-    bgClass: 'bg-orange-500/10 border-orange-500/20',
+    colorClass: 'text-warning',
+    bgClass: 'bg-warning/10 border-warning/20',
     labelKey: 'sprint.priority.high',
   },
   medium: {
     icon: '→',
-    colorClass: 'text-yellow-600 dark:text-yellow-400',
-    bgClass: 'bg-yellow-500/10 border-yellow-500/20',
+    colorClass: 'text-mod',
+    bgClass: 'bg-mod/10 border-mod/20',
     labelKey: 'sprint.priority.medium',
   },
   low: {

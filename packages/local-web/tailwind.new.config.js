@@ -65,30 +65,30 @@ module.exports = {
         brand:   'hsl(var(--brand-on-surface))',
       },
 
-      /* ── Type roles — 4 sizes, 2 weights (design/UI-SPEC.md) ── */
+      /* ── Type roles — Workbench: 20/15/13/11, 2 weights ─────── */
       fontSize: {
-        /* Legacy sizes kept for backward compat */
-        xs:   ['0.75rem',   { lineHeight: '1.125rem' }],
-        sm:   ['0.875rem',  { lineHeight: '1.3125rem' }],
-        base: ['1rem',      { lineHeight: '1.5rem' }],
-        lg:   ['1.125rem',  { lineHeight: '1.6875rem' }],
-        xl:   ['1.25rem',   { lineHeight: '1.875rem' }],
-        cta:  ['1rem',      { lineHeight: '1rem' }],
+        /* Legacy sizes remapped to the VSCode metric (13px base) */
+        xs:   ['0.6875rem', { lineHeight: '1rem' }],       /* 11px */
+        sm:   ['0.8125rem', { lineHeight: '1.125rem' }],   /* 13px */
+        base: ['0.8125rem', { lineHeight: '1.25rem' }],    /* 13px */
+        lg:   ['0.9375rem', { lineHeight: '1.375rem' }],   /* 15px */
+        xl:   ['1.25rem',   { lineHeight: '1.625rem' }],   /* 20px */
+        cta:  ['0.8125rem', { lineHeight: '1rem' }],
 
         /* Canonical roles */
-        heading: ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
-        title:   ['1rem',     { lineHeight: '1.375rem', fontWeight: '600' }],
-        body:    ['0.875rem', { lineHeight: '1.3125rem', fontWeight: '400' }],
-        label:   ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400' }],
+        heading: ['1.25rem',   { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        title:   ['0.9375rem', { lineHeight: '1.375rem', fontWeight: '600' }],
+        body:    ['0.8125rem', { lineHeight: '1.25rem',  fontWeight: '400' }],
+        label:   ['0.6875rem', { lineHeight: '1rem',     fontWeight: '600', letterSpacing: '0.05em' }],
 
-        /* Deprecated MD3 role aliases — resolve to the 4-size scale */
-        'display-lg':  ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
-        'headline-md': ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
-        'title-sm':    ['1rem',     { lineHeight: '1.375rem', fontWeight: '600' }],
-        'body-md':     ['0.875rem', { lineHeight: '1.3125rem', fontWeight: '400' }],
-        'body-sm':     ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400' }],
-        'label-caps':  ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400', letterSpacing: '0.05em' }],
-        'code-sm':     ['0.75rem',  { lineHeight: '1rem',      fontWeight: '400' }],
+        /* Deprecated MD3 role aliases — resolve to the Workbench scale */
+        'display-lg':  ['1.25rem',   { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        'headline-md': ['1.25rem',   { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        'title-sm':    ['0.9375rem', { lineHeight: '1.375rem', fontWeight: '600' }],
+        'body-md':     ['0.8125rem', { lineHeight: '1.25rem',  fontWeight: '400' }],
+        'body-sm':     ['0.75rem',   { lineHeight: '1.0625rem', fontWeight: '400' }],
+        'label-caps':  ['0.6875rem', { lineHeight: '1rem',     fontWeight: '600', letterSpacing: '0.05em' }],
+        'code-sm':     ['0.75rem',   { lineHeight: '1rem',     fontWeight: '400' }],
       },
 
       /* ── Spacing tokens ─────────────────────────────────────── */
@@ -170,6 +170,12 @@ module.exports = {
         'md-inverse-surface':     'hsl(var(--md-inverse-surface))',
         'md-inverse-on-surface':  'hsl(var(--md-inverse-on-surface))',
 
+        /* ── Workbench surfaces */
+        card:            'hsl(var(--card))',
+        sel:             'hsl(var(--sel))',
+        'border-strong': 'hsl(var(--outline-strong))',
+        mod:             'hsl(var(--mod))',
+
         /* ── Brand / accent */
         brand:              'hsl(var(--brand))',
         'brand-hover':      'hsl(var(--brand-hover))',
@@ -200,17 +206,17 @@ module.exports = {
         border:  'hsl(var(--md-outline-variant))',
       },
 
-      /* ── Radii — single scale (design/UI-SPEC.md) ───────────── */
+      /* ── Radii — Workbench: 2 controles · 4 cards · 6 overlays ─ */
       borderRadius: {
         none:    '0',
-        DEFAULT: '0.5rem',    /* 8px  */
-        sm:      '0.375rem',  /* 6px  chips, small controls */
-        md:      '0.5rem',    /* 8px  buttons, inputs, dropdown items */
-        lg:      '0.625rem',  /* 10px cards, list rows, dialogs */
-        xl:      '0.875rem',  /* 14px feature cards, bento/stat cards */
-        '2xl':   '0.875rem',  /* clamped to xl — scale tops out at 14px */
-        '3xl':   '0.875rem',  /* clamped to xl */
-        full:    '9999px',    /* pills, avatars, status dots */
+        DEFAULT: '0.125rem',  /* 2px  */
+        sm:      '0.125rem',  /* 2px  buttons, inputs, chips */
+        md:      '0.125rem',  /* 2px  (alias) */
+        lg:      '0.25rem',   /* 4px  cards, list rows, tabs-hover */
+        xl:      '0.375rem',  /* 6px  menus, dialogs, toasts */
+        '2xl':   '0.375rem',  /* clamped — scale tops out at 6px */
+        '3xl':   '0.375rem',  /* clamped */
+        full:    '9999px',    /* pills, badges, status dots */
       },
 
       borderWidth: {
@@ -218,26 +224,29 @@ module.exports = {
         half: '0.125rem',
       },
 
-      /* ── Soft diffused shadows (design/UI-SPEC.md) ──────────── */
+      /* ── Workbench elevation: borders, not shadows ──────────── */
+      /* Surfaces (cards, bars, rows) carry NO shadow — legacy
+         shadow-* utilities resolve to none. Shadow exists only on
+         floating overlays (menus, dialogs, toasts). */
       boxShadow: {
-        soft:       '0 1px 2px 0 rgb(15 23 42 / 0.04)',
-        card:       '0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04)',
-        'card-hover': '0 4px 12px -2px rgb(15 23 42 / 0.10), 0 2px 4px -2px rgb(15 23 42 / 0.06)',
-        elevated:   '0 8px 24px -6px rgb(15 23 42 / 0.12), 0 4px 8px -4px rgb(15 23 42 / 0.06)',
-        overlay:    '0 20px 40px -12px rgb(15 23 42 / 0.18), 0 8px 16px -6px rgb(15 23 42 / 0.08)',
-        focus:      '0 0 0 3px hsl(var(--brand-on-surface) / 0.18)',
+        soft:       '0 0 #0000',
+        card:       '0 0 #0000',
+        'card-hover': '0 0 #0000',
+        elevated:   '0 0 #0000',
+        overlay:    '0 4px 18px rgb(0 0 0 / 0.28)',
+        focus:      '0 0 0 1px hsl(var(--brand-on-surface))',
       },
 
-      /* ── Font families — Geist (UI) + Geist Mono (code) ─────── */
+      /* ── Font families — system stacks (VSCode metric) ──────── */
       fontFamily: {
-        sans:            ['"Geist"', '"Noto Emoji"', 'sans-serif'],
-        mono:            ['"Geist Mono"', 'ui-monospace', 'monospace'],
-        geist:           ['"Geist"', '"Noto Emoji"', 'sans-serif'],
-        'geist-mono':    ['"Geist Mono"', 'ui-monospace', 'monospace'],
-        /* legacy aliases — resolve to the two canonical families */
-        hanken:          ['"Geist"', '"Noto Emoji"', 'sans-serif'],
-        'ibm-plex-sans': ['"Geist"', '"Noto Emoji"', 'sans-serif'],
-        'ibm-plex-mono': ['"Geist Mono"', 'ui-monospace', 'monospace'],
+        sans:            ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Ubuntu', 'sans-serif'],
+        mono:            ['ui-monospace', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace'],
+        /* legacy aliases — resolve to the two canonical stacks */
+        geist:           ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Ubuntu', 'sans-serif'],
+        'geist-mono':    ['ui-monospace', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace'],
+        hanken:          ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Ubuntu', 'sans-serif'],
+        'ibm-plex-sans': ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Ubuntu', 'sans-serif'],
+        'ibm-plex-mono': ['ui-monospace', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace'],
       },
 
       /* ── Keyframes (unchanged) ──────────────────────────────── */

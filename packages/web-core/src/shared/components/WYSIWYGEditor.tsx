@@ -413,7 +413,7 @@ const WYSIWYGEditor = forwardRef<WYSIWYGEditorRef, WysiwygProps>(
               listitem: 'list-none pl-4',
             },
           },
-          link: 'text-blue-600 dark:text-blue-400 underline underline-offset-2 cursor-pointer hover:text-blue-800 dark:hover:text-blue-300',
+          link: 'text-brand-on-surface underline underline-offset-2 cursor-pointer hover:text-brand-hover',
           text: {
             bold: 'font-semibold',
             italic: 'italic',

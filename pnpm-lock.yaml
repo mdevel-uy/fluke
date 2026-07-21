@@ -622,12 +622,6 @@ importers:
       '@ebay/nice-modal-react':
         specifier: ^1.2.13
         version: 1.2.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@fontsource/geist':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource/geist-mono':
-        specifier: ^5.2.9
-        version: 5.3.0
       '@git-diff-view/file':
         specifier: ^0.0.30
         version: 0.0.30
@@ -1405,12 +1399,6 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
-
-  '@fontsource/geist-mono@5.3.0':
-    resolution: {integrity: sha512-UtJ1BBBCVpMYdIcW7nEB45UAoAw5M53ZXs2t0ciPW+IokuAAIc56M8+kW5tXbRJCTpDw4XTtU7proT6NdQAHTg==}
-
-  '@fontsource/geist@5.3.0':
-    resolution: {integrity: sha512-u03ftlfVwb05uijq2jGDJ03/HKGqMKaNFk7KOhkpBUex8+BhrAOfMs/XciJ2UUNUX9fEsZbZQld/RWMA2oFU7g==}
 
   '@git-diff-view/core@0.0.30':
     resolution: {integrity: sha512-CyYi/y1q543aYeWQO9c+1awfRh47dPF7n4SNQQVl5I6U2NH4Ctg8eON6e2bIEd4dom/awZ1Hb8kTvaesBpfxJA==}
@@ -5673,10 +5661,6 @@ snapshots:
       tabbable: 6.3.0
 
   '@floating-ui/utils@0.2.10': {}
-
-  '@fontsource/geist-mono@5.3.0': {}
-
-  '@fontsource/geist@5.3.0': {}
 
   '@git-diff-view/core@0.0.30':
     dependencies:

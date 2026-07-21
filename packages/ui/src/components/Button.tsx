@@ -6,18 +6,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap font-normal transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]',
+  'inline-flex items-center justify-center whitespace-nowrap font-normal transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-px',
   {
     variants: {
       variant: {
-        default:
-          'rounded-md bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
-        primary:
-          'rounded-md bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
+        default: 'rounded-md bg-brand text-on-brand hover:bg-brand-hover',
+        primary: 'rounded-md bg-brand text-on-brand hover:bg-brand-hover',
         tonal:
           'rounded-md bg-brand/10 text-brand-on-surface hover:bg-brand/15 dark:bg-brand/15 dark:hover:bg-brand/25',
         destructive:
-          'rounded-md bg-destructive text-destructive-foreground shadow-soft hover:bg-destructive/90',
+          'rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90',
         outline:
           'rounded-md border border-border bg-primary text-normal hover:bg-secondary hover:text-high',
         secondary:
@@ -27,16 +25,16 @@ const buttonVariants = cva(
         icon: 'rounded-md bg-transparent text-low hover:bg-secondary hover:text-high',
       },
       size: {
-        default: 'h-9 px-4 text-sm gap-1.5',
-        xs: 'h-7 px-2.5 text-xs gap-1',
-        sm: 'h-8 px-3 text-sm gap-1.5',
-        lg: 'h-11 px-6 text-base gap-2',
-        icon: 'h-8 w-8 p-0',
+        default: 'h-[26px] px-3 text-sm gap-1.5',
+        xs: 'h-[22px] px-2 text-xs gap-1',
+        sm: 'h-6 px-2.5 text-sm gap-1.5',
+        lg: 'h-8 px-4 text-sm gap-2',
+        icon: 'h-[26px] w-[26px] p-0',
       },
     },
     compoundVariants: [
-      { variant: 'icon', size: 'icon', class: 'h-8 w-8 p-0' },
-      { variant: 'icon', size: 'default', class: 'h-8 w-8 p-0' },
+      { variant: 'icon', size: 'icon', class: 'h-[26px] w-[26px] p-0' },
+      { variant: 'icon', size: 'default', class: 'h-[26px] w-[26px] p-0' },
     ],
     defaultVariants: {
       variant: 'default',

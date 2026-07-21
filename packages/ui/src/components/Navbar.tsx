@@ -429,8 +429,8 @@ export function Navbar({
     <nav
       data-tauri-drag-region
       className={cn(
-        'flex items-center justify-between px-3 py-1.5',
-        'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-10',
+        'flex items-center justify-between px-3 py-1',
+        'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-9',
         className
       )}
     >

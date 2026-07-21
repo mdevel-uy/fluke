@@ -91,14 +91,14 @@ function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
 
 function AppBarSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="w-11 text-center text-label-caps font-geist font-semibold uppercase tracking-widest text-md-outline">
+    <p className="w-10 text-center text-label-caps font-geist font-semibold uppercase tracking-widest text-md-outline">
       {children}
     </p>
   );
 }
 
 const appBarItemBase =
-  'flex items-center justify-center w-11 h-11 rounded-xl text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-md-primary focus-visible:ring-offset-1 focus-visible:ring-offset-md-background active:scale-95';
+  'flex items-center justify-center w-10 h-10 rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
 
 type AppBarSection = {
   key: 'local' | 'remote' | 'projects' | 'export';
@@ -156,8 +156,8 @@ function getStandardAppBarButtonClassName({
     appBarItemBase,
     'cursor-pointer',
     isActive
-      ? 'bg-md-secondary-container text-md-on-secondary-container shadow-soft'
-      : 'text-md-on-surface-variant hover:bg-md-surface-container-high hover:text-md-on-surface',
+      ? 'relative text-md-on-surface before:absolute before:-left-2 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
+      : 'text-md-outline hover:text-md-on-surface',
     className
   );
 }
@@ -173,12 +173,12 @@ function getHostButtonClassName({
   return cn(
     appBarItemBase,
     isOffline
-      ? 'bg-md-surface-container-low text-md-outline opacity-50 cursor-not-allowed'
+      ? 'text-md-outline opacity-50 cursor-not-allowed'
       : isActive
-        ? 'bg-md-secondary-container text-md-on-secondary-container cursor-pointer shadow-soft'
+        ? 'relative bg-md-surface-container-high text-md-on-surface cursor-pointer before:absolute before:-left-2 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
         : host.status === 'unpaired'
-          ? 'bg-md-surface-container-low text-warning cursor-pointer hover:bg-warning/10'
-          : 'text-md-on-surface-variant cursor-pointer hover:bg-md-surface-container-high hover:text-md-on-surface'
+          ? 'text-warning cursor-pointer hover:bg-warning/10'
+          : 'text-md-outline cursor-pointer hover:text-md-on-surface'
   );
 }
 
@@ -297,7 +297,7 @@ export function AppBar({
                 materialIcon: 'link',
                 onClick: onPairHostClick,
                 className:
-                  'bg-md-surface-container-low text-md-on-surface-variant hover:text-md-on-surface hover:bg-md-surface-container',
+                  'text-md-outline hover:text-md-on-surface hover:bg-md-surface-container',
               },
             ]
           : []),
@@ -340,7 +340,7 @@ export function AppBar({
       materialIcon: 'add',
       onClick: onCreateProject,
       className:
-        'bg-md-surface-container-low text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface',
+        'text-md-outline hover:text-md-on-surface hover:bg-md-surface-container',
       wrapperClassName: 'pt-base',
     });
   }
@@ -454,7 +454,7 @@ export function AppBar({
                     onClick={item.onSignIn}
                     className={cn(
                       'px-3 py-1.5 rounded-lg text-body-sm font-semibold',
-                      'bg-md-primary text-md-on-primary hover:opacity-90 cursor-pointer active:scale-95 transition-all duration-200'
+                      'bg-brand text-on-brand hover:bg-brand-hover cursor-pointer transition-all duration-150'
                     )}
                   >
                     {t('signIn')}
@@ -467,7 +467,7 @@ export function AppBar({
 
       case 'loading':
         return (
-          <div className="flex items-center justify-center w-11 h-11">
+          <div className="flex items-center justify-center w-10 h-10">
             <MaterialIcon
               name="progress_activity"
               size="base"
@@ -513,10 +513,11 @@ export function AppBar({
                               className={cn(
                                 appBarItemBase,
                                 'cursor-grab font-semibold text-title-sm',
-                                snapshot.isDragging && 'shadow-elevated',
+                                snapshot.isDragging &&
+                                  'ring-1 ring-border-strong',
                                 item.activeProjectId === project.id
-                                  ? 'shadow-soft'
-                                  : 'bg-md-surface-container-low text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface'
+                                  ? 'ring-1 ring-inset ring-md-outline-variant'
+                                  : 'text-md-outline hover:text-md-on-surface hover:bg-md-surface-container'
                               )}
                               style={
                                 item.activeProjectId === project.id
@@ -549,8 +550,8 @@ export function AppBar({
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       className={cn(
-        'flex flex-col items-center h-full min-h-0 overflow-y-auto py-3 px-2 gap-3',
-        'bg-md-surface-container-low border-r border-md-outline-variant'
+        'flex flex-col items-center h-full min-h-0 overflow-y-auto py-2 px-2 gap-3',
+        'bg-md-surface-container-lowest border-r border-md-outline-variant'
       )}
     >
       {sections.map((section) => (
@@ -578,10 +579,10 @@ export function AppBar({
               type="button"
               onClick={onUpdateClick}
               className={cn(
-                'flex items-center justify-center py-1 rounded-lg w-11',
+                'flex items-center justify-center py-1 rounded-sm w-10',
                 'text-label-caps font-geist font-semibold uppercase tracking-widest',
-                'bg-md-primary text-md-on-primary hover:opacity-90 shadow-soft',
-                'transition-all duration-200 cursor-pointer active:scale-95'
+                'bg-brand text-on-brand hover:bg-brand-hover',
+                'transition-all duration-150 cursor-pointer'
               )}
             >
               Update
@@ -590,7 +591,7 @@ export function AppBar({
         ) : (
           appVersion && (
             <p
-              className="text-label-caps font-geist text-md-outline leading-none truncate max-w-11 text-center"
+              className="text-label-caps font-geist text-md-outline leading-none truncate max-w-10 text-center"
               title={`v${appVersion}`}
             >
               v{appVersion}

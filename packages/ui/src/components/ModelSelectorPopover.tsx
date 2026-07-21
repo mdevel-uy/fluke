@@ -376,8 +376,8 @@ export function ModelSelectorPopover({
       >
         <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
           {error && (
-            <div className="px-base py-half bg-red-500/10 border-b border-red-500/20">
-              <span className="text-sm text-red-600">{error}</span>
+            <div className="px-base py-half bg-destructive/10 border-b border-destructive/20">
+              <span className="text-sm text-destructive">{error}</span>
             </div>
           )}
           <DropdownMenuLabel>{t('modelSelector.model')}</DropdownMenuLabel>
