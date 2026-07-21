@@ -96,7 +96,7 @@ function renderInline(text: string): React.ReactNode {
           href={match[5]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-brand hover:underline"
+          className="text-brand-on-surface hover:underline"
         >
           {match[4]}
         </a>
@@ -112,7 +112,7 @@ function renderInline(text: string): React.ReactNode {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-brand hover:underline"
+          className="text-brand-on-surface hover:underline"
         >
           {label}
         </a>

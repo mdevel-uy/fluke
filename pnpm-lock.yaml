@@ -625,8 +625,8 @@ importers:
       '@fontsource/geist':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource/hanken-grotesk':
-        specifier: ^5.3.0
+      '@fontsource/geist-mono':
+        specifier: ^5.2.9
         version: 5.3.0
       '@git-diff-view/file':
         specifier: ^0.0.30
@@ -790,9 +790,6 @@ importers:
       lucide-react:
         specifier: ^0.539.0
         version: 0.539.0(react@18.3.1)
-      material-symbols:
-        specifier: ^0.45.8
-        version: 0.45.8
       mermaid:
         specifier: ^11.4.0
         version: 11.13.0
@@ -1409,11 +1406,11 @@ packages:
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
 
+  '@fontsource/geist-mono@5.3.0':
+    resolution: {integrity: sha512-UtJ1BBBCVpMYdIcW7nEB45UAoAw5M53ZXs2t0ciPW+IokuAAIc56M8+kW5tXbRJCTpDw4XTtU7proT6NdQAHTg==}
+
   '@fontsource/geist@5.3.0':
     resolution: {integrity: sha512-u03ftlfVwb05uijq2jGDJ03/HKGqMKaNFk7KOhkpBUex8+BhrAOfMs/XciJ2UUNUX9fEsZbZQld/RWMA2oFU7g==}
-
-  '@fontsource/hanken-grotesk@5.3.0':
-    resolution: {integrity: sha512-eiqAvcMT88tCMCBzn6qKgMHGLJKq3NEXO3+0y9JXqzyty2U6KZnaGtbfiQgzRAXfwFp559hJQ0zBgJ6d89AuTA==}
 
   '@git-diff-view/core@0.0.30':
     resolution: {integrity: sha512-CyYi/y1q543aYeWQO9c+1awfRh47dPF7n4SNQQVl5I6U2NH4Ctg8eON6e2bIEd4dom/awZ1Hb8kTvaesBpfxJA==}
@@ -4042,9 +4039,6 @@ packages:
     engines: {node: '>= 20'}
     hasBin: true
 
-  material-symbols@0.45.8:
-    resolution: {integrity: sha512-1kpL3jl+/f6W34fmENPYMyftCmBNXUannoZ8XzlMsuEEFlIxesX+Z6ZCj2qSJGxzqwJ5yE/3x1XzVPsycieG2g==}
-
   mdast-util-find-and-replace@3.0.2:
     resolution: {integrity: sha512-Tmd1Vg/m3Xz43afeNxDIhWRtFZgM2VLyaf4vSTYwudTyeuTneoL3qtWMA5jeLyz/O1vDJmmV4QuScFCA2tBPwg==}
 
@@ -5680,9 +5674,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@fontsource/geist@5.3.0': {}
+  '@fontsource/geist-mono@5.3.0': {}
 
-  '@fontsource/hanken-grotesk@5.3.0': {}
+  '@fontsource/geist@5.3.0': {}
 
   '@git-diff-view/core@0.0.30':
     dependencies:
@@ -8638,8 +8632,6 @@ snapshots:
       react: 18.3.1
 
   marked@16.4.2: {}
-
-  material-symbols@0.45.8: {}
 
   mdast-util-find-and-replace@3.0.2:
     dependencies:

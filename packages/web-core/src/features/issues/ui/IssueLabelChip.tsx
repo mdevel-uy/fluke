@@ -56,7 +56,7 @@ export function IssueLabelChip({
         className={cn(
           'group/chip inline-flex items-center gap-1 h-[18px] px-2 rounded-full',
           'bg-md-secondary-container text-md-on-secondary-container',
-          'text-label-caps font-geist font-semibold uppercase tracking-widest',
+          'text-label-caps font-geist uppercase tracking-widest',
           'border border-md-outline-variant whitespace-nowrap',
           className
         )}
@@ -80,7 +80,7 @@ export function IssueLabelChip({
     <span
       className={cn(
         'group/chip inline-flex items-center gap-1 h-[18px] px-2 rounded-full',
-        'text-label-caps font-geist font-semibold uppercase tracking-widest',
+        'text-label-caps font-geist uppercase tracking-widest',
         'border whitespace-nowrap',
         className
       )}

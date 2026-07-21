@@ -353,7 +353,7 @@ export function LandingPage() {
           <div className="rounded-sm border border-brand bg-brand/20 p-base">
             <div className="flex items-start gap-base">
               <WarningIcon
-                className="size-icon-sm text-brand shrink-0 mt-[2px]"
+                className="size-icon-sm text-brand-on-surface shrink-0 mt-[2px]"
                 weight="fill"
               />
               <p className="text-sm text-normal">
@@ -365,7 +365,7 @@ export function LandingPage() {
                   href="https://www.vibekanban.com/docs/getting-started#safety-notice"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-brand hover:underline"
+                  className="text-brand-on-surface hover:underline"
                 >
                   Learn more
                 </a>
@@ -406,7 +406,7 @@ export function LandingPage() {
                       </span>
                       {selected && (
                         <CheckIcon
-                          className="size-icon-xs text-brand shrink-0"
+                          className="size-icon-xs text-brand-on-surface shrink-0"
                           weight="bold"
                         />
                       )}
@@ -444,7 +444,7 @@ export function LandingPage() {
                       </span>
                       {selected && (
                         <CheckIcon
-                          className="size-icon-xs text-brand shrink-0"
+                          className="size-icon-xs text-brand-on-surface shrink-0"
                           weight="bold"
                         />
                       )}
@@ -501,7 +501,7 @@ export function LandingPage() {
                       <Icon
                         className={cn(
                           'size-icon-sm shrink-0',
-                          selected ? 'text-brand' : 'text-normal'
+                          selected ? 'text-brand-on-surface' : 'text-normal'
                         )}
                         weight={selected ? 'fill' : 'bold'}
                       />
@@ -510,7 +510,7 @@ export function LandingPage() {
                       </span>
                       {selected && (
                         <CheckIcon
-                          className="size-icon-xs text-brand shrink-0"
+                          className="size-icon-xs text-brand-on-surface shrink-0"
                           weight="bold"
                         />
                       )}
@@ -530,14 +530,14 @@ export function LandingPage() {
                   <SpeakerXIcon
                     className={cn(
                       'size-icon-sm shrink-0',
-                      !soundEnabled ? 'text-brand' : 'text-normal'
+                      !soundEnabled ? 'text-brand-on-surface' : 'text-normal'
                     )}
                     weight={!soundEnabled ? 'fill' : 'bold'}
                   />
                   <span className="text-sm text-normal flex-1">No sound</span>
                   {!soundEnabled && (
                     <CheckIcon
-                      className="size-icon-xs text-brand shrink-0"
+                      className="size-icon-xs text-brand-on-surface shrink-0"
                       weight="bold"
                     />
                   )}
@@ -555,7 +555,7 @@ export function LandingPage() {
               href="https://www.vibekanban.com/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-brand hover:underline"
+              className="text-brand-on-surface hover:underline"
             >
               terms and conditions
             </a>{' '}
@@ -564,7 +564,7 @@ export function LandingPage() {
               href="https://www.vibekanban.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-brand hover:underline"
+              className="text-brand-on-surface hover:underline"
             >
               privacy policy
             </a>

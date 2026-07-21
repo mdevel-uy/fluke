@@ -110,7 +110,7 @@ export function FreeTaskComposer({
                 className={[
                   'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors',
                   isSelected
-                    ? 'bg-brand/15 text-brand border border-brand/30'
+                    ? 'bg-brand/15 text-brand-on-surface border border-brand/30'
                     : 'bg-secondary text-low border border-border/60 hover:border-border',
                   (disabled || isSubmitting) && 'opacity-50 cursor-not-allowed',
                 ]

@@ -116,7 +116,7 @@ export function IssueListItem({
             #{issue.number}
           </span>
           <span
-            className="text-title-sm font-hanken text-md-on-surface group-hover:text-md-primary transition-colors duration-200 truncate leading-snug"
+            className="text-title-sm font-sans text-md-on-surface group-hover:text-md-primary transition-colors duration-200 truncate leading-snug"
             title={issue.title}
           >
             {issue.title}

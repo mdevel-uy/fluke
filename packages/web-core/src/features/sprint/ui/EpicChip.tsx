@@ -10,7 +10,7 @@ export function EpicChip({ milestone, className }: EpicChipProps) {
     <span
       className={cn(
         'inline-flex items-center gap-1 h-5 px-1.5 rounded-md border border-brand/25',
-        'bg-brand/8 text-brand text-xs font-medium whitespace-nowrap',
+        'bg-brand/8 text-brand-on-surface text-xs font-medium whitespace-nowrap',
         className
       )}
       title={milestone}

@@ -125,7 +125,7 @@ export function WorkspaceSummary({
             {/* Dev server running - leftmost */}
             {hasRunningDevServer && (
               <PlayIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}
@@ -142,7 +142,7 @@ export function WorkspaceSummary({
             {isRunning &&
               (hasPendingApproval ? (
                 <HandIcon
-                  className="size-icon-xs text-brand shrink-0"
+                  className="size-icon-xs text-brand-on-surface shrink-0"
                   weight="fill"
                 />
               ) : (
@@ -152,7 +152,7 @@ export function WorkspaceSummary({
             {/* Unseen activity indicator (only when not running and not failed) */}
             {hasUnseenActivity && !isRunning && !isFailed && (
               <CircleIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}
@@ -174,7 +174,7 @@ export function WorkspaceSummary({
             {/* Pin icon */}
             {isPinned && (
               <PushPinIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}

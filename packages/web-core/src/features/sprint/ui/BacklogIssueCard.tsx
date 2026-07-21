@@ -57,7 +57,7 @@ export function BacklogIssueCard({
         </span>
         <div className="flex-1 min-w-0">
           <span
-            className="text-body-md font-hanken text-md-on-surface font-medium leading-snug line-clamp-2 group-hover:text-md-primary transition-colors duration-200"
+            className="text-body-md font-sans text-md-on-surface font-medium leading-snug line-clamp-2 group-hover:text-md-primary transition-colors duration-200"
             title={issue.title}
           >
             {issue.title}

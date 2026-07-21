@@ -624,7 +624,8 @@ export function WorkspacesSidebarContainer({
             title={sortDialogTitle}
             className={cn(
               '!h-cta !px-half !py-0',
-              hasNonDefaultSort && 'text-brand hover:text-brand'
+              hasNonDefaultSort &&
+                'text-brand-on-surface hover:text-brand-on-surface'
             )}
             iconClassName="size-icon-lg"
           />
@@ -634,7 +635,10 @@ export function WorkspacesSidebarContainer({
             aria-label={filterDialogTitle}
             title={filterDialogTitle}
             className="!h-cta !px-half !py-0"
-            iconClassName={cn('size-icon-lg', hasActiveFilters && 'text-brand')}
+            iconClassName={cn(
+              'size-icon-lg',
+              hasActiveFilters && 'text-brand-on-surface'
+            )}
           />
         </div>
       </div>

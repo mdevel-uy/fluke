@@ -215,7 +215,7 @@ export function GeneralSettingsSection() {
     return (
       <div className="flex items-center justify-center py-8 gap-2">
         <SpinnerIcon
-          className="size-icon-lg animate-spin text-brand"
+          className="size-icon-lg animate-spin text-brand-on-surface"
           weight="bold"
         />
         <span className="text-normal">{t('settings.general.loading')}</span>

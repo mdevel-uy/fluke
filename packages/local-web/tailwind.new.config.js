@@ -61,11 +61,11 @@ module.exports = {
       },
 
       ringColor: {
-        DEFAULT: 'hsl(var(--md-primary))',
-        brand:   'hsl(var(--md-primary))',
+        DEFAULT: 'hsl(var(--brand-on-surface))',
+        brand:   'hsl(var(--brand-on-surface))',
       },
 
-      /* ── MD3 typography scale ───────────────────────────────── */
+      /* ── Type roles — 4 sizes, 2 weights (design/UI-SPEC.md) ── */
       fontSize: {
         /* Legacy sizes kept for backward compat */
         xs:   ['0.75rem',   { lineHeight: '1.125rem' }],
@@ -75,18 +75,27 @@ module.exports = {
         xl:   ['1.25rem',   { lineHeight: '1.875rem' }],
         cta:  ['1rem',      { lineHeight: '1rem' }],
 
-        /* MD3 roles */
-        'display-lg':  ['1.875rem', { lineHeight: '2.375rem', fontWeight: '700',  letterSpacing: '-0.02em' }],
-        'headline-md': ['1.25rem',  { lineHeight: '1.75rem',  fontWeight: '600',  letterSpacing: '-0.01em' }],
-        'title-sm':    ['1rem',     { lineHeight: '1.5rem',   fontWeight: '600' }],
-        'body-md':     ['0.875rem', { lineHeight: '1.375rem', fontWeight: '400' }],
-        'body-sm':     ['0.8125rem',{ lineHeight: '1.125rem', fontWeight: '400' }],
-        'label-caps':  ['0.6875rem',{ lineHeight: '1rem',     fontWeight: '600',  letterSpacing: '0.05em' }],
-        'code-sm':     ['0.75rem',  { lineHeight: '1rem',     fontWeight: '400' }],
+        /* Canonical roles */
+        heading: ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        title:   ['1rem',     { lineHeight: '1.375rem', fontWeight: '600' }],
+        body:    ['0.875rem', { lineHeight: '1.3125rem', fontWeight: '400' }],
+        label:   ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400' }],
+
+        /* Deprecated MD3 role aliases — resolve to the 4-size scale */
+        'display-lg':  ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        'headline-md': ['1.25rem',  { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],
+        'title-sm':    ['1rem',     { lineHeight: '1.375rem', fontWeight: '600' }],
+        'body-md':     ['0.875rem', { lineHeight: '1.3125rem', fontWeight: '400' }],
+        'body-sm':     ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400' }],
+        'label-caps':  ['0.75rem',  { lineHeight: '1.0625rem', fontWeight: '400', letterSpacing: '0.05em' }],
+        'code-sm':     ['0.75rem',  { lineHeight: '1rem',      fontWeight: '400' }],
       },
 
       /* ── Spacing tokens ─────────────────────────────────────── */
       spacing: {
+        /* `half` (2px) and `plusfifty` (6px) are DEPRECATED — off the
+           8-pt scale (design/UI-SPEC.md). Do not use in new code; kept
+           only for ~350 legacy call sites pending incremental migration. */
         half:       '0.125rem',
         base:       '0.25rem',
         plusfifty:  '0.375rem',
@@ -161,9 +170,10 @@ module.exports = {
         'md-inverse-surface':     'hsl(var(--md-inverse-surface))',
         'md-inverse-on-surface':  'hsl(var(--md-inverse-on-surface))',
 
-        /* ── Brand / accent (legacy) */
+        /* ── Brand / accent */
         brand:              'hsl(var(--brand))',
         'brand-hover':      'hsl(var(--brand-hover))',
+        'brand-on-surface': 'hsl(var(--brand-on-surface))',
         'brand-secondary':  'hsl(var(--brand-secondary))',
         error:              'hsl(var(--error))',
         success:            'hsl(var(--success))',
@@ -190,17 +200,17 @@ module.exports = {
         border:  'hsl(var(--md-outline-variant))',
       },
 
-      /* ── MD3 radii — small, no rounded-2xl shapes ──────────── */
+      /* ── Radii — single scale (design/UI-SPEC.md) ───────────── */
       borderRadius: {
         none:    '0',
-        DEFAULT: '0.125rem', /* 2px  */
-        sm:      '0.125rem', /* 2px  */
-        md:      '0.25rem',  /* 4px  */
-        lg:      '0.25rem',  /* 4px  (nav pills, cards) */
-        xl:      '0.5rem',   /* 8px  (bento cards, panels) */
-        '2xl':   '0.75rem',  /* 12px */
-        '3xl':   '1rem',     /* 16px */
-        full:    '9999px',   /* true pill / circle */
+        DEFAULT: '0.5rem',    /* 8px  */
+        sm:      '0.375rem',  /* 6px  chips, small controls */
+        md:      '0.5rem',    /* 8px  buttons, inputs, dropdown items */
+        lg:      '0.625rem',  /* 10px cards, list rows, dialogs */
+        xl:      '0.875rem',  /* 14px feature cards, bento/stat cards */
+        '2xl':   '0.875rem',  /* clamped to xl — scale tops out at 14px */
+        '3xl':   '0.875rem',  /* clamped to xl */
+        full:    '9999px',    /* pills, avatars, status dots */
       },
 
       borderWidth: {
@@ -208,23 +218,26 @@ module.exports = {
         half: '0.125rem',
       },
 
-      /* ── MD3 box shadows (prefer colour elevation) ──────────── */
+      /* ── Soft diffused shadows (design/UI-SPEC.md) ──────────── */
       boxShadow: {
         soft:       '0 1px 2px 0 rgb(15 23 42 / 0.04)',
         card:       '0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04)',
         'card-hover': '0 4px 12px -2px rgb(15 23 42 / 0.10), 0 2px 4px -2px rgb(15 23 42 / 0.06)',
         elevated:   '0 8px 24px -6px rgb(15 23 42 / 0.12), 0 4px 8px -4px rgb(15 23 42 / 0.06)',
         overlay:    '0 20px 40px -12px rgb(15 23 42 / 0.18), 0 8px 16px -6px rgb(15 23 42 / 0.08)',
-        focus:      '0 0 0 3px hsl(var(--md-primary) / 0.18)',
+        focus:      '0 0 0 3px hsl(var(--brand-on-surface) / 0.18)',
       },
 
-      /* ── Font families ──────────────────────────────────────── */
+      /* ── Font families — Geist (UI) + Geist Mono (code) ─────── */
       fontFamily: {
-        hanken:          ['"Hanken Grotesk"', '"Noto Emoji"', 'sans-serif'],
-        geist:           ['"Geist"', 'monospace'],
-        /* legacy aliases */
-        'ibm-plex-sans': ['"Hanken Grotesk"', '"Noto Emoji"', 'sans-serif'],
-        'ibm-plex-mono': ['"Geist"', 'monospace'],
+        sans:            ['"Geist"', '"Noto Emoji"', 'sans-serif'],
+        mono:            ['"Geist Mono"', 'ui-monospace', 'monospace'],
+        geist:           ['"Geist"', '"Noto Emoji"', 'sans-serif'],
+        'geist-mono':    ['"Geist Mono"', 'ui-monospace', 'monospace'],
+        /* legacy aliases — resolve to the two canonical families */
+        hanken:          ['"Geist"', '"Noto Emoji"', 'sans-serif'],
+        'ibm-plex-sans': ['"Geist"', '"Noto Emoji"', 'sans-serif'],
+        'ibm-plex-mono': ['"Geist Mono"', 'ui-monospace', 'monospace'],
       },
 
       /* ── Keyframes (unchanged) ──────────────────────────────── */

@@ -145,7 +145,7 @@ const BRANCH_SEARCH_RESULT_LIMIT = 300;
 const PRIORITY_CONFIG: Record<PriorityId, { icon: Icon; colorClass: string }> =
   {
     urgent: { icon: ArrowFatLineUpIcon, colorClass: 'text-error' },
-    high: { icon: ArrowUpIcon, colorClass: 'text-brand' },
+    high: { icon: ArrowUpIcon, colorClass: 'text-brand-on-surface' },
     medium: { icon: MinusIcon, colorClass: 'text-low' },
     low: { icon: ArrowDownIcon, colorClass: 'text-success' },
   };
@@ -353,7 +353,7 @@ export function CommandBar<
                     onSelect={() => onSelect(item)}
                   >
                     <PlusIcon
-                      className="h-4 w-4 shrink-0 text-brand"
+                      className="h-4 w-4 shrink-0 text-brand-on-surface"
                       weight="bold"
                     />
                     <span>{t('kanban.createNewIssue')}</span>

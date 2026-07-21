@@ -36,7 +36,7 @@ function StatCard({
         <MaterialIcon name={materialIcon} size="sm" />
         <span>{label}</span>
       </div>
-      <p className="text-display-lg font-hanken font-bold text-md-on-surface tabular-nums leading-none">
+      <p className="text-display-lg font-sans font-bold text-md-on-surface tabular-nums leading-none">
         {value}
       </p>
     </div>
@@ -185,7 +185,7 @@ export function WorkersPage() {
     <div className="flex h-full w-full flex-col bg-md-background">
       {/* MD3 top bar */}
       <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-headline-md font-hanken font-semibold text-md-primary tracking-tight">
+        <h1 className="text-headline-md font-sans font-semibold text-md-primary tracking-tight">
           {t('workers.title')}
         </h1>
         <button

@@ -1,11 +1,7 @@
 /* Self-hosted fonts — no CDN */
-@import '@fontsource/hanken-grotesk/400.css';
-@import '@fontsource/hanken-grotesk/600.css';
-@import '@fontsource/hanken-grotesk/700.css';
-@import '@fontsource/hanken-grotesk/800.css';
 @import '@fontsource/geist/400.css';
 @import '@fontsource/geist/600.css';
-@import 'material-symbols/outlined.css';
+@import '@fontsource/geist-mono/400.css';
 
 @tailwind base;
 @tailwind components;
@@ -16,85 +12,83 @@ html {
   overscroll-behavior: none;
 }
 
-/* Material Symbols base config */
-.material-symbols-outlined {
-  font-variation-settings:
-    'FILL' 0,
-    'wght' 400,
-    'GRAD' 0,
-    'opsz' 24;
-  display: inline-block;
-  vertical-align: middle;
-  user-select: none;
-  line-height: 1;
-}
-
-/* 1) THEME TOKENS — MD3 colour system */
+/* 1) THEME TOKENS — "Slate & Signal" (design/UI-SPEC.md)
+   Near-neutral zinc surfaces + single indigo accent.
+   The --md-* names are kept as migration aliases; they resolve to the
+   Slate & Signal values below, not the retired MD3 blue palette. */
 @layer base {
   /* ── Light defaults ─────────────────────────────────────────── */
   :root {
     color-scheme: light;
 
-    /* ── MD3 primary ──────────────────────────────────────────── */
-    --md-primary: 218 100% 39%; /* #004ac6 */
+    /* ── Accent: indigo, fill vs text-on-surface roles ────────── */
+    --brand: 243 75% 59%; /* #4F46E5 — fills (buttons, CTAs) */
+    --brand-hover: 245 58% 51%; /* #4338CA */
+    --brand-on-surface: 243 75% 59%; /* #4F46E5 — text/icon/border accents */
+    --text-on-brand: 0 0% 100%;
+    --brand-secondary: 239 84% 67%; /* #6366F1 */
+
+    /* Aliases for legacy md-primary consumers */
+    --md-primary: var(--brand-on-surface);
     --md-on-primary: 0 0% 100%;
-    --md-primary-container: 221 83% 53%; /* #2563eb */
-    --md-on-primary-container: 236 100% 97%; /* #eeefff */
-    --md-primary-fixed: 227 100% 92%; /* #dbe1ff */
-    --md-primary-fixed-dim: 226 100% 85%; /* #b4c5ff */
-    --md-inverse-primary: 226 100% 85%; /* #b4c5ff */
+    --md-primary-container: 239 84% 67%; /* #6366F1 */
+    --md-on-primary-container: 226 100% 97%; /* #EEF2FF */
+    --md-primary-fixed: 226 100% 94%; /* #E0E7FF */
+    --md-primary-fixed-dim: 234 89% 74%; /* #818CF8 */
+    --md-inverse-primary: 234 89% 74%; /* #818CF8 */
 
-    /* ── MD3 secondary ───────────────────────────────────────── */
-    --md-secondary: 216 19% 39%; /* #505f76 */
+    /* ── Secondary → neutral zinc (no tinted pills) ───────────── */
+    --md-secondary: 240 5% 34%; /* #52525B zinc-600 */
     --md-on-secondary: 0 0% 100%;
-    --md-secondary-container: 216 60% 91%; /* #dae4f6 */
-    --md-on-secondary-container: 215 18% 40%; /* #54647a */
-    --md-secondary-fixed: 213 85% 90%; /* #d3e4fe */
-    --md-secondary-fixed-dim: 213 37% 75%; /* #b7c8e1 */
+    --md-secondary-container: 240 5% 96%; /* #F4F4F5 zinc-100 */
+    --md-on-secondary-container: 240 5% 26%; /* #3F3F46 zinc-700 */
+    --md-secondary-fixed: 240 5% 96%;
+    --md-secondary-fixed-dim: 240 5% 84%; /* zinc-300 */
 
-    /* ── MD3 tertiary ────────────────────────────────────────── */
-    --md-tertiary: 22 100% 29%; /* #943700 */
+    /* ── Tertiary → warm semantic (maps to warning family) ────── */
+    --md-tertiary: 26 90% 37%; /* #B45309 amber-700 */
     --md-on-tertiary: 0 0% 100%;
-    --md-tertiary-container: 23 100% 37%; /* #bc4800 */
-    --md-tertiary-fixed: 17 100% 90%; /* #ffdbcd */
-    --md-tertiary-fixed-dim: 18 100% 80%; /* #ffb596 */
+    --md-tertiary-container: 32 95% 44%; /* #D97706 amber-600 */
+    --md-tertiary-fixed: 48 96% 89%; /* #FEF3C7 amber-100 */
+    --md-tertiary-fixed-dim: 43 96% 56%; /* #FBBF24 amber-400 */
 
-    /* ── MD3 error ───────────────────────────────────────────── */
-    --md-error: 0 75% 42%; /* #ba1a1a */
+    /* ── Error ────────────────────────────────────────────────── */
+    --md-error: 0 72% 51%; /* #DC2626 red-600 */
     --md-on-error: 0 0% 100%;
-    --md-error-container: 6 100% 92%; /* #ffdad6 */
-    --md-on-error-container: 356 100% 29%; /* #93000a */
+    --md-error-container: 0 93% 94%; /* #FEE2E2 red-100 */
+    --md-on-error-container: 0 70% 35%; /* #991B1B red-800 */
 
-    /* ── MD3 surface scale (elevation via colour) ────────────── */
-    --md-background: 240 30% 99%; /* #fbfbfe */
-    --md-surface: 240 30% 99%; /* #fbfbfe */
-    --md-surface-bright: 240 30% 99%; /* #fbfbfe */
-    --md-surface-dim: 228 16% 88%; /* #dcdee5 */
-    --md-surface-container-lowest: 0 0% 100%; /* #ffffff */
-    --md-surface-container-low: 235 25% 97%; /* #f5f6f9 */
-    --md-surface-container: 232 22% 95%; /* #eff0f5 */
-    --md-surface-container-high: 230 20% 93%; /* #e8eaf0 */
-    --md-surface-container-highest: 228 20% 90%; /* #e0e2ea */
+    /* ── Surface scale (zinc neutrals) ────────────────────────── */
+    --md-background: 0 0% 98%; /* #FAFAFA */
+    --md-surface: 0 0% 98%;
+    --md-surface-bright: 0 0% 98%;
+    --md-surface-dim: 240 5% 84%; /* #D4D4D8 zinc-300 */
+    --md-surface-container-lowest: 0 0% 100%; /* #FFFFFF — cards */
+    --md-surface-container-low: 240 5% 96%; /* #F4F4F5 — inputs, panels */
+    --md-surface-container: 240 7% 92%; /* #E9E9EC — hovers */
+    --md-surface-container-high: 240 6% 88%; /* #DEDEE2 — pressed */
+    --md-surface-container-highest: 240 5% 84%; /* #D4D4D8 */
 
-    /* ── MD3 on-surface ──────────────────────────────────────── */
-    --md-on-surface: 222 41% 13%; /* #131b2e */
-    --md-on-surface-variant: 230 12% 30%; /* #434655 */
-    --md-outline: 230 8% 49%; /* #737686 */
-    --md-outline-variant: 232 12% 82%; /* #ccced6 */
+    /* ── On-surface (text) ────────────────────────────────────── */
+    --md-on-surface: 240 6% 10%; /* #18181B zinc-900 */
+    --md-on-surface-variant: 240 5% 34%; /* #52525B zinc-600 */
+    --md-outline: 240 5% 65%; /* #A1A1AA zinc-400 — tertiary text */
+    --md-outline-variant: 240 6% 90%; /* #E4E4E7 zinc-200 — default borders */
+    --outline-strong: 240 5% 84%; /* #D4D4D8 zinc-300 — input borders */
 
-    /* ── MD3 inverse ─────────────────────────────────────────── */
-    --md-inverse-surface: 223 26% 21%; /* #283044 */
-    --md-inverse-on-surface: 233 100% 97%; /* #eef0ff */
-    --md-surface-tint: 218 100% 43%; /* #0053db */
+    /* ── Inverse ──────────────────────────────────────────────── */
+    --md-inverse-surface: 240 4% 16%; /* #27272A zinc-800 */
+    --md-inverse-on-surface: 0 0% 98%;
+    --md-surface-tint: var(--brand);
 
-    /* ── Legacy compat aliases (map MD3 to the old variable names) */
+    /* ── Legacy compat aliases (map to the old variable names) ── */
     --text-high: var(--md-on-surface);
     --text-normal: var(--md-on-surface-variant);
     --text-low: var(--md-outline);
 
     --_bg-primary-default: 0 0% 100%;
-    --_bg-secondary-default: 235 20% 97%; /* #f4f5f8 neutro */
-    --_bg-panel-default: 232 22% 95%; /* #eff0f5 neutro */
+    --_bg-secondary-default: 240 5% 96%;
+    --_bg-panel-default: 240 7% 92%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -102,31 +96,27 @@ html {
     );
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
-    --brand: var(--md-primary);
-    --brand-hover: 221 83% 53%;
-    --brand-secondary: 218 100% 35%;
     --error: var(--md-error);
-    --success: 142 76% 36%;
-    --success-foreground: 142 76% 15%;
+    --success: 161 94% 30%; /* #059669 emerald-600 */
+    --success-foreground: 161 91% 14%;
     --merged: 271 81% 46%;
-    --text-on-brand: 0 0% 100%;
 
     /* Status (light) */
-    --_success: 142 76% 36%;
-    --_success-foreground: 142 76% 15%;
-    --_warning: 38 92% 50%;
-    --_warning-foreground: 38 92% 20%;
-    --_info: 217 91% 60%;
-    --_info-foreground: 222 47% 11%;
-    --_neutral: 235 20% 97%; /* #f4f5f8 neutro */
-    --_neutral-foreground: 222 47% 11%;
+    --_success: 161 94% 30%;
+    --_success-foreground: 161 91% 14%;
+    --_warning: 32 95% 44%; /* #D97706 amber-600 */
+    --_warning-foreground: 26 90% 20%;
+    --_info: 199 89% 48%; /* #0284C7 sky-600 */
+    --_info-foreground: 201 90% 18%;
+    --_neutral: 240 5% 96%;
+    --_neutral-foreground: 240 6% 10%;
     --_destructive: var(--md-error);
     --_destructive-foreground: 0 0% 100%;
 
     /* Console (light) */
     --_console-background: 0 0% 100%;
-    --_console-foreground: 222 47% 11%;
-    --_console-success: 142 76% 36%;
+    --_console-foreground: 240 6% 10%;
+    --_console-success: 161 94% 30%;
     --_console-error: 0 72% 51%;
 
     /* Syntax highlighting (light) */
@@ -145,58 +135,65 @@ html {
   .dark {
     color-scheme: dark;
 
-    /* Invert the MD3 palette for dark */
-    --md-primary: 226 100% 85%; /* #b4c5ff (primary-fixed-dim) */
-    --md-on-primary: 218 100% 24%; /* #00317a */
-    --md-primary-container: 218 100% 31%; /* #003499 */
-    --md-on-primary-container: 227 100% 92%; /* #dbe1ff */
-    --md-primary-fixed: 227 100% 92%;
-    --md-primary-fixed-dim: 226 100% 85%;
-    --md-inverse-primary: 218 100% 39%; /* #004ac6 */
+    /* Accent: fill stays the same hue; text lightens for AA */
+    --brand: 243 75% 59%; /* #4F46E5 — same fill both themes */
+    --brand-hover: 239 84% 67%; /* #6366F1 */
+    --brand-on-surface: 234 89% 74%; /* #818CF8 */
+    --text-on-brand: 0 0% 100%;
+    --brand-secondary: 234 89% 74%;
 
-    --md-secondary: 213 37% 75%; /* #b7c8e1 */
-    --md-on-secondary: 213 38% 20%; /* #22354a */
-    --md-secondary-container: 214 31% 30%; /* #38485d */
-    --md-on-secondary-container: 213 85% 90%; /* #d3e4fe */
+    --md-primary: var(--brand-on-surface);
+    --md-on-primary: 244 47% 20%; /* #312E81 indigo-900 */
+    --md-primary-container: 244 55% 41%; /* #3730A3 indigo-800 */
+    --md-on-primary-container: 226 100% 94%; /* #E0E7FF */
+    --md-primary-fixed: 226 100% 94%;
+    --md-primary-fixed-dim: 234 89% 74%;
+    --md-inverse-primary: 243 75% 59%;
 
-    --md-tertiary: 18 100% 80%; /* #ffb596 */
-    --md-on-tertiary: 22 100% 17%; /* #541a00 */
-    --md-tertiary-container: 23 100% 25%; /* #7a2900 */
-    --md-tertiary-fixed: 17 100% 90%;
-    --md-tertiary-fixed-dim: 18 100% 80%;
+    --md-secondary: 240 5% 65%; /* zinc-400 */
+    --md-on-secondary: 240 6% 10%;
+    --md-secondary-container: 240 4% 16%; /* #27272A zinc-800 */
+    --md-on-secondary-container: 240 5% 84%; /* zinc-300 */
 
-    --md-error: 4 100% 82%; /* #ffb4ab */
-    --md-on-error: 0 100% 28%; /* #690005 */
-    --md-error-container: 356 100% 43%; /* #93000a */
-    --md-on-error-container: 6 100% 92%; /* #ffdad6 */
+    --md-tertiary: 43 96% 56%; /* #FBBF24 amber-400 */
+    --md-on-tertiary: 26 83% 14%;
+    --md-tertiary-container: 26 90% 37%;
+    --md-tertiary-fixed: 48 96% 89%;
+    --md-tertiary-fixed-dim: 43 96% 56%;
 
-    /* Dark surfaces — use inverse-surface as base */
-    --md-background: 222 29% 12%; /* ~#1a2133 */
-    --md-surface: 222 29% 12%;
-    --md-surface-bright: 222 29% 14%;
-    --md-surface-dim: 222 29% 8%; /* #0e1626 */
-    --md-surface-container-lowest: 222 29% 8%; /* #0e1626 */
-    --md-surface-container-low: 222 29% 14%; /* #1b2337 */
-    --md-surface-container: 222 29% 16%; /* #1f2841 */
-    --md-surface-container-high: 222 29% 19%; /* #2a334b */
-    --md-surface-container-highest: 223 26% 24%; /* #353e57 */
+    --md-error: 0 91% 71%; /* #F87171 red-400 — text role */
+    --md-on-error: 0 75% 15%;
+    --md-error-container: 0 63% 31%; /* #7F1D1D red-900 */
+    --md-on-error-container: 0 93% 94%;
 
-    --md-on-surface: 233 100% 97%; /* #eef0ff */
-    --md-on-surface-variant: 232 20% 80%; /* #c3c6d7 */
-    --md-outline: 232 10% 57%; /* #8d90a1 */
-    --md-outline-variant: 230 12% 30%; /* #434655 */
+    /* Dark surfaces — near-black zinc */
+    --md-background: 240 8% 5%; /* #0B0B0D */
+    --md-surface: 240 8% 5%;
+    --md-surface-bright: 240 6% 10%;
+    --md-surface-dim: 240 10% 4%; /* #09090B zinc-950 */
+    --md-surface-container-lowest: 240 6% 10%; /* #18181B — cards */
+    --md-surface-container-low: 240 4% 14%; /* #212124 — inputs */
+    --md-surface-container: 240 4% 16%; /* #27272A — hovers */
+    --md-surface-container-high: 240 3% 19%; /* #303033 — pressed */
+    --md-surface-container-highest: 240 5% 26%; /* #3F3F46 */
 
-    --md-inverse-surface: 233 100% 97%; /* #eef0ff */
-    --md-inverse-on-surface: 223 26% 21%; /* #283044 */
+    --md-on-surface: 0 0% 98%; /* #FAFAFA */
+    --md-on-surface-variant: 240 5% 65%; /* #A1A1AA zinc-400 */
+    --md-outline: 240 4% 46%; /* #71717A zinc-500 — tertiary text */
+    --md-outline-variant: 240 4% 16%; /* #27272A — default borders */
+    --outline-strong: 240 5% 26%; /* #3F3F46 zinc-700 — input borders */
+
+    --md-inverse-surface: 0 0% 98%;
+    --md-inverse-on-surface: 240 6% 10%;
 
     /* Legacy compat aliases */
     --text-high: var(--md-on-surface);
     --text-normal: var(--md-on-surface-variant);
     --text-low: var(--md-outline);
 
-    --_bg-primary-default: 222 29% 12%;
-    --_bg-secondary-default: 222 29% 8%;
-    --_bg-panel-default: 222 29% 16%;
+    --_bg-primary-default: 240 6% 10%;
+    --_bg-secondary-default: 240 4% 16%;
+    --_bg-panel-default: 240 3% 19%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -204,31 +201,28 @@ html {
     );
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
-    --brand: var(--md-primary);
-    --brand-hover: 226 100% 78%;
-    --brand-secondary: 218 100% 39%;
     --error: var(--md-error);
-    --success: 142 76% 42%;
+    --success: 158 64% 52%; /* #34D399 emerald-400 */
+    --success-foreground: 152 76% 85%;
     --merged: 271 81% 66%;
-    --text-on-brand: 0 0% 0%;
 
-    /* Status (dark) */
-    --_success: 142 76% 42%;
-    --_success-foreground: 142 76% 90%;
-    --_warning: 38 92% 50%;
-    --_warning-foreground: 38 92% 90%;
-    --_info: 217 91% 60%;
-    --_info-foreground: 217 91% 90%;
-    --_neutral: 222 29% 16%;
-    --_neutral-foreground: 210 40% 90%;
-    --_destructive: var(--md-error);
+    /* Status (dark) — text roles lighten; solid fills keep light hex */
+    --_success: 158 64% 52%;
+    --_success-foreground: 152 76% 85%;
+    --_warning: 43 96% 56%; /* #FBBF24 amber-400 */
+    --_warning-foreground: 48 96% 89%;
+    --_info: 199 95% 74%; /* #7DD3FC sky-300 */
+    --_info-foreground: 199 95% 90%;
+    --_neutral: 240 4% 16%;
+    --_neutral-foreground: 240 5% 96%;
+    --_destructive: 0 72% 51%; /* fill keeps #DC2626 both themes */
     --_destructive-foreground: 0 0% 100%;
 
     /* Console (dark) */
-    --_console-background: 222 47% 5%;
-    --_console-foreground: 210 40% 98%;
-    --_console-success: 142 76% 47%;
-    --_console-error: 0 84% 60%;
+    --_console-background: 240 10% 4%;
+    --_console-foreground: 0 0% 98%;
+    --_console-success: 158 64% 52%;
+    --_console-error: 0 91% 71%;
 
     /* Syntax highlighting (dark) */
     --_syntax-keyword: #ff7b72;
@@ -254,10 +248,10 @@ html {
     --popover: hsl(var(--md-surface-container-lowest));
     --popover-foreground: hsl(var(--md-on-surface));
 
-    --primary: var(--vscode-button-background, hsl(var(--md-primary)));
+    --primary: var(--vscode-button-background, hsl(var(--brand)));
     --primary-foreground: var(
       --vscode-editor-foreground,
-      hsl(var(--md-on-primary))
+      hsl(var(--text-on-brand))
     );
     --secondary: var(
       --vscode-input-background,
@@ -273,17 +267,17 @@ html {
     --accent: hsl(var(--md-surface-container-high));
     --accent-foreground: hsl(var(--md-on-surface));
 
-    --destructive: var(--vscode-errorForeground, hsl(var(--md-error)));
-    --destructive-foreground: hsl(var(--md-on-error));
+    --destructive: var(--vscode-errorForeground, hsl(var(--_destructive)));
+    --destructive-foreground: hsl(var(--_destructive-foreground));
 
     --border: var(--vscode-input-background, hsl(var(--md-outline-variant)));
     --input: var(
       --vscode-input-background,
       hsl(var(--md-surface-container-low))
     );
-    --ring: var(--vscode-focusBorder, hsl(var(--md-primary)));
+    --ring: var(--vscode-focusBorder, hsl(var(--brand-on-surface)));
 
-    --radius: 0.125rem;
+    --radius: 0.5rem;
 
     /* Status */
     --success: var(--vscode-testing-iconPassed, hsl(var(--_success)));
@@ -335,7 +329,7 @@ html {
 
     /* Allotment */
     --separator-border: hsl(var(--md-outline-variant));
-    --focus-border: hsl(var(--md-primary));
+    --focus-border: hsl(var(--brand-on-surface));
   }
 }
 
@@ -352,7 +346,7 @@ html {
   #root {
     @apply min-h-screen;
     @apply font-normal;
-    @apply bg-background text-foreground font-hanken;
+    @apply bg-background text-foreground font-sans;
   }
 
   *:focus {
@@ -366,7 +360,7 @@ html {
   a,
   button,
   button * {
-    @apply transition-colors duration-200;
+    @apply transition-colors duration-150;
     cursor: pointer;
   }
 }
@@ -541,6 +535,6 @@ html {
 
   html.dark body,
   html.dark {
-    background-color: hsl(var(--md-surface-dim, 222 29% 8%));
+    background-color: hsl(var(--md-surface-dim, 240 10% 4%));
   }
 }

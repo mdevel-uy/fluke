@@ -129,7 +129,7 @@ function LabelCombobox({
             {canCreate && (
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-brand hover:bg-brand/5 text-left"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-brand-on-surface hover:bg-brand/5 text-left"
                 onClick={() => handleSelect(query.trim())}
               >
                 <Plus className="h-3.5 w-3.5 shrink-0" />
@@ -173,7 +173,7 @@ function ConfirmCloseDialog({
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[111] bg-primary border border-border/60 rounded-2xl shadow-overlay p-6 w-80"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[111] bg-primary border border-border/60 rounded-lg shadow-overlay p-6 w-80"
       >
         <h3 className="text-base font-semibold text-high mb-2">
           {t('issues.drawer.archiveTitle')}
@@ -302,7 +302,7 @@ export function IssueDetailDrawer({
                       href={githubUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-low hover:text-brand transition-colors"
+                      className="text-low hover:text-brand-on-surface transition-colors"
                       title={t('issues.drawer.openOnGitHub')}
                       onClick={(e) => e.stopPropagation()}
                     >

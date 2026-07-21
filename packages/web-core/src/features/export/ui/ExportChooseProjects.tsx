@@ -113,7 +113,7 @@ export function ExportChooseProjects({
             </span>
             <button
               onClick={handleSelectAll}
-              className="text-sm text-brand hover:text-brand/80"
+              className="text-sm text-brand-on-surface hover:text-brand-on-surface/80"
             >
               {selectedProjectIds.size === projects.length
                 ? 'Deselect all'
@@ -131,7 +131,7 @@ export function ExportChooseProjects({
                 >
                   {isSelected ? (
                     <CheckCircleIcon
-                      className="size-icon-sm text-brand shrink-0"
+                      className="size-icon-sm text-brand-on-surface shrink-0"
                       weight="fill"
                     />
                   ) : (

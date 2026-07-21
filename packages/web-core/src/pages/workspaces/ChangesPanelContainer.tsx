@@ -553,7 +553,7 @@ const DiffFileItem = memo(function DiffFileItem({
         | undefined
     ) => (
       <button
-        className="flex items-center justify-center size-icon-base rounded text-brand bg-brand/20 transition-transform hover:scale-110"
+        className="flex items-center justify-center size-icon-base rounded text-brand-on-surface bg-brand/20 transition-transform hover:scale-110"
         onClick={() => {
           const line = getHoveredLine();
           if (!line) return;

@@ -6,24 +6,24 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]',
+  'inline-flex items-center justify-center whitespace-nowrap font-normal transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]',
   {
     variants: {
       variant: {
         default:
-          'rounded-lg bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
+          'rounded-md bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
         primary:
-          'rounded-lg bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
+          'rounded-md bg-brand text-on-brand shadow-soft hover:bg-brand-hover',
         tonal:
-          'rounded-lg bg-brand/10 text-brand hover:bg-brand/15 dark:bg-brand/15 dark:hover:bg-brand/25',
+          'rounded-md bg-brand/10 text-brand-on-surface hover:bg-brand/15 dark:bg-brand/15 dark:hover:bg-brand/25',
         destructive:
-          'rounded-lg bg-destructive text-destructive-foreground shadow-soft hover:bg-destructive/90',
+          'rounded-md bg-destructive text-destructive-foreground shadow-soft hover:bg-destructive/90',
         outline:
-          'rounded-lg border border-border bg-primary text-normal hover:bg-secondary hover:text-high',
+          'rounded-md border border-border bg-primary text-normal hover:bg-secondary hover:text-high',
         secondary:
-          'rounded-lg bg-secondary text-normal border border-border/60 hover:bg-panel hover:text-high',
-        ghost: 'rounded-lg text-normal hover:bg-secondary hover:text-high',
-        link: 'text-brand underline-offset-4 hover:underline rounded-md',
+          'rounded-md bg-secondary text-normal border border-border/60 hover:bg-panel hover:text-high',
+        ghost: 'rounded-md text-normal hover:bg-secondary hover:text-high',
+        link: 'text-brand-on-surface underline-offset-4 hover:underline rounded-md',
         icon: 'rounded-md bg-transparent text-low hover:bg-secondary hover:text-high',
       },
       size: {
