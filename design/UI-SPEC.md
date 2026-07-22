@@ -64,6 +64,7 @@ System font stacks — **zero webfonts** (removed `@fontsource/*`):
 | Title | `text-title` | 15px | 600 — panel/card/dialog titles |
 | Body (base) | `text-body` / `text-sm` / `text-base` | 13px | 400 — everything by default |
 | Label | `text-label` / `text-xs` | 11px | 600 caps — section headers, status bar, column headers, badges |
+| Mono | `font-mono text-code` | 12px | 400 — branches, hashes, IDs, timestamps |
 
 Legacy `text-{display-lg,headline-md,title-sm,body-md,body-sm,label-caps}`
 aliases resolve onto this scale — do not use in new code.

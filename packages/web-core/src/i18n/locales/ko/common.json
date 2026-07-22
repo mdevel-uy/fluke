@@ -584,6 +584,22 @@
       "openWorkspace": "워크스페이스 열기",
       "viewInSprint": "스프린트에서 보기"
     },
+    "table": {
+      "issue": "이슈",
+      "title": "제목",
+      "state": "상태",
+      "worker": "워커",
+      "branch": "브랜치",
+      "updated": "업데이트",
+      "actions": "작업",
+      "timeAgo": {
+        "justNow": "방금 전",
+        "minutes": "{{count}}분 전",
+        "hours": "{{count}}시간 전",
+        "days": "{{count}}일 전",
+        "weeks": "{{count}}주 전"
+      }
+    },
     "assignDialog": {
       "title": "이슈 #{{number}}를 워커에게 할당",
       "description": "워커를 선택하고 프롬프트를 검토하세요. 작업이 워커의 대기열에 추가됩니다.",

@@ -584,6 +584,22 @@
       "openWorkspace": "Open workspace",
       "viewInSprint": "View in Sprint"
     },
+    "table": {
+      "issue": "Issue",
+      "title": "Title",
+      "state": "State",
+      "worker": "Worker",
+      "branch": "Branch",
+      "updated": "Updated",
+      "actions": "Actions",
+      "timeAgo": {
+        "justNow": "just now",
+        "minutes": "{{count}}m ago",
+        "hours": "{{count}}h ago",
+        "days": "{{count}}d ago",
+        "weeks": "{{count}}w ago"
+      }
+    },
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
       "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",

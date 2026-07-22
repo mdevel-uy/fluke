@@ -584,6 +584,22 @@
       "openWorkspace": "ワークスペースを開く",
       "viewInSprint": "スプリントで表示"
     },
+    "table": {
+      "issue": "Issue",
+      "title": "タイトル",
+      "state": "状態",
+      "worker": "ワーカー",
+      "branch": "ブランチ",
+      "updated": "更新",
+      "actions": "操作",
+      "timeAgo": {
+        "justNow": "たった今",
+        "minutes": "{{count}}分前",
+        "hours": "{{count}}時間前",
+        "days": "{{count}}日前",
+        "weeks": "{{count}}週間前"
+      }
+    },
     "assignDialog": {
       "title": "Issue #{{number}} をワーカーに割り当てる",
       "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",
