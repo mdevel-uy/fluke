@@ -196,9 +196,7 @@ export function SprintFilterBar({
       {workers.length > 0 && (
         <FilterDropdown
           label={
-            selectedWorker
-              ? `${selectedWorker.emoji} ${selectedWorker.name}`
-              : t('sprint.filters.worker')
+            selectedWorker ? selectedWorker.name : t('sprint.filters.worker')
           }
           active={!!filters.worker}
         >
@@ -212,9 +210,6 @@ export function SprintFilterBar({
               onSelect={() => setFilter('worker', w.id)}
               className={filters.worker === w.id ? 'bg-secondary' : ''}
             >
-              <span className="mr-1.5 text-base" aria-hidden="true">
-                {w.emoji}
-              </span>
               {w.name}
             </DropdownMenuItem>
           ))}

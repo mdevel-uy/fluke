@@ -3,7 +3,6 @@ export type SoulTemplateId = 'backend' | 'frontend' | 'generalist';
 export interface SoulTemplate {
   id: SoulTemplateId;
   labelKey: string;
-  emoji: string;
   soul: string;
 }
 
@@ -49,19 +48,16 @@ export const SOUL_TEMPLATES: readonly SoulTemplate[] = [
   {
     id: 'backend',
     labelKey: 'workers.templates.backend',
-    emoji: '⚙️',
     soul: BACKEND_SOUL,
   },
   {
     id: 'frontend',
     labelKey: 'workers.templates.frontend',
-    emoji: '🎨',
     soul: FRONTEND_SOUL,
   },
   {
     id: 'generalist',
     labelKey: 'workers.templates.generalist',
-    emoji: '🧭',
     soul: GENERALIST_SOUL,
   },
 ];

@@ -24,6 +24,12 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import type { WorkerTask } from '@/features/sprint/types';
 import { WorkerTaskList } from './WorkerTaskList';
 
+const ROLE_CHIP_CLASS: Record<string, string> = {
+  developer: 'bg-info/10 text-info',
+  analyst: 'bg-brand/10 text-brand-on-surface',
+  reviewer: 'bg-warning/10 text-warning',
+};
+
 interface WorkerCardProps {
   worker: WorkerResponse;
   activeTask?: WorkerTask;
@@ -69,7 +75,13 @@ export function WorkerCard({
         <h3 className="truncate font-sans text-title text-high">
           {worker.name}
         </h3>
-        <span className="shrink-0 rounded-full bg-secondary px-2 py-px text-xs text-normal">
+        <span
+          className={cn(
+            'shrink-0 rounded-full px-2 py-px text-xs font-medium',
+            ROLE_CHIP_CLASS[worker.role ?? 'developer'] ??
+              'bg-secondary text-normal'
+          )}
+        >
           {t(`workers.roles.${worker.role ?? 'developer'}`)}
         </span>
         <DropdownMenu>

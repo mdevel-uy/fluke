@@ -539,9 +539,8 @@
   "appBar": {
     "issues": "이슈",
     "workers": "워커",
-    "sprint": "스프린트",
+    "sprint": "칸반",
     "kanban": {
-      "tooltip": "프로젝트를 보려면 로그인하세요",
       "title": "칸반 보드",
       "description": "로그인하여 칸반 보드로 코딩 에이전트를 정리하세요."
     }
@@ -616,7 +615,7 @@
       "confirm": "작업 대기열에 추가",
       "enqueuedError": "작업 대기열 추가에 실패했습니다.",
       "checkingConflicts": "기존 할당 확인 중...",
-      "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{emoji}} {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
+      "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
       "assignAnyway": "그래도 할당"
     },
     "filters": {
@@ -635,6 +634,7 @@
       },
       "label": "레이블",
       "milestone": "마일스톤",
+      "worker": "워커",
       "groupBy": "그룹화",
       "groupByOptions": {
         "none": "없음",
@@ -706,10 +706,9 @@
     "form": {
       "newTitle": "새 워커",
       "editTitle": "워커 편집",
-      "description": "이름, 이모지, 소울을 지정하세요. 소울은 워커의 동작을 이끄는 프롬프트입니다.",
+      "description": "이름과 소울을 지정하세요. 소울은 워커의 동작을 이끄는 프롬프트입니다.",
       "nameLabel": "이름",
       "namePlaceholder": "예: Backend Bee",
-      "emojiLabel": "이모지",
       "roleLabel": "역할",
       "templatesLabel": "템플릿으로 시작",
       "soulLabel": "소울(Soul)",
@@ -739,7 +738,7 @@
     }
   },
   "sprint": {
-    "title": "스프린트",
+    "title": "칸반",
     "repoSelectorPlaceholder": "저장소 선택",
     "loadingRepos": "저장소를 불러오는 중...",
     "noReposMessage": "등록된 저장소가 없습니다. 스프린트를 계획하려면 저장소를 추가하세요.",
@@ -763,13 +762,6 @@
       "moreActions": "더 많은 작업",
       "setPriority": "우선순위 설정",
       "assignTo": "워커에게 할당"
-    },
-    "composer": {
-      "title": "새 자유 형식 태스크",
-      "titlePlaceholder": "태스크 제목",
-      "promptPlaceholder": "에이전트가 무엇을 해야 하나요?",
-      "assign": "워커에게 전송",
-      "skills": "스킬:"
     },
     "queued": {
       "moveUp": "위로",
@@ -814,25 +806,9 @@
       "noBody": "설명이 없습니다.",
       "assignedTo": "{{worker}}에게 할당됨"
     },
-    "startSprint": "스프린트 시작",
-    "startSprintDisabled": "시작할 준비가 된 워커가 없습니다",
-    "startSprintDialog": {
-      "title": "스프린트 시작",
-      "description": "다음 워커들이 대기열의 다음 작업을 시작합니다.",
-      "willStart": "시작 예정 ({{count}})",
-      "skipped": "건너뜀",
-      "cancel": "취소",
-      "confirm": "스프린트 시작",
-      "reason": {
-        "already_working": "이미 작업 중",
-        "no_queue": "대기열에 작업 없음",
-        "cap_reached": "리뷰 한도 초과"
-      }
-    },
     "toast": {
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
-      "startAllNoneStarted": "시작 가능한 워커가 없었습니다.",
-      "startAllError": "스프린트 시작 실패: {{message}}",
+      "startAllError": "워커 시작 실패: {{message}}",
       "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다."
     },
@@ -840,6 +816,10 @@
       "retry": "재시도",
       "discard": "버리기",
       "empty": "실패한 태스크가 없습니다."
+    },
+    "autoIngest": {
+      "label": "자동 시작",
+      "description": "작업이 할당되면 워커가 즉시 시작됩니다"
     }
   }
 }

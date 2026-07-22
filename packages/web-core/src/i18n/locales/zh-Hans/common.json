@@ -539,9 +539,8 @@
   "appBar": {
     "issues": "问题",
     "workers": "工作者",
-    "sprint": "冲刺",
+    "sprint": "看板",
     "kanban": {
-      "tooltip": "登录以查看项目",
       "title": "看板",
       "description": "登录以使用看板管理您的编码代理。"
     }
@@ -616,7 +615,7 @@
       "confirm": "加入队列",
       "enqueuedError": "加入队列失败。",
       "checkingConflicts": "正在检查现有分配...",
-      "duplicateWarning": "Issue #{{number}} 已分配给 {{emoji}} {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
+      "duplicateWarning": "Issue #{{number}} 已分配给 {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
       "assignAnyway": "仍然分配"
     },
     "filters": {
@@ -635,6 +634,7 @@
       },
       "label": "标签",
       "milestone": "里程碑",
+      "worker": "工作者",
       "groupBy": "分组",
       "groupByOptions": {
         "none": "不分组",
@@ -706,10 +706,9 @@
     "form": {
       "newTitle": "新建工作者",
       "editTitle": "编辑工作者",
-      "description": "为工作者指定名称、表情和灵魂。灵魂是引导其工作方式的提示词。",
+      "description": "为工作者指定名称和灵魂。灵魂是引导其工作方式的提示词。",
       "nameLabel": "名称",
       "namePlaceholder": "例如：Backend Bee",
-      "emojiLabel": "表情",
       "roleLabel": "角色",
       "templatesLabel": "从模板开始",
       "soulLabel": "灵魂 (Soul)",
@@ -739,7 +738,7 @@
     }
   },
   "sprint": {
-    "title": "冲刺",
+    "title": "看板",
     "repoSelectorPlaceholder": "选择仓库",
     "loadingRepos": "正在加载仓库...",
     "noReposMessage": "未注册任何仓库。请先添加仓库以规划冲刺。",
@@ -763,13 +762,6 @@
       "moreActions": "更多操作",
       "setPriority": "设置优先级",
       "assignTo": "分配给工人"
-    },
-    "composer": {
-      "title": "新自由任务",
-      "titlePlaceholder": "任务标题",
-      "promptPlaceholder": "代理应该做什么？",
-      "assign": "发送给工人",
-      "skills": "技能："
     },
     "queued": {
       "moveUp": "上移",
@@ -814,25 +806,9 @@
       "noBody": "暂无描述。",
       "assignedTo": "已分配给 {{worker}}"
     },
-    "startSprint": "开始冲刺",
-    "startSprintDisabled": "没有可以开始的工作者",
-    "startSprintDialog": {
-      "title": "开始冲刺",
-      "description": "以下工作者将开始其队列中的下一个任务。",
-      "willStart": "将要开始（{{count}} 个）",
-      "skipped": "跳过",
-      "cancel": "取消",
-      "confirm": "开始冲刺",
-      "reason": {
-        "already_working": "正在工作",
-        "no_queue": "队列中无任务",
-        "cap_reached": "已达审查上限"
-      }
-    },
     "toast": {
       "startAllSuccess": "已启动 {{count}} 个工作者。",
-      "startAllNoneStarted": "没有工作者可以开始。",
-      "startAllError": "启动冲刺失败：{{message}}",
+      "startAllError": "启动工作者失败：{{message}}",
       "assignDuplicate": "该 Issue 已有一个分配给工作者的活跃任务。",
       "startAllSuccess_other": "已启动 {{count}} 个工作者。"
     },
@@ -840,6 +816,10 @@
       "retry": "重试",
       "discard": "丢弃",
       "empty": "没有失败的任务。"
+    },
+    "autoIngest": {
+      "label": "自动开始",
+      "description": "任务分配后工作者立即开始"
     }
   }
 }

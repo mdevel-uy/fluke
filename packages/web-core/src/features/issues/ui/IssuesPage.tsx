@@ -35,7 +35,9 @@ import { IssuesToolbar } from './IssuesToolbar';
 import type {
   IssueFilters,
   IssuePriorityFilter,
+  IssueStateFilter,
   IssueGroupBy,
+  IssueWorkerOption,
 } from './IssuesToolbar';
 import { IssueDetailDrawer } from './IssueDetailDrawer';
 
@@ -46,10 +48,11 @@ import { IssueDetailDrawer } from './IssueDetailDrawer';
 type RawSearch = {
   repo?: string;
   q?: string;
-  state?: 'all' | 'open' | 'closed';
+  state?: IssueStateFilter;
   priority?: string;
   labels?: string;
   milestones?: string;
+  workers?: string;
   groupBy?: 'none' | 'label' | 'milestone';
   issue?: number;
 };
@@ -63,6 +66,7 @@ function filtersFromUrl(s: RawSearch): IssueFilters {
       : [],
     labels: s.labels ? s.labels.split(',').filter(Boolean) : [],
     milestones: s.milestones ? s.milestones.split(',').filter(Boolean) : [],
+    workers: s.workers ? s.workers.split(',').filter(Boolean) : [],
     groupBy: (s.groupBy as IssueGroupBy) ?? 'none',
   };
 }
@@ -74,6 +78,7 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
     priority: f.priorities.length ? f.priorities.join(',') : undefined,
     labels: f.labels.length ? f.labels.join(',') : undefined,
     milestones: f.milestones.length ? f.milestones.join(',') : undefined,
+    workers: f.workers.length ? f.workers.join(',') : undefined,
     groupBy: f.groupBy !== 'none' ? f.groupBy : undefined,
   };
 }
@@ -89,10 +94,25 @@ const EMPTY_TASK_MAP = new Map<number, WorkerTask>();
 // Filtering
 // ---------------------------------------------------------------------------
 
-function applyFilters(issues: RepoIssue[], filters: IssueFilters): RepoIssue[] {
+const TASK_STATUS_FILTERS = new Set(['queued', 'in_progress', 'in_review']);
+
+function applyFilters(
+  issues: RepoIssue[],
+  filters: IssueFilters,
+  taskByIssueNumber: Map<number, WorkerTask>
+): RepoIssue[] {
   return issues.filter((issue) => {
     if (filters.state === 'open' && issue.state !== 'open') return false;
     if (filters.state === 'closed' && issue.state !== 'closed') return false;
+    if (TASK_STATUS_FILTERS.has(filters.state)) {
+      const task = taskByIssueNumber.get(issue.number);
+      if (!task || task.status !== filters.state) return false;
+    }
+
+    if (filters.workers.length > 0) {
+      const task = taskByIssueNumber.get(issue.number);
+      if (!task || !filters.workers.includes(task.worker_id)) return false;
+    }
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -324,9 +344,17 @@ export function IssuesPage() {
     [issues]
   );
 
+  const availableWorkers = useMemo<IssueWorkerOption[]>(
+    () =>
+      (workers ?? [])
+        .map((w) => ({ id: w.id, name: w.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [workers]
+  );
+
   const filteredIssues = useMemo(
-    () => applyFilters(issues, filters),
-    [issues, filters]
+    () => applyFilters(issues, filters, activeTaskByIssueNumber),
+    [issues, filters, activeTaskByIssueNumber]
   );
 
   const groups = useMemo(
@@ -480,6 +508,7 @@ export function IssuesPage() {
           filters={filters}
           availableLabels={availableLabels}
           availableMilestones={availableMilestones}
+          availableWorkers={availableWorkers}
           onChange={handleFilterChange}
         />
       )}

@@ -4,8 +4,7 @@ import { useRouter, useSearch } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
-import { Button } from '@vibe/ui/components/Button';
+import { Switch } from '@vibe/ui/components/Switch';
 import {
   Select,
   SelectContent,
@@ -13,14 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@vibe/ui/components/KeyboardDialog';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { ApiError, repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
@@ -35,14 +26,17 @@ import {
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
 import { workersKeys } from '@/features/workers';
-import { useStartAllWorkers } from '@/features/workers/model/useWorkers';
+import {
+  useStartAllWorkers,
+  useStartNextWorkerTask,
+} from '@/features/workers/model/useWorkers';
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
+import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
 import { WorkerChip } from './WorkerChip';
 import { BacklogIssueCard } from './BacklogIssueCard';
-import { FreeTaskComposer } from './FreeTaskComposer';
 import { QueuedTaskCard } from './QueuedTaskCard';
 import { InProgressTaskCard } from './InProgressTaskCard';
 import { InReviewTaskCard } from './InReviewTaskCard';
@@ -55,7 +49,6 @@ import type { SprintFilters } from './SprintFilterBar';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
 const DONE_LIMIT = 20;
-const IN_REVIEW_CAP = 2;
 
 type Toast = {
   id: number;
@@ -283,7 +276,6 @@ export function SprintPage() {
   } = useAllWorkerTasks(workers);
 
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
-  const [sprintDialogOpen, setSprintDialogOpen] = useState(false);
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
 
   const invalidateWorkerData = useCallback(() => {
@@ -397,6 +389,26 @@ export function SprintPage() {
   });
 
   const startAllMutation = useStartAllWorkers();
+  const startNextMutation = useStartNextWorkerTask();
+  const autoIngest = useAutoIngestStore((s) => s.autoIngest);
+  const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
+
+  // With auto-ingest on, an idle worker picks up its queue as soon as a task
+  // is assigned. Conflicts (worker grabbed something else meanwhile) are fine.
+  const maybeAutoStart = useCallback(
+    (workerId: string) => {
+      if (!autoIngest) return;
+      const worker = findWorker(workers, workerId);
+      if (!worker || worker.active_workspace_id) return;
+      startNextMutation.mutate(workerId, {
+        onError: (err) => {
+          if (err instanceof ApiError && err.status === 409) return;
+          pushToast('error', err instanceof Error ? err.message : String(err));
+        },
+      });
+    },
+    [autoIngest, workers, startNextMutation, pushToast]
+  );
 
   const handleAssignIssue = useCallback(
     (issue: RepoIssue, workerId: string) => {
@@ -414,6 +426,7 @@ export function SprintPage() {
         { workerId, title, prompt, issueNumber: issue.number, skills },
         {
           onSettled: () => setBusyTaskId(null),
+          onSuccess: () => maybeAutoStart(workerId),
           onError: (err) =>
             pushToast(
               'error',
@@ -422,25 +435,7 @@ export function SprintPage() {
         }
       );
     },
-    [createTaskMutation, selectedRepoId, pushToast]
-  );
-
-  const handleFreeTaskCreate = useCallback(
-    (params: {
-      workerId: string;
-      title: string;
-      prompt: string;
-      skills: string[];
-    }) => {
-      if (!selectedRepoId) return;
-      setBusyTaskId('free-composer');
-      createTaskMutation.mutate(params, {
-        onSettled: () => setBusyTaskId(null),
-        onError: (err) =>
-          pushToast('error', err instanceof Error ? err.message : String(err)),
-      });
-    },
-    [createTaskMutation, selectedRepoId, pushToast]
+    [createTaskMutation, selectedRepoId, pushToast, maybeAutoStart]
   );
 
   const handleRemoveTask = useCallback(
@@ -628,63 +623,18 @@ export function SprintPage() {
     [repoTasks, workers]
   );
 
-  // Per-worker in_review count across ALL repos (cap is global).
-  const inReviewCountByWorker = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const task of allTasks) {
-      if (task.status === 'in_review') {
-        map.set(task.worker_id, (map.get(task.worker_id) ?? 0) + 1);
-      }
-    }
-    return map;
-  }, [allTasks]);
-
-  // First queued task per worker across ALL repos.
-  const firstQueuedByWorker = useMemo(() => {
-    const map = new Map<string, WorkerTask>();
-    const queued = allTasks
-      .filter((t) => t.status === 'queued')
-      .sort((a, b) => a.position - b.position);
-    for (const task of queued) {
-      if (!map.has(task.worker_id)) {
-        map.set(task.worker_id, task);
-      }
-    }
-    return map;
-  }, [allTasks]);
-
-  const { eligibleWorkers, ineligibleWorkers } = useMemo(() => {
-    const eligible: Array<{ worker: Worker; firstTask: WorkerTask }> = [];
-    const ineligible: Array<{ worker: Worker; reason: string }> = [];
-    for (const worker of workers) {
-      const inReview = inReviewCountByWorker.get(worker.id) ?? 0;
-      const firstTask = firstQueuedByWorker.get(worker.id);
-      if (worker.active_workspace_id) {
-        ineligible.push({ worker, reason: 'already_working' });
-      } else if (inReview >= IN_REVIEW_CAP) {
-        ineligible.push({ worker, reason: 'cap_reached' });
-      } else if (!firstTask) {
-        ineligible.push({ worker, reason: 'no_queue' });
-      } else {
-        eligible.push({ worker, firstTask });
-      }
-    }
-    return { eligibleWorkers: eligible, ineligibleWorkers: ineligible };
-  }, [workers, inReviewCountByWorker, firstQueuedByWorker]);
-
-  const handleStartSprint = async () => {
-    setSprintDialogOpen(false);
+  // Enabling auto-ingest immediately kicks every idle worker with a queue.
+  const handleAutoIngestChange = async (enabled: boolean) => {
+    setAutoIngest(enabled);
+    if (!enabled) return;
     try {
       const result = await startAllMutation.mutateAsync();
       const started = result.results.filter((r) => r.started).length;
-      const total = result.results.length;
       invalidateWorkerData();
-      if (started === 0) {
-        pushToast('info', t('sprint.toast.startAllNoneStarted'));
-      } else {
+      if (started > 0) {
         pushToast(
           'success',
-          t('sprint.toast.startAllSuccess', { count: started, total })
+          t('sprint.toast.startAllSuccess', { count: started })
         );
       }
     } catch (err) {
@@ -734,13 +684,6 @@ export function SprintPage() {
     [setPriorityMutation]
   );
 
-  const isBoardBusy =
-    createTaskMutation.isPending ||
-    deleteTaskMutation.isPending ||
-    swapTasksMutation.isPending ||
-    retryTaskMutation.isPending ||
-    discardTaskMutation.isPending;
-
   const showBoard =
     !!selectedRepoId &&
     !isLoadingIssues &&
@@ -757,9 +700,6 @@ export function SprintPage() {
     filters.priority ||
     filters.worker
   );
-
-  const startSprintDisabled =
-    !showBoard || eligibleWorkers.length === 0 || startAllMutation.isPending;
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
@@ -801,20 +741,20 @@ export function SprintPage() {
             />
             {isSyncing ? t('sprint.syncing') : t('sprint.sync')}
           </button>
-          <span
-            title={
-              showBoard && eligibleWorkers.length === 0
-                ? t('sprint.startSprintDisabled')
-                : undefined
-            }
+          <label
+            className="flex items-center gap-2 cursor-pointer select-none"
+            title={t('sprint.autoIngest.description')}
           >
-            <PrimaryButton
-              variant="default"
-              value={t('sprint.startSprint')}
-              onClick={() => setSprintDialogOpen(true)}
-              disabled={startSprintDisabled}
+            <Switch
+              checked={autoIngest}
+              onCheckedChange={handleAutoIngestChange}
+              disabled={startAllMutation.isPending}
+              aria-label={t('sprint.autoIngest.label')}
             />
-          </span>
+            <span className="text-body-sm font-semibold text-md-on-surface">
+              {t('sprint.autoIngest.label')}
+            </span>
+          </label>
         </div>
       </header>
 
@@ -898,15 +838,6 @@ export function SprintPage() {
                 count={filteredBacklogIssues.length}
                 className="min-w-[280px]"
               >
-                <FreeTaskComposer
-                  workers={workers}
-                  isSubmitting={
-                    busyTaskId === 'free-composer' &&
-                    createTaskMutation.isPending
-                  }
-                  disabled={!selectedRepoId || isBoardBusy}
-                  onCreate={handleFreeTaskCreate}
-                />
                 {filteredBacklogIssues.length === 0 ? (
                   <ColumnEmpty
                     message={
@@ -1067,67 +998,6 @@ export function SprintPage() {
           }
         />
       )}
-
-      <Dialog open={sprintDialogOpen} onOpenChange={setSprintDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>{t('sprint.startSprintDialog.title')}</DialogTitle>
-            <DialogDescription>
-              {t('sprint.startSprintDialog.description')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {eligibleWorkers.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-1">
-                  {t('sprint.startSprintDialog.willStart', {
-                    count: eligibleWorkers.length,
-                  })}
-                </p>
-                <ul className="space-y-1">
-                  {eligibleWorkers.map(({ worker, firstTask }) => (
-                    <li key={worker.id} className="text-sm text-normal">
-                      {worker.emoji} {worker.name}{' '}
-                      <span className="text-low">→</span> {firstTask.title}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {ineligibleWorkers.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-low mb-1">
-                  {t('sprint.startSprintDialog.skipped')}
-                </p>
-                <ul className="space-y-1">
-                  {ineligibleWorkers.map(({ worker, reason }) => (
-                    <li key={worker.id} className="text-sm text-low">
-                      {worker.emoji} {worker.name} —{' '}
-                      {t(`sprint.startSprintDialog.reason.${reason}`)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setSprintDialogOpen(false)}
-            >
-              {t('sprint.startSprintDialog.cancel')}
-            </Button>
-            <Button
-              onClick={handleStartSprint}
-              disabled={
-                startAllMutation.isPending || eligibleWorkers.length === 0
-              }
-            >
-              {t('sprint.startSprintDialog.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -539,9 +539,8 @@
   "appBar": {
     "issues": "Tickets",
     "workers": "Workers",
-    "sprint": "Sprint",
+    "sprint": "Kanban",
     "kanban": {
-      "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."
     }
@@ -616,7 +615,7 @@
       "confirm": "Mettre en file d'attente",
       "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
       "checkingConflicts": "Vérification des assignations existantes...",
-      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{emoji}} {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
+      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
       "assignAnyway": "Assigner quand même"
     },
     "filters": {
@@ -635,6 +634,7 @@
       },
       "label": "Étiquette",
       "milestone": "Jalon",
+      "worker": "Worker",
       "groupBy": "Grouper par",
       "groupByOptions": {
         "none": "Aucun",
@@ -706,10 +706,9 @@
     "form": {
       "newTitle": "Nouveau worker",
       "editTitle": "Modifier le worker",
-      "description": "Donnez un nom, un emoji et une âme au worker. L'âme est le prompt qui guide son travail.",
+      "description": "Donnez un nom et une âme au worker. L'âme est le prompt qui guide son travail.",
       "nameLabel": "Nom",
       "namePlaceholder": "ex. Abeille Backend",
-      "emojiLabel": "Emoji",
       "roleLabel": "Rôle",
       "templatesLabel": "Partir d'un modèle",
       "soulLabel": "Âme (soul)",
@@ -739,7 +738,7 @@
     }
   },
   "sprint": {
-    "title": "Sprint",
+    "title": "Kanban",
     "repoSelectorPlaceholder": "Sélectionner un dépôt",
     "loadingRepos": "Chargement des dépôts...",
     "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier un sprint.",
@@ -763,13 +762,6 @@
       "moreActions": "Plus d'actions",
       "setPriority": "Définir la priorité",
       "assignTo": "Assigner à un worker"
-    },
-    "composer": {
-      "title": "Nouvelle tâche libre",
-      "titlePlaceholder": "Titre de la tâche",
-      "promptPlaceholder": "Que doit faire l'agent ?",
-      "assign": "Envoyer à un worker",
-      "skills": "Skills :"
     },
     "queued": {
       "moveUp": "Monter",
@@ -814,32 +806,20 @@
       "noBody": "Aucune description fournie.",
       "assignedTo": "Assigné à {{worker}}"
     },
-    "startSprint": "Démarrer le sprint",
-    "startSprintDisabled": "Aucun worker n'est prêt à démarrer",
-    "startSprintDialog": {
-      "title": "Démarrer le sprint",
-      "description": "Les workers suivants démarreront leur prochaine tâche en file d'attente.",
-      "willStart": "Démarreront ({{count}})",
-      "skipped": "Ignorés",
-      "cancel": "Annuler",
-      "confirm": "Démarrer le sprint",
-      "reason": {
-        "already_working": "Déjà en cours",
-        "no_queue": "Aucune tâche en attente",
-        "cap_reached": "Limite de révisions atteinte"
-      }
-    },
     "toast": {
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
-      "startAllNoneStarted": "Aucun worker n'était prêt à démarrer.",
-      "startAllError": "Échec du démarrage du sprint : {{message}}",
+      "startAllError": "Échec du démarrage des workers : {{message}}",
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker."
     },
     "failed": {
       "retry": "Réessayer",
       "discard": "Ignorer",
       "empty": "Aucune tâche échouée."
+    },
+    "autoIngest": {
+      "label": "Ingestion automatique",
+      "description": "Les workers démarrent dès qu'une tâche est assignée"
     }
   }
 }

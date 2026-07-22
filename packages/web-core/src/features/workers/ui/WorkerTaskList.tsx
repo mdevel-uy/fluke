@@ -65,7 +65,7 @@ export function WorkerTaskList({
   }
 
   const visible = (tasks ?? []).filter(
-    (task) => task.workspace_id !== activeWorkspaceId
+    (task) => task.workspace_id !== activeWorkspaceId && task.status !== 'done'
   );
 
   if (visible.length === 0) {

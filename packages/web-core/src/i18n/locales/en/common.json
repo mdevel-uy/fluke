@@ -543,9 +543,8 @@
   "appBar": {
     "issues": "Issues",
     "workers": "Workers",
-    "sprint": "Sprint",
+    "sprint": "Kanban",
     "kanban": {
-      "tooltip": "Sign in to view projects",
       "title": "Kanban Boards",
       "description": "Sign in to organise your coding agents with kanban boards."
     }
@@ -616,7 +615,7 @@
       "confirm": "Enqueue task",
       "enqueuedError": "Failed to enqueue task.",
       "checkingConflicts": "Checking for existing assignments...",
-      "duplicateWarning": "Issue #{{number}} is already assigned to {{emoji}} {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
+      "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
       "assignAnyway": "Assign anyway"
     },
     "filters": {
@@ -635,6 +634,7 @@
       },
       "label": "Label",
       "milestone": "Milestone",
+      "worker": "Worker",
       "groupBy": "Group by",
       "groupByOptions": {
         "none": "None",
@@ -706,10 +706,9 @@
     "form": {
       "newTitle": "New worker",
       "editTitle": "Edit worker",
-      "description": "Give the worker a name, an emoji and a soul. The soul is the prompt that shapes how it works.",
+      "description": "Give the worker a name and a soul. The soul is the prompt that shapes how it works.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Backend Bee",
-      "emojiLabel": "Emoji",
       "roleLabel": "Role",
       "templatesLabel": "Start from a template",
       "soulLabel": "Soul",
@@ -739,7 +738,7 @@
     }
   },
   "sprint": {
-    "title": "Sprint",
+    "title": "Kanban",
     "repoSelectorPlaceholder": "Select repository",
     "loadingRepos": "Loading repositories...",
     "noReposMessage": "No repositories registered. Add a repository first to plan a sprint.",
@@ -763,13 +762,6 @@
       "moreActions": "More actions",
       "setPriority": "Set priority",
       "assignTo": "Assign to worker"
-    },
-    "composer": {
-      "title": "New free-form task",
-      "titlePlaceholder": "Task title",
-      "promptPlaceholder": "What should the agent do?",
-      "assign": "Send to worker",
-      "skills": "Skills:"
     },
     "queued": {
       "moveUp": "Move up",
@@ -814,32 +806,20 @@
       "noBody": "No description provided.",
       "assignedTo": "Assigned to {{worker}}"
     },
-    "startSprint": "Start sprint",
-    "startSprintDisabled": "No workers are ready to start",
-    "startSprintDialog": {
-      "title": "Start sprint",
-      "description": "The following workers will start their next queued task.",
-      "willStart": "Will start ({{count}})",
-      "skipped": "Skipped",
-      "cancel": "Cancel",
-      "confirm": "Start sprint",
-      "reason": {
-        "already_working": "Already working",
-        "no_queue": "No queued tasks",
-        "cap_reached": "In-review cap reached"
-      }
-    },
     "toast": {
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
-      "startAllNoneStarted": "No workers were ready to start.",
-      "startAllError": "Failed to start sprint: {{message}}",
+      "startAllError": "Failed to start workers: {{message}}",
       "assignDuplicate": "This issue already has an active task assigned to a worker."
     },
     "failed": {
       "retry": "Retry",
       "discard": "Discard",
       "empty": "No failed tasks."
+    },
+    "autoIngest": {
+      "label": "Auto-ingest",
+      "description": "Workers start as soon as a task is assigned"
     }
   }
 }

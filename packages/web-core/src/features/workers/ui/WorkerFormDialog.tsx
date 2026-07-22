@@ -38,6 +38,9 @@ import {
 export const WORKER_ROLES = ['developer', 'analyst', 'reviewer'] as const;
 export type WorkerRole = (typeof WORKER_ROLES)[number];
 
+// The API still requires an emoji; the UI no longer exposes it.
+const DEFAULT_WORKER_EMOJI = '🤖';
+
 export interface WorkerFormDialogProps {
   worker?: WorkerResponse;
 }
@@ -50,7 +53,6 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const isEdit = !!worker;
 
   const [name, setName] = useState(worker?.name ?? '');
-  const [emoji, setEmoji] = useState(worker?.emoji ?? '🤖');
   const [soul, setSoul] = useState(worker?.soul ?? '');
   const [role, setRole] = useState<WorkerRole>(
     (worker?.role as WorkerRole) ?? 'developer'
@@ -67,13 +69,12 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, emoji, soul, role]);
+  }, [name, soul, role]);
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
     if (!template) return;
     setSoul(template.soul);
-    if (!emoji || emoji === '🤖') setEmoji(template.emoji);
   };
 
   const handleCancel = () => {
@@ -87,13 +88,12 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   const handleSubmit = async () => {
     const trimmedName = name.trim();
-    const trimmedEmoji = emoji.trim();
     const trimmedSoul = soul.trim();
-    if (!trimmedName || !trimmedEmoji || !trimmedSoul) return;
+    if (!trimmedName || !trimmedSoul) return;
 
     const payload: CreateWorkerRequest = {
       name: trimmedName,
-      emoji: trimmedEmoji,
+      emoji: worker?.emoji ?? DEFAULT_WORKER_EMOJI,
       soul: trimmedSoul,
       role,
     };
@@ -116,10 +116,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   };
 
   const canSubmit =
-    name.trim().length > 0 &&
-    emoji.trim().length > 0 &&
-    soul.trim().length > 0 &&
-    !isSubmitting;
+    name.trim().length > 0 && soul.trim().length > 0 && !isSubmitting;
 
   return (
     <Dialog open={modal.visible} onOpenChange={handleOpenChange}>
@@ -132,30 +129,16 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
         </DialogHeader>
 
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-[1fr_120px] gap-3">
-            <div>
-              <Label htmlFor="worker-name">{t('workers.form.nameLabel')}</Label>
-              <Input
-                id="worker-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t('workers.form.namePlaceholder')}
-                autoFocus
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="worker-emoji">
-                {t('workers.form.emojiLabel')}
-              </Label>
-              <Input
-                id="worker-emoji"
-                value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
-                maxLength={4}
-                className="mt-1 text-center text-lg"
-              />
-            </div>
+          <div>
+            <Label htmlFor="worker-name">{t('workers.form.nameLabel')}</Label>
+            <Input
+              id="worker-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('workers.form.namePlaceholder')}
+              autoFocus
+              className="mt-1"
+            />
           </div>
 
           <div>
@@ -194,7 +177,6 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
                     size="sm"
                     onClick={() => applyTemplate(tpl.id)}
                   >
-                    <span className="mr-1">{tpl.emoji}</span>
                     {t(tpl.labelKey)}
                   </Button>
                 ))}
