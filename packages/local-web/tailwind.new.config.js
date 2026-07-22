@@ -80,6 +80,7 @@ module.exports = {
         title:   ['0.9375rem', { lineHeight: '1.375rem', fontWeight: '600' }],
         body:    ['0.8125rem', { lineHeight: '1.25rem',  fontWeight: '400' }],
         label:   ['0.6875rem', { lineHeight: '1rem',     fontWeight: '600', letterSpacing: '0.05em' }],
+        code:    ['0.75rem',   { lineHeight: '1rem',     fontWeight: '400' }],
 
         /* Deprecated MD3 role aliases — resolve to the Workbench scale */
         'display-lg':  ['1.25rem',   { lineHeight: '1.625rem', fontWeight: '600', letterSpacing: '-0.01em' }],

@@ -584,6 +584,22 @@
       "openWorkspace": "Ouvrir le workspace",
       "viewInSprint": "Voir dans Sprint"
     },
+    "table": {
+      "issue": "Issue",
+      "title": "Titre",
+      "state": "État",
+      "worker": "Worker",
+      "branch": "Branche",
+      "updated": "Mis à jour",
+      "actions": "Actions",
+      "timeAgo": {
+        "justNow": "à l'instant",
+        "minutes": "il y a {{count}} min",
+        "hours": "il y a {{count}} h",
+        "days": "il y a {{count}} j",
+        "weeks": "il y a {{count}} sem"
+      }
+    },
     "assignDialog": {
       "title": "Assigner l'issue #{{number}} à un worker",
       "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",

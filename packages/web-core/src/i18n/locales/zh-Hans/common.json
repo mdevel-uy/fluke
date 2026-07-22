@@ -584,6 +584,22 @@
       "openWorkspace": "打开工作区",
       "viewInSprint": "在 Sprint 中查看"
     },
+    "table": {
+      "issue": "Issue",
+      "title": "标题",
+      "state": "状态",
+      "worker": "工作者",
+      "branch": "分支",
+      "updated": "更新时间",
+      "actions": "操作",
+      "timeAgo": {
+        "justNow": "刚刚",
+        "minutes": "{{count}} 分钟前",
+        "hours": "{{count}} 小时前",
+        "days": "{{count}} 天前",
+        "weeks": "{{count}} 周前"
+      }
+    },
     "assignDialog": {
       "title": "将 Issue #{{number}} 分配给工作者",
       "description": "选择一个工作者并检查提示词。任务将被添加到工作者的队列中。",

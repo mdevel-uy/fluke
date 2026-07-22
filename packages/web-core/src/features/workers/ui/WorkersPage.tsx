@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  Plus,
+  X,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
-import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
+import { Button } from '@vibe/ui/components/Button';
 import { ApiError } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { cn } from '@/shared/lib/utils';
@@ -10,6 +19,9 @@ import {
   useStartNextWorkerTask,
   useWorkers,
 } from '@/features/workers/model/useWorkers';
+import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
+import type { WorkerTask } from '@/features/sprint/types';
+import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { WorkerCard } from './WorkerCard';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
@@ -17,26 +29,19 @@ import { WorkerFormDialog } from './WorkerFormDialog';
 function StatCard({
   label,
   value,
-  materialIcon,
-  accentClass,
+  icon: Icon,
 }: {
   label: string;
   value: number;
-  materialIcon: string;
-  accentClass: string;
+  icon: LucideIcon;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-md-outline-variant bg-md-surface-container-low p-4">
-      <div
-        className={cn(
-          'flex items-center gap-1.5 text-label-caps font-geist font-semibold uppercase tracking-widest',
-          accentClass
-        )}
-      >
-        <MaterialIcon name={materialIcon} size="sm" />
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-md-surface-container-lowest p-3">
+      <div className="flex items-center gap-1.5 font-sans text-label uppercase text-low">
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
         <span>{label}</span>
       </div>
-      <p className="text-display-lg font-sans font-bold text-md-on-surface tabular-nums leading-none">
+      <p className="font-sans text-heading leading-none text-high tabular-nums">
         {value}
       </p>
     </div>
@@ -93,6 +98,24 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
+  const { tasks: allTasks } = useAllWorkerTasks(workers);
+  const { workspaces, archivedWorkspaces } = useWorkspaces();
+
+  const activeTaskByWorkerId = useMemo(() => {
+    const map = new Map<string, WorkerTask>();
+    for (const task of allTasks) {
+      if (task.status === 'in_progress') map.set(task.worker_id, task);
+    }
+    return map;
+  }, [allTasks]);
+
+  const branchByWorkspaceId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ws of [...workspaces, ...archivedWorkspaces]) {
+      map.set(ws.id, ws.branch);
+    }
+    return map;
+  }, [workspaces, archivedWorkspaces]);
 
   const stats = useMemo(() => {
     const working = workers.filter(
@@ -185,21 +208,13 @@ export function WorkersPage() {
     <div className="flex h-full w-full flex-col bg-md-background">
       {/* MD3 top bar */}
       <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-headline-md font-sans font-semibold text-md-primary tracking-tight">
+        <h1 className="text-heading font-sans text-high">
           {t('workers.title')}
         </h1>
-        <button
-          type="button"
-          onClick={handleNewWorker}
-          className={cn(
-            'flex items-center gap-1.5 px-4 py-2 rounded-lg',
-            'bg-md-primary text-md-on-primary text-body-sm font-semibold',
-            'hover:opacity-90 active:scale-95 transition-all duration-200 shadow-soft'
-          )}
-        >
-          <MaterialIcon name="add" size="sm" />
+        <Button variant="primary" onClick={handleNewWorker}>
+          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           {t('workers.newWorker')}
-        </button>
+        </Button>
       </header>
 
       {/* Toast notifications */}
@@ -210,12 +225,12 @@ export function WorkersPage() {
               key={toast.id}
               role="status"
               className={cn(
-                'flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-body-sm',
+                'flex items-start justify-between gap-3 rounded-xl border border-border-strong bg-card px-3 py-2 text-sm shadow-overlay',
                 toast.variant === 'success'
-                  ? 'border-success/30 bg-success/10 text-success'
+                  ? 'text-success'
                   : toast.variant === 'error'
-                    ? 'border-md-error/30 bg-md-error/10 text-md-error'
-                    : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface'
+                    ? 'text-error'
+                    : 'text-high'
               )}
             >
               <span className="min-w-0 flex-1 leading-relaxed">
@@ -225,9 +240,10 @@ export function WorkersPage() {
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label={t('workers.toast.dismiss')}
-                className="shrink-0 p-0.5 rounded-md text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface cursor-pointer transition-colors active:scale-95"
+                title={t('workers.toast.dismiss')}
+                className="shrink-0 rounded-sm p-0.5 text-normal transition-colors hover:bg-secondary hover:text-high"
               >
-                <MaterialIcon name="close" size="sm" />
+                <X className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
           ))}
@@ -240,33 +256,29 @@ export function WorkersPage() {
           <StatCard
             label={t('workers.stats.working')}
             value={stats.working}
-            materialIcon="electric_bolt"
-            accentClass="text-success"
+            icon={Zap}
           />
           <StatCard
             label={t('workers.stats.queued')}
             value={stats.totalQueued}
-            materialIcon="schedule"
-            accentClass="text-warning"
+            icon={Clock3}
           />
           <StatCard
             label={t('workers.stats.completed')}
             value={stats.totalCompleted}
-            materialIcon="check_circle"
-            accentClass="text-md-primary"
+            icon={CheckCircle2}
           />
         </div>
       )}
 
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoading ? (
-          <div className="flex h-full items-center justify-center gap-2 text-md-on-surface-variant">
-            <MaterialIcon
-              name="progress_activity"
-              size="base"
-              className="animate-spin text-md-primary"
+          <div className="flex h-full items-center justify-center gap-2 text-normal">
+            <Loader2
+              className="h-4 w-4 animate-spin text-brand-on-surface"
+              strokeWidth={1.75}
             />
-            <span className="text-body-md">{t('workers.loading')}</span>
+            <span className="text-sm">{t('workers.loading')}</span>
           </div>
         ) : isError ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-error">
@@ -277,11 +289,17 @@ export function WorkersPage() {
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 p-container-padding md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 p-container-padding md:grid-cols-2 xl:grid-cols-3">
             {workers.map((worker) => (
               <WorkerCard
                 key={worker.id}
                 worker={worker}
+                activeTask={activeTaskByWorkerId.get(worker.id)}
+                activeBranch={
+                  worker.active_workspace_id
+                    ? branchByWorkspaceId.get(worker.active_workspace_id)
+                    : undefined
+                }
                 isStarting={startingWorkerId === worker.id}
                 onStartNext={() => handleStartNext(worker)}
                 onEdit={() => handleEditWorker(worker)}

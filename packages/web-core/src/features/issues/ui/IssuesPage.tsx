@@ -28,6 +28,7 @@ import {
 } from '@/features/sprint/model/useWorkers';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
@@ -280,6 +281,21 @@ export function IssuesPage() {
 
   const { data: workers } = useWorkers();
   const { tasks: allTasks } = useAllWorkerTasks(workers);
+  const { workspaces, archivedWorkspaces } = useWorkspaces();
+
+  const workerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const worker of workers ?? []) map.set(worker.id, worker.name);
+    return map;
+  }, [workers]);
+
+  const branchByWorkspaceId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ws of [...workspaces, ...archivedWorkspaces]) {
+      map.set(ws.id, ws.branch);
+    }
+    return map;
+  }, [workspaces, archivedWorkspaces]);
 
   const activeTaskByIssueNumber = useMemo(() => {
     if (!selectedRepoId || allTasks.length === 0) return EMPTY_TASK_MAP;
@@ -407,7 +423,7 @@ export function IssuesPage() {
     <div className="flex h-full w-full flex-col bg-md-background">
       {/* MD3 top bar — 64px, surface-bright, border bottom */}
       <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-headline-md font-sans font-semibold text-md-primary tracking-tight shrink-0">
+        <h1 className="text-heading font-sans text-high shrink-0">
           {t('issues.title')}
         </h1>
 
@@ -518,9 +534,10 @@ export function IssuesPage() {
                   issues={group.issues}
                   repoId={selectedRepoId}
                   taskByIssueNumber={activeTaskByIssueNumber}
+                  workerNameById={workerNameById}
+                  branchByWorkspaceId={branchByWorkspaceId}
                   selectedIssueId={selectedIssue?.id}
                   onSelectIssue={handleSelectIssue}
-                  onRemoveLabel={handleRemoveLabel}
                   onArchive={handleCloseIssue}
                 />
               ) : null

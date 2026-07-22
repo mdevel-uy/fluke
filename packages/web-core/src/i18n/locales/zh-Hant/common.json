@@ -584,6 +584,22 @@
       "openWorkspace": "開啟工作區",
       "viewInSprint": "在 Sprint 中檢視"
     },
+    "table": {
+      "issue": "Issue",
+      "title": "標題",
+      "state": "狀態",
+      "worker": "工作者",
+      "branch": "分支",
+      "updated": "更新時間",
+      "actions": "操作",
+      "timeAgo": {
+        "justNow": "剛剛",
+        "minutes": "{{count}} 分鐘前",
+        "hours": "{{count}} 小時前",
+        "days": "{{count}} 天前",
+        "weeks": "{{count}} 週前"
+      }
+    },
     "assignDialog": {
       "title": "將 Issue #{{number}} 指派給工作者",
       "description": "選擇一個工作者並檢閱提示詞。任務將被加入工作者的佇列。",

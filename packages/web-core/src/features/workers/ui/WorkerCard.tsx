@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  GitBranch,
+  ListTodo,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  SquareKanban,
+} from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
-import { Badge } from '@vibe/ui/components/Badge';
 import { Button } from '@vibe/ui/components/Button';
-import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,49 +21,13 @@ import {
 } from '@vibe/ui/components/DropdownMenu';
 import { cn } from '@/shared/lib/utils';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import type { WorkerTask } from '@/features/sprint/types';
 import { WorkerTaskList } from './WorkerTaskList';
-
-function WorkerAvatar({
-  emoji,
-  isWorking,
-}: {
-  emoji: string;
-  isWorking: boolean;
-}) {
-  return (
-    <div className="relative shrink-0">
-      <div
-        className="flex h-12 w-12 items-center justify-center rounded-xl bg-md-surface-container-low text-3xl leading-none select-none color-emoji"
-        aria-hidden
-      >
-        {emoji}
-      </div>
-      <span
-        className={cn(
-          'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-md-surface-container-lowest',
-          isWorking ? 'bg-success' : 'bg-md-outline/50'
-        )}
-        aria-hidden
-      />
-    </div>
-  );
-}
-
-type RoleBadgeVariant = 'neutral' | 'info' | 'warning';
-
-function roleBadgeVariant(role: string): RoleBadgeVariant {
-  switch (role) {
-    case 'analyst':
-      return 'info';
-    case 'reviewer':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
-}
 
 interface WorkerCardProps {
   worker: WorkerResponse;
+  activeTask?: WorkerTask;
+  activeBranch?: string;
   isStarting: boolean;
   onStartNext: () => void;
   onEdit: () => void;
@@ -63,6 +36,8 @@ interface WorkerCardProps {
 
 export function WorkerCard({
   worker,
+  activeTask,
+  activeBranch,
   isStarting,
   onStartNext,
   onEdit,
@@ -81,57 +56,38 @@ export function WorkerCard({
   };
 
   return (
-    <div className="group flex flex-col rounded-lg border border-md-outline-variant bg-card transition-colors duration-150 hover:border-md-outline">
-      {/* Header */}
-      <div className="flex items-start gap-4 p-5">
-        <WorkerAvatar emoji={worker.emoji} isWorking={isWorking} />
-        <div className="min-w-0 flex-1 pt-0.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-title-sm font-sans font-semibold text-md-on-surface truncate leading-tight">
-              {worker.name}
-            </h3>
-            <Badge
-              variant={isWorking ? 'success' : 'neutral'}
-              className="gap-1.5 text-label-caps font-geist font-semibold uppercase tracking-widest"
-            >
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 rounded-full',
-                  isWorking ? 'bg-success animate-pulse' : 'bg-md-outline/50'
-                )}
-                aria-hidden
-              />
-              {isWorking
-                ? t('workers.card.statusWorking')
-                : t('workers.card.statusIdle')}
-            </Badge>
-            <Badge variant={roleBadgeVariant(worker.role ?? 'developer')}>
-              {t(`workers.roles.${worker.role ?? 'developer'}`)}
-            </Badge>
-          </div>
-          <div className="mt-1 text-body-sm text-md-on-surface-variant leading-snug">
-            {isWorking && worker.active_workspace_id ? (
-              <button
-                type="button"
-                onClick={handleOpenWorkspace}
-                className="text-md-primary hover:underline cursor-pointer"
-              >
-                {t('workers.card.currentTaskLink')}
-              </button>
-            ) : (
-              <span>{t('workers.card.noCurrentTask')}</span>
-            )}
-          </div>
-        </div>
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+      {/* Header: status dot + name + role chip + actions */}
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+        <span
+          className={cn(
+            'h-2 w-2 shrink-0 rounded-full',
+            isWorking ? 'animate-pulse bg-brand-on-surface' : 'bg-success'
+          )}
+          aria-hidden
+        />
+        <span
+          className="color-emoji select-none text-sm leading-none"
+          aria-hidden
+        >
+          {worker.emoji}
+        </span>
+        <h3 className="truncate font-sans text-title text-high">
+          {worker.name}
+        </h3>
+        <span className="shrink-0 rounded-full bg-secondary px-2 py-px text-xs text-normal">
+          {t(`workers.roles.${worker.role ?? 'developer'}`)}
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="icon"
               size="icon"
               aria-label={t('workers.card.menuLabel')}
-              className="text-md-on-surface-variant hover:text-md-on-surface transition-colors"
+              title={t('workers.card.menuLabel')}
+              className="ml-auto"
             >
-              <MaterialIcon name="more_vert" size="base" />
+              <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -140,7 +96,7 @@ export function WorkerCard({
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={onDelete}
-              className="text-md-error focus:text-md-error"
+              className="text-error focus:text-error"
             >
               {t('workers.card.delete')}
             </DropdownMenuItem>
@@ -148,64 +104,115 @@ export function WorkerCard({
         </DropdownMenu>
       </div>
 
-      {/* Stats row */}
-      <div className="flex items-center gap-4 px-5 pb-4">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-title-sm font-semibold text-md-on-surface tabular-nums">
-            {worker.queued_count}
-          </span>
-          <span className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface-variant">
-            {t('workers.card.queuedLabel')}
-          </span>
+      {/* Body rows: task · branch · queue */}
+      <div className="flex flex-1 flex-col gap-2 px-3 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {isWorking ? (
+            <SquareKanban
+              className="h-4 w-4 shrink-0 text-normal"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          ) : (
+            <Check
+              className="h-4 w-4 shrink-0 text-normal"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          )}
+          {isWorking ? (
+            activeTask ? (
+              <span
+                className="truncate text-sm text-high"
+                title={activeTask.title}
+              >
+                {activeTask.title}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenWorkspace}
+                className="truncate text-sm text-brand-on-surface hover:underline"
+              >
+                {t('workers.card.currentTaskLink')}
+              </button>
+            )
+          ) : (
+            <span className="truncate text-sm text-normal">
+              {t('workers.card.noCurrentTask')}
+            </span>
+          )}
         </div>
-        <span className="h-4 w-px bg-md-outline-variant" aria-hidden />
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-title-sm font-semibold text-md-on-surface tabular-nums">
-            {worker.completed_count}
-          </span>
-          <span className="text-label-caps font-geist font-semibold uppercase tracking-widest text-md-on-surface-variant">
-            {t('workers.card.completedLabel')}
+
+        <div className="flex min-w-0 items-center gap-2">
+          <GitBranch
+            className="h-4 w-4 shrink-0 text-normal"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          {activeBranch ? (
+            <span
+              className="truncate font-mono text-code text-normal"
+              title={activeBranch}
+            >
+              {activeBranch}
+            </span>
+          ) : (
+            <span className="font-mono text-code text-low">–</span>
+          )}
+        </div>
+
+        <div className="flex min-w-0 items-center gap-2">
+          <ListTodo
+            className="h-4 w-4 shrink-0 text-normal"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          <span className="truncate text-sm text-normal tabular-nums">
+            {worker.queued_count} {t('workers.card.queuedLabel')} ·{' '}
+            {worker.completed_count} {t('workers.card.completedLabel')}
           </span>
         </div>
       </div>
 
-      {/* Actions footer */}
-      <div className="flex items-center gap-2 border-t border-md-outline-variant bg-md-surface-container-low px-4 py-3 rounded-b-lg">
-        <button
-          type="button"
-          onClick={onStartNext}
-          disabled={isStarting || isWorking || worker.queued_count === 0}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
-            'bg-md-primary text-md-on-primary text-body-sm font-semibold',
-            'hover:opacity-90 active:scale-95 transition-all duration-200',
-            'disabled:opacity-40 disabled:cursor-not-allowed'
-          )}
-        >
-          <MaterialIcon
-            name={isStarting ? 'progress_activity' : 'play_arrow'}
-            size="sm"
-            className={isStarting ? 'animate-spin' : ''}
-          />
-          {t('workers.card.startNext')}
-        </button>
-        <button
-          type="button"
+      {/* Footer on panel bg */}
+      <div className="flex items-center gap-2 border-t border-border bg-md-surface-container-lowest px-3 py-2">
+        {isWorking ? (
+          <Button variant="secondary" onClick={handleOpenWorkspace}>
+            {t('issues.taskLinked.openWorkspace')}
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            onClick={onStartNext}
+            disabled={isStarting || worker.queued_count === 0}
+          >
+            {isStarting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
+            {t('workers.card.startNext')}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
           onClick={() => setIsExpanded((v) => !v)}
-          className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-body-sm text-md-on-surface-variant hover:bg-md-surface-container hover:text-md-on-surface active:scale-95 transition-all duration-200"
+          className="ml-auto"
         >
-          <MaterialIcon
-            name={isExpanded ? 'expand_less' : 'expand_more'}
-            size="sm"
-          />
           {isExpanded
             ? t('workers.card.collapseQueue')
             : t('workers.card.expandQueue')}
-        </button>
+          {isExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" strokeWidth={1.75} />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+          )}
+        </Button>
       </div>
 
       {isExpanded && (
-        <div className="border-t border-md-outline-variant p-4">
+        <div className="border-t border-border bg-md-surface-container-lowest p-3">
           <WorkerTaskList
             workerId={worker.id}
             activeWorkspaceId={worker.active_workspace_id}
