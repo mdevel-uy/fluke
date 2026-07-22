@@ -88,10 +88,10 @@ export function InputField({
   const getBorderClass = () => {
     if (variant === 'editable') {
       if (justSaved) return 'border-success';
-      if (isEditing) return 'border-brand';
+      if (isEditing) return 'border-brand-on-surface';
     }
-    if (variant === 'search' && isFocused) return 'border-brand';
-    return 'border-border';
+    if (variant === 'search' && isFocused) return 'border-brand-on-surface';
+    return 'border-border-strong';
   };
 
   // For search variant: always show input
@@ -101,8 +101,7 @@ export function InputField({
   return (
     <div
       className={cn(
-        'bg-secondary border rounded-lg px-3 py-1.5 flex items-center gap-2 transition-colors',
-        isFocused && 'ring-2 ring-brand/25',
+        'bg-md-surface-container-low border rounded-sm h-[26px] px-2 flex items-center gap-1.5 transition-colors',
         getBorderClass(),
         className
       )}

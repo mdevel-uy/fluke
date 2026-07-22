@@ -361,6 +361,7 @@ export function WorkspacesSidebar({
             {/* Needs Attention section */}
             <CollapsibleSectionHeader
               title={t('common:workspaces.needsAttention')}
+              count={raisedHandWorkspaces.length + (draftTitle ? 1 : 0)}
               persistKey={persistKeys.raisedHand}
               defaultExpanded={true}
             >
@@ -374,7 +375,7 @@ export function WorkspacesSidebar({
                   />
                 )}
                 {raisedHandWorkspaces.length === 0 && !draftTitle ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
+                  <span className="text-xs text-low pl-[22px] py-0.5">
                     {t('common:workspaces.noWorkspaces')}
                   </span>
                 ) : (
@@ -391,12 +392,13 @@ export function WorkspacesSidebar({
             {/* Running section */}
             <CollapsibleSectionHeader
               title={t('common:workspaces.running')}
+              count={runningWorkspaces.length}
               persistKey={persistKeys.running}
               defaultExpanded={true}
             >
               <div className="flex flex-col gap-base py-half">
                 {runningWorkspaces.length === 0 ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
+                  <span className="text-xs text-low pl-[22px] py-0.5">
                     {t('common:workspaces.noWorkspaces')}
                   </span>
                 ) : (
@@ -413,12 +415,13 @@ export function WorkspacesSidebar({
             {/* Idle section */}
             <CollapsibleSectionHeader
               title={t('common:workspaces.idle')}
+              count={idleWorkspaces.length}
               persistKey={persistKeys.notRunning}
               defaultExpanded={true}
             >
               <div className="flex flex-col gap-base py-half">
                 {idleWorkspaces.length === 0 ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
+                  <span className="text-xs text-low pl-[22px] py-0.5">
                     {t('common:workspaces.noWorkspaces')}
                   </span>
                 ) : (

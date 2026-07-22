@@ -251,7 +251,7 @@ export function SharedAppLayout() {
             {/* Desktop corner spacer. */}
             <div
               data-tauri-drag-region
-              className="bg-secondary/60 border-b border-r border-border/60"
+              className="bg-md-surface-container-lowest border-b border-r border-md-outline-variant"
               style={isTauriMac() ? { minWidth: 56 } : undefined}
             />
             {/* Desktop navbar. */}
