@@ -107,7 +107,7 @@ export interface ActionExecutorContext {
 // Context for evaluating action visibility and state conditions
 export interface ActionVisibilityContext {
   // Layout state
-  layoutMode: LayoutMode;
+  layoutMode: LayoutMode | 'none';
   rightMainPanelMode:
     | (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES]
     | null;

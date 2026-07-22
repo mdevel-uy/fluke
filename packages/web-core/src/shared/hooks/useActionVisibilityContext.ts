@@ -15,7 +15,10 @@ import { useShape } from '@/shared/integrations/electric/hooks';
 import { useExecutionProcessesContext } from '@/shared/hooks/useExecutionProcessesContext';
 import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
 import { useAuth } from '@/shared/hooks/auth/useAuth';
-import { isProjectDestination } from '@/shared/lib/routes/appNavigation';
+import {
+  isProjectDestination,
+  isWorkspacesDestination,
+} from '@/shared/lib/routes/appNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useCurrentKanbanRouteState } from '@/shared/hooks/useCurrentKanbanRouteState';
 import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
@@ -82,10 +85,15 @@ export function useActionVisibilityContext(
     return !!selectedIssue?.parent_issue_id;
   }, [shouldResolveSelectedIssueParent, projectIssues, effectiveIssueIds]);
 
-  // Derive layoutMode from current route instead of persisted state
-  const layoutMode: LayoutMode = isProjectDestination(destination)
+  // Derive layoutMode from current route instead of persisted state.
+  // Standalone pages (sprint, issues, workers, export…) are 'none' so that
+  // workspace/kanban panel toggles don't leak into their navbar — they would
+  // toggle state for panels those pages never render.
+  const layoutMode: LayoutMode | 'none' = isProjectDestination(destination)
     ? 'kanban'
-    : 'workspaces';
+    : isWorkspacesDestination(destination)
+      ? 'workspaces'
+      : 'none';
   const { config } = useUserSystem();
   const { isStarting, isStopping, runningDevServers } =
     useDevServer(workspaceId);
