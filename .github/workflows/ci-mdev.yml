@@ -23,6 +23,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check for duplicate migration versions
+        run: |
+          duplicates=$(ls crates/db/migrations/ | cut -d_ -f1 | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "ERROR: Duplicate migration versions detected:"
+            echo "$duplicates"
+            exit 1
+          fi
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -76,3 +85,6 @@ jobs:
 
       - name: cargo check -p server
         run: cargo check --locked -p server
+
+      - name: Check shared/types.ts is up-to-date
+        run: cargo run --locked --bin generate_types -- --check
