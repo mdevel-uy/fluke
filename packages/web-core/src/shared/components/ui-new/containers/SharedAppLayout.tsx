@@ -27,6 +27,7 @@ import {
 } from '@/shared/lib/routes/appNavigation';
 import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
+import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
@@ -278,6 +279,7 @@ export function SharedAppLayout() {
               appVersion={appVersion}
               updateVersion={updateVersion}
               onUpdateClick={restartForUpdate ?? undefined}
+              onOpenSettings={() => SettingsDialog.show()}
             />
             {/* Desktop content. */}
             <div className="relative min-h-0 overflow-hidden">

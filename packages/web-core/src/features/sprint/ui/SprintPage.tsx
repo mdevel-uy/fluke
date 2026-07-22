@@ -763,8 +763,8 @@ export function SprintPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
-      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-headline-md font-sans font-semibold text-md-primary tracking-tight">
+      <header className="flex items-center justify-between px-4 border-b border-md-outline-variant gap-4 h-12 shrink-0 bg-md-surface-container-lowest">
+        <h1 className="text-title font-sans text-md-on-surface">
           {t('sprint.title')}
         </h1>
         <div className="flex items-center gap-3">

@@ -93,8 +93,22 @@ export function CollapsibleSectionHeader({
 
   const headerContent = (
     <>
-      <span className="font-medium truncate text-normal">{title}</span>
-      <div className="flex items-center gap-half">
+      <span className="flex items-center gap-0.5 min-w-0">
+        {collapsible && (
+          <MaterialIcon
+            name="chevron_left"
+            size="xs"
+            className={cn(
+              'text-md-on-surface-variant transition-transform duration-150 shrink-0',
+              expanded ? '-rotate-90' : 'rotate-180'
+            )}
+          />
+        )}
+        <span className="text-label font-semibold uppercase tracking-wider truncate text-normal">
+          {title}
+        </span>
+      </span>
+      <div className="flex items-center gap-0.5">
         {headerExtra}
         {actions.map((action, index) => {
           const ActionIcon = action.icon;
@@ -106,9 +120,9 @@ export function CollapsibleSectionHeader({
               onClick={(e) => handleActionClick(e, action.onClick)}
               onKeyDown={(e) => handleActionKeyDown(e, action.onClick)}
               className={cn(
-                'hover:text-md-on-surface transition-colors duration-200 active:scale-95',
+                'flex items-center justify-center w-5 h-5 rounded-sm transition-colors duration-150 hover:bg-md-surface-container hover:text-md-on-surface',
                 action.isActive
-                  ? 'text-md-primary'
+                  ? 'text-brand-on-surface'
                   : 'text-md-on-surface-variant'
               )}
             >
@@ -124,16 +138,6 @@ export function CollapsibleSectionHeader({
             </span>
           );
         })}
-        {collapsible && (
-          <MaterialIcon
-            name="expand_more"
-            size="xs"
-            className={cn(
-              'text-md-on-surface-variant transition-transform duration-200',
-              !expanded && '-rotate-90'
-            )}
-          />
-        )}
       </div>
     </>
   );
@@ -145,18 +149,12 @@ export function CollapsibleSectionHeader({
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className={cn(
-              'flex items-center justify-between w-full px-base py-half cursor-pointer'
-            )}
+            className="flex items-center justify-between w-full h-[22px] px-1.5 cursor-pointer hover:text-md-on-surface select-none"
           >
             {headerContent}
           </button>
         ) : (
-          <div
-            className={cn(
-              'flex items-center justify-between w-full px-base py-half'
-            )}
-          >
+          <div className="flex items-center justify-between w-full h-[30px] px-2 select-none">
             {headerContent}
           </div>
         )}
