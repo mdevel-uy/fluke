@@ -279,6 +279,10 @@ module.exports = {
           '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-2px)' },
           '20%, 40%, 60%, 80%': { transform: 'translateX(2px)' },
         },
+        'progress-indeterminate': {
+          '0%':   { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -289,6 +293,8 @@ module.exports = {
         'running-dot-3':  'running-dot 1.4s ease-in-out 0.4s infinite',
         'border-flash':   'border-flash 2s linear infinite',
         shake:            'shake 0.3s ease-in-out',
+        'progress-indeterminate':
+          'progress-indeterminate 1.6s ease-in-out infinite',
       },
     },
   },
