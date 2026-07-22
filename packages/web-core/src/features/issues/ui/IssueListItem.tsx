@@ -92,12 +92,12 @@ export function IssueListItem({
   return (
     <li
       className={cn(
-        'group flex items-start gap-3 px-3 py-2',
+        'group flex items-start gap-4 px-4 py-4',
         'border-b border-md-outline-variant last:border-b-0',
-        'transition-colors duration-150 cursor-pointer',
+        'transition-all duration-200 cursor-pointer',
         isSelected
-          ? 'bg-sel border-l-2 border-l-brand-on-surface'
-          : 'bg-card hover:bg-secondary/60'
+          ? 'bg-md-primary-container/20 border-l-2 border-l-md-primary'
+          : 'bg-md-surface-container-lowest hover:shadow-card-hover hover:-translate-y-px hover:z-10 hover:relative'
       )}
       onClick={() => onSelect?.(issue)}
     >
@@ -174,11 +174,11 @@ export function IssueListItem({
             type="button"
             onClick={handleViewTask}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 h-[26px]',
-              'border border-brand-on-surface/40 text-brand-on-surface rounded-sm',
-              'text-body-sm',
+              'flex items-center gap-1.5 px-3 py-1.5',
+              'border border-md-primary text-md-primary rounded-lg',
+              'text-body-sm font-semibold',
               'hover:bg-md-primary-container/10',
-              'transition-colors duration-150'
+              'active:scale-95 transition-all duration-200'
             )}
             title={linkLabel}
           >
@@ -199,9 +199,9 @@ export function IssueListItem({
                 disabled={archiving}
                 title={t('issues.archiveAction')}
                 className={cn(
-                  'flex items-center justify-center h-[26px] w-[26px] rounded-sm',
+                  'flex items-center justify-center h-8 w-8 rounded-lg',
                   'text-md-on-surface-variant hover:bg-md-surface-container',
-                  'transition-colors duration-150',
+                  'active:scale-95 transition-all duration-200',
                   'disabled:opacity-40 disabled:cursor-not-allowed'
                 )}
               >
@@ -217,11 +217,11 @@ export function IssueListItem({
               onClick={handleAssign}
               disabled={!repoId}
               className={cn(
-                'flex items-center gap-1.5 px-2.5 h-[26px]',
-                'border border-brand-on-surface/40 text-brand-on-surface rounded-sm',
-                'text-body-sm',
+                'flex items-center gap-1.5 px-3 py-1.5',
+                'border border-md-primary text-md-primary rounded-lg',
+                'text-body-sm font-semibold',
                 'hover:bg-md-primary-container/10',
-                'transition-colors duration-150',
+                'active:scale-95 transition-all duration-200',
                 'disabled:opacity-40 disabled:cursor-not-allowed'
               )}
             >

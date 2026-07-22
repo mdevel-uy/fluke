@@ -26,7 +26,7 @@ function StatCard({
   accentClass: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-md-outline-variant bg-card p-3">
+    <div className="flex flex-col gap-2 rounded-xl border border-md-outline-variant bg-md-surface-container-low p-4">
       <div
         className={cn(
           'flex items-center gap-1.5 text-label-caps font-geist font-semibold uppercase tracking-widest',
@@ -277,7 +277,7 @@ export function WorkersPage() {
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 p-container-padding md:grid-cols-2 xl:grid-cols-3">
             {workers.map((worker) => (
               <WorkerCard
                 key={worker.id}
