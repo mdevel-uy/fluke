@@ -24,7 +24,7 @@ function WorkerAvatar({
   return (
     <div className="relative shrink-0">
       <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg bg-md-surface-container-low text-2xl leading-none select-none color-emoji"
+        className="flex h-12 w-12 items-center justify-center rounded-xl bg-md-surface-container-low text-3xl leading-none select-none color-emoji"
         aria-hidden
       >
         {emoji}
@@ -83,7 +83,7 @@ export function WorkerCard({
   return (
     <div className="group flex flex-col rounded-lg border border-md-outline-variant bg-card transition-colors duration-150 hover:border-md-outline">
       {/* Header */}
-      <div className="flex items-start gap-3 p-3">
+      <div className="flex items-start gap-4 p-5">
         <WorkerAvatar emoji={worker.emoji} isWorking={isWorking} />
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex items-center gap-2 flex-wrap">
@@ -149,7 +149,7 @@ export function WorkerCard({
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 px-3 pb-3">
+      <div className="flex items-center gap-4 px-5 pb-4">
         <div className="flex items-baseline gap-1.5">
           <span className="text-title-sm font-semibold text-md-on-surface tabular-nums">
             {worker.queued_count}
@@ -170,14 +170,14 @@ export function WorkerCard({
       </div>
 
       {/* Actions footer */}
-      <div className="flex items-center gap-2 border-t border-md-outline-variant bg-md-surface-container-lowest px-2 py-1.5 rounded-b-lg">
+      <div className="flex items-center gap-2 border-t border-md-outline-variant bg-md-surface-container-low px-4 py-3 rounded-b-lg">
         <button
           type="button"
           onClick={onStartNext}
           disabled={isStarting || isWorking || worker.queued_count === 0}
           className={cn(
-            'flex items-center gap-1.5 px-2.5 h-[26px] rounded-sm',
-            'bg-brand text-on-brand text-body-sm',
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
+            'bg-md-primary text-md-on-primary text-body-sm font-semibold',
             'hover:opacity-90 active:scale-95 transition-all duration-200',
             'disabled:opacity-40 disabled:cursor-not-allowed'
           )}
