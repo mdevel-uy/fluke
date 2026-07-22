@@ -66,12 +66,6 @@ export function WorkerCard({
           )}
           aria-hidden
         />
-        <span
-          className="color-emoji select-none text-sm leading-none"
-          aria-hidden
-        >
-          {worker.emoji}
-        </span>
         <h3 className="truncate font-sans text-title text-high">
           {worker.name}
         </h3>
