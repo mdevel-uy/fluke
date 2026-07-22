@@ -239,7 +239,7 @@ export function WorkspacesSidebar({
   ];
 
   return (
-    <div className="w-full h-full bg-secondary flex flex-col">
+    <div className="w-full h-full bg-md-surface-container-lowest flex flex-col">
       {/* Header + Search */}
       <div className="flex flex-col gap-base">
         <CollapsibleSectionHeader

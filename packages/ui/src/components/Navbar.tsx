@@ -157,9 +157,18 @@ function NavbarBreadcrumbs({
   );
 }
 
+export interface NavbarSectionTab {
+  id: string;
+  label: string;
+  materialIcon?: string;
+  isActive?: boolean;
+  onClick?: () => void;
+}
+
 export interface NavbarProps {
   workspaceTitle?: string;
   breadcrumbs?: NavbarBreadcrumbItem[];
+  sectionTabs?: NavbarSectionTab[];
   leftItems?: NavbarSectionItem[];
   rightItems?: NavbarSectionItem[];
   leftSlot?: ReactNode;
@@ -190,6 +199,7 @@ export interface NavbarProps {
 export function Navbar({
   workspaceTitle,
   breadcrumbs,
+  sectionTabs = [],
   leftItems = [],
   rightItems = [],
   leftSlot,
@@ -429,19 +439,45 @@ export function Navbar({
     <nav
       data-tauri-drag-region
       className={cn(
-        'flex items-center justify-between px-3 py-1',
+        'flex items-stretch justify-between',
         'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-9',
         className
       )}
     >
-      <div data-tauri-drag-region className="flex-1 flex items-center gap-base">
-        {leftItems.map((item, index) =>
-          renderItem(
-            item,
-            `left-${isDivider(item) ? 'divider' : item.id}-${index}`
-          )
+      <div data-tauri-drag-region className="flex-1 flex items-stretch min-w-0">
+        {sectionTabs.length > 0 && (
+          <div className="flex items-stretch h-full" role="tablist">
+            {sectionTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={tab.isActive}
+                onClick={tab.onClick}
+                className={cn(
+                  'flex items-center gap-1.5 px-3.5 text-sm whitespace-nowrap border-r border-md-outline-variant transition-colors duration-150',
+                  tab.isActive
+                    ? 'bg-md-background text-md-on-surface shadow-[inset_0_1px_0_hsl(var(--brand-on-surface))]'
+                    : 'text-md-on-surface-variant hover:text-md-on-surface'
+                )}
+              >
+                {tab.materialIcon && (
+                  <MaterialIcon name={tab.materialIcon} size="sm" />
+                )}
+                {tab.label}
+              </button>
+            ))}
+          </div>
         )}
-        {leftSlot}
+        <div className="flex items-center gap-base px-2">
+          {leftItems.map((item, index) =>
+            renderItem(
+              item,
+              `left-${isDivider(item) ? 'divider' : item.id}-${index}`
+            )
+          )}
+          {leftSlot}
+        </div>
       </div>
 
       <div
@@ -465,7 +501,7 @@ export function Navbar({
 
       <div
         data-tauri-drag-region
-        className="flex-1 flex items-center justify-end gap-base"
+        className="flex-1 flex items-center justify-end gap-base px-3"
       >
         <SyncErrorIndicator errors={syncErrors} />
         {rightItems.map((item, index) =>

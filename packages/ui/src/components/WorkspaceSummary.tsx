@@ -85,25 +85,23 @@ export function WorkspaceSummary({
   return (
     <div
       className={cn(
-        'group relative rounded-sm transition-all duration-100 overflow-hidden',
-        isActive ? 'bg-tertiary' : '',
+        'group relative transition-colors duration-100 overflow-hidden',
+        isActive ? 'bg-sel' : 'hover:bg-secondary',
         className
       )}
     >
       {/* Selection indicator - thin colored tab on the left */}
       <div
         className={cn(
-          'absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-colors duration-100',
-          isActive ? 'bg-brand' : 'bg-transparent'
+          'absolute left-0 top-0.5 bottom-0.5 w-0.5 transition-colors duration-100',
+          isActive ? 'bg-brand-on-surface' : 'bg-transparent'
         )}
       />
       <button
         onClick={onClick}
         className={cn(
-          'flex w-full cursor-pointer flex-col text-left px-base py-half transition-all duration-150',
-          isActive
-            ? 'text-normal'
-            : 'text-low sm:opacity-60 sm:hover:opacity-100 sm:hover:text-normal'
+          'flex w-full cursor-pointer flex-col text-left px-2 py-0.5 transition-colors duration-150',
+          isActive ? 'text-high' : 'text-normal hover:text-high'
         )}
       >
         <div
@@ -121,7 +119,7 @@ export function WorkspaceSummary({
           {name}
         </div>
         {(!summary || isActive) && (
-          <div className="flex w-full items-center gap-base text-sm h-5">
+          <div className="flex w-full items-center gap-base text-xs text-low h-[17px]">
             {/* Dev server running - leftmost */}
             {hasRunningDevServer && (
               <PlayIcon
@@ -217,9 +215,9 @@ export function WorkspaceSummary({
       {workspaceId && onOpenWorkspaceActions && (
         <div className="absolute right-0 top-0 bottom-0 flex items-center sm:opacity-0 sm:group-hover:opacity-100">
           {/* Gradient fade from transparent to background */}
-          <div className="h-full w-6 pointer-events-none bg-gradient-to-r from-transparent to-secondary" />
+          <div className="h-full w-6 pointer-events-none bg-gradient-to-r from-transparent to-md-surface-container-lowest" />
           {/* Single action button */}
-          <div className="flex items-center pr-base h-full bg-secondary">
+          <div className="flex items-center pr-base h-full bg-md-surface-container-lowest">
             <button
               onClick={handleOpenCommandBar}
               onPointerDown={(e) => e.stopPropagation()}

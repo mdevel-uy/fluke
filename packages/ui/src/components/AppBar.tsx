@@ -61,6 +61,7 @@ interface AppBarProps {
   appVersion?: string | null;
   updateVersion?: string | null;
   onUpdateClick?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export interface AppBarProject {
@@ -87,14 +88,6 @@ function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
   if (status === 'online') return 'bg-success';
   if (status === 'offline') return 'bg-md-outline';
   return 'bg-white border-warning';
-}
-
-function AppBarSectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="w-10 text-center text-label-caps font-geist font-semibold uppercase tracking-widest text-md-outline">
-      {children}
-    </p>
-  );
 }
 
 const appBarItemBase =
@@ -206,9 +199,9 @@ export function AppBar({
   onHoverEnd,
   notificationBell,
   userPopover,
-  appVersion,
   updateVersion,
   onUpdateClick,
+  onOpenSettings,
 }: AppBarProps) {
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
@@ -502,9 +495,11 @@ export function AppBar({
         'bg-md-surface-container-lowest border-r border-md-outline-variant'
       )}
     >
-      {sections.map((section) => (
-        <div key={section.key} className="flex flex-col items-center gap-1.5">
-          <AppBarSectionLabel>{section.label}</AppBarSectionLabel>
+      {sections.map((section, sectionIndex) => (
+        <div key={section.key} className="flex flex-col items-center gap-0.5">
+          {sectionIndex > 0 && (
+            <div className="h-px w-6 bg-md-outline-variant my-1" aria-hidden />
+          )}
           {section.items.map((item) => (
             <div
               key={item.key}
@@ -518,17 +513,15 @@ export function AppBar({
         </div>
       ))}
 
-      <div className="mt-auto pt-3 border-t border-md-outline-variant flex flex-col items-center gap-3 w-full">
-        {notificationBell}
-        {userPopover}
-        {updateVersion ? (
+      <div className="mt-auto flex flex-col items-center gap-1 w-full pt-2">
+        {updateVersion && (
           <Tooltip content={`Update to v${updateVersion}`} side="right">
             <button
               type="button"
               onClick={onUpdateClick}
               className={cn(
                 'flex items-center justify-center py-1 rounded-sm w-10',
-                'text-label-caps font-geist font-semibold uppercase tracking-widest',
+                'text-label uppercase tracking-wider',
                 'bg-brand text-on-brand hover:bg-brand-hover',
                 'transition-all duration-150 cursor-pointer'
               )}
@@ -536,15 +529,20 @@ export function AppBar({
               Update
             </button>
           </Tooltip>
-        ) : (
-          appVersion && (
-            <p
-              className="text-label-caps font-geist text-md-outline leading-none truncate max-w-10 text-center"
-              title={`v${appVersion}`}
+        )}
+        {notificationBell}
+        {userPopover}
+        {onOpenSettings && (
+          <Tooltip content="Settings" side="right">
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className={getStandardAppBarButtonClassName({})}
+              aria-label="Settings"
             >
-              v{appVersion}
-            </p>
-          )
+              <MaterialIcon name="settings" size="base" />
+            </button>
+          </Tooltip>
         )}
       </div>
     </div>
