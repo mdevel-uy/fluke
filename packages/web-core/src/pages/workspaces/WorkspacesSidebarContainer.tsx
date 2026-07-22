@@ -54,8 +54,6 @@ import {
 } from '@phosphor-icons/react';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
 
-export type WorkspaceLayoutMode = 'flat' | 'accordion';
-
 // Fixed UUID for the universal workspace draft (same as in useCreateModeState.ts)
 const DRAFT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -273,20 +271,11 @@ export function WorkspacesSidebarContainer({
     PERSIST_KEYS.workspacesSidebarArchived,
     false
   );
-  const [isAccordionLayout, setAccordionLayout] = usePersistedExpanded(
-    PERSIST_KEYS.workspacesSidebarAccordionLayout,
-    true
-  );
   const [isSortDialogOpen, setIsSortDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const { t } = useTranslation('common');
   const sortDialogTitle = t('kanban.workspaceSidebar.sortButtonTitle');
   const filterDialogTitle = t('kanban.workspaceSidebar.filterButtonTitle');
-
-  const layoutMode: WorkspaceLayoutMode = isAccordionLayout
-    ? 'accordion'
-    : 'flat';
-  const toggleLayoutMode = () => setAccordionLayout(!isAccordionLayout);
 
   // Workspace sidebar filters + sort
   const workspaceFilters = useUiPreferencesStore((s) => s.workspaceFilters);
@@ -604,9 +593,7 @@ export function WorkspacesSidebarContainer({
   }, []);
 
   const sidebarPersistKeys: WorkspacesSidebarPersistKeys = {
-    raisedHand: PERSIST_KEYS.workspacesSidebarRaisedHand,
-    notRunning: PERSIST_KEYS.workspacesSidebarNotRunning,
-    running: PERSIST_KEYS.workspacesSidebarRunning,
+    statusTab: PERSIST_KEYS.workspacesSidebarStatusTab,
   };
 
   const searchControls = (
@@ -684,7 +671,6 @@ export function WorkspacesSidebarContainer({
   return (
     <WorkspacesSidebar
       workspaces={paginatedActiveWorkspaces}
-      totalWorkspacesCount={activeWorkspaces.length}
       archivedWorkspaces={paginatedArchivedWorkspaces}
       isLoading={isWorkspacesListLoading}
       selectedWorkspaceId={selectedWorkspaceId ?? null}
@@ -697,8 +683,6 @@ export function WorkspacesSidebarContainer({
       onSelectCreate={navigateToCreate}
       showArchive={showArchive}
       onShowArchiveChange={setShowArchive}
-      layoutMode={layoutMode}
-      onToggleLayoutMode={toggleLayoutMode}
       onLoadMore={handleLoadMore}
       hasMoreWorkspaces={hasMoreWorkspaces && !isSearching}
       searchControls={searchControls}

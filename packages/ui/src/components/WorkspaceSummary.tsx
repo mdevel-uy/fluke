@@ -5,12 +5,13 @@ import {
   PlayIcon,
   FileIcon,
   CircleIcon,
+  ClockIcon,
   GitPullRequestIcon,
   DotsThreeIcon,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
-import { RunningDots } from './RunningDots';
+import { ContextUsageGauge } from './ContextUsageGauge';
 
 const formatRelativeElapsed = (dateString: string): string => {
   const date = new Date(dateString);
@@ -27,6 +28,11 @@ const formatRelativeElapsed = (dateString: string): string => {
   return `${diffDays}d ago`;
 };
 
+export interface WorkspaceContextUsage {
+  totalTokens: number;
+  contextWindow: number;
+}
+
 export interface WorkspaceSummaryProps {
   name: string;
   workspaceId?: string;
@@ -42,6 +48,8 @@ export interface WorkspaceSummaryProps {
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
+  /** Context window usage of the agent session, if known */
+  contextUsage?: WorkspaceContextUsage | null;
   onClick?: () => void;
   className?: string;
   summary?: boolean;
@@ -65,6 +73,7 @@ export function WorkspaceSummary({
   latestProcessCompletedAt,
   latestProcessStatus,
   prStatus,
+  contextUsage,
   onClick,
   className,
   summary = false,
@@ -75,6 +84,9 @@ export function WorkspaceSummary({
   const hasChanges = filesChanged !== undefined && filesChanged > 0;
   const isFailed =
     latestProcessStatus === 'failed' || latestProcessStatus === 'killed';
+  const needsAttention =
+    hasPendingApproval || (hasUnseenActivity && !isRunning);
+  const showMeta = !summary || isActive;
 
   const handleOpenCommandBar = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,118 +97,144 @@ export function WorkspaceSummary({
   return (
     <div
       className={cn(
-        'group relative transition-colors duration-100 overflow-hidden',
-        isActive ? 'bg-sel' : 'hover:bg-secondary',
+        'group relative overflow-hidden rounded-md border bg-card shadow-sm transition-colors duration-100',
+        isActive
+          ? 'border-brand-on-surface bg-sel'
+          : 'border-border hover:bg-secondary',
         className
       )}
     >
-      {/* Selection indicator - thin colored tab on the left */}
-      <div
-        className={cn(
-          'absolute left-0 top-0.5 bottom-0.5 w-0.5 transition-colors duration-100',
-          isActive ? 'bg-brand-on-surface' : 'bg-transparent'
-        )}
-      />
+      {/* Attention accent - thin colored bar on the left edge */}
+      {needsAttention && (
+        <span
+          className="absolute inset-y-0 left-0 w-[3px] bg-brand-on-surface"
+          aria-hidden="true"
+        />
+      )}
+
       <button
         onClick={onClick}
         className={cn(
-          'flex w-full cursor-pointer flex-col text-left px-2 py-0.5 transition-colors duration-150',
+          'flex w-full cursor-pointer flex-col gap-half p-3 text-left transition-colors duration-150',
           isActive ? 'text-high' : 'text-normal hover:text-high'
         )}
       >
-        <div
-          className={cn(
-            'overflow-hidden whitespace-nowrap pr-double',
-            !summary && 'text-normal'
+        {/* Header: name + status icons */}
+        <div className="flex w-full items-center gap-half">
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate font-medium',
+              isActive ? 'text-high' : 'text-normal'
+            )}
+          >
+            {name}
+          </span>
+
+          {/* Dev server running */}
+          {hasRunningDevServer && (
+            <PlayIcon
+              className="size-icon-xs text-brand-on-surface shrink-0"
+              weight="fill"
+            />
           )}
-          style={{
-            maskImage:
-              'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
-          }}
-        >
-          {name}
+
+          {/* Pending approval - raised hand */}
+          {hasPendingApproval && (
+            <HandIcon
+              className="size-icon-xs text-brand-on-surface shrink-0"
+              weight="fill"
+            />
+          )}
+
+          {/* Failed/killed status (only when not running) */}
+          {!isRunning && isFailed && (
+            <TriangleIcon
+              className="size-icon-xs text-error shrink-0"
+              weight="fill"
+            />
+          )}
+
+          {/* Unseen activity indicator (only when not running and not failed) */}
+          {hasUnseenActivity && !isRunning && !isFailed && (
+            <CircleIcon
+              className="size-icon-xs text-brand-on-surface shrink-0"
+              weight="fill"
+            />
+          )}
+
+          {/* PR status icon */}
+          {prStatus === 'open' && (
+            <GitPullRequestIcon
+              className="size-icon-xs text-success shrink-0"
+              weight="fill"
+            />
+          )}
+          {prStatus === 'merged' && (
+            <GitPullRequestIcon
+              className="size-icon-xs text-merged shrink-0"
+              weight="fill"
+            />
+          )}
+
+          {/* Pin icon */}
+          {isPinned && (
+            <PushPinIcon
+              className="size-icon-xs text-brand-on-surface shrink-0"
+              weight="fill"
+            />
+          )}
+
+          {/* Context window usage gauge */}
+          {contextUsage && (
+            <ContextUsageGauge
+              tokenUsageInfo={{
+                total_tokens: contextUsage.totalTokens,
+                model_context_window: contextUsage.contextWindow,
+              }}
+              className="-my-1 shrink-0 !p-0"
+            />
+          )}
         </div>
-        {(!summary || isActive) && (
-          <div className="flex w-full items-center gap-base text-xs text-low h-[17px]">
-            {/* Dev server running - leftmost */}
-            {hasRunningDevServer && (
-              <PlayIcon
-                className="size-icon-xs text-brand-on-surface shrink-0"
-                weight="fill"
-              />
-            )}
 
-            {/* Failed/killed status (only when not running) */}
-            {!isRunning && isFailed && (
-              <TriangleIcon
-                className="size-icon-xs text-error shrink-0"
-                weight="fill"
-              />
-            )}
+        {/* Indeterminate progress bar while the agent is working */}
+        {showMeta && isRunning && (
+          <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                'h-full rounded-full',
+                hasPendingApproval
+                  ? 'w-full bg-brand-on-surface/40'
+                  : 'w-1/3 bg-success animate-progress-indeterminate'
+              )}
+            />
+          </div>
+        )}
 
-            {/* Running dots OR hand icon for pending approval */}
-            {isRunning &&
-              (hasPendingApproval ? (
-                <HandIcon
-                  className="size-icon-xs text-brand-on-surface shrink-0"
-                  weight="fill"
-                />
-              ) : (
-                <RunningDots />
-              ))}
-
-            {/* Unseen activity indicator (only when not running and not failed) */}
-            {hasUnseenActivity && !isRunning && !isFailed && (
-              <CircleIcon
-                className="size-icon-xs text-brand-on-surface shrink-0"
-                weight="fill"
-              />
-            )}
-
-            {/* PR status icon */}
-            {prStatus === 'open' && (
-              <GitPullRequestIcon
-                className="size-icon-xs text-success shrink-0"
-                weight="fill"
-              />
-            )}
-            {prStatus === 'merged' && (
-              <GitPullRequestIcon
-                className="size-icon-xs text-merged shrink-0"
-                weight="fill"
-              />
-            )}
-
-            {/* Pin icon */}
-            {isPinned && (
-              <PushPinIcon
-                className="size-icon-xs text-brand-on-surface shrink-0"
-                weight="fill"
-              />
-            )}
-
-            {/* Time elapsed OR "Draft" label (when not running) */}
-            {!isRunning &&
-              (isDraft ? (
-                <span className="min-w-0 flex-1 truncate">
-                  {t('workspaces.draft')}
-                </span>
+        {/* Footer: activity/time + change stats */}
+        {showMeta && (
+          <div className="flex h-[17px] w-full items-center justify-between gap-base text-xs text-low">
+            <span className="flex min-w-0 items-center gap-half truncate">
+              {isRunning ? (
+                hasPendingApproval ? (
+                  t('workspaces.activityWaitingApproval')
+                ) : (
+                  t('workspaces.activityWorking')
+                )
+              ) : isDraft ? (
+                t('workspaces.draft')
               ) : latestProcessCompletedAt ? (
-                <span className="min-w-0 flex-1 truncate">
-                  {formatRelativeElapsed(latestProcessCompletedAt)}
-                </span>
-              ) : (
-                <span className="flex-1" />
-              ))}
-
-            {/* Spacer when running (no elapsed time shown) */}
-            {isRunning && <span className="flex-1" />}
+                <>
+                  <ClockIcon className="size-icon-xs shrink-0" />
+                  <span className="truncate">
+                    {formatRelativeElapsed(latestProcessCompletedAt)}
+                  </span>
+                </>
+              ) : null}
+            </span>
 
             {/* File count + lines changed on the right */}
             {hasChanges && (
-              <span className="shrink-0 text-right flex items-center gap-half">
+              <span className="flex shrink-0 items-center gap-half text-right">
                 <FileIcon className="size-icon-xs" weight="fill" />
                 <span>{filesChanged}</span>
                 {linesAdded !== undefined && (
@@ -213,20 +251,15 @@ export function WorkspaceSummary({
 
       {/* Right-side hover action - more options only */}
       {workspaceId && onOpenWorkspaceActions && (
-        <div className="absolute right-0 top-0 bottom-0 flex items-center sm:opacity-0 sm:group-hover:opacity-100">
-          {/* Gradient fade from transparent to background */}
-          <div className="h-full w-6 pointer-events-none bg-gradient-to-r from-transparent to-md-surface-container-lowest" />
-          {/* Single action button */}
-          <div className="flex items-center pr-base h-full bg-md-surface-container-lowest">
-            <button
-              onClick={handleOpenCommandBar}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-sm text-low hover:text-normal hover:bg-tertiary"
-              title={t('workspaces.more')}
-            >
-              <DotsThreeIcon className="size-5" weight="bold" />
-            </button>
-          </div>
+        <div className="absolute right-1.5 top-1.5 sm:opacity-0 sm:group-hover:opacity-100">
+          <button
+            onClick={handleOpenCommandBar}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="rounded-sm border border-border bg-card p-1 text-low shadow-sm hover:bg-tertiary hover:text-normal"
+            title={t('workspaces.more')}
+          >
+            <DotsThreeIcon className="size-4" weight="bold" />
+          </button>
         </div>
       )}
     </div>

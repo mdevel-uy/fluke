@@ -34,6 +34,7 @@ export interface SidebarWorkspace {
   prNumber?: number;
   prUrl?: string;
   prMergeable?: string;
+  contextUsage?: { totalTokens: number; contextWindow: number };
 }
 
 // Keep the old export name for backwards compatibility
@@ -57,6 +58,21 @@ function toSidebarWorkspace(
   ws: WorkspaceWithStatus,
   summary?: WorkspaceSummary
 ): SidebarWorkspace {
+  // Forward-compatible: the backend does not expose per-workspace context
+  // usage yet; once WorkspaceSummary grows `latest_context_usage` the sidebar
+  // gauge lights up without further frontend changes (same pattern as
+  // pr_mergeable below).
+  const contextUsage = (
+    summary as
+      | (typeof summary & {
+          latest_context_usage?: {
+            total_tokens: number;
+            model_context_window: number;
+          } | null;
+        })
+      | undefined
+  )?.latest_context_usage;
+
   return {
     id: ws.id,
     name: ws.name ?? ws.branch, // Use name if available, fallback to branch
@@ -88,6 +104,12 @@ function toSidebarWorkspace(
           | (typeof summary & { pr_mergeable?: string | null })
           | undefined
       )?.pr_mergeable ?? undefined,
+    contextUsage: contextUsage
+      ? {
+          totalTokens: contextUsage.total_tokens,
+          contextWindow: contextUsage.model_context_window,
+        }
+      : undefined,
   };
 }
 

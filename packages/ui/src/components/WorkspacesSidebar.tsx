@@ -1,17 +1,46 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
-import { WorkspaceSummary } from './WorkspaceSummary';
+import {
+  WorkspaceSummary,
+  type WorkspaceContextUsage,
+} from './WorkspaceSummary';
 import type { AppBarHostStatus } from './AppBar';
 import {
   CollapsibleSectionHeader,
   type SectionAction,
 } from './CollapsibleSectionHeader';
 
-export type WorkspaceLayoutMode = 'flat' | 'accordion';
+export type WorkspaceStatusTab = 'running' | 'idle' | 'all';
+
+const STATUS_TABS: WorkspaceStatusTab[] = ['running', 'idle', 'all'];
+
+const STATUS_TAB_LABEL_KEYS: Record<WorkspaceStatusTab, string> = {
+  running: 'common:workspaces.running',
+  idle: 'common:workspaces.idle',
+  all: 'common:workspaces.all',
+};
+
+const TAB_STORAGE_KEY_PREFIX = 'vibe.ui.tab.';
+
+function getInitialStatusTab(
+  persistKey: string | undefined
+): WorkspaceStatusTab {
+  if (!persistKey || typeof window === 'undefined') return 'all';
+  try {
+    const stored = window.localStorage.getItem(
+      `${TAB_STORAGE_KEY_PREFIX}${persistKey}`
+    );
+    return STATUS_TABS.includes(stored as WorkspaceStatusTab)
+      ? (stored as WorkspaceStatusTab)
+      : 'all';
+  } catch {
+    return 'all';
+  }
+}
 
 export interface WorkspacesSidebarWorkspace {
   id: string;
@@ -27,23 +56,19 @@ export interface WorkspacesSidebarWorkspace {
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
+  contextUsage?: WorkspaceContextUsage | null;
 }
 
 export interface WorkspacesSidebarPersistKeys {
-  raisedHand: string;
-  notRunning: string;
-  running: string;
+  statusTab: string;
 }
 
 const DEFAULT_PERSIST_KEYS: WorkspacesSidebarPersistKeys = {
-  raisedHand: 'workspaces-sidebar-raised-hand',
-  notRunning: 'workspaces-sidebar-not-running',
-  running: 'workspaces-sidebar-running',
+  statusTab: 'workspaces-sidebar-status-tab',
 };
 
 export interface WorkspacesSidebarProps {
   workspaces: WorkspacesSidebarWorkspace[];
-  totalWorkspacesCount: number;
   archivedWorkspaces?: WorkspacesSidebarWorkspace[];
   isLoading?: boolean;
   selectedWorkspaceId: string | null;
@@ -61,10 +86,6 @@ export interface WorkspacesSidebarProps {
   showArchive?: boolean;
   /** Handler for toggling archive view */
   onShowArchiveChange?: (show: boolean) => void;
-  /** Layout mode for active workspaces */
-  layoutMode?: WorkspaceLayoutMode;
-  /** Handler for toggling layout mode */
-  onToggleLayoutMode?: () => void;
   /** Handler to load more workspaces on scroll */
   onLoadMore?: () => void;
   /** Whether there are more workspaces to load */
@@ -73,7 +94,7 @@ export interface WorkspacesSidebarProps {
   searchControls?: ReactNode;
   /** Callback for opening workspace actions */
   onOpenWorkspaceActions?: (workspaceId: string) => void;
-  /** Persist keys for collapsible sections */
+  /** Persist keys for sidebar view state */
   persistKeys?: WorkspacesSidebarPersistKeys;
   activeRemoteHost?: {
     name: string;
@@ -122,6 +143,10 @@ export function WorkspacesSidebarReopenTag({
   );
 }
 
+function needsAttention(ws: WorkspacesSidebarWorkspace) {
+  return !!ws.hasPendingApproval || (!!ws.hasUnseenActivity && !ws.isRunning);
+}
+
 function WorkspaceList({
   workspaces,
   selectedWorkspaceId,
@@ -152,6 +177,7 @@ function WorkspaceList({
           latestProcessCompletedAt={workspace.latestProcessCompletedAt}
           latestProcessStatus={workspace.latestProcessStatus}
           prStatus={workspace.prStatus}
+          contextUsage={workspace.contextUsage}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           onClick={() => onSelectWorkspace(workspace.id)}
         />
@@ -162,7 +188,6 @@ function WorkspaceList({
 
 export function WorkspacesSidebar({
   workspaces,
-  totalWorkspacesCount,
   archivedWorkspaces = [],
   isLoading = false,
   selectedWorkspaceId,
@@ -175,8 +200,6 @@ export function WorkspacesSidebar({
   onSelectCreate,
   showArchive = false,
   onShowArchiveChange,
-  layoutMode = 'flat',
-  onToggleLayoutMode,
   onLoadMore,
   hasMoreWorkspaces = false,
   searchControls,
@@ -208,30 +231,36 @@ export function WorkspacesSidebar({
     }
   };
 
-  // Categorize workspaces for accordion layout
-  const { raisedHandWorkspaces, idleWorkspaces, runningWorkspaces } =
-    useMemo(() => {
-      // Running workspaces should stay in the "Running" section even if unseen.
-      const needsAttention = (ws: WorkspacesSidebarWorkspace) =>
-        ws.hasPendingApproval || (ws.hasUnseenActivity && !ws.isRunning);
+  // Selected status tab, persisted per sidebar instance
+  const [statusTab, setStatusTab] = useState<WorkspaceStatusTab>(() =>
+    getInitialStatusTab(persistKeys.statusTab)
+  );
 
-      return {
-        raisedHandWorkspaces: workspaces.filter((ws) => needsAttention(ws)),
-        idleWorkspaces: workspaces.filter(
-          (ws) => !ws.isRunning && !needsAttention(ws)
-        ),
-        runningWorkspaces: workspaces.filter(
-          (ws) => ws.isRunning && !needsAttention(ws)
-        ),
-      };
-    }, [workspaces]);
+  useEffect(() => {
+    if (!persistKeys.statusTab) return;
+    try {
+      window.localStorage.setItem(
+        `${TAB_STORAGE_KEY_PREFIX}${persistKeys.statusTab}`,
+        statusTab
+      );
+    } catch {
+      // Ignore localStorage failures (private mode/quota/security errors).
+    }
+  }, [persistKeys.statusTab, statusTab]);
+
+  // Categorize workspaces per status tab, preserving the incoming sort order.
+  const tabWorkspaces = useMemo(
+    () => ({
+      running: workspaces.filter((ws) => ws.isRunning),
+      idle: workspaces.filter((ws) => !ws.isRunning),
+      all: workspaces,
+    }),
+    [workspaces]
+  );
+
+  const visibleWorkspaces = tabWorkspaces[statusTab];
 
   const headerActions: SectionAction[] = [
-    {
-      materialIcon: 'layers',
-      onClick: () => onToggleLayoutMode?.(),
-      isActive: layoutMode === 'accordion',
-    },
     {
       materialIcon: 'add',
       onClick: () => onAddWorkspace?.(),
@@ -259,6 +288,41 @@ export function WorkspacesSidebar({
               />
             </div>
             {searchControls}
+          </div>
+        )}
+
+        {!isLoading && !showArchive && (
+          <div
+            role="tablist"
+            className="flex items-stretch gap-base border-b border-md-outline-variant px-base"
+          >
+            {STATUS_TABS.map((tab) => {
+              const isActive = statusTab === tab;
+              const hasAttention = tabWorkspaces[tab].some(needsAttention);
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setStatusTab(tab)}
+                  className={cn(
+                    'relative -mb-px flex items-center gap-1 border-b-2 px-half py-half text-label uppercase tracking-wider transition-colors duration-150',
+                    isActive
+                      ? 'border-md-primary font-semibold text-md-primary'
+                      : 'border-transparent text-md-on-surface-variant hover:text-md-on-surface'
+                  )}
+                >
+                  {t(STATUS_TAB_LABEL_KEYS[tab])}
+                  {hasAttention && (
+                    <span
+                      className="size-dot shrink-0 rounded-full bg-md-primary"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -322,12 +386,12 @@ export function WorkspacesSidebar({
           </div>
         ) : showArchive ? (
           /* Archived workspaces view */
-          <div className="flex flex-col gap-base">
-            <span className="text-sm font-medium text-low px-base">
+          <div className="flex flex-col gap-base px-base">
+            <span className="text-sm font-medium text-low">
               {t('common:workspaces.archived')}
             </span>
             {archivedWorkspaces.length === 0 ? (
-              <span className="text-sm text-low opacity-60 px-base">
+              <span className="text-sm text-low opacity-60">
                 {t('common:workspaces.noArchived')}
               </span>
             ) : (
@@ -349,101 +413,16 @@ export function WorkspacesSidebar({
                   latestProcessCompletedAt={workspace.latestProcessCompletedAt}
                   latestProcessStatus={workspace.latestProcessStatus}
                   prStatus={workspace.prStatus}
+                  contextUsage={workspace.contextUsage}
                   onOpenWorkspaceActions={handleOpenWorkspaceActions}
                   onClick={() => onSelectWorkspace(workspace.id)}
                 />
               ))
             )}
           </div>
-        ) : layoutMode === 'accordion' ? (
-          /* Accordion layout view */
-          <div className="flex flex-col gap-base">
-            {/* Needs Attention section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.needsAttention')}
-              count={raisedHandWorkspaces.length + (draftTitle ? 1 : 0)}
-              persistKey={persistKeys.raisedHand}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {draftTitle && (
-                  <WorkspaceSummary
-                    name={draftTitle}
-                    isActive={isCreateMode}
-                    isDraft={true}
-                    onClick={onSelectCreate}
-                  />
-                )}
-                {raisedHandWorkspaces.length === 0 && !draftTitle ? (
-                  <span className="text-xs text-low pl-[22px] py-0.5">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={raisedHandWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-
-            {/* Running section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.running')}
-              count={runningWorkspaces.length}
-              persistKey={persistKeys.running}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {runningWorkspaces.length === 0 ? (
-                  <span className="text-xs text-low pl-[22px] py-0.5">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={runningWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-
-            {/* Idle section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.idle')}
-              count={idleWorkspaces.length}
-              persistKey={persistKeys.notRunning}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {idleWorkspaces.length === 0 ? (
-                  <span className="text-xs text-low pl-[22px] py-0.5">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={idleWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-          </div>
         ) : (
-          /* Active workspaces flat view */
-          <div className="flex flex-col gap-base">
-            <div className="flex items-center justify-between px-base">
-              <span className="text-sm font-medium text-low">
-                {t('common:workspaces.active')}
-              </span>
-              <span className="text-xs text-low">{totalWorkspacesCount}</span>
-            </div>
+          /* Status tab view */
+          <div className="flex flex-col gap-base px-base">
             {draftTitle && (
               <WorkspaceSummary
                 name={draftTitle}
@@ -452,27 +431,18 @@ export function WorkspacesSidebar({
                 onClick={onSelectCreate}
               />
             )}
-            {workspaces.map((workspace) => (
-              <WorkspaceSummary
-                key={workspace.id}
-                name={workspace.name}
-                workspaceId={workspace.id}
-                filesChanged={workspace.filesChanged}
-                linesAdded={workspace.linesAdded}
-                linesRemoved={workspace.linesRemoved}
-                isActive={selectedWorkspaceId === workspace.id}
-                isRunning={workspace.isRunning}
-                isPinned={workspace.isPinned}
-                hasPendingApproval={workspace.hasPendingApproval}
-                hasRunningDevServer={workspace.hasRunningDevServer}
-                hasUnseenActivity={workspace.hasUnseenActivity}
-                latestProcessCompletedAt={workspace.latestProcessCompletedAt}
-                latestProcessStatus={workspace.latestProcessStatus}
-                prStatus={workspace.prStatus}
+            {visibleWorkspaces.length === 0 && !draftTitle ? (
+              <span className="text-sm text-low opacity-60">
+                {t('common:workspaces.noWorkspaces')}
+              </span>
+            ) : (
+              <WorkspaceList
+                workspaces={visibleWorkspaces}
+                selectedWorkspaceId={selectedWorkspaceId}
+                onSelectWorkspace={onSelectWorkspace}
                 onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                onClick={() => onSelectWorkspace(workspace.id)}
               />
-            ))}
+            )}
           </div>
         )}
       </div>

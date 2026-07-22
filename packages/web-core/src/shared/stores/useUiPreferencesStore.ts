@@ -232,11 +232,7 @@ const DEFAULT_WORKSPACE_SORT_STATE: WorkspaceSortState = {
 export const PERSIST_KEYS = {
   // Sidebar sections
   workspacesSidebarArchived: 'workspaces-sidebar-archived',
-  // v2 key forces accordion default to true for all users
-  workspacesSidebarAccordionLayout: 'workspaces-sidebar-accordion-layout-v2',
-  workspacesSidebarRaisedHand: 'workspaces-sidebar-raised-hand',
-  workspacesSidebarNotRunning: 'workspaces-sidebar-not-running',
-  workspacesSidebarRunning: 'workspaces-sidebar-running',
+  workspacesSidebarStatusTab: 'workspaces-sidebar-status-tab',
   // Right panel sections
   gitAdvancedSettings: 'git-advanced-settings',
   gitPanelRepositories: 'git-panel-repositories',
@@ -272,10 +268,6 @@ const isWideScreen = () => window.innerWidth > 2048;
 
 export type PersistKey =
   | typeof PERSIST_KEYS.workspacesSidebarArchived
-  | typeof PERSIST_KEYS.workspacesSidebarAccordionLayout
-  | typeof PERSIST_KEYS.workspacesSidebarRaisedHand
-  | typeof PERSIST_KEYS.workspacesSidebarNotRunning
-  | typeof PERSIST_KEYS.workspacesSidebarRunning
   | typeof PERSIST_KEYS.gitAdvancedSettings
   | typeof PERSIST_KEYS.gitPanelRepositories
   | typeof PERSIST_KEYS.gitPanelProject
