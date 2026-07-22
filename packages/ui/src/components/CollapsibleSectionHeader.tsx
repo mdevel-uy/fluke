@@ -33,6 +33,8 @@ export type SectionAction = {
 interface CollapsibleSectionHeaderProps {
   persistKey?: string;
   title: string;
+  /** Item count shown after the title, VSCode-style ("RUNNING — 2") */
+  count?: number;
   defaultExpanded?: boolean;
   collapsible?: boolean;
   actions?: SectionAction[];
@@ -44,6 +46,7 @@ interface CollapsibleSectionHeaderProps {
 export function CollapsibleSectionHeader({
   persistKey,
   title,
+  count,
   defaultExpanded = true,
   collapsible = true,
   actions = [],
@@ -106,6 +109,12 @@ export function CollapsibleSectionHeader({
         )}
         <span className="text-label font-semibold uppercase tracking-wider truncate text-normal">
           {title}
+          {count !== undefined && (
+            <span className="text-low font-normal tabular-nums">
+              {' '}
+              — {count}
+            </span>
+          )}
         </span>
       </span>
       <div className="flex items-center gap-0.5">

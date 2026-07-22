@@ -71,7 +71,7 @@ html {
     --md-surface-bright: 0 0% 100%;
     --md-surface-dim: 0 0% 81%;
     --md-surface-container-lowest: 0 0% 97%; /* #F8F8F8 — chrome panels */
-    --md-surface-container-low: 0 0% 97%; /* inputs, muted panels */
+    --md-surface-container-low: 0 0% 100%; /* inputs (white on gray panels) */
     --md-surface-container: 0 0% 93%; /* #ECECEC — hovers */
     --md-surface-container-high: 227 20% 91%; /* #E4E6ED — pressed */
     --md-surface-container-highest: 0 0% 87%;
