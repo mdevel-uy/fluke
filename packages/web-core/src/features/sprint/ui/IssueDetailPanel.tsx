@@ -176,7 +176,6 @@ function WorkerDisplay({
         className="h-2 w-2 rounded-full bg-brand animate-pulse shrink-0"
         aria-hidden="true"
       />
-      <span aria-hidden="true">{activeWorker.emoji}</span>
       <span className="truncate max-w-[8rem]">{activeWorker.name}</span>
     </span>
   );

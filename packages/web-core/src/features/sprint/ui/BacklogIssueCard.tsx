@@ -108,9 +108,6 @@ export function BacklogIssueCard({
                       onSelect={() => onAssign(worker.id)}
                       disabled={isAssigning}
                     >
-                      <span className="mr-1.5 text-base" aria-hidden="true">
-                        {worker.emoji}
-                      </span>
                       <span className="truncate">{worker.name}</span>
                     </DropdownMenuItem>
                   ))}
@@ -163,9 +160,6 @@ export function BacklogIssueCard({
                   key={worker.id}
                   onSelect={() => onAssign(worker.id)}
                 >
-                  <span className="mr-1.5 text-base" aria-hidden="true">
-                    {worker.emoji}
-                  </span>
                   <span className="truncate">{worker.name}</span>
                 </DropdownMenuItem>
               ))

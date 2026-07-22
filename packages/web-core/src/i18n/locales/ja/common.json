@@ -539,9 +539,8 @@
   "appBar": {
     "issues": "課題",
     "workers": "ワーカー",
-    "sprint": "スプリント",
+    "sprint": "カンバン",
     "kanban": {
-      "tooltip": "サインインしてプロジェクトを表示",
       "title": "カンバンボード",
       "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"
     }
@@ -616,7 +615,7 @@
       "confirm": "タスクをキューに追加",
       "enqueuedError": "タスクのキュー追加に失敗しました。",
       "checkingConflicts": "既存の割り当てを確認中...",
-      "duplicateWarning": "Issue #{{number}} はすでに {{emoji}} {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
+      "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
       "assignAnyway": "それでも割り当てる"
     },
     "filters": {
@@ -635,6 +634,7 @@
       },
       "label": "ラベル",
       "milestone": "マイルストーン",
+      "worker": "ワーカー",
       "groupBy": "グループ化",
       "groupByOptions": {
         "none": "なし",
@@ -706,10 +706,9 @@
     "form": {
       "newTitle": "新しいワーカー",
       "editTitle": "ワーカーを編集",
-      "description": "名前、絵文字、ソウルを設定します。ソウルはワーカーの動作を導くプロンプトです。",
+      "description": "名前とソウルを設定します。ソウルはワーカーの動作を導くプロンプトです。",
       "nameLabel": "名前",
       "namePlaceholder": "例：Backend Bee",
-      "emojiLabel": "絵文字",
       "roleLabel": "役割",
       "templatesLabel": "テンプレートから始める",
       "soulLabel": "ソウル",
@@ -739,7 +738,7 @@
     }
   },
   "sprint": {
-    "title": "スプリント",
+    "title": "カンバン",
     "repoSelectorPlaceholder": "リポジトリを選択",
     "loadingRepos": "リポジトリを読み込み中...",
     "noReposMessage": "登録されているリポジトリがありません。スプリントを計画するにはリポジトリを追加してください。",
@@ -763,13 +762,6 @@
       "moreActions": "その他のアクション",
       "setPriority": "優先度を設定",
       "assignTo": "ワーカーに割り当てる"
-    },
-    "composer": {
-      "title": "新しい自由記述タスク",
-      "titlePlaceholder": "タスクのタイトル",
-      "promptPlaceholder": "エージェントに何をさせますか？",
-      "assign": "ワーカーに送る",
-      "skills": "スキル："
     },
     "queued": {
       "moveUp": "上へ移動",
@@ -814,25 +806,9 @@
       "noBody": "説明がありません。",
       "assignedTo": "{{worker}} に割り当て済み"
     },
-    "startSprint": "スプリントを開始",
-    "startSprintDisabled": "開始可能なワーカーがいません",
-    "startSprintDialog": {
-      "title": "スプリントを開始",
-      "description": "以下のワーカーが次のキュータスクを開始します。",
-      "willStart": "開始予定（{{count}}件）",
-      "skipped": "スキップ",
-      "cancel": "キャンセル",
-      "confirm": "スプリントを開始",
-      "reason": {
-        "already_working": "作業中",
-        "no_queue": "キューにタスクなし",
-        "cap_reached": "レビュー上限に達しました"
-      }
-    },
     "toast": {
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
-      "startAllNoneStarted": "開始可能なワーカーがいませんでした。",
-      "startAllError": "スプリント開始に失敗しました: {{message}}",
+      "startAllError": "ワーカーの開始に失敗しました: {{message}}",
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。"
     },
@@ -840,6 +816,10 @@
       "retry": "再試行",
       "discard": "破棄",
       "empty": "失敗したタスクはありません。"
+    },
+    "autoIngest": {
+      "label": "自動取り込み",
+      "description": "タスクが割り当てられるとワーカーが自動的に開始します"
     }
   }
 }

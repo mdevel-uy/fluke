@@ -13,7 +13,12 @@ import {
 } from '@vibe/ui/components/DropdownMenu';
 import type { IssueLabel } from 'shared/types';
 
-export type IssueStateFilter = 'all' | 'open' | 'closed';
+export type IssueTaskStatusFilter = 'queued' | 'in_progress' | 'in_review';
+export type IssueStateFilter =
+  | 'all'
+  | 'open'
+  | 'closed'
+  | IssueTaskStatusFilter;
 export type IssuePriorityFilter = 'urgent' | 'high' | 'medium' | 'low';
 export type IssueGroupBy = 'none' | 'label' | 'milestone';
 
@@ -23,6 +28,7 @@ export interface IssueFilters {
   priorities: IssuePriorityFilter[];
   labels: string[];
   milestones: string[];
+  workers: string[];
   groupBy: IssueGroupBy;
 }
 
@@ -32,16 +38,29 @@ export const DEFAULT_FILTERS: IssueFilters = {
   priorities: [],
   labels: [],
   milestones: [],
+  workers: [],
   groupBy: 'none',
 };
+
+export interface IssueWorkerOption {
+  id: string;
+  name: string;
+}
 
 interface IssuesToolbarProps {
   filters: IssueFilters;
   availableLabels: IssueLabel[];
   availableMilestones: string[];
+  availableWorkers: IssueWorkerOption[];
   onChange: (filters: IssueFilters) => void;
 }
 
+const ISSUE_STATES: IssueStateFilter[] = ['all', 'open', 'closed'];
+const TASK_STATUSES: IssueTaskStatusFilter[] = [
+  'queued',
+  'in_progress',
+  'in_review',
+];
 const PRIORITIES: IssuePriorityFilter[] = ['urgent', 'high', 'medium', 'low'];
 const GROUP_BY_OPTIONS: IssueGroupBy[] = ['none', 'label', 'milestone'];
 
@@ -49,6 +68,7 @@ export function IssuesToolbar({
   filters,
   availableLabels,
   availableMilestones,
+  availableWorkers,
   onChange,
 }: IssuesToolbarProps) {
   const { t } = useTranslation('common');
@@ -73,7 +93,8 @@ export function IssuesToolbar({
     filters.state !== 'open' ||
     filters.priorities.length > 0 ||
     filters.labels.length > 0 ||
-    filters.milestones.length > 0;
+    filters.milestones.length > 0 ||
+    filters.workers.length > 0;
 
   const clearFilters = () => {
     setLocalSearch('');
@@ -101,6 +122,18 @@ export function IssuesToolbar({
     onChange({ ...filters, milestones: next });
   };
 
+  const toggleWorker = (id: string) => {
+    const next = filters.workers.includes(id)
+      ? filters.workers.filter((x) => x !== id)
+      : [...filters.workers, id];
+    onChange({ ...filters, workers: next });
+  };
+
+  const stateLabel = (s: IssueStateFilter) =>
+    (TASK_STATUSES as string[]).includes(s)
+      ? t(`issues.taskStatus.${s}`)
+      : t(`issues.filters.state.${s}`);
+
   return (
     <div className="flex items-center gap-2 px-6 py-3 border-b border-border/60 bg-primary flex-wrap">
       {/* Search */}
@@ -122,18 +155,28 @@ export function IssuesToolbar({
             size="sm"
             className="h-8 gap-1.5 text-sm"
           >
-            {t(`issues.filters.state.${filters.state}`)}
+            {stateLabel(filters.state)}
             <ChevronDown className="h-3.5 w-3.5 text-low" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-36">
-          {(['all', 'open', 'closed'] as IssueStateFilter[]).map((s) => (
+        <DropdownMenuContent align="start" className="w-40">
+          {ISSUE_STATES.map((s) => (
             <DropdownMenuCheckboxItem
               key={s}
               checked={filters.state === s}
               onCheckedChange={() => onChange({ ...filters, state: s })}
             >
-              {t(`issues.filters.state.${s}`)}
+              {stateLabel(s)}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
+          {TASK_STATUSES.map((s) => (
+            <DropdownMenuCheckboxItem
+              key={s}
+              checked={filters.state === s}
+              onCheckedChange={() => onChange({ ...filters, state: s })}
+            >
+              {stateLabel(s)}
             </DropdownMenuCheckboxItem>
           ))}
         </DropdownMenuContent>
@@ -253,6 +296,45 @@ export function IssuesToolbar({
                 onCheckedChange={() => toggleMilestone(m)}
               >
                 <span className="truncate">{m}</span>
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Worker filter */}
+      {availableWorkers.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={filters.workers.length > 0 ? 'tonal' : 'outline'}
+              size="sm"
+              className="h-8 gap-1.5 text-sm"
+            >
+              {t('issues.filters.worker')}
+              {filters.workers.length > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full bg-brand/15 text-brand-on-surface text-xs font-semibold">
+                  {filters.workers.length}
+                </span>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 text-low" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-52 max-h-64 overflow-y-auto"
+          >
+            <DropdownMenuLabel className="text-xs text-low">
+              {t('issues.filters.worker')}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {availableWorkers.map((w) => (
+              <DropdownMenuCheckboxItem
+                key={w.id}
+                checked={filters.workers.includes(w.id)}
+                onCheckedChange={() => toggleWorker(w.id)}
+              >
+                <span className="truncate">{w.name}</span>
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>

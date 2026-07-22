@@ -23,6 +23,7 @@ import {
 } from '@vibe/ui/components/Select';
 import { defineModal } from '@/shared/lib/modals';
 import { workersApi } from '@/shared/lib/api';
+import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import type { ActiveIssueTaskInfo } from '@/shared/lib/api';
 import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -117,6 +118,14 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           issue_number: issue.number,
           ...(forceOverride ? { force_duplicate: true } : {}),
         });
+        // With auto-ingest on, kick the worker right away if it is idle.
+        const { autoIngest } = useAutoIngestStore.getState();
+        const worker = workers.find((w) => w.id === selectedWorkerId);
+        if (autoIngest && worker && !worker.active_workspace_id) {
+          workersApi.startNext(selectedWorkerId).catch(() => {
+            // Best-effort: the worker may have picked up another task already.
+          });
+        }
         modal.resolve('created' as AssignToAgentResult);
         modal.hide();
       } catch (err) {
@@ -165,7 +174,6 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                 <span>
                   {t('issues.assignDialog.duplicateWarning', {
                     number: issue.number,
-                    emoji: conflictInfo!.worker_emoji,
                     worker: conflictInfo!.worker_name,
                     status: conflictInfo!.status,
                   })}
@@ -204,7 +212,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                       <SelectContent>
                         {workers.map((w) => (
                           <SelectItem key={w.id} value={w.id}>
-                            {w.emoji} {w.name}
+                            {w.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
