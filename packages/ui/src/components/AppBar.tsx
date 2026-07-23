@@ -34,16 +34,19 @@ interface AppBarProps {
   onCreateProject: () => void;
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
+  onDashboardClick?: () => void;
   onWorkersClick?: () => void;
   onAnalystDeskClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
+  showDashboardButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
+  isDashboardActive?: boolean;
   isWorkersActive?: boolean;
   isAnalystDeskActive?: boolean;
   isExportActive?: boolean;
@@ -178,13 +181,16 @@ export function AppBar({
   activeHostId = null,
   onExportClick,
   onWorkspacesClick,
+  onDashboardClick,
   onWorkersClick,
   onAnalystDeskClick,
   onHostClick,
   showWorkspacesButton = true,
+  showDashboardButton = true,
   showWorkersButton = true,
   showAnalystDeskButton = true,
   isWorkspacesActive,
+  isDashboardActive = false,
   isWorkersActive = false,
   isAnalystDeskActive = false,
   isExportActive = false,
@@ -200,8 +206,23 @@ export function AppBar({
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
-  if (showWorkspacesButton || showWorkersButton || showAnalystDeskButton) {
+  if (
+    showWorkspacesButton ||
+    showDashboardButton ||
+    showWorkersButton ||
+    showAnalystDeskButton
+  ) {
     const localItems: AppBarSectionItem[] = [];
+    if (showDashboardButton && onDashboardClick) {
+      localItems.push({
+        key: 'local-dashboard',
+        kind: 'icon-button',
+        label: t('appBar.dashboard'),
+        materialIcon: 'space_dashboard',
+        isActive: isDashboardActive,
+        onClick: onDashboardClick,
+      });
+    }
     if (showWorkspacesButton) {
       localItems.push({
         key: 'local-workspaces',

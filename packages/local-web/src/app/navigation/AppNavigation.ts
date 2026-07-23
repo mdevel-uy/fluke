@@ -53,6 +53,8 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
     }
     case '/_app/workers':
       return { kind: 'workers' };
+    case '/_app/dashboard':
+      return { kind: 'dashboard' };
     case '/_app/analyst-desk':
       return { kind: 'analyst-desk' };
     case '/_app/sprint': {
@@ -258,6 +260,8 @@ function destinationToLocalTarget(
       } as const;
     case 'workers':
       return { to: '/workers' } as const;
+    case 'dashboard':
+      return { to: '/dashboard' } as const;
     case 'analyst-desk':
       return { to: '/analyst-desk' } as const;
     case 'sprint':
@@ -373,6 +377,8 @@ export function createLocalAppNavigation(): AppNavigation {
     goToWorkspaceVsCode: (workspaceId, transition) =>
       navigateTo({ kind: 'workspace-vscode', workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: 'export' }, transition),
+    goToDashboard: (transition) =>
+      navigateTo({ kind: 'dashboard' }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),

@@ -557,6 +557,7 @@
     }
   },
   "appBar": {
+    "dashboard": "Tableau de bord",
     "issues": "Tickets",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -565,6 +566,38 @@
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."
     }
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "live": "En direct",
+    "workersActive": "Workers actifs",
+    "inProgress": "En cours",
+    "queued": "En attente",
+    "inReview": "En relecture",
+    "openPrs": "PRs ouvertes",
+    "approvals": "Approbations",
+    "done": "Terminées",
+    "failed": "Échouées",
+    "workersSection": "Workers",
+    "pipelineSection": "Pipeline des tâches",
+    "prsSection": "Pull requests",
+    "attentionSection": "Attention requise",
+    "attentionEmpty": "Tout va bien — rien ne requiert votre attention.",
+    "prsEmpty": "Aucune pull request ouverte.",
+    "noWorkers": "Aucun worker configuré pour l'instant.",
+    "noActiveTask": "Aucune tâche active",
+    "context": "Contexte",
+    "queue": "File",
+    "completedLabel": "Terminées",
+    "running": "En cours",
+    "idle": "Inactif",
+    "mergeable": "Fusionnable",
+    "conflicting": "En conflit",
+    "approvalPending": "Approbation en attente — {{worker}}",
+    "prConflict": "La PR #{{number}} a des conflits",
+    "highContext": "{{name}} à {{pct}} % de contexte",
+    "taskStalled": "Tâche bloquée — {{name}}",
+    "processFailed": "Dernière exécution échouée — {{name}}"
   },
   "errors": {
     "generic": "An unexpected error occurred"

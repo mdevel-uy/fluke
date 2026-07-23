@@ -561,6 +561,7 @@
     }
   },
   "appBar": {
+    "dashboard": "Dashboard",
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -569,6 +570,38 @@
       "title": "Kanban Boards",
       "description": "Sign in to organise your coding agents with kanban boards."
     }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "live": "Live",
+    "workersActive": "Workers active",
+    "inProgress": "In progress",
+    "queued": "Queued",
+    "inReview": "In review",
+    "openPrs": "Open PRs",
+    "approvals": "Approvals",
+    "done": "Done",
+    "failed": "Failed",
+    "workersSection": "Workers",
+    "pipelineSection": "Task pipeline",
+    "prsSection": "Pull requests",
+    "attentionSection": "Needs attention",
+    "attentionEmpty": "All clear — nothing needs your attention.",
+    "prsEmpty": "No open pull requests.",
+    "noWorkers": "No workers configured yet.",
+    "noActiveTask": "No active task",
+    "context": "Context",
+    "queue": "Queue",
+    "completedLabel": "Completed",
+    "running": "Running",
+    "idle": "Idle",
+    "mergeable": "Mergeable",
+    "conflicting": "Conflicting",
+    "approvalPending": "Approval pending — {{worker}}",
+    "prConflict": "PR #{{number}} has conflicts",
+    "highContext": "{{name}} at {{pct}}% context",
+    "taskStalled": "Task stalled — {{name}}",
+    "processFailed": "Last run failed — {{name}}"
   },
   "askQuestion": {
     "title": "Agent is asking a question",

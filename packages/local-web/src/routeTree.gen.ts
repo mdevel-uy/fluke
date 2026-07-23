@@ -19,6 +19,7 @@ import { Route as AppSprintRouteImport } from './routes/_app.sprint'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
 import { Route as AppExportRouteImport } from './routes/_app.export'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppAnalystDeskRouteImport } from './routes/_app.analyst-desk'
 import { Route as WorkspacesWorkspaceIdVscodeRouteImport } from './routes/workspaces.$workspaceId.vscode'
 import { Route as AppWorkspacesElectricTestRouteImport } from './routes/_app.workspaces_.electric-test'
@@ -84,6 +85,11 @@ const AppIssuesRoute = AppIssuesRouteImport.update({
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAnalystDeskRoute = AppAnalystDeskRouteImport.update({
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/analyst-desk': typeof AppAnalystDeskRoute
+  '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/analyst-desk': typeof AppAnalystDeskRoute
+  '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/_app/analyst-desk': typeof AppAnalystDeskRoute
+  '/_app/dashboard': typeof AppDashboardRoute
   '/_app/export': typeof AppExportRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/analyst-desk'
+    | '/dashboard'
     | '/export'
     | '/issues'
     | '/notifications'
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/analyst-desk'
+    | '/dashboard'
     | '/export'
     | '/issues'
     | '/notifications'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/onboarding'
     | '/_app/analyst-desk'
+    | '/_app/dashboard'
     | '/_app/export'
     | '/_app/issues'
     | '/_app/notifications'
@@ -443,6 +455,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AppExportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/analyst-desk': {
@@ -569,6 +588,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAnalystDeskRoute: typeof AppAnalystDeskRoute
+  AppDashboardRoute: typeof AppDashboardRoute
   AppExportRoute: typeof AppExportRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
@@ -593,6 +613,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAnalystDeskRoute: AppAnalystDeskRoute,
+  AppDashboardRoute: AppDashboardRoute,
   AppExportRoute: AppExportRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,

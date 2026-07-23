@@ -557,6 +557,7 @@
     }
   },
   "appBar": {
+    "dashboard": "Dashboard",
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -565,6 +566,38 @@
       "title": "Tableros Kanban",
       "description": "Inicia sesión para organizar tus agentes de codificación con tableros kanban."
     }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "live": "En vivo",
+    "workersActive": "Workers activos",
+    "inProgress": "En curso",
+    "queued": "En cola",
+    "inReview": "En revisión",
+    "openPrs": "PRs abiertos",
+    "approvals": "Aprobaciones",
+    "done": "Hechas",
+    "failed": "Fallidas",
+    "workersSection": "Workers",
+    "pipelineSection": "Pipeline de tareas",
+    "prsSection": "Pull requests",
+    "attentionSection": "Requiere atención",
+    "attentionEmpty": "Todo en orden — nada requiere tu atención.",
+    "prsEmpty": "No hay pull requests abiertos.",
+    "noWorkers": "Todavía no hay workers configurados.",
+    "noActiveTask": "Sin tarea activa",
+    "context": "Contexto",
+    "queue": "Cola",
+    "completedLabel": "Completadas",
+    "running": "Trabajando",
+    "idle": "Inactivo",
+    "mergeable": "Mergeable",
+    "conflicting": "Con conflictos",
+    "approvalPending": "Aprobación pendiente — {{worker}}",
+    "prConflict": "El PR #{{number}} tiene conflictos",
+    "highContext": "{{name}} al {{pct}}% de contexto",
+    "taskStalled": "Tarea estancada — {{name}}",
+    "processFailed": "Última ejecución falló — {{name}}"
   },
   "errors": {
     "generic": "An unexpected error occurred"

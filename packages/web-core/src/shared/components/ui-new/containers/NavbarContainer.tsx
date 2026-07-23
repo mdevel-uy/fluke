@@ -40,7 +40,6 @@ import {
   getProjectDestination,
   isIssuesDestination,
   isSprintDestination,
-  isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
@@ -337,7 +336,7 @@ export function NavbarContainer({
     };
   }, [isOnProjectPage, projectId, appNavigation]);
 
-  // Workbench section tabs (desktop): Sprint · Issues · Workers
+  // Workbench section tabs (desktop): Sprint · Issues
   const sectionTabs = useMemo(
     () => [
       {
@@ -353,13 +352,6 @@ export function NavbarContainer({
         materialIcon: 'list_alt',
         isActive: isIssuesDestination(destination),
         onClick: () => appNavigation.goToIssues(),
-      },
-      {
-        id: 'workers',
-        label: t('appBar.workers'),
-        materialIcon: 'group',
-        isActive: isWorkersDestination(destination),
-        onClick: () => appNavigation.goToWorkers(),
       },
     ],
     [t, destination, appNavigation]
