@@ -280,7 +280,12 @@ export function SprintPage() {
 
   const invalidateWorkerData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: workersKeys.all });
-  }, [queryClient]);
+    if (selectedRepoId) {
+      queryClient.invalidateQueries({
+        queryKey: repoIssuesKeys.byRepo(selectedRepoId),
+      });
+    }
+  }, [queryClient, selectedRepoId]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
