@@ -4,7 +4,9 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  File,
   GitBranch,
+  Hand,
   ListTodo,
   Loader2,
   MoreHorizontal,
@@ -12,6 +14,7 @@ import {
   SquareKanban,
 } from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
+import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
 import { Button } from '@vibe/ui/components/Button';
 import {
   DropdownMenu,
@@ -31,11 +34,24 @@ const ROLE_CHIP_CLASS: Record<string, string> = {
   reviewer: 'bg-warning/10 text-warning',
 };
 
+/** Compact duration since a timestamp: 12m, 3h, 2d */
+function formatDurationSince(dateString: string): string {
+  const diffMins = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(dateString).getTime()) / 60_000)
+  );
+  if (diffMins < 60) return `${diffMins}m`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h`;
+  return `${Math.floor(diffHours / 24)}d`;
+}
+
 interface WorkerCardProps {
   worker: WorkerResponse;
   queuedCount: number;
   activeTask?: WorkerTask;
-  activeBranch?: string;
+  /** Sidebar summary of the worker's active workspace, if any */
+  activeWorkspace?: SidebarWorkspace;
   needsAttention?: boolean;
   isStarting: boolean;
   onStartNext: () => void;
@@ -47,7 +63,7 @@ export function WorkerCard({
   worker,
   queuedCount,
   activeTask,
-  activeBranch,
+  activeWorkspace,
   needsAttention = false,
   isStarting,
   onStartNext,
@@ -59,6 +75,21 @@ export function WorkerCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isWorking = worker.active_workspace_id !== null;
+  const activeBranch = activeWorkspace?.branch;
+  const isWaitingApproval = activeWorkspace?.hasPendingApproval ?? false;
+
+  const contextUsage = activeWorkspace?.contextUsage;
+  const contextPct =
+    isWorking && contextUsage && contextUsage.contextWindow > 0
+      ? Math.min(
+          100,
+          (contextUsage.totalTokens / contextUsage.contextWindow) * 100
+        )
+      : null;
+
+  const filesChanged = activeWorkspace?.filesChanged;
+  const hasChanges =
+    isWorking && filesChanged !== undefined && filesChanged > 0;
 
   const handleOpenWorkspace = () => {
     if (worker.active_workspace_id) {
@@ -74,10 +105,12 @@ export function WorkerCard({
           className={cn(
             'h-2 w-2 shrink-0 rounded-full',
             needsAttention
-              ? 'bg-warning'
-              : isWorking
-                ? 'animate-pulse bg-brand-on-surface'
-                : 'bg-success'
+              ? 'bg-error'
+              : isWaitingApproval
+                ? 'bg-warning'
+                : isWorking
+                  ? 'animate-pulse bg-brand-on-surface'
+                  : 'bg-success'
           )}
           aria-hidden
         />
@@ -93,11 +126,6 @@ export function WorkerCard({
         >
           {t(`workers.roles.${worker.role ?? 'developer'}`)}
         </span>
-        {needsAttention && (
-          <span className="shrink-0 rounded-full bg-warning/10 px-2 py-px text-xs font-medium text-warning">
-            {t('workers.card.needsAttention')}
-          </span>
-        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -168,6 +196,70 @@ export function WorkerCard({
             </span>
           )}
         </div>
+
+        {/* Context usage bar: % of the agent's context window in use */}
+        {contextPct !== null && (
+          <div className="flex w-full items-center gap-2">
+            <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
+              <div
+                className={cn(
+                  'h-full rounded-full',
+                  contextPct >= 90
+                    ? 'bg-error'
+                    : contextPct >= 70
+                      ? 'bg-warning'
+                      : 'bg-success'
+                )}
+                style={{ width: `${contextPct}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-[10px] tabular-nums text-low">
+              {t('workspaces.contextPct', { pct: Math.round(contextPct) })}
+            </span>
+          </div>
+        )}
+
+        {/* Attention row: approval chip / stalled notice + diff stats */}
+        {(isWaitingApproval || needsAttention || hasChanges) && (
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            {needsAttention ? (
+              <span className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-error">
+                {t('workers.card.stalledShort')}
+                {activeWorkspace?.latestProcessCompletedAt && (
+                  <span className="tabular-nums">
+                    ·{' '}
+                    {formatDurationSince(
+                      activeWorkspace.latestProcessCompletedAt
+                    )}
+                  </span>
+                )}
+              </span>
+            ) : isWaitingApproval ? (
+              <span className="flex shrink-0 items-center gap-1.5 rounded bg-warning/10 px-2 py-0.5 text-sm font-medium text-warning">
+                <Hand className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                {t('workspaces.activityWaitingApproval')}
+              </span>
+            ) : (
+              <span />
+            )}
+            {hasChanges && (
+              <span className="flex shrink-0 items-center gap-1 text-sm text-normal tabular-nums">
+                <File className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                <span>{filesChanged}</span>
+                {activeWorkspace?.linesAdded !== undefined && (
+                  <span className="text-success">
+                    +{activeWorkspace.linesAdded}
+                  </span>
+                )}
+                {activeWorkspace?.linesRemoved !== undefined && (
+                  <span className="text-error">
+                    -{activeWorkspace.linesRemoved}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex min-w-0 items-center gap-2">
           <GitBranch

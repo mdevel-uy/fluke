@@ -712,6 +712,7 @@
       "statusIdle": "Idle",
       "currentTaskLink": "Open current workspace",
       "noCurrentTask": "No task in progress",
+      "stalledShort": "Agent stopped, task open",
       "menuLabel": "Worker actions",
       "edit": "Edit",
       "delete": "Delete",

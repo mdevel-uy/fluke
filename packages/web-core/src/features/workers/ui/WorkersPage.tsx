@@ -23,6 +23,7 @@ import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
 import { useAutoIngestReconciler } from '@/features/sprint/model/useAutoIngestReconciler';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
+import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
 import { WorkerCard } from './WorkerCard';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
@@ -111,10 +112,10 @@ export function WorkersPage() {
     return map;
   }, [allTasks]);
 
-  const branchByWorkspaceId = useMemo(() => {
-    const map = new Map<string, string>();
+  const workspaceSummaryById = useMemo(() => {
+    const map = new Map<string, SidebarWorkspace>();
     for (const ws of [...workspaces, ...archivedWorkspaces]) {
-      map.set(ws.id, ws.branch);
+      map.set(ws.id, ws);
     }
     return map;
   }, [workspaces, archivedWorkspaces]);
@@ -324,9 +325,9 @@ export function WorkersPage() {
                 queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
                 activeTask={activeTaskByWorkerId.get(worker.id)}
                 needsAttention={stalledWorkerIds.has(worker.id)}
-                activeBranch={
+                activeWorkspace={
                   worker.active_workspace_id
-                    ? branchByWorkspaceId.get(worker.active_workspace_id)
+                    ? workspaceSummaryById.get(worker.active_workspace_id)
                     : undefined
                 }
                 isStarting={startingWorkerId === worker.id}
