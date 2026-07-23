@@ -36,7 +36,7 @@ use db::{
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
-        worker::{ROLE_DEVELOPER, Worker},
+        worker::{ROLE_ANALYST, ROLE_DEVELOPER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -73,6 +73,21 @@ pub const NON_DEVELOPER_FINAL_INSTRUCTION: &str = "\
 Your deliverable is the issues, plans, or reviews you created — NOT a pull \
 request. Do NOT create any PR. When you finish, end with a concise summary of \
 what you produced.";
+
+/// Role framing for analyst workers: turn requests into tickets, do not
+/// investigate or solve the underlying problem.
+pub const ANALYST_ROLE_INSTRUCTION: &str = "\
+You are a business analyst, not an engineer. Your job is to turn the request \
+above into actionable, well-scoped GitHub issues — NOT to diagnose or solve \
+the problem yourself. Explore the codebase only as far as needed to write \
+accurate, assignable tickets: correct files/areas, verifiable acceptance \
+criteria, disjoint file territories between parallelizable issues, and open \
+questions listed for the PM instead of silent assumptions. Do NOT debug, do \
+NOT hunt for root causes, and do NOT propose code changes or fixes — the \
+assigned developer owns the diagnosis and the solution. \
+Your deliverable is the issues (and plan comment) you created via `gh` — NOT \
+a pull request. Do NOT create any PR. When you finish, end with a concise \
+summary listing the issues you created.";
 
 #[derive(Debug, Error)]
 pub enum StartError {
@@ -1335,6 +1350,8 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
     let task_prompt = task_prompt.trim();
     let final_instruction = if role == ROLE_DEVELOPER {
         WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch)
+    } else if role == ROLE_ANALYST {
+        ANALYST_ROLE_INSTRUCTION.to_string()
     } else {
         NON_DEVELOPER_FINAL_INSTRUCTION.to_string()
     };
@@ -1387,6 +1404,10 @@ mod tests {
         let prompt = build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_ANALYST);
         assert!(!prompt.contains("gh pr create"));
         assert!(prompt.contains("Do NOT create any PR"));
+        // Analysts get ticket-writing framing, not the generic non-dev one:
+        // they must not investigate or solve the problem themselves.
+        assert!(prompt.contains("business analyst"));
+        assert!(prompt.contains("do NOT hunt for root causes"));
     }
 
     #[test]
