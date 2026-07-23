@@ -541,6 +541,7 @@
     "issues": "이슈",
     "workers": "워커",
     "sprint": "칸반",
+    "analystDesk": "분석가 데스크",
     "kanban": {
       "title": "칸반 보드",
       "description": "로그인하여 칸반 보드로 코딩 에이전트를 정리하세요."
@@ -737,6 +738,40 @@
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
       "dismiss": "닫기"
+    }
+  },
+  "analystDesk": {
+    "title": "분석가 데스크",
+    "repoLabel": "저장소",
+    "analystsLabel": "분석가",
+    "statusIdle": "대기 가능",
+    "statusBusy": "작업 중",
+    "statusBusyQueued": "작업 중 · 대기 {{queued}}건",
+    "requestLabel": "요청",
+    "promptPlaceholder": "분석가에게 요청할 내용을 설명하세요. 예: 알림 에픽을 수용 기준이 있는 작은 이슈로 분해.",
+    "hint": "분석가가 비어 있으면 즉시 실행되고, 아니면 대기열에 추가됩니다.",
+    "submit": "요청 보내기",
+    "loading": "불러오는 중...",
+    "loadError": "분석가를 불러오지 못했습니다.",
+    "noAnalystsTitle": "아직 분석가가 없습니다",
+    "noAnalystsDescription": "Analyst 역할의 워커를 만들면 요청을 보낼 수 있습니다.",
+    "goToWorkers": "Workers로 이동",
+    "historyTitle": "{{worker}}에게 보낸 요청",
+    "historyEmpty": "아직 요청이 없습니다. 요청과 결과가 여기에 표시됩니다.",
+    "openWorkspace": "실행 보기",
+    "retry": "다시 시도",
+    "dismiss": "닫기",
+    "status": {
+      "queued": "대기 중",
+      "queuedAhead": "대기 중 · 앞에 {{ahead}}건",
+      "inProgress": "진행 중",
+      "done": "완료",
+      "failed": "실패"
+    },
+    "toast": {
+      "started": "{{worker}}이(가) 요청을 시작했습니다.",
+      "queued": "{{worker}}의 대기열에 추가되었습니다.",
+      "error": "요청을 보내지 못했습니다: {{message}}"
     }
   },
   "sprint": {

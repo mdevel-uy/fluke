@@ -59,6 +59,8 @@ pub struct WorkerTaskResponse {
     pub pr_state: Option<String>,
     /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
+    /// Origin of the task: `"kanban"` or `"desk"`.
+    pub source: String,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -98,6 +100,7 @@ async fn worker_task_to_response(
         pr_url,
         pr_state,
         pr_mergeable,
+        source: task.source,
         created_at: task.created_at,
     })
 }
@@ -145,6 +148,11 @@ pub struct CreateWorkerTaskRequest {
     #[serde(default)]
     #[ts(optional)]
     pub force_duplicate: Option<bool>,
+    /// Origin of the task: `"kanban"` (default) or `"desk"` for Analyst Desk
+    /// requests.
+    #[serde(default)]
+    #[ts(optional)]
+    pub source: Option<String>,
 }
 
 /// Returned by `GET /api/workers/active-issue-task` when an issue already has
@@ -386,6 +394,12 @@ pub async fn create_worker_task(
 
     let skills = payload.skills.unwrap_or_default();
 
+    let source = match payload.source.as_deref() {
+        None => worker_task::SOURCE_KANBAN.to_string(),
+        Some(s) if worker_task::is_valid_source(s) => s.to_string(),
+        Some(s) => return Err(ApiError::BadRequest(format!("Invalid source: {s}"))),
+    };
+
     // Append skill instructions to the prompt so the agent receives them.
     let mut final_prompt = prompt.to_string();
     for skill in &skills {
@@ -420,6 +434,7 @@ pub async fn create_worker_task(
             prompt: final_prompt,
             issue_number: payload.issue_number,
             skills,
+            source,
         },
     )
     .await?;

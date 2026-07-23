@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { X, Layout, Users, AlertCircle, Zap } from 'lucide-react';
+import {
+  X,
+  Layout,
+  Users,
+  AlertCircle,
+  Zap,
+  ClipboardList,
+} from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
@@ -20,6 +27,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import {
   getProjectDestination,
+  isAnalystDeskDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
   isSprintDestination,
@@ -154,6 +162,7 @@ export function SharedAppLayout() {
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
+  const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
   const isSprintActive = isSprintDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
     !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
@@ -183,6 +192,10 @@ export function SharedAppLayout() {
 
   const handleWorkersClick = useCallback(() => {
     appNavigation.goToWorkers();
+  }, [appNavigation]);
+
+  const handleAnalystDeskClick = useCallback(() => {
+    appNavigation.goToAnalystDesk();
   }, [appNavigation]);
 
   const handleSprintClick = useCallback(() => {
@@ -263,6 +276,7 @@ export function SharedAppLayout() {
               onWorkspacesClick={handleWorkspacesClick}
               onIssuesClick={handleIssuesClick}
               onWorkersClick={handleWorkersClick}
+              onAnalystDeskClick={handleAnalystDeskClick}
               onSprintClick={handleSprintClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
@@ -270,6 +284,7 @@ export function SharedAppLayout() {
               isWorkspacesActive={isWorkspacesActive}
               isIssuesActive={isIssuesActive}
               isWorkersActive={isWorkersActive}
+              isAnalystDeskActive={isAnalystDeskActive}
               isSprintActive={isSprintActive}
               activeProjectId={activeProjectId}
               isSignedIn
@@ -386,6 +401,18 @@ export function SharedAppLayout() {
               >
                 <Users className="h-4 w-4" strokeWidth={2} />
                 {t('appBar.workers')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleAnalystDeskClick();
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <ClipboardList className="h-4 w-4" strokeWidth={2} />
+                {t('appBar.analystDesk')}
               </button>
 
               <button

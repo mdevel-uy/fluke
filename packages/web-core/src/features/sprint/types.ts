@@ -8,6 +8,7 @@ export type Worker = WorkerResponse;
 export type WorkerTask = WorkerTaskResponse & {
   skills?: string[];
   pr_mergeable?: string | null;
+  source?: string;
 };
 
 export type SprintColumnStatus =

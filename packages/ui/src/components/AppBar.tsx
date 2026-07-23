@@ -36,11 +36,13 @@ interface AppBarProps {
   onWorkspacesClick: () => void;
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
+  onAnalystDeskClick?: () => void;
   onSprintClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
+  showAnalystDeskButton?: boolean;
   showSprintButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
@@ -48,6 +50,7 @@ interface AppBarProps {
   isWorkspacesActive: boolean;
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
+  isAnalystDeskActive?: boolean;
   isSprintActive?: boolean;
   isExportActive?: boolean;
   activeProjectId: string | null;
@@ -183,15 +186,18 @@ export function AppBar({
   onWorkspacesClick,
   onIssuesClick,
   onWorkersClick,
+  onAnalystDeskClick,
   onSprintClick,
   onHostClick,
   showWorkspacesButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
+  showAnalystDeskButton = true,
   showSprintButton = true,
   isWorkspacesActive,
   isIssuesActive = false,
   isWorkersActive = false,
+  isAnalystDeskActive = false,
   isSprintActive = false,
   isExportActive = false,
   isSignedIn,
@@ -210,6 +216,7 @@ export function AppBar({
     showWorkspacesButton ||
     showIssuesButton ||
     showWorkersButton ||
+    showAnalystDeskButton ||
     showSprintButton
   ) {
     const localItems: AppBarSectionItem[] = [];
@@ -241,6 +248,16 @@ export function AppBar({
         materialIcon: 'group',
         isActive: isWorkersActive,
         onClick: onWorkersClick,
+      });
+    }
+    if (showAnalystDeskButton && onAnalystDeskClick) {
+      localItems.push({
+        key: 'local-analyst-desk',
+        kind: 'icon-button',
+        label: t('appBar.analystDesk'),
+        materialIcon: 'support_agent',
+        isActive: isAnalystDeskActive,
+        onClick: onAnalystDeskClick,
       });
     }
     if (showSprintButton && onSprintClick) {

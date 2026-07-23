@@ -541,6 +541,7 @@
     "issues": "Tickets",
     "workers": "Workers",
     "sprint": "Kanban",
+    "analystDesk": "Bureau des analystes",
     "kanban": {
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."
@@ -737,6 +738,40 @@
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
       "dismiss": "Fermer"
+    }
+  },
+  "analystDesk": {
+    "title": "Bureau des analystes",
+    "repoLabel": "Dépôt",
+    "analystsLabel": "Analyste",
+    "statusIdle": "Disponible",
+    "statusBusy": "Occupé",
+    "statusBusyQueued": "Occupé · {{queued}} en file",
+    "requestLabel": "Demande",
+    "promptPlaceholder": "Décrivez ce dont vous avez besoin de l'analyste. Ex. : découper l'epic notifications en petites issues avec critères d'acceptation.",
+    "hint": "Envoyée immédiatement si l'analyste est libre ; sinon elle rejoint sa file.",
+    "submit": "Envoyer la demande",
+    "loading": "Chargement...",
+    "loadError": "Impossible de charger les analystes.",
+    "noAnalystsTitle": "Aucun analyste pour l'instant",
+    "noAnalystsDescription": "Créez un worker avec le rôle Analyste pour commencer à envoyer des demandes.",
+    "goToWorkers": "Aller aux Workers",
+    "historyTitle": "Demandes à {{worker}}",
+    "historyEmpty": "Aucune demande pour l'instant. Vos demandes et leurs résultats apparaîtront ici.",
+    "openWorkspace": "Voir l'exécution",
+    "retry": "Réessayer",
+    "dismiss": "Fermer",
+    "status": {
+      "queued": "En file",
+      "queuedAhead": "En file · {{ahead}} devant",
+      "inProgress": "En cours",
+      "done": "Terminée",
+      "failed": "Échouée"
+    },
+    "toast": {
+      "started": "{{worker}} a commencé votre demande.",
+      "queued": "Demande mise en file pour {{worker}}.",
+      "error": "Échec de l'envoi de la demande : {{message}}"
     }
   },
   "sprint": {

@@ -541,6 +541,7 @@
     "issues": "问题",
     "workers": "工作者",
     "sprint": "看板",
+    "analystDesk": "分析师工作台",
     "kanban": {
       "title": "看板",
       "description": "登录以使用看板管理您的编码代理。"
@@ -737,6 +738,40 @@
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
       "dismiss": "关闭"
+    }
+  },
+  "analystDesk": {
+    "title": "分析师工作台",
+    "repoLabel": "仓库",
+    "analystsLabel": "分析师",
+    "statusIdle": "空闲",
+    "statusBusy": "忙碌",
+    "statusBusyQueued": "忙碌 · {{queued}} 个排队",
+    "requestLabel": "请求",
+    "promptPlaceholder": "描述你需要分析师做什么。例如：将通知 epic 拆分为带验收标准的小 issue。",
+    "hint": "分析师空闲时立即执行，否则加入其队列。",
+    "submit": "发送请求",
+    "loading": "加载中...",
+    "loadError": "无法加载分析师。",
+    "noAnalystsTitle": "还没有分析师",
+    "noAnalystsDescription": "创建一个 Analyst 角色的 worker 即可开始发送请求。",
+    "goToWorkers": "前往 Workers",
+    "historyTitle": "发给 {{worker}} 的请求",
+    "historyEmpty": "还没有请求。你的请求及其结果将显示在这里。",
+    "openWorkspace": "查看执行",
+    "retry": "重试",
+    "dismiss": "关闭",
+    "status": {
+      "queued": "排队中",
+      "queuedAhead": "排队中 · 前面还有 {{ahead}} 个",
+      "inProgress": "进行中",
+      "done": "已完成",
+      "failed": "失败"
+    },
+    "toast": {
+      "started": "{{worker}} 已开始处理你的请求。",
+      "queued": "请求已加入 {{worker}} 的队列。",
+      "error": "请求发送失败：{{message}}"
     }
   },
   "sprint": {
