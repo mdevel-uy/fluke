@@ -34,24 +34,18 @@ interface AppBarProps {
   onCreateProject: () => void;
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
-  onIssuesClick?: () => void;
   onWorkersClick?: () => void;
   onAnalystDeskClick?: () => void;
-  onSprintClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
-  showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
-  showSprintButton?: boolean;
   onProjectClick: (projectId: string) => void;
   onProjectsDragEnd: (result: DropResult) => void;
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
-  isIssuesActive?: boolean;
   isWorkersActive?: boolean;
   isAnalystDeskActive?: boolean;
-  isSprintActive?: boolean;
   isExportActive?: boolean;
   activeProjectId: string | null;
   isSignedIn?: boolean;
@@ -184,21 +178,15 @@ export function AppBar({
   activeHostId = null,
   onExportClick,
   onWorkspacesClick,
-  onIssuesClick,
   onWorkersClick,
   onAnalystDeskClick,
-  onSprintClick,
   onHostClick,
   showWorkspacesButton = true,
-  showIssuesButton = true,
   showWorkersButton = true,
   showAnalystDeskButton = true,
-  showSprintButton = true,
   isWorkspacesActive,
-  isIssuesActive = false,
   isWorkersActive = false,
   isAnalystDeskActive = false,
-  isSprintActive = false,
   isExportActive = false,
   isSignedIn,
   onHoverStart,
@@ -212,13 +200,7 @@ export function AppBar({
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
 
-  if (
-    showWorkspacesButton ||
-    showIssuesButton ||
-    showWorkersButton ||
-    showAnalystDeskButton ||
-    showSprintButton
-  ) {
+  if (showWorkspacesButton || showWorkersButton || showAnalystDeskButton) {
     const localItems: AppBarSectionItem[] = [];
     if (showWorkspacesButton) {
       localItems.push({
@@ -228,16 +210,6 @@ export function AppBar({
         materialIcon: 'grid_view',
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
-      });
-    }
-    if (showIssuesButton && onIssuesClick) {
-      localItems.push({
-        key: 'local-issues',
-        kind: 'icon-button',
-        label: t('appBar.issues'),
-        materialIcon: 'list_alt',
-        isActive: isIssuesActive,
-        onClick: onIssuesClick,
       });
     }
     if (showWorkersButton && onWorkersClick) {
@@ -258,16 +230,6 @@ export function AppBar({
         materialIcon: 'support_agent',
         isActive: isAnalystDeskActive,
         onClick: onAnalystDeskClick,
-      });
-    }
-    if (showSprintButton && onSprintClick) {
-      localItems.push({
-        key: 'local-sprint',
-        kind: 'icon-button',
-        label: t('appBar.sprint'),
-        materialIcon: 'bolt',
-        isActive: isSprintActive,
-        onClick: onSprintClick,
       });
     }
     if (localItems.length > 0) {
