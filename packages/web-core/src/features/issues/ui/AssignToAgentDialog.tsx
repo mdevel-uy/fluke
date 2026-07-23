@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { create, useModal } from '@ebay/nice-modal-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -23,6 +24,8 @@ import {
 } from '@vibe/ui/components/Select';
 import { defineModal } from '@/shared/lib/modals';
 import { workersApi } from '@/shared/lib/api';
+import { workersKeys } from '@/features/workers';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import type { ActiveIssueTaskInfo } from '@/shared/lib/api';
 import type { WorkerResponse } from 'shared/types';
@@ -40,6 +43,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
   ({ issue, repoId }) => {
     const modal = useModal();
     const { t } = useTranslation('common');
+    const queryClient = useQueryClient();
 
     const [prompt, setPrompt] = useState(() => buildAssignToAgentPrompt(issue));
     const [workers, setWorkers] = useState<WorkerResponse[]>([]);
@@ -117,6 +121,10 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           prompt: trimmed,
           issue_number: issue.number,
           ...(forceOverride ? { force_duplicate: true } : {}),
+        });
+        queryClient.invalidateQueries({ queryKey: workersKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: repoIssuesKeys.byRepo(repoId),
         });
         // With auto-ingest on, kick the worker right away if it is idle.
         const { autoIngest } = useAutoIngestStore.getState();
