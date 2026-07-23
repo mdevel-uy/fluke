@@ -1,20 +1,23 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
 
 use axum::{Json, extract::State, response::Json as ResponseJson};
 use db::models::{
     coding_agent_turn::CodingAgentTurn,
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
-    execution_process_logs::ExecutionProcessLogs,
     merge::MergeStatus,
     pull_request::PullRequest,
     workspace::Workspace,
 };
 use deployment::Deployment;
 use executors::logs::TokenUsageInfo;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use services::services::container::ContainerService;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{log_msg::LogMsg, response::ApiResponse};
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
@@ -130,8 +133,9 @@ pub async fn get_workspace_summaries(
         .map(|info| {
             let execution_id = info.execution_process_id;
             let workspace_id = info.workspace_id;
+            let deployment = deployment.clone();
             async move {
-                find_latest_context_usage(pool, execution_id)
+                find_latest_context_usage(&deployment, execution_id)
                     .await
                     .map(|usage| (workspace_id, usage))
             }
@@ -205,44 +209,76 @@ pub async fn get_workspace_summaries(
     )))
 }
 
-/// Scan the newest log chunks of an execution process for the most recent
-/// token-usage entry. Normalized entries are stored as `JsonPatch` lines whose
-/// op values are `NormalizedEntry` objects; the internally-tagged
-/// `entry_type` carries the token usage
-/// (`{"type":"token_usage_info","total_tokens":..,"model_context_window":..}`).
+/// Cache of context usage for *finished* execution processes: their logs are
+/// immutable, so the (expensive) re-normalization below only runs once per
+/// execution for the lifetime of the server process.
+static FINISHED_USAGE_CACHE: LazyLock<Mutex<HashMap<Uuid, Option<TokenUsageInfo>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Find the most recent token-usage entry of an execution process.
+///
+/// Normalized entries only exist in memory: the persisted raw logs contain
+/// `Stdout`/`Stderr` lines exclusively (`spawn_stream_raw_logs_to_storage`
+/// skips `JsonPatch` messages). So for a running process we scan its live
+/// `MsgStore` history, and for a finished one we re-normalize the persisted
+/// raw logs via `stream_normalized_logs` (cached, see above).
 async fn find_latest_context_usage(
-    pool: &SqlitePool,
+    deployment: &DeploymentImpl,
     execution_id: Uuid,
 ) -> Option<TokenUsageInfo> {
-    const MAX_LOG_CHUNKS: i64 = 5;
-    let chunks =
-        ExecutionProcessLogs::find_recent_by_execution_id(pool, execution_id, MAX_LOG_CHUNKS)
-            .await
-            .ok()?;
+    if let Some(store) = deployment
+        .container()
+        .get_msg_store_by_id(&execution_id)
+        .await
+    {
+        return store.find_map_history_rev(token_usage_from_log_msg);
+    }
 
-    // Chunks arrive newest-first; scan each chunk's lines from the end.
-    for chunk in &chunks {
-        for line in chunk.logs.lines().rev() {
-            if !line.contains(r#""token_usage_info""#) {
-                continue;
-            }
-            let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) else {
-                continue;
-            };
-            let Some(ops) = msg.get("JsonPatch").and_then(|p| p.as_array()) else {
-                continue;
-            };
-            for op in ops.iter().rev() {
-                let Some(entry_type) = op.get("value").and_then(|v| v.get("entry_type")) else {
-                    continue;
-                };
-                if entry_type.get("type").and_then(|t| t.as_str()) != Some("token_usage_info") {
-                    continue;
-                }
-                if let Ok(info) = serde_json::from_value::<TokenUsageInfo>(entry_type.clone()) {
-                    return Some(info);
-                }
-            }
+    if let Some(cached) = FINISHED_USAGE_CACHE.lock().unwrap().get(&execution_id) {
+        return cached.clone();
+    }
+
+    let mut result = None;
+    if let Some(stream) = deployment
+        .container()
+        .stream_normalized_logs(&execution_id)
+        .await
+    {
+        // The stream terminates with `LogMsg::Finished` for stopped processes.
+        let msgs: Vec<_> = stream.collect().await;
+        result = msgs
+            .iter()
+            .rev()
+            .filter_map(|m| m.as_ref().ok())
+            .find_map(token_usage_from_log_msg);
+    }
+
+    FINISHED_USAGE_CACHE
+        .lock()
+        .unwrap()
+        .insert(execution_id, result.clone());
+    result
+}
+
+/// Extract a token-usage entry from a normalized `JsonPatch` message. Op
+/// values are `NormalizedEntry` objects; the internally-tagged `entry_type`
+/// carries the usage
+/// (`{"type":"token_usage_info","total_tokens":..,"model_context_window":..}`).
+fn token_usage_from_log_msg(msg: &LogMsg) -> Option<TokenUsageInfo> {
+    let LogMsg::JsonPatch(patch) = msg else {
+        return None;
+    };
+    let ops = serde_json::to_value(patch).ok()?;
+    let ops = ops.as_array()?;
+    for op in ops.iter().rev() {
+        let Some(entry_type) = op.get("value").and_then(|v| v.get("entry_type")) else {
+            continue;
+        };
+        if entry_type.get("type").and_then(|t| t.as_str()) != Some("token_usage_info") {
+            continue;
+        }
+        if let Ok(info) = serde_json::from_value::<TokenUsageInfo>(entry_type.clone()) {
+            return Some(info);
         }
     }
     None

@@ -97,6 +97,18 @@ impl MsgStore {
             .collect()
     }
 
+    /// Scan the history newest-first without cloning it, returning the first
+    /// value `f` produces.
+    pub fn find_map_history_rev<T>(&self, mut f: impl FnMut(&LogMsg) -> Option<T>) -> Option<T> {
+        self.inner
+            .read()
+            .unwrap()
+            .history
+            .iter()
+            .rev()
+            .find_map(|s| f(&s.msg))
+    }
+
     /// History then live, as `LogMsg`.
     pub fn history_plus_stream(
         &self,
