@@ -6,7 +6,13 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Group, Layout, Panel, Separator } from 'react-resizable-panels';
+import {
+  Group,
+  Layout,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from 'react-resizable-panels';
 import type { CreateModeInitialState } from '@/shared/types/createMode';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
@@ -43,6 +49,10 @@ import {
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
+const WORKSPACES_SIDEBAR_LAYOUT_ID = 'workspaces-sidebar-layout';
+
+const SEPARATOR_CLASS =
+  'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
 
 export function WorkspacesLayout() {
   const appNavigation = useAppNavigation();
@@ -204,6 +214,16 @@ export function WorkspacesLayout() {
     [isLeftMainPanelVisible, rightMainPanelMode, setRightMainPanelSize]
   );
 
+  // Sidebar layout — persisted to localStorage via useDefaultLayout
+  const {
+    defaultLayout: sidebarDefaultLayout,
+    onLayoutChange: onSidebarLayoutChange,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: WORKSPACES_SIDEBAR_LAYOUT_ID,
+  });
+
   // ── Mobile layout ──────────────────────────────────────────────────
   // Uses `hidden` CSS class (NOT conditional rendering) to preserve
   // WebSocket connections and scroll positions across tab switches.
@@ -330,112 +350,142 @@ export function WorkspacesLayout() {
     );
   }
 
+  // Inner group: left-main | right-main (existing split panel)
   const mainContent = (
     <ReviewProvider workspaceId={selectedWorkspace?.id}>
       <ChangesViewProvider>
-        <div className="flex h-full">
-          <Group
-            orientation="horizontal"
-            className="flex-1 min-w-0 h-full"
-            defaultLayout={defaultLayout}
-            onLayoutChange={onLayoutChange}
-          >
-            {isLeftMainPanelVisible && (
-              <Panel
-                id="left-main"
-                minSize="20%"
-                className="min-w-0 h-full overflow-hidden"
-              >
-                {isCreateMode ? (
-                  <CreateChatBoxContainer
-                    onWorkspaceCreated={handleWorkspaceCreated}
-                  />
-                ) : (
-                  <WorkspacesMainContainer
-                    ref={mainContainerRef}
-                    selectedWorkspace={selectedWorkspace ?? null}
-                    selectedSession={selectedSession}
-                    selectedSessionId={selectedSessionId}
-                    sessions={sessions}
-                    repos={repos}
-                    onSelectSession={selectSession}
-                    isLoading={isLoading}
-                    isSessionsLoading={isSessionsLoading}
-                    isNewSessionMode={isNewSessionMode}
-                    onStartNewSession={startNewSession}
-                  />
-                )}
-              </Panel>
-            )}
-
-            {isLeftMainPanelVisible && rightMainPanelMode !== null && (
-              <Separator
-                id="main-separator"
-                className="w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize"
-              />
-            )}
-
-            {rightMainPanelMode !== null && (
-              <Panel
-                id="right-main"
-                minSize="20%"
-                className="min-w-0 h-full overflow-hidden"
-              >
-                {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-                  selectedWorkspace?.id && (
-                    <ChangesPanelContainer
-                      className=""
-                      workspaceId={selectedWorkspace.id}
-                    />
-                  )}
-                {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS && (
-                  <LogsContentContainer className="" />
-                )}
-                {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW &&
-                  selectedWorkspace?.id && (
-                    <PreviewBrowserContainer
-                      workspaceId={selectedWorkspace.id}
-                      className=""
-                    />
-                  )}
-              </Panel>
-            )}
-          </Group>
-
-          {isRightSidebarVisible && !isCreateMode && (
-            <div className="w-[300px] shrink-0 h-full overflow-hidden">
-              <RightSidebar
-                rightMainPanelMode={rightMainPanelMode}
-                selectedWorkspace={selectedWorkspace}
-                repos={repos}
-              />
-            </div>
+        <Group
+          orientation="horizontal"
+          className="flex-1 min-w-0 h-full"
+          defaultLayout={defaultLayout}
+          onLayoutChange={onLayoutChange}
+        >
+          {isLeftMainPanelVisible && (
+            <Panel
+              id="left-main"
+              minSize="20%"
+              className="min-w-0 h-full overflow-hidden"
+            >
+              {isCreateMode ? (
+                <CreateChatBoxContainer
+                  onWorkspaceCreated={handleWorkspaceCreated}
+                />
+              ) : (
+                <WorkspacesMainContainer
+                  ref={mainContainerRef}
+                  selectedWorkspace={selectedWorkspace ?? null}
+                  selectedSession={selectedSession}
+                  selectedSessionId={selectedSessionId}
+                  sessions={sessions}
+                  repos={repos}
+                  onSelectSession={selectSession}
+                  isLoading={isLoading}
+                  isSessionsLoading={isSessionsLoading}
+                  isNewSessionMode={isNewSessionMode}
+                  onStartNewSession={startNewSession}
+                />
+              )}
+            </Panel>
           )}
-        </div>
+
+          {isLeftMainPanelVisible && rightMainPanelMode !== null && (
+            <Separator id="main-separator" className={SEPARATOR_CLASS} />
+          )}
+
+          {rightMainPanelMode !== null && (
+            <Panel
+              id="right-main"
+              minSize="20%"
+              className="min-w-0 h-full overflow-hidden"
+            >
+              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
+                selectedWorkspace?.id && (
+                  <ChangesPanelContainer
+                    className=""
+                    workspaceId={selectedWorkspace.id}
+                  />
+                )}
+              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS && (
+                <LogsContentContainer className="" />
+              )}
+              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW &&
+                selectedWorkspace?.id && (
+                  <PreviewBrowserContainer
+                    workspaceId={selectedWorkspace.id}
+                    className=""
+                  />
+                )}
+            </Panel>
+          )}
+        </Group>
       </ChangesViewProvider>
     </ReviewProvider>
   );
 
+  // Outer group: left-sidebar | center | right-sidebar
+  // Both sidebars are resizable panels with pixel-based min/max constraints.
+  // Layout is persisted to localStorage via useDefaultLayout.
   return (
     <div className="flex flex-1 min-h-0 h-full">
-      {isLeftSidebarVisible && (
-        <div className="w-[300px] shrink-0 h-full overflow-hidden">
-          <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
-        </div>
-      )}
-
-      <div className="flex-1 min-w-0 h-full">
-        {isCreateMode ? (
-          <CreateModeProvider
-            key={createModeProviderKey}
-            initialState={createModeSeed.state}
+      <Group
+        orientation="horizontal"
+        className="flex-1 min-w-0 h-full"
+        defaultLayout={sidebarDefaultLayout}
+        onLayoutChange={onSidebarLayoutChange}
+      >
+        {isLeftSidebarVisible && (
+          <Panel
+            id="left-sidebar"
+            minSize="220px"
+            maxSize="480px"
+            className="h-full overflow-hidden"
           >
-            {mainContent}
-          </CreateModeProvider>
-        ) : (
-          mainContent
+            <WorkspacesSidebarContainer
+              onScrollToBottom={handleScrollToBottom}
+            />
+          </Panel>
         )}
-      </div>
+
+        {isLeftSidebarVisible && (
+          <Separator id="left-sidebar-separator" className={SEPARATOR_CLASS} />
+        )}
+
+        <Panel
+          id="outer-center"
+          minSize="400px"
+          className="min-w-0 h-full overflow-hidden"
+        >
+          {isCreateMode ? (
+            <CreateModeProvider
+              key={createModeProviderKey}
+              initialState={createModeSeed.state}
+            >
+              {mainContent}
+            </CreateModeProvider>
+          ) : (
+            mainContent
+          )}
+        </Panel>
+
+        {isRightSidebarVisible && !isCreateMode && (
+          <Separator id="right-sidebar-separator" className={SEPARATOR_CLASS} />
+        )}
+
+        {isRightSidebarVisible && !isCreateMode && (
+          <Panel
+            id="right-sidebar"
+            minSize="220px"
+            maxSize="480px"
+            className="h-full overflow-hidden"
+          >
+            <RightSidebar
+              rightMainPanelMode={rightMainPanelMode}
+              selectedWorkspace={selectedWorkspace}
+              repos={repos}
+            />
+          </Panel>
+        )}
+      </Group>
     </div>
   );
 }
