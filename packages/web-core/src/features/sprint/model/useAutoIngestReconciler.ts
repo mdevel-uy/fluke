@@ -16,7 +16,10 @@ const RETRY_COOLDOWN_MS = 60_000;
  * Failed attempts (in-review cap reached, races) are retried at most once per
  * cooldown window per worker.
  */
-export function useAutoIngestReconciler(workers: WorkerResponse[] | undefined) {
+export function useAutoIngestReconciler(
+  workers: WorkerResponse[] | undefined,
+  queuedCountByWorkerId: Map<string, number>
+) {
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const queryClient = useQueryClient();
   const lastAttemptRef = useRef(new Map<string, number>());
@@ -25,7 +28,8 @@ export function useAutoIngestReconciler(workers: WorkerResponse[] | undefined) {
   useEffect(() => {
     if (!autoIngest || !workers) return;
     for (const worker of workers) {
-      if (worker.active_workspace_id !== null || worker.queued_count === 0) {
+      const queuedCount = queuedCountByWorkerId.get(worker.id) ?? 0;
+      if (worker.active_workspace_id !== null || queuedCount === 0) {
         continue;
       }
       if (inFlightRef.current.has(worker.id)) continue;
@@ -45,5 +49,5 @@ export function useAutoIngestReconciler(workers: WorkerResponse[] | undefined) {
         })
         .finally(() => inFlightRef.current.delete(worker.id));
     }
-  }, [autoIngest, workers, queryClient]);
+  }, [autoIngest, workers, queuedCountByWorkerId, queryClient]);
 }

@@ -272,6 +272,7 @@ export function SprintPage() {
 
   const {
     tasks: allTasks,
+    queuedCountByWorkerId,
     isLoading: isLoadingTasks,
     isError: isTasksError,
   } = useAllWorkerTasks(workers);
@@ -398,7 +399,7 @@ export function SprintPage() {
   const startNextMutation = useStartNextWorkerTask();
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
-  useAutoIngestReconciler(workers);
+  useAutoIngestReconciler(workers, queuedCountByWorkerId);
 
   // With auto-ingest on, an idle worker picks up its queue as soon as a task
   // is assigned. Conflicts (worker grabbed something else meanwhile) are fine.

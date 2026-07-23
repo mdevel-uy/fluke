@@ -99,24 +99,15 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
-  const { tasks: allTasks } = useAllWorkerTasks(workers);
+  const { tasks: allTasks, queuedCountByWorkerId } =
+    useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
-  useAutoIngestReconciler(workers);
+  useAutoIngestReconciler(workers, queuedCountByWorkerId);
 
   const activeTaskByWorkerId = useMemo(() => {
     const map = new Map<string, WorkerTask>();
     for (const task of allTasks) {
       if (task.status === 'in_progress') map.set(task.worker_id, task);
-    }
-    return map;
-  }, [allTasks]);
-
-  const queuedCountByWorkerId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const task of allTasks) {
-      if (task.status === 'queued') {
-        map.set(task.worker_id, (map.get(task.worker_id) ?? 0) + 1);
-      }
     }
     return map;
   }, [allTasks]);
