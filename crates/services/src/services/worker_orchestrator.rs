@@ -1159,6 +1159,25 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
+    // A finished review whose verdict still stands must not trigger another
+    // round: after an approval there is nothing new to review, and after a
+    // changes-requested the re-review only makes sense once the author has
+    // completed the fix. Dispatch round N+1 only when a fix round has
+    // completed for every finished review.
+    let rounds_done = WorkerTask::count_reviewer_tasks_done_for_pr(pool, pr_number, repo_id).await?;
+    if rounds_done > 0 {
+        let fixes_done = WorkerTask::count_fix_tasks_done_for_pr(pool, pr_number, repo_id).await?;
+        if fixes_done < rounds_done {
+            debug!(
+                pr_number,
+                rounds_done,
+                fixes_done,
+                "Last review verdict still stands — skipping re-dispatch"
+            );
+            return Ok(());
+        }
+    }
+
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
     let task_prompt = format!(
         "Revisá el PR #{pr_number} según tu checklist. \
@@ -1205,6 +1224,24 @@ pub async fn dispatch_review_task(
     }
 
     Ok(())
+}
+
+/// Delete queued review/fix tasks referencing a PR that was merged or closed —
+/// reviewing or fixing it no longer makes sense. In-progress tasks are left
+/// alone; their runs finish on their own.
+pub async fn cancel_stale_pr_tasks(
+    db: &DBService,
+    pr_number: i64,
+    repo_id: Uuid,
+) -> Result<u64, sqlx::Error> {
+    let removed = WorkerTask::delete_queued_tasks_for_pr(&db.pool, pr_number, repo_id).await?;
+    if removed > 0 {
+        info!(
+            pr_number,
+            removed, "Removed {} stale queued task(s) for finished PR #{}", removed, pr_number,
+        );
+    }
+    Ok(removed)
 }
 
 /// Dispatch a fix task to the PR author worker when a reviewer requests changes.

@@ -352,6 +352,20 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             e
                         );
                     }
+                    // Drop stale queued review/fix tasks before the worker
+                    // chains into its next task.
+                    if let Err(e) = worker_orchestrator::cancel_stale_pr_tasks(
+                        &self.db,
+                        pr_info.number,
+                        workspace_repo.repo_id,
+                    )
+                    .await
+                    {
+                        warn!(
+                            pr_number = pr_info.number,
+                            "Failed to remove stale PR tasks after adoption: {}", e
+                        );
+                    }
                     match worker_orchestrator::on_pr_merged(
                         &self.config,
                         &self.db,
@@ -541,6 +555,21 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             status.merge_commit_sha.clone(),
         )
         .await?;
+
+        // A merged or closed PR invalidates any queued review/fix tasks that
+        // reference it — drop them before any worker picks them up.
+        if matches!(&status.status, MergeStatus::Merged | MergeStatus::Closed)
+            && let Some(repo_id) = pr.repo_id
+        {
+            if let Err(e) =
+                worker_orchestrator::cancel_stale_pr_tasks(&self.db, pr.pr_number, repo_id).await
+            {
+                warn!(
+                    pr_number = pr.pr_number,
+                    "Failed to remove stale PR tasks: {}", e
+                );
+            }
+        }
 
         // If this is a workspace PR and it was merged, try to archive
         if matches!(&status.status, MergeStatus::Merged)
