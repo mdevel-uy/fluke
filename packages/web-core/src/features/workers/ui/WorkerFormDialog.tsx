@@ -68,6 +68,14 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   useEffect(() => {
+    setName(worker?.name ?? '');
+    setSoul(worker?.soul ?? '');
+    setRole((worker?.role as WorkerRole) ?? 'developer');
+    setErrorMessage(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [worker?.id]);
+
+  useEffect(() => {
     setErrorMessage(null);
   }, [name, soul, role]);
 

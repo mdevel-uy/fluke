@@ -25,6 +25,7 @@ import {
 import { defineModal } from '@/shared/lib/modals';
 import { workersApi } from '@/shared/lib/api';
 import { workersKeys } from '@/features/workers';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import type { ActiveIssueTaskInfo } from '@/shared/lib/api';
 import type { WorkerResponse } from 'shared/types';
@@ -124,6 +125,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         const invalidateWorkers = () =>
           queryClient.invalidateQueries({ queryKey: workersKeys.all });
         invalidateWorkers();
+        queryClient.invalidateQueries({
+          queryKey: repoIssuesKeys.byRepo(repoId),
+        });
         // With auto-ingest on, kick the worker right away if it is idle.
         const { autoIngest } = useAutoIngestStore.getState();
         const worker = workers.find((w) => w.id === selectedWorkerId);

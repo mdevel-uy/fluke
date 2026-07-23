@@ -4,6 +4,7 @@ import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import { workersApi } from '@/shared/lib/api';
 import { workersKeys } from '@/features/workers';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useWorkerTasks } from '@/features/workers/model/useWorkers';
 import type { WorkerTaskResponse } from 'shared/types';
 
@@ -40,7 +41,12 @@ export function WorkerTaskList({
     mutationFn: async (task: WorkerTaskResponse) => {
       await workersApi.deleteTask(task.worker_id, task.id);
     },
-    onSuccess: () => invalidate(),
+    onSuccess: (_data, task) => {
+      invalidate();
+      queryClient.invalidateQueries({
+        queryKey: repoIssuesKeys.byRepo(task.repo_id),
+      });
+    },
   });
 
   if (isLoading) {
