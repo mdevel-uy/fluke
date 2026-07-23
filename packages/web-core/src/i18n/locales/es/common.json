@@ -159,7 +159,8 @@
       "cannotDeleteOpenPr": "No se puede eliminar la rama mientras el PR está abierto",
       "unlinkFromIssueLabel": "También desvincular del issue"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó"
   },
   "fileTree": {
     "searchPlaceholder": "Buscar archivos...",
@@ -701,7 +702,8 @@
       "collapseQueue": "Ocultar cola",
       "queueLoading": "Cargando cola...",
       "queueError": "No se pudo cargar la cola.",
-      "queueEmpty": "La cola está vacía."
+      "queueEmpty": "La cola está vacía.",
+      "needsAttention": "Necesita atención"
     },
     "form": {
       "newTitle": "Nuevo worker",

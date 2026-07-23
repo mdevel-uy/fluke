@@ -173,7 +173,8 @@
       "deleteBranchLabel": "Delete branch",
       "cannotDeleteOpenPr": "Cannot delete branch while PR is open",
       "unlinkFromIssueLabel": "Also unlink from issue"
-    }
+    },
+    "stalledTask": "Task stalled — the agent stopped but the task did not move on"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",
@@ -701,7 +702,8 @@
       "collapseQueue": "Hide queue",
       "queueLoading": "Loading queue...",
       "queueError": "Failed to load queue.",
-      "queueEmpty": "The queue is empty."
+      "queueEmpty": "The queue is empty.",
+      "needsAttention": "Needs attention"
     },
     "form": {
       "newTitle": "New worker",

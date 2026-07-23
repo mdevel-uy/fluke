@@ -2,6 +2,7 @@ import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useTranslation } from 'react-i18next';
+import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 
 interface InReviewTaskCardProps {
   task: WorkerTask;
@@ -26,12 +27,17 @@ export function InReviewTaskCard({ task }: InReviewTaskCardProps) {
 
   return (
     <article className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px">
-      <p
-        className="text-body-sm font-sans text-md-on-surface font-medium leading-snug line-clamp-2"
-        title={task.title}
-      >
-        {task.title}
-      </p>
+      <div className="flex items-start gap-2">
+        {task.issue_number != null && (
+          <IssueBadge issueNumber={task.issue_number} className="mt-px" />
+        )}
+        <p
+          className="text-body-sm font-sans text-md-on-surface font-medium leading-snug line-clamp-2"
+          title={task.title}
+        >
+          {taskDisplayTitle(task)}
+        </p>
+      </div>
       {(prUrl || prState || isConflicting) && (
         <div className="flex items-center gap-2 flex-wrap">
           {prUrl && (

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import type { WorkerTask } from '@/features/sprint/types';
+import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 
 interface FailedTaskCardProps {
   task: WorkerTask;
@@ -24,11 +25,14 @@ export function FailedTaskCard({
         <span className="mt-0.5 shrink-0 text-md-error" aria-hidden>
           <MaterialIcon name="error" size="xs" />
         </span>
+        {task.issue_number != null && (
+          <IssueBadge issueNumber={task.issue_number} className="mt-px" />
+        )}
         <p
           className="text-body-sm font-sans text-md-on-surface font-medium leading-snug line-clamp-2 flex-1"
           title={task.title}
         >
-          {task.title}
+          {taskDisplayTitle(task)}
         </p>
       </div>
       <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">

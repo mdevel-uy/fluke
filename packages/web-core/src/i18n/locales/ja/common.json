@@ -159,7 +159,8 @@
       "cannotDeleteOpenPr": "PRがオープン中はブランチを削除できません",
       "unlinkFromIssueLabel": "イシューからもリンク解除する"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "タスクが停滞 — エージェントは停止しましたがタスクが進んでいません"
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",
@@ -701,7 +702,8 @@
       "collapseQueue": "キューを隠す",
       "queueLoading": "キューを読み込み中...",
       "queueError": "キューの読み込みに失敗しました。",
-      "queueEmpty": "キューは空です。"
+      "queueEmpty": "キューは空です。",
+      "needsAttention": "要対応"
     },
     "form": {
       "newTitle": "新しいワーカー",

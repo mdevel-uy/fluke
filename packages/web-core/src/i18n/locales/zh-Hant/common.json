@@ -159,7 +159,8 @@
       "cannotDeleteOpenPr": "PR 開啟時無法刪除分支",
       "unlinkFromIssueLabel": "同時取消與議題的關聯"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "任務停滯 — 代理已停止但任務未推進"
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",
@@ -701,7 +702,8 @@
       "collapseQueue": "隱藏佇列",
       "queueLoading": "正在載入佇列...",
       "queueError": "載入佇列失敗。",
-      "queueEmpty": "佇列為空。"
+      "queueEmpty": "佇列為空。",
+      "needsAttention": "需要關注"
     },
     "form": {
       "newTitle": "新增工作者",

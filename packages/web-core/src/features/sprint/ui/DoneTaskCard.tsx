@@ -1,5 +1,6 @@
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import type { WorkerTask } from '@/features/sprint/types';
+import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 
 interface DoneTaskCardProps {
   task: WorkerTask;
@@ -14,11 +15,14 @@ export function DoneTaskCard({ task }: DoneTaskCardProps) {
       >
         <MaterialIcon name="check" size="xs" />
       </span>
+      {task.issue_number != null && (
+        <IssueBadge issueNumber={task.issue_number} className="mt-px" />
+      )}
       <p
         className="text-body-sm font-sans text-md-on-surface-variant font-medium leading-snug line-clamp-2"
         title={task.title}
       >
-        {task.title}
+        {taskDisplayTitle(task)}
       </p>
     </article>
   );

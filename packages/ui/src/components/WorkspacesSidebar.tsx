@@ -57,6 +57,10 @@ export interface WorkspacesSidebarWorkspace {
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
   contextUsage?: WorkspaceContextUsage | null;
+  /** GitHub issue backing this workspace's worker task, if any */
+  issueNumber?: number;
+  /** Worker task is in progress but the agent is no longer running */
+  hasStalledTask?: boolean;
 }
 
 export interface WorkspacesSidebarPersistKeys {
@@ -144,7 +148,11 @@ export function WorkspacesSidebarReopenTag({
 }
 
 function needsAttention(ws: WorkspacesSidebarWorkspace) {
-  return !!ws.hasPendingApproval || (!!ws.hasUnseenActivity && !ws.isRunning);
+  return (
+    !!ws.hasPendingApproval ||
+    !!ws.hasStalledTask ||
+    (!!ws.hasUnseenActivity && !ws.isRunning)
+  );
 }
 
 function WorkspaceList({
@@ -178,6 +186,8 @@ function WorkspaceList({
           latestProcessStatus={workspace.latestProcessStatus}
           prStatus={workspace.prStatus}
           contextUsage={workspace.contextUsage}
+          issueNumber={workspace.issueNumber}
+          hasStalledTask={workspace.hasStalledTask}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           onClick={() => onSelectWorkspace(workspace.id)}
         />
