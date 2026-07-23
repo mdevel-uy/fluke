@@ -111,6 +111,16 @@ export function WorkersPage() {
     return map;
   }, [allTasks]);
 
+  const queuedCountByWorkerId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const task of allTasks) {
+      if (task.status === 'queued') {
+        map.set(task.worker_id, (map.get(task.worker_id) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [allTasks]);
+
   const branchByWorkspaceId = useMemo(() => {
     const map = new Map<string, string>();
     for (const ws of [...workspaces, ...archivedWorkspaces]) {
@@ -145,13 +155,16 @@ export function WorkersPage() {
     const working = workers.filter(
       (w) => w.active_workspace_id !== null
     ).length;
-    const totalQueued = workers.reduce((sum, w) => sum + w.queued_count, 0);
+    const totalQueued = workers.reduce(
+      (sum, w) => sum + (queuedCountByWorkerId.get(w.id) ?? 0),
+      0
+    );
     const totalCompleted = workers.reduce(
       (sum, w) => sum + w.completed_count,
       0
     );
     return { working, totalQueued, totalCompleted };
-  }, [workers]);
+  }, [workers, queuedCountByWorkerId]);
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
@@ -318,6 +331,7 @@ export function WorkersPage() {
               <WorkerCard
                 key={worker.id}
                 worker={worker}
+                queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
                 activeTask={activeTaskByWorkerId.get(worker.id)}
                 needsAttention={stalledWorkerIds.has(worker.id)}
                 activeBranch={
