@@ -23,15 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check for duplicate migration versions
-        run: |
-          duplicates=$(ls crates/db/migrations/ | cut -d_ -f1 | sort | uniq -d)
-          if [ -n "$duplicates" ]; then
-            echo "ERROR: Duplicate migration versions detected:"
-            echo "$duplicates"
-            exit 1
-          fi
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -71,6 +62,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check for duplicate migration versions
+        run: |
+          duplicates=$(ls crates/db/migrations/ | cut -d_ -f1 | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "ERROR: Duplicate migration versions detected:"
+            echo "$duplicates"
+            exit 1
+          fi
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@master
