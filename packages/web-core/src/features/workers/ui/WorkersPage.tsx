@@ -99,9 +99,10 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
-  const { tasks: allTasks } = useAllWorkerTasks(workers);
+  const { tasks: allTasks, queuedCountByWorkerId } =
+    useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
-  useAutoIngestReconciler(workers);
+  useAutoIngestReconciler(workers, queuedCountByWorkerId);
 
   const activeTaskByWorkerId = useMemo(() => {
     const map = new Map<string, WorkerTask>();
@@ -145,13 +146,16 @@ export function WorkersPage() {
     const working = workers.filter(
       (w) => w.active_workspace_id !== null
     ).length;
-    const totalQueued = workers.reduce((sum, w) => sum + w.queued_count, 0);
+    const totalQueued = workers.reduce(
+      (sum, w) => sum + (queuedCountByWorkerId.get(w.id) ?? 0),
+      0
+    );
     const totalCompleted = workers.reduce(
       (sum, w) => sum + w.completed_count,
       0
     );
     return { working, totalQueued, totalCompleted };
-  }, [workers]);
+  }, [workers, queuedCountByWorkerId]);
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
@@ -318,6 +322,7 @@ export function WorkersPage() {
               <WorkerCard
                 key={worker.id}
                 worker={worker}
+                queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
                 activeTask={activeTaskByWorkerId.get(worker.id)}
                 needsAttention={stalledWorkerIds.has(worker.id)}
                 activeBranch={
