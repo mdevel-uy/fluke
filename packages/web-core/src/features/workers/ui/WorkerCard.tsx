@@ -22,6 +22,7 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import type { WorkerTask } from '@/features/sprint/types';
+import { IssueBadge, taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import { WorkerTaskList } from './WorkerTaskList';
 
 const ROLE_CHIP_CLASS: Record<string, string> = {
@@ -34,6 +35,7 @@ interface WorkerCardProps {
   worker: WorkerResponse;
   activeTask?: WorkerTask;
   activeBranch?: string;
+  needsAttention?: boolean;
   isStarting: boolean;
   onStartNext: () => void;
   onEdit: () => void;
@@ -44,6 +46,7 @@ export function WorkerCard({
   worker,
   activeTask,
   activeBranch,
+  needsAttention = false,
   isStarting,
   onStartNext,
   onEdit,
@@ -68,7 +71,11 @@ export function WorkerCard({
         <span
           className={cn(
             'h-2 w-2 shrink-0 rounded-full',
-            isWorking ? 'animate-pulse bg-brand-on-surface' : 'bg-success'
+            needsAttention
+              ? 'bg-warning'
+              : isWorking
+                ? 'animate-pulse bg-brand-on-surface'
+                : 'bg-success'
           )}
           aria-hidden
         />
@@ -84,6 +91,11 @@ export function WorkerCard({
         >
           {t(`workers.roles.${worker.role ?? 'developer'}`)}
         </span>
+        {needsAttention && (
+          <span className="shrink-0 rounded-full bg-warning/10 px-2 py-px text-xs font-medium text-warning">
+            {t('workers.card.needsAttention')}
+          </span>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -128,12 +140,17 @@ export function WorkerCard({
           )}
           {isWorking ? (
             activeTask ? (
-              <span
-                className="truncate text-sm text-high"
-                title={activeTask.title}
-              >
-                {activeTask.title}
-              </span>
+              <>
+                {activeTask.issue_number != null && (
+                  <IssueBadge issueNumber={activeTask.issue_number} />
+                )}
+                <span
+                  className="truncate text-sm text-high"
+                  title={activeTask.title}
+                >
+                  {taskDisplayTitle(activeTask)}
+                </span>
+              </>
             ) : (
               <button
                 type="button"

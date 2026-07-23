@@ -19,8 +19,8 @@ use url::Url;
 use utils::{command_ext::NoWindowExt, shell::resolve_executable_path_blocking};
 
 use crate::types::{
-    CreatePrRequest, PrComment, PrCommentAuthor, PrReviewComment, PullRequestDetail,
-    ReviewCommentUser,
+    CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
+    PullRequestDetail, ReviewCommentUser,
 };
 
 #[derive(Debug, Clone)]
@@ -445,6 +445,49 @@ impl GhCli {
             .find(|s| s == "approved" || s == "changes_requested");
 
         Ok(state)
+    }
+
+    /// Latest actionable review together with the commit it was made against
+    /// and the PR's current head. Lets callers detect pushes made after the
+    /// last review verdict.
+    pub fn get_pr_latest_review(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "reviews,headRefOid"], None)?;
+
+        #[derive(serde::Deserialize)]
+        struct Commit {
+            oid: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct Review {
+            state: String,
+            commit: Option<Commit>,
+        }
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Response {
+            reviews: Vec<Review>,
+            head_ref_oid: Option<String>,
+        }
+
+        let resp: Response = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse gh pr view --json reviews,headRefOid: {e}; raw: {raw}"
+            ))
+        })?;
+
+        let latest = resp.reviews.iter().rev().find(|r| {
+            let s = r.state.to_ascii_lowercase();
+            s == "approved" || s == "changes_requested"
+        });
+
+        Ok(latest.map(|r| LatestPrReview {
+            state: r.state.to_ascii_lowercase(),
+            reviewed_sha: r.commit.as_ref().map(|c| c.oid.clone()),
+            head_sha: resp.head_ref_oid.clone(),
+        }))
     }
 
     pub fn pr_checkout(

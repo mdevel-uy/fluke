@@ -3,6 +3,7 @@ import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import type { WorkerTask } from '@/features/sprint/types';
+import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 
 interface InProgressTaskCardProps {
   task: WorkerTask;
@@ -26,11 +27,14 @@ export function InProgressTaskCard({ task }: InProgressTaskCardProps) {
           className="mt-1 h-2 w-2 rounded-full bg-md-primary animate-pulse shrink-0"
           aria-hidden
         />
+        {task.issue_number != null && (
+          <IssueBadge issueNumber={task.issue_number} className="mt-px" />
+        )}
         <p
           className="text-body-sm font-sans text-md-on-surface font-semibold leading-snug line-clamp-2"
           title={task.title}
         >
-          {task.title}
+          {taskDisplayTitle(task)}
         </p>
       </div>
       {task.workspace_id && (

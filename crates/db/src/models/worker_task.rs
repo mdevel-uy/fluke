@@ -378,6 +378,29 @@ impl WorkerTask {
         .await
     }
 
+    /// Delete queued tasks referencing a PR (`pr_number` stored in
+    /// `issue_number`): dispatched review rounds and author fix tasks that
+    /// never started. Once the PR is merged or closed they are stale.
+    /// GitHub issues and PRs share one number sequence, so `issue_number ==
+    /// pr_number` can only refer to this PR. In-progress tasks are untouched.
+    pub async fn delete_queued_tasks_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM worker_tasks
+               WHERE issue_number = ?1
+                 AND repo_id = ?2
+                 AND status = 'queued'",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// Find the first active task (queued, in_progress, or in_review) for the
     /// given repo and issue number, across all workers. Used to detect duplicate
     /// issue assignments before creating a new task.

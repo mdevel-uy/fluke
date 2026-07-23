@@ -319,26 +319,29 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                         );
                     }
 
-                    // Dispatch a review task for the adopted open PR.
+                    // Dispatch a review task for the adopted open PR, unless
+                    // its last review verdict still covers the current head.
                     let author_worker_id =
                         Worker::find_by_workspace_id(&self.db.pool, workspace_id)
                             .await
                             .unwrap_or(None);
-                    if let Err(e) = worker_orchestrator::dispatch_review_task(
-                        &self.config,
-                        &self.db,
-                        &self.container,
-                        pr_info.number,
-                        &pr_info.title,
-                        workspace_repo.repo_id,
-                        author_worker_id,
-                    )
-                    .await
-                    {
-                        warn!(
-                            pr_number = pr_info.number,
-                            "Failed to dispatch review task after PR adoption: {}", e
-                        );
+                    if Self::should_dispatch_review(&git_host, &pr_info.url, pr_info.number).await {
+                        if let Err(e) = worker_orchestrator::dispatch_review_task(
+                            &self.config,
+                            &self.db,
+                            &self.container,
+                            pr_info.number,
+                            &pr_info.title,
+                            workspace_repo.repo_id,
+                            author_worker_id,
+                        )
+                        .await
+                        {
+                            warn!(
+                                pr_number = pr_info.number,
+                                "Failed to dispatch review task after PR adoption: {}", e
+                            );
+                        }
                     }
                 }
                 MergeStatus::Merged => {
@@ -350,6 +353,20 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             workspace_id = %workspace_id,
                             "Failed to archive workspace after merged-PR adoption: {}",
                             e
+                        );
+                    }
+                    // Drop stale queued review/fix tasks before the worker
+                    // chains into its next task.
+                    if let Err(e) = worker_orchestrator::cancel_stale_pr_tasks(
+                        &self.db,
+                        pr_info.number,
+                        workspace_repo.repo_id,
+                    )
+                    .await
+                    {
+                        warn!(
+                            pr_number = pr_info.number,
+                            "Failed to remove stale PR tasks after adoption: {}", e
                         );
                     }
                     match worker_orchestrator::on_pr_merged(
@@ -403,6 +420,46 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         Ok(())
     }
 
+    /// Decide whether a (re-)review should be dispatched for an open PR:
+    /// - no actionable review yet → yes (first round);
+    /// - a review exists → only when the PR head moved past the reviewed
+    ///   commit (someone pushed fixes after the verdict). An approval or a
+    ///   pending changes-request with no new commits stands as-is.
+    ///
+    /// Conservative on errors or missing data: no dispatch this cycle — the
+    /// next poll retries.
+    async fn should_dispatch_review(
+        git_host: &GitHostService,
+        pr_url: &str,
+        pr_number: i64,
+    ) -> bool {
+        match git_host.get_pr_latest_review(pr_url).await {
+            Ok(None) => true,
+            Ok(Some(review)) => match (&review.reviewed_sha, &review.head_sha) {
+                (Some(reviewed), Some(head)) => {
+                    let has_new_commits = reviewed != head;
+                    if has_new_commits {
+                        info!(
+                            pr_number,
+                            reviewed_sha = %reviewed,
+                            head_sha = %head,
+                            "New commits since last review — re-review warranted",
+                        );
+                    }
+                    has_new_commits
+                }
+                _ => false,
+            },
+            Err(e) => {
+                warn!(
+                    pr_number,
+                    "Failed to check PR review freshness — skipping dispatch: {}", e
+                );
+                false
+            }
+        }
+    }
+
     /// Check the status of a single open PR and handle state changes.
     async fn check_open_pr(&self, pr: &PullRequest) -> Result<(), PrMonitorError> {
         let git_host = GitHostService::from_url(&pr.pr_url)?;
@@ -427,28 +484,32 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 }
 
                 // For worker-owned PRs: dispatch a review task (idempotent — the
-                // dispatch function guards against duplicates and round caps).
+                // dispatch function guards against duplicates and round caps),
+                // but only when the last verdict no longer covers the current
+                // head (or there is no review yet).
                 if let Some(repo_id) = pr.repo_id {
                     let author_worker_id =
                         Worker::find_by_workspace_id(&self.db.pool, workspace_id)
                             .await
                             .unwrap_or(None);
 
-                    if let Err(e) = worker_orchestrator::dispatch_review_task(
-                        &self.config,
-                        &self.db,
-                        &self.container,
-                        pr.pr_number,
-                        &status.title,
-                        repo_id,
-                        author_worker_id,
-                    )
-                    .await
-                    {
-                        warn!(
-                            pr_number = pr.pr_number,
-                            "Failed to dispatch review task: {}", e
-                        );
+                    if Self::should_dispatch_review(&git_host, &pr.pr_url, pr.pr_number).await {
+                        if let Err(e) = worker_orchestrator::dispatch_review_task(
+                            &self.config,
+                            &self.db,
+                            &self.container,
+                            pr.pr_number,
+                            &status.title,
+                            repo_id,
+                            author_worker_id,
+                        )
+                        .await
+                        {
+                            warn!(
+                                pr_number = pr.pr_number,
+                                "Failed to dispatch review task: {}", e
+                            );
+                        }
                     }
 
                     // Detect request-changes reviews and enqueue a fix task for the
@@ -541,6 +602,21 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             status.merge_commit_sha.clone(),
         )
         .await?;
+
+        // A merged or closed PR invalidates any queued review/fix tasks that
+        // reference it — drop them before any worker picks them up.
+        if matches!(&status.status, MergeStatus::Merged | MergeStatus::Closed)
+            && let Some(repo_id) = pr.repo_id
+        {
+            if let Err(e) =
+                worker_orchestrator::cancel_stale_pr_tasks(&self.db, pr.pr_number, repo_id).await
+            {
+                warn!(
+                    pr_number = pr.pr_number,
+                    "Failed to remove stale PR tasks: {}", e
+                );
+            }
+        }
 
         // If this is a workspace PR and it was merged, try to archive
         if matches!(&status.status, MergeStatus::Merged)

@@ -20,6 +20,7 @@ import {
   useWorkers,
 } from '@/features/workers/model/useWorkers';
 import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
+import { useAutoIngestReconciler } from '@/features/sprint/model/useAutoIngestReconciler';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { WorkerCard } from './WorkerCard';
@@ -100,6 +101,7 @@ export function WorkersPage() {
   const deleteMutation = useDeleteWorker();
   const { tasks: allTasks } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
+  useAutoIngestReconciler(workers);
 
   const activeTaskByWorkerId = useMemo(() => {
     const map = new Map<string, WorkerTask>();
@@ -116,6 +118,28 @@ export function WorkersPage() {
     }
     return map;
   }, [workspaces, archivedWorkspaces]);
+
+  // A worker is stalled when its task is in progress but the workspace agent
+  // is no longer running (e.g. a pending push kept the task from advancing).
+  const stalledWorkerIds = useMemo(() => {
+    const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
+    const stalled = new Set<string>();
+    for (const worker of workers) {
+      if (!worker.active_workspace_id) continue;
+      const task = activeTaskByWorkerId.get(worker.id);
+      const ws = workspaceById.get(worker.active_workspace_id);
+      if (
+        task &&
+        ws &&
+        !ws.isRunning &&
+        !ws.hasPendingApproval &&
+        ws.latestProcessStatus !== 'running'
+      ) {
+        stalled.add(worker.id);
+      }
+    }
+    return stalled;
+  }, [workers, workspaces, activeTaskByWorkerId]);
 
   const stats = useMemo(() => {
     const working = workers.filter(
@@ -295,6 +319,7 @@ export function WorkersPage() {
                 key={worker.id}
                 worker={worker}
                 activeTask={activeTaskByWorkerId.get(worker.id)}
+                needsAttention={stalledWorkerIds.has(worker.id)}
                 activeBranch={
                   worker.active_workspace_id
                     ? branchByWorkspaceId.get(worker.active_workspace_id)

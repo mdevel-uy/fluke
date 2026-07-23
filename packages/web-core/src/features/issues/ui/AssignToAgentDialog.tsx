@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { create, useModal } from '@ebay/nice-modal-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { create, useModal } from '@ebay/nice-modal-react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -122,7 +122,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           issue_number: issue.number,
           ...(forceOverride ? { force_duplicate: true } : {}),
         });
-        queryClient.invalidateQueries({ queryKey: workersKeys.all });
+        const invalidateWorkers = () =>
+          queryClient.invalidateQueries({ queryKey: workersKeys.all });
+        invalidateWorkers();
         queryClient.invalidateQueries({
           queryKey: repoIssuesKeys.byRepo(repoId),
         });
@@ -130,9 +132,12 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         const { autoIngest } = useAutoIngestStore.getState();
         const worker = workers.find((w) => w.id === selectedWorkerId);
         if (autoIngest && worker && !worker.active_workspace_id) {
-          workersApi.startNext(selectedWorkerId).catch(() => {
-            // Best-effort: the worker may have picked up another task already.
-          });
+          workersApi
+            .startNext(selectedWorkerId)
+            .catch(() => {
+              // Best-effort: the worker may have picked up another task already.
+            })
+            .finally(invalidateWorkers);
         }
         modal.resolve('created' as AssignToAgentResult);
         modal.hide();

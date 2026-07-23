@@ -50,6 +50,10 @@ export interface WorkspaceSummaryProps {
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
   /** Context window usage of the agent session, if known */
   contextUsage?: WorkspaceContextUsage | null;
+  /** GitHub issue backing this workspace's worker task, if any */
+  issueNumber?: number;
+  /** Worker task is in progress but the agent is no longer running */
+  hasStalledTask?: boolean;
   onClick?: () => void;
   className?: string;
   summary?: boolean;
@@ -74,6 +78,8 @@ export function WorkspaceSummary({
   latestProcessStatus,
   prStatus,
   contextUsage,
+  issueNumber,
+  hasStalledTask = false,
   onClick,
   className,
   summary = false,
@@ -85,7 +91,7 @@ export function WorkspaceSummary({
   const isFailed =
     latestProcessStatus === 'failed' || latestProcessStatus === 'killed';
   const needsAttention =
-    hasPendingApproval || (hasUnseenActivity && !isRunning);
+    hasPendingApproval || hasStalledTask || (hasUnseenActivity && !isRunning);
   const showMeta = !summary || isActive;
 
   const handleOpenCommandBar = (e: React.MouseEvent) => {
@@ -129,6 +135,24 @@ export function WorkspaceSummary({
           >
             {name}
           </span>
+
+          {/* Backing GitHub issue */}
+          {issueNumber != null && (
+            <span className="inline-flex shrink-0 items-center rounded border border-border/60 bg-secondary px-1.5 py-px font-mono text-[11px] leading-4 text-normal">
+              #{issueNumber}
+            </span>
+          )}
+
+          {/* Stalled worker task — agent stopped but the task didn't move on */}
+          {hasStalledTask && (
+            <TriangleIcon
+              className="size-icon-xs text-warning shrink-0"
+              weight="fill"
+              aria-label={t('workspaces.stalledTask')}
+            >
+              <title>{t('workspaces.stalledTask')}</title>
+            </TriangleIcon>
+          )}
 
           {/* Dev server running */}
           {hasRunningDevServer && (

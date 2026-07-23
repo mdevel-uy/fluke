@@ -20,6 +20,8 @@ import {
   type WorkspaceSortOrder,
 } from '@/shared/stores/useUiPreferencesStore';
 import type { Workspace } from '@/shared/hooks/useWorkspaces';
+import { useWorkers } from '@/features/workers/model/useWorkers';
+import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import {
@@ -508,21 +510,57 @@ export function WorkspacesSidebarContainer({
     [filteredArchivedWorkspaces, sortWorkspaces]
   );
 
+  // Worker-task overlay: backing issue badge + stalled-task detection
+  const { data: sidebarWorkers } = useWorkers();
+  const { tasks: workerTasks } = useAllWorkerTasks(sidebarWorkers ?? []);
+
+  const workerTaskByWorkspaceId = useMemo(() => {
+    const map = new Map<string, (typeof workerTasks)[number]>();
+    for (const task of workerTasks) {
+      if (task.workspace_id) map.set(task.workspace_id, task);
+    }
+    return map;
+  }, [workerTasks]);
+
+  const withWorkerTaskInfo = useCallback(
+    (list: Workspace[]): Workspace[] =>
+      list.map((ws) => {
+        const task = workerTaskByWorkspaceId.get(ws.id);
+        if (!task) return ws;
+        return {
+          ...ws,
+          issueNumber: task.issue_number ?? undefined,
+          // In-progress task whose agent stopped without advancing the task
+          // (e.g. a pending push) — surface it as needing attention.
+          hasStalledTask:
+            task.status === 'in_progress' &&
+            !ws.isRunning &&
+            !ws.hasPendingApproval &&
+            ws.latestProcessStatus !== 'running',
+        };
+      }),
+    [workerTaskByWorkspaceId]
+  );
+
   // Apply pagination (only when not searching)
   const paginatedActiveWorkspaces = useMemo(
     () =>
-      isSearching
-        ? sortedActiveWorkspaces
-        : sortedActiveWorkspaces.slice(0, displayLimit),
-    [sortedActiveWorkspaces, displayLimit, isSearching]
+      withWorkerTaskInfo(
+        isSearching
+          ? sortedActiveWorkspaces
+          : sortedActiveWorkspaces.slice(0, displayLimit)
+      ),
+    [sortedActiveWorkspaces, displayLimit, isSearching, withWorkerTaskInfo]
   );
 
   const paginatedArchivedWorkspaces = useMemo(
     () =>
-      isSearching
-        ? sortedArchivedWorkspaces
-        : sortedArchivedWorkspaces.slice(0, displayLimit),
-    [sortedArchivedWorkspaces, displayLimit, isSearching]
+      withWorkerTaskInfo(
+        isSearching
+          ? sortedArchivedWorkspaces
+          : sortedArchivedWorkspaces.slice(0, displayLimit)
+      ),
+    [sortedArchivedWorkspaces, displayLimit, isSearching, withWorkerTaskInfo]
   );
 
   // Check if there are more workspaces to load

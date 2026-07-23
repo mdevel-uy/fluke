@@ -33,6 +33,7 @@ import {
 import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
+import { useAutoIngestReconciler } from '@/features/sprint/model/useAutoIngestReconciler';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
 import { WorkerChip } from './WorkerChip';
@@ -397,6 +398,7 @@ export function SprintPage() {
   const startNextMutation = useStartNextWorkerTask();
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
+  useAutoIngestReconciler(workers);
 
   // With auto-ingest on, an idle worker picks up its queue as soon as a task
   // is assigned. Conflicts (worker grabbed something else meanwhile) are fine.

@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use detection::detect_provider_from_url;
 use enum_dispatch::enum_dispatch;
 pub use types::{
-    CreatePrRequest, GitHostError, PrComment, PrCommentAuthor, PrReviewComment, ProviderKind,
-    PullRequestDetail, ReviewCommentUser, UnifiedPrComment,
+    CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
+    ProviderKind, PullRequestDetail, ReviewCommentUser, UnifiedPrComment,
 };
 
 use self::{azure::AzureDevOpsProvider, github::GitHubProvider};
@@ -59,6 +59,15 @@ pub trait GitHostProvider: Send + Sync {
         &self,
         pr_url: &str,
     ) -> Result<Option<String>, GitHostError>;
+
+    /// Latest actionable review (`approved` / `changes_requested`) together
+    /// with the commit it was made against and the PR's current head.
+    /// Returns `None` when no actionable review exists, or on hosts that do
+    /// not support review introspection.
+    async fn get_pr_latest_review(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GitHostError>;
 
     fn provider_kind(&self) -> ProviderKind;
 }

@@ -35,6 +35,10 @@ export interface SidebarWorkspace {
   prUrl?: string;
   prMergeable?: string;
   contextUsage?: { totalTokens: number; contextWindow: number };
+  /** GitHub issue backing this workspace's worker task, if any */
+  issueNumber?: number;
+  /** Worker task is in progress but the agent is no longer running */
+  hasStalledTask?: boolean;
 }
 
 // Keep the old export name for backwards compatibility

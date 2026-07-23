@@ -1207,6 +1207,24 @@ pub async fn dispatch_review_task(
     Ok(())
 }
 
+/// Delete queued review/fix tasks referencing a PR that was merged or closed —
+/// reviewing or fixing it no longer makes sense. In-progress tasks are left
+/// alone; their runs finish on their own.
+pub async fn cancel_stale_pr_tasks(
+    db: &DBService,
+    pr_number: i64,
+    repo_id: Uuid,
+) -> Result<u64, sqlx::Error> {
+    let removed = WorkerTask::delete_queued_tasks_for_pr(&db.pool, pr_number, repo_id).await?;
+    if removed > 0 {
+        info!(
+            pr_number,
+            removed, "Removed {} stale queued task(s) for finished PR #{}", removed, pr_number,
+        );
+    }
+    Ok(removed)
+}
+
 /// Dispatch a fix task to the PR author worker when a reviewer requests changes.
 ///
 /// No-op when:
