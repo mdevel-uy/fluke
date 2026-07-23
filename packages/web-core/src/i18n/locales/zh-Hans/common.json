@@ -131,6 +131,25 @@
     "all": "全部",
     "activityWorking": "工作中…",
     "activityWaitingApproval": "等待批准",
+    "contextPct": "{{pct}}% ctx",
+    "expand": "显示详情",
+    "collapse": "隐藏详情",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "开放",
+        "merged": "已合并",
+        "closed": "已关闭",
+        "unknown": "未知"
+      },
+      "conflicting": "合并冲突",
+      "branch": "分支",
+      "lastActivity": "最近活动",
+      "openWorkspace": "打开工作区",
+      "viewPr": "查看 PR",
+      "viewIssue": "查看 Issue"
+    },
     "pin": "置顶",
     "unpin": "取消置顶",
     "archive": "归档",

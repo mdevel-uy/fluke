@@ -39,6 +39,14 @@ export interface SidebarWorkspace {
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
   hasStalledTask?: boolean;
+  /** When the latest coding-agent process started (for elapsed time) */
+  latestProcessStartedAt?: string;
+  /** Name of the worker that owns this workspace, if any */
+  workerName?: string;
+  /** Role of the owning worker: developer | analyst | reviewer */
+  workerRole?: string;
+  /** Display title of the worker task backing this workspace */
+  taskTitle?: string;
 }
 
 // Keep the old export name for backwards compatibility
@@ -62,20 +70,18 @@ function toSidebarWorkspace(
   ws: WorkspaceWithStatus,
   summary?: WorkspaceSummary
 ): SidebarWorkspace {
-  // Forward-compatible: the backend does not expose per-workspace context
-  // usage yet; once WorkspaceSummary grows `latest_context_usage` the sidebar
-  // gauge lights up without further frontend changes (same pattern as
-  // pr_mergeable below).
-  const contextUsage = (
-    summary as
-      | (typeof summary & {
-          latest_context_usage?: {
-            total_tokens: number;
-            model_context_window: number;
-          } | null;
-        })
-      | undefined
-  )?.latest_context_usage;
+  // Fields added on this branch before shared/types.ts is regenerated
+  // (same pattern as pr_mergeable below).
+  const extendedSummary = summary as
+    | (typeof summary & {
+        latest_context_usage?: {
+          total_tokens: number;
+          model_context_window: number;
+        } | null;
+        latest_process_started_at?: string | null;
+      })
+    | undefined;
+  const contextUsage = extendedSummary?.latest_context_usage;
 
   return {
     id: ws.id,
@@ -114,6 +120,8 @@ function toSidebarWorkspace(
           contextWindow: contextUsage.model_context_window,
         }
       : undefined,
+    latestProcessStartedAt:
+      extendedSummary?.latest_process_started_at ?? undefined,
   };
 }
 

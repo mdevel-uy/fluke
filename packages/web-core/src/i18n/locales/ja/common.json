@@ -131,6 +131,25 @@
     "all": "すべて",
     "activityWorking": "作業中…",
     "activityWaitingApproval": "承認待ち",
+    "contextPct": "{{pct}}% ctx",
+    "expand": "詳細を表示",
+    "collapse": "詳細を隠す",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "オープン",
+        "merged": "マージ済み",
+        "closed": "クローズ",
+        "unknown": "不明"
+      },
+      "conflicting": "マージコンフリクト",
+      "branch": "ブランチ",
+      "lastActivity": "最終アクティビティ",
+      "openWorkspace": "ワークスペースを開く",
+      "viewPr": "PRを表示",
+      "viewIssue": "Issueを表示"
+    },
     "pin": "ピン留め",
     "unpin": "ピン留め解除",
     "archive": "アーカイブ",

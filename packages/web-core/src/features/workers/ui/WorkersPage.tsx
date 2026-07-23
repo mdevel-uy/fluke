@@ -99,8 +99,7 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
-  const { tasks: allTasks, queuedCountByWorkerId } =
-    useAllWorkerTasks(workers);
+  const { tasks: allTasks, queuedCountByWorkerId } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
   useAutoIngestReconciler(workers, queuedCountByWorkerId);
 

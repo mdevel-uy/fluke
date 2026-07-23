@@ -145,6 +145,25 @@
     "all": "All",
     "activityWorking": "Working…",
     "activityWaitingApproval": "Waiting for approval",
+    "contextPct": "{{pct}}% ctx",
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "open",
+        "merged": "merged",
+        "closed": "closed",
+        "unknown": "unknown"
+      },
+      "conflicting": "merge conflicts",
+      "branch": "Branch",
+      "lastActivity": "Last activity",
+      "openWorkspace": "Open workspace",
+      "viewPr": "View PR",
+      "viewIssue": "View issue"
+    },
     "pin": "Pin",
     "unpin": "Unpin",
     "archive": "Archive",

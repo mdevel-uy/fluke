@@ -102,6 +102,13 @@ pub struct LatestProcessInfo {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct LatestCodingAgentProcess {
+    pub workspace_id: Uuid,
+    pub execution_process_id: Uuid,
+    pub started_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ExecutorActionField {
@@ -654,6 +661,45 @@ impl ExecutionProcess {
             .collect();
 
         Ok(result)
+    }
+
+    /// Latest coding-agent execution per workspace. Unlike
+    /// `find_latest_for_workspaces` this ignores setup/cleanup scripts, so the
+    /// result always points at the process whose logs carry token usage.
+    pub async fn find_latest_coding_agent_for_workspaces(
+        pool: &SqlitePool,
+        archived: bool,
+    ) -> Result<HashMap<Uuid, LatestCodingAgentProcess>, sqlx::Error> {
+        let rows: Vec<LatestCodingAgentProcess> = sqlx::query_as(
+            r#"
+            SELECT workspace_id, execution_process_id, started_at
+            FROM (
+                SELECT
+                    s.workspace_id as workspace_id,
+                    ep.id as execution_process_id,
+                    ep.started_at as started_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY s.workspace_id
+                        ORDER BY ep.created_at DESC
+                    ) as rn
+                FROM execution_processes ep
+                JOIN sessions s ON ep.session_id = s.id
+                JOIN workspaces w ON s.workspace_id = w.id
+                WHERE w.archived = $1
+                  AND ep.run_reason = 'codingagent'
+                  AND ep.dropped = FALSE
+            )
+            WHERE rn = 1
+            "#,
+        )
+        .bind(archived)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|info| (info.workspace_id, info))
+            .collect())
     }
 
     /// True if any execution for the given workspace recorded a non-NULL

@@ -22,6 +22,7 @@ import {
 import type { Workspace } from '@/shared/hooks/useWorkspaces';
 import { useWorkers } from '@/features/workers/model/useWorkers';
 import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
+import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import {
@@ -510,7 +511,8 @@ export function WorkspacesSidebarContainer({
     [filteredArchivedWorkspaces, sortWorkspaces]
   );
 
-  // Worker-task overlay: backing issue badge + stalled-task detection
+  // Worker-task overlay: worker identity, task title, backing issue badge +
+  // stalled-task detection
   const { data: sidebarWorkers } = useWorkers();
   const { tasks: workerTasks } = useAllWorkerTasks(sidebarWorkers ?? []);
 
@@ -522,14 +524,26 @@ export function WorkspacesSidebarContainer({
     return map;
   }, [workerTasks]);
 
+  const workerById = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof sidebarWorkers>[number]>();
+    for (const worker of sidebarWorkers ?? []) {
+      map.set(worker.id, worker);
+    }
+    return map;
+  }, [sidebarWorkers]);
+
   const withWorkerTaskInfo = useCallback(
     (list: Workspace[]): Workspace[] =>
       list.map((ws) => {
         const task = workerTaskByWorkspaceId.get(ws.id);
         if (!task) return ws;
+        const worker = workerById.get(task.worker_id);
         return {
           ...ws,
           issueNumber: task.issue_number ?? undefined,
+          workerName: worker?.name,
+          workerRole: worker?.role ?? undefined,
+          taskTitle: taskDisplayTitle(task),
           // In-progress task whose agent stopped without advancing the task
           // (e.g. a pending push) — surface it as needing attention.
           hasStalledTask:
@@ -539,7 +553,7 @@ export function WorkspacesSidebarContainer({
             ws.latestProcessStatus !== 'running',
         };
       }),
-    [workerTaskByWorkspaceId]
+    [workerTaskByWorkspaceId, workerById]
   );
 
   // Apply pagination (only when not searching)
