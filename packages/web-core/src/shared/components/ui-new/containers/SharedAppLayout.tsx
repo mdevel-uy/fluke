@@ -4,6 +4,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import {
   X,
   Layout,
+  LayoutDashboard,
   Users,
   AlertCircle,
   Zap,
@@ -28,6 +29,7 @@ import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestinatio
 import {
   getProjectDestination,
   isAnalystDeskDestination,
+  isDashboardDestination,
   isLocalWorkspacesDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
@@ -158,6 +160,7 @@ export function SharedAppLayout() {
     [currentDestination]
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
+  const isDashboardActive = isDashboardDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
@@ -181,6 +184,10 @@ export function SharedAppLayout() {
   const handleWorkspacesClick = useCallback(() => {
     void navigate({ to: '/workspaces' });
   }, [navigate]);
+
+  const handleDashboardClick = useCallback(() => {
+    appNavigation.goToDashboard();
+  }, [appNavigation]);
 
   const handleWorkersClick = useCallback(() => {
     appNavigation.goToWorkers();
@@ -262,12 +269,14 @@ export function SharedAppLayout() {
               projects={orderedProjects}
               onCreateProject={handleCreateProject}
               onWorkspacesClick={handleWorkspacesClick}
+              onDashboardClick={handleDashboardClick}
               onWorkersClick={handleWorkersClick}
               onAnalystDeskClick={handleAnalystDeskClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
+              isDashboardActive={isDashboardActive}
               isWorkersActive={isWorkersActive}
               isAnalystDeskActive={isAnalystDeskActive}
               activeProjectId={activeProjectId}
@@ -351,6 +360,18 @@ export function SharedAppLayout() {
             </div>
 
             <div className="flex flex-col gap-1 p-3">
+              <button
+                type="button"
+                onClick={() => {
+                  appNavigation.goToDashboard();
+                  setIsDrawerOpen(false);
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+              >
+                <LayoutDashboard className="h-4 w-4" strokeWidth={2} />
+                {t('appBar.dashboard')}
+              </button>
+
               <button
                 type="button"
                 onClick={() => {

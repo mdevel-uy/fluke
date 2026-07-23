@@ -557,6 +557,7 @@
     }
   },
   "appBar": {
+    "dashboard": "ダッシュボード",
     "issues": "課題",
     "workers": "ワーカー",
     "sprint": "カンバン",
@@ -565,6 +566,38 @@
       "title": "カンバンボード",
       "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"
     }
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "live": "ライブ",
+    "workersActive": "稼働中のワーカー",
+    "inProgress": "進行中",
+    "queued": "待機中",
+    "inReview": "レビュー中",
+    "openPrs": "オープンPR",
+    "approvals": "承認待ち",
+    "done": "完了",
+    "failed": "失敗",
+    "workersSection": "ワーカー",
+    "pipelineSection": "タスクパイプライン",
+    "prsSection": "プルリクエスト",
+    "attentionSection": "要対応",
+    "attentionEmpty": "問題ありません — 対応が必要な項目はありません。",
+    "prsEmpty": "オープンなプルリクエストはありません。",
+    "noWorkers": "ワーカーがまだ設定されていません。",
+    "noActiveTask": "アクティブなタスクなし",
+    "context": "コンテキスト",
+    "queue": "キュー",
+    "completedLabel": "完了",
+    "running": "実行中",
+    "idle": "待機",
+    "mergeable": "マージ可能",
+    "conflicting": "コンフリクト",
+    "approvalPending": "承認待ち — {{worker}}",
+    "prConflict": "PR #{{number}} にコンフリクトがあります",
+    "highContext": "{{name}} のコンテキストが {{pct}}%",
+    "taskStalled": "タスクが停滞 — {{name}}",
+    "processFailed": "直近の実行が失敗 — {{name}}"
   },
   "errors": {
     "generic": "An unexpected error occurred"

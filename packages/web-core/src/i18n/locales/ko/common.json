@@ -557,6 +557,7 @@
     }
   },
   "appBar": {
+    "dashboard": "대시보드",
     "issues": "이슈",
     "workers": "워커",
     "sprint": "칸반",
@@ -565,6 +566,38 @@
       "title": "칸반 보드",
       "description": "로그인하여 칸반 보드로 코딩 에이전트를 정리하세요."
     }
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "live": "실시간",
+    "workersActive": "활동 중인 워커",
+    "inProgress": "진행 중",
+    "queued": "대기 중",
+    "inReview": "리뷰 중",
+    "openPrs": "열린 PR",
+    "approvals": "승인 대기",
+    "done": "완료",
+    "failed": "실패",
+    "workersSection": "워커",
+    "pipelineSection": "작업 파이프라인",
+    "prsSection": "풀 리퀘스트",
+    "attentionSection": "주의 필요",
+    "attentionEmpty": "모두 정상입니다 — 처리할 항목이 없습니다.",
+    "prsEmpty": "열린 풀 리퀘스트가 없습니다.",
+    "noWorkers": "아직 설정된 워커가 없습니다.",
+    "noActiveTask": "활성 작업 없음",
+    "context": "컨텍스트",
+    "queue": "큐",
+    "completedLabel": "완료",
+    "running": "실행 중",
+    "idle": "대기",
+    "mergeable": "병합 가능",
+    "conflicting": "충돌",
+    "approvalPending": "승인 대기 — {{worker}}",
+    "prConflict": "PR #{{number}}에 충돌이 있습니다",
+    "highContext": "{{name}} 컨텍스트 {{pct}}%",
+    "taskStalled": "작업 정체 — {{name}}",
+    "processFailed": "마지막 실행 실패 — {{name}}"
   },
   "errors": {
     "generic": "An unexpected error occurred"

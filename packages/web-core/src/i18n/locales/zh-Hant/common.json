@@ -557,6 +557,7 @@
     }
   },
   "appBar": {
+    "dashboard": "儀表板",
     "issues": "問題",
     "workers": "工作者",
     "sprint": "看板",
@@ -565,6 +566,38 @@
       "title": "看板",
       "description": "登入以使用看板管理您的編碼代理。"
     }
+  },
+  "dashboard": {
+    "title": "儀表板",
+    "live": "即時",
+    "workersActive": "活躍工作者",
+    "inProgress": "進行中",
+    "queued": "排隊中",
+    "inReview": "審查中",
+    "openPrs": "開放的 PR",
+    "approvals": "待審批",
+    "done": "已完成",
+    "failed": "失敗",
+    "workersSection": "工作者",
+    "pipelineSection": "任務管線",
+    "prsSection": "拉取請求",
+    "attentionSection": "需要關注",
+    "attentionEmpty": "一切正常 — 沒有需要處理的事項。",
+    "prsEmpty": "沒有開放的拉取請求。",
+    "noWorkers": "尚未設定工作者。",
+    "noActiveTask": "無進行中任務",
+    "context": "上下文",
+    "queue": "佇列",
+    "completedLabel": "已完成",
+    "running": "執行中",
+    "idle": "閒置",
+    "mergeable": "可合併",
+    "conflicting": "有衝突",
+    "approvalPending": "等待審批 — {{worker}}",
+    "prConflict": "PR #{{number}} 存在衝突",
+    "highContext": "{{name}} 上下文已達 {{pct}}%",
+    "taskStalled": "任務停滯 — {{name}}",
+    "processFailed": "上次執行失敗 — {{name}}"
   },
   "errors": {
     "generic": "An unexpected error occurred"
