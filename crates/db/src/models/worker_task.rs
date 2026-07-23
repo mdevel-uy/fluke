@@ -218,6 +218,50 @@ impl WorkerTask {
         .await
     }
 
+    /// Atomically claim a queued task for its worker: flips it to
+    /// `in_progress` only while it is still `queued` and the worker has no
+    /// other `in_progress` task. SQLite serializes writes, so exactly one
+    /// of several concurrent claimers succeeds; the rest get `false`.
+    pub async fn try_claim(
+        pool: &SqlitePool,
+        id: Uuid,
+        worker_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks
+                SET status = 'in_progress'
+              WHERE id = ?1
+                AND status = 'queued'
+                AND NOT EXISTS (
+                  SELECT 1 FROM worker_tasks
+                   WHERE worker_id = ?2 AND status = 'in_progress'
+                )",
+        )
+        .bind(id)
+        .bind(worker_id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    /// Undo [`Self::try_claim`] after a failed start: put the task back to
+    /// `queued`, but only while the claim never got far enough to link a
+    /// workspace — a linked task belongs to a live run and must not be
+    /// silently re-queued.
+    pub async fn release_claim(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET status = 'queued'
+              WHERE id = ?1
+                AND status = 'in_progress'
+                AND workspace_id IS NULL",
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn count_in_review(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)

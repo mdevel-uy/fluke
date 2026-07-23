@@ -162,11 +162,14 @@ pub struct StartedTask {
 ///
 /// The start is transactional: preconditions are validated up front so
 /// nothing is created on a cheap-fail path (missing repo,
-/// missing `default_target_branch`, etc.), and any failure *after* the
-/// workspace is created rolls the workspace back (archived + detached
-/// from the worker) so the worker is not blocked by a zombie. The linked
-/// task only moves to `in_progress` — and only receives `workspace_id` —
-/// when the agent has actually started.
+/// missing `default_target_branch`, etc.). The task is then claimed
+/// atomically (`queued` → `in_progress` via a conditional UPDATE) *before*
+/// any workspace exists, so concurrent callers — the auto-ingest
+/// reconciler, the assign dialog's immediate dispatch, the server's own
+/// auto-advance — cannot start the same task twice; losers of that race
+/// get [`StartError::AlreadyInProgress`]. Any failure after the claim
+/// rolls back: the workspace (if created) is archived + detached and the
+/// task returns to `queued`.
 pub async fn try_take_next(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -218,6 +221,14 @@ pub async fn try_take_next(
 
     let workspace_manager = WorkspaceManager::new(db.clone());
 
+    // Claim the task before creating anything. The guards above are
+    // read-then-act and a start takes seconds, so two concurrent callers
+    // can both reach this point holding the same queued task; the
+    // conditional UPDATE lets exactly one of them proceed.
+    if !WorkerTask::try_claim(pool, task.id, worker_id).await? {
+        return Err(StartError::AlreadyInProgress);
+    }
+
     let workspace_id = Uuid::new_v4();
     let branch_label = task.title.as_str();
     let git_branch_name = container
@@ -225,7 +236,7 @@ pub async fn try_take_next(
         .await;
 
     let workspace_name = worker_workspace_name(&worker, &task);
-    let workspace = Workspace::create(
+    let workspace = match Workspace::create(
         pool,
         &CreateWorkspace {
             branch: git_branch_name,
@@ -233,13 +244,31 @@ pub async fn try_take_next(
         },
         workspace_id,
     )
-    .await?;
+    .await
+    {
+        Ok(workspace) => workspace,
+        Err(e) => {
+            release_task_claim(db, task.id).await;
+            return Err(e.into());
+        }
+    };
 
-    // Attach the workspace to the worker up front so `active_workspace_id`
-    // reflects the busy state during setup. Any failure below rolls this
-    // back via `rollback_workspace`.
+    // Link the task to the workspace *before* attaching it to the worker:
+    // from the moment the workspace becomes visible on the worker it is
+    // backed by an active task, so a concurrent caller's
+    // `reconcile_worker_workspaces` can never archive it mid-start.
+    if let Err(e) = WorkerTask::set_workspace_id(pool, task.id, workspace.id).await {
+        rollback_workspace(db, workspace.id).await;
+        release_task_claim(db, task.id).await;
+        return Err(e.into());
+    }
+
+    // Attach the workspace to the worker so `active_workspace_id` reflects
+    // the busy state during setup. Any failure below rolls this back via
+    // `rollback_workspace`.
     if let Err(e) = Worker::attach_workspace(pool, worker.id, workspace.id).await {
         rollback_workspace(db, workspace.id).await;
+        release_task_claim(db, task.id).await;
         return Err(e.into());
     }
 
@@ -255,6 +284,7 @@ pub async fn try_take_next(
         Ok(m) => m,
         Err(e) => {
             rollback_workspace(db, workspace.id).await;
+            release_task_claim(db, task.id).await;
             return Err(e.into());
         }
     };
@@ -270,6 +300,7 @@ pub async fn try_take_next(
         .await
     {
         rollback_workspace(db, workspace.id).await;
+        release_task_claim(db, task.id).await;
         return Err(e.into());
     }
 
@@ -283,6 +314,7 @@ pub async fn try_take_next(
         .await
     {
         rollback_workspace(db, workspace.id).await;
+        release_task_claim(db, task.id).await;
         error!(
             worker_id = %worker.id,
             task_id = %task.id,
@@ -292,22 +324,8 @@ pub async fn try_take_next(
         return Err(e.into());
     }
 
-    // Commit: only now, after the agent has started, do we link the task to
-    // the workspace and flip it to in_progress. If a caller retries after
-    // an earlier failure, they will still see this task as queued because
-    // the previous attempt rolled back cleanly.
-    if let Err(e) = WorkerTask::set_workspace_id(pool, task.id, workspace.id).await {
-        // The agent is already running; we cannot safely tear it down.
-        // Log loudly and surface the error so the operator can reconcile.
-        error!(
-            worker_id = %worker.id,
-            task_id = %task.id,
-            workspace_id = %workspace.id,
-            "Worker task started but failed to link workspace_id: {}",
-            e
-        );
-        return Err(e.into());
-    }
+    // The claim already flipped the task to in_progress and the workspace
+    // was linked before the start work; re-read the task for the response.
     let task = WorkerTask::set_status(pool, task.id, worker_task::STATUS_IN_PROGRESS).await?;
 
     info!(
@@ -331,6 +349,19 @@ pub async fn try_take_next(
 /// Errors are logged but not surfaced: the caller is already returning
 /// the underlying failure, and losing a cleanup step should never mask
 /// the real error.
+/// Best-effort undo of a task claim after a failed start. Must run *after*
+/// `rollback_workspace` (which clears the task's workspace link) so the
+/// guarded UPDATE inside `release_claim` can see the task as unlinked.
+async fn release_task_claim(db: &DBService, task_id: Uuid) {
+    if let Err(e) = WorkerTask::release_claim(&db.pool, task_id).await {
+        warn!(
+            task_id = %task_id,
+            "Failed to release task claim during rollback: {}",
+            e
+        );
+    }
+}
+
 async fn rollback_workspace(db: &DBService, workspace_id: Uuid) {
     let pool = &db.pool;
     if let Err(e) = Workspace::set_archived(pool, workspace_id, true).await {
@@ -1635,5 +1666,93 @@ mod tests {
         // a workspace that no longer exists in the DB, must not panic.
         let db = setup_test_db().await;
         rollback_workspace(&db, Uuid::new_v4()).await;
+    }
+
+    #[tokio::test]
+    async fn try_claim_is_exclusive_per_task_and_worker() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "gasty").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "claim-repo").await;
+        let make_task = |title: &str| CreateWorkerTask {
+            repo_id: repo.id,
+            title: title.to_string(),
+            prompt: "do it".to_string(),
+            issue_number: None,
+            skills: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
+        };
+        let task_a = WorkerTask::append(&db.pool, worker.id, &make_task("a"))
+            .await
+            .unwrap();
+        let task_b = WorkerTask::append(&db.pool, worker.id, &make_task("b"))
+            .await
+            .unwrap();
+
+        // First claim wins; the same task cannot be claimed twice (this is
+        // the double-dispatch race: two concurrent start_next calls holding
+        // the same queued task).
+        assert!(WorkerTask::try_claim(&db.pool, task_a.id, worker.id)
+            .await
+            .unwrap());
+        assert!(!WorkerTask::try_claim(&db.pool, task_a.id, worker.id)
+            .await
+            .unwrap());
+
+        // A different queued task is also blocked while the worker already
+        // has one in progress.
+        assert!(!WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            .await
+            .unwrap());
+
+        // Releasing the unlinked claim re-queues it and frees the worker.
+        WorkerTask::release_claim(&db.pool, task_a.id).await.unwrap();
+        let refreshed = WorkerTask::find_by_id(&db.pool, task_a.id)
+            .await
+            .unwrap()
+            .expect("task still exists");
+        assert_eq!(refreshed.status, worker_task::STATUS_QUEUED);
+        assert!(WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn release_claim_leaves_linked_tasks_alone() {
+        // A task that already has a workspace belongs to a live run — a
+        // stray release must not silently re-queue it.
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "gasty").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "release-repo").await;
+        let workspace = insert_workspace(&db).await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "linked".to_string(),
+                prompt: "do it".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(WorkerTask::try_claim(&db.pool, task.id, worker.id)
+            .await
+            .unwrap());
+        WorkerTask::set_workspace_id(&db.pool, task.id, workspace.id)
+            .await
+            .unwrap();
+
+        WorkerTask::release_claim(&db.pool, task.id).await.unwrap();
+
+        let refreshed = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .expect("task still exists");
+        assert_eq!(refreshed.status, worker_task::STATUS_IN_PROGRESS);
+        assert_eq!(refreshed.workspace_id, Some(workspace.id));
     }
 }
