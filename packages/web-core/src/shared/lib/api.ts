@@ -1872,6 +1872,7 @@ export const workersApi = {
     data: CreateWorkerTaskRequest & {
       skills?: string[];
       force_duplicate?: boolean;
+      source?: string;
     }
   ): Promise<WorkerTaskResponse & { skills: string[] }> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`, {

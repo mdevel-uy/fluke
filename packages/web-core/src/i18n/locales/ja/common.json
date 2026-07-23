@@ -541,6 +541,7 @@
     "issues": "課題",
     "workers": "ワーカー",
     "sprint": "カンバン",
+    "analystDesk": "アナリストデスク",
     "kanban": {
       "title": "カンバンボード",
       "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"
@@ -737,6 +738,40 @@
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
       "dismiss": "閉じる"
+    }
+  },
+  "analystDesk": {
+    "title": "アナリストデスク",
+    "repoLabel": "リポジトリ",
+    "analystsLabel": "アナリスト",
+    "statusIdle": "空き",
+    "statusBusy": "作業中",
+    "statusBusyQueued": "作業中 · {{queued}} 件待ち",
+    "requestLabel": "依頼",
+    "promptPlaceholder": "アナリストに依頼したい内容を記述してください。例: 通知エピックを受け入れ基準付きの小さなissueに分解する。",
+    "hint": "アナリストが空いていれば即時実行、作業中ならキューに追加されます。",
+    "submit": "依頼を送信",
+    "loading": "読み込み中...",
+    "loadError": "アナリストを読み込めませんでした。",
+    "noAnalystsTitle": "アナリストがいません",
+    "noAnalystsDescription": "Analystロールのワーカーを作成すると依頼を送れます。",
+    "goToWorkers": "Workersへ",
+    "historyTitle": "{{worker}} への依頼",
+    "historyEmpty": "まだ依頼はありません。依頼と結果がここに表示されます。",
+    "openWorkspace": "実行を見る",
+    "retry": "再試行",
+    "dismiss": "閉じる",
+    "status": {
+      "queued": "待機中",
+      "queuedAhead": "待機中 · 前に {{ahead}} 件",
+      "inProgress": "実行中",
+      "done": "完了",
+      "failed": "失敗"
+    },
+    "toast": {
+      "started": "{{worker}} が依頼に着手しました。",
+      "queued": "{{worker}} のキューに追加しました。",
+      "error": "依頼を送信できませんでした: {{message}}"
     }
   },
   "sprint": {

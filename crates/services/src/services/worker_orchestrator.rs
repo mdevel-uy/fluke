@@ -1178,6 +1178,7 @@ pub async fn dispatch_review_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
     .await?;
@@ -1289,6 +1290,7 @@ pub async fn dispatch_author_fix_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
     .await?;
@@ -1480,6 +1482,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn append_persists_desk_source() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "desk").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "desk-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "pedido".to_string(),
+                prompt: "investigar".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                source: worker_task::SOURCE_DESK.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(task.source, worker_task::SOURCE_DESK);
+        assert_eq!(task.status, worker_task::STATUS_QUEUED);
+    }
+
+    #[tokio::test]
     async fn reconcile_leaves_workspace_with_active_task_alone() {
         let db = setup_test_db().await;
         let worker = insert_worker(&db, "eve").await;
@@ -1494,6 +1520,7 @@ mod tests {
                 prompt: "do the thing".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
         .await
@@ -1543,6 +1570,7 @@ mod tests {
                 prompt: "clean".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
         .await

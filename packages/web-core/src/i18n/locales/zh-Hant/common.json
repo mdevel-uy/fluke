@@ -541,6 +541,7 @@
     "issues": "問題",
     "workers": "工作者",
     "sprint": "看板",
+    "analystDesk": "分析師工作台",
     "kanban": {
       "title": "看板",
       "description": "登入以使用看板管理您的編碼代理。"
@@ -737,6 +738,40 @@
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已刪除。",
       "dismiss": "關閉"
+    }
+  },
+  "analystDesk": {
+    "title": "分析師工作台",
+    "repoLabel": "儲存庫",
+    "analystsLabel": "分析師",
+    "statusIdle": "空閒",
+    "statusBusy": "忙碌",
+    "statusBusyQueued": "忙碌 · {{queued}} 個排隊",
+    "requestLabel": "請求",
+    "promptPlaceholder": "描述你需要分析師做什麼。例如：將通知 epic 拆分為帶驗收標準的小 issue。",
+    "hint": "分析師空閒時立即執行，否則加入其佇列。",
+    "submit": "送出請求",
+    "loading": "載入中...",
+    "loadError": "無法載入分析師。",
+    "noAnalystsTitle": "還沒有分析師",
+    "noAnalystsDescription": "建立一個 Analyst 角色的 worker 即可開始送出請求。",
+    "goToWorkers": "前往 Workers",
+    "historyTitle": "發給 {{worker}} 的請求",
+    "historyEmpty": "還沒有請求。你的請求及其結果將顯示在這裡。",
+    "openWorkspace": "查看執行",
+    "retry": "重試",
+    "dismiss": "關閉",
+    "status": {
+      "queued": "排隊中",
+      "queuedAhead": "排隊中 · 前面還有 {{ahead}} 個",
+      "inProgress": "進行中",
+      "done": "已完成",
+      "failed": "失敗"
+    },
+    "toast": {
+      "started": "{{worker}} 已開始處理你的請求。",
+      "queued": "請求已加入 {{worker}} 的佇列。",
+      "error": "請求送出失敗：{{message}}"
     }
   },
   "sprint": {

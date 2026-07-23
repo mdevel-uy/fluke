@@ -16,6 +16,15 @@ pub fn is_valid_status(value: &str) -> bool {
     )
 }
 
+/// Task created from the kanban board or by the orchestrator itself.
+pub const SOURCE_KANBAN: &str = "kanban";
+/// Ad-hoc request submitted from the Analyst Desk screen.
+pub const SOURCE_DESK: &str = "desk";
+
+pub fn is_valid_source(value: &str) -> bool {
+    matches!(value, SOURCE_KANBAN | SOURCE_DESK)
+}
+
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct WorkerTask {
     pub id: Uuid,
@@ -29,6 +38,8 @@ pub struct WorkerTask {
     pub workspace_id: Option<Uuid>,
     /// JSON-encoded array of skill names selected for this task.
     pub skills: String,
+    /// Origin of the task: `kanban` or `desk`.
+    pub source: String,
     pub created_at: DateTime<Utc>,
     /// The TL reviewer's verdict for this task's PR: 'approved' | 'changes_requested' | NULL.
     pub review_result: Option<String>,
@@ -41,6 +52,7 @@ pub struct CreateWorkerTask {
     pub prompt: String,
     pub issue_number: Option<i64>,
     pub skills: Vec<String>,
+    pub source: String,
 }
 
 impl WorkerTask {
@@ -50,8 +62,8 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -64,8 +76,8 @@ impl WorkerTask {
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -95,8 +107,8 @@ impl WorkerTask {
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status, skills)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8)",
+                  issue_number, status, skills, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9)",
         )
         .bind(id)
         .bind(worker_id)
@@ -106,6 +118,7 @@ impl WorkerTask {
         .bind(&data.prompt)
         .bind(data.issue_number)
         .bind(&skills_json)
+        .bind(&data.source)
         .execute(pool)
         .await?;
 
@@ -158,8 +171,8 @@ impl WorkerTask {
     pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -174,8 +187,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -193,8 +206,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -223,8 +236,8 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -239,8 +252,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -326,8 +339,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
-                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.created_at,
-                    wt.review_result
+                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
+                    wt.created_at, wt.review_result
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -421,8 +434,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, created_at,
-                    review_result
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2

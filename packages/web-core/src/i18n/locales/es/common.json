@@ -541,6 +541,7 @@
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
+    "analystDesk": "Mesa de analistas",
     "kanban": {
       "title": "Tableros Kanban",
       "description": "Inicia sesión para organizar tus agentes de codificación con tableros kanban."
@@ -737,6 +738,40 @@
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
       "dismiss": "Cerrar"
+    }
+  },
+  "analystDesk": {
+    "title": "Mesa de analistas",
+    "repoLabel": "Repositorio",
+    "analystsLabel": "Analista",
+    "statusIdle": "Libre",
+    "statusBusy": "Ocupado",
+    "statusBusyQueued": "Ocupado · {{queued}} en cola",
+    "requestLabel": "Pedido",
+    "promptPlaceholder": "Describí qué necesitás del analista. Ej.: descomponé el epic de notificaciones en issues chicos con criterios de aceptación.",
+    "hint": "Se despacha al instante si el analista está libre; si no, entra a su cola.",
+    "submit": "Enviar pedido",
+    "loading": "Cargando...",
+    "loadError": "No se pudieron cargar los analistas.",
+    "noAnalystsTitle": "Todavía no hay analistas",
+    "noAnalystsDescription": "Creá un worker con rol Analista para empezar a enviarle pedidos.",
+    "goToWorkers": "Ir a Workers",
+    "historyTitle": "Pedidos a {{worker}}",
+    "historyEmpty": "Todavía no hay pedidos. Acá van a aparecer tus pedidos y sus resultados.",
+    "openWorkspace": "Ver ejecución",
+    "retry": "Reintentar",
+    "dismiss": "Cerrar",
+    "status": {
+      "queued": "En cola",
+      "queuedAhead": "En cola · {{ahead}} adelante",
+      "inProgress": "En progreso",
+      "done": "Completado",
+      "failed": "Falló"
+    },
+    "toast": {
+      "started": "{{worker}} empezó con tu pedido.",
+      "queued": "Pedido encolado para {{worker}}.",
+      "error": "No se pudo enviar el pedido: {{message}}"
     }
   },
   "sprint": {
