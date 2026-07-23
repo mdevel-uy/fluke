@@ -15,6 +15,7 @@ export function useWorkers() {
 
 export interface AllWorkerTasksResult {
   tasks: WorkerTask[];
+  queuedCountByWorkerId: Map<string, number>;
   isLoading: boolean;
   isError: boolean;
 }
@@ -33,13 +34,24 @@ export function useAllWorkerTasks(
 
   return useMemo(() => {
     const tasks: WorkerTask[] = [];
+    const queuedCountByWorkerId = new Map<string, number>();
     let isLoading = false;
     let isError = false;
     for (const r of results) {
       if (r.isLoading) isLoading = true;
       if (r.isError) isError = true;
-      if (r.data) tasks.push(...r.data);
+      if (r.data) {
+        for (const task of r.data) {
+          tasks.push(task);
+          if (task.status === 'queued') {
+            queuedCountByWorkerId.set(
+              task.worker_id,
+              (queuedCountByWorkerId.get(task.worker_id) ?? 0) + 1
+            );
+          }
+        }
+      }
     }
-    return { tasks, isLoading, isError };
+    return { tasks, queuedCountByWorkerId, isLoading, isError };
   }, [results]);
 }

@@ -847,7 +847,9 @@
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllError": "ワーカーの開始に失敗しました: {{message}}",
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
-      "startAllSuccess_other": "{{count}}件のワーカーを開始しました。"
+      "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
+      "reviewApproved": "レビュー承認: {{title}}",
+      "reviewChangesRequested": "変更要求: {{title}}"
     },
     "failed": {
       "retry": "再試行",

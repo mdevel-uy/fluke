@@ -61,6 +61,9 @@ pub struct WorkerTaskResponse {
     pub pr_mergeable: Option<String>,
     /// Origin of the task: `"kanban"` or `"desk"`.
     pub source: String,
+    /// TL reviewer's verdict: "approved" | "changes_requested" | null.
+    /// Set by pr_monitor when the PR review state is detected.
+    pub review_result: Option<String>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -101,6 +104,7 @@ async fn worker_task_to_response(
         pr_state,
         pr_mergeable,
         source: task.source,
+        review_result: task.review_result,
         created_at: task.created_at,
     })
 }

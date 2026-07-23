@@ -41,6 +41,8 @@ pub struct WorkerTask {
     /// Origin of the task: `kanban` or `desk`.
     pub source: String,
     pub created_at: DateTime<Utc>,
+    /// The TL reviewer's verdict for this task's PR: 'approved' | 'changes_requested' | NULL.
+    pub review_result: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +62,8 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -73,7 +76,8 @@ impl WorkerTask {
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -167,7 +171,8 @@ impl WorkerTask {
     pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -182,7 +187,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -200,7 +206,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -229,7 +236,8 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -244,7 +252,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -331,7 +340,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
                     wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
-                    wt.created_at
+                    wt.created_at, wt.review_result
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -425,7 +434,8 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source, created_at
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
@@ -454,6 +464,23 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Persist the TL reviewer's verdict on the developer's task so the UI
+    /// can surface it without polling GitHub. `result` is 'approved' or
+    /// 'changes_requested'. Pass `None` to clear a stale verdict when a new
+    /// review round is dispatched.
+    pub async fn set_review_result(
+        pool: &SqlitePool,
+        id: Uuid,
+        result: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET review_result = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(result)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     /// Reset a task to `queued` at the front of its worker's queue (lowest

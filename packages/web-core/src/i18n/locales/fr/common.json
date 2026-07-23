@@ -847,7 +847,9 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllError": "Échec du démarrage des workers : {{message}}",
-      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker."
+      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
+      "reviewApproved": "Révision approuvée : {{title}}",
+      "reviewChangesRequested": "Modifications demandées : {{title}}"
     },
     "failed": {
       "retry": "Réessayer",

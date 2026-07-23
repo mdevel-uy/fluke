@@ -33,6 +33,7 @@ const ROLE_CHIP_CLASS: Record<string, string> = {
 
 interface WorkerCardProps {
   worker: WorkerResponse;
+  queuedCount: number;
   activeTask?: WorkerTask;
   activeBranch?: string;
   needsAttention?: boolean;
@@ -44,6 +45,7 @@ interface WorkerCardProps {
 
 export function WorkerCard({
   worker,
+  queuedCount,
   activeTask,
   activeBranch,
   needsAttention = false,
@@ -192,7 +194,7 @@ export function WorkerCard({
             aria-hidden
           />
           <span className="truncate text-sm text-normal tabular-nums">
-            {worker.queued_count} {t('workers.card.queuedLabel')} ·{' '}
+            {queuedCount} {t('workers.card.queuedLabel')} ·{' '}
             {worker.completed_count} {t('workers.card.completedLabel')}
           </span>
         </div>
@@ -208,7 +210,7 @@ export function WorkerCard({
           <Button
             variant="primary"
             onClick={onStartNext}
-            disabled={isStarting || worker.queued_count === 0}
+            disabled={isStarting || queuedCount === 0}
           >
             {isStarting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

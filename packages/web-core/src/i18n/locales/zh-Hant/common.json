@@ -847,7 +847,9 @@
       "startAllSuccess": "已啟動 {{count}} 個工作者。",
       "startAllError": "啟動工作者失敗：{{message}}",
       "assignDuplicate": "此 Issue 已有一個分配給工作者的活躍任務。",
-      "startAllSuccess_other": "已啟動 {{count}} 個工作者。"
+      "startAllSuccess_other": "已啟動 {{count}} 個工作者。",
+      "reviewApproved": "審查已批准：{{title}}",
+      "reviewChangesRequested": "要求更改：{{title}}"
     },
     "failed": {
       "retry": "重試",
