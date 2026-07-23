@@ -378,30 +378,6 @@ impl WorkerTask {
         .await
     }
 
-    /// Count DONE fix tasks (non-reviewer workers) for a given PR (`pr_number`
-    /// stored in `issue_number`). Together with `count_reviewer_tasks_done_for_pr`
-    /// this tells whether the author completed a fix round since the last
-    /// finished review — the precondition for dispatching another review round.
-    pub async fn count_fix_tasks_done_for_pr(
-        pool: &SqlitePool,
-        pr_number: i64,
-        repo_id: Uuid,
-    ) -> Result<i64, sqlx::Error> {
-        sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*)
-               FROM worker_tasks wt
-               JOIN workers w ON wt.worker_id = w.id
-               WHERE w.role != 'reviewer'
-                 AND wt.issue_number = ?1
-                 AND wt.repo_id = ?2
-                 AND wt.status = 'done'",
-        )
-        .bind(pr_number)
-        .bind(repo_id)
-        .fetch_one(pool)
-        .await
-    }
-
     /// Delete queued tasks referencing a PR (`pr_number` stored in
     /// `issue_number`): dispatched review rounds and author fix tasks that
     /// never started. Once the PR is merged or closed they are stale.

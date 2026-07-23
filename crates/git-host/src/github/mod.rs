@@ -14,8 +14,8 @@ use tracing::info;
 use crate::{
     GitHostProvider,
     types::{
-        CreatePrRequest, GitHostError, PrComment, PrReviewComment, ProviderKind, PullRequestDetail,
-        UnifiedPrComment,
+        CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrReviewComment, ProviderKind,
+        PullRequestDetail, UnifiedPrComment,
     },
 };
 
@@ -417,6 +417,22 @@ impl GitHostProvider for GitHubProvider {
             .map_err(|err| {
                 GitHostError::PullRequest(format!(
                     "Failed to execute GitHub CLI for PR review state check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_latest_review(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_latest_review(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR review check: {err}"
                 ))
             })?
             .map_err(GitHostError::from)

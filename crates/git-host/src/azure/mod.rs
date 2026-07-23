@@ -13,7 +13,10 @@ use tracing::info;
 
 use crate::{
     GitHostProvider,
-    types::{CreatePrRequest, GitHostError, ProviderKind, PullRequestDetail, UnifiedPrComment},
+    types::{
+        CreatePrRequest, GitHostError, LatestPrReview, ProviderKind, PullRequestDetail,
+        UnifiedPrComment,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -264,6 +267,13 @@ impl GitHostProvider for AzureDevOpsProvider {
         &self,
         _pr_url: &str,
     ) -> Result<Option<String>, GitHostError> {
+        Ok(None)
+    }
+
+    async fn get_pr_latest_review(
+        &self,
+        _pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GitHostError> {
         Ok(None)
     }
 

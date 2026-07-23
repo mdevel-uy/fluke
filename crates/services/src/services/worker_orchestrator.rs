@@ -1159,25 +1159,6 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
-    // A finished review whose verdict still stands must not trigger another
-    // round: after an approval there is nothing new to review, and after a
-    // changes-requested the re-review only makes sense once the author has
-    // completed the fix. Dispatch round N+1 only when a fix round has
-    // completed for every finished review.
-    let rounds_done = WorkerTask::count_reviewer_tasks_done_for_pr(pool, pr_number, repo_id).await?;
-    if rounds_done > 0 {
-        let fixes_done = WorkerTask::count_fix_tasks_done_for_pr(pool, pr_number, repo_id).await?;
-        if fixes_done < rounds_done {
-            debug!(
-                pr_number,
-                rounds_done,
-                fixes_done,
-                "Last review verdict still stands — skipping re-dispatch"
-            );
-            return Ok(());
-        }
-    }
-
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
     let task_prompt = format!(
         "Revisá el PR #{pr_number} según tu checklist. \
