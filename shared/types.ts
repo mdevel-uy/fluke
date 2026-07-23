@@ -8,9 +8,7 @@ export type Repo = { id: string, path: string, name: string, display_name: strin
 
 export type Project = { id: string, name: string, default_agent_working_dir: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
-export type IssueLabel = { name: string, color: string, };
-
-export type RepoIssueResponse = { id: string, repo_id: string, number: number, title: string, body: string, state: string, labels: Array<IssueLabel>, author: string, updated_at: Date, synced_at: Date, milestone: string | null, priority: "urgent" | "high" | "medium" | "low" | null, };
+export type RepoIssueResponse = { id: string, repo_id: string, number: number, title: string, body: string, state: string, labels: Array<IssueLabel>, author: string, updated_at: Date, synced_at: Date, milestone: string | null, priority: string | null, };
 
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 
@@ -184,7 +182,11 @@ export type PrMerge = { id: string, workspace_id: string, repo_id: string, creat
 
 export type MergeStatus = "open" | "merged" | "closed" | "unknown";
 
-export type PullRequestInfo = { number: bigint, url: string, status: MergeStatus, merged_at: string | null, merge_commit_sha: string | null, };
+export type PullRequestInfo = { number: bigint, url: string, status: MergeStatus, merged_at: string | null, merge_commit_sha: string | null, 
+/**
+ * Mergeable state: "mergeable", "conflicting", "unknown", or None if not yet polled.
+ */
+mergeable: string | null, };
 
 export type ApprovalInfo = { approval_id: string, tool_name: string, execution_process_id: string, is_question: boolean, created_at: string, timeout_at: string, };
 
@@ -266,7 +268,12 @@ export type RegisterRepoRequest = { path: string, display_name: string | null, }
 
 export type InitRepoRequest = { parent_path: string, folder_name: string, };
 
-export type GitHubRepoSummary = { nameWithOwner: string, visibility: string, updatedAt: string | null, description: string | null, ownerOrg: string | null, };
+export type GitHubRepoSummary = { nameWithOwner: string, visibility: string, updatedAt: string | null, description: string | null, 
+/**
+ * Owner login when the repo comes from an organization list;
+ * `None` when it comes from the authenticated user's own repos.
+ */
+ownerOrg: string | null, };
 
 export type CloneRepoRequest = { name_with_owner: string, };
 
@@ -430,17 +437,51 @@ export type GitRemote = { name: string, url: string, };
 
 export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
 
-export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, pr_url: string | null, pr_state: string | null, created_at: Date, };
+export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
+/**
+ * Skills selected for this task (stored as JSON array, exposed as array).
+ */
+skills: Array<string>, 
+/**
+ * URL of the most recent pull request tracked for this task's workspace,
+ * or `null` when no PR has been created yet.
+ */
+pr_url: string | null, 
+/**
+ * State of the most recent PR: `"open" | "merged" | "closed"`, or
+ * `null` when there is no tracked PR.
+ */
+pr_state: string | null, 
+/**
+ * Mergeable state: "mergeable", "conflicting", "unknown", or null.
+ */
+pr_mergeable: string | null, created_at: Date, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, };
 
-export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string | null, };
+export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string, };
 
-export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, };
+export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, 
+/**
+ * Skills to associate with this task. Each skill name must correspond to
+ * an installed skill in `~/.claude/skills`. The instructions are appended
+ * to the stored prompt so the agent receives them automatically.
+ */
+skills?: Array<string>, 
+/**
+ * When true, skip the duplicate-assignment guard and create the task anyway.
+ */
+force_duplicate?: boolean, };
 
 export type UpdateWorkerTaskRequest = { position?: number | null, status?: string, };
 
 export type StartWorkerResponse = { task: WorkerTaskResponse, workspace_id: string, };
+
+export type StartAllWorkersItemResponse = { worker_id: string, worker_name: string, started: boolean, task_title: string | null, reason: string | null, };
+
+export type StartAllWorkersResponse = { results: Array<StartAllWorkersItemResponse>, };
+
+export type ActiveIssueTaskInfo = { task_id: string, worker_id: string, worker_name: string, worker_emoji: string, status: string, };
 
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 
@@ -508,7 +549,11 @@ pr_number: bigint | null,
 /**
  * PR URL for this workspace (if any PR exists)
  */
-pr_url: string | null, };
+pr_url: string | null, 
+/**
+ * Mergeable state of the open PR: "mergeable", "conflicting", "unknown", or null.
+ */
+pr_mergeable: string | null, };
 
 export type WorkspaceSummaryResponse = { summaries: Array<WorkspaceSummary>, };
 
