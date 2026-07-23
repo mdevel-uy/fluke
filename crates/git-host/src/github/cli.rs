@@ -450,44 +450,102 @@ impl GhCli {
     /// Latest actionable review together with the commit it was made against
     /// and the PR's current head. Lets callers detect pushes made after the
     /// last review verdict.
+    ///
+    /// Uses the GitHub REST reviews endpoint instead of `gh pr view --json reviews`
+    /// because the CLI's reviews fragment does not expose `commit.oid`. The REST
+    /// endpoint always includes `commit_id` (the SHA the review was submitted
+    /// against), which is the key piece for SHA-based re-review detection.
     pub fn get_pr_latest_review(
         &self,
         pr_url: &str,
     ) -> Result<Option<LatestPrReview>, GhCliError> {
-        let raw = self.run(["pr", "view", pr_url, "--json", "reviews,headRefOid"], None)?;
+        let (owner, repo, pr_number, hostname) =
+            Self::parse_github_pr_url_parts(pr_url).ok_or_else(|| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Cannot parse GitHub PR URL to fetch reviews: {pr_url}"
+                ))
+            })?;
+
+        // REST endpoint always includes `commit_id` (the git SHA the review
+        // was submitted against). Request up to 100 reviews — in practice
+        // any PR has far fewer than that.
+        let api_path =
+            format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews?per_page=100");
+        let mut review_args: Vec<String> = vec!["api".to_string(), api_path];
+        if let Some(ref host) = hostname {
+            review_args.extend(["--hostname".to_string(), host.clone()]);
+        }
+        let reviews_raw = self.run(review_args, None)?;
+
+        // Head SHA via gh pr view — `headRefOid` is non-nullable in GitHub's
+        // schema, so this is reliable.
+        let head_raw =
+            self.run(["pr", "view", pr_url, "--json", "headRefOid"], None)?;
 
         #[derive(serde::Deserialize)]
-        struct Commit {
-            oid: String,
-        }
-        #[derive(serde::Deserialize)]
-        struct Review {
+        struct RestReview {
             state: String,
-            commit: Option<Commit>,
+            commit_id: Option<String>,
         }
+
         #[derive(serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
-        struct Response {
-            reviews: Vec<Review>,
+        struct HeadInfo {
             head_ref_oid: Option<String>,
         }
 
-        let resp: Response = serde_json::from_str(raw.trim()).map_err(|e| {
-            GhCliError::UnexpectedOutput(format!(
-                "Failed to parse gh pr view --json reviews,headRefOid: {e}; raw: {raw}"
-            ))
-        })?;
+        let reviews: Vec<RestReview> =
+            serde_json::from_str(reviews_raw.trim()).map_err(|e| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Failed to parse reviews REST response: {e}; raw: {reviews_raw}"
+                ))
+            })?;
 
-        let latest = resp.reviews.iter().rev().find(|r| {
+        let head_info: HeadInfo =
+            serde_json::from_str(head_raw.trim()).map_err(|e| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Failed to parse headRefOid response: {e}; raw: {head_raw}"
+                ))
+            })?;
+
+        let latest = reviews.iter().rev().find(|r| {
             let s = r.state.to_ascii_lowercase();
             s == "approved" || s == "changes_requested"
         });
 
         Ok(latest.map(|r| LatestPrReview {
             state: r.state.to_ascii_lowercase(),
-            reviewed_sha: r.commit.as_ref().map(|c| c.oid.clone()),
-            head_sha: resp.head_ref_oid.clone(),
+            reviewed_sha: r.commit_id.clone(),
+            head_sha: head_info.head_ref_oid,
         }))
+    }
+
+    /// Parse a GitHub PR URL into `(owner, repo, pr_number, hostname)`.
+    ///
+    /// `hostname` is `None` for `github.com` and `Some(host)` for GitHub
+    /// Enterprise instances, matching what `gh api --hostname` expects.
+    /// Returns `None` when the URL doesn't match the expected
+    /// `https://{host}/{owner}/{repo}/pull/{number}` pattern.
+    fn parse_github_pr_url_parts(
+        pr_url: &str,
+    ) -> Option<(String, String, i64, Option<String>)> {
+        let url = Url::parse(pr_url).ok()?;
+        let host = url.host_str()?.to_string();
+        let mut segments = url.path_segments()?;
+        let owner = segments.next()?.to_string();
+        let repo = segments.next()?.to_string();
+        let path_type = segments.next()?;
+        let number_str = segments.next()?;
+        if path_type != "pull" {
+            return None;
+        }
+        let pr_number = number_str.parse::<i64>().ok()?;
+        let hostname = if host == "github.com" {
+            None
+        } else {
+            Some(host)
+        };
+        Some((owner, repo, pr_number, hostname))
     }
 
     pub fn pr_checkout(
@@ -654,5 +712,56 @@ impl GhCli {
                 author_association: c.author_association,
             })
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_github_pr_url_parts_github_com() {
+        let result =
+            GhCli::parse_github_pr_url_parts("https://github.com/myorg/myrepo/pull/42");
+        let (owner, repo, number, hostname) = result.expect("should parse");
+        assert_eq!(owner, "myorg");
+        assert_eq!(repo, "myrepo");
+        assert_eq!(number, 42);
+        assert_eq!(hostname, None, "github.com needs no --hostname");
+    }
+
+    #[test]
+    fn parse_github_pr_url_parts_enterprise() {
+        let result = GhCli::parse_github_pr_url_parts(
+            "https://github.mycompany.com/org/project/pull/7",
+        );
+        let (owner, repo, number, hostname) = result.expect("should parse");
+        assert_eq!(owner, "org");
+        assert_eq!(repo, "project");
+        assert_eq!(number, 7);
+        assert_eq!(hostname, Some("github.mycompany.com".to_string()));
+    }
+
+    #[test]
+    fn parse_github_pr_url_parts_rejects_non_pr_urls() {
+        // Issue URL — not a pull request
+        assert!(GhCli::parse_github_pr_url_parts(
+            "https://github.com/owner/repo/issues/42"
+        )
+        .is_none());
+
+        // Malformed / not a URL
+        assert!(GhCli::parse_github_pr_url_parts("not-a-url").is_none());
+
+        // Missing number segment
+        assert!(
+            GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/pull/").is_none()
+        );
+
+        // Non-integer number
+        assert!(GhCli::parse_github_pr_url_parts(
+            "https://github.com/owner/repo/pull/abc"
+        )
+        .is_none());
     }
 }
