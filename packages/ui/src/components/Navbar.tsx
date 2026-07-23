@@ -103,7 +103,7 @@ export const MOBILE_TABS: {
   materialIcon?: string;
   label: string;
 }[] = [
-  { id: 'workspaces', materialIcon: 'grid_view', label: 'Wksps' },
+  { id: 'workspaces', materialIcon: 'view_quilt', label: 'Wksps' },
   { id: 'chat', materialIcon: 'chat', label: 'Chat' },
   { id: 'changes', materialIcon: 'difference', label: 'Diff' },
   { id: 'logs', materialIcon: 'terminal', label: 'Logs' },

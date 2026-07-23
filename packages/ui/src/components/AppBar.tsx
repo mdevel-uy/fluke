@@ -228,7 +228,7 @@ export function AppBar({
         key: 'local-workspaces',
         kind: 'icon-button',
         label: 'Local workspaces',
-        materialIcon: 'grid_view',
+        materialIcon: 'view_quilt',
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
       });
