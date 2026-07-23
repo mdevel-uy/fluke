@@ -260,7 +260,6 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
             onWorkspacesClick={handleWorkspacesClick}
             onHostClick={handleHostClick}
             showWorkspacesButton={false}
-            showIssuesButton={false}
             onProjectClick={handleProjectClick}
             onProjectsDragEnd={() => {}}
             isSavingProjectOrder={true}

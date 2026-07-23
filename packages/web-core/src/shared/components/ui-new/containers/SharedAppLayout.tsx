@@ -28,9 +28,7 @@ import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestinatio
 import {
   getProjectDestination,
   isAnalystDeskDestination,
-  isIssuesDestination,
   isLocalWorkspacesDestination,
-  isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
 import { useTranslation } from 'react-i18next';
@@ -160,10 +158,8 @@ export function SharedAppLayout() {
     [currentDestination]
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
-  const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
-  const isSprintActive = isSprintDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
     !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
   const activeProjectId = projectDestination?.projectId ?? null;
@@ -186,20 +182,12 @@ export function SharedAppLayout() {
     void navigate({ to: '/workspaces' });
   }, [navigate]);
 
-  const handleIssuesClick = useCallback(() => {
-    appNavigation.goToIssues();
-  }, [appNavigation]);
-
   const handleWorkersClick = useCallback(() => {
     appNavigation.goToWorkers();
   }, [appNavigation]);
 
   const handleAnalystDeskClick = useCallback(() => {
     appNavigation.goToAnalystDesk();
-  }, [appNavigation]);
-
-  const handleSprintClick = useCallback(() => {
-    appNavigation.goToSprint();
   }, [appNavigation]);
 
   const handleProjectClick = useCallback(
@@ -274,18 +262,14 @@ export function SharedAppLayout() {
               projects={orderedProjects}
               onCreateProject={handleCreateProject}
               onWorkspacesClick={handleWorkspacesClick}
-              onIssuesClick={handleIssuesClick}
               onWorkersClick={handleWorkersClick}
               onAnalystDeskClick={handleAnalystDeskClick}
-              onSprintClick={handleSprintClick}
               onProjectClick={handleProjectClick}
               onProjectsDragEnd={handleProjectsDragEnd}
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
-              isIssuesActive={isIssuesActive}
               isWorkersActive={isWorkersActive}
               isAnalystDeskActive={isAnalystDeskActive}
-              isSprintActive={isSprintActive}
               activeProjectId={activeProjectId}
               isSignedIn
               isLoadingProjects={false}
@@ -382,7 +366,7 @@ export function SharedAppLayout() {
               <button
                 type="button"
                 onClick={() => {
-                  handleIssuesClick();
+                  appNavigation.goToIssues();
                   setIsDrawerOpen(false);
                 }}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
@@ -418,7 +402,7 @@ export function SharedAppLayout() {
               <button
                 type="button"
                 onClick={() => {
-                  handleSprintClick();
+                  appNavigation.goToSprint();
                   setIsDrawerOpen(false);
                 }}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
