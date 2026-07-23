@@ -454,9 +454,9 @@ impl WorkerTask {
     }
 
     /// Persist the TL reviewer's verdict on the developer's task so the UI
-    /// can surface it without polling GitHub. `result` is 'approved' or
-    /// 'changes_requested'. Pass `None` to clear a stale verdict when a new
-    /// review round is dispatched.
+    /// can surface it without polling GitHub. `result` is 'approved',
+    /// 'changes_requested', or 'failed' (the reviewer worker itself crashed).
+    /// Pass `None` to clear the field.
     pub async fn set_review_result(
         pool: &SqlitePool,
         id: Uuid,
@@ -468,6 +468,34 @@ impl WorkerTask {
             .execute(pool)
             .await?;
         Ok(())
+    }
+
+    /// Find the developer's worker task for the given PR by joining
+    /// `pull_requests` on `workspace_id`. Used when we only have the
+    /// reviewer's task context (which carries the PR number in
+    /// `issue_number`) and need to surface a verdict on the dev's card.
+    pub async fn find_developer_task_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
+                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.created_at,
+                    wt.review_result
+               FROM worker_tasks wt
+               JOIN pull_requests pr ON wt.workspace_id = pr.workspace_id
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'developer'
+                 AND pr.pr_number = ?1
+                 AND pr.repo_id = ?2
+               ORDER BY wt.created_at DESC
+               LIMIT 1",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
     }
 
     /// Reset a task to `queued` at the front of its worker's queue (lowest

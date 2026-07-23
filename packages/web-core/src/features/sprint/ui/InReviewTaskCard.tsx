@@ -58,6 +58,12 @@ export function InReviewTaskCard({ task }: InReviewTaskCardProps) {
             {t('review.result.changesRequested')}
           </span>
         )}
+        {reviewResult === 'failed' && (
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-caps font-geist font-semibold uppercase tracking-widest bg-destructive/10 text-destructive border border-destructive/20">
+            <MaterialIcon name="error" size="xs" />
+            {t('review.result.failed')}
+          </span>
+        )}
         {prUrl && (
           <a
             href={prUrl}

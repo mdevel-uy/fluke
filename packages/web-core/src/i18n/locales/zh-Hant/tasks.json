@@ -539,7 +539,8 @@
   "review": {
     "result": {
       "approved": "已批准",
-      "changesRequested": "要求更改"
+      "changesRequested": "要求更改",
+      "failed": "審查失敗"
     }
   }
 }

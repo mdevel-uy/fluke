@@ -814,7 +814,8 @@
       "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
       "reviewApproved": "리뷰 승인: {{title}}",
-      "reviewChangesRequested": "변경 요청: {{title}}"
+      "reviewChangesRequested": "변경 요청: {{title}}",
+      "reviewFailed": "리뷰 실패: {{title}}"
     },
     "failed": {
       "retry": "재시도",

@@ -814,7 +814,8 @@
       "startAllError": "Échec du démarrage des workers : {{message}}",
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
       "reviewApproved": "Révision approuvée : {{title}}",
-      "reviewChangesRequested": "Modifications demandées : {{title}}"
+      "reviewChangesRequested": "Modifications demandées : {{title}}",
+      "reviewFailed": "Révision échouée : {{title}}"
     },
     "failed": {
       "retry": "Réessayer",

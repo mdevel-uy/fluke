@@ -814,7 +814,8 @@
       "startAllError": "No se pudieron iniciar los workers: {{message}}",
       "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
       "reviewApproved": "Revisión aprobada: {{title}}",
-      "reviewChangesRequested": "Cambios solicitados en: {{title}}"
+      "reviewChangesRequested": "Cambios solicitados en: {{title}}",
+      "reviewFailed": "Revisión falló: {{title}}"
     },
     "failed": {
       "retry": "Reintentar",

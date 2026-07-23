@@ -539,7 +539,8 @@
   "review": {
     "result": {
       "approved": "승인됨",
-      "changesRequested": "변경 요청"
+      "changesRequested": "변경 요청",
+      "failed": "리뷰 실패"
     }
   }
 }

@@ -814,7 +814,8 @@
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
-      "reviewChangesRequested": "変更要求: {{title}}"
+      "reviewChangesRequested": "変更要求: {{title}}",
+      "reviewFailed": "レビュー失敗: {{title}}"
     },
     "failed": {
       "retry": "再試行",

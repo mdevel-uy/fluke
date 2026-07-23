@@ -53,7 +53,7 @@ const DONE_LIMIT = 20;
 
 type Toast = {
   id: number;
-  variant: 'success' | 'error' | 'info';
+  variant: 'success' | 'error' | 'info' | 'warning';
   message: string;
 };
 
@@ -424,8 +424,13 @@ export function SprintPage() {
           );
         } else if (curr === 'changes_requested') {
           pushToast(
-            'info',
+            'warning',
             t('sprint.toast.reviewChangesRequested', { title: task.title })
+          );
+        } else if (curr === 'failed') {
+          pushToast(
+            'error',
+            t('sprint.toast.reviewFailed', { title: task.title })
           );
         }
       }
@@ -821,7 +826,9 @@ export function SprintPage() {
                   ? 'border-success/30 bg-success/10 text-success'
                   : toast.variant === 'error'
                     ? 'border-md-error/30 bg-md-error/10 text-md-error'
-                    : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface',
+                    : toast.variant === 'warning'
+                      ? 'border-warning/30 bg-warning/10 text-warning'
+                      : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface',
               ].join(' ')}
             >
               <span className="min-w-0 flex-1 leading-relaxed">

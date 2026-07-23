@@ -36,7 +36,7 @@ use db::{
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
-        worker::{ROLE_DEVELOPER, Worker},
+        worker::{ROLE_DEVELOPER, ROLE_REVIEWER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -687,6 +687,31 @@ pub async fn on_agent_finished(
         "Analyst/reviewer worker task finished — status set to {}",
         new_status
     );
+
+    // When the reviewer worker itself crashes, surface a "failed" verdict on
+    // the developer's card so the pulsing "TL revisando" dot doesn't linger
+    // forever. Non-fatal: never block the reviewer-task lifecycle on this.
+    if !succeeded && worker.role == ROLE_REVIEWER {
+        if let Some(pr_number) = task.issue_number {
+            match WorkerTask::find_developer_task_for_pr(pool, pr_number, task.repo_id).await {
+                Ok(Some(dev_task)) => {
+                    if let Err(e) =
+                        WorkerTask::set_review_result(pool, dev_task.id, Some("failed")).await
+                    {
+                        warn!(
+                            pr_number,
+                            "Failed to persist failed review_result on dev task: {}", e
+                        );
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => warn!(
+                    pr_number,
+                    "Failed to look up dev task after reviewer failure: {}", e
+                ),
+            }
+        }
+    }
 
     // Archive the workspace now that the task is complete.
     if let Err(e) = container.archive_workspace(workspace_id).await {

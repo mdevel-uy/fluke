@@ -539,7 +539,8 @@
   "review": {
     "result": {
       "approved": "Aprobado",
-      "changesRequested": "Cambios solicitados"
+      "changesRequested": "Cambios solicitados",
+      "failed": "Revisión falló"
     }
   }
 }

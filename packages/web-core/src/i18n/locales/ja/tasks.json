@@ -539,7 +539,8 @@
   "review": {
     "result": {
       "approved": "承認済み",
-      "changesRequested": "変更を要求"
+      "changesRequested": "変更を要求",
+      "failed": "レビュー失敗"
     }
   }
 }

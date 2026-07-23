@@ -814,7 +814,8 @@
       "assignDuplicate": "该 Issue 已有一个分配给工作者的活跃任务。",
       "startAllSuccess_other": "已启动 {{count}} 个工作者。",
       "reviewApproved": "审查已批准：{{title}}",
-      "reviewChangesRequested": "要求更改：{{title}}"
+      "reviewChangesRequested": "要求更改：{{title}}",
+      "reviewFailed": "审查失败：{{title}}"
     },
     "failed": {
       "retry": "重试",
