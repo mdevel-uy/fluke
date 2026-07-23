@@ -34,12 +34,17 @@ import {
   SOUL_TEMPLATES,
   type SoulTemplateId,
 } from '@/features/workers/model/soulTemplates';
+import { useUserSystem } from '@/shared/hooks/useUserSystem';
+import { useModelSelectorConfig } from '@/shared/hooks/useExecutorDiscovery';
 
 export const WORKER_ROLES = ['developer', 'analyst', 'reviewer'] as const;
 export type WorkerRole = (typeof WORKER_ROLES)[number];
 
 // The API still requires an emoji; the UI no longer exposes it.
 const DEFAULT_WORKER_EMOJI = '🤖';
+
+// Sentinel value used in the Select to represent "no override" (null model).
+const MODEL_DEFAULT_VALUE = '__default__';
 
 export interface WorkerFormDialogProps {
   worker?: WorkerResponse;
@@ -57,11 +62,16 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [role, setRole] = useState<WorkerRole>(
     (worker?.role as WorkerRole) ?? 'developer'
   );
+  const [model, setModel] = useState<string | null>(worker?.model ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [baseInstructionsExpanded, setBaseInstructionsExpanded] =
     useState(false);
   const { data: baseInstructions } = useBaseInstructions();
+
+  const { config: systemConfig } = useUserSystem();
+  const configuredExecutor = systemConfig?.executor_profile?.executor ?? null;
+  const { config: modelConfig } = useModelSelectorConfig(configuredExecutor);
 
   const createMutation = useCreateWorker();
   const updateMutation = useUpdateWorker();
@@ -71,13 +81,14 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     setName(worker?.name ?? '');
     setSoul(worker?.soul ?? '');
     setRole((worker?.role as WorkerRole) ?? 'developer');
+    setModel(worker?.model ?? null);
     setErrorMessage(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worker?.id]);
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, soul, role]);
+  }, [name, soul, role, model]);
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
@@ -104,6 +115,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       emoji: worker?.emoji ?? DEFAULT_WORKER_EMOJI,
       soul: trimmedSoul,
       role,
+      model: model ?? null,
     };
 
     try {
@@ -125,6 +137,11 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   const canSubmit =
     name.trim().length > 0 && soul.trim().length > 0 && !isSubmitting;
+
+  const availableModels = modelConfig?.models ?? [];
+  const hasModels = availableModels.length > 0;
+
+  const selectValue = model ?? MODEL_DEFAULT_VALUE;
 
   return (
     <Dialog open={modal.visible} onOpenChange={handleOpenChange}>
@@ -170,6 +187,34 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               {t(`workers.roles.${role}Description`)}
             </p>
           </div>
+
+          {hasModels && (
+            <div>
+              <Label htmlFor="worker-model">
+                {t('workers.form.modelLabel')}
+              </Label>
+              <Select
+                value={selectValue}
+                onValueChange={(v) =>
+                  setModel(v === MODEL_DEFAULT_VALUE ? null : v)
+                }
+              >
+                <SelectTrigger id="worker-model" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={MODEL_DEFAULT_VALUE}>
+                    {t('workers.form.modelDefault')}
+                  </SelectItem>
+                  {availableModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {!isEdit && (
             <div>

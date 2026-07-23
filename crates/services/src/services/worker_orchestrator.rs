@@ -214,7 +214,10 @@ pub async fn try_take_next(
         .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
     let executor_config = config.read().await.executor_profile.clone();
-    let executor_config: ExecutorConfig = executor_config.into();
+    let mut executor_config: ExecutorConfig = executor_config.into();
+    if let Some(model) = &worker.model {
+        executor_config.model_id = Some(model.clone());
+    }
 
     let workspace_manager = WorkspaceManager::new(db.clone());
 

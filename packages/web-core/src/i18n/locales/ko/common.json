@@ -773,7 +773,9 @@
       "systemInstructionsReadOnly": "(읽기 전용 — 모든 워커에 적용)",
       "cancel": "취소",
       "saveNew": "워커 만들기",
-      "saveEdit": "변경 사항 저장"
+      "saveEdit": "변경 사항 저장",
+      "modelLabel": "모델",
+      "modelDefault": "기본값 (글로벌)"
     },
     "roles": {
       "developer": "개발자",

@@ -14,6 +14,7 @@ pub struct Worker {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    pub model: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -23,6 +24,7 @@ pub struct CreateWorker {
     pub emoji: String,
     pub soul: String,
     pub role: Option<String>,
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -31,12 +33,14 @@ pub struct UpdateWorker {
     pub emoji: Option<String>,
     pub soul: Option<String>,
     pub role: Option<String>,
+    /// `None` = don't change; `Some(None)` = clear to global default; `Some(Some(x))` = set override
+    pub model: Option<Option<String>>,
 }
 
 impl Worker {
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, created_at
+            "SELECT id, name, emoji, soul, role, model, created_at
                FROM workers
                ORDER BY created_at ASC",
         )
@@ -46,7 +50,7 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, created_at
+            "SELECT id, name, emoji, soul, role, model, created_at
                FROM workers
                WHERE id = ?1",
         )
@@ -59,14 +63,15 @@ impl Worker {
         let id = Uuid::new_v4();
         let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul, role)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO workers (id, name, emoji, soul, role, model)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )
         .bind(id)
         .bind(&data.name)
         .bind(&data.emoji)
         .bind(&data.soul)
         .bind(&role)
+        .bind(&data.model)
         .execute(pool)
         .await?;
 
@@ -88,13 +93,16 @@ impl Worker {
         let emoji = data.emoji.as_ref().unwrap_or(&existing.emoji);
         let soul = data.soul.as_ref().unwrap_or(&existing.soul);
         let role = data.role.as_ref().unwrap_or(&existing.role);
+        // None = keep existing; Some(None) = clear; Some(Some(x)) = set to x
+        let model = data.model.unwrap_or(existing.model.clone());
 
         sqlx::query(
             "UPDATE workers
                 SET name  = ?2,
                     emoji = ?3,
                     soul  = ?4,
-                    role  = ?5
+                    role  = ?5,
+                    model = ?6
               WHERE id = ?1",
         )
         .bind(id)
@@ -102,6 +110,7 @@ impl Worker {
         .bind(emoji)
         .bind(soul)
         .bind(role)
+        .bind(model)
         .execute(pool)
         .await?;
 
@@ -236,7 +245,7 @@ impl Worker {
     /// First worker with the `reviewer` role (by creation order), if any.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, created_at
+            "SELECT id, name, emoji, soul, role, model, created_at
                FROM workers
                WHERE role = 'reviewer'
                ORDER BY created_at ASC

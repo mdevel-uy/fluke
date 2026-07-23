@@ -27,6 +27,8 @@ pub struct WorkerResponse {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    #[ts(optional)]
+    pub model: Option<String>,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -125,6 +127,8 @@ pub struct CreateWorkerRequest {
     pub soul: String,
     #[ts(optional)]
     pub role: Option<String>,
+    #[ts(optional)]
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -134,6 +138,10 @@ pub struct UpdateWorkerRequest {
     pub soul: Option<String>,
     #[ts(optional)]
     pub role: Option<String>,
+    /// `undefined` = no change; `null` = clear to global default; `string` = set override
+    #[serde(default)]
+    #[ts(optional, type = "string | null")]
+    pub model: Option<Option<String>>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -199,6 +207,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         emoji: worker.emoji,
         soul: worker.soul,
         role: worker.role,
+        model: worker.model,
         active_workspace_id,
         queued_count,
         completed_count,
@@ -245,6 +254,7 @@ pub async fn create_worker(
             emoji: emoji.to_string(),
             soul: payload.soul,
             role: payload.role,
+            model: payload.model.filter(|m| !m.is_empty()),
         },
     )
     .await?;
@@ -296,6 +306,9 @@ pub async fn update_worker(
         }
     }
 
+    // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
+    let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
+
     let worker = Worker::update(
         pool,
         worker_id,
@@ -310,6 +323,7 @@ pub async fn update_worker(
                 .filter(|s| !s.is_empty()),
             soul: payload.soul,
             role,
+            model,
         },
     )
     .await?;

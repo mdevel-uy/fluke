@@ -773,7 +773,9 @@
       "systemInstructionsReadOnly": "(唯讀 — 適用於所有工作者)",
       "cancel": "取消",
       "saveNew": "建立工作者",
-      "saveEdit": "儲存變更"
+      "saveEdit": "儲存變更",
+      "modelLabel": "模型",
+      "modelDefault": "預設（全域）"
     },
     "roles": {
       "developer": "開發者",

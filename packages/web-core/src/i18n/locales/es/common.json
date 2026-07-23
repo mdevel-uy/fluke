@@ -773,7 +773,9 @@
       "systemInstructionsReadOnly": "(solo lectura — se aplican a todos los workers)",
       "cancel": "Cancelar",
       "saveNew": "Crear worker",
-      "saveEdit": "Guardar cambios"
+      "saveEdit": "Guardar cambios",
+      "modelLabel": "Modelo",
+      "modelDefault": "Por defecto (global)"
     },
     "roles": {
       "developer": "Desarrollador",
