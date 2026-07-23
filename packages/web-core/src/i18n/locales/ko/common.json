@@ -712,6 +712,7 @@
       "statusIdle": "대기 중",
       "currentTaskLink": "현재 워크스페이스 열기",
       "noCurrentTask": "진행 중인 작업 없음",
+      "stalledShort": "에이전트 중지됨, 작업 미완료",
       "menuLabel": "워커 작업",
       "edit": "편집",
       "delete": "삭제",

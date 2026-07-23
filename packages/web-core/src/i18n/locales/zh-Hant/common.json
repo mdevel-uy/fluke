@@ -712,6 +712,7 @@
       "statusIdle": "閒置",
       "currentTaskLink": "開啟目前工作區",
       "noCurrentTask": "無進行中的任務",
+      "stalledShort": "代理已停止，任務未完成",
       "menuLabel": "工作者動作",
       "edit": "編輯",
       "delete": "刪除",

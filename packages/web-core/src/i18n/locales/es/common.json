@@ -712,6 +712,7 @@
       "statusIdle": "En espera",
       "currentTaskLink": "Abrir workspace actual",
       "noCurrentTask": "Sin tarea en curso",
+      "stalledShort": "Agente detenido, tarea abierta",
       "menuLabel": "Acciones del worker",
       "edit": "Editar",
       "delete": "Eliminar",

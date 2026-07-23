@@ -712,6 +712,7 @@
       "statusIdle": "待機中",
       "currentTaskLink": "現在のワークスペースを開く",
       "noCurrentTask": "進行中のタスクなし",
+      "stalledShort": "エージェント停止、タスク未完了",
       "menuLabel": "ワーカーのアクション",
       "edit": "編集",
       "delete": "削除",
