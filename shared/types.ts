@@ -10,6 +10,8 @@ export type Project = { id: string, name: string, default_agent_working_dir: str
 
 export type RepoIssueResponse = { id: string, repo_id: string, number: number, title: string, body: string, state: string, labels: Array<IssueLabel>, author: string, updated_at: Date, synced_at: Date, milestone: string | null, priority: string | null, };
 
+export type IssueLabel = { name: string, color: string, };
+
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 
 export type SearchResult = { path: string, is_file: boolean, match_type: SearchMatchType, 
