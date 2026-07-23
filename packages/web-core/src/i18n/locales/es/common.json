@@ -812,7 +812,9 @@
       "startAllSuccess": "{{count}} worker arrancado.",
       "startAllSuccess_other": "{{count}} workers arrancados.",
       "startAllError": "No se pudieron iniciar los workers: {{message}}",
-      "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker."
+      "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
+      "reviewApproved": "Revisión aprobada: {{title}}",
+      "reviewChangesRequested": "Cambios solicitados en: {{title}}"
     },
     "failed": {
       "retry": "Reintentar",

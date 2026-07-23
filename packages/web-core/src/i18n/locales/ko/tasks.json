@@ -535,5 +535,11 @@
     "errors": {
       "failed": "PR 연결에 실패했습니다. 다시 시도해 주세요."
     }
+  },
+  "review": {
+    "result": {
+      "approved": "승인됨",
+      "changesRequested": "변경 요청"
+    }
   }
 }

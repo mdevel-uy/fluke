@@ -535,5 +535,11 @@
     "errors": {
       "failed": "PRのリンクに失敗しました。もう一度お試しください。"
     }
+  },
+  "review": {
+    "result": {
+      "approved": "承認済み",
+      "changesRequested": "変更を要求"
+    }
   }
 }
