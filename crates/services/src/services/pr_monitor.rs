@@ -512,33 +512,68 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                         }
                     }
 
-                    // Detect request-changes reviews and enqueue a fix task for the
-                    // author. Non-fatal: a failure here must never break pr_monitor.
+                    // Detect review verdicts, persist them on the developer's task,
+                    // and (for changes_requested) enqueue a fix task for the author.
+                    // Non-fatal: a failure here must never break pr_monitor.
                     match git_host.get_pr_latest_review_state(&pr.pr_url).await {
-                        Ok(Some(ref state)) if state == "changes_requested" => {
-                            match Worker::find_by_workspace_id(&self.db.pool, workspace_id).await {
-                                Ok(Some(author_id)) => {
-                                    if let Err(e) = worker_orchestrator::dispatch_author_fix_task(
-                                        &self.config,
-                                        &self.db,
-                                        &self.container,
-                                        pr.pr_number,
-                                        repo_id,
-                                        author_id,
-                                    )
-                                    .await
-                                    {
-                                        warn!(
-                                            pr_number = pr.pr_number,
-                                            "Failed to dispatch author fix task: {}", e
-                                        );
+                        Ok(Some(ref state))
+                            if state == "changes_requested" || state == "approved" =>
+                        {
+                            // Persist verdict on the developer's worker task so the
+                            // Kanban card can show it without polling GitHub.
+                            match WorkerTask::find_by_workspace(&self.db.pool, workspace_id).await
+                            {
+                                Ok(Some(dev_task)) => {
+                                    if dev_task.review_result.as_deref() != Some(state.as_str()) {
+                                        if let Err(e) = WorkerTask::set_review_result(
+                                            &self.db.pool,
+                                            dev_task.id,
+                                            Some(state.as_str()),
+                                        )
+                                        .await
+                                        {
+                                            warn!(
+                                                pr_number = pr.pr_number,
+                                                "Failed to persist review_result: {}", e
+                                            );
+                                        }
                                     }
                                 }
                                 Ok(None) => {}
                                 Err(e) => warn!(
                                     pr_number = pr.pr_number,
-                                    "Failed to look up author worker for fix dispatch: {}", e
+                                    "Failed to look up dev task for review_result: {}", e
                                 ),
+                            }
+
+                            if state == "changes_requested" {
+                                match Worker::find_by_workspace_id(&self.db.pool, workspace_id)
+                                    .await
+                                {
+                                    Ok(Some(author_id)) => {
+                                        if let Err(e) =
+                                            worker_orchestrator::dispatch_author_fix_task(
+                                                &self.config,
+                                                &self.db,
+                                                &self.container,
+                                                pr.pr_number,
+                                                repo_id,
+                                                author_id,
+                                            )
+                                            .await
+                                        {
+                                            warn!(
+                                                pr_number = pr.pr_number,
+                                                "Failed to dispatch author fix task: {}", e
+                                            );
+                                        }
+                                    }
+                                    Ok(None) => {}
+                                    Err(e) => warn!(
+                                        pr_number = pr.pr_number,
+                                        "Failed to look up author worker for fix dispatch: {}", e
+                                    ),
+                                }
                             }
                         }
                         Ok(_) => {}

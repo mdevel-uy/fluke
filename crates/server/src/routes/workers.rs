@@ -59,6 +59,9 @@ pub struct WorkerTaskResponse {
     pub pr_state: Option<String>,
     /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
+    /// TL reviewer's verdict: "approved" | "changes_requested" | null.
+    /// Set by pr_monitor when the PR review state is detected.
+    pub review_result: Option<String>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -98,6 +101,7 @@ async fn worker_task_to_response(
         pr_url,
         pr_state,
         pr_mergeable,
+        review_result: task.review_result,
         created_at: task.created_at,
     })
 }

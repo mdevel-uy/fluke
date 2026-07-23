@@ -535,5 +535,11 @@
     "errors": {
       "failed": "Error al vincular el PR. Inténtelo de nuevo."
     }
+  },
+  "review": {
+    "result": {
+      "approved": "Aprobado",
+      "changesRequested": "Cambios solicitados"
+    }
   }
 }

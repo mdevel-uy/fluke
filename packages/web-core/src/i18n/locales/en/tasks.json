@@ -535,5 +535,11 @@
     "errors": {
       "failed": "Failed to link PR. Please try again."
     }
+  },
+  "review": {
+    "result": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested"
+    }
   }
 }

@@ -401,6 +401,40 @@ export function SprintPage() {
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
   useAutoIngestReconciler(workers, queuedCountByWorkerId);
 
+  // Toast when a review verdict first appears on an in_review task.
+  const prevReviewResultsRef = useRef<Map<string, string | null | undefined>>(
+    new Map()
+  );
+  const reviewToastInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!reviewToastInitializedRef.current) {
+      for (const task of allTasks) {
+        prevReviewResultsRef.current.set(task.id, task.review_result);
+      }
+      reviewToastInitializedRef.current = true;
+      return;
+    }
+    for (const task of allTasks) {
+      const prev = prevReviewResultsRef.current.get(task.id);
+      const curr = task.review_result;
+      if (!prev && curr) {
+        if (curr === 'approved') {
+          pushToast(
+            'success',
+            t('sprint.toast.reviewApproved', { title: task.title })
+          );
+        } else if (curr === 'changes_requested') {
+          pushToast(
+            'info',
+            t('sprint.toast.reviewChangesRequested', { title: task.title })
+          );
+        }
+      }
+      prevReviewResultsRef.current.set(task.id, curr);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTasks]);
+
   // With auto-ingest on, an idle worker picks up its queue as soon as a task
   // is assigned. Conflicts (worker grabbed something else meanwhile) are fine.
   const maybeAutoStart = useCallback(

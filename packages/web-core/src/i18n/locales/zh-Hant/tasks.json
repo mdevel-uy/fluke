@@ -535,5 +535,11 @@
     "errors": {
       "failed": "連結 PR 失敗，請重試。"
     }
+  },
+  "review": {
+    "result": {
+      "approved": "已批准",
+      "changesRequested": "要求更改"
+    }
   }
 }

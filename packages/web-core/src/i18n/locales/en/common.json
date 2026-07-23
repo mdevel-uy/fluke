@@ -812,7 +812,9 @@
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllError": "Failed to start workers: {{message}}",
-      "assignDuplicate": "This issue already has an active task assigned to a worker."
+      "assignDuplicate": "This issue already has an active task assigned to a worker.",
+      "reviewApproved": "Review approved: {{title}}",
+      "reviewChangesRequested": "Changes requested: {{title}}"
     },
     "failed": {
       "retry": "Retry",
