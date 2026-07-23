@@ -131,6 +131,25 @@
     "all": "Tous",
     "activityWorking": "En cours…",
     "activityWaitingApproval": "En attente d'approbation",
+    "contextPct": "{{pct}}% ctx",
+    "expand": "Afficher les détails",
+    "collapse": "Masquer les détails",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "ouverte",
+        "merged": "fusionnée",
+        "closed": "fermée",
+        "unknown": "inconnu"
+      },
+      "conflicting": "conflits de fusion",
+      "branch": "Branche",
+      "lastActivity": "Dernière activité",
+      "openWorkspace": "Ouvrir l'espace de travail",
+      "viewPr": "Voir la PR",
+      "viewIssue": "Voir l'issue"
+    },
     "pin": "Épingler",
     "unpin": "Désépingler",
     "archive": "Archiver",

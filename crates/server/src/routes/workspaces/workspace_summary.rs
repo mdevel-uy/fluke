@@ -4,12 +4,15 @@ use axum::{Json, extract::State, response::Json as ResponseJson};
 use db::models::{
     coding_agent_turn::CodingAgentTurn,
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
+    execution_process_logs::ExecutionProcessLogs,
     merge::MergeStatus,
     pull_request::PullRequest,
     workspace::Workspace,
 };
 use deployment::Deployment;
+use executors::logs::TokenUsageInfo;
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -53,6 +56,11 @@ pub struct WorkspaceSummary {
     pub pr_url: Option<String>,
     /// Mergeable state of the open PR: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
+    /// Context-window usage of the latest coding-agent session, if known
+    pub latest_context_usage: Option<TokenUsageInfo>,
+    /// When the latest coding-agent process started (for elapsed-time display)
+    #[ts(optional)]
+    pub latest_process_started_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Response containing summaries for requested workspaces
@@ -114,7 +122,29 @@ pub async fn get_workspace_summaries(
     // 6. Get PR status for each workspace
     let pr_statuses = PullRequest::get_latest_for_workspaces(pool, archived).await?;
 
-    // 7. Compute diff stats for each workspace (in parallel)
+    // 7. Latest coding-agent process per workspace: context usage + started_at
+    let coding_agent_processes =
+        ExecutionProcess::find_latest_coding_agent_for_workspaces(pool, archived).await?;
+    let usage_futures: Vec<_> = coding_agent_processes
+        .values()
+        .map(|info| {
+            let execution_id = info.execution_process_id;
+            let workspace_id = info.workspace_id;
+            async move {
+                find_latest_context_usage(pool, execution_id)
+                    .await
+                    .map(|usage| (workspace_id, usage))
+            }
+        })
+        .collect();
+    let context_usage: HashMap<Uuid, TokenUsageInfo> =
+        futures_util::future::join_all(usage_futures)
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+
+    // 8. Compute diff stats for each workspace (in parallel)
     let diff_futures: Vec<_> = workspaces
         .iter()
         .map(|ws| {
@@ -136,7 +166,7 @@ pub async fn get_workspace_summaries(
         futures_util::future::join_all(diff_futures).await;
     let diff_stats: HashMap<Uuid, DiffStats> = diff_results.into_iter().flatten().collect();
 
-    // 8. Assemble response
+    // 9. Assemble response
     let summaries: Vec<WorkspaceSummary> = workspaces
         .iter()
         .map(|ws| {
@@ -162,6 +192,10 @@ pub async fn get_workspace_summaries(
                 pr_number: pr_statuses.get(&id).map(|pr| pr.pr_number),
                 pr_url: pr_statuses.get(&id).map(|pr| pr.pr_url.clone()),
                 pr_mergeable: pr_statuses.get(&id).and_then(|pr| pr.pr_mergeable.clone()),
+                latest_context_usage: context_usage.get(&id).cloned(),
+                latest_process_started_at: coding_agent_processes
+                    .get(&id)
+                    .map(|info| info.started_at),
             }
         })
         .collect();
@@ -169,6 +203,49 @@ pub async fn get_workspace_summaries(
     Ok(ResponseJson(ApiResponse::success(
         WorkspaceSummaryResponse { summaries },
     )))
+}
+
+/// Scan the newest log chunks of an execution process for the most recent
+/// token-usage entry. Normalized entries are stored as `JsonPatch` lines whose
+/// op values are `NormalizedEntry` objects; the internally-tagged
+/// `entry_type` carries the token usage
+/// (`{"type":"token_usage_info","total_tokens":..,"model_context_window":..}`).
+async fn find_latest_context_usage(
+    pool: &SqlitePool,
+    execution_id: Uuid,
+) -> Option<TokenUsageInfo> {
+    const MAX_LOG_CHUNKS: i64 = 5;
+    let chunks =
+        ExecutionProcessLogs::find_recent_by_execution_id(pool, execution_id, MAX_LOG_CHUNKS)
+            .await
+            .ok()?;
+
+    // Chunks arrive newest-first; scan each chunk's lines from the end.
+    for chunk in &chunks {
+        for line in chunk.logs.lines().rev() {
+            if !line.contains(r#""token_usage_info""#) {
+                continue;
+            }
+            let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            let Some(ops) = msg.get("JsonPatch").and_then(|p| p.as_array()) else {
+                continue;
+            };
+            for op in ops.iter().rev() {
+                let Some(entry_type) = op.get("value").and_then(|v| v.get("entry_type")) else {
+                    continue;
+                };
+                if entry_type.get("type").and_then(|t| t.as_str()) != Some("token_usage_info") {
+                    continue;
+                }
+                if let Ok(info) = serde_json::from_value::<TokenUsageInfo>(entry_type.clone()) {
+                    return Some(info);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Compute diff stats for a workspace.

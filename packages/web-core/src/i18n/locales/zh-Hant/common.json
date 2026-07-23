@@ -131,6 +131,25 @@
     "all": "全部",
     "activityWorking": "工作中…",
     "activityWaitingApproval": "等待核准",
+    "contextPct": "{{pct}}% ctx",
+    "expand": "顯示詳情",
+    "collapse": "隱藏詳情",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "開放",
+        "merged": "已合併",
+        "closed": "已關閉",
+        "unknown": "未知"
+      },
+      "conflicting": "合併衝突",
+      "branch": "分支",
+      "lastActivity": "最近活動",
+      "openWorkspace": "開啟工作區",
+      "viewPr": "檢視 PR",
+      "viewIssue": "檢視 Issue"
+    },
     "pin": "釘選",
     "unpin": "取消釘選",
     "archive": "封存",

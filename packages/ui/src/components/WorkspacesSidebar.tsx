@@ -45,6 +45,7 @@ function getInitialStatusTab(
 export interface WorkspacesSidebarWorkspace {
   id: string;
   name: string;
+  branch?: string;
   filesChanged?: number;
   linesAdded?: number;
   linesRemoved?: number;
@@ -56,11 +57,22 @@ export interface WorkspacesSidebarWorkspace {
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
+  prNumber?: number;
+  prUrl?: string;
+  prMergeable?: string;
   contextUsage?: WorkspaceContextUsage | null;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
   hasStalledTask?: boolean;
+  /** When the latest coding-agent process started (for elapsed time) */
+  latestProcessStartedAt?: string;
+  /** Name of the worker that owns this workspace, if any */
+  workerName?: string;
+  /** Role of the owning worker: developer | analyst | reviewer */
+  workerRole?: string;
+  /** Display title of the worker task backing this workspace */
+  taskTitle?: string;
 }
 
 export interface WorkspacesSidebarPersistKeys {
@@ -185,9 +197,17 @@ function WorkspaceList({
           latestProcessCompletedAt={workspace.latestProcessCompletedAt}
           latestProcessStatus={workspace.latestProcessStatus}
           prStatus={workspace.prStatus}
+          prNumber={workspace.prNumber}
+          prUrl={workspace.prUrl}
+          prMergeable={workspace.prMergeable}
+          branch={workspace.branch}
           contextUsage={workspace.contextUsage}
           issueNumber={workspace.issueNumber}
           hasStalledTask={workspace.hasStalledTask}
+          latestProcessStartedAt={workspace.latestProcessStartedAt}
+          workerName={workspace.workerName}
+          workerRole={workspace.workerRole}
+          taskTitle={workspace.taskTitle}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           onClick={() => onSelectWorkspace(workspace.id)}
         />
@@ -423,7 +443,15 @@ export function WorkspacesSidebar({
                   latestProcessCompletedAt={workspace.latestProcessCompletedAt}
                   latestProcessStatus={workspace.latestProcessStatus}
                   prStatus={workspace.prStatus}
+                  prNumber={workspace.prNumber}
+                  prUrl={workspace.prUrl}
+                  prMergeable={workspace.prMergeable}
+                  branch={workspace.branch}
                   contextUsage={workspace.contextUsage}
+                  latestProcessStartedAt={workspace.latestProcessStartedAt}
+                  workerName={workspace.workerName}
+                  workerRole={workspace.workerRole}
+                  taskTitle={workspace.taskTitle}
                   onOpenWorkspaceActions={handleOpenWorkspaceActions}
                   onClick={() => onSelectWorkspace(workspace.id)}
                 />
