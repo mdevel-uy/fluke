@@ -8,6 +8,8 @@ import {
   ActionTargetType,
 } from '@/shared/types/actions';
 import { Scope } from '@/shared/keyboard/registry';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { isMac } from '@/shared/lib/platform';
 
 const SEQUENCE_TIMEOUT_MS = 1500;
 
@@ -78,4 +80,24 @@ export function useWorkspaceShortcuts() {
 
   useHotkeys('r>s', () => execute(Actions.RunSetupScript), OPTIONS);
   useHotkeys('r>c', () => execute(Actions.RunCleanupScript), OPTIONS);
+
+  // Cmd+J (Mac) / Ctrl+J (Windows/Linux) toggles the terminal bottom panel.
+  // Registered as a native listener on the capture phase so xterm can't
+  // swallow the key first — mirrors useCommandBarShortcut for Cmd+K.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const modifier = isMac() ? event.metaKey : event.ctrlKey;
+      if (!modifier || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== 'j') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      useUiPreferencesStore.getState().toggleTerminal();
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, []);
 }

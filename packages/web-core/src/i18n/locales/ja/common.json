@@ -329,6 +329,7 @@
       "moveLeft": "左に移動",
       "moveRight": "右に移動",
       "openCommandBar": "コマンドバーを開く",
+      "toggleTerminal": "ターミナルの表示/非表示",
       "formatInlineCode": "Format inline code",
       "sendMessage": "メッセージを送信",
       "settings": "設定に移動",
