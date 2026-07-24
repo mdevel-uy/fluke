@@ -161,8 +161,8 @@ export function WorkersPage() {
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
-  const [duplicatingWorkerId, setDuplicatingWorkerId] = useState<string | null>(
-    null
+  const [duplicatingWorkerIds, setDuplicatingWorkerIds] = useState<Set<string>>(
+    () => new Set()
   );
 
   const handleStartNext = async (worker: WorkerResponse) => {
@@ -202,8 +202,12 @@ export function WorkersPage() {
   };
 
   const handleDuplicate = async (worker: WorkerResponse) => {
-    if (duplicatingWorkerId) return;
-    setDuplicatingWorkerId(worker.id);
+    if (duplicatingWorkerIds.has(worker.id)) return;
+    setDuplicatingWorkerIds((prev) => {
+      const next = new Set(prev);
+      next.add(worker.id);
+      return next;
+    });
     try {
       const clone = await duplicateMutation.mutateAsync(worker.id);
       pushToast(
@@ -223,7 +227,11 @@ export function WorkersPage() {
         })
       );
     } finally {
-      setDuplicatingWorkerId(null);
+      setDuplicatingWorkerIds((prev) => {
+        const next = new Set(prev);
+        next.delete(worker.id);
+        return next;
+      });
     }
   };
 
@@ -362,7 +370,7 @@ export function WorkersPage() {
                     : undefined
                 }
                 isStarting={startingWorkerId === worker.id}
-                isDuplicating={duplicatingWorkerId === worker.id}
+                isDuplicating={duplicatingWorkerIds.has(worker.id)}
                 onStartNext={() => handleStartNext(worker)}
                 onEdit={() => handleEditWorker(worker)}
                 onDuplicate={() => handleDuplicate(worker)}
