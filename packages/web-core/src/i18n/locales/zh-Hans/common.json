@@ -218,8 +218,7 @@
     "copyPath": "复制路径",
     "cancel": "取消",
     "saveChanges": "保存更改",
-    "copied": "已复制",
-    "collapse": "收起"
+    "copied": "已复制"
   },
   "comments": {
     "addReviewComment": "添加审查评论",
@@ -288,8 +287,7 @@
     "selectProcessToView": "选择一个进程以查看日志"
   },
   "processes": {
-    "noProcesses": "无进程",
-    "terminal": "终端"
+    "noProcesses": "无进程"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",

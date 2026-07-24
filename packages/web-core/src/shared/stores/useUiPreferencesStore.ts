@@ -254,6 +254,7 @@ export const PERSIST_KEYS = {
   showGitHubComments: 'show-github-comments',
   // Panel sizes
   rightMainPanel: 'right-main-panel',
+  bottomPanel: 'bottom-panel',
   kanbanLeftPanel: 'kanban-left-panel',
   // Kanban issue panel sections
   kanbanIssueSubIssues: 'kanban-issue-sub-issues',
@@ -279,6 +280,7 @@ export type PersistKey =
   | typeof PERSIST_KEYS.notesSection
   | typeof PERSIST_KEYS.showGitHubComments
   | typeof PERSIST_KEYS.rightMainPanel
+  | typeof PERSIST_KEYS.bottomPanel
   | typeof PERSIST_KEYS.rightPanelprocesses
   | typeof PERSIST_KEYS.rightPanelPreview
   | typeof PERSIST_KEYS.kanbanLeftPanel
@@ -450,7 +452,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   layoutMode: 'workspaces' as LayoutMode,
   isLeftSidebarVisible: true,
   isRightSidebarVisible: true,
-  isTerminalVisible: true,
+  isTerminalVisible: false,
   previewRefreshKey: 0,
 
   // Workspace-specific panel state

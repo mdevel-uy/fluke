@@ -34,6 +34,7 @@ import {
   type WorkspacesMainContainerHandle,
 } from './WorkspacesMainContainer';
 import { RightSidebar } from './RightSidebar';
+import { BottomPanel } from './BottomPanel';
 import { ChangesPanelContainer } from './ChangesPanelContainer';
 import { CreateChatBoxContainer } from '@/shared/components/CreateChatBoxContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
@@ -50,9 +51,12 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 const WORKSPACES_SIDEBAR_LAYOUT_ID = 'workspaces-sidebar-layout';
+const WORKSPACES_BOTTOM_LAYOUT_ID = 'workspaces-bottom-layout';
 
 const SEPARATOR_CLASS =
   'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
+const SEPARATOR_ROW_CLASS =
+  'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
 
 export function WorkspacesLayout() {
   const appNavigation = useAppNavigation();
@@ -140,10 +144,12 @@ export function WorkspacesLayout() {
     isLeftSidebarVisible,
     isLeftMainPanelVisible,
     isRightSidebarVisible,
+    isTerminalVisible,
     rightMainPanelMode,
     setLeftSidebarVisible,
     setLeftMainPanelVisible,
   } = useWorkspacePanelState(isCreateMode ? undefined : workspaceId);
+  const isBottomPanelVisible = isTerminalVisible && !isCreateMode;
 
   const {
     config,
@@ -223,6 +229,21 @@ export function WorkspacesLayout() {
     debounceSaveMs: 150,
     id: WORKSPACES_SIDEBAR_LAYOUT_ID,
   });
+
+  // Bottom panel layout (top workspace area | bottom terminal panel).
+  // Default: terminal ~30% of vertical space, matching VSCode's default.
+  const {
+    defaultLayout: bottomLayoutStored,
+    onLayoutChange: onBottomLayoutChange,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: WORKSPACES_BOTTOM_LAYOUT_ID,
+  });
+  const bottomPanelDefaultLayout: Layout = bottomLayoutStored ?? {
+    'workspace-top': 70,
+    'bottom-panel': 30,
+  };
 
   // ── Mobile layout ──────────────────────────────────────────────────
   // Uses `hidden` CSS class (NOT conditional rendering) to preserve
@@ -425,66 +446,99 @@ export function WorkspacesLayout() {
   // Outer group: left-sidebar | center | right-sidebar
   // Both sidebars are resizable panels with pixel-based min/max constraints.
   // Layout is persisted to localStorage via useDefaultLayout.
+  const workspaceTopContent = (
+    <Group
+      orientation="horizontal"
+      className="flex-1 min-w-0 h-full"
+      defaultLayout={sidebarDefaultLayout}
+      onLayoutChange={onSidebarLayoutChange}
+    >
+      {isLeftSidebarVisible && (
+        <Panel
+          id="left-sidebar"
+          minSize="220px"
+          maxSize="480px"
+          className="h-full overflow-hidden"
+        >
+          <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
+        </Panel>
+      )}
+
+      {isLeftSidebarVisible && (
+        <Separator id="left-sidebar-separator" className={SEPARATOR_CLASS} />
+      )}
+
+      <Panel
+        id="outer-center"
+        minSize="400px"
+        className="min-w-0 h-full overflow-hidden"
+      >
+        {isCreateMode ? (
+          <CreateModeProvider
+            key={createModeProviderKey}
+            initialState={createModeSeed.state}
+          >
+            {mainContent}
+          </CreateModeProvider>
+        ) : (
+          mainContent
+        )}
+      </Panel>
+
+      {isRightSidebarVisible && !isCreateMode && (
+        <Separator id="right-sidebar-separator" className={SEPARATOR_CLASS} />
+      )}
+
+      {isRightSidebarVisible && !isCreateMode && (
+        <Panel
+          id="right-sidebar"
+          minSize="220px"
+          maxSize="480px"
+          className="h-full overflow-hidden"
+        >
+          <RightSidebar
+            rightMainPanelMode={rightMainPanelMode}
+            selectedWorkspace={selectedWorkspace}
+            repos={repos}
+          />
+        </Panel>
+      )}
+    </Group>
+  );
+
+  if (!isBottomPanelVisible) {
+    return (
+      <div className="flex flex-1 min-h-0 h-full">{workspaceTopContent}</div>
+    );
+  }
+
   return (
     <div className="flex flex-1 min-h-0 h-full">
       <Group
-        orientation="horizontal"
+        orientation="vertical"
         className="flex-1 min-w-0 h-full"
-        defaultLayout={sidebarDefaultLayout}
-        onLayoutChange={onSidebarLayoutChange}
+        defaultLayout={bottomPanelDefaultLayout}
+        onLayoutChange={onBottomLayoutChange}
       >
-        {isLeftSidebarVisible && (
-          <Panel
-            id="left-sidebar"
-            minSize="220px"
-            maxSize="480px"
-            className="h-full overflow-hidden"
-          >
-            <WorkspacesSidebarContainer
-              onScrollToBottom={handleScrollToBottom}
-            />
-          </Panel>
-        )}
-
-        {isLeftSidebarVisible && (
-          <Separator id="left-sidebar-separator" className={SEPARATOR_CLASS} />
-        )}
-
         <Panel
-          id="outer-center"
-          minSize="400px"
-          className="min-w-0 h-full overflow-hidden"
+          id="workspace-top"
+          minSize="200px"
+          className="min-h-0 w-full overflow-hidden"
         >
-          {isCreateMode ? (
-            <CreateModeProvider
-              key={createModeProviderKey}
-              initialState={createModeSeed.state}
-            >
-              {mainContent}
-            </CreateModeProvider>
-          ) : (
-            mainContent
-          )}
+          {workspaceTopContent}
         </Panel>
-
-        {isRightSidebarVisible && !isCreateMode && (
-          <Separator id="right-sidebar-separator" className={SEPARATOR_CLASS} />
-        )}
-
-        {isRightSidebarVisible && !isCreateMode && (
-          <Panel
-            id="right-sidebar"
-            minSize="220px"
-            maxSize="480px"
-            className="h-full overflow-hidden"
-          >
-            <RightSidebar
-              rightMainPanelMode={rightMainPanelMode}
-              selectedWorkspace={selectedWorkspace}
-              repos={repos}
-            />
-          </Panel>
-        )}
+        <Separator
+          id="bottom-panel-separator"
+          className={SEPARATOR_ROW_CLASS}
+        />
+        <Panel
+          id="bottom-panel"
+          minSize="120px"
+          maxSize="80%"
+          className="min-h-0 w-full overflow-hidden"
+        >
+          <BottomPanel />
+        </Panel>
       </Group>
     </div>
   );

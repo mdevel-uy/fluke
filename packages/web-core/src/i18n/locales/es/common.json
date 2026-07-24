@@ -218,8 +218,7 @@
     "copyPath": "Copiar ruta",
     "cancel": "Cancelar",
     "saveChanges": "Guardar cambios",
-    "copied": "Copiado",
-    "collapse": "Contraer"
+    "copied": "Copiado"
   },
   "comments": {
     "addReviewComment": "Agregar comentario de revisión",
@@ -288,8 +287,7 @@
     "selectProcessToView": "Seleccione un proceso para ver los registros"
   },
   "processes": {
-    "noProcesses": "Sin procesos",
-    "terminal": "Terminal"
+    "noProcesses": "Sin procesos"
   },
   "search": {
     "matchCount": "{{current}} de {{total}}",

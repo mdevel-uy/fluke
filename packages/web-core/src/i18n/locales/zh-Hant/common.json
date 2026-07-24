@@ -218,8 +218,7 @@
     "copyPath": "複製路徑",
     "cancel": "取消",
     "saveChanges": "儲存變更",
-    "copied": "已複製",
-    "collapse": "收起"
+    "copied": "已複製"
   },
   "comments": {
     "addReviewComment": "新增審查評論",
@@ -288,8 +287,7 @@
     "selectProcessToView": "選擇一個程序以查看日誌"
   },
   "processes": {
-    "noProcesses": "無程序",
-    "terminal": "終端機"
+    "noProcesses": "無程序"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",

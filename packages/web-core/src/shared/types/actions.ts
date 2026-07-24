@@ -27,8 +27,7 @@ export type LogsPanelContent =
       toolName: string;
       content: string;
       command: string | undefined;
-    }
-  | { type: 'terminal' };
+    };
 
 // Special icon types for ContextBar
 export type SpecialIconType = 'ide-icon' | 'copy-icon';

@@ -4,11 +4,8 @@ import { FileTreeContainer } from './FileTreeContainer';
 import { ProcessListContainer } from './ProcessListContainer';
 import { PreviewControlsContainer } from './PreviewControlsContainer';
 import { GitPanelContainer } from './GitPanelContainer';
-import { TerminalPanelContainer } from '@/shared/components/TerminalPanelContainer';
 import { WorkspaceNotesContainer } from './WorkspaceNotesContainer';
 import { useDiffs } from '@/shared/stores/useWorkspaceDiffStore';
-import { ArrowsOutSimpleIcon } from '@phosphor-icons/react';
-import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
 import type { RepoWithTargetBranch, Workspace } from 'shared/types';
 import {
   PERSIST_KEYS,
@@ -16,7 +13,6 @@ import {
   RIGHT_MAIN_PANEL_MODES,
   type RightMainPanelMode,
   usePersistedExpanded,
-  useUiPreferencesStore,
 } from '@/shared/stores/useUiPreferencesStore';
 import {
   CollapsibleSectionHeader,
@@ -45,8 +41,6 @@ export const RightSidebar = memo(function RightSidebar({
 }: RightSidebarProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const diffs = useDiffs();
-  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
-  const { expandTerminal, isTerminalExpanded } = useLogsPanel();
 
   const [changesExpanded] = usePersistedExpanded(
     PERSIST_KEYS.changesSection,
@@ -63,10 +57,6 @@ export const RightSidebar = memo(function RightSidebar({
   const [gitExpanded] = usePersistedExpanded(
     PERSIST_KEYS.gitPanelRepositories,
     true
-  );
-  const [terminalExpanded] = usePersistedExpanded(
-    PERSIST_KEYS.terminalSection,
-    false
   );
   const [notesExpanded] = usePersistedExpanded(
     PERSIST_KEYS.notesSection,
@@ -102,14 +92,6 @@ export const RightSidebar = memo(function RightSidebar({
           />
         ),
         actions: [],
-      },
-      {
-        title: 'Terminal',
-        persistKey: PERSIST_KEYS.terminalSection,
-        visible: isTerminalVisible && !isTerminalExpanded,
-        expanded: terminalExpanded,
-        content: <TerminalPanelContainer />,
-        actions: [{ icon: ArrowsOutSimpleIcon, onClick: expandTerminal }],
       },
       {
         title: t('common:sections.notes'),
@@ -179,16 +161,9 @@ export const RightSidebar = memo(function RightSidebar({
     repos,
     diffs,
     gitExpanded,
-    terminalExpanded,
     notesExpanded,
-    changesExpanded,
-    processesExpanded,
-    devServerExpanded,
-    isTerminalVisible,
-    isTerminalExpanded,
     hasUpperContent,
     upperExpanded,
-    expandTerminal,
     t,
   ]);
 

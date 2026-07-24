@@ -768,9 +768,7 @@ export const Actions = {
     icon: CopyIcon,
     shortcut: 'Y L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS &&
-      ctx.logsPanelContent?.type !== 'terminal',
+    isVisible: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
     execute: async (ctx) => {
       if (!ctx.currentLogs || ctx.currentLogs.length === 0) return;
       const rawText = ctx.currentLogs.map((log) => log.content).join('\n');

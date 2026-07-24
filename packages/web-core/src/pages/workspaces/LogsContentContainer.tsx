@@ -7,8 +7,6 @@ import {
 } from '@/shared/components/VirtualizedProcessLogs';
 import { useLogStream } from '@/shared/hooks/useLogStream';
 import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
-import { TerminalPanelContainer } from '@/shared/components/TerminalPanelContainer';
-import { ArrowsInSimpleIcon } from '@phosphor-icons/react';
 
 export type LogsPanelContent =
   | { type: 'process'; processId: string }
@@ -17,8 +15,7 @@ export type LogsPanelContent =
       toolName: string;
       content: string;
       command: string | undefined;
-    }
-  | { type: 'terminal' };
+    };
 
 interface LogsContentContainerProps {
   className: string;
@@ -30,7 +27,6 @@ export function LogsContentContainer({ className }: LogsContentContainerProps) {
     logSearchQuery: searchQuery,
     logCurrentMatchIdx: currentMatchIndex,
     setLogMatchIndices: onMatchIndicesChange,
-    collapseTerminal,
   } = useLogsPanel();
   const { t } = useTranslation('common');
   // Get logs for process content (only when type is 'process')
@@ -96,32 +92,6 @@ export function LogsContentContainer({ className }: LogsContentContainerProps) {
             matchIndices={matchIndices}
             currentMatchIndex={currentMatchIndex}
           />
-        </div>
-      </div>
-    );
-  }
-
-  // Terminal content - render terminal with collapse button
-  if (content.type === 'terminal') {
-    return (
-      <div className={cn('h-full bg-secondary flex flex-col', className)}>
-        <div className="px-4 py-1 flex items-center justify-between shrink-0 h-8">
-          <span className="text-sm font-medium text-normal">
-            {t('processes.terminal')}
-          </span>
-          <button
-            type="button"
-            onClick={collapseTerminal}
-            className="text-low hover:text-normal transition-colors"
-            title={t('actions.collapse')}
-          >
-            <ArrowsInSimpleIcon className="size-icon-sm" weight="bold" />
-          </button>
-        </div>
-        <div className="flex-1 flex min-h-0 border-t border-border">
-          <div className="flex-1 min-h-0 w-full">
-            <TerminalPanelContainer />
-          </div>
         </div>
       </div>
     );

@@ -154,7 +154,7 @@ function scratchDataToStore(data: UiPreferencesData): {
     fileSearchRepoId: data.file_search_repo_id ?? legacyFileSearchRepoId,
     isLeftSidebarVisible: data.is_left_sidebar_visible ?? true,
     isRightSidebarVisible: data.is_right_sidebar_visible ?? true,
-    isTerminalVisible: data.is_terminal_visible ?? true,
+    isTerminalVisible: data.is_terminal_visible ?? false,
     workspacePanelStates,
     workspaceFilters: {
       projectIds: data.workspace_filters?.project_ids ?? [],
