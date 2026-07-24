@@ -145,3 +145,17 @@ export const useKeySubmitComment = createSemanticHook(Action.SUBMIT_COMMENT);
 export const useKeyCycleViewBackward = createSemanticHook(
   Action.CYCLE_VIEW_BACKWARD
 );
+
+/**
+ * Toggle terminal panel action - typically Cmd+J (Mac) / Ctrl+J (Windows/Linux)
+ *
+ * Note: the actual keydown listener for Cmd/Ctrl+J is registered in
+ * useWorkspaceShortcuts with capture: true so it fires before xterm.js can
+ * swallow the key. This semantic hook exists for consistency with the rest
+ * of the keyboard API and for consumers that want to react to the same
+ * binding outside the terminal.
+ *
+ * @example
+ * useKeyToggleTerminal(() => toggleTerminal(), { scope: Scope.WORKSPACE });
+ */
+export const useKeyToggleTerminal = createSemanticHook(Action.TOGGLE_TERMINAL);
