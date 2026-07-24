@@ -320,6 +320,25 @@ impl WorkerTask {
         Ok(())
     }
 
+    /// Delete all active (queued / in_progress / in_review) tasks linked to
+    /// the given workspace. Called when a workspace is hard-deleted so orphaned
+    /// tasks do not leave cards stuck on the kanban board. Idempotent: returns
+    /// 0 if no matching tasks exist.
+    pub async fn delete_active_by_workspace_id(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM worker_tasks
+               WHERE workspace_id = ?1
+                 AND status IN ('queued', 'in_progress', 'in_review')",
+        )
+        .bind(workspace_id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// Clear the workspace_id link for every task that points at a given
     /// workspace. Used during orchestrator rollback so a failed start does
     /// not leave dangling references to an archived workspace.
