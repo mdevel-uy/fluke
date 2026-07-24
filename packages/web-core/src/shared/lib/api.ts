@@ -1853,6 +1853,13 @@ export const workersApi = {
     return handleApiResponse<void>(response);
   },
 
+  duplicate: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/duplicate`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`);
     return handleApiResponse<WorkerTaskResponse[]>(response);

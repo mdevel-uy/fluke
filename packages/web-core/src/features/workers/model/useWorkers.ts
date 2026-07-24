@@ -71,6 +71,16 @@ export function useDeleteWorker() {
   });
 }
 
+export function useDuplicateWorker() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workerId: string) => workersApi.duplicate(workerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
 export function useStartNextWorkerTask() {
   const queryClient = useQueryClient();
   return useMutation({
