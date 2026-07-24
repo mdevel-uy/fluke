@@ -562,6 +562,10 @@
       "light": "Light theme",
       "dark": "Dark theme",
       "system": "System theme"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Search commands...",
+      "ariaLabel": "Open command bar"
     }
   },
   "appBar": {

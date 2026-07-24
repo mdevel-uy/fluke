@@ -558,6 +558,10 @@
       "light": "Thème clair",
       "dark": "Thème sombre",
       "system": "Thème système"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Rechercher des commandes...",
+      "ariaLabel": "Ouvrir la barre de commandes"
     }
   },
   "appBar": {

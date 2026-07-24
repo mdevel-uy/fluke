@@ -558,6 +558,10 @@
       "light": "浅色主题",
       "dark": "深色主题",
       "system": "系统主题"
+    },
+    "commandBarTrigger": {
+      "placeholder": "搜索命令...",
+      "ariaLabel": "打开命令栏"
     }
   },
   "appBar": {
