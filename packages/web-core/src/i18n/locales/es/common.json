@@ -777,6 +777,7 @@
       "stalledShort": "Agente detenido, tarea abierta",
       "menuLabel": "Acciones del worker",
       "edit": "Editar",
+      "duplicate": "Duplicar",
       "delete": "Eliminar",
       "queuedLabel": "en cola",
       "completedLabel": "hechas",
@@ -821,6 +822,8 @@
       "createSuccess": "Worker creado.",
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
+      "duplicateSuccess": "{{worker}} duplicado como \"{{clone}}\".",
+      "duplicateError": "No se pudo duplicar {{worker}}: {{message}}",
       "dismiss": "Cerrar"
     }
   },

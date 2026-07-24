@@ -777,6 +777,7 @@
       "stalledShort": "Agent stopped, task open",
       "menuLabel": "Worker actions",
       "edit": "Edit",
+      "duplicate": "Duplicate",
       "delete": "Delete",
       "queuedLabel": "queued",
       "completedLabel": "done",
@@ -821,6 +822,8 @@
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
+      "duplicateSuccess": "{{worker}} duplicated as \"{{clone}}\".",
+      "duplicateError": "Failed to duplicate {{worker}}: {{message}}",
       "dismiss": "Dismiss"
     }
   },

@@ -777,6 +777,7 @@
       "stalledShort": "Agent arrêté, tâche ouverte",
       "menuLabel": "Actions du worker",
       "edit": "Modifier",
+      "duplicate": "Dupliquer",
       "delete": "Supprimer",
       "queuedLabel": "en file",
       "completedLabel": "terminées",
@@ -821,6 +822,8 @@
       "createSuccess": "Worker créé.",
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
+      "duplicateSuccess": "{{worker}} dupliqué en « {{clone}} ».",
+      "duplicateError": "Échec de la duplication de {{worker}} : {{message}}",
       "dismiss": "Fermer"
     }
   },

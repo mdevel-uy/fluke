@@ -777,6 +777,7 @@
       "stalledShort": "エージェント停止、タスク未完了",
       "menuLabel": "ワーカーのアクション",
       "edit": "編集",
+      "duplicate": "複製",
       "delete": "削除",
       "queuedLabel": "待機",
       "completedLabel": "完了",
@@ -821,6 +822,8 @@
       "createSuccess": "ワーカーを作成しました。",
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
+      "duplicateSuccess": "{{worker}} を「{{clone}}」として複製しました。",
+      "duplicateError": "{{worker}} の複製に失敗しました：{{message}}",
       "dismiss": "閉じる"
     }
   },

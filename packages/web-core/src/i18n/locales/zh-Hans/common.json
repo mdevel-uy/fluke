@@ -777,6 +777,7 @@
       "stalledShort": "代理已停止，任务未完成",
       "menuLabel": "工作者操作",
       "edit": "编辑",
+      "duplicate": "复制",
       "delete": "删除",
       "queuedLabel": "排队",
       "completedLabel": "完成",
@@ -821,6 +822,8 @@
       "createSuccess": "工作者已创建。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
+      "duplicateSuccess": "{{worker}} 已复制为“{{clone}}”。",
+      "duplicateError": "复制 {{worker}} 失败：{{message}}",
       "dismiss": "关闭"
     }
   },
