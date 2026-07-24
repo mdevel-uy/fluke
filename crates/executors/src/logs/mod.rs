@@ -109,6 +109,18 @@ pub struct AnsweredQuestion {
 pub struct TokenUsageInfo {
     pub total_tokens: u32,
     pub model_context_window: u32,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub input_tokens: Option<u64>,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub output_tokens: Option<u64>,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub cache_creation_input_tokens: Option<u64>,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub cache_read_input_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
