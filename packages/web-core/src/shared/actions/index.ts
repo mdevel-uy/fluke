@@ -1524,13 +1524,9 @@ export const NavbarActionGroups = {
     Actions.ToggleLeftMainPanel,
     Actions.ToggleChangesMode,
     Actions.ToggleLogsMode,
-    Actions.TogglePreviewMode,
     Actions.ToggleRightSidebar,
     NavbarDivider,
     Actions.OpenCommandBar,
-    Actions.Feedback,
-    Actions.WorkspacesGuide,
-    Actions.ProjectsGuide,
     Actions.Settings,
   ] as NavbarItem[],
 };
