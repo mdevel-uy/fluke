@@ -35,6 +35,7 @@ const PAGE_ICONS = {
   viewOptions: SquaresFourIcon,
   repoActions: GitBranchIcon,
   issueActions: KanbanIcon,
+  goToPage: SquaresFourIcon,
 } as const satisfies Record<StaticPageId, typeof StackIcon>;
 
 function expandGroupItems(

@@ -43,6 +43,11 @@ import {
   LinkIcon,
   ArrowBendUpRightIcon,
   ProhibitIcon,
+  SquaresFourIcon,
+  LightningIcon,
+  KanbanIcon,
+  GaugeIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
@@ -1527,6 +1532,73 @@ export const Actions = {
       }
     },
   } satisfies IssueActionDefinition,
+
+  // === Quick Open (CMD+P) Navigation Actions ===
+  GoToWorkspaces: {
+    id: 'go-to-workspaces',
+    label: 'Workspaces',
+    icon: SquaresFourIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkspaces();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToSprint: {
+    id: 'go-to-sprint',
+    label: 'Sprint',
+    icon: LightningIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToSprint();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToIssues: {
+    id: 'go-to-issues',
+    label: 'Issues',
+    icon: KanbanIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToIssues();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToDashboard: {
+    id: 'go-to-dashboard',
+    label: 'Dashboard',
+    icon: GaugeIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToDashboard();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToWorkers: {
+    id: 'go-to-workers',
+    label: 'Workers',
+    icon: UsersIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkers();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToAnalystDesk: {
+    id: 'go-to-analyst-desk',
+    label: 'Analyst Desk',
+    icon: MagnifyingGlassIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToAnalystDesk();
+    },
+  } satisfies GlobalActionDefinition,
 } as const satisfies Record<string, ActionDefinition>;
 
 // Navbar action groups define which actions appear in each section
