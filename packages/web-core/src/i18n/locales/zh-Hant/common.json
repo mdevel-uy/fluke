@@ -820,6 +820,13 @@
     "historyEmpty": "還沒有請求。你的請求及其結果將顯示在這裡。",
     "openWorkspace": "查看執行",
     "retry": "重試",
+    "stop": "停止",
+    "remove": "移除",
+    "stopConfirmMessage": "確定停止該請求嗎？容器將被停止，請求也會被刪除。",
+    "removeConfirmMessage": "確定要從分析師佇列中移除該請求嗎？",
+    "cancelConfirm": "取消",
+    "stopConfirm": "停止",
+    "removeConfirm": "移除",
     "dismiss": "關閉",
     "status": {
       "queued": "排隊中",

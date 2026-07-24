@@ -69,3 +69,31 @@ export function useRetryDeskRequest() {
     },
   });
 }
+
+/**
+ * Cancels an in-progress or in-review desk request: stops the container and
+ * removes the task record. The backend's `try_stop` is best-effort, so this
+ * succeeds even if the container was already gone.
+ */
+export function useCancelDeskRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, taskId }: { workerId: string; taskId: string }) =>
+      workersApi.cancelTask(workerId, taskId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
+/** Removes a queued or failed desk request from the analyst's task list. */
+export function useRemoveDeskRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, taskId }: { workerId: string; taskId: string }) =>
+      workersApi.deleteTask(workerId, taskId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}

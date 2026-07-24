@@ -7,6 +7,8 @@ import {
   Loader2,
   RotateCcw,
   Send,
+  StopCircle,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -33,7 +35,9 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import {
   DESK_SOURCE,
+  useCancelDeskRequest,
   useCreateDeskRequest,
+  useRemoveDeskRequest,
   useRetryDeskRequest,
 } from '../model/useAnalystDesk';
 
@@ -234,6 +238,16 @@ export function AnalystDeskPage() {
 
   const createRequest = useCreateDeskRequest();
   const retryRequest = useRetryDeskRequest();
+  const cancelRequest = useCancelDeskRequest();
+  const removeRequest = useRemoveDeskRequest();
+
+  // The confirmation UI lives on the card itself: only one task at a time can
+  // be in confirm mode. `intent` is stored so the confirm prompt copy matches
+  // the action that will actually run.
+  const [confirming, setConfirming] = useState<{
+    taskId: string;
+    intent: 'cancel' | 'remove';
+  } | null>(null);
 
   const canSubmit =
     !createRequest.isPending &&
@@ -279,6 +293,37 @@ export function AnalystDeskPage() {
       });
     }
   };
+
+  const handleConfirmAction = async (task: WorkerTask) => {
+    if (!confirming || confirming.taskId !== task.id) return;
+    const intent = confirming.intent;
+    // Clear the confirmation UI up front so the card resumes its default state
+    // (or vanishes on successful invalidation) instead of remaining "in confirm
+    // mode" while the network call is in flight.
+    setConfirming(null);
+    try {
+      if (intent === 'cancel') {
+        await cancelRequest.mutateAsync({
+          workerId: task.worker_id,
+          taskId: task.id,
+        });
+      } else {
+        await removeRequest.mutateAsync({
+          workerId: task.worker_id,
+          taskId: task.id,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      showNotice({
+        variant: 'error',
+        message: t('analystDesk.toast.error', { message }),
+      });
+    }
+  };
+
+  const isConfirmingTask = (task: WorkerTask) => confirming?.taskId === task.id;
+  const isActionPending = cancelRequest.isPending || removeRequest.isPending;
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
@@ -429,56 +474,133 @@ export function AnalystDeskPage() {
                 </p>
               </div>
             ) : (
-              deskTasks.map((task) => (
-                <article
-                  key={task.id}
-                  className="flex flex-col gap-2 rounded-xl border border-border bg-md-surface-container-lowest px-4 py-3"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-high">
-                      {taskDisplayTitle(task)}
-                    </h3>
-                    <StatusPill
-                      task={task}
-                      queuedAhead={queuedAheadByTaskId.get(task.id) ?? 0}
-                    />
-                  </div>
-                  {task.prompt !== task.title && (
-                    <p className="line-clamp-2 text-xs leading-relaxed text-normal">
-                      {task.prompt}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-low">
-                    <span>{timeAgo(task.created_at, i18n.language)}</span>
-                    {task.issue_number !== null && (
-                      <IssueBadge issueNumber={task.issue_number} />
+              deskTasks.map((task) => {
+                const canCancel =
+                  task.status === 'in_progress' || task.status === 'in_review';
+                const canRemove = task.status === 'queued';
+                const confirmingThis = isConfirmingTask(task);
+                const confirmIntent = confirmingThis
+                  ? confirming?.intent
+                  : null;
+                return (
+                  <article
+                    key={task.id}
+                    className="flex flex-col gap-2 rounded-xl border border-border bg-md-surface-container-lowest px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-high">
+                        {taskDisplayTitle(task)}
+                      </h3>
+                      <StatusPill
+                        task={task}
+                        queuedAhead={queuedAheadByTaskId.get(task.id) ?? 0}
+                      />
+                    </div>
+                    {task.prompt !== task.title && (
+                      <p className="line-clamp-2 text-xs leading-relaxed text-normal">
+                        {task.prompt}
+                      </p>
                     )}
-                    {task.workspace_id && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          appNavigation.goToWorkspace(task.workspace_id!)
-                        }
-                        className="flex items-center gap-1 font-semibold text-brand-on-surface hover:underline"
-                      >
-                        {t('analystDesk.openWorkspace')}
-                        <ArrowUpRight className="h-3 w-3" strokeWidth={2} />
-                      </button>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-low">
+                      <span>{timeAgo(task.created_at, i18n.language)}</span>
+                      {task.issue_number !== null && (
+                        <IssueBadge issueNumber={task.issue_number} />
+                      )}
+                      {task.workspace_id && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            appNavigation.goToWorkspace(task.workspace_id!)
+                          }
+                          className="flex items-center gap-1 font-semibold text-brand-on-surface hover:underline"
+                        >
+                          {t('analystDesk.openWorkspace')}
+                          <ArrowUpRight className="h-3 w-3" strokeWidth={2} />
+                        </button>
+                      )}
+                      {task.status === 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRetry(task)}
+                          disabled={retryRequest.isPending}
+                          className="flex items-center gap-1 font-semibold text-normal hover:text-high"
+                        >
+                          <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                          {t('analystDesk.retry')}
+                        </button>
+                      )}
+                      {canCancel && !confirmingThis && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setConfirming({
+                              taskId: task.id,
+                              intent: 'cancel',
+                            })
+                          }
+                          disabled={isActionPending}
+                          className="ml-auto flex items-center gap-1 font-semibold text-normal hover:text-error"
+                        >
+                          <StopCircle className="h-3 w-3" strokeWidth={2} />
+                          {t('analystDesk.stop')}
+                        </button>
+                      )}
+                      {canRemove && !confirmingThis && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setConfirming({
+                              taskId: task.id,
+                              intent: 'remove',
+                            })
+                          }
+                          disabled={isActionPending}
+                          className="ml-auto flex items-center gap-1 font-semibold text-normal hover:text-error"
+                        >
+                          <Trash2 className="h-3 w-3" strokeWidth={2} />
+                          {t('analystDesk.remove')}
+                        </button>
+                      )}
+                    </div>
+                    {confirmingThis && (
+                      <div className="flex flex-col gap-2 rounded-md border border-error/30 bg-error/5 px-3 py-2">
+                        <p className="text-xs leading-relaxed text-high">
+                          {confirmIntent === 'cancel'
+                            ? t('analystDesk.stopConfirmMessage')
+                            : t('analystDesk.removeConfirmMessage')}
+                        </p>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setConfirming(null)}
+                            disabled={isActionPending}
+                          >
+                            {t('analystDesk.cancelConfirm')}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="xs"
+                            onClick={() => void handleConfirmAction(task)}
+                            disabled={isActionPending}
+                          >
+                            {isActionPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : confirmIntent === 'cancel' ? (
+                              <StopCircle className="h-3 w-3" strokeWidth={2} />
+                            ) : (
+                              <Trash2 className="h-3 w-3" strokeWidth={2} />
+                            )}
+                            {confirmIntent === 'cancel'
+                              ? t('analystDesk.stopConfirm')
+                              : t('analystDesk.removeConfirm')}
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                    {task.status === 'failed' && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRetry(task)}
-                        disabled={retryRequest.isPending}
-                        className="flex items-center gap-1 font-semibold text-normal hover:text-high"
-                      >
-                        <RotateCcw className="h-3 w-3" strokeWidth={2} />
-                        {t('analystDesk.retry')}
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))
+                  </article>
+                );
+              })
             )}
           </section>
         </div>

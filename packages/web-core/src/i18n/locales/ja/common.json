@@ -820,6 +820,13 @@
     "historyEmpty": "まだ依頼はありません。依頼と結果がここに表示されます。",
     "openWorkspace": "実行を見る",
     "retry": "再試行",
+    "stop": "停止",
+    "remove": "削除",
+    "stopConfirmMessage": "この依頼を停止しますか？コンテナが停止し、依頼が削除されます。",
+    "removeConfirmMessage": "この依頼をアナリストのキューから削除しますか？",
+    "cancelConfirm": "キャンセル",
+    "stopConfirm": "停止",
+    "removeConfirm": "削除",
     "dismiss": "閉じる",
     "status": {
       "queued": "待機中",
