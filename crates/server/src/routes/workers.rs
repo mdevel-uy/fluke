@@ -7,6 +7,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use db::models::{
+    file::File,
     merge::MergeStatus,
     pull_request::PullRequest,
     worker::{CreateWorker, ROLE_ANALYST, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker, Worker},
@@ -181,6 +182,11 @@ pub struct CreateWorkerTaskRequest {
     #[serde(default)]
     #[ts(optional)]
     pub source: Option<String>,
+    /// UUIDs de adjuntos previamente subidos vía POST /api/attachments/upload.
+    /// El backend resuelve los file_path y los incluye en el contexto del worker.
+    #[serde(default)]
+    #[ts(optional)]
+    pub attachment_ids: Option<Vec<Uuid>>,
 }
 
 /// Returned by `GET /api/workers/active-issue-task` when an issue already has
@@ -471,8 +477,33 @@ pub async fn create_worker_task(
         Some(s) => return Err(ApiError::BadRequest(format!("Invalid source: {s}"))),
     };
 
-    // Append skill instructions to the prompt so the agent receives them.
+    // Resolve attachment IDs to absolute filesystem paths BEFORE creating the
+    // task, so a missing UUID aborts the request without side effects (422).
+    let attachment_ids = payload.attachment_ids.unwrap_or_default();
+    let mut attachment_paths: Vec<String> = Vec::with_capacity(attachment_ids.len());
+    for id in &attachment_ids {
+        match File::find_by_id(pool, *id).await? {
+            Some(file) => {
+                let absolute = deployment.file().get_absolute_path(&file);
+                attachment_paths.push(absolute.to_string_lossy().into_owned());
+            }
+            None => {
+                return Err(ApiError::UnprocessableEntity(format!(
+                    "Attachment not found: {id}"
+                )));
+            }
+        }
+    }
+
+    // Append skill instructions and image references to the prompt so the
+    // agent receives them.
     let mut final_prompt = prompt.to_string();
+    if !attachment_paths.is_empty() {
+        final_prompt.push_str("\n\nImágenes de referencia:");
+        for path in &attachment_paths {
+            final_prompt.push_str(&format!("\n- {path}"));
+        }
+    }
     for skill in &skills {
         final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
     }
