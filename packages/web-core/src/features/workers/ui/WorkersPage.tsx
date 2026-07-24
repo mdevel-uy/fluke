@@ -16,6 +16,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { cn } from '@/shared/lib/utils';
 import {
   useDeleteWorker,
+  useDuplicateWorker,
   useStartNextWorkerTask,
   useWorkers,
 } from '@/features/workers/model/useWorkers';
@@ -100,6 +101,7 @@ export function WorkersPage() {
   const { data: workers = [], isLoading, isError } = useWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
+  const duplicateMutation = useDuplicateWorker();
   const { tasks: allTasks, queuedCountByWorkerId } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
   useAutoIngestReconciler(workers, queuedCountByWorkerId);
@@ -159,6 +161,9 @@ export function WorkersPage() {
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
+  const [duplicatingWorkerId, setDuplicatingWorkerId] = useState<string | null>(
+    null
+  );
 
   const handleStartNext = async (worker: WorkerResponse) => {
     setStartingWorkerId(worker.id);
@@ -193,6 +198,32 @@ export function WorkersPage() {
       }
     } finally {
       setStartingWorkerId(null);
+    }
+  };
+
+  const handleDuplicate = async (worker: WorkerResponse) => {
+    if (duplicatingWorkerId) return;
+    setDuplicatingWorkerId(worker.id);
+    try {
+      const clone = await duplicateMutation.mutateAsync(worker.id);
+      pushToast(
+        'success',
+        t('workers.toast.duplicateSuccess', {
+          worker: worker.name,
+          clone: clone.name,
+        })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast(
+        'error',
+        t('workers.toast.duplicateError', {
+          worker: worker.name,
+          message,
+        })
+      );
+    } finally {
+      setDuplicatingWorkerId(null);
     }
   };
 
@@ -331,8 +362,10 @@ export function WorkersPage() {
                     : undefined
                 }
                 isStarting={startingWorkerId === worker.id}
+                isDuplicating={duplicatingWorkerId === worker.id}
                 onStartNext={() => handleStartNext(worker)}
                 onEdit={() => handleEditWorker(worker)}
+                onDuplicate={() => handleDuplicate(worker)}
                 onDelete={() => handleDelete(worker)}
               />
             ))}

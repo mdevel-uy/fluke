@@ -778,6 +778,7 @@
       "stalledShort": "에이전트 중지됨, 작업 미완료",
       "menuLabel": "워커 작업",
       "edit": "편집",
+      "duplicate": "복제",
       "delete": "삭제",
       "queuedLabel": "대기",
       "completedLabel": "완료",
@@ -822,6 +823,8 @@
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
+      "duplicateSuccess": "{{worker}}를 \"{{clone}}\"(으)로 복제했습니다.",
+      "duplicateError": "{{worker}} 복제 실패: {{message}}",
       "dismiss": "닫기"
     }
   },

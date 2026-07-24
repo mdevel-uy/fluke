@@ -53,8 +53,10 @@ interface WorkerCardProps {
   activeWorkspace?: SidebarWorkspace;
   needsAttention?: boolean;
   isStarting: boolean;
+  isDuplicating?: boolean;
   onStartNext: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }
 
@@ -65,8 +67,10 @@ export function WorkerCard({
   activeWorkspace,
   needsAttention = false,
   isStarting,
+  isDuplicating = false,
   onStartNext,
   onEdit,
+  onDuplicate,
   onDelete,
 }: WorkerCardProps) {
   const { t } = useTranslation('common');
@@ -149,6 +153,9 @@ export function WorkerCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>
               {t('workers.card.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDuplicate} disabled={isDuplicating}>
+              {t('workers.card.duplicate')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={onDelete}
