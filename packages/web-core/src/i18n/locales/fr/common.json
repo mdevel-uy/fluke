@@ -871,6 +871,15 @@
       "started": "{{worker}} a commencé votre demande.",
       "queued": "Demande mise en file pour {{worker}}.",
       "error": "Échec de l'envoi de la demande : {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Glissez des images ici ou cliquez pour ajouter",
+      "addMore": "Ajouter d'autres images",
+      "removeAria": "Retirer {{name}}",
+      "uploading": "Envoi en cours",
+      "errorLabel": "Échec de l'envoi",
+      "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
+      "tooLarge": "Le fichier dépasse la taille maximale autorisée."
     }
   },
   "sprint": {

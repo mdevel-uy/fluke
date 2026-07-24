@@ -871,6 +871,15 @@
       "started": "{{worker}} 已開始處理你的請求。",
       "queued": "請求已加入 {{worker}} 的佇列。",
       "error": "請求送出失敗：{{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "將圖片拖到此處或點擊新增",
+      "addMore": "新增更多圖片",
+      "removeAria": "移除 {{name}}",
+      "uploading": "上傳中",
+      "errorLabel": "上傳失敗",
+      "uploadError": "無法上傳 '{{name}}'：{{message}}",
+      "tooLarge": "檔案超過允許的最大大小。"
     }
   },
   "sprint": {

@@ -871,6 +871,15 @@
       "started": "{{worker}} started your request.",
       "queued": "Request queued for {{worker}}.",
       "error": "Failed to send the request: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Drag images here or click to add",
+      "addMore": "Add more images",
+      "removeAria": "Remove {{name}}",
+      "uploading": "Uploading",
+      "errorLabel": "Upload failed",
+      "uploadError": "Couldn't upload '{{name}}': {{message}}",
+      "tooLarge": "The file exceeds the maximum allowed size."
     }
   },
   "sprint": {

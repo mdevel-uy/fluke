@@ -871,6 +871,15 @@
       "started": "{{worker}} 已开始处理你的请求。",
       "queued": "请求已加入 {{worker}} 的队列。",
       "error": "请求发送失败：{{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "将图片拖到此处或点击添加",
+      "addMore": "添加更多图片",
+      "removeAria": "移除 {{name}}",
+      "uploading": "上传中",
+      "errorLabel": "上传失败",
+      "uploadError": "无法上传 '{{name}}'：{{message}}",
+      "tooLarge": "文件超过允许的最大大小。"
     }
   },
   "sprint": {
