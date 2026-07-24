@@ -145,3 +145,16 @@ export const useKeySubmitComment = createSemanticHook(Action.SUBMIT_COMMENT);
 export const useKeyCycleViewBackward = createSemanticHook(
   Action.CYCLE_VIEW_BACKWARD
 );
+
+/**
+ * Toggle terminal action - typically Cmd/Ctrl+J
+ *
+ * Note: the global Cmd+J handler is registered in `useWorkspaceShortcuts`
+ * using a native capture-phase listener so xterm cannot swallow the event.
+ * This semantic hook is kept for parity with the rest of the registry and
+ * for consumers that need a scoped binding via react-hotkeys-hook.
+ *
+ * @example
+ * useKeyToggleTerminal(() => toggleTerminal(), { scope: Scope.WORKSPACE });
+ */
+export const useKeyToggleTerminal = createSemanticHook(Action.TOGGLE_TERMINAL);

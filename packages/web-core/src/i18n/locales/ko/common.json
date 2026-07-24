@@ -329,6 +329,7 @@
       "moveLeft": "왼쪽으로 이동",
       "moveRight": "오른쪽으로 이동",
       "openCommandBar": "명령 바 열기",
+      "toggleTerminal": "터미널 전환",
       "formatInlineCode": "Format inline code",
       "sendMessage": "메시지 보내기",
       "settings": "설정으로 이동",
