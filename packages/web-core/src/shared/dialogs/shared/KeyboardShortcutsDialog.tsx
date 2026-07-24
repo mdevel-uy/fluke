@@ -67,6 +67,10 @@ function useShortcutGroups(): ShortcutGroup[] {
           description: t('shortcuts.actions.openCommandBar'),
         },
         {
+          keys: [mod, 'J'],
+          description: t('shortcuts.actions.toggleTerminal'),
+        },
+        {
           keys: [mod, 'E'],
           description: t('shortcuts.actions.formatInlineCode'),
         },

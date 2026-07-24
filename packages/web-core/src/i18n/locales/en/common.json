@@ -343,6 +343,7 @@
       "moveLeft": "Move left",
       "moveRight": "Move right",
       "openCommandBar": "Open command bar",
+      "toggleTerminal": "Toggle terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Send message",
       "settings": "Go to Settings",

@@ -329,6 +329,7 @@
       "moveLeft": "Déplacer vers la gauche",
       "moveRight": "Déplacer vers la droite",
       "openCommandBar": "Ouvrir la barre de commandes",
+      "toggleTerminal": "Afficher/masquer le terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Envoyer le message",
       "settings": "Aller aux Paramètres",
