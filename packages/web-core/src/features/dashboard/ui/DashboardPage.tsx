@@ -20,6 +20,12 @@ import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
 import { formatRelativeTime } from '@/shared/lib/date';
 import { cn } from '@/shared/lib/utils';
 
+const ROLE_CHIP_CLASS: Record<string, string> = {
+  developer: 'bg-info/10 text-info',
+  analyst: 'bg-brand/10 text-brand-on-surface',
+  reviewer: 'bg-warning/10 text-warning',
+};
+
 const CONTEXT_WARN_RATIO = 0.7;
 const CONTEXT_CRIT_RATIO = 0.9;
 
@@ -387,7 +393,7 @@ export function DashboardPage() {
                         <span className="truncate text-sm font-semibold text-high">
                           {worker.name}
                         </span>
-                        <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-on-surface">
+                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', ROLE_CHIP_CLASS[worker.role ?? ''] ?? 'bg-secondary text-normal')}>
                           {worker.role}
                         </span>
                         <span className="ml-auto flex items-center gap-2">
