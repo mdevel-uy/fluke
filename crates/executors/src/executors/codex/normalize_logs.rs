@@ -753,6 +753,7 @@ fn add_thread_token_usage(
                     .token_usage
                     .model_context_window
                     .unwrap_or_default() as u32,
+                ..Default::default()
             }),
             content: format!(
                 "Tokens used: {} / Context window: {}",
@@ -2252,6 +2253,7 @@ pub fn normalize_logs(
                                             .model_context_window
                                             .unwrap_or_default()
                                             as u32,
+                                        ..Default::default()
                                     },
                                 ),
                                 content: format!(
