@@ -219,8 +219,7 @@
     "copyPath": "Copier le chemin",
     "cancel": "Annuler",
     "saveChanges": "Enregistrer les modifications",
-    "copied": "Copié",
-    "collapse": "Réduire"
+    "copied": "Copié"
   },
   "comments": {
     "addReviewComment": "Ajouter un commentaire de révision",
@@ -289,8 +288,7 @@
     "selectProcessToView": "Sélectionnez un processus pour voir les logs"
   },
   "processes": {
-    "noProcesses": "Aucun processus",
-    "terminal": "Terminal"
+    "noProcesses": "Aucun processus"
   },
   "search": {
     "matchCount": "{{current}} sur {{total}}",

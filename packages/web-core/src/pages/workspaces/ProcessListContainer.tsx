@@ -4,12 +4,7 @@ import { useExecutionProcessesContext } from '@/shared/hooks/useExecutionProcess
 import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
 import { ProcessListItem } from '@vibe/ui/components/ProcessListItem';
 import { InputField } from '@vibe/ui/components/InputField';
-import {
-  CaretUpIcon,
-  CaretDownIcon,
-  TerminalIcon,
-} from '@phosphor-icons/react';
-import { cn } from '@/shared/lib/utils';
+import { CaretUpIcon, CaretDownIcon } from '@phosphor-icons/react';
 
 export function ProcessListContainer() {
   const {
@@ -21,14 +16,11 @@ export function ProcessListContainer() {
     handleLogPrevMatch: onPrevMatch,
     handleLogNextMatch: onNextMatch,
     viewProcessInPanel: onSelectProcess,
-    expandTerminal,
-    isTerminalExpanded,
   } = useLogsPanel();
 
   const selectedProcessId =
     logsPanelContent?.type === 'process' ? logsPanelContent.processId : null;
-  const disableAutoSelect =
-    logsPanelContent?.type === 'tool' || logsPanelContent?.type === 'terminal';
+  const disableAutoSelect = logsPanelContent?.type === 'tool';
   const matchCount = logMatchIndices.length;
   const { t } = useTranslation('common');
   const { executionProcessesVisible } = useExecutionProcessesContext();
@@ -122,33 +114,9 @@ export function ProcessListContainer() {
     </div>
   );
 
-  const terminalItem = (
-    <button
-      type="button"
-      onClick={expandTerminal}
-      className={cn(
-        'w-full h-[26px] flex items-center gap-half px-half rounded-sm text-left transition-colors'
-      )}
-    >
-      <TerminalIcon
-        className="size-icon-sm flex-shrink-0 text-low"
-        weight="regular"
-      />
-      <span
-        className={cn(
-          'text-sm truncate flex-1',
-          isTerminalExpanded ? 'text-high' : 'text-normal'
-        )}
-      >
-        {t('processes.terminal')}
-      </span>
-    </button>
-  );
-
   return (
     <div className="flex flex-col flex-1 w-full bg-secondary">
       <div className="flex-1 overflow-y-auto pt-half px-base">
-        {terminalItem}
         {sortedProcesses.map((process) => (
           <ProcessListItem
             key={process.id}
@@ -160,7 +128,7 @@ export function ProcessListContainer() {
           />
         ))}
       </div>
-      {sortedProcesses.length === 0 && !isTerminalExpanded && (
+      {sortedProcesses.length === 0 && (
         <div className="flex-1 flex items-center justify-center text-low">
           <p className="text-sm">{t('processes.noProcesses')}</p>
         </div>

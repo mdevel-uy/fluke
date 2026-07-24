@@ -18,6 +18,7 @@ import {
   ChatsTeardropIcon,
   GitDiffIcon,
   TerminalIcon,
+  TerminalWindowIcon,
   CaretDoubleUpIcon,
   CaretDoubleDownIcon,
   PlayIcon,
@@ -647,6 +648,21 @@ export const Actions = {
     },
   },
 
+  ToggleTerminal: {
+    id: 'toggle-terminal',
+    label: 'Toggle Terminal',
+    icon: TerminalWindowIcon,
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.isTerminalVisible,
+    isEnabled: (ctx) => !ctx.isCreateMode,
+    getLabel: (ctx) =>
+      ctx.isTerminalVisible ? 'Hide Terminal' : 'Show Terminal',
+    execute: () => {
+      useUiPreferencesStore.getState().toggleTerminal();
+    },
+  },
+
   TogglePreviewMode: {
     id: 'toggle-preview-mode',
     label: 'Toggle Preview Panel',
@@ -768,9 +784,7 @@ export const Actions = {
     icon: CopyIcon,
     shortcut: 'Y L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS &&
-      ctx.logsPanelContent?.type !== 'terminal',
+    isVisible: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
     execute: async (ctx) => {
       if (!ctx.currentLogs || ctx.currentLogs.length === 0) return;
       const rawText = ctx.currentLogs.map((log) => log.content).join('\n');
@@ -1538,5 +1552,6 @@ export const ContextBarActionGroups = {
     Actions.ToggleDevServer,
     Actions.TogglePreviewMode,
     Actions.ToggleChangesMode,
+    Actions.ToggleTerminal,
   ] as ActionDefinition[],
 };

@@ -219,8 +219,7 @@
     "copyPath": "パスをコピー",
     "cancel": "キャンセル",
     "saveChanges": "変更を保存",
-    "copied": "コピーしました",
-    "collapse": "折りたたむ"
+    "copied": "コピーしました"
   },
   "comments": {
     "addReviewComment": "レビューコメントを追加",
@@ -289,8 +288,7 @@
     "selectProcessToView": "プロセスを選択してログを表示"
   },
   "processes": {
-    "noProcesses": "プロセスがありません",
-    "terminal": "ターミナル"
+    "noProcesses": "プロセスがありません"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",

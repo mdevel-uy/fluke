@@ -450,7 +450,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   layoutMode: 'workspaces' as LayoutMode,
   isLeftSidebarVisible: true,
   isRightSidebarVisible: true,
-  isTerminalVisible: true,
+  isTerminalVisible: false,
   previewRefreshKey: 0,
 
   // Workspace-specific panel state

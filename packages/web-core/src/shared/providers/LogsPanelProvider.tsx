@@ -34,8 +34,6 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
   const [logMatchIndices, setLogMatchIndices] = useState<number[]>([]);
   const [logCurrentMatchIdx, setLogCurrentMatchIdx] = useState(0);
 
-  const isTerminalExpanded = logsPanelContent?.type === 'terminal';
-
   const logContentId =
     logsPanelContent?.type === 'process'
       ? logsPanelContent.processId
@@ -52,15 +50,12 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
     setLogCurrentMatchIdx(0);
   }, [logSearchQuery]);
 
-  // Collapse terminal when switching away from Logs panel mode
+  // Clear the logs panel content when the Logs panel mode is closed.
   useEffect(() => {
-    if (
-      rightMainPanelMode !== RIGHT_MAIN_PANEL_MODES.LOGS &&
-      isTerminalExpanded
-    ) {
+    if (rightMainPanelMode !== RIGHT_MAIN_PANEL_MODES.LOGS) {
       setLogsPanelContent(null);
     }
-  }, [rightMainPanelMode, isTerminalExpanded]);
+  }, [rightMainPanelMode]);
 
   const handleLogPrevMatch = useCallback(() => {
     if (logMatchIndices.length === 0) return;
@@ -96,30 +91,12 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
     [setRightMainPanelMode]
   );
 
-  const expandTerminal = useCallback(() => {
-    if (rightMainPanelModeRef.current !== RIGHT_MAIN_PANEL_MODES.LOGS) {
-      setRightMainPanelMode(RIGHT_MAIN_PANEL_MODES.LOGS);
-    }
-    setLogsPanelContent({ type: 'terminal' });
-  }, [setRightMainPanelMode]);
-
-  const collapseTerminal = useCallback(() => {
-    setLogsPanelContent(null);
-  }, []);
-
   const actionsValue = useMemo(
     () => ({
       viewProcessInPanel,
       viewToolContentInPanel,
-      expandTerminal,
-      collapseTerminal,
     }),
-    [
-      viewProcessInPanel,
-      viewToolContentInPanel,
-      expandTerminal,
-      collapseTerminal,
-    ]
+    [viewProcessInPanel, viewToolContentInPanel]
   );
 
   const value = useMemo(
@@ -134,9 +111,6 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
       handleLogNextMatch,
       viewProcessInPanel,
       viewToolContentInPanel,
-      expandTerminal,
-      collapseTerminal,
-      isTerminalExpanded,
     }),
     [
       logsPanelContent,
@@ -147,9 +121,6 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
       handleLogNextMatch,
       viewProcessInPanel,
       viewToolContentInPanel,
-      expandTerminal,
-      collapseTerminal,
-      isTerminalExpanded,
     ]
   );
 

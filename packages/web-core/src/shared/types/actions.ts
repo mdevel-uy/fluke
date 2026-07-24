@@ -27,8 +27,7 @@ export type LogsPanelContent =
       toolName: string;
       content: string;
       command: string | undefined;
-    }
-  | { type: 'terminal' };
+    };
 
 // Special icon types for ContextBar
 export type SpecialIconType = 'ide-icon' | 'copy-icon';
@@ -114,6 +113,7 @@ export interface ActionVisibilityContext {
   isLeftSidebarVisible: boolean;
   isLeftMainPanelVisible: boolean;
   isRightSidebarVisible: boolean;
+  isTerminalVisible: boolean;
   isCreateMode: boolean;
 
   // Workspace state

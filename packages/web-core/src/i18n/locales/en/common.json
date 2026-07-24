@@ -233,8 +233,7 @@
     "copyPath": "Copy path",
     "cancel": "Cancel",
     "saveChanges": "Save Changes",
-    "copied": "Copied",
-    "collapse": "Collapse"
+    "copied": "Copied"
   },
   "comments": {
     "addReviewComment": "Add Review Comment",
@@ -303,8 +302,7 @@
     "selectProcessToView": "Select a process to view logs"
   },
   "processes": {
-    "noProcesses": "No processes",
-    "terminal": "Terminal"
+    "noProcesses": "No processes"
   },
   "search": {
     "matchCount": "{{current}} of {{total}}",
