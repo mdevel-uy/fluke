@@ -18,6 +18,7 @@ import {
   ChatsTeardropIcon,
   GitDiffIcon,
   TerminalIcon,
+  TerminalWindowIcon,
   CaretDoubleUpIcon,
   CaretDoubleDownIcon,
   PlayIcon,
@@ -644,6 +645,21 @@ export const Actions = {
           RIGHT_MAIN_PANEL_MODES.LOGS,
           ctx.currentWorkspaceId ?? undefined
         );
+    },
+  },
+
+  ToggleTerminal: {
+    id: 'toggle-terminal',
+    label: 'Toggle Terminal',
+    icon: TerminalWindowIcon,
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.isTerminalVisible,
+    isEnabled: (ctx) => !ctx.isCreateMode,
+    getLabel: (ctx) =>
+      ctx.isTerminalVisible ? 'Hide Terminal' : 'Show Terminal',
+    execute: () => {
+      useUiPreferencesStore.getState().toggleTerminal();
     },
   },
 
@@ -1536,5 +1552,6 @@ export const ContextBarActionGroups = {
     Actions.ToggleDevServer,
     Actions.TogglePreviewMode,
     Actions.ToggleChangesMode,
+    Actions.ToggleTerminal,
   ] as ActionDefinition[],
 };
