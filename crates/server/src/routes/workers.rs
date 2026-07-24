@@ -391,7 +391,7 @@ pub async fn duplicate_worker(
     let response = to_response(pool, created).await?;
     Ok((
         StatusCode::CREATED,
-        ResponseJson(ApiResponse::success(response)),
+        ResponseJson(ApiResponse::<WorkerResponse>::success(response)),
     )
         .into_response())
 }
