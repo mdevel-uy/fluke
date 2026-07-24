@@ -5,6 +5,7 @@ import {
   SquaresFourIcon,
   GitBranchIcon,
   KanbanIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 import type { Workspace } from 'shared/types';
 import { Pages } from '@/shared/command-bar/actions/pages';
@@ -35,6 +36,7 @@ const PAGE_ICONS = {
   viewOptions: SquaresFourIcon,
   repoActions: GitBranchIcon,
   issueActions: KanbanIcon,
+  goToPage: MagnifyingGlassIcon,
 } as const satisfies Record<StaticPageId, typeof StackIcon>;
 
 function expandGroupItems(

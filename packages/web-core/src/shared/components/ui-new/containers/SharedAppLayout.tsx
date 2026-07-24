@@ -37,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
+import { useQuickOpenShortcut } from '@/shared/hooks/useQuickOpenShortcut';
 import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
@@ -66,6 +67,8 @@ export function SharedAppLayout() {
 
   // Register CMD+K shortcut globally for all routes under SharedAppLayout
   useCommandBarShortcut(() => CommandBarDialog.show());
+  // Register CMD+P shortcut to open Quick Open page navigator
+  useQuickOpenShortcut(() => CommandBarDialog.show({ page: 'goToPage' }));
 
   // Apply mobile font scale CSS variable
   useEffect(() => {

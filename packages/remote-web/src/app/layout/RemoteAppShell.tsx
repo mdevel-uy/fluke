@@ -20,6 +20,7 @@ import { AppBarNotificationBellContainer } from "@/pages/workspaces/AppBarNotifi
 import { SettingsDialog } from "@/shared/dialogs/settings/SettingsDialog";
 import { CommandBarDialog } from "@/shared/dialogs/command-bar/CommandBarDialog";
 import { useCommandBarShortcut } from "@/shared/hooks/useCommandBarShortcut";
+import { useQuickOpenShortcut } from "@/shared/hooks/useQuickOpenShortcut";
 import { listOrganizationProjects } from "@remote/shared/lib/api";
 import { RemoteAppBarUserPopoverContainer } from "@remote/app/layout/RemoteAppBarUserPopoverContainer";
 import { RemoteNavbarContainer } from "@remote/app/layout/RemoteNavbarContainer";
@@ -61,6 +62,10 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
 
   useCommandBarShortcut(
     () => CommandBarDialog.show(),
+    isWorkspaceContextRoute || isProjectRoute,
+  );
+  useQuickOpenShortcut(
+    () => CommandBarDialog.show({ page: "goToPage" }),
     isWorkspaceContextRoute || isProjectRoute,
   );
   const isMobile = useIsMobile();

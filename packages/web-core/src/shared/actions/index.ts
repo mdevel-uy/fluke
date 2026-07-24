@@ -43,6 +43,12 @@ import {
   LinkIcon,
   ArrowBendUpRightIcon,
   ProhibitIcon,
+  StackIcon,
+  SquaresFourIcon,
+  WarningCircleIcon,
+  LightningIcon,
+  ClipboardTextIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
@@ -493,6 +499,88 @@ export const Actions = {
       CommandBarDialog.show();
     },
   },
+
+  OpenQuickOpen: {
+    id: 'open-quick-open',
+    label: 'Go to Page',
+    icon: MagnifyingGlassIcon,
+    shortcut: '{mod} P',
+    keywords: ['quick open', 'navigate', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: async () => {
+      const { CommandBarDialog } = await import(
+        '@/shared/dialogs/command-bar/CommandBarDialog'
+      );
+      CommandBarDialog.show({ page: 'goToPage' });
+    },
+  },
+
+  // === Navigation Actions (Quick Open / Go to Page) ===
+  GoToWorkspaces: {
+    id: 'go-to-workspaces',
+    label: 'Workspaces',
+    icon: StackIcon,
+    keywords: ['navigate', 'go to'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkspaces();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToDashboard: {
+    id: 'go-to-dashboard',
+    label: 'Dashboard',
+    icon: SquaresFourIcon,
+    keywords: ['navigate', 'go to'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToDashboard();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToIssues: {
+    id: 'go-to-issues',
+    label: 'Issues',
+    icon: WarningCircleIcon,
+    keywords: ['navigate', 'go to'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToIssues();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToWorkers: {
+    id: 'go-to-workers',
+    label: 'Workers',
+    icon: UsersIcon,
+    keywords: ['navigate', 'go to'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkers();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToSprint: {
+    id: 'go-to-sprint',
+    label: 'Sprint',
+    icon: LightningIcon,
+    keywords: ['navigate', 'go to', 'kanban'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToSprint();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToAnalystDesk: {
+    id: 'go-to-analyst-desk',
+    label: 'Analyst Desk',
+    icon: ClipboardTextIcon,
+    keywords: ['navigate', 'go to'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToAnalystDesk();
+    },
+  } satisfies GlobalActionDefinition,
 
   // === Diff View Actions ===
   ToggleDiffViewMode: {

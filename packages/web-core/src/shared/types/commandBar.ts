@@ -15,7 +15,8 @@ export type PageId =
   | 'diffOptions'
   | 'viewOptions'
   | 'repoActions' // Page for repo-specific actions (opened from repo card or CMD+K)
-  | 'issueActions'; // Page for issue-specific actions (kanban mode)
+  | 'issueActions' // Page for issue-specific actions (kanban mode)
+  | 'goToPage'; // Quick Open page navigator (opened via CMD+P)
 
 // Items that can appear inside a group
 export type CommandBarGroupItem =
