@@ -691,11 +691,62 @@ pub async fn cancel_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+/// A worker task that reached a terminal status, for "done today" stats and
+/// the dashboard activity feed.
+#[derive(Debug, Serialize, TS, sqlx::FromRow)]
+pub struct CompletedWorkerTask {
+    pub worker_id: Uuid,
+    pub title: String,
+    #[ts(type = "number | null")]
+    pub issue_number: Option<i64>,
+    /// "done" | "failed"
+    pub status: String,
+    /// SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
+    pub completed_at: String,
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct CompletedWorkerTasksResponse {
+    pub tasks: Vec<CompletedWorkerTask>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CompletedTasksQuery {
+    /// Lower bound (inclusive) as an ISO-8601 / RFC-3339 timestamp.
+    pub since: String,
+}
+
+/// Worker tasks completed at or after `since`, newest first.
+///
+/// `completed_at` is intentionally read with a runtime-checked query (and kept
+/// out of the `WorkerTask` model) so the committed sqlx offline metadata for
+/// the macro queries stays valid.
+pub async fn list_completed_worker_tasks(
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<CompletedTasksQuery>,
+) -> Result<ResponseJson<ApiResponse<CompletedWorkerTasksResponse>>, ApiError> {
+    let tasks: Vec<CompletedWorkerTask> = sqlx::query_as(
+        "SELECT worker_id, title, issue_number, status, completed_at
+         FROM worker_tasks
+         WHERE completed_at IS NOT NULL AND completed_at >= datetime($1)
+         ORDER BY completed_at DESC
+         LIMIT 200",
+    )
+    .bind(&query.since)
+    .fetch_all(&deployment.db().pool)
+    .await?;
+
+    Ok(ResponseJson(ApiResponse::success(
+        CompletedWorkerTasksResponse { tasks },
+    )))
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
+        .route("/workers/completed-tasks", get(list_completed_worker_tasks))
         .route(
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),

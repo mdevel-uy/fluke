@@ -39,6 +39,10 @@ export interface SidebarWorkspace {
   contextUsage?: { totalTokens: number; contextWindow: number };
   /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
   latestActivity?: string;
+  /** When the latest PR was recorded (for the dashboard activity feed) */
+  prCreatedAt?: string;
+  /** When the latest PR was merged, if it was */
+  prMergedAt?: string;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
@@ -87,6 +91,8 @@ function toSidebarWorkspace(
         latest_process_started_at?: string | null;
         pr_ci_status?: string | null;
         latest_activity?: string | null;
+        pr_created_at?: string | null;
+        pr_merged_at?: string | null;
       })
     | undefined;
   const contextUsage = extendedSummary?.latest_context_usage;
@@ -132,6 +138,8 @@ function toSidebarWorkspace(
       extendedSummary?.latest_process_started_at ?? undefined,
     prCiStatus: extendedSummary?.pr_ci_status ?? undefined,
     latestActivity: extendedSummary?.latest_activity ?? undefined,
+    prCreatedAt: extendedSummary?.pr_created_at ?? undefined,
+    prMergedAt: extendedSummary?.pr_merged_at ?? undefined,
   };
 }
 
