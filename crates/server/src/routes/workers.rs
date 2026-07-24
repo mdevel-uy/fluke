@@ -10,10 +10,14 @@ use db::models::{
     pull_request::PullRequest,
     worker::{CreateWorker, ROLE_ANALYST, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker, Worker},
     worker_task::{self, CreateWorkerTask, WorkerTask},
+    workspace::Workspace,
 };
 use deployment::Deployment;
 use serde::{Deserialize, Deserializer, Serialize};
-use services::services::worker_orchestrator::{self, StartError};
+use services::services::{
+    container::ContainerService,
+    worker_orchestrator::{self, StartError},
+};
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -654,6 +658,39 @@ pub async fn delete_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+pub async fn cancel_worker_task(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+
+    if existing.status != worker_task::STATUS_IN_PROGRESS
+        && existing.status != worker_task::STATUS_IN_REVIEW
+    {
+        return Err(ApiError::Conflict(
+            "Only in_progress or in_review tasks can be cancelled".into(),
+        ));
+    }
+
+    if let Some(workspace_id) = existing.workspace_id {
+        if let Ok(Some(workspace)) = Workspace::find_by_id(pool, workspace_id).await {
+            deployment.container().try_stop(&workspace, false).await;
+        }
+    }
+
+    WorkerTask::delete(pool, task_id).await?;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
@@ -671,6 +708,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}",
             axum::routing::patch(update_worker_task).delete(delete_worker_task),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/cancel",
+            post(cancel_worker_task),
         )
 }
 
