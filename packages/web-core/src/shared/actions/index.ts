@@ -56,6 +56,7 @@ import { workspaceRecordKeys } from '@/shared/hooks/useWorkspaceRecord';
 import { workspaceRepoKeys } from '@/shared/hooks/useWorkspaceRepo';
 import { repoBranchKeys } from '@/shared/hooks/useRepoBranches';
 import { workspaceSummaryKeys } from '@/shared/hooks/workspaceSummaryKeys';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ChangeTargetDialog } from '@vibe/ui/components/ChangeTargetDialog';
 import { DeleteWorkspaceDialog } from '@vibe/ui/components/DeleteWorkspaceDialog';
@@ -327,6 +328,9 @@ export const Actions = {
         }
         ctx.queryClient.invalidateQueries({
           queryKey: workspaceSummaryKeys.all,
+        });
+        ctx.queryClient.invalidateQueries({
+          queryKey: workersKeys.all,
         });
 
         // Navigate away if we deleted the current workspace
