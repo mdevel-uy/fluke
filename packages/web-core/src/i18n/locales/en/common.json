@@ -635,7 +635,17 @@
     "feedPrOpened": "{{worker}} opened PR #{{number}}",
     "feedPrMerged": "PR #{{number}} merged",
     "feedApprovalRequested": "Approval requested — {{tool}}",
-    "feedTaskStarted": "{{worker}} started {{task}}"
+    "feedTaskStarted": "{{worker}} started {{task}}",
+    "tokens": "Tokens",
+    "tokensNone": "—",
+    "tokensInputShort": "in",
+    "tokensOutputShort": "out",
+    "tokensCacheWriteShort": "cache↑",
+    "tokensCacheReadShort": "cache↓",
+    "tokensInputLabel": "Input tokens",
+    "tokensOutputLabel": "Output tokens",
+    "tokensCacheWriteLabel": "Cache creation input tokens",
+    "tokensCacheReadLabel": "Cache read input tokens"
   },
   "askQuestion": {
     "title": "Agent is asking a question",
