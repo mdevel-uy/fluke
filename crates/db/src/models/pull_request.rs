@@ -120,6 +120,39 @@ impl PullRequest {
         Ok(())
     }
 
+    /// Persist the CI rollup state ("passing" | "failing" | "pending" |
+    /// "none" | "unknown") of a PR.
+    ///
+    /// `pr_ci_status` is intentionally kept out of the `PullRequest` struct
+    /// and queried at runtime: the `query_as!` macros above don't select it,
+    /// so the committed sqlx offline metadata stays valid. Deliberately does
+    /// not bump `updated_at` — CI state changes must not re-trigger the
+    /// remote sync sweep.
+    pub async fn update_ci_status(
+        pool: &SqlitePool,
+        pr_url: &str,
+        ci_status: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE pull_requests SET pr_ci_status = ? WHERE pr_url = ?")
+            .bind(ci_status)
+            .bind(pr_url)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// CI rollup state per PR URL, for every PR that has one recorded.
+    pub async fn get_ci_status_by_url(
+        pool: &SqlitePool,
+    ) -> Result<HashMap<String, String>, sqlx::Error> {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT pr_url, pr_ci_status FROM pull_requests WHERE pr_ci_status IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     pub async fn update_status(
         pool: &SqlitePool,
         pr_url: &str,

@@ -416,6 +416,62 @@ impl GhCli {
         Ok(state)
     }
 
+    /// Roll up the CI checks of a pull request into a single state:
+    /// "passing", "failing", "pending", or "none" (no checks configured).
+    pub fn get_pr_ci_status(&self, pr_url: &str) -> Result<String, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "statusCheckRollup"], None)?;
+        let value: serde_json::Value = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse gh pr view --json statusCheckRollup: {e}; raw: {raw}"
+            ))
+        })?;
+        let checks = value
+            .get("statusCheckRollup")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        Ok(Self::rollup_ci_checks(&checks))
+    }
+
+    /// Reduce `statusCheckRollup` entries (CheckRun or StatusContext objects)
+    /// to one state. Any failure wins, then any pending, then passing.
+    fn rollup_ci_checks(checks: &[serde_json::Value]) -> String {
+        let mut any_pending = false;
+        let mut any_passing = false;
+        for check in checks {
+            // CheckRun: status COMPLETED + conclusion; StatusContext: state.
+            let state = check
+                .get("conclusion")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .or_else(|| check.get("state").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_ascii_uppercase();
+            let status = check
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_ascii_uppercase();
+            if !status.is_empty() && status != "COMPLETED" {
+                any_pending = true;
+                continue;
+            }
+            match state.as_str() {
+                "SUCCESS" | "NEUTRAL" | "SKIPPED" => any_passing = true,
+                "PENDING" | "EXPECTED" | "" => any_pending = true,
+                // FAILURE, ERROR, CANCELLED, TIMED_OUT, ACTION_REQUIRED, …
+                _ => return "failing".to_string(),
+            }
+        }
+        if any_pending {
+            "pending".to_string()
+        } else if any_passing {
+            "passing".to_string()
+        } else {
+            "none".to_string()
+        }
+    }
+
     /// Return the latest actionable review state for a PR.
     /// Returns `None` when there are no submitted reviews with state
     /// `"approved"` or `"changes_requested"`.

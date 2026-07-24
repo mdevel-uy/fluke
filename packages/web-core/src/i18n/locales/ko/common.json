@@ -132,6 +132,7 @@
     "activityWorking": "작업 중…",
     "activityWaitingApproval": "승인 대기 중",
     "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} 병합됨",
     "expand": "세부 정보 표시",
     "collapse": "세부 정보 숨기기",
     "details": {
@@ -144,6 +145,10 @@
         "unknown": "알 수 없음"
       },
       "conflicting": "병합 충돌",
+      "mergeable": "병합 가능",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 실행 중…",
       "branch": "브랜치",
       "lastActivity": "마지막 활동",
       "openWorkspace": "워크스페이스 열기",

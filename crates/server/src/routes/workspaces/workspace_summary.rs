@@ -64,6 +64,10 @@ pub struct WorkspaceSummary {
     /// When the latest coding-agent process started (for elapsed-time display)
     #[ts(optional)]
     pub latest_process_started_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// CI rollup of the latest PR: "passing" | "failing" | "pending" | "none" | "unknown"
+    pub pr_ci_status: Option<String>,
+    /// The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`")
+    pub latest_activity: Option<String>,
 }
 
 /// Response containing summaries for requested workspaces
@@ -125,28 +129,32 @@ pub async fn get_workspace_summaries(
     // 6. Get PR status for each workspace
     let pr_statuses = PullRequest::get_latest_for_workspaces(pool, archived).await?;
 
-    // 7. Latest coding-agent process per workspace: context usage + started_at
+    // 7. Latest coding-agent process per workspace: context usage + last
+    //    activity + started_at
     let coding_agent_processes =
         ExecutionProcess::find_latest_coding_agent_for_workspaces(pool, archived).await?;
-    let usage_futures: Vec<_> = coding_agent_processes
+    let signal_futures: Vec<_> = coding_agent_processes
         .values()
         .map(|info| {
             let execution_id = info.execution_process_id;
             let workspace_id = info.workspace_id;
             let deployment = deployment.clone();
             async move {
-                find_latest_context_usage(&deployment, execution_id)
-                    .await
-                    .map(|usage| (workspace_id, usage))
+                (
+                    workspace_id,
+                    find_latest_agent_signals(&deployment, execution_id).await,
+                )
             }
         })
         .collect();
-    let context_usage: HashMap<Uuid, TokenUsageInfo> =
-        futures_util::future::join_all(usage_futures)
+    let agent_signals: HashMap<Uuid, AgentLogSignals> =
+        futures_util::future::join_all(signal_futures)
             .await
             .into_iter()
-            .flatten()
             .collect();
+
+    // 7b. CI rollup per PR URL (recorded by pr_monitor)
+    let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
 
     // 8. Compute diff stats for each workspace (in parallel)
     let diff_futures: Vec<_> = workspaces
@@ -196,10 +204,16 @@ pub async fn get_workspace_summaries(
                 pr_number: pr_statuses.get(&id).map(|pr| pr.pr_number),
                 pr_url: pr_statuses.get(&id).map(|pr| pr.pr_url.clone()),
                 pr_mergeable: pr_statuses.get(&id).and_then(|pr| pr.pr_mergeable.clone()),
-                latest_context_usage: context_usage.get(&id).cloned(),
+                latest_context_usage: agent_signals.get(&id).and_then(|s| s.usage.clone()),
                 latest_process_started_at: coding_agent_processes
                     .get(&id)
                     .map(|info| info.started_at),
+                pr_ci_status: pr_statuses
+                    .get(&id)
+                    .and_then(|pr| ci_status_by_url.get(&pr.pr_url).cloned()),
+                latest_activity: agent_signals
+                    .get(&id)
+                    .and_then(|s| s.last_activity.clone()),
             }
         })
         .collect();
@@ -209,36 +223,46 @@ pub async fn get_workspace_summaries(
     )))
 }
 
-/// Cache of context usage for *finished* execution processes: their logs are
+/// Signals mined from an execution process's normalized logs: the latest
+/// token-usage entry and the latest tool activity.
+#[derive(Debug, Clone, Default)]
+struct AgentLogSignals {
+    usage: Option<TokenUsageInfo>,
+    last_activity: Option<String>,
+}
+
+/// Cache of log signals for *finished* execution processes: their logs are
 /// immutable, so the (expensive) re-normalization below only runs once per
 /// execution for the lifetime of the server process.
-static FINISHED_USAGE_CACHE: LazyLock<Mutex<HashMap<Uuid, Option<TokenUsageInfo>>>> =
+static FINISHED_SIGNALS_CACHE: LazyLock<Mutex<HashMap<Uuid, AgentLogSignals>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Find the most recent token-usage entry of an execution process.
+/// Find the most recent token-usage and tool-activity entries of an execution
+/// process.
 ///
 /// Normalized entries only exist in memory: the persisted raw logs contain
 /// `Stdout`/`Stderr` lines exclusively (`spawn_stream_raw_logs_to_storage`
 /// skips `JsonPatch` messages). So for a running process we scan its live
 /// `MsgStore` history, and for a finished one we re-normalize the persisted
 /// raw logs via `stream_normalized_logs` (cached, see above).
-async fn find_latest_context_usage(
+async fn find_latest_agent_signals(
     deployment: &DeploymentImpl,
     execution_id: Uuid,
-) -> Option<TokenUsageInfo> {
+) -> AgentLogSignals {
     if let Some(store) = deployment
         .container()
         .get_msg_store_by_id(&execution_id)
         .await
     {
-        return store.find_map_history_rev(token_usage_from_log_msg);
+        let history = store.get_history();
+        return scan_signals(history.iter().rev());
     }
 
-    if let Some(cached) = FINISHED_USAGE_CACHE.lock().unwrap().get(&execution_id) {
+    if let Some(cached) = FINISHED_SIGNALS_CACHE.lock().unwrap().get(&execution_id) {
         return cached.clone();
     }
 
-    let mut result = None;
+    let mut result = AgentLogSignals::default();
     if let Some(stream) = deployment
         .container()
         .stream_normalized_logs(&execution_id)
@@ -246,18 +270,60 @@ async fn find_latest_context_usage(
     {
         // The stream terminates with `LogMsg::Finished` for stopped processes.
         let msgs: Vec<_> = stream.collect().await;
-        result = msgs
-            .iter()
-            .rev()
-            .filter_map(|m| m.as_ref().ok())
-            .find_map(token_usage_from_log_msg);
+        result = scan_signals(msgs.iter().rev().filter_map(|m| m.as_ref().ok()));
     }
 
-    FINISHED_USAGE_CACHE
+    FINISHED_SIGNALS_CACHE
         .lock()
         .unwrap()
         .insert(execution_id, result.clone());
     result
+}
+
+/// Scan messages newest-first, keeping the first hit of each signal.
+fn scan_signals<'a>(msgs: impl Iterator<Item = &'a LogMsg>) -> AgentLogSignals {
+    let mut signals = AgentLogSignals::default();
+    for msg in msgs {
+        if signals.usage.is_none() {
+            signals.usage = token_usage_from_log_msg(msg);
+        }
+        if signals.last_activity.is_none() {
+            signals.last_activity = tool_activity_from_log_msg(msg);
+        }
+        if signals.usage.is_some() && signals.last_activity.is_some() {
+            break;
+        }
+    }
+    signals
+}
+
+/// Extract the content of the most recent `tool_use` entry from a normalized
+/// `JsonPatch` message (e.g. "Edit: `src/foo.rs`").
+fn tool_activity_from_log_msg(msg: &LogMsg) -> Option<String> {
+    let LogMsg::JsonPatch(patch) = msg else {
+        return None;
+    };
+    let ops = serde_json::to_value(patch).ok()?;
+    let ops = ops.as_array()?;
+    for op in ops.iter().rev() {
+        let Some(value) = op.get("value") else {
+            continue;
+        };
+        if value
+            .get("entry_type")
+            .and_then(|e| e.get("type"))
+            .and_then(|t| t.as_str())
+            != Some("tool_use")
+        {
+            continue;
+        }
+        if let Some(content) = value.get("content").and_then(|c| c.as_str())
+            && !content.is_empty()
+        {
+            return Some(content.to_string());
+        }
+    }
+    None
 }
 
 /// Extract a token-usage entry from a normalized `JsonPatch` message. Op

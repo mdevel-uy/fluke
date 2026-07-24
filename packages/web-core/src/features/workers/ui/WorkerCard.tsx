@@ -127,7 +127,7 @@ export function WorkerCard({
           {t(`workers.roles.${worker.role ?? 'developer'}`)}
         </span>
         {worker.model && (
-          <span className="shrink-0 rounded-full bg-secondary px-2 py-px font-mono text-xs text-normal">
+          <span className="shrink-0 rounded-full bg-merged/10 px-2 py-px font-mono text-xs text-merged">
             {worker.model}
           </span>
         )}
