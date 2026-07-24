@@ -8,6 +8,7 @@ use db::models::{
     coding_agent_turn::CodingAgentTurn,
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
     workspace::{Workspace, WorkspaceError},
+    worker_task::WorkerTask,
 };
 use deployment::Deployment;
 use serde::Deserialize;
@@ -137,6 +138,8 @@ pub async fn delete_workspace(
             );
         }
     }
+
+    WorkerTask::delete_active_by_workspace_id(pool, workspace_id).await?;
 
     let managed_workspace = workspace_manager.load_managed_workspace(workspace).await?;
     let deletion_context = managed_workspace.prepare_deletion_context().await?;
