@@ -132,6 +132,7 @@
     "activityWorking": "作業中…",
     "activityWaitingApproval": "承認待ち",
     "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} マージ済み",
     "expand": "詳細を表示",
     "collapse": "詳細を隠す",
     "details": {
@@ -144,6 +145,10 @@
         "unknown": "不明"
       },
       "conflicting": "マージコンフリクト",
+      "mergeable": "マージ可能",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 実行中…",
       "branch": "ブランチ",
       "lastActivity": "最終アクティビティ",
       "openWorkspace": "ワークスペースを開く",

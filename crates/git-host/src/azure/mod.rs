@@ -263,6 +263,10 @@ impl GitHostProvider for AzureDevOpsProvider {
         Ok("unknown".to_string())
     }
 
+    async fn get_pr_ci_status(&self, _pr_url: &str) -> Result<String, GitHostError> {
+        Ok("unknown".to_string())
+    }
+
     async fn get_pr_latest_review_state(
         &self,
         _pr_url: &str,

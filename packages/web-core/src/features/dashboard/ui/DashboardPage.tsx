@@ -393,7 +393,13 @@ export function DashboardPage() {
                         <span className="truncate text-sm font-semibold text-high">
                           {worker.name}
                         </span>
-                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', ROLE_CHIP_CLASS[worker.role ?? ''] ?? 'bg-secondary text-normal')}>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            ROLE_CHIP_CLASS[worker.role ?? ''] ??
+                              'bg-secondary text-normal'
+                          )}
+                        >
                           {worker.role}
                         </span>
                         <span className="ml-auto flex items-center gap-2">

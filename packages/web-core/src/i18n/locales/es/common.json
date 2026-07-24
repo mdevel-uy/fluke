@@ -132,6 +132,7 @@
     "activityWorking": "Trabajando…",
     "activityWaitingApproval": "Esperando aprobación",
     "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} mergeado",
     "expand": "Mostrar detalles",
     "collapse": "Ocultar detalles",
     "details": {
@@ -144,6 +145,10 @@
         "unknown": "desconocido"
       },
       "conflicting": "conflictos de merge",
+      "mergeable": "sin conflictos",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI corriendo…",
       "branch": "Branch",
       "lastActivity": "Última actividad",
       "openWorkspace": "Abrir workspace",

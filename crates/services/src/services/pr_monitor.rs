@@ -620,6 +620,23 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 }
             }
 
+            // Poll the CI rollup state non-fatally, same as mergeable above.
+            match git_host.get_pr_ci_status(&pr.pr_url).await {
+                Ok(ci_status) => {
+                    if let Err(e) =
+                        PullRequest::update_ci_status(&self.db.pool, &pr.pr_url, &ci_status).await
+                    {
+                        warn!(
+                            "Failed to persist CI status for PR #{}: {}",
+                            pr.pr_number, e
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to check CI status for PR #{}: {}", pr.pr_number, e);
+                }
+            }
+
             return Ok(());
         }
 

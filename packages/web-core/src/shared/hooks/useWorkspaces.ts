@@ -34,7 +34,11 @@ export interface SidebarWorkspace {
   prNumber?: number;
   prUrl?: string;
   prMergeable?: string;
+  /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
+  prCiStatus?: string;
   contextUsage?: { totalTokens: number; contextWindow: number };
+  /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
+  latestActivity?: string;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
@@ -45,6 +49,8 @@ export interface SidebarWorkspace {
   workerName?: string;
   /** Role of the owning worker: developer | analyst | reviewer */
   workerRole?: string;
+  /** Model configured for the owning worker, if any */
+  workerModel?: string;
   /** Display title of the worker task backing this workspace */
   taskTitle?: string;
 }
@@ -79,6 +85,8 @@ function toSidebarWorkspace(
           model_context_window: number;
         } | null;
         latest_process_started_at?: string | null;
+        pr_ci_status?: string | null;
+        latest_activity?: string | null;
       })
     | undefined;
   const contextUsage = extendedSummary?.latest_context_usage;
@@ -122,6 +130,8 @@ function toSidebarWorkspace(
       : undefined,
     latestProcessStartedAt:
       extendedSummary?.latest_process_started_at ?? undefined,
+    prCiStatus: extendedSummary?.pr_ci_status ?? undefined,
+    latestActivity: extendedSummary?.latest_activity ?? undefined,
   };
 }
 

@@ -60,7 +60,11 @@ export interface WorkspacesSidebarWorkspace {
   prNumber?: number;
   prUrl?: string;
   prMergeable?: string;
+  /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
+  prCiStatus?: string;
   contextUsage?: WorkspaceContextUsage | null;
+  /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
+  latestActivity?: string;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
@@ -71,6 +75,8 @@ export interface WorkspacesSidebarWorkspace {
   workerName?: string;
   /** Role of the owning worker: developer | analyst | reviewer */
   workerRole?: string;
+  /** Model configured for the owning worker, if any */
+  workerModel?: string;
   /** Display title of the worker task backing this workspace */
   taskTitle?: string;
 }
@@ -200,13 +206,16 @@ function WorkspaceList({
           prNumber={workspace.prNumber}
           prUrl={workspace.prUrl}
           prMergeable={workspace.prMergeable}
+          prCiStatus={workspace.prCiStatus}
           branch={workspace.branch}
           contextUsage={workspace.contextUsage}
+          latestActivity={workspace.latestActivity}
           issueNumber={workspace.issueNumber}
           hasStalledTask={workspace.hasStalledTask}
           latestProcessStartedAt={workspace.latestProcessStartedAt}
           workerName={workspace.workerName}
           workerRole={workspace.workerRole}
+          workerModel={workspace.workerModel}
           taskTitle={workspace.taskTitle}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           onClick={() => onSelectWorkspace(workspace.id)}
@@ -446,11 +455,14 @@ export function WorkspacesSidebar({
                   prNumber={workspace.prNumber}
                   prUrl={workspace.prUrl}
                   prMergeable={workspace.prMergeable}
+                  prCiStatus={workspace.prCiStatus}
                   branch={workspace.branch}
                   contextUsage={workspace.contextUsage}
+                  latestActivity={workspace.latestActivity}
                   latestProcessStartedAt={workspace.latestProcessStartedAt}
                   workerName={workspace.workerName}
                   workerRole={workspace.workerRole}
+                  workerModel={workspace.workerModel}
                   taskTitle={workspace.taskTitle}
                   onOpenWorkspaceActions={handleOpenWorkspaceActions}
                   onClick={() => onSelectWorkspace(workspace.id)}

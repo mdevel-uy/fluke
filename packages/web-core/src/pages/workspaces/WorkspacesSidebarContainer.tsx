@@ -543,6 +543,7 @@ export function WorkspacesSidebarContainer({
           issueNumber: task.issue_number ?? undefined,
           workerName: worker?.name,
           workerRole: worker?.role ?? undefined,
+          workerModel: worker?.model ?? undefined,
           taskTitle: taskDisplayTitle(task),
           // In-progress task whose agent stopped without advancing the task
           // (e.g. a pending push) — surface it as needing attention.

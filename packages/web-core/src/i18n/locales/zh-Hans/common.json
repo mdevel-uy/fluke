@@ -132,6 +132,7 @@
     "activityWorking": "工作中…",
     "activityWaitingApproval": "等待批准",
     "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} 已合并",
     "expand": "显示详情",
     "collapse": "隐藏详情",
     "details": {
@@ -144,6 +145,10 @@
         "unknown": "未知"
       },
       "conflicting": "合并冲突",
+      "mergeable": "可合并",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 运行中…",
       "branch": "分支",
       "lastActivity": "最近活动",
       "openWorkspace": "打开工作区",

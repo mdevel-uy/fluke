@@ -80,6 +80,8 @@ export interface WorkspaceSummaryProps {
   workerName?: string;
   /** Role of the owning worker: developer | analyst | reviewer */
   workerRole?: string;
+  /** Model configured for the owning worker, if any */
+  workerModel?: string;
   /** Display title of the worker task backing this workspace */
   taskTitle?: string;
   /** Git branch of the workspace */
@@ -90,6 +92,10 @@ export interface WorkspaceSummaryProps {
   prUrl?: string;
   /** Mergeable state of the open PR: "mergeable" | "conflicting" | "unknown" */
   prMergeable?: string;
+  /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
+  prCiStatus?: string;
+  /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
+  latestActivity?: string;
   /** When the latest coding-agent process started (for elapsed time) */
   latestProcessStartedAt?: string;
   onClick?: () => void;
@@ -120,11 +126,14 @@ export function WorkspaceSummary({
   hasStalledTask = false,
   workerName,
   workerRole,
+  workerModel,
   taskTitle,
   branch,
   prNumber,
   prUrl,
   prMergeable,
+  prCiStatus,
+  latestActivity,
   latestProcessStartedAt,
   onClick,
   className,
@@ -217,8 +226,10 @@ export function WorkspaceSummary({
           )}
           <span
             className={cn(
-              'min-w-0 flex-1 truncate font-medium',
-              isActive ? 'text-high' : 'text-normal'
+              'min-w-0 flex-1 truncate',
+              isWorkerCard
+                ? 'font-semibold text-high'
+                : cn('font-medium', isActive ? 'text-high' : 'text-normal')
             )}
           >
             {workerName ?? name}
@@ -227,11 +238,17 @@ export function WorkspaceSummary({
           {isWorkerCard && workerRole && (
             <span
               className={cn(
-                'shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium leading-4',
+                'shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold leading-4',
                 ROLE_CHIP_CLASS[workerRole] ?? 'bg-secondary text-normal'
               )}
             >
               {t(`workers.roles.${workerRole}`)}
+            </span>
+          )}
+
+          {isWorkerCard && workerModel && (
+            <span className="shrink-0 rounded bg-merged/10 px-1.5 py-px font-mono text-[10px] leading-4 text-merged">
+              {workerModel}
             </span>
           )}
 
@@ -245,7 +262,7 @@ export function WorkspaceSummary({
           {/* Stalled worker task — agent stopped but the task didn't move on */}
           {hasStalledTask && (
             <TriangleIcon
-              className="size-icon-xs text-warning shrink-0"
+              className="size-icon-xs text-error shrink-0"
               weight="fill"
               aria-label={t('workspaces.stalledTask')}
             >
@@ -317,10 +334,7 @@ export function WorkspaceSummary({
               </span>
             )}
             <span
-              className={cn(
-                'min-w-0 flex-1 truncate text-xs',
-                isActive ? 'text-high' : 'text-normal'
-              )}
+              className="min-w-0 flex-1 truncate text-xs text-high"
               title={taskTitle ?? name}
             >
               {taskTitle ?? name}
@@ -356,8 +370,15 @@ export function WorkspaceSummary({
             <span className="flex min-w-0 items-center gap-half truncate">
               {isRunning ? (
                 hasPendingApproval ? (
-                  <span className="text-warning">
-                    {t('workspaces.activityWaitingApproval')}
+                  <span className="flex min-w-0 items-center gap-half truncate rounded bg-warning/10 px-1.5 py-px font-medium text-warning">
+                    <HandIcon
+                      className="size-icon-xs shrink-0"
+                      weight="fill"
+                      aria-hidden
+                    />
+                    <span className="truncate">
+                      {t('workspaces.activityWaitingApproval')}
+                    </span>
                   </span>
                 ) : (
                   <>
@@ -370,14 +391,24 @@ export function WorkspaceSummary({
                   </>
                 )
               ) : hasStalledTask ? (
-                <span className="truncate text-warning">
-                  {t('workspaces.stalledTask')}
-                  {lastActivityAt && (
-                    <span className="tabular-nums">
-                      {' '}
-                      · {formatDurationSince(lastActivityAt)}
-                    </span>
-                  )}
+                <span
+                  className="flex min-w-0 items-center gap-half truncate font-medium text-error"
+                  title={t('workspaces.stalledTask')}
+                >
+                  <TriangleIcon
+                    className="size-icon-xs shrink-0"
+                    weight="fill"
+                    aria-hidden
+                  />
+                  <span className="truncate">
+                    {t('workers.card.stalledShort')}
+                    {lastActivityAt && (
+                      <span className="tabular-nums">
+                        {' '}
+                        · {formatDurationSince(lastActivityAt)}
+                      </span>
+                    )}
+                  </span>
                 </span>
               ) : isDraft ? (
                 t('workspaces.draft')
@@ -386,6 +417,12 @@ export function WorkspaceSummary({
                   <ClockIcon className="size-icon-xs shrink-0" />
                   <span className="truncate">
                     {formatRelativeElapsed(latestProcessCompletedAt)}
+                    {prStatus === 'merged' && prNumber != null && (
+                      <span className="text-merged">
+                        {' '}
+                        · {t('workspaces.prMerged', { number: prNumber })}
+                      </span>
+                    )}
                   </span>
                 </>
               ) : null}
@@ -442,11 +479,29 @@ export function WorkspaceSummary({
                     {t(`workspaces.details.prStatus.${prStatus}`)}
                   </span>
                 )}
+                {prStatus === 'open' && prCiStatus === 'passing' && (
+                  <span className="text-success">
+                    {' '}
+                    · {t('workspaces.details.ciPassing')}
+                  </span>
+                )}
+                {prStatus === 'open' && prCiStatus === 'failing' && (
+                  <span className="text-error">
+                    {' '}
+                    · {t('workspaces.details.ciFailing')}
+                  </span>
+                )}
+                {prStatus === 'open' && prCiStatus === 'pending' && (
+                  <span> · {t('workspaces.details.ciPending')}</span>
+                )}
                 {prMergeable === 'conflicting' && (
                   <span className="text-error">
                     {' '}
                     · {t('workspaces.details.conflicting')}
                   </span>
+                )}
+                {prStatus === 'open' && prMergeable === 'mergeable' && (
+                  <span> · {t('workspaces.details.mergeable')}</span>
                 )}
               </span>
             </div>
@@ -469,8 +524,12 @@ export function WorkspaceSummary({
               <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-low">
                 {t('workspaces.details.lastActivity')}
               </span>
-              <span className="min-w-0 flex-1 truncate text-normal">
+              <span
+                className="min-w-0 flex-1 truncate text-normal"
+                title={latestActivity?.replace(/`/g, '')}
+              >
                 {formatRelativeElapsed(lastActivityAt)}
+                {latestActivity && ` — ${latestActivity.replace(/`/g, '')}`}
               </span>
             </div>
           )}
@@ -478,7 +537,7 @@ export function WorkspaceSummary({
             <button
               type="button"
               onClick={onClick}
-              className="rounded-sm border border-border bg-card px-2 py-0.5 text-[11px] text-normal hover:bg-tertiary hover:text-high"
+              className="rounded-sm bg-brand px-2 py-0.5 text-[11px] font-medium text-on-brand hover:bg-brand-hover"
             >
               {t('workspaces.details.openWorkspace')}
             </button>
