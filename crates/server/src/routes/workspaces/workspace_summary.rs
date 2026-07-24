@@ -68,6 +68,12 @@ pub struct WorkspaceSummary {
     pub pr_ci_status: Option<String>,
     /// The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`")
     pub latest_activity: Option<String>,
+    /// When the latest PR was recorded (for the dashboard activity feed)
+    #[ts(optional)]
+    pub pr_created_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// When the latest PR was merged, if it was
+    #[ts(optional)]
+    pub pr_merged_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Response containing summaries for requested workspaces
@@ -214,6 +220,8 @@ pub async fn get_workspace_summaries(
                 latest_activity: agent_signals
                     .get(&id)
                     .and_then(|s| s.last_activity.clone()),
+                pr_created_at: pr_statuses.get(&id).map(|pr| pr.created_at),
+                pr_merged_at: pr_statuses.get(&id).and_then(|pr| pr.merged_at),
             }
         })
         .collect();

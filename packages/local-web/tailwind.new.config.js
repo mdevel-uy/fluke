@@ -194,6 +194,8 @@ module.exports = {
         destructive:        'hsl(var(--_destructive))',
         'destructive-foreground': 'hsl(var(--_destructive-foreground))',
         merged:             'hsl(var(--merged))',
+        teal:               'hsl(var(--teal))',
+        pink:               'hsl(var(--pink))',
         'on-brand':         'hsl(var(--text-on-brand))',
 
         /* shadcn-style (used by @apply) */
