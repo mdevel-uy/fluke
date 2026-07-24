@@ -773,7 +773,9 @@
       "systemInstructionsReadOnly": "(読み取り専用 — 全ワーカーに適用)",
       "cancel": "キャンセル",
       "saveNew": "ワーカーを作成",
-      "saveEdit": "変更を保存"
+      "saveEdit": "変更を保存",
+      "modelLabel": "モデル",
+      "modelDefault": "デフォルト（グローバル）"
     },
     "roles": {
       "developer": "開発者",

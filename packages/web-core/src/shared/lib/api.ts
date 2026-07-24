@@ -1816,6 +1816,7 @@ export interface CreateWorkerRequest {
   emoji: string;
   soul: string;
   role?: string;
+  model?: string | null;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
