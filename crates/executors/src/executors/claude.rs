@@ -1,5 +1,6 @@
 // SDK submodules
 pub mod client;
+pub mod models;
 pub mod protocol;
 pub mod slash_commands;
 pub mod types;
@@ -261,40 +262,38 @@ impl ClaudeCode {
     fn compute_cmd_key(&self) -> String {
         serde_json::to_string(&self.cmd).unwrap_or_default()
     }
+
+    /// Resolve the ANTHROPIC_API_KEY used to query the models endpoint.
+    /// Checks the profile-level env override first (so users can pin a key per
+    /// executor profile) and falls back to the process environment. Returns
+    /// `None` when the executor is explicitly configured with
+    /// `disable_api_key`, since in that case the user has opted out of using
+    /// their own key.
+    fn resolve_anthropic_api_key(&self) -> Option<String> {
+        if self.disable_api_key.unwrap_or(false) {
+            return None;
+        }
+        if let Some(env) = &self.cmd.env
+            && let Some(key) = env.get("ANTHROPIC_API_KEY")
+            && !key.trim().is_empty()
+        {
+            return Some(key.clone());
+        }
+        std::env::var("ANTHROPIC_API_KEY")
+            .ok()
+            .filter(|k| !k.trim().is_empty())
+    }
 }
 
 fn default_discovered_options() -> crate::executor_discovery::ExecutorDiscoveredOptions {
     use crate::{
-        executor_discovery::ExecutorDiscoveredOptions,
-        model_selector::{ModelInfo, ModelSelectorConfig, ReasoningOption},
+        executor_discovery::ExecutorDiscoveredOptions, model_selector::ModelSelectorConfig,
     };
-
-    let effort_options =
-        ReasoningOption::from_names(["low", "medium", "high", "xhigh", "max"].map(String::from));
-
-    let supports_effort = |id: &str| -> bool { id.contains("opus") || id.contains("sonnet") };
 
     ExecutorDiscoveredOptions {
         model_selector: ModelSelectorConfig {
             providers: vec![],
-            models: [
-                ("opus", "Opus"),
-                ("opus[1m]", "Opus (1M context)"),
-                ("sonnet", "Sonnet"),
-                ("haiku", "Haiku"),
-            ]
-            .into_iter()
-            .map(|(id, name)| ModelInfo {
-                id: id.to_string(),
-                name: name.to_string(),
-                provider_id: None,
-                reasoning_options: if supports_effort(id) {
-                    effort_options.clone()
-                } else {
-                    vec![]
-                },
-            })
-            .collect(),
+            models: models::fallback_models(),
             default_model: Some("opus".to_string()),
             agents: vec![],
             permissions: vec![
@@ -441,14 +440,14 @@ impl StandardCodingAgentExecutor for ClaudeCode {
                 provisional
                     .map(|p| {
                         let mut opts = p.as_ref().clone();
-                        opts.loading_models = false;
+                        opts.loading_models = true;
                         opts.loading_agents = true;
                         opts.loading_slash_commands = true;
                         opts
                     })
                     .unwrap_or_else(|| {
                         let mut opts = default_discovered_options();
-                        opts.loading_models = false;
+                        opts.loading_models = true;
                         opts.loading_agents = true;
                         opts.loading_slash_commands = true;
                         opts
@@ -470,14 +469,14 @@ impl StandardCodingAgentExecutor for ClaudeCode {
                 provisional
                     .map(|p| {
                         let mut opts = p.as_ref().clone();
-                        opts.loading_models = false;
+                        opts.loading_models = true;
                         opts.loading_agents = true;
                         opts.loading_slash_commands = true;
                         opts
                     })
                     .unwrap_or_else(|| {
                         let mut opts = default_discovered_options();
-                        opts.loading_models = false;
+                        opts.loading_models = true;
                         opts.loading_agents = true;
                         opts.loading_slash_commands = true;
                         opts
@@ -491,7 +490,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
                 })));
             }
             let mut opts = default_discovered_options();
-            opts.loading_models = false;
+            opts.loading_models = true;
             opts.loading_agents = true;
             opts.loading_slash_commands = true;
             (None, opts)
@@ -506,7 +505,46 @@ impl StandardCodingAgentExecutor for ClaudeCode {
             let discovery_path = target_path.as_deref().unwrap_or(Path::new(".")).to_path_buf();
             let mut final_options = default_discovered_options();
 
-            match this.discover_agents_and_slash_commands_initial(&discovery_path).await {
+            let api_key = this.resolve_anthropic_api_key();
+            let models_future = async {
+                match api_key {
+                    Some(key) => models::fetch_anthropic_models(&key).await,
+                    None => Err(models::ModelsFetchError::MissingApiKey),
+                }
+            };
+            let agents_future = this.discover_agents_and_slash_commands_initial(&discovery_path);
+
+            let (models_result, agents_result) = tokio::join!(models_future, agents_future);
+
+            match models_result {
+                Ok(fetched) => {
+                    final_options.model_selector.models = fetched.clone();
+                    yield patch::update_models(fetched);
+                    yield patch::models_loaded();
+                }
+                Err(models::ModelsFetchError::MissingApiKey) => {
+                    // No API key configured. Silently fall back to the built-in
+                    // list without surfacing an error to the UI — this is the
+                    // expected state for users on subscription auth.
+                    tracing::debug!(
+                        "ANTHROPIC_API_KEY not set; using built-in Claude model list"
+                    );
+                    yield patch::update_models(final_options.model_selector.models.clone());
+                    yield patch::models_loaded();
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to fetch Claude models from Anthropic API, using fallback: {}",
+                        e
+                    );
+                    yield patch::update_models(final_options.model_selector.models.clone());
+                    yield patch::models_error(format!(
+                        "Could not load Claude models from Anthropic ({e}). Using built-in list."
+                    ));
+                }
+            }
+
+            match agents_result {
                 Ok((mut agent_options, slash_commands_initial, plugins)) => {
                     let default_agents = [
                         "Bash",

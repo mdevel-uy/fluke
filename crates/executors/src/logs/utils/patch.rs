@@ -272,6 +272,14 @@ pub fn models_loaded() -> Patch {
     .unwrap_or_default()
 }
 
+pub fn models_error(error: String) -> Patch {
+    serde_json::from_value(json!([
+        {"op": "replace", "path": "/options/error", "value": error},
+        {"op": "replace", "path": "/options/loading_models", "value": false},
+    ]))
+    .unwrap_or_default()
+}
+
 pub fn update_agents(agents: Vec<crate::model_selector::AgentInfo>) -> Patch {
     serde_json::from_value(json!([
         {"op": "replace", "path": "/options/model_selector/agents", "value": agents},
