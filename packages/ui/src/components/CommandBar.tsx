@@ -13,6 +13,7 @@ import type { Icon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useDeferredValue, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getModifierKey } from '../lib/platform';
 import {
   Command,
   CommandEmpty,
@@ -409,7 +410,9 @@ export function CommandBar<
                   />
                   <span>{label}</span>
                   {item.action.shortcut && (
-                    <CommandShortcut>{item.action.shortcut}</CommandShortcut>
+                    <CommandShortcut>
+                      {item.action.shortcut.replace('{mod}', getModifierKey())}
+                    </CommandShortcut>
                   )}
                 </CommandItem>
               );
