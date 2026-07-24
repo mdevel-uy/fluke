@@ -94,7 +94,7 @@ impl Worker {
         let soul = data.soul.as_ref().unwrap_or(&existing.soul);
         let role = data.role.as_ref().unwrap_or(&existing.role);
         // None = keep existing; Some(None) = clear; Some(Some(x)) = set to x
-        let model = data.model.unwrap_or(existing.model.clone());
+        let model = data.model.clone().unwrap_or(existing.model.clone());
 
         sqlx::query(
             "UPDATE workers
