@@ -1,7 +1,8 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    response::Json as ResponseJson,
+    http::StatusCode,
+    response::{IntoResponse, Json as ResponseJson, Response},
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
@@ -356,6 +357,43 @@ pub async fn delete_worker(
         return Err(ApiError::BadRequest("Worker not found".into()));
     }
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// Clone an existing worker's identity (emoji, soul, role, model) into a new
+/// worker. The duplicate is named `"Copia de {name}"` and starts empty — no
+/// tasks or workspaces are copied. Returns 201 with the new worker, or 404
+/// when the source worker does not exist.
+pub async fn duplicate_worker(
+    State(deployment): State<DeploymentImpl>,
+    Path(worker_id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    let pool = &deployment.db().pool;
+    let Some(source) = Worker::find_by_id(pool, worker_id).await? else {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<WorkerResponse>::error("Worker not found")),
+        )
+            .into_response());
+    };
+
+    let created = Worker::create(
+        pool,
+        &CreateWorker {
+            name: format!("Copia de {}", source.name),
+            emoji: source.emoji,
+            soul: source.soul,
+            role: Some(source.role),
+            model: source.model,
+        },
+    )
+    .await?;
+
+    let response = to_response(pool, created).await?;
+    Ok((
+        StatusCode::CREATED,
+        ResponseJson(ApiResponse::<WorkerResponse>::success(response)),
+    )
+        .into_response())
 }
 
 pub async fn list_worker_tasks(
@@ -752,6 +790,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_worker).patch(update_worker).delete(delete_worker),
         )
         .route("/workers/{worker_id}/start", post(start_worker))
+        .route("/workers/{worker_id}/duplicate", post(duplicate_worker))
         .route(
             "/workers/{worker_id}/tasks",
             get(list_worker_tasks).post(create_worker_task),
