@@ -871,6 +871,15 @@
       "started": "{{worker}} empezó con tu pedido.",
       "queued": "Pedido encolado para {{worker}}.",
       "error": "No se pudo enviar el pedido: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Arrastrá imágenes acá o hacé clic para agregar",
+      "addMore": "Agregar más imágenes",
+      "removeAria": "Quitar {{name}}",
+      "uploading": "Subiendo",
+      "errorLabel": "Falló la carga",
+      "uploadError": "No se pudo subir '{{name}}': {{message}}",
+      "tooLarge": "El archivo supera el tamaño máximo permitido."
     }
   },
   "sprint": {

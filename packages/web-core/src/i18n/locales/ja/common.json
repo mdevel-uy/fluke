@@ -871,6 +871,15 @@
       "started": "{{worker}} が依頼に着手しました。",
       "queued": "{{worker}} のキューに追加しました。",
       "error": "依頼を送信できませんでした: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "画像をここにドラッグまたはクリックして追加",
+      "addMore": "画像を追加",
+      "removeAria": "{{name}} を削除",
+      "uploading": "アップロード中",
+      "errorLabel": "アップロードに失敗しました",
+      "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
+      "tooLarge": "ファイルサイズが上限を超えています。"
     }
   },
   "sprint": {
