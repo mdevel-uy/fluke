@@ -863,9 +863,17 @@
     },
     "inProgress": {
       "openWorkspace": "ワークスペースを開く",
+      "stop": "停止",
+      "stopConfirmTitle": "実行を停止しますか？",
+      "stopConfirmMessage": "実行を停止してIssueをバックログに戻しますか？",
+      "stopAndUnassign": "停止して割り当て解除",
       "empty": "進行中のタスクはありません。"
     },
     "inReview": {
+      "unassign": "割り当て解除",
+      "unassignConfirmTitle": "タスクの割り当てを解除しますか？",
+      "unassignConfirmMessage": "タスクの割り当てを解除してIssueをバックログに戻しますか？",
+      "unassignConfirm": "割り当て解除",
       "empty": "レビュー待ちはありません。"
     },
     "done": {
@@ -904,7 +912,9 @@
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
-      "reviewChangesRequested": "変更要求: {{title}}"
+      "reviewChangesRequested": "変更要求: {{title}}",
+      "cancelSuccess": "タスクを停止してバックログに戻しました。",
+      "cancelError": "タスクの停止に失敗しました: {{message}}"
     },
     "failed": {
       "retry": "再試行",

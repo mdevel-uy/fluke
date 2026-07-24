@@ -1910,6 +1910,16 @@ export const workersApi = {
     return handleApiResponse<void>(response);
   },
 
+  cancelTask: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/cancel`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
   startNext: async (workerId: string): Promise<WorkerTaskResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}/start`, {
       method: 'POST',
