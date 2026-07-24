@@ -242,6 +242,7 @@
     "noResults": "找不到結果。",
     "back": "返回",
     "defaultPlaceholder": "輸入命令或搜尋...",
+    "triggerPlaceholder": "搜尋命令...",
     "selectBranch": "Select Branch",
     "selectBranchFor": "Select Branch for {{repoName}}"
   },

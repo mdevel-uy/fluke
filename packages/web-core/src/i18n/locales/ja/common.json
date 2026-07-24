@@ -242,6 +242,7 @@
     "noResults": "結果が見つかりません。",
     "back": "戻る",
     "defaultPlaceholder": "コマンドを入力または検索...",
+    "triggerPlaceholder": "コマンドを検索...",
     "selectBranch": "Select Branch",
     "selectBranchFor": "Select Branch for {{repoName}}"
   },

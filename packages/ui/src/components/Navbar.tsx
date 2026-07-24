@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Icon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
+import { getModifierKey } from '../lib/platform';
 import { Tooltip } from './Tooltip';
 import {
   SyncErrorIndicator,
@@ -110,6 +112,57 @@ export const MOBILE_TABS: {
   { id: 'preview', materialIcon: 'monitor', label: 'Preview' },
   { id: 'git', materialIcon: 'fork_right', label: 'Git' },
 ];
+
+interface CommandPaletteTriggerProps {
+  onClick: () => void;
+  placeholder: string;
+  shortcutLabel: string;
+  className?: string;
+}
+
+/**
+ * VSCode-style persistent trigger for the command palette. Rendered as a
+ * button styled like a search input so it invites the user to type. Actual
+ * typing/filtering happens in the dialog opened on click.
+ */
+function CommandPaletteTrigger({
+  onClick,
+  placeholder,
+  shortcutLabel,
+  className,
+}: CommandPaletteTriggerProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={placeholder}
+      className={cn(
+        'group inline-flex items-center gap-1.5 h-6 px-2 rounded-full',
+        'bg-md-surface-container/60 hover:bg-md-surface-container',
+        'border border-md-outline-variant',
+        'text-md-on-surface-variant hover:text-md-on-surface',
+        'transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
+        className
+      )}
+    >
+      <MaterialIcon name="search" size="xs" />
+      <span className="flex-1 min-w-0 text-left text-body-sm truncate">
+        {placeholder}
+      </span>
+      <kbd
+        className={cn(
+          'hidden sm:inline-flex items-center gap-0.5 shrink-0',
+          'px-1 py-px rounded border border-md-outline-variant',
+          'text-[10px] font-mono leading-none text-md-on-surface-variant',
+          'bg-md-surface-container-lowest'
+        )}
+      >
+        {shortcutLabel}
+      </kbd>
+    </button>
+  );
+}
 
 export interface NavbarBreadcrumbItem {
   label: string;
@@ -221,6 +274,9 @@ export function Navbar({
   showMobileTabs,
   mobileShowBack,
 }: NavbarProps) {
+  const { t } = useTranslation('common');
+  const commandBarPlaceholder = t('commandBar.triggerPlaceholder');
+  const commandBarShortcutLabel = `${getModifierKey()}K`;
   const renderItem = (item: NavbarSectionItem, key: string) => {
     if (isDivider(item)) {
       return <div key={key} className="h-4 w-px bg-md-outline-variant" />;
@@ -396,16 +452,6 @@ export function Navbar({
                 <MaterialIcon name="settings" size="sm" />
               </button>
             )}
-            {!isOnProjectPage && onOpenCommandBar && (
-              <button
-                type="button"
-                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
-                onClick={onOpenCommandBar}
-                aria-label="Command bar"
-              >
-                <MaterialIcon name="menu" size="sm" />
-              </button>
-            )}
             {mobileUserSlot && (
               <div className="h-4 w-px bg-md-outline-variant mx-0.5 shrink-0" />
             )}
@@ -413,21 +459,32 @@ export function Navbar({
           </div>
         </div>
 
-        {!isOnProjectPage && (workspaceTitle || breadcrumbs) && (
-          <div className="flex items-center justify-between px-base py-half border-t border-md-outline-variant">
-            <div className="flex items-center gap-base flex-1 min-w-0">
-              {leftSlot}
-              {breadcrumbs && breadcrumbs.length > 0 ? (
-                <NavbarBreadcrumbs
-                  breadcrumbs={breadcrumbs}
-                  textClassName="text-body-sm"
-                />
-              ) : (
-                <p className="text-body-sm text-md-outline truncate cursor-default select-none">
-                  {workspaceTitle}
-                </p>
-              )}
-            </div>
+        {(onOpenCommandBar ||
+          (!isOnProjectPage && (workspaceTitle || breadcrumbs))) && (
+          <div className="flex flex-col gap-half px-base py-half border-t border-md-outline-variant">
+            {onOpenCommandBar && (
+              <CommandPaletteTrigger
+                onClick={onOpenCommandBar}
+                placeholder={commandBarPlaceholder}
+                shortcutLabel={commandBarShortcutLabel}
+                className="w-full"
+              />
+            )}
+            {!isOnProjectPage && (workspaceTitle || breadcrumbs) && (
+              <div className="flex items-center gap-base flex-1 min-w-0">
+                {leftSlot}
+                {breadcrumbs && breadcrumbs.length > 0 ? (
+                  <NavbarBreadcrumbs
+                    breadcrumbs={breadcrumbs}
+                    textClassName="text-body-sm"
+                  />
+                ) : (
+                  <p className="text-body-sm text-md-outline truncate cursor-default select-none">
+                    {workspaceTitle}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </nav>
@@ -469,7 +526,7 @@ export function Navbar({
             ))}
           </div>
         )}
-        <div className="flex items-center gap-base px-2">
+        <div className="flex items-center gap-base px-2 min-w-0">
           {leftItems.map((item, index) =>
             renderItem(
               item,
@@ -477,25 +534,33 @@ export function Navbar({
             )
           )}
           {leftSlot}
+          {breadcrumbs && breadcrumbs.length > 0 ? (
+            <NavbarBreadcrumbs
+              breadcrumbs={breadcrumbs}
+              textClassName="text-body-sm"
+            />
+          ) : workspaceTitle ? (
+            <p
+              data-tauri-drag-region
+              className="text-body-sm text-md-outline truncate cursor-default select-none"
+            >
+              {workspaceTitle}
+            </p>
+          ) : null}
         </div>
       </div>
 
       <div
         data-tauri-drag-region
-        className="flex-1 flex items-center justify-center min-w-0"
+        className="flex-1 flex items-center justify-center min-w-0 px-2"
       >
-        {breadcrumbs && breadcrumbs.length > 0 ? (
-          <NavbarBreadcrumbs
-            breadcrumbs={breadcrumbs}
-            textClassName="text-body-sm"
+        {onOpenCommandBar && (
+          <CommandPaletteTrigger
+            onClick={onOpenCommandBar}
+            placeholder={commandBarPlaceholder}
+            shortcutLabel={commandBarShortcutLabel}
+            className="w-full max-w-md"
           />
-        ) : (
-          <p
-            data-tauri-drag-region
-            className="text-body-sm text-md-outline truncate cursor-default select-none"
-          >
-            {workspaceTitle ?? ''}
-          </p>
         )}
       </div>
 

@@ -242,6 +242,7 @@
     "noResults": "No se encontraron resultados.",
     "back": "Atrás",
     "defaultPlaceholder": "Escribe un comando o busca...",
+    "triggerPlaceholder": "Buscar comandos...",
     "selectBranch": "Select Branch",
     "selectBranchFor": "Select Branch for {{repoName}}"
   },
