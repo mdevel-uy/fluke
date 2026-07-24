@@ -36,7 +36,15 @@ export interface SidebarWorkspace {
   prMergeable?: string;
   /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
   prCiStatus?: string;
-  contextUsage?: { totalTokens: number; contextWindow: number };
+  contextUsage?: {
+    totalTokens: number;
+    contextWindow: number;
+    /** Anthropic token breakdown fields (Claude only, `null` for other providers). */
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    cacheCreationInputTokens?: number | null;
+    cacheReadInputTokens?: number | null;
+  };
   /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
   latestActivity?: string;
   /** When the latest PR was recorded (for the dashboard activity feed) */
@@ -87,6 +95,10 @@ function toSidebarWorkspace(
         latest_context_usage?: {
           total_tokens: number;
           model_context_window: number;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_creation_input_tokens?: number | null;
+          cache_read_input_tokens?: number | null;
         } | null;
         latest_process_started_at?: string | null;
         pr_ci_status?: string | null;
@@ -132,6 +144,11 @@ function toSidebarWorkspace(
       ? {
           totalTokens: contextUsage.total_tokens,
           contextWindow: contextUsage.model_context_window,
+          inputTokens: contextUsage.input_tokens ?? null,
+          outputTokens: contextUsage.output_tokens ?? null,
+          cacheCreationInputTokens:
+            contextUsage.cache_creation_input_tokens ?? null,
+          cacheReadInputTokens: contextUsage.cache_read_input_tokens ?? null,
         }
       : undefined,
     latestProcessStartedAt:

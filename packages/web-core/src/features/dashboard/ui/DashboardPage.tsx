@@ -45,6 +45,19 @@ function formatTokensK(tokens: number): string {
   return tokens >= 1000 ? `${Math.round(tokens / 1000)}k` : `${tokens}`;
 }
 
+/** 12400 -> "12.4K", 1_200_000 -> "1.2M" */
+function formatTokensCompact(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    const millions = tokens / 1_000_000;
+    return `${millions >= 10 ? Math.round(millions) : millions.toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) {
+    const thousands = tokens / 1_000;
+    return `${thousands >= 10 ? Math.round(thousands) : thousands.toFixed(1)}K`;
+  }
+  return `${tokens}`;
+}
+
 /** Compact elapsed since a timestamp: 45s, 6m, 3h, 2d */
 function formatDurationSince(dateString: string): string {
   const diffSecs = Math.max(
@@ -182,6 +195,67 @@ function ContextBar({ ws }: { ws: SidebarWorkspace | undefined }) {
           style={{ width: `${pct}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+function TokenBreakdown({ ws }: { ws: SidebarWorkspace | undefined }) {
+  const { t } = useTranslation('common');
+  const usage = ws?.contextUsage;
+  const dash = t('dashboard.tokensNone');
+
+  const parts: Array<{
+    key: string;
+    short: string;
+    label: string;
+    value: number | null | undefined;
+  }> = [
+    {
+      key: 'in',
+      short: t('dashboard.tokensInputShort'),
+      label: t('dashboard.tokensInputLabel'),
+      value: usage?.inputTokens ?? null,
+    },
+    {
+      key: 'out',
+      short: t('dashboard.tokensOutputShort'),
+      label: t('dashboard.tokensOutputLabel'),
+      value: usage?.outputTokens ?? null,
+    },
+  ];
+  if (usage?.cacheCreationInputTokens != null) {
+    parts.push({
+      key: 'cache-write',
+      short: t('dashboard.tokensCacheWriteShort'),
+      label: t('dashboard.tokensCacheWriteLabel'),
+      value: usage.cacheCreationInputTokens,
+    });
+  }
+  if (usage?.cacheReadInputTokens != null) {
+    parts.push({
+      key: 'cache-read',
+      short: t('dashboard.tokensCacheReadShort'),
+      label: t('dashboard.tokensCacheReadLabel'),
+      value: usage.cacheReadInputTokens,
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-low">
+      <span className="uppercase tracking-wide">{t('dashboard.tokens')}</span>
+      {parts.map((part, idx) => (
+        <span
+          key={part.key}
+          className="flex items-center gap-1 tabular-nums"
+          title={part.label}
+        >
+          {idx > 0 && <span className="text-md-outline">·</span>}
+          <span>{part.short}</span>
+          <span className="font-medium text-normal">
+            {part.value == null ? dash : formatTokensCompact(part.value)}
+          </span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -771,6 +845,7 @@ export function DashboardPage() {
                         </p>
                       </div>
                       <ContextBar ws={ws} />
+                      <TokenBreakdown ws={ws} />
                       <div className="flex items-center gap-4 border-t border-border/60 pt-2.5 text-xs text-low">
                         <span>
                           {t('dashboard.queue')}{' '}
