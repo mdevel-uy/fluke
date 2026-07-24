@@ -253,7 +253,7 @@ function TypeaheadMenuRoot({
     <div
       ref={menuRef}
       style={style}
-      className="z-[10000] w-auto min-w-80 max-w-full p-0 overflow-hidden bg-panel border border-border rounded-sm shadow-md flex flex-col"
+      className="z-[10000] w-auto min-w-80 max-w-[400px] max-h-80 p-0 overflow-hidden bg-panel border border-border/60 rounded-xl shadow-overlay flex flex-col"
     >
       {children}
     </div>
@@ -269,7 +269,7 @@ function TypeaheadMenuHeader({
 }) {
   return (
     <div
-      className={`px-base py-half border-b border-border ${className ?? ''}`}
+      className={`px-base py-half border-b border-border/60 ${className ?? ''}`}
     >
       <div className="flex items-center gap-half text-xs font-medium text-low">
         {children}
