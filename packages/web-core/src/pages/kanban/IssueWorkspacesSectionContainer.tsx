@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useParams } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LinkIcon, PlusIcon } from '@phosphor-icons/react';
 import { useProjectContext } from '@/shared/hooks/useProjectContext';
@@ -10,6 +11,7 @@ import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useProjectWorkspaceCreateDraft } from '@/shared/hooks/useProjectWorkspaceCreateDraft';
 import { workspacesApi } from '@/shared/lib/api';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import { getWorkspaceDefaults } from '@/shared/lib/workspaceDefaults';
 import {
   buildLinkedIssueCreateState,
@@ -36,6 +38,7 @@ export function IssueWorkspacesSectionContainer({
 }: IssueWorkspacesSectionContainerProps) {
   const { t } = useTranslation('common');
   const { projectId } = useParams({ strict: false });
+  const queryClient = useQueryClient();
   const appNavigation = useAppNavigation();
   const { openWorkspaceCreateFromState } = useProjectWorkspaceCreateDraft();
   const { userId } = useAuth();
@@ -271,6 +274,7 @@ export function IssueWorkspacesSectionContainer({
         if (result.unlinkFromIssue) {
           await workspacesApi.unlinkFromIssue(localWorkspaceId);
         }
+        queryClient.invalidateQueries({ queryKey: workersKeys.all });
       } catch (error) {
         ConfirmDialog.show({
           title: t('common:error'),
@@ -283,7 +287,14 @@ export function IssueWorkspacesSectionContainer({
         });
       }
     },
-    [localWorkspacesById, workspacesWithStats, t, issueId, getIssue]
+    [
+      localWorkspacesById,
+      workspacesWithStats,
+      t,
+      issueId,
+      getIssue,
+      queryClient,
+    ]
   );
 
   // Actions for the section header
