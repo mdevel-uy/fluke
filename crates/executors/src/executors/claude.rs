@@ -774,6 +774,11 @@ pub struct ClaudeLogProcessor {
     main_model_name: Option<String>,
     main_model_context_window: u32,
     context_tokens_used: u32,
+    /// Latest per-turn token breakdown from Anthropic `message_delta` usage.
+    /// Kept alongside `context_tokens_used` so re-emitted token entries
+    /// (e.g. after the `result` message updates the context window) still
+    /// carry the breakdown of the most recent assistant turn.
+    last_usage_breakdown: Option<ClaudeUsage>,
 }
 
 impl ClaudeLogProcessor {
@@ -793,6 +798,7 @@ impl ClaudeLogProcessor {
             last_assistant_message: None,
             main_model_context_window: DEFAULT_CLAUDE_CONTEXT_WINDOW,
             context_tokens_used: 0,
+            last_usage_breakdown: None,
         }
     }
 
@@ -1818,6 +1824,7 @@ impl ClaudeLogProcessor {
                         let output_tokens = usage.output_tokens.unwrap_or(0);
                         let total_tokens = input_tokens + output_tokens;
                         self.context_tokens_used = total_tokens as u32;
+                        self.last_usage_breakdown = Some(usage.clone());
 
                         patches.push(self.add_token_usage_entry(entry_index_provider));
                     }
@@ -2097,11 +2104,21 @@ impl ClaudeLogProcessor {
         &mut self,
         entry_index_provider: &EntryIndexProvider,
     ) -> json_patch::Patch {
+        let breakdown = self.last_usage_breakdown.as_ref();
         let entry = NormalizedEntry {
             timestamp: None,
             entry_type: NormalizedEntryType::TokenUsageInfo(crate::logs::TokenUsageInfo {
                 total_tokens: self.context_tokens_used,
                 model_context_window: self.main_model_context_window,
+                input_tokens: breakdown.map(|u| u.input_tokens.unwrap_or(0)),
+                output_tokens: breakdown.map(|u| u.output_tokens.unwrap_or(0)),
+                // Cache fields are Anthropic-specific and only meaningful when > 0.
+                cache_creation_input_tokens: breakdown
+                    .and_then(|u| u.cache_creation_input_tokens)
+                    .filter(|&n| n > 0),
+                cache_read_input_tokens: breakdown
+                    .and_then(|u| u.cache_read_input_tokens)
+                    .filter(|&n| n > 0),
             }),
             content: format!(
                 "Tokens used: {} / Context window: {}",
