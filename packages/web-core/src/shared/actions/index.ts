@@ -652,6 +652,8 @@ export const Actions = {
     id: 'toggle-terminal',
     label: 'Toggle Terminal',
     icon: TerminalWindowIcon,
+    shortcut: '{mod} J',
+    keywords: ['terminal', 'bottom panel', 'console', 'shell'],
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
     isActive: (ctx) => ctx.isTerminalVisible,
