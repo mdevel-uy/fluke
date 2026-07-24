@@ -12,7 +12,7 @@ use db::models::{
     worker_task::{self, CreateWorkerTask, WorkerTask},
 };
 use deployment::Deployment;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use services::services::worker_orchestrator::{self, StartError};
 use ts_rs::TS;
 use utils::response::ApiResponse;
@@ -27,6 +27,8 @@ pub struct WorkerResponse {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    #[ts(optional)]
+    pub model: Option<String>,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -125,6 +127,8 @@ pub struct CreateWorkerRequest {
     pub soul: String,
     #[ts(optional)]
     pub role: Option<String>,
+    #[ts(optional)]
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -134,6 +138,21 @@ pub struct UpdateWorkerRequest {
     pub soul: Option<String>,
     #[ts(optional)]
     pub role: Option<String>,
+    /// `undefined` = no change; `null` = clear to global default; `string` = set override
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "string | null")]
+    pub model: Option<Option<String>>,
+}
+
+/// Distinguish a missing field from an explicit `null` for `Option<Option<T>>`.
+/// Serde alone collapses both to the outer `None`; this wrapper preserves the
+/// two states so the PATCH handler can tell "don't touch" from "clear".
+fn deserialize_double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -199,6 +218,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         emoji: worker.emoji,
         soul: worker.soul,
         role: worker.role,
+        model: worker.model,
         active_workspace_id,
         queued_count,
         completed_count,
@@ -245,6 +265,7 @@ pub async fn create_worker(
             emoji: emoji.to_string(),
             soul: payload.soul,
             role: payload.role,
+            model: payload.model.filter(|m| !m.is_empty()),
         },
     )
     .await?;
@@ -296,6 +317,9 @@ pub async fn update_worker(
         }
     }
 
+    // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
+    let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
+
     let worker = Worker::update(
         pool,
         worker_id,
@@ -310,6 +334,7 @@ pub async fn update_worker(
                 .filter(|s| !s.is_empty()),
             soul: payload.soul,
             role,
+            model,
         },
     )
     .await?;
@@ -647,4 +672,28 @@ pub fn router() -> Router<DeploymentImpl> {
             "/workers/{worker_id}/tasks/{task_id}",
             axum::routing::patch(update_worker_task).delete(delete_worker_task),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// PATCH must distinguish three states for `model`:
+    ///   missing → `None`         (don't touch)
+    ///   `null`  → `Some(None)`   (clear the override)
+    ///   string  → `Some(Some(_))`(set the override)
+    /// The default serde behavior collapses the first two into `None`, which
+    /// makes "clear" impossible; the custom deserializer restores the third
+    /// state.
+    #[test]
+    fn update_worker_request_model_distinguishes_missing_from_null() {
+        let missing: UpdateWorkerRequest = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.model, None);
+
+        let null: UpdateWorkerRequest = serde_json::from_str(r#"{"model": null}"#).unwrap();
+        assert_eq!(null.model, Some(None));
+
+        let set: UpdateWorkerRequest = serde_json::from_str(r#"{"model": "haiku"}"#).unwrap();
+        assert_eq!(set.model, Some(Some("haiku".to_string())));
+    }
 }
