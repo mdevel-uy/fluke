@@ -133,6 +133,7 @@
     "activityWaitingApproval": "等待批准",
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 已合并",
+    "prOpen": "PR #{{number}} 打开",
     "expand": "显示详情",
     "collapse": "隐藏详情",
     "details": {

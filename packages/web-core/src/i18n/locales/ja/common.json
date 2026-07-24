@@ -133,6 +133,7 @@
     "activityWaitingApproval": "承認待ち",
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} マージ済み",
+    "prOpen": "PR #{{number}} オープン",
     "expand": "詳細を表示",
     "collapse": "詳細を隠す",
     "details": {

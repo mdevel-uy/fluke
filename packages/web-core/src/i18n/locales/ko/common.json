@@ -133,6 +133,7 @@
     "activityWaitingApproval": "승인 대기 중",
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 병합됨",
+    "prOpen": "PR #{{number}} 열림",
     "expand": "세부 정보 표시",
     "collapse": "세부 정보 숨기기",
     "details": {
