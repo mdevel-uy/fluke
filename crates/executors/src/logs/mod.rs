@@ -105,10 +105,28 @@ pub struct AnsweredQuestion {
     pub answer: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
 pub struct TokenUsageInfo {
     pub total_tokens: u32,
     pub model_context_window: u32,
+    /// Non-cache input tokens for the latest turn, when the executor exposes it.
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    /// Output tokens for the latest turn, when the executor exposes it.
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    /// Cache-creation input tokens for the latest turn, when the executor
+    /// exposes it (Claude prompt cache writes).
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<u64>,
+    /// Cache-read input tokens for the latest turn, when the executor exposes
+    /// it (Claude prompt cache hits).
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
