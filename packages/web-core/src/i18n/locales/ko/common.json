@@ -558,6 +558,10 @@
       "light": "라이트 테마",
       "dark": "다크 테마",
       "system": "시스템 테마"
+    },
+    "commandBarTrigger": {
+      "placeholder": "명령 검색...",
+      "ariaLabel": "명령 바 열기"
     }
   },
   "appBar": {

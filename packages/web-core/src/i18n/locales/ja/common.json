@@ -558,6 +558,10 @@
       "light": "ライトテーマ",
       "dark": "ダークテーマ",
       "system": "システムテーマ"
+    },
+    "commandBarTrigger": {
+      "placeholder": "コマンドを検索...",
+      "ariaLabel": "コマンドバーを開く"
     }
   },
   "appBar": {

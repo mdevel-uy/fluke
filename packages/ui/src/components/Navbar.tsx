@@ -1,12 +1,16 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Icon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
+import { getModifierKey } from '../lib/platform';
 import { Tooltip } from './Tooltip';
 import {
   SyncErrorIndicator,
   type SyncErrorIndicatorError,
 } from './SyncErrorIndicator';
 import { MaterialIcon } from './MaterialIcon';
+
+const COMMAND_BAR_ACTION_ID = 'open-command-bar';
 
 /**
  * Action item rendered in the navbar.
@@ -86,6 +90,50 @@ function NavbarIconButton({
     </Tooltip>
   ) : (
     button
+  );
+}
+
+interface CommandBarTriggerProps {
+  onClick: () => void;
+  compact?: boolean;
+  label?: string;
+  className?: string;
+}
+
+function CommandBarTrigger({
+  onClick,
+  compact = false,
+  label,
+  className,
+}: CommandBarTriggerProps) {
+  const { t } = useTranslation('common');
+  const placeholder = label ?? t('navbar.commandBarTrigger.placeholder');
+  const ariaLabel = t('navbar.commandBarTrigger.ariaLabel');
+  const shortcut = `${getModifierKey()}K`;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={cn(
+        'group flex items-center gap-1.5 rounded-full border border-md-outline-variant',
+        'bg-md-surface-container-low text-md-on-surface-variant',
+        'hover:bg-md-surface-container hover:text-md-on-surface hover:border-md-outline',
+        'transition-colors duration-150 active:scale-[0.98]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
+        compact
+          ? 'h-6 px-2 max-w-[220px]'
+          : 'h-6 px-3 w-full max-w-md min-w-[220px]',
+        className
+      )}
+    >
+      <MaterialIcon name="search" size="xs" />
+      <span className="flex-1 text-left text-xs truncate">{placeholder}</span>
+      <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium text-md-on-surface-variant/80 ml-1">
+        {shortcut}
+      </kbd>
+    </button>
   );
 }
 
@@ -221,6 +269,29 @@ export function Navbar({
   showMobileTabs,
   mobileShowBack,
 }: NavbarProps) {
+  const stripHamburgerAction = (items: NavbarSectionItem[]) => {
+    // Drop the "Open Command Bar" icon action (and stray dividers it leaves
+    // behind) so it isn't duplicated alongside the persistent centered trigger.
+    const withoutAction = items.filter(
+      (item) => isDivider(item) || item.id !== COMMAND_BAR_ACTION_ID
+    );
+    const cleaned: NavbarSectionItem[] = [];
+    for (const item of withoutAction) {
+      if (isDivider(item)) {
+        if (cleaned.length === 0) continue;
+        if (isDivider(cleaned[cleaned.length - 1])) continue;
+      }
+      cleaned.push(item);
+    }
+    while (cleaned.length > 0 && isDivider(cleaned[cleaned.length - 1])) {
+      cleaned.pop();
+    }
+    return cleaned;
+  };
+
+  const visibleLeftItems = stripHamburgerAction(leftItems);
+  const visibleRightItems = stripHamburgerAction(rightItems);
+
   const renderItem = (item: NavbarSectionItem, key: string) => {
     if (isDivider(item)) {
       return <div key={key} className="h-4 w-px bg-md-outline-variant" />;
@@ -359,7 +430,7 @@ export function Navbar({
           <div className="flex items-center gap-1 shrink-0">
             <SyncErrorIndicator errors={syncErrors} />
             {isOnProjectPage &&
-              rightItems
+              visibleRightItems
                 .filter((item): item is NavbarActionItem => !isDivider(item))
                 .map((item) => (
                   <NavbarIconButton
@@ -376,6 +447,9 @@ export function Navbar({
                     }
                   />
                 ))}
+            {onOpenCommandBar && (
+              <CommandBarTrigger onClick={onOpenCommandBar} compact />
+            )}
             {onReload && (
               <button
                 type="button"
@@ -394,16 +468,6 @@ export function Navbar({
                 aria-label="Settings"
               >
                 <MaterialIcon name="settings" size="sm" />
-              </button>
-            )}
-            {!isOnProjectPage && onOpenCommandBar && (
-              <button
-                type="button"
-                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
-                onClick={onOpenCommandBar}
-                aria-label="Command bar"
-              >
-                <MaterialIcon name="menu" size="sm" />
               </button>
             )}
             {mobileUserSlot && (
@@ -469,34 +533,35 @@ export function Navbar({
             ))}
           </div>
         )}
-        <div className="flex items-center gap-base px-2">
-          {leftItems.map((item, index) =>
+        <div className="flex items-center gap-base px-2 min-w-0">
+          {visibleLeftItems.map((item, index) =>
             renderItem(
               item,
               `left-${isDivider(item) ? 'divider' : item.id}-${index}`
             )
           )}
           {leftSlot}
+          {breadcrumbs && breadcrumbs.length > 0 ? (
+            <NavbarBreadcrumbs
+              breadcrumbs={breadcrumbs}
+              textClassName="text-body-sm"
+            />
+          ) : workspaceTitle ? (
+            <p
+              data-tauri-drag-region
+              className="text-body-sm text-md-outline truncate cursor-default select-none"
+            >
+              {workspaceTitle}
+            </p>
+          ) : null}
         </div>
       </div>
 
       <div
         data-tauri-drag-region
-        className="flex-1 flex items-center justify-center min-w-0"
+        className="flex-1 flex items-center justify-center min-w-0 px-2"
       >
-        {breadcrumbs && breadcrumbs.length > 0 ? (
-          <NavbarBreadcrumbs
-            breadcrumbs={breadcrumbs}
-            textClassName="text-body-sm"
-          />
-        ) : (
-          <p
-            data-tauri-drag-region
-            className="text-body-sm text-md-outline truncate cursor-default select-none"
-          >
-            {workspaceTitle ?? ''}
-          </p>
-        )}
+        {onOpenCommandBar && <CommandBarTrigger onClick={onOpenCommandBar} />}
       </div>
 
       <div
@@ -504,7 +569,7 @@ export function Navbar({
         className="flex-1 flex items-center justify-end gap-base px-3"
       >
         <SyncErrorIndicator errors={syncErrors} />
-        {rightItems.map((item, index) =>
+        {visibleRightItems.map((item, index) =>
           renderItem(
             item,
             `right-${isDivider(item) ? 'divider' : item.id}-${index}`
