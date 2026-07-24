@@ -820,6 +820,13 @@
     "historyEmpty": "No requests yet. Your requests and their results will show up here.",
     "openWorkspace": "View run",
     "retry": "Retry",
+    "stop": "Stop",
+    "remove": "Remove",
+    "stopConfirmMessage": "Stop this analyst request? The container will be stopped and the request removed.",
+    "removeConfirmMessage": "Remove this queued request from the analyst's queue?",
+    "cancelConfirm": "Cancel",
+    "stopConfirm": "Stop",
+    "removeConfirm": "Remove",
     "dismiss": "Dismiss",
     "status": {
       "queued": "Queued",

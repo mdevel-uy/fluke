@@ -820,6 +820,13 @@
     "historyEmpty": "Aucune demande pour l'instant. Vos demandes et leurs résultats apparaîtront ici.",
     "openWorkspace": "Voir l'exécution",
     "retry": "Réessayer",
+    "stop": "Arrêter",
+    "remove": "Retirer",
+    "stopConfirmMessage": "Arrêter cette demande ? Le conteneur sera arrêté et la demande supprimée.",
+    "removeConfirmMessage": "Retirer cette demande de la file de l'analyste ?",
+    "cancelConfirm": "Annuler",
+    "stopConfirm": "Arrêter",
+    "removeConfirm": "Retirer",
     "dismiss": "Fermer",
     "status": {
       "queued": "En file",

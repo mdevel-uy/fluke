@@ -820,6 +820,13 @@
     "historyEmpty": "还没有请求。你的请求及其结果将显示在这里。",
     "openWorkspace": "查看执行",
     "retry": "重试",
+    "stop": "停止",
+    "remove": "移除",
+    "stopConfirmMessage": "确定停止该请求吗？容器将被停止，请求也会被删除。",
+    "removeConfirmMessage": "确定要从分析师队列中移除该请求吗？",
+    "cancelConfirm": "取消",
+    "stopConfirm": "停止",
+    "removeConfirm": "移除",
     "dismiss": "关闭",
     "status": {
       "queued": "排队中",

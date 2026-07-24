@@ -820,6 +820,13 @@
     "historyEmpty": "Todavía no hay pedidos. Acá van a aparecer tus pedidos y sus resultados.",
     "openWorkspace": "Ver ejecución",
     "retry": "Reintentar",
+    "stop": "Detener",
+    "remove": "Quitar de cola",
+    "stopConfirmMessage": "¿Detener este pedido? Se para el contenedor y se elimina el pedido.",
+    "removeConfirmMessage": "¿Quitar este pedido de la cola del analista?",
+    "cancelConfirm": "Cancelar",
+    "stopConfirm": "Detener",
+    "removeConfirm": "Quitar",
     "dismiss": "Cerrar",
     "status": {
       "queued": "En cola",
