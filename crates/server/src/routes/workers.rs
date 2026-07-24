@@ -14,7 +14,10 @@ use db::models::{
 };
 use deployment::Deployment;
 use serde::{Deserialize, Serialize};
-use services::services::worker_orchestrator::{self, StartError};
+use services::services::{
+    container::ContainerService,
+    worker_orchestrator::{self, StartError},
+};
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
