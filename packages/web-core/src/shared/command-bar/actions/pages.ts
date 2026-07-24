@@ -147,6 +147,26 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
     ],
   },
 
+  // Quick Open page - VSCode-style "Go to Page" navigator (CMD+P)
+  goToPage: {
+    id: 'go-to-page',
+    title: 'Go to Page',
+    items: [
+      {
+        type: 'group',
+        label: 'Pages',
+        items: [
+          { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSprint },
+          { type: 'action', action: Actions.GoToIssues },
+          { type: 'action', action: Actions.GoToDashboard },
+          { type: 'action', action: Actions.GoToWorkers },
+          { type: 'action', action: Actions.GoToAnalystDesk },
+        ],
+      },
+    ],
+  },
+
   // Issue actions page - shown in kanban mode
   issueActions: {
     id: 'issue-actions',
