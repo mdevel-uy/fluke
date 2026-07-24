@@ -354,6 +354,13 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const cancelTaskMutation = useMutation({
+    mutationFn: async (params: { workerId: string; taskId: string }) => {
+      await workersApi.cancelTask(params.workerId, params.taskId);
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
   const setPriorityMutation = useMutation({
     mutationFn: async (params: {
       issueNumber: number;
@@ -541,6 +548,26 @@ export function SprintPage() {
       );
     },
     [discardTaskMutation]
+  );
+
+  const handleCancelTask = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      cancelTaskMutation.mutate(
+        { workerId: task.worker_id, taskId: task.id },
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast(
+              'error',
+              t('sprint.toast.cancelError', {
+                message: err instanceof Error ? err.message : String(err),
+              })
+            ),
+        }
+      );
+    },
+    [cancelTaskMutation, pushToast, t]
   );
 
   const repoTasks = useMemo(
@@ -953,7 +980,11 @@ export function SprintPage() {
                     return (
                       <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
-                        <InProgressTaskCard task={task} />
+                        <InProgressTaskCard
+                          task={task}
+                          isBusy={busyTaskId === task.id}
+                          onStop={() => handleCancelTask(task)}
+                        />
                       </div>
                     );
                   })
@@ -973,7 +1004,11 @@ export function SprintPage() {
                     return (
                       <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
-                        <InReviewTaskCard task={task} />
+                        <InReviewTaskCard
+                          task={task}
+                          isBusy={busyTaskId === task.id}
+                          onUnassign={() => handleCancelTask(task)}
+                        />
                       </div>
                     );
                   })

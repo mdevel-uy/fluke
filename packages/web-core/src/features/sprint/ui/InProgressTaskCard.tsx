@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
@@ -7,16 +8,36 @@ import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 
 interface InProgressTaskCardProps {
   task: WorkerTask;
+  isBusy: boolean;
+  onStop: () => void;
 }
 
-export function InProgressTaskCard({ task }: InProgressTaskCardProps) {
+export function InProgressTaskCard({
+  task,
+  isBusy,
+  onStop,
+}: InProgressTaskCardProps) {
   const { t } = useTranslation('common');
   const appNavigation = useAppNavigation();
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const handleOpen = () => {
     if (task.workspace_id) {
       appNavigation.goToWorkspace(task.workspace_id);
     }
+  };
+
+  const handleStopClick = () => {
+    setIsConfirming(true);
+  };
+
+  const handleConfirm = () => {
+    setIsConfirming(false);
+    onStop();
+  };
+
+  const handleCancelConfirm = () => {
+    setIsConfirming(false);
   };
 
   return (
@@ -37,18 +58,65 @@ export function InProgressTaskCard({ task }: InProgressTaskCardProps) {
           {taskDisplayTitle(task)}
         </p>
       </div>
-      {task.workspace_id && (
-        <div className="flex justify-end">
+      {isConfirming ? (
+        <div className="flex flex-col gap-2 rounded-md border border-md-error/30 bg-md-error/5 px-3 py-2">
+          <p className="text-body-sm text-md-on-surface">
+            {t('sprint.inProgress.stopConfirmMessage')}
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={handleCancelConfirm}
+              disabled={isBusy}
+            >
+              {t('buttons.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              size="xs"
+              onClick={handleConfirm}
+              disabled={isBusy}
+            >
+              {isBusy ? (
+                <MaterialIcon
+                  name="progress_activity"
+                  size="xs"
+                  className="animate-spin"
+                />
+              ) : (
+                <MaterialIcon name="stop_circle" size="xs" />
+              )}
+              {t('sprint.inProgress.stopAndUnassign')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end gap-1">
           <Button
-            variant="tonal"
+            variant="ghost"
             size="xs"
-            onClick={handleOpen}
-            title={t('sprint.inProgress.openWorkspace')}
-            className="active:scale-95 transition-all duration-200"
+            onClick={handleStopClick}
+            disabled={isBusy}
+            title={t('sprint.inProgress.stop')}
+            aria-label={t('sprint.inProgress.stop')}
+            className="text-md-on-surface-variant hover:text-md-error hover:bg-md-error/10 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <MaterialIcon name="open_in_new" size="xs" />
-            {t('sprint.inProgress.openWorkspace')}
+            <MaterialIcon name="stop_circle" size="xs" />
+            {t('sprint.inProgress.stop')}
           </Button>
+          {task.workspace_id && (
+            <Button
+              variant="tonal"
+              size="xs"
+              onClick={handleOpen}
+              title={t('sprint.inProgress.openWorkspace')}
+              className="active:scale-95 transition-all duration-200"
+            >
+              <MaterialIcon name="open_in_new" size="xs" />
+              {t('sprint.inProgress.openWorkspace')}
+            </Button>
+          )}
         </div>
       )}
     </article>

@@ -863,9 +863,17 @@
     },
     "inProgress": {
       "openWorkspace": "Ouvrir l'espace de travail",
+      "stop": "Arrêter",
+      "stopConfirmTitle": "Arrêter l'exécution ?",
+      "stopConfirmMessage": "Arrêter l'exécution et renvoyer le ticket au backlog ?",
+      "stopAndUnassign": "Arrêter et désassigner",
       "empty": "Aucune tâche en cours."
     },
     "inReview": {
+      "unassign": "Désassigner",
+      "unassignConfirmTitle": "Désassigner la tâche ?",
+      "unassignConfirmMessage": "Désassigner la tâche et renvoyer le ticket au backlog ?",
+      "unassignConfirm": "Désassigner",
       "empty": "Rien en attente de revue."
     },
     "done": {
@@ -904,7 +912,9 @@
       "startAllError": "Échec du démarrage des workers : {{message}}",
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
       "reviewApproved": "Révision approuvée : {{title}}",
-      "reviewChangesRequested": "Modifications demandées : {{title}}"
+      "reviewChangesRequested": "Modifications demandées : {{title}}",
+      "cancelSuccess": "Tâche arrêtée et renvoyée au backlog.",
+      "cancelError": "Échec de l'arrêt de la tâche : {{message}}"
     },
     "failed": {
       "retry": "Réessayer",
