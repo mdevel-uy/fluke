@@ -75,6 +75,8 @@ pub enum ApiError {
     BadRequest(String),
     #[error("Conflict: {0}")]
     Conflict(String),
+    #[error("Unprocessable entity: {0}")]
+    UnprocessableEntity(String),
     #[error("Forbidden: {0}")]
     Forbidden(String),
     #[error("Too many requests: {0}")]
@@ -461,6 +463,11 @@ impl IntoResponse for ApiError {
             ),
             ApiError::BadRequest(msg) => ErrorInfo::bad_request("BadRequest", msg.clone()),
             ApiError::Conflict(msg) => ErrorInfo::conflict("ConflictError", msg.clone()),
+            ApiError::UnprocessableEntity(msg) => ErrorInfo::with_status(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "UnprocessableEntity",
+                msg.clone(),
+            ),
             ApiError::Forbidden(msg) => {
                 ErrorInfo::with_status(StatusCode::FORBIDDEN, "ForbiddenError", msg.clone())
             }
