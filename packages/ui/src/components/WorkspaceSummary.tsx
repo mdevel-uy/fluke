@@ -212,7 +212,7 @@ export function WorkspaceSummary({
           {showStatusDot && (
             <span
               className={cn(
-                'size-dot shrink-0 rounded-full',
+                'h-[7px] w-[7px] shrink-0 rounded-full',
                 hasStalledTask || isFailed
                   ? 'bg-error'
                   : hasPendingApproval
@@ -226,7 +226,7 @@ export function WorkspaceSummary({
           )}
           <span
             className={cn(
-              'min-w-0 flex-1 truncate',
+              'min-w-0 flex-1 truncate text-body',
               isWorkerCard
                 ? 'font-semibold text-high'
                 : cn('font-medium', isActive ? 'text-high' : 'text-normal')
@@ -259,16 +259,9 @@ export function WorkspaceSummary({
             </span>
           )}
 
-          {/* Stalled worker task — agent stopped but the task didn't move on */}
-          {hasStalledTask && (
-            <TriangleIcon
-              className="size-icon-xs text-error shrink-0"
-              weight="fill"
-              aria-label={t('workspaces.stalledTask')}
-            >
-              <title>{t('workspaces.stalledTask')}</title>
-            </TriangleIcon>
-          )}
+          {/* Legacy status icons stay off worker cards: the mock keeps their
+              header to dot + name + chips, and the same signals live in the
+              status dot, the meta row, and the expanded panel. */}
 
           {/* Dev server running */}
           {hasRunningDevServer && (
@@ -279,7 +272,7 @@ export function WorkspaceSummary({
           )}
 
           {/* Pending approval - raised hand */}
-          {hasPendingApproval && (
+          {!isWorkerCard && hasPendingApproval && (
             <HandIcon
               className="size-icon-xs text-brand-on-surface shrink-0"
               weight="fill"
@@ -287,7 +280,7 @@ export function WorkspaceSummary({
           )}
 
           {/* Failed/killed status (only when not running) */}
-          {!isRunning && isFailed && (
+          {!isWorkerCard && !isRunning && isFailed && (
             <TriangleIcon
               className="size-icon-xs text-error shrink-0"
               weight="fill"
@@ -295,7 +288,7 @@ export function WorkspaceSummary({
           )}
 
           {/* Unseen activity indicator (only when not running and not failed) */}
-          {hasUnseenActivity && !isRunning && !isFailed && (
+          {!isWorkerCard && hasUnseenActivity && !isRunning && !isFailed && (
             <CircleIcon
               className="size-icon-xs text-brand-on-surface shrink-0"
               weight="fill"
@@ -303,13 +296,13 @@ export function WorkspaceSummary({
           )}
 
           {/* PR status icon */}
-          {prStatus === 'open' && (
+          {!isWorkerCard && prStatus === 'open' && (
             <GitPullRequestIcon
               className="size-icon-xs text-success shrink-0"
               weight="fill"
             />
           )}
-          {prStatus === 'merged' && (
+          {!isWorkerCard && prStatus === 'merged' && (
             <GitPullRequestIcon
               className="size-icon-xs text-merged shrink-0"
               weight="fill"
@@ -423,6 +416,14 @@ export function WorkspaceSummary({
                         · {t('workspaces.prMerged', { number: prNumber })}
                       </span>
                     )}
+                    {isWorkerCard &&
+                      prStatus === 'open' &&
+                      prNumber != null && (
+                        <span className="text-success">
+                          {' '}
+                          · {t('workspaces.prOpen', { number: prNumber })}
+                        </span>
+                      )}
                   </span>
                 </>
               ) : null}

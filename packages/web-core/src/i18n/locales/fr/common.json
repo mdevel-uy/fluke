@@ -133,6 +133,7 @@
     "activityWaitingApproval": "En attente d'approbation",
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} fusionnée",
+    "prOpen": "PR #{{number}} ouverte",
     "expand": "Afficher les détails",
     "collapse": "Masquer les détails",
     "details": {
