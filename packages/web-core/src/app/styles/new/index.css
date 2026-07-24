@@ -107,6 +107,8 @@ html {
     --success: 120 77% 27%; /* #107C10 */
     --success-foreground: 120 77% 14%;
     --merged: 271 81% 46%;
+    --teal: 187 80% 29%;
+    --pink: 327 80% 40%;
 
     /* Status (light) */
     --_success: 120 77% 27%;
@@ -214,6 +216,8 @@ html {
     --success: 117 45% 67%; /* #89D185 */
     --success-foreground: 117 45% 85%;
     --merged: 271 81% 66%;
+    --teal: 187 60% 60%;
+    --pink: 327 85% 72%;
 
     /* Status (dark) — text roles lighten; solid fills keep light hex */
     --_success: 117 45% 67%;

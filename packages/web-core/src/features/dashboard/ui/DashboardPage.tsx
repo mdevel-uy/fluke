@@ -24,12 +24,10 @@ import {
   useCompletedTasksToday,
 } from '@/features/dashboard/model/useCompletedTasks';
 import { cn } from '@/shared/lib/utils';
-
-const ROLE_CHIP_CLASS: Record<string, string> = {
-  developer: 'bg-info/10 text-info',
-  analyst: 'bg-brand/10 text-brand-on-surface',
-  reviewer: 'bg-warning/10 text-warning',
-};
+import {
+  ROLE_CHIP_CLASS,
+  ROLE_CHIP_FALLBACK,
+} from '@/features/workers/model/chipColors';
 
 const CONTEXT_WARN_RATIO = 0.7;
 const CONTEXT_CRIT_RATIO = 0.9;
@@ -735,7 +733,7 @@ export function DashboardPage() {
                           className={cn(
                             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
                             ROLE_CHIP_CLASS[worker.role ?? ''] ??
-                              'bg-secondary text-normal'
+                              ROLE_CHIP_FALLBACK
                           )}
                         >
                           {worker.role}

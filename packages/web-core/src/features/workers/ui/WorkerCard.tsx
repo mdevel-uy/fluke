@@ -26,13 +26,12 @@ import { cn } from '@/shared/lib/utils';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
+import {
+  modelChipClass,
+  ROLE_CHIP_CLASS,
+  ROLE_CHIP_FALLBACK,
+} from '../model/chipColors';
 import { WorkerTaskList } from './WorkerTaskList';
-
-const ROLE_CHIP_CLASS: Record<string, string> = {
-  developer: 'bg-info/10 text-info',
-  analyst: 'bg-brand/10 text-brand-on-surface',
-  reviewer: 'bg-warning/10 text-warning',
-};
 
 /** Compact duration since a timestamp: 12m, 3h, 2d */
 function formatDurationSince(dateString: string): string {
@@ -120,14 +119,18 @@ export function WorkerCard({
         <span
           className={cn(
             'shrink-0 rounded-full px-2 py-px text-xs font-medium',
-            ROLE_CHIP_CLASS[worker.role ?? 'developer'] ??
-              'bg-secondary text-normal'
+            ROLE_CHIP_CLASS[worker.role ?? 'developer'] ?? ROLE_CHIP_FALLBACK
           )}
         >
           {t(`workers.roles.${worker.role ?? 'developer'}`)}
         </span>
         {worker.model && (
-          <span className="shrink-0 rounded-full bg-merged/10 px-2 py-px font-mono text-xs text-merged">
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-2 py-px font-mono text-xs',
+              modelChipClass(worker.model)
+            )}
+          >
             {worker.model}
           </span>
         )}
