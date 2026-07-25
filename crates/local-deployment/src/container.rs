@@ -20,6 +20,7 @@ use db::{
         repo::Repo,
         scratch::{DraftFollowUpData, Scratch, ScratchType},
         session::{Session, SessionError},
+        worker::Worker,
         workspace::Workspace,
         workspace_repo::WorkspaceRepo,
     },
@@ -1369,6 +1370,26 @@ impl ContainerService for LocalContainerService {
         // Always inject workspace/session context
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
+
+        // Per-worker GitHub PAT: expose it to the agent process as
+        // GH_TOKEN/GITHUB_TOKEN so any `gh` / `git` operation the agent
+        // performs (notably reviewer workers running `gh pr review` and
+        // authors pushing commits) authenticates as the worker's identity
+        // instead of falling back to the machine's stored gh credentials.
+        // Fetched via a scalar query so the token itself is only read when
+        // we're about to hand it to the child process.
+        match Worker::find_github_pat_by_workspace_id(&self.db.pool, workspace.id).await {
+            Ok(Some(token)) => {
+                env.insert("GH_TOKEN", &token);
+                env.insert("GITHUB_TOKEN", &token);
+            }
+            Ok(None) => {}
+            Err(e) => tracing::warn!(
+                workspace_id = %workspace.id,
+                "Failed to load worker GitHub PAT for env injection: {}",
+                e
+            ),
+        }
 
         // Create the child and stream, add to execution tracker with timeout
         let mut spawned = tokio::time::timeout(

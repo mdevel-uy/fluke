@@ -1493,6 +1493,19 @@ impl GitService {
         branch_name: &str,
         force: bool,
     ) -> Result<(), GitServiceError> {
+        self.push_to_remote_with_token(worktree_path, branch_name, force, None)
+    }
+
+    /// Same as [`push_to_remote`], but authenticates with the given PAT
+    /// instead of the machine's git credential helper. Pass `None` to
+    /// preserve the historical behaviour.
+    pub fn push_to_remote_with_token(
+        &self,
+        worktree_path: &Path,
+        branch_name: &str,
+        force: bool,
+        token: Option<&str>,
+    ) -> Result<(), GitServiceError> {
         let repo = Repository::open(worktree_path)?;
         self.check_worktree_clean(&repo)?;
 
@@ -1500,7 +1513,9 @@ impl GitService {
         let remote = self.default_remote(&repo, worktree_path)?;
 
         let git_cli = GitCli::new();
-        if let Err(e) = git_cli.push(worktree_path, &remote.url, branch_name, force) {
+        if let Err(e) =
+            git_cli.push_with_token(worktree_path, &remote.url, branch_name, force, token)
+        {
             tracing::error!("Push to remote failed: {}", e);
             return Err(e.into());
         }

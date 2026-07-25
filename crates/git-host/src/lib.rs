@@ -84,8 +84,20 @@ pub enum GitHostService {
 
 impl GitHostService {
     pub fn from_url(url: &str) -> Result<Self, GitHostError> {
+        Self::from_url_with_token(url, None)
+    }
+
+    /// Like `from_url`, but plumbs an optional per-operation credential to
+    /// the underlying provider. Currently only GitHub honours the token
+    /// (via `GH_TOKEN`); Azure DevOps ignores it and falls back to the
+    /// machine's `az` credentials — this keeps the trait signatures uniform
+    /// without pretending to support something we don't.
+    pub fn from_url_with_token(
+        url: &str,
+        token: Option<String>,
+    ) -> Result<Self, GitHostError> {
         match detect_provider_from_url(url) {
-            ProviderKind::GitHub => Ok(Self::GitHub(GitHubProvider::new()?)),
+            ProviderKind::GitHub => Ok(Self::GitHub(GitHubProvider::with_token(token)?)),
             ProviderKind::AzureDevOps => Ok(Self::AzureDevOps(AzureDevOpsProvider::new()?)),
             ProviderKind::Unknown => Err(GitHostError::UnsupportedProvider),
         }

@@ -15,11 +15,13 @@ use db::models::{
     workspace::Workspace,
 };
 use deployment::Deployment;
+use git_host::github::GhCli;
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     container::ContainerService,
     worker_orchestrator::{self, StartError},
 };
+use tokio::task;
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -35,6 +37,10 @@ pub struct WorkerResponse {
     pub role: String,
     #[ts(optional)]
     pub model: Option<String>,
+    /// Whether the worker has a personal GitHub PAT stored. The token itself
+    /// is never exposed — the UI shows this boolean so the form can render a
+    /// masked placeholder and let the user replace or clear it.
+    pub has_github_pat: bool,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -135,6 +141,11 @@ pub struct CreateWorkerRequest {
     pub role: Option<String>,
     #[ts(optional)]
     pub model: Option<String>,
+    /// Optional GitHub PAT to authenticate this worker's push/PR/review
+    /// operations. Empty string or omitted → fall back to global gh auth.
+    /// Validated against `/user` before persisting; never returned by the API.
+    #[ts(optional)]
+    pub github_pat: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -148,6 +159,11 @@ pub struct UpdateWorkerRequest {
     #[serde(default, deserialize_with = "deserialize_double_option")]
     #[ts(optional, type = "string | null")]
     pub model: Option<Option<String>>,
+    /// `undefined` = don't touch PAT; `null` = clear (fall back to global gh);
+    /// `string` = new PAT (validated before persisting).
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "string | null")]
+    pub github_pat: Option<Option<String>>,
 }
 
 /// Distinguish a missing field from an explicit `null` for `Option<Option<T>>`.
@@ -235,11 +251,21 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         soul: worker.soul,
         role: worker.role,
         model: worker.model,
+        has_github_pat: worker.github_pat.is_some(),
         active_workspace_id,
         queued_count,
         completed_count,
         created_at: worker.created_at,
     })
+}
+
+/// Validate a PAT by calling GitHub `/user`. Returns `Ok(login)` on success,
+/// `Err(reason)` otherwise. Runs on a blocking thread because `gh` shells out.
+async fn validate_github_pat(token: String) -> Result<String, String> {
+    task::spawn_blocking(move || GhCli::new().validate_token(&token))
+        .await
+        .map_err(|e| format!("Failed to run validation: {e}"))?
+        .map_err(|e| e.to_string())
 }
 
 pub async fn list_workers(
@@ -273,6 +299,17 @@ pub async fn create_worker(
         }
     }
 
+    // Validate the PAT before touching the DB. Empty string is treated as
+    // "no token" (same as omitted).
+    let github_pat = normalize_pat(payload.github_pat);
+    if let Some(ref token) = github_pat {
+        if let Err(reason) = validate_github_pat(token.clone()).await {
+            return Err(ApiError::BadRequest(format!(
+                "GitHub PAT rejected: {reason}"
+            )));
+        }
+    }
+
     let pool = &deployment.db().pool;
     let worker = Worker::create(
         pool,
@@ -282,6 +319,7 @@ pub async fn create_worker(
             soul: payload.soul,
             role: payload.role,
             model: payload.model.filter(|m| !m.is_empty()),
+            github_pat,
         },
     )
     .await?;
@@ -336,6 +374,20 @@ pub async fn update_worker(
     // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
     let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
 
+    // Normalize PAT the same way, then validate a *new non-empty* value before
+    // persisting. `None` (missing field) leaves it alone; `Some(None)` clears
+    // without any GitHub round-trip.
+    let github_pat = payload
+        .github_pat
+        .map(|opt| opt.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()));
+    if let Some(Some(ref token)) = github_pat {
+        if let Err(reason) = validate_github_pat(token.clone()).await {
+            return Err(ApiError::BadRequest(format!(
+                "GitHub PAT rejected: {reason}"
+            )));
+        }
+    }
+
     let worker = Worker::update(
         pool,
         worker_id,
@@ -351,12 +403,19 @@ pub async fn update_worker(
             soul: payload.soul,
             role,
             model,
+            github_pat,
         },
     )
     .await?;
 
     let response = to_response(pool, worker).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+/// Empty / whitespace-only PAT is treated as "no token" — same as omitting
+/// the field. Prevents a user from accidentally storing "" as their token.
+fn normalize_pat(pat: Option<String>) -> Option<String> {
+    pat.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
 pub async fn delete_worker(
@@ -374,6 +433,11 @@ pub async fn delete_worker(
 /// worker. The duplicate is named `"Copia de {name}"` and starts empty — no
 /// tasks or workspaces are copied. Returns 201 with the new worker, or 404
 /// when the source worker does not exist.
+///
+/// The source worker's GitHub PAT is intentionally NOT copied: cloning a
+/// second identity that shares the same credentials would undermine the
+/// point of per-worker auth. The user must add a PAT explicitly on the
+/// duplicate.
 pub async fn duplicate_worker(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
@@ -395,6 +459,7 @@ pub async fn duplicate_worker(
             soul: source.soul,
             role: Some(source.role),
             model: source.model,
+            github_pat: None,
         },
     )
     .await?;
@@ -874,12 +939,48 @@ pub async fn list_completed_worker_tasks(
     )))
 }
 
+/// Body for `POST /api/workers/validate-github-pat` — a lightweight probe
+/// used by the form to confirm a token is accepted before saving. The token
+/// is not stored anywhere.
+#[derive(Debug, Deserialize, TS)]
+pub struct ValidateGithubPatRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct ValidateGithubPatResponse {
+    /// GitHub login for the token owner (e.g. "chewax"), so the UI can
+    /// confirm to the user which identity the PAT belongs to.
+    pub login: String,
+}
+
+pub async fn validate_github_pat_endpoint(
+    Json(payload): Json<ValidateGithubPatRequest>,
+) -> Result<ResponseJson<ApiResponse<ValidateGithubPatResponse>>, ApiError> {
+    let token = payload.token.trim().to_string();
+    if token.is_empty() {
+        return Err(ApiError::BadRequest("token is required".into()));
+    }
+    match validate_github_pat(token).await {
+        Ok(login) => Ok(ResponseJson(ApiResponse::success(
+            ValidateGithubPatResponse { login },
+        ))),
+        Err(reason) => Err(ApiError::BadRequest(format!(
+            "GitHub PAT rejected: {reason}"
+        ))),
+    }
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/workers", get(list_workers).post(create_worker))
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
+        .route(
+            "/workers/validate-github-pat",
+            post(validate_github_pat_endpoint),
+        )
         .route(
             "/workers/{worker_id}",
             get(get_worker).patch(update_worker).delete(delete_worker),
@@ -925,5 +1026,22 @@ mod tests {
 
         let set: UpdateWorkerRequest = serde_json::from_str(r#"{"model": "haiku"}"#).unwrap();
         assert_eq!(set.model, Some(Some("haiku".to_string())));
+    }
+
+    /// The same three-state contract must apply to `github_pat` — missing
+    /// means "don't touch the stored PAT", `null` means "clear it and fall
+    /// back to global gh auth", and a string means "replace with this value".
+    #[test]
+    fn update_worker_request_github_pat_distinguishes_missing_from_null() {
+        let missing: UpdateWorkerRequest = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.github_pat, None);
+
+        let null: UpdateWorkerRequest =
+            serde_json::from_str(r#"{"github_pat": null}"#).unwrap();
+        assert_eq!(null.github_pat, Some(None));
+
+        let set: UpdateWorkerRequest =
+            serde_json::from_str(r#"{"github_pat": "ghp_abc"}"#).unwrap();
+        assert_eq!(set.github_pat, Some(Some("ghp_abc".to_string())));
     }
 }

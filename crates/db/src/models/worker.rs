@@ -15,6 +15,18 @@ pub struct Worker {
     pub soul: String,
     pub role: String,
     pub model: Option<String>,
+    /// Personal Access Token for GitHub. Write-only: never returned by the
+    /// API. When set, push/PR/review operations performed on behalf of this
+    /// worker use this token (via `GH_TOKEN` / git http headers) instead of
+    /// the machine's global gh auth.
+    ///
+    /// Defensive `skip_serializing`: this struct derives `Serialize` for
+    /// internal use, but if a future caller accidentally hands a `Worker`
+    /// to axum/tokio-json, the token must not leak. The public shape is
+    /// `WorkerResponse { has_github_pat: bool }` — that is the only value
+    /// the API is allowed to expose.
+    #[serde(default, skip_serializing)]
+    pub github_pat: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -25,6 +37,7 @@ pub struct CreateWorker {
     pub soul: String,
     pub role: Option<String>,
     pub model: Option<String>,
+    pub github_pat: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -35,12 +48,14 @@ pub struct UpdateWorker {
     pub role: Option<String>,
     /// `None` = don't change; `Some(None)` = clear to global default; `Some(Some(x))` = set override
     pub model: Option<Option<String>>,
+    /// `None` = don't touch; `Some(None)` = clear the PAT; `Some(Some(x))` = set new PAT.
+    pub github_pat: Option<Option<String>>,
 }
 
 impl Worker {
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
                FROM workers
                ORDER BY created_at ASC",
         )
@@ -50,7 +65,7 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
                FROM workers
                WHERE id = ?1",
         )
@@ -63,8 +78,8 @@ impl Worker {
         let id = Uuid::new_v4();
         let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul, role, model)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         )
         .bind(id)
         .bind(&data.name)
@@ -72,6 +87,7 @@ impl Worker {
         .bind(&data.soul)
         .bind(&role)
         .bind(&data.model)
+        .bind(&data.github_pat)
         .execute(pool)
         .await?;
 
@@ -95,14 +111,19 @@ impl Worker {
         let role = data.role.as_ref().unwrap_or(&existing.role);
         // None = keep existing; Some(None) = clear; Some(Some(x)) = set to x
         let model = data.model.clone().unwrap_or(existing.model.clone());
+        let github_pat = data
+            .github_pat
+            .clone()
+            .unwrap_or(existing.github_pat.clone());
 
         sqlx::query(
             "UPDATE workers
-                SET name  = ?2,
-                    emoji = ?3,
-                    soul  = ?4,
-                    role  = ?5,
-                    model = ?6
+                SET name       = ?2,
+                    emoji      = ?3,
+                    soul       = ?4,
+                    role       = ?5,
+                    model      = ?6,
+                    github_pat = ?7
               WHERE id = ?1",
         )
         .bind(id)
@@ -111,6 +132,7 @@ impl Worker {
         .bind(soul)
         .bind(role)
         .bind(model)
+        .bind(github_pat)
         .execute(pool)
         .await?;
 
@@ -245,7 +267,7 @@ impl Worker {
     /// First worker with the `reviewer` role (by creation order), if any.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
                FROM workers
                WHERE role = 'reviewer'
                ORDER BY created_at ASC
@@ -268,5 +290,25 @@ impl Worker {
         .bind(workspace_id)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Convenience: load the worker's PAT (if any) by workspace. Returns
+    /// `None` when the workspace has no worker attached or the worker has
+    /// no PAT set. Kept as a scalar query so we never load the token unless
+    /// the caller specifically asks for it.
+    pub async fn find_github_pat_by_workspace_id(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT w.github_pat
+               FROM workspaces ws
+               JOIN workers w ON w.id = ws.worker_id
+               WHERE ws.id = ?1",
+        )
+        .bind(workspace_id)
+        .fetch_optional(pool)
+        .await
+        .map(|opt| opt.flatten())
     }
 }

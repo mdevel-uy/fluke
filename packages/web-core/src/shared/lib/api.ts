@@ -1829,9 +1829,20 @@ export interface CreateWorkerRequest {
   soul: string;
   role?: string;
   model?: string | null;
+  /**
+   * Optional per-worker GitHub PAT. Sent write-only; the server never
+   * returns it. Empty string or `null` means "no override" — the worker
+   * falls back to the machine's global gh credentials.
+   */
+  github_pat?: string | null;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
+
+export interface ValidateGithubPatResponse {
+  /** GitHub login the token belongs to (e.g. "chewax"). */
+  login: string;
+}
 
 /**
  * Body for POST /workers/{worker_id}/tasks/{task_id}/reassign.
@@ -1879,6 +1890,21 @@ export const workersApi = {
       method: 'POST',
     });
     return handleApiResponse<WorkerResponse>(response);
+  },
+
+  /**
+   * Probe a GitHub PAT against `/user`. Returns the token's login on
+   * success; throws with the server's rejection reason on failure. The
+   * token is not stored — this is a pre-save validation for the form.
+   */
+  validateGithubPat: async (
+    token: string
+  ): Promise<ValidateGithubPatResponse> => {
+    const response = await makeRequest('/api/workers/validate-github-pat', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    return handleApiResponse<ValidateGithubPatResponse>(response);
   },
 
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {

@@ -14,6 +14,7 @@ use db::models::{
     pull_request::PullRequest,
     repo::{Repo, RepoError},
     session::{CreateSession, Session},
+    worker::Worker,
     workspace::{CreateWorkspace, Workspace, WorkspaceError},
     workspace_repo::{CreateWorkspaceRepo, WorkspaceRepo},
 };
@@ -253,7 +254,19 @@ pub async fn create_pr(
         Ok(true) => {}
     }
 
-    if let Err(e) = git.push_to_remote(&worktree_path, &workspace.branch, false) {
+    // Resolve the author worker's PAT (if any) so push AND PR creation
+    // authenticate as that worker's GitHub identity instead of relying on
+    // the machine's global gh credentials. Manual PR creation from the UI
+    // hits this path — same identity story as agent-driven creation.
+    let worker_pat =
+        Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+
+    if let Err(e) = git.push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        false,
+        worker_pat.as_deref(),
+    ) {
         tracing::error!("Failed to push branch to remote: {}", e);
         match e {
             GitServiceError::GitCLI(GitCliError::AuthFailed(_)) => {
@@ -270,7 +283,8 @@ pub async fn create_pr(
         }
     }
 
-    let git_host = match GitHostService::from_url(&target_remote.url) {
+    let git_host = match GitHostService::from_url_with_token(&target_remote.url, worker_pat.clone())
+    {
         Ok(host) => host,
         Err(GitHostError::UnsupportedProvider) => {
             return Ok(ResponseJson(ApiResponse::error_with_data(

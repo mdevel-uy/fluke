@@ -823,7 +823,17 @@
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios",
       "modelLabel": "Modelo",
-      "modelDefault": "Por defecto (global)"
+      "modelDefault": "Por defecto (global)",
+      "githubPatLabel": "PAT de GitHub (opcional)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (guardado — dejá vacío para no cambiarlo)",
+      "githubPatValidate": "Validar",
+      "githubPatValidateOk": "Válido — autenticado como {{login}}",
+      "githubPatHelp": "Si lo dejás vacío, el worker usa la auth global de la máquina. Recordá: GitHub no permite aprobar un PR propio, así que un reviewer necesita PAT distinto al del autor.",
+      "githubPatStored": "Hay un PAT guardado.",
+      "githubPatWillClear": "El PAT se limpiará al guardar.",
+      "githubPatClear": "Quitar",
+      "githubPatUndoClear": "Deshacer"
     },
     "roles": {
       "developer": "Desarrollador",
