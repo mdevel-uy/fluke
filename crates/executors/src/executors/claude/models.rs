@@ -181,14 +181,25 @@ mod tests {
     fn opus_and_sonnet_expose_effort_options() {
         for model in fallback_models() {
             let supports = supports_effort(&model.id);
-            assert_eq!(supports, !model.reasoning_options.is_empty(), "{}", model.id);
+            assert_eq!(
+                supports,
+                !model.reasoning_options.is_empty(),
+                "{}",
+                model.id
+            );
         }
     }
 
     #[test]
     fn display_strips_claude_prefix() {
-        assert_eq!(display_for("claude-opus-4-1", Some("Claude Opus 4.1")), "Opus 4.1");
-        assert_eq!(display_for("claude-haiku-4-5", Some("Claude Haiku 4.5")), "Haiku 4.5");
+        assert_eq!(
+            display_for("claude-opus-4-1", Some("Claude Opus 4.1")),
+            "Opus 4.1"
+        );
+        assert_eq!(
+            display_for("claude-haiku-4-5", Some("Claude Haiku 4.5")),
+            "Haiku 4.5"
+        );
         assert_eq!(display_for("claude-foo", None), "claude-foo");
         assert_eq!(display_for("claude-foo", Some("")), "claude-foo");
     }

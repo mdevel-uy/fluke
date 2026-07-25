@@ -119,32 +119,6 @@ pub struct TokenUsageInfo {
     pub cache_read_input_tokens: Option<u64>,
 }
 
-/// One plan-usage window reported by the coding agent.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct RateLimitWindow {
-    /// Stable identifier: `session`, `week_all`, `week_opus`, or whatever the
-    /// agent called the window when it does not match a known one.
-    pub key: String,
-    /// 0-100.
-    pub used_percent: f32,
-    /// RFC3339, when the agent reports a reset time.
-    pub resets_at: Option<String>,
-}
-
-/// Plan limits reported by the coding agent (Claude Code `rate_limit_event`).
-///
-/// Mined from the raw agent logs by the server, not part of the normalized
-/// conversation. The payload shape is not contractual, so `raw` keeps the
-/// original JSON: an unrecognised payload still reaches the API, where it can
-/// be inspected instead of being silently dropped.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct RateLimitInfo {
-    pub plan: Option<String>,
-    pub windows: Vec<RateLimitWindow>,
-    #[ts(type = "unknown")]
-    pub raw: serde_json::Value,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct NormalizedEntry {
     pub timestamp: Option<String>,
