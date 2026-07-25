@@ -18,6 +18,7 @@ pub mod frontend;
 pub mod github;
 pub mod health;
 pub mod host_relay;
+pub mod impact;
 pub mod oauth;
 pub mod organizations;
 pub mod preview;
@@ -51,6 +52,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(filesystem::router())
         .merge(github::router())
         .merge(repo::router())
+        .merge(impact::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))

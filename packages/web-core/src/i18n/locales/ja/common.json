@@ -645,6 +645,23 @@
         "week_all": "週 · 全モデル",
         "week_opus": "週 · Opus"
       }
+    },
+    "impact": {
+      "title": "クローズした Issue",
+      "windowLabel": "期間",
+      "windowDays": "{{days}}日",
+      "hoursPerIssue": "時間 / Issue",
+      "hoursPerIssueLabel": "Issue あたりの想定工数（時間）",
+      "hoursSaved": "約 {{hours}} 時間の削減",
+      "summary": "直近 {{days}} 日間で {{count}} 件クローズ",
+      "summary_other": "直近 {{days}} 日間で {{count}} 件クローズ",
+      "loading": "クローズした Issue を読み込み中…",
+      "empty": "この期間にクローズした Issue はありません。履歴は次回の Issue 同期で埋まります。",
+      "chartLabel": "直近 {{days}} 日間の日別クローズ件数：合計 {{total}} 件、約 {{hours}} 時間分。",
+      "tooltipIssues": "{{count}} 件クローズ",
+      "tooltipIssues_other": "{{count}} 件クローズ",
+      "tooltipHours": "{{issues}} × {{factor}} 時間 = {{hours}} 時間",
+      "moreIssues": "他 {{extra}} 件"
     }
   },
   "errors": {

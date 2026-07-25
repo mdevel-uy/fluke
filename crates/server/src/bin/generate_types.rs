@@ -187,6 +187,8 @@ fn generate_types_content() -> String {
         server::routes::workers::CompletedWorkerTasksResponse::decl(),
         server::routes::agents::ClaudeUsageMeter::decl(),
         server::routes::agents::ClaudeUsageResponse::decl(),
+        server::routes::impact::ClosedIssue::decl(),
+        server::routes::impact::ClosedIssuesResponse::decl(),
         server::routes::repo::ListPrsError::decl(),
         server::routes::remote::pull_requests::LinkPrToIssueRequest::decl(),
         server::routes::workspaces::pr::CreateWorkspaceFromPrBody::decl(),

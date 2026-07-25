@@ -412,6 +412,10 @@ pub struct RepoIssueResponse {
     pub synced_at: DateTime<Utc>,
     pub milestone: Option<String>,
     pub priority: Option<String>,
+    /// When the issue was closed; `null` while open, and also for closed issues
+    /// not yet re-synced since `closed_at` was introduced.
+    #[ts(type = "Date | null")]
+    pub closed_at: Option<DateTime<Utc>>,
 }
 
 impl From<RepoIssue> for RepoIssueResponse {
@@ -432,6 +436,7 @@ impl From<RepoIssue> for RepoIssueResponse {
             synced_at: issue.synced_at,
             milestone: issue.milestone,
             priority,
+            closed_at: issue.closed_at,
         }
     }
 }

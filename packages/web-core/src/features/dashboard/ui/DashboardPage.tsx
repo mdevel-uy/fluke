@@ -10,6 +10,7 @@ import { KpiStrip } from './KpiStrip';
 import { WorkerGrid } from './WorkerGrid';
 import { PipelinePanel } from './PipelinePanel';
 import { ClaudeLimitsPanel } from './ClaudeLimitsPanel';
+import { ImpactPanel } from './ImpactPanel';
 import { PullRequestsPanel } from './PullRequestsPanel';
 import { AttentionPanel } from './AttentionPanel';
 import { ActivityPanel } from './ActivityPanel';
@@ -104,6 +105,8 @@ export function DashboardPage() {
             />
             {showLimits && <ClaudeLimitsPanel usage={claudeUsage} />}
           </div>
+
+          <ImpactPanel />
 
           <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
             <PullRequestsPanel

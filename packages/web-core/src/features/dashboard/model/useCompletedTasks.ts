@@ -12,10 +12,8 @@ export interface CompletedWorkerTask {
   completed_at: string;
 }
 
-/** Parse the SQLite UTC datetime returned by the API into a Date. */
-export function parseSqliteUtc(value: string): Date {
-  return new Date(`${value.replace(' ', 'T')}Z`);
-}
+// Lives with the other pure helpers; re-exported here for existing callers.
+export { parseSqliteUtc } from './dashboardMetrics';
 
 /** Worker tasks completed since local midnight, newest first. */
 export function useCompletedTasksToday(): CompletedWorkerTask[] {

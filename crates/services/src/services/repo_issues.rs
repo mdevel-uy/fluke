@@ -15,7 +15,14 @@ use utils::{command_ext::NoWindowExt, shell::resolve_executable_path};
 use uuid::Uuid;
 
 /// Maximum number of issues to fetch per sync.
-const ISSUE_FETCH_LIMIT: u32 = 200;
+///
+/// This doubles as a history retention knob: `sync` prunes every local row that
+/// the fetch did not return (see `RepoIssue::delete_not_in`), so anything beyond
+/// this limit is deleted rather than merely stale. Since `gh issue list` sorts
+/// newest-created first, a low limit silently erases the older closed issues the
+/// dashboard impact chart is built from. Repos with more than this many issues
+/// total will still lose the oldest tail.
+const ISSUE_FETCH_LIMIT: u32 = 1000;
 
 /// Priority label definitions: (priority_value, label_name, hex_color_without_hash).
 const PRIORITY_LABELS: &[(&str, &str, &str)] = &[
@@ -534,6 +541,9 @@ struct GhIssue {
     updated_at: Option<DateTime<Utc>>,
     #[serde(default)]
     milestone: Option<GhIssueMilestone>,
+    /// `closedAt` from `gh`; absent/null for open issues.
+    #[serde(default)]
+    closed_at: Option<DateTime<Utc>>,
 }
 
 impl GhIssue {
@@ -559,6 +569,7 @@ impl GhIssue {
             author: self.author.and_then(|a| a.login),
             updated_at: self.updated_at.unwrap_or_else(Utc::now),
             milestone: self.milestone.map(|m| m.title),
+            closed_at: self.closed_at,
         }
     }
 }
@@ -624,7 +635,7 @@ async fn fetch_issues(repo_path: &Path, nwo: &str) -> Result<Vec<GhIssue>, RepoI
         .arg("--state")
         .arg("all")
         .arg("--json")
-        .arg("number,title,body,state,labels,author,updatedAt,milestone")
+        .arg("number,title,body,state,labels,author,updatedAt,milestone,closedAt")
         .arg("--limit")
         .arg(ISSUE_FETCH_LIMIT.to_string());
     cmd.no_window();
