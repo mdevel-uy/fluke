@@ -649,6 +649,23 @@
         "week_all": "Week · all models",
         "week_opus": "Week · Opus"
       }
+    },
+    "impact": {
+      "title": "Issues closed",
+      "windowLabel": "Time window",
+      "windowDays": "{{days}}d",
+      "hoursPerIssue": "h / issue",
+      "hoursPerIssueLabel": "Man-hours assumed per issue",
+      "hoursSaved": "≈ {{hours}} h saved",
+      "summary": "{{count}} issue closed in the last {{days}} days",
+      "summary_other": "{{count}} issues closed in the last {{days}} days",
+      "loading": "Loading closed issues…",
+      "empty": "No closed issues in this window yet — history fills in on the next issue sync.",
+      "chartLabel": "Issues closed per day over the last {{days}} days: {{total}} total, about {{hours}} man-hours.",
+      "tooltipIssues": "{{count}} issue closed",
+      "tooltipIssues_other": "{{count}} issues closed",
+      "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
+      "moreIssues": "+{{extra}} more"
     }
   },
   "askQuestion": {

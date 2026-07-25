@@ -645,6 +645,23 @@
         "week_all": "Semaine · tous les modèles",
         "week_opus": "Semaine · Opus"
       }
+    },
+    "impact": {
+      "title": "Issues fermées",
+      "windowLabel": "Fenêtre temporelle",
+      "windowDays": "{{days}} j",
+      "hoursPerIssue": "h / issue",
+      "hoursPerIssueLabel": "Heures-personne estimées par issue",
+      "hoursSaved": "≈ {{hours}} h économisées",
+      "summary": "{{count}} issue fermée ces {{days}} derniers jours",
+      "summary_other": "{{count}} issues fermées ces {{days}} derniers jours",
+      "loading": "Chargement des issues fermées…",
+      "empty": "Aucune issue fermée sur cette période — l'historique se remplit au prochain sync des issues.",
+      "chartLabel": "Issues fermées par jour sur les {{days}} derniers jours : {{total}} au total, environ {{hours}} heures-personne.",
+      "tooltipIssues": "{{count}} issue fermée",
+      "tooltipIssues_other": "{{count}} issues fermées",
+      "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
+      "moreIssues": "+{{extra}} autres"
     }
   },
   "errors": {

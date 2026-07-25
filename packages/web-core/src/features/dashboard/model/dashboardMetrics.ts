@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
+import type { ClosedIssue } from './useClosedIssues';
 
 /** Shared thresholds: context usage and Claude plan meters use the same scale. */
 export const METER_WARN_RATIO = 0.7;
@@ -33,6 +34,79 @@ export function formatDurationSince(dateString: string): string {
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours}h`;
   return `${Math.floor(diffHours / 24)}d`;
+}
+
+/** Parse the SQLite UTC datetime returned by the API into a Date. */
+export function parseSqliteUtc(value: string): Date {
+  return new Date(`${value.replace(' ', 'T')}Z`);
+}
+
+export type ClosedIssueDay = {
+  /** Local calendar day, "YYYY-MM-DD". */
+  dayKey: string;
+  /** Local midnight of that day, for axis formatting. */
+  date: Date;
+  count: number;
+  /** Issues closed that day, newest first. */
+  issues: { number: number; title: string }[];
+};
+
+/** Local calendar day of a timestamp -- not `toISOString`, which is UTC. */
+function localDayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Group closed issues into one bucket per local calendar day, oldest first,
+ * covering exactly `days` days up to and including today.
+ *
+ * Days with no closures become `count: 0` buckets rather than being omitted, so
+ * the chart's x-axis stays a real calendar instead of skipping quiet days. The
+ * API deliberately over-fetches by a day, so anything landing outside the window
+ * after local-time conversion is dropped here.
+ */
+export function bucketClosedIssuesByDay(
+  issues: ClosedIssue[],
+  days: number
+): ClosedIssueDay[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const buckets: ClosedIssueDay[] = [];
+  const byDay = new Map<string, ClosedIssueDay>();
+  for (let offset = days - 1; offset >= 0; offset--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - offset);
+    const bucket: ClosedIssueDay = {
+      dayKey: localDayKey(date),
+      date,
+      count: 0,
+      issues: [],
+    };
+    buckets.push(bucket);
+    byDay.set(bucket.dayKey, bucket);
+  }
+
+  for (const issue of issues) {
+    const bucket = byDay.get(localDayKey(parseSqliteUtc(issue.closed_at)));
+    if (!bucket) continue;
+    bucket.count += 1;
+    bucket.issues.push({ number: issue.number, title: issue.title });
+  }
+
+  return buckets;
+}
+
+/**
+ * Format an hours figure for display, without a unit -- the caller appends a
+ * translated one. Keeps at most one decimal so `2.5 h/issue` stays readable.
+ */
+export function formatManHours(hours: number): string {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 1,
+  }).format(hours);
 }
 
 export type AttentionTone = 'warning' | 'error';

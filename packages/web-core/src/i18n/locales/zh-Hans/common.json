@@ -645,6 +645,23 @@
         "week_all": "本周 · 全部模型",
         "week_opus": "本周 · Opus"
       }
+    },
+    "impact": {
+      "title": "已关闭的议题",
+      "windowLabel": "时间范围",
+      "windowDays": "{{days}} 天",
+      "hoursPerIssue": "小时 / 议题",
+      "hoursPerIssueLabel": "每个议题预估的人时",
+      "hoursSaved": "约节约 {{hours}} 小时",
+      "summary": "过去 {{days}} 天关闭 {{count}} 个议题",
+      "summary_other": "过去 {{days}} 天关闭 {{count}} 个议题",
+      "loading": "正在加载已关闭的议题…",
+      "empty": "此时间范围内暂无已关闭的议题 — 下次议题同步时将补全历史。",
+      "chartLabel": "过去 {{days}} 天每日关闭的议题：共 {{total}} 个，约 {{hours}} 人时。",
+      "tooltipIssues": "关闭 {{count}} 个议题",
+      "tooltipIssues_other": "关闭 {{count}} 个议题",
+      "tooltipHours": "{{issues}} × {{factor}} 小时 = {{hours}} 小时",
+      "moreIssues": "另有 {{extra}} 个"
     }
   },
   "errors": {
