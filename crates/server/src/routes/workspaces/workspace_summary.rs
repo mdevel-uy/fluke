@@ -281,10 +281,14 @@ async fn find_latest_agent_signals(
         result = scan_signals(msgs.iter().rev().filter_map(|m| m.as_ref().ok()));
     }
 
-    FINISHED_SIGNALS_CACHE
-        .lock()
-        .unwrap()
-        .insert(execution_id, result.clone());
+    // Only memoize a hit: caching an empty scan would pin a workspace to "no
+    // context usage" until the server restarts if the read failed once.
+    if result.usage.is_some() || result.last_activity.is_some() {
+        FINISHED_SIGNALS_CACHE
+            .lock()
+            .unwrap()
+            .insert(execution_id, result.clone());
+    }
     result
 }
 
