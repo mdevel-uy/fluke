@@ -12,7 +12,9 @@ use db::models::{
     workspace::Workspace,
 };
 use deployment::Deployment;
-use executors::logs::TokenUsageInfo;
+use executors::logs::{
+    NormalizedEntryType, TokenUsageInfo, utils::patch::extract_normalized_entry_from_patch,
+};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use services::services::container::ContainerService;
@@ -217,9 +219,7 @@ pub async fn get_workspace_summaries(
                 pr_ci_status: pr_statuses
                     .get(&id)
                     .and_then(|pr| ci_status_by_url.get(&pr.pr_url).cloned()),
-                latest_activity: agent_signals
-                    .get(&id)
-                    .and_then(|s| s.last_activity.clone()),
+                latest_activity: agent_signals.get(&id).and_then(|s| s.last_activity.clone()),
                 pr_created_at: pr_statuses.get(&id).map(|pr| pr.created_at),
                 pr_merged_at: pr_statuses.get(&id).and_then(|pr| pr.merged_at),
             }
@@ -309,57 +309,34 @@ fn scan_signals<'a>(msgs: impl Iterator<Item = &'a LogMsg>) -> AgentLogSignals {
     signals
 }
 
-/// Extract the content of the most recent `tool_use` entry from a normalized
-/// `JsonPatch` message (e.g. "Edit: `src/foo.rs`").
+/// Extract the content of a `tool_use` entry from a normalized `JsonPatch`
+/// message (e.g. "Edit: `src/foo.rs`").
+///
+/// Op values are NOT bare entries: `ConversationPatch` wraps them in the
+/// externally-tagged `PatchType` (`{"type":"NORMALIZED_ENTRY","content":…}`),
+/// so this goes through `extract_normalized_entry_from_patch` instead of
+/// poking at the JSON by hand — reading `value.entry_type` directly matches
+/// nothing, ever (that bug shipped once and nulled every summary signal).
 fn tool_activity_from_log_msg(msg: &LogMsg) -> Option<String> {
     let LogMsg::JsonPatch(patch) = msg else {
         return None;
     };
-    let ops = serde_json::to_value(patch).ok()?;
-    let ops = ops.as_array()?;
-    for op in ops.iter().rev() {
-        let Some(value) = op.get("value") else {
-            continue;
-        };
-        if value
-            .get("entry_type")
-            .and_then(|e| e.get("type"))
-            .and_then(|t| t.as_str())
-            != Some("tool_use")
-        {
-            continue;
-        }
-        if let Some(content) = value.get("content").and_then(|c| c.as_str())
-            && !content.is_empty()
-        {
-            return Some(content.to_string());
-        }
-    }
-    None
+    let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+    matches!(entry.entry_type, NormalizedEntryType::ToolUse { .. })
+        .then_some(entry.content)
+        .filter(|content| !content.is_empty())
 }
 
-/// Extract a token-usage entry from a normalized `JsonPatch` message. Op
-/// values are `NormalizedEntry` objects; the internally-tagged `entry_type`
-/// carries the usage
-/// (`{"type":"token_usage_info","total_tokens":..,"model_context_window":..}`).
+/// Extract a token-usage entry from a normalized `JsonPatch` message.
 fn token_usage_from_log_msg(msg: &LogMsg) -> Option<TokenUsageInfo> {
     let LogMsg::JsonPatch(patch) = msg else {
         return None;
     };
-    let ops = serde_json::to_value(patch).ok()?;
-    let ops = ops.as_array()?;
-    for op in ops.iter().rev() {
-        let Some(entry_type) = op.get("value").and_then(|v| v.get("entry_type")) else {
-            continue;
-        };
-        if entry_type.get("type").and_then(|t| t.as_str()) != Some("token_usage_info") {
-            continue;
-        }
-        if let Ok(info) = serde_json::from_value::<TokenUsageInfo>(entry_type.clone()) {
-            return Some(info);
-        }
+    let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+    match entry.entry_type {
+        NormalizedEntryType::TokenUsageInfo(info) => Some(info),
+        _ => None,
     }
-    None
 }
 
 /// Compute diff stats for a workspace.
@@ -379,4 +356,67 @@ pub async fn compute_workspace_diff_stats(
         lines_added: stats.lines_added,
         lines_removed: stats.lines_removed,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use executors::logs::{
+        ActionType, NormalizedEntry, ToolStatus, utils::patch::ConversationPatch,
+    };
+
+    use super::*;
+
+    /// Build the message exactly like the executors do — through
+    /// `ConversationPatch` — so this test breaks if the wire shape and the
+    /// scanner ever drift apart again (they shipped out of sync once: the
+    /// scanner read `value.entry_type` while ops carry
+    /// `value.content.entry_type`, and every summary reported null usage).
+    fn patch_msg(entry: NormalizedEntry) -> LogMsg {
+        LogMsg::JsonPatch(ConversationPatch::add_normalized_entry(3, entry))
+    }
+
+    #[test]
+    fn scan_signals_extracts_usage_and_activity_from_real_patches() {
+        let msgs = vec![
+            patch_msg(NormalizedEntry {
+                timestamp: None,
+                entry_type: NormalizedEntryType::ToolUse {
+                    tool_name: "grep".to_string(),
+                    action_type: ActionType::Search {
+                        query: "foo".to_string(),
+                    },
+                    status: ToolStatus::Success,
+                },
+                content: "Search: `foo`".to_string(),
+                metadata: None,
+            }),
+            patch_msg(NormalizedEntry {
+                timestamp: None,
+                entry_type: NormalizedEntryType::TokenUsageInfo(TokenUsageInfo {
+                    total_tokens: 112_000,
+                    model_context_window: 200_000,
+                    ..Default::default()
+                }),
+                content: "Tokens used: 112000 / Context window: 200000".to_string(),
+                metadata: None,
+            }),
+        ];
+
+        let signals = scan_signals(msgs.iter().rev());
+        let usage = signals.usage.expect("token usage must be extracted");
+        assert_eq!(usage.total_tokens, 112_000);
+        assert_eq!(usage.model_context_window, 200_000);
+        assert_eq!(signals.last_activity.as_deref(), Some("Search: `foo`"));
+    }
+
+    #[test]
+    fn scan_signals_ignores_non_entry_patches() {
+        let msgs = vec![
+            LogMsg::Stdout("plain output".to_string()),
+            LogMsg::JsonPatch(ConversationPatch::add_stdout(0, "raw".to_string())),
+        ];
+        let signals = scan_signals(msgs.iter().rev());
+        assert!(signals.usage.is_none());
+        assert!(signals.last_activity.is_none());
+    }
 }
