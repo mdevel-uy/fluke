@@ -3,11 +3,13 @@ import { Loader2 } from 'lucide-react';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import { useDashboardData } from '@/features/dashboard/model/useDashboardData';
+import { useClaudeUsage } from '@/features/dashboard/model/useClaudeUsage';
 import { cn } from '@/shared/lib/utils';
 import { LiveChip } from './parts/LiveChip';
 import { KpiStrip } from './KpiStrip';
 import { WorkerGrid } from './WorkerGrid';
 import { PipelinePanel } from './PipelinePanel';
+import { ClaudeLimitsPanel } from './ClaudeLimitsPanel';
 import { PullRequestsPanel } from './PullRequestsPanel';
 import { AttentionPanel } from './AttentionPanel';
 import { ActivityPanel } from './ActivityPanel';
@@ -17,8 +19,12 @@ export function DashboardPage() {
   usePageTitle(t('dashboard.title'));
 
   const data = useDashboardData();
+  const claudeUsage = useClaudeUsage();
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
+
+  // The panel cannot hide itself: it defines the second column of its row.
+  const showLimits = claudeUsage !== null && claudeUsage.meters.length > 0;
 
   if (
     data.isWorkersLoading &&
@@ -48,6 +54,7 @@ export function DashboardPage() {
             type="button"
             role="switch"
             aria-checked={autoIngest}
+            aria-label={t('dashboard.autoIngest')}
             onClick={() => setAutoIngest(!autoIngest)}
             className={cn(
               'relative h-[18px] w-8 rounded-full transition-colors',
@@ -56,7 +63,7 @@ export function DashboardPage() {
           >
             <span
               className={cn(
-                'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white transition-all',
+                'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-on-brand transition-all',
                 autoIngest ? 'right-0.5' : 'left-0.5'
               )}
             />
@@ -65,7 +72,7 @@ export function DashboardPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-container-padding py-5">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="flex w-full flex-col gap-4">
           <KpiStrip
             stats={data.stats}
             pipeline={data.pipeline}
@@ -84,13 +91,21 @@ export function DashboardPage() {
             doneTodayByWorker={data.doneTodayByWorker}
           />
 
-          <PipelinePanel
-            pipelineTotal={data.pipelineTotal}
-            pipelineSegments={data.pipelineSegments}
-            pipelineLabels={data.pipelineLabels}
-          />
+          <div
+            className={cn(
+              'grid grid-cols-1 items-stretch gap-4',
+              showLimits && 'xl:grid-cols-[minmax(0,1fr)_minmax(300px,400px)]'
+            )}
+          >
+            <PipelinePanel
+              pipelineTotal={data.pipelineTotal}
+              pipelineSegments={data.pipelineSegments}
+              pipelineLabels={data.pipelineLabels}
+            />
+            {showLimits && <ClaudeLimitsPanel usage={claudeUsage} />}
+          </div>
 
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
             <PullRequestsPanel
               openPrs={data.openPrs}
               taskByWorkspaceId={data.taskByWorkspaceId}

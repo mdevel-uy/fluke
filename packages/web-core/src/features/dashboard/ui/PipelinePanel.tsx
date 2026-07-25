@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { DashboardData } from '@/features/dashboard/model/useDashboardData';
-import { SectionTitle } from './parts/primitives';
+import { Panel } from './parts/primitives';
 
 export function PipelinePanel({
   pipelineTotal,
@@ -12,15 +12,23 @@ export function PipelinePanel({
   'pipelineTotal' | 'pipelineSegments' | 'pipelineLabels'
 >) {
   const { t } = useTranslation('common');
+  const barLabel = pipelineSegments
+    .map((segment) => `${segment.count} ${pipelineLabels[segment.key]}`)
+    .join(', ');
+
   return (
-    <section className="flex flex-col gap-3">
-      <SectionTitle chip={t('dashboard.pipelineHint')}>
-        {t('dashboard.pipelineSection')}
-      </SectionTitle>
-      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-md-surface-container-lowest p-3.5 shadow-soft">
-        {pipelineTotal > 0 && (
-          <div className="flex h-3 gap-0.5 overflow-hidden rounded-full">
-            {pipelineSegments
+    <Panel
+      title={t('dashboard.pipelineSection')}
+      aside={t('dashboard.pipelineHint')}
+    >
+      <div className="flex flex-1 flex-col gap-2.5 p-3">
+        <div
+          className="flex h-3.5 gap-0.5 overflow-hidden rounded-full bg-md-outline-variant/60"
+          role="img"
+          aria-label={barLabel}
+        >
+          {pipelineTotal > 0 &&
+            pipelineSegments
               .filter((segment) => segment.count > 0)
               .map((segment) => (
                 <div
@@ -31,8 +39,7 @@ export function PipelinePanel({
                   }}
                 />
               ))}
-          </div>
-        )}
+        </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-normal">
           {pipelineSegments.map((segment) => (
             <span key={segment.key} className="flex items-center gap-1.5">
@@ -45,6 +52,6 @@ export function PipelinePanel({
           ))}
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }

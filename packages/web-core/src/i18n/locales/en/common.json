@@ -629,7 +629,21 @@
     "feedPrOpened": "{{worker}} opened PR #{{number}}",
     "feedPrMerged": "PR #{{number}} merged",
     "feedApprovalRequested": "Approval requested — {{tool}}",
-    "feedTaskStarted": "{{worker}} started {{task}}"
+    "feedTaskStarted": "{{worker}} started {{task}}",
+    "summarySection": "Summary",
+    "offline": "Reconnecting…",
+    "openWorkerWorkspace": "Open {{name}}'s workspace",
+    "claudeLimits": {
+      "title": "Claude limits",
+      "workersOnClaude": "{{count}} worker on Claude Code",
+      "workersOnClaude_other": "{{count}} workers on Claude Code",
+      "resetsAt": "resets {{time}}",
+      "meter": {
+        "session": "Session · 5h window",
+        "week_all": "Week · all models",
+        "week_opus": "Week · Opus"
+      }
+    }
   },
   "askQuestion": {
     "title": "Agent is asking a question",

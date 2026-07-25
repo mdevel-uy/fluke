@@ -20,15 +20,15 @@ function StatCard({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1 rounded-xl border bg-md-surface-container-lowest p-3.5 shadow-soft',
+        'flex flex-col gap-1 rounded-lg border bg-card p-3',
         tone === 'warning' && value > 0
-          ? 'border-warning/40'
+          ? 'border-warning/50'
           : tone === 'error' && value > 0
-            ? 'border-error/40'
-            : 'border-border/60'
+            ? 'border-error/50'
+            : 'border-border'
       )}
     >
-      <span className="font-sans text-label uppercase tracking-wide text-low">
+      <span className="truncate whitespace-nowrap font-sans text-label uppercase tracking-wide text-low">
         {label}
       </span>
       <span className="font-sans text-heading leading-none text-high tabular-nums">
@@ -37,7 +37,7 @@ function StatCard({
           <span className="text-sm font-normal text-low"> {suffix}</span>
         )}
       </span>
-      <span className="flex min-h-4 items-center gap-1.5 truncate text-[11px] text-low">
+      <span className="flex min-h-4 items-center gap-1.5 truncate text-xs text-low">
         {sub}
       </span>
     </div>
@@ -67,7 +67,7 @@ export function KpiStrip({
   const { t } = useTranslation('common');
   return (
     <section
-      aria-label={t('dashboard.title')}
+      aria-label={t('dashboard.summarySection')}
       className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
     >
       <StatCard

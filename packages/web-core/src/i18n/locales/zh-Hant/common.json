@@ -625,7 +625,21 @@
     "feedPrOpened": "{{worker}} 建立了 PR #{{number}}",
     "feedPrMerged": "PR #{{number}} 已合併",
     "feedApprovalRequested": "請求核准 — {{tool}}",
-    "feedTaskStarted": "{{worker}} 開始了 {{task}}"
+    "feedTaskStarted": "{{worker}} 開始了 {{task}}",
+    "summarySection": "概覽",
+    "offline": "重新連線中…",
+    "openWorkerWorkspace": "開啟 {{name}} 的工作區",
+    "claudeLimits": {
+      "title": "Claude 限額",
+      "workersOnClaude": "{{count}} 個工作者使用 Claude Code",
+      "workersOnClaude_other": "{{count}} 個工作者使用 Claude Code",
+      "resetsAt": "{{time}} 重設",
+      "meter": {
+        "session": "會話 · 5 小時視窗",
+        "week_all": "本週 · 全部模型",
+        "week_opus": "本週 · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"

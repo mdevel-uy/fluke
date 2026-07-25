@@ -26,7 +26,14 @@ export function LiveChip({
     return () => clearInterval(id);
   }, []);
 
-  if (!isConnected) return null;
+  if (!isConnected) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-low">
+        <span className="h-1.5 w-1.5 rounded-full bg-error" />
+        {t('dashboard.offline')}
+      </span>
+    );
+  }
 
   const secs = Math.max(
     0,

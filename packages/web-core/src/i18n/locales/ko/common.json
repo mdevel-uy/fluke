@@ -625,7 +625,21 @@
     "feedPrOpened": "{{worker}}가 PR #{{number}} 생성",
     "feedPrMerged": "PR #{{number}} 병합됨",
     "feedApprovalRequested": "승인 요청 — {{tool}}",
-    "feedTaskStarted": "{{worker}}가 {{task}} 시작"
+    "feedTaskStarted": "{{worker}}가 {{task}} 시작",
+    "summarySection": "요약",
+    "offline": "재연결 중…",
+    "openWorkerWorkspace": "{{name}}의 워크스페이스 열기",
+    "claudeLimits": {
+      "title": "Claude 사용 한도",
+      "workersOnClaude": "Claude Code 사용 워커 {{count}}명",
+      "workersOnClaude_other": "Claude Code 사용 워커 {{count}}명",
+      "resetsAt": "{{time}}에 초기화",
+      "meter": {
+        "session": "세션 · 5시간 창",
+        "week_all": "주간 · 전체 모델",
+        "week_opus": "주간 · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"

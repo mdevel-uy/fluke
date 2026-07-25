@@ -8,44 +8,28 @@ import {
   ROLE_CHIP_FALLBACK,
 } from '@/features/workers/model/chipColors';
 import {
-  CONTEXT_CRIT_RATIO,
-  CONTEXT_WARN_RATIO,
   contextRatio,
   formatDurationSince,
   formatTokensK,
 } from '@/features/dashboard/model/dashboardMetrics';
 import type { DashboardData } from '@/features/dashboard/model/useDashboardData';
-import { SectionTitle, StatusPill } from './parts/primitives';
+import { MeterBar, SectionTitle, StatusPill } from './parts/primitives';
 
 function ContextBar({ ws }: { ws: SidebarWorkspace | undefined }) {
   const { t } = useTranslation('common');
   const ratio = contextRatio(ws);
-  const pct = ratio === null ? 0 : Math.round(ratio * 100);
-  const barColor =
-    ratio === null
-      ? 'bg-md-outline'
-      : ratio >= CONTEXT_CRIT_RATIO
-        ? 'bg-error'
-        : ratio >= CONTEXT_WARN_RATIO
-          ? 'bg-warning'
-          : 'bg-success';
   const usage = ws?.contextUsage;
+  const value =
+    ratio === null || !usage
+      ? '—'
+      : `${formatTokensK(usage.totalTokens)} / ${formatTokensK(usage.contextWindow)} · ${Math.round(ratio * 100)}%`;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs text-low">
         <span>{t('dashboard.context')}</span>
-        <span className="tabular-nums">
-          {ratio === null || !usage
-            ? '—'
-            : `${formatTokensK(usage.totalTokens)} / ${formatTokensK(usage.contextWindow)} · ${pct}%`}
-        </span>
+        <span className="tabular-nums">{value}</span>
       </div>
-      <div className="h-1 overflow-hidden rounded-full bg-md-outline-variant/60">
-        <div
-          className={cn('h-full rounded-full', barColor)}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <MeterBar ratio={ratio} label={`${t('dashboard.context')} ${value}`} />
     </div>
   );
 }
@@ -86,11 +70,30 @@ export function WorkerGrid({
               <article
                 key={worker.id}
                 className={cn(
-                  'flex flex-col gap-3 rounded-xl border border-border/60 bg-md-surface-container-lowest p-3.5 shadow-soft',
-                  ws && 'cursor-pointer transition-shadow hover:shadow-card'
+                  'flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3',
+                  ws &&
+                    'cursor-pointer hover:border-border-strong hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand'
                 )}
+                // The whole card is the workspace link; there are no nested
+                // controls inside it.
+                role={ws ? 'button' : undefined}
+                tabIndex={ws ? 0 : undefined}
+                aria-label={
+                  ws
+                    ? t('dashboard.openWorkerWorkspace', { name: worker.name })
+                    : undefined
+                }
                 onClick={
                   ws ? () => appNavigation.goToWorkspace(ws.id) : undefined
+                }
+                onKeyDown={
+                  ws
+                    ? (event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        appNavigation.goToWorkspace(ws.id);
+                      }
+                    : undefined
                 }
               >
                 <div className="flex items-center gap-2">
@@ -99,7 +102,7 @@ export function WorkerGrid({
                   </span>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
                       ROLE_CHIP_CLASS[worker.role ?? 'developer'] ??
                         ROLE_CHIP_FALLBACK
                     )}
@@ -136,7 +139,7 @@ export function WorkerGrid({
                   </p>
                 </div>
                 <ContextBar ws={ws} />
-                <div className="flex items-center gap-4 border-t border-border/60 pt-2.5 text-xs text-low">
+                <div className="flex items-center gap-4 border-t border-border pt-2 text-xs text-low">
                   <span>
                     {t('dashboard.queue')}{' '}
                     <span className="font-semibold text-normal tabular-nums">
@@ -149,11 +152,9 @@ export function WorkerGrid({
                       {doneTodayByWorker.get(worker.id) ?? 0}
                     </span>
                   </span>
-                  {ws && (
-                    <span className="ml-auto truncate font-mono text-[11px]">
-                      {ws.branch}
-                    </span>
-                  )}
+                  <span className="ml-auto truncate font-mono text-code">
+                    {ws?.branch ?? '—'}
+                  </span>
                 </div>
               </article>
             );

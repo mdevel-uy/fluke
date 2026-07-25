@@ -625,7 +625,21 @@
     "feedPrOpened": "{{worker}} a ouvert la PR #{{number}}",
     "feedPrMerged": "PR #{{number}} fusionnée",
     "feedApprovalRequested": "Approbation demandée — {{tool}}",
-    "feedTaskStarted": "{{worker}} a démarré {{task}}"
+    "feedTaskStarted": "{{worker}} a démarré {{task}}",
+    "summarySection": "Résumé",
+    "offline": "Reconnexion…",
+    "openWorkerWorkspace": "Ouvrir l'espace de travail de {{name}}",
+    "claudeLimits": {
+      "title": "Limites Claude",
+      "workersOnClaude": "{{count}} worker sur Claude Code",
+      "workersOnClaude_other": "{{count}} workers sur Claude Code",
+      "resetsAt": "réinitialisation {{time}}",
+      "meter": {
+        "session": "Session · fenêtre de 5 h",
+        "week_all": "Semaine · tous les modèles",
+        "week_opus": "Semaine · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"

@@ -625,7 +625,21 @@
     "feedPrOpened": "{{worker}} が PR #{{number}} を作成",
     "feedPrMerged": "PR #{{number}} がマージされました",
     "feedApprovalRequested": "承認リクエスト — {{tool}}",
-    "feedTaskStarted": "{{worker}} が {{task}} を開始"
+    "feedTaskStarted": "{{worker}} が {{task}} を開始",
+    "summarySection": "サマリー",
+    "offline": "再接続中…",
+    "openWorkerWorkspace": "{{name}} のワークスペースを開く",
+    "claudeLimits": {
+      "title": "Claude の上限",
+      "workersOnClaude": "Claude Code で{{count}}件のワーカー",
+      "workersOnClaude_other": "Claude Code で{{count}}件のワーカー",
+      "resetsAt": "{{time}} にリセット",
+      "meter": {
+        "session": "セッション · 5時間ウィンドウ",
+        "week_all": "週 · 全モデル",
+        "week_opus": "週 · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"
