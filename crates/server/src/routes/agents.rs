@@ -59,15 +59,12 @@ fn cached() -> Option<Option<ClaudeUsageResponse>> {
     (stamped.elapsed() < CACHE_TTL).then(|| value.clone())
 }
 
-fn latest_rate_limit<'a>(
-    msgs: impl DoubleEndedIterator<Item = &'a LogMsg>,
-) -> Option<RateLimitInfo> {
-    msgs.rev()
-        .filter_map(|msg| match msg {
-            LogMsg::Stdout(chunk) => Some(chunk),
-            _ => None,
-        })
-        .find_map(|chunk| chunk.lines().rev().find_map(rate_limit_info_from_log_line))
+/// Newest `rate_limit_event` payload carried by a single log message.
+fn rate_limit_in_msg(msg: &LogMsg) -> Option<RateLimitInfo> {
+    match msg {
+        LogMsg::Stdout(chunk) => chunk.lines().rev().find_map(rate_limit_info_from_log_line),
+        _ => None,
+    }
 }
 
 /// Newest `rate_limit_event` payload in an execution's raw agent logs.
@@ -75,21 +72,28 @@ async fn latest_rate_limit_for_process(
     deployment: &DeploymentImpl,
     execution_id: uuid::Uuid,
 ) -> Option<RateLimitInfo> {
-    // A running process keeps its log stream open, so snapshot the live store
-    // instead of collecting it; only finished processes go through the
-    // persisted logs (same split as workspace_summary).
+    // A running process keeps its log stream open, so scan the live store in
+    // place; `get_history()` would clone up to 100 MB of messages per call.
     if let Some(store) = deployment
         .container()
         .get_msg_store_by_id(&execution_id)
         .await
     {
-        let history = store.get_history();
-        return latest_rate_limit(history.iter());
+        return store.find_map_history_rev(rate_limit_in_msg);
     }
 
-    let stream = deployment.container().stream_raw_logs(&execution_id).await?;
-    let msgs: Vec<_> = stream.collect().await;
-    latest_rate_limit(msgs.iter().filter_map(|msg| msg.as_ref().ok()))
+    // Finished: scan the persisted logs forward keeping the newest hit, so the
+    // whole log never has to sit in memory at once (same split as
+    // workspace_summary).
+    let mut stream = deployment.container().stream_raw_logs(&execution_id).await?;
+    let mut latest = None;
+    while let Some(msg) = stream.next().await {
+        let Ok(msg) = msg else { continue };
+        if let Some(found) = rate_limit_in_msg(&msg) {
+            latest = Some(found);
+        }
+    }
+    latest
 }
 
 async fn get_claude_usage(
