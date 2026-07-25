@@ -596,7 +596,6 @@
     "noActiveTask": "No active task",
     "context": "Context",
     "queue": "Queue",
-    "completedLabel": "Completed",
     "running": "Running",
     "idle": "Idle",
     "mergeable": "Mergeable",
@@ -900,14 +899,12 @@
     "inProgress": {
       "openWorkspace": "Open workspace",
       "stop": "Stop",
-      "stopConfirmTitle": "Stop execution?",
       "stopConfirmMessage": "Stop execution and return the issue to the backlog?",
       "stopAndUnassign": "Stop and unassign",
       "empty": "No task in progress."
     },
     "inReview": {
       "unassign": "Unassign",
-      "unassignConfirmTitle": "Unassign task?",
       "unassignConfirmMessage": "Unassign the task and return the issue to the backlog?",
       "unassignConfirm": "Unassign",
       "empty": "Nothing awaiting review."
@@ -949,7 +946,6 @@
       "assignDuplicate": "This issue already has an active task assigned to a worker.",
       "reviewApproved": "Review approved: {{title}}",
       "reviewChangesRequested": "Changes requested: {{title}}",
-      "cancelSuccess": "Task stopped and returned to backlog.",
       "cancelError": "Failed to stop task: {{message}}"
     },
     "failed": {

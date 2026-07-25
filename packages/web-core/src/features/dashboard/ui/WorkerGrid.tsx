@@ -100,10 +100,11 @@ export function WorkerGrid({
                   <span
                     className={cn(
                       'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                      ROLE_CHIP_CLASS[worker.role ?? ''] ?? ROLE_CHIP_FALLBACK
+                      ROLE_CHIP_CLASS[worker.role ?? 'developer'] ??
+                        ROLE_CHIP_FALLBACK
                     )}
                   >
-                    {worker.role}
+                    {t(`workers.roles.${worker.role ?? 'developer'}`)}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
                     {isRunning ? (

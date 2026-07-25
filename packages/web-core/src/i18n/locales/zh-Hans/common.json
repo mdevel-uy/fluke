@@ -592,7 +592,6 @@
     "noActiveTask": "无活动任务",
     "context": "上下文",
     "queue": "队列",
-    "completedLabel": "已完成",
     "running": "运行中",
     "idle": "空闲",
     "mergeable": "可合并",
@@ -900,14 +899,12 @@
     "inProgress": {
       "openWorkspace": "打开工作区",
       "stop": "停止",
-      "stopConfirmTitle": "停止执行？",
       "stopConfirmMessage": "停止执行并将 Issue 返回到待办列表？",
       "stopAndUnassign": "停止并取消分配",
       "empty": "没有进行中的任务。"
     },
     "inReview": {
       "unassign": "取消分配",
-      "unassignConfirmTitle": "取消任务分配？",
       "unassignConfirmMessage": "取消任务分配并将 Issue 返回到待办列表？",
       "unassignConfirm": "取消分配",
       "empty": "没有待审核的项目。"
@@ -949,7 +946,6 @@
       "startAllSuccess_other": "已启动 {{count}} 个工作者。",
       "reviewApproved": "审查已批准：{{title}}",
       "reviewChangesRequested": "要求更改：{{title}}",
-      "cancelSuccess": "任务已停止并返回待办列表。",
       "cancelError": "停止任务失败：{{message}}"
     },
     "failed": {

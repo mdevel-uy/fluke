@@ -11,6 +11,10 @@ import { useApprovals } from '@/shared/hooks/useApprovals';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { useWorkers } from '@/features/workers/model/useWorkers';
 import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
+import {
+  useWorkerTaskIndex,
+  withWorkerTaskInfo,
+} from '@/features/workers/model/workerTaskInfo';
 import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import {
   parseSqliteUtc,
@@ -37,27 +41,32 @@ export function useDashboardData() {
 
   const { data: workers = [], isLoading: isWorkersLoading } = useWorkers();
   const { tasks } = useAllWorkerTasks(workers);
-  const { workspaces, archivedWorkspaces, isConnected } = useWorkspaces();
+  const {
+    workspaces: rawWorkspaces,
+    archivedWorkspaces: rawArchivedWorkspaces,
+    isConnected,
+  } = useWorkspaces();
   const { pendingApprovals } = useApprovals();
   const completedToday = useCompletedTasksToday();
+
+  // Worker identity, task title, issue number and stalled-task detection are
+  // not part of the workspace stream — the same overlay the sidebar applies.
+  const workerTaskIndex = useWorkerTaskIndex(workers, tasks);
+  const workspaces = useMemo(
+    () => withWorkerTaskInfo(rawWorkspaces, workerTaskIndex),
+    [rawWorkspaces, workerTaskIndex]
+  );
+  const archivedWorkspaces = useMemo(
+    () => withWorkerTaskInfo(rawArchivedWorkspaces, workerTaskIndex),
+    [rawArchivedWorkspaces, workerTaskIndex]
+  );
 
   const workspaceById = useMemo(
     () => new Map(workspaces.map((ws) => [ws.id, ws])),
     [workspaces]
   );
 
-  const workerById = useMemo(
-    () => new Map(workers.map((w) => [w.id, w])),
-    [workers]
-  );
-
-  const taskByWorkspaceId = useMemo(() => {
-    const map = new Map<string, (typeof tasks)[number]>();
-    for (const task of tasks) {
-      if (task.workspace_id) map.set(task.workspace_id, task);
-    }
-    return map;
-  }, [tasks]);
+  const { workerById, taskByWorkspaceId } = workerTaskIndex;
 
   const doneToday = completedToday.filter((c) => c.status === 'done').length;
   const failedToday = completedToday.filter(

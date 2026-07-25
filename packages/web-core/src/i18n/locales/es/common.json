@@ -592,7 +592,6 @@
     "noActiveTask": "Sin tarea activa",
     "context": "Contexto",
     "queue": "Cola",
-    "completedLabel": "Completadas",
     "running": "Trabajando",
     "idle": "Inactivo",
     "mergeable": "Mergeable",
@@ -900,14 +899,12 @@
     "inProgress": {
       "openWorkspace": "Abrir workspace",
       "stop": "Parar",
-      "stopConfirmTitle": "¿Parar la ejecución?",
       "stopConfirmMessage": "¿Parar la ejecución y devolver el issue al backlog?",
       "stopAndUnassign": "Parar y desasignar",
       "empty": "Ninguna tarea en progreso."
     },
     "inReview": {
       "unassign": "Desasignar",
-      "unassignConfirmTitle": "¿Desasignar tarea?",
       "unassignConfirmMessage": "¿Desasignar la tarea y devolver el issue al backlog?",
       "unassignConfirm": "Desasignar",
       "empty": "Nada esperando revisión."
@@ -949,7 +946,6 @@
       "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
       "reviewApproved": "Revisión aprobada: {{title}}",
       "reviewChangesRequested": "Cambios solicitados en: {{title}}",
-      "cancelSuccess": "Tarea detenida y devuelta al backlog.",
       "cancelError": "No se pudo detener la tarea: {{message}}"
     },
     "failed": {

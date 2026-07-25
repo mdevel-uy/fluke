@@ -592,7 +592,6 @@
     "noActiveTask": "無進行中任務",
     "context": "上下文",
     "queue": "佇列",
-    "completedLabel": "已完成",
     "running": "執行中",
     "idle": "閒置",
     "mergeable": "可合併",
@@ -900,14 +899,12 @@
     "inProgress": {
       "openWorkspace": "開啟工作區",
       "stop": "停止",
-      "stopConfirmTitle": "停止執行？",
       "stopConfirmMessage": "停止執行並將 Issue 返回待辦列表？",
       "stopAndUnassign": "停止並取消指派",
       "empty": "沒有進行中的任務。"
     },
     "inReview": {
       "unassign": "取消指派",
-      "unassignConfirmTitle": "取消任務指派？",
       "unassignConfirmMessage": "取消任務指派並將 Issue 返回待辦列表？",
       "unassignConfirm": "取消指派",
       "empty": "沒有等待審查的項目。"
@@ -949,7 +946,6 @@
       "startAllSuccess_other": "已啟動 {{count}} 個工作者。",
       "reviewApproved": "審查已批准：{{title}}",
       "reviewChangesRequested": "要求更改：{{title}}",
-      "cancelSuccess": "任務已停止並返回待辦列表。",
       "cancelError": "停止任務失敗：{{message}}"
     },
     "failed": {
