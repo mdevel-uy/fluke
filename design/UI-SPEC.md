@@ -2,48 +2,55 @@
 scope: Redesign (standalone)
 slug: workbench-redesign
 status: approved
-approved_by: Dani ("me encanta, adelante" — 21-jul-2026, sobre el artifact)
+approved_by: Dani ("me encanta, adelante" — 21-jul-2026, sobre el artifact); paleta indigo/zinc aprobada 25-jul-2026
 created: 2026-07-21
-version: 2 (Workbench) — supersedes v1 "Slate & Signal" (same file, git history)
+version: 3 (Workbench · paleta Slate & Signal) — supersedes v2 (VSCode blue/grays)
 reference: https://claude.ai/code/artifact/635ca11f-dfae-4c33-962c-b9bd19d6f5ae
-supersedes: design/DESIGN-DIRECTION.md ("ProjectFlow") and UI-SPEC v1 ("Slate & Signal")
+supersedes: design/DESIGN-DIRECTION.md ("ProjectFlow") and UI-SPEC v1/v2 (same file, git history)
 ---
 
-# Workbench — Design Contract (v2)
+# Workbench — Design Contract (v3)
 
-> Vibe Kanban adopts the **VSCode visual language**: flat panels separated by
-> 1px borders (no shadows on surfaces), 22px row density, system typography at
-> 13px, 16px monochrome icons, and a single VSCode-blue accent. Approved by
-> Dani from the interactive artifact (link in frontmatter) — that page is the
-> visual reference; this file is the implementable contract.
+> Vibe Kanban keeps the **Workbench structure** (dense rows, system typography
+> at 13px, 16px monochrome icons, borders over ornament) with the **palette of
+> the approved dashboard mockup**: zinc grays, one indigo accent, soft
+> elevation. The v2 VSCode palette is gone — see the table below.
 > On any conflict with `packages/local-web/AGENTS.md` or older docs, this wins.
 
 ## Palette
 
-Dark-first. Tokens live in `packages/web-core/src/app/styles/new/index.css`
-(HSL triplets; `--md-*` names kept as migration aliases) and are mapped in
+Zinc scale + a single indigo accent, from the approved mockup
+(`factory-dashboard-mockup.html`). Tokens live in
+`packages/web-core/src/app/styles/new/index.css` (HSL triplets; `--md-*` names
+kept as migration aliases) and are mapped in
 `packages/local-web/tailwind.new.config.js`.
 
 | Role | Light | Dark | Tailwind |
 |---|---|---|---|
-| canvas (editor area) | `#FFFFFF` | `#1F1F1F` | `bg-background` / `bg-primary` |
-| chrome panels (rail, bars, columns, table headers) | `#F8F8F8` | `#181818` | `bg-md-surface-container-lowest` |
-| card (cards, menus, dialogs, toasts) | `#F8F8F8` | `#242424` | `bg-card` |
-| hover | `#ECECEC` | `#2A2D2E` | `bg-secondary` / `bg-md-surface-container` |
-| active/pressed | `#E4E6ED` | `#37373D` | `bg-md-surface-container-high` |
-| list selection | `#E0ECF7` | `#04395E` | `bg-sel` |
-| border (default) | `#E5E5E5` | `#2B2B2B` | `border-border` |
-| border (strong: inputs, menus) | `#CECECE` | `#3C3C3C` | `border-border-strong` |
-| text primary | `#3B3B3B` | `#CCCCCC` (never pure white) | `text-high` |
-| text secondary | `#616161` | `#9D9D9D` | `text-normal` |
-| text tertiary | `#8B8B8B` | `#6E6E6E` | `text-low` |
-| **accent fill** | `#005FB8` | `#0078D4` | `bg-brand` + `text-on-brand` |
-| **accent text/icon** | `#005FB8` | `#4DAAFC` | `text-brand-on-surface` |
-| success / merged-ok | `#107C10` | `#89D185` | `text-success` |
-| warning / queued | `#855F00` | `#CCA700` | `text-warning` |
-| error / destructive | `#C42B1C` | `#F14C4C` | `text-error` / `bg-destructive` |
-| modified / in-review | `#895503` | `#E2C08D` | `text-mod` |
-| info | link blue | `#75BEFF` | `text-info` |
+| app ground (behind cards) | `#F4F4F5` zinc-100 | `#09090B` zinc-950 | `bg-md-background` |
+| card / panel | `#FFFFFF` | `#18181B` zinc-900 | `bg-card` / `bg-md-surface-container-lowest` |
+| elevated input / rail | `#FAFAFA` | `#101012` | `bg-md-surface-container-low` |
+| hover | `#F4F4F5` | `#27272A` zinc-800 | `bg-secondary` / `bg-md-surface-container` |
+| active/pressed | `#E4E4E7` zinc-200 | `#3F3F46` zinc-700 | `bg-md-surface-container-high` |
+| list selection | `#EEF2FF` indigo-50 | `#312E81` indigo-900 | `bg-sel` |
+| border (default) | `#E4E4E7` | `#3F3F46` | `border-border` |
+| border (strong: inputs, menus) | `#D4D4D8` | `#52525B` | `border-border-strong` |
+| text primary | `#18181B` | `#FAFAFA` | `text-high` |
+| text secondary | `#3F3F46` | `#D4D4D8` | `text-normal` |
+| text tertiary | `#71717A` | `#A1A1AA` | `text-low` |
+| **accent fill** | `#4F46E5` indigo-600 | `#6366F1` indigo-500 | `bg-brand` + `text-on-brand` |
+| **accent text/icon** | `#4F46E5` | `#818CF8` indigo-400 | `text-brand-on-surface` |
+| success / merged-ok | `#16A34A` | `#4ADE80` | `text-success` |
+| warning / queued | `#D97706` | `#FBBF24` | `text-warning` |
+| error / destructive | `#DC2626` | `#F87171` | `text-error` / `bg-destructive` |
+| modified / in-review | `#D97706` | `#FBBF24` | `text-mod` |
+| info | `#0284C7` | `#38BDF8` | `text-info` |
+| merged | `#7C3AED` | `#A78BFA` | `text-merged` |
+
+Semantic colors map to the **triplet** vars (`--_success`, `--_warning`,
+`--_info`), never to the public `--success`/`--warning`/`--info`, which resolve
+to full colors and would nest `hsl()` inside `hsl()` (that bug made every
+`bg-success` transparent until 25-jul-2026).
 
 **Accent reserved for:** primary CTA fill, active nav/tab/rail item, focus
 rings, links, selection (`sel`), count badges, and the running task's accent
@@ -74,12 +81,14 @@ aliases resolve onto this scale — do not use in new code.
 - Heights: list/tree rows **22px** · buttons/inputs/menu items **26px**
   (`h-[26px]`) · table rows **30px** · tabs/panel titles **~36px** (`h-9`) ·
   status bar **22px** · activity rail **~56px wide** (40px items + 8px padding).
-- Radii: `rounded-sm/md` **2px** (controls) · `rounded-lg` **4px** (cards, rows,
-  columns) · `rounded-xl` **6px** (menus, dialogs, toasts) · `rounded-full`
-  (pills, dots). `2xl/3xl` are clamped to 6px.
-- Elevation: **borders, not shadows.** `shadow-{soft,card,card-hover,elevated}`
-  resolve to `none`; `shadow-overlay` exists only for menus/dialogs/toasts.
-  No `hover:-translate-y-*` lift anywhere; hover = background/border change.
+- Radii: `rounded-sm` **4px** (chips, swatches) · `rounded-md` **6px**
+  (buttons, inputs) · `rounded-lg` **12px** (cards, rows, KPI tiles) ·
+  `rounded-xl` **14px** (panels, menus, dialogs, toasts) · `rounded-full`
+  (pills, dots). `2xl/3xl` are clamped to 14px.
+- Elevation: **soft and low-contrast.** `shadow-soft` for cards/KPI tiles,
+  `shadow-card` for raised or hovered surfaces (both from `--shadow-*` tokens,
+  per theme); `shadow-overlay` for menus/dialogs/toasts. Depth stays subtle —
+  no `hover:-translate-y-*` lift anywhere; hover = background/border change.
   `active:translate-y-px` on buttons (no scale transforms).
 - Focus: `focus-visible:ring-1 ring-brand` (1px, VSCode-style), no ring offset.
 
@@ -119,10 +128,14 @@ aliases resolve onto this scale — do not use in new code.
 1. **No hardcoded palette classes** (`text-blue-500`, `bg-sky-100`, loose hex)
    in components — semantic tokens only. Exemptions: ANSI/syntax classes,
    third-party brand logos (e.g. Google).
-2. **No shadows on surfaces**; shadow = overlay-only.
+2. **Shadows only from the `shadow-*` tokens** (`soft`, `card`, `overlay`);
+   never a hand-written `box-shadow` on a component.
 3. **No hover-lift / scale transforms.**
-4. **No radius > 6px** except pills (`rounded-full`).
-5. **One blue.** Blue that isn't action/active/focus/link/selection is a bug.
+4. **No radius > 14px** except pills (`rounded-full`); use the scale, not
+   arbitrary `rounded-[Npx]`.
+5. **One indigo.** Indigo that isn't action/active/focus/link/selection is a
+   bug. Role and model chips are the documented exception (they encode
+   identity, not action).
 6. **No webfonts.**
 
 ## Copywriting

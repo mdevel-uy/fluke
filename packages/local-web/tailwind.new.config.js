@@ -183,8 +183,10 @@ module.exports = {
         'brand-on-surface': 'hsl(var(--brand-on-surface))',
         'brand-secondary':  'hsl(var(--brand-secondary))',
         error:              'hsl(var(--error))',
-        success:            'hsl(var(--success))',
-        'success-foreground': 'hsl(var(--success-foreground))',
+        /* Triplet vars (--_*), not the public --success/--warning/--info,
+           which resolve to full colors and would nest hsl() inside hsl(). */
+        success:            'hsl(var(--_success))',
+        'success-foreground': 'hsl(var(--_success-foreground))',
         warning:            'hsl(var(--_warning))',
         'warning-foreground': 'hsl(var(--_warning-foreground))',
         info:               'hsl(var(--_info))',
@@ -212,13 +214,13 @@ module.exports = {
       /* ── Radii — Workbench: 2 controles · 4 cards · 6 overlays ─ */
       borderRadius: {
         none:    '0',
-        DEFAULT: '0.125rem',  /* 2px  */
-        sm:      '0.125rem',  /* 2px  buttons, inputs, chips */
-        md:      '0.125rem',  /* 2px  (alias) */
-        lg:      '0.25rem',   /* 4px  cards, list rows, tabs-hover */
-        xl:      '0.375rem',  /* 6px  menus, dialogs, toasts */
-        '2xl':   '0.375rem',  /* clamped — scale tops out at 6px */
-        '3xl':   '0.375rem',  /* clamped */
+        DEFAULT: '0.375rem',  /* 6px  */
+        sm:      '0.25rem',   /* 4px  chips, swatches, small tints */
+        md:      '0.375rem',  /* 6px  buttons, inputs */
+        lg:      '0.75rem',   /* 12px cards, list rows, KPI tiles */
+        xl:      '0.875rem',  /* 14px panels, menus, dialogs, toasts */
+        '2xl':   '0.875rem',  /* clamped — scale tops out at 14px */
+        '3xl':   '0.875rem',  /* clamped */
         full:    '9999px',    /* pills, badges, status dots */
       },
 
@@ -232,10 +234,10 @@ module.exports = {
          shadow-* utilities resolve to none. Shadow exists only on
          floating overlays (menus, dialogs, toasts). */
       boxShadow: {
-        soft:       '0 0 #0000',
-        card:       '0 0 #0000',
-        'card-hover': '0 0 #0000',
-        elevated:   '0 0 #0000',
+        soft:       'var(--shadow-soft)',
+        card:       'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card)',
+        elevated:   'var(--shadow-card)',
         overlay:    '0 4px 18px rgb(0 0 0 / 0.28)',
         focus:      '0 0 0 1px hsl(var(--brand-on-surface))',
       },

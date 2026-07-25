@@ -26,65 +26,65 @@ html {
     color-scheme: light;
 
     /* ── Accent: VSCode blue, fill vs text roles ──────────────── */
-    --brand: 209 100% 36%; /* #005FB8 — fills (buttons, CTAs) */
-    --brand-hover: 209 97% 33%; /* #0258A8 */
-    --brand-on-surface: 209 100% 36%; /* text/icon/border accents */
+    --brand: 243 75% 59%; /* #4F46E5 — indigo fills (buttons, CTAs) */
+    --brand-hover: 245 58% 51%; /* #4338CA */
+    --brand-on-surface: 243 75% 59%; /* text/icon/border accents */
     --text-on-brand: 0 0% 100%;
-    --brand-secondary: 206 100% 42%; /* #0078D4 */
-    --sel: 209 59% 92%; /* #E0ECF7 — list selection */
-    --card: 0 0% 97%; /* #F8F8F8 — cards, menus, dialogs */
+    --brand-secondary: 239 84% 67%; /* #6366F1 */
+    --sel: 226 100% 97%; /* #EEF2FF — list selection (indigo-50) */
+    --card: 0 0% 100%; /* #FFFFFF — cards, menus, dialogs */
 
     /* Aliases for legacy md-primary consumers */
     --md-primary: var(--brand-on-surface);
     --md-on-primary: 0 0% 100%;
-    --md-primary-container: 206 100% 42%;
-    --md-on-primary-container: 209 59% 96%;
-    --md-primary-fixed: 209 59% 92%;
-    --md-primary-fixed-dim: 208 97% 65%;
-    --md-inverse-primary: 208 97% 65%;
+    --md-primary-container: 239 84% 67%;
+    --md-on-primary-container: 226 100% 97%;
+    --md-primary-fixed: 226 100% 97%;
+    --md-primary-fixed-dim: 234 89% 74%;
+    --md-inverse-primary: 234 89% 74%;
 
     /* ── Secondary → neutral gray ─────────────────────────────── */
-    --md-secondary: 0 0% 38%; /* #616161 */
+    --md-secondary: 240 5% 26%; /* zinc-700 */
     --md-on-secondary: 0 0% 100%;
-    --md-secondary-container: 0 0% 93%; /* #ECECEC */
-    --md-on-secondary-container: 0 0% 23%; /* #3B3B3B */
-    --md-secondary-fixed: 0 0% 93%;
-    --md-secondary-fixed-dim: 0 0% 81%;
+    --md-secondary-container: 240 5% 96%; /* zinc-100 */
+    --md-on-secondary-container: 240 6% 10%; /* zinc-900 */
+    --md-secondary-fixed: 240 5% 96%;
+    --md-secondary-fixed-dim: 240 5% 84%;
 
     /* ── Tertiary → "modified" amber (git-style) ──────────────── */
-    --md-tertiary: 37 96% 27%; /* #895503 */
+    --md-tertiary: 32 95% 44%; /* #D97706 */
     --md-on-tertiary: 0 0% 100%;
-    --md-tertiary-container: 32 95% 44%; /* #D97706 */
+    --md-tertiary-container: 32 95% 44%;
     --md-tertiary-fixed: 48 96% 89%;
     --md-tertiary-fixed-dim: 43 96% 56%;
-    --mod: 37 96% 27%; /* modified / in-review */
+    --mod: 32 95% 44%; /* modified / in-review */
 
     /* ── Error ────────────────────────────────────────────────── */
-    --md-error: 5 75% 44%; /* #C42B1C */
+    --md-error: 0 72% 51%; /* #DC2626 */
     --md-on-error: 0 0% 100%;
     --md-error-container: 0 93% 94%;
-    --md-on-error-container: 0 70% 35%;
+    --md-on-error-container: 0 72% 35%;
 
     /* ── Surface scale ────────────────────────────────────────── */
-    --md-background: 0 0% 100%; /* canvas */
+    --md-background: 240 5% 96%; /* #F4F4F5 — app ground (zinc-100) */
     --md-surface: 0 0% 100%;
     --md-surface-bright: 0 0% 100%;
-    --md-surface-dim: 0 0% 81%;
-    --md-surface-container-lowest: 0 0% 97%; /* #F8F8F8 — chrome panels */
-    --md-surface-container-low: 0 0% 100%; /* inputs (white on gray panels) */
-    --md-surface-container: 0 0% 93%; /* #ECECEC — hovers */
-    --md-surface-container-high: 227 20% 91%; /* #E4E6ED — pressed */
-    --md-surface-container-highest: 0 0% 87%;
+    --md-surface-dim: 240 5% 84%;
+    --md-surface-container-lowest: 0 0% 100%; /* #FFFFFF — cards/panels */
+    --md-surface-container-low: 0 0% 98%; /* #FAFAFA — inputs, rail */
+    --md-surface-container: 240 5% 96%; /* #F4F4F5 — hovers */
+    --md-surface-container-high: 240 6% 90%; /* #E4E4E7 — pressed */
+    --md-surface-container-highest: 240 5% 84%;
 
     /* ── On-surface (text) ────────────────────────────────────── */
-    --md-on-surface: 0 0% 23%; /* #3B3B3B */
-    --md-on-surface-variant: 0 0% 38%; /* #616161 */
-    --md-outline: 0 0% 55%; /* #8B8B8B — tertiary text */
-    --md-outline-variant: 0 0% 90%; /* #E5E5E5 — default borders */
-    --outline-strong: 0 0% 81%; /* #CECECE — input/menu borders */
+    --md-on-surface: 240 6% 10%; /* #18181B — zinc-900 */
+    --md-on-surface-variant: 240 5% 26%; /* #3F3F46 — zinc-700 */
+    --md-outline: 240 4% 46%; /* #71717A — zinc-500, tertiary text */
+    --md-outline-variant: 240 6% 90%; /* #E4E4E7 — default borders */
+    --outline-strong: 240 5% 84%; /* #D4D4D8 — input/menu borders */
 
     /* ── Inverse ──────────────────────────────────────────────── */
-    --md-inverse-surface: 0 0% 17%;
+    --md-inverse-surface: 240 6% 10%;
     --md-inverse-on-surface: 0 0% 98%;
     --md-surface-tint: var(--brand);
 
@@ -94,8 +94,8 @@ html {
     --text-low: var(--md-outline);
 
     --_bg-primary-default: 0 0% 100%; /* canvas */
-    --_bg-secondary-default: 0 0% 93%; /* hover */
-    --_bg-panel-default: 0 0% 91%;
+    --_bg-secondary-default: 240 5% 96%; /* hover */
+    --_bg-panel-default: 240 5% 96%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -104,29 +104,29 @@ html {
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
     --error: var(--md-error);
-    --success: 120 77% 27%; /* #107C10 */
-    --success-foreground: 120 77% 14%;
-    --merged: 271 81% 46%;
-    --teal: 187 80% 29%;
-    --pink: 327 80% 40%;
+    --success: 142 76% 36%; /* #16A34A */
+    --success-foreground: 142 76% 20%;
+    --merged: 262 83% 58%; /* #7C3AED */
+    --teal: 175 84% 32%;
+    --pink: 333 71% 51%;
 
     /* Status (light) */
-    --_success: 120 77% 27%;
-    --_success-foreground: 120 77% 14%;
-    --_warning: 43 100% 26%; /* #855F00 */
-    --_warning-foreground: 43 100% 16%;
-    --_info: 209 100% 36%; /* link blue */
-    --_info-foreground: 209 100% 22%;
-    --_neutral: 0 0% 93%;
-    --_neutral-foreground: 0 0% 23%;
+    --_success: 142 76% 36%;
+    --_success-foreground: 142 76% 20%;
+    --_warning: 32 95% 44%; /* #D97706 */
+    --_warning-foreground: 32 95% 28%;
+    --_info: 200 98% 39%; /* #0284C7 */
+    --_info-foreground: 200 98% 25%;
+    --_neutral: 240 5% 96%;
+    --_neutral-foreground: 240 6% 10%;
     --_destructive: var(--md-error);
     --_destructive-foreground: 0 0% 100%;
 
     /* Console (light) */
     --_console-background: 0 0% 100%;
-    --_console-foreground: 0 0% 23%;
-    --_console-success: 120 77% 27%;
-    --_console-error: 5 75% 44%;
+    --_console-foreground: 240 6% 10%;
+    --_console-success: 142 76% 36%;
+    --_console-error: 0 72% 51%;
 
     /* Syntax highlighting (light) */
     --_syntax-keyword: #d73a49;
@@ -138,73 +138,79 @@ html {
     --_syntax-tag: #22863a;
     --_syntax-punctuation: #24292e;
     --_syntax-deleted: #b31d28;
+
+    /* ── Elevation: soft, low-contrast (mock: Slate & Signal) ──── */
+    --shadow-soft:
+      0 1px 2px rgb(24 24 27 / 0.05), 0 4px 12px rgb(24 24 27 / 0.04);
+    --shadow-card:
+      0 2px 4px rgb(24 24 27 / 0.06), 0 10px 24px rgb(24 24 27 / 0.06);
   }
 
   /* ── Dark (VSCode Dark Modern) ──────────────────────────────── */
   .dark {
     color-scheme: dark;
 
-    --brand: 206 100% 42%; /* #0078D4 — fill */
-    --brand-hover: 206 72% 54%; /* #3595DE */
-    --brand-on-surface: 208 97% 65%; /* #4DAAFC — text/icon accents */
+    --brand: 239 84% 67%; /* #6366F1 — indigo fill */
+    --brand-hover: 234 89% 74%; /* #818CF8 */
+    --brand-on-surface: 234 89% 74%; /* #818CF8 — text/icon accents */
     --text-on-brand: 0 0% 100%;
-    --brand-secondary: 208 97% 65%;
-    --sel: 205 92% 19%; /* #04395E */
-    --card: 0 0% 14%; /* #242424 */
+    --brand-secondary: 234 89% 74%;
+    --sel: 242 47% 34%; /* #312E81 — indigo-900 */
+    --card: 240 6% 10%; /* #18181B — zinc-900 */
 
     --md-primary: var(--brand-on-surface);
     --md-on-primary: 210 60% 16%;
-    --md-primary-container: 207 65% 34%;
-    --md-on-primary-container: 209 59% 92%;
-    --md-primary-fixed: 209 59% 92%;
-    --md-primary-fixed-dim: 208 97% 65%;
-    --md-inverse-primary: 209 100% 36%;
+    --md-primary-container: 239 84% 67%;
+    --md-on-primary-container: 226 100% 97%;
+    --md-primary-fixed: 226 100% 97%;
+    --md-primary-fixed-dim: 234 89% 74%;
+    --md-inverse-primary: 243 75% 59%;
 
-    --md-secondary: 0 0% 62%;
+    --md-secondary: 240 5% 65%;
     --md-on-secondary: 0 0% 12%;
-    --md-secondary-container: 195 5% 17%; /* #2A2D2E */
-    --md-on-secondary-container: 0 0% 80%;
-    --md-secondary-fixed: 0 0% 93%;
-    --md-secondary-fixed-dim: 0 0% 62%;
+    --md-secondary-container: 240 4% 16%; /* #27272A */
+    --md-on-secondary-container: 240 5% 84%;
+    --md-secondary-fixed: 240 5% 84%;
+    --md-secondary-fixed-dim: 240 5% 65%;
 
-    --md-tertiary: 36 59% 72%; /* #E2C08D — git modified */
+    --md-tertiary: 43 96% 56%; /* #FBBF24 */
     --md-on-tertiary: 36 60% 14%;
-    --md-tertiary-container: 37 96% 27%;
+    --md-tertiary-container: 32 95% 44%;
     --md-tertiary-fixed: 48 96% 89%;
     --md-tertiary-fixed-dim: 36 59% 72%;
-    --mod: 36 59% 72%;
+    --mod: 43 96% 56%;
 
-    --md-error: 0 85% 62%; /* #F14C4C — text role */
+    --md-error: 0 91% 71%; /* #F87171 */
     --md-on-error: 0 75% 15%;
     --md-error-container: 0 63% 31%;
     --md-on-error-container: 0 93% 94%;
 
-    --md-background: 0 0% 12%; /* #1F1F1F canvas */
-    --md-surface: 0 0% 12%;
-    --md-surface-bright: 0 0% 14%;
-    --md-surface-dim: 0 0% 7%;
-    --md-surface-container-lowest: 0 0% 9%; /* #181818 — chrome panels */
-    --md-surface-container-low: 0 0% 19%; /* #313131 — inputs */
-    --md-surface-container: 195 5% 17%; /* #2A2D2E — hovers */
-    --md-surface-container-high: 240 5% 23%; /* #37373D — pressed */
-    --md-surface-container-highest: 0 0% 24%; /* #3C3C3C */
+    --md-background: 240 10% 4%; /* #09090B — app ground (zinc-950) */
+    --md-surface: 240 6% 10%;
+    --md-surface-bright: 240 6% 10%;
+    --md-surface-dim: 240 6% 7%;
+    --md-surface-container-lowest: 240 6% 10%; /* #18181B — cards/panels */
+    --md-surface-container-low: 240 6% 7%; /* #101012 — inputs, rail */
+    --md-surface-container: 240 4% 16%; /* #27272A — hovers */
+    --md-surface-container-high: 240 5% 26%; /* #3F3F46 — pressed */
+    --md-surface-container-highest: 240 5% 34%;
 
-    --md-on-surface: 0 0% 80%; /* #CCCCCC */
-    --md-on-surface-variant: 0 0% 62%; /* #9D9D9D */
-    --md-outline: 0 0% 43%; /* #6E6E6E — tertiary text */
-    --md-outline-variant: 0 0% 17%; /* #2B2B2B — default borders */
-    --outline-strong: 0 0% 24%; /* #3C3C3C — input/menu borders */
+    --md-on-surface: 0 0% 98%; /* #FAFAFA */
+    --md-on-surface-variant: 240 5% 84%; /* #D4D4D8 */
+    --md-outline: 240 5% 65%; /* #A1A1AA — tertiary text */
+    --md-outline-variant: 240 5% 26%; /* #3F3F46 — default borders */
+    --outline-strong: 240 5% 34%; /* #52525B */
 
     --md-inverse-surface: 0 0% 98%;
-    --md-inverse-on-surface: 0 0% 12%;
+    --md-inverse-on-surface: 240 6% 10%;
 
     --text-high: var(--md-on-surface);
     --text-normal: var(--md-on-surface-variant);
     --text-low: var(--md-outline);
 
-    --_bg-primary-default: 0 0% 12%; /* canvas */
-    --_bg-secondary-default: 195 5% 17%; /* hover */
-    --_bg-panel-default: 0 0% 16%;
+    --_bg-primary-default: 240 6% 10%; /* canvas */
+    --_bg-secondary-default: 240 4% 16%; /* hover */
+    --_bg-panel-default: 240 7% 8%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -213,29 +219,29 @@ html {
     --bg-panel: var(--vscode-input-background, var(--_bg-panel-default));
 
     --error: var(--md-error);
-    --success: 117 45% 67%; /* #89D185 */
-    --success-foreground: 117 45% 85%;
-    --merged: 271 81% 66%;
-    --teal: 187 60% 60%;
-    --pink: 327 85% 72%;
+    --success: 142 69% 58%; /* #4ADE80 */
+    --success-foreground: 142 69% 80%;
+    --merged: 255 92% 76%; /* #A78BFA */
+    --teal: 172 66% 50%;
+    --pink: 329 86% 70%;
 
     /* Status (dark) — text roles lighten; solid fills keep light hex */
-    --_success: 117 45% 67%;
-    --_success-foreground: 117 45% 85%;
-    --_warning: 49 100% 40%; /* #CCA700 */
-    --_warning-foreground: 49 100% 70%;
-    --_info: 208 100% 73%; /* #75BEFF */
-    --_info-foreground: 208 100% 88%;
-    --_neutral: 195 5% 17%;
-    --_neutral-foreground: 0 0% 80%;
-    --_destructive: 5 75% 44%; /* fill keeps light hex both themes */
+    --_success: 142 69% 58%;
+    --_success-foreground: 142 69% 80%;
+    --_warning: 43 96% 56%; /* #FBBF24 */
+    --_warning-foreground: 43 96% 76%;
+    --_info: 198 93% 60%; /* #38BDF8 */
+    --_info-foreground: 198 93% 80%;
+    --_neutral: 240 4% 16%;
+    --_neutral-foreground: 0 0% 98%;
+    --_destructive: 0 72% 51%;
     --_destructive-foreground: 0 0% 100%;
 
     /* Console (dark) */
-    --_console-background: 0 0% 7%;
-    --_console-foreground: 0 0% 80%;
-    --_console-success: 117 45% 67%;
-    --_console-error: 0 85% 62%;
+    --_console-background: 240 10% 4%;
+    --_console-foreground: 0 0% 98%;
+    --_console-success: 142 69% 58%;
+    --_console-error: 0 91% 71%;
 
     /* Syntax highlighting (dark) */
     --_syntax-keyword: #ff7b72;
@@ -247,6 +253,9 @@ html {
     --_syntax-tag: #7ee787;
     --_syntax-punctuation: #c9d1d9;
     --_syntax-deleted: #ffdcd7;
+
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
+    --shadow-card: 0 2px 4px rgb(0 0 0 / 0.45), 0 10px 24px rgb(0 0 0 / 0.35);
   }
 }
 
