@@ -35,7 +35,6 @@ import {
 import { useActionVisibilityContext } from '@/shared/hooks/useActionVisibilityContext';
 import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
-import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import {
   getProjectDestination,
   isIssuesDestination,
@@ -315,10 +314,6 @@ export function NavbarContainer({
     CommandBarDialog.show();
   }, []);
 
-  const handleOpenSettings = useCallback(() => {
-    SettingsDialog.show();
-  }, []);
-
   const handleNavigateBack = useCallback(() => {
     if (isOnProjectPage && projectId) {
       // On project sub-route: go back to project root (kanban board)
@@ -386,7 +381,6 @@ export function NavbarContainer({
       isOnProjectPage={isOnProjectPage}
       isOnProjectSubRoute={isOnProjectSubRoute}
       onOpenCommandBar={handleOpenCommandBar}
-      onOpenSettings={handleOpenSettings}
       onNavigateBack={handleNavigateBack}
       onNavigateToBoard={handleNavigateToBoard}
       onOpenDrawer={onOpenDrawer}

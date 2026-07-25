@@ -226,7 +226,6 @@ export interface NavbarProps {
   mobileUserSlot?: ReactNode;
   isOnProjectPage?: boolean;
   onOpenCommandBar?: () => void;
-  onOpenSettings?: () => void;
   onNavigateToBoard?: (() => void) | null;
   onNavigateBack?: () => void;
   onReload?: () => void;
@@ -257,7 +256,6 @@ export function Navbar({
   mobileUserSlot,
   isOnProjectPage = false,
   onOpenCommandBar,
-  onOpenSettings,
   onNavigateToBoard,
   onNavigateBack,
   onReload,
@@ -458,16 +456,6 @@ export function Navbar({
                 aria-label="Reload"
               >
                 <MaterialIcon name="refresh" size="sm" />
-              </button>
-            )}
-            {!isOnProjectPage && onOpenSettings && (
-              <button
-                type="button"
-                className="flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface active:scale-95 transition-all duration-200"
-                onClick={onOpenSettings}
-                aria-label="Settings"
-              >
-                <MaterialIcon name="settings" size="sm" />
               </button>
             )}
             {mobileUserSlot && (

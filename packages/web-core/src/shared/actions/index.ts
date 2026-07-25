@@ -1615,7 +1615,6 @@ export const NavbarActionGroups = {
     Actions.ToggleRightSidebar,
     NavbarDivider,
     Actions.OpenCommandBar,
-    Actions.Settings,
   ] as NavbarItem[],
 };
 

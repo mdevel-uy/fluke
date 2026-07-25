@@ -20,7 +20,6 @@ import {
   isActionVisible,
 } from "@/shared/types/actions";
 import { useActionVisibilityContext } from "@/shared/hooks/useActionVisibilityContext";
-import { SettingsDialog } from "@/shared/dialogs/settings/SettingsDialog";
 import { CommandBarDialog } from "@/shared/dialogs/command-bar/CommandBarDialog";
 
 /**
@@ -148,10 +147,6 @@ export function RemoteDesktopNavbar() {
     [actionCtx, handleExecuteAction],
   );
 
-  const handleOpenSettings = useCallback(() => {
-    SettingsDialog.show();
-  }, []);
-
   const handleOpenCommandBar = useCallback(() => {
     CommandBarDialog.show();
   }, []);
@@ -165,7 +160,6 @@ export function RemoteDesktopNavbar() {
       rightItems={rightItems}
       syncErrors={syncErrorContext?.errors}
       isOnProjectPage={isOnProjectPage}
-      onOpenSettings={handleOpenSettings}
       onOpenCommandBar={handleOpenCommandBar}
     />
   );
