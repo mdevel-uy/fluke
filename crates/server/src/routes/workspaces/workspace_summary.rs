@@ -146,20 +146,21 @@ pub async fn get_workspace_summaries(
         .map(|info| {
             let execution_id = info.execution_process_id;
             let workspace_id = info.workspace_id;
+            let is_terminal = info.status != ExecutionProcessStatus::Running;
             let deployment = deployment.clone();
             async move {
                 (
                     workspace_id,
-                    find_latest_agent_signals(&deployment, execution_id).await,
+                    find_latest_agent_signals(&deployment, execution_id, is_terminal).await,
                 )
             }
         })
         .collect();
     let agent_signals: HashMap<Uuid, AgentLogSignals> =
-        futures_util::future::join_all(signal_futures)
-            .await
-            .into_iter()
-            .collect();
+        futures_util::stream::iter(signal_futures)
+            .buffer_unordered(MAX_CONCURRENT_LOG_SCANS)
+            .collect()
+            .await;
 
     // 7b. CI rollup per PR URL (recorded by pr_monitor)
     let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
@@ -182,8 +183,10 @@ pub async fn get_workspace_summaries(
         })
         .collect();
 
-    let diff_results: Vec<Option<(Uuid, DiffStats)>> =
-        futures_util::future::join_all(diff_futures).await;
+    let diff_results: Vec<Option<(Uuid, DiffStats)>> = futures_util::stream::iter(diff_futures)
+        .buffer_unordered(MAX_CONCURRENT_DIFF_STATS)
+        .collect()
+        .await;
     let diff_stats: HashMap<Uuid, DiffStats> = diff_results.into_iter().flatten().collect();
 
     // 9. Assemble response
@@ -245,6 +248,21 @@ struct AgentLogSignals {
 static FINISHED_SIGNALS_CACHE: LazyLock<Mutex<HashMap<Uuid, AgentLogSignals>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// How many log re-normalizations may run at once.
+///
+/// Re-normalizing one execution reads its whole raw log off disk, replays it
+/// through a `MsgStore` and normalizes it — hundreds of MB of transient
+/// allocation for a long session. This endpoint runs over *every* workspace
+/// (211 of them on a busy instance), so an unbounded `join_all` peaked at
+/// several GB and got the server OOM-killed on the first poll after a
+/// restart, before the cache below could ever fill. Bound the fan-out so the
+/// peak stays proportional to this constant instead of the workspace count.
+const MAX_CONCURRENT_LOG_SCANS: usize = 4;
+
+/// How many workspaces may have their diff stats computed at once. Each one
+/// shells out to git over a worktree, so the same fan-out argument applies.
+const MAX_CONCURRENT_DIFF_STATS: usize = 8;
+
 /// Find the most recent token-usage and tool-activity entries of an execution
 /// process.
 ///
@@ -256,14 +274,19 @@ static FINISHED_SIGNALS_CACHE: LazyLock<Mutex<HashMap<Uuid, AgentLogSignals>>> =
 async fn find_latest_agent_signals(
     deployment: &DeploymentImpl,
     execution_id: Uuid,
+    is_terminal: bool,
 ) -> AgentLogSignals {
     if let Some(store) = deployment
         .container()
         .get_msg_store_by_id(&execution_id)
         .await
     {
-        let history = store.get_history();
-        return scan_signals(history.iter().rev());
+        // Scan the history in place. `get_history()` would clone every message
+        // (the store holds up to 100 MB) on each poll of every live workspace.
+        return AgentLogSignals {
+            usage: store.find_map_history_rev(token_usage_from_log_msg),
+            last_activity: store.find_map_history_rev(tool_activity_from_log_msg),
+        };
     }
 
     if let Some(cached) = FINISHED_SIGNALS_CACHE.lock().unwrap().get(&execution_id) {
@@ -271,42 +294,38 @@ async fn find_latest_agent_signals(
     }
 
     let mut result = AgentLogSignals::default();
-    if let Some(stream) = deployment
+    if let Some(mut stream) = deployment
         .container()
         .stream_normalized_logs(&execution_id)
         .await
     {
-        // The stream terminates with `LogMsg::Finished` for stopped processes.
-        let msgs: Vec<_> = stream.collect().await;
-        result = scan_signals(msgs.iter().rev().filter_map(|m| m.as_ref().ok()));
+        // Scan forward keeping the newest hit of each signal — same answer as
+        // a reverse scan, without materializing the whole normalized log. The
+        // stream terminates with `LogMsg::Finished` for stopped processes.
+        while let Some(msg) = stream.next().await {
+            let Ok(msg) = msg else { continue };
+            if let Some(usage) = token_usage_from_log_msg(&msg) {
+                result.usage = Some(usage);
+            }
+            if let Some(activity) = tool_activity_from_log_msg(&msg) {
+                result.last_activity = Some(activity);
+            }
+        }
     }
 
-    // Only memoize a hit: caching an empty scan would pin a workspace to "no
-    // context usage" until the server restarts if the read failed once.
-    if result.usage.is_some() || result.last_activity.is_some() {
+    // Memoize terminal processes even when the scan came up empty. Their logs
+    // can no longer change, so a miss is as final as a hit — and *not* caching
+    // it means re-normalizing that log on every poll, forever. That was the
+    // leak: 211 archived workspaces whose logs yield no signals (worktree
+    // deleted, log pruned) re-normalized every 15s, ~700 MB/min, until OOM.
+    // A running process is skipped: its logs are still growing.
+    if is_terminal {
         FINISHED_SIGNALS_CACHE
             .lock()
             .unwrap()
             .insert(execution_id, result.clone());
     }
     result
-}
-
-/// Scan messages newest-first, keeping the first hit of each signal.
-fn scan_signals<'a>(msgs: impl Iterator<Item = &'a LogMsg>) -> AgentLogSignals {
-    let mut signals = AgentLogSignals::default();
-    for msg in msgs {
-        if signals.usage.is_none() {
-            signals.usage = token_usage_from_log_msg(msg);
-        }
-        if signals.last_activity.is_none() {
-            signals.last_activity = tool_activity_from_log_msg(msg);
-        }
-        if signals.usage.is_some() && signals.last_activity.is_some() {
-            break;
-        }
-    }
-    signals
 }
 
 /// Extract the content of a `tool_use` entry from a normalized `JsonPatch`

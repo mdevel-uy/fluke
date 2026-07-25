@@ -900,29 +900,28 @@ impl LocalContainerService {
         let msg_stores = self.msg_stores.try_read().ok()?;
         let msg_store = msg_stores.get(exec_id)?;
 
-        // Get the history and scan in reverse for the last assistant message
-        let history = msg_store.get_history();
-
-        for msg in history.iter().rev() {
-            if let LogMsg::JsonPatch(patch) = msg {
-                // Try to extract a NormalizedEntry from the patch
-                if let Some((_, entry)) = extract_normalized_entry_from_patch(patch)
-                    && matches!(entry.entry_type, NormalizedEntryType::AssistantMessage)
-                {
-                    let content = entry.content.trim();
-                    if !content.is_empty() {
-                        const MAX_SUMMARY_LENGTH: usize = 4096;
-                        if content.len() > MAX_SUMMARY_LENGTH {
-                            let truncated = truncate_to_char_boundary(content, MAX_SUMMARY_LENGTH);
-                            return Some(format!("{truncated}..."));
-                        }
-                        return Some(content.to_string());
-                    }
-                }
+        // Scan the history in reverse *in place*: cloning it (`get_history()`)
+        // duplicates up to 100 MB of messages just to read the last entry.
+        msg_store.find_map_history_rev(|msg| {
+            let LogMsg::JsonPatch(patch) = msg else {
+                return None;
+            };
+            // Try to extract a NormalizedEntry from the patch
+            let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+            if !matches!(entry.entry_type, NormalizedEntryType::AssistantMessage) {
+                return None;
             }
-        }
-
-        None
+            let content = entry.content.trim();
+            if content.is_empty() {
+                return None;
+            }
+            const MAX_SUMMARY_LENGTH: usize = 4096;
+            if content.len() > MAX_SUMMARY_LENGTH {
+                let truncated = truncate_to_char_boundary(content, MAX_SUMMARY_LENGTH);
+                return Some(format!("{truncated}..."));
+            }
+            Some(content.to_string())
+        })
     }
 
     /// Update the coding agent turn summary with the final assistant message
