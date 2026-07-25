@@ -598,7 +598,6 @@
     "noActiveTask": "アクティブなタスクなし",
     "context": "コンテキスト",
     "queue": "キュー",
-    "completedLabel": "完了",
     "running": "実行中",
     "idle": "待機",
     "mergeable": "マージ可能",
@@ -632,7 +631,21 @@
     "feedPrOpened": "{{worker}} が PR #{{number}} を作成",
     "feedPrMerged": "PR #{{number}} がマージされました",
     "feedApprovalRequested": "承認リクエスト — {{tool}}",
-    "feedTaskStarted": "{{worker}} が {{task}} を開始"
+    "feedTaskStarted": "{{worker}} が {{task}} を開始",
+    "summarySection": "サマリー",
+    "offline": "再接続中…",
+    "openWorkerWorkspace": "{{name}} のワークスペースを開く",
+    "claudeLimits": {
+      "title": "Claude の上限",
+      "workersOnClaude": "Claude Code で{{count}}件のワーカー",
+      "workersOnClaude_other": "Claude Code で{{count}}件のワーカー",
+      "resetsAt": "{{time}} にリセット",
+      "meter": {
+        "session": "セッション · 5時間ウィンドウ",
+        "week_all": "週 · 全モデル",
+        "week_opus": "週 · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"
@@ -940,14 +953,12 @@
     "inProgress": {
       "openWorkspace": "ワークスペースを開く",
       "stop": "停止",
-      "stopConfirmTitle": "実行を停止しますか？",
       "stopConfirmMessage": "実行を停止してIssueをバックログに戻しますか？",
       "stopAndUnassign": "停止して割り当て解除",
       "empty": "進行中のタスクはありません。"
     },
     "inReview": {
       "unassign": "割り当て解除",
-      "unassignConfirmTitle": "タスクの割り当てを解除しますか？",
       "unassignConfirmMessage": "タスクの割り当てを解除してIssueをバックログに戻しますか？",
       "unassignConfirm": "割り当て解除",
       "empty": "レビュー待ちはありません。"
@@ -989,7 +1000,6 @@
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
       "reviewChangesRequested": "変更要求: {{title}}",
-      "cancelSuccess": "タスクを停止してバックログに戻しました。",
       "cancelError": "タスクの停止に失敗しました: {{message}}"
     },
     "failed": {

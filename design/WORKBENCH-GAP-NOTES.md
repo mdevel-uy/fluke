@@ -14,7 +14,14 @@
 | 6 | Hero "What would you like to work on?" en 4xl (~36px) | Escala máxima del sistema = heading 20px | ✅ `CreateChatBoxContainer` |
 | 7 | Íconos fallback (círculos) por nombres no mapeados en el shim (`sync`, `light_mode`, `dark_mode`, `desktop_windows`, `search`, `edit`) | Ícono correcto de lucide | ✅ `MaterialIcon` |
 | 8 | Pendiente: la vista Workers y el composer de create-workspace no se auditaron contra el mockup a pixel | — | ⏳ verificar con screenshots de Dani |
+| 9 | Dashboard: títulos de panel afuera de la card, fila PRs/attention 50/50, sin panel de Claude limits, `Context —` en todas las worker cards | Título adentro de cada panel (caps 11px + hairline + count chip), fila PRs 1.2fr / attention 1fr, fila `[pipeline \| Claude limits]`, contexto real | ✅ `features/dashboard/*` + `GET /api/agents/claude/usage` |
 
 **Regla operativa para futuros cambios de UI:** al implementar un mockup aprobado,
 verificar pantalla por pantalla contra la imagen (layout, densidad, jerarquía), no solo
 los tokens. El compilador no ve estos gaps.
+
+**Lección del Dashboard (24-jul-2026):** las idas y vueltas no eran de CSS. Los campos
+`taskTitle` / `workerName` / `hasStalledTask` existían en el tipo pero nadie los llenaba
+fuera del sidebar, y `latest_context_usage` llegaba `null`. Antes de retocar estilos,
+verificar que el dato realmente llega (curl al endpoint), porque una card "bien
+maquetada" con datos vacíos se ve igual de rota.

@@ -598,7 +598,6 @@
     "noActiveTask": "Sin tarea activa",
     "context": "Contexto",
     "queue": "Cola",
-    "completedLabel": "Completadas",
     "running": "Trabajando",
     "idle": "Inactivo",
     "mergeable": "Mergeable",
@@ -632,7 +631,21 @@
     "feedPrOpened": "{{worker}} abrió el PR #{{number}}",
     "feedPrMerged": "PR #{{number}} mergeado",
     "feedApprovalRequested": "Aprobación pedida — {{tool}}",
-    "feedTaskStarted": "{{worker}} empezó {{task}}"
+    "feedTaskStarted": "{{worker}} empezó {{task}}",
+    "summarySection": "Resumen",
+    "offline": "Reconectando…",
+    "openWorkerWorkspace": "Abrir el workspace de {{name}}",
+    "claudeLimits": {
+      "title": "Límites de Claude",
+      "workersOnClaude": "{{count}} worker en Claude Code",
+      "workersOnClaude_other": "{{count}} workers en Claude Code",
+      "resetsAt": "se reinicia {{time}}",
+      "meter": {
+        "session": "Sesión · ventana de 5 h",
+        "week_all": "Semana · todos los modelos",
+        "week_opus": "Semana · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"
@@ -940,14 +953,12 @@
     "inProgress": {
       "openWorkspace": "Abrir workspace",
       "stop": "Parar",
-      "stopConfirmTitle": "¿Parar la ejecución?",
       "stopConfirmMessage": "¿Parar la ejecución y devolver el issue al backlog?",
       "stopAndUnassign": "Parar y desasignar",
       "empty": "Ninguna tarea en progreso."
     },
     "inReview": {
       "unassign": "Desasignar",
-      "unassignConfirmTitle": "¿Desasignar tarea?",
       "unassignConfirmMessage": "¿Desasignar la tarea y devolver el issue al backlog?",
       "unassignConfirm": "Desasignar",
       "empty": "Nada esperando revisión."
@@ -989,7 +1000,6 @@
       "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
       "reviewApproved": "Revisión aprobada: {{title}}",
       "reviewChangesRequested": "Cambios solicitados en: {{title}}",
-      "cancelSuccess": "Tarea detenida y devuelta al backlog.",
       "cancelError": "No se pudo detener la tarea: {{message}}"
     },
     "failed": {

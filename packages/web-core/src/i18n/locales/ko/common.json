@@ -598,7 +598,6 @@
     "noActiveTask": "활성 작업 없음",
     "context": "컨텍스트",
     "queue": "큐",
-    "completedLabel": "완료",
     "running": "실행 중",
     "idle": "대기",
     "mergeable": "병합 가능",
@@ -632,7 +631,21 @@
     "feedPrOpened": "{{worker}}가 PR #{{number}} 생성",
     "feedPrMerged": "PR #{{number}} 병합됨",
     "feedApprovalRequested": "승인 요청 — {{tool}}",
-    "feedTaskStarted": "{{worker}}가 {{task}} 시작"
+    "feedTaskStarted": "{{worker}}가 {{task}} 시작",
+    "summarySection": "요약",
+    "offline": "재연결 중…",
+    "openWorkerWorkspace": "{{name}}의 워크스페이스 열기",
+    "claudeLimits": {
+      "title": "Claude 사용 한도",
+      "workersOnClaude": "Claude Code 사용 워커 {{count}}명",
+      "workersOnClaude_other": "Claude Code 사용 워커 {{count}}명",
+      "resetsAt": "{{time}}에 초기화",
+      "meter": {
+        "session": "세션 · 5시간 창",
+        "week_all": "주간 · 전체 모델",
+        "week_opus": "주간 · Opus"
+      }
+    }
   },
   "errors": {
     "generic": "An unexpected error occurred"
@@ -940,14 +953,12 @@
     "inProgress": {
       "openWorkspace": "워크스페이스 열기",
       "stop": "중지",
-      "stopConfirmTitle": "실행을 중지하시겠습니까?",
       "stopConfirmMessage": "실행을 중지하고 이슈를 백로그로 돌려보내시겠습니까?",
       "stopAndUnassign": "중지 및 할당 해제",
       "empty": "진행 중인 태스크가 없습니다."
     },
     "inReview": {
       "unassign": "할당 해제",
-      "unassignConfirmTitle": "태스크 할당을 해제하시겠습니까?",
       "unassignConfirmMessage": "태스크 할당을 해제하고 이슈를 백로그로 돌려보내시겠습니까?",
       "unassignConfirm": "할당 해제",
       "empty": "검토 대기 중인 항목이 없습니다."
@@ -989,7 +1000,6 @@
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
       "reviewApproved": "리뷰 승인: {{title}}",
       "reviewChangesRequested": "변경 요청: {{title}}",
-      "cancelSuccess": "태스크가 중지되어 백로그로 돌아왔습니다.",
       "cancelError": "태스크 중지 실패: {{message}}"
     },
     "failed": {

@@ -602,7 +602,6 @@
     "noActiveTask": "No active task",
     "context": "Context",
     "queue": "Queue",
-    "completedLabel": "Completed",
     "running": "Running",
     "idle": "Idle",
     "mergeable": "Mergeable",
@@ -637,16 +636,20 @@
     "feedPrMerged": "PR #{{number}} merged",
     "feedApprovalRequested": "Approval requested — {{tool}}",
     "feedTaskStarted": "{{worker}} started {{task}}",
-    "tokens": "Tokens",
-    "tokensNone": "—",
-    "tokensInputShort": "in",
-    "tokensOutputShort": "out",
-    "tokensCacheWriteShort": "cache↑",
-    "tokensCacheReadShort": "cache↓",
-    "tokensInputLabel": "Input tokens",
-    "tokensOutputLabel": "Output tokens",
-    "tokensCacheWriteLabel": "Cache creation input tokens",
-    "tokensCacheReadLabel": "Cache read input tokens"
+    "summarySection": "Summary",
+    "offline": "Reconnecting…",
+    "openWorkerWorkspace": "Open {{name}}'s workspace",
+    "claudeLimits": {
+      "title": "Claude limits",
+      "workersOnClaude": "{{count}} worker on Claude Code",
+      "workersOnClaude_other": "{{count}} workers on Claude Code",
+      "resetsAt": "resets {{time}}",
+      "meter": {
+        "session": "Session · 5h window",
+        "week_all": "Week · all models",
+        "week_opus": "Week · Opus"
+      }
+    }
   },
   "askQuestion": {
     "title": "Agent is asking a question",
@@ -950,14 +953,12 @@
     "inProgress": {
       "openWorkspace": "Open workspace",
       "stop": "Stop",
-      "stopConfirmTitle": "Stop execution?",
       "stopConfirmMessage": "Stop execution and return the issue to the backlog?",
       "stopAndUnassign": "Stop and unassign",
       "empty": "No task in progress."
     },
     "inReview": {
       "unassign": "Unassign",
-      "unassignConfirmTitle": "Unassign task?",
       "unassignConfirmMessage": "Unassign the task and return the issue to the backlog?",
       "unassignConfirm": "Unassign",
       "empty": "Nothing awaiting review."
@@ -999,7 +1000,6 @@
       "assignDuplicate": "This issue already has an active task assigned to a worker.",
       "reviewApproved": "Review approved: {{title}}",
       "reviewChangesRequested": "Changes requested: {{title}}",
-      "cancelSuccess": "Task stopped and returned to backlog.",
       "cancelError": "Failed to stop task: {{message}}"
     },
     "failed": {
