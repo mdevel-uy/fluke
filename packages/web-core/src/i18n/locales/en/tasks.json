@@ -238,14 +238,18 @@
       "creating": "Creating...",
       "createPr": "Create PR",
       "resolveConflicts": "Resolve conflicts",
-      "sendingConflicts": "Sending..."
+      "sendingConflicts": "Sending...",
+      "resolveConflictsSent": "Sent to agent"
     },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
       "pushChanges": "Failed to push changes",
       "mergeChanges": "Failed to merge changes",
       "rebaseBranch": "Failed to rebase branch",
-      "branchStatusUnavailable": "Unable to fetch branch status. You can still change the target branch."
+      "branchStatusUnavailable": "Unable to fetch branch status. You can still change the target branch.",
+      "resolveConflictsFailed": "Failed to send the resolve-conflicts follow-up.",
+      "resolveConflictsNoPr": "No open PR is attached to this workspace.",
+      "resolveConflictsNoAgentSession": "This workspace has no active agent session — start the agent again and retry."
     },
     "pr": {
       "open": "Open PR #{{number}}",

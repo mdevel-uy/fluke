@@ -159,14 +159,18 @@
       "creating": "创建中...",
       "createPr": "创建 PR",
       "resolveConflicts": "解决冲突",
-      "sendingConflicts": "发送中..."
+      "sendingConflicts": "发送中...",
+      "resolveConflictsSent": "已发送给代理"
     },
     "errors": {
       "changeTargetBranch": "更改目标分支失败",
       "pushChanges": "推送更改失败",
       "mergeChanges": "合并更改失败",
       "rebaseBranch": "变基分支失败",
-      "branchStatusUnavailable": "无法获取分支状态。您仍然可以更改目标分支。"
+      "branchStatusUnavailable": "无法获取分支状态。您仍然可以更改目标分支。",
+      "resolveConflictsFailed": "解决冲突的跟进消息发送失败。",
+      "resolveConflictsNoPr": "该工作区未关联任何开放的 PR。",
+      "resolveConflictsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。"
     },
     "pr": {
       "open": "打开 PR #{{number}}",

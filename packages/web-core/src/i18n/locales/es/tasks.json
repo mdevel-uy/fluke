@@ -130,7 +130,10 @@
       "mergeChanges": "Error al fusionar cambios",
       "pushChanges": "Error al enviar cambios",
       "rebaseBranch": "Error al hacer rebase de la rama",
-      "branchStatusUnavailable": "No se puede obtener el estado de la rama. Aún puedes cambiar la rama de destino."
+      "branchStatusUnavailable": "No se puede obtener el estado de la rama. Aún puedes cambiar la rama de destino.",
+      "resolveConflictsFailed": "No se pudo enviar el follow-up para resolver conflictos.",
+      "resolveConflictsNoPr": "No hay un PR abierto vinculado a este workspace.",
+      "resolveConflictsNoAgentSession": "Este workspace no tiene una sesión activa del agente — relanzalo y reintentá."
     },
     "labels": {
       "taskBranch": "Rama de tarea"
@@ -184,6 +187,7 @@
       "createPr": "Crear PR",
       "resolveConflicts": "Resolver conflictos",
       "sendingConflicts": "Enviando...",
+      "resolveConflictsSent": "Enviado al agente",
       "forcePush": "Push forzado",
       "forcePushing": "Push forzado en curso...",
       "creating": "Creando...",
