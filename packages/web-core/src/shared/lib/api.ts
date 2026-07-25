@@ -1833,6 +1833,15 @@ export interface CreateWorkerRequest {
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
 
+/**
+ * Body for POST /workers/{worker_id}/tasks/{task_id}/reassign.
+ * Kept locally until `shared/types.ts` is regenerated so the frontend
+ * compiles independently of the backend regen step.
+ */
+export interface ReassignWorkerTaskRequest {
+  target_worker_id: string;
+}
+
 export const workersApi = {
   list: async (): Promise<WorkerResponse[]> => {
     const response = await makeRequest('/api/workers');
@@ -1937,6 +1946,23 @@ export const workersApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  reassignTask: async (
+    workerId: string,
+    taskId: string,
+    targetWorkerId: string
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/reassign`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          target_worker_id: targetWorkerId,
+        } satisfies ReassignWorkerTaskRequest),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 
   startNext: async (workerId: string): Promise<WorkerTaskResponse> => {
