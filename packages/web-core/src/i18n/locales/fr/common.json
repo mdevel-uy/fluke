@@ -567,6 +567,7 @@
   },
   "appBar": {
     "dashboard": "Tableau de bord",
+    "workspaces": "Espaces de travail",
     "issues": "Tickets",
     "workers": "Workers",
     "sprint": "Kanban",

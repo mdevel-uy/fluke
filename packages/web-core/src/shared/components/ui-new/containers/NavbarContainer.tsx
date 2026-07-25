@@ -40,6 +40,7 @@ import {
   getProjectDestination,
   isIssuesDestination,
   isSprintDestination,
+  isWorkspacesDestination,
 } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
@@ -336,9 +337,16 @@ export function NavbarContainer({
     };
   }, [isOnProjectPage, projectId, appNavigation]);
 
-  // Workbench section tabs (desktop): Sprint · Issues
+  // Workbench section tabs (desktop): Workspaces · Sprint · Issues
   const sectionTabs = useMemo(
     () => [
+      {
+        id: 'workspaces',
+        label: t('appBar.workspaces'),
+        materialIcon: 'view_quilt',
+        isActive: isWorkspacesDestination(destination),
+        onClick: () => appNavigation.goToWorkspaces(),
+      },
       {
         id: 'sprint',
         label: t('appBar.sprint'),
