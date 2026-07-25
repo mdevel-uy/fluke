@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -24,7 +24,7 @@ import {
 } from '@vibe/ui/components/Select';
 import type { WorkerResponse } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
-import type { CreateWorkerRequest } from '@/shared/lib/api';
+import { workersApi, type CreateWorkerRequest } from '@/shared/lib/api';
 import {
   useBaseInstructions,
   useCreateWorker,
@@ -65,6 +65,23 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [model, setModel] = useState<string | null>(worker?.model ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // PAT field state.
+  //   - `githubPat === null`  → do not touch the stored value (edit mode
+  //                             with an existing PAT that the user hasn't
+  //                             replaced, OR create mode with no token).
+  //   - `githubPat === ''`    → clear the stored value on save.
+  //   - `githubPat === <str>` → new value to persist (validated first).
+  // We keep the input value separately from what we send to the API so the
+  // masked placeholder can render without leaking the real token.
+  const [githubPat, setGithubPat] = useState<string | null>(null);
+  const [clearPat, setClearPat] = useState(false);
+  const [patValidation, setPatValidation] = useState<
+    | { status: 'idle' }
+    | { status: 'validating' }
+    | { status: 'ok'; login: string }
+    | { status: 'error'; message: string }
+  >({ status: 'idle' });
+
   const [baseInstructionsExpanded, setBaseInstructionsExpanded] =
     useState(false);
   const { data: baseInstructions } = useBaseInstructions();
@@ -82,13 +99,16 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     setSoul(worker?.soul ?? '');
     setRole((worker?.role as WorkerRole) ?? 'developer');
     setModel(worker?.model ?? null);
+    setGithubPat(null);
+    setClearPat(false);
+    setPatValidation({ status: 'idle' });
     setErrorMessage(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worker?.id]);
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, soul, role, model]);
+  }, [name, soul, role, model, githubPat, clearPat]);
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
@@ -105,10 +125,45 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     if (!open) handleCancel();
   };
 
+  const handleValidatePat = async () => {
+    const trimmed = (githubPat ?? '').trim();
+    if (!trimmed) return;
+    setPatValidation({ status: 'validating' });
+    try {
+      const { login } = await workersApi.validateGithubPat(trimmed);
+      setPatValidation({ status: 'ok', login });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setPatValidation({ status: 'error', message });
+    }
+  };
+
   const handleSubmit = async () => {
     const trimmedName = name.trim();
     const trimmedSoul = soul.trim();
     if (!trimmedName || !trimmedSoul) return;
+
+    // Decide what to send for github_pat:
+    //   - `undefined` → don't touch (server keeps the stored value)
+    //   - `null`      → clear the stored token
+    //   - `string`    → replace with this value
+    // On create there is nothing to clear, so we drop `null` outright and
+    // only send a string when the user typed something.
+    let github_pat: string | null | undefined;
+    const trimmedPat = (githubPat ?? '').trim();
+    if (isEdit) {
+      if (clearPat) {
+        github_pat = null;
+      } else if (trimmedPat.length > 0) {
+        github_pat = trimmedPat;
+      } else {
+        github_pat = undefined;
+      }
+    } else if (trimmedPat.length > 0) {
+      github_pat = trimmedPat;
+    } else {
+      github_pat = undefined;
+    }
 
     const payload: CreateWorkerRequest = {
       name: trimmedName,
@@ -116,6 +171,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       soul: trimmedSoul,
       role,
       model: model ?? null,
+      ...(github_pat === undefined ? {} : { github_pat }),
     };
 
     try {
@@ -215,6 +271,92 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               </Select>
             </div>
           )}
+
+          <div>
+            <Label htmlFor="worker-github-pat">
+              {t('workers.form.githubPatLabel')}
+            </Label>
+            <div className="mt-1 flex gap-2">
+              <Input
+                id="worker-github-pat"
+                type="password"
+                autoComplete="new-password"
+                value={githubPat ?? ''}
+                onChange={(e) => {
+                  setGithubPat(e.target.value);
+                  setClearPat(false);
+                  setPatValidation({ status: 'idle' });
+                }}
+                placeholder={
+                  isEdit && worker?.has_github_pat && !clearPat
+                    ? t('workers.form.githubPatMaskedPlaceholder')
+                    : t('workers.form.githubPatPlaceholder')
+                }
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleValidatePat}
+                disabled={
+                  patValidation.status === 'validating' ||
+                  !(githubPat ?? '').trim()
+                }
+              >
+                {patValidation.status === 'validating' && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {t('workers.form.githubPatValidate')}
+              </Button>
+            </div>
+            {patValidation.status === 'ok' && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
+                <CheckCircle2 className="h-3 w-3" />
+                {t('workers.form.githubPatValidateOk', {
+                  login: patValidation.login,
+                })}
+              </p>
+            )}
+            {patValidation.status === 'error' && (
+              <p className="mt-1 text-xs text-destructive">
+                {patValidation.message}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-low">
+              {t('workers.form.githubPatHelp')}
+            </p>
+            {isEdit && worker?.has_github_pat && (
+              <div className="mt-1 flex items-center gap-2 text-xs">
+                <span className="text-low">
+                  {clearPat
+                    ? t('workers.form.githubPatWillClear')
+                    : t('workers.form.githubPatStored')}
+                </span>
+                {!clearPat ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClearPat(true);
+                      setGithubPat('');
+                      setPatValidation({ status: 'idle' });
+                    }}
+                    className="text-destructive underline"
+                  >
+                    {t('workers.form.githubPatClear')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setClearPat(false)}
+                    className="text-low underline"
+                  >
+                    {t('workers.form.githubPatUndoClear')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {!isEdit && (
             <div>

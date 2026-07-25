@@ -821,7 +821,17 @@
       "saveNew": "Create worker",
       "saveEdit": "Save changes",
       "modelLabel": "Model",
-      "modelDefault": "Default (global)"
+      "modelDefault": "Default (global)",
+      "githubPatLabel": "GitHub PAT (optional)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (stored — leave blank to keep it)",
+      "githubPatValidate": "Validate",
+      "githubPatValidateOk": "Valid — authenticated as {{login}}",
+      "githubPatHelp": "Leave empty to use the machine's global gh credentials. Note: GitHub does not let anyone approve their own PR, so a reviewer needs a PAT different from the author's.",
+      "githubPatStored": "A PAT is stored.",
+      "githubPatWillClear": "The PAT will be cleared on save.",
+      "githubPatClear": "Clear",
+      "githubPatUndoClear": "Undo"
     },
     "roles": {
       "developer": "Developer",

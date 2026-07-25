@@ -894,7 +894,14 @@ async fn on_developer_agent_finished(
 
     // Push the branch. A push failure is terminal for this run (no retry loop
     // per the spec); the human sees the cause on the card and can retry.
-    if let Err(e) = git.push_to_remote(&worktree_path, &workspace.branch, false) {
+    //
+    // When the author worker has a personal PAT, push and PR creation use
+    // *its* credentials so both operations show up under the worker's own
+    // GitHub identity — that is the point of the per-worker PAT feature.
+    let worker_pat = worker.github_pat.clone();
+    if let Err(e) =
+        git.push_to_remote_with_token(&worktree_path, &workspace.branch, false, worker_pat.as_deref())
+    {
         error!(
             workspace_id = %workspace_id,
             task_id = %task.id,
@@ -940,7 +947,8 @@ async fn on_developer_agent_finished(
             Err(_) => (push_remote.clone(), target_branch_ref.clone()),
         };
 
-    let git_host = match GitHostService::from_url(&target_remote.url) {
+    let git_host = match GitHostService::from_url_with_token(&target_remote.url, worker_pat.clone())
+    {
         Ok(h) => h,
         Err(GitHostError::UnsupportedProvider) => {
             error!(workspace_id = %workspace_id, "Unsupported git provider for URL '{}'", target_remote.url);
@@ -1173,10 +1181,18 @@ pub async fn dispatch_review_task(
 
     if let Some(author_id) = author_worker_id {
         if reviewer.id == author_id {
+            // GitHub's PR review API rejects a review submitted by the PR
+            // author (`gh pr review --approve` returns 422 "author cannot
+            // approve their own pull request"). This guard is what makes
+            // the per-worker PAT feature useful: a dedicated reviewer
+            // worker with its own PAT can approve PRs authored by a
+            // developer worker. Without distinct identities the review
+            // would round-trip and fail on submit.
             debug!(
                 reviewer_id = %reviewer.id,
                 pr_number,
-                "Reviewer is the same as PR author — skipping self-review"
+                "Reviewer is the same as PR author — skipping self-review \
+                 (GitHub rejects self-approval; requires a distinct reviewer PAT)"
             );
             return Ok(());
         }
@@ -1481,6 +1497,8 @@ mod tests {
                 emoji: "🤖".to_string(),
                 soul: "test soul".to_string(),
                 role: None,
+                model: None,
+                github_pat: None,
             },
         )
         .await

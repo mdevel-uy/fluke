@@ -31,6 +31,15 @@ impl GitHubProvider {
         })
     }
 
+    /// Construct a provider whose underlying `gh` invocations use the given
+    /// PAT (via `GH_TOKEN`) instead of the machine's stored gh credentials.
+    /// Pass `None` to get the same behaviour as `new()`.
+    pub fn with_token(token: Option<String>) -> Result<Self, GitHostError> {
+        Ok(Self {
+            gh_cli: GhCli::with_token(token),
+        })
+    }
+
     async fn get_repo_info(
         &self,
         remote_url: &str,

@@ -811,7 +811,17 @@
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer",
       "modelLabel": "Modèle",
-      "modelDefault": "Par défaut (global)"
+      "modelDefault": "Par défaut (global)",
+      "githubPatLabel": "PAT GitHub (optionnel)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (enregistré — laissez vide pour conserver)",
+      "githubPatValidate": "Valider",
+      "githubPatValidateOk": "Valide — authentifié en tant que {{login}}",
+      "githubPatHelp": "Laissez vide pour utiliser les identifiants gh globaux de la machine. Note : GitHub interdit d'approuver son propre PR ; un réviseur a donc besoin d'un PAT distinct de celui de l'auteur.",
+      "githubPatStored": "Un PAT est enregistré.",
+      "githubPatWillClear": "Le PAT sera effacé lors de l'enregistrement.",
+      "githubPatClear": "Effacer",
+      "githubPatUndoClear": "Annuler"
     },
     "roles": {
       "developer": "Développeur",

@@ -132,11 +132,27 @@ pub enum GhCliError {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct GhCli;
+pub struct GhCli {
+    /// Optional per-operation token. When set, `GH_TOKEN` is injected into
+    /// the process env for every `gh` invocation, so the CLI uses this
+    /// credential instead of the machine's stored `gh auth login` state.
+    /// This is how per-worker PATs override the global GitHub auth without
+    /// mutating the local user's `gh auth` config.
+    token: Option<String>,
+}
 
 impl GhCli {
     pub fn new() -> Self {
-        Self {}
+        Self { token: None }
+    }
+
+    /// Construct a `GhCli` that runs every command with `GH_TOKEN=<token>`
+    /// in its environment. Pass `None` to fall back to the machine's stored
+    /// gh credentials — behaviour identical to `GhCli::new()`.
+    pub fn with_token(token: Option<String>) -> Self {
+        Self {
+            token: token.filter(|s| !s.is_empty()),
+        }
     }
 
     /// Ensure the GitHub CLI binary is discoverable.
@@ -155,6 +171,13 @@ impl GhCli {
         let mut cmd = Command::new(&gh);
         if let Some(d) = dir {
             cmd.current_dir(d);
+        }
+        if let Some(ref token) = self.token {
+            // Per-op override: setting both env vars covers gh's precedence
+            // rules (GH_TOKEN wins over GITHUB_TOKEN, and both bypass the
+            // stored `gh auth` credentials for this process only).
+            cmd.env("GH_TOKEN", token);
+            cmd.env("GITHUB_TOKEN", token);
         }
         for arg in args {
             cmd.arg(arg);
@@ -602,6 +625,26 @@ impl GhCli {
             Some(host)
         };
         Some((owner, repo, pr_number, hostname))
+    }
+
+    /// Validate a GitHub PAT by calling `/user`. Returns the authenticated
+    /// login on success. Runs `gh api user` with the token injected via
+    /// `GH_TOKEN`, so the stored `gh auth` credentials are not touched.
+    ///
+    /// Note: this constructs a *temporary* `GhCli` bound to the provided
+    /// token — the receiver's own `self.token` is intentionally ignored so
+    /// callers can validate a candidate value without instantiating a
+    /// second helper.
+    pub fn validate_token(&self, token: &str) -> Result<String, GhCliError> {
+        let probe = GhCli::with_token(Some(token.to_string()));
+        let raw = probe.run(["api", "user", "--jq", ".login"], None)?;
+        let login = raw.trim();
+        if login.is_empty() {
+            return Err(GhCliError::UnexpectedOutput(
+                "gh api user returned no login".to_string(),
+            ));
+        }
+        Ok(login.to_string())
     }
 
     pub fn pr_checkout(

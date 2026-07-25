@@ -12,6 +12,7 @@ use axum::{
 use db::models::{
     merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
     repo::{Repo, RepoError},
+    worker::Worker,
     workspace::Workspace,
     workspace_repo::WorkspaceRepo,
 };
@@ -288,10 +289,16 @@ pub async fn push_workspace_branch(
     let workspace_path = Path::new(&container_ref);
     let worktree_path = workspace_path.join(&repo.name);
 
-    match deployment
-        .git()
-        .push_to_remote(&worktree_path, &workspace.branch, false)
-    {
+    // Manual push initiated from the UI must still authenticate as the
+    // worker that owns the workspace, otherwise the commit shows up under
+    // the wrong identity even though the worker has a PAT configured.
+    let worker_pat = Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+    match deployment.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        false,
+        worker_pat.as_deref(),
+    ) {
         Ok(_) => {
             if let Ok(client) = deployment.remote_client() {
                 let pool = deployment.db().pool.clone();
@@ -342,9 +349,13 @@ pub async fn force_push_workspace_branch(
     let workspace_path = Path::new(&container_ref);
     let worktree_path = workspace_path.join(&repo.name);
 
-    deployment
-        .git()
-        .push_to_remote(&worktree_path, &workspace.branch, true)?;
+    let worker_pat = Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+    deployment.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        true,
+        worker_pat.as_deref(),
+    )?;
 
     if let Ok(client) = deployment.remote_client() {
         let pool = deployment.db().pool.clone();

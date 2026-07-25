@@ -811,7 +811,17 @@
       "saveNew": "ワーカーを作成",
       "saveEdit": "変更を保存",
       "modelLabel": "モデル",
-      "modelDefault": "デフォルト（グローバル）"
+      "modelDefault": "デフォルト（グローバル）",
+      "githubPatLabel": "GitHub PAT（任意）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（保存済み — 変更しない場合は空欄のまま）",
+      "githubPatValidate": "検証",
+      "githubPatValidateOk": "有効 — {{login}} として認証されました",
+      "githubPatHelp": "空欄にするとマシンのグローバル gh 認証情報を使用します。注意：GitHub は自分自身の PR を承認できないため、レビュアーは作者と異なる PAT が必要です。",
+      "githubPatStored": "PAT が保存されています。",
+      "githubPatWillClear": "保存時に PAT を削除します。",
+      "githubPatClear": "削除",
+      "githubPatUndoClear": "取り消し"
     },
     "roles": {
       "developer": "開発者",

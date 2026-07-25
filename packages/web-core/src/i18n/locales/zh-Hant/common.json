@@ -811,7 +811,17 @@
       "saveNew": "建立工作者",
       "saveEdit": "儲存變更",
       "modelLabel": "模型",
-      "modelDefault": "預設（全域）"
+      "modelDefault": "預設（全域）",
+      "githubPatLabel": "GitHub PAT（選填）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（已儲存 — 保留請留空）",
+      "githubPatValidate": "驗證",
+      "githubPatValidateOk": "有效 — 已認證為 {{login}}",
+      "githubPatHelp": "留空則使用本機的全域 gh 憑證。注意：GitHub 不允許核准自己的 PR，因此審閱者需要與作者不同的 PAT。",
+      "githubPatStored": "已儲存 PAT。",
+      "githubPatWillClear": "儲存時將清除 PAT。",
+      "githubPatClear": "清除",
+      "githubPatUndoClear": "還原"
     },
     "roles": {
       "developer": "開發者",
