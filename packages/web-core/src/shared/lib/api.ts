@@ -198,11 +198,19 @@ export type Err<E> = { success: false; error: E | undefined; message?: string };
 // Result type for endpoints that need typed errors
 export type Result<T, E> = Ok<T> | Err<E>;
 
-// Local shim for the resolve-merge-conflicts endpoint's typed error.
-// Mirrors ResolveMergeConflictsError in
+// Local shims for the quick-action endpoint typed errors.
+// Mirror ResolveMergeConflictsError / AddressPrCommentsError / FixCiError in
 // crates/server/src/routes/workspaces/pr.rs and will be replaced by the
-// generated type when infra runs `pnpm run generate-types`.
+// generated types when infra runs `pnpm run generate-types`.
 export type ResolveMergeConflictsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
+export type AddressPrCommentsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
+export type FixCiError =
   | { type: 'no_pr_attached' }
   | { type: 'no_agent_session' };
 
@@ -713,6 +721,24 @@ export const workspacesApi = {
     return handleApiResponseAsResult<void, ResolveMergeConflictsError>(
       response
     );
+  },
+
+  addressPrComments: async (
+    workspaceId: string
+  ): Promise<Result<void, AddressPrCommentsError>> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/address-pr-comments`,
+      { method: 'POST' }
+    );
+    return handleApiResponseAsResult<void, AddressPrCommentsError>(response);
+  },
+
+  fixCi: async (workspaceId: string): Promise<Result<void, FixCiError>> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/fix-ci`,
+      { method: 'POST' }
+    );
+    return handleApiResponseAsResult<void, FixCiError>(response);
   },
 
   /** Try to auto-attach a PR by matching the workspace branch */

@@ -133,7 +133,13 @@
       "branchStatusUnavailable": "ブランチのステータスを取得できません。ターゲットブランチの変更は引き続き可能です。",
       "resolveConflictsFailed": "コンフリクト解決のフォローアップ送信に失敗しました。",
       "resolveConflictsNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
-      "resolveConflictsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。"
+      "resolveConflictsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。",
+      "addressPrCommentsFailed": "PR コメント対応のフォローアップ送信に失敗しました。",
+      "addressPrCommentsNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "addressPrCommentsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。",
+      "fixCiFailed": "CI 修正のフォローアップ送信に失敗しました。",
+      "fixCiNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "fixCiNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。"
     },
     "labels": {
       "taskBranch": "タスクブランチ"
@@ -199,7 +205,14 @@
       "forcePush": "強制プッシュ",
       "forcePushing": "強制プッシュ中...",
       "rebase": "リベース",
-      "rebasing": "リベース中..."
+      "rebasing": "リベース中...",
+      "addressPrComments": "PR のコメントに対応",
+      "addressPrCommentsSending": "送信中...",
+      "addressPrCommentsSent": "エージェントに送信済み",
+      "fixCi": "CI を修正",
+      "fixCiSending": "送信中...",
+      "fixCiSent": "エージェントに送信済み",
+      "fixMergeConflicts": "マージコンフリクトを解決"
     },
     "status": {
       "ahead": "先行",

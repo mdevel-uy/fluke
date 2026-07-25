@@ -11,6 +11,7 @@ use axum::{
 };
 use db::models::{
     merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
+    pull_request::PullRequest,
     repo::{Repo, RepoError},
     worker::Worker,
     workspace::Workspace,
@@ -90,6 +91,10 @@ pub struct BranchStatus {
     pub conflict_op: Option<ConflictOp>,
     pub conflicted_files: Vec<String>,
     pub is_target_remote: bool,
+    /// CI rollup ("passing" | "failing" | "pending" | "none" | "unknown") of
+    /// the open PR attached to this repo, or `None` when there is no open PR
+    /// or its status has not been polled yet.
+    pub pr_ci_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -403,6 +408,10 @@ pub async fn get_workspace_branch_status(
                 acc
             });
 
+    // Cached CI rollup (populated by `pr_monitor`) keyed by PR URL. We fetch
+    // the full map once so per-repo lookups below stay in-memory.
+    let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
+
     let mut results = Vec::with_capacity(repositories.len());
 
     for repo in repositories {
@@ -487,6 +496,19 @@ pub async fn get_workspace_branch_status(
             (None, None)
         };
 
+        let pr_ci_status = repo_merges.iter().find_map(|m| match m {
+            Merge::Pr(PrMerge {
+                pr_info:
+                    PullRequestInfo {
+                        status: MergeStatus::Open,
+                        url,
+                        ..
+                    },
+                ..
+            }) => ci_status_by_url.get(url).cloned(),
+            _ => None,
+        });
+
         results.push(RepoBranchStatus {
             repo_id: repo.id,
             repo_name: repo.name,
@@ -505,6 +527,7 @@ pub async fn get_workspace_branch_status(
                 conflict_op,
                 conflicted_files,
                 is_target_remote,
+                pr_ci_status,
             },
         });
     }

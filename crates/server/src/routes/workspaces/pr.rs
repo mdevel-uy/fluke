@@ -30,7 +30,8 @@ use git_host::{
 };
 use serde::{Deserialize, Serialize};
 use services::services::{
-    config::DEFAULT_PR_DESCRIPTION_PROMPT, container::ContainerService, remote_sync,
+    config::DEFAULT_PR_DESCRIPTION_PROMPT, container::ContainerService, quick_action_prompts,
+    remote_sync,
 };
 use ts_rs::TS;
 use utils::response::ApiResponse;
@@ -933,22 +934,6 @@ pub async fn create_workspace_from_pr(
     )))
 }
 
-const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de merge con {target_branch}. Resolvelos ahora:
-
-1. git fetch origin && git merge origin/{target_branch}
-   (merge REAL con ancestría — nunca resuelvas copiando contenido a mano
-   en un commit normal, y nunca uses squash para esto).
-2. Criterio de resolución: {target_branch} manda para todo lo que otros
-   mergearon (design system, features ajenas); tu rama manda para TU
-   feature. Ante solapamiento directo, combiná ambos lados — no pierdas
-   ninguno. En los locales de i18n conservá los dos grupos de keys y
-   validá que el JSON quede bien formado.
-3. Verificá el build/typecheck que corresponda (pnpm run check) antes de
-   pushear.
-4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Verificá el push con git log origin/<rama>.
-5. Mirá el CI del PR con gh pr checks --watch y arreglá lo que falle."#;
-
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(tag = "type", rename_all = "snake_case")]
@@ -957,30 +942,43 @@ pub enum ResolveMergeConflictsError {
     NoAgentSession,
 }
 
-pub async fn resolve_merge_conflicts_follow_up(
-    Extension(workspace): Extension<Workspace>,
-    State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<(), ResolveMergeConflictsError>>, ApiError> {
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum AddressPrCommentsError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum FixCiError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+/// Internal outcome for the shared quick-action dispatch: either the follow-up
+/// was queued for the workspace agent, or the workspace has no coding-agent
+/// session to attach it to (which each endpoint maps to its own typed error).
+/// Callers verify PR presence before invoking, so "no PR attached" is not a
+/// dispatch outcome.
+enum QuickActionDispatchOutcome {
+    Dispatched,
+    NoAgentSession,
+}
+
+/// Send a fully-formatted follow-up prompt to the workspace's coding agent —
+/// creating a session if none exists and reusing the latest agent turn so the
+/// conversation stays continuous. Shared by "Fix merge conflicts", "Address PR
+/// comments" and "Fix CI".
+async fn dispatch_quick_action_follow_up(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    prompt: String,
+) -> Result<QuickActionDispatchOutcome, ApiError> {
     let pool = &deployment.db().pool;
 
-    // Find the latest open PR for this workspace to get target_branch
-    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
-    let open_pr = prs
-        .into_iter()
-        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
-
-    let target_branch = match &open_pr {
-        Some(pr) => pr.target_branch_name.clone(),
-        None => {
-            return Ok(ResponseJson(ApiResponse::error_with_data(
-                ResolveMergeConflictsError::NoPrAttached,
-            )));
-        }
-    };
-
-    let prompt = RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", &target_branch);
-
-    // Get or create session
     let session = match Session::find_latest_by_workspace_id(pool, workspace.id).await? {
         Some(s) => s,
         None => {
@@ -1002,11 +1000,9 @@ pub async fn resolve_merge_conflicts_follow_up(
     else {
         tracing::warn!(
             workspace_id = %workspace.id,
-            "No executor profile for resolve-conflicts follow-up; skipping",
+            "No executor profile for quick-action follow-up; skipping",
         );
-        return Ok(ResponseJson(ApiResponse::error_with_data(
-            ResolveMergeConflictsError::NoAgentSession,
-        )));
+        return Ok(QuickActionDispatchOutcome::NoAgentSession);
     };
 
     let latest_session_info = CodingAgentTurn::find_latest_session_info(pool, session.id).await?;
@@ -1038,14 +1034,99 @@ pub async fn resolve_merge_conflicts_follow_up(
     deployment
         .container()
         .start_execution(
-            &workspace,
+            workspace,
             &session,
             &action,
             &ExecutionProcessRunReason::CodingAgent,
         )
         .await?;
 
-    Ok(ResponseJson(ApiResponse::success(())))
+    Ok(QuickActionDispatchOutcome::Dispatched)
+}
+
+pub async fn resolve_merge_conflicts_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), ResolveMergeConflictsError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let target_branch = match &open_pr {
+        Some(pr) => pr.target_branch_name.clone(),
+        None => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                ResolveMergeConflictsError::NoPrAttached,
+            )));
+        }
+    };
+
+    let prompt = quick_action_prompts::format_resolve_merge_conflicts_prompt(&target_branch);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(ResolveMergeConflictsError::NoAgentSession),
+        )),
+    }
+}
+
+pub async fn address_pr_comments_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), AddressPrCommentsError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let Some(open_pr) = open_pr else {
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            AddressPrCommentsError::NoPrAttached,
+        )));
+    };
+
+    let prompt =
+        quick_action_prompts::format_address_pr_comments_prompt(open_pr.pr_number, &open_pr.pr_url);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(AddressPrCommentsError::NoAgentSession),
+        )),
+    }
+}
+
+pub async fn fix_ci_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), FixCiError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let Some(open_pr) = open_pr else {
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            FixCiError::NoPrAttached,
+        )));
+    };
+
+    let prompt = quick_action_prompts::format_fix_ci_prompt(open_pr.pr_number, &open_pr.pr_url);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(FixCiError::NoAgentSession),
+        )),
+    }
 }
 
 pub fn router() -> Router<DeploymentImpl> {
@@ -1057,4 +1138,9 @@ pub fn router() -> Router<DeploymentImpl> {
             "/resolve-merge-conflicts",
             post(resolve_merge_conflicts_follow_up),
         )
+        .route(
+            "/address-pr-comments",
+            post(address_pr_comments_follow_up),
+        )
+        .route("/fix-ci", post(fix_ci_follow_up))
 }
