@@ -44,8 +44,7 @@ use crate::{
     },
     logs::{
         ActionType, AnsweredQuestion, AskUserQuestionItem, AskUserQuestionOption, FileChange,
-        NormalizedEntry, NormalizedEntryError, NormalizedEntryType, RateLimitInfo,
-        RateLimitWindow, TodoItem, ToolStatus,
+        NormalizedEntry, NormalizedEntryError, NormalizedEntryType, TodoItem, ToolStatus,
         plain_text_processor::PlainTextLogProcessor,
         utils::{
             EntryIndexProvider,
@@ -59,151 +58,6 @@ use crate::{
 };
 
 const SUPPRESSED_STDERR_PATTERNS: &[&str] = &["[WARN] Fast mode requires the native binary"];
-
-/// Canonical key for a plan-usage window, or the reported name when it is not
-/// one we know about.
-fn canonical_rate_limit_key(name: &str) -> String {
-    let normalized = name.to_ascii_lowercase().replace(['-', ' '], "_");
-    match normalized.as_str() {
-        "session" | "five_hour" | "5h" | "primary" | "current_session" => "session".to_string(),
-        "week" | "weekly" | "week_all" | "seven_day" | "7d" | "secondary" => {
-            "week_all".to_string()
-        }
-        "week_opus" | "seven_day_opus" | "weekly_opus" | "opus" | "opus_weekly" => {
-            "week_opus".to_string()
-        }
-        _ => normalized,
-    }
-}
-
-/// Percent 0-100 out of any of the shapes Claude Code has used for it.
-fn rate_limit_percent(value: &serde_json::Value) -> Option<f32> {
-    for (key, is_ratio) in [
-        ("used_percent", false),
-        ("usedPercent", false),
-        ("percent_used", false),
-        ("percentUsed", false),
-        ("utilization", true),
-        ("ratio", true),
-    ] {
-        if let Some(num) = value.get(key).and_then(|v| v.as_f64()) {
-            let pct = if is_ratio && num <= 1.0 {
-                num * 100.0
-            } else {
-                num
-            };
-            return Some(pct as f32);
-        }
-    }
-    None
-}
-
-/// Reset timestamp as RFC3339, accepting both a string and an epoch (s or ms).
-fn rate_limit_resets_at(value: &serde_json::Value) -> Option<String> {
-    let raw = ["resets_at", "resetsAt", "reset_at", "resetAt", "resets"]
-        .iter()
-        .find_map(|key| value.get(*key))?;
-    if let Some(text) = raw.as_str() {
-        return Some(text.to_string());
-    }
-    let epoch = raw.as_f64()?;
-    // Claude has used both seconds and milliseconds; anything past year 2286
-    // in seconds is milliseconds.
-    let millis = if epoch > 10_000_000_000.0 {
-        epoch
-    } else {
-        epoch * 1000.0
-    };
-    chrono::DateTime::from_timestamp_millis(millis as i64).map(|dt| dt.to_rfc3339())
-}
-
-/// One usage window, when the value carries a usable percentage.
-fn rate_limit_window(name: &str, value: &serde_json::Value) -> Option<RateLimitWindow> {
-    Some(RateLimitWindow {
-        key: canonical_rate_limit_key(name),
-        used_percent: rate_limit_percent(value)?,
-        resets_at: rate_limit_resets_at(value),
-    })
-}
-
-/// Plan limits from one raw agent stdout line, if it is a `rate_limit_event`.
-///
-/// Claude Code emits these on its stream-json stdout; they carry account-level
-/// state rather than conversation content, so they are read straight from the
-/// raw logs instead of being normalized into the transcript.
-pub fn rate_limit_info_from_log_line(line: &str) -> Option<RateLimitInfo> {
-    let line = line.trim();
-    if !line.starts_with('{') || !line.contains("rate_limit") {
-        return None;
-    }
-    match serde_json::from_str::<ClaudeJson>(line) {
-        Ok(ClaudeJson::RateLimitEvent {
-            rate_limit_info: Some(payload),
-            ..
-        }) => Some(parse_rate_limit_info(&payload)),
-        _ => None,
-    }
-}
-
-/// Best-effort mapping of Claude Code's `rate_limit_info` payload.
-///
-/// The shape is not contractual — windows have appeared both as named object
-/// members and as a list — so anything unrecognised falls through to `raw`.
-pub fn parse_rate_limit_info(payload: &serde_json::Value) -> RateLimitInfo {
-    let plan = ["plan", "plan_type", "planType", "subscription_type", "tier"]
-        .iter()
-        .find_map(|key| payload.get(*key))
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-
-    let mut windows: Vec<RateLimitWindow> = Vec::new();
-
-    // Shape A: a list of windows under a container key.
-    for key in ["windows", "rate_limits", "rateLimits", "limits"] {
-        let Some(items) = payload.get(key).and_then(|v| v.as_array()) else {
-            continue;
-        };
-        for item in items {
-            let name = ["key", "name", "window", "type", "id"]
-                .iter()
-                .find_map(|k| item.get(*k))
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-            if let Some(window) = rate_limit_window(name, item) {
-                windows.push(window);
-            }
-        }
-    }
-
-    // Shape B: windows as named members, either at the root or nested.
-    let containers = [
-        Some(payload),
-        payload.get("rate_limits"),
-        payload.get("usage"),
-    ];
-    for container in containers.into_iter().flatten() {
-        let Some(map) = container.as_object() else {
-            continue;
-        };
-        for (name, value) in map {
-            if !value.is_object() {
-                continue;
-            }
-            if let Some(window) = rate_limit_window(name, value) {
-                windows.push(window);
-            }
-        }
-    }
-
-    windows.sort_by(|a, b| a.key.cmp(&b.key));
-    windows.dedup_by(|a, b| a.key == b.key);
-
-    RateLimitInfo {
-        plan,
-        windows,
-        raw: payload.clone(),
-    }
-}
 
 fn base_command(claude_code_router: bool) -> &'static str {
     if claude_code_router {
@@ -2139,8 +1993,6 @@ impl ClaudeLogProcessor {
                 let idx = entry_index_provider.next();
                 patches.push(ConversationPatch::add_normalized_entry(idx, entry));
             }
-            // Plan limits are not part of the conversation: the server mines
-            // them from the raw logs (see `rate_limit_info_from_log_line`).
             ClaudeJson::ControlRequest { .. }
             | ClaudeJson::ControlResponse { .. }
             | ClaudeJson::ControlCancelRequest { .. }
@@ -3483,46 +3335,5 @@ mod tests {
         let control_request_json = r#"{"type":"control_request","request_id":"f559d907-b139-475b-addd-79c05591eb99","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"./gradlew :web:testApi","timeout":300000,"description":"Run API tests"},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"./gradlew :web:testApi:"}],"behavior":"allow","destination":"localSettings"}],"tool_use_id":"toolu_014PR3WXsJfiftSCbjcjEbeM"}}"#;
         let parsed: ClaudeJson = serde_json::from_str(control_request_json).unwrap();
         assert!(matches!(parsed, ClaudeJson::ControlRequest { .. }));
-    }
-
-    #[test]
-    fn test_rate_limit_windows_as_named_members() {
-        let line = r#"{"type":"rate_limit_event","session_id":"s","rate_limit_info":{"plan":"Max 20x","five_hour":{"used_percent":62,"resets_at":"2026-07-24T17:00:00Z"},"seven_day":{"used_percent":41},"seven_day_opus":{"used_percent":78}}}"#;
-        let info = rate_limit_info_from_log_line(line).expect("parsed");
-        assert_eq!(info.plan.as_deref(), Some("Max 20x"));
-        let keys: Vec<_> = info.windows.iter().map(|w| w.key.as_str()).collect();
-        assert_eq!(keys, vec!["session", "week_all", "week_opus"]);
-        let session = &info.windows[0];
-        assert_eq!(session.used_percent, 62.0);
-        assert_eq!(session.resets_at.as_deref(), Some("2026-07-24T17:00:00Z"));
-        assert!(info.windows[1].resets_at.is_none());
-    }
-
-    #[test]
-    fn test_rate_limit_windows_as_list_with_epoch_reset() {
-        let line = r#"{"type":"rate_limit_event","rate_limit_info":{"plan_type":"max","rate_limits":[{"name":"primary","utilization":0.62,"resets_at":1784908800},{"name":"secondary","utilization":0.41,"resets_at":1784908800000}]}}"#;
-        let info = rate_limit_info_from_log_line(line).expect("parsed");
-        assert_eq!(info.plan.as_deref(), Some("max"));
-        assert_eq!(info.windows.len(), 2);
-        assert_eq!(info.windows[0].key, "session");
-        assert!((info.windows[0].used_percent - 62.0).abs() < 0.01);
-        // seconds and milliseconds resolve to the same instant
-        assert_eq!(info.windows[0].resets_at, info.windows[1].resets_at);
-        assert!(info.windows[0].resets_at.is_some());
-    }
-
-    #[test]
-    fn test_rate_limit_unknown_payload_keeps_raw() {
-        let line = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}"#;
-        let info = rate_limit_info_from_log_line(line).expect("parsed");
-        assert!(info.windows.is_empty());
-        assert_eq!(info.raw["status"], "allowed");
-    }
-
-    #[test]
-    fn test_rate_limit_ignores_other_lines() {
-        assert!(rate_limit_info_from_log_line("not json").is_none());
-        let system = r#"{"type":"system","subtype":"init"}"#;
-        assert!(rate_limit_info_from_log_line(system).is_none());
     }
 }
