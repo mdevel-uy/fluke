@@ -130,7 +130,10 @@
       "mergeChanges": "変更のマージに失敗しました",
       "pushChanges": "変更のプッシュに失敗しました",
       "rebaseBranch": "ブランチのリベースに失敗しました",
-      "branchStatusUnavailable": "ブランチのステータスを取得できません。ターゲットブランチの変更は引き続き可能です。"
+      "branchStatusUnavailable": "ブランチのステータスを取得できません。ターゲットブランチの変更は引き続き可能です。",
+      "resolveConflictsFailed": "コンフリクト解決のフォローアップ送信に失敗しました。",
+      "resolveConflictsNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "resolveConflictsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。"
     },
     "labels": {
       "taskBranch": "タスクブランチ"
@@ -184,6 +187,7 @@
       "createPr": "PRを作成",
       "resolveConflicts": "コンフリクトを解決",
       "sendingConflicts": "送信中...",
+      "resolveConflictsSent": "エージェントに送信済み",
       "creating": "作成中...",
       "merge": "マージ",
       "merged": "マージ完了！",
