@@ -8,6 +8,8 @@ export function useRepoIssues(repoId: string | undefined) {
     queryKey: repoId ? repoIssuesKeys.byRepo(repoId) : repoIssuesKeys.all,
     queryFn: () => repoIssuesApi.list(repoId!),
     enabled: !!repoId,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 

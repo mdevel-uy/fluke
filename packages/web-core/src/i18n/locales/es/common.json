@@ -329,6 +329,7 @@
       "moveLeft": "Mover a la izquierda",
       "moveRight": "Mover a la derecha",
       "openCommandBar": "Abrir barra de comandos",
+      "toggleTerminal": "Mostrar/ocultar terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Enviar mensaje",
       "settings": "Ir a Ajustes",
@@ -558,10 +559,15 @@
       "light": "Tema claro",
       "dark": "Tema oscuro",
       "system": "Tema del sistema"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Buscar comandos...",
+      "ariaLabel": "Abrir barra de comandos"
     }
   },
   "appBar": {
     "dashboard": "Dashboard",
+    "workspaces": "Espacios de trabajo",
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -671,6 +677,7 @@
     "emptyTitle": "No hay issues todavía",
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
+    "reassignAction": "Reasignar",
     "archiveAction": "Archivar",
     "taskStatus": {
       "queued": "En cola",
@@ -713,6 +720,17 @@
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
       "assignAnyway": "Asignar igual"
+    },
+    "reassignDialog": {
+      "title": "Reasignar issue #{{number}} a otro worker",
+      "description": "Mové \"{{title}}\" a otro worker. La tarea conserva el prompt y el historial.",
+      "currentWorker": "Asignado actualmente a:",
+      "targetWorkerLabel": "Mover a",
+      "unknownWorker": "desconocido",
+      "noOtherWorkers": "No hay otros workers a los que reasignar. Creá otro worker primero.",
+      "notQueuedWarning": "Esta tarea está {{status}} y no se puede reasignar atómicamente. Cancelala desde la cola del worker primero y después reasignala.",
+      "reassignError": "No se pudo reasignar la tarea.",
+      "confirm": "Reasignar"
     },
     "filters": {
       "searchPlaceholder": "Buscar issues…",
@@ -790,6 +808,7 @@
       "stalledShort": "Agente detenido, tarea abierta",
       "menuLabel": "Acciones del worker",
       "edit": "Editar",
+      "duplicate": "Duplicar",
       "delete": "Eliminar",
       "queuedLabel": "en cola",
       "completedLabel": "hechas",
@@ -817,7 +836,17 @@
       "saveNew": "Crear worker",
       "saveEdit": "Guardar cambios",
       "modelLabel": "Modelo",
-      "modelDefault": "Por defecto (global)"
+      "modelDefault": "Por defecto (global)",
+      "githubPatLabel": "PAT de GitHub (opcional)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (guardado — dejá vacío para no cambiarlo)",
+      "githubPatValidate": "Validar",
+      "githubPatValidateOk": "Válido — autenticado como {{login}}",
+      "githubPatHelp": "Si lo dejás vacío, el worker usa la auth global de la máquina. Recordá: GitHub no permite aprobar un PR propio, así que un reviewer necesita PAT distinto al del autor.",
+      "githubPatStored": "Hay un PAT guardado.",
+      "githubPatWillClear": "El PAT se limpiará al guardar.",
+      "githubPatClear": "Quitar",
+      "githubPatUndoClear": "Deshacer"
     },
     "roles": {
       "developer": "Desarrollador",
@@ -834,6 +863,8 @@
       "createSuccess": "Worker creado.",
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
+      "duplicateSuccess": "{{worker}} duplicado como \"{{clone}}\".",
+      "duplicateError": "No se pudo duplicar {{worker}}: {{message}}",
       "dismiss": "Cerrar"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}} empezó con tu pedido.",
       "queued": "Pedido encolado para {{worker}}.",
       "error": "No se pudo enviar el pedido: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Arrastrá imágenes acá o hacé clic para agregar",
+      "addMore": "Agregar más imágenes",
+      "removeAria": "Quitar {{name}}",
+      "uploading": "Subiendo",
+      "errorLabel": "Falló la carga",
+      "uploadError": "No se pudo subir '{{name}}': {{message}}",
+      "tooLarge": "El archivo supera el tamaño máximo permitido."
     }
   },
   "sprint": {

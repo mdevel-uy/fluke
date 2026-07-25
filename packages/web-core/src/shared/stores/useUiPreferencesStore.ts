@@ -55,7 +55,7 @@ export type WorkspacePanelState = {
 
 const DEFAULT_WORKSPACE_PANEL_STATE: WorkspacePanelState = {
   rightMainPanelMode: null,
-  isLeftMainPanelVisible: true,
+  isLeftMainPanelVisible: false,
 };
 
 // Kanban filter state

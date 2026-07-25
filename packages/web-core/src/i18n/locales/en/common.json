@@ -343,6 +343,7 @@
       "moveLeft": "Move left",
       "moveRight": "Move right",
       "openCommandBar": "Open command bar",
+      "toggleTerminal": "Toggle terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Send message",
       "settings": "Go to Settings",
@@ -562,10 +563,15 @@
       "light": "Light theme",
       "dark": "Dark theme",
       "system": "System theme"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Search commands...",
+      "ariaLabel": "Open command bar"
     }
   },
   "appBar": {
     "dashboard": "Dashboard",
+    "workspaces": "Workspaces",
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -671,6 +677,7 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "reassignAction": "Reassign",
     "archiveAction": "Archive",
     "taskStatus": {
       "queued": "Queued",
@@ -713,6 +720,17 @@
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
       "assignAnyway": "Assign anyway"
+    },
+    "reassignDialog": {
+      "title": "Reassign issue #{{number}} to another worker",
+      "description": "Move \"{{title}}\" to a different worker. The task keeps its prompt and history.",
+      "currentWorker": "Currently assigned to:",
+      "targetWorkerLabel": "Move to",
+      "unknownWorker": "unknown",
+      "noOtherWorkers": "There are no other workers to reassign to. Create another worker first.",
+      "notQueuedWarning": "This task is {{status}} and cannot be reassigned atomically. Cancel it from the worker's queue first, then reassign.",
+      "reassignError": "Failed to reassign task.",
+      "confirm": "Reassign"
     },
     "filters": {
       "searchPlaceholder": "Search issues…",
@@ -790,6 +808,7 @@
       "stalledShort": "Agent stopped, task open",
       "menuLabel": "Worker actions",
       "edit": "Edit",
+      "duplicate": "Duplicate",
       "delete": "Delete",
       "queuedLabel": "queued",
       "completedLabel": "done",
@@ -817,7 +836,17 @@
       "saveNew": "Create worker",
       "saveEdit": "Save changes",
       "modelLabel": "Model",
-      "modelDefault": "Default (global)"
+      "modelDefault": "Default (global)",
+      "githubPatLabel": "GitHub PAT (optional)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (stored — leave blank to keep it)",
+      "githubPatValidate": "Validate",
+      "githubPatValidateOk": "Valid — authenticated as {{login}}",
+      "githubPatHelp": "Leave empty to use the machine's global gh credentials. Note: GitHub does not let anyone approve their own PR, so a reviewer needs a PAT different from the author's.",
+      "githubPatStored": "A PAT is stored.",
+      "githubPatWillClear": "The PAT will be cleared on save.",
+      "githubPatClear": "Clear",
+      "githubPatUndoClear": "Undo"
     },
     "roles": {
       "developer": "Developer",
@@ -834,6 +863,8 @@
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
+      "duplicateSuccess": "{{worker}} duplicated as \"{{clone}}\".",
+      "duplicateError": "Failed to duplicate {{worker}}: {{message}}",
       "dismiss": "Dismiss"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}} started your request.",
       "queued": "Request queued for {{worker}}.",
       "error": "Failed to send the request: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Drag images here or click to add",
+      "addMore": "Add more images",
+      "removeAria": "Remove {{name}}",
+      "uploading": "Uploading",
+      "errorLabel": "Upload failed",
+      "uploadError": "Couldn't upload '{{name}}': {{message}}",
+      "tooLarge": "The file exceeds the maximum allowed size."
     }
   },
   "sprint": {

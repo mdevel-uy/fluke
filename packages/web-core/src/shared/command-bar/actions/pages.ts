@@ -116,6 +116,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.ToggleChangesMode },
           { type: 'action', action: Actions.ToggleLogsMode },
           { type: 'action', action: Actions.TogglePreviewMode },
+          { type: 'action', action: Actions.ToggleTerminal },
         ],
       },
     ],
@@ -141,6 +142,26 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.GitPush },
           { type: 'action', action: Actions.GitRebase },
           { type: 'action', action: Actions.GitChangeTarget },
+        ],
+      },
+    ],
+  },
+
+  // Quick Open page - VSCode-style "Go to Page" navigator (CMD+P)
+  goToPage: {
+    id: 'go-to-page',
+    title: 'Go to Page',
+    items: [
+      {
+        type: 'group',
+        label: 'Pages',
+        items: [
+          { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSprint },
+          { type: 'action', action: Actions.GoToIssues },
+          { type: 'action', action: Actions.GoToDashboard },
+          { type: 'action', action: Actions.GoToWorkers },
+          { type: 'action', action: Actions.GoToAnalystDesk },
         ],
       },
     ],

@@ -1,21 +1,32 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, ExternalLink, Loader2, Play, Plus, X } from 'lucide-react';
+import {
+  Archive,
+  ExternalLink,
+  Loader2,
+  Play,
+  Plus,
+  UserCog,
+  X,
+} from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import type { IssueLabel } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
+import type { WorkerTask } from '@/features/sprint/types';
 import { MarkdownPreview } from '@/shared/components/MarkdownPreview';
 import { useTheme, getResolvedTheme } from '@/shared/hooks/useTheme';
 import { cn } from '@/shared/lib/utils';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
+import { ReassignTaskDialog } from './ReassignTaskDialog';
 
 interface IssueDetailDrawerProps {
   issue: RepoIssue | null;
   repoName: string;
   repoId: string;
   availableLabels: IssueLabel[];
+  linkedTask?: WorkerTask;
   onClose: () => void;
   onAddLabel: (
     issueNumber: number,
@@ -200,6 +211,7 @@ export function IssueDetailDrawer({
   repoName,
   repoId,
   availableLabels,
+  linkedTask,
   onClose,
   onAddLabel,
   onRemoveLabel,
@@ -261,6 +273,16 @@ export function IssueDetailDrawer({
   const handleAssign = () => {
     if (!issue) return;
     void AssignToAgentDialog.show({ issue, repoId });
+  };
+
+  const handleReassign = () => {
+    if (!issue || !linkedTask) return;
+    void ReassignTaskDialog.show({
+      task: linkedTask,
+      repoId,
+      issueNumber: issue.number,
+      issueTitle: issue.title,
+    });
   };
 
   const open = issue !== null;
@@ -410,10 +432,21 @@ export function IssueDetailDrawer({
                 {/* Actions */}
                 {issue.state === 'open' && (
                   <div className="flex items-center gap-2 pt-1">
-                    <Button variant="tonal" size="sm" onClick={handleAssign}>
-                      <Play className="h-3.5 w-3.5" />
-                      {t('issues.assignToAgent')}
-                    </Button>
+                    {linkedTask ? (
+                      <Button
+                        variant="tonal"
+                        size="sm"
+                        onClick={handleReassign}
+                      >
+                        <UserCog className="h-3.5 w-3.5" />
+                        {t('issues.reassignAction')}
+                      </Button>
+                    ) : (
+                      <Button variant="tonal" size="sm" onClick={handleAssign}>
+                        <Play className="h-3.5 w-3.5" />
+                        {t('issues.assignToAgent')}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

@@ -19,6 +19,12 @@ export interface CreateDeskRequestInput {
   workerId: string;
   repoId: string;
   prompt: string;
+  /**
+   * Attachments already uploaded via `attachmentsApi.upload` — the page owns
+   * the upload lifecycle so it can render per-file progress and keep any
+   * successful uploads visible if a partial failure aborts the submit.
+   */
+  attachmentIds?: string[];
 }
 
 export interface CreateDeskRequestResult {
@@ -33,13 +39,21 @@ export function useCreateDeskRequest() {
       workerId,
       repoId,
       prompt,
+      attachmentIds,
     }: CreateDeskRequestInput): Promise<CreateDeskRequestResult> => {
-      const task = await workersApi.createTask(workerId, {
+      // Backend contract (issue #161): `attachment_ids` is optional; the
+      // shared `CreateWorkerTaskRequest` type has not been regenerated yet,
+      // so we widen the payload locally to include it.
+      const payload = {
         repo_id: repoId,
         title: deriveRequestTitle(prompt),
         prompt,
         source: DESK_SOURCE,
-      });
+        ...(attachmentIds && attachmentIds.length > 0
+          ? { attachment_ids: attachmentIds }
+          : {}),
+      } as Parameters<typeof workersApi.createTask>[1];
+      const task = await workersApi.createTask(workerId, payload);
 
       // Best-effort immediate dispatch. A 409 means the analyst is already
       // working (the request stays queued); any other dispatch error also

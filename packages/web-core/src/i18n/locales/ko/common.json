@@ -329,6 +329,7 @@
       "moveLeft": "왼쪽으로 이동",
       "moveRight": "오른쪽으로 이동",
       "openCommandBar": "명령 바 열기",
+      "toggleTerminal": "터미널 표시/숨기기",
       "formatInlineCode": "Format inline code",
       "sendMessage": "메시지 보내기",
       "settings": "설정으로 이동",
@@ -558,10 +559,15 @@
       "light": "라이트 테마",
       "dark": "다크 테마",
       "system": "시스템 테마"
+    },
+    "commandBarTrigger": {
+      "placeholder": "명령 검색...",
+      "ariaLabel": "명령 바 열기"
     }
   },
   "appBar": {
     "dashboard": "대시보드",
+    "workspaces": "워크스페이스",
     "issues": "이슈",
     "workers": "워커",
     "sprint": "칸반",
@@ -671,6 +677,7 @@
     "emptyTitle": "아직 이슈가 없습니다",
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
+    "reassignAction": "재할당",
     "archiveAction": "보관",
     "taskStatus": {
       "queued": "대기 중",
@@ -713,6 +720,17 @@
       "checkingConflicts": "기존 할당 확인 중...",
       "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
       "assignAnyway": "그래도 할당"
+    },
+    "reassignDialog": {
+      "title": "이슈 #{{number}}을(를) 다른 워커에게 재할당",
+      "description": "\"{{title}}\"을(를) 다른 워커로 이동합니다. 프롬프트와 기록은 유지됩니다.",
+      "currentWorker": "현재 담당:",
+      "targetWorkerLabel": "이동 대상",
+      "unknownWorker": "알 수 없음",
+      "noOtherWorkers": "재할당할 다른 워커가 없습니다. 먼저 다른 워커를 생성하세요.",
+      "notQueuedWarning": "이 작업은 {{status}} 상태이므로 원자적으로 재할당할 수 없습니다. 먼저 워커 큐에서 취소한 후 재할당하세요.",
+      "reassignError": "작업 재할당에 실패했습니다.",
+      "confirm": "재할당"
     },
     "filters": {
       "searchPlaceholder": "이슈 검색…",
@@ -790,6 +808,7 @@
       "stalledShort": "에이전트 중지됨, 작업 미완료",
       "menuLabel": "워커 작업",
       "edit": "편집",
+      "duplicate": "복제",
       "delete": "삭제",
       "queuedLabel": "대기",
       "completedLabel": "완료",
@@ -817,7 +836,17 @@
       "saveNew": "워커 만들기",
       "saveEdit": "변경 사항 저장",
       "modelLabel": "모델",
-      "modelDefault": "기본값 (글로벌)"
+      "modelDefault": "기본값 (글로벌)",
+      "githubPatLabel": "GitHub PAT (선택)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (저장됨 — 유지하려면 비워두세요)",
+      "githubPatValidate": "검증",
+      "githubPatValidateOk": "유효함 — {{login}}(으)로 인증됨",
+      "githubPatHelp": "비워두면 머신의 전역 gh 자격 증명을 사용합니다. 참고: GitHub는 자신의 PR을 승인할 수 없으므로 리뷰어는 작성자와 다른 PAT가 필요합니다.",
+      "githubPatStored": "저장된 PAT가 있습니다.",
+      "githubPatWillClear": "저장 시 PAT가 삭제됩니다.",
+      "githubPatClear": "지우기",
+      "githubPatUndoClear": "실행 취소"
     },
     "roles": {
       "developer": "개발자",
@@ -834,6 +863,8 @@
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
+      "duplicateSuccess": "{{worker}}를 \"{{clone}}\"(으)로 복제했습니다.",
+      "duplicateError": "{{worker}} 복제 실패: {{message}}",
       "dismiss": "닫기"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}}이(가) 요청을 시작했습니다.",
       "queued": "{{worker}}의 대기열에 추가되었습니다.",
       "error": "요청을 보내지 못했습니다: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "이미지를 여기에 끌어다 놓거나 클릭하여 추가",
+      "addMore": "이미지 더 추가",
+      "removeAria": "{{name}} 제거",
+      "uploading": "업로드 중",
+      "errorLabel": "업로드 실패",
+      "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
+      "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
     }
   },
   "sprint": {

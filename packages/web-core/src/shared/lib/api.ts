@@ -198,6 +198,14 @@ export type Err<E> = { success: false; error: E | undefined; message?: string };
 // Result type for endpoints that need typed errors
 export type Result<T, E> = Ok<T> | Err<E>;
 
+// Local shim for the resolve-merge-conflicts endpoint's typed error.
+// Mirrors ResolveMergeConflictsError in
+// crates/server/src/routes/workspaces/pr.rs and will be replaced by the
+// generated type when infra runs `pnpm run generate-types`.
+export type ResolveMergeConflictsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
 type ListRemoteProjectsResponse = {
   projects: RemoteProject[];
 };
@@ -695,12 +703,16 @@ export const workspacesApi = {
     return handleApiResponseAsResult<string, PrError>(response);
   },
 
-  resolveMergeConflicts: async (workspaceId: string): Promise<void> => {
+  resolveMergeConflicts: async (
+    workspaceId: string
+  ): Promise<Result<void, ResolveMergeConflictsError>> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/pull-requests/resolve-merge-conflicts`,
       { method: 'POST' }
     );
-    return handleApiResponse<void>(response);
+    return handleApiResponseAsResult<void, ResolveMergeConflictsError>(
+      response
+    );
   },
 
   /** Try to auto-attach a PR by matching the workspace branch */
@@ -1817,9 +1829,29 @@ export interface CreateWorkerRequest {
   soul: string;
   role?: string;
   model?: string | null;
+  /**
+   * Optional per-worker GitHub PAT. Sent write-only; the server never
+   * returns it. Empty string or `null` means "no override" — the worker
+   * falls back to the machine's global gh credentials.
+   */
+  github_pat?: string | null;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
+
+export interface ValidateGithubPatResponse {
+  /** GitHub login the token belongs to (e.g. "chewax"). */
+  login: string;
+}
+
+/**
+ * Body for POST /workers/{worker_id}/tasks/{task_id}/reassign.
+ * Kept locally until `shared/types.ts` is regenerated so the frontend
+ * compiles independently of the backend regen step.
+ */
+export interface ReassignWorkerTaskRequest {
+  target_worker_id: string;
+}
 
 export const workersApi = {
   list: async (): Promise<WorkerResponse[]> => {
@@ -1858,6 +1890,21 @@ export const workersApi = {
       method: 'POST',
     });
     return handleApiResponse<WorkerResponse>(response);
+  },
+
+  /**
+   * Probe a GitHub PAT against `/user`. Returns the token's login on
+   * success; throws with the server's rejection reason on failure. The
+   * token is not stored — this is a pre-save validation for the form.
+   */
+  validateGithubPat: async (
+    token: string
+  ): Promise<ValidateGithubPatResponse> => {
+    const response = await makeRequest('/api/workers/validate-github-pat', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    return handleApiResponse<ValidateGithubPatResponse>(response);
   },
 
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
@@ -1925,6 +1972,23 @@ export const workersApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  reassignTask: async (
+    workerId: string,
+    taskId: string,
+    targetWorkerId: string
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/reassign`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          target_worker_id: targetWorkerId,
+        } satisfies ReassignWorkerTaskRequest),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 
   startNext: async (workerId: string): Promise<WorkerTaskResponse> => {

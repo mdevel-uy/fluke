@@ -329,6 +329,7 @@
       "moveLeft": "向左移动",
       "moveRight": "向右移动",
       "openCommandBar": "打开命令栏",
+      "toggleTerminal": "切换终端",
       "formatInlineCode": "Format inline code",
       "sendMessage": "发送消息",
       "settings": "前往设置",
@@ -558,10 +559,15 @@
       "light": "浅色主题",
       "dark": "深色主题",
       "system": "系统主题"
+    },
+    "commandBarTrigger": {
+      "placeholder": "搜索命令...",
+      "ariaLabel": "打开命令栏"
     }
   },
   "appBar": {
     "dashboard": "仪表盘",
+    "workspaces": "工作区",
     "issues": "问题",
     "workers": "工作者",
     "sprint": "看板",
@@ -671,6 +677,7 @@
     "emptyTitle": "尚无 Issue",
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
+    "reassignAction": "重新分配",
     "archiveAction": "归档",
     "taskStatus": {
       "queued": "排队中",
@@ -713,6 +720,17 @@
       "checkingConflicts": "正在检查现有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配给 {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
       "assignAnyway": "仍然分配"
+    },
+    "reassignDialog": {
+      "title": "将 Issue #{{number}} 重新分配给其他工作者",
+      "description": "将「{{title}}」移动到其他工作者。任务将保留其提示词和历史记录。",
+      "currentWorker": "当前分配给：",
+      "targetWorkerLabel": "移动到",
+      "unknownWorker": "未知",
+      "noOtherWorkers": "没有其他工作者可供重新分配。请先创建另一个工作者。",
+      "notQueuedWarning": "此任务处于 {{status}} 状态，无法进行原子性重新分配。请先从工作者队列中取消它，然后再重新分配。",
+      "reassignError": "重新分配任务失败。",
+      "confirm": "重新分配"
     },
     "filters": {
       "searchPlaceholder": "搜索 Issue…",
@@ -790,6 +808,7 @@
       "stalledShort": "代理已停止，任务未完成",
       "menuLabel": "工作者操作",
       "edit": "编辑",
+      "duplicate": "复制",
       "delete": "删除",
       "queuedLabel": "排队",
       "completedLabel": "完成",
@@ -817,7 +836,17 @@
       "saveNew": "创建工作者",
       "saveEdit": "保存更改",
       "modelLabel": "模型",
-      "modelDefault": "默认（全局）"
+      "modelDefault": "默认（全局）",
+      "githubPatLabel": "GitHub PAT（可选）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（已保存 — 留空以保持不变）",
+      "githubPatValidate": "验证",
+      "githubPatValidateOk": "有效 — 已认证为 {{login}}",
+      "githubPatHelp": "留空则使用本机的全局 gh 凭据。注意：GitHub 不允许批准自己的 PR，因此审阅者需要与作者不同的 PAT。",
+      "githubPatStored": "已保存 PAT。",
+      "githubPatWillClear": "保存时将清除 PAT。",
+      "githubPatClear": "清除",
+      "githubPatUndoClear": "撤销"
     },
     "roles": {
       "developer": "开发者",
@@ -834,6 +863,8 @@
       "createSuccess": "工作者已创建。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
+      "duplicateSuccess": "{{worker}} 已复制为“{{clone}}”。",
+      "duplicateError": "复制 {{worker}} 失败：{{message}}",
       "dismiss": "关闭"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}} 已开始处理你的请求。",
       "queued": "请求已加入 {{worker}} 的队列。",
       "error": "请求发送失败：{{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "将图片拖到此处或点击添加",
+      "addMore": "添加更多图片",
+      "removeAria": "移除 {{name}}",
+      "uploading": "上传中",
+      "errorLabel": "上传失败",
+      "uploadError": "无法上传 '{{name}}'：{{message}}",
+      "tooLarge": "文件超过允许的最大大小。"
     }
   },
   "sprint": {

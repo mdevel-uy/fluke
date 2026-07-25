@@ -329,6 +329,7 @@
       "moveLeft": "Déplacer vers la gauche",
       "moveRight": "Déplacer vers la droite",
       "openCommandBar": "Ouvrir la barre de commandes",
+      "toggleTerminal": "Afficher/masquer le terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Envoyer le message",
       "settings": "Aller aux Paramètres",
@@ -558,10 +559,15 @@
       "light": "Thème clair",
       "dark": "Thème sombre",
       "system": "Thème système"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Rechercher des commandes...",
+      "ariaLabel": "Ouvrir la barre de commandes"
     }
   },
   "appBar": {
     "dashboard": "Tableau de bord",
+    "workspaces": "Espaces de travail",
     "issues": "Tickets",
     "workers": "Workers",
     "sprint": "Kanban",
@@ -671,6 +677,7 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "reassignAction": "Réaffecter",
     "archiveAction": "Archiver",
     "taskStatus": {
       "queued": "En attente",
@@ -713,6 +720,17 @@
       "checkingConflicts": "Vérification des assignations existantes...",
       "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
       "assignAnyway": "Assigner quand même"
+    },
+    "reassignDialog": {
+      "title": "Réaffecter l'issue #{{number}} à un autre worker",
+      "description": "Déplacer « {{title}} » vers un autre worker. La tâche conserve son prompt et son historique.",
+      "currentWorker": "Actuellement assignée à :",
+      "targetWorkerLabel": "Déplacer vers",
+      "unknownWorker": "inconnu",
+      "noOtherWorkers": "Aucun autre worker disponible pour la réaffectation. Créez un autre worker d'abord.",
+      "notQueuedWarning": "Cette tâche est {{status}} et ne peut pas être réaffectée de manière atomique. Annulez-la depuis la file du worker, puis réaffectez-la.",
+      "reassignError": "Impossible de réaffecter la tâche.",
+      "confirm": "Réaffecter"
     },
     "filters": {
       "searchPlaceholder": "Rechercher des issues…",
@@ -790,6 +808,7 @@
       "stalledShort": "Agent arrêté, tâche ouverte",
       "menuLabel": "Actions du worker",
       "edit": "Modifier",
+      "duplicate": "Dupliquer",
       "delete": "Supprimer",
       "queuedLabel": "en file",
       "completedLabel": "terminées",
@@ -817,7 +836,17 @@
       "saveNew": "Créer le worker",
       "saveEdit": "Enregistrer",
       "modelLabel": "Modèle",
-      "modelDefault": "Par défaut (global)"
+      "modelDefault": "Par défaut (global)",
+      "githubPatLabel": "PAT GitHub (optionnel)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (enregistré — laissez vide pour conserver)",
+      "githubPatValidate": "Valider",
+      "githubPatValidateOk": "Valide — authentifié en tant que {{login}}",
+      "githubPatHelp": "Laissez vide pour utiliser les identifiants gh globaux de la machine. Note : GitHub interdit d'approuver son propre PR ; un réviseur a donc besoin d'un PAT distinct de celui de l'auteur.",
+      "githubPatStored": "Un PAT est enregistré.",
+      "githubPatWillClear": "Le PAT sera effacé lors de l'enregistrement.",
+      "githubPatClear": "Effacer",
+      "githubPatUndoClear": "Annuler"
     },
     "roles": {
       "developer": "Développeur",
@@ -834,6 +863,8 @@
       "createSuccess": "Worker créé.",
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
+      "duplicateSuccess": "{{worker}} dupliqué en « {{clone}} ».",
+      "duplicateError": "Échec de la duplication de {{worker}} : {{message}}",
       "dismiss": "Fermer"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}} a commencé votre demande.",
       "queued": "Demande mise en file pour {{worker}}.",
       "error": "Échec de l'envoi de la demande : {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Glissez des images ici ou cliquez pour ajouter",
+      "addMore": "Ajouter d'autres images",
+      "removeAria": "Retirer {{name}}",
+      "uploading": "Envoi en cours",
+      "errorLabel": "Échec de l'envoi",
+      "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
+      "tooLarge": "Le fichier dépasse la taille maximale autorisée."
     }
   },
   "sprint": {

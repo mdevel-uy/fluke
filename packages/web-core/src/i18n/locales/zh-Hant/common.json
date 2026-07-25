@@ -329,6 +329,7 @@
       "moveLeft": "向左移動",
       "moveRight": "向右移動",
       "openCommandBar": "開啟命令列",
+      "toggleTerminal": "切換終端",
       "formatInlineCode": "Format inline code",
       "sendMessage": "傳送訊息",
       "settings": "前往設定",
@@ -558,10 +559,15 @@
       "light": "淺色主題",
       "dark": "深色主題",
       "system": "系統主題"
+    },
+    "commandBarTrigger": {
+      "placeholder": "搜尋命令...",
+      "ariaLabel": "開啟命令列"
     }
   },
   "appBar": {
     "dashboard": "儀表板",
+    "workspaces": "工作區",
     "issues": "問題",
     "workers": "工作者",
     "sprint": "看板",
@@ -671,6 +677,7 @@
     "emptyTitle": "尚無 Issue",
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
+    "reassignAction": "重新指派",
     "archiveAction": "封存",
     "taskStatus": {
       "queued": "排隊中",
@@ -713,6 +720,17 @@
       "checkingConflicts": "正在檢查現有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
       "assignAnyway": "仍然分配"
+    },
+    "reassignDialog": {
+      "title": "將 Issue #{{number}} 重新指派給其他工作者",
+      "description": "將「{{title}}」移動到其他工作者。任務將保留其提示詞和歷史記錄。",
+      "currentWorker": "目前指派給：",
+      "targetWorkerLabel": "移動到",
+      "unknownWorker": "未知",
+      "noOtherWorkers": "沒有其他工作者可供重新指派。請先建立另一個工作者。",
+      "notQueuedWarning": "此任務處於 {{status}} 狀態，無法進行原子性重新指派。請先從工作者佇列中取消它，然後再重新指派。",
+      "reassignError": "重新指派任務失敗。",
+      "confirm": "重新指派"
     },
     "filters": {
       "searchPlaceholder": "搜尋 Issue…",
@@ -790,6 +808,7 @@
       "stalledShort": "代理已停止，任務未完成",
       "menuLabel": "工作者動作",
       "edit": "編輯",
+      "duplicate": "複製",
       "delete": "刪除",
       "queuedLabel": "排隊",
       "completedLabel": "完成",
@@ -817,7 +836,17 @@
       "saveNew": "建立工作者",
       "saveEdit": "儲存變更",
       "modelLabel": "模型",
-      "modelDefault": "預設（全域）"
+      "modelDefault": "預設（全域）",
+      "githubPatLabel": "GitHub PAT（選填）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（已儲存 — 保留請留空）",
+      "githubPatValidate": "驗證",
+      "githubPatValidateOk": "有效 — 已認證為 {{login}}",
+      "githubPatHelp": "留空則使用本機的全域 gh 憑證。注意：GitHub 不允許核准自己的 PR，因此審閱者需要與作者不同的 PAT。",
+      "githubPatStored": "已儲存 PAT。",
+      "githubPatWillClear": "儲存時將清除 PAT。",
+      "githubPatClear": "清除",
+      "githubPatUndoClear": "還原"
     },
     "roles": {
       "developer": "開發者",
@@ -834,6 +863,8 @@
       "createSuccess": "工作者已建立。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已刪除。",
+      "duplicateSuccess": "{{worker}} 已複製為「{{clone}}」。",
+      "duplicateError": "複製 {{worker}} 失敗：{{message}}",
       "dismiss": "關閉"
     }
   },
@@ -876,6 +907,15 @@
       "started": "{{worker}} 已開始處理你的請求。",
       "queued": "請求已加入 {{worker}} 的佇列。",
       "error": "請求送出失敗：{{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "將圖片拖到此處或點擊新增",
+      "addMore": "新增更多圖片",
+      "removeAria": "移除 {{name}}",
+      "uploading": "上傳中",
+      "errorLabel": "上傳失敗",
+      "uploadError": "無法上傳 '{{name}}'：{{message}}",
+      "tooLarge": "檔案超過允許的最大大小。"
     }
   },
   "sprint": {
