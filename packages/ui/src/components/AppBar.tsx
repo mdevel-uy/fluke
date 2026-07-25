@@ -35,11 +35,15 @@ interface AppBarProps {
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
   onDashboardClick?: () => void;
+  onSprintClick?: () => void;
+  onIssuesClick?: () => void;
   onWorkersClick?: () => void;
   onAnalystDeskClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showDashboardButton?: boolean;
+  showSprintButton?: boolean;
+  showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
   onProjectClick: (projectId: string) => void;
@@ -47,6 +51,8 @@ interface AppBarProps {
   isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
   isDashboardActive?: boolean;
+  isSprintActive?: boolean;
+  isIssuesActive?: boolean;
   isWorkersActive?: boolean;
   isAnalystDeskActive?: boolean;
   isExportActive?: boolean;
@@ -182,15 +188,21 @@ export function AppBar({
   onExportClick,
   onWorkspacesClick,
   onDashboardClick,
+  onSprintClick,
+  onIssuesClick,
   onWorkersClick,
   onAnalystDeskClick,
   onHostClick,
   showWorkspacesButton = true,
   showDashboardButton = true,
+  showSprintButton = true,
+  showIssuesButton = true,
   showWorkersButton = true,
   showAnalystDeskButton = true,
   isWorkspacesActive,
   isDashboardActive = false,
+  isSprintActive = false,
+  isIssuesActive = false,
   isWorkersActive = false,
   isAnalystDeskActive = false,
   isExportActive = false,
@@ -209,6 +221,8 @@ export function AppBar({
   if (
     showWorkspacesButton ||
     showDashboardButton ||
+    showSprintButton ||
+    showIssuesButton ||
     showWorkersButton ||
     showAnalystDeskButton
   ) {
@@ -227,10 +241,30 @@ export function AppBar({
       localItems.push({
         key: 'local-workspaces',
         kind: 'icon-button',
-        label: 'Local workspaces',
+        label: t('appBar.workspaces'),
         materialIcon: 'view_quilt',
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
+      });
+    }
+    if (showSprintButton && onSprintClick) {
+      localItems.push({
+        key: 'local-sprint',
+        kind: 'icon-button',
+        label: t('appBar.sprint'),
+        materialIcon: 'view_kanban',
+        isActive: isSprintActive,
+        onClick: onSprintClick,
+      });
+    }
+    if (showIssuesButton && onIssuesClick) {
+      localItems.push({
+        key: 'local-issues',
+        kind: 'icon-button',
+        label: t('appBar.issues'),
+        materialIcon: 'list_alt',
+        isActive: isIssuesActive,
+        onClick: onIssuesClick,
       });
     }
     if (showWorkersButton && onWorkersClick) {

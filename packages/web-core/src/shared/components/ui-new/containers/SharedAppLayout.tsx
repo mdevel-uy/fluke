@@ -30,7 +30,9 @@ import {
   getProjectDestination,
   isAnalystDeskDestination,
   isDashboardDestination,
+  isIssuesDestination,
   isLocalWorkspacesDestination,
+  isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
 import { useTranslation } from 'react-i18next';
@@ -161,6 +163,8 @@ export function SharedAppLayout() {
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isDashboardActive = isDashboardDestination(currentDestination);
+  const isSprintActive = isSprintDestination(currentDestination);
+  const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
   const isWorkspaceSidebarPreviewEnabled =
@@ -187,6 +191,14 @@ export function SharedAppLayout() {
 
   const handleDashboardClick = useCallback(() => {
     appNavigation.goToDashboard();
+  }, [appNavigation]);
+
+  const handleSprintClick = useCallback(() => {
+    appNavigation.goToSprint();
+  }, [appNavigation]);
+
+  const handleIssuesClick = useCallback(() => {
+    appNavigation.goToIssues();
   }, [appNavigation]);
 
   const handleWorkersClick = useCallback(() => {
@@ -270,6 +282,8 @@ export function SharedAppLayout() {
               onCreateProject={handleCreateProject}
               onWorkspacesClick={handleWorkspacesClick}
               onDashboardClick={handleDashboardClick}
+              onSprintClick={handleSprintClick}
+              onIssuesClick={handleIssuesClick}
               onWorkersClick={handleWorkersClick}
               onAnalystDeskClick={handleAnalystDeskClick}
               onProjectClick={handleProjectClick}
@@ -277,6 +291,8 @@ export function SharedAppLayout() {
               isSavingProjectOrder={isSavingProjectOrder}
               isWorkspacesActive={isWorkspacesActive}
               isDashboardActive={isDashboardActive}
+              isSprintActive={isSprintActive}
+              isIssuesActive={isIssuesActive}
               isWorkersActive={isWorkersActive}
               isAnalystDeskActive={isAnalystDeskActive}
               activeProjectId={activeProjectId}
