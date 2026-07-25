@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, ExternalLink, Loader2, UserPlus } from 'lucide-react';
+import {
+  Archive,
+  ExternalLink,
+  Loader2,
+  UserCog,
+  UserPlus,
+} from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
+import { ReassignTaskDialog } from './ReassignTaskDialog';
 
 const TASK_STATUS_STYLES: Record<string, string> = {
   queued: 'bg-warning/10 text-warning',
@@ -65,6 +72,17 @@ export function IssueTableRow({
     e.stopPropagation();
     if (!repoId) return;
     void AssignToAgentDialog.show({ issue, repoId });
+  };
+
+  const handleReassign = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!repoId || !linkedTask) return;
+    void ReassignTaskDialog.show({
+      task: linkedTask,
+      repoId,
+      issueNumber: issue.number,
+      issueTitle: issue.title,
+    });
   };
 
   const handleArchive = async (e: React.MouseEvent) => {
@@ -161,15 +179,27 @@ export function IssueTableRow({
           onClick={(e) => e.stopPropagation()}
         >
           {linkedTask ? (
-            <button
-              type="button"
-              onClick={handleViewTask}
-              aria-label={linkLabel}
-              title={linkLabel}
-              className={ICON_BUTTON}
-            >
-              <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleReassign}
+                disabled={!repoId}
+                aria-label={t('issues.reassignAction')}
+                title={t('issues.reassignAction')}
+                className={ICON_BUTTON}
+              >
+                <UserCog className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                onClick={handleViewTask}
+                aria-label={linkLabel}
+                title={linkLabel}
+                className={ICON_BUTTON}
+              >
+                <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </>
           ) : (
             isOpen && (
               <>

@@ -198,6 +198,14 @@ export type Err<E> = { success: false; error: E | undefined; message?: string };
 // Result type for endpoints that need typed errors
 export type Result<T, E> = Ok<T> | Err<E>;
 
+// Local shim for the resolve-merge-conflicts endpoint's typed error.
+// Mirrors ResolveMergeConflictsError in
+// crates/server/src/routes/workspaces/pr.rs and will be replaced by the
+// generated type when infra runs `pnpm run generate-types`.
+export type ResolveMergeConflictsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
 type ListRemoteProjectsResponse = {
   projects: RemoteProject[];
 };
@@ -695,12 +703,16 @@ export const workspacesApi = {
     return handleApiResponseAsResult<string, PrError>(response);
   },
 
-  resolveMergeConflicts: async (workspaceId: string): Promise<void> => {
+  resolveMergeConflicts: async (
+    workspaceId: string
+  ): Promise<Result<void, ResolveMergeConflictsError>> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/pull-requests/resolve-merge-conflicts`,
       { method: 'POST' }
     );
-    return handleApiResponse<void>(response);
+    return handleApiResponseAsResult<void, ResolveMergeConflictsError>(
+      response
+    );
   },
 
   /** Try to auto-attach a PR by matching the workspace branch */
@@ -1832,6 +1844,15 @@ export interface ValidateGithubPatResponse {
   login: string;
 }
 
+/**
+ * Body for POST /workers/{worker_id}/tasks/{task_id}/reassign.
+ * Kept locally until `shared/types.ts` is regenerated so the frontend
+ * compiles independently of the backend regen step.
+ */
+export interface ReassignWorkerTaskRequest {
+  target_worker_id: string;
+}
+
 export const workersApi = {
   list: async (): Promise<WorkerResponse[]> => {
     const response = await makeRequest('/api/workers');
@@ -1951,6 +1972,23 @@ export const workersApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  reassignTask: async (
+    workerId: string,
+    taskId: string,
+    targetWorkerId: string
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/reassign`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          target_worker_id: targetWorkerId,
+        } satisfies ReassignWorkerTaskRequest),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 
   startNext: async (workerId: string): Promise<WorkerTaskResponse> => {

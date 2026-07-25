@@ -378,6 +378,14 @@ export function IssuesPage() {
     [issues, selectedIssueNumber]
   );
 
+  const selectedIssueLinkedTask = useMemo(
+    () =>
+      selectedIssue
+        ? activeTaskByIssueNumber.get(selectedIssue.number)
+        : undefined,
+    [selectedIssue, activeTaskByIssueNumber]
+  );
+
   const updateUrl = useCallback(
     (params: Partial<RawSearch>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -581,6 +589,7 @@ export function IssuesPage() {
         repoName={selectedRepo?.name ?? ''}
         repoId={selectedRepoId ?? ''}
         availableLabels={availableLabels}
+        linkedTask={selectedIssueLinkedTask}
         onClose={handleCloseDrawer}
         onAddLabel={handleAddLabel}
         onRemoveLabel={handleRemoveLabel}

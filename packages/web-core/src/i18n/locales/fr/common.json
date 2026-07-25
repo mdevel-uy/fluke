@@ -664,6 +664,7 @@
     "emptyTitle": "Aucun issue pour l'instant",
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
+    "reassignAction": "Réaffecter",
     "archiveAction": "Archiver",
     "taskStatus": {
       "queued": "En attente",
@@ -706,6 +707,17 @@
       "checkingConflicts": "Vérification des assignations existantes...",
       "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
       "assignAnyway": "Assigner quand même"
+    },
+    "reassignDialog": {
+      "title": "Réaffecter l'issue #{{number}} à un autre worker",
+      "description": "Déplacer « {{title}} » vers un autre worker. La tâche conserve son prompt et son historique.",
+      "currentWorker": "Actuellement assignée à :",
+      "targetWorkerLabel": "Déplacer vers",
+      "unknownWorker": "inconnu",
+      "noOtherWorkers": "Aucun autre worker disponible pour la réaffectation. Créez un autre worker d'abord.",
+      "notQueuedWarning": "Cette tâche est {{status}} et ne peut pas être réaffectée de manière atomique. Annulez-la depuis la file du worker, puis réaffectez-la.",
+      "reassignError": "Impossible de réaffecter la tâche.",
+      "confirm": "Réaffecter"
     },
     "filters": {
       "searchPlaceholder": "Rechercher des issues…",

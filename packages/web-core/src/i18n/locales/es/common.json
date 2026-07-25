@@ -664,6 +664,7 @@
     "emptyTitle": "No hay issues todavía",
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
+    "reassignAction": "Reasignar",
     "archiveAction": "Archivar",
     "taskStatus": {
       "queued": "En cola",
@@ -706,6 +707,17 @@
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
       "assignAnyway": "Asignar igual"
+    },
+    "reassignDialog": {
+      "title": "Reasignar issue #{{number}} a otro worker",
+      "description": "Mové \"{{title}}\" a otro worker. La tarea conserva el prompt y el historial.",
+      "currentWorker": "Asignado actualmente a:",
+      "targetWorkerLabel": "Mover a",
+      "unknownWorker": "desconocido",
+      "noOtherWorkers": "No hay otros workers a los que reasignar. Creá otro worker primero.",
+      "notQueuedWarning": "Esta tarea está {{status}} y no se puede reasignar atómicamente. Cancelala desde la cola del worker primero y después reasignala.",
+      "reassignError": "No se pudo reasignar la tarea.",
+      "confirm": "Reasignar"
     },
     "filters": {
       "searchPlaceholder": "Buscar issues…",

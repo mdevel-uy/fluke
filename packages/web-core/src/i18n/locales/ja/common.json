@@ -664,6 +664,7 @@
     "emptyTitle": "Issue はまだありません",
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
+    "reassignAction": "再割り当て",
     "archiveAction": "アーカイブ",
     "taskStatus": {
       "queued": "待機中",
@@ -706,6 +707,17 @@
       "checkingConflicts": "既存の割り当てを確認中...",
       "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
       "assignAnyway": "それでも割り当てる"
+    },
+    "reassignDialog": {
+      "title": "Issue #{{number}} を別のワーカーに再割り当て",
+      "description": "「{{title}}」を別のワーカーに移動します。プロンプトと履歴はそのまま引き継がれます。",
+      "currentWorker": "現在の担当:",
+      "targetWorkerLabel": "移動先",
+      "unknownWorker": "不明",
+      "noOtherWorkers": "再割り当て可能な他のワーカーがいません。別のワーカーを先に作成してください。",
+      "notQueuedWarning": "このタスクは {{status}} のため、アトミックに再割り当てできません。まずワーカーのキューからキャンセルしてから再割り当てしてください。",
+      "reassignError": "タスクの再割り当てに失敗しました。",
+      "confirm": "再割り当て"
     },
     "filters": {
       "searchPlaceholder": "Issue を検索…",

@@ -26,8 +26,12 @@ import { CreatePRDialog } from '@/shared/dialogs/command-bar/CreatePRDialog';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceRepo } from '@/shared/hooks/useWorkspaceRepo';
 import { useGitOperations } from '@/shared/hooks/useGitOperations';
+import { useGitOperationsError } from '@/shared/hooks/GitOperationsContext';
 import { useRepoBranches } from '@/shared/hooks/useRepoBranches';
-import { workspacesApi } from '@/shared/lib/api';
+import {
+  workspacesApi,
+  type ResolveMergeConflictsError,
+} from '@/shared/lib/api';
 import { cn } from '@/shared/lib/utils';
 
 interface GitOperationsProps {
@@ -60,6 +64,7 @@ function GitOperations({
   );
   const git = useGitOperations(selectedAttempt.id, selectedRepoId ?? undefined);
   const { data: branches = [] } = useRepoBranches(selectedRepoId);
+  const { setError: setGitError } = useGitOperationsError();
   const isChangingTargetBranch = git.states.changeTargetBranchPending;
 
   // Local state for git operations
@@ -69,6 +74,7 @@ function GitOperations({
   const [mergeSuccess, setMergeSuccess] = useState(false);
   const [pushSuccess, setPushSuccess] = useState(false);
   const [sendingConflicts, setSendingConflicts] = useState(false);
+  const [conflictsSent, setConflictsSent] = useState(false);
 
   // Target branch change handlers
   const handleChangeTargetBranchClick = async (newBranch: string) => {
@@ -172,12 +178,38 @@ function GitOperations({
     return t('git.states.createPr');
   }, [mergeInfo.hasOpenPR, pushSuccess, pushing, t]);
 
+  const resolveConflictsErrorMessage = (
+    err: ResolveMergeConflictsError | undefined,
+    fallback: string | undefined
+  ): string => {
+    if (err?.type === 'no_pr_attached') {
+      return t('git.errors.resolveConflictsNoPr');
+    }
+    if (err?.type === 'no_agent_session') {
+      return t('git.errors.resolveConflictsNoAgentSession');
+    }
+    return fallback || t('git.errors.resolveConflictsFailed');
+  };
+
   const handleResolveConflictsClick = async () => {
+    setGitError(null);
+    setSendingConflicts(true);
     try {
-      setSendingConflicts(true);
-      await workspacesApi.resolveMergeConflicts(selectedAttempt.id);
-    } catch (_err) {
-      // error is non-fatal; agent session will show failure
+      const result = await workspacesApi.resolveMergeConflicts(
+        selectedAttempt.id
+      );
+      if (result.success) {
+        setConflictsSent(true);
+        setTimeout(() => setConflictsSent(false), 2500);
+      } else {
+        setGitError(resolveConflictsErrorMessage(result.error, result.message));
+      }
+    } catch (err) {
+      setGitError(
+        err instanceof Error
+          ? err.message
+          : t('git.errors.resolveConflictsFailed')
+      );
     } finally {
       setSendingConflicts(false);
     }
@@ -547,22 +579,30 @@ function GitOperations({
             {mergeInfo.hasOpenPR && (
               <Button
                 onClick={handleResolveConflictsClick}
-                disabled={sendingConflicts}
+                disabled={sendingConflicts || conflictsSent}
                 variant="outline"
                 size="xs"
                 className={cn(
                   'gap-1 shrink-0',
-                  prMergeable === 'conflicting'
-                    ? 'border-destructive text-destructive hover:bg-destructive/10'
-                    : 'border-muted-foreground text-muted-foreground hover:bg-muted'
+                  conflictsSent
+                    ? 'border-success text-success hover:bg-success/10'
+                    : prMergeable === 'conflicting'
+                      ? 'border-destructive text-destructive hover:bg-destructive/10'
+                      : 'border-muted-foreground text-muted-foreground hover:bg-muted'
                 )}
                 aria-label={t('git.states.resolveConflicts')}
               >
-                <GitMerge className="h-3.5 w-3.5" />
-                <span className="truncate max-w-[12ch]">
-                  {sendingConflicts
-                    ? t('git.states.sendingConflicts')
-                    : t('git.states.resolveConflicts')}
+                {conflictsSent ? (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <GitMerge className="h-3.5 w-3.5" />
+                )}
+                <span className="truncate max-w-[14ch]">
+                  {conflictsSent
+                    ? t('git.states.resolveConflictsSent')
+                    : sendingConflicts
+                      ? t('git.states.sendingConflicts')
+                      : t('git.states.resolveConflicts')}
                 </span>
               </Button>
             )}

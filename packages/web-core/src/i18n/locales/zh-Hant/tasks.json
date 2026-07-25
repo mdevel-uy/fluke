@@ -159,14 +159,18 @@
       "creating": "建立中...",
       "createPr": "建立 PR",
       "resolveConflicts": "解決衝突",
-      "sendingConflicts": "傳送中..."
+      "sendingConflicts": "傳送中...",
+      "resolveConflictsSent": "已傳送給代理"
     },
     "errors": {
       "changeTargetBranch": "變更目標分支失敗",
       "pushChanges": "推送變更失敗",
       "mergeChanges": "合併變更失敗",
       "rebaseBranch": "重基底分支失敗",
-      "branchStatusUnavailable": "無法取得分支狀態。您仍然可以變更目標分支。"
+      "branchStatusUnavailable": "無法取得分支狀態。您仍然可以變更目標分支。",
+      "resolveConflictsFailed": "解決衝突的後續訊息傳送失敗。",
+      "resolveConflictsNoPr": "此工作區沒有關聯的開啟 PR。",
+      "resolveConflictsNoAgentSession": "此工作區沒有活躍的代理工作階段 — 請重新啟動代理後再試一次。"
     },
     "pr": {
       "open": "開啟 PR #{{number}}",
