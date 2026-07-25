@@ -546,6 +546,62 @@ impl WorkerTask {
         Ok(())
     }
 
+    /// Atomically move a queued task from its current worker to `target_worker_id`
+    /// at the end of the target's queue. Wrapped in a transaction so the move
+    /// is a single logical step — no window in which the task belongs to no
+    /// worker (or to both). Returns `Some(updated_task)` on success, or `None`
+    /// when the task no longer exists or is not `queued` at the moment the
+    /// transaction runs (caller should re-read to surface a precise reason).
+    pub async fn reassign_if_queued(
+        pool: &SqlitePool,
+        id: Uuid,
+        target_worker_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        let mut tx = pool.begin().await?;
+
+        let next_position: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COALESCE(MAX(position), -1) + 1
+               FROM worker_tasks
+               WHERE worker_id = ?1",
+        )
+        .bind(target_worker_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let rows = sqlx::query(
+            "UPDATE worker_tasks
+                SET worker_id = ?2,
+                    position  = ?3
+              WHERE id = ?1
+                AND status = 'queued'",
+        )
+        .bind(id)
+        .bind(target_worker_id)
+        .bind(next_position)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            tx.rollback().await?;
+            return Ok(None);
+        }
+
+        let updated = sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result
+               FROM worker_tasks
+               WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(updated)
+    }
+
     /// Reset a task to `queued` at the front of its worker's queue (lowest
     /// position - 1) and clear its workspace link. Used during startup
     /// recovery to re-queue tasks whose execution was killed by a restart.

@@ -214,6 +214,11 @@ pub struct UpdateWorkerTaskRequest {
     pub status: Option<String>,
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct ReassignWorkerTaskRequest {
+    pub target_worker_id: Uuid,
+}
+
 fn is_valid_role(role: &str) -> bool {
     matches!(role, ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER)
 }
@@ -727,6 +732,65 @@ pub async fn delete_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+/// Move a queued task to another worker's queue atomically. Only tasks in
+/// `queued` state can be reassigned; anything already `in_progress` /
+/// `in_review` / terminal must be cancelled first so the running workspace
+/// is torn down cleanly (409 with an explanatory message).
+pub async fn reassign_worker_task(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+    Json(payload): Json<ReassignWorkerTaskRequest>,
+) -> Result<ResponseJson<ApiResponse<WorkerTaskResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+
+    if payload.target_worker_id == worker_id {
+        return Err(ApiError::BadRequest(
+            "Target worker must differ from the current worker".into(),
+        ));
+    }
+
+    // Validate target worker exists (surfaced as 400 rather than a FK violation).
+    Worker::find_by_id(pool, payload.target_worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Target worker not found".into()))?;
+
+    // Fail fast for non-queued tasks before opening a transaction, so the
+    // client sees a precise message instead of a generic "not queued".
+    if existing.status != worker_task::STATUS_QUEUED {
+        return Err(ApiError::Conflict(format!(
+            "Only queued tasks can be reassigned (current status: {}). \
+             Cancel the task first, then reassign it.",
+            existing.status
+        )));
+    }
+
+    // The atomic move: guarded by `status = 'queued'` inside the same
+    // transaction so a concurrent claim cannot slip the task into
+    // in_progress under our feet.
+    let updated = WorkerTask::reassign_if_queued(pool, task_id, payload.target_worker_id)
+        .await?
+        .ok_or_else(|| {
+            ApiError::Conflict(
+                "Task was claimed by its worker just before reassignment. \
+                 Cancel the task and try again."
+                    .into(),
+            )
+        })?;
+
+    let response = worker_task_to_response(pool, updated).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
 pub async fn cancel_worker_task(
     State(deployment): State<DeploymentImpl>,
     Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
@@ -833,6 +897,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/cancel",
             post(cancel_worker_task),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/reassign",
+            post(reassign_worker_task),
         )
 }
 

@@ -674,6 +674,7 @@
     "emptyTitle": "No issues yet",
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
+    "reassignAction": "Reassign",
     "archiveAction": "Archive",
     "taskStatus": {
       "queued": "Queued",
@@ -716,6 +717,17 @@
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
       "assignAnyway": "Assign anyway"
+    },
+    "reassignDialog": {
+      "title": "Reassign issue #{{number}} to another worker",
+      "description": "Move \"{{title}}\" to a different worker. The task keeps its prompt and history.",
+      "currentWorker": "Currently assigned to:",
+      "targetWorkerLabel": "Move to",
+      "unknownWorker": "unknown",
+      "noOtherWorkers": "There are no other workers to reassign to. Create another worker first.",
+      "notQueuedWarning": "This task is {{status}} and cannot be reassigned atomically. Cancel it from the worker's queue first, then reassign.",
+      "reassignError": "Failed to reassign task.",
+      "confirm": "Reassign"
     },
     "filters": {
       "searchPlaceholder": "Search issues…",

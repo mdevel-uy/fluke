@@ -664,6 +664,7 @@
     "emptyTitle": "尚無 Issue",
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
+    "reassignAction": "重新指派",
     "archiveAction": "封存",
     "taskStatus": {
       "queued": "排隊中",
@@ -706,6 +707,17 @@
       "checkingConflicts": "正在檢查現有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
       "assignAnyway": "仍然分配"
+    },
+    "reassignDialog": {
+      "title": "將 Issue #{{number}} 重新指派給其他工作者",
+      "description": "將「{{title}}」移動到其他工作者。任務將保留其提示詞和歷史記錄。",
+      "currentWorker": "目前指派給：",
+      "targetWorkerLabel": "移動到",
+      "unknownWorker": "未知",
+      "noOtherWorkers": "沒有其他工作者可供重新指派。請先建立另一個工作者。",
+      "notQueuedWarning": "此任務處於 {{status}} 狀態，無法進行原子性重新指派。請先從工作者佇列中取消它，然後再重新指派。",
+      "reassignError": "重新指派任務失敗。",
+      "confirm": "重新指派"
     },
     "filters": {
       "searchPlaceholder": "搜尋 Issue…",
