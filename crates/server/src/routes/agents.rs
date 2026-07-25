@@ -47,8 +47,11 @@ const CACHE_TTL: Duration = Duration::from_secs(45);
 /// so the newest report wins and older logs cannot improve the answer.
 const MAX_PROCESSES_SCANNED: usize = 5;
 
-static USAGE_CACHE: LazyLock<Mutex<Option<(Instant, Option<ClaudeUsageResponse>)>>> =
-    LazyLock::new(|| Mutex::new(None));
+/// Timestamped answer; the inner `Option` is "no limits reported yet", which
+/// is worth caching too.
+type CachedUsage = Option<(Instant, Option<ClaudeUsageResponse>)>;
+
+static USAGE_CACHE: LazyLock<Mutex<CachedUsage>> = LazyLock::new(|| Mutex::new(None));
 
 fn cached() -> Option<Option<ClaudeUsageResponse>> {
     let guard = USAGE_CACHE.lock().unwrap();
@@ -56,20 +59,37 @@ fn cached() -> Option<Option<ClaudeUsageResponse>> {
     (stamped.elapsed() < CACHE_TTL).then(|| value.clone())
 }
 
+fn latest_rate_limit<'a>(
+    msgs: impl DoubleEndedIterator<Item = &'a LogMsg>,
+) -> Option<RateLimitInfo> {
+    msgs.rev()
+        .filter_map(|msg| match msg {
+            LogMsg::Stdout(chunk) => Some(chunk),
+            _ => None,
+        })
+        .find_map(|chunk| chunk.lines().rev().find_map(rate_limit_info_from_log_line))
+}
+
 /// Newest `rate_limit_event` payload in an execution's raw agent logs.
 async fn latest_rate_limit_for_process(
     deployment: &DeploymentImpl,
     execution_id: uuid::Uuid,
 ) -> Option<RateLimitInfo> {
+    // A running process keeps its log stream open, so snapshot the live store
+    // instead of collecting it; only finished processes go through the
+    // persisted logs (same split as workspace_summary).
+    if let Some(store) = deployment
+        .container()
+        .get_msg_store_by_id(&execution_id)
+        .await
+    {
+        let history = store.get_history();
+        return latest_rate_limit(history.iter());
+    }
+
     let stream = deployment.container().stream_raw_logs(&execution_id).await?;
     let msgs: Vec<_> = stream.collect().await;
-    msgs.iter()
-        .rev()
-        .filter_map(|msg| match msg {
-            Ok(LogMsg::Stdout(chunk)) => Some(chunk),
-            _ => None,
-        })
-        .find_map(|chunk| chunk.lines().rev().find_map(rate_limit_info_from_log_line))
+    latest_rate_limit(msgs.iter().filter_map(|msg| msg.as_ref().ok()))
 }
 
 async fn get_claude_usage(
