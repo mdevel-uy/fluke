@@ -567,6 +567,7 @@
   },
   "appBar": {
     "dashboard": "仪表盘",
+    "workspaces": "工作区",
     "issues": "问题",
     "workers": "工作者",
     "sprint": "看板",

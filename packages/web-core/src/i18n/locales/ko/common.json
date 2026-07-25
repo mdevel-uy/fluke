@@ -567,6 +567,7 @@
   },
   "appBar": {
     "dashboard": "대시보드",
+    "workspaces": "워크스페이스",
     "issues": "이슈",
     "workers": "워커",
     "sprint": "칸반",

@@ -567,6 +567,7 @@
   },
   "appBar": {
     "dashboard": "ダッシュボード",
+    "workspaces": "ワークスペース",
     "issues": "課題",
     "workers": "ワーカー",
     "sprint": "カンバン",

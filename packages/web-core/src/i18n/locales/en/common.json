@@ -571,6 +571,7 @@
   },
   "appBar": {
     "dashboard": "Dashboard",
+    "workspaces": "Workspaces",
     "issues": "Issues",
     "workers": "Workers",
     "sprint": "Kanban",
