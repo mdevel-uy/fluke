@@ -14,6 +14,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         items: [
           { type: 'action', action: Actions.NewWorkspace },
           { type: 'action', action: Actions.CreateWorkspaceFromPR },
+          { type: 'action', action: Actions.CreateWorker },
           { type: 'action', action: Actions.OpenInIDE },
           { type: 'action', action: Actions.CopyWorkspacePath },
           { type: 'action', action: Actions.CopyRawLogs },
