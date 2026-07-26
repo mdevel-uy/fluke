@@ -925,7 +925,7 @@
       "error": "요청을 보내지 못했습니다: {{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "이미지를 여기에 끌어다 놓거나 클릭하여 추가",
+      "dropzoneLabel": "이미지를 여기에 끌어다 놓거나, 클릭하여 추가하거나, 붙여넣기",
       "addMore": "이미지 더 추가",
       "removeAria": "{{name}} 제거",
       "uploading": "업로드 중",

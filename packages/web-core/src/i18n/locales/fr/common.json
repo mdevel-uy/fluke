@@ -925,7 +925,7 @@
       "error": "Échec de l'envoi de la demande : {{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "Glissez des images ici ou cliquez pour ajouter",
+      "dropzoneLabel": "Glissez des images ici, cliquez pour ajouter ou collez",
       "addMore": "Ajouter d'autres images",
       "removeAria": "Retirer {{name}}",
       "uploading": "Envoi en cours",
