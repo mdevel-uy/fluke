@@ -34,6 +34,18 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
       },
       {
         type: 'group',
+        label: 'Navigate',
+        items: [
+          { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSprint },
+          { type: 'action', action: Actions.GoToIssues },
+          { type: 'action', action: Actions.GoToDashboard },
+          { type: 'action', action: Actions.GoToWorkers },
+          { type: 'action', action: Actions.GoToAnalystDesk },
+        ],
+      },
+      {
+        type: 'group',
         label: 'General',
         items: [
           { type: 'action', action: Actions.Feedback },
