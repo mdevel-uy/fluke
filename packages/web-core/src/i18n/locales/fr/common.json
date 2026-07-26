@@ -185,7 +185,16 @@
       "unlinkFromIssueLabel": "Également dissocier du ticket"
     },
     "linkError": "Failed to link workspace",
-    "stalledTask": "Tâche bloquée — l'agent s'est arrêté mais la tâche n'a pas avancé"
+    "stalledTask": "Tâche bloquée — l'agent s'est arrêté mais la tâche n'a pas avancé",
+    "scopes": {
+      "attention": "Requiert votre attention",
+      "running": "En cours",
+      "idle": "Inactifs",
+      "all": "Tous les espaces",
+      "archive": "Archives"
+    },
+    "newButton": "Nouveau",
+    "scopeRailLabel": "Portées des espaces de travail"
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",
