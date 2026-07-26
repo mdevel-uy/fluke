@@ -136,7 +136,10 @@ pub fn max_in_review_from_env() -> i64 {
 
 pub const WORKER_LEAD_ENABLED_ENV: &str = "WORKER_LEAD_ENABLED";
 pub const WORKER_REVIEW_MAX_ROUNDS_ENV: &str = "WORKER_REVIEW_MAX_ROUNDS";
-pub const DEFAULT_MAX_REVIEW_ROUNDS: i64 = 2;
+/// Last-resort fallback used only when both the env override and the
+/// persisted `Config.max_review_rounds` are unusable. Kept in sync with the
+/// Config schema default so behavior does not silently diverge.
+pub const DEFAULT_MAX_REVIEW_ROUNDS: i64 = 3;
 
 pub fn lead_enabled_from_env() -> bool {
     std::env::var(WORKER_LEAD_ENABLED_ENV)
@@ -144,12 +147,31 @@ pub fn lead_enabled_from_env() -> bool {
         .unwrap_or(true)
 }
 
-pub fn review_max_rounds_from_env() -> i64 {
-    std::env::var(WORKER_REVIEW_MAX_ROUNDS_ENV)
+/// Resolve the maximum number of review rounds per PR.
+///
+/// Precedence:
+/// 1. `WORKER_REVIEW_MAX_ROUNDS` env var — emergency override for ops when
+///    the persisted Config is misconfigured. Requires a positive integer.
+/// 2. `Config.max_review_rounds` — the user-visible setting.
+/// 3. `DEFAULT_MAX_REVIEW_ROUNDS` — hardcoded fallback for the case where
+///    Config's value is zero (which the schema default prevents).
+///
+/// Never panics: unreadable env values fall through to Config, and Config
+/// values ≤ 0 fall through to the hardcoded default.
+pub fn resolve_max_review_rounds(config: &Config) -> i64 {
+    if let Some(env) = std::env::var(WORKER_REVIEW_MAX_ROUNDS_ENV)
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
         .filter(|v| *v > 0)
-        .unwrap_or(DEFAULT_MAX_REVIEW_ROUNDS)
+    {
+        return env;
+    }
+    let from_config = i64::from(config.max_review_rounds);
+    if from_config > 0 {
+        from_config
+    } else {
+        DEFAULT_MAX_REVIEW_ROUNDS
+    }
 }
 
 pub struct StartedTask {
@@ -1156,7 +1178,8 @@ fn build_pr_body(task: &WorkerTask) -> String {
 /// - No reviewer worker is registered
 /// - The reviewer is the same worker as the PR author (no self-review)
 /// - An active reviewer task already exists for this PR (idempotent guard)
-/// - The PR has already reached the `WORKER_REVIEW_MAX_ROUNDS` cap (escalated)
+/// - The PR has already reached the `Config.max_review_rounds` cap (escalated;
+///   the `WORKER_REVIEW_MAX_ROUNDS` env var may still override the Config)
 pub async fn dispatch_review_task(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -1210,7 +1233,10 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
-    let max_rounds = review_max_rounds_from_env();
+    let max_rounds = {
+        let cfg = config.read().await;
+        resolve_max_review_rounds(&cfg)
+    };
     let rounds = WorkerTask::count_reviewer_tasks_for_pr(pool, pr_number, repo_id).await?;
     if rounds >= max_rounds {
         warn!(
@@ -1441,6 +1467,48 @@ mod tests {
         let task_pos = prompt.find("do it").unwrap();
         assert!(base_pos < soul_pos);
         assert!(soul_pos < task_pos);
+    }
+
+    /// The env var precedence tests share a single process-global variable,
+    /// so they must not run in parallel with one another or with any other
+    /// test that touches WORKER_REVIEW_MAX_ROUNDS. They are grouped in one
+    /// test to keep the mutation window as short and self-contained as
+    /// possible.
+    #[test]
+    fn resolve_max_review_rounds_precedence() {
+        // SAFETY: no other test in this crate reads or writes
+        // WORKER_REVIEW_MAX_ROUNDS.
+        unsafe {
+            std::env::remove_var(WORKER_REVIEW_MAX_ROUNDS_ENV);
+        }
+
+        // Baseline: Config value is used when no env override is set.
+        let mut cfg = Config::default();
+        cfg.max_review_rounds = 5;
+        assert_eq!(resolve_max_review_rounds(&cfg), 5);
+
+        // Env override wins over Config when set to a positive integer.
+        unsafe {
+            std::env::set_var(WORKER_REVIEW_MAX_ROUNDS_ENV, "7");
+        }
+        assert_eq!(resolve_max_review_rounds(&cfg), 7);
+
+        // Non-positive env values are ignored (fall through to Config).
+        unsafe {
+            std::env::set_var(WORKER_REVIEW_MAX_ROUNDS_ENV, "0");
+        }
+        assert_eq!(resolve_max_review_rounds(&cfg), 5);
+        unsafe {
+            std::env::set_var(WORKER_REVIEW_MAX_ROUNDS_ENV, "not-a-number");
+        }
+        assert_eq!(resolve_max_review_rounds(&cfg), 5);
+
+        // Config = 0 with no usable env → hardcoded default.
+        unsafe {
+            std::env::remove_var(WORKER_REVIEW_MAX_ROUNDS_ENV);
+        }
+        cfg.max_review_rounds = 0;
+        assert_eq!(resolve_max_review_rounds(&cfg), DEFAULT_MAX_REVIEW_ROUNDS);
     }
 
     #[test]
