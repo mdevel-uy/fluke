@@ -22,6 +22,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'childPages', id: 'workspaceActions' },
           { type: 'childPages', id: 'repoActions' },
           { type: 'childPages', id: 'issueActions' },
+          { type: 'childPages', id: 'sprintActions' },
         ],
       },
       {
@@ -175,6 +176,21 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.GoToWorkers },
           { type: 'action', action: Actions.GoToAnalystDesk },
         ],
+      },
+    ],
+  },
+
+  // Sprint actions page - shown only in the Sprint view
+  sprintActions: {
+    id: 'sprint-actions',
+    title: 'Sprint Actions',
+    parent: 'root',
+    isVisible: (ctx) => ctx.currentView === 'sprint',
+    items: [
+      {
+        type: 'group',
+        label: 'Actions',
+        items: [{ type: 'action', action: Actions.SyncSprint }],
       },
     ],
   },

@@ -94,6 +94,9 @@ export function useActionVisibilityContext(
     : isWorkspacesDestination(destination)
       ? 'workspaces'
       : 'none';
+  // Raw destination kind — lets actions target a specific standalone page
+  // (e.g. Sprint) that layoutMode can't distinguish because it maps to 'none'.
+  const currentView = destination?.kind ?? null;
   const { config } = useUserSystem();
   const { isStarting, isStopping, runningDevServers } =
     useDevServer(workspaceId);
@@ -136,6 +139,7 @@ export function useActionVisibilityContext(
 
     return {
       layoutMode,
+      currentView,
       rightMainPanelMode: panelState.rightMainPanelMode,
       isLeftSidebarVisible: panelState.isLeftSidebarVisible,
       isLeftMainPanelVisible: panelState.isLeftMainPanelVisible,
@@ -164,6 +168,7 @@ export function useActionVisibilityContext(
     };
   }, [
     layoutMode,
+    currentView,
     panelState.rightMainPanelMode,
     panelState.isLeftSidebarVisible,
     panelState.isLeftMainPanelVisible,

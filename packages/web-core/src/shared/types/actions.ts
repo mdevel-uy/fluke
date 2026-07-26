@@ -10,7 +10,10 @@ import type { Workspace as RemoteWorkspace } from 'shared/remote-types';
 import type { DiffViewMode } from '@/shared/stores/useDiffViewStore';
 import type { LayoutMode } from '@/shared/stores/useUiPreferencesStore';
 import { RIGHT_MAIN_PANEL_MODES } from '@/shared/stores/useUiPreferencesStore';
-import type { AppNavigation } from '@/shared/lib/routes/appNavigation';
+import type {
+  AppDestination,
+  AppNavigation,
+} from '@/shared/lib/routes/appNavigation';
 import type { ProjectIssueCreateOptions } from '@/shared/stores/useKanbanIssueComposerStore';
 import type { AppRuntime } from '@/shared/hooks/useAppRuntime';
 
@@ -103,10 +106,17 @@ export interface ActionExecutorContext {
   remoteWorkspaces: RemoteWorkspace[];
 }
 
+// Top-level app view derived from the current route. Standalone pages
+// (sprint, issues, dashboard, workers, analyst-desk, export, onboarding, root)
+// have layoutMode === 'none', so this field is the way to gate actions to a
+// specific page.
+export type CurrentView = AppDestination['kind'] | null;
+
 // Context for evaluating action visibility and state conditions
 export interface ActionVisibilityContext {
   // Layout state
   layoutMode: LayoutMode | 'none';
+  currentView: CurrentView;
   rightMainPanelMode:
     | (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES]
     | null;
