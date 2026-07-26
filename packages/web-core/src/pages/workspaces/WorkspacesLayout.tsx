@@ -42,8 +42,6 @@ import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDi
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 
 import {
-  PERSIST_KEYS,
-  usePaneSize,
   useWorkspacePanelState,
   RIGHT_MAIN_PANEL_MODES,
 } from '@/shared/stores/useUiPreferencesStore';
@@ -51,6 +49,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 const WORKSPACES_SIDEBAR_LAYOUT_ID = 'workspaces-sidebar-layout';
+const WORKSPACES_INNER_LAYOUT_ID = 'workspaces-inner-layout';
 const WORKSPACES_BOTTOM_LAYOUT_ID = 'workspaces-bottom-layout';
 
 const SEPARATOR_CLASS =
@@ -187,37 +186,29 @@ export function WorkspacesLayout() {
     setLeftMainPanelVisible,
   ]);
 
-  const [rightMainPanelSize, setRightMainPanelSize] = usePaneSize(
-    PERSIST_KEYS.rightMainPanel,
-    50
-  );
-
-  const defaultLayout: Layout =
-    typeof rightMainPanelSize === 'number'
-      ? {
-          'left-main': 100 - rightMainPanelSize,
-          'right-main': rightMainPanelSize,
-        }
-      : { 'left-main': 50, 'right-main': 50 };
-
-  const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
-    };
-  }, []);
-
-  const onLayoutChange = useCallback(
+  // Inner layout — persisted to localStorage via useDefaultLayout.
+  // Guarded onLayoutChange: only persist when both inner panels are mounted;
+  // otherwise a single-panel layout (e.g. { 'left-main': 100 }) would clobber
+  // the stored split ratio, since useDefaultLayout overwrites without merging.
+  const {
+    defaultLayout: innerLayoutStored,
+    onLayoutChange: onInnerLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: WORKSPACES_INNER_LAYOUT_ID,
+  });
+  const innerDefaultLayout: Layout = innerLayoutStored ?? {
+    'left-main': 50,
+    'right-main': 50,
+  };
+  const onInnerLayoutChange = useCallback(
     (layout: Layout) => {
       if (isLeftMainPanelVisible && rightMainPanelMode !== null) {
-        if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
-        layoutTimerRef.current = setTimeout(() => {
-          setRightMainPanelSize(layout['right-main']);
-        }, 150);
+        onInnerLayoutChangeRaw(layout);
       }
     },
-    [isLeftMainPanelVisible, rightMainPanelMode, setRightMainPanelSize]
+    [isLeftMainPanelVisible, rightMainPanelMode, onInnerLayoutChangeRaw]
   );
 
   // Sidebar layout — persisted to localStorage via useDefaultLayout
@@ -378,8 +369,8 @@ export function WorkspacesLayout() {
         <Group
           orientation="horizontal"
           className="flex-1 min-w-0 h-full"
-          defaultLayout={defaultLayout}
-          onLayoutChange={onLayoutChange}
+          defaultLayout={innerDefaultLayout}
+          onLayoutChange={onInnerLayoutChange}
         >
           {isLeftMainPanelVisible && (
             <Panel
