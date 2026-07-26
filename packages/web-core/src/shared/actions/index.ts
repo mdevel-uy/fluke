@@ -56,7 +56,9 @@ import {
   RIGHT_MAIN_PANEL_MODES,
 } from '@/shared/stores/useUiPreferencesStore';
 
-import { workspacesApi, repoApi } from '@/shared/lib/api';
+import { workspacesApi, repoApi, repoIssuesApi } from '@/shared/lib/api';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { bulkUpdateIssues } from '@/shared/lib/remoteApi';
 import { workspaceRecordKeys } from '@/shared/hooks/useWorkspaceRecord';
 import { workspaceRepoKeys } from '@/shared/hooks/useWorkspaceRepo';
@@ -1532,6 +1534,23 @@ export const Actions = {
       }
     },
   } satisfies IssueActionDefinition,
+
+  // === Sprint Actions ===
+  SyncSprint: {
+    id: 'sync-sprint',
+    label: 'Sync Sprint',
+    icon: ArrowsClockwiseIcon,
+    keywords: ['sprint', 'refresh', 'reload', 'issues'],
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => ctx.currentView === 'sprint',
+    isEnabled: () => useSelectedRepoStore.getState().selectedRepoId !== null,
+    execute: async (ctx) => {
+      const repoId = useSelectedRepoStore.getState().selectedRepoId;
+      if (!repoId) return;
+      const data = await repoIssuesApi.sync(repoId);
+      ctx.queryClient.setQueryData(repoIssuesKeys.byRepo(repoId), data);
+    },
+  } satisfies GlobalActionDefinition,
 
   // === Quick Open (CMD+P) Navigation Actions ===
   GoToWorkspaces: {
