@@ -929,7 +929,7 @@ pub async fn re_request_review(
     let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
     let has_open_pr = prs
         .iter()
-        .any(|pr| pr.pr_number == pr_number && pr.pr_status == MergeStatus::Open);
+        .any(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open));
     if !has_open_pr {
         return Err(ApiError::BadRequest("no_open_pr".into()));
     }
