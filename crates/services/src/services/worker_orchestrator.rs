@@ -42,7 +42,7 @@ use db::{
         workspace_repo::WorkspaceRepo,
     },
 };
-use executors::profile::ExecutorConfig;
+use executors::{model_selector::PermissionPolicy, profile::ExecutorConfig};
 use git_host::{CreatePrRequest, GitHostError, GitHostProvider, GitHostService};
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -243,6 +243,16 @@ pub async fn try_take_next(
     let mut executor_config: ExecutorConfig = executor_config.into();
     if let Some(model) = &worker.model {
         executor_config.model_id = Some(model.clone());
+    }
+    // Per-worker plan mode override: Some(true) forces Plan, Some(false)
+    // clears the override so the executor falls back to its default policy,
+    // None leaves whatever the global executor_profile already declared.
+    if let Some(plan_mode) = worker.plan_mode {
+        executor_config.permission_policy = if plan_mode {
+            Some(PermissionPolicy::Plan)
+        } else {
+            None
+        };
     }
 
     let workspace_manager = WorkspaceManager::new(db.clone());

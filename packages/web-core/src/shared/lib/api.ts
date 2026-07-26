@@ -1861,6 +1861,12 @@ export interface CreateWorkerRequest {
    * falls back to the machine's global gh credentials.
    */
   github_pat?: string | null;
+  /**
+   * Per-worker plan mode override. `null` or omitted → follow the global
+   * executor profile; `true` → force plan mode on; `false` → force plan
+   * mode off for this worker.
+   */
+  plan_mode?: boolean | null;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;

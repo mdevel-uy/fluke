@@ -41,6 +41,10 @@ pub struct WorkerResponse {
     /// is never exposed — the UI shows this boolean so the form can render a
     /// masked placeholder and let the user replace or clear it.
     pub has_github_pat: bool,
+    /// Per-worker override for plan mode. `null` = follow the global setting;
+    /// `true` = force plan mode on; `false` = force plan mode off.
+    #[ts(optional, type = "boolean | null")]
+    pub plan_mode: Option<bool>,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -146,6 +150,10 @@ pub struct CreateWorkerRequest {
     /// Validated against `/user` before persisting; never returned by the API.
     #[ts(optional)]
     pub github_pat: Option<String>,
+    /// Per-worker override for plan mode. Omitted or `null` = follow global;
+    /// `true` = force plan mode on; `false` = force plan mode off.
+    #[ts(optional, type = "boolean | null")]
+    pub plan_mode: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -164,6 +172,11 @@ pub struct UpdateWorkerRequest {
     #[serde(default, deserialize_with = "deserialize_double_option")]
     #[ts(optional, type = "string | null")]
     pub github_pat: Option<Option<String>>,
+    /// `undefined` = don't touch; `null` = clear the override (follow global);
+    /// `true` / `false` = force plan mode on/off for this worker.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "boolean | null")]
+    pub plan_mode: Option<Option<bool>>,
 }
 
 /// Distinguish a missing field from an explicit `null` for `Option<Option<T>>`.
@@ -252,6 +265,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         role: worker.role,
         model: worker.model,
         has_github_pat: worker.github_pat.is_some(),
+        plan_mode: worker.plan_mode,
         active_workspace_id,
         queued_count,
         completed_count,
@@ -320,6 +334,7 @@ pub async fn create_worker(
             role: payload.role,
             model: payload.model.filter(|m| !m.is_empty()),
             github_pat,
+            plan_mode: payload.plan_mode,
         },
     )
     .await?;
@@ -404,6 +419,7 @@ pub async fn update_worker(
             role,
             model,
             github_pat,
+            plan_mode: payload.plan_mode,
         },
     )
     .await?;
@@ -460,6 +476,7 @@ pub async fn duplicate_worker(
             role: Some(source.role),
             model: source.model,
             github_pat: None,
+            plan_mode: source.plan_mode,
         },
     )
     .await?;
@@ -1044,5 +1061,27 @@ mod tests {
         let set: UpdateWorkerRequest =
             serde_json::from_str(r#"{"github_pat": "ghp_abc"}"#).unwrap();
         assert_eq!(set.github_pat, Some(Some("ghp_abc".to_string())));
+    }
+
+    /// `plan_mode` also needs the three-state distinction: missing means
+    /// "keep whatever is stored", `null` clears the override so the worker
+    /// follows the global setting again, and a boolean explicitly forces
+    /// plan mode on or off for the worker.
+    #[test]
+    fn update_worker_request_plan_mode_distinguishes_missing_from_null() {
+        let missing: UpdateWorkerRequest = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.plan_mode, None);
+
+        let null: UpdateWorkerRequest =
+            serde_json::from_str(r#"{"plan_mode": null}"#).unwrap();
+        assert_eq!(null.plan_mode, Some(None));
+
+        let on: UpdateWorkerRequest =
+            serde_json::from_str(r#"{"plan_mode": true}"#).unwrap();
+        assert_eq!(on.plan_mode, Some(Some(true)));
+
+        let off: UpdateWorkerRequest =
+            serde_json::from_str(r#"{"plan_mode": false}"#).unwrap();
+        assert_eq!(off.plan_mode, Some(Some(false)));
     }
 }

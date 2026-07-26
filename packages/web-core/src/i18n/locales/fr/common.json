@@ -854,7 +854,11 @@
       "queueLoading": "Chargement de la file...",
       "queueError": "Échec du chargement de la file.",
       "queueEmpty": "La file est vide.",
-      "needsAttention": "Attention requise"
+      "needsAttention": "Attention requise",
+      "planModeOnBadge": "Plan mode",
+      "planModeOffBadge": "Sans plan mode",
+      "planModeOnTooltip": "Plan mode forcé activé pour ce worker.",
+      "planModeOffTooltip": "Plan mode forcé désactivé pour ce worker."
     },
     "form": {
       "newTitle": "Nouveau worker",
@@ -873,6 +877,11 @@
       "saveEdit": "Enregistrer",
       "modelLabel": "Modèle",
       "modelDefault": "Par défaut (global)",
+      "planModeLabel": "Plan mode",
+      "planModeGlobal": "Suivre la configuration globale",
+      "planModeOn": "Forcer activé",
+      "planModeOff": "Forcer désactivé",
+      "planModeHelp": "Surcharge le plan mode global de l'exécuteur pour ce worker.",
       "githubPatLabel": "PAT GitHub (optionnel)",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "•••••• (enregistré — laissez vide pour conserver)",
