@@ -15,6 +15,7 @@ pub mod filesystem_watcher;
 pub mod notification;
 pub mod oauth_credentials;
 pub mod pr_monitor;
+pub mod quick_action_prompts;
 
 #[cfg(feature = "qa-mode")]
 pub mod qa_repos;

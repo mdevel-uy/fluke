@@ -239,7 +239,14 @@
       "createPr": "Créer une PR",
       "resolveConflicts": "Résoudre les conflits",
       "sendingConflicts": "Envoi en cours...",
-      "resolveConflictsSent": "Envoyé à l'agent"
+      "resolveConflictsSent": "Envoyé à l'agent",
+      "addressPrComments": "Traiter les commentaires de la PR",
+      "addressPrCommentsSending": "Envoi en cours...",
+      "addressPrCommentsSent": "Envoyé à l'agent",
+      "fixCi": "Réparer la CI",
+      "fixCiSending": "Envoi en cours...",
+      "fixCiSent": "Envoyé à l'agent",
+      "fixMergeConflicts": "Résoudre les conflits de fusion"
     },
     "errors": {
       "changeTargetBranch": "Échec du changement de branche cible",
@@ -249,7 +256,13 @@
       "branchStatusUnavailable": "Impossible de récupérer le statut de la branche. Vous pouvez toujours changer la branche cible.",
       "resolveConflictsFailed": "Échec de l'envoi du suivi pour résoudre les conflits.",
       "resolveConflictsNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
-      "resolveConflictsNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez."
+      "resolveConflictsNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez.",
+      "addressPrCommentsFailed": "Échec de l'envoi du suivi pour traiter les commentaires de la PR.",
+      "addressPrCommentsNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
+      "addressPrCommentsNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez.",
+      "fixCiFailed": "Échec de l'envoi du suivi pour réparer la CI.",
+      "fixCiNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
+      "fixCiNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez."
     },
     "pr": {
       "open": "Ouvrir la PR #{{number}}",

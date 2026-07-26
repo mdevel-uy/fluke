@@ -160,7 +160,14 @@
       "createPr": "创建 PR",
       "resolveConflicts": "解决冲突",
       "sendingConflicts": "发送中...",
-      "resolveConflictsSent": "已发送给代理"
+      "resolveConflictsSent": "已发送给代理",
+      "addressPrComments": "处理 PR 评论",
+      "addressPrCommentsSending": "发送中...",
+      "addressPrCommentsSent": "已发送给代理",
+      "fixCi": "修复 CI",
+      "fixCiSending": "发送中...",
+      "fixCiSent": "已发送给代理",
+      "fixMergeConflicts": "解决合并冲突"
     },
     "errors": {
       "changeTargetBranch": "更改目标分支失败",
@@ -170,7 +177,13 @@
       "branchStatusUnavailable": "无法获取分支状态。您仍然可以更改目标分支。",
       "resolveConflictsFailed": "解决冲突的跟进消息发送失败。",
       "resolveConflictsNoPr": "该工作区未关联任何开放的 PR。",
-      "resolveConflictsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。"
+      "resolveConflictsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。",
+      "addressPrCommentsFailed": "处理 PR 评论的跟进消息发送失败。",
+      "addressPrCommentsNoPr": "该工作区未关联任何开放的 PR。",
+      "addressPrCommentsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。",
+      "fixCiFailed": "修复 CI 的跟进消息发送失败。",
+      "fixCiNoPr": "该工作区未关联任何开放的 PR。",
+      "fixCiNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。"
     },
     "pr": {
       "open": "打开 PR #{{number}}",

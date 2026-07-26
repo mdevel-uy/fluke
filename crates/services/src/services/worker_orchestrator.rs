@@ -53,6 +53,7 @@ use workspace_manager::WorkspaceManager;
 use crate::services::{
     config::Config,
     container::{ContainerError, ContainerService},
+    quick_action_prompts,
 };
 
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 2;
@@ -1225,14 +1226,7 @@ pub async fn dispatch_review_task(
     }
 
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
-    let task_prompt = format!(
-        "Revisá el PR #{pr_number} según tu checklist. \
-         Usá `gh pr view {pr_number}`, `gh pr diff {pr_number}` y \
-         `gh pr checkout {pr_number}` para examinar los cambios. \
-         Cuando termines: si aprobás, ejecutá \
-         `gh pr review {pr_number} --approve`; si pedís cambios, ejecutá \
-         `gh pr review {pr_number} --request-changes -b '<razón>'`."
-    );
+    let task_prompt = quick_action_prompts::format_review_pr_prompt(pr_number);
 
     let task = WorkerTask::append(
         pool,

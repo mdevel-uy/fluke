@@ -239,7 +239,14 @@
       "createPr": "Create PR",
       "resolveConflicts": "Resolve conflicts",
       "sendingConflicts": "Sending...",
-      "resolveConflictsSent": "Sent to agent"
+      "resolveConflictsSent": "Sent to agent",
+      "addressPrComments": "Address PR comments",
+      "addressPrCommentsSending": "Sending...",
+      "addressPrCommentsSent": "Sent to agent",
+      "fixCi": "Fix CI",
+      "fixCiSending": "Sending...",
+      "fixCiSent": "Sent to agent",
+      "fixMergeConflicts": "Fix merge conflicts"
     },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
@@ -249,7 +256,13 @@
       "branchStatusUnavailable": "Unable to fetch branch status. You can still change the target branch.",
       "resolveConflictsFailed": "Failed to send the resolve-conflicts follow-up.",
       "resolveConflictsNoPr": "No open PR is attached to this workspace.",
-      "resolveConflictsNoAgentSession": "This workspace has no active agent session — start the agent again and retry."
+      "resolveConflictsNoAgentSession": "This workspace has no active agent session — start the agent again and retry.",
+      "addressPrCommentsFailed": "Failed to send the address-PR-comments follow-up.",
+      "addressPrCommentsNoPr": "No open PR is attached to this workspace.",
+      "addressPrCommentsNoAgentSession": "This workspace has no active agent session — start the agent again and retry.",
+      "fixCiFailed": "Failed to send the fix-CI follow-up.",
+      "fixCiNoPr": "No open PR is attached to this workspace.",
+      "fixCiNoAgentSession": "This workspace has no active agent session — start the agent again and retry."
     },
     "pr": {
       "open": "Open PR #{{number}}",
