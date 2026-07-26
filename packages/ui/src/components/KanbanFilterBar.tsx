@@ -7,9 +7,10 @@ import {
   PlusIcon,
   XIcon,
 } from '@phosphor-icons/react';
+import { Search } from 'lucide-react';
 import { cn } from '../lib/cn';
 import type { PriorityLevel } from './PriorityIcon';
-import { InputField } from './InputField';
+import { Input } from './Input';
 import { PrimaryButton } from './PrimaryButton';
 import { ButtonGroup, ButtonGroupItem } from './IconButtonGroup';
 
@@ -142,10 +143,6 @@ export function KanbanFilterBar<
   const { t } = useTranslation('common');
   const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false);
 
-  const handleClearSearch = () => {
-    onSearchQueryChange('');
-  };
-
   return (
     <>
       {isMobile && mobileSearchExpanded ? (
@@ -161,21 +158,18 @@ export function KanbanFilterBar<
           >
             <ArrowLeftIcon className="size-icon-sm" weight="bold" />
           </button>
-          <InputField
-            value={filters.searchQuery}
-            onChange={onSearchQueryChange}
-            placeholder={t('kanban.searchPlaceholder', 'Search issues...')}
-            variant="search"
-            className="min-w-0 flex-1"
-          />
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-low pointer-events-none" />
+            <Input
+              value={filters.searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              placeholder={t('kanban.searchPlaceholder', 'Search issues...')}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
         </div>
       ) : (
-        <div
-          className={cn(
-            'flex min-w-0 flex-wrap items-center',
-            isMobile ? 'gap-half' : 'gap-base'
-          )}
-        >
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-border/60 bg-primary flex-wrap">
           <ButtonGroup className="flex-wrap">
             <ButtonGroupItem
               active={activeViewId === viewIds.TEAM}
@@ -206,15 +200,15 @@ export function KanbanFilterBar<
               <MagnifyingGlassIcon className="size-icon-sm" weight="bold" />
             </button>
           ) : (
-            <InputField
-              value={filters.searchQuery}
-              onChange={onSearchQueryChange}
-              placeholder={t('kanban.searchPlaceholder', 'Search issues...')}
-              variant="search"
-              actionIcon={filters.searchQuery ? XIcon : undefined}
-              onAction={handleClearSearch}
-              className="min-w-[160px] w-[220px] max-w-full"
-            />
+            <div className="relative min-w-[160px] w-[220px] max-w-full">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-low pointer-events-none" />
+              <Input
+                value={filters.searchQuery}
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+                placeholder={t('kanban.searchPlaceholder', 'Search issues...')}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
           )}
 
           <button
