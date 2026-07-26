@@ -199,7 +199,16 @@
       "cannotDeleteOpenPr": "Cannot delete branch while PR is open",
       "unlinkFromIssueLabel": "Also unlink from issue"
     },
-    "stalledTask": "Task stalled — the agent stopped but the task did not move on"
+    "stalledTask": "Task stalled — the agent stopped but the task did not move on",
+    "scopes": {
+      "attention": "Needs you",
+      "running": "Running",
+      "idle": "Idle",
+      "all": "All workspaces",
+      "archive": "Archive"
+    },
+    "newButton": "New",
+    "scopeRailLabel": "Workspace scopes"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",

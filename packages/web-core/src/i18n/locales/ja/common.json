@@ -185,7 +185,16 @@
       "unlinkFromIssueLabel": "イシューからもリンク解除する"
     },
     "linkError": "Failed to link workspace",
-    "stalledTask": "タスクが停滞 — エージェントは停止しましたがタスクが進んでいません"
+    "stalledTask": "タスクが停滞 — エージェントは停止しましたがタスクが進んでいません",
+    "scopes": {
+      "attention": "対応が必要",
+      "running": "実行中",
+      "idle": "待機中",
+      "all": "すべてのワークスペース",
+      "archive": "アーカイブ"
+    },
+    "newButton": "新規",
+    "scopeRailLabel": "ワークスペースの範囲"
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",

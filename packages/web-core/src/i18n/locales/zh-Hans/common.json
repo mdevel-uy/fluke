@@ -185,7 +185,16 @@
       "unlinkFromIssueLabel": "同时取消与议题的关联"
     },
     "linkError": "Failed to link workspace",
-    "stalledTask": "任务停滞 — 代理已停止但任务未推进"
+    "stalledTask": "任务停滞 — 代理已停止但任务未推进",
+    "scopes": {
+      "attention": "需要你处理",
+      "running": "运行中",
+      "idle": "空闲",
+      "all": "全部工作区",
+      "archive": "归档"
+    },
+    "newButton": "新建",
+    "scopeRailLabel": "工作区范围"
   },
   "fileTree": {
     "searchPlaceholder": "搜索文件...",

@@ -185,7 +185,16 @@
       "unlinkFromIssueLabel": "También desvincular del issue"
     },
     "linkError": "Failed to link workspace",
-    "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó"
+    "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó",
+    "scopes": {
+      "attention": "Te necesita",
+      "running": "En ejecución",
+      "idle": "Inactivos",
+      "all": "Todos los espacios",
+      "archive": "Archivo"
+    },
+    "newButton": "Nuevo",
+    "scopeRailLabel": "Ámbitos de espacios de trabajo"
   },
   "fileTree": {
     "searchPlaceholder": "Buscar archivos...",
