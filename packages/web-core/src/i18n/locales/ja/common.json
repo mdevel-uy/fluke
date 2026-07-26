@@ -925,7 +925,7 @@
       "error": "依頼を送信できませんでした: {{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "画像をここにドラッグまたはクリックして追加",
+      "dropzoneLabel": "画像をここにドラッグ、クリックして追加、または貼り付け",
       "addMore": "画像を追加",
       "removeAria": "{{name}} を削除",
       "uploading": "アップロード中",

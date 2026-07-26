@@ -925,7 +925,7 @@
       "error": "No se pudo enviar el pedido: {{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "Arrastrá imágenes acá o hacé clic para agregar",
+      "dropzoneLabel": "Arrastrá imágenes acá, hacé clic para agregar o pegá",
       "addMore": "Agregar más imágenes",
       "removeAria": "Quitar {{name}}",
       "uploading": "Subiendo",

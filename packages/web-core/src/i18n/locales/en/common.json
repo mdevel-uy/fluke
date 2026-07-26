@@ -925,7 +925,7 @@
       "error": "Failed to send the request: {{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "Drag images here or click to add",
+      "dropzoneLabel": "Drag images here, click to add, or paste",
       "addMore": "Add more images",
       "removeAria": "Remove {{name}}",
       "uploading": "Uploading",

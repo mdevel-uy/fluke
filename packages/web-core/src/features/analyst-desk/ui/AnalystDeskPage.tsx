@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
@@ -392,6 +398,23 @@ export function AnalystDeskPage() {
   });
   const openFilePicker = dropzone.open;
 
+  // Capture screenshots / images pasted into the prompt textarea. We
+  // intentionally do NOT call preventDefault so any accompanying text still
+  // pastes into the field alongside the image.
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length > 0) addImageFiles(imageFiles);
+  };
+
   /**
    * Uploads any image not already stored server-side. On partial failure,
    * successfully uploaded images keep their id in local state so the user can
@@ -659,6 +682,7 @@ export function AnalystDeskPage() {
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onPaste={handlePaste}
                 placeholder={t('analystDesk.promptPlaceholder')}
                 rows={6}
                 className="resize-y"

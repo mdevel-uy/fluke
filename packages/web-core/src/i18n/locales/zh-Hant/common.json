@@ -925,7 +925,7 @@
       "error": "請求送出失敗：{{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "將圖片拖到此處或點擊新增",
+      "dropzoneLabel": "將圖片拖到此處、點擊新增或貼上",
       "addMore": "新增更多圖片",
       "removeAria": "移除 {{name}}",
       "uploading": "上傳中",

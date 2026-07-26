@@ -925,7 +925,7 @@
       "error": "请求发送失败：{{message}}"
     },
     "attachments": {
-      "dropzoneLabel": "将图片拖到此处或点击添加",
+      "dropzoneLabel": "将图片拖到此处、点击添加或粘贴",
       "addMore": "添加更多图片",
       "removeAria": "移除 {{name}}",
       "uploading": "上传中",
