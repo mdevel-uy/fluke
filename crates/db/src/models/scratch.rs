@@ -37,12 +37,6 @@ pub struct PreviewSettingsData {
     pub responsive_height: Option<i32>,
 }
 
-/// Data for workspace notes scratch
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct WorkspaceNotesData {
-    pub content: String,
-}
-
 /// Workspace-specific panel state
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct WorkspacePanelStateData {
@@ -238,7 +232,6 @@ pub enum ScratchPayload {
     DraftWorkspace(DraftWorkspaceData),
     DraftIssue(DraftIssueData),
     PreviewSettings(PreviewSettingsData),
-    WorkspaceNotes(WorkspaceNotesData),
     UiPreferences(UiPreferencesData),
     ProjectRepoDefaults(ProjectRepoDefaultsData),
 }

@@ -208,12 +208,7 @@
     "recent": "Récent",
     "other": "Autre",
     "devServerPreview": "Aperçu du serveur de développement",
-    "terminal": "Terminal",
-    "notes": "Notes"
-  },
-  "notes": {
-    "placeholder": "Ajouter des notes sur cet espace de travail...",
-    "selectWorkspace": "Sélectionnez un espace de travail pour voir les notes"
+    "terminal": "Terminal"
   },
   "actions": {
     "copyPath": "Copier le chemin",

@@ -1,10 +1,8 @@
 import { memo, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { FileTreeContainer } from './FileTreeContainer';
 import { ProcessListContainer } from './ProcessListContainer';
 import { PreviewControlsContainer } from './PreviewControlsContainer';
 import { GitPanelContainer } from './GitPanelContainer';
-import { WorkspaceNotesContainer } from './WorkspaceNotesContainer';
 import { useDiffs } from '@/shared/stores/useWorkspaceDiffStore';
 import type { RepoWithTargetBranch, Workspace } from 'shared/types';
 import {
@@ -39,7 +37,6 @@ export const RightSidebar = memo(function RightSidebar({
   selectedWorkspace,
   repos,
 }: RightSidebarProps) {
-  const { t } = useTranslation(['tasks', 'common']);
   const diffs = useDiffs();
 
   const [changesExpanded] = usePersistedExpanded(
@@ -57,10 +54,6 @@ export const RightSidebar = memo(function RightSidebar({
   const [gitExpanded] = usePersistedExpanded(
     PERSIST_KEYS.gitPanelRepositories,
     true
-  );
-  const [notesExpanded] = usePersistedExpanded(
-    PERSIST_KEYS.notesSection,
-    false
   );
 
   const hasUpperContent =
@@ -91,14 +84,6 @@ export const RightSidebar = memo(function RightSidebar({
             repos={repos}
           />
         ),
-        actions: [],
-      },
-      {
-        title: t('common:sections.notes'),
-        persistKey: PERSIST_KEYS.notesSection,
-        visible: true,
-        expanded: notesExpanded,
-        content: <WorkspaceNotesContainer />,
         actions: [],
       },
     ];
@@ -161,10 +146,8 @@ export const RightSidebar = memo(function RightSidebar({
     repos,
     diffs,
     gitExpanded,
-    notesExpanded,
     hasUpperContent,
     upperExpanded,
-    t,
   ]);
 
   return (
