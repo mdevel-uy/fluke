@@ -572,6 +572,8 @@
     "workers": "工作者",
     "sprint": "看板",
     "analystDesk": "分析师工作台",
+    "collapseSidebar": "折叠侧边栏",
+    "expandSidebar": "展开侧边栏",
     "kanban": {
       "title": "看板",
       "description": "登录以使用看板管理您的编码代理。"

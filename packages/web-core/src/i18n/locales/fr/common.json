@@ -572,6 +572,8 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Bureau des analystes",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Étendre la barre latérale",
     "kanban": {
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."

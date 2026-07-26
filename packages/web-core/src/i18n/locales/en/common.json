@@ -576,6 +576,8 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Analyst Desk",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "kanban": {
       "title": "Kanban Boards",
       "description": "Sign in to organise your coding agents with kanban boards."
