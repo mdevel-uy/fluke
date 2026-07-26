@@ -980,7 +980,10 @@
       "empty": "Rien en attente de revue."
     },
     "done": {
-      "empty": "Aucune tâche terminée pour l'instant."
+      "empty": "Aucune tâche terminée pour l'instant.",
+      "remove": "Retirer",
+      "removeConfirmMessage": "Retirer cette tâche terminée du tableau ?",
+      "removeConfirm": "Retirer"
     },
     "filters": {
       "searchPlaceholder": "Rechercher des tickets...",

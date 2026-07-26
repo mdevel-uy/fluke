@@ -980,7 +980,10 @@
       "empty": "沒有等待審查的項目。"
     },
     "done": {
-      "empty": "尚未完成任何任務。"
+      "empty": "尚未完成任何任務。",
+      "remove": "移除",
+      "removeConfirmMessage": "從看板中移除這個已完成的任務？",
+      "removeConfirm": "移除"
     },
     "filters": {
       "searchPlaceholder": "搜尋 Issue...",

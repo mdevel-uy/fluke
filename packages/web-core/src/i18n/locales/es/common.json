@@ -980,7 +980,10 @@
       "empty": "Nada esperando revisión."
     },
     "done": {
-      "empty": "Todavía no hay tareas completadas."
+      "empty": "Todavía no hay tareas completadas.",
+      "remove": "Quitar",
+      "removeConfirmMessage": "¿Quitar esta tarea completada del tablero?",
+      "removeConfirm": "Quitar"
     },
     "filters": {
       "searchPlaceholder": "Buscar issues...",

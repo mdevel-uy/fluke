@@ -980,7 +980,10 @@
       "empty": "검토 대기 중인 항목이 없습니다."
     },
     "done": {
-      "empty": "아직 완료된 태스크가 없습니다."
+      "empty": "아직 완료된 태스크가 없습니다.",
+      "remove": "제거",
+      "removeConfirmMessage": "이 완료된 태스크를 보드에서 제거하시겠습니까?",
+      "removeConfirm": "제거"
     },
     "filters": {
       "searchPlaceholder": "이슈 검색...",

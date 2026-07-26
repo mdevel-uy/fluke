@@ -980,7 +980,10 @@
       "empty": "Nothing awaiting review."
     },
     "done": {
-      "empty": "No completed tasks yet."
+      "empty": "No completed tasks yet.",
+      "remove": "Remove",
+      "removeConfirmMessage": "Remove this completed task from the board?",
+      "removeConfirm": "Remove"
     },
     "filters": {
       "searchPlaceholder": "Search issues...",

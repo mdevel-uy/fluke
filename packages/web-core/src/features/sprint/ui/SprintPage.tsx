@@ -1053,7 +1053,11 @@ export function SprintPage() {
                     return (
                       <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
-                        <DoneTaskCard task={task} />
+                        <DoneTaskCard
+                          task={task}
+                          isBusy={busyTaskId === task.id}
+                          onRemove={() => handleRemoveTask(task)}
+                        />
                       </div>
                     );
                   })

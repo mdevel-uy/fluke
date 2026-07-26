@@ -980,7 +980,10 @@
       "empty": "レビュー待ちはありません。"
     },
     "done": {
-      "empty": "完了したタスクはまだありません。"
+      "empty": "完了したタスクはまだありません。",
+      "remove": "削除",
+      "removeConfirmMessage": "この完了タスクをボードから削除しますか？",
+      "removeConfirm": "削除"
     },
     "filters": {
       "searchPlaceholder": "Issue を検索...",
