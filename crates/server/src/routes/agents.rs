@@ -110,17 +110,31 @@ fn plan_label(rate_limit_tier: Option<&str>, subscription_type: Option<&str>) ->
 
 /// Read the CLI's stored OAuth credentials: the credentials file, then (on
 /// macOS dev machines, where the CLI keeps them in the Keychain) `security`.
+///
+/// A missing credentials file is the most common reason the dashboard's Claude
+/// limits card stays hidden, so say which source was missing instead of just
+/// returning `None`: a deployment that authenticates Claude Code through
+/// `CLAUDE_CODE_OAUTH_TOKEN` never writes this file, and that silence is
+/// indistinguishable from a failed request.
 async fn read_claude_credentials() -> Option<ClaudeCredentials> {
-    if let Some(path) = claude_credentials_path()
-        && let Ok(raw) = tokio::fs::read_to_string(&path).await
-        && let Some(creds) = credentials_from_json(&raw)
+    let path = claude_credentials_path();
+
+    if let Some(path) = path.as_deref()
+        && let Ok(raw) = tokio::fs::read_to_string(path).await
     {
-        return Some(creds);
+        if let Some(creds) = credentials_from_json(&raw) {
+            return Some(creds);
+        }
+        tracing::warn!(
+            "claude credentials at {} are not in the expected \
+             {{\"claudeAiOauth\":{{\"accessToken\":..}}}} shape",
+            path.display()
+        );
     }
 
     #[cfg(target_os = "macos")]
     {
-        let output = tokio::process::Command::new("security")
+        if let Ok(output) = tokio::process::Command::new("security")
             .args([
                 "find-generic-password",
                 "-s",
@@ -129,15 +143,24 @@ async fn read_claude_credentials() -> Option<ClaudeCredentials> {
             ])
             .output()
             .await
-            .ok()?;
-        if output.status.success()
+            && output.status.success()
             && let Ok(raw) = String::from_utf8(output.stdout)
+            && let Some(creds) = credentials_from_json(raw.trim())
         {
-            return credentials_from_json(raw.trim());
+            return Some(creds);
         }
     }
 
-    #[allow(unreachable_code)]
+    tracing::warn!(
+        "no Claude credentials found at {}; the Claude limits card stays hidden \
+         until `claude login` stores them there. CLAUDE_CODE_OAUTH_TOKEN is not \
+         a substitute: those tokens lack the `user:profile` scope the usage API \
+         requires",
+        path.map_or_else(
+            || "$HOME/.claude/.credentials.json (no home directory)".to_string(),
+            |path| path.display().to_string()
+        )
+    );
     None
 }
 
@@ -197,12 +220,25 @@ async fn fetch_usage_payload(access_token: &str) -> Option<serde_json::Value> {
         .timeout(Duration::from_secs(10))
         .send()
         .await
-        .map_err(|err| tracing::debug!("claude usage request failed: {err}"))
+        .map_err(|err| tracing::warn!("claude usage request failed: {err}"))
         .ok()?;
-    if !response.status().is_success() {
-        // Expired token and not-logged-in both land here; the CLI refreshes
-        // the token on its own as workers run, so this heals by itself.
-        tracing::debug!("claude usage returned {}", response.status());
+
+    let status = response.status();
+    if !status.is_success() {
+        // 401 heals on its own — the CLI refreshes the token as workers run.
+        // 403 does not: it means the token lacks `user:profile`, which is what
+        // a `claude setup-token` token looks like. Very different fixes, so
+        // don't collapse them into one message.
+        let hint = match status.as_u16() {
+            401 => " (token expired; the CLI refreshes it as workers run)",
+            403 => {
+                " (token lacks the `user:profile` scope; `claude setup-token` \
+                    tokens never have it — run `claude login` instead)"
+            }
+            _ => "",
+        };
+        let body = response.text().await.unwrap_or_default();
+        tracing::warn!("claude usage returned {status}{hint}: {}", body.trim());
         return None;
     }
     response.json().await.ok()
@@ -234,7 +270,7 @@ async fn get_claude_usage(
     {
         let meters = meters_from_usage(&payload);
         if meters.is_empty() {
-            tracing::debug!("claude usage payload had no known windows: {payload}");
+            tracing::warn!("claude usage payload had no known windows: {payload}");
         } else {
             response = Some(ClaudeUsageResponse {
                 plan: creds.plan,
