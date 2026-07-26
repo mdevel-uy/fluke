@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "Asignar issue #{{number}} a un worker",
-      "description": "Elegí un worker y revisá el prompt. La tarea se va a agregar a la cola del worker.",
-      "promptLabel": "Prompt",
+      "description": "Elegí un worker. La tarea se va a agregar a la cola del worker.",
       "workerLabel": "Asignar a",
       "workerPlaceholder": "Seleccioná un worker...",
       "noWorkers": "No hay workers disponibles. Creá un worker primero.",

@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "이슈 #{{number}}를 워커에게 할당",
-      "description": "워커를 선택하고 프롬프트를 검토하세요. 작업이 워커의 대기열에 추가됩니다.",
-      "promptLabel": "프롬프트",
+      "description": "워커를 선택하세요. 작업이 워커의 대기열에 추가됩니다.",
       "workerLabel": "담당 워커",
       "workerPlaceholder": "워커 선택...",
       "noWorkers": "사용 가능한 워커가 없습니다. 먼저 워커를 생성하세요.",

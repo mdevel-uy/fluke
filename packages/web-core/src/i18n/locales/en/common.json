@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "Assign issue #{{number}} to worker",
-      "description": "Select a worker and review the prompt. The task will be added to the worker's queue.",
-      "promptLabel": "Prompt",
+      "description": "Select a worker. The task will be added to the worker's queue.",
       "workerLabel": "Assign to",
       "workerPlaceholder": "Select a worker...",
       "noWorkers": "No workers available. Create a worker first.",

@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
-import { Textarea } from '@vibe/ui/components/Textarea';
 import { Label } from '@vibe/ui/components/Label';
 import { Alert } from '@vibe/ui/components/Alert';
 import {
@@ -45,7 +44,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
     const { t } = useTranslation('common');
     const queryClient = useQueryClient();
 
-    const [prompt, setPrompt] = useState(() => buildAssignToAgentPrompt(issue));
+    const prompt = useMemo(() => buildAssignToAgentPrompt(issue), [issue]);
     const [workers, setWorkers] = useState<WorkerResponse[]>([]);
     const [loadingWorkers, setLoadingWorkers] = useState(true);
     const [workerLoadError, setWorkerLoadError] = useState(false);
@@ -195,57 +194,40 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             ) : null}
 
             {!showConflictWarning && (
-              <>
-                <div>
-                  <Label htmlFor="assign-worker-select">
-                    {t('issues.assignDialog.workerLabel')}
-                  </Label>
-                  {loadingWorkers ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t('issues.assignDialog.loadingWorkers')}
-                    </p>
-                  ) : workerLoadError || workers.length === 0 ? (
-                    <Alert variant="destructive" className="mt-1">
-                      {workerLoadError
-                        ? t('issues.assignDialog.workerLoadError')
-                        : t('issues.assignDialog.noWorkers')}
-                    </Alert>
-                  ) : (
-                    <Select
-                      value={selectedWorkerId}
-                      onValueChange={setSelectedWorkerId}
-                    >
-                      <SelectTrigger id="assign-worker-select" className="mt-1">
-                        <SelectValue
-                          placeholder={t(
-                            'issues.assignDialog.workerPlaceholder'
-                          )}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workers.map((w) => (
-                          <SelectItem key={w.id} value={w.id}>
-                            {w.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="assign-to-agent-prompt">
-                    {t('issues.assignDialog.promptLabel')}
-                  </Label>
-                  <Textarea
-                    id="assign-to-agent-prompt"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={12}
-                    className="mt-1 font-mono text-sm"
-                    autoFocus
-                  />
-                </div>
-              </>
+              <div>
+                <Label htmlFor="assign-worker-select">
+                  {t('issues.assignDialog.workerLabel')}
+                </Label>
+                {loadingWorkers ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('issues.assignDialog.loadingWorkers')}
+                  </p>
+                ) : workerLoadError || workers.length === 0 ? (
+                  <Alert variant="destructive" className="mt-1">
+                    {workerLoadError
+                      ? t('issues.assignDialog.workerLoadError')
+                      : t('issues.assignDialog.noWorkers')}
+                  </Alert>
+                ) : (
+                  <Select
+                    value={selectedWorkerId}
+                    onValueChange={setSelectedWorkerId}
+                  >
+                    <SelectTrigger id="assign-worker-select" className="mt-1">
+                      <SelectValue
+                        placeholder={t('issues.assignDialog.workerPlaceholder')}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workers.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             )}
 
             {submitError && (
