@@ -85,12 +85,6 @@ function AnalystCard({
           : 'border-border bg-md-surface-container-lowest hover:border-border-strong'
       )}
     >
-      <span
-        aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-lg"
-      >
-        {analyst.emoji}
-      </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-high">
           {analyst.name}
