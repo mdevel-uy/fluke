@@ -465,10 +465,27 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "Asignados",
+    "filterByAssignee": "Filtrar por asignado",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "Urgente",
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "options": "Opciones",
+    "sortField": {
+      "sort_order": "Manual",
+      "priority": "Prioridad",
+      "created_at": "Creación",
+      "updated_at": "Actualización",
+      "title": "Título"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "Ocultar bloqueados",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",

@@ -465,10 +465,27 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "담당자",
+    "filterByAssignee": "담당자로 필터링",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "긴급",
+      "high": "높음",
+      "medium": "보통",
+      "low": "낮음"
+    },
+    "options": "옵션",
+    "sortField": {
+      "sort_order": "수동",
+      "priority": "우선순위",
+      "created_at": "생성일",
+      "updated_at": "수정일",
+      "title": "제목"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "차단됨 숨기기",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",

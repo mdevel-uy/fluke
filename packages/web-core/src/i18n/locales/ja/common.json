@@ -465,10 +465,27 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "担当者",
+    "filterByAssignee": "担当者で絞り込む",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "オプション",
+    "sortField": {
+      "sort_order": "手動",
+      "priority": "優先度",
+      "created_at": "作成日",
+      "updated_at": "更新日",
+      "title": "タイトル"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "ブロック中を非表示",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
