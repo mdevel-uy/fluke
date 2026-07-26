@@ -574,6 +574,7 @@
     "analystDesk": "分析师工作台",
     "collapseSidebar": "折叠侧边栏",
     "expandSidebar": "展开侧边栏",
+    "settings": "设置",
     "kanban": {
       "title": "看板",
       "description": "登录以使用看板管理您的编码代理。"

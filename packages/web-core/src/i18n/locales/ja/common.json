@@ -574,6 +574,7 @@
     "analystDesk": "アナリストデスク",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
+    "settings": "設定",
     "kanban": {
       "title": "カンバンボード",
       "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"

@@ -680,18 +680,20 @@ export function AppBar({
         )}
         {onOpenSettings &&
           maybeTooltip(
-            'Settings',
+            t('appBar.settings'),
             'right',
             isCollapsed,
             <button
               type="button"
               onClick={onOpenSettings}
               className={getStandardAppBarButtonClassName({ isCollapsed })}
-              aria-label="Settings"
+              aria-label={t('appBar.settings')}
             >
               <MaterialIcon name="settings" size="base" />
               {!isCollapsed && (
-                <span className="truncate text-body-sm">Settings</span>
+                <span className="truncate text-body-sm">
+                  {t('appBar.settings')}
+                </span>
               )}
             </button>
           )}
