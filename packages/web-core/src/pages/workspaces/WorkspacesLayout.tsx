@@ -75,8 +75,17 @@ export function WorkspacesLayout() {
   } = useWorkspaceContext();
 
   const { t } = useTranslation('common');
+  const headerTitle = isCreateMode
+    ? t('workspaces.newWorkspace')
+    : (selectedWorkspace?.name ?? t('workspaces.title'));
   usePageTitle(
     isCreateMode ? t('workspaces.newWorkspace') : selectedWorkspace?.name
+  );
+
+  const header = (
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-md-outline-variant bg-md-surface-bright px-container-padding">
+      <h1 className="font-sans text-heading text-high">{headerTitle}</h1>
+    </header>
   );
 
   const seedVersion = useSyncExternalStore(
@@ -345,18 +354,21 @@ export function WorkspacesLayout() {
     );
 
     return (
-      <div className="flex flex-1 min-h-0 h-full">
-        <div className="flex-1 min-w-0 h-full">
-          {isCreateMode ? (
-            <CreateModeProvider
-              key={createModeProviderKey}
-              initialState={createModeSeed.state}
-            >
-              {mobileContent}
-            </CreateModeProvider>
-          ) : (
-            mobileContent
-          )}
+      <div className="flex flex-1 min-h-0 h-full flex-col">
+        {header}
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 min-w-0 h-full">
+            {isCreateMode ? (
+              <CreateModeProvider
+                key={createModeProviderKey}
+                initialState={createModeSeed.state}
+              >
+                {mobileContent}
+              </CreateModeProvider>
+            ) : (
+              mobileContent
+            )}
+          </div>
         </div>
       </div>
     );
@@ -499,15 +511,19 @@ export function WorkspacesLayout() {
 
   if (!isBottomPanelVisible) {
     return (
-      <div className="flex flex-1 min-h-0 h-full">{workspaceTopContent}</div>
+      <div className="flex flex-1 min-h-0 h-full flex-col">
+        {header}
+        <div className="flex flex-1 min-h-0">{workspaceTopContent}</div>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-1 min-h-0 h-full">
+    <div className="flex flex-1 min-h-0 h-full flex-col">
+      {header}
       <Group
         orientation="vertical"
-        className="flex-1 min-w-0 h-full"
+        className="flex-1 min-w-0 min-h-0"
         defaultLayout={bottomPanelDefaultLayout}
         onLayoutChange={onBottomLayoutChange}
       >
