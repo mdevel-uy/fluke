@@ -980,7 +980,10 @@
       "empty": "没有待审核的项目。"
     },
     "done": {
-      "empty": "尚未完成任何任务。"
+      "empty": "尚未完成任何任务。",
+      "remove": "移除",
+      "removeConfirmMessage": "从看板中移除这个已完成的任务？",
+      "removeConfirm": "移除"
     },
     "filters": {
       "searchPlaceholder": "搜索 Issue...",
