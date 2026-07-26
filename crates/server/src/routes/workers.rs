@@ -787,9 +787,10 @@ pub async fn delete_worker_task(
     }
     if existing.status != worker_task::STATUS_QUEUED
         && existing.status != worker_task::STATUS_FAILED
+        && existing.status != worker_task::STATUS_DONE
     {
         return Err(ApiError::Conflict(
-            "Only queued or failed tasks can be deleted".into(),
+            "Only queued, failed or done tasks can be deleted".into(),
         ));
     }
 
