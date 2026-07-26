@@ -15,7 +15,7 @@ use executors::{
         review::{RepoReviewContext as ExecutorRepoReviewContext, ReviewRequest as ReviewAction},
     },
     executors::build_review_prompt,
-    profile::ExecutorConfig,
+    profile::{ExecutorConfig, ExecutorConfigs},
 };
 use serde::{Deserialize, Serialize};
 use services::services::container::ContainerService;
@@ -53,6 +53,19 @@ pub async fn start_review(
             "Workspace not found".to_string(),
         )))?;
 
+    // Preflight: reject unknown executor + variant combos with 400 instead of
+    // letting the spawn call fail as an internal error mid-flight.
+    let profile_id = payload.executor_config.profile_id();
+    if ExecutorConfigs::get_cached()
+        .get_coding_agent(&profile_id)
+        .is_none()
+    {
+        return Err(ApiError::BadRequest(format!(
+            "Unknown executor profile: {}",
+            profile_id
+        )));
+    }
+
     if ExecutionProcess::has_running_non_dev_server_processes_for_workspace(pool, workspace.id)
         .await?
     {
@@ -61,14 +74,27 @@ pub async fn start_review(
         )));
     }
 
+    // `ensure_container_exists` is executor-agnostic: it materializes the git
+    // worktree(s) for the workspace and does not consult the session's
+    // executor, so it honors whatever executor the request specifies.
     let container_ref = deployment
         .container()
         .ensure_container_exists(&workspace)
         .await?;
 
-    let agent_session_id = CodingAgentTurn::find_latest_session_info(pool, session.id)
-        .await?
-        .map(|info| info.session_id);
+    // Only resume the agent session when the executor that produced the
+    // stored session_id matches the one this request will run with. Session
+    // IDs are opaque per-CLI (Claude, Codex, Gemini, ...) so handing a
+    // foreign one to a different executor would fail or resume the wrong
+    // context; when there is no match we start a fresh session instead.
+    let requested_executor = payload.executor_config.executor.to_string();
+    let agent_session_id = CodingAgentTurn::find_latest_session_info_for_executor(
+        pool,
+        session.id,
+        &requested_executor,
+    )
+    .await?
+    .map(|info| info.session_id);
 
     let context: Option<Vec<ExecutorRepoReviewContext>> = if payload.use_all_workspace_commits {
         let repos =
