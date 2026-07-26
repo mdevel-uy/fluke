@@ -554,3 +554,188 @@ async fn fallback_list_issue_comment_reactions(
         issue_comment_reactions,
     }))
 }
+
+// =============================================================================
+// Tenant isolation tests
+// =============================================================================
+
+/// These tests guard the only thing standing between one tenant's data and
+/// another's on the Electric read path: the pairing of a shape's `where_clause`
+/// with the `ShapeScope` it is registered under.
+///
+/// Electric streams whatever the `where_clause` matches. A shape that filters on
+/// an unvalidated value — or on nothing at all — does not fail loudly, it
+/// synchronises another organization's rows into the browser. Nothing in the type
+/// system currently couples `shapes.rs` to `all_shape_routes()`, so these tests
+/// do it instead.
+///
+/// All of this is `const` data, so no database or Electric instance is needed.
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::all_shape_routes;
+
+    /// Each positional param a shape declares must be a column the scope's
+    /// authorization check actually validated.
+    ///
+    /// This is the test that matters most. `ShapeScope::User` runs no membership
+    /// check at all, so a shape registered under it that filters by, say,
+    /// `project_id` would bind a user id into a project column — or worse, match
+    /// broadly. Registering a project-scoped shape as `User` is a one-line diff.
+    #[test]
+    fn shape_params_match_authorization_scope() {
+        for route in all_shape_routes() {
+            let declared = route.shape.params();
+            let allowed = route.scope.allowed_params();
+
+            assert_eq!(
+                declared.len(),
+                allowed.len(),
+                "shape {} is registered as {:?}, which binds {} param(s), but the shape declares {}: {:?}",
+                route.shape.name(),
+                route.scope,
+                allowed.len(),
+                declared.len(),
+                declared,
+            );
+
+            for (position, (param, allowed_at_position)) in
+                declared.iter().zip(allowed.iter()).enumerate()
+            {
+                assert!(
+                    allowed_at_position.contains(param),
+                    "shape {} binds `{}` at ${}, but scope {:?} validates one of {:?} at that \
+                     position — the proxy never authorized `{}`",
+                    route.shape.name(),
+                    param,
+                    position + 1,
+                    route.scope,
+                    allowed_at_position,
+                    param,
+                );
+            }
+        }
+    }
+
+    /// A shape's declared `params` are documentation; the `where_clause` is what
+    /// Electric enforces. This asserts the two agree, so a shape cannot claim to
+    /// filter by `organization_id` while its SQL ignores it.
+    #[test]
+    fn where_clause_filters_on_every_declared_param() {
+        for route in all_shape_routes() {
+            let where_clause = route.shape.where_clause();
+
+            for param in route.shape.params() {
+                let quoted = format!("\"{param}\"");
+                assert!(
+                    where_clause.contains(&quoted),
+                    "shape {} declares param `{}` but its where_clause never references {}: {}",
+                    route.shape.name(),
+                    param,
+                    quoted,
+                    where_clause,
+                );
+            }
+        }
+    }
+
+    /// Every declared param must be bound to a placeholder, and no placeholder
+    /// may be left dangling. An unbound `$2` is a shape whose filter silently
+    /// depends on a value the proxy never sends.
+    #[test]
+    fn where_clause_binds_exactly_the_declared_placeholders() {
+        for route in all_shape_routes() {
+            let where_clause = route.shape.where_clause();
+            let declared = route.shape.params().len();
+
+            for position in 1..=declared {
+                assert!(
+                    where_clause.contains(&format!("${position}")),
+                    "shape {} declares {} param(s) but its where_clause never binds ${}: {}",
+                    route.shape.name(),
+                    declared,
+                    position,
+                    where_clause,
+                );
+            }
+
+            assert!(
+                !where_clause.contains(&format!("${}", declared + 1)),
+                "shape {} binds ${} but only declares {} param(s), so the proxy will never \
+                 supply it: {}",
+                route.shape.name(),
+                declared + 1,
+                declared,
+                where_clause,
+            );
+        }
+    }
+
+    /// Two routes sharing a URL means one silently shadows the other in the axum
+    /// router — including its authorization scope.
+    #[test]
+    fn shape_names_and_urls_are_unique() {
+        let mut names = HashSet::new();
+        let mut urls = HashSet::new();
+        let mut fallback_urls = HashSet::new();
+
+        for route in all_shape_routes() {
+            assert!(
+                names.insert(route.shape.name()),
+                "shape {} is registered more than once",
+                route.shape.name(),
+            );
+            assert!(
+                urls.insert(route.shape.url()),
+                "shape url {} is registered more than once",
+                route.shape.url(),
+            );
+            assert!(
+                fallback_urls.insert(route.fallback_url),
+                "fallback url {} is registered more than once",
+                route.fallback_url,
+            );
+        }
+    }
+
+    /// `all_shape_routes()` documents itself as the single source of truth for
+    /// shape registration. This keeps that true: a shape added to `shapes.rs` and
+    /// never registered here is dead code today, but it is also a shape that has
+    /// never been reviewed against a scope.
+    #[test]
+    fn every_shape_definition_is_registered() {
+        const SHAPES_SRC: &str = include_str!("shapes.rs");
+
+        let registered: HashSet<&str> = all_shape_routes()
+            .iter()
+            .map(|route| route.shape.name())
+            .collect();
+
+        let defined = SHAPES_SRC.lines().filter_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("pub const ")?;
+            let (name, tail) = rest.split_once(':')?;
+            tail.trim_start()
+                .starts_with("ShapeDefinition<")
+                .then_some(name)
+        });
+
+        let mut count = 0;
+        for name in defined {
+            count += 1;
+            assert!(
+                registered.contains(name),
+                "shape {name} is defined in shapes.rs but never registered in all_shape_routes()",
+            );
+        }
+
+        assert_eq!(
+            count,
+            registered.len(),
+            "parsed {count} shape definitions from shapes.rs but {} are registered — the parser \
+             in this test is out of step with the file",
+            registered.len(),
+        );
+    }
+}

@@ -116,6 +116,28 @@ pub enum ShapeScope {
     User,
 }
 
+impl ShapeScope {
+    /// Column names this scope may bind to `$1..$n` in a shape's `where_clause`,
+    /// one entry per positional parameter.
+    ///
+    /// Every value bound by `build_proxy_handler` is either checked against
+    /// org/project/issue membership or taken from the authenticated session, so
+    /// this table is what makes a shape's filter trustworthy. A shape whose
+    /// declared `params` don't line up with its scope is filtering on a value
+    /// the proxy never validated — the tests in `shape_routes` enforce that.
+    pub fn allowed_params(self) -> &'static [&'static [&'static str]] {
+        match self {
+            ShapeScope::Org => &[&["organization_id"]],
+            ShapeScope::OrgWithUser => &[&["organization_id"], &["user_id"]],
+            ShapeScope::Project => &[&["project_id"]],
+            ShapeScope::Issue => &[&["issue_id"]],
+            // No authorization check runs for this scope: the session's user id
+            // is bound directly, so the filter column must be user-owned.
+            ShapeScope::User => &[&["user_id", "owner_user_id"]],
+        }
+    }
+}
+
 // =============================================================================
 // ShapeRoute
 // =============================================================================
@@ -125,6 +147,8 @@ pub struct ShapeRoute {
     pub router: axum::Router<AppState>,
     /// Type-erased shape metadata (table, params, url, ts_type_name).
     pub shape: &'static dyn ShapeExport,
+    /// Authorization scope the proxy handler enforces for this shape.
+    pub scope: ShapeScope,
     /// REST fallback URL, e.g. `"/fallback/projects"`.
     pub fallback_url: &'static str,
 }
@@ -155,6 +179,7 @@ impl ShapeRoute {
         Self {
             router,
             shape,
+            scope,
             fallback_url,
         }
     }
