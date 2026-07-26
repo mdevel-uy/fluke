@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "Assigner l'issue #{{number}} à un worker",
-      "description": "Sélectionnez un worker et vérifiez le prompt. La tâche sera ajoutée à la file du worker.",
-      "promptLabel": "Prompt",
+      "description": "Sélectionnez un worker. La tâche sera ajoutée à la file du worker.",
       "workerLabel": "Assigner à",
       "workerPlaceholder": "Sélectionner un worker...",
       "noWorkers": "Aucun worker disponible. Créez un worker d'abord.",

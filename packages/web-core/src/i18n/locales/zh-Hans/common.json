@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "将 Issue #{{number}} 分配给工作者",
-      "description": "选择一个工作者并检查提示词。任务将被添加到工作者的队列中。",
-      "promptLabel": "提示词",
+      "description": "选择一个工作者。任务将被添加到工作者的队列中。",
       "workerLabel": "分配给",
       "workerPlaceholder": "选择工作者...",
       "noWorkers": "没有可用的工作者。请先创建一个工作者。",

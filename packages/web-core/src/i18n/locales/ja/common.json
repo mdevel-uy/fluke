@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "Issue #{{number}} をワーカーに割り当てる",
-      "description": "ワーカーを選択してプロンプトを確認してください。タスクはワーカーのキューに追加されます。",
-      "promptLabel": "プロンプト",
+      "description": "ワーカーを選択してください。タスクはワーカーのキューに追加されます。",
       "workerLabel": "担当ワーカー",
       "workerPlaceholder": "ワーカーを選択...",
       "noWorkers": "利用可能なワーカーがいません。先にワーカーを作成してください。",

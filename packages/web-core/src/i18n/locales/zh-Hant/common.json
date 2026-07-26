@@ -724,8 +724,7 @@
     },
     "assignDialog": {
       "title": "將 Issue #{{number}} 指派給工作者",
-      "description": "選擇一個工作者並檢閱提示詞。任務將被加入工作者的佇列。",
-      "promptLabel": "提示詞",
+      "description": "選擇一個工作者。任務將被加入工作者的佇列。",
       "workerLabel": "指派給",
       "workerPlaceholder": "選擇工作者...",
       "noWorkers": "沒有可用的工作者。請先建立一個工作者。",
