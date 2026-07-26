@@ -179,6 +179,19 @@
           "helper": "Prompt personalizado para el agente de IA al generar descripciones de PR. Usa {pr_number} y {pr_url} como marcadores de posición."
         }
       },
+      "autoReview": {
+        "title": "Review automático",
+        "description": "Configura el ciclo automático de change-request / re-review para los PRs generados por agentes.",
+        "maxRounds": {
+          "label": "Máximo de rondas de review",
+          "helper": "Cantidad máxima de iteraciones change-request ↔ re-review antes de detener el review automático. Debe ser al menos 1.",
+          "errors": {
+            "required": "Ingresá un valor.",
+            "notInteger": "El valor debe ser un número entero.",
+            "min": "El valor debe ser al menos 1."
+          }
+        }
+      },
       "commits": {
         "title": "Commits",
         "description": "Configura el comportamiento de commits para los intentos de tareas",
