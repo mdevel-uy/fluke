@@ -244,15 +244,19 @@ pub async fn try_take_next(
     if let Some(model) = &worker.model {
         executor_config.model_id = Some(model.clone());
     }
-    // Per-worker plan mode override: Some(true) forces Plan, Some(false)
-    // clears the override so the executor falls back to its default policy,
-    // None leaves whatever the global executor_profile already declared.
+    // Per-worker plan mode override. Setting the policy to `None` is *not*
+    // enough to disable plan mode: every executor stores its own `plan`
+    // flag in the persisted profile, so a missing override just falls back
+    // to that stored value. To truly force plan mode off we have to set a
+    // non-plan policy (`Auto`); to force it on we set `Plan`. `None` on the
+    // worker means "no override, follow the global setting" — leave the
+    // field untouched.
     if let Some(plan_mode) = worker.plan_mode {
-        executor_config.permission_policy = if plan_mode {
-            Some(PermissionPolicy::Plan)
+        executor_config.permission_policy = Some(if plan_mode {
+            PermissionPolicy::Plan
         } else {
-            None
-        };
+            PermissionPolicy::Auto
+        });
     }
 
     let workspace_manager = WorkspaceManager::new(db.clone());
