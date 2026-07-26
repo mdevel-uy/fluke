@@ -57,11 +57,13 @@ import {
   type WorkspacePr,
 } from '@vibe/ui/components/IssueWorkspaceCard';
 import { resolveRelationshipsForIssue } from '@/shared/lib/resolveRelationships';
-import { KanbanFilterBar } from '@vibe/ui/components/KanbanFilterBar';
+import {
+  KanbanFilterBar,
+  type KanbanSortOption,
+} from '@vibe/ui/components/KanbanFilterBar';
 import { ViewNavTabs } from '@vibe/ui/components/ViewNavTabs';
 import { IssueListView } from '@vibe/ui/components/IssueListView';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
-import { KanbanFiltersDialog } from '@/shared/dialogs/kanban/KanbanFiltersDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -374,6 +376,26 @@ export function KanbanContainer() {
     clearKanbanProjectViewPreferences(projectId, activeViewId);
   }, [activeViewId, clearKanbanProjectViewPreferences, projectId]);
 
+  const kanbanSortOptions = useMemo<KanbanSortOption<KanbanSortField>[]>(
+    () => [
+      {
+        value: 'sort_order',
+        label: t('kanban.sortField.sort_order', 'Manual'),
+      },
+      { value: 'priority', label: t('kanban.sortField.priority', 'Priority') },
+      {
+        value: 'created_at',
+        label: t('kanban.sortField.created_at', 'Created'),
+      },
+      {
+        value: 'updated_at',
+        label: t('kanban.sortField.updated_at', 'Updated'),
+      },
+      { value: 'title', label: t('kanban.sortField.title', 'Title') },
+    ],
+    [t]
+  );
+
   const handleKanbanProjectViewChange = useCallback(
     (viewId: string) => {
       setKanbanProjectView(projectId, viewId);
@@ -478,7 +500,6 @@ export function KanbanContainer() {
 
   // Track items as arrays of IDs grouped by status
   const [items, setItems] = useState<Record<string, string[]>>({});
-  const [isFiltersDialogOpen, setIsFiltersDialogOpen] = useState(false);
 
   // Sync items from filtered issues when they change
   useEffect(() => {
@@ -943,18 +964,21 @@ export function KanbanContainer() {
             onStatusSelect={setListViewStatusFilter}
           />
           <KanbanFilterBar
-            isFiltersDialogOpen={isFiltersDialogOpen}
-            onFiltersDialogOpenChange={setIsFiltersDialogOpen}
             tags={tags}
             users={membersWithProfiles}
             activeViewId={activeViewId}
             onViewChange={handleKanbanProjectViewChange}
             viewIds={KANBAN_PROJECT_VIEW_IDS}
-            projectId={projectId}
             currentUserId={userId}
             filters={kanbanFilters}
+            sortOptions={kanbanSortOptions}
+            defaultSortField={defaultKanbanFilters.sortField}
+            defaultSortDirection={defaultKanbanFilters.sortDirection}
             showSubIssues={showSubIssues}
             showWorkspaces={showWorkspaces}
+            defaultShowSubIssues={defaultShowSubIssues}
+            defaultShowWorkspaces={defaultShowWorkspaces}
+            defaultHideBlocked={defaultHideBlocked}
             hasActiveFilters={hasActiveFilters}
             onSearchQueryChange={setKanbanSearchQuery}
             onPrioritiesChange={setKanbanPriorities}
@@ -968,7 +992,6 @@ export function KanbanContainer() {
             onClearFilters={clearKanbanFilters}
             onCreateIssue={handleAddTask}
             shouldAnimateCreateButton={shouldAnimateCreateButton}
-            renderFiltersDialog={(props) => <KanbanFiltersDialog {...props} />}
             isMobile={isMobile}
           />
         </div>

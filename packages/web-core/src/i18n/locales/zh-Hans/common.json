@@ -465,10 +465,27 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "负责人",
+    "filterByAssignee": "按负责人筛选",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "紧急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "选项",
+    "sortField": {
+      "sort_order": "手动",
+      "priority": "优先级",
+      "created_at": "创建时间",
+      "updated_at": "更新时间",
+      "title": "标题"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "隐藏被阻塞",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
