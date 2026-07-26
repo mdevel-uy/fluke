@@ -9,6 +9,7 @@ import {
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
 import {
   type BaseCodingAgent,
+  type Config,
   DEFAULT_COMMIT_REMINDER_PROMPT,
   DEFAULT_PR_DESCRIPTION_PROMPT,
   EditorType,
@@ -53,6 +54,12 @@ import {
   SettingsTextarea,
 } from './SettingsComponents';
 import { useSettingsDirty } from './SettingsDirtyContext';
+
+// `max_review_rounds` exists in the Rust Config v9 struct but has not yet
+// been regenerated into `shared/types.ts`. This local extension keeps the
+// UI type-safe until infra re-runs `pnpm run generate-types` — remove it
+// once the field appears in the generated `Config`.
+type ConfigWithReview = Config & { max_review_rounds?: number };
 
 export function GeneralSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
@@ -134,7 +141,9 @@ export function GeneralSettingsSection() {
     if (!config) return;
     if (!dirty) {
       setDraft(cloneDeep(config));
-      setMaxReviewRoundsDraft(String(config.max_review_rounds ?? 3));
+      setMaxReviewRoundsDraft(
+        String((config as ConfigWithReview).max_review_rounds ?? 3)
+      );
       setMaxReviewRoundsError(null);
     }
   }, [config, dirty]);
@@ -206,7 +215,9 @@ export function GeneralSettingsSection() {
   const handleDiscard = () => {
     if (!config) return;
     setDraft(cloneDeep(config));
-    setMaxReviewRoundsDraft(String(config.max_review_rounds ?? 3));
+    setMaxReviewRoundsDraft(
+      String((config as ConfigWithReview).max_review_rounds ?? 3)
+    );
     setMaxReviewRoundsError(null);
     setDirty(false);
   };
@@ -691,7 +702,9 @@ export function GeneralSettingsSection() {
                 return;
               }
               setMaxReviewRoundsError(null);
-              updateDraft({ max_review_rounds: parsed });
+              updateDraft({
+                max_review_rounds: parsed,
+              } as Partial<ConfigWithReview>);
             }}
           />
         </SettingsField>
