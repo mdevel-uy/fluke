@@ -30,7 +30,6 @@ fn generate_types_content() -> String {
         db::models::scratch::DraftWorkspaceRepo::decl(),
         db::models::scratch::DraftIssueData::decl(),
         db::models::scratch::PreviewSettingsData::decl(),
-        db::models::scratch::WorkspaceNotesData::decl(),
         db::models::scratch::WorkspacePanelStateData::decl(),
         db::models::scratch::WorkspacePrFilterData::decl(),
         db::models::scratch::WorkspaceSortByData::decl(),

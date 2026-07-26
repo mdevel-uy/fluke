@@ -261,8 +261,6 @@ export const PERSIST_KEYS = {
   devServerSection: 'dev-server-section',
   // Terminal panel section
   terminalSection: 'terminal-section',
-  // Notes panel section
-  notesSection: 'notes-section',
   // GitHub comments toggle
   showGitHubComments: 'show-github-comments',
   // Panel sizes
@@ -289,7 +287,6 @@ export type PersistKey =
   | typeof PERSIST_KEYS.changesSection
   | typeof PERSIST_KEYS.devServerSection
   | typeof PERSIST_KEYS.terminalSection
-  | typeof PERSIST_KEYS.notesSection
   | typeof PERSIST_KEYS.showGitHubComments
   | typeof PERSIST_KEYS.rightMainPanel
   | typeof PERSIST_KEYS.rightPanelprocesses
