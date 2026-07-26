@@ -179,6 +179,19 @@
           "helper": "生成PR描述时AI代理使用的自定义提示。使用{pr_number}和{pr_url}作为占位符。"
         }
       },
+      "autoReview": {
+        "title": "自动评审",
+        "description": "为代理生成的PR配置自动的变更请求 / 再评审循环。",
+        "maxRounds": {
+          "label": "最大评审轮数",
+          "helper": "在停止自动评审前，变更请求 ↔ 再评审迭代的最大次数。至少为1。",
+          "errors": {
+            "required": "请输入一个值。",
+            "notInteger": "值必须为整数。",
+            "min": "值至少为1。"
+          }
+        }
+      },
       "commits": {
         "title": "提交",
         "description": "配置任务尝试的提交行为",

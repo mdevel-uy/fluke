@@ -186,6 +186,19 @@
           "helper": "Custom prompt for the AI agent when generating PR descriptions. Use {pr_number} and {pr_url} as placeholders."
         }
       },
+      "autoReview": {
+        "title": "Automatic Review",
+        "description": "Configure the automatic change-request / re-review loop for agent-generated PRs.",
+        "maxRounds": {
+          "label": "Maximum review rounds",
+          "helper": "Maximum number of change-request ↔ re-review iterations before stopping automatic review. Must be at least 1.",
+          "errors": {
+            "required": "Enter a value.",
+            "notInteger": "Value must be a whole number.",
+            "min": "Value must be at least 1."
+          }
+        }
+      },
       "commits": {
         "title": "Commits",
         "description": "Configure commit behavior for workspaces",

@@ -179,6 +179,19 @@
           "helper": "產生 PR 描述時 AI 代理使用的自訂提示。使用 {pr_number} 與 {pr_url} 作為佔位符。"
         }
       },
+      "autoReview": {
+        "title": "自動審查",
+        "description": "為代理生成的 PR 設定自動的變更請求 / 再審查循環。",
+        "maxRounds": {
+          "label": "最大審查輪數",
+          "helper": "在停止自動審查前，變更請求 ↔ 再審查迭代的最大次數。至少為 1。",
+          "errors": {
+            "required": "請輸入一個值。",
+            "notInteger": "值必須為整數。",
+            "min": "值至少為 1。"
+          }
+        }
+      },
       "commits": {
         "title": "提交",
         "description": "設定任務嘗試的提交行為",

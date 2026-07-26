@@ -300,25 +300,42 @@ export function SettingsInput({
   placeholder,
   error,
   disabled,
+  type = 'text',
+  min,
+  max,
+  step,
+  inputMode,
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   error?: boolean;
   disabled?: boolean;
+  type?: 'text' | 'number';
+  min?: number;
+  max?: number;
+  step?: number;
+  inputMode?: 'numeric' | 'text';
+  className?: string;
 }) {
   return (
     <input
-      type="text"
+      type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
+      min={min}
+      max={max}
+      step={step}
+      inputMode={inputMode}
       className={cn(
         'w-full bg-secondary border rounded-sm px-base py-half text-sm text-high',
         'placeholder:text-low placeholder:opacity-80 focus:outline-none focus:ring-1 focus:ring-brand',
         error ? 'border-error' : 'border-border',
-        disabled && 'opacity-50 cursor-not-allowed'
+        disabled && 'opacity-50 cursor-not-allowed',
+        className
       )}
     />
   );
