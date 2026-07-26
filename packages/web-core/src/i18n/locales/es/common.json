@@ -997,6 +997,7 @@
       "unassign": "Desasignar",
       "unassignConfirmMessage": "¿Desasignar la tarea y devolver el issue al backlog?",
       "unassignConfirm": "Desasignar",
+      "reRequestReview": "Solicitar re-revisión",
       "empty": "Nada esperando revisión."
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
       "reviewApproved": "Revisión aprobada: {{title}}",
       "reviewChangesRequested": "Cambios solicitados en: {{title}}",
-      "cancelError": "No se pudo detener la tarea: {{message}}"
+      "cancelError": "No se pudo detener la tarea: {{message}}",
+      "reRequestReviewSuccess": "Se solicitó una nueva ronda de revisión.",
+      "reRequestReviewMaxRounds": "Este PR ya alcanzó el máximo de rondas de revisión.",
+      "reRequestReviewNoOpenPr": "Esta tarea ya no tiene un pull request abierto.",
+      "reRequestReviewNoReviewer": "No hay un worker reviewer disponible para tomar la revisión.",
+      "reRequestReviewInProgress": "Ya hay una ronda de revisión en curso para este PR.",
+      "reRequestReviewNoChangesRequested": "La tarea no está esperando una re-revisión en este momento.",
+      "reRequestReviewError": "No se pudo solicitar la re-revisión: {{message}}"
     },
     "failed": {
       "retry": "Reintentar",

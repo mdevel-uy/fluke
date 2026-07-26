@@ -997,6 +997,7 @@
       "unassign": "取消指派",
       "unassignConfirmMessage": "取消任務指派並將 Issue 返回待辦列表？",
       "unassignConfirm": "取消指派",
+      "reRequestReview": "請求重新審查",
       "empty": "沒有等待審查的項目。"
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "startAllSuccess_other": "已啟動 {{count}} 個工作者。",
       "reviewApproved": "審查已批准：{{title}}",
       "reviewChangesRequested": "要求更改：{{title}}",
-      "cancelError": "停止任務失敗：{{message}}"
+      "cancelError": "停止任務失敗：{{message}}",
+      "reRequestReviewSuccess": "已請求新的審查回合。",
+      "reRequestReviewMaxRounds": "此 PR 已達到最大審查回合數。",
+      "reRequestReviewNoOpenPr": "此任務已沒有開啟的拉取請求。",
+      "reRequestReviewNoReviewer": "沒有可用的審查者工作者來接手審查。",
+      "reRequestReviewInProgress": "此 PR 已有一個審查回合正在進行中。",
+      "reRequestReviewNoChangesRequested": "該任務目前不在等待重新審查。",
+      "reRequestReviewError": "無法請求重新審查：{{message}}"
     },
     "failed": {
       "retry": "重試",

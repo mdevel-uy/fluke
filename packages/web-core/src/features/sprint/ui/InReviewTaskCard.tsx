@@ -10,6 +10,8 @@ interface InReviewTaskCardProps {
   task: WorkerTask;
   isBusy: boolean;
   onUnassign: () => void;
+  onReRequestReview: () => void;
+  isReRequestingReview: boolean;
 }
 
 function stateBadgeClass(state: string | null | undefined): string {
@@ -27,6 +29,8 @@ export function InReviewTaskCard({
   task,
   isBusy,
   onUnassign,
+  onReRequestReview,
+  isReRequestingReview,
 }: InReviewTaskCardProps) {
   const { t } = useTranslation('common');
   const { t: tTasks } = useTranslation('tasks');
@@ -35,6 +39,7 @@ export function InReviewTaskCard({
   const isConflicting = task.pr_mergeable === 'conflicting';
   const reviewResult = task.review_result ?? null;
   const [isConfirming, setIsConfirming] = useState(false);
+  const canReRequestReview = reviewResult === 'changes_requested';
 
   const handleUnassignClick = () => {
     setIsConfirming(true);
@@ -143,7 +148,29 @@ export function InReviewTaskCard({
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canReRequestReview && (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={onReRequestReview}
+              disabled={isBusy || isReRequestingReview}
+              title={t('sprint.inReview.reRequestReview')}
+              aria-label={t('sprint.inReview.reRequestReview')}
+              className="text-md-on-surface-variant hover:text-md-primary hover:bg-md-primary/10"
+            >
+              {isReRequestingReview ? (
+                <MaterialIcon
+                  name="progress_activity"
+                  size="xs"
+                  className="animate-spin"
+                />
+              ) : (
+                <MaterialIcon name="rate_review" size="xs" />
+              )}
+              {t('sprint.inReview.reRequestReview')}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="xs"

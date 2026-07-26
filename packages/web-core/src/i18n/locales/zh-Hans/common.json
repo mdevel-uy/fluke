@@ -997,6 +997,7 @@
       "unassign": "取消分配",
       "unassignConfirmMessage": "取消任务分配并将 Issue 返回到待办列表？",
       "unassignConfirm": "取消分配",
+      "reRequestReview": "请求重新审查",
       "empty": "没有待审核的项目。"
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "startAllSuccess_other": "已启动 {{count}} 个工作者。",
       "reviewApproved": "审查已批准：{{title}}",
       "reviewChangesRequested": "要求更改：{{title}}",
-      "cancelError": "停止任务失败：{{message}}"
+      "cancelError": "停止任务失败：{{message}}",
+      "reRequestReviewSuccess": "已请求新的审查回合。",
+      "reRequestReviewMaxRounds": "此 PR 已达到最大审查回合数。",
+      "reRequestReviewNoOpenPr": "此任务已没有打开的拉取请求。",
+      "reRequestReviewNoReviewer": "没有可用的审查者工作者来接手审查。",
+      "reRequestReviewInProgress": "此 PR 已有一个审查回合正在进行中。",
+      "reRequestReviewNoChangesRequested": "该任务当前不在等待重新审查。",
+      "reRequestReviewError": "无法请求重新审查：{{message}}"
     },
     "failed": {
       "retry": "重试",

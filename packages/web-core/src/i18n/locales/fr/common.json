@@ -997,6 +997,7 @@
       "unassign": "Désassigner",
       "unassignConfirmMessage": "Désassigner la tâche et renvoyer le ticket au backlog ?",
       "unassignConfirm": "Désassigner",
+      "reRequestReview": "Demander une nouvelle revue",
       "empty": "Rien en attente de revue."
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
       "reviewApproved": "Révision approuvée : {{title}}",
       "reviewChangesRequested": "Modifications demandées : {{title}}",
-      "cancelError": "Échec de l'arrêt de la tâche : {{message}}"
+      "cancelError": "Échec de l'arrêt de la tâche : {{message}}",
+      "reRequestReviewSuccess": "Nouvelle ronde de revue demandée.",
+      "reRequestReviewMaxRounds": "Cette PR a déjà atteint le nombre maximum de rondes de revue.",
+      "reRequestReviewNoOpenPr": "Cette tâche n'a plus de pull request ouverte.",
+      "reRequestReviewNoReviewer": "Aucun worker reviewer n'est disponible pour effectuer la revue.",
+      "reRequestReviewInProgress": "Une ronde de revue est déjà en cours pour cette PR.",
+      "reRequestReviewNoChangesRequested": "La tâche n'est pas en attente d'une nouvelle revue pour le moment.",
+      "reRequestReviewError": "Impossible de demander la nouvelle revue : {{message}}"
     },
     "failed": {
       "retry": "Réessayer",

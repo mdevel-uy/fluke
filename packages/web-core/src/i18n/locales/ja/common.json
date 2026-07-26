@@ -997,6 +997,7 @@
       "unassign": "割り当て解除",
       "unassignConfirmMessage": "タスクの割り当てを解除してIssueをバックログに戻しますか？",
       "unassignConfirm": "割り当て解除",
+      "reRequestReview": "再レビューを依頼",
       "empty": "レビュー待ちはありません。"
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
       "reviewChangesRequested": "変更要求: {{title}}",
-      "cancelError": "タスクの停止に失敗しました: {{message}}"
+      "cancelError": "タスクの停止に失敗しました: {{message}}",
+      "reRequestReviewSuccess": "新しいレビューラウンドをリクエストしました。",
+      "reRequestReviewMaxRounds": "このPRはすでに最大レビューラウンド数に達しています。",
+      "reRequestReviewNoOpenPr": "このタスクにはオープンなプルリクエストがありません。",
+      "reRequestReviewNoReviewer": "レビューを担当できるレビュワーワーカーがいません。",
+      "reRequestReviewInProgress": "このPRのレビューラウンドはすでに進行中です。",
+      "reRequestReviewNoChangesRequested": "このタスクは現在、再レビュー待ちではありません。",
+      "reRequestReviewError": "再レビューをリクエストできませんでした: {{message}}"
     },
     "failed": {
       "retry": "再試行",
