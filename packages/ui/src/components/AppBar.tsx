@@ -68,6 +68,8 @@ interface AppBarProps {
   updateVersion?: string | null;
   onUpdateClick?: () => void;
   onOpenSettings?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 export interface AppBarProject {
@@ -97,7 +99,14 @@ function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
 }
 
 const appBarItemBase =
-  'flex items-center justify-center w-10 h-10 rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
+  'flex items-center rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
+
+const appBarItemCollapsedLayout = 'justify-center w-10 h-10';
+const appBarItemExpandedLayout = 'justify-start w-full h-10 gap-3 px-2';
+
+function getAppBarItemLayoutClass(isCollapsed: boolean): string {
+  return isCollapsed ? appBarItemCollapsedLayout : appBarItemExpandedLayout;
+}
 
 type AppBarSection = {
   key: 'local' | 'remote' | 'projects' | 'export';
@@ -146,13 +155,16 @@ type AppBarSectionItem =
 
 function getStandardAppBarButtonClassName({
   isActive = false,
+  isCollapsed = false,
   className,
 }: {
   isActive?: boolean;
+  isCollapsed?: boolean;
   className?: string;
 }) {
   return cn(
     appBarItemBase,
+    getAppBarItemLayoutClass(isCollapsed),
     'cursor-pointer',
     isActive
       ? 'relative text-md-on-surface before:absolute before:-left-2 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
@@ -164,13 +176,16 @@ function getStandardAppBarButtonClassName({
 function getHostButtonClassName({
   host,
   isActive,
+  isCollapsed = false,
 }: {
   host: AppBarHost;
   isActive: boolean;
+  isCollapsed?: boolean;
 }) {
   const isOffline = host.status === 'offline';
   return cn(
     appBarItemBase,
+    getAppBarItemLayoutClass(isCollapsed),
     isOffline
       ? 'text-md-outline opacity-50 cursor-not-allowed'
       : isActive
@@ -214,9 +229,25 @@ export function AppBar({
   updateVersion,
   onUpdateClick,
   onOpenSettings,
+  isCollapsed = false,
+  onToggleCollapsed,
 }: AppBarProps) {
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
+
+  function maybeTooltip(
+    content: string,
+    side: 'top' | 'bottom' | 'left' | 'right',
+    enabled: boolean,
+    children: ReactNode
+  ): ReactNode {
+    if (!enabled) return children;
+    return (
+      <Tooltip content={content} side={side}>
+        {children}
+      </Tooltip>
+    );
+  }
 
   if (
     showWorkspacesButton ||
@@ -348,73 +379,93 @@ export function AppBar({
   function renderSectionItem(item: AppBarSectionItem): ReactNode {
     switch (item.kind) {
       case 'icon-button':
-        return (
-          <Tooltip content={item.label} side="right">
-            <button
-              type="button"
-              onClick={item.onClick}
-              className={getStandardAppBarButtonClassName({
-                isActive: item.isActive,
-                className: item.className,
-              })}
-              aria-label={item.label}
-            >
-              <MaterialIcon
-                name={item.materialIcon}
-                fill={item.isActive ? 1 : 0}
-                size="base"
-              />
-            </button>
-          </Tooltip>
+        return maybeTooltip(
+          item.label,
+          'right',
+          isCollapsed,
+          <button
+            type="button"
+            onClick={item.onClick}
+            className={getStandardAppBarButtonClassName({
+              isActive: item.isActive,
+              isCollapsed,
+              className: item.className,
+            })}
+            aria-label={item.label}
+          >
+            <MaterialIcon
+              name={item.materialIcon}
+              fill={item.isActive ? 1 : 0}
+              size="base"
+            />
+            {!isCollapsed && (
+              <span className="truncate text-body-sm">{item.label}</span>
+            )}
+          </button>
         );
 
       case 'host-button': {
         const isOffline = item.host.status === 'offline';
-        return (
-          <Tooltip
-            content={`${item.host.name} · ${getHostStatusLabel(item.host.status)}`}
-            side="right"
-          >
-            <div className="relative">
-              <span
-                className={cn(
-                  'absolute -top-1 -right-1 z-10',
-                  'w-3.5 h-3.5 rounded-full border border-md-surface-container-low',
-                  getHostStatusIndicatorClass(item.host.status)
-                )}
-                aria-hidden="true"
-              />
-              <button
-                type="button"
-                disabled={isOffline}
-                onClick={item.onClick}
-                className={getHostButtonClassName({
+        return maybeTooltip(
+          `${item.host.name} · ${getHostStatusLabel(item.host.status)}`,
+          'right',
+          isCollapsed,
+          <div className={cn('relative', !isCollapsed && 'w-full')}>
+            <span
+              className={cn(
+                'absolute z-10',
+                isCollapsed
+                  ? '-top-1 -right-1'
+                  : 'top-1/2 -translate-y-1/2 left-2',
+                'w-3.5 h-3.5 rounded-full border border-md-surface-container-low',
+                getHostStatusIndicatorClass(item.host.status)
+              )}
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              disabled={isOffline}
+              onClick={item.onClick}
+              className={cn(
+                getHostButtonClassName({
                   host: item.host,
                   isActive: item.isActive,
-                })}
-                aria-label={`${item.host.name} (${getHostStatusLabel(item.host.status)})`}
-              >
-                {getProjectInitials(item.host.name)}
-              </button>
-            </div>
-          </Tooltip>
+                  isCollapsed,
+                }),
+                !isCollapsed && 'pl-8'
+              )}
+              aria-label={`${item.host.name} (${getHostStatusLabel(item.host.status)})`}
+            >
+              {isCollapsed ? (
+                getProjectInitials(item.host.name)
+              ) : (
+                <span className="truncate text-body-sm">{item.host.name}</span>
+              )}
+            </button>
+          </div>
         );
       }
 
       case 'kanban-cta':
         return (
           <Popover>
-            <Tooltip content={item.label} side="right">
+            {maybeTooltip(
+              item.label,
+              'right',
+              isCollapsed,
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={getStandardAppBarButtonClassName({})}
+                  className={getStandardAppBarButtonClassName({ isCollapsed })}
                   aria-label={item.label}
                 >
                   <MaterialIcon name="view_kanban" size="base" />
+                  {!isCollapsed && (
+                    <span className="truncate text-body-sm">{item.label}</span>
+                  )}
                 </button>
               </PopoverTrigger>
-            </Tooltip>
+            )}
             <PopoverContent side="right" sideOffset={8}>
               <p className="text-title-sm font-semibold text-md-on-surface">
                 {t('appBar.kanban.title')}
@@ -463,7 +514,10 @@ export function AppBar({
                 <div
                   ref={dropProvided.innerRef}
                   {...dropProvided.droppableProps}
-                  className="flex flex-col items-center -mb-base"
+                  className={cn(
+                    'flex flex-col -mb-base',
+                    isCollapsed ? 'items-center' : 'items-stretch'
+                  )}
                 >
                   {item.projects.map((project, index) => (
                     <Draggable
@@ -481,12 +535,16 @@ export function AppBar({
                           className="mb-base"
                           style={dragProvided.draggableProps.style}
                         >
-                          <Tooltip content={project.name} side="right">
+                          {maybeTooltip(
+                            project.name,
+                            'right',
+                            isCollapsed,
                             <button
                               type="button"
                               onClick={() => item.onProjectClick(project.id)}
                               className={cn(
                                 appBarItemBase,
+                                getAppBarItemLayoutClass(isCollapsed),
                                 'cursor-grab font-semibold text-title-sm',
                                 snapshot.isDragging &&
                                   'ring-1 ring-border-strong',
@@ -504,9 +562,21 @@ export function AppBar({
                               }
                               aria-label={project.name}
                             >
-                              {getProjectInitials(project.name)}
+                              <span
+                                className={cn(
+                                  'flex items-center justify-center',
+                                  isCollapsed ? 'w-full' : 'w-6 shrink-0'
+                                )}
+                              >
+                                {getProjectInitials(project.name)}
+                              </span>
+                              {!isCollapsed && (
+                                <span className="truncate text-body-sm font-normal">
+                                  {project.name}
+                                </span>
+                              )}
                             </button>
-                          </Tooltip>
+                          )}
                         </div>
                       )}
                     </Draggable>
@@ -520,19 +590,36 @@ export function AppBar({
     }
   }
 
+  const toggleLabel = isCollapsed
+    ? t('appBar.expandSidebar')
+    : t('appBar.collapseSidebar');
+
   return (
     <div
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       className={cn(
-        'flex flex-col items-center h-full min-h-0 overflow-y-auto py-2 px-2 gap-3',
+        'flex flex-col h-full min-h-0 overflow-y-auto py-2 px-2 gap-3',
+        isCollapsed ? 'items-center' : 'items-stretch w-56',
         'bg-md-surface-container-lowest border-r border-md-outline-variant'
       )}
     >
       {sections.map((section, sectionIndex) => (
-        <div key={section.key} className="flex flex-col items-center gap-0.5">
+        <div
+          key={section.key}
+          className={cn(
+            'flex flex-col gap-0.5',
+            isCollapsed ? 'items-center' : 'items-stretch'
+          )}
+        >
           {sectionIndex > 0 && (
-            <div className="h-px w-6 bg-md-outline-variant my-1" aria-hidden />
+            <div
+              className={cn(
+                'h-px bg-md-outline-variant my-1',
+                isCollapsed ? 'w-6' : 'w-full'
+              )}
+              aria-hidden
+            />
           )}
           {section.items.map((item) => (
             <div
@@ -547,37 +634,89 @@ export function AppBar({
         </div>
       ))}
 
-      <div className="mt-auto flex flex-col items-center gap-1 w-full pt-2">
+      <div
+        className={cn(
+          'mt-auto flex flex-col gap-1 w-full pt-2',
+          isCollapsed ? 'items-center' : 'items-stretch'
+        )}
+      >
         {updateVersion && (
           <Tooltip content={`Update to v${updateVersion}`} side="right">
             <button
               type="button"
               onClick={onUpdateClick}
               className={cn(
-                'flex items-center justify-center py-1 rounded-sm w-10',
+                'flex items-center justify-center py-1 rounded-sm',
+                isCollapsed ? 'w-10 mx-auto' : 'w-full',
                 'text-label uppercase tracking-wider',
                 'bg-brand text-on-brand hover:bg-brand-hover',
                 'transition-all duration-150 cursor-pointer'
               )}
             >
               Update
+              {!isCollapsed && updateVersion ? ` v${updateVersion}` : ''}
             </button>
           </Tooltip>
         )}
-        {notificationBell}
-        {userPopover}
-        {onOpenSettings && (
-          <Tooltip content="Settings" side="right">
+        {notificationBell && (
+          <div
+            className={cn(
+              'flex',
+              isCollapsed ? 'justify-center' : 'justify-start'
+            )}
+          >
+            {notificationBell}
+          </div>
+        )}
+        {userPopover && (
+          <div
+            className={cn(
+              'flex',
+              isCollapsed ? 'justify-center' : 'justify-start'
+            )}
+          >
+            {userPopover}
+          </div>
+        )}
+        {onOpenSettings &&
+          maybeTooltip(
+            t('appBar.settings'),
+            'right',
+            isCollapsed,
             <button
               type="button"
               onClick={onOpenSettings}
-              className={getStandardAppBarButtonClassName({})}
-              aria-label="Settings"
+              className={getStandardAppBarButtonClassName({ isCollapsed })}
+              aria-label={t('appBar.settings')}
             >
               <MaterialIcon name="settings" size="base" />
+              {!isCollapsed && (
+                <span className="truncate text-body-sm">
+                  {t('appBar.settings')}
+                </span>
+              )}
             </button>
-          </Tooltip>
-        )}
+          )}
+        {onToggleCollapsed &&
+          maybeTooltip(
+            toggleLabel,
+            'right',
+            isCollapsed,
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className={getStandardAppBarButtonClassName({ isCollapsed })}
+              aria-label={toggleLabel}
+            >
+              <MaterialIcon
+                name={isCollapsed ? 'left_panel_open' : 'left_panel_close'}
+                size="base"
+              />
+              {!isCollapsed && (
+                <span className="truncate text-body-sm">{toggleLabel}</span>
+              )}
+            </button>
+          )}
       </div>
     </div>
   );

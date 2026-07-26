@@ -37,6 +37,19 @@ const loadMobileFontScale = (): MobileFontScale => {
   return 'default';
 };
 
+const APP_BAR_COLLAPSED_KEY = 'vk-app-bar-collapsed';
+
+const loadAppBarCollapsed = (): boolean => {
+  try {
+    const stored = localStorage.getItem(APP_BAR_COLLAPSED_KEY);
+    if (stored === 'false') return false;
+    if (stored === 'true') return true;
+  } catch {
+    // localStorage may be unavailable
+  }
+  return false;
+};
+
 export type KanbanViewMode = 'kanban' | 'list';
 
 export type ContextBarPosition =
@@ -312,6 +325,7 @@ type State = {
   isLeftSidebarVisible: boolean;
   isRightSidebarVisible: boolean;
   isTerminalVisible: boolean;
+  isAppBarCollapsed: boolean;
   previewRefreshKey: number;
   // Note: Kanban issue panel state (selectedKanbanIssueId, createMode, etc.)
   // is derived from URL via app navigation route state
@@ -365,6 +379,8 @@ type State = {
   toggleRightSidebar: () => void;
   toggleTerminal: () => void;
   setTerminalVisible: (value: boolean) => void;
+  toggleAppBar: () => void;
+  setAppBarCollapsed: (value: boolean) => void;
   // Note: Kanban panel actions (openKanbanIssuePanel, closeKanbanIssuePanel, etc.)
   // are handled by app navigation
   toggleRightMainPanelMode: (
@@ -451,6 +467,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   isLeftSidebarVisible: true,
   isRightSidebarVisible: true,
   isTerminalVisible: false,
+  isAppBarCollapsed: loadAppBarCollapsed(),
   previewRefreshKey: 0,
 
   // Workspace-specific panel state
@@ -539,6 +556,25 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
     set((s) => ({ isTerminalVisible: !s.isTerminalVisible })),
 
   setTerminalVisible: (value) => set({ isTerminalVisible: value }),
+
+  toggleAppBar: () => {
+    const next = !get().isAppBarCollapsed;
+    try {
+      localStorage.setItem(APP_BAR_COLLAPSED_KEY, String(next));
+    } catch {
+      // localStorage may be unavailable
+    }
+    set({ isAppBarCollapsed: next });
+  },
+
+  setAppBarCollapsed: (value) => {
+    try {
+      localStorage.setItem(APP_BAR_COLLAPSED_KEY, String(value));
+    } catch {
+      // localStorage may be unavailable
+    }
+    set({ isAppBarCollapsed: value });
+  },
 
   toggleRightMainPanelMode: (mode, workspaceId) => {
     if (!workspaceId) return;

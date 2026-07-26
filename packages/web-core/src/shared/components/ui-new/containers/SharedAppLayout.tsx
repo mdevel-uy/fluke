@@ -59,6 +59,8 @@ export function SharedAppLayout() {
   const isLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.isLeftSidebarVisible
   );
+  const isAppBarCollapsed = useUiPreferencesStore((s) => s.isAppBarCollapsed);
+  const toggleAppBar = useUiPreferencesStore((s) => s.toggleAppBar);
   const { appVersion } = useUserSystem();
   const updateVersion = useAppUpdateStore((s) => s.updateVersion);
   const restartForUpdate = useAppUpdateStore((s) => s.restart);
@@ -304,6 +306,8 @@ export function SharedAppLayout() {
               updateVersion={updateVersion}
               onUpdateClick={restartForUpdate ?? undefined}
               onOpenSettings={() => SettingsDialog.show()}
+              isCollapsed={isAppBarCollapsed}
+              onToggleCollapsed={toggleAppBar}
             />
             {/* Desktop content. */}
             <div className="relative min-h-0 overflow-hidden">
