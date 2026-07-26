@@ -47,7 +47,7 @@ const loadAppBarCollapsed = (): boolean => {
   } catch {
     // localStorage may be unavailable
   }
-  return true;
+  return false;
 };
 
 export type KanbanViewMode = 'kanban' | 'list';

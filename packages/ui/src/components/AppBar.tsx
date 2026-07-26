@@ -155,7 +155,7 @@ type AppBarSectionItem =
 
 function getStandardAppBarButtonClassName({
   isActive = false,
-  isCollapsed = true,
+  isCollapsed = false,
   className,
 }: {
   isActive?: boolean;
@@ -176,7 +176,7 @@ function getStandardAppBarButtonClassName({
 function getHostButtonClassName({
   host,
   isActive,
-  isCollapsed = true,
+  isCollapsed = false,
 }: {
   host: AppBarHost;
   isActive: boolean;
@@ -229,7 +229,7 @@ export function AppBar({
   updateVersion,
   onUpdateClick,
   onOpenSettings,
-  isCollapsed = true,
+  isCollapsed = false,
   onToggleCollapsed,
 }: AppBarProps) {
   const { t } = useTranslation('common');
