@@ -47,6 +47,7 @@ pub fn fallback_models() -> Vec<ModelInfo> {
         ("opus[1m]", "Opus (1M context)"),
         ("sonnet", "Sonnet"),
         ("haiku", "Haiku"),
+        ("fable", "Fable"),
     ]
     .into_iter()
     .map(|(id, name)| ModelInfo {
@@ -175,6 +176,7 @@ mod tests {
         assert!(ids.contains(&"opus[1m]".to_string()));
         assert!(ids.contains(&"sonnet".to_string()));
         assert!(ids.contains(&"haiku".to_string()));
+        assert!(ids.contains(&"fable".to_string()));
     }
 
     #[test]
