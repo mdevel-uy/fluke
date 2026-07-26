@@ -205,18 +205,9 @@ function NavbarBreadcrumbs({
   );
 }
 
-export interface NavbarSectionTab {
-  id: string;
-  label: string;
-  materialIcon?: string;
-  isActive?: boolean;
-  onClick?: () => void;
-}
-
 export interface NavbarProps {
   workspaceTitle?: string;
   breadcrumbs?: NavbarBreadcrumbItem[];
-  sectionTabs?: NavbarSectionTab[];
   leftItems?: NavbarSectionItem[];
   rightItems?: NavbarSectionItem[];
   leftSlot?: ReactNode;
@@ -246,7 +237,6 @@ export interface NavbarProps {
 export function Navbar({
   workspaceTitle,
   breadcrumbs,
-  sectionTabs = [],
   leftItems = [],
   rightItems = [],
   leftSlot,
@@ -497,30 +487,6 @@ export function Navbar({
       )}
     >
       <div data-tauri-drag-region className="flex-1 flex items-stretch min-w-0">
-        {sectionTabs.length > 0 && (
-          <div className="flex items-stretch h-full" role="tablist">
-            {sectionTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={tab.isActive}
-                onClick={tab.onClick}
-                className={cn(
-                  'flex items-center gap-1.5 px-3.5 text-sm whitespace-nowrap border-r border-md-outline-variant transition-colors duration-150',
-                  tab.isActive
-                    ? 'bg-md-background text-md-on-surface shadow-[inset_0_1px_0_hsl(var(--brand-on-surface))]'
-                    : 'text-md-on-surface-variant hover:text-md-on-surface'
-                )}
-              >
-                {tab.materialIcon && (
-                  <MaterialIcon name={tab.materialIcon} size="sm" />
-                )}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="flex items-center gap-base px-2 min-w-0">
           {visibleLeftItems.map((item, index) =>
             renderItem(

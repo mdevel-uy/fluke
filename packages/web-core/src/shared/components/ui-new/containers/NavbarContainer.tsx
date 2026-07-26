@@ -35,12 +35,7 @@ import {
 import { useActionVisibilityContext } from '@/shared/hooks/useActionVisibilityContext';
 import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
-import {
-  getProjectDestination,
-  isIssuesDestination,
-  isSprintDestination,
-  isWorkspacesDestination,
-} from '@/shared/lib/routes/appNavigation';
+import { getProjectDestination } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
@@ -332,34 +327,6 @@ export function NavbarContainer({
     };
   }, [isOnProjectPage, projectId, appNavigation]);
 
-  // Workbench section tabs (desktop): Workspaces · Sprint · Issues
-  const sectionTabs = useMemo(
-    () => [
-      {
-        id: 'workspaces',
-        label: t('appBar.workspaces'),
-        materialIcon: 'view_quilt',
-        isActive: isWorkspacesDestination(destination),
-        onClick: () => appNavigation.goToWorkspaces(),
-      },
-      {
-        id: 'sprint',
-        label: t('appBar.sprint'),
-        materialIcon: 'view_kanban',
-        isActive: isSprintDestination(destination),
-        onClick: () => appNavigation.goToSprint(),
-      },
-      {
-        id: 'issues',
-        label: t('appBar.issues'),
-        materialIcon: 'list_alt',
-        isActive: isIssuesDestination(destination),
-        onClick: () => appNavigation.goToIssues(),
-      },
-    ],
-    [t, destination, appNavigation]
-  );
-
   const syncErrors = useMemo(() => {
     const errors = syncErrorContext?.errors ? [...syncErrorContext.errors] : [];
 
@@ -381,7 +348,6 @@ export function NavbarContainer({
     <Navbar
       workspaceTitle={navbarTitle}
       breadcrumbs={breadcrumbs}
-      sectionTabs={mobileMode ? [] : sectionTabs}
       leftItems={leftItems}
       rightItems={rightItems}
       syncErrors={syncErrors}
