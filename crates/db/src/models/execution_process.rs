@@ -107,6 +107,10 @@ pub struct LatestCodingAgentProcess {
     pub workspace_id: Uuid,
     pub execution_process_id: Uuid,
     pub started_at: DateTime<Utc>,
+    /// Needed to decide whether the process's logs are still growing. Only a
+    /// terminal process has immutable logs, and only those may be memoized by
+    /// the workspace-summary signal cache.
+    pub status: ExecutionProcessStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -672,12 +676,13 @@ impl ExecutionProcess {
     ) -> Result<HashMap<Uuid, LatestCodingAgentProcess>, sqlx::Error> {
         let rows: Vec<LatestCodingAgentProcess> = sqlx::query_as(
             r#"
-            SELECT workspace_id, execution_process_id, started_at
+            SELECT workspace_id, execution_process_id, started_at, status
             FROM (
                 SELECT
                     s.workspace_id as workspace_id,
                     ep.id as execution_process_id,
                     ep.started_at as started_at,
+                    ep.status as status,
                     ROW_NUMBER() OVER (
                         PARTITION BY s.workspace_id
                         ORDER BY ep.created_at DESC

@@ -927,12 +927,18 @@ pub trait ContainerService {
                     }
                 };
 
-            if let Err(err) = self.ensure_container_exists(&workspace).await {
-                tracing::warn!(
-                    "Failed to recreate worktree before log normalization for workspace {}: {}",
-                    workspace.id,
-                    err
-                );
+            // Normalizing historical logs only needs the worktree path for
+            // display, so don't resurrect a worktree that was deliberately
+            // torn down: for an archived workspace this always failed anyway
+            // ("Permission denied"), once per poll of the summary endpoint.
+            if !workspace.archived && !workspace.worktree_deleted {
+                if let Err(err) = self.ensure_container_exists(&workspace).await {
+                    tracing::warn!(
+                        "Failed to recreate worktree before log normalization for workspace {}: {}",
+                        workspace.id,
+                        err
+                    );
+                }
             }
 
             let current_dir = self.workspace_to_current_dir(&workspace);
