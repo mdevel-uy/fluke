@@ -79,6 +79,7 @@ import posthog from 'posthog-js';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { CreateWorkspaceFromPrDialog } from '@/shared/dialogs/command-bar/CreateWorkspaceFromPrDialog';
+import { WorkerFormDialog } from '@/features/workers/ui/WorkerFormDialog';
 import { buildWorkspaceCreateInitialState } from '@/shared/lib/workspaceCreateState';
 import { setCreateModeSeedState } from '@/features/create-mode/model/createModeSeedStore';
 
@@ -423,6 +424,17 @@ export const Actions = {
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
     execute: async () => {
       await CreateWorkspaceFromPrDialog.show({});
+    },
+  } satisfies GlobalActionDefinition,
+
+  CreateWorker: {
+    id: 'create-worker',
+    label: 'Create Worker',
+    icon: PlusIcon,
+    keywords: ['new', 'worker', 'agent'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: async () => {
+      await WorkerFormDialog.show({});
     },
   } satisfies GlobalActionDefinition,
 
