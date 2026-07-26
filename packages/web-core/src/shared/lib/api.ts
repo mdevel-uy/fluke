@@ -2000,6 +2000,16 @@ export const workersApi = {
     return handleApiResponse<void>(response);
   },
 
+  reRequestReview: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/re-request-review`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
   reassignTask: async (
     workerId: string,
     taskId: string,

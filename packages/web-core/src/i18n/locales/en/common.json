@@ -997,6 +997,7 @@
       "unassign": "Unassign",
       "unassignConfirmMessage": "Unassign the task and return the issue to the backlog?",
       "unassignConfirm": "Unassign",
+      "reRequestReview": "Request re-review",
       "empty": "Nothing awaiting review."
     },
     "done": {
@@ -1039,7 +1040,14 @@
       "assignDuplicate": "This issue already has an active task assigned to a worker.",
       "reviewApproved": "Review approved: {{title}}",
       "reviewChangesRequested": "Changes requested: {{title}}",
-      "cancelError": "Failed to stop task: {{message}}"
+      "cancelError": "Failed to stop task: {{message}}",
+      "reRequestReviewSuccess": "New review round requested.",
+      "reRequestReviewMaxRounds": "This PR has already reached the maximum number of review rounds.",
+      "reRequestReviewNoOpenPr": "This task no longer has an open pull request.",
+      "reRequestReviewNoReviewer": "No reviewer worker is available to take the review.",
+      "reRequestReviewInProgress": "A review round is already in progress for this PR.",
+      "reRequestReviewNoChangesRequested": "The task is not waiting for a re-review right now.",
+      "reRequestReviewError": "Could not request re-review: {{message}}"
     },
     "failed": {
       "retry": "Retry",

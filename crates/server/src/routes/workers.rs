@@ -890,6 +890,103 @@ pub async fn cancel_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+/// Manually dispatch a new reviewer round for a developer task that is stuck
+/// in `in_review` with `review_result = 'changes_requested'`. Rescue path for
+/// when the automatic `pr_monitor` loop failed to detect the author's fix push
+/// (or when the PM simply wants to re-run the review sooner). Returns an
+/// error code as the message so the UI can localize; the underlying dispatch
+/// re-checks the same guards for safety.
+pub async fn re_request_review(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+
+    if existing.status != worker_task::STATUS_IN_REVIEW
+        || existing.review_result.as_deref() != Some("changes_requested")
+    {
+        return Err(ApiError::Conflict("no_changes_requested".into()));
+    }
+
+    // A review task must be tied to a PR (issue_number stores the PR number).
+    let Some(pr_number) = existing.issue_number else {
+        return Err(ApiError::BadRequest("no_open_pr".into()));
+    };
+
+    // The PR must still be open — reviewing a merged/closed PR is nonsense.
+    let workspace_id = existing
+        .workspace_id
+        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
+    let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
+    let has_open_pr = prs
+        .iter()
+        .any(|pr| pr.pr_number == pr_number && pr.pr_status == MergeStatus::Open);
+    if !has_open_pr {
+        return Err(ApiError::BadRequest("no_open_pr".into()));
+    }
+
+    // Without a reviewer worker configured there is nowhere to dispatch the
+    // task to. Also block the case where the only reviewer is the PR author
+    // itself — GitHub rejects self-approval, so dispatch_review_task no-ops
+    // and would leave the UI thinking it succeeded. Surface as 400 with a
+    // clear "no reviewer" message either way.
+    let reviewer = Worker::find_first_reviewer(pool)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("no_reviewer_assigned".into()))?;
+    if reviewer.id == existing.worker_id {
+        return Err(ApiError::BadRequest("no_reviewer_assigned".into()));
+    }
+
+    // Idempotency guard against double-click: dispatch_review_task also has
+    // this guard, but it silently returns Ok(()), which would mislead the UI
+    // into showing success without any dispatch happening.
+    if WorkerTask::find_active_reviewer_task_for_pr(pool, pr_number, existing.repo_id)
+        .await?
+        .is_some()
+    {
+        return Err(ApiError::Conflict("review_already_in_progress".into()));
+    }
+
+    // Enforce max_review_rounds ourselves so we can return 409 with a clear
+    // reason. dispatch_review_task's own cap check is a no-op logger, which
+    // would otherwise let the user think the dispatch worked.
+    let max_rounds = {
+        let cfg = deployment.config().read().await;
+        worker_orchestrator::resolve_max_review_rounds(&cfg)
+    };
+    let rounds =
+        WorkerTask::count_reviewer_tasks_for_pr(pool, pr_number, existing.repo_id).await?;
+    if rounds >= max_rounds {
+        return Err(ApiError::Conflict("max_review_rounds_reached".into()));
+    }
+
+    worker_orchestrator::dispatch_review_task(
+        deployment.config(),
+        deployment.db(),
+        deployment.container(),
+        pr_number,
+        &existing.title,
+        existing.repo_id,
+        Some(existing.worker_id),
+    )
+    .await?;
+
+    // Clear the stale verdict on the developer task so the card flips back to
+    // the "awaiting review" pulse until the new reviewer round posts a verdict.
+    WorkerTask::set_review_result(pool, task_id, None).await?;
+
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
 /// A worker task that reached a terminal status, for "done today" stats and
 /// the dashboard activity feed.
 #[derive(Debug, Serialize, TS, sqlx::FromRow)]
@@ -1003,6 +1100,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/reassign",
             post(reassign_worker_task),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/re-request-review",
+            post(re_request_review),
         )
 }
 

@@ -278,6 +278,9 @@ export function SprintPage() {
   } = useAllWorkerTasks(workers);
 
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [reRequestingTaskId, setReRequestingTaskId] = useState<string | null>(
+    null
+  );
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
 
   const invalidateWorkerData = useCallback(() => {
@@ -357,6 +360,13 @@ export function SprintPage() {
   const cancelTaskMutation = useMutation({
     mutationFn: async (params: { workerId: string; taskId: string }) => {
       await workersApi.cancelTask(params.workerId, params.taskId);
+    },
+    onSuccess: () => invalidateWorkerData(),
+  });
+
+  const reRequestReviewMutation = useMutation({
+    mutationFn: async (params: { workerId: string; taskId: string }) => {
+      await workersApi.reRequestReview(params.workerId, params.taskId);
     },
     onSuccess: () => invalidateWorkerData(),
   });
@@ -568,6 +578,50 @@ export function SprintPage() {
       );
     },
     [cancelTaskMutation, pushToast, t]
+  );
+
+  const handleReRequestReview = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      setReRequestingTaskId(task.id);
+      reRequestReviewMutation.mutate(
+        { workerId: task.worker_id, taskId: task.id },
+        {
+          onSettled: () => {
+            setBusyTaskId(null);
+            setReRequestingTaskId(null);
+          },
+          onSuccess: () =>
+            pushToast('success', t('sprint.toast.reRequestReviewSuccess')),
+          onError: (err) => {
+            // Backend returns a machine-readable error code as the message
+            // (e.g. `max_review_rounds_reached`) so the UI can localize
+            // without shipping the English fallback to end users.
+            const code =
+              err instanceof ApiError && err.message ? err.message : '';
+            const key =
+              code === 'max_review_rounds_reached'
+                ? 'sprint.toast.reRequestReviewMaxRounds'
+                : code === 'no_open_pr'
+                  ? 'sprint.toast.reRequestReviewNoOpenPr'
+                  : code === 'no_reviewer_assigned'
+                    ? 'sprint.toast.reRequestReviewNoReviewer'
+                    : code === 'review_already_in_progress'
+                      ? 'sprint.toast.reRequestReviewInProgress'
+                      : code === 'no_changes_requested'
+                        ? 'sprint.toast.reRequestReviewNoChangesRequested'
+                        : 'sprint.toast.reRequestReviewError';
+            pushToast(
+              'error',
+              t(key, {
+                message: err instanceof Error ? err.message : String(err),
+              })
+            );
+          },
+        }
+      );
+    },
+    [reRequestReviewMutation, pushToast, t]
   );
 
   const repoTasks = useMemo(
@@ -1008,6 +1062,8 @@ export function SprintPage() {
                           task={task}
                           isBusy={busyTaskId === task.id}
                           onUnassign={() => handleCancelTask(task)}
+                          onReRequestReview={() => handleReRequestReview(task)}
+                          isReRequestingReview={reRequestingTaskId === task.id}
                         />
                       </div>
                     );
