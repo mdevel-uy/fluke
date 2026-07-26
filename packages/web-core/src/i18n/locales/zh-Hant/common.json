@@ -849,7 +849,11 @@
       "queueLoading": "正在載入佇列...",
       "queueError": "載入佇列失敗。",
       "queueEmpty": "佇列為空。",
-      "needsAttention": "需要關注"
+      "needsAttention": "需要關注",
+      "planModeOnBadge": "計劃模式",
+      "planModeOffBadge": "關閉計劃模式",
+      "planModeOnTooltip": "已為該工作者強制啟用計劃模式。",
+      "planModeOffTooltip": "已為該工作者強制關閉計劃模式。"
     },
     "form": {
       "newTitle": "新增工作者",
@@ -868,6 +872,11 @@
       "saveEdit": "儲存變更",
       "modelLabel": "模型",
       "modelDefault": "預設（全域）",
+      "planModeLabel": "計劃模式",
+      "planModeGlobal": "使用全域設定",
+      "planModeOn": "強制啟用",
+      "planModeOff": "強制關閉",
+      "planModeHelp": "為此工作者覆蓋執行器的全域計劃模式。",
       "githubPatLabel": "GitHub PAT（選填）",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "••••••（已儲存 — 保留請留空）",

@@ -849,7 +849,11 @@
       "queueLoading": "正在加载队列...",
       "queueError": "加载队列失败。",
       "queueEmpty": "队列为空。",
-      "needsAttention": "需要关注"
+      "needsAttention": "需要关注",
+      "planModeOnBadge": "计划模式",
+      "planModeOffBadge": "关闭计划模式",
+      "planModeOnTooltip": "已为该工作者强制开启计划模式。",
+      "planModeOffTooltip": "已为该工作者强制关闭计划模式。"
     },
     "form": {
       "newTitle": "新建工作者",
@@ -868,6 +872,11 @@
       "saveEdit": "保存更改",
       "modelLabel": "模型",
       "modelDefault": "默认（全局）",
+      "planModeLabel": "计划模式",
+      "planModeGlobal": "使用全局设置",
+      "planModeOn": "强制开启",
+      "planModeOff": "强制关闭",
+      "planModeHelp": "为该工作者覆盖执行器的全局计划模式。",
       "githubPatLabel": "GitHub PAT（可选）",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "••••••（已保存 — 留空以保持不变）",

@@ -849,7 +849,11 @@
       "queueLoading": "Cargando cola...",
       "queueError": "No se pudo cargar la cola.",
       "queueEmpty": "La cola está vacía.",
-      "needsAttention": "Necesita atención"
+      "needsAttention": "Necesita atención",
+      "planModeOnBadge": "Plan mode",
+      "planModeOffBadge": "Sin plan mode",
+      "planModeOnTooltip": "Plan mode forzado activo para este worker.",
+      "planModeOffTooltip": "Plan mode forzado desactivado para este worker."
     },
     "form": {
       "newTitle": "Nuevo worker",
@@ -868,6 +872,11 @@
       "saveEdit": "Guardar cambios",
       "modelLabel": "Modelo",
       "modelDefault": "Por defecto (global)",
+      "planModeLabel": "Plan mode",
+      "planModeGlobal": "Usar configuración global",
+      "planModeOn": "Forzar activo",
+      "planModeOff": "Forzar desactivado",
+      "planModeHelp": "Sobreescribe el plan mode global del executor para este worker.",
       "githubPatLabel": "PAT de GitHub (opcional)",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "•••••• (guardado — dejá vacío para no cambiarlo)",

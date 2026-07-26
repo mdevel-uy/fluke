@@ -849,7 +849,11 @@
       "queueLoading": "Loading queue...",
       "queueError": "Failed to load queue.",
       "queueEmpty": "The queue is empty.",
-      "needsAttention": "Needs attention"
+      "needsAttention": "Needs attention",
+      "planModeOnBadge": "Plan mode",
+      "planModeOffBadge": "No plan mode",
+      "planModeOnTooltip": "Plan mode forced on for this worker.",
+      "planModeOffTooltip": "Plan mode forced off for this worker."
     },
     "form": {
       "newTitle": "New worker",
@@ -868,6 +872,11 @@
       "saveEdit": "Save changes",
       "modelLabel": "Model",
       "modelDefault": "Default (global)",
+      "planModeLabel": "Plan mode",
+      "planModeGlobal": "Follow global setting",
+      "planModeOn": "Force on",
+      "planModeOff": "Force off",
+      "planModeHelp": "Override the global executor plan mode for this worker.",
       "githubPatLabel": "GitHub PAT (optional)",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "•••••• (stored — leave blank to keep it)",

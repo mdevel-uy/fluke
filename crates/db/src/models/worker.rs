@@ -27,6 +27,10 @@ pub struct Worker {
     /// the API is allowed to expose.
     #[serde(default, skip_serializing)]
     pub github_pat: Option<String>,
+    /// Per-worker override for plan mode. `None` = follow the global
+    /// `executor_profile.permission_policy`; `Some(true)` = force plan mode
+    /// on; `Some(false)` = force plan mode off for this worker.
+    pub plan_mode: Option<bool>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -38,6 +42,7 @@ pub struct CreateWorker {
     pub role: Option<String>,
     pub model: Option<String>,
     pub github_pat: Option<String>,
+    pub plan_mode: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -50,12 +55,15 @@ pub struct UpdateWorker {
     pub model: Option<Option<String>>,
     /// `None` = don't touch; `Some(None)` = clear the PAT; `Some(Some(x))` = set new PAT.
     pub github_pat: Option<Option<String>>,
+    /// `None` = don't touch; `Some(None)` = clear the override (follow global);
+    /// `Some(Some(bool))` = force plan mode on/off for this worker.
+    pub plan_mode: Option<Option<bool>>,
 }
 
 impl Worker {
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
                FROM workers
                ORDER BY created_at ASC",
         )
@@ -65,7 +73,7 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
                FROM workers
                WHERE id = ?1",
         )
@@ -78,8 +86,8 @@ impl Worker {
         let id = Uuid::new_v4();
         let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat, plan_mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         )
         .bind(id)
         .bind(&data.name)
@@ -88,6 +96,7 @@ impl Worker {
         .bind(&role)
         .bind(&data.model)
         .bind(&data.github_pat)
+        .bind(data.plan_mode)
         .execute(pool)
         .await?;
 
@@ -115,6 +124,7 @@ impl Worker {
             .github_pat
             .clone()
             .unwrap_or(existing.github_pat.clone());
+        let plan_mode = data.plan_mode.unwrap_or(existing.plan_mode);
 
         sqlx::query(
             "UPDATE workers
@@ -123,7 +133,8 @@ impl Worker {
                     soul       = ?4,
                     role       = ?5,
                     model      = ?6,
-                    github_pat = ?7
+                    github_pat = ?7,
+                    plan_mode  = ?8
               WHERE id = ?1",
         )
         .bind(id)
@@ -133,6 +144,7 @@ impl Worker {
         .bind(role)
         .bind(model)
         .bind(github_pat)
+        .bind(plan_mode)
         .execute(pool)
         .await?;
 
@@ -267,7 +279,7 @@ impl Worker {
     /// First worker with the `reviewer` role (by creation order), if any.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
                FROM workers
                WHERE role = 'reviewer'
                ORDER BY created_at ASC

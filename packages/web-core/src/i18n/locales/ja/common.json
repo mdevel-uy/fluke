@@ -849,7 +849,11 @@
       "queueLoading": "キューを読み込み中...",
       "queueError": "キューの読み込みに失敗しました。",
       "queueEmpty": "キューは空です。",
-      "needsAttention": "要対応"
+      "needsAttention": "要対応",
+      "planModeOnBadge": "プランモード",
+      "planModeOffBadge": "プランモード無効",
+      "planModeOnTooltip": "このワーカーではプランモードを強制的に有効にしています。",
+      "planModeOffTooltip": "このワーカーではプランモードを強制的に無効にしています。"
     },
     "form": {
       "newTitle": "新しいワーカー",
@@ -868,6 +872,11 @@
       "saveEdit": "変更を保存",
       "modelLabel": "モデル",
       "modelDefault": "デフォルト（グローバル）",
+      "planModeLabel": "プランモード",
+      "planModeGlobal": "グローバル設定に従う",
+      "planModeOn": "強制的に有効",
+      "planModeOff": "強制的に無効",
+      "planModeHelp": "このワーカーに対して、executor のグローバルなプランモードを上書きします。",
       "githubPatLabel": "GitHub PAT（任意）",
       "githubPatPlaceholder": "ghp_…",
       "githubPatMaskedPlaceholder": "••••••（保存済み — 変更しない場合は空欄のまま）",
