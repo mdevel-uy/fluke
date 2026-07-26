@@ -110,17 +110,31 @@ fn plan_label(rate_limit_tier: Option<&str>, subscription_type: Option<&str>) ->
 
 /// Read the CLI's stored OAuth credentials: the credentials file, then (on
 /// macOS dev machines, where the CLI keeps them in the Keychain) `security`.
+///
+/// A missing credentials file is the most common reason the dashboard's Claude
+/// limits card stays hidden, so say which source was missing instead of just
+/// returning `None`: a deployment that authenticates Claude Code through
+/// `CLAUDE_CODE_OAUTH_TOKEN` never writes this file, and that silence is
+/// indistinguishable from a failed request.
 async fn read_claude_credentials() -> Option<ClaudeCredentials> {
-    if let Some(path) = claude_credentials_path()
-        && let Ok(raw) = tokio::fs::read_to_string(&path).await
-        && let Some(creds) = credentials_from_json(&raw)
+    let path = claude_credentials_path();
+
+    if let Some(path) = path.as_deref()
+        && let Ok(raw) = tokio::fs::read_to_string(path).await
     {
-        return Some(creds);
+        if let Some(creds) = credentials_from_json(&raw) {
+            return Some(creds);
+        }
+        tracing::warn!(
+            "claude credentials at {} are not in the expected \
+             {{\"claudeAiOauth\":{{\"accessToken\":..}}}} shape",
+            path.display()
+        );
     }
 
     #[cfg(target_os = "macos")]
     {
-        let output = tokio::process::Command::new("security")
+        if let Ok(output) = tokio::process::Command::new("security")
             .args([
                 "find-generic-password",
                 "-s",
@@ -129,45 +143,79 @@ async fn read_claude_credentials() -> Option<ClaudeCredentials> {
             ])
             .output()
             .await
-            .ok()?;
-        if output.status.success()
+            && output.status.success()
             && let Ok(raw) = String::from_utf8(output.stdout)
+            && let Some(creds) = credentials_from_json(raw.trim())
         {
-            return credentials_from_json(raw.trim());
+            return Some(creds);
         }
     }
 
-    #[allow(unreachable_code)]
+    tracing::warn!(
+        "no Claude credentials found at {}; the Claude limits card stays hidden \
+         until `claude login` stores them there. CLAUDE_CODE_OAUTH_TOKEN is not \
+         a substitute: those tokens lack the `user:profile` scope the usage API \
+         requires",
+        path.map_or_else(
+            || "$HOME/.claude/.credentials.json (no home directory)".to_string(),
+            |path| path.display().to_string()
+        )
+    );
     None
+}
+
+/// Percentage for a window, read from the payload's `limits` array.
+///
+/// `limits` states the scale in the field name, so it is the only unambiguous
+/// source: `{"kind":"weekly_all","percent":15,"resets_at":..}`. The per-window
+/// `utilization` cannot be read on its own — see [`meters_from_usage`].
+fn percent_from_limits(payload: &serde_json::Value, limit_kind: &str) -> Option<f64> {
+    payload
+        .get("limits")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("kind").and_then(|v| v.as_str()) == Some(limit_kind))?
+        .get("percent")?
+        .as_f64()
 }
 
 /// Map the usage payload's windows onto the dashboard meters.
 ///
-/// Shape (recovered from the CLI, which builds its `/usage` screen from this
-/// endpoint plus the `anthropic-ratelimit-unified-*` headers):
-/// `{"five_hour":{"utilization":0.62,"resets_at":1785002400},"seven_day":{…},
-/// "seven_day_opus":{…}}` — `utilization` is a 0-1 fraction and `resets_at`
-/// epoch seconds, but both are accepted as percent / RFC3339 strings too.
+/// Shape, captured from a live response (the original was reverse-engineered
+/// from the CLI bundle and got the scale wrong):
+/// ```json
+/// {"five_hour":{"utilization":13.0,"resets_at":"2026-07-26T05:30:00+00:00"},
+///  "seven_day":{"utilization":15.0,..}, "seven_day_opus":null,
+///  "limits":[{"kind":"session","percent":13,..},
+///            {"kind":"weekly_all","percent":15,..}]}
+/// ```
+///
+/// `utilization` is a **percent**, not a 0-1 fraction: the same response's
+/// `limits[].percent` reads 13 for a `utilization` of 13.0. Scaling anything
+/// `<= 1.0` by 100 — as this did — is therefore wrong precisely when usage is
+/// under 1%, i.e. right after a window resets, turning 0.5% into 50%. Prefer
+/// `limits[]`, whose field name pins the scale down, and fall back to
+/// `utilization` read as a percent.
+///
+/// Windows the account does not have come back as `null` (`seven_day_opus`
+/// above) and are skipped, so fewer than three meters is normal.
 fn meters_from_usage(payload: &serde_json::Value) -> Vec<ClaudeUsageMeter> {
-    const WINDOWS: [(&str, &str); 3] = [
-        ("five_hour", "session"),
-        ("seven_day", "week_all"),
-        ("seven_day_opus", "week_opus"),
+    // window key, meter key, matching `limits[].kind`
+    const WINDOWS: [(&str, &str, &str); 3] = [
+        ("five_hour", "session", "session"),
+        ("seven_day", "week_all", "weekly_all"),
+        ("seven_day_opus", "week_opus", "weekly_opus"),
     ];
 
     let mut meters = Vec::new();
-    for (window_key, meter_key) in WINDOWS {
+    for (window_key, meter_key, limit_kind) in WINDOWS {
         let Some(window) = payload.get(window_key) else {
             continue;
         };
-        let Some(utilization) = window.get("utilization").and_then(|v| v.as_f64()) else {
+        let Some(used_percent) = percent_from_limits(payload, limit_kind)
+            .or_else(|| window.get("utilization").and_then(|v| v.as_f64()))
+        else {
             continue;
-        };
-        // 0-1 fraction normally; tolerate a value that is already a percent.
-        let used_percent = if utilization <= 1.0 {
-            utilization * 100.0
-        } else {
-            utilization
         };
         meters.push(ClaudeUsageMeter {
             key: meter_key.to_string(),
@@ -197,12 +245,25 @@ async fn fetch_usage_payload(access_token: &str) -> Option<serde_json::Value> {
         .timeout(Duration::from_secs(10))
         .send()
         .await
-        .map_err(|err| tracing::debug!("claude usage request failed: {err}"))
+        .map_err(|err| tracing::warn!("claude usage request failed: {err}"))
         .ok()?;
-    if !response.status().is_success() {
-        // Expired token and not-logged-in both land here; the CLI refreshes
-        // the token on its own as workers run, so this heals by itself.
-        tracing::debug!("claude usage returned {}", response.status());
+
+    let status = response.status();
+    if !status.is_success() {
+        // 401 heals on its own — the CLI refreshes the token as workers run.
+        // 403 does not: it means the token lacks `user:profile`, which is what
+        // a `claude setup-token` token looks like. Very different fixes, so
+        // don't collapse them into one message.
+        let hint = match status.as_u16() {
+            401 => " (token expired; the CLI refreshes it as workers run)",
+            403 => {
+                " (token lacks the `user:profile` scope; `claude setup-token` \
+                    tokens never have it — run `claude login` instead)"
+            }
+            _ => "",
+        };
+        let body = response.text().await.unwrap_or_default();
+        tracing::warn!("claude usage returned {status}{hint}: {}", body.trim());
         return None;
     }
     response.json().await.ok()
@@ -234,7 +295,7 @@ async fn get_claude_usage(
     {
         let meters = meters_from_usage(&payload);
         if meters.is_empty() {
-            tracing::debug!("claude usage payload had no known windows: {payload}");
+            tracing::warn!("claude usage payload had no known windows: {payload}");
         } else {
             response = Some(ClaudeUsageResponse {
                 plan: creds.plan,
@@ -258,33 +319,82 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn meters_from_the_documented_payload() {
-        let payload = json!({
-            "five_hour": { "utilization": 0.62, "resets_at": 1785002400 },
-            "seven_day": { "utilization": 0.41, "resets_at": 1785412800 },
-            "seven_day_opus": { "utilization": 0.78, "resets_at": 1785412800 },
-            "seven_day_sonnet": { "utilization": 0.10, "resets_at": 1785412800 },
-        });
-        let meters = meters_from_usage(&payload);
-        let keys: Vec<_> = meters.iter().map(|m| m.key.as_str()).collect();
-        assert_eq!(keys, ["session", "week_all", "week_opus"]);
-        assert!((meters[0].used_percent - 62.0).abs() < 0.01);
-        assert_eq!(
-            meters[0].resets_at.as_deref(),
-            Some("2026-07-25T18:00:00+00:00")
-        );
+    /// Trimmed from a real response, including the `null` windows the account
+    /// does not have.
+    fn live_payload() -> serde_json::Value {
+        json!({
+            "five_hour": { "utilization": 13.0, "resets_at": "2026-07-26T05:30:00+00:00" },
+            "seven_day": { "utilization": 15.0, "resets_at": "2026-07-31T21:00:00+00:00" },
+            "seven_day_opus": serde_json::Value::Null,
+            "seven_day_sonnet": serde_json::Value::Null,
+            "limits": [
+                { "kind": "session", "percent": 13,
+                  "resets_at": "2026-07-26T05:30:00+00:00" },
+                { "kind": "weekly_all", "percent": 15,
+                  "resets_at": "2026-07-31T21:00:00+00:00" },
+                { "kind": "weekly_scoped", "percent": 7,
+                  "scope": { "model": { "display_name": "Fable" } } },
+            ],
+        })
     }
 
     #[test]
-    fn meters_tolerate_percent_scale_and_missing_windows() {
+    fn meters_from_the_live_payload() {
+        let meters = meters_from_usage(&live_payload());
+        // Two, not three: `seven_day_opus` is null for this account, and the
+        // weekly window it does have is scoped to a model the card cannot
+        // label yet, so it is deliberately left out.
+        let keys: Vec<_> = meters.iter().map(|m| m.key.as_str()).collect();
+        assert_eq!(keys, ["session", "week_all"]);
+        assert!((meters[0].used_percent - 13.0).abs() < 0.01);
+        assert!((meters[1].used_percent - 15.0).abs() < 0.01);
+        assert_eq!(
+            meters[0].resets_at.as_deref(),
+            Some("2026-07-26T05:30:00+00:00")
+        );
+    }
+
+    /// The regression this file existed to hide: `utilization` is a percent,
+    /// so sub-1% usage — the state right after a window resets — must not be
+    /// multiplied by 100. `limits[].percent` is what settles the scale.
+    #[test]
+    fn sub_one_percent_usage_is_not_scaled_to_tens_of_percent() {
         let payload = json!({
-            "five_hour": { "utilization": 62.0 },
+            "five_hour": { "utilization": 0.5, "resets_at": "2026-07-26T05:30:00+00:00" },
+            "limits": [{ "kind": "session", "percent": 0.5 }],
         });
+        let meters = meters_from_usage(&payload);
+        assert_eq!(meters.len(), 1);
+        assert!(
+            (meters[0].used_percent - 0.5).abs() < 0.01,
+            "0.5% must stay 0.5%, got {}",
+            meters[0].used_percent
+        );
+    }
+
+    /// Older responses carried no `limits` array; `utilization` alone is still
+    /// read as a percent rather than guessed at.
+    #[test]
+    fn utilization_without_limits_is_read_as_a_percent() {
+        let payload = json!({ "five_hour": { "utilization": 62.0 } });
         let meters = meters_from_usage(&payload);
         assert_eq!(meters.len(), 1);
         assert!((meters[0].used_percent - 62.0).abs() < 0.01);
         assert!(meters[0].resets_at.is_none());
+
+        let low = json!({ "five_hour": { "utilization": 0.5 } });
+        let meters = meters_from_usage(&low);
+        assert!((meters[0].used_percent - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn epoch_resets_are_still_accepted() {
+        let payload = json!({ "five_hour": { "utilization": 62.0, "resets_at": 1785002400 } });
+        let meters = meters_from_usage(&payload);
+        assert_eq!(
+            meters[0].resets_at.as_deref(),
+            Some("2026-07-25T18:00:00+00:00")
+        );
     }
 
     #[test]
