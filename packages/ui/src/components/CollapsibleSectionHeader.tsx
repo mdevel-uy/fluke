@@ -169,7 +169,7 @@ export function CollapsibleSectionHeader({
             {headerContent}
           </button>
         ) : (
-          <div className="flex items-center justify-between w-full h-[30px] px-4 mb-1 select-none">
+          <div className="flex items-center justify-between w-full h-[30px] pl-[22px] pr-2 mb-1 select-none">
             {headerContent}
           </div>
         )}
