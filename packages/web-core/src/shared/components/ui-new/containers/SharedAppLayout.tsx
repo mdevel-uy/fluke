@@ -63,8 +63,15 @@ import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
 const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
+// Separators double as the divider's shadow: the Panel wrapper clips
+// box-shadows (overflow hidden), so the sash carries an overflowing
+// gradient pseudo-element that fades onto the main column, VSCode-style.
 const SHELL_SEPARATOR_CLASS =
-  'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:w-2 after:bg-gradient-to-r after:from-black/15 after:to-transparent';
+const SHELL_ASIDE_SEPARATOR_CLASS =
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-gradient-to-l after:from-black/15 after:to-transparent';
 const SHELL_SEPARATOR_ROW_CLASS =
   'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
 
@@ -326,7 +333,7 @@ export function SharedAppLayout() {
                   id="shell-sidebar"
                   minSize="220px"
                   maxSize="480px"
-                  className="relative z-10 h-full overflow-hidden border-r border-md-outline-variant shadow-[4px_0_10px_-2px_rgba(0,0,0,0.18)]"
+                  className="h-full overflow-hidden border-r border-md-outline-variant"
                 >
                   <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
                 </Panel>
@@ -405,7 +412,7 @@ export function SharedAppLayout() {
               {showShellAside && (
                 <Separator
                   id="shell-aside-separator"
-                  className={SHELL_SEPARATOR_CLASS}
+                  className={SHELL_ASIDE_SEPARATOR_CLASS}
                 />
               )}
               {showShellAside && (
@@ -413,7 +420,7 @@ export function SharedAppLayout() {
                   id="shell-aside"
                   minSize="220px"
                   maxSize="480px"
-                  className="relative z-10 h-full overflow-hidden border-l border-md-outline-variant shadow-[-4px_0_10px_-2px_rgba(0,0,0,0.18)]"
+                  className="h-full overflow-hidden border-l border-md-outline-variant"
                 >
                   <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
                 </Panel>
