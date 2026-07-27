@@ -212,7 +212,8 @@ export function SharedAppLayout() {
     isSprintActive ||
     isIssuesActive ||
     isWorkersActive ||
-    isDashboardActive;
+    isDashboardActive ||
+    isAnalystDeskActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   const {
     defaultLayout: shellSidebarLayout,
@@ -251,8 +252,9 @@ export function SharedAppLayout() {
               className={isTauriMac() ? 'pl-[64px]' : undefined}
               onOpenDrawer={() => setIsDrawerOpen(true)}
             />
-            {/* Middle row: activity rail + content. */}
-            <div className="grid grid-cols-[auto_1fr] min-h-0 overflow-hidden">
+            {/* Middle row: activity rail + content. Flex (not grid) so the
+                resizable group gets a definite height to fill (min-h-0!). */}
+            <div className="flex min-h-0 overflow-hidden">
               {/* Desktop AppBar sidebar. */}
               <AppBar
                 onWorkspacesClick={handleWorkspacesClick}
@@ -276,7 +278,7 @@ export function SharedAppLayout() {
               {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
               <Group
                 orientation="horizontal"
-                className="min-w-0 h-full"
+                className="flex-1 min-w-0 h-full"
                 defaultLayout={shellSidebarLayout}
                 onLayoutChange={onShellSidebarLayoutChange}
               >
