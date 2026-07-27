@@ -52,8 +52,9 @@ export function SidebarSection({
   // Wrapper div keeps the header's `h-full` root harmless: inside an
   // auto-height parent it collapses to content (same trick WorkspacesSidebar
   // uses). Without it every section stretches to the panel height.
+  // VSCode-style: sections are divided by a bottom hairline, except the last.
   return (
-    <div className="flex-none">
+    <div className="flex-none border-b last:border-b-0">
       <CollapsibleSectionHeader
         persistKey={persistKey}
         title={title}

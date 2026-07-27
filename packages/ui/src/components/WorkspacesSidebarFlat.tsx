@@ -182,7 +182,7 @@ function Section({
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="flex-none">
+    <div className="flex-none border-b last:border-b-0">
       <CollapsibleSectionHeader
         persistKey={persistKey}
         title={title}

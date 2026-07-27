@@ -109,8 +109,9 @@ export function AsideSection({
 }) {
   // flex-none wrapper is mandatory: CollapsibleSectionHeader's root is
   // h-full flex-col and stretches inside definite-height containers.
+  // VSCode-style: sections divided by a bottom hairline, except the last.
   return (
-    <div className="flex-none border-b border-border">
+    <div className="flex-none border-b border-border last:border-b-0">
       <CollapsibleSectionHeader
         persistKey={persistKey}
         title={title}
