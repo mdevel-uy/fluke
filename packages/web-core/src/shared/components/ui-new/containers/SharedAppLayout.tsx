@@ -199,29 +199,39 @@ export function SharedAppLayout() {
     }
   }, [activeProjectId, setSelectedProjectId]);
 
+  // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
+  // clicking any other item navigates to that section.
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+
   const handleWorkspacesClick = useCallback(() => {
-    void navigate({ to: '/workspaces' });
-  }, [navigate]);
+    if (isWorkspacesActive) toggleLeftSidebar();
+    else void navigate({ to: '/workspaces' });
+  }, [isWorkspacesActive, toggleLeftSidebar, navigate]);
 
   const handleDashboardClick = useCallback(() => {
-    appNavigation.goToDashboard();
-  }, [appNavigation]);
+    if (isDashboardActive) toggleLeftSidebar();
+    else appNavigation.goToDashboard();
+  }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
 
   const handleSprintClick = useCallback(() => {
-    appNavigation.goToSprint();
-  }, [appNavigation]);
+    if (isSprintActive) toggleLeftSidebar();
+    else appNavigation.goToSprint();
+  }, [isSprintActive, toggleLeftSidebar, appNavigation]);
 
   const handleIssuesClick = useCallback(() => {
-    appNavigation.goToIssues();
-  }, [appNavigation]);
+    if (isIssuesActive) toggleLeftSidebar();
+    else appNavigation.goToIssues();
+  }, [isIssuesActive, toggleLeftSidebar, appNavigation]);
 
   const handleWorkersClick = useCallback(() => {
-    appNavigation.goToWorkers();
-  }, [appNavigation]);
+    if (isWorkersActive) toggleLeftSidebar();
+    else appNavigation.goToWorkers();
+  }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
 
   const handleAnalystDeskClick = useCallback(() => {
-    appNavigation.goToAnalystDesk();
-  }, [appNavigation]);
+    if (isAnalystDeskActive) toggleLeftSidebar();
+    else appNavigation.goToAnalystDesk();
+  }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
