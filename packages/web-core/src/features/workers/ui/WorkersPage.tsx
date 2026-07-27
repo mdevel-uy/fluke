@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { ApiError } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { cn } from '@/shared/lib/utils';
@@ -273,16 +274,20 @@ export function WorkersPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
-      {/* MD3 top bar */}
-      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-heading font-sans text-high">
-          {t('workers.title')}
-        </h1>
-        <Button variant="primary" onClick={handleNewWorker}>
-          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-          {t('workers.newWorker')}
-        </Button>
-      </header>
+      <PageHeader
+        title={t('workers.title')}
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            className="h-8 gap-1.5 text-sm"
+            onClick={handleNewWorker}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+            {t('workers.newWorker')}
+          </Button>
+        }
+      />
 
       {/* Toast notifications */}
       {toasts.length > 0 && (
