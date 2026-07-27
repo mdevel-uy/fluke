@@ -191,10 +191,7 @@
       "all": "全部工作區",
       "archive": "封存"
     },
-    "scopeRailLabel": "工作區範圍",
-    "viewArchive": "檢視封存",
-    "backToActive": "返回活躍",
-    "newButton": "新增"
+    "scopeRailLabel": "工作區範圍"
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",

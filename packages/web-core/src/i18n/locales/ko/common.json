@@ -191,10 +191,7 @@
       "all": "전체 워크스페이스",
       "archive": "보관함"
     },
-    "scopeRailLabel": "워크스페이스 범위",
-    "viewArchive": "보관함 보기",
-    "backToActive": "활성으로 돌아가기",
-    "newButton": "새로 만들기"
+    "scopeRailLabel": "워크스페이스 범위"
   },
   "fileTree": {
     "searchPlaceholder": "파일 검색...",
