@@ -51,10 +51,7 @@ import {
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
-import {
-  useUiPreferencesStore,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 
 import { workspacesApi, repoApi, repoIssuesApi } from '@/shared/lib/api';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
@@ -514,7 +511,7 @@ export const Actions = {
     icon: ColumnsIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
+      ctx.activeViewTabs.includes('changes') &&
       ctx.layoutMode === 'workspaces',
     isActive: (ctx) => ctx.diffViewMode === 'split',
     getIcon: (ctx) => (ctx.diffViewMode === 'split' ? ColumnsIcon : RowsIcon),
@@ -534,7 +531,7 @@ export const Actions = {
     icon: EyeSlashIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
+      ctx.activeViewTabs.includes('changes') &&
       ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
@@ -552,7 +549,7 @@ export const Actions = {
     shortcut: 'T W',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
+      ctx.activeViewTabs.includes('changes') &&
       ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
@@ -614,10 +611,10 @@ export const Actions = {
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
     isActive: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES,
+      ctx.activeViewTabs.includes('changes'),
     isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES
+      ctx.activeViewTabs.includes('changes')
         ? 'Hide Changes Panel'
         : 'Show Changes Panel',
     execute: (ctx) => {
@@ -639,11 +636,11 @@ export const Actions = {
       !ctx.isCreateMode &&
       ctx.layoutMode === 'workspaces' &&
       (ctx.hasExecutionProcesses ||
-        ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS),
-    isActive: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
+        ctx.activeViewTabs.includes('logs')),
+    isActive: (ctx) => ctx.activeViewTabs.includes('logs'),
     isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS
+      ctx.activeViewTabs.includes('logs')
         ? 'Hide Logs Panel'
         : 'Show Logs Panel',
     execute: (ctx) => {
@@ -678,10 +675,10 @@ export const Actions = {
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
     isActive: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW,
+      ctx.activeViewTabs.includes('preview'),
     isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW
+      ctx.activeViewTabs.includes('preview')
         ? 'Hide Preview Panel'
         : 'Show Preview Panel',
     execute: (ctx) => {
@@ -705,7 +702,7 @@ export const Actions = {
     icon: CaretDoubleUpIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
+      ctx.activeViewTabs.includes('changes') &&
       ctx.layoutMode === 'workspaces',
     getIcon: (ctx) =>
       ctx.isAllDiffsExpanded ? CaretDoubleUpIcon : CaretDoubleDownIcon,
@@ -788,7 +785,7 @@ export const Actions = {
     icon: CopyIcon,
     shortcut: 'Y L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
+    isVisible: (ctx) => ctx.activeViewTabs.includes('logs'),
     execute: async (ctx) => {
       if (!ctx.currentLogs || ctx.currentLogs.length === 0) return;
       const rawText = ctx.currentLogs.map((log) => log.content).join('\n');
@@ -836,13 +833,10 @@ export const Actions = {
         ctx.stopDevServer();
       } else {
         ctx.startDevServer();
-        // Auto-open preview mode when starting dev server
+        // Auto-open the preview tab when starting the dev server
         useUiPreferencesStore
           .getState()
-          .setRightMainPanelMode(
-            RIGHT_MAIN_PANEL_MODES.PREVIEW,
-            ctx.currentWorkspaceId ?? undefined
-          );
+          .openWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'preview');
       }
     },
   },

@@ -9,7 +9,7 @@ import type {
 import type { Workspace as RemoteWorkspace } from 'shared/remote-types';
 import type { DiffViewMode } from '@/shared/stores/useDiffViewStore';
 import type { LayoutMode } from '@/shared/stores/useUiPreferencesStore';
-import { RIGHT_MAIN_PANEL_MODES } from '@/shared/stores/useUiPreferencesStore';
+import type { WorkspaceTabId } from '@/shared/lib/workspaceTabGroups';
 import type {
   AppDestination,
   AppNavigation,
@@ -117,9 +117,8 @@ export interface ActionVisibilityContext {
   // Layout state
   layoutMode: LayoutMode | 'none';
   currentView: CurrentView;
-  rightMainPanelMode:
-    | (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES]
-    | null;
+  /** Active view of each tab group of the current workspace (R14). */
+  activeViewTabs: WorkspaceTabId[];
   isLeftSidebarVisible: boolean;
   isLeftMainPanelVisible: boolean;
   isRightSidebarVisible: boolean;

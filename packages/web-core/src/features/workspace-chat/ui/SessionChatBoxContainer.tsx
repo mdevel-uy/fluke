@@ -45,10 +45,7 @@ import {
   type SessionChatBoxEditorRenderProps,
 } from '@vibe/ui/components/SessionChatBox';
 import { ModelSelectorContainer } from '@/shared/components/ModelSelectorContainer';
-import {
-  useWorkspacePanelState,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useInspectModeStore } from '../model/store/useInspectModeStore';
 import { Actions } from '@/shared/actions';
 import {
@@ -192,16 +189,13 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
 
   const { executeAction } = useActions();
   const actionCtx = useActionVisibilityContext();
-  const { rightMainPanelMode, setRightMainPanelMode } =
-    useWorkspacePanelState(workspaceId);
+  const toggleWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.toggleWorkspaceViewTab
+  );
 
   const handleViewCode = useCallback(() => {
-    setRightMainPanelMode(
-      rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES
-        ? null
-        : RIGHT_MAIN_PANEL_MODES.CHANGES
-    );
-  }, [rightMainPanelMode, setRightMainPanelMode]);
+    toggleWorkspaceViewTab(workspaceId, 'changes');
+  }, [toggleWorkspaceViewTab, workspaceId]);
 
   const handleOpenWorkspace = useCallback(() => {
     if (!workspaceId) return;

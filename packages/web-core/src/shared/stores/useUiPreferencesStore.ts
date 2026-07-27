@@ -11,15 +11,6 @@ import {
   type WorkspaceTabId,
 } from '@/shared/lib/workspaceTabGroups';
 
-export const RIGHT_MAIN_PANEL_MODES = {
-  CHANGES: 'changes',
-  LOGS: 'logs',
-  PREVIEW: 'preview',
-} as const;
-
-export type RightMainPanelMode =
-  (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES];
-
 export type LayoutMode = 'workspaces' | 'kanban';
 
 export type MobileTab =
@@ -82,14 +73,13 @@ export type ContextBarPosition =
   | 'bottom-left'
   | 'bottom-right';
 
-// Workspace-specific panel state
+// Workspace-specific panel state. The old rightMainPanelMode was replaced by
+// the tab-groups model (SHELL-SPEC R14) — views live in workspaceTabGroups.
 export type WorkspacePanelState = {
-  rightMainPanelMode: RightMainPanelMode | null;
   isLeftMainPanelVisible: boolean;
 };
 
 const DEFAULT_WORKSPACE_PANEL_STATE: WorkspacePanelState = {
-  rightMainPanelMode: null,
   isLeftMainPanelVisible: false,
 };
 
@@ -302,9 +292,6 @@ export const PERSIST_KEYS = {
   repoCard: (repoId: string) => `repo-card-${repoId}` as const,
 } as const;
 
-// Check if screen is wide enough to keep sidebar visible
-const isWideScreen = () => window.innerWidth > 2048;
-
 export type PersistKey =
   | typeof PERSIST_KEYS.workspacesSidebarArchived
   | typeof PERSIST_KEYS.gitAdvancedSettings
@@ -407,20 +394,11 @@ type State = {
   setLayoutMode: (mode: LayoutMode) => void;
   toggleLayoutMode: () => void;
   toggleLeftSidebar: () => void;
-  toggleLeftMainPanel: (workspaceId?: string) => void;
   toggleRightSidebar: () => void;
   toggleTerminal: () => void;
   setTerminalVisible: (value: boolean) => void;
   // Note: Kanban panel actions (openKanbanIssuePanel, closeKanbanIssuePanel, etc.)
   // are handled by app navigation
-  toggleRightMainPanelMode: (
-    mode: RightMainPanelMode,
-    workspaceId?: string
-  ) => void;
-  setRightMainPanelMode: (
-    mode: RightMainPanelMode | null,
-    workspaceId?: string
-  ) => void;
   setLeftSidebarVisible: (value: boolean) => void;
   setLeftMainPanelVisible: (value: boolean, workspaceId?: string) => void;
   triggerPreviewRefresh: () => void;
@@ -579,24 +557,6 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   toggleLeftSidebar: () =>
     set((s) => ({ isLeftSidebarVisible: !s.isLeftSidebarVisible })),
 
-  toggleLeftMainPanel: (workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    if (wsState.isLeftMainPanelVisible && wsState.rightMainPanelMode === null)
-      return;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          isLeftMainPanelVisible: !wsState.isLeftMainPanelVisible,
-        },
-      },
-    });
-  },
-
   toggleRightSidebar: () =>
     set((s) => ({ isRightSidebarVisible: !s.isRightSidebarVisible })),
 
@@ -604,54 +564,6 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
     set((s) => ({ isTerminalVisible: !s.isTerminalVisible })),
 
   setTerminalVisible: (value) => set({ isTerminalVisible: value }),
-
-  toggleRightMainPanelMode: (mode, workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    const isCurrentlyActive = wsState.rightMainPanelMode === mode;
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          rightMainPanelMode: isCurrentlyActive ? null : mode,
-        },
-      },
-      isLeftSidebarVisible: isCurrentlyActive
-        ? true
-        : isWideScreen()
-          ? state.isLeftSidebarVisible
-          : false,
-      ...(isMobile &&
-        !isCurrentlyActive && { mobileActiveTab: mode as MobileTab }),
-    });
-  },
-
-  setRightMainPanelMode: (mode, workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          rightMainPanelMode: mode,
-        },
-      },
-      ...(mode !== null && {
-        isLeftSidebarVisible: isWideScreen()
-          ? state.isLeftSidebarVisible
-          : false,
-      }),
-      ...(isMobile && mode !== null && { mobileActiveTab: mode as MobileTab }),
-    });
-  },
 
   setLeftSidebarVisible: (value) => set({ isLeftSidebarVisible: value }),
 
@@ -718,24 +630,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
       [workspaceId]: normalizeGroups(groups),
     };
     saveTabGroups(next);
-    // Legacy bridge until F5 rebuilds the aside: mirror the active non-chat
-    // view into rightMainPanelMode so its contextual sections keep working.
-    const activeView = next[workspaceId]
-      .flatMap((g) => (g.active !== 'chat' ? [g.active] : []))
-      .at(-1);
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    set({
-      workspaceTabGroups: next,
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          rightMainPanelMode: (activeView ?? null) as RightMainPanelMode | null,
-        },
-      },
-    });
+    set({ workspaceTabGroups: next });
   },
 
   // Kanban view selection actions
@@ -1088,29 +983,11 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
   const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
 
   // Actions from store
-  const toggleRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.toggleRightMainPanelMode
-  );
-  const setRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.setRightMainPanelMode
-  );
   const setLeftMainPanelVisible = useUiPreferencesStore(
     (s) => s.setLeftMainPanelVisible
   );
   const setLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.setLeftSidebarVisible
-  );
-
-  // Memoized callbacks that include workspaceId
-  const toggleRightMainPanelModeForWorkspace = useCallback(
-    (mode: RightMainPanelMode) => toggleRightMainPanelMode(mode, workspaceId),
-    [toggleRightMainPanelMode, workspaceId]
-  );
-
-  const setRightMainPanelModeForWorkspace = useCallback(
-    (mode: RightMainPanelMode | null) =>
-      setRightMainPanelMode(mode, workspaceId),
-    [setRightMainPanelMode, workspaceId]
   );
 
   const setLeftMainPanelVisibleForWorkspace = useCallback(
@@ -1120,7 +997,6 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
 
   return {
     // Workspace-specific state
-    rightMainPanelMode: wsState.rightMainPanelMode,
     isLeftMainPanelVisible: wsState.isLeftMainPanelVisible,
 
     // Global state (sidebars and terminal)
@@ -1129,11 +1005,24 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
     isTerminalVisible,
 
     // Workspace-specific actions
-    toggleRightMainPanelMode: toggleRightMainPanelModeForWorkspace,
-    setRightMainPanelMode: setRightMainPanelModeForWorkspace,
     setLeftMainPanelVisible: setLeftMainPanelVisibleForWorkspace,
 
     // Global actions
     setLeftSidebarVisible,
   };
+}
+
+// Active view tabs of a workspace's tab groups (SHELL-SPEC R14): one entry
+// per group. Replaces the old rightMainPanelMode as the "which views are on
+// screen" signal for action visibility and providers.
+export function useWorkspaceActiveViewTabs(
+  workspaceId: string | undefined
+): WorkspaceTabId[] {
+  const groups = useUiPreferencesStore((s) =>
+    workspaceId ? s.workspaceTabGroups[workspaceId] : undefined
+  );
+  return useMemo(
+    () => (groups ?? defaultTabGroups()).map((g) => g.active),
+    [groups]
+  );
 }
