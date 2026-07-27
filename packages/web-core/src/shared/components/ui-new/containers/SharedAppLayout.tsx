@@ -68,11 +68,11 @@ const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
 // gradient pseudo-element that fades onto the main column, VSCode-style.
 const SHELL_SEPARATOR_CLASS =
   'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
-  'after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:w-3.5 ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:w-2 ' +
   'after:bg-[linear-gradient(to_right,rgba(0,0,0,0.07),rgba(0,0,0,0.03)_45%,transparent)]';
 const SHELL_ASIDE_SEPARATOR_CLASS =
   'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
-  'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-3.5 ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 ' +
   'after:bg-[linear-gradient(to_left,rgba(0,0,0,0.07),rgba(0,0,0,0.03)_45%,transparent)]';
 const SHELL_SEPARATOR_ROW_CLASS =
   'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
