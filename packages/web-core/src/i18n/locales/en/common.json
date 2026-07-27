@@ -134,8 +134,6 @@
     "notFound": "Workspace not found",
     "selectToStart": "Select a workspace to get started",
     "draft": "Draft",
-    "viewArchive": "View Archive",
-    "backToActive": "Back to Active",
     "noArchived": "No archived workspaces",
     "noWorkspaces": "No workspaces",
     "newWorkspace": "New workspace",
@@ -207,8 +205,10 @@
       "all": "All workspaces",
       "archive": "Archive"
     },
-    "newButton": "New",
-    "scopeRailLabel": "Workspace scopes"
+    "scopeRailLabel": "Workspace scopes",
+    "viewArchive": "View Archive",
+    "backToActive": "Back to Active",
+    "newButton": "New"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",
@@ -397,9 +397,7 @@
     "noCommands": "No commands available for this agent."
   },
   "kanban": {
-    "noVisibleStatuses": "All statuses are hidden. Use display settings or switch to another tab to view issues.",
     "noProjectFound": "No project found",
-    "unassigned": "Unassigned",
     "noTagsAvailable": "No tags available",
     "createNewIssue": "Create new issue",
     "searchTags": "Search tags...",
@@ -443,25 +441,13 @@
     "markIndependentIssue": "Mark as independent issue",
     "parentIssue": "Parent",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "Active",
-      "all": "All"
-    },
     "loginRequired": {
       "title": "Sign in required",
       "description": "Please sign in to view this project.",
       "action": "Sign in"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -483,32 +469,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "Assignees",
-    "filterByAssignee": "Filter by assignee",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "Urgent",
-      "high": "High",
-      "medium": "Medium",
-      "low": "Low"
-    },
-    "options": "Options",
-    "sortField": {
-      "sort_order": "Manual",
-      "priority": "Priority",
-      "created_at": "Created",
-      "updated_at": "Updated",
-      "title": "Title"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "Hide blocked",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -588,6 +552,10 @@
     "commandBarTrigger": {
       "placeholder": "Search commands...",
       "ariaLabel": "Open command bar"
+    },
+    "repoSelector": {
+      "placeholder": "Select repository",
+      "ariaLabel": "Select repository"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "Loading repositories...",
     "noReposMessage": "No repositories registered. Add a repository first to see its issues.",
     "selectRepoPrompt": "Select a repository to see its issues.",
-    "repoSelectorPlaceholder": "Select repository",
     "openGroup": "Open",
     "closedGroup": "Closed",
     "authorPrefix": "by",
@@ -798,7 +765,9 @@
       "clear": "Clear filters",
       "noResults": "No issues match the current filters.",
       "noLabel": "No label",
-      "noMilestone": "No milestone"
+      "noMilestone": "No milestone",
+      "stateLabel": "State",
+      "clearSearch": "Clear search"
     },
     "drawer": {
       "title": "Issue detail",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "Analyst Desk",
-    "repoLabel": "Repository",
     "analystsLabel": "Analyst",
     "statusIdle": "Available",
     "statusBusy": "Busy",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "Kanban",
-    "repoSelectorPlaceholder": "Select repository",
     "loadingRepos": "Loading repositories...",
     "noReposMessage": "No repositories registered. Add a repository first to plan a sprint.",
     "selectRepoPrompt": "Select a repository to see its sprint board.",
@@ -1020,7 +987,7 @@
       "removeConfirm": "Remove"
     },
     "filters": {
-      "searchPlaceholder": "Search issues...",
+      "searchPlaceholder": "Search issues…",
       "clearSearch": "Clear search",
       "epic": "Epic",
       "allEpics": "All epics",
@@ -1071,5 +1038,9 @@
       "label": "Auto-ingest",
       "description": "Workers start as soon as a task is assigned"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read"
   }
 }
