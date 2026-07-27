@@ -44,12 +44,9 @@ import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
-import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
 import { PROJECTS_SHAPE } from 'shared/remote-types';
-import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebarContainer';
-import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
 import {
   ShellSidebarProvider,
   ShellSidebarSlot,
@@ -90,7 +87,6 @@ export function SharedAppLayout() {
   const updateVersion = useAppUpdateStore((s) => s.updateVersion);
   const restartForUpdate = useAppUpdateStore((s) => s.restart);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isAppBarHovered, setIsAppBarHovered] = useState(false);
   const navigate = useNavigate();
 
   // Register CMD+K shortcut globally for all routes under SharedAppLayout
@@ -181,13 +177,7 @@ export function SharedAppLayout() {
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
-  const isWorkspaceSidebarPreviewEnabled =
-    !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
   const activeProjectId = projectDestination?.projectId ?? null;
-  const sidebarPreview = useWorkspaceSidebarPreviewController({
-    enabled: isWorkspaceSidebarPreviewEnabled,
-    isAppBarHovered,
-  });
 
   // Persist last selected project to scratch store
   const setSelectedProjectId = useUiPreferencesStore(
@@ -327,8 +317,6 @@ export function SharedAppLayout() {
                 isIssuesActive={isIssuesActive}
                 isWorkersActive={isWorkersActive}
                 isAnalystDeskActive={isAnalystDeskActive}
-                onHoverStart={() => setIsAppBarHovered(true)}
-                onHoverEnd={() => setIsAppBarHovered(false)}
                 updateVersion={updateVersion}
                 onUpdateClick={restartForUpdate ?? undefined}
                 onOpenSettings={() => SettingsDialog.show()}
@@ -373,34 +361,6 @@ export function SharedAppLayout() {
                     minSize="200px"
                     className="relative min-h-0 w-full overflow-hidden"
                   >
-                    {isWorkspaceSidebarPreviewEnabled && (
-                      <div className="absolute inset-y-0 left-0 z-20 flex items-center">
-                        <WorkspacesSidebarReopenTag
-                          active={sidebarPreview.isPreviewOpen}
-                          onHoverStart={sidebarPreview.handleHandleHoverStart}
-                          onHoverEnd={sidebarPreview.handleHandleHoverEnd}
-                          ariaLabel="Workspaces"
-                        />
-                      </div>
-                    )}
-
-                    {isWorkspaceSidebarPreviewEnabled && (
-                      <div
-                        className={cn(
-                          'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
-                          sidebarPreview.isPreviewOpen
-                            ? 'translate-x-0 pointer-events-auto'
-                            : '-translate-x-full pointer-events-none'
-                        )}
-                        onMouseEnter={sidebarPreview.handlePreviewHoverStart}
-                        onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
-                      >
-                        <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
-                          <WorkspacesSidebarContainer />
-                        </div>
-                      </div>
-                    )}
-
                     <Outlet />
                   </Panel>
                   {isTerminalVisible && (
