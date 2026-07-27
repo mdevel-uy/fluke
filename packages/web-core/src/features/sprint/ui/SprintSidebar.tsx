@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
-import { cn } from '@/shared/lib/utils';
+import { InputField } from '@vibe/ui/components/InputField';
+import {
+  SidebarRepoSection,
+  SidebarRow,
+  SidebarSection,
+} from '@/shared/components/ui-new/shell/SidebarPrimitives';
 import type { IssueLabel, IssuePriority } from '@/features/issues/types';
 import type { Worker } from '@/features/sprint/types';
 import type { SprintFilters } from './SprintFilterBar';
@@ -16,57 +20,6 @@ interface SprintSidebarProps {
   labels: IssueLabel[];
   workers: Worker[];
   onFiltersChange: (next: SprintFilters) => void;
-}
-
-function FilterRow({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'relative flex w-full items-center gap-2 h-[22px] pl-[22px] pr-2 text-left text-sm',
-        'focus:outline-none focus-visible:ring-1 focus-visible:ring-brand',
-        selected
-          ? 'bg-sel text-high before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-[2px] before:bg-brand-on-surface'
-          : 'text-normal hover:bg-secondary'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SidebarSection({
-  persistKey,
-  title,
-  count,
-  defaultOpen = true,
-  children,
-}: {
-  persistKey: string;
-  title: string;
-  count?: number;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <CollapsibleSectionHeader
-      persistKey={persistKey}
-      title={title}
-      count={count}
-      defaultExpanded={defaultOpen}
-    >
-      <div className="flex flex-col">{children}</div>
-    </CollapsibleSectionHeader>
-  );
 }
 
 /**
@@ -95,22 +48,24 @@ export function SprintSidebar({
   ) => setFilter(key, filters[key] === value ? ('' as SprintFilters[K]) : value);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-md-surface-container-low border-r border-md-outline-variant">
-      <div className="flex h-9 flex-none items-center px-3.5 text-label uppercase tracking-wider text-low">
-        {t('sprint.title')}
-      </div>
-      <div className="mx-2.5 mb-2 flex h-[26px] flex-none items-center gap-1.5 rounded-md border border-border-strong bg-md-surface-container-lowest px-2">
-        <Search size={13} strokeWidth={1.75} className="text-low" aria-hidden />
-        <input
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+      <CollapsibleSectionHeader
+        title={t('sprint.title')}
+        collapsible={false}
+        className="border-b"
+      />
+      <div className="px-base py-half flex-none">
+        <InputField
+          variant="search"
           value={filters.q}
-          onChange={(e) => setFilter('q', e.target.value)}
+          onChange={(value) => setFilter('q', value)}
           placeholder={t('sprint.filters.searchPlaceholder', {
             defaultValue: 'Filter issues…',
           })}
-          className="w-full bg-transparent text-sm text-high placeholder:text-low focus:outline-none"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+        <SidebarRepoSection persistKey="sprint-sidebar-repo" />
         {workers.length > 0 && (
           <SidebarSection
             persistKey="sprint-sidebar-workers"
@@ -118,13 +73,13 @@ export function SprintSidebar({
             count={workers.length}
           >
             {workers.map((worker) => (
-              <FilterRow
+              <SidebarRow
                 key={worker.id}
                 selected={filters.worker === worker.id}
                 onClick={() => toggle('worker', worker.id)}
               >
                 <span className="truncate">{worker.name}</span>
-              </FilterRow>
+              </SidebarRow>
             ))}
           </SidebarSection>
         )}
@@ -133,13 +88,13 @@ export function SprintSidebar({
           title={t('sprint.filters.priority', { defaultValue: 'Priority' })}
         >
           {PRIORITIES.map((priority) => (
-            <FilterRow
+            <SidebarRow
               key={priority}
               selected={filters.priority === priority}
               onClick={() => toggle('priority', priority)}
             >
               <PriorityBadge priority={priority} />
-            </FilterRow>
+            </SidebarRow>
           ))}
         </SidebarSection>
         {labels.length > 0 && (
@@ -150,7 +105,7 @@ export function SprintSidebar({
             defaultOpen={false}
           >
             {labels.map((label) => (
-              <FilterRow
+              <SidebarRow
                 key={label.name}
                 selected={filters.label === label.name}
                 onClick={() => toggle('label', label.name)}
@@ -161,7 +116,7 @@ export function SprintSidebar({
                   aria-hidden
                 />
                 <span className="truncate">{label.name}</span>
-              </FilterRow>
+              </SidebarRow>
             ))}
           </SidebarSection>
         )}
@@ -173,13 +128,13 @@ export function SprintSidebar({
             defaultOpen={false}
           >
             {epics.map((epic) => (
-              <FilterRow
+              <SidebarRow
                 key={epic}
                 selected={filters.epic === epic}
                 onClick={() => toggle('epic', epic)}
               >
                 <span className="truncate">{epic}</span>
-              </FilterRow>
+              </SidebarRow>
             ))}
           </SidebarSection>
         )}

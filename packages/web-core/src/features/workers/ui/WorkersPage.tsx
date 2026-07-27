@@ -32,6 +32,8 @@ import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
 import { ArchivedWorkersSection } from './ArchivedWorkersSection';
 import { WorkerCard } from './WorkerCard';
+import { WorkersSidebar, workerCardDomId } from './WorkersSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
 
@@ -156,6 +158,11 @@ export function WorkersPage() {
     }
     return stalled;
   }, [workers, workspaces, activeTaskByWorkerId]);
+
+  const workingWorkerIds = useMemo(
+    () => new Set(activeTaskByWorkerId.keys()),
+    [activeTaskByWorkerId]
+  );
 
   const stats = useMemo(() => {
     const working = workers.filter(
@@ -335,6 +342,14 @@ export function WorkersPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
+      <ShellSidebarPortal>
+        <WorkersSidebar
+          workers={workers}
+          archivedWorkers={archivedWorkers}
+          workingWorkerIds={workingWorkerIds}
+          attentionWorkerIds={stalledWorkerIds}
+        />
+      </ShellSidebarPortal>
       <PageHeader
         title={t('workers.title')}
         actions={
@@ -424,8 +439,8 @@ export function WorkersPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 p-container-padding md:grid-cols-2 xl:grid-cols-3">
             {workers.map((worker) => (
+              <div key={worker.id} id={workerCardDomId(worker.id)}>
               <WorkerCard
-                key={worker.id}
                 worker={worker}
                 queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
                 activeTask={activeTaskByWorkerId.get(worker.id)}
@@ -442,6 +457,7 @@ export function WorkersPage() {
                 onDuplicate={() => handleDuplicate(worker)}
                 onArchive={() => handleArchive(worker)}
               />
+              </div>
             ))}
           </div>
         )}

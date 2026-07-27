@@ -686,7 +686,7 @@
     },
     "taskLinked": {
       "openWorkspace": "Open workspace",
-      "viewInSprint": "View in Sprint"
+      "viewInSprint": "View on board"
     },
     "table": {
       "issue": "Issue",
@@ -937,10 +937,10 @@
   "sprint": {
     "title": "Kanban",
     "loadingRepos": "Loading repositories...",
-    "noReposMessage": "No repositories registered. Add a repository first to plan a sprint.",
-    "selectRepoPrompt": "Select a repository to see its sprint board.",
-    "loading": "Loading sprint...",
-    "loadError": "Failed to load the sprint board.",
+    "noReposMessage": "No repositories registered. Add a repository first to plan work on the board.",
+    "selectRepoPrompt": "Select a repository to see its kanban board.",
+    "loading": "Loading board...",
+    "loadError": "Failed to load the kanban board.",
     "sync": "Sync",
     "syncing": "Syncing...",
     "columns": {

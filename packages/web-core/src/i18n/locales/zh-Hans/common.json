@@ -686,7 +686,7 @@
     },
     "taskLinked": {
       "openWorkspace": "打开工作区",
-      "viewInSprint": "在 Sprint 中查看"
+      "viewInSprint": "在看板中查看"
     },
     "table": {
       "issue": "Issue",

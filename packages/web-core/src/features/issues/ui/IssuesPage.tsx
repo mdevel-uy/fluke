@@ -27,6 +27,8 @@ import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
+import { IssuesSidebar } from './IssuesSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import type {
   IssueFilters,
   IssuePriorityFilter,
@@ -465,7 +467,15 @@ export function IssuesPage() {
         }
       />
 
-      {/* Filters toolbar (only when there are issues) */}
+      {/* Search, repo, views and labels live in the shell sidebar (SHELL-SPEC R9);
+          the toolbar keeps the advanced filters the sidebar doesn't cover. */}
+      <ShellSidebarPortal>
+        <IssuesSidebar
+          filters={filters}
+          availableLabels={availableLabels}
+          onChange={handleFilterChange}
+        />
+      </ShellSidebarPortal>
       {hasIssues && (
         <IssuesToolbar
           filters={filters}
@@ -473,6 +483,8 @@ export function IssuesPage() {
           availableMilestones={availableMilestones}
           availableWorkers={availableWorkers}
           onChange={handleFilterChange}
+          hideSearch
+          hiddenFilterIds={['state', 'label']}
         />
       )}
 

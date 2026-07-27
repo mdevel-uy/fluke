@@ -207,7 +207,12 @@ export function SharedAppLayout() {
 
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
-  const sectionHasSidebar = isWorkspacesActive || isSprintActive;
+  const sectionHasSidebar =
+    isWorkspacesActive ||
+    isSprintActive ||
+    isIssuesActive ||
+    isWorkersActive ||
+    isDashboardActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   const {
     defaultLayout: shellSidebarLayout,
