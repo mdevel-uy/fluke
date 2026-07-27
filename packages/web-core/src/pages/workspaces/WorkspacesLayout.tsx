@@ -351,11 +351,12 @@ export function WorkspacesLayout() {
   );
 
   // The shell owns the aside panel and the terminal split (SHELL-SPEC
-  // R18/R29/R30) — the page only fills the main column.
+  // R18/R29/R30) — the page only fills the main column. No PageHeader on
+  // desktop: the mock goes straight to the tab groups (the workspace name
+  // lives in the navbar breadcrumbs and the aside title).
   return (
     <div className="flex flex-1 min-h-0 h-full flex-col">
       {sidebarPortal}
-      {header}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         {isCreateMode ? (
           <CreateModeProvider
