@@ -437,7 +437,7 @@ export function WorkersPage() {
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 p-container-padding md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,380px))] gap-4 p-container-padding">
             {workers.map((worker) => (
               <div key={worker.id} id={workerCardDomId(worker.id)}>
               <WorkerCard
