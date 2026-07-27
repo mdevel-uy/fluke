@@ -13,6 +13,7 @@ import {
   Separator,
   useDefaultLayout,
 } from 'react-resizable-panels';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import type { CreateModeInitialState } from '@/shared/types/createMode';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
@@ -82,11 +83,7 @@ export function WorkspacesLayout() {
     isCreateMode ? t('workspaces.newWorkspace') : selectedWorkspace?.name
   );
 
-  const header = (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-md-outline-variant bg-md-surface-bright px-container-padding">
-      <h1 className="font-sans text-heading text-high">{headerTitle}</h1>
-    </header>
-  );
+  const header = <PageHeader title={headerTitle} />;
 
   const seedVersion = useSyncExternalStore(
     subscribeCreateModeSeedState,
