@@ -112,7 +112,7 @@ export function WorkspaceScopeRail({
     <nav
       aria-label={t('common:workspaces.scopeRailLabel')}
       className={cn(
-        'flex w-11 shrink-0 flex-col gap-half border-r border-border bg-md-surface-container-lowest px-1 py-1.5',
+        'flex h-full w-11 shrink-0 self-stretch flex-col gap-half border-r border-border bg-md-surface-container-lowest px-1 py-1.5',
         className
       )}
     >
