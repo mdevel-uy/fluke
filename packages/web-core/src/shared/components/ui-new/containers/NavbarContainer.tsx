@@ -6,6 +6,8 @@ import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
 import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
+import { useRepos } from '@/shared/hooks/useRepos';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
 import { useOrganizationStore } from '@/shared/stores/useOrganizationStore';
 import {
@@ -367,6 +369,85 @@ export function NavbarContainer({
     appNavigation,
   ]);
 
+  // SHELL-SPEC R2 fallback: `proyecto › sección › workspace` (mock crumbs)
+  // whenever the richer remote Project › Issue › Workspace doesn't apply.
+  const { repos: navRepos } = useRepos();
+  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const activeRepo = useMemo(
+    () => navRepos.find((r) => r.id === selectedRepoId) ?? navRepos[0] ?? null,
+    [navRepos, selectedRepoId]
+  );
+
+  const localBreadcrumbs = useMemo(():
+    | NavbarBreadcrumbItem[]
+    | undefined => {
+    if (isCreateMode || isOnProjectPage) return undefined;
+    const kind = destination?.kind ?? null;
+    const section:
+      | { label: string; goTo: () => void }
+      | null =
+      kind === 'workspaces' ||
+      kind === 'workspaces-create' ||
+      kind === 'workspace' ||
+      kind === 'workspace-vscode'
+        ? {
+            label: t('appBar.workspaces', { defaultValue: 'Workspaces' }),
+            goTo: () => appNavigation.goToWorkspaces(),
+          }
+        : kind === 'sprint'
+          ? {
+              label: t('appBar.kanban', { defaultValue: 'Kanban' }),
+              goTo: () => appNavigation.goToSprint(),
+            }
+          : kind === 'issues'
+            ? {
+                label: t('appBar.issues', { defaultValue: 'Issues' }),
+                goTo: () => appNavigation.goToIssues(),
+              }
+            : kind === 'workers'
+              ? {
+                  label: t('appBar.workers', { defaultValue: 'Workers' }),
+                  goTo: () => appNavigation.goToWorkers(),
+                }
+              : kind === 'dashboard'
+                ? {
+                    label: t('appBar.dashboard', { defaultValue: 'Dashboard' }),
+                    goTo: () => appNavigation.goToDashboard(),
+                  }
+                : kind === 'analyst-desk'
+                  ? {
+                      label: t('appBar.analystDesk', {
+                        defaultValue: 'Analyst Desk',
+                      }),
+                      goTo: () => appNavigation.goToAnalystDesk(),
+                    }
+                  : null;
+    if (!section) return undefined;
+
+    const items: NavbarBreadcrumbItem[] = [];
+    if (activeRepo) {
+      items.push({ label: activeRepo.display_name || activeRepo.name });
+    }
+    const workspaceLabel =
+      selectedWorkspace?.name || selectedWorkspace?.branch || '';
+    if (workspaceLabel) {
+      items.push({ label: section.label, onClick: section.goTo });
+      items.push({ label: workspaceLabel });
+    } else {
+      items.push({ label: section.label });
+    }
+    return items;
+  }, [
+    isCreateMode,
+    isOnProjectPage,
+    destination?.kind,
+    activeRepo,
+    selectedWorkspace?.name,
+    selectedWorkspace?.branch,
+    appNavigation,
+    t,
+  ]);
+
   // Mobile-specific callbacks
   const handleOpenCommandBar = useCallback(() => {
     CommandBarDialog.show();
@@ -410,7 +491,7 @@ export function NavbarContainer({
     <Navbar
       className={className}
       workspaceTitle={navbarTitle}
-      breadcrumbs={breadcrumbs}
+      breadcrumbs={breadcrumbs ?? localBreadcrumbs}
       leftItems={leftItems}
       rightItems={rightItems}
       syncErrors={syncErrors}
