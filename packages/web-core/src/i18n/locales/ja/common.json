@@ -723,7 +723,10 @@
       "enqueuedError": "タスクのキュー追加に失敗しました。",
       "checkingConflicts": "既存の割り当てを確認中...",
       "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
-      "assignAnyway": "それでも割り当てる"
+      "assignAnyway": "それでも割り当てる",
+      "skillsLabel": "スキル",
+      "skillsPicker": "スキルを追加",
+      "skillsEmpty": "インストール済みのスキルがありません。設定 → スキルから追加してください。"
     },
     "reassignDialog": {
       "title": "Issue #{{number}} を別のワーカーに再割り当て",
@@ -938,7 +941,9 @@
       "errorLabel": "アップロードに失敗しました",
       "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
       "tooLarge": "ファイルサイズが上限を超えています。"
-    }
+    },
+    "skillsPicker": "スキルを追加",
+    "skillsEmpty": "インストール済みのスキルがありません。設定 → スキルから追加してください。"
   },
   "sprint": {
     "title": "カンバン",

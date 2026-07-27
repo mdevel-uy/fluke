@@ -723,7 +723,10 @@
       "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
       "checkingConflicts": "Vérification des assignations existantes...",
       "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
-      "assignAnyway": "Assigner quand même"
+      "assignAnyway": "Assigner quand même",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Ajouter des skills",
+      "skillsEmpty": "Aucun skill installé. Ajoutez-en dans Paramètres → Skills."
     },
     "reassignDialog": {
       "title": "Réaffecter l'issue #{{number}} à un autre worker",
@@ -938,7 +941,9 @@
       "errorLabel": "Échec de l'envoi",
       "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
       "tooLarge": "Le fichier dépasse la taille maximale autorisée."
-    }
+    },
+    "skillsPicker": "Ajouter des skills",
+    "skillsEmpty": "Aucun skill installé. Ajoutez-en dans Paramètres → Skills."
   },
   "sprint": {
     "title": "Kanban",
