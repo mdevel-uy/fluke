@@ -39,8 +39,10 @@ const TAB_ICONS: Record<WorkspaceTabId, LucideIcon> = {
   preview: Globe,
 };
 
+// The split sash overlaps the previous group's right border (-ml-1, zero net
+// width) so groups touch with a 1px divider and no white gutter, VSCode-style.
 const SEPARATOR_CLASS =
-  'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
+  'relative z-20 w-1 -ml-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
 
 interface WorkspaceTabGroupsProps {
   groups: WorkspaceTabGroup[];
@@ -185,7 +187,10 @@ function TabGroupPane({
       <Panel
         id={panelId}
         minSize="220px"
-        className="relative min-w-0 h-full overflow-hidden flex flex-col bg-md-surface-container-lowest"
+        className={cn(
+          'relative min-w-0 h-full overflow-hidden flex flex-col bg-md-surface-container-lowest',
+          !isLast && 'border-r border-md-outline-variant'
+        )}
       >
         {/* Tab bar */}
         <div
