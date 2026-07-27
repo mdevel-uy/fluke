@@ -366,7 +366,6 @@ export const RightSidebar = memo(function RightSidebar({
         <CollapsibleSectionHeader
           title={selectedWorkspace.name ?? selectedWorkspace.branch ?? ''}
           collapsible={false}
-          className="border-b"
         />
       </div>
 

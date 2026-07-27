@@ -49,7 +49,6 @@ export function WorkersSidebar({
       <CollapsibleSectionHeader
         title={t('appBar.workers')}
         collapsible={false}
-        className="border-b"
       />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">

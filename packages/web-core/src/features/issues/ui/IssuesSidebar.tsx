@@ -57,7 +57,6 @@ export function IssuesSidebar({
       <CollapsibleSectionHeader
         title={t('issues.title', { defaultValue: 'Issues' })}
         collapsible={false}
-        className="border-b"
       />
       </div>
       <div className="px-base py-half flex-none">

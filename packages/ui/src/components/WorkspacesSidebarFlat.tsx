@@ -248,7 +248,6 @@ export function WorkspacesSidebarFlat({
         <CollapsibleSectionHeader
           title={t('common:workspaces.title', { defaultValue: 'Workspaces' })}
           collapsible={false}
-          className="border-b"
         />
       </div>
 

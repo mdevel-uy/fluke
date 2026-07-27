@@ -53,7 +53,6 @@ export function SprintSidebar({
       <CollapsibleSectionHeader
         title={t('sprint.title')}
         collapsible={false}
-        className="border-b"
       />
       </div>
       <div className="px-base py-half flex-none">
