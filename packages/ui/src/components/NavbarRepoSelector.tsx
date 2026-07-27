@@ -61,7 +61,7 @@ export function NavbarRepoSelector({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="start"
+        align="end"
         className="max-h-72 w-56 overflow-y-auto"
       >
         {repos.map((repo) => (

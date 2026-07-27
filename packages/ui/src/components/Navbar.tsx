@@ -211,6 +211,7 @@ export interface NavbarProps {
   leftItems?: NavbarSectionItem[];
   rightItems?: NavbarSectionItem[];
   leftSlot?: ReactNode;
+  rightSlot?: ReactNode;
   syncErrors?: readonly SyncErrorIndicatorError[] | null;
   className?: string;
   mobileMode?: boolean;
@@ -240,6 +241,7 @@ export function Navbar({
   leftItems = [],
   rightItems = [],
   leftSlot,
+  rightSlot,
   syncErrors,
   className,
   mobileMode = false,
@@ -523,6 +525,7 @@ export function Navbar({
         className="flex-1 flex items-center justify-end gap-base px-3"
       >
         <SyncErrorIndicator errors={syncErrors} />
+        {rightSlot}
         {visibleRightItems.map((item, index) =>
           renderItem(
             item,

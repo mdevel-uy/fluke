@@ -215,13 +215,13 @@ export function NavbarContainer({
 
   const rightItems = useMemo(
     () => [
-      themeToggleItem,
-      { type: 'divider' as const },
       ...toNavbarSectionItems(
         filterNavbarItems(NavbarActionGroups.right, actionCtx),
         actionCtx,
         handleExecuteAction
       ),
+      { type: 'divider' as const },
+      themeToggleItem,
     ],
     [actionCtx, handleExecuteAction, themeToggleItem]
   );
@@ -363,7 +363,7 @@ export function NavbarContainer({
       onMobileTabChange={(tab) => setMobileActiveTab(tab)}
       leftSlot={
         <>
-          <NavbarRepoSelectorContainer />
+          {mobileMode ? <NavbarRepoSelectorContainer /> : null}
           {!breadcrumbs &&
           !isWaitingForBreadcrumbData &&
           linkedRemoteWorkspace?.issue_id ? (
@@ -374,6 +374,7 @@ export function NavbarContainer({
           ) : null}
         </>
       }
+      rightSlot={!mobileMode ? <NavbarRepoSelectorContainer /> : null}
     />
   );
 }
