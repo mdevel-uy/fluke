@@ -42,7 +42,8 @@ import { InReviewTaskCard } from './InReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
 import { FailedTaskCard } from './FailedTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
-import { SprintFilterBar } from './SprintFilterBar';
+import { SprintSidebar } from './SprintSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { IssueDetailPanel } from './IssueDetailPanel';
 import type { SprintFilters } from './SprintFilterBar';
 
@@ -848,15 +849,16 @@ export function SprintPage() {
         }
       />
 
-      {showBoard && (
-        <SprintFilterBar
+      {/* Filters moved to the shell sidebar (SHELL-SPEC R9). */}
+      <ShellSidebarPortal>
+        <SprintSidebar
           filters={filters}
           epics={allEpics}
           labels={allLabels}
           workers={workers}
           onFiltersChange={handleFiltersChange}
         />
-      )}
+      </ShellSidebarPortal>
 
       {toasts.length > 0 && (
         <div className="px-container-padding pt-4 flex flex-col gap-2">

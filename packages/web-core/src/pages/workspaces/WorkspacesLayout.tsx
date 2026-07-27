@@ -29,6 +29,7 @@ import {
 import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { LogsContentContainer } from './LogsContentContainer';
 import {
   WorkspacesMainContainer,
@@ -146,7 +147,6 @@ export function WorkspacesLayout() {
 
   // Use workspace-specific panel state (pass undefined when in create mode)
   const {
-    isLeftSidebarVisible,
     isLeftMainPanelVisible,
     isRightSidebarVisible,
     isTerminalVisible,
@@ -443,8 +443,15 @@ export function WorkspacesLayout() {
     </ReviewProvider>
   );
 
-  // Outer group: left-sidebar | center | right-sidebar
-  // Both sidebars are resizable panels with pixel-based min/max constraints.
+  // Left sidebar now lives in the shell (SHELL-SPEC R9): the page contributes
+  // its content through the shell sidebar portal and keeps the scroll wiring.
+  const sidebarPortal = (
+    <ShellSidebarPortal>
+      <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
+    </ShellSidebarPortal>
+  );
+
+  // Outer group: center | right-sidebar
   // Layout is persisted to localStorage via useDefaultLayout.
   const workspaceTopContent = (
     <Group
@@ -453,21 +460,6 @@ export function WorkspacesLayout() {
       defaultLayout={sidebarDefaultLayout}
       onLayoutChange={onSidebarLayoutChange}
     >
-      {isLeftSidebarVisible && (
-        <Panel
-          id="left-sidebar"
-          minSize="220px"
-          maxSize="480px"
-          className="h-full overflow-hidden"
-        >
-          <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
-        </Panel>
-      )}
-
-      {isLeftSidebarVisible && (
-        <Separator id="left-sidebar-separator" className={SEPARATOR_CLASS} />
-      )}
-
       <Panel
         id="outer-center"
         minSize="400px"
@@ -509,6 +501,7 @@ export function WorkspacesLayout() {
   if (!isBottomPanelVisible) {
     return (
       <div className="flex flex-1 min-h-0 h-full flex-col">
+        {sidebarPortal}
         {header}
         <div className="flex flex-1 min-h-0">{workspaceTopContent}</div>
       </div>
@@ -517,6 +510,7 @@ export function WorkspacesLayout() {
 
   return (
     <div className="flex flex-1 min-h-0 h-full flex-col">
+      {sidebarPortal}
       {header}
       <Group
         orientation="vertical"

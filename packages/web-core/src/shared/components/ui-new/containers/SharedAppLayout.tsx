@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from 'react-resizable-panels';
+import {
   X,
   Layout,
   LayoutDashboard,
@@ -44,6 +50,14 @@ import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
 import { PROJECTS_SHAPE } from 'shared/remote-types';
 import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebarContainer';
 import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
+import {
+  ShellSidebarProvider,
+  ShellSidebarSlot,
+} from '../shell/ShellSidebar';
+
+const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
+const SHELL_SEPARATOR_CLASS =
+  'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
@@ -191,8 +205,32 @@ export function SharedAppLayout() {
     appNavigation.goToAnalystDesk();
   }, [appNavigation]);
 
+  // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
+  // their content in. Sections without a contributed sidebar hide the panel.
+  const sectionHasSidebar = isWorkspacesActive || isSprintActive;
+  const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
+  const {
+    defaultLayout: shellSidebarLayout,
+    onLayoutChange: onShellSidebarLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: SHELL_SIDEBAR_LAYOUT_ID,
+  });
+  // Only persist when both panels are mounted — a single-panel layout would
+  // clobber the stored split (useDefaultLayout overwrites without merging).
+  const onShellSidebarLayoutChange = useCallback<
+    typeof onShellSidebarLayoutChangeRaw
+  >(
+    (layout) => {
+      if (showShellSidebar) onShellSidebarLayoutChangeRaw(layout);
+    },
+    [showShellSidebar, onShellSidebarLayoutChangeRaw]
+  );
+
   return (
     <SyncErrorProvider>
+      <ShellSidebarProvider>
       <div
         className={cn(
           'bg-primary',
@@ -230,8 +268,35 @@ export function SharedAppLayout() {
                 onUpdateClick={restartForUpdate ?? undefined}
                 onOpenSettings={() => SettingsDialog.show()}
               />
+              {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
+              <Group
+                orientation="horizontal"
+                className="min-w-0 h-full"
+                defaultLayout={shellSidebarLayout}
+                onLayoutChange={onShellSidebarLayoutChange}
+              >
+              {showShellSidebar && (
+                <Panel
+                  id="shell-sidebar"
+                  minSize="220px"
+                  maxSize="480px"
+                  className="h-full overflow-hidden"
+                >
+                  <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
+                </Panel>
+              )}
+              {showShellSidebar && (
+                <Separator
+                  id="shell-sidebar-separator"
+                  className={SHELL_SEPARATOR_CLASS}
+                />
+              )}
               {/* Desktop content. */}
-              <div className="relative min-h-0 overflow-hidden">
+              <Panel
+                id="shell-content"
+                minSize="400px"
+                className="relative min-w-0 h-full overflow-hidden"
+              >
                 {isWorkspaceSidebarPreviewEnabled && (
                   <div className="absolute inset-y-0 left-0 z-20 flex items-center">
                     <WorkspacesSidebarReopenTag
@@ -261,7 +326,8 @@ export function SharedAppLayout() {
                 )}
 
                 <Outlet />
-              </div>
+              </Panel>
+              </Group>
             </div>
             {/* Workbench status bar — full-width bottom row. */}
             <StatusBarContainer
@@ -376,6 +442,7 @@ export function SharedAppLayout() {
           </div>
         </MobileDrawer>
       </div>
+      </ShellSidebarProvider>
     </SyncErrorProvider>
   );
 }
