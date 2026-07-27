@@ -1,12 +1,14 @@
 ---
-scope: Refactor estructural del shell (frontend-only)
+scope: Refactor estructural del shell (frontend-only; excepción acotada en F7, ver R34–R40)
 slug: workbench-shell
 status: approved
-approved_by: Dani (iterado y aprobado pieza por pieza, 27-jul-2026)
+approved_by: Dani (iterado y aprobado pieza por pieza, 27-jul-2026; v2 source control de flota aprobado 27-jul-2026)
 created: 2026-07-27
-version: 1
+version: 2
 reference: https://claude.ai/code/artifact/02c4f5d8-ac26-4c44-b5c5-bae78e0e0bc4
+reference_v2: https://claude.ai/code/artifact/3249d592-6926-412c-b9c8-2a7a1e121c93
 mock: design/workbench-shell-mock.html (copia versionada del artifact, fuente de verdad visual)
+mock_v2: design/git-fleet-mock.html (fuente de verdad visual de R34–R40)
 complements: design/UI-SPEC.md v3 (contrato visual — paleta, tipografía, densidad; este doc NO lo modifica)
 ---
 
@@ -82,7 +84,10 @@ main (default VSCode), **no** debajo de sidebar/aside.
   220–480, colapsable con toggle del navbar y ⌘B):
   - **Workspaces**: árbol con secciones Needs Attention / Running / Idle /
     **Archived** (headers caps 11px con chevron y contador; filas 22px).
-  - **Sprint**: filtro de búsqueda + secciones Sprints / Workers / Labels.
+  - **Kanban** (ex-Sprint; el concepto sprint se eliminó — los workers no paran):
+    búsqueda + Repository + Worker / Priority / Label / Epic (single-select
+    contra los parámetros de URL del board). La sección "Sprints" del mock v1
+    quedó obsoleta.
   - **Issues**: filtro + Repository + Views (All open, Assigned, Needs review, Closed).
   - **Workers**: secciones Active / Archived.
   - **Dashboard**: navegación de paneles (Overview, Activity, PRs, Claude limits, Pipeline).
@@ -97,9 +102,10 @@ main (default VSCode), **no** debajo de sidebar/aside.
 ### R13–R17 · Main: welcome view y tab groups
 
 - **R13** **El main nunca queda vacío.** Sin workspace seleccionado se muestra
-  la welcome view: título + columnas **Start** (New workspace ⌘N, Open sprint
-  board, Browse issues, Search ⌘K) y **Recent** (últimos 5 workspaces no
-  archivados con dot de estado + branch mono), y fila de atajos (⌘K ⌘B ⌘J ⌘⇧E).
+  la welcome view: título + columnas **Start** (Assign an issue on the board,
+  Browse issues, Search ⌘K — **sin "New workspace"**: los workspaces nacen al
+  asignar un issue a un worker, nunca se crean a mano) y **Recent** (últimos 5
+  workspaces no archivados con dot de estado + branch mono), y fila de atajos.
   Reemplaza los empty states de texto plano (`selectToStart` etc.). Sin
   medallones decorativos (regla UI-SPEC).
 - **R14** El detalle de workspace usa **tab groups estilo editor groups de
@@ -185,6 +191,49 @@ main (default VSCode), **no** debajo de sidebar/aside.
   `MaterialIcon`/Phosphor legacy.
 - **R33** Mobile conserva su patrón actual (drawer + tab strip) — fuera de alcance.
 
+### R34–R40 · Source control de flota (v2 — mock: `design/git-fleet-mock.html`)
+
+> Principio rector: **no reconstruir Sourcetree**. Se construye nativo solo lo
+> que ninguna herramienta de git da: la vista multi-worktree de la flota y el
+> flujo de revisar/commitear/desbloquear el trabajo de los agentes. Todo lo
+> demás se delega (R40).
+
+- **R34** Nueva sección **Source control** en el rail (icono lucide
+  `git-branch`, entre Workspaces y Sprint). Badge = nº de branches en
+  conflicto. Decisión cerrada: sección propia del rail, como el mock (se
+  descartaron las alternativas panel-de-Dashboard y tab-del-workspace).
+- **R35** Sidebar de Source control: branches de attempts agrupadas **Needs
+  attention / Running / Merged (colapsada) / Base**, con dot de estado, nombre
+  mono y ahead/behind (`+A / B`) a la derecha. Selección sincronizada con el
+  graph (mismo patrón R11); seleccionar en sidebar o en graph es equivalente.
+- **R36** **Fleet graph** (vista principal): grafo de commits con la base
+  (`mdev`) como carril neutro + un carril por branch de attempt activa.
+  Color del carril por estado: running indigo, review warning, conflicto
+  error, merged violeta. Sobre el head de cada rama: chip de branch (mono) +
+  etiqueta de estado (`Running · {worker}` / `PR #N · review` / `Rebase
+  conflict` / `Merged · PR #N`). Fila de commit: mensaje, refs, autor ·
+  tiempo, hash corto. Click en una fila de branch = selección master-detail
+  (R18 aplica: el aside muestra esa branch).
+- **R37** Tabs del main en Source control (mismo patrón de tabs R14, sin
+  drag/split): **Fleet graph** y **Changes · {branch seleccionada}**. En la
+  barra de tabs: chip `base {branch}` y botón Fetch all.
+- **R38** **Staging selectivo** en Changes: checkbox por archivo y por hunk
+  (checkbox del archivo en estado *indeterminate* si tiene hunks mixtos);
+  footer sticky con input de mensaje + botón primario **"Commit staged · N
+  files (+A −D)"** (disabled si no hay nada staged). Hint permanente: lo no
+  marcado queda en el worktree — el worker puede seguir trabajando sobre eso.
+- **R39** Aside con branch en conflicto: sección **"Conflicts · {op} onto
+  {base}"** con nota de resumen (borde/fondo error suave), archivos
+  conflictuados con badge **C**, botones **Continue** / **Abort**, y act-rows
+  **Open in editor** y **"Send to {worker}: Resolve merge conflicts"** (misma
+  semántica R24: precarga el composer, no ejecuta ciego). Sin conflicto, el
+  aside es el master-detail estándar (R18–R24).
+- **R40** **Delegación explícita**: stash, rebase interactivo, cherry-pick,
+  blame e historial profundo de archivo **no se construyen** — viven en
+  lazygit (terminal global R29) o en el editor embebido (openvscode-server,
+  decisión 27-jul). Cualquier PR que agregue esas vistas nativas contradice
+  este spec.
+
 ---
 
 ## ¿Frontend-only? — validación
@@ -205,6 +254,16 @@ endpoint ANTES de maquetar):
 | V2 | **Contexto %** del worker | `latest_context_usage` existe (llegó null alguna vez — gap notes 24-jul) | que el campo llegue poblado en runtime |
 | V3 | **Archivar workspaces** (flag + restore/purge) | Workers ya lo tienen (#277); workspaces quizá no tengan el flag | campo/endpoint de archived en workspaces |
 
+**F7 rompe la pureza frontend-only** — es la excepción declarada del spec y es
+backend acotado sobre `crates/git` (que ya tiene branch status, fork point,
+worktrees, rebase y conflictos):
+
+| # | Dato | Estado esperado | Verificar |
+|---|---|---|---|
+| V4 | **Log multi-branch para el fleet graph** (commits + parents de base y branches activas) | NO existe — endpoint nuevo chico: revwalk con git2 sobre `get_all_branches` + `get_fork_point` ya existentes | diseñar shape del endpoint antes de maquetar (lección Dashboard: curl primero) |
+| V5 | **Staging por hunk** (stage/unstage selectivo + commit de lo staged) | `commit` existe en `crates/git` pero probablemente commitea el worktree entero; stage parcial = manipulación del index con git2 | si `commit` acepta pathspec/index parcial; si no, endpoint nuevo |
+| V6 | **Conflictos vía API** (`get_conflicted_files`, `continue_rebase`, `abort_rebase`, `detect_conflict_op`) | Las funciones YA existen en `crates/git` | que estén expuestas como rutas del server y lleguen al cliente |
+
 ## Fases de implementación
 
 | Fase | Alcance | Toca | Borra |
@@ -215,13 +274,19 @@ endpoint ANTES de maquetar):
 | **F4 · Tab groups** | R13–R17: welcome view, modelo `groups`, drag/split/close/reopen, chat como tab con composer | `WorkspacesLayout.tsx`, `useUiPreferencesStore`, nuevos `TabGroup*` | `rightMainPanelMode` y su split fijo 50/50 |
 | **F5 · Aside master-detail** | R18–R24 (+V1, V2): worker card, Issue, Changes, Git, PR, Quick actions | `RightSidebar.tsx`, `GitPanelContainer`, nuevos `WorkerDetail*` | secciones no-scoped del aside actual |
 | **F6 · Proyecto + terminal global** | R25, R28–R30: selector proyecto/ambiente, re-mapeo de hosts, terminal al shell | `StatusBarContainer`, providers de host/repo, `TerminalPanelContainer`, `SharedAppLayout` | rutas host como navegación visible |
+| **F7 · Source control de flota** | R34–R40 (+V4–V6): sección del rail, sidebar de branches, fleet graph, staging selectivo, conflictos en el aside | nuevos `SourceControl*` (frontend); `crates/git` (revwalk multi-branch, stage parcial) + rutas server (backend acotado) | — |
 
 Orden pensado para que cada fase deje la app usable y verificable contra el
 mock. F4 es la más grande; F1–F2 son en gran parte **borrado** de código.
+F7 va última: depende del shell (rail F2, sidebar F3, aside F5, terminal F6)
+y es la única con backend; dentro de F7 el orden interno sugerido es
+conflictos (V6, backend ya existe) → fleet graph (V4) → staging (V5).
 
 ## Fuera de alcance
 
 Mobile (R33), migración completa de iconos legacy fuera de los componentes
 tocados, tabs de editor por-archivo (los tab groups son de *vistas*, no de
 documentos), rediseño de Dashboard/Analyst Desk más allá del shell que los
-envuelve.
+envuelve. Del source control (R40): stash, rebase interactivo, cherry-pick,
+blame e historial de archivo — delegados a lazygit / editor embebido, nunca
+nativos.

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, SquareKanban, ListChecks } from 'lucide-react';
+import { Search, SquareKanban, ListChecks } from 'lucide-react';
 import { getModifierKey } from '@vibe/ui/lib/platform';
 import { cn } from '@/shared/lib/utils';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
@@ -41,6 +41,8 @@ function StartLink({
 }
 
 export function WorkspacesWelcome() {
+  // Workspaces are never created by hand: they appear when an issue is
+  // assigned to a worker, so "Start" routes to the board, not to a form.
   const { t } = useTranslation('common');
   const appNavigation = useAppNavigation();
   const { activeWorkspaces, selectWorkspace } = useWorkspaceContext();
@@ -74,14 +76,9 @@ export function WorkspacesWelcome() {
               {t('workspaces.welcome.start', { defaultValue: 'Start' })}
             </h2>
             <StartLink
-              icon={<Plus size={15} strokeWidth={1.75} />}
-              label={t('workspaces.newWorkspace')}
-              onClick={() => appNavigation.goToWorkspacesCreate()}
-            />
-            <StartLink
               icon={<SquareKanban size={15} strokeWidth={1.75} />}
-              label={t('workspaces.welcome.openBoard', {
-                defaultValue: 'Open kanban board',
+              label={t('workspaces.welcome.assignIssue', {
+                defaultValue: 'Assign an issue on the board',
               })}
               onClick={() => appNavigation.goToSprint()}
             />
@@ -109,7 +106,8 @@ export function WorkspacesWelcome() {
             {recent.length === 0 ? (
               <p className="text-sm text-low">
                 {t('workspaces.welcome.noRecent', {
-                  defaultValue: 'No workspaces yet — create your first one.',
+                  defaultValue:
+                    'No workspaces yet — assign an issue to a worker and its workspace will appear here.',
                 })}
               </p>
             ) : (

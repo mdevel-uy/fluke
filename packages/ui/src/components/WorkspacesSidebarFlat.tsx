@@ -239,16 +239,8 @@ export function WorkspacesSidebarFlat({
     };
   }, [workspaces]);
 
-  const headerActions = onSelectCreate
-    ? [
-        {
-          materialIcon: 'add',
-          onClick: onSelectCreate,
-          isActive: isCreateMode,
-        },
-      ]
-    : [];
-
+  // No create action here: workspaces are born from assigning an issue to a
+  // worker, never created by hand.
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
       <div className="flex-none">
@@ -256,7 +248,6 @@ export function WorkspacesSidebarFlat({
           title={t('common:workspaces.title', { defaultValue: 'Workspaces' })}
           collapsible={false}
           className="border-b"
-          actions={headerActions}
         />
       </div>
 
