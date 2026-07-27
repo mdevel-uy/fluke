@@ -404,17 +404,8 @@ export const Actions = {
   },
 
   // === Global/Navigation Actions ===
-  NewWorkspace: {
-    id: 'new-workspace',
-    label: 'New Workspace',
-    icon: PlusIcon,
-    shortcut: 'G N',
-    requiresTarget: ActionTargetType.NONE,
-    execute: (ctx) => {
-      ctx.appNavigation.goToWorkspacesCreate();
-    },
-  },
-
+  // No NewWorkspace action: workspaces are born from assigning an issue to a
+  // worker, never created ad hoc (SHELL-SPEC R13).
   CreateWorkspaceFromPR: {
     id: 'create-workspace-from-pr',
     label: 'Create Workspace from PR',

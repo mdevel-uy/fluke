@@ -53,7 +53,6 @@ export function useWorkspaceShortcuts() {
   }, []);
 
   useHotkeys('g>s', () => execute(Actions.Settings), OPTIONS);
-  useHotkeys('g>n', () => execute(Actions.NewWorkspace), OPTIONS);
 
   useHotkeys('w>d', () => execute(Actions.DuplicateWorkspace), OPTIONS);
   useHotkeys('w>r', () => execute(Actions.RenameWorkspace), OPTIONS);
