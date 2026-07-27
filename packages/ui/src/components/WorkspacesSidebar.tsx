@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
@@ -102,7 +101,6 @@ export interface WorkspacesSidebarProps {
   isLoading?: boolean;
   selectedWorkspaceId: string | null;
   onSelectWorkspace: (id: string) => void;
-  onAddWorkspace?: () => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   /** Whether we're in create mode */
@@ -238,7 +236,6 @@ export function WorkspacesSidebar({
   isLoading = false,
   selectedWorkspaceId,
   onSelectWorkspace,
-  onAddWorkspace,
   searchQuery,
   onSearchChange,
   isCreateMode = false,
@@ -370,20 +367,6 @@ export function WorkspacesSidebar({
     [scopeWorkspaces]
   );
 
-  const newWorkspaceLabel = t('common:workspaces.newWorkspace');
-  const headerExtra = onAddWorkspace ? (
-    <button
-      type="button"
-      onClick={onAddWorkspace}
-      title={newWorkspaceLabel}
-      aria-label={newWorkspaceLabel}
-      className="flex h-cta items-center gap-half rounded-md bg-brand px-2 text-label font-semibold text-on-brand transition-colors duration-100 hover:bg-brand-hover"
-    >
-      <Plus className="size-icon-xs" strokeWidth={2.5} aria-hidden />
-      {t('common:workspaces.newButton')}
-    </button>
-  ) : null;
-
   return (
     <div className="w-full h-full bg-md-surface-container-lowest flex">
       {showChrome && (
@@ -401,7 +384,6 @@ export function WorkspacesSidebar({
             title={panelTitle}
             count={showChrome ? panelCount : undefined}
             collapsible={false}
-            headerExtra={headerExtra}
             className="border-b"
           />
           {showChrome && (

@@ -123,8 +123,7 @@
     "viewArchive": "檢視封存",
     "backToActive": "返回活躍",
     "noArchived": "沒有已封存的工作區",
-    "noWorkspaces": "沒有工作區",
-    "newWorkspace": "新工作區",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "需要關注",
     "idle": "閒置",
     "running": "執行中",
@@ -193,8 +192,9 @@
       "all": "全部工作區",
       "archive": "封存"
     },
-    "newButton": "新增",
-    "scopeRailLabel": "工作區範圍"
+    "scopeRailLabel": "工作區範圍",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",
@@ -337,7 +337,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "傳送訊息",
       "settings": "前往設定",
-      "new-workspace": "前往新工作區",
       "duplicate-workspace": "複製工作區",
       "rename-workspace": "重新命名工作區",
       "pin-workspace": "釘選/取消釘選工作區",
@@ -496,7 +495,7 @@
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {

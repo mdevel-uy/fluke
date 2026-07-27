@@ -404,22 +404,11 @@ export const Actions = {
   },
 
   // === Global/Navigation Actions ===
-  NewWorkspace: {
-    id: 'new-workspace',
-    label: 'New Workspace',
-    icon: PlusIcon,
-    shortcut: 'G N',
-    requiresTarget: ActionTargetType.NONE,
-    execute: (ctx) => {
-      ctx.appNavigation.goToWorkspacesCreate();
-    },
-  },
-
   CreateWorkspaceFromPR: {
     id: 'create-workspace-from-pr',
-    label: 'Create Workspace from PR',
+    label: 'Adopt PR',
     icon: GitPullRequestIcon,
-    keywords: ['pull request'],
+    keywords: ['pull request', 'create workspace from pr'],
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
     execute: async () => {

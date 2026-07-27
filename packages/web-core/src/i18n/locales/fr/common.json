@@ -123,8 +123,7 @@
     "viewArchive": "Voir les archives",
     "backToActive": "Retour aux actifs",
     "noArchived": "Aucun espace de travail archivé",
-    "noWorkspaces": "Aucun espace de travail",
-    "newWorkspace": "Nouvel espace de travail",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "Nécessite Attention",
     "idle": "Inactif",
     "running": "En Cours",
@@ -193,8 +192,9 @@
       "all": "Tous les espaces",
       "archive": "Archives"
     },
-    "newButton": "Nouveau",
-    "scopeRailLabel": "Portées des espaces de travail"
+    "scopeRailLabel": "Portées des espaces de travail",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",
@@ -337,7 +337,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "Envoyer le message",
       "settings": "Aller aux Paramètres",
-      "new-workspace": "Aller au Nouvel espace de travail",
       "duplicate-workspace": "Dupliquer l'espace de travail",
       "rename-workspace": "Renommer l'espace de travail",
       "pin-workspace": "Épingler/Désépingler l'espace de travail",
@@ -496,7 +495,7 @@
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {

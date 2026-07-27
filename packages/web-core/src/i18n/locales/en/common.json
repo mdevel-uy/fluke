@@ -137,8 +137,7 @@
     "viewArchive": "View Archive",
     "backToActive": "Back to Active",
     "noArchived": "No archived workspaces",
-    "noWorkspaces": "No workspaces",
-    "newWorkspace": "New workspace",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "Needs Attention",
     "idle": "Idle",
     "running": "Running",
@@ -207,8 +206,9 @@
       "all": "All workspaces",
       "archive": "Archive"
     },
-    "newButton": "New",
-    "scopeRailLabel": "Workspace scopes"
+    "scopeRailLabel": "Workspace scopes",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",
@@ -266,7 +266,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "Welcome",
-      "content": "Welcome to the Workspaces page. One view of the workspaces across all of your projects, and the fastest way to review work from your agents. Share feedback anytime via the navbar icon."
+      "content": "Welcome to the Workspaces page — one view of the work your agents are doing across all of your projects. A workspace opens when a worker picks up an issue; review, guide, and ship that work from here."
     },
     "commandBar": {
       "title": "Command Bar",
@@ -351,7 +351,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "Send message",
       "settings": "Go to Settings",
-      "new-workspace": "Go to New Workspace",
       "duplicate-workspace": "Duplicate workspace",
       "rename-workspace": "Rename workspace",
       "pin-workspace": "Pin/Unpin workspace",
@@ -510,7 +509,7 @@
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {

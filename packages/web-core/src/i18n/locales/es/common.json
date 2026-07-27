@@ -123,8 +123,7 @@
     "viewArchive": "Ver archivo",
     "backToActive": "Volver a activos",
     "noArchived": "No hay espacios de trabajo archivados",
-    "noWorkspaces": "Sin espacios de trabajo",
-    "newWorkspace": "Nuevo espacio de trabajo",
+    "noWorkspaces": "Aún no hay espacios de trabajo — se abren cuando un worker toma un issue.",
     "needsAttention": "Necesita Atención",
     "idle": "Inactivo",
     "running": "En Ejecución",
@@ -193,8 +192,9 @@
       "all": "Todos los espacios",
       "archive": "Archivo"
     },
-    "newButton": "Nuevo",
-    "scopeRailLabel": "Ámbitos de espacios de trabajo"
+    "scopeRailLabel": "Ámbitos de espacios de trabajo",
+    "draftWorkspace": "Borrador de espacio de trabajo",
+    "openForIssue": "Abrir un espacio de trabajo para este issue"
   },
   "fileTree": {
     "searchPlaceholder": "Buscar archivos...",
@@ -252,7 +252,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "Bienvenido",
-      "content": "Bienvenido a Workspaces, una interfaz rediseñada para Vibe Kanban. Estamos lanzando esto a usuarios seleccionados para recibir comentarios tempranos. Comparte tus opiniones en cualquier momento usando el ícono de comentarios en la barra de navegación."
+      "content": "Bienvenido a la página de Workspaces: una vista del trabajo que tus agentes están haciendo en todos tus proyectos. Un espacio de trabajo se abre cuando un worker toma un issue; desde aquí revisas, guías y entregas ese trabajo."
     },
     "commandBar": {
       "title": "Barra de comandos",
@@ -337,7 +337,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "Enviar mensaje",
       "settings": "Ir a Ajustes",
-      "new-workspace": "Ir a Nuevo espacio de trabajo",
       "duplicate-workspace": "Duplicar espacio de trabajo",
       "rename-workspace": "Renombrar espacio de trabajo",
       "pin-workspace": "Fijar/Desfijar espacio de trabajo",
@@ -496,7 +495,7 @@
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {

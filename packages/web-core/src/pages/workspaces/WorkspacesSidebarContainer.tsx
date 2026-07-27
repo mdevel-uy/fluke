@@ -573,7 +573,7 @@ export function WorkspacesSidebarContainer({
     const { title } = splitMessageToTitleDescription(
       scratchData.message.trim()
     );
-    return title || 'New Workspace';
+    return title || 'Draft workspace';
   }, [draftScratch]);
 
   // Handle workspace selection - scroll to bottom if re-selecting same workspace
@@ -596,13 +596,6 @@ export function WorkspacesSidebarContainer({
       setMobileActiveTab,
     ]
   );
-
-  const handleAddWorkspace = useCallback(() => {
-    navigateToCreate();
-    if (isMobile) {
-      setMobileActiveTab('chat');
-    }
-  }, [navigateToCreate, isMobile, setMobileActiveTab]);
 
   const handleOpenWorkspaceActions = useCallback((workspaceId: string) => {
     CommandBarDialog.show({
@@ -696,7 +689,6 @@ export function WorkspacesSidebarContainer({
       onSelectWorkspace={handleSelectWorkspace}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      onAddWorkspace={handleAddWorkspace}
       isCreateMode={isCreateMode}
       draftTitle={persistedDraftTitle}
       onSelectCreate={navigateToCreate}

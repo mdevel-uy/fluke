@@ -268,7 +268,10 @@ function WorkspaceSelectionContent({
             >
               <PlusIcon className="h-4 w-4" weight="bold" />
               <span>
-                {t('kanban.createNewWorkspace', 'Create new workspace')}
+                {t(
+                  'kanban.createNewWorkspace',
+                  'Open a new workspace for this issue'
+                )}
               </span>
             </CommandItem>
           </CommandGroup>

@@ -226,7 +226,7 @@ export function NavbarContainer({
   );
 
   const navbarTitle = isCreateMode
-    ? 'Create Workspace'
+    ? 'Draft workspace'
     : isOnProjectPage
       ? orgName
       : selectedWorkspace?.branch;

@@ -499,8 +499,8 @@
     }
   },
   "createWorkspaceFromPr": {
-    "title": "Create Workspace from PR",
-    "description": "Select an open pull request to create a workspace from. A task will be created automatically using the PR title.",
+    "title": "Adopt PR",
+    "description": "Select an open pull request to adopt. A workspace opens on its branch and a task is created from the PR title.",
     "repositoryLabel": "Repository",
     "remoteLabel": "Remote",
     "pullRequestLabel": "Pull Request",
@@ -512,7 +512,7 @@
     "noPullRequestsFound": "No open pull requests found",
     "runSetupScript": "Run setup script",
     "creating": "Creating...",
-    "createWorkspace": "Create Workspace",
+    "createWorkspace": "Open workspace",
     "selectRepository": "Select a repository",
     "selectRemote": "Select a remote",
     "selectPullRequest": "Select a pull request",

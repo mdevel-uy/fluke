@@ -76,10 +76,10 @@ export function WorkspacesLayout() {
 
   const { t } = useTranslation('common');
   const headerTitle = isCreateMode
-    ? t('workspaces.newWorkspace')
+    ? t('workspaces.draftWorkspace')
     : (selectedWorkspace?.name ?? t('workspaces.title'));
   usePageTitle(
-    isCreateMode ? t('workspaces.newWorkspace') : selectedWorkspace?.name
+    isCreateMode ? t('workspaces.draftWorkspace') : selectedWorkspace?.name
   );
 
   const header = (

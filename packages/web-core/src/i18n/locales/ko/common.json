@@ -123,8 +123,7 @@
     "viewArchive": "보관함 보기",
     "backToActive": "활성으로 돌아가기",
     "noArchived": "보관된 워크스페이스 없음",
-    "noWorkspaces": "워크스페이스 없음",
-    "newWorkspace": "새 워크스페이스",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "주의 필요",
     "idle": "대기 중",
     "running": "실행 중",
@@ -193,8 +192,9 @@
       "all": "전체 워크스페이스",
       "archive": "보관함"
     },
-    "newButton": "새로 만들기",
-    "scopeRailLabel": "워크스페이스 범위"
+    "scopeRailLabel": "워크스페이스 범위",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "파일 검색...",
@@ -337,7 +337,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "메시지 보내기",
       "settings": "설정으로 이동",
-      "new-workspace": "새 워크스페이스로 이동",
       "duplicate-workspace": "워크스페이스 복제",
       "rename-workspace": "워크스페이스 이름 변경",
       "pin-workspace": "워크스페이스 고정/해제",
@@ -496,7 +495,7 @@
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {
