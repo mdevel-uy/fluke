@@ -170,6 +170,7 @@ function Section({
   onSelectWorkspace,
   onOpenWorkspaceActions,
   defaultOpen = true,
+  alwaysShow = false,
 }: {
   persistKey: string;
   title: string;
@@ -179,8 +180,10 @@ function Section({
   onSelectWorkspace: (id: string) => void;
   onOpenWorkspaceActions?: (workspaceId: string) => void;
   defaultOpen?: boolean;
+  /** Render the header even with no items (SHELL-SPEC R10: Archived). */
+  alwaysShow?: boolean;
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0 && !alwaysShow) return null;
   return (
     <div className="flex-none border-b last:border-b-0">
       <CollapsibleSectionHeader
@@ -345,6 +348,7 @@ export function WorkspacesSidebarFlat({
           onSelectWorkspace={onSelectWorkspace}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           defaultOpen={false}
+          alwaysShow
         />
 
         {isLoading && (
