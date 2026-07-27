@@ -650,7 +650,13 @@ export const Actions = {
     icon: TerminalIcon,
     shortcut: 'V L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    // Keep visible while the LOGS panel is open (e.g. tool output) so the
+    // toggle stays reachable to close it, even if no processes exist.
+    isVisible: (ctx) =>
+      !ctx.isCreateMode &&
+      ctx.layoutMode === 'workspaces' &&
+      (ctx.hasExecutionProcesses ||
+        ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS),
     isActive: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
     isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>

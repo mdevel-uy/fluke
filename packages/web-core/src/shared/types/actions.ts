@@ -149,6 +149,7 @@ export interface ActionVisibilityContext {
 
   // Execution state
   isAttemptRunning: boolean;
+  hasExecutionProcesses: boolean;
 
   // Logs panel state
   logsPanelContent: LogsPanelContent | null;

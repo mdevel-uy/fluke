@@ -101,7 +101,8 @@ export function useActionVisibilityContext(
   const { isStarting, isStopping, runningDevServers } =
     useDevServer(workspaceId);
   const { data: branchStatus } = useBranchStatus(workspaceId);
-  const { isAttemptRunningVisible } = useExecutionProcessesContext();
+  const { isAttemptRunningVisible, executionProcessesVisible } =
+    useExecutionProcessesContext();
   const { logsPanelContent } = useLogsPanel();
   const { isSignedIn } = useAuth();
 
@@ -160,6 +161,7 @@ export function useActionVisibilityContext(
       hasUnpushedCommits,
       isBranchPushed,
       isAttemptRunning: isAttemptRunningVisible,
+      hasExecutionProcesses: executionProcessesVisible.length > 0,
       logsPanelContent,
       hasSelectedKanbanIssue,
       hasSelectedKanbanIssueParent,
@@ -186,6 +188,7 @@ export function useActionVisibilityContext(
     runningDevServers,
     branchStatus,
     isAttemptRunningVisible,
+    executionProcessesVisible,
     logsPanelContent,
     hasSelectedKanbanIssue,
     hasSelectedKanbanIssueParent,
