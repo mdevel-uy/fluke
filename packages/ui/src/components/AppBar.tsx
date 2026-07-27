@@ -120,7 +120,8 @@ function getStandardAppBarButtonClassName({
     'cursor-pointer',
     isActive
       ? 'relative text-md-on-surface before:absolute before:-left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
-      : 'text-md-outline hover:text-md-on-surface',
+      : // VSCode: inactive rail icons are a mid-dark gray, not faint
+        'text-md-on-surface-variant hover:text-md-on-surface',
     className
   );
 }

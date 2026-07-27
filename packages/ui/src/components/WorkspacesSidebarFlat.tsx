@@ -5,6 +5,7 @@ import { cn } from '../lib/cn';
 import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
 import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
+import { ResizableSidebarSection } from './ResizableSidebarSection';
 import type { AppBarHostStatus } from './AppBar';
 import type {
   WorkspacesSidebarWorkspace,
@@ -185,31 +186,29 @@ function Section({
 }) {
   if (items.length === 0 && !alwaysShow) return null;
   return (
-    <div className="flex-none border-b last:border-b-0">
-      <CollapsibleSectionHeader
-        persistKey={persistKey}
-        title={title}
-        count={items.length}
-        defaultExpanded={defaultOpen}
-      >
-        <div className="flex flex-col">
-          {items.map((ws) => (
-            <WorkspaceRow
-              key={ws.id}
-              workspace={ws}
-              variant={variant}
-              isSelected={ws.id === selectedWorkspaceId}
-              onSelect={() => onSelectWorkspace(ws.id)}
-              onOpenActions={
-                onOpenWorkspaceActions
-                  ? () => onOpenWorkspaceActions(ws.id)
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      </CollapsibleSectionHeader>
-    </div>
+    <ResizableSidebarSection
+      persistKey={persistKey}
+      title={title}
+      count={items.length}
+      defaultOpen={defaultOpen}
+    >
+      <div className="flex flex-col">
+        {items.map((ws) => (
+          <WorkspaceRow
+            key={ws.id}
+            workspace={ws}
+            variant={variant}
+            isSelected={ws.id === selectedWorkspaceId}
+            onSelect={() => onSelectWorkspace(ws.id)}
+            onOpenActions={
+              onOpenWorkspaceActions
+                ? () => onOpenWorkspaceActions(ws.id)
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </ResizableSidebarSection>
   );
 }
 

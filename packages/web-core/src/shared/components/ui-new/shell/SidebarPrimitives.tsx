@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import { ResizableSidebarSection } from '@vibe/ui/components/ResizableSidebarSection';
 import { cn } from '@/shared/lib/utils';
 import { useRepos, repoLabel } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
@@ -35,7 +35,11 @@ export function SidebarRow({
   );
 }
 
-/** Collapsible section wrapper with persisted expanded state. */
+/**
+ * Collapsible section wrapper with persisted expanded state. The bottom
+ * hairline doubles as a vertical resize handle when the section is open
+ * (VSCode sidebar sections).
+ */
 export function SidebarSection({
   persistKey,
   title,
@@ -49,21 +53,15 @@ export function SidebarSection({
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  // Wrapper div keeps the header's `h-full` root harmless: inside an
-  // auto-height parent it collapses to content (same trick WorkspacesSidebar
-  // uses). Without it every section stretches to the panel height.
-  // VSCode-style: sections are divided by a bottom hairline, except the last.
   return (
-    <div className="flex-none border-b last:border-b-0">
-      <CollapsibleSectionHeader
-        persistKey={persistKey}
-        title={title}
-        count={count}
-        defaultExpanded={defaultOpen}
-      >
-        <div className="flex flex-col">{children}</div>
-      </CollapsibleSectionHeader>
-    </div>
+    <ResizableSidebarSection
+      persistKey={persistKey}
+      title={title}
+      count={count}
+      defaultOpen={defaultOpen}
+    >
+      <div className="flex flex-col">{children}</div>
+    </ResizableSidebarSection>
   );
 }
 

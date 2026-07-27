@@ -41,6 +41,8 @@ interface CollapsibleSectionHeaderProps {
   headerExtra?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Reports the expanded state (on mount and on toggle). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function CollapsibleSectionHeader({
@@ -53,6 +55,7 @@ export function CollapsibleSectionHeader({
   headerExtra,
   children,
   className,
+  onExpandedChange,
 }: CollapsibleSectionHeaderProps) {
   const [expanded, setExpanded] = useState(() =>
     getInitialExpanded(persistKey, defaultExpanded)
@@ -93,6 +96,11 @@ export function CollapsibleSectionHeader({
   };
 
   const isExpanded = collapsible ? expanded : true;
+
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
 
   const headerContent = (
     <>
