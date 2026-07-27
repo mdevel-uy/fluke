@@ -558,13 +558,7 @@
     "workers": "워커",
     "sprint": "칸반",
     "analystDesk": "분석가 데스크",
-    "collapseSidebar": "사이드바 접기",
-    "expandSidebar": "사이드바 펼치기",
-    "settings": "설정",
-    "kanban": {
-      "title": "칸반 보드",
-      "description": "로그인하여 칸반 보드로 코딩 에이전트를 정리하세요."
-    }
+    "settings": "설정"
   },
   "dashboard": {
     "title": "대시보드",

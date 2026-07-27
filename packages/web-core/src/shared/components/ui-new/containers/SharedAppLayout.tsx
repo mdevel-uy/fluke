@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DropResult } from '@hello-pangea/dnd';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import {
   X,
@@ -42,11 +41,7 @@ import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
-import {
-  PROJECT_MUTATION,
-  PROJECTS_SHAPE,
-  type Project as RemoteProject,
-} from 'shared/remote-types';
+import { PROJECTS_SHAPE } from 'shared/remote-types';
 import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebarContainer';
 import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
 
@@ -59,8 +54,6 @@ export function SharedAppLayout() {
   const isLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.isLeftSidebarVisible
   );
-  const isAppBarCollapsed = useUiPreferencesStore((s) => s.isAppBarCollapsed);
-  const toggleAppBar = useUiPreferencesStore((s) => s.toggleAppBar);
   const { appVersion } = useUserSystem();
   const updateVersion = useAppUpdateStore((s) => s.updateVersion);
   const restartForUpdate = useAppUpdateStore((s) => s.restart);
@@ -116,28 +109,15 @@ export function SharedAppLayout() {
     () => ({ organization_id: selectedOrgId || '' }),
     [selectedOrgId]
   );
-  const {
-    data: orgProjects = [],
-    isLoading,
-    updateMany: updateManyProjects,
-  } = useShape(PROJECTS_SHAPE, projectParams, {
-    enabled: false,
-    mutation: PROJECT_MUTATION,
-  });
+  const { data: orgProjects = [], isLoading } = useShape(
+    PROJECTS_SHAPE,
+    projectParams,
+    { enabled: false }
+  );
   const sortedProjects = useMemo(
     () => sortProjectsByOrder(orgProjects),
     [orgProjects]
   );
-  const [orderedProjects, setOrderedProjects] =
-    useState<RemoteProject[]>(sortedProjects);
-  const [isSavingProjectOrder, setIsSavingProjectOrder] = useState(false);
-
-  useEffect(() => {
-    if (isSavingProjectOrder) {
-      return;
-    }
-    setOrderedProjects(sortedProjects);
-  }, [isSavingProjectOrder, sortedProjects]);
 
   // Navigate to the first ordered project when org changes
   useEffect(() => {
@@ -211,53 +191,6 @@ export function SharedAppLayout() {
     appNavigation.goToAnalystDesk();
   }, [appNavigation]);
 
-  const handleProjectClick = useCallback(
-    (projectId: string) => {
-      appNavigation.goToProject(projectId);
-    },
-    [appNavigation]
-  );
-
-  const handleProjectsDragEnd = useCallback(
-    async ({ source, destination }: DropResult) => {
-      if (isSavingProjectOrder) {
-        return;
-      }
-      if (!destination || source.index === destination.index) {
-        return;
-      }
-
-      const previousOrder = orderedProjects;
-      const reordered = [...orderedProjects];
-      const [moved] = reordered.splice(source.index, 1);
-
-      if (!moved) {
-        return;
-      }
-
-      reordered.splice(destination.index, 0, moved);
-      setOrderedProjects(reordered);
-      setIsSavingProjectOrder(true);
-
-      try {
-        await updateManyProjects(
-          reordered.map((project, index) => ({
-            id: project.id,
-            changes: { sort_order: index },
-          }))
-        ).persisted;
-      } catch (error) {
-        console.error('Failed to reorder projects:', error);
-        setOrderedProjects(previousOrder);
-      } finally {
-        setIsSavingProjectOrder(false);
-      }
-    },
-    [isSavingProjectOrder, orderedProjects, updateManyProjects]
-  );
-
-  const handleCreateProject = useCallback(() => {}, []);
-
   return (
     <SyncErrorProvider>
       <div
@@ -279,34 +212,23 @@ export function SharedAppLayout() {
             <div className="grid grid-cols-[auto_1fr] min-h-0 overflow-hidden">
               {/* Desktop AppBar sidebar. */}
               <AppBar
-                projects={orderedProjects}
-                onCreateProject={handleCreateProject}
                 onWorkspacesClick={handleWorkspacesClick}
                 onDashboardClick={handleDashboardClick}
                 onSprintClick={handleSprintClick}
                 onIssuesClick={handleIssuesClick}
                 onWorkersClick={handleWorkersClick}
                 onAnalystDeskClick={handleAnalystDeskClick}
-                onProjectClick={handleProjectClick}
-                onProjectsDragEnd={handleProjectsDragEnd}
-                isSavingProjectOrder={isSavingProjectOrder}
                 isWorkspacesActive={isWorkspacesActive}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}
                 isWorkersActive={isWorkersActive}
                 isAnalystDeskActive={isAnalystDeskActive}
-                activeProjectId={activeProjectId}
-                isSignedIn
-                isLoadingProjects={false}
                 onHoverStart={() => setIsAppBarHovered(true)}
                 onHoverEnd={() => setIsAppBarHovered(false)}
-                appVersion={appVersion}
                 updateVersion={updateVersion}
                 onUpdateClick={restartForUpdate ?? undefined}
                 onOpenSettings={() => SettingsDialog.show()}
-                isCollapsed={isAppBarCollapsed}
-                onToggleCollapsed={toggleAppBar}
               />
               {/* Desktop content. */}
               <div className="relative min-h-0 overflow-hidden">

@@ -558,13 +558,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Mesa de analistas",
-    "collapseSidebar": "Contraer barra lateral",
-    "expandSidebar": "Expandir barra lateral",
-    "settings": "Configuración",
-    "kanban": {
-      "title": "Tableros Kanban",
-      "description": "Inicia sesión para organizar tus agentes de codificación con tableros kanban."
-    }
+    "settings": "Configuración"
   },
   "dashboard": {
     "title": "Dashboard",

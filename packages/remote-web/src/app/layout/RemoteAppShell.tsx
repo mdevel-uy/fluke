@@ -252,24 +252,14 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
       <div className="flex min-h-0 flex-1">
         {!isMobile && (
           <AppBar
-            projects={projects}
             hosts={relayHosts}
             onPairHostClick={isSignedIn ? handlePairHostClick : undefined}
             activeHostId={activeHostId}
-            onCreateProject={handleCreateProject}
             onWorkspacesClick={handleWorkspacesClick}
             onHostClick={handleHostClick}
             showWorkspacesButton={false}
-            onProjectClick={handleProjectClick}
-            onProjectsDragEnd={() => {}}
-            isSavingProjectOrder={true}
             isWorkspacesActive={isWorkspacesActive}
-            activeProjectId={activeProjectId}
             isSignedIn={isSignedIn}
-            isLoadingProjects={isLoadingProjects}
-            onSignIn={() => {
-              navigate({ to: "/account" });
-            }}
             notificationBell={
               isSignedIn ? <AppBarNotificationBellContainer /> : undefined
             }
