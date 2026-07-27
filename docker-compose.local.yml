@@ -1,0 +1,20 @@
+services:
+  vibe-kanban:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    image: vibe-kanban:local-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Cloned repositories survive restarts.
+      - vk-repos:/repos
+      # Home dir persists the vibe-kanban SQLite DB/config plus the
+      # claude-code and gh logins done inside the container.
+      - vk-home:/home/appuser
+    environment:
+      - RUST_LOG=info
+
+volumes:
+  vk-repos:
+  vk-home:
