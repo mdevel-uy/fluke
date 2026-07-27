@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Terminal, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -20,6 +20,17 @@ export function ShellTerminalPanel() {
   const setTerminalVisible = useUiPreferencesStore((s) => s.setTerminalVisible);
 
   const tabs = getAllTabs();
+
+  // VSCode behavior: closing the last session closes the panel too, instead
+  // of leaving an empty panel behind. (closeTab dispatches async — check the
+  // current tab count, not the store after dispatch.)
+  const handleCloseTab = useCallback(
+    (tabWorkspaceId: string, tabId: string) => {
+      closeTab(tabWorkspaceId, tabId);
+      if (tabs.length <= 1) setTerminalVisible(false);
+    },
+    [closeTab, tabs.length, setTerminalVisible]
+  );
 
   const branchByWorkspaceId = useMemo(() => {
     const map = new Map<string, string>();
@@ -98,7 +109,7 @@ export function ShellTerminalPanel() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeTab(tab.workspaceId, tab.id);
+                  handleCloseTab(tab.workspaceId, tab.id);
                 }}
                 aria-label={t('shellTerminal.closeTab', {
                   defaultValue: 'Close terminal',
@@ -173,7 +184,7 @@ export function ShellTerminalPanel() {
                 tabId={tab.id}
                 workspaceId={tab.workspaceId}
                 isActive={tab.id === activeTabId}
-                onClose={() => closeTab(tab.workspaceId, tab.id)}
+                onClose={() => handleCloseTab(tab.workspaceId, tab.id)}
               />
             </div>
           ))
