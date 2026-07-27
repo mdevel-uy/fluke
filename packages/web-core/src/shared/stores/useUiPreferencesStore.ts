@@ -292,6 +292,12 @@ export const PERSIST_KEYS = {
   kanbanIssueSubIssues: 'kanban-issue-sub-issues',
   kanbanIssueRelationships: 'kanban-issue-relationships',
   kanbanIssueAttachments: 'kanban-issue-attachments',
+  // Aside (master-detail) sections — SHELL-SPEC R18-R24
+  asideIssueSection: 'aside-issue-section',
+  asideChangesSection: 'aside-changes-section',
+  asideGitSection: 'aside-git-section',
+  asidePrSection: 'aside-pr-section',
+  asideQuickActions: 'aside-quick-actions',
   // Dynamic keys (use helper functions)
   repoCard: (repoId: string) => `repo-card-${repoId}` as const,
 } as const;
@@ -317,6 +323,11 @@ export type PersistKey =
   | typeof PERSIST_KEYS.kanbanIssueSubIssues
   | typeof PERSIST_KEYS.kanbanIssueRelationships
   | typeof PERSIST_KEYS.kanbanIssueAttachments
+  | typeof PERSIST_KEYS.asideIssueSection
+  | typeof PERSIST_KEYS.asideChangesSection
+  | typeof PERSIST_KEYS.asideGitSection
+  | typeof PERSIST_KEYS.asidePrSection
+  | typeof PERSIST_KEYS.asideQuickActions
   | `repo-card-${string}`
   | `diff:${string}`
   | `edit:${string}`

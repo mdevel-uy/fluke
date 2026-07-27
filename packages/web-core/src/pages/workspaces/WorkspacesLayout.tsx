@@ -146,8 +146,9 @@ export function WorkspacesLayout() {
   );
 
   // Use workspace-specific panel state (pass undefined when in create mode)
-  const { isRightSidebarVisible, isTerminalVisible, rightMainPanelMode } =
-    useWorkspacePanelState(isCreateMode ? undefined : workspaceId);
+  const { isRightSidebarVisible, isTerminalVisible } = useWorkspacePanelState(
+    isCreateMode ? undefined : workspaceId
+  );
   const isBottomPanelVisible = isTerminalVisible && !isCreateMode;
 
   // VSCode-style tab groups (SHELL-SPEC R14)
@@ -300,7 +301,6 @@ export function WorkspacesLayout() {
             >
               {selectedWorkspace && !isCreateMode && (
                 <RightSidebar
-                  rightMainPanelMode={rightMainPanelMode}
                   selectedWorkspace={selectedWorkspace}
                   repos={repos}
                 />
@@ -425,10 +425,10 @@ export function WorkspacesLayout() {
           className="h-full overflow-hidden"
         >
           <RightSidebar
-            rightMainPanelMode={rightMainPanelMode}
             selectedWorkspace={selectedWorkspace}
             repos={repos}
           />
+
         </Panel>
       )}
     </Group>
