@@ -95,7 +95,7 @@ export function SprintSidebar({
               selected={filters.priority === priority}
               onClick={() => toggle('priority', priority)}
             >
-              <PriorityBadge priority={priority} />
+              <PriorityBadge priority={priority} showLabel />
             </SidebarRow>
           ))}
         </SidebarSection>
