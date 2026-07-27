@@ -191,10 +191,7 @@
       "all": "全部工作区",
       "archive": "归档"
     },
-    "scopeRailLabel": "工作区范围",
-    "viewArchive": "查看归档",
-    "backToActive": "返回活跃",
-    "newButton": "新建"
+    "scopeRailLabel": "工作区范围"
   },
   "fileTree": {
     "searchPlaceholder": "搜索文件...",

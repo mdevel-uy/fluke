@@ -191,10 +191,7 @@
       "all": "Tous les espaces",
       "archive": "Archives"
     },
-    "scopeRailLabel": "Portées des espaces de travail",
-    "viewArchive": "Voir les archives",
-    "backToActive": "Retour aux actifs",
-    "newButton": "Nouveau"
+    "scopeRailLabel": "Portées des espaces de travail"
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",

@@ -191,10 +191,7 @@
       "all": "すべてのワークスペース",
       "archive": "アーカイブ"
     },
-    "scopeRailLabel": "ワークスペースの範囲",
-    "viewArchive": "アーカイブを表示",
-    "backToActive": "アクティブに戻る",
-    "newButton": "新規"
+    "scopeRailLabel": "ワークスペースの範囲"
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",

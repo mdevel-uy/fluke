@@ -205,10 +205,7 @@
       "all": "All workspaces",
       "archive": "Archive"
     },
-    "scopeRailLabel": "Workspace scopes",
-    "viewArchive": "View Archive",
-    "backToActive": "Back to Active",
-    "newButton": "New"
+    "scopeRailLabel": "Workspace scopes"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",
