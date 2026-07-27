@@ -45,6 +45,10 @@ pub struct WorkerResponse {
     /// `true` = force plan mode on; `false` = force plan mode off.
     #[ts(optional, type = "boolean | null")]
     pub plan_mode: Option<bool>,
+    /// Soft-delete state. `false` = active (shown in the main listing);
+    /// `true` = archived (moved to the "archived" section, skipped by
+    /// orchestrator lookups, can be restored or purged from there).
+    pub archived: bool,
     pub active_workspace_id: Option<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
@@ -266,6 +270,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         model: worker.model,
         has_github_pat: worker.github_pat.is_some(),
         plan_mode: worker.plan_mode,
+        archived: worker.archived,
         active_workspace_id,
         queued_count,
         completed_count,
@@ -443,6 +448,78 @@ pub async fn delete_worker(
         return Err(ApiError::BadRequest("Worker not found".into()));
     }
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// Soft-delete a worker: flips `archived = 1` so the worker disappears from
+/// the main listing but its row, tasks and workspace history remain.
+///
+/// Blocked when the worker still has an active workspace attached (an
+/// unfinished task in progress). Idempotent: archiving an already-archived
+/// worker is a no-op and returns 200.
+pub async fn archive_worker(
+    State(deployment): State<DeploymentImpl>,
+    Path(worker_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<WorkerResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let worker = Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+
+    // Refuse to archive if the worker has an active workspace: the workspace
+    // still points to this worker and the running agent would end up attached
+    // to a hidden identity.
+    if Worker::active_workspace_id(pool, worker_id).await?.is_some() {
+        return Err(ApiError::BadRequest(
+            "Cannot archive a worker with an active workspace. Cancel or finish the task first.".into(),
+        ));
+    }
+
+    if !worker.archived {
+        Worker::set_archived(pool, worker_id, true).await?;
+    }
+
+    let refreshed = Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+    let response = to_response(pool, refreshed).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+/// Restore an archived worker back to the active listing. Idempotent: a
+/// worker that is already active stays active and the endpoint returns 200.
+pub async fn unarchive_worker(
+    State(deployment): State<DeploymentImpl>,
+    Path(worker_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<WorkerResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let worker = Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+
+    if worker.archived {
+        Worker::set_archived(pool, worker_id, false).await?;
+    }
+
+    let refreshed = Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+    let response = to_response(pool, refreshed).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+/// List every archived worker so the WorkersPage can render the "Workers
+/// archivados" collapsible section.
+pub async fn list_archived_workers(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<Vec<WorkerResponse>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let workers = Worker::list_archived(pool).await?;
+
+    let mut out = Vec::with_capacity(workers.len());
+    for w in workers {
+        out.push(to_response(pool, w).await?);
+    }
+    Ok(ResponseJson(ApiResponse::success(out)))
 }
 
 /// Clone an existing worker's identity (emoji, soul, role, model) into a new
@@ -1092,6 +1169,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
+        .route("/workers/archived", get(list_archived_workers))
         .route(
             "/workers/validate-github-pat",
             post(validate_github_pat_endpoint),
@@ -1102,6 +1180,8 @@ pub fn router() -> Router<DeploymentImpl> {
         )
         .route("/workers/{worker_id}/start", post(start_worker))
         .route("/workers/{worker_id}/duplicate", post(duplicate_worker))
+        .route("/workers/{worker_id}/archive", post(archive_worker))
+        .route("/workers/{worker_id}/unarchive", post(unarchive_worker))
         .route(
             "/workers/{worker_id}/tasks",
             get(list_worker_tasks).post(create_worker_task),

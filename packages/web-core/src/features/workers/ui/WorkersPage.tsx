@@ -11,14 +11,18 @@ import {
 } from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
+import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { ApiError } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { cn } from '@/shared/lib/utils';
 import {
+  useArchivedWorkers,
+  useArchiveWorker,
   useDeleteWorker,
   useDuplicateWorker,
   useStartNextWorkerTask,
+  useUnarchiveWorker,
   useWorkers,
 } from '@/features/workers/model/useWorkers';
 import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
@@ -26,6 +30,7 @@ import { useAutoIngestReconciler } from '@/features/sprint/model/useAutoIngestRe
 import type { WorkerTask } from '@/features/sprint/types';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
+import { ArchivedWorkersSection } from './ArchivedWorkersSection';
 import { WorkerCard } from './WorkerCard';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
@@ -100,9 +105,16 @@ export function WorkersPage() {
   usePageTitle(t('workers.title'));
 
   const { data: workers = [], isLoading, isError } = useWorkers();
+  const {
+    data: archivedWorkers = [],
+    isLoading: isArchivedLoading,
+    isError: isArchivedError,
+  } = useArchivedWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
   const duplicateMutation = useDuplicateWorker();
+  const archiveMutation = useArchiveWorker();
+  const unarchiveMutation = useUnarchiveWorker();
   const { tasks: allTasks, queuedCountByWorkerId } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
   useAutoIngestReconciler(workers, queuedCountByWorkerId);
@@ -165,6 +177,10 @@ export function WorkersPage() {
   const [duplicatingWorkerIds, setDuplicatingWorkerIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [restoringWorkerId, setRestoringWorkerId] = useState<string | null>(
+    null
+  );
+  const [purgingWorkerId, setPurgingWorkerId] = useState<string | null>(null);
 
   const handleStartNext = async (worker: WorkerResponse) => {
     setStartingWorkerId(worker.id);
@@ -236,20 +252,65 @@ export function WorkersPage() {
     }
   };
 
-  const handleDelete = async (worker: WorkerResponse) => {
-    const confirmed = window.confirm(
-      t('workers.confirmDelete', { worker: worker.name })
-    );
-    if (!confirmed) return;
+  const handleArchive = async (worker: WorkerResponse) => {
+    try {
+      await archiveMutation.mutateAsync(worker.id);
+      pushToast(
+        'success',
+        t('workers.toast.archiveSuccess', { worker: worker.name })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast(
+        'error',
+        t('workers.toast.archiveError', { worker: worker.name, message })
+      );
+    }
+  };
+
+  const handleUnarchive = async (worker: WorkerResponse) => {
+    setRestoringWorkerId(worker.id);
+    try {
+      await unarchiveMutation.mutateAsync(worker.id);
+      pushToast(
+        'success',
+        t('workers.toast.unarchiveSuccess', { worker: worker.name })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast(
+        'error',
+        t('workers.toast.unarchiveError', { worker: worker.name, message })
+      );
+    } finally {
+      setRestoringWorkerId(null);
+    }
+  };
+
+  const handlePurge = async (worker: WorkerResponse) => {
+    const result = await ConfirmDialog.show({
+      title: t('workers.purge'),
+      message: t('workers.purge_confirm', { worker: worker.name }),
+      confirmText: t('workers.purge'),
+      variant: 'destructive',
+    });
+    if (result !== 'confirmed') return;
+
+    setPurgingWorkerId(worker.id);
     try {
       await deleteMutation.mutateAsync(worker.id);
       pushToast(
         'success',
-        t('workers.toast.deleteSuccess', { worker: worker.name })
+        t('workers.toast.purgeSuccess', { worker: worker.name })
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      pushToast('error', message);
+      pushToast(
+        'error',
+        t('workers.toast.purgeError', { worker: worker.name, message })
+      );
+    } finally {
+      setPurgingWorkerId(null);
     }
   };
 
@@ -379,11 +440,20 @@ export function WorkersPage() {
                 onStartNext={() => handleStartNext(worker)}
                 onEdit={() => handleEditWorker(worker)}
                 onDuplicate={() => handleDuplicate(worker)}
-                onDelete={() => handleDelete(worker)}
+                onArchive={() => handleArchive(worker)}
               />
             ))}
           </div>
         )}
+        <ArchivedWorkersSection
+          workers={archivedWorkers}
+          isLoading={isArchivedLoading}
+          isError={isArchivedError}
+          restoringWorkerId={restoringWorkerId}
+          purgingWorkerId={purgingWorkerId}
+          onRestore={handleUnarchive}
+          onPurge={handlePurge}
+        />
       </div>
     </div>
   );
