@@ -48,7 +48,7 @@ export function SprintSidebar({
   ) => setFilter(key, filters[key] === value ? ('' as SprintFilters[K]) : value);
 
   return (
-    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('sprint.title')}

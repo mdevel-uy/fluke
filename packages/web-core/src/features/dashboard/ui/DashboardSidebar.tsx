@@ -43,7 +43,7 @@ export function DashboardSidebar({ showLimits }: DashboardSidebarProps) {
   ];
 
   return (
-    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('appBar.dashboard')}

@@ -60,7 +60,7 @@ export function WorkspacesWelcome() {
   );
 
   return (
-    <div className="h-full overflow-y-auto bg-md-background">
+    <div className="h-full overflow-y-auto bg-primary">
       <div className="mx-auto max-w-[720px] px-8 py-14">
         <h1 className="text-heading font-semibold text-high">Vibe Kanban</h1>
         <p className="mt-1 mb-9 text-sm text-low">

@@ -37,7 +37,7 @@ export function DashboardPage() {
     data.workspaces.length === 0
   ) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-md-background">
+      <div className="flex h-full w-full items-center justify-center bg-primary">
         <Loader2
           className="h-5 w-5 animate-spin text-brand-on-surface"
           strokeWidth={1.75}
@@ -47,7 +47,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       <PageHeader
         title={t('dashboard.title')}
         meta={

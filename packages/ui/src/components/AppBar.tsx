@@ -350,7 +350,7 @@ export function AppBar({
       onMouseLeave={onHoverEnd}
       className={cn(
         'flex flex-col items-center h-full min-h-0 overflow-y-auto py-2 px-1 gap-3',
-        'bg-md-surface-container-lowest border-r border-md-outline-variant'
+        'bg-md-surface-container-low border-r border-md-outline-variant'
       )}
     >
       {sections.map((section, sectionIndex) => (

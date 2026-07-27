@@ -565,7 +565,7 @@ export function AnalystDeskPage() {
   const isActionPending = cancelRequest.isPending || removeRequest.isPending;
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       <ShellSidebarPortal>
         <AnalystDeskSidebar
           analysts={analysts}

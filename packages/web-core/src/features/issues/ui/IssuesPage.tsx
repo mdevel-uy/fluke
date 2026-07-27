@@ -445,7 +445,7 @@ export function IssuesPage() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       {/* MD3 top bar — 64px, surface-bright, border bottom */}
       <PageHeader
         title={t('issues.title')}

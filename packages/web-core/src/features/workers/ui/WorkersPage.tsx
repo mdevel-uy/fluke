@@ -341,7 +341,7 @@ export function WorkersPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       <ShellSidebarPortal>
         <WorkersSidebar
           workers={workers}

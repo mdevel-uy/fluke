@@ -816,7 +816,7 @@ export function SprintPage() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       <PageHeader
         title={t('sprint.title')}
         actions={
@@ -924,7 +924,7 @@ export function SprintPage() {
           </div>
         ) : (
           showBoard && (
-            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto bg-md-background">
+            <div className="flex flex-row gap-4 h-full min-h-0 p-4 overflow-x-auto bg-primary">
               <SprintColumn
                 title={t('sprint.columns.backlog')}
                 count={filteredBacklogIssues.length}

@@ -306,7 +306,7 @@ export const RightSidebar = memo(function RightSidebar({
 
   if (!selectedWorkspace) {
     return (
-      <div className="h-full border-l bg-secondary">
+      <div className="h-full border-l bg-md-surface-container-low">
         <div className="px-3.5 py-4 text-sm text-low">
           {t('workspaces.aside.emptyHint', {
             defaultValue:
@@ -361,7 +361,7 @@ export const RightSidebar = memo(function RightSidebar({
   ];
 
   return (
-    <div className="flex h-full flex-col border-l bg-secondary">
+    <div className="flex h-full flex-col border-l bg-md-surface-container-low">
       <div className="flex-none">
         <CollapsibleSectionHeader
           title={selectedWorkspace.name ?? selectedWorkspace.branch ?? ''}

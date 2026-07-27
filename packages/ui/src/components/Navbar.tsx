@@ -318,7 +318,7 @@ export function Navbar({
     return (
       <nav
         className={cn(
-          'flex flex-col bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0',
+          'flex flex-col bg-md-surface-container-low border-b border-md-outline-variant shrink-0',
           className
         )}
       >
@@ -492,7 +492,7 @@ export function Navbar({
       data-tauri-drag-region
       className={cn(
         'flex items-stretch justify-between',
-        'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-9',
+        'bg-md-surface-container-low border-b border-md-outline-variant shrink-0 h-9',
         className
       )}
     >

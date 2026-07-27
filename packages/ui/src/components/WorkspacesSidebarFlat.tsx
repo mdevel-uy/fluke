@@ -242,7 +242,7 @@ export function WorkspacesSidebarFlat({
   // No create action here: workspaces are born from assigning an issue to a
   // worker, never created by hand.
   return (
-    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
         <CollapsibleSectionHeader
           title={t('common:workspaces.title', { defaultValue: 'Workspaces' })}

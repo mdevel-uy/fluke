@@ -79,7 +79,7 @@ export function ShellTerminalPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t bg-primary">
-      <div className="flex h-8 flex-none items-stretch bg-secondary">
+      <div className="flex h-8 flex-none items-stretch bg-md-surface-container-low">
         <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
           {labeledTabs.map((tab) => (
             <div
