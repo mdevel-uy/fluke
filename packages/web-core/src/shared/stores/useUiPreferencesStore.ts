@@ -395,6 +395,7 @@ type State = {
   toggleLayoutMode: () => void;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
+  setRightSidebarVisible: (value: boolean) => void;
   toggleTerminal: () => void;
   setTerminalVisible: (value: boolean) => void;
   // Note: Kanban panel actions (openKanbanIssuePanel, closeKanbanIssuePanel, etc.)
@@ -559,6 +560,8 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
 
   toggleRightSidebar: () =>
     set((s) => ({ isRightSidebarVisible: !s.isRightSidebarVisible })),
+
+  setRightSidebarVisible: (value) => set({ isRightSidebarVisible: value }),
 
   toggleTerminal: () =>
     set((s) => ({ isTerminalVisible: !s.isTerminalVisible })),
