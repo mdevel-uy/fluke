@@ -125,7 +125,8 @@ function CommandBarTrigger({
       aria-label={ariaLabel}
       className={cn(
         'group flex items-center gap-1.5 rounded-full border border-md-outline-variant',
-        'bg-md-surface-container-low text-md-on-surface-variant',
+        // White on the gray chrome so the trigger stands out (VSCode command center)
+        'bg-md-surface-container-lowest text-md-on-surface-variant',
         'hover:bg-md-surface-container hover:text-md-on-surface hover:border-md-outline',
         'transition-colors duration-150 active:scale-[0.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
