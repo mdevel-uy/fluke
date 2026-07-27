@@ -68,7 +68,7 @@ interface WorkerCardProps {
   onStartNext: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
-  onDelete: () => void;
+  onArchive: () => void;
 }
 
 export function WorkerCard({
@@ -82,7 +82,7 @@ export function WorkerCard({
   onStartNext,
   onEdit,
   onDuplicate,
-  onDelete,
+  onArchive,
 }: WorkerCardProps) {
   const { t } = useTranslation('common');
   const appNavigation = useAppNavigation();
@@ -191,11 +191,8 @@ export function WorkerCard({
             <DropdownMenuItem onClick={onDuplicate} disabled={isDuplicating}>
               {t('workers.card.duplicate')}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={onDelete}
-              className="text-error focus:text-error"
-            >
-              {t('workers.card.delete')}
+            <DropdownMenuItem onClick={onArchive}>
+              {t('workers.archive')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

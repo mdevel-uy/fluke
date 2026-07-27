@@ -31,6 +31,11 @@ pub struct Worker {
     /// `executor_profile.permission_policy`; `Some(true)` = force plan mode
     /// on; `Some(false)` = force plan mode off for this worker.
     pub plan_mode: Option<bool>,
+    /// Soft-delete flag. `false` = active; `true` = archived (hidden from the
+    /// main listing and skipped by orchestrator lookups, but the record and
+    /// its history are preserved so an operator can restore or purge it).
+    #[serde(default)]
+    pub archived: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -61,10 +66,30 @@ pub struct UpdateWorker {
 }
 
 impl Worker {
+    /// Active workers (archived = 0). Used by every caller that treats
+    /// archived workers as gone: the main UI listing, `start-all`, the
+    /// reviewer picker, the auto-ingest reconciler, etc. Callers that need
+    /// to reach an archived worker (restore, purge, admin views) must go
+    /// through `find_by_id` or `list_archived`.
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
                FROM workers
+               WHERE archived = 0
+               ORDER BY created_at ASC",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
+    /// Only archived workers, newest-archive first is not tracked separately
+    /// (no `archived_at` column), so we fall back to creation order. Used by
+    /// the "Workers archivados" section on the workers page.
+    pub async fn list_archived(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Worker>(
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
+               FROM workers
+               WHERE archived = 1
                ORDER BY created_at ASC",
         )
         .fetch_all(pool)
@@ -73,13 +98,29 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
                FROM workers
                WHERE id = ?1",
         )
         .bind(id)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Flip the archived flag. Idempotent: re-archiving an already-archived
+    /// worker (or unarchiving an active one) is a no-op at the row level and
+    /// returns Ok without erroring.
+    pub async fn set_archived(
+        pool: &SqlitePool,
+        id: Uuid,
+        archived: bool,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workers SET archived = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(archived)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     pub async fn create(pool: &SqlitePool, data: &CreateWorker) -> Result<Self, sqlx::Error> {
@@ -276,12 +317,14 @@ impl Worker {
         .await
     }
 
-    /// First worker with the `reviewer` role (by creation order), if any.
+    /// First active worker with the `reviewer` role (by creation order), if
+    /// any. Archived reviewers are skipped so an archived identity never
+    /// receives a fresh review dispatch.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
                FROM workers
-               WHERE role = 'reviewer'
+               WHERE role = 'reviewer' AND archived = 0
                ORDER BY created_at ASC
                LIMIT 1",
         )

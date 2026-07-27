@@ -71,6 +71,38 @@ export function useDeleteWorker() {
   });
 }
 
+export function useArchiveWorker() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workerId: string) => workersApi.archive(workerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
+export function useUnarchiveWorker() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workerId: string) => workersApi.unarchive(workerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
+export function useArchivedWorkers(enabled = true) {
+  return useQuery({
+    queryKey: workersKeys.archived(),
+    queryFn: () => workersApi.listArchived(),
+    enabled,
+    // Archived workers rarely change; polling would waste requests, but a
+    // manual refetch on focus keeps a second tab in sync after a restore
+    // or purge.
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useDuplicateWorker() {
   const queryClient = useQueryClient();
   return useMutation({
