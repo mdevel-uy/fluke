@@ -308,6 +308,7 @@ export function WorkspacesSidebarFlat({
 
         <Section
           persistKey="ws-flat-attention"
+          alwaysShow
           title={t('common:workspaces.scopes.attention', {
             defaultValue: 'Needs attention',
           })}
@@ -319,6 +320,7 @@ export function WorkspacesSidebarFlat({
         />
         <Section
           persistKey="ws-flat-running"
+          alwaysShow
           title={t('common:workspaces.scopes.running', {
             defaultValue: 'Running',
           })}
@@ -330,6 +332,7 @@ export function WorkspacesSidebarFlat({
         />
         <Section
           persistKey="ws-flat-idle"
+          alwaysShow
           title={t('common:workspaces.scopes.idle', { defaultValue: 'Idle' })}
           items={groups.idle}
           variant="idle"
