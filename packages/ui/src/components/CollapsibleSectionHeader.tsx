@@ -109,9 +109,9 @@ export function CollapsibleSectionHeader({
         )}
         <span
           className={cn(
-            'text-label font-semibold uppercase tracking-wider truncate',
-            // VSCode: section headers read darker than the panel title
-            collapsible ? 'text-high' : 'text-normal'
+            'text-label uppercase tracking-wider truncate',
+            // VSCode: section headers read darker/heavier than the panel title
+            collapsible ? 'font-bold text-high' : 'font-semibold text-normal'
           )}
         >
           {title}
