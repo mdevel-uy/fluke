@@ -3,6 +3,16 @@ import { cn } from '../lib/cn';
 import { Tooltip } from './Tooltip';
 import { MaterialIcon } from './MaterialIcon';
 import { useTranslation } from 'react-i18next';
+import {
+  Headphones,
+  Kanban,
+  LayoutGrid,
+  LayoutPanelLeft,
+  ListChecks,
+  Settings as SettingsIcon,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 
 function getHostInitials(name: string): string {
   const trimmed = name.trim();
@@ -83,7 +93,9 @@ type AppBarSectionItem =
       key: string;
       kind: 'icon-button';
       label: string;
-      materialIcon: string;
+      /** Legacy icon set — prefer lucideIcon (SHELL-SPEC R32) */
+      materialIcon?: string;
+      lucideIcon?: LucideIcon;
       isActive?: boolean;
       onClick?: () => void;
       className?: string;
@@ -178,7 +190,7 @@ export function AppBar({
         key: 'local-dashboard',
         kind: 'icon-button',
         label: t('appBar.dashboard'),
-        materialIcon: 'space_dashboard',
+        lucideIcon: LayoutGrid,
         isActive: isDashboardActive,
         onClick: onDashboardClick,
       });
@@ -188,7 +200,7 @@ export function AppBar({
         key: 'local-workspaces',
         kind: 'icon-button',
         label: t('appBar.workspaces'),
-        materialIcon: 'view_quilt',
+        lucideIcon: LayoutPanelLeft,
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
       });
@@ -198,7 +210,7 @@ export function AppBar({
         key: 'local-sprint',
         kind: 'icon-button',
         label: t('appBar.sprint'),
-        materialIcon: 'view_kanban',
+        lucideIcon: Kanban,
         isActive: isSprintActive,
         onClick: onSprintClick,
       });
@@ -208,7 +220,7 @@ export function AppBar({
         key: 'local-issues',
         kind: 'icon-button',
         label: t('appBar.issues'),
-        materialIcon: 'list_alt',
+        lucideIcon: ListChecks,
         isActive: isIssuesActive,
         onClick: onIssuesClick,
       });
@@ -218,7 +230,7 @@ export function AppBar({
         key: 'local-workers',
         kind: 'icon-button',
         label: t('appBar.workers'),
-        materialIcon: 'group',
+        lucideIcon: Users,
         isActive: isWorkersActive,
         onClick: onWorkersClick,
       });
@@ -228,7 +240,7 @@ export function AppBar({
         key: 'local-analyst-desk',
         kind: 'icon-button',
         label: t('appBar.analystDesk'),
-        materialIcon: 'support_agent',
+        lucideIcon: Headphones,
         isActive: isAnalystDeskActive,
         onClick: onAnalystDeskClick,
       });
@@ -303,11 +315,15 @@ export function AppBar({
               })}
               aria-label={item.label}
             >
-              <MaterialIcon
-                name={item.materialIcon}
-                fill={item.isActive ? 1 : 0}
-                size="base"
-              />
+              {item.lucideIcon ? (
+                <item.lucideIcon size={18} strokeWidth={1.75} />
+              ) : (
+                <MaterialIcon
+                  name={item.materialIcon ?? ''}
+                  fill={item.isActive ? 1 : 0}
+                  size="base"
+                />
+              )}
             </button>
           </Tooltip>
         );
@@ -395,7 +411,7 @@ export function AppBar({
               className={getStandardAppBarButtonClassName({})}
               aria-label={t('appBar.settings')}
             >
-              <MaterialIcon name="settings" size="base" />
+              <SettingsIcon size={18} strokeWidth={1.75} />
             </button>
           </Tooltip>
         )}
