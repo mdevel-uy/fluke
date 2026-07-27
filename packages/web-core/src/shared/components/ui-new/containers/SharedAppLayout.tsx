@@ -265,85 +265,84 @@ export function SharedAppLayout() {
           'bg-primary',
           isMobile
             ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-            : 'grid grid-cols-[auto_1fr] grid-rows-[auto_1fr_auto] h-screen'
+            : 'grid grid-rows-[auto_1fr_auto] h-screen'
         )}
       >
         {!isMobile && (
           <>
-            {/* Desktop corner spacer. */}
-            <div
-              data-tauri-drag-region
-              className="bg-md-surface-container-lowest border-b border-r border-md-outline-variant"
-              style={isTauriMac() ? { minWidth: 56 } : undefined}
+            {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
+            <NavbarContainer
+              className={isTauriMac() ? 'pl-[64px]' : undefined}
+              onOpenDrawer={() => setIsDrawerOpen(true)}
             />
-            {/* Desktop navbar. */}
-            <NavbarContainer onOpenDrawer={() => setIsDrawerOpen(true)} />
-            {/* Desktop AppBar sidebar. */}
-            <AppBar
-              projects={orderedProjects}
-              onCreateProject={handleCreateProject}
-              onWorkspacesClick={handleWorkspacesClick}
-              onDashboardClick={handleDashboardClick}
-              onSprintClick={handleSprintClick}
-              onIssuesClick={handleIssuesClick}
-              onWorkersClick={handleWorkersClick}
-              onAnalystDeskClick={handleAnalystDeskClick}
-              onProjectClick={handleProjectClick}
-              onProjectsDragEnd={handleProjectsDragEnd}
-              isSavingProjectOrder={isSavingProjectOrder}
-              isWorkspacesActive={isWorkspacesActive}
-              isDashboardActive={isDashboardActive}
-              isSprintActive={isSprintActive}
-              isIssuesActive={isIssuesActive}
-              isWorkersActive={isWorkersActive}
-              isAnalystDeskActive={isAnalystDeskActive}
-              activeProjectId={activeProjectId}
-              isSignedIn
-              isLoadingProjects={false}
-              onHoverStart={() => setIsAppBarHovered(true)}
-              onHoverEnd={() => setIsAppBarHovered(false)}
-              appVersion={appVersion}
-              updateVersion={updateVersion}
-              onUpdateClick={restartForUpdate ?? undefined}
-              onOpenSettings={() => SettingsDialog.show()}
-              isCollapsed={isAppBarCollapsed}
-              onToggleCollapsed={toggleAppBar}
-            />
-            {/* Desktop content. */}
-            <div className="relative min-h-0 overflow-hidden">
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div className="absolute inset-y-0 left-0 z-20 flex items-center">
-                  <WorkspacesSidebarReopenTag
-                    active={sidebarPreview.isPreviewOpen}
-                    onHoverStart={sidebarPreview.handleHandleHoverStart}
-                    onHoverEnd={sidebarPreview.handleHandleHoverEnd}
-                    ariaLabel="Workspaces"
-                  />
-                </div>
-              )}
-
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div
-                  className={cn(
-                    'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
-                    sidebarPreview.isPreviewOpen
-                      ? 'translate-x-0 pointer-events-auto'
-                      : '-translate-x-full pointer-events-none'
-                  )}
-                  onMouseEnter={sidebarPreview.handlePreviewHoverStart}
-                  onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
-                >
-                  <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
-                    <WorkspacesSidebarContainer />
+            {/* Middle row: activity rail + content. */}
+            <div className="grid grid-cols-[auto_1fr] min-h-0 overflow-hidden">
+              {/* Desktop AppBar sidebar. */}
+              <AppBar
+                projects={orderedProjects}
+                onCreateProject={handleCreateProject}
+                onWorkspacesClick={handleWorkspacesClick}
+                onDashboardClick={handleDashboardClick}
+                onSprintClick={handleSprintClick}
+                onIssuesClick={handleIssuesClick}
+                onWorkersClick={handleWorkersClick}
+                onAnalystDeskClick={handleAnalystDeskClick}
+                onProjectClick={handleProjectClick}
+                onProjectsDragEnd={handleProjectsDragEnd}
+                isSavingProjectOrder={isSavingProjectOrder}
+                isWorkspacesActive={isWorkspacesActive}
+                isDashboardActive={isDashboardActive}
+                isSprintActive={isSprintActive}
+                isIssuesActive={isIssuesActive}
+                isWorkersActive={isWorkersActive}
+                isAnalystDeskActive={isAnalystDeskActive}
+                activeProjectId={activeProjectId}
+                isSignedIn
+                isLoadingProjects={false}
+                onHoverStart={() => setIsAppBarHovered(true)}
+                onHoverEnd={() => setIsAppBarHovered(false)}
+                appVersion={appVersion}
+                updateVersion={updateVersion}
+                onUpdateClick={restartForUpdate ?? undefined}
+                onOpenSettings={() => SettingsDialog.show()}
+                isCollapsed={isAppBarCollapsed}
+                onToggleCollapsed={toggleAppBar}
+              />
+              {/* Desktop content. */}
+              <div className="relative min-h-0 overflow-hidden">
+                {isWorkspaceSidebarPreviewEnabled && (
+                  <div className="absolute inset-y-0 left-0 z-20 flex items-center">
+                    <WorkspacesSidebarReopenTag
+                      active={sidebarPreview.isPreviewOpen}
+                      onHoverStart={sidebarPreview.handleHandleHoverStart}
+                      onHoverEnd={sidebarPreview.handleHandleHoverEnd}
+                      ariaLabel="Workspaces"
+                    />
                   </div>
-                </div>
-              )}
+                )}
 
-              <Outlet />
+                {isWorkspaceSidebarPreviewEnabled && (
+                  <div
+                    className={cn(
+                      'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
+                      sidebarPreview.isPreviewOpen
+                        ? 'translate-x-0 pointer-events-auto'
+                        : '-translate-x-full pointer-events-none'
+                    )}
+                    onMouseEnter={sidebarPreview.handlePreviewHoverStart}
+                    onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
+                  >
+                    <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
+                      <WorkspacesSidebarContainer />
+                    </div>
+                  </div>
+                )}
+
+                <Outlet />
+              </div>
             </div>
-            {/* Workbench status bar (spans rail + content). */}
+            {/* Workbench status bar — full-width bottom row. */}
             <StatusBarContainer
-              className="col-span-2"
               appVersion={appVersion}
               updateVersion={updateVersion}
               onUpdateClick={restartForUpdate ?? undefined}

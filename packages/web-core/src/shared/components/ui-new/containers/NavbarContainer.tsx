@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
 import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
@@ -34,7 +35,10 @@ import {
   isActionVisible,
 } from '@/shared/types/actions';
 import { useActionVisibilityContext } from '@/shared/hooks/useActionVisibilityContext';
-import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
+import {
+  useMobileActiveTab,
+  useUiPreferencesStore,
+} from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { getProjectDestination } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
@@ -123,9 +127,11 @@ function toNavbarSectionItems(
 export function NavbarContainer({
   mobileMode = false,
   onOpenDrawer,
+  className,
 }: {
   mobileMode?: boolean;
   onOpenDrawer?: () => void;
+  className?: string;
 }) {
   const { t } = useTranslation('common');
   const { executeAction } = useActions();
@@ -213,6 +219,62 @@ export function NavbarContainer({
     [actionCtx, handleExecuteAction]
   );
 
+  // Layout toggles (sidebar / terminal / aside), VSCode-style — SHELL-SPEC R3
+  const isLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.isLeftSidebarVisible
+  );
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const toggleTerminal = useUiPreferencesStore((s) => s.toggleTerminal);
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
+  );
+  const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
+
+  const layoutToggleItems: NavbarSectionItem[] = useMemo(
+    () => [
+      {
+        type: 'action',
+        id: 'toggle-left-sidebar',
+        lucideIcon: PanelLeft,
+        isActive: isLeftSidebarVisible,
+        tooltip: t('navbar.layout.toggleSidebar', {
+          defaultValue: 'Toggle sidebar',
+        }),
+        onClick: toggleLeftSidebar,
+      },
+      {
+        type: 'action',
+        id: 'toggle-terminal',
+        lucideIcon: PanelBottom,
+        isActive: isTerminalVisible,
+        tooltip: t('navbar.layout.toggleTerminal', {
+          defaultValue: 'Toggle terminal',
+        }),
+        onClick: toggleTerminal,
+      },
+      {
+        type: 'action',
+        id: 'toggle-right-sidebar',
+        lucideIcon: PanelRight,
+        isActive: isRightSidebarVisible,
+        tooltip: t('navbar.layout.toggleRightPanel', {
+          defaultValue: 'Toggle right panel',
+        }),
+        onClick: toggleRightSidebar,
+      },
+    ],
+    [
+      t,
+      isLeftSidebarVisible,
+      toggleLeftSidebar,
+      isTerminalVisible,
+      toggleTerminal,
+      isRightSidebarVisible,
+      toggleRightSidebar,
+    ]
+  );
+
   const rightItems = useMemo(
     () => [
       ...toNavbarSectionItems(
@@ -221,9 +283,11 @@ export function NavbarContainer({
         handleExecuteAction
       ),
       { type: 'divider' as const },
+      ...layoutToggleItems,
+      { type: 'divider' as const },
       themeToggleItem,
     ],
-    [actionCtx, handleExecuteAction, themeToggleItem]
+    [actionCtx, handleExecuteAction, layoutToggleItems, themeToggleItem]
   );
 
   const navbarTitle = isCreateMode
@@ -347,6 +411,7 @@ export function NavbarContainer({
 
   return (
     <Navbar
+      className={className}
       workspaceTitle={navbarTitle}
       breadcrumbs={breadcrumbs}
       leftItems={leftItems}
@@ -374,7 +439,7 @@ export function NavbarContainer({
           ) : null}
         </>
       }
-      rightSlot={!mobileMode ? <NavbarRepoSelectorContainer /> : null}
+      rightSlot={null}
     />
   );
 }

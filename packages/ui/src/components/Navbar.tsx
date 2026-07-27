@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Icon } from '@phosphor-icons/react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { getModifierKey } from '../lib/platform';
@@ -19,10 +20,12 @@ const COMMAND_BAR_ACTION_ID = 'open-command-bar';
 export interface NavbarActionItem {
   type?: 'action';
   id: string;
-  /** @deprecated Prefer materialIcon */
+  /** @deprecated Prefer lucideIcon */
   icon?: Icon;
-  /** Material Symbols Outlined icon name — preferred over icon */
+  /** @deprecated Prefer lucideIcon */
   materialIcon?: string;
+  /** Lucide icon component — canonical per UI-SPEC v3 */
+  lucideIcon?: LucideIcon;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -47,6 +50,7 @@ interface NavbarIconButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: Icon;
   materialIcon?: string;
+  lucideIcon?: LucideIcon;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -55,6 +59,7 @@ interface NavbarIconButtonProps
 function NavbarIconButton({
   icon: IconComponent,
   materialIcon,
+  lucideIcon: LucideIconComponent,
   isActive = false,
   tooltip,
   shortcut,
@@ -73,7 +78,9 @@ function NavbarIconButton({
       )}
       {...props}
     >
-      {materialIcon ? (
+      {LucideIconComponent ? (
+        <LucideIconComponent size={16} strokeWidth={1.75} />
+      ) : materialIcon ? (
         <MaterialIcon name={materialIcon} fill={isActive ? 1 : 0} size="base" />
       ) : IconComponent ? (
         <IconComponent
@@ -294,6 +301,7 @@ export function Navbar({
         key={key}
         icon={item.icon}
         materialIcon={item.materialIcon}
+        lucideIcon={item.lucideIcon}
         isActive={item.isActive}
         onClick={item.onClick}
         aria-label={item.tooltip}
