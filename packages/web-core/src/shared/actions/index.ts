@@ -657,9 +657,8 @@ export const Actions = {
     shortcut: '{mod} J',
     keywords: ['terminal', 'bottom panel', 'console', 'shell'],
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    // SHELL-SPEC R29: the terminal lives in the shell — available anywhere.
     isActive: (ctx) => ctx.isTerminalVisible,
-    isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
       ctx.isTerminalVisible ? 'Hide Terminal' : 'Show Terminal',
     execute: () => {

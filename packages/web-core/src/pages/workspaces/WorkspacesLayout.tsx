@@ -6,13 +6,6 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Group,
-  Layout,
-  Panel,
-  Separator,
-  useDefaultLayout,
-} from 'react-resizable-panels';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import type { CreateModeInitialState } from '@/shared/types/createMode';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
@@ -30,34 +23,24 @@ import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
+import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { LogsContentContainer } from './LogsContentContainer';
 import {
   WorkspacesMainContainer,
   type WorkspacesMainContainerHandle,
 } from './WorkspacesMainContainer';
 import { RightSidebar } from './RightSidebar';
-import { BottomPanel } from './BottomPanel';
 import { ChangesPanelContainer } from './ChangesPanelContainer';
 import { CreateChatBoxContainer } from '@/shared/components/CreateChatBoxContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 
-import {
-  useWorkspacePanelState,
-  useWorkspaceTabGroups,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
-const WORKSPACES_SIDEBAR_LAYOUT_ID = 'workspaces-sidebar-layout';
-const WORKSPACES_BOTTOM_LAYOUT_ID = 'workspaces-bottom-layout';
-
-const SEPARATOR_CLASS =
-  'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
-const SEPARATOR_ROW_CLASS =
-  'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
 
 export function WorkspacesLayout() {
   const appNavigation = useAppNavigation();
@@ -145,12 +128,6 @@ export function WorkspacesLayout() {
     [appNavigation]
   );
 
-  // Use workspace-specific panel state (pass undefined when in create mode)
-  const { isRightSidebarVisible, isTerminalVisible } = useWorkspacePanelState(
-    isCreateMode ? undefined : workspaceId
-  );
-  const isBottomPanelVisible = isTerminalVisible && !isCreateMode;
-
   // VSCode-style tab groups (SHELL-SPEC R14)
   const [tabGroups, setTabGroups] = useWorkspaceTabGroups(
     isCreateMode ? undefined : workspaceId
@@ -178,31 +155,6 @@ export function WorkspacesLayout() {
     });
     WorkspacesGuideDialog.show().finally(() => WorkspacesGuideDialog.hide());
   }, [configLoading, config, updateAndSaveConfig]);
-
-  // Sidebar layout — persisted to localStorage via useDefaultLayout
-  const {
-    defaultLayout: sidebarDefaultLayout,
-    onLayoutChange: onSidebarLayoutChange,
-  } = useDefaultLayout({
-    storage: localStorage,
-    debounceSaveMs: 150,
-    id: WORKSPACES_SIDEBAR_LAYOUT_ID,
-  });
-
-  // Bottom panel layout (top workspace area | bottom terminal panel).
-  // Default: terminal ~30% of vertical space, matching VSCode's default.
-  const {
-    defaultLayout: bottomLayoutStored,
-    onLayoutChange: onBottomLayoutChange,
-  } = useDefaultLayout({
-    storage: localStorage,
-    debounceSaveMs: 150,
-    id: WORKSPACES_BOTTOM_LAYOUT_ID,
-  });
-  const bottomPanelDefaultLayout: Layout = bottomLayoutStored ?? {
-    'workspace-top': 70,
-    'bottom-panel': 30,
-  };
 
   // ── Mobile layout ──────────────────────────────────────────────────
   // Uses `hidden` CSS class (NOT conditional rendering) to preserve
@@ -334,9 +286,20 @@ export function WorkspacesLayout() {
 
   // Main area: create mode keeps the plain chat box; otherwise VSCode-style
   // tab groups (SHELL-SPEC R14-R16) replace the fixed left/right split.
+  // The aside portals into the shell panel (SHELL-SPEC R18/R30) but renders
+  // inside these providers — React context flows through the component tree,
+  // not the DOM — so the file tree keeps talking to the Changes view.
   const mainContent = (
     <ReviewProvider workspaceId={selectedWorkspace?.id}>
       <ChangesViewProvider>
+        {!isCreateMode && (
+          <ShellAsidePortal>
+            <RightSidebar
+              selectedWorkspace={selectedWorkspace}
+              repos={repos}
+            />
+          </ShellAsidePortal>
+        )}
         {isCreateMode ? (
           <CreateChatBoxContainer onWorkspaceCreated={handleWorkspaceCreated} />
         ) : (
@@ -387,20 +350,13 @@ export function WorkspacesLayout() {
     </ShellSidebarPortal>
   );
 
-  // Outer group: center | right-sidebar
-  // Layout is persisted to localStorage via useDefaultLayout.
-  const workspaceTopContent = (
-    <Group
-      orientation="horizontal"
-      className="flex-1 min-w-0 h-full"
-      defaultLayout={sidebarDefaultLayout}
-      onLayoutChange={onSidebarLayoutChange}
-    >
-      <Panel
-        id="outer-center"
-        minSize="400px"
-        className="min-w-0 h-full overflow-hidden"
-      >
+  // The shell owns the aside panel and the terminal split (SHELL-SPEC
+  // R18/R29/R30) — the page only fills the main column.
+  return (
+    <div className="flex flex-1 min-h-0 h-full flex-col">
+      {sidebarPortal}
+      {header}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         {isCreateMode ? (
           <CreateModeProvider
             key={createModeProviderKey}
@@ -411,69 +367,7 @@ export function WorkspacesLayout() {
         ) : (
           mainContent
         )}
-      </Panel>
-
-      {isRightSidebarVisible && !isCreateMode && (
-        <Separator id="right-sidebar-separator" className={SEPARATOR_CLASS} />
-      )}
-
-      {isRightSidebarVisible && !isCreateMode && (
-        <Panel
-          id="right-sidebar"
-          minSize="220px"
-          maxSize="480px"
-          className="h-full overflow-hidden"
-        >
-          <RightSidebar
-            selectedWorkspace={selectedWorkspace}
-            repos={repos}
-          />
-
-        </Panel>
-      )}
-    </Group>
-  );
-
-  if (!isBottomPanelVisible) {
-    return (
-      <div className="flex flex-1 min-h-0 h-full flex-col">
-        {sidebarPortal}
-        {header}
-        <div className="flex flex-1 min-h-0">{workspaceTopContent}</div>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-1 min-h-0 h-full flex-col">
-      {sidebarPortal}
-      {header}
-      <Group
-        orientation="vertical"
-        className="flex-1 min-w-0 min-h-0"
-        defaultLayout={bottomPanelDefaultLayout}
-        onLayoutChange={onBottomLayoutChange}
-      >
-        <Panel
-          id="workspace-top"
-          minSize="200px"
-          className="min-h-0 w-full overflow-hidden"
-        >
-          {workspaceTopContent}
-        </Panel>
-        <Separator
-          id="bottom-panel-separator"
-          className={SEPARATOR_ROW_CLASS}
-        />
-        <Panel
-          id="bottom-panel"
-          minSize="120px"
-          maxSize="80%"
-          className="min-h-0 w-full overflow-hidden"
-        >
-          <BottomPanel />
-        </Panel>
-      </Group>
     </div>
   );
 }

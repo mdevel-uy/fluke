@@ -54,10 +54,19 @@ import {
   ShellSidebarProvider,
   ShellSidebarSlot,
 } from '../shell/ShellSidebar';
+import {
+  ShellAsideSlot,
+  useShellAsideHasContent,
+} from '../shell/ShellAside';
+import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
 
 const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
+// Kept from the old WorkspacesLayout split so stored terminal heights migrate.
+const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
 const SHELL_SEPARATOR_CLASS =
   'w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize';
+const SHELL_SEPARATOR_ROW_CLASS =
+  'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
@@ -223,7 +232,7 @@ export function SharedAppLayout() {
     debounceSaveMs: 150,
     id: SHELL_SIDEBAR_LAYOUT_ID,
   });
-  // Only persist when both panels are mounted — a single-panel layout would
+  // Only persist when the sidebar is mounted — a reduced layout would
   // clobber the stored split (useDefaultLayout overwrites without merging).
   const onShellSidebarLayoutChange = useCallback<
     typeof onShellSidebarLayoutChangeRaw
@@ -232,6 +241,36 @@ export function SharedAppLayout() {
       if (showShellSidebar) onShellSidebarLayoutChangeRaw(layout);
     },
     [showShellSidebar, onShellSidebarLayoutChangeRaw]
+  );
+
+  // SHELL-SPEC R18/R30: the shell owns the right aside panel; pages portal
+  // their content in (ShellAsidePortal). Visibility = content + toggle.
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
+  );
+  const asideHasContent = useShellAsideHasContent();
+  const showShellAside = asideHasContent && isRightSidebarVisible;
+
+  // SHELL-SPEC R29-R30: global terminal in the shell, spanning only the main
+  // column (the aside is a sibling panel). Height persisted (70/30 default).
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const {
+    defaultLayout: terminalLayoutStored,
+    onLayoutChange: onTerminalLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: SHELL_TERMINAL_LAYOUT_ID,
+  });
+  const terminalDefaultLayout = terminalLayoutStored ?? {
+    'workspace-top': 70,
+    'bottom-panel': 30,
+  };
+  const onTerminalLayoutChange = useCallback<typeof onTerminalLayoutChangeRaw>(
+    (layout) => {
+      if (isTerminalVisible) onTerminalLayoutChangeRaw(layout);
+    },
+    [isTerminalVisible, onTerminalLayoutChangeRaw]
   );
 
   return (
@@ -298,42 +337,87 @@ export function SharedAppLayout() {
                   className={SHELL_SEPARATOR_CLASS}
                 />
               )}
-              {/* Desktop content. */}
+              {/* Desktop content: main column (outlet + global terminal). */}
               <Panel
                 id="shell-content"
                 minSize="400px"
-                className="relative min-w-0 h-full overflow-hidden"
+                className="min-w-0 h-full overflow-hidden"
               >
-                {isWorkspaceSidebarPreviewEnabled && (
-                  <div className="absolute inset-y-0 left-0 z-20 flex items-center">
-                    <WorkspacesSidebarReopenTag
-                      active={sidebarPreview.isPreviewOpen}
-                      onHoverStart={sidebarPreview.handleHandleHoverStart}
-                      onHoverEnd={sidebarPreview.handleHandleHoverEnd}
-                      ariaLabel="Workspaces"
-                    />
-                  </div>
-                )}
-
-                {isWorkspaceSidebarPreviewEnabled && (
-                  <div
-                    className={cn(
-                      'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
-                      sidebarPreview.isPreviewOpen
-                        ? 'translate-x-0 pointer-events-auto'
-                        : '-translate-x-full pointer-events-none'
-                    )}
-                    onMouseEnter={sidebarPreview.handlePreviewHoverStart}
-                    onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
+                <Group
+                  orientation="vertical"
+                  className="h-full w-full min-h-0"
+                  defaultLayout={terminalDefaultLayout}
+                  onLayoutChange={onTerminalLayoutChange}
+                >
+                  <Panel
+                    id="workspace-top"
+                    minSize="200px"
+                    className="relative min-h-0 w-full overflow-hidden"
                   >
-                    <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
-                      <WorkspacesSidebarContainer />
-                    </div>
-                  </div>
-                )}
+                    {isWorkspaceSidebarPreviewEnabled && (
+                      <div className="absolute inset-y-0 left-0 z-20 flex items-center">
+                        <WorkspacesSidebarReopenTag
+                          active={sidebarPreview.isPreviewOpen}
+                          onHoverStart={sidebarPreview.handleHandleHoverStart}
+                          onHoverEnd={sidebarPreview.handleHandleHoverEnd}
+                          ariaLabel="Workspaces"
+                        />
+                      </div>
+                    )}
 
-                <Outlet />
+                    {isWorkspaceSidebarPreviewEnabled && (
+                      <div
+                        className={cn(
+                          'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
+                          sidebarPreview.isPreviewOpen
+                            ? 'translate-x-0 pointer-events-auto'
+                            : '-translate-x-full pointer-events-none'
+                        )}
+                        onMouseEnter={sidebarPreview.handlePreviewHoverStart}
+                        onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
+                      >
+                        <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
+                          <WorkspacesSidebarContainer />
+                        </div>
+                      </div>
+                    )}
+
+                    <Outlet />
+                  </Panel>
+                  {isTerminalVisible && (
+                    <Separator
+                      id="shell-terminal-separator"
+                      className={SHELL_SEPARATOR_ROW_CLASS}
+                    />
+                  )}
+                  {isTerminalVisible && (
+                    <Panel
+                      id="bottom-panel"
+                      minSize="120px"
+                      maxSize="80%"
+                      className="min-h-0 w-full overflow-hidden"
+                    >
+                      <ShellTerminalPanel />
+                    </Panel>
+                  )}
+                </Group>
               </Panel>
+              {showShellAside && (
+                <Separator
+                  id="shell-aside-separator"
+                  className={SHELL_SEPARATOR_CLASS}
+                />
+              )}
+              {showShellAside && (
+                <Panel
+                  id="shell-aside"
+                  minSize="220px"
+                  maxSize="480px"
+                  className="h-full overflow-hidden"
+                >
+                  <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
+                </Panel>
+              )}
               </Group>
             </div>
             {/* Workbench status bar — full-width bottom row. */}
