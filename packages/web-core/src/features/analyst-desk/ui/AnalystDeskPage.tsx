@@ -6,7 +6,6 @@ import {
   type ClipboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import {
   AlertCircle,
@@ -23,17 +22,12 @@ import {
 } from 'lucide-react';
 import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@vibe/ui/components/Select';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { Textarea } from '@vibe/ui/components/Textarea';
-import { ApiError, attachmentsApi, repoApi } from '@/shared/lib/api';
+import { ApiError, attachmentsApi } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -278,12 +272,9 @@ export function AnalystDeskPage() {
   const selectedAnalyst =
     analysts.find((a) => a.id === selectedAnalystId) ?? analysts[0] ?? null;
 
-  const { data: repos = [] } = useQuery({
-    queryKey: ['repos'],
-    queryFn: () => repoApi.list(),
-  });
+  // Repo is picked once in the global navbar; this page only reads it.
+  const { repos } = useRepos();
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
-  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
   const selectedRepoId =
     storedRepoId && repos.some((r) => r.id === storedRepoId)
       ? storedRepoId
@@ -573,31 +564,7 @@ export function AnalystDeskPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-md-outline-variant bg-md-surface-bright px-container-padding">
-        <h1 className="font-sans text-heading text-high">
-          {t('analystDesk.title')}
-        </h1>
-        {repos.length > 0 && (
-          <Select
-            value={selectedRepoId ?? undefined}
-            onValueChange={(value) => setStoredRepoId(value)}
-          >
-            <SelectTrigger
-              className="w-56"
-              aria-label={t('analystDesk.repoLabel')}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {repos.map((repo) => (
-                <SelectItem key={repo.id} value={repo.id}>
-                  {repo.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </header>
+      <PageHeader title={t('analystDesk.title')} />
 
       {notice && (
         <div className="px-container-padding pt-4">

@@ -120,8 +120,6 @@
     "notFound": "ワークスペースが見つかりません",
     "selectToStart": "ワークスペースを選択して開始",
     "draft": "下書き",
-    "viewArchive": "アーカイブを表示",
-    "backToActive": "アクティブに戻る",
     "noArchived": "アーカイブされたワークスペースはありません",
     "noWorkspaces": "ワークスペースがありません",
     "newWorkspace": "新しいワークスペース",
@@ -193,8 +191,10 @@
       "all": "すべてのワークスペース",
       "archive": "アーカイブ"
     },
-    "newButton": "新規",
-    "scopeRailLabel": "ワークスペースの範囲"
+    "scopeRailLabel": "ワークスペースの範囲",
+    "viewArchive": "アーカイブを表示",
+    "backToActive": "アクティブに戻る",
+    "newButton": "新規"
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",
@@ -383,9 +383,7 @@
     "noCommands": "このエージェントで利用可能なコマンドはありません。"
   },
   "kanban": {
-    "noVisibleStatuses": "すべてのステータスが非表示です。表示設定を使用するか、別のタブに切り替えて課題を表示してください。",
     "noProjectFound": "プロジェクトが見つかりません",
-    "unassigned": "未割り当て",
     "noTagsAvailable": "利用可能なタグがありません",
     "createNewIssue": "新しい課題を作成",
     "searchTags": "タグを検索...",
@@ -429,25 +427,13 @@
     "markIndependentIssue": "独立した課題としてマーク",
     "parentIssue": "親",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "アクティブ",
-      "all": "すべて"
-    },
     "loginRequired": {
       "title": "サインインが必要です",
       "description": "このプロジェクトを表示するにはサインインしてください。",
       "action": "サインイン"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -469,32 +455,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "担当者",
-    "filterByAssignee": "担当者で絞り込む",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "緊急",
-      "high": "高",
-      "medium": "中",
-      "low": "低"
-    },
-    "options": "オプション",
-    "sortField": {
-      "sort_order": "手動",
-      "priority": "優先度",
-      "created_at": "作成日",
-      "updated_at": "更新日",
-      "title": "タイトル"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "ブロック中を非表示",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -584,6 +548,10 @@
     "commandBarTrigger": {
       "placeholder": "コマンドを検索...",
       "ariaLabel": "コマンドバーを開く"
+    },
+    "repoSelector": {
+      "placeholder": "リポジトリを選択",
+      "ariaLabel": "リポジトリを選択"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "リポジトリを読み込み中...",
     "noReposMessage": "登録されているリポジトリがありません。Issue を表示するにはリポジトリを追加してください。",
     "selectRepoPrompt": "Issue を表示するリポジトリを選択してください。",
-    "repoSelectorPlaceholder": "リポジトリを選択",
     "openGroup": "オープン",
     "closedGroup": "クローズ",
     "authorPrefix": "作成者:",
@@ -798,7 +765,9 @@
       "clear": "フィルターをクリア",
       "noResults": "現在のフィルターに一致する Issue はありません。",
       "noLabel": "ラベルなし",
-      "noMilestone": "マイルストーンなし"
+      "noMilestone": "マイルストーンなし",
+      "stateLabel": "状態",
+      "clearSearch": "検索をクリア"
     },
     "drawer": {
       "title": "Issue 詳細",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "アナリストデスク",
-    "repoLabel": "リポジトリ",
     "analystsLabel": "アナリスト",
     "statusIdle": "空き",
     "statusBusy": "作業中",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "カンバン",
-    "repoSelectorPlaceholder": "リポジトリを選択",
     "loadingRepos": "リポジトリを読み込み中...",
     "noReposMessage": "登録されているリポジトリがありません。スプリントを計画するにはリポジトリを追加してください。",
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
@@ -1020,7 +987,7 @@
       "removeConfirm": "削除"
     },
     "filters": {
-      "searchPlaceholder": "Issue を検索...",
+      "searchPlaceholder": "Issue を検索…",
       "clearSearch": "検索をクリア",
       "epic": "エピック",
       "allEpics": "すべてのエピック",
@@ -1071,5 +1038,9 @@
       "label": "自動取り込み",
       "description": "タスクが割り当てられるとワーカーが自動的に開始します"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "すべて既読にする"
   }
 }

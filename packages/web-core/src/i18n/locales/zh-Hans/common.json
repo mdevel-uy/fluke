@@ -120,8 +120,6 @@
     "notFound": "未找到工作区",
     "selectToStart": "选择一个工作区开始",
     "draft": "草稿",
-    "viewArchive": "查看归档",
-    "backToActive": "返回活跃",
     "noArchived": "没有已归档的工作区",
     "noWorkspaces": "没有工作区",
     "newWorkspace": "新工作区",
@@ -193,8 +191,10 @@
       "all": "全部工作区",
       "archive": "归档"
     },
-    "newButton": "新建",
-    "scopeRailLabel": "工作区范围"
+    "scopeRailLabel": "工作区范围",
+    "viewArchive": "查看归档",
+    "backToActive": "返回活跃",
+    "newButton": "新建"
   },
   "fileTree": {
     "searchPlaceholder": "搜索文件...",
@@ -383,9 +383,7 @@
     "noCommands": "此代理没有可用的命令。"
   },
   "kanban": {
-    "noVisibleStatuses": "所有状态已隐藏。请使用显示设置或切换到其他标签页查看问题。",
     "noProjectFound": "未找到项目",
-    "unassigned": "未分配",
     "noTagsAvailable": "无可用标签",
     "createNewIssue": "创建新问题",
     "searchTags": "搜索标签...",
@@ -429,25 +427,13 @@
     "markIndependentIssue": "标记为独立问题",
     "parentIssue": "父级",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "活动",
-      "all": "全部"
-    },
     "loginRequired": {
       "title": "需要登录",
       "description": "请登录以查看此项目。",
       "action": "登录"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -469,32 +455,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "负责人",
-    "filterByAssignee": "按负责人筛选",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "紧急",
-      "high": "高",
-      "medium": "中",
-      "low": "低"
-    },
-    "options": "选项",
-    "sortField": {
-      "sort_order": "手动",
-      "priority": "优先级",
-      "created_at": "创建时间",
-      "updated_at": "更新时间",
-      "title": "标题"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "隐藏被阻塞",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -584,6 +548,10 @@
     "commandBarTrigger": {
       "placeholder": "搜索命令...",
       "ariaLabel": "打开命令栏"
+    },
+    "repoSelector": {
+      "placeholder": "选择仓库",
+      "ariaLabel": "选择仓库"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "正在加载仓库...",
     "noReposMessage": "未注册任何仓库。请先添加仓库以查看其 Issue。",
     "selectRepoPrompt": "请选择一个仓库以查看其 Issue。",
-    "repoSelectorPlaceholder": "选择仓库",
     "openGroup": "打开",
     "closedGroup": "已关闭",
     "authorPrefix": "作者:",
@@ -798,7 +765,9 @@
       "clear": "清除筛选",
       "noResults": "没有 Issue 符合当前筛选条件。",
       "noLabel": "无标签",
-      "noMilestone": "无里程碑"
+      "noMilestone": "无里程碑",
+      "stateLabel": "状态",
+      "clearSearch": "清除搜索"
     },
     "drawer": {
       "title": "Issue 详情",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "分析师工作台",
-    "repoLabel": "仓库",
     "analystsLabel": "分析师",
     "statusIdle": "空闲",
     "statusBusy": "忙碌",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "看板",
-    "repoSelectorPlaceholder": "选择仓库",
     "loadingRepos": "正在加载仓库...",
     "noReposMessage": "未注册任何仓库。请先添加仓库以规划冲刺。",
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
@@ -1020,7 +987,7 @@
       "removeConfirm": "移除"
     },
     "filters": {
-      "searchPlaceholder": "搜索 Issue...",
+      "searchPlaceholder": "搜索 Issue…",
       "clearSearch": "清除搜索",
       "epic": "史诗",
       "allEpics": "所有史诗",
@@ -1071,5 +1038,9 @@
       "label": "自动开始",
       "description": "任务分配后工作者立即开始"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "全部标记为已读"
   }
 }

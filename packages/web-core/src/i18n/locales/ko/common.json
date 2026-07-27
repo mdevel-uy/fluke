@@ -120,8 +120,6 @@
     "notFound": "워크스페이스를 찾을 수 없음",
     "selectToStart": "워크스페이스를 선택하여 시작",
     "draft": "초안",
-    "viewArchive": "보관함 보기",
-    "backToActive": "활성으로 돌아가기",
     "noArchived": "보관된 워크스페이스 없음",
     "noWorkspaces": "워크스페이스 없음",
     "newWorkspace": "새 워크스페이스",
@@ -193,8 +191,10 @@
       "all": "전체 워크스페이스",
       "archive": "보관함"
     },
-    "newButton": "새로 만들기",
-    "scopeRailLabel": "워크스페이스 범위"
+    "scopeRailLabel": "워크스페이스 범위",
+    "viewArchive": "보관함 보기",
+    "backToActive": "활성으로 돌아가기",
+    "newButton": "새로 만들기"
   },
   "fileTree": {
     "searchPlaceholder": "파일 검색...",
@@ -383,9 +383,7 @@
     "noCommands": "이 에이전트에 사용 가능한 명령어가 없습니다."
   },
   "kanban": {
-    "noVisibleStatuses": "모든 상태가 숨겨져 있습니다. 표시 설정을 사용하거나 다른 탭으로 전환하여 이슈를 확인하세요.",
     "noProjectFound": "프로젝트를 찾을 수 없습니다",
-    "unassigned": "미할당",
     "noTagsAvailable": "사용 가능한 태그 없음",
     "createNewIssue": "새 이슈 만들기",
     "searchTags": "태그 검색...",
@@ -429,25 +427,13 @@
     "markIndependentIssue": "독립 이슈로 표시",
     "parentIssue": "상위",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "활성",
-      "all": "전체"
-    },
     "loginRequired": {
       "title": "로그인 필요",
       "description": "이 프로젝트를 보려면 로그인하세요.",
       "action": "로그인"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -469,32 +455,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "담당자",
-    "filterByAssignee": "담당자로 필터링",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "긴급",
-      "high": "높음",
-      "medium": "보통",
-      "low": "낮음"
-    },
-    "options": "옵션",
-    "sortField": {
-      "sort_order": "수동",
-      "priority": "우선순위",
-      "created_at": "생성일",
-      "updated_at": "수정일",
-      "title": "제목"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "차단됨 숨기기",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -584,6 +548,10 @@
     "commandBarTrigger": {
       "placeholder": "명령 검색...",
       "ariaLabel": "명령 바 열기"
+    },
+    "repoSelector": {
+      "placeholder": "저장소 선택",
+      "ariaLabel": "저장소 선택"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "저장소를 불러오는 중...",
     "noReposMessage": "등록된 저장소가 없습니다. 이슈를 보려면 먼저 저장소를 추가하세요.",
     "selectRepoPrompt": "이슈를 보려면 저장소를 선택하세요.",
-    "repoSelectorPlaceholder": "저장소 선택",
     "openGroup": "열림",
     "closedGroup": "닫힘",
     "authorPrefix": "작성자:",
@@ -798,7 +765,9 @@
       "clear": "필터 초기화",
       "noResults": "현재 필터에 맞는 이슈가 없습니다.",
       "noLabel": "레이블 없음",
-      "noMilestone": "마일스톤 없음"
+      "noMilestone": "마일스톤 없음",
+      "stateLabel": "상태",
+      "clearSearch": "검색 지우기"
     },
     "drawer": {
       "title": "이슈 상세",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "분석가 데스크",
-    "repoLabel": "저장소",
     "analystsLabel": "분석가",
     "statusIdle": "대기 가능",
     "statusBusy": "작업 중",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "칸반",
-    "repoSelectorPlaceholder": "저장소 선택",
     "loadingRepos": "저장소를 불러오는 중...",
     "noReposMessage": "등록된 저장소가 없습니다. 스프린트를 계획하려면 저장소를 추가하세요.",
     "selectRepoPrompt": "스프린트 보드를 보려면 저장소를 선택하세요.",
@@ -1020,7 +987,7 @@
       "removeConfirm": "제거"
     },
     "filters": {
-      "searchPlaceholder": "이슈 검색...",
+      "searchPlaceholder": "이슈 검색…",
       "clearSearch": "검색 지우기",
       "epic": "에픽",
       "allEpics": "모든 에픽",
@@ -1071,5 +1038,9 @@
       "label": "자동 시작",
       "description": "작업이 할당되면 워커가 즉시 시작됩니다"
     }
+  },
+  "notifications": {
+    "title": "알림",
+    "markAllRead": "모두 읽음으로 표시"
   }
 }

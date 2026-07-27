@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useRouter, useSearch } from '@tanstack/react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Switch } from '@vibe/ui/components/Switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@vibe/ui/components/Select';
+import { Button } from '@vibe/ui/components/Button';
+import { PageHeader, PageHeaderToggle } from '@vibe/ui/components/PageHeader';
+import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { ApiError, repoApi, workersApi, repoIssuesApi } from '@/shared/lib/api';
+import { useRepos } from '@/shared/hooks/useRepos';
+import { ApiError, workersApi, repoIssuesApi } from '@/shared/lib/api';
 import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type {
   RepoIssue,
@@ -217,10 +215,7 @@ export function SprintPage() {
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
 
-  const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
-    queryKey: ['repos'],
-    queryFn: () => repoApi.list(),
-  });
+  const { repos, isLoadingRepos } = useRepos();
 
   useEffect(() => {
     if (
@@ -774,11 +769,6 @@ export function SprintPage() {
     syncMutation.mutate();
   };
 
-  const handleRepoChange = (repoId: string) => {
-    setStoredRepoId(repoId);
-    appNavigation.goToSprint(repoId);
-  };
-
   // Detail panel
   const openIssueNumber = search.issue;
   const detailIssue = useMemo(
@@ -826,60 +816,37 @@ export function SprintPage() {
 
   return (
     <div className="flex h-full w-full flex-col bg-md-background">
-      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="font-sans text-heading text-high">
-          {t('sprint.title')}
-        </h1>
-        <div className="flex items-center gap-3">
-          <div className="min-w-[240px]">
-            <Select
-              value={selectedRepoId ?? ''}
-              onValueChange={handleRepoChange}
-              disabled={repos.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t('sprint.repoSelectorPlaceholder')}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {repos.map((repo) => (
-                  <SelectItem key={repo.id} value={repo.id}>
-                    {repo.display_name || repo.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={!selectedRepoId || isSyncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-md-outline-variant bg-md-surface-container text-body-sm font-semibold text-md-on-surface hover:bg-md-surface-container-high active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <MaterialIcon
-              name={isSyncing ? 'progress_activity' : 'sync'}
+      <PageHeader
+        title={t('sprint.title')}
+        actions={
+          <>
+            <Button
+              variant="secondary"
               size="sm"
-              className={isSyncing ? 'animate-spin' : ''}
-            />
-            {isSyncing ? t('sprint.syncing') : t('sprint.sync')}
-          </button>
-          <label
-            className="flex items-center gap-2 cursor-pointer select-none"
-            title={t('sprint.autoIngest.description')}
-          >
-            <Switch
-              checked={autoIngest}
-              onCheckedChange={handleAutoIngestChange}
-              disabled={startAllMutation.isPending}
-              aria-label={t('sprint.autoIngest.label')}
-            />
-            <span className="text-body-sm font-semibold text-md-on-surface">
-              {t('sprint.autoIngest.label')}
-            </span>
-          </label>
-        </div>
-      </header>
+              className="h-8 gap-1.5 text-sm"
+              onClick={handleSync}
+              disabled={!selectedRepoId || isSyncing}
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
+                strokeWidth={1.75}
+              />
+              {isSyncing ? t('sprint.syncing') : t('sprint.sync')}
+            </Button>
+            <PageHeaderToggle
+              label={t('sprint.autoIngest.label')}
+              title={t('sprint.autoIngest.description')}
+            >
+              <Switch
+                checked={autoIngest}
+                onCheckedChange={handleAutoIngestChange}
+                disabled={startAllMutation.isPending}
+                aria-label={t('sprint.autoIngest.label')}
+              />
+            </PageHeaderToggle>
+          </>
+        }
+      />
 
       {showBoard && (
         <SprintFilterBar

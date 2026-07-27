@@ -120,8 +120,6 @@
     "notFound": "找不到工作區",
     "selectToStart": "選擇一個工作區開始",
     "draft": "草稿",
-    "viewArchive": "檢視封存",
-    "backToActive": "返回活躍",
     "noArchived": "沒有已封存的工作區",
     "noWorkspaces": "沒有工作區",
     "newWorkspace": "新工作區",
@@ -193,8 +191,10 @@
       "all": "全部工作區",
       "archive": "封存"
     },
-    "newButton": "新增",
-    "scopeRailLabel": "工作區範圍"
+    "scopeRailLabel": "工作區範圍",
+    "viewArchive": "檢視封存",
+    "backToActive": "返回活躍",
+    "newButton": "新增"
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",
@@ -383,9 +383,7 @@
     "noCommands": "此代理沒有可用的指令。"
   },
   "kanban": {
-    "noVisibleStatuses": "所有狀態已隱藏。請使用顯示設定或切換到其他標籤頁查看問題。",
     "noProjectFound": "找不到專案",
-    "unassigned": "未指派",
     "noTagsAvailable": "無可用標籤",
     "createNewIssue": "建立新問題",
     "searchTags": "搜尋標籤...",
@@ -429,25 +427,13 @@
     "markIndependentIssue": "標記為獨立問題",
     "parentIssue": "父級",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "活動",
-      "all": "全部"
-    },
     "loginRequired": {
       "title": "需要登入",
       "description": "請登入以查看此專案。",
       "action": "登入"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -469,32 +455,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "負責人",
-    "filterByAssignee": "依負責人篩選",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "緊急",
-      "high": "高",
-      "medium": "中",
-      "low": "低"
-    },
-    "options": "選項",
-    "sortField": {
-      "sort_order": "手動",
-      "priority": "優先順序",
-      "created_at": "建立時間",
-      "updated_at": "更新時間",
-      "title": "標題"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "隱藏受阻項目",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -584,6 +548,10 @@
     "commandBarTrigger": {
       "placeholder": "搜尋命令...",
       "ariaLabel": "開啟命令列"
+    },
+    "repoSelector": {
+      "placeholder": "選擇儲存庫",
+      "ariaLabel": "選擇儲存庫"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "正在載入儲存庫...",
     "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以查看其 Issue。",
     "selectRepoPrompt": "請選擇一個儲存庫以查看其 Issue。",
-    "repoSelectorPlaceholder": "選擇儲存庫",
     "openGroup": "開啟",
     "closedGroup": "已關閉",
     "authorPrefix": "作者：",
@@ -798,7 +765,9 @@
       "clear": "清除篩選",
       "noResults": "沒有 Issue 符合目前的篩選條件。",
       "noLabel": "無標籤",
-      "noMilestone": "無里程碑"
+      "noMilestone": "無里程碑",
+      "stateLabel": "狀態",
+      "clearSearch": "清除搜尋"
     },
     "drawer": {
       "title": "Issue 詳情",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "分析師工作台",
-    "repoLabel": "儲存庫",
     "analystsLabel": "分析師",
     "statusIdle": "空閒",
     "statusBusy": "忙碌",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "看板",
-    "repoSelectorPlaceholder": "選擇儲存庫",
     "loadingRepos": "正在載入儲存庫...",
     "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以規劃衝刺。",
     "selectRepoPrompt": "請選擇一個儲存庫以查看其衝刺看板。",
@@ -1020,7 +987,7 @@
       "removeConfirm": "移除"
     },
     "filters": {
-      "searchPlaceholder": "搜尋 Issue...",
+      "searchPlaceholder": "搜尋 Issue…",
       "clearSearch": "清除搜尋",
       "epic": "史詩",
       "allEpics": "所有史詩",
@@ -1071,5 +1038,9 @@
       "label": "自動開始",
       "description": "任務分配後工作者立即開始"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "markAllRead": "全部標記為已讀"
   }
 }

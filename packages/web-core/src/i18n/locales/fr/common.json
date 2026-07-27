@@ -120,8 +120,6 @@
     "notFound": "Espace de travail introuvable",
     "selectToStart": "Sélectionnez un espace de travail pour commencer",
     "draft": "Brouillon",
-    "viewArchive": "Voir les archives",
-    "backToActive": "Retour aux actifs",
     "noArchived": "Aucun espace de travail archivé",
     "noWorkspaces": "Aucun espace de travail",
     "newWorkspace": "Nouvel espace de travail",
@@ -193,8 +191,10 @@
       "all": "Tous les espaces",
       "archive": "Archives"
     },
-    "newButton": "Nouveau",
-    "scopeRailLabel": "Portées des espaces de travail"
+    "scopeRailLabel": "Portées des espaces de travail",
+    "viewArchive": "Voir les archives",
+    "backToActive": "Retour aux actifs",
+    "newButton": "Nouveau"
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",
@@ -383,9 +383,7 @@
     "noCommands": "Aucune commande disponible pour cet agent."
   },
   "kanban": {
-    "noVisibleStatuses": "Tous les statuts sont masqués. Utilisez les paramètres d'affichage ou changez d'onglet pour voir les problèmes.",
     "noProjectFound": "Aucun projet trouvé",
-    "unassigned": "Non assigné",
     "noTagsAvailable": "Aucun tag disponible",
     "createNewIssue": "Créer un nouveau ticket",
     "searchTags": "Rechercher des tags...",
@@ -429,25 +427,13 @@
     "markIndependentIssue": "Marquer comme problème indépendant",
     "parentIssue": "Parent",
     "subIssueIndicator": "↳",
-    "viewTabs": {
-      "active": "Actif",
-      "all": "Tout"
-    },
     "loginRequired": {
       "title": "Connexion requise",
       "description": "Veuillez vous connecter pour voir ce projet.",
       "action": "Se connecter"
     },
-    "team": "Team",
-    "personal": "Personal",
-    "searchPlaceholder": "Search issues...",
-    "filters": "Filters",
     "clearFilters": "Clear filters",
-    "filtersDescription": "Adjust filters and sorting for this board view.",
-    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
-    "tags": "Tags",
-    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -469,32 +455,10 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
-    "assignees": "Assignés",
-    "filterByAssignee": "Filtrer par assigné",
-    "self": "Me",
     "priority": "Priority",
-    "priorityLevels": {
-      "urgent": "Urgent",
-      "high": "Haute",
-      "medium": "Moyenne",
-      "low": "Basse"
-    },
-    "options": "Options",
-    "sortField": {
-      "sort_order": "Manuel",
-      "priority": "Priorité",
-      "created_at": "Création",
-      "updated_at": "Mise à jour",
-      "title": "Titre"
-    },
-    "subIssuesFilterLabel": "Sub-issues",
-    "workspacesFilterLabel": "Workspaces",
-    "hideBlockedFilterLabel": "Masquer les bloqués",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
-    "openProjectsGuide": "Projects guide",
-    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
     "createNewWorkspace": "Create new workspace",
     "workspaces": "Workspaces",
@@ -584,6 +548,10 @@
     "commandBarTrigger": {
       "placeholder": "Rechercher des commandes...",
       "ariaLabel": "Ouvrir la barre de commandes"
+    },
+    "repoSelector": {
+      "placeholder": "Sélectionner un dépôt",
+      "ariaLabel": "Sélectionner un dépôt"
     }
   },
   "appBar": {
@@ -709,7 +677,6 @@
     "loadingRepos": "Chargement des dépôts...",
     "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour voir ses issues.",
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir ses issues.",
-    "repoSelectorPlaceholder": "Sélectionner un dépôt",
     "openGroup": "Ouverts",
     "closedGroup": "Fermés",
     "authorPrefix": "par",
@@ -798,7 +765,9 @@
       "clear": "Effacer les filtres",
       "noResults": "Aucun issue ne correspond aux filtres actuels.",
       "noLabel": "Sans étiquette",
-      "noMilestone": "Sans jalon"
+      "noMilestone": "Sans jalon",
+      "stateLabel": "État",
+      "clearSearch": "Effacer la recherche"
     },
     "drawer": {
       "title": "Détail de l'issue",
@@ -919,7 +888,6 @@
   },
   "analystDesk": {
     "title": "Bureau des analystes",
-    "repoLabel": "Dépôt",
     "analystsLabel": "Analyste",
     "statusIdle": "Disponible",
     "statusBusy": "Occupé",
@@ -969,7 +937,6 @@
   },
   "sprint": {
     "title": "Kanban",
-    "repoSelectorPlaceholder": "Sélectionner un dépôt",
     "loadingRepos": "Chargement des dépôts...",
     "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier un sprint.",
     "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
@@ -1020,7 +987,7 @@
       "removeConfirm": "Retirer"
     },
     "filters": {
-      "searchPlaceholder": "Rechercher des tickets...",
+      "searchPlaceholder": "Rechercher des issues…",
       "clearSearch": "Effacer la recherche",
       "epic": "Épique",
       "allEpics": "Toutes les épiques",
@@ -1071,5 +1038,9 @@
       "label": "Ingestion automatique",
       "description": "Les workers démarrent dès qu'une tâche est assignée"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer comme lu"
   }
 }
