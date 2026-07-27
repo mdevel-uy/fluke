@@ -73,6 +73,11 @@ const SHELL_ASIDE_SEPARATOR_CLASS =
   'after:bg-[linear-gradient(to_left,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
 const SHELL_SEPARATOR_ROW_CLASS =
   'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
+// Same depth cue as the sash, painted at the content's left edge when the
+// sidebar is hidden and the rail borders the main column directly.
+const SHELL_RAIL_SHADOW_CLASS =
+  'pointer-events-none absolute inset-y-0 left-0 z-30 w-1.5 ' +
+  'bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
@@ -348,8 +353,11 @@ export function SharedAppLayout() {
               <Panel
                 id="shell-content"
                 minSize="400px"
-                className="min-w-0 h-full overflow-hidden"
+                className="relative min-w-0 h-full overflow-hidden"
               >
+                {!showShellSidebar && (
+                  <div className={SHELL_RAIL_SHADOW_CLASS} aria-hidden />
+                )}
                 <Group
                   orientation="vertical"
                   className="h-full w-full min-h-0"
