@@ -20,12 +20,12 @@ export type MoveTarget =
   | { type: 'group'; groupIndex: number }
   | { type: 'new-after'; groupIndex: number };
 
-/** Default split: chat | views — matches the approved mock. */
+/**
+ * Default: chat only — the extra views (changes/logs/preview) start closed
+ * and are reopened from the + menu or their shortcuts (decisión Dani 27-jul).
+ */
 export function defaultTabGroups(): WorkspaceTabGroup[] {
-  return [
-    { tabs: ['chat'], active: 'chat' },
-    { tabs: ['changes', 'logs', 'preview'], active: 'changes' },
-  ];
+  return [{ tabs: ['chat'], active: 'chat' }];
 }
 
 /** Tabs not present in any group (closed — reopenable via the + menu). */
