@@ -45,13 +45,13 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 
 import {
   useWorkspacePanelState,
-  RIGHT_MAIN_PANEL_MODES,
+  useWorkspaceTabGroups,
 } from '@/shared/stores/useUiPreferencesStore';
+import { WorkspaceTabGroups } from './WorkspaceTabGroups';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 const WORKSPACES_SIDEBAR_LAYOUT_ID = 'workspaces-sidebar-layout';
-const WORKSPACES_INNER_LAYOUT_ID = 'workspaces-inner-layout';
 const WORKSPACES_BOTTOM_LAYOUT_ID = 'workspaces-bottom-layout';
 
 const SEPARATOR_CLASS =
@@ -146,15 +146,14 @@ export function WorkspacesLayout() {
   );
 
   // Use workspace-specific panel state (pass undefined when in create mode)
-  const {
-    isLeftMainPanelVisible,
-    isRightSidebarVisible,
-    isTerminalVisible,
-    rightMainPanelMode,
-    setLeftSidebarVisible,
-    setLeftMainPanelVisible,
-  } = useWorkspacePanelState(isCreateMode ? undefined : workspaceId);
+  const { isRightSidebarVisible, isTerminalVisible, rightMainPanelMode } =
+    useWorkspacePanelState(isCreateMode ? undefined : workspaceId);
   const isBottomPanelVisible = isTerminalVisible && !isCreateMode;
+
+  // VSCode-style tab groups (SHELL-SPEC R14)
+  const [tabGroups, setTabGroups] = useWorkspaceTabGroups(
+    isCreateMode ? undefined : workspaceId
+  );
 
   const {
     config,
@@ -178,44 +177,6 @@ export function WorkspacesLayout() {
     });
     WorkspacesGuideDialog.show().finally(() => WorkspacesGuideDialog.hide());
   }, [configLoading, config, updateAndSaveConfig]);
-
-  // Ensure left panels visible when right main panel hidden
-  useEffect(() => {
-    if (rightMainPanelMode === null) {
-      setLeftSidebarVisible(true);
-      if (!isLeftMainPanelVisible) setLeftMainPanelVisible(true);
-    }
-  }, [
-    isLeftMainPanelVisible,
-    rightMainPanelMode,
-    setLeftSidebarVisible,
-    setLeftMainPanelVisible,
-  ]);
-
-  // Inner layout — persisted to localStorage via useDefaultLayout.
-  // Guarded onLayoutChange: only persist when both inner panels are mounted;
-  // otherwise a single-panel layout (e.g. { 'left-main': 100 }) would clobber
-  // the stored split ratio, since useDefaultLayout overwrites without merging.
-  const {
-    defaultLayout: innerLayoutStored,
-    onLayoutChange: onInnerLayoutChangeRaw,
-  } = useDefaultLayout({
-    storage: localStorage,
-    debounceSaveMs: 150,
-    id: WORKSPACES_INNER_LAYOUT_ID,
-  });
-  const innerDefaultLayout: Layout = innerLayoutStored ?? {
-    'left-main': 50,
-    'right-main': 50,
-  };
-  const onInnerLayoutChange = useCallback(
-    (layout: Layout) => {
-      if (isLeftMainPanelVisible && rightMainPanelMode !== null) {
-        onInnerLayoutChangeRaw(layout);
-      }
-    },
-    [isLeftMainPanelVisible, rightMainPanelMode, onInnerLayoutChangeRaw]
-  );
 
   // Sidebar layout — persisted to localStorage via useDefaultLayout
   const {
@@ -371,27 +332,19 @@ export function WorkspacesLayout() {
     );
   }
 
-  // Inner group: left-main | right-main (existing split panel)
+  // Main area: create mode keeps the plain chat box; otherwise VSCode-style
+  // tab groups (SHELL-SPEC R14-R16) replace the fixed left/right split.
   const mainContent = (
     <ReviewProvider workspaceId={selectedWorkspace?.id}>
       <ChangesViewProvider>
-        <Group
-          orientation="horizontal"
-          className="flex-1 min-w-0 h-full"
-          defaultLayout={innerDefaultLayout}
-          onLayoutChange={onInnerLayoutChange}
-        >
-          {isLeftMainPanelVisible && (
-            <Panel
-              id="left-main"
-              minSize="20%"
-              className="min-w-0 h-full overflow-hidden"
-            >
-              {isCreateMode ? (
-                <CreateChatBoxContainer
-                  onWorkspaceCreated={handleWorkspaceCreated}
-                />
-              ) : (
+        {isCreateMode ? (
+          <CreateChatBoxContainer onWorkspaceCreated={handleWorkspaceCreated} />
+        ) : (
+          <WorkspaceTabGroups
+            groups={tabGroups}
+            onGroupsChange={setTabGroups}
+            contents={{
+              chat: (
                 <WorkspacesMainContainer
                   ref={mainContainerRef}
                   selectedWorkspace={selectedWorkspace ?? null}
@@ -405,40 +358,23 @@ export function WorkspacesLayout() {
                   isNewSessionMode={isNewSessionMode}
                   onStartNewSession={startNewSession}
                 />
-              )}
-            </Panel>
-          )}
-
-          {isLeftMainPanelVisible && rightMainPanelMode !== null && (
-            <Separator id="main-separator" className={SEPARATOR_CLASS} />
-          )}
-
-          {rightMainPanelMode !== null && (
-            <Panel
-              id="right-main"
-              minSize="20%"
-              className="min-w-0 h-full overflow-hidden"
-            >
-              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-                selectedWorkspace?.id && (
-                  <ChangesPanelContainer
-                    className=""
-                    workspaceId={selectedWorkspace.id}
-                  />
-                )}
-              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS && (
-                <LogsContentContainer className="" />
-              )}
-              {rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW &&
-                selectedWorkspace?.id && (
-                  <PreviewBrowserContainer
-                    workspaceId={selectedWorkspace.id}
-                    className=""
-                  />
-                )}
-            </Panel>
-          )}
-        </Group>
+              ),
+              changes: selectedWorkspace?.id ? (
+                <ChangesPanelContainer
+                  className=""
+                  workspaceId={selectedWorkspace.id}
+                />
+              ) : null,
+              logs: <LogsContentContainer className="" />,
+              preview: selectedWorkspace?.id ? (
+                <PreviewBrowserContainer
+                  workspaceId={selectedWorkspace.id}
+                  className=""
+                />
+              ) : null,
+            }}
+          />
+        )}
       </ChangesViewProvider>
     </ReviewProvider>
   );

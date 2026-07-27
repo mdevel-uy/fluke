@@ -2,6 +2,14 @@ import { useCallback, useMemo, useRef } from 'react';
 import { create } from 'zustand';
 import type { RepoAction } from '@vibe/ui/components/RepoCard';
 import type { IssuePriority } from 'shared/remote-types';
+import {
+  defaultTabGroups,
+  normalizeGroups,
+  openTab,
+  toggleTab,
+  type WorkspaceTabGroup,
+  type WorkspaceTabId,
+} from '@/shared/lib/workspaceTabGroups';
 
 export const RIGHT_MAIN_PANEL_MODES = {
   CHANGES: 'changes',
@@ -35,6 +43,33 @@ const loadMobileFontScale = (): MobileFontScale => {
     // localStorage may be unavailable
   }
   return 'default';
+};
+
+const TAB_GROUPS_KEY = 'vk-workspace-tab-groups';
+
+const loadTabGroups = (): Record<string, WorkspaceTabGroup[]> => {
+  try {
+    const raw = localStorage.getItem(TAB_GROUPS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, WorkspaceTabGroup[]>;
+    if (parsed && typeof parsed === 'object') {
+      for (const key of Object.keys(parsed)) {
+        parsed[key] = normalizeGroups(parsed[key] ?? []);
+      }
+      return parsed;
+    }
+  } catch {
+    // localStorage may be unavailable or hold invalid JSON
+  }
+  return {};
+};
+
+const saveTabGroups = (groups: Record<string, WorkspaceTabGroup[]>) => {
+  try {
+    localStorage.setItem(TAB_GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    // localStorage may be unavailable
+  }
 };
 
 export type KanbanViewMode = 'kanban' | 'list';
@@ -316,6 +351,9 @@ type State = {
   // Workspace-specific panel state
   workspacePanelStates: Record<string, WorkspacePanelState>;
 
+  // VSCode-style tab groups per workspace (SHELL-SPEC R14), persisted.
+  workspaceTabGroups: Record<string, WorkspaceTabGroup[]>;
+
   // Selected built-in kanban view per project
   kanbanProjectViewSelections: Record<string, KanbanProjectViewSelection>;
 
@@ -381,6 +419,22 @@ type State = {
   setWorkspacePanelState: (
     workspaceId: string,
     state: Partial<WorkspacePanelState>
+  ) => void;
+
+  // Tab group actions (SHELL-SPEC R14-R16)
+  getWorkspaceTabGroups: (workspaceId: string) => WorkspaceTabGroup[];
+  setWorkspaceTabGroups: (
+    workspaceId: string,
+    groups: WorkspaceTabGroup[]
+  ) => void;
+  /** Shortcut bridge: active → close, else open+activate (chat never closes). */
+  toggleWorkspaceViewTab: (
+    workspaceId: string | undefined,
+    tab: WorkspaceTabId
+  ) => void;
+  openWorkspaceViewTab: (
+    workspaceId: string | undefined,
+    tab: WorkspaceTabId
   ) => void;
 
   // Kanban view selection actions
@@ -452,6 +506,9 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
 
   // Workspace-specific panel state
   workspacePanelStates: {},
+
+  // VSCode-style tab groups per workspace
+  workspaceTabGroups: loadTabGroups(),
 
   // Kanban per-project view selection
   kanbanProjectViewSelections: {},
@@ -624,6 +681,47 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
         [workspaceId]: {
           ...currentWsState,
           ...panelState,
+        },
+      },
+    });
+  },
+
+  getWorkspaceTabGroups: (workspaceId) =>
+    get().workspaceTabGroups[workspaceId] ?? defaultTabGroups(),
+
+  toggleWorkspaceViewTab: (workspaceId, tab) => {
+    if (!workspaceId) return;
+    const groups = get().getWorkspaceTabGroups(workspaceId);
+    get().setWorkspaceTabGroups(workspaceId, toggleTab(groups, tab));
+  },
+
+  openWorkspaceViewTab: (workspaceId, tab) => {
+    if (!workspaceId) return;
+    const groups = get().getWorkspaceTabGroups(workspaceId);
+    get().setWorkspaceTabGroups(workspaceId, openTab(groups, tab));
+  },
+
+  setWorkspaceTabGroups: (workspaceId, groups) => {
+    const next = {
+      ...get().workspaceTabGroups,
+      [workspaceId]: normalizeGroups(groups),
+    };
+    saveTabGroups(next);
+    // Legacy bridge until F5 rebuilds the aside: mirror the active non-chat
+    // view into rightMainPanelMode so its contextual sections keep working.
+    const activeView = next[workspaceId]
+      .flatMap((g) => (g.active !== 'chat' ? [g.active] : []))
+      .at(-1);
+    const state = get();
+    const wsState =
+      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
+    set({
+      workspaceTabGroups: next,
+      workspacePanelStates: {
+        ...state.workspacePanelStates,
+        [workspaceId]: {
+          ...wsState,
+          rightMainPanelMode: (activeView ?? null) as RightMainPanelMode | null,
         },
       },
     });
@@ -921,6 +1019,30 @@ export function usePersistedCollapsedPaths(
 
   return [pathSet, setPathSet];
 }
+
+// Hook for the workspace's VSCode-style tab groups (SHELL-SPEC R14)
+export function useWorkspaceTabGroups(workspaceId: string | undefined) {
+  const groups = useUiPreferencesStore((s) =>
+    workspaceId ? s.workspaceTabGroups[workspaceId] : undefined
+  );
+  const setGroups = useUiPreferencesStore((s) => s.setWorkspaceTabGroups);
+
+  const resolved = useMemo(
+    () => groups ?? defaultTabGroups(),
+    [groups]
+  );
+
+  const update = useCallback(
+    (next: WorkspaceTabGroup[]) => {
+      if (workspaceId) setGroups(workspaceId, next);
+    },
+    [workspaceId, setGroups]
+  );
+
+  return [resolved, update] as const;
+}
+
+export type { WorkspaceTabGroup, WorkspaceTabId };
 
 // Hook for mobile active tab
 export function useMobileActiveTab() {

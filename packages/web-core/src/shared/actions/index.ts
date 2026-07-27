@@ -588,20 +588,15 @@ export const Actions = {
 
   ToggleLeftMainPanel: {
     id: 'toggle-left-main-panel',
-    label: 'Toggle Chat Panel',
+    label: 'Focus Chat',
     icon: ChatsTeardropIcon,
     shortcut: 'V H',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
-    isActive: (ctx) => ctx.isLeftMainPanelVisible,
-    isEnabled: (ctx) =>
-      !(ctx.isLeftMainPanelVisible && ctx.rightMainPanelMode === null),
-    getLabel: (ctx) =>
-      ctx.isLeftMainPanelVisible ? 'Hide Chat Panel' : 'Show Chat Panel',
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleLeftMainPanel(ctx.currentWorkspaceId ?? undefined);
+        .openWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'chat');
     },
   },
 
@@ -637,10 +632,7 @@ export const Actions = {
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.CHANGES,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'changes');
     },
   },
 
@@ -666,10 +658,7 @@ export const Actions = {
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.LOGS,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'logs');
     },
   },
 
@@ -707,10 +696,7 @@ export const Actions = {
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.PREVIEW,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'preview');
     },
   },
 
