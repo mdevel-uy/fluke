@@ -2,6 +2,10 @@ import { useTranslation } from 'react-i18next';
 import type { WorkerResponse } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import {
+  SidebarSectionsMenu,
+  useHiddenSections,
+} from '@vibe/ui/components/SidebarSectionsMenu';
+import {
   SidebarRow,
   SidebarSection,
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
@@ -43,15 +47,29 @@ export function WorkersSidebar({
         ? 'bg-brand-on-surface'
         : 'bg-border-strong';
 
+  const [hidden, toggleSection] = useHiddenSections('workers');
+  const menuSections = [
+    { key: 'active', label: t('workers.sidebar.active', { defaultValue: 'Active' }) },
+    { key: 'archived', label: t('workers.sidebar.archived', { defaultValue: 'Archived' }) },
+  ];
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('appBar.workers')}
         collapsible={false}
+        headerExtra={
+          <SidebarSectionsMenu
+            sections={menuSections}
+            hidden={hidden}
+            onToggle={toggleSection}
+          />
+        }
       />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+        {!hidden.active && (
         <SidebarSection
           persistKey="workers-sidebar-active"
           title={t('workers.sidebar.active', { defaultValue: 'Active' })}
@@ -67,7 +85,8 @@ export function WorkersSidebar({
             </SidebarRow>
           ))}
         </SidebarSection>
-        {archivedWorkers.length > 0 && (
+        )}
+        {!hidden.archived && archivedWorkers.length > 0 && (
           <SidebarSection
             persistKey="workers-sidebar-archived"
             title={t('workers.sidebar.archived', { defaultValue: 'Archived' })}

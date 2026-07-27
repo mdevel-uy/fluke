@@ -1,5 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import {
+  SidebarSectionsMenu,
+  useHiddenSections,
+} from '@vibe/ui/components/SidebarSectionsMenu';
 import { InputField } from '@vibe/ui/components/InputField';
 import {
   SidebarRepoSection,
@@ -51,12 +55,26 @@ export function IssuesSidebar({
         : [...filters.labels, name],
     });
 
+  const [hidden, toggleSection] = useHiddenSections('issues');
+  const menuSections = [
+    { key: 'repo', label: t('navbar.repoSelector.placeholder', { defaultValue: 'Repository' }) },
+    { key: 'views', label: t('issues.filters.stateLabel') },
+    { key: 'labels', label: t('issues.filters.label') },
+  ];
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('issues.title', { defaultValue: 'Issues' })}
         collapsible={false}
+        headerExtra={
+          <SidebarSectionsMenu
+            sections={menuSections}
+            hidden={hidden}
+            onToggle={toggleSection}
+          />
+        }
       />
       </div>
       <div className="px-base py-half flex-none">
@@ -68,7 +86,8 @@ export function IssuesSidebar({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        <SidebarRepoSection persistKey="issues-sidebar-repo" />
+        {!hidden.repo && <SidebarRepoSection persistKey="issues-sidebar-repo" />}
+        {!hidden.views && (
         <SidebarSection
           persistKey="issues-sidebar-views"
           title={t('issues.filters.stateLabel')}
@@ -83,7 +102,8 @@ export function IssuesSidebar({
             </SidebarRow>
           ))}
         </SidebarSection>
-        {availableLabels.length > 0 && (
+        )}
+        {!hidden.labels && availableLabels.length > 0 && (
           <SidebarSection
             persistKey="issues-sidebar-labels"
             title={t('issues.filters.label')}

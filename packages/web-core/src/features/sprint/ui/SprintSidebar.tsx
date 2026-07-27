@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import {
+  SidebarSectionsMenu,
+  useHiddenSections,
+} from '@vibe/ui/components/SidebarSectionsMenu';
 import { InputField } from '@vibe/ui/components/InputField';
 import {
   SidebarRepoSection,
@@ -47,12 +51,28 @@ export function SprintSidebar({
     value: SprintFilters[K]
   ) => setFilter(key, filters[key] === value ? ('' as SprintFilters[K]) : value);
 
+  const [hidden, toggleSection] = useHiddenSections('sprint');
+  const menuSections = [
+    { key: 'repo', label: t('navbar.repoSelector.placeholder', { defaultValue: 'Repository' }) },
+    { key: 'workers', label: t('sprint.filters.worker', { defaultValue: 'Worker' }) },
+    { key: 'priority', label: t('sprint.filters.priority', { defaultValue: 'Priority' }) },
+    { key: 'labels', label: t('sprint.filters.label', { defaultValue: 'Label' }) },
+    { key: 'epics', label: t('sprint.filters.epic', { defaultValue: 'Epic' }) },
+  ];
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('sprint.title')}
         collapsible={false}
+        headerExtra={
+          <SidebarSectionsMenu
+            sections={menuSections}
+            hidden={hidden}
+            onToggle={toggleSection}
+          />
+        }
       />
       </div>
       <div className="px-base py-half flex-none">
@@ -66,8 +86,8 @@ export function SprintSidebar({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        <SidebarRepoSection persistKey="sprint-sidebar-repo" />
-        {workers.length > 0 && (
+        {!hidden.repo && <SidebarRepoSection persistKey="sprint-sidebar-repo" />}
+        {!hidden.workers && workers.length > 0 && (
           <SidebarSection
             persistKey="sprint-sidebar-workers"
             title={t('sprint.filters.worker', { defaultValue: 'Worker' })}
@@ -84,6 +104,7 @@ export function SprintSidebar({
             ))}
           </SidebarSection>
         )}
+        {!hidden.priority && (
         <SidebarSection
           persistKey="sprint-sidebar-priority"
           title={t('sprint.filters.priority', { defaultValue: 'Priority' })}
@@ -98,7 +119,8 @@ export function SprintSidebar({
             </SidebarRow>
           ))}
         </SidebarSection>
-        {labels.length > 0 && (
+        )}
+        {!hidden.labels && labels.length > 0 && (
           <SidebarSection
             persistKey="sprint-sidebar-labels"
             title={t('sprint.filters.label', { defaultValue: 'Label' })}
@@ -121,7 +143,7 @@ export function SprintSidebar({
             ))}
           </SidebarSection>
         )}
-        {epics.length > 0 && (
+        {!hidden.epics && epics.length > 0 && (
           <SidebarSection
             persistKey="sprint-sidebar-epics"
             title={t('sprint.filters.epic', { defaultValue: 'Epic' })}

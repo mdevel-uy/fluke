@@ -6,6 +6,10 @@ import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
 import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
 import { ResizableSidebarSection } from './ResizableSidebarSection';
+import {
+  SidebarSectionsMenu,
+  useHiddenSections,
+} from './SidebarSectionsMenu';
 import type { AppBarHostStatus } from './AppBar';
 import type {
   WorkspacesSidebarWorkspace,
@@ -242,6 +246,19 @@ export function WorkspacesSidebarFlat({
     };
   }, [workspaces]);
 
+  // VSCode "Views and More Actions": show/hide sections from the title ⋯
+  const [hiddenSections, toggleSection] = useHiddenSections('workspaces');
+  const sectionLabels = {
+    attention: t('common:workspaces.scopes.attention', {
+      defaultValue: 'Needs attention',
+    }),
+    running: t('common:workspaces.scopes.running', { defaultValue: 'Running' }),
+    idle: t('common:workspaces.scopes.idle', { defaultValue: 'Idle' }),
+    archived: t('common:workspaces.archivedTitle', {
+      defaultValue: 'Archived',
+    }),
+  };
+
   // No create action here: workspaces are born from assigning an issue to a
   // worker, never created by hand.
   return (
@@ -250,6 +267,16 @@ export function WorkspacesSidebarFlat({
         <CollapsibleSectionHeader
           title={t('common:workspaces.title', { defaultValue: 'Workspaces' })}
           collapsible={false}
+          headerExtra={
+            <SidebarSectionsMenu
+              sections={Object.entries(sectionLabels).map(([key, label]) => ({
+                key,
+                label,
+              }))}
+              hidden={hiddenSections}
+              onToggle={toggleSection}
+            />
+          }
         />
       </div>
 
@@ -305,6 +332,7 @@ export function WorkspacesSidebarFlat({
           </div>
         )}
 
+        {!hiddenSections.attention && (
         <Section
           persistKey="ws-flat-attention"
           alwaysShow
@@ -317,6 +345,8 @@ export function WorkspacesSidebarFlat({
           onSelectWorkspace={onSelectWorkspace}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
         />
+        )}
+        {!hiddenSections.running && (
         <Section
           persistKey="ws-flat-running"
           alwaysShow
@@ -329,6 +359,8 @@ export function WorkspacesSidebarFlat({
           onSelectWorkspace={onSelectWorkspace}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
         />
+        )}
+        {!hiddenSections.idle && (
         <Section
           persistKey="ws-flat-idle"
           alwaysShow
@@ -339,6 +371,8 @@ export function WorkspacesSidebarFlat({
           onSelectWorkspace={onSelectWorkspace}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
         />
+        )}
+        {!hiddenSections.archived && (
         <Section
           persistKey="ws-flat-archived"
           title={t('common:workspaces.archivedTitle', {
@@ -352,6 +386,7 @@ export function WorkspacesSidebarFlat({
           defaultOpen={false}
           alwaysShow
         />
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center py-4">

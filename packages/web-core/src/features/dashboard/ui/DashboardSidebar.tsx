@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import {
+  SidebarSectionsMenu,
+  useHiddenSections,
+} from '@vibe/ui/components/SidebarSectionsMenu';
+import {
   SidebarRow,
   SidebarSection,
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
@@ -42,15 +46,31 @@ export function DashboardSidebar({ showLimits }: DashboardSidebarProps) {
     { id: DASHBOARD_ANCHORS.activity, label: t('dashboard.sidebar.activity', { defaultValue: 'Activity' }) },
   ];
 
+  const [hidden, toggleSection] = useHiddenSections('dashboard');
+  const menuSections = [
+    {
+      key: 'panels',
+      label: t('dashboard.sidebar.panels', { defaultValue: 'Panels' }),
+    },
+  ];
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('appBar.dashboard')}
         collapsible={false}
+        headerExtra={
+          <SidebarSectionsMenu
+            sections={menuSections}
+            hidden={hidden}
+            onToggle={toggleSection}
+          />
+        }
       />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+        {!hidden.panels && (
         <SidebarSection
           persistKey="dashboard-sidebar-panels"
           title={t('dashboard.sidebar.panels', { defaultValue: 'Panels' })}
@@ -65,6 +85,7 @@ export function DashboardSidebar({ showLimits }: DashboardSidebarProps) {
             </SidebarRow>
           ))}
         </SidebarSection>
+        )}
       </div>
     </div>
   );
