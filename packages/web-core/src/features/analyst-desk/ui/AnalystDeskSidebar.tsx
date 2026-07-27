@@ -26,11 +26,13 @@ export function AnalystDeskSidebar({
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+      <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('analystDesk.title')}
         collapsible={false}
         className="border-b"
       />
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         <SidebarRepoSection persistKey="analyst-desk-sidebar-repo" />
         {analysts.length > 0 && (

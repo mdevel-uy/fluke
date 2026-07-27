@@ -48,15 +48,20 @@ export function SidebarSection({
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
+  // Wrapper div keeps the header's `h-full` root harmless: inside an
+  // auto-height parent it collapses to content (same trick WorkspacesSidebar
+  // uses). Without it every section stretches to the panel height.
   return (
-    <CollapsibleSectionHeader
-      persistKey={persistKey}
-      title={title}
-      count={count}
-      defaultExpanded={defaultOpen}
-    >
-      <div className="flex flex-col">{children}</div>
-    </CollapsibleSectionHeader>
+    <div className="flex-none">
+      <CollapsibleSectionHeader
+        persistKey={persistKey}
+        title={title}
+        count={count}
+        defaultExpanded={defaultOpen}
+      >
+        <div className="flex flex-col">{children}</div>
+      </CollapsibleSectionHeader>
+    </div>
   );
 }
 

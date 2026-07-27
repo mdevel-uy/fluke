@@ -53,11 +53,13 @@ export function IssuesSidebar({
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-lowest">
+      <div className="flex-none">
       <CollapsibleSectionHeader
         title={t('issues.title', { defaultValue: 'Issues' })}
         collapsible={false}
         className="border-b"
       />
+      </div>
       <div className="px-base py-half flex-none">
         <InputField
           variant="search"
