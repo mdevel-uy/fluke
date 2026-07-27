@@ -107,7 +107,13 @@ export function CollapsibleSectionHeader({
             )}
           />
         )}
-        <span className="text-label font-semibold uppercase tracking-wider truncate text-normal">
+        <span
+          className={cn(
+            'text-label font-semibold uppercase tracking-wider truncate',
+            // VSCode: section headers read darker than the panel title
+            collapsible ? 'text-high' : 'text-normal'
+          )}
+        >
           {title}
           {count !== undefined && (
             <span className="text-low font-normal tabular-nums">
@@ -163,7 +169,7 @@ export function CollapsibleSectionHeader({
             {headerContent}
           </button>
         ) : (
-          <div className="flex items-center justify-between w-full h-[30px] px-2 select-none">
+          <div className="flex items-center justify-between w-full h-[30px] px-4 mb-1 select-none">
             {headerContent}
           </div>
         )}
