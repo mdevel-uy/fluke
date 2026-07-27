@@ -326,7 +326,7 @@ export function SharedAppLayout() {
                   id="shell-sidebar"
                   minSize="220px"
                   maxSize="480px"
-                  className="h-full overflow-hidden border-r border-md-outline-variant"
+                  className="relative z-10 h-full overflow-hidden border-r border-md-outline-variant shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
                 >
                   <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
                 </Panel>
@@ -413,7 +413,7 @@ export function SharedAppLayout() {
                   id="shell-aside"
                   minSize="220px"
                   maxSize="480px"
-                  className="h-full overflow-hidden border-l border-md-outline-variant"
+                  className="relative z-10 h-full overflow-hidden border-l border-md-outline-variant shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)]"
                 >
                   <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
                 </Panel>

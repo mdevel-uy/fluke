@@ -113,9 +113,10 @@ function WorkspaceRow({
   return (
     <div
       className={cn(
-        'group relative flex w-full items-center gap-2 h-[22px] pl-[22px] pr-2',
+        // VSCode-style inset rows: side gutter + rounded hover/selection
+        'group relative flex items-center gap-2 h-[22px] mx-1.5 pl-4 pr-2 rounded-[4px]',
         isSelected
-          ? 'bg-sel before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-[2px] before:bg-brand-on-surface'
+          ? 'bg-sel before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-[2px] before:rounded-full before:bg-brand-on-surface'
           : 'hover:bg-secondary'
       )}
     >
