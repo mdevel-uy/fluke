@@ -77,15 +77,33 @@ RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim AS runtime
 
+ARG OPENVSCODE_VERSION=1.109.5
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
+    libstdc++6 \
     openssh-client \
     tini \
     wget \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --system --create-home --uid 10001 appuser
+
+# Embedded code editor (served through the preview proxy; see
+# crates/local-deployment/src/openvscode.rs).
+RUN arch="$(dpkg --print-architecture)" \
+  && case "$arch" in \
+       amd64) ovs_arch=x64 ;; \
+       arm64) ovs_arch=arm64 ;; \
+       *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+     esac \
+  && wget -qO /tmp/openvscode-server.tar.gz \
+    "https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v${OPENVSCODE_VERSION}/openvscode-server-v${OPENVSCODE_VERSION}-linux-${ovs_arch}.tar.gz" \
+  && mkdir -p /opt/openvscode-server \
+  && tar -xzf /tmp/openvscode-server.tar.gz -C /opt/openvscode-server --strip-components=1 \
+  && rm /tmp/openvscode-server.tar.gz \
+  && ln -s /opt/openvscode-server/bin/openvscode-server /usr/local/bin/openvscode-server
 
 WORKDIR /repos
 
