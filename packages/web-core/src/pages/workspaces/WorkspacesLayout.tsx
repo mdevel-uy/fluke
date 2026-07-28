@@ -6,9 +6,11 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
 import { cn } from '@/shared/lib/utils';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
+import { WorkspaceExplorerSidebarContainer } from './WorkspaceExplorerSidebarContainer';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { LogsContentContainer } from './LogsContentContainer';
@@ -254,9 +256,18 @@ export function WorkspacesLayout() {
 
   // Left sidebar now lives in the shell (SHELL-SPEC R9): the page contributes
   // its content through the shell sidebar portal and keeps the scroll wiring.
+  // The rail's Editor item switches it to the file explorer of the selected
+  // workspace (VSCode activity-bar style).
+  const workspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.workspacesSidebarMode
+  );
   const sidebarPortal = (
     <ShellSidebarPortal>
-      <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
+      {workspacesSidebarMode === 'explorer' && workspaceId ? (
+        <WorkspaceExplorerSidebarContainer workspaceId={workspaceId} />
+      ) : (
+        <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
+      )}
     </ShellSidebarPortal>
   );
 

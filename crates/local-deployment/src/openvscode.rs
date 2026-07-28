@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -6,16 +7,36 @@ use std::{
 };
 
 use command_group::{AsyncCommandGroup, AsyncGroupChild};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{io::AsyncBufReadExt, net::TcpStream, process::Command, sync::Mutex, time::sleep};
+use tokio::{
+    io::AsyncBufReadExt,
+    net::TcpStream,
+    process::Command,
+    sync::{Mutex, Notify},
+    time::sleep,
+};
 use tokio_util::sync::CancellationToken;
 use utils::{path::expand_tilde, shell::resolve_executable_path};
 
 const BINARY_NAME: &str = "openvscode-server";
 const BINARY_ENV_VAR: &str = "VK_OPENVSCODE_PATH";
 const USER_DATA_DIR: &str = "~/.openvscode-server/data";
+const EXTENSIONS_DIR: &str = "~/.openvscode-server/extensions";
+const BRIDGE_EXT_DIR_NAME: &str = "vibe-kanban.vibe-kanban-bridge-0.1.0";
+const BRIDGE_EXT_PACKAGE_JSON: &str = include_str!("openvscode_ext/package.json");
+const BRIDGE_EXT_MAIN_JS: &str = include_str!("openvscode_ext/extension.js");
 const READY_TIMEOUT: Duration = Duration::from_secs(30);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(200);
+const PENDING_COMMANDS_CAP: usize = 100;
+
+/// Command forwarded to the bridge extension inside openvscode-server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum BridgeCommand {
+    OpenFile { path: String, line: Option<u32> },
+    CloseSidebar,
+}
 
 /// Seeded on first run only (the file is never touched once it exists, so
 /// changes made from the editor UI stick). Strips the workbench down to an
@@ -61,6 +82,8 @@ struct RunningServer {
 #[derive(Clone)]
 pub struct OpenVscodeService {
     inner: Arc<Mutex<Option<RunningServer>>>,
+    pending_commands: Arc<Mutex<VecDeque<BridgeCommand>>>,
+    commands_notify: Arc<Notify>,
 }
 
 impl OpenVscodeService {
@@ -75,11 +98,57 @@ impl OpenVscodeService {
             }
         });
 
-        Self { inner }
+        Self {
+            inner,
+            pending_commands: Arc::new(Mutex::new(VecDeque::new())),
+            commands_notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Queue a command for the bridge extension running inside the editor.
+    pub async fn push_bridge_command(&self, command: BridgeCommand) {
+        let mut queue = self.pending_commands.lock().await;
+        if queue.len() >= PENDING_COMMANDS_CAP {
+            queue.pop_front();
+        }
+        queue.push_back(command);
+        drop(queue);
+        self.commands_notify.notify_waiters();
+    }
+
+    /// Long-poll drain used by the bridge extension: returns queued commands,
+    /// waiting up to `timeout` for the first one to arrive.
+    pub async fn poll_bridge_commands(&self, timeout: Duration) -> Vec<BridgeCommand> {
+        let deadline = Instant::now() + timeout;
+
+        loop {
+            let notified = self.commands_notify.notified();
+
+            {
+                let mut queue = self.pending_commands.lock().await;
+                if !queue.is_empty() {
+                    return queue.drain(..).collect();
+                }
+            }
+
+            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+                return Vec::new();
+            };
+            if remaining.is_zero() {
+                return Vec::new();
+            }
+
+            tokio::select! {
+                _ = notified => {}
+                _ = sleep(remaining) => return Vec::new(),
+            }
+        }
     }
 
     /// Return the port of the running server, spawning it first if needed.
-    pub async fn ensure(&self) -> Result<u16, OpenVscodeError> {
+    /// `bridge_base` is the HTTP base URL of the vibe-kanban backend as seen
+    /// from the editor's extension host (e.g. `http://127.0.0.1:3000`).
+    pub async fn ensure(&self, bridge_base: &str) -> Result<u16, OpenVscodeError> {
         let mut guard = self.inner.lock().await;
 
         if let Some(server) = guard.as_mut() {
@@ -101,6 +170,9 @@ impl OpenVscodeService {
         let user_data_dir = expand_tilde(USER_DATA_DIR);
         seed_default_user_settings(&user_data_dir).await;
 
+        let extensions_dir = expand_tilde(EXTENSIONS_DIR);
+        seed_bridge_extension(&extensions_dir).await;
+
         let mut child = Command::new(&binary)
             .args([
                 "--host",
@@ -111,6 +183,9 @@ impl OpenVscodeService {
                 "--user-data-dir",
             ])
             .arg(&user_data_dir)
+            .arg("--extensions-dir")
+            .arg(&extensions_dir)
+            .env("VK_BRIDGE_BASE", bridge_base)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -131,6 +206,26 @@ impl OpenVscodeService {
         );
         *guard = Some(RunningServer { port, child });
         Ok(port)
+    }
+}
+
+/// (Re)write the bridge extension. Unlike the user settings this is ours, so
+/// it is overwritten on every start to pick up new versions.
+async fn seed_bridge_extension(extensions_dir: &Path) {
+    let ext_dir = extensions_dir.join(BRIDGE_EXT_DIR_NAME);
+
+    let result = async {
+        tokio::fs::create_dir_all(&ext_dir).await?;
+        tokio::fs::write(ext_dir.join("package.json"), BRIDGE_EXT_PACKAGE_JSON).await?;
+        tokio::fs::write(ext_dir.join("extension.js"), BRIDGE_EXT_MAIN_JS).await
+    }
+    .await;
+
+    if let Err(e) = result {
+        tracing::warn!(
+            "Failed to seed vibe-kanban bridge extension at {}: {e}",
+            ext_dir.display()
+        );
     }
 }
 

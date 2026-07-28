@@ -343,6 +343,12 @@ type State = {
   isRightSidebarVisible: boolean;
   isTerminalVisible: boolean;
   previewRefreshKey: number;
+  /**
+   * What the workspaces-section shell sidebar shows: the workspaces list or
+   * the file explorer of the selected workspace (rail Editor item, VSCode
+   * activity-bar style).
+   */
+  workspacesSidebarMode: 'workspaces' | 'explorer';
   // Note: Kanban issue panel state (selectedKanbanIssueId, createMode, etc.)
   // is derived from URL via app navigation route state
 
@@ -402,6 +408,7 @@ type State = {
   // are handled by app navigation
   setLeftSidebarVisible: (value: boolean) => void;
   setLeftMainPanelVisible: (value: boolean, workspaceId?: string) => void;
+  setWorkspacesSidebarMode: (mode: 'workspaces' | 'explorer') => void;
   triggerPreviewRefresh: () => void;
 
   // Workspace-specific panel state actions
@@ -490,6 +497,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   // Global layout state
   layoutMode: 'workspaces' as LayoutMode,
   isLeftSidebarVisible: true,
+  workspacesSidebarMode: 'workspaces' as const,
   isRightSidebarVisible: true,
   isTerminalVisible: false,
   previewRefreshKey: 0,
@@ -569,6 +577,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   setTerminalVisible: (value) => set({ isTerminalVisible: value }),
 
   setLeftSidebarVisible: (value) => set({ isLeftSidebarVisible: value }),
+  setWorkspacesSidebarMode: (mode) => set({ workspacesSidebarMode: mode }),
 
   setLeftMainPanelVisible: (value, workspaceId) => {
     if (!workspaceId) return;

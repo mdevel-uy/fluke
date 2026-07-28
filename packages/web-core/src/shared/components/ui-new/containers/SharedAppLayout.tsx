@@ -17,10 +17,7 @@ import {
 } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
-import {
-  useUiPreferencesStore,
-  useWorkspaceActiveViewTabs,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { cn } from '@/shared/lib/utils';
 import { isTauriMac } from '@/shared/lib/platform';
 
@@ -198,13 +195,40 @@ export function SharedAppLayout() {
   }, [activeProjectId, setSelectedProjectId]);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
-  // clicking any other item navigates to that section.
+  // clicking any other item navigates to that section. Workspaces and Editor
+  // share the workspaces section and switch its sidebar content instead
+  // (workspaces list vs file explorer), activity-bar style.
   const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const setLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.setLeftSidebarVisible
+  );
+  const workspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.workspacesSidebarMode
+  );
+  const setWorkspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.setWorkspacesSidebarMode
+  );
 
   const handleWorkspacesClick = useCallback(() => {
-    if (isWorkspacesActive) toggleLeftSidebar();
-    else void navigate({ to: '/workspaces' });
-  }, [isWorkspacesActive, toggleLeftSidebar, navigate]);
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'workspaces') {
+        setWorkspacesSidebarMode('workspaces');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('workspaces');
+      void navigate({ to: '/workspaces' });
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
 
   const handleDashboardClick = useCallback(() => {
     if (isDashboardActive) toggleLeftSidebar();
@@ -231,25 +255,41 @@ export function SharedAppLayout() {
     else appNavigation.goToAnalystDesk();
   }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
-  // Editor rail item: toggles the embedded editor tab of the selected
-  // workspace; without a selection it just goes to the workspaces section.
+  // Editor rail item: switches the workspaces-section sidebar to the file
+  // explorer and surfaces the editor tab of the selected workspace.
   const currentWorkspaceId =
     currentDestination?.kind === 'workspace'
       ? currentDestination.workspaceId
       : undefined;
-  const activeViewTabs = useWorkspaceActiveViewTabs(currentWorkspaceId);
   const isEditorActive =
-    isWorkspacesActive && activeViewTabs.includes('editor');
+    isWorkspacesActive && workspacesSidebarMode === 'explorer';
 
   const handleEditorClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'explorer') {
+        setWorkspacesSidebarMode('explorer');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('explorer');
+      void navigate({ to: '/workspaces' });
+    }
     if (currentWorkspaceId) {
       useUiPreferencesStore
         .getState()
-        .toggleWorkspaceViewTab(currentWorkspaceId, 'editor');
-    } else {
-      void navigate({ to: '/workspaces' });
+        .openWorkspaceViewTab(currentWorkspaceId, 'editor');
     }
-  }, [currentWorkspaceId, navigate]);
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+    currentWorkspaceId,
+  ]);
 
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
@@ -340,7 +380,9 @@ export function SharedAppLayout() {
                 onIssuesClick={handleIssuesClick}
                 onWorkersClick={handleWorkersClick}
                 onAnalystDeskClick={handleAnalystDeskClick}
-                isWorkspacesActive={isWorkspacesActive}
+                isWorkspacesActive={
+                  isWorkspacesActive && workspacesSidebarMode === 'workspaces'
+                }
                 isEditorActive={isEditorActive}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}

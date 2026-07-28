@@ -575,6 +575,15 @@ export const workspacesApi = {
     return handleApiResponse<{ port: number }>(response);
   },
 
+  /** Open a file inside the embedded editor via the bridge extension. */
+  openFileInEditor: async (path: string, line?: number): Promise<void> => {
+    const response = await makeRequest('/api/editor-server/open-file', {
+      method: 'POST',
+      body: JSON.stringify({ path, line: line ?? null }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
   getBranchStatus: async (workspaceId: string): Promise<RepoBranchStatus[]> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/git/status`
