@@ -716,7 +716,10 @@
       "enqueuedError": "加入佇列失敗。",
       "checkingConflicts": "正在檢查現有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
-      "assignAnyway": "仍然分配"
+      "assignAnyway": "仍然分配",
+      "skillsLabel": "技能",
+      "skillsPicker": "新增技能",
+      "skillsEmpty": "尚未安裝任何技能。請在設定 → 技能中新增。"
     },
     "reassignDialog": {
       "title": "將 Issue #{{number}} 重新指派給其他工作者",
@@ -931,7 +934,9 @@
       "errorLabel": "上傳失敗",
       "uploadError": "無法上傳 '{{name}}'：{{message}}",
       "tooLarge": "檔案超過允許的最大大小。"
-    }
+    },
+    "skillsPicker": "新增技能",
+    "skillsEmpty": "尚未安裝任何技能。請在設定 → 技能中新增。"
   },
   "sprint": {
     "title": "看板",

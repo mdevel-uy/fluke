@@ -44,6 +44,7 @@ import { FailedTaskCard } from './FailedTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 import { SprintSidebar } from './SprintSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
+import { extractSkillLabelNames } from '../lib/skillLabels';
 import { IssueDetailPanel } from './IssueDetailPanel';
 import type { SprintFilters } from './SprintFilterBar';
 
@@ -472,11 +473,7 @@ export function SprintPage() {
       const title = `#${issue.number} ${issue.title}`;
       const prompt = buildAssignToAgentPrompt(issue);
       // Extract skill names from labels with the convention `skill:<name>`.
-      const skills = issue.labels
-        .map((l) => l.name)
-        .filter((n) => n.startsWith('skill:'))
-        .map((n) => n.slice('skill:'.length))
-        .filter(Boolean);
+      const skills = extractSkillLabelNames(issue.labels);
       createTaskMutation.mutate(
         { workerId, title, prompt, issueNumber: issue.number, skills },
         {

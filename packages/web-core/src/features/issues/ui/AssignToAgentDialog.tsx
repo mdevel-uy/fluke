@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
@@ -22,13 +22,15 @@ import {
   SelectValue,
 } from '@vibe/ui/components/Select';
 import { defineModal } from '@/shared/lib/modals';
-import { workersApi } from '@/shared/lib/api';
+import { skillsApi, workersApi } from '@/shared/lib/api';
 import { workersKeys } from '@/features/workers';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import type { ActiveIssueTaskInfo } from '@/shared/lib/api';
 import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
+import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
+import { extractSkillLabelNames } from '@/features/sprint/lib/skillLabels';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 
 export interface AssignToAgentDialogProps {
@@ -56,6 +58,26 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       useState<ActiveIssueTaskInfo | null>(null);
     const [checkingConflict, setCheckingConflict] = useState(true);
     const [conflictOverridden, setConflictOverridden] = useState(false);
+
+    // Fetch installed skills so the user can attach any subset. The list is
+    // small (each entry is a directory under ~/.claude/skills); a fetch on
+    // dialog open keeps the picker in sync with recent installs/removals.
+    const { data: installedSkills = [] } = useQuery({
+      queryKey: ['skills'],
+      queryFn: () => skillsApi.list(),
+    });
+    const labelSkills = useMemo(
+      () => extractSkillLabelNames(issue.labels),
+      [issue.labels]
+    );
+    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    // Auto-select any `skill:<name>` labels once the installed list has loaded,
+    // but only when the user has not already touched the picker (empty state).
+    // We keep the dialog controlled but idempotent: switching issues or
+    // reopening always re-derives from labels.
+    useEffect(() => {
+      setSelectedSkills(labelSkills);
+    }, [labelSkills]);
 
     useEffect(() => {
       let cancelled = false;
@@ -127,6 +149,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
           title: `#${issue.number} ${issue.title}`,
           prompt: trimmed,
           issue_number: issue.number,
+          skills: selectedSkills,
           ...(forceOverride ? { force_duplicate: true } : {}),
         });
         const invalidateWorkers = () =>
@@ -234,6 +257,22 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+            )}
+
+            {!showConflictWarning && (
+              <div>
+                <Label>{t('issues.assignDialog.skillsLabel')}</Label>
+                <div className="mt-1">
+                  <SkillsPicker
+                    installed={installedSkills}
+                    selected={selectedSkills}
+                    onChange={setSelectedSkills}
+                    disabled={isSubmitting}
+                    emptyHint={t('issues.assignDialog.skillsEmpty')}
+                    triggerLabel={t('issues.assignDialog.skillsPicker')}
+                  />
+                </div>
               </div>
             )}
 

@@ -3,6 +3,7 @@ import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
+import { SkillChips } from './SkillChips';
 
 interface FailedTaskCardProps {
   task: WorkerTask;
@@ -35,6 +36,7 @@ export function FailedTaskCard({
           {taskDisplayTitle(task)}
         </p>
       </div>
+      <SkillChips skills={task.skills ?? []} />
       <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
         <Button
           variant="icon"
