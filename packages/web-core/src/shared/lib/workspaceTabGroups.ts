@@ -5,6 +5,7 @@
 export const WORKSPACE_TAB_IDS = [
   'chat',
   'changes',
+  'editor',
   'logs',
   'preview',
 ] as const;

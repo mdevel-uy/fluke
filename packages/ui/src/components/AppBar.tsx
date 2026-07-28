@@ -4,6 +4,7 @@ import { Tooltip } from './Tooltip';
 import { MaterialIcon } from './MaterialIcon';
 import { useTranslation } from 'react-i18next';
 import {
+  FileCode,
   Headphones,
   Kanban,
   LayoutGrid,
@@ -30,6 +31,7 @@ interface AppBarProps {
   activeHostId?: string | null;
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
+  onEditorClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
   onIssuesClick?: () => void;
@@ -37,12 +39,14 @@ interface AppBarProps {
   onAnalystDeskClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
+  showEditorButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
   isWorkspacesActive: boolean;
+  isEditorActive?: boolean;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
   isIssuesActive?: boolean;
@@ -146,6 +150,7 @@ export function AppBar({
   activeHostId = null,
   onExportClick,
   onWorkspacesClick,
+  onEditorClick,
   onDashboardClick,
   onSprintClick,
   onIssuesClick,
@@ -153,12 +158,14 @@ export function AppBar({
   onAnalystDeskClick,
   onHostClick,
   showWorkspacesButton = true,
+  showEditorButton = true,
   showDashboardButton = true,
   showSprintButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
   showAnalystDeskButton = true,
   isWorkspacesActive,
+  isEditorActive = false,
   isDashboardActive = false,
   isSprintActive = false,
   isIssuesActive = false,
@@ -204,6 +211,16 @@ export function AppBar({
         lucideIcon: LayoutPanelLeft,
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
+      });
+    }
+    if (showEditorButton && onEditorClick) {
+      localItems.push({
+        key: 'local-editor',
+        kind: 'icon-button',
+        label: t('appBar.editor', { defaultValue: 'Editor' }),
+        lucideIcon: FileCode,
+        isActive: isEditorActive,
+        onClick: onEditorClick,
       });
     }
     if (showSprintButton && onSprintClick) {

@@ -563,6 +563,18 @@ export const workspacesApi = {
     return handleApiResponse<{ workspace_path: string }>(response);
   },
 
+  /**
+   * Ensure the embedded openvscode-server is running on this host; returns
+   * its loopback port. The editor iframe reaches it through the preview
+   * proxy, passing the workspace folder via `?folder=`.
+   */
+  ensureEditorServer: async (): Promise<{ port: number }> => {
+    const response = await makeRequest('/api/editor-server/ensure', {
+      method: 'POST',
+    });
+    return handleApiResponse<{ port: number }>(response);
+  },
+
   getBranchStatus: async (workspaceId: string): Promise<RepoBranchStatus[]> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/git/status`

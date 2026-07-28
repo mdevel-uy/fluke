@@ -16,6 +16,7 @@ import {
   EyeSlashIcon,
   SidebarSimpleIcon,
   ChatsTeardropIcon,
+  CodeIcon,
   GitDiffIcon,
   TerminalIcon,
   TerminalWindowIcon,
@@ -544,6 +545,25 @@ export const Actions = {
       useUiPreferencesStore
         .getState()
         .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'logs');
+    },
+  },
+
+  ToggleEditorMode: {
+    id: 'toggle-editor-mode',
+    label: 'Toggle Editor Panel',
+    icon: CodeIcon,
+    shortcut: 'V E',
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.activeViewTabs.includes('editor'),
+    getLabel: (ctx) =>
+      ctx.activeViewTabs.includes('editor')
+        ? 'Hide Editor Panel'
+        : 'Show Editor Panel',
+    execute: (ctx) => {
+      useUiPreferencesStore
+        .getState()
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'editor');
     },
   },
 

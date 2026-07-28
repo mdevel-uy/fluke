@@ -17,7 +17,10 @@ import {
 } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
-import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import {
+  useUiPreferencesStore,
+  useWorkspaceActiveViewTabs,
+} from '@/shared/stores/useUiPreferencesStore';
 import { cn } from '@/shared/lib/utils';
 import { isTauriMac } from '@/shared/lib/platform';
 
@@ -228,6 +231,26 @@ export function SharedAppLayout() {
     else appNavigation.goToAnalystDesk();
   }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
+  // Editor rail item: toggles the embedded editor tab of the selected
+  // workspace; without a selection it just goes to the workspaces section.
+  const currentWorkspaceId =
+    currentDestination?.kind === 'workspace'
+      ? currentDestination.workspaceId
+      : undefined;
+  const activeViewTabs = useWorkspaceActiveViewTabs(currentWorkspaceId);
+  const isEditorActive =
+    isWorkspacesActive && activeViewTabs.includes('editor');
+
+  const handleEditorClick = useCallback(() => {
+    if (currentWorkspaceId) {
+      useUiPreferencesStore
+        .getState()
+        .toggleWorkspaceViewTab(currentWorkspaceId, 'editor');
+    } else {
+      void navigate({ to: '/workspaces' });
+    }
+  }, [currentWorkspaceId, navigate]);
+
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
   const sectionHasSidebar =
@@ -311,12 +334,14 @@ export function SharedAppLayout() {
               {/* Desktop AppBar sidebar. */}
               <AppBar
                 onWorkspacesClick={handleWorkspacesClick}
+                onEditorClick={handleEditorClick}
                 onDashboardClick={handleDashboardClick}
                 onSprintClick={handleSprintClick}
                 onIssuesClick={handleIssuesClick}
                 onWorkersClick={handleWorkersClick}
                 onAnalystDeskClick={handleAnalystDeskClick}
                 isWorkspacesActive={isWorkspacesActive}
+                isEditorActive={isEditorActive}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}

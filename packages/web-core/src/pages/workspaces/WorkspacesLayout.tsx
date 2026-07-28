@@ -18,6 +18,7 @@ import {
 } from './WorkspacesMainContainer';
 import { RightSidebar } from './RightSidebar';
 import { ChangesPanelContainer } from './ChangesPanelContainer';
+import { EditorPanelContainer } from './EditorPanelContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
@@ -229,6 +230,12 @@ export function WorkspacesLayout() {
             changes: selectedWorkspace?.id ? (
               <ChangesPanelContainer
                 className=""
+                workspaceId={selectedWorkspace.id}
+              />
+            ) : null,
+            editor: selectedWorkspace?.id ? (
+              <EditorPanelContainer
+                className="h-full"
                 workspaceId={selectedWorkspace.id}
               />
             ) : null,
