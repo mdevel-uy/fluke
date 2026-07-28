@@ -334,7 +334,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "Envoyer le message",
       "settings": "Aller aux Paramètres",
-      "new-workspace": "Aller au Nouvel espace de travail",
       "duplicate-workspace": "Dupliquer l'espace de travail",
       "rename-workspace": "Renommer l'espace de travail",
       "pin-workspace": "Épingler/Désépingler l'espace de travail",
@@ -558,13 +557,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Bureau des analystes",
-    "collapseSidebar": "Réduire la barre latérale",
-    "expandSidebar": "Étendre la barre latérale",
-    "settings": "Paramètres",
-    "kanban": {
-      "title": "Tableaux Kanban",
-      "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."
-    }
+    "settings": "Paramètres"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -692,7 +685,7 @@
     },
     "taskLinked": {
       "openWorkspace": "Ouvrir le workspace",
-      "viewInSprint": "Voir dans Sprint"
+      "viewInSprint": "Voir sur le tableau"
     },
     "table": {
       "issue": "Issue",
@@ -948,10 +941,10 @@
   "sprint": {
     "title": "Kanban",
     "loadingRepos": "Chargement des dépôts...",
-    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier un sprint.",
-    "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
-    "loading": "Chargement du sprint...",
-    "loadError": "Échec du chargement du tableau de sprint.",
+    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier le travail sur le tableau.",
+    "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau kanban.",
+    "loading": "Chargement du tableau...",
+    "loadError": "Échec du chargement du tableau kanban.",
     "sync": "Synchroniser",
     "syncing": "Synchronisation...",
     "columns": {

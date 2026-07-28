@@ -1,19 +1,19 @@
-import { useEffect } from 'react';
-import { SpinnerIcon } from '@phosphor-icons/react';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
+import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
+import { WorkspacesWelcome } from './WorkspacesWelcome';
 
+/**
+ * /workspaces with nothing selected — welcome view (SHELL-SPEC R13) instead
+ * of the old redirect-to-create spinner. The workspaces sidebar is
+ * contributed here too, so the master list stays visible.
+ */
 export function WorkspacesLanding() {
-  const appNavigation = useAppNavigation();
-
-  useEffect(() => {
-    appNavigation.goToWorkspacesCreate({
-      replace: true,
-    });
-  }, [appNavigation]);
-
   return (
-    <div className="flex h-full flex-1 items-center justify-center bg-primary">
-      <SpinnerIcon className="size-6 animate-spin text-low" />
-    </div>
+    <>
+      <ShellSidebarPortal>
+        <WorkspacesSidebarContainer />
+      </ShellSidebarPortal>
+      <WorkspacesWelcome />
+    </>
   );
 }

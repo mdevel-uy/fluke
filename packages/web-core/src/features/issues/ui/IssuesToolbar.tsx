@@ -43,6 +43,9 @@ interface IssuesToolbarProps {
   availableMilestones: string[];
   availableWorkers: IssueWorkerOption[];
   onChange: (filters: IssueFilters) => void;
+  /** Filters covered by the shell sidebar (SHELL-SPEC R9) get hidden here. */
+  hiddenFilterIds?: string[];
+  hideSearch?: boolean;
 }
 
 const ISSUE_STATES: IssueStateFilter[] = ['all', 'open', 'closed'];
@@ -61,6 +64,8 @@ export function IssuesToolbar({
   availableMilestones,
   availableWorkers,
   onChange,
+  hiddenFilterIds,
+  hideSearch = false,
 }: IssuesToolbarProps) {
   const { t } = useTranslation('common');
 
@@ -173,15 +178,23 @@ export function IssuesToolbar({
     filters.milestones.length > 0 ||
     filters.workers.length > 0;
 
+  const visibleFilterDefs = hiddenFilterIds?.length
+    ? filterDefs.filter((f) => !hiddenFilterIds.includes(f.id))
+    : filterDefs;
+
   return (
     <FilterBar
-      search={{
-        value: filters.search,
-        onChange: (search) => onChange({ ...filters, search }),
-        placeholder: t('issues.filters.searchPlaceholder'),
-        clearLabel: t('issues.filters.clearSearch'),
-      }}
-      filters={filterDefs}
+      search={
+        hideSearch
+          ? undefined
+          : {
+              value: filters.search,
+              onChange: (search) => onChange({ ...filters, search }),
+              placeholder: t('issues.filters.searchPlaceholder'),
+              clearLabel: t('issues.filters.clearSearch'),
+            }
+      }
+      filters={visibleFilterDefs}
       hasActiveFilters={hasActiveFilters}
       onClearAll={() => onChange(DEFAULT_FILTERS)}
       clearAllLabel={t('issues.filters.clear')}

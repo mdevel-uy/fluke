@@ -1,22 +1,20 @@
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  type DropResult,
-} from '@hello-pangea/dnd';
 import type { ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverClose,
-} from './Popover';
 import { Tooltip } from './Tooltip';
 import { MaterialIcon } from './MaterialIcon';
 import { useTranslation } from 'react-i18next';
+import {
+  Headphones,
+  Kanban,
+  LayoutGrid,
+  LayoutPanelLeft,
+  ListChecks,
+  Settings as SettingsIcon,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 
-function getProjectInitials(name: string): string {
+function getHostInitials(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '??';
   const words = trimmed.split(/\s+/);
@@ -27,11 +25,9 @@ function getProjectInitials(name: string): string {
 }
 
 interface AppBarProps {
-  projects: AppBarProject[];
   hosts?: AppBarHost[];
   onPairHostClick?: () => void;
   activeHostId?: string | null;
-  onCreateProject: () => void;
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
   onDashboardClick?: () => void;
@@ -46,9 +42,6 @@ interface AppBarProps {
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
-  onProjectClick: (projectId: string) => void;
-  onProjectsDragEnd: (result: DropResult) => void;
-  isSavingProjectOrder?: boolean;
   isWorkspacesActive: boolean;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
@@ -56,26 +49,14 @@ interface AppBarProps {
   isWorkersActive?: boolean;
   isAnalystDeskActive?: boolean;
   isExportActive?: boolean;
-  activeProjectId: string | null;
   isSignedIn?: boolean;
-  isLoadingProjects?: boolean;
-  onSignIn?: () => void;
   onHoverStart?: () => void;
   onHoverEnd?: () => void;
   notificationBell?: ReactNode;
   userPopover?: ReactNode;
-  appVersion?: string | null;
   updateVersion?: string | null;
   onUpdateClick?: () => void;
   onOpenSettings?: () => void;
-  isCollapsed?: boolean;
-  onToggleCollapsed?: () => void;
-}
-
-export interface AppBarProject {
-  id: string;
-  name: string;
-  color: string;
 }
 
 export type AppBarHostStatus = 'online' | 'offline' | 'unpaired';
@@ -98,19 +79,12 @@ function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
   return 'bg-white border-warning';
 }
 
+// SHELL-SPEC R5: the rail is icons-only — 40px items, tooltip on the right.
 const appBarItemBase =
-  'flex items-center rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
-
-const appBarItemCollapsedLayout = 'justify-center w-10 h-10';
-const appBarItemExpandedLayout = 'justify-start w-full h-10 gap-3 px-2';
-
-function getAppBarItemLayoutClass(isCollapsed: boolean): string {
-  return isCollapsed ? appBarItemCollapsedLayout : appBarItemExpandedLayout;
-}
+  'flex items-center justify-center w-10 h-10 rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
 
 type AppBarSection = {
-  key: 'local' | 'remote' | 'projects' | 'export';
-  label: string;
+  key: 'local' | 'remote' | 'export';
   items: AppBarSectionItem[];
 };
 
@@ -119,11 +93,12 @@ type AppBarSectionItem =
       key: string;
       kind: 'icon-button';
       label: string;
-      materialIcon: string;
+      /** Legacy icon set — prefer lucideIcon (SHELL-SPEC R32) */
+      materialIcon?: string;
+      lucideIcon?: LucideIcon;
       isActive?: boolean;
       onClick?: () => void;
       className?: string;
-      wrapperClassName?: string;
     }
   | {
       key: string;
@@ -131,65 +106,34 @@ type AppBarSectionItem =
       host: AppBarHost;
       isActive: boolean;
       onClick?: () => void;
-      wrapperClassName?: string;
-    }
-  | {
-      key: string;
-      kind: 'kanban-cta';
-      label: string;
-      onSignIn?: () => void;
-    }
-  | {
-      key: string;
-      kind: 'loading';
-    }
-  | {
-      key: string;
-      kind: 'project-list';
-      projects: AppBarProject[];
-      activeProjectId: string | null;
-      isSavingProjectOrder?: boolean;
-      onProjectClick: (projectId: string) => void;
-      onProjectsDragEnd: (result: DropResult) => void;
     };
 
 function getStandardAppBarButtonClassName({
   isActive = false,
-  isCollapsed = false,
   className,
 }: {
   isActive?: boolean;
-  isCollapsed?: boolean;
   className?: string;
 }) {
   return cn(
     appBarItemBase,
-    getAppBarItemLayoutClass(isCollapsed),
     'cursor-pointer',
     isActive
-      ? 'relative text-md-on-surface before:absolute before:-left-2 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
-      : 'text-md-outline hover:text-md-on-surface',
+      ? 'relative text-md-on-surface before:absolute before:-left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
+      : // VSCode: inactive rail icons are a mid-dark gray, not faint
+        'text-md-on-surface-variant hover:text-md-on-surface',
     className
   );
 }
 
-function getHostButtonClassName({
-  host,
-  isActive,
-  isCollapsed = false,
-}: {
-  host: AppBarHost;
-  isActive: boolean;
-  isCollapsed?: boolean;
-}) {
+function getHostButtonClassName(host: AppBarHost, isActive: boolean) {
   const isOffline = host.status === 'offline';
   return cn(
     appBarItemBase,
-    getAppBarItemLayoutClass(isCollapsed),
     isOffline
       ? 'text-md-outline opacity-50 cursor-not-allowed'
       : isActive
-        ? 'relative bg-md-surface-container-high text-md-on-surface cursor-pointer before:absolute before:-left-2 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
+        ? 'relative bg-md-surface-container-high text-md-on-surface cursor-pointer before:absolute before:-left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:bg-brand-on-surface'
         : host.status === 'unpaired'
           ? 'text-warning cursor-pointer hover:bg-warning/10'
           : 'text-md-outline cursor-pointer hover:text-md-on-surface'
@@ -229,25 +173,9 @@ export function AppBar({
   updateVersion,
   onUpdateClick,
   onOpenSettings,
-  isCollapsed = false,
-  onToggleCollapsed,
 }: AppBarProps) {
   const { t } = useTranslation('common');
   const sections: AppBarSection[] = [];
-
-  function maybeTooltip(
-    content: string,
-    side: 'top' | 'bottom' | 'left' | 'right',
-    enabled: boolean,
-    children: ReactNode
-  ): ReactNode {
-    if (!enabled) return children;
-    return (
-      <Tooltip content={content} side={side}>
-        {children}
-      </Tooltip>
-    );
-  }
 
   if (
     showWorkspacesButton ||
@@ -263,7 +191,7 @@ export function AppBar({
         key: 'local-dashboard',
         kind: 'icon-button',
         label: t('appBar.dashboard'),
-        materialIcon: 'space_dashboard',
+        lucideIcon: LayoutGrid,
         isActive: isDashboardActive,
         onClick: onDashboardClick,
       });
@@ -273,7 +201,7 @@ export function AppBar({
         key: 'local-workspaces',
         kind: 'icon-button',
         label: t('appBar.workspaces'),
-        materialIcon: 'view_quilt',
+        lucideIcon: LayoutPanelLeft,
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
       });
@@ -283,7 +211,7 @@ export function AppBar({
         key: 'local-sprint',
         kind: 'icon-button',
         label: t('appBar.sprint'),
-        materialIcon: 'view_kanban',
+        lucideIcon: Kanban,
         isActive: isSprintActive,
         onClick: onSprintClick,
       });
@@ -293,7 +221,7 @@ export function AppBar({
         key: 'local-issues',
         kind: 'icon-button',
         label: t('appBar.issues'),
-        materialIcon: 'list_alt',
+        lucideIcon: ListChecks,
         isActive: isIssuesActive,
         onClick: onIssuesClick,
       });
@@ -303,7 +231,7 @@ export function AppBar({
         key: 'local-workers',
         kind: 'icon-button',
         label: t('appBar.workers'),
-        materialIcon: 'group',
+        lucideIcon: Users,
         isActive: isWorkersActive,
         onClick: onWorkersClick,
       });
@@ -313,20 +241,19 @@ export function AppBar({
         key: 'local-analyst-desk',
         kind: 'icon-button',
         label: t('appBar.analystDesk'),
-        materialIcon: 'support_agent',
+        lucideIcon: Headphones,
         isActive: isAnalystDeskActive,
         onClick: onAnalystDeskClick,
       });
     }
     if (localItems.length > 0) {
-      sections.push({ key: 'local', label: 'Local', items: localItems });
+      sections.push({ key: 'local', items: localItems });
     }
   }
 
   if (hosts.length > 0 || onPairHostClick) {
     sections.push({
       key: 'remote',
-      label: 'Remote',
       items: [
         ...hosts.map((host) => ({
           key: `host-${host.id}`,
@@ -362,7 +289,6 @@ export function AppBar({
   if (isSignedIn && onExportClick) {
     sections.push({
       key: 'export',
-      label: 'Export',
       items: [
         {
           key: 'export-data',
@@ -379,344 +305,117 @@ export function AppBar({
   function renderSectionItem(item: AppBarSectionItem): ReactNode {
     switch (item.kind) {
       case 'icon-button':
-        return maybeTooltip(
-          item.label,
-          'right',
-          isCollapsed,
-          <button
-            type="button"
-            onClick={item.onClick}
-            className={getStandardAppBarButtonClassName({
-              isActive: item.isActive,
-              isCollapsed,
-              className: item.className,
-            })}
-            aria-label={item.label}
-          >
-            <MaterialIcon
-              name={item.materialIcon}
-              fill={item.isActive ? 1 : 0}
-              size="base"
-            />
-            {!isCollapsed && (
-              <span className="truncate text-body-sm">{item.label}</span>
-            )}
-          </button>
+        return (
+          <Tooltip content={item.label} side="right">
+            <button
+              type="button"
+              onClick={item.onClick}
+              className={getStandardAppBarButtonClassName({
+                isActive: item.isActive,
+                className: item.className,
+              })}
+              aria-label={item.label}
+            >
+              {item.lucideIcon ? (
+                <item.lucideIcon size={18} strokeWidth={1.75} />
+              ) : (
+                <MaterialIcon
+                  name={item.materialIcon ?? ''}
+                  fill={item.isActive ? 1 : 0}
+                  size="base"
+                />
+              )}
+            </button>
+          </Tooltip>
         );
 
       case 'host-button': {
         const isOffline = item.host.status === 'offline';
-        return maybeTooltip(
-          `${item.host.name} · ${getHostStatusLabel(item.host.status)}`,
-          'right',
-          isCollapsed,
-          <div className={cn('relative', !isCollapsed && 'w-full')}>
-            <span
-              className={cn(
-                'absolute z-10',
-                isCollapsed
-                  ? '-top-1 -right-1'
-                  : 'top-1/2 -translate-y-1/2 left-2',
-                'w-3.5 h-3.5 rounded-full border border-md-surface-container-low',
-                getHostStatusIndicatorClass(item.host.status)
-              )}
-              aria-hidden="true"
-            />
-            <button
-              type="button"
-              disabled={isOffline}
-              onClick={item.onClick}
-              className={cn(
-                getHostButtonClassName({
-                  host: item.host,
-                  isActive: item.isActive,
-                  isCollapsed,
-                }),
-                !isCollapsed && 'pl-8'
-              )}
-              aria-label={`${item.host.name} (${getHostStatusLabel(item.host.status)})`}
-            >
-              {isCollapsed ? (
-                getProjectInitials(item.host.name)
-              ) : (
-                <span className="truncate text-body-sm">{item.host.name}</span>
-              )}
-            </button>
-          </div>
+        return (
+          <Tooltip
+            content={`${item.host.name} · ${getHostStatusLabel(item.host.status)}`}
+            side="right"
+          >
+            <div className="relative">
+              <span
+                className={cn(
+                  'absolute z-10 -top-1 -right-1',
+                  'w-3.5 h-3.5 rounded-full border border-md-surface-container-low',
+                  getHostStatusIndicatorClass(item.host.status)
+                )}
+                aria-hidden="true"
+              />
+              <button
+                type="button"
+                disabled={isOffline}
+                onClick={item.onClick}
+                className={getHostButtonClassName(item.host, item.isActive)}
+                aria-label={`${item.host.name} (${getHostStatusLabel(item.host.status)})`}
+              >
+                {getHostInitials(item.host.name)}
+              </button>
+            </div>
+          </Tooltip>
         );
       }
-
-      case 'kanban-cta':
-        return (
-          <Popover>
-            {maybeTooltip(
-              item.label,
-              'right',
-              isCollapsed,
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={getStandardAppBarButtonClassName({ isCollapsed })}
-                  aria-label={item.label}
-                >
-                  <MaterialIcon name="view_kanban" size="base" />
-                  {!isCollapsed && (
-                    <span className="truncate text-body-sm">{item.label}</span>
-                  )}
-                </button>
-              </PopoverTrigger>
-            )}
-            <PopoverContent side="right" sideOffset={8}>
-              <p className="text-title-sm font-semibold text-md-on-surface">
-                {t('appBar.kanban.title')}
-              </p>
-              <p className="text-body-sm text-md-on-surface-variant mt-1">
-                {t('appBar.kanban.description')}
-              </p>
-              <div className="mt-base">
-                <PopoverClose asChild>
-                  <button
-                    type="button"
-                    onClick={item.onSignIn}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-body-sm font-semibold',
-                      'bg-brand text-on-brand hover:bg-brand-hover cursor-pointer transition-all duration-150'
-                    )}
-                  >
-                    {t('signIn')}
-                  </button>
-                </PopoverClose>
-              </div>
-            </PopoverContent>
-          </Popover>
-        );
-
-      case 'loading':
-        return (
-          <div className="flex items-center justify-center w-10 h-10">
-            <MaterialIcon
-              name="progress_activity"
-              size="base"
-              className="animate-spin text-md-on-surface-variant"
-            />
-          </div>
-        );
-
-      case 'project-list':
-        return (
-          <DragDropContext onDragEnd={item.onProjectsDragEnd}>
-            <Droppable
-              droppableId="app-bar-projects"
-              direction="vertical"
-              isDropDisabled={item.isSavingProjectOrder}
-            >
-              {(dropProvided) => (
-                <div
-                  ref={dropProvided.innerRef}
-                  {...dropProvided.droppableProps}
-                  className={cn(
-                    'flex flex-col -mb-base',
-                    isCollapsed ? 'items-center' : 'items-stretch'
-                  )}
-                >
-                  {item.projects.map((project, index) => (
-                    <Draggable
-                      key={project.id}
-                      draggableId={project.id}
-                      index={index}
-                      disableInteractiveElementBlocking
-                      isDragDisabled={item.isSavingProjectOrder}
-                    >
-                      {(dragProvided, snapshot) => (
-                        <div
-                          ref={dragProvided.innerRef}
-                          {...dragProvided.draggableProps}
-                          {...dragProvided.dragHandleProps}
-                          className="mb-base"
-                          style={dragProvided.draggableProps.style}
-                        >
-                          {maybeTooltip(
-                            project.name,
-                            'right',
-                            isCollapsed,
-                            <button
-                              type="button"
-                              onClick={() => item.onProjectClick(project.id)}
-                              className={cn(
-                                appBarItemBase,
-                                getAppBarItemLayoutClass(isCollapsed),
-                                'cursor-grab font-semibold text-title-sm',
-                                snapshot.isDragging &&
-                                  'ring-1 ring-border-strong',
-                                item.activeProjectId === project.id
-                                  ? 'ring-1 ring-inset ring-md-outline-variant'
-                                  : 'text-md-outline hover:text-md-on-surface hover:bg-md-surface-container'
-                              )}
-                              style={
-                                item.activeProjectId === project.id
-                                  ? {
-                                      color: `hsl(${project.color})`,
-                                      backgroundColor: `hsl(${project.color} / 0.15)`,
-                                    }
-                                  : undefined
-                              }
-                              aria-label={project.name}
-                            >
-                              <span
-                                className={cn(
-                                  'flex items-center justify-center',
-                                  isCollapsed ? 'w-full' : 'w-6 shrink-0'
-                                )}
-                              >
-                                {getProjectInitials(project.name)}
-                              </span>
-                              {!isCollapsed && (
-                                <span className="truncate text-body-sm font-normal">
-                                  {project.name}
-                                </span>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {dropProvided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        );
     }
   }
-
-  const toggleLabel = isCollapsed
-    ? t('appBar.expandSidebar')
-    : t('appBar.collapseSidebar');
 
   return (
     <div
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       className={cn(
-        'flex flex-col h-full min-h-0 overflow-y-auto py-2 px-2 gap-3',
-        isCollapsed ? 'items-center' : 'items-stretch w-56',
-        'bg-md-surface-container-lowest border-r border-md-outline-variant'
+        'flex flex-col items-center h-full min-h-0 overflow-y-auto py-2 px-1 gap-3',
+        'bg-md-surface-container-low border-r border-md-outline-variant'
       )}
     >
       {sections.map((section, sectionIndex) => (
-        <div
-          key={section.key}
-          className={cn(
-            'flex flex-col gap-0.5',
-            isCollapsed ? 'items-center' : 'items-stretch'
-          )}
-        >
+        <div key={section.key} className="flex flex-col items-center gap-0.5">
           {sectionIndex > 0 && (
-            <div
-              className={cn(
-                'h-px bg-md-outline-variant my-1',
-                isCollapsed ? 'w-6' : 'w-full'
-              )}
-              aria-hidden
-            />
+            <div className="h-px bg-md-outline-variant my-1 w-6" aria-hidden />
           )}
           {section.items.map((item) => (
-            <div
-              key={item.key}
-              className={
-                'wrapperClassName' in item ? item.wrapperClassName : undefined
-              }
-            >
-              {renderSectionItem(item)}
-            </div>
+            <div key={item.key}>{renderSectionItem(item)}</div>
           ))}
         </div>
       ))}
 
-      <div
-        className={cn(
-          'mt-auto flex flex-col gap-1 w-full pt-2',
-          isCollapsed ? 'items-center' : 'items-stretch'
-        )}
-      >
+      <div className="mt-auto flex flex-col items-center gap-1 pt-2">
         {updateVersion && (
           <Tooltip content={`Update to v${updateVersion}`} side="right">
             <button
               type="button"
               onClick={onUpdateClick}
               className={cn(
-                'flex items-center justify-center py-1 rounded-sm',
-                isCollapsed ? 'w-10 mx-auto' : 'w-full',
+                'flex items-center justify-center py-1 rounded-sm w-10',
                 'text-label uppercase tracking-wider',
                 'bg-brand text-on-brand hover:bg-brand-hover',
                 'transition-all duration-150 cursor-pointer'
               )}
             >
               Update
-              {!isCollapsed && updateVersion ? ` v${updateVersion}` : ''}
             </button>
           </Tooltip>
         )}
         {notificationBell && (
-          <div
-            className={cn(
-              'flex',
-              isCollapsed ? 'justify-center' : 'justify-start'
-            )}
-          >
-            {notificationBell}
-          </div>
+          <div className="flex justify-center">{notificationBell}</div>
         )}
         {userPopover && (
-          <div
-            className={cn(
-              'flex',
-              isCollapsed ? 'justify-center' : 'justify-start'
-            )}
-          >
-            {userPopover}
-          </div>
+          <div className="flex justify-center">{userPopover}</div>
         )}
-        {onOpenSettings &&
-          maybeTooltip(
-            t('appBar.settings'),
-            'right',
-            isCollapsed,
+        {onOpenSettings && (
+          <Tooltip content={t('appBar.settings')} side="right">
             <button
               type="button"
               onClick={onOpenSettings}
-              className={getStandardAppBarButtonClassName({ isCollapsed })}
+              className={getStandardAppBarButtonClassName({})}
               aria-label={t('appBar.settings')}
             >
-              <MaterialIcon name="settings" size="base" />
-              {!isCollapsed && (
-                <span className="truncate text-body-sm">
-                  {t('appBar.settings')}
-                </span>
-              )}
+              <SettingsIcon size={18} strokeWidth={1.75} />
             </button>
-          )}
-        {onToggleCollapsed &&
-          maybeTooltip(
-            toggleLabel,
-            'right',
-            isCollapsed,
-            <button
-              type="button"
-              onClick={onToggleCollapsed}
-              className={getStandardAppBarButtonClassName({ isCollapsed })}
-              aria-label={toggleLabel}
-            >
-              <MaterialIcon
-                name={isCollapsed ? 'left_panel_open' : 'left_panel_close'}
-                size="base"
-              />
-              {!isCollapsed && (
-                <span className="truncate text-body-sm">{toggleLabel}</span>
-              )}
-            </button>
-          )}
+          </Tooltip>
+        )}
       </div>
     </div>
   );

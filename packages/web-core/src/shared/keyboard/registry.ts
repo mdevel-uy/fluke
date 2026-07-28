@@ -81,14 +81,6 @@ export const sequentialBindings: SequentialBinding[] = [
     group: 'Navigation',
     actionId: 'settings',
   },
-  {
-    id: 'seq-go-new-workspace',
-    keys: ['g', 'n'],
-    description: 'Go to New Workspace',
-    group: 'Navigation',
-    actionId: 'new-workspace',
-  },
-
   // Workspace (W)
   {
     id: 'seq-workspace-duplicate',

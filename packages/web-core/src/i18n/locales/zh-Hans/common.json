@@ -334,7 +334,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "发送消息",
       "settings": "前往设置",
-      "new-workspace": "前往新工作区",
       "duplicate-workspace": "复制工作区",
       "rename-workspace": "重命名工作区",
       "pin-workspace": "置顶/取消置顶工作区",
@@ -558,13 +557,7 @@
     "workers": "工作者",
     "sprint": "看板",
     "analystDesk": "分析师工作台",
-    "collapseSidebar": "折叠侧边栏",
-    "expandSidebar": "展开侧边栏",
-    "settings": "设置",
-    "kanban": {
-      "title": "看板",
-      "description": "登录以使用看板管理您的编码代理。"
-    }
+    "settings": "设置"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -692,7 +685,7 @@
     },
     "taskLinked": {
       "openWorkspace": "打开工作区",
-      "viewInSprint": "在 Sprint 中查看"
+      "viewInSprint": "在看板中查看"
     },
     "table": {
       "issue": "Issue",

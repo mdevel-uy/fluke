@@ -379,7 +379,6 @@ export function WorkspacesSidebar({
             title={panelTitle}
             count={panelCount}
             collapsible={false}
-            className="border-b"
           />
           {showSearch && (
             <div className="px-base flex items-stretch gap-half">

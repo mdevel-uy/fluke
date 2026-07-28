@@ -125,9 +125,17 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       };
     }, [repoId, issue.number]);
 
-    const handleCancel = () => {
-      modal.resolve('canceled' as AssignToAgentResult);
+    // NiceModal keeps the component mounted after hide(): remove() unmounts
+    // so the next show() starts fresh (otherwise isSubmitting/conflict state
+    // leak into the second open and the confirm button stays disabled).
+    const closeWith = (result: AssignToAgentResult) => {
+      modal.resolve(result);
       modal.hide();
+      modal.remove();
+    };
+
+    const handleCancel = () => {
+      closeWith('canceled');
     };
 
     const handleConfirm = async (forceOverride = false) => {
@@ -161,8 +169,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
             })
             .finally(invalidateWorkers);
         }
-        modal.resolve('created' as AssignToAgentResult);
-        modal.hide();
+        closeWith('created');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setSubmitError(message);

@@ -41,6 +41,8 @@ interface CollapsibleSectionHeaderProps {
   headerExtra?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Reports the expanded state (on mount and on toggle). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function CollapsibleSectionHeader({
@@ -53,6 +55,7 @@ export function CollapsibleSectionHeader({
   headerExtra,
   children,
   className,
+  onExpandedChange,
 }: CollapsibleSectionHeaderProps) {
   const [expanded, setExpanded] = useState(() =>
     getInitialExpanded(persistKey, defaultExpanded)
@@ -94,6 +97,11 @@ export function CollapsibleSectionHeader({
 
   const isExpanded = collapsible ? expanded : true;
 
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
+
   const headerContent = (
     <>
       <span className="flex items-center gap-0.5 min-w-0">
@@ -107,7 +115,13 @@ export function CollapsibleSectionHeader({
             )}
           />
         )}
-        <span className="text-label font-semibold uppercase tracking-wider truncate text-normal">
+        <span
+          className={cn(
+            'text-label uppercase tracking-wider truncate',
+            // VSCode: section headers read darker/heavier than the panel title
+            collapsible ? 'font-bold text-high' : 'font-semibold text-normal'
+          )}
+        >
           {title}
           {count !== undefined && (
             <span className="text-low font-normal tabular-nums">
@@ -163,7 +177,7 @@ export function CollapsibleSectionHeader({
             {headerContent}
           </button>
         ) : (
-          <div className="flex items-center justify-between w-full h-[30px] px-2 select-none">
+          <div className="flex items-center justify-between w-full h-[30px] pl-[22px] pr-2 mb-1 select-none">
             {headerContent}
           </div>
         )}

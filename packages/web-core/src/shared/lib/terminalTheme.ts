@@ -60,7 +60,9 @@ function getCssVariable(name: string): string {
  * and derives ANSI colors from a combination of theme-appropriate defaults.
  */
 export function getTerminalTheme(): ITheme {
-  const background = getCssVariable('--bg-secondary');
+  // Match the terminal panel body (white main-content tone) so the xterm
+  // canvas blends with its container instead of framing it (mock: --term-bg).
+  const background = getCssVariable('--bg-primary');
   const foreground = getCssVariable('--text-high');
   const success = getCssVariable('--console-success');
   const error = getCssVariable('--console-error');

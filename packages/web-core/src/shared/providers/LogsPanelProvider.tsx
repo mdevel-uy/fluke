@@ -8,8 +8,8 @@ import {
 } from 'react';
 import type { LogsPanelContent } from '@/shared/types/actions';
 import {
-  useWorkspacePanelState,
-  RIGHT_MAIN_PANEL_MODES,
+  useUiPreferencesStore,
+  useWorkspaceActiveViewTabs,
 } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import {
@@ -23,11 +23,14 @@ interface LogsPanelProviderProps {
 
 export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
   const { workspaceId, isCreateMode } = useWorkspaceContext();
-  const { rightMainPanelMode, setRightMainPanelMode } = useWorkspacePanelState(
-    isCreateMode ? undefined : workspaceId
+  const effectiveWorkspaceId = isCreateMode ? undefined : workspaceId;
+  const activeViewTabs = useWorkspaceActiveViewTabs(effectiveWorkspaceId);
+  const isLogsViewActive = activeViewTabs.includes('logs');
+  const openWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.openWorkspaceViewTab
   );
-  const rightMainPanelModeRef = useRef(rightMainPanelMode);
-  rightMainPanelModeRef.current = rightMainPanelMode;
+  const effectiveWorkspaceIdRef = useRef(effectiveWorkspaceId);
+  effectiveWorkspaceIdRef.current = effectiveWorkspaceId;
   const [logsPanelContent, setLogsPanelContent] =
     useState<LogsPanelContent | null>(null);
   const [logSearchQuery, setLogSearchQuery] = useState('');
@@ -50,12 +53,12 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
     setLogCurrentMatchIdx(0);
   }, [logSearchQuery]);
 
-  // Clear the logs panel content when the Logs panel mode is closed.
+  // Clear the logs panel content when the Logs view stops being visible.
   useEffect(() => {
-    if (rightMainPanelMode !== RIGHT_MAIN_PANEL_MODES.LOGS) {
+    if (!isLogsViewActive) {
       setLogsPanelContent(null);
     }
-  }, [rightMainPanelMode]);
+  }, [isLogsViewActive]);
 
   const handleLogPrevMatch = useCallback(() => {
     if (logMatchIndices.length === 0) return;
@@ -73,22 +76,18 @@ export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
 
   const viewProcessInPanel = useCallback(
     (processId: string) => {
-      if (rightMainPanelModeRef.current !== RIGHT_MAIN_PANEL_MODES.LOGS) {
-        setRightMainPanelMode(RIGHT_MAIN_PANEL_MODES.LOGS);
-      }
+      openWorkspaceViewTab(effectiveWorkspaceIdRef.current, 'logs');
       setLogsPanelContent({ type: 'process', processId });
     },
-    [setRightMainPanelMode]
+    [openWorkspaceViewTab]
   );
 
   const viewToolContentInPanel = useCallback(
     (toolName: string, content: string, command?: string) => {
-      if (rightMainPanelModeRef.current !== RIGHT_MAIN_PANEL_MODES.LOGS) {
-        setRightMainPanelMode(RIGHT_MAIN_PANEL_MODES.LOGS);
-      }
+      openWorkspaceViewTab(effectiveWorkspaceIdRef.current, 'logs');
       setLogsPanelContent({ type: 'tool', toolName, content, command });
     },
-    [setRightMainPanelMode]
+    [openWorkspaceViewTab]
   );
 
   const actionsValue = useMemo(

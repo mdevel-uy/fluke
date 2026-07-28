@@ -23,6 +23,8 @@ interface TerminalConnection {
 
 export interface TerminalContextType {
   getTabsForWorkspace: (workspaceId: string) => TerminalTab[];
+  /** All open tabs across workspaces (SHELL-SPEC R29: global terminal). */
+  getAllTabs: () => TerminalTab[];
   getActiveTab: (workspaceId: string) => TerminalTab | null;
   createTab: (workspaceId: string, cwd: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;

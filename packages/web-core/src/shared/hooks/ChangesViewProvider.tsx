@@ -1,8 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import {
-  useUiPreferencesStore,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useDiffPaths } from '@/shared/stores/useWorkspaceDiffStore';
 import {
   ChangesViewContext,
@@ -21,8 +19,9 @@ export function ChangesViewProvider({ children }: ChangesViewProviderProps) {
   const [selectedLineNumber, setSelectedLineNumber] = useState<number | null>(
     null
   );
-  const setRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.setRightMainPanelMode
+  const { workspaceId } = useWorkspaceContext();
+  const openWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.openWorkspaceViewTab
   );
 
   const scrollToFileCallbackRef = useRef<ScrollToFileCallback | null>(null);
@@ -59,10 +58,10 @@ export function ChangesViewProvider({ children }: ChangesViewProviderProps) {
 
   const viewFileInChanges = useCallback(
     (filePath: string) => {
-      setRightMainPanelMode(RIGHT_MAIN_PANEL_MODES.CHANGES);
+      openWorkspaceViewTab(workspaceId, 'changes');
       setSelectedFilePath(filePath);
     },
-    [setRightMainPanelMode]
+    [openWorkspaceViewTab, workspaceId]
   );
 
   const findMatchingDiffPath = useCallback((text: string): string | null => {

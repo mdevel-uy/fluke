@@ -1,10 +1,13 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
 import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
 import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
+import { useRepos } from '@/shared/hooks/useRepos';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
 import { useOrganizationStore } from '@/shared/stores/useOrganizationStore';
 import {
@@ -34,7 +37,10 @@ import {
   isActionVisible,
 } from '@/shared/types/actions';
 import { useActionVisibilityContext } from '@/shared/hooks/useActionVisibilityContext';
-import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
+import {
+  useMobileActiveTab,
+  useUiPreferencesStore,
+} from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { getProjectDestination } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
@@ -123,9 +129,11 @@ function toNavbarSectionItems(
 export function NavbarContainer({
   mobileMode = false,
   onOpenDrawer,
+  className,
 }: {
   mobileMode?: boolean;
   onOpenDrawer?: () => void;
+  className?: string;
 }) {
   const { t } = useTranslation('common');
   const { executeAction } = useActions();
@@ -213,17 +221,72 @@ export function NavbarContainer({
     [actionCtx, handleExecuteAction]
   );
 
+  // Layout toggles (sidebar / terminal / aside), VSCode-style — SHELL-SPEC R3
+  const isLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.isLeftSidebarVisible
+  );
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const toggleTerminal = useUiPreferencesStore((s) => s.toggleTerminal);
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
+  );
+  const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
+
+  const layoutToggleItems: NavbarSectionItem[] = useMemo(
+    () => [
+      {
+        type: 'action',
+        id: 'toggle-left-sidebar',
+        lucideIcon: PanelLeft,
+        isActive: isLeftSidebarVisible,
+        tooltip: t('navbar.layout.toggleSidebar', {
+          defaultValue: 'Toggle sidebar',
+        }),
+        onClick: toggleLeftSidebar,
+      },
+      {
+        type: 'action',
+        id: 'toggle-terminal',
+        lucideIcon: PanelBottom,
+        isActive: isTerminalVisible,
+        tooltip: t('navbar.layout.toggleTerminal', {
+          defaultValue: 'Toggle terminal',
+        }),
+        onClick: toggleTerminal,
+      },
+      {
+        type: 'action',
+        id: 'toggle-right-sidebar',
+        lucideIcon: PanelRight,
+        isActive: isRightSidebarVisible,
+        tooltip: t('navbar.layout.toggleRightPanel', {
+          defaultValue: 'Toggle right panel',
+        }),
+        onClick: toggleRightSidebar,
+      },
+    ],
+    [
+      t,
+      isLeftSidebarVisible,
+      toggleLeftSidebar,
+      isTerminalVisible,
+      toggleTerminal,
+      isRightSidebarVisible,
+      toggleRightSidebar,
+    ]
+  );
+
+  // SHELL-SPEC R3: the shell navbar keeps only layout toggles + theme.
+  // Diff/Changes/Logs toggles stay reachable via command bar, shortcuts and
+  // the context bar. NavbarActionGroups.right is untouched (remote-web uses it).
   const rightItems = useMemo(
     () => [
-      ...toNavbarSectionItems(
-        filterNavbarItems(NavbarActionGroups.right, actionCtx),
-        actionCtx,
-        handleExecuteAction
-      ),
+      ...layoutToggleItems,
       { type: 'divider' as const },
       themeToggleItem,
     ],
-    [actionCtx, handleExecuteAction, themeToggleItem]
+    [layoutToggleItems, themeToggleItem]
   );
 
   const navbarTitle = isCreateMode
@@ -306,6 +369,85 @@ export function NavbarContainer({
     appNavigation,
   ]);
 
+  // SHELL-SPEC R2 fallback: `proyecto › sección › workspace` (mock crumbs)
+  // whenever the richer remote Project › Issue › Workspace doesn't apply.
+  const { repos: navRepos } = useRepos();
+  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const activeRepo = useMemo(
+    () => navRepos.find((r) => r.id === selectedRepoId) ?? navRepos[0] ?? null,
+    [navRepos, selectedRepoId]
+  );
+
+  const localBreadcrumbs = useMemo(():
+    | NavbarBreadcrumbItem[]
+    | undefined => {
+    if (isCreateMode || isOnProjectPage) return undefined;
+    const kind = destination?.kind ?? null;
+    const section:
+      | { label: string; goTo: () => void }
+      | null =
+      kind === 'workspaces' ||
+      kind === 'workspaces-create' ||
+      kind === 'workspace' ||
+      kind === 'workspace-vscode'
+        ? {
+            label: t('appBar.workspaces', { defaultValue: 'Workspaces' }),
+            goTo: () => appNavigation.goToWorkspaces(),
+          }
+        : kind === 'sprint'
+          ? {
+              label: t('appBar.kanban', { defaultValue: 'Kanban' }),
+              goTo: () => appNavigation.goToSprint(),
+            }
+          : kind === 'issues'
+            ? {
+                label: t('appBar.issues', { defaultValue: 'Issues' }),
+                goTo: () => appNavigation.goToIssues(),
+              }
+            : kind === 'workers'
+              ? {
+                  label: t('appBar.workers', { defaultValue: 'Workers' }),
+                  goTo: () => appNavigation.goToWorkers(),
+                }
+              : kind === 'dashboard'
+                ? {
+                    label: t('appBar.dashboard', { defaultValue: 'Dashboard' }),
+                    goTo: () => appNavigation.goToDashboard(),
+                  }
+                : kind === 'analyst-desk'
+                  ? {
+                      label: t('appBar.analystDesk', {
+                        defaultValue: 'Analyst Desk',
+                      }),
+                      goTo: () => appNavigation.goToAnalystDesk(),
+                    }
+                  : null;
+    if (!section) return undefined;
+
+    const items: NavbarBreadcrumbItem[] = [];
+    if (activeRepo) {
+      items.push({ label: activeRepo.display_name || activeRepo.name });
+    }
+    const workspaceLabel =
+      selectedWorkspace?.name || selectedWorkspace?.branch || '';
+    if (workspaceLabel) {
+      items.push({ label: section.label, onClick: section.goTo });
+      items.push({ label: workspaceLabel });
+    } else {
+      items.push({ label: section.label });
+    }
+    return items;
+  }, [
+    isCreateMode,
+    isOnProjectPage,
+    destination?.kind,
+    activeRepo,
+    selectedWorkspace?.name,
+    selectedWorkspace?.branch,
+    appNavigation,
+    t,
+  ]);
+
   // Mobile-specific callbacks
   const handleOpenCommandBar = useCallback(() => {
     CommandBarDialog.show();
@@ -347,8 +489,9 @@ export function NavbarContainer({
 
   return (
     <Navbar
+      className={className}
       workspaceTitle={navbarTitle}
-      breadcrumbs={breadcrumbs}
+      breadcrumbs={breadcrumbs ?? localBreadcrumbs}
       leftItems={leftItems}
       rightItems={rightItems}
       syncErrors={syncErrors}
@@ -374,7 +517,7 @@ export function NavbarContainer({
           ) : null}
         </>
       }
-      rightSlot={!mobileMode ? <NavbarRepoSelectorContainer /> : null}
+      rightSlot={null}
     />
   );
 }

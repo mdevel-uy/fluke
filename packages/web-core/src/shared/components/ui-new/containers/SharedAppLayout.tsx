@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DropResult } from '@hello-pangea/dnd';
 import { Outlet, useNavigate } from '@tanstack/react-router';
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from 'react-resizable-panels';
 import {
   X,
   Layout,
@@ -39,16 +44,40 @@ import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
-import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
+import { PROJECTS_SHAPE } from 'shared/remote-types';
 import {
-  PROJECT_MUTATION,
-  PROJECTS_SHAPE,
-  type Project as RemoteProject,
-} from 'shared/remote-types';
-import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebarContainer';
-import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
+  ShellSidebarProvider,
+  ShellSidebarSlot,
+} from '../shell/ShellSidebar';
+import {
+  ShellAsideSlot,
+  useShellAsideHasContent,
+} from '../shell/ShellAside';
+import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
+
+const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
+// Kept from the old WorkspacesLayout split so stored terminal heights migrate.
+const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
+// Separators double as the divider's shadow: the Panel wrapper clips
+// box-shadows (overflow hidden), so the sash carries an overflowing
+// gradient pseudo-element that fades onto the main column, VSCode-style.
+const SHELL_SEPARATOR_CLASS =
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:w-1.5 ' +
+  'after:bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
+const SHELL_ASIDE_SEPARATOR_CLASS =
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-1.5 ' +
+  'after:bg-[linear-gradient(to_left,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
+const SHELL_SEPARATOR_ROW_CLASS =
+  'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
+// Same depth cue as the sash, painted at the content's left edge when the
+// sidebar is hidden and the rail borders the main column directly.
+const SHELL_RAIL_SHADOW_CLASS =
+  'pointer-events-none absolute inset-y-0 left-0 z-30 w-1.5 ' +
+  'bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
@@ -59,13 +88,10 @@ export function SharedAppLayout() {
   const isLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.isLeftSidebarVisible
   );
-  const isAppBarCollapsed = useUiPreferencesStore((s) => s.isAppBarCollapsed);
-  const toggleAppBar = useUiPreferencesStore((s) => s.toggleAppBar);
   const { appVersion } = useUserSystem();
   const updateVersion = useAppUpdateStore((s) => s.updateVersion);
   const restartForUpdate = useAppUpdateStore((s) => s.restart);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isAppBarHovered, setIsAppBarHovered] = useState(false);
   const navigate = useNavigate();
 
   // Register CMD+K shortcut globally for all routes under SharedAppLayout
@@ -116,28 +142,15 @@ export function SharedAppLayout() {
     () => ({ organization_id: selectedOrgId || '' }),
     [selectedOrgId]
   );
-  const {
-    data: orgProjects = [],
-    isLoading,
-    updateMany: updateManyProjects,
-  } = useShape(PROJECTS_SHAPE, projectParams, {
-    enabled: false,
-    mutation: PROJECT_MUTATION,
-  });
+  const { data: orgProjects = [], isLoading } = useShape(
+    PROJECTS_SHAPE,
+    projectParams,
+    { enabled: false }
+  );
   const sortedProjects = useMemo(
     () => sortProjectsByOrder(orgProjects),
     [orgProjects]
   );
-  const [orderedProjects, setOrderedProjects] =
-    useState<RemoteProject[]>(sortedProjects);
-  const [isSavingProjectOrder, setIsSavingProjectOrder] = useState(false);
-
-  useEffect(() => {
-    if (isSavingProjectOrder) {
-      return;
-    }
-    setOrderedProjects(sortedProjects);
-  }, [isSavingProjectOrder, sortedProjects]);
 
   // Navigate to the first ordered project when org changes
   useEffect(() => {
@@ -169,13 +182,7 @@ export function SharedAppLayout() {
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
-  const isWorkspaceSidebarPreviewEnabled =
-    !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
   const activeProjectId = projectDestination?.projectId ?? null;
-  const sidebarPreview = useWorkspaceSidebarPreviewController({
-    enabled: isWorkspaceSidebarPreviewEnabled,
-    isAppBarHovered,
-  });
 
   // Persist last selected project to scratch store
   const setSelectedProjectId = useUiPreferencesStore(
@@ -187,163 +194,221 @@ export function SharedAppLayout() {
     }
   }, [activeProjectId, setSelectedProjectId]);
 
+  // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
+  // clicking any other item navigates to that section.
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+
   const handleWorkspacesClick = useCallback(() => {
-    void navigate({ to: '/workspaces' });
-  }, [navigate]);
+    if (isWorkspacesActive) toggleLeftSidebar();
+    else void navigate({ to: '/workspaces' });
+  }, [isWorkspacesActive, toggleLeftSidebar, navigate]);
 
   const handleDashboardClick = useCallback(() => {
-    appNavigation.goToDashboard();
-  }, [appNavigation]);
+    if (isDashboardActive) toggleLeftSidebar();
+    else appNavigation.goToDashboard();
+  }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
 
   const handleSprintClick = useCallback(() => {
-    appNavigation.goToSprint();
-  }, [appNavigation]);
+    if (isSprintActive) toggleLeftSidebar();
+    else appNavigation.goToSprint();
+  }, [isSprintActive, toggleLeftSidebar, appNavigation]);
 
   const handleIssuesClick = useCallback(() => {
-    appNavigation.goToIssues();
-  }, [appNavigation]);
+    if (isIssuesActive) toggleLeftSidebar();
+    else appNavigation.goToIssues();
+  }, [isIssuesActive, toggleLeftSidebar, appNavigation]);
 
   const handleWorkersClick = useCallback(() => {
-    appNavigation.goToWorkers();
-  }, [appNavigation]);
+    if (isWorkersActive) toggleLeftSidebar();
+    else appNavigation.goToWorkers();
+  }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
 
   const handleAnalystDeskClick = useCallback(() => {
-    appNavigation.goToAnalystDesk();
-  }, [appNavigation]);
+    if (isAnalystDeskActive) toggleLeftSidebar();
+    else appNavigation.goToAnalystDesk();
+  }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
-  const handleProjectClick = useCallback(
-    (projectId: string) => {
-      appNavigation.goToProject(projectId);
+  // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
+  // their content in. Sections without a contributed sidebar hide the panel.
+  const sectionHasSidebar =
+    isWorkspacesActive ||
+    isSprintActive ||
+    isIssuesActive ||
+    isWorkersActive ||
+    isDashboardActive ||
+    isAnalystDeskActive;
+  const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
+  const {
+    defaultLayout: shellSidebarLayout,
+    onLayoutChange: onShellSidebarLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: SHELL_SIDEBAR_LAYOUT_ID,
+  });
+  // Only persist when the sidebar is mounted — a reduced layout would
+  // clobber the stored split (useDefaultLayout overwrites without merging).
+  const onShellSidebarLayoutChange = useCallback<
+    typeof onShellSidebarLayoutChangeRaw
+  >(
+    (layout) => {
+      if (showShellSidebar) onShellSidebarLayoutChangeRaw(layout);
     },
-    [appNavigation]
+    [showShellSidebar, onShellSidebarLayoutChangeRaw]
   );
 
-  const handleProjectsDragEnd = useCallback(
-    async ({ source, destination }: DropResult) => {
-      if (isSavingProjectOrder) {
-        return;
-      }
-      if (!destination || source.index === destination.index) {
-        return;
-      }
-
-      const previousOrder = orderedProjects;
-      const reordered = [...orderedProjects];
-      const [moved] = reordered.splice(source.index, 1);
-
-      if (!moved) {
-        return;
-      }
-
-      reordered.splice(destination.index, 0, moved);
-      setOrderedProjects(reordered);
-      setIsSavingProjectOrder(true);
-
-      try {
-        await updateManyProjects(
-          reordered.map((project, index) => ({
-            id: project.id,
-            changes: { sort_order: index },
-          }))
-        ).persisted;
-      } catch (error) {
-        console.error('Failed to reorder projects:', error);
-        setOrderedProjects(previousOrder);
-      } finally {
-        setIsSavingProjectOrder(false);
-      }
-    },
-    [isSavingProjectOrder, orderedProjects, updateManyProjects]
+  // SHELL-SPEC R18/R30: the shell owns the right aside panel; pages portal
+  // their content in (ShellAsidePortal). Visibility = content + toggle.
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
   );
+  const asideHasContent = useShellAsideHasContent();
+  const showShellAside = asideHasContent && isRightSidebarVisible;
 
-  const handleCreateProject = useCallback(() => {}, []);
+  // SHELL-SPEC R29-R30: global terminal in the shell, spanning only the main
+  // column (the aside is a sibling panel). Height persisted (70/30 default).
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const {
+    defaultLayout: terminalLayoutStored,
+    onLayoutChange: onTerminalLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: SHELL_TERMINAL_LAYOUT_ID,
+  });
+  const terminalDefaultLayout = terminalLayoutStored ?? {
+    'workspace-top': 70,
+    'bottom-panel': 30,
+  };
+  const onTerminalLayoutChange = useCallback<typeof onTerminalLayoutChangeRaw>(
+    (layout) => {
+      if (isTerminalVisible) onTerminalLayoutChangeRaw(layout);
+    },
+    [isTerminalVisible, onTerminalLayoutChangeRaw]
+  );
 
   return (
     <SyncErrorProvider>
+      <ShellSidebarProvider>
       <div
         className={cn(
           'bg-primary',
           isMobile
             ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-            : 'grid grid-cols-[auto_1fr] grid-rows-[auto_1fr_auto] h-screen'
+            : 'grid grid-rows-[auto_1fr_auto] h-screen'
         )}
       >
         {!isMobile && (
           <>
-            {/* Desktop corner spacer. */}
-            <div
-              data-tauri-drag-region
-              className="bg-md-surface-container-lowest border-b border-r border-md-outline-variant"
-              style={isTauriMac() ? { minWidth: 56 } : undefined}
+            {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
+            <NavbarContainer
+              className={isTauriMac() ? 'pl-[64px]' : undefined}
+              onOpenDrawer={() => setIsDrawerOpen(true)}
             />
-            {/* Desktop navbar. */}
-            <NavbarContainer onOpenDrawer={() => setIsDrawerOpen(true)} />
-            {/* Desktop AppBar sidebar. */}
-            <AppBar
-              projects={orderedProjects}
-              onCreateProject={handleCreateProject}
-              onWorkspacesClick={handleWorkspacesClick}
-              onDashboardClick={handleDashboardClick}
-              onSprintClick={handleSprintClick}
-              onIssuesClick={handleIssuesClick}
-              onWorkersClick={handleWorkersClick}
-              onAnalystDeskClick={handleAnalystDeskClick}
-              onProjectClick={handleProjectClick}
-              onProjectsDragEnd={handleProjectsDragEnd}
-              isSavingProjectOrder={isSavingProjectOrder}
-              isWorkspacesActive={isWorkspacesActive}
-              isDashboardActive={isDashboardActive}
-              isSprintActive={isSprintActive}
-              isIssuesActive={isIssuesActive}
-              isWorkersActive={isWorkersActive}
-              isAnalystDeskActive={isAnalystDeskActive}
-              activeProjectId={activeProjectId}
-              isSignedIn
-              isLoadingProjects={false}
-              onHoverStart={() => setIsAppBarHovered(true)}
-              onHoverEnd={() => setIsAppBarHovered(false)}
-              appVersion={appVersion}
-              updateVersion={updateVersion}
-              onUpdateClick={restartForUpdate ?? undefined}
-              onOpenSettings={() => SettingsDialog.show()}
-              isCollapsed={isAppBarCollapsed}
-              onToggleCollapsed={toggleAppBar}
-            />
-            {/* Desktop content. */}
-            <div className="relative min-h-0 overflow-hidden">
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div className="absolute inset-y-0 left-0 z-20 flex items-center">
-                  <WorkspacesSidebarReopenTag
-                    active={sidebarPreview.isPreviewOpen}
-                    onHoverStart={sidebarPreview.handleHandleHoverStart}
-                    onHoverEnd={sidebarPreview.handleHandleHoverEnd}
-                    ariaLabel="Workspaces"
-                  />
-                </div>
-              )}
-
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div
-                  className={cn(
-                    'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
-                    sidebarPreview.isPreviewOpen
-                      ? 'translate-x-0 pointer-events-auto'
-                      : '-translate-x-full pointer-events-none'
-                  )}
-                  onMouseEnter={sidebarPreview.handlePreviewHoverStart}
-                  onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
+            {/* Middle row: activity rail + content. Flex (not grid) so the
+                resizable group gets a definite height to fill (min-h-0!). */}
+            <div className="flex min-h-0 overflow-hidden">
+              {/* Desktop AppBar sidebar. */}
+              <AppBar
+                onWorkspacesClick={handleWorkspacesClick}
+                onDashboardClick={handleDashboardClick}
+                onSprintClick={handleSprintClick}
+                onIssuesClick={handleIssuesClick}
+                onWorkersClick={handleWorkersClick}
+                onAnalystDeskClick={handleAnalystDeskClick}
+                isWorkspacesActive={isWorkspacesActive}
+                isDashboardActive={isDashboardActive}
+                isSprintActive={isSprintActive}
+                isIssuesActive={isIssuesActive}
+                isWorkersActive={isWorkersActive}
+                isAnalystDeskActive={isAnalystDeskActive}
+                updateVersion={updateVersion}
+                onUpdateClick={restartForUpdate ?? undefined}
+                onOpenSettings={() => SettingsDialog.show()}
+              />
+              {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
+              <Group
+                orientation="horizontal"
+                className="flex-1 min-w-0 h-full"
+                defaultLayout={shellSidebarLayout}
+                onLayoutChange={onShellSidebarLayoutChange}
+              >
+              {showShellSidebar && (
+                <Panel
+                  id="shell-sidebar"
+                  minSize="220px"
+                  maxSize="480px"
+                  className="h-full overflow-hidden border-r border-md-outline-variant"
                 >
-                  <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
-                    <WorkspacesSidebarContainer />
-                  </div>
-                </div>
+                  <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
+                </Panel>
               )}
-
-              <Outlet />
+              {showShellSidebar && (
+                <Separator
+                  id="shell-sidebar-separator"
+                  className={SHELL_SEPARATOR_CLASS}
+                />
+              )}
+              {/* Desktop content: main column (outlet + global terminal). */}
+              <Panel
+                id="shell-content"
+                minSize="400px"
+                className="relative min-w-0 h-full overflow-hidden"
+              >
+                {!showShellSidebar && (
+                  <div className={SHELL_RAIL_SHADOW_CLASS} aria-hidden />
+                )}
+                <Group
+                  orientation="vertical"
+                  className="h-full w-full min-h-0"
+                  defaultLayout={terminalDefaultLayout}
+                  onLayoutChange={onTerminalLayoutChange}
+                >
+                  <Panel
+                    id="workspace-top"
+                    minSize="200px"
+                    className="relative min-h-0 w-full overflow-hidden"
+                  >
+                    <Outlet />
+                  </Panel>
+                  {isTerminalVisible && (
+                    <Separator
+                      id="shell-terminal-separator"
+                      className={SHELL_SEPARATOR_ROW_CLASS}
+                    />
+                  )}
+                  {isTerminalVisible && (
+                    <Panel
+                      id="bottom-panel"
+                      minSize="120px"
+                      maxSize="80%"
+                      className="min-h-0 w-full overflow-hidden"
+                    >
+                      <ShellTerminalPanel />
+                    </Panel>
+                  )}
+                </Group>
+              </Panel>
+              {showShellAside && (
+                <Separator
+                  id="shell-aside-separator"
+                  className={SHELL_ASIDE_SEPARATOR_CLASS}
+                />
+              )}
+              {showShellAside && (
+                <Panel
+                  id="shell-aside"
+                  minSize="220px"
+                  maxSize="480px"
+                  className="h-full overflow-hidden border-l border-md-outline-variant"
+                >
+                  <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
+                </Panel>
+              )}
+              </Group>
             </div>
-            {/* Workbench status bar (spans rail + content). */}
+            {/* Workbench status bar — full-width bottom row. */}
             <StatusBarContainer
-              className="col-span-2"
               appVersion={appVersion}
               updateVersion={updateVersion}
               onUpdateClick={restartForUpdate ?? undefined}
@@ -455,6 +520,7 @@ export function SharedAppLayout() {
           </div>
         </MobileDrawer>
       </div>
+      </ShellSidebarProvider>
     </SyncErrorProvider>
   );
 }

@@ -334,7 +334,6 @@
       "formatInlineCode": "Format inline code",
       "sendMessage": "Enviar mensaje",
       "settings": "Ir a Ajustes",
-      "new-workspace": "Ir a Nuevo espacio de trabajo",
       "duplicate-workspace": "Duplicar espacio de trabajo",
       "rename-workspace": "Renombrar espacio de trabajo",
       "pin-workspace": "Fijar/Desfijar espacio de trabajo",
@@ -558,13 +557,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Mesa de analistas",
-    "collapseSidebar": "Contraer barra lateral",
-    "expandSidebar": "Expandir barra lateral",
-    "settings": "Configuración",
-    "kanban": {
-      "title": "Tableros Kanban",
-      "description": "Inicia sesión para organizar tus agentes de codificación con tableros kanban."
-    }
+    "settings": "Configuración"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -692,7 +685,7 @@
     },
     "taskLinked": {
       "openWorkspace": "Abrir workspace",
-      "viewInSprint": "Ver en Sprint"
+      "viewInSprint": "Ver en el tablero"
     },
     "table": {
       "issue": "Issue",
@@ -948,10 +941,10 @@
   "sprint": {
     "title": "Kanban",
     "loadingRepos": "Cargando repositorios...",
-    "noReposMessage": "No hay repositorios registrados. Agregá uno primero para planear un sprint.",
-    "selectRepoPrompt": "Seleccioná un repositorio para ver su tablero de sprint.",
-    "loading": "Cargando sprint...",
-    "loadError": "No se pudo cargar el tablero de sprint.",
+    "noReposMessage": "No hay repositorios registrados. Agregá uno primero para planificar en el tablero.",
+    "selectRepoPrompt": "Seleccioná un repositorio para ver su tablero kanban.",
+    "loading": "Cargando tablero...",
+    "loadError": "No se pudo cargar el tablero kanban.",
     "sync": "Sincronizar",
     "syncing": "Sincronizando...",
     "columns": {

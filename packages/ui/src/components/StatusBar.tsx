@@ -16,7 +16,7 @@ export function StatusBar({
     <footer
       className={cn(
         'flex h-[22px] items-stretch overflow-hidden select-none',
-        'bg-md-surface-container-lowest border-t border-md-outline-variant',
+        'bg-md-surface-container-low border-t border-md-outline-variant',
         'text-xs text-md-on-surface-variant',
         className
       )}

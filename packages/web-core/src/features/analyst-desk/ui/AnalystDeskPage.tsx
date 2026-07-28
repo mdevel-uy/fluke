@@ -31,6 +31,8 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { AnalystDeskSidebar } from './AnalystDeskSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { cn } from '@/shared/lib/utils';
 import {
   useWorkers,
@@ -572,7 +574,14 @@ export function AnalystDeskPage() {
   const isActionPending = cancelRequest.isPending || removeRequest.isPending;
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
+      <ShellSidebarPortal>
+        <AnalystDeskSidebar
+          analysts={analysts}
+          selectedAnalystId={selectedAnalyst?.id ?? null}
+          onSelectAnalyst={setSelectedAnalystId}
+        />
+      </ShellSidebarPortal>
       <PageHeader title={t('analystDesk.title')} />
 
       {notice && (

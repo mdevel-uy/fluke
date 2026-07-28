@@ -867,7 +867,7 @@ export const ChangesPanelContainer = memo(function ChangesPanelContainer({
     >
       <Virtualizer
         {...({ ref: virtualizerRef } as Record<string, unknown>)}
-        className={`w-full h-full overflow-auto bg-secondary px-base pt-1 ${className}`}
+        className={`w-full h-full overflow-auto bg-primary px-base pt-1 ${className}`}
         contentClassName="flex flex-col gap-1"
         style={{ contain: 'layout style paint' }}
       >
