@@ -723,7 +723,10 @@
       "enqueuedError": "작업 대기열 추가에 실패했습니다.",
       "checkingConflicts": "기존 할당 확인 중...",
       "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
-      "assignAnyway": "그래도 할당"
+      "assignAnyway": "그래도 할당",
+      "skillsLabel": "스킬",
+      "skillsPicker": "스킬 추가",
+      "skillsEmpty": "설치된 스킬이 없습니다. 설정 → 스킬에서 추가하세요."
     },
     "reassignDialog": {
       "title": "이슈 #{{number}}을(를) 다른 워커에게 재할당",
@@ -938,7 +941,9 @@
       "errorLabel": "업로드 실패",
       "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
       "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
-    }
+    },
+    "skillsPicker": "스킬 추가",
+    "skillsEmpty": "설치된 스킬이 없습니다. 설정 → 스킬에서 추가하세요."
   },
   "sprint": {
     "title": "칸반",

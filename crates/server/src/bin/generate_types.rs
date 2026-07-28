@@ -185,6 +185,8 @@ fn generate_types_content() -> String {
         server::routes::workers::ActiveIssueTaskInfo::decl(),
         server::routes::workers::CompletedWorkerTask::decl(),
         server::routes::workers::CompletedWorkerTasksResponse::decl(),
+        server::routes::skills::SkillInfo::decl(),
+        server::routes::skills::InstallSkillRequest::decl(),
         server::routes::agents::ClaudeUsageMeter::decl(),
         server::routes::agents::ClaudeUsageResponse::decl(),
         server::routes::impact::ClosedIssue::decl(),

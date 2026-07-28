@@ -723,7 +723,10 @@
       "enqueuedError": "No se pudo encolar la tarea.",
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
-      "assignAnyway": "Asignar igual"
+      "assignAnyway": "Asignar igual",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Agregar skills",
+      "skillsEmpty": "No hay skills instalados. Instalá alguno en Ajustes → Skills."
     },
     "reassignDialog": {
       "title": "Reasignar issue #{{number}} a otro worker",
@@ -938,7 +941,9 @@
       "errorLabel": "Falló la carga",
       "uploadError": "No se pudo subir '{{name}}': {{message}}",
       "tooLarge": "El archivo supera el tamaño máximo permitido."
-    }
+    },
+    "skillsPicker": "Agregar skills",
+    "skillsEmpty": "No hay skills instalados. Instalá alguno en Ajustes → Skills."
   },
   "sprint": {
     "title": "Kanban",

@@ -20,11 +20,13 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { Textarea } from '@vibe/ui/components/Textarea';
-import { ApiError, attachmentsApi } from '@/shared/lib/api';
+import { ApiError, attachmentsApi, skillsApi } from '@/shared/lib/api';
+import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -311,6 +313,11 @@ export function AnalystDeskPage() {
   }, [tasks]);
 
   const [prompt, setPrompt] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const { data: installedSkills = [] } = useQuery({
+    queryKey: ['skills'],
+    queryFn: () => skillsApi.list(),
+  });
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [images, setImages] = useState<PendingImage[]>([]);
@@ -498,8 +505,10 @@ export function AnalystDeskPage() {
         repoId: selectedRepoId,
         prompt: prompt.trim(),
         attachmentIds,
+        skills: selectedSkills,
       });
       setPrompt('');
+      setSelectedSkills([]);
       clearImages();
       showNotice({
         variant: startedNow ? 'success' : 'info',
@@ -704,6 +713,15 @@ export function AnalystDeskPage() {
                   </>
                 )}
               </div>
+
+              <SkillsPicker
+                installed={installedSkills}
+                selected={selectedSkills}
+                onChange={setSelectedSkills}
+                disabled={createRequest.isPending}
+                triggerLabel={t('analystDesk.skillsPicker')}
+                emptyHint={t('analystDesk.skillsEmpty')}
+              />
 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-low">{t('analystDesk.hint')}</p>

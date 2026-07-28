@@ -25,6 +25,11 @@ export interface CreateDeskRequestInput {
    * successful uploads visible if a partial failure aborts the submit.
    */
   attachmentIds?: string[];
+  /**
+   * Skill names to attach to this request. The backend appends a
+   * `Usá el skill /<name>...` instruction per skill to the stored prompt.
+   */
+  skills?: string[];
 }
 
 export interface CreateDeskRequestResult {
@@ -40,6 +45,7 @@ export function useCreateDeskRequest() {
       repoId,
       prompt,
       attachmentIds,
+      skills,
     }: CreateDeskRequestInput): Promise<CreateDeskRequestResult> => {
       // Backend contract (issue #161): `attachment_ids` is optional; the
       // shared `CreateWorkerTaskRequest` type has not been regenerated yet,
@@ -49,6 +55,7 @@ export function useCreateDeskRequest() {
         title: deriveRequestTitle(prompt),
         prompt,
         source: DESK_SOURCE,
+        ...(skills && skills.length > 0 ? { skills } : {}),
         ...(attachmentIds && attachmentIds.length > 0
           ? { attachment_ids: attachmentIds }
           : {}),

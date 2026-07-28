@@ -4,6 +4,7 @@ import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
 import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
+import { SkillChips } from './SkillChips';
 
 interface DoneTaskCardProps {
   task: WorkerTask;
@@ -60,6 +61,7 @@ export function DoneTaskCard({ task, isBusy, onRemove }: DoneTaskCardProps) {
           </Button>
         )}
       </div>
+      <SkillChips skills={task.skills ?? []} />
       {isConfirming && (
         <div className="flex flex-col gap-2 rounded-md border border-md-error/30 bg-md-error/5 px-3 py-2">
           <p className="text-body-sm text-md-on-surface">

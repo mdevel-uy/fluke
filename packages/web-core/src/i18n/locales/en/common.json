@@ -723,7 +723,10 @@
       "enqueuedError": "Failed to enqueue task.",
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
-      "assignAnyway": "Assign anyway"
+      "assignAnyway": "Assign anyway",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Attach skills",
+      "skillsEmpty": "No skills installed. Add some in Settings → Skills."
     },
     "reassignDialog": {
       "title": "Reassign issue #{{number}} to another worker",
@@ -938,7 +941,9 @@
       "errorLabel": "Upload failed",
       "uploadError": "Couldn't upload '{{name}}': {{message}}",
       "tooLarge": "The file exceeds the maximum allowed size."
-    }
+    },
+    "skillsPicker": "Attach skills",
+    "skillsEmpty": "No skills installed. Add some in Settings → Skills."
   },
   "sprint": {
     "title": "Kanban",
