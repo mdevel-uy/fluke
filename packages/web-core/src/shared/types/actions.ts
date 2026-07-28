@@ -123,7 +123,6 @@ export interface ActionVisibilityContext {
   isLeftMainPanelVisible: boolean;
   isRightSidebarVisible: boolean;
   isTerminalVisible: boolean;
-  isCreateMode: boolean;
 
   // Workspace state
   hasWorkspace: boolean;

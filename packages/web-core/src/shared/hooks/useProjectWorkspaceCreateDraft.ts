@@ -28,20 +28,18 @@ export function useProjectWorkspaceCreateDraft() {
         return null;
       }
 
+      // Workspaces are issue-first: without an issue there is nowhere to
+      // open the draft (the ad hoc create flow no longer exists).
       const issueId =
         options?.issueId ??
         initialState.linkedIssue?.issueId ??
         routeState.issueId ??
         null;
-      if (issueId) {
-        appNavigation.goToProjectIssueWorkspaceCreate(
-          projectId,
-          issueId,
-          draftId
-        );
-      } else {
-        appNavigation.goToProjectWorkspaceCreate(projectId, draftId);
+      if (!issueId) {
+        return null;
       }
+
+      appNavigation.goToProjectIssueWorkspaceCreate(projectId, issueId, draftId);
 
       return draftId;
     },

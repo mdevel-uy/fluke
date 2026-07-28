@@ -3,7 +3,6 @@ export type AppDestination =
   | { kind: 'onboarding' }
   | { kind: 'onboarding-sign-in' }
   | { kind: 'workspaces'; hostId?: string }
-  | { kind: 'workspaces-create'; hostId?: string }
   | { kind: 'workspace'; workspaceId: string; hostId?: string }
   | { kind: 'workspace-vscode'; workspaceId: string; hostId?: string }
   | { kind: 'export' }
@@ -31,12 +30,6 @@ export type AppDestination =
       issueId: string;
       draftId: string;
       hostId?: string;
-    }
-  | {
-      kind: 'project-workspace-create';
-      projectId: string;
-      draftId: string;
-      hostId?: string;
     };
 
 export type NavigationTransition = {
@@ -49,7 +42,6 @@ export interface AppNavigation {
   goToOnboarding(transition?: NavigationTransition): void;
   goToOnboardingSignIn(transition?: NavigationTransition): void;
   goToWorkspaces(transition?: NavigationTransition): void;
-  goToWorkspacesCreate(transition?: NavigationTransition): void;
   goToWorkspace(workspaceId: string, transition?: NavigationTransition): void;
   goToWorkspaceVsCode(
     workspaceId: string,
@@ -79,23 +71,16 @@ export interface AppNavigation {
     draftId: string,
     transition?: NavigationTransition
   ): void;
-  goToProjectWorkspaceCreate(
-    projectId: string,
-    draftId: string,
-    transition?: NavigationTransition
-  ): void;
 }
 
 type ProjectDestinationKind =
   | 'project'
   | 'project-issue'
   | 'project-issue-workspace'
-  | 'project-issue-workspace-create'
-  | 'project-workspace-create';
+  | 'project-issue-workspace-create';
 
 type WorkspaceDestinationKind =
   | 'workspaces'
-  | 'workspaces-create'
   | 'workspace'
   | 'workspace-vscode';
 
@@ -150,7 +135,6 @@ export function isProjectDestination(
     case 'project-issue':
     case 'project-issue-workspace':
     case 'project-issue-workspace-create':
-    case 'project-workspace-create':
       return true;
     default:
       return false;
@@ -166,7 +150,6 @@ export function isWorkspacesDestination(
 
   switch (destination.kind) {
     case 'workspaces':
-    case 'workspaces-create':
     case 'workspace':
     case 'workspace-vscode':
       return true;
@@ -263,21 +246,18 @@ export function resolveKanbanRouteState(
       : null;
 
   const rawDraftId =
-    projectDestination?.kind === 'project-issue-workspace-create' ||
-    projectDestination?.kind === 'project-workspace-create'
+    projectDestination?.kind === 'project-issue-workspace-create'
       ? projectDestination.draftId
       : null;
   const draftId = rawDraftId && isValidUuid(rawDraftId) ? rawDraftId : null;
 
   const hasInvalidWorkspaceCreateDraftId =
-    (projectDestination?.kind === 'project-issue-workspace-create' ||
-      projectDestination?.kind === 'project-workspace-create') &&
+    projectDestination?.kind === 'project-issue-workspace-create' &&
     rawDraftId !== null &&
     !draftId;
 
   const isWorkspaceCreateMode =
-    (projectDestination?.kind === 'project-issue-workspace-create' ||
-      projectDestination?.kind === 'project-workspace-create') &&
+    projectDestination?.kind === 'project-issue-workspace-create' &&
     draftId !== null;
 
   const sidebarMode = (() => {
@@ -293,7 +273,6 @@ export function resolveKanbanRouteState(
       case 'project-issue-workspace':
         return 'issue-workspace';
       case 'project-issue-workspace-create':
-      case 'project-workspace-create':
         return 'workspace-create';
     }
   })();

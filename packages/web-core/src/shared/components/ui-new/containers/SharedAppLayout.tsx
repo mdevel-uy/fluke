@@ -336,6 +336,7 @@ export function SharedAppLayout() {
               {showShellSidebar && (
                 <Panel
                   id="shell-sidebar"
+                  defaultSize="220px"
                   minSize="220px"
                   maxSize="480px"
                   className="h-full overflow-hidden border-r border-md-outline-variant"

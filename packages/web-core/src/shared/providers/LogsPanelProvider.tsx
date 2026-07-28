@@ -22,8 +22,8 @@ interface LogsPanelProviderProps {
 }
 
 export function LogsPanelProvider({ children }: LogsPanelProviderProps) {
-  const { workspaceId, isCreateMode } = useWorkspaceContext();
-  const effectiveWorkspaceId = isCreateMode ? undefined : workspaceId;
+  const { workspaceId } = useWorkspaceContext();
+  const effectiveWorkspaceId = workspaceId;
   const activeViewTabs = useWorkspaceActiveViewTabs(effectiveWorkspaceId);
   const isLogsViewActive = activeViewTabs.includes('logs');
   const openWorkspaceViewTab = useUiPreferencesStore(

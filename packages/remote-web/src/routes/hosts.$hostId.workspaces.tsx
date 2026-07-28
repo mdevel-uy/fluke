@@ -12,7 +12,6 @@ import { useWorkspaceContext } from "@/shared/hooks/useWorkspaceContext";
 import { cn } from "@/shared/lib/utils";
 import { CommandBarDialog } from "@/shared/dialogs/command-bar/CommandBarDialog";
 import {
-  PlusIcon,
   GitBranchIcon,
   HandIcon,
   TriangleIcon,
@@ -59,10 +58,8 @@ function MobileWorkspacesList() {
     });
   };
 
-  const handleCreateWorkspace = () => {
-    navigate({ to: "/hosts/$hostId/workspaces/create", params: { hostId } });
-  };
-
+  // No create action here: workspaces are born from assigning an issue to a
+  // worker, never created ad hoc.
   return (
     <div className="flex flex-col h-full bg-primary">
       {/* Header */}
@@ -70,17 +67,6 @@ function MobileWorkspacesList() {
         <h1 className="text-lg font-semibold text-high">
           {showArchive ? "Archived" : "Workspaces"}
         </h1>
-        <button
-          onClick={handleCreateWorkspace}
-          className={cn(
-            "flex items-center gap-half rounded-md px-plusfifty py-half",
-            "bg-brand text-on-brand text-sm font-medium",
-            "active:opacity-80 transition-opacity",
-          )}
-        >
-          <PlusIcon className="size-icon-sm" />
-          New
-        </button>
       </div>
 
       {/* Workspace list */}
@@ -90,14 +76,6 @@ function MobileWorkspacesList() {
             <p className="text-low text-sm">
               {showArchive ? "No archived workspaces" : "No workspaces yet"}
             </p>
-            {!showArchive && (
-              <button
-                onClick={handleCreateWorkspace}
-                className="mt-base text-brand text-sm font-medium active:opacity-80"
-              >
-                Create your first workspace
-              </button>
-            )}
           </div>
         ) : (
           <div className="flex flex-col">

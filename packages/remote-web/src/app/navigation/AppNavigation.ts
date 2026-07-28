@@ -35,10 +35,6 @@ export function resolveRemoteDestinationFromPath(
       const hostId = getPathParam(routeParams, "hostId");
       return hostId ? { kind: "workspaces", hostId } : null;
     }
-    case "/hosts/$hostId/workspaces_/create": {
-      const hostId = getPathParam(routeParams, "hostId");
-      return hostId ? { kind: "workspaces-create", hostId } : null;
-    }
     case "/hosts/$hostId/workspaces_/$workspaceId": {
       const hostId = getPathParam(routeParams, "hostId");
       const workspaceId = getPathParam(routeParams, "workspaceId");
@@ -94,19 +90,6 @@ export function resolveRemoteDestinationFromPath(
           }
         : null;
     }
-    case "/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId": {
-      const projectId = getPathParam(routeParams, "projectId");
-      const hostId = getPathParam(routeParams, "hostId");
-      const draftId = getPathParam(routeParams, "draftId");
-      return projectId && hostId && draftId
-        ? {
-            kind: "project-workspace-create",
-            projectId,
-            hostId,
-            draftId,
-          }
-        : null;
-    }
     default:
       return null;
   }
@@ -131,14 +114,6 @@ function destinationToRemoteTarget(
       if (effectiveHostId) {
         return {
           to: "/hosts/$hostId/workspaces",
-          params: { hostId: effectiveHostId },
-        } as const;
-      }
-      return { to: "/" } as const;
-    case "workspaces-create":
-      if (effectiveHostId) {
-        return {
-          to: "/hosts/$hostId/workspaces/create",
           params: { hostId: effectiveHostId },
         } as const;
       }
@@ -215,15 +190,6 @@ function destinationToRemoteTarget(
           draftId: destination.draftId,
         },
       } as const;
-    case "project-workspace-create":
-      return {
-        to: "/projects/$projectId/hosts/$hostId/workspaces/create/$draftId",
-        params: {
-          projectId: destination.projectId,
-          hostId: destination.hostId,
-          draftId: destination.draftId,
-        },
-      } as const;
   }
 }
 
@@ -251,8 +217,6 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
       navigateTo({ kind: "onboarding-sign-in" }, transition),
     goToWorkspaces: (transition) =>
       navigateTo({ kind: "workspaces", hostId }, transition),
-    goToWorkspacesCreate: (transition) =>
-      navigateTo({ kind: "workspaces-create", hostId }, transition),
     goToWorkspace: (workspaceId, transition) =>
       navigateTo({ kind: "workspace", hostId, workspaceId }, transition),
     goToWorkspaceVsCode: (workspaceId, transition) =>
@@ -298,11 +262,6 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
         },
         transition,
       ),
-    goToProjectWorkspaceCreate: (projectId, draftId, transition) =>
-      navigateTo(
-        { kind: "project-workspace-create", hostId, projectId, draftId },
-        transition,
-      ),
   };
 
   return navigation;
@@ -332,8 +291,6 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
       navigateTo({ kind: "onboarding-sign-in" }, transition),
     goToWorkspaces: (transition) =>
       navigateTo({ kind: "workspaces" }, transition),
-    goToWorkspacesCreate: (transition) =>
-      navigateTo({ kind: "workspaces-create" }, transition),
     goToWorkspace: (workspaceId, transition) =>
       navigateTo({ kind: "workspace", workspaceId }, transition),
     goToWorkspaceVsCode: (workspaceId, transition) =>
@@ -365,11 +322,6 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
     ) =>
       navigateTo(
         { kind: "project-issue-workspace-create", projectId, issueId, draftId },
-        transition,
-      ),
-    goToProjectWorkspaceCreate: (projectId, draftId, transition) =>
-      navigateTo(
-        { kind: "project-workspace-create", projectId, draftId },
         transition,
       ),
   };

@@ -3,12 +3,9 @@ import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
-import { useScratch } from '@/shared/hooks/useScratch';
 import { useAllOrganizationProjects } from '@/shared/hooks/useAllOrganizationProjects';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
-import { ScratchType, type DraftWorkspaceData } from 'shared/types';
 import type { Project } from 'shared/remote-types';
-import { splitMessageToTitleDescription } from '@/shared/lib/string';
 import { cn } from '@/shared/lib/utils';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import {
@@ -57,9 +54,6 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
-
-// Fixed UUID for the universal workspace draft (same as in useCreateModeState.ts)
-const DRAFT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 
 const PAGE_SIZE = 50;
 const NO_PROJECT_ID = '__no_project__';
@@ -261,9 +255,7 @@ export function WorkspacesSidebarContainer({
     activeWorkspaces,
     archivedWorkspaces,
     isWorkspacesListLoading,
-    isCreateMode,
     selectWorkspace,
-    navigateToCreate,
   } = useWorkspaceContext();
 
   const isMobile = useIsMobile();
@@ -554,26 +546,6 @@ export function WorkspacesSidebarContainer({
     }
   }, [isSearching, hasMoreWorkspaces]);
 
-  // Read persisted draft for sidebar placeholder
-  const { scratch: draftScratch } = useScratch(
-    ScratchType.DRAFT_WORKSPACE,
-    DRAFT_WORKSPACE_ID
-  );
-
-  // Extract draft title from persisted scratch
-  const persistedDraftTitle = useMemo(() => {
-    const scratchData: DraftWorkspaceData | undefined =
-      draftScratch?.payload?.type === 'DRAFT_WORKSPACE'
-        ? draftScratch.payload.data
-        : undefined;
-
-    if (!scratchData?.message?.trim()) return undefined;
-    const { title } = splitMessageToTitleDescription(
-      scratchData.message.trim()
-    );
-    return title || 'Draft workspace';
-  }, [draftScratch]);
-
   // Handle workspace selection - scroll to bottom if re-selecting same workspace
   const handleSelectWorkspace = useCallback(
     (id: string) => {
@@ -687,9 +659,6 @@ export function WorkspacesSidebarContainer({
       onSelectWorkspace={handleSelectWorkspace}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      isCreateMode={isCreateMode}
-      draftTitle={persistedDraftTitle}
-      onSelectCreate={navigateToCreate}
       showArchive={showArchive}
       onShowArchiveChange={setShowArchive}
       onLoadMore={handleLoadMore}

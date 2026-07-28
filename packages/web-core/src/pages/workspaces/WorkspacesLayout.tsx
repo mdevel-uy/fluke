@@ -1,24 +1,11 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
-import type { CreateModeInitialState } from '@/shared/types/createMode';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
 import { cn } from '@/shared/lib/utils';
-import { CreateModeProvider } from '@/features/create-mode/model/CreateModeProvider';
-import {
-  consumeCreateModeSeedState,
-  getCreateModeSeedVersion,
-  subscribeCreateModeSeedState,
-} from '@/features/create-mode/model/createModeSeedStore';
 import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
@@ -31,24 +18,20 @@ import {
 } from './WorkspacesMainContainer';
 import { RightSidebar } from './RightSidebar';
 import { ChangesPanelContainer } from './ChangesPanelContainer';
-import { CreateChatBoxContainer } from '@/shared/components/CreateChatBoxContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 
 import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 
 export function WorkspacesLayout() {
-  const appNavigation = useAppNavigation();
   const {
     workspaceId,
     workspace: selectedWorkspace,
     isLoading,
-    isCreateMode,
     selectedSession,
     selectedSessionId,
     sessions,
@@ -60,55 +43,10 @@ export function WorkspacesLayout() {
   } = useWorkspaceContext();
 
   const { t } = useTranslation('common');
-  const headerTitle = isCreateMode
-    ? t('workspaces.draftWorkspace')
-    : (selectedWorkspace?.name ?? t('workspaces.title'));
-  usePageTitle(
-    isCreateMode ? t('workspaces.draftWorkspace') : selectedWorkspace?.name
-  );
+  const headerTitle = selectedWorkspace?.name ?? t('workspaces.title');
+  usePageTitle(selectedWorkspace?.name);
 
   const header = <PageHeader title={headerTitle} />;
-
-  const seedVersion = useSyncExternalStore(
-    subscribeCreateModeSeedState,
-    getCreateModeSeedVersion,
-    getCreateModeSeedVersion
-  );
-  const consumedSeedVersionRef = useRef(0);
-  const [createModeSeed, setCreateModeSeed] = useState<{
-    version: number;
-    state: CreateModeInitialState | null;
-  }>({
-    version: 0,
-    state: null,
-  });
-
-  useEffect(() => {
-    if (!isCreateMode) {
-      consumedSeedVersionRef.current = 0;
-      setCreateModeSeed((current) =>
-        current.version === 0 && current.state === null
-          ? current
-          : { version: 0, state: null }
-      );
-      return;
-    }
-
-    if (seedVersion === 0 || seedVersion === consumedSeedVersionRef.current) {
-      return;
-    }
-
-    consumedSeedVersionRef.current = seedVersion;
-    setCreateModeSeed({
-      version: seedVersion,
-      state: consumeCreateModeSeedState(),
-    });
-  }, [isCreateMode, seedVersion]);
-
-  const createModeProviderKey =
-    createModeSeed.version > 0
-      ? `create-mode-seed-${createModeSeed.version}`
-      : 'create-mode-seed-default';
 
   const isMobile = useIsMobile();
   const [mobileTab] = useMobileActiveTab();
@@ -121,17 +59,8 @@ export function WorkspacesLayout() {
     []
   );
 
-  const handleWorkspaceCreated = useCallback(
-    (workspaceId: string) => {
-      appNavigation.goToWorkspace(workspaceId);
-    },
-    [appNavigation]
-  );
-
   // VSCode-style tab groups (SHELL-SPEC R14)
-  const [tabGroups, setTabGroups] = useWorkspaceTabGroups(
-    isCreateMode ? undefined : workspaceId
-  );
+  const [tabGroups, setTabGroups] = useWorkspaceTabGroups(workspaceId);
 
   const {
     config,
@@ -183,25 +112,19 @@ export function WorkspacesLayout() {
                 mobileTab !== 'chat' && 'hidden'
               )}
             >
-              {isCreateMode ? (
-                <CreateChatBoxContainer
-                  onWorkspaceCreated={handleWorkspaceCreated}
-                />
-              ) : (
-                <WorkspacesMainContainer
-                  ref={mainContainerRef}
-                  selectedWorkspace={selectedWorkspace ?? null}
-                  selectedSession={selectedSession}
-                  selectedSessionId={selectedSessionId}
-                  sessions={sessions}
-                  repos={repos}
-                  onSelectSession={selectSession}
-                  isLoading={isLoading}
-                  isSessionsLoading={isSessionsLoading}
-                  isNewSessionMode={isNewSessionMode}
-                  onStartNewSession={startNewSession}
-                />
-              )}
+              <WorkspacesMainContainer
+                ref={mainContainerRef}
+                selectedWorkspace={selectedWorkspace ?? null}
+                selectedSession={selectedSession}
+                selectedSessionId={selectedSessionId}
+                sessions={sessions}
+                repos={repos}
+                onSelectSession={selectSession}
+                isLoading={isLoading}
+                isSessionsLoading={isSessionsLoading}
+                isNewSessionMode={isNewSessionMode}
+                onStartNewSession={startNewSession}
+              />
             </div>
 
             {/* Changes tab */}
@@ -251,7 +174,7 @@ export function WorkspacesLayout() {
                 mobileTab !== 'git' && 'hidden'
               )}
             >
-              {selectedWorkspace && !isCreateMode && (
+              {selectedWorkspace && (
                 <RightSidebar
                   selectedWorkspace={selectedWorkspace}
                   repos={repos}
@@ -267,77 +190,57 @@ export function WorkspacesLayout() {
       <div className="flex flex-1 min-h-0 h-full flex-col">
         {header}
         <div className="flex flex-1 min-h-0">
-          <div className="flex-1 min-w-0 h-full">
-            {isCreateMode ? (
-              <CreateModeProvider
-                key={createModeProviderKey}
-                initialState={createModeSeed.state}
-              >
-                {mobileContent}
-              </CreateModeProvider>
-            ) : (
-              mobileContent
-            )}
-          </div>
+          <div className="flex-1 min-w-0 h-full">{mobileContent}</div>
         </div>
       </div>
     );
   }
 
-  // Main area: create mode keeps the plain chat box; otherwise VSCode-style
-  // tab groups (SHELL-SPEC R14-R16) replace the fixed left/right split.
-  // The aside portals into the shell panel (SHELL-SPEC R18/R30) but renders
-  // inside these providers — React context flows through the component tree,
-  // not the DOM — so the file tree keeps talking to the Changes view.
+  // Main area: VSCode-style tab groups (SHELL-SPEC R14-R16) replace the fixed
+  // left/right split. The aside portals into the shell panel (SHELL-SPEC
+  // R18/R30) but renders inside these providers — React context flows through
+  // the component tree, not the DOM — so the file tree keeps talking to the
+  // Changes view.
   const mainContent = (
     <ReviewProvider workspaceId={selectedWorkspace?.id}>
       <ChangesViewProvider>
-        {!isCreateMode && (
-          <ShellAsidePortal>
-            <RightSidebar
-              selectedWorkspace={selectedWorkspace}
-              repos={repos}
-            />
-          </ShellAsidePortal>
-        )}
-        {isCreateMode ? (
-          <CreateChatBoxContainer onWorkspaceCreated={handleWorkspaceCreated} />
-        ) : (
-          <WorkspaceTabGroups
-            groups={tabGroups}
-            onGroupsChange={setTabGroups}
-            contents={{
-              chat: (
-                <WorkspacesMainContainer
-                  ref={mainContainerRef}
-                  selectedWorkspace={selectedWorkspace ?? null}
-                  selectedSession={selectedSession}
-                  selectedSessionId={selectedSessionId}
-                  sessions={sessions}
-                  repos={repos}
-                  onSelectSession={selectSession}
-                  isLoading={isLoading}
-                  isSessionsLoading={isSessionsLoading}
-                  isNewSessionMode={isNewSessionMode}
-                  onStartNewSession={startNewSession}
-                />
-              ),
-              changes: selectedWorkspace?.id ? (
-                <ChangesPanelContainer
-                  className=""
-                  workspaceId={selectedWorkspace.id}
-                />
-              ) : null,
-              logs: <LogsContentContainer className="" />,
-              preview: selectedWorkspace?.id ? (
-                <PreviewBrowserContainer
-                  workspaceId={selectedWorkspace.id}
-                  className=""
-                />
-              ) : null,
-            }}
-          />
-        )}
+        <ShellAsidePortal>
+          <RightSidebar selectedWorkspace={selectedWorkspace} repos={repos} />
+        </ShellAsidePortal>
+        <WorkspaceTabGroups
+          groups={tabGroups}
+          onGroupsChange={setTabGroups}
+          contents={{
+            chat: (
+              <WorkspacesMainContainer
+                ref={mainContainerRef}
+                selectedWorkspace={selectedWorkspace ?? null}
+                selectedSession={selectedSession}
+                selectedSessionId={selectedSessionId}
+                sessions={sessions}
+                repos={repos}
+                onSelectSession={selectSession}
+                isLoading={isLoading}
+                isSessionsLoading={isSessionsLoading}
+                isNewSessionMode={isNewSessionMode}
+                onStartNewSession={startNewSession}
+              />
+            ),
+            changes: selectedWorkspace?.id ? (
+              <ChangesPanelContainer
+                className=""
+                workspaceId={selectedWorkspace.id}
+              />
+            ) : null,
+            logs: <LogsContentContainer className="" />,
+            preview: selectedWorkspace?.id ? (
+              <PreviewBrowserContainer
+                workspaceId={selectedWorkspace.id}
+                className=""
+              />
+            ) : null,
+          }}
+        />
       </ChangesViewProvider>
     </ReviewProvider>
   );
@@ -358,16 +261,7 @@ export function WorkspacesLayout() {
     <div className="flex flex-1 min-h-0 h-full flex-col">
       {sidebarPortal}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
-        {isCreateMode ? (
-          <CreateModeProvider
-            key={createModeProviderKey}
-            initialState={createModeSeed.state}
-          >
-            {mainContent}
-          </CreateModeProvider>
-        ) : (
-          mainContent
-        )}
+        {mainContent}
       </div>
     </div>
   );

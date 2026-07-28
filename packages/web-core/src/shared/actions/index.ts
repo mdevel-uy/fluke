@@ -1,6 +1,6 @@
 import { forwardRef, createElement } from 'react';
 import type { Icon, IconProps } from '@phosphor-icons/react';
-import type { ExecutorConfig, Merge, Workspace } from 'shared/types';
+import type { Merge, Workspace } from 'shared/types';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   CopyIcon,
@@ -26,7 +26,6 @@ import {
   SpinnerIcon,
   GitPullRequestIcon,
   GitMergeIcon,
-  GitForkIcon,
   ArrowsClockwiseIcon,
   CrosshairIcon,
   DesktopIcon,
@@ -77,8 +76,6 @@ import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDi
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { CreateWorkspaceFromPrDialog } from '@/shared/dialogs/command-bar/CreateWorkspaceFromPrDialog';
 import { WorkerFormDialog } from '@/features/workers/ui/WorkerFormDialog';
-import { buildWorkspaceCreateInitialState } from '@/shared/lib/workspaceCreateState';
-import { setCreateModeSeedState } from '@/features/create-mode/model/createModeSeedStore';
 
 // Mirrored sidebar icon for right sidebar toggle
 const RightSidebarIcon: Icon = forwardRef<SVGSVGElement, IconProps>(
@@ -104,23 +101,6 @@ import { ActionTargetType, NavbarDivider } from '@/shared/types/actions';
 function parseGithubOwnerRepo(url: string): string | null {
   const match = url.match(/github\.com\/([^/]+\/[^/?#]+)/);
   return match ? match[1] : null;
-}
-
-async function resolveLinkedIssue(
-  workspaceId: string,
-  remoteWorkspaces: {
-    local_workspace_id: string | null;
-    issue_id: string | null;
-    project_id: string;
-  }[]
-): Promise<{ issueId: string; remoteProjectId: string } | undefined> {
-  const remoteWs = remoteWorkspaces.find(
-    (w) => w.local_workspace_id === workspaceId
-  );
-  if (remoteWs?.issue_id) {
-    return { issueId: remoteWs.issue_id, remoteProjectId: remoteWs.project_id };
-  }
-  return undefined;
 }
 
 async function getWorkspace(
@@ -182,51 +162,6 @@ function navigateToCreateSubIssue(
 // All application actions
 export const Actions = {
   // === Workspace Actions ===
-  DuplicateWorkspace: {
-    id: 'duplicate-workspace',
-    label: 'Duplicate',
-    icon: CopyIcon,
-    shortcut: 'W D',
-    requiresTarget: ActionTargetType.WORKSPACE,
-    execute: async (ctx, workspaceId) => {
-      try {
-        const [firstMessage, repos, workspaceWithSession] = await Promise.all([
-          workspacesApi.getFirstUserMessage(workspaceId),
-          workspacesApi.getRepos(workspaceId),
-          workspacesApi.getWithSession(workspaceId),
-        ]);
-
-        const linkedIssue = await resolveLinkedIssue(
-          workspaceId,
-          ctx.remoteWorkspaces
-        );
-
-        const executorConfig = workspaceWithSession.session?.executor
-          ? {
-              executor: workspaceWithSession.session
-                .executor as ExecutorConfig['executor'],
-            }
-          : null;
-
-        const createState = buildWorkspaceCreateInitialState({
-          prompt: firstMessage,
-          defaults: {
-            preferredRepos: repos.map((r) => ({
-              repo_id: r.id,
-              target_branch: r.target_branch,
-            })),
-          },
-          linkedIssue,
-          executorConfig,
-        });
-        setCreateModeSeedState(createState);
-        ctx.appNavigation.goToWorkspacesCreate();
-      } catch {
-        ctx.appNavigation.goToWorkspacesCreate();
-      }
-    },
-  },
-
   RenameWorkspace: {
     id: 'rename-workspace',
     label: 'Rename',
@@ -344,7 +279,7 @@ export const Actions = {
           if (nextWorkspaceId) {
             ctx.selectWorkspace(nextWorkspaceId);
           } else {
-            ctx.appNavigation.goToWorkspacesCreate();
+            ctx.appNavigation.goToWorkspaces();
           }
         }
       }
@@ -362,41 +297,6 @@ export const Actions = {
       await StartReviewDialog.show({
         workspaceId,
       });
-    },
-  },
-
-  SpinOffWorkspace: {
-    id: 'spin-off-workspace',
-    label: 'Spin off workspace',
-    icon: GitForkIcon,
-    requiresTarget: ActionTargetType.WORKSPACE,
-    isVisible: (ctx) => ctx.hasWorkspace,
-    execute: async (ctx, workspaceId) => {
-      try {
-        const [workspace, repos] = await Promise.all([
-          getWorkspace(ctx.queryClient, workspaceId),
-          workspacesApi.getRepos(workspaceId),
-        ]);
-        const linkedIssue = await resolveLinkedIssue(
-          workspaceId,
-          ctx.remoteWorkspaces
-        );
-
-        const createState = buildWorkspaceCreateInitialState({
-          prompt: null,
-          defaults: {
-            preferredRepos: repos.map((r) => ({
-              repo_id: r.id,
-              target_branch: workspace.branch,
-            })),
-          },
-          linkedIssue,
-        });
-        setCreateModeSeedState(createState);
-        ctx.appNavigation.goToWorkspacesCreate();
-      } catch {
-        ctx.appNavigation.goToWorkspacesCreate();
-      }
     },
   },
 
@@ -609,10 +509,9 @@ export const Actions = {
     icon: GitDiffIcon,
     shortcut: 'V C',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
     isActive: (ctx) =>
       ctx.activeViewTabs.includes('changes'),
-    isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('changes')
         ? 'Hide Changes Panel'
@@ -633,12 +532,10 @@ export const Actions = {
     // Keep visible while the LOGS panel is open (e.g. tool output) so the
     // toggle stays reachable to close it, even if no processes exist.
     isVisible: (ctx) =>
-      !ctx.isCreateMode &&
       ctx.layoutMode === 'workspaces' &&
       (ctx.hasExecutionProcesses ||
         ctx.activeViewTabs.includes('logs')),
     isActive: (ctx) => ctx.activeViewTabs.includes('logs'),
-    isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('logs')
         ? 'Hide Logs Panel'
@@ -672,10 +569,9 @@ export const Actions = {
     icon: DesktopIcon,
     shortcut: 'V P',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
     isActive: (ctx) =>
       ctx.activeViewTabs.includes('preview'),
-    isEnabled: (ctx) => !ctx.isCreateMode,
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('preview')
         ? 'Hide Preview Panel'

@@ -20,7 +20,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { getRemoteApiUrl } from '@/shared/lib/remoteApi';
 
 type OnboardingDestination =
-  | { kind: 'workspaces-create' }
+  | { kind: 'workspaces' }
   | { kind: 'project'; projectId: string };
 
 const COMPARISON_ROWS = [
@@ -157,7 +157,7 @@ export function OnboardingSignInPage() {
         stage: 'sign_in',
         reason: 'destination_lookup_failed',
       });
-      return { kind: 'workspaces-create' };
+      return { kind: 'workspaces' };
     }
 
     return firstProjectDestination;
@@ -202,7 +202,7 @@ export function OnboardingSignInPage() {
         destination.kind === 'project' ? destination.projectId : null,
     });
     switch (destination.kind) {
-      case 'workspaces-create':
+      case 'workspaces':
         appNavigation.goToWorkspaces({ replace: true });
         return;
       case 'project':

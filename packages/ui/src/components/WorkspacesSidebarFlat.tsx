@@ -28,9 +28,6 @@ export interface WorkspacesSidebarFlatProps {
   onSelectWorkspace: (id: string) => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  isCreateMode?: boolean;
-  draftTitle?: string;
-  onSelectCreate?: () => void;
   showArchive?: boolean;
   onShowArchiveChange?: (show: boolean) => void;
   onLoadMore?: () => void;
@@ -224,9 +221,6 @@ export function WorkspacesSidebarFlat({
   onSelectWorkspace,
   searchQuery,
   onSearchChange,
-  isCreateMode = false,
-  draftTitle,
-  onSelectCreate,
   onLoadMore,
   hasMoreWorkspaces = false,
   searchControls,
@@ -314,24 +308,6 @@ export function WorkspacesSidebarFlat({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {isCreateMode && (
-          <div className="flex-none">
-            <WorkspaceRow
-              workspace={{
-                id: '__create__',
-                name:
-                  draftTitle ||
-                  t('common:workspaces.newWorkspace', {
-                    defaultValue: 'New Workspace',
-                  }),
-              }}
-              variant="idle"
-              isSelected
-              onSelect={() => onSelectCreate?.()}
-            />
-          </div>
-        )}
-
         {!hiddenSections.attention && (
         <Section
           persistKey="ws-flat-attention"
