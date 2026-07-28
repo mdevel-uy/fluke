@@ -571,7 +571,7 @@ export function WorkspacesSidebarContainer({
     const { title } = splitMessageToTitleDescription(
       scratchData.message.trim()
     );
-    return title || 'New Workspace';
+    return title || 'Draft workspace';
   }, [draftScratch]);
 
   // Handle workspace selection - scroll to bottom if re-selecting same workspace

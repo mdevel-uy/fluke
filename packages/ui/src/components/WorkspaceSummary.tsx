@@ -224,6 +224,12 @@ export function WorkspaceSummary({
               aria-hidden="true"
             />
           )}
+          {/* Issue-first identity: the issue badge + task title lead the card */}
+          {isWorkerCard && issueNumber != null && (
+            <span className="inline-flex shrink-0 items-center rounded border border-border/60 bg-secondary px-1.5 py-px font-mono text-[11px] leading-4 text-normal">
+              #{issueNumber}
+            </span>
+          )}
           <span
             className={cn(
               'min-w-0 flex-1 truncate text-body',
@@ -231,26 +237,10 @@ export function WorkspaceSummary({
                 ? 'font-semibold text-high'
                 : cn('font-medium', isActive ? 'text-high' : 'text-normal')
             )}
+            title={isWorkerCard ? (taskTitle ?? name) : name}
           >
-            {workerName ?? name}
+            {isWorkerCard ? (taskTitle ?? name) : name}
           </span>
-
-          {isWorkerCard && workerRole && (
-            <span
-              className={cn(
-                'shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold leading-4',
-                ROLE_CHIP_CLASS[workerRole] ?? 'bg-secondary text-normal'
-              )}
-            >
-              {t(`workers.roles.${workerRole}`)}
-            </span>
-          )}
-
-          {isWorkerCard && workerModel && (
-            <span className="shrink-0 rounded bg-merged/10 px-1.5 py-px font-mono text-[10px] leading-4 text-merged">
-              {workerModel}
-            </span>
-          )}
 
           {/* Backing GitHub issue (only in the header when there is no task line) */}
           {!isWorkerCard && issueNumber != null && (
@@ -318,20 +308,30 @@ export function WorkspaceSummary({
           )}
         </div>
 
-        {/* Task line: issue badge + task title */}
-        {isWorkerCard && (
+        {/* Attribution line: the worker running this workspace */}
+        {isWorkerCard && workerName && (
           <div className="flex w-full items-center gap-half">
-            {issueNumber != null && (
-              <span className="inline-flex shrink-0 items-center rounded border border-border/60 bg-secondary px-1.5 py-px font-mono text-[11px] leading-4 text-normal">
-                #{issueNumber}
+            <span
+              className="min-w-0 truncate text-xs text-normal"
+              title={workerName}
+            >
+              {workerName}
+            </span>
+            {workerRole && (
+              <span
+                className={cn(
+                  'shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold leading-4',
+                  ROLE_CHIP_CLASS[workerRole] ?? 'bg-secondary text-normal'
+                )}
+              >
+                {t(`workers.roles.${workerRole}`)}
               </span>
             )}
-            <span
-              className="min-w-0 flex-1 truncate text-xs text-high"
-              title={taskTitle ?? name}
-            >
-              {taskTitle ?? name}
-            </span>
+            {workerModel && (
+              <span className="shrink-0 rounded bg-merged/10 px-1.5 py-px font-mono text-[10px] leading-4 text-merged">
+                {workerModel}
+              </span>
+            )}
           </div>
         )}
 

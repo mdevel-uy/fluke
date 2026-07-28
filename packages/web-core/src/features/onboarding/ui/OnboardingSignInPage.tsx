@@ -203,7 +203,7 @@ export function OnboardingSignInPage() {
     });
     switch (destination.kind) {
       case 'workspaces-create':
-        appNavigation.goToWorkspacesCreate({ replace: true });
+        appNavigation.goToWorkspaces({ replace: true });
         return;
       case 'project':
         appNavigation.goToProject(destination.projectId, { replace: true });

@@ -120,9 +120,10 @@
     "notFound": "ワークスペースが見つかりません",
     "selectToStart": "ワークスペースを選択して開始",
     "draft": "下書き",
+    "viewArchive": "アーカイブを表示",
+    "backToActive": "アクティブに戻る",
     "noArchived": "アーカイブされたワークスペースはありません",
-    "noWorkspaces": "ワークスペースがありません",
-    "newWorkspace": "新しいワークスペース",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "対応が必要",
     "idle": "待機中",
     "running": "実行中",
@@ -191,7 +192,9 @@
       "all": "すべてのワークスペース",
       "archive": "アーカイブ"
     },
-    "scopeRailLabel": "ワークスペースの範囲"
+    "scopeRailLabel": "ワークスペースの範囲",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",
@@ -379,7 +382,9 @@
     "noCommands": "このエージェントで利用可能なコマンドはありません。"
   },
   "kanban": {
+    "noVisibleStatuses": "すべてのステータスが非表示です。表示設定を使用するか、別のタブに切り替えて課題を表示してください。",
     "noProjectFound": "プロジェクトが見つかりません",
+    "unassigned": "未割り当て",
     "noTagsAvailable": "利用可能なタグがありません",
     "createNewIssue": "新しい課題を作成",
     "searchTags": "タグを検索...",
@@ -423,13 +428,25 @@
     "markIndependentIssue": "独立した課題としてマーク",
     "parentIssue": "親",
     "subIssueIndicator": "↳",
+    "viewTabs": {
+      "active": "アクティブ",
+      "all": "すべて"
+    },
     "loginRequired": {
       "title": "サインインが必要です",
       "description": "このプロジェクトを表示するにはサインインしてください。",
       "action": "サインイン"
     },
+    "team": "Team",
+    "personal": "Personal",
+    "searchPlaceholder": "Search issues...",
+    "filters": "Filters",
     "clearFilters": "Clear filters",
+    "filtersDescription": "Adjust filters and sorting for this board view.",
+    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
+    "tags": "Tags",
+    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -451,12 +468,34 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "担当者",
+    "filterByAssignee": "担当者で絞り込む",
+    "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "オプション",
+    "sortField": {
+      "sort_order": "手動",
+      "priority": "優先度",
+      "created_at": "作成日",
+      "updated_at": "更新日",
+      "title": "タイトル"
+    },
+    "subIssuesFilterLabel": "Sub-issues",
+    "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "ブロック中を非表示",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
+    "openProjectsGuide": "Projects guide",
+    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {
@@ -544,10 +583,6 @@
     "commandBarTrigger": {
       "placeholder": "コマンドを検索...",
       "ariaLabel": "コマンドバーを開く"
-    },
-    "repoSelector": {
-      "placeholder": "リポジトリを選択",
-      "ariaLabel": "リポジトリを選択"
     }
   },
   "appBar": {
@@ -557,7 +592,13 @@
     "workers": "ワーカー",
     "sprint": "カンバン",
     "analystDesk": "アナリストデスク",
-    "settings": "設定"
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "settings": "設定",
+    "kanban": {
+      "title": "カンバンボード",
+      "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"
+    }
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -667,6 +708,7 @@
     "loadingRepos": "リポジトリを読み込み中...",
     "noReposMessage": "登録されているリポジトリがありません。Issue を表示するにはリポジトリを追加してください。",
     "selectRepoPrompt": "Issue を表示するリポジトリを選択してください。",
+    "repoSelectorPlaceholder": "リポジトリを選択",
     "openGroup": "オープン",
     "closedGroup": "クローズ",
     "authorPrefix": "作成者:",
@@ -716,10 +758,7 @@
       "enqueuedError": "タスクのキュー追加に失敗しました。",
       "checkingConflicts": "既存の割り当てを確認中...",
       "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
-      "assignAnyway": "それでも割り当てる",
-      "skillsLabel": "スキル",
-      "skillsPicker": "スキルを追加",
-      "skillsEmpty": "インストール済みのスキルがありません。設定 → スキルから追加してください。"
+      "assignAnyway": "それでも割り当てる"
     },
     "reassignDialog": {
       "title": "Issue #{{number}} を別のワーカーに再割り当て",
@@ -758,9 +797,7 @@
       "clear": "フィルターをクリア",
       "noResults": "現在のフィルターに一致する Issue はありません。",
       "noLabel": "ラベルなし",
-      "noMilestone": "マイルストーンなし",
-      "stateLabel": "状態",
-      "clearSearch": "検索をクリア"
+      "noMilestone": "マイルストーンなし"
     },
     "drawer": {
       "title": "Issue 詳細",
@@ -791,11 +828,7 @@
     "loadError": "ワーカーの読み込みに失敗しました。",
     "emptyTitle": "まだワーカーはいません",
     "emptyDescription": "ワーカーを作成してタスクを割り当てましょう。",
-    "archive": "アーカイブ",
-    "unarchive": "復元",
-    "purge": "完全削除",
-    "archived_section_title": "アーカイブ済みワーカー",
-    "purge_confirm": "ワーカー「{{worker}}」を完全に削除しますか？レコードとタスク履歴が削除され、元に戻せません。",
+    "confirmDelete": "ワーカー「{{worker}}」を削除しますか？この操作は元に戻せません。",
     "stats": {
       "working": "作業中",
       "queued": "待機中",
@@ -815,6 +848,7 @@
       "menuLabel": "ワーカーのアクション",
       "edit": "編集",
       "duplicate": "複製",
+      "delete": "削除",
       "queuedLabel": "待機",
       "completedLabel": "完了",
       "startNext": "次のタスクを開始",
@@ -876,19 +910,15 @@
       "startError": "{{worker}} の開始に失敗しました：{{message}}",
       "createSuccess": "ワーカーを作成しました。",
       "updateSuccess": "ワーカーを更新しました。",
+      "deleteSuccess": "{{worker}} を削除しました。",
       "duplicateSuccess": "{{worker}} を「{{clone}}」として複製しました。",
       "duplicateError": "{{worker}} の複製に失敗しました：{{message}}",
-      "archiveSuccess": "{{worker}} をアーカイブしました。",
-      "archiveError": "{{worker}} のアーカイブに失敗しました：{{message}}",
-      "unarchiveSuccess": "{{worker}} を復元しました。",
-      "unarchiveError": "{{worker}} の復元に失敗しました：{{message}}",
-      "purgeSuccess": "{{worker}} を完全に削除しました。",
-      "purgeError": "{{worker}} の完全削除に失敗しました：{{message}}",
       "dismiss": "閉じる"
     }
   },
   "analystDesk": {
     "title": "アナリストデスク",
+    "repoLabel": "リポジトリ",
     "analystsLabel": "アナリスト",
     "statusIdle": "空き",
     "statusBusy": "作業中",
@@ -934,12 +964,11 @@
       "errorLabel": "アップロードに失敗しました",
       "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
       "tooLarge": "ファイルサイズが上限を超えています。"
-    },
-    "skillsPicker": "スキルを追加",
-    "skillsEmpty": "インストール済みのスキルがありません。設定 → スキルから追加してください。"
+    }
   },
   "sprint": {
     "title": "カンバン",
+    "repoSelectorPlaceholder": "リポジトリを選択",
     "loadingRepos": "リポジトリを読み込み中...",
     "noReposMessage": "登録されているリポジトリがありません。スプリントを計画するにはリポジトリを追加してください。",
     "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
@@ -990,7 +1019,7 @@
       "removeConfirm": "削除"
     },
     "filters": {
-      "searchPlaceholder": "Issue を検索…",
+      "searchPlaceholder": "Issue を検索...",
       "clearSearch": "検索をクリア",
       "epic": "エピック",
       "allEpics": "すべてのエピック",
@@ -1041,9 +1070,5 @@
       "label": "自動取り込み",
       "description": "タスクが割り当てられるとワーカーが自動的に開始します"
     }
-  },
-  "notifications": {
-    "title": "通知",
-    "markAllRead": "すべて既読にする"
   }
 }

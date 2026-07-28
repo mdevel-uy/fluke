@@ -134,9 +134,10 @@
     "notFound": "Workspace not found",
     "selectToStart": "Select a workspace to get started",
     "draft": "Draft",
+    "viewArchive": "View Archive",
+    "backToActive": "Back to Active",
     "noArchived": "No archived workspaces",
-    "noWorkspaces": "No workspaces",
-    "newWorkspace": "New workspace",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "Needs Attention",
     "idle": "Idle",
     "running": "Running",
@@ -205,7 +206,9 @@
       "all": "All workspaces",
       "archive": "Archive"
     },
-    "scopeRailLabel": "Workspace scopes"
+    "scopeRailLabel": "Workspace scopes",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",
@@ -263,7 +266,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "Welcome",
-      "content": "Welcome to the Workspaces page. One view of the workspaces across all of your projects, and the fastest way to review work from your agents. Share feedback anytime via the navbar icon."
+      "content": "Welcome to the Workspaces page — one view of the work your agents are doing across all of your projects. A workspace opens when a worker picks up an issue; review, guide, and ship that work from here."
     },
     "commandBar": {
       "title": "Command Bar",
@@ -393,7 +396,9 @@
     "noCommands": "No commands available for this agent."
   },
   "kanban": {
+    "noVisibleStatuses": "All statuses are hidden. Use display settings or switch to another tab to view issues.",
     "noProjectFound": "No project found",
+    "unassigned": "Unassigned",
     "noTagsAvailable": "No tags available",
     "createNewIssue": "Create new issue",
     "searchTags": "Search tags...",
@@ -437,13 +442,25 @@
     "markIndependentIssue": "Mark as independent issue",
     "parentIssue": "Parent",
     "subIssueIndicator": "↳",
+    "viewTabs": {
+      "active": "Active",
+      "all": "All"
+    },
     "loginRequired": {
       "title": "Sign in required",
       "description": "Please sign in to view this project.",
       "action": "Sign in"
     },
+    "team": "Team",
+    "personal": "Personal",
+    "searchPlaceholder": "Search issues...",
+    "filters": "Filters",
     "clearFilters": "Clear filters",
+    "filtersDescription": "Adjust filters and sorting for this board view.",
+    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
+    "tags": "Tags",
+    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -465,12 +482,34 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "Assignees",
+    "filterByAssignee": "Filter by assignee",
+    "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "options": "Options",
+    "sortField": {
+      "sort_order": "Manual",
+      "priority": "Priority",
+      "created_at": "Created",
+      "updated_at": "Updated",
+      "title": "Title"
+    },
+    "subIssuesFilterLabel": "Sub-issues",
+    "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "Hide blocked",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
+    "openProjectsGuide": "Projects guide",
+    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {
@@ -548,10 +587,6 @@
     "commandBarTrigger": {
       "placeholder": "Search commands...",
       "ariaLabel": "Open command bar"
-    },
-    "repoSelector": {
-      "placeholder": "Select repository",
-      "ariaLabel": "Select repository"
     }
   },
   "appBar": {
@@ -561,7 +596,13 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Analyst Desk",
-    "settings": "Settings"
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "settings": "Settings",
+    "kanban": {
+      "title": "Kanban Boards",
+      "description": "Sign in to organise your coding agents with kanban boards."
+    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -667,6 +708,7 @@
     "loadingRepos": "Loading repositories...",
     "noReposMessage": "No repositories registered. Add a repository first to see its issues.",
     "selectRepoPrompt": "Select a repository to see its issues.",
+    "repoSelectorPlaceholder": "Select repository",
     "openGroup": "Open",
     "closedGroup": "Closed",
     "authorPrefix": "by",
@@ -685,7 +727,7 @@
     },
     "taskLinked": {
       "openWorkspace": "Open workspace",
-      "viewInSprint": "View on board"
+      "viewInSprint": "View in Sprint"
     },
     "table": {
       "issue": "Issue",
@@ -716,10 +758,7 @@
       "enqueuedError": "Failed to enqueue task.",
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
-      "assignAnyway": "Assign anyway",
-      "skillsLabel": "Skills",
-      "skillsPicker": "Attach skills",
-      "skillsEmpty": "No skills installed. Add some in Settings → Skills."
+      "assignAnyway": "Assign anyway"
     },
     "reassignDialog": {
       "title": "Reassign issue #{{number}} to another worker",
@@ -758,9 +797,7 @@
       "clear": "Clear filters",
       "noResults": "No issues match the current filters.",
       "noLabel": "No label",
-      "noMilestone": "No milestone",
-      "stateLabel": "State",
-      "clearSearch": "Clear search"
+      "noMilestone": "No milestone"
     },
     "drawer": {
       "title": "Issue detail",
@@ -791,11 +828,7 @@
     "loadError": "Failed to load workers.",
     "emptyTitle": "No workers yet",
     "emptyDescription": "Create a worker to start assigning tasks.",
-    "archive": "Archive",
-    "unarchive": "Restore",
-    "purge": "Purge",
-    "archived_section_title": "Archived workers",
-    "purge_confirm": "Permanently delete worker \"{{worker}}\"? This removes the record and its task history and cannot be undone.",
+    "confirmDelete": "Delete worker \"{{worker}}\"? This cannot be undone.",
     "stats": {
       "working": "Working",
       "queued": "Queued",
@@ -815,6 +848,7 @@
       "menuLabel": "Worker actions",
       "edit": "Edit",
       "duplicate": "Duplicate",
+      "delete": "Delete",
       "queuedLabel": "queued",
       "completedLabel": "done",
       "startNext": "Start next",
@@ -876,19 +910,15 @@
       "startError": "Failed to start {{worker}}: {{message}}",
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
+      "deleteSuccess": "{{worker}} deleted.",
       "duplicateSuccess": "{{worker}} duplicated as \"{{clone}}\".",
       "duplicateError": "Failed to duplicate {{worker}}: {{message}}",
-      "archiveSuccess": "{{worker}} archived.",
-      "archiveError": "Failed to archive {{worker}}: {{message}}",
-      "unarchiveSuccess": "{{worker}} restored.",
-      "unarchiveError": "Failed to restore {{worker}}: {{message}}",
-      "purgeSuccess": "{{worker}} permanently deleted.",
-      "purgeError": "Failed to purge {{worker}}: {{message}}",
       "dismiss": "Dismiss"
     }
   },
   "analystDesk": {
     "title": "Analyst Desk",
+    "repoLabel": "Repository",
     "analystsLabel": "Analyst",
     "statusIdle": "Available",
     "statusBusy": "Busy",
@@ -934,17 +964,16 @@
       "errorLabel": "Upload failed",
       "uploadError": "Couldn't upload '{{name}}': {{message}}",
       "tooLarge": "The file exceeds the maximum allowed size."
-    },
-    "skillsPicker": "Attach skills",
-    "skillsEmpty": "No skills installed. Add some in Settings → Skills."
+    }
   },
   "sprint": {
     "title": "Kanban",
+    "repoSelectorPlaceholder": "Select repository",
     "loadingRepos": "Loading repositories...",
-    "noReposMessage": "No repositories registered. Add a repository first to plan work on the board.",
-    "selectRepoPrompt": "Select a repository to see its kanban board.",
-    "loading": "Loading board...",
-    "loadError": "Failed to load the kanban board.",
+    "noReposMessage": "No repositories registered. Add a repository first to plan a sprint.",
+    "selectRepoPrompt": "Select a repository to see its sprint board.",
+    "loading": "Loading sprint...",
+    "loadError": "Failed to load the sprint board.",
     "sync": "Sync",
     "syncing": "Syncing...",
     "columns": {
@@ -990,7 +1019,7 @@
       "removeConfirm": "Remove"
     },
     "filters": {
-      "searchPlaceholder": "Search issues…",
+      "searchPlaceholder": "Search issues...",
       "clearSearch": "Clear search",
       "epic": "Epic",
       "allEpics": "All epics",
@@ -1041,9 +1070,5 @@
       "label": "Auto-ingest",
       "description": "Workers start as soon as a task is assigned"
     }
-  },
-  "notifications": {
-    "title": "Notifications",
-    "markAllRead": "Mark all as read"
   }
 }

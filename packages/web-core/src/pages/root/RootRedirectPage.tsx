@@ -23,7 +23,7 @@ export function RootRedirectPage() {
       }
 
       if (loginStatus?.status !== 'loggedin') {
-        appNavigation.goToWorkspacesCreate({ replace: true });
+        appNavigation.goToWorkspaces({ replace: true });
         return;
       }
 
@@ -46,7 +46,7 @@ export function RootRedirectPage() {
         return;
       }
 
-      appNavigation.goToWorkspacesCreate({ replace: true });
+      appNavigation.goToWorkspaces({ replace: true });
     })();
 
     return () => {

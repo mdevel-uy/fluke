@@ -120,9 +120,10 @@
     "notFound": "找不到工作區",
     "selectToStart": "選擇一個工作區開始",
     "draft": "草稿",
+    "viewArchive": "檢視封存",
+    "backToActive": "返回活躍",
     "noArchived": "沒有已封存的工作區",
-    "noWorkspaces": "沒有工作區",
-    "newWorkspace": "新工作區",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "需要關注",
     "idle": "閒置",
     "running": "執行中",
@@ -191,7 +192,9 @@
       "all": "全部工作區",
       "archive": "封存"
     },
-    "scopeRailLabel": "工作區範圍"
+    "scopeRailLabel": "工作區範圍",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",
@@ -379,7 +382,9 @@
     "noCommands": "此代理沒有可用的指令。"
   },
   "kanban": {
+    "noVisibleStatuses": "所有狀態已隱藏。請使用顯示設定或切換到其他標籤頁查看問題。",
     "noProjectFound": "找不到專案",
+    "unassigned": "未指派",
     "noTagsAvailable": "無可用標籤",
     "createNewIssue": "建立新問題",
     "searchTags": "搜尋標籤...",
@@ -423,13 +428,25 @@
     "markIndependentIssue": "標記為獨立問題",
     "parentIssue": "父級",
     "subIssueIndicator": "↳",
+    "viewTabs": {
+      "active": "活動",
+      "all": "全部"
+    },
     "loginRequired": {
       "title": "需要登入",
       "description": "請登入以查看此專案。",
       "action": "登入"
     },
+    "team": "Team",
+    "personal": "Personal",
+    "searchPlaceholder": "Search issues...",
+    "filters": "Filters",
     "clearFilters": "Clear filters",
+    "filtersDescription": "Adjust filters and sorting for this board view.",
+    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
+    "tags": "Tags",
+    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -451,12 +468,34 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "負責人",
+    "filterByAssignee": "依負責人篩選",
+    "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "選項",
+    "sortField": {
+      "sort_order": "手動",
+      "priority": "優先順序",
+      "created_at": "建立時間",
+      "updated_at": "更新時間",
+      "title": "標題"
+    },
+    "subIssuesFilterLabel": "Sub-issues",
+    "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "隱藏受阻項目",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
+    "openProjectsGuide": "Projects guide",
+    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {
@@ -544,10 +583,6 @@
     "commandBarTrigger": {
       "placeholder": "搜尋命令...",
       "ariaLabel": "開啟命令列"
-    },
-    "repoSelector": {
-      "placeholder": "選擇儲存庫",
-      "ariaLabel": "選擇儲存庫"
     }
   },
   "appBar": {
@@ -557,7 +592,13 @@
     "workers": "工作者",
     "sprint": "看板",
     "analystDesk": "分析師工作台",
-    "settings": "設定"
+    "collapseSidebar": "收合側邊欄",
+    "expandSidebar": "展開側邊欄",
+    "settings": "設定",
+    "kanban": {
+      "title": "看板",
+      "description": "登入以使用看板管理您的編碼代理。"
+    }
   },
   "dashboard": {
     "title": "儀表板",
@@ -667,6 +708,7 @@
     "loadingRepos": "正在載入儲存庫...",
     "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以查看其 Issue。",
     "selectRepoPrompt": "請選擇一個儲存庫以查看其 Issue。",
+    "repoSelectorPlaceholder": "選擇儲存庫",
     "openGroup": "開啟",
     "closedGroup": "已關閉",
     "authorPrefix": "作者：",
@@ -685,7 +727,7 @@
     },
     "taskLinked": {
       "openWorkspace": "開啟工作區",
-      "viewInSprint": "在看板中檢視"
+      "viewInSprint": "在 Sprint 中檢視"
     },
     "table": {
       "issue": "Issue",
@@ -716,10 +758,7 @@
       "enqueuedError": "加入佇列失敗。",
       "checkingConflicts": "正在檢查現有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
-      "assignAnyway": "仍然分配",
-      "skillsLabel": "技能",
-      "skillsPicker": "新增技能",
-      "skillsEmpty": "尚未安裝任何技能。請在設定 → 技能中新增。"
+      "assignAnyway": "仍然分配"
     },
     "reassignDialog": {
       "title": "將 Issue #{{number}} 重新指派給其他工作者",
@@ -758,9 +797,7 @@
       "clear": "清除篩選",
       "noResults": "沒有 Issue 符合目前的篩選條件。",
       "noLabel": "無標籤",
-      "noMilestone": "無里程碑",
-      "stateLabel": "狀態",
-      "clearSearch": "清除搜尋"
+      "noMilestone": "無里程碑"
     },
     "drawer": {
       "title": "Issue 詳情",
@@ -791,11 +828,7 @@
     "loadError": "載入工作者失敗。",
     "emptyTitle": "尚無工作者",
     "emptyDescription": "建立一位工作者以開始指派任務。",
-    "archive": "封存",
-    "unarchive": "還原",
-    "purge": "徹底刪除",
-    "archived_section_title": "已封存的工作者",
-    "purge_confirm": "徹底刪除工作者「{{worker}}」？將刪除記錄與其任務歷史，且無法復原。",
+    "confirmDelete": "刪除工作者「{{worker}}」？此操作無法復原。",
     "stats": {
       "working": "工作中",
       "queued": "排隊中",
@@ -815,6 +848,7 @@
       "menuLabel": "工作者動作",
       "edit": "編輯",
       "duplicate": "複製",
+      "delete": "刪除",
       "queuedLabel": "排隊",
       "completedLabel": "完成",
       "startNext": "開始下一個",
@@ -876,19 +910,15 @@
       "startError": "啟動 {{worker}} 失敗：{{message}}",
       "createSuccess": "工作者已建立。",
       "updateSuccess": "工作者已更新。",
+      "deleteSuccess": "{{worker}} 已刪除。",
       "duplicateSuccess": "{{worker}} 已複製為「{{clone}}」。",
       "duplicateError": "複製 {{worker}} 失敗：{{message}}",
-      "archiveSuccess": "{{worker}} 已封存。",
-      "archiveError": "封存 {{worker}} 失敗：{{message}}",
-      "unarchiveSuccess": "{{worker}} 已還原。",
-      "unarchiveError": "還原 {{worker}} 失敗：{{message}}",
-      "purgeSuccess": "{{worker}} 已徹底刪除。",
-      "purgeError": "徹底刪除 {{worker}} 失敗：{{message}}",
       "dismiss": "關閉"
     }
   },
   "analystDesk": {
     "title": "分析師工作台",
+    "repoLabel": "儲存庫",
     "analystsLabel": "分析師",
     "statusIdle": "空閒",
     "statusBusy": "忙碌",
@@ -934,12 +964,11 @@
       "errorLabel": "上傳失敗",
       "uploadError": "無法上傳 '{{name}}'：{{message}}",
       "tooLarge": "檔案超過允許的最大大小。"
-    },
-    "skillsPicker": "新增技能",
-    "skillsEmpty": "尚未安裝任何技能。請在設定 → 技能中新增。"
+    }
   },
   "sprint": {
     "title": "看板",
+    "repoSelectorPlaceholder": "選擇儲存庫",
     "loadingRepos": "正在載入儲存庫...",
     "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以規劃衝刺。",
     "selectRepoPrompt": "請選擇一個儲存庫以查看其衝刺看板。",
@@ -990,7 +1019,7 @@
       "removeConfirm": "移除"
     },
     "filters": {
-      "searchPlaceholder": "搜尋 Issue…",
+      "searchPlaceholder": "搜尋 Issue...",
       "clearSearch": "清除搜尋",
       "epic": "史詩",
       "allEpics": "所有史詩",
@@ -1041,9 +1070,5 @@
       "label": "自動開始",
       "description": "任務分配後工作者立即開始"
     }
-  },
-  "notifications": {
-    "title": "通知",
-    "markAllRead": "全部標記為已讀"
   }
 }

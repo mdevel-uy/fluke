@@ -120,9 +120,10 @@
     "notFound": "未找到工作区",
     "selectToStart": "选择一个工作区开始",
     "draft": "草稿",
+    "viewArchive": "查看归档",
+    "backToActive": "返回活跃",
     "noArchived": "没有已归档的工作区",
-    "noWorkspaces": "没有工作区",
-    "newWorkspace": "新工作区",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "需要注意",
     "idle": "空闲",
     "running": "运行中",
@@ -191,7 +192,9 @@
       "all": "全部工作区",
       "archive": "归档"
     },
-    "scopeRailLabel": "工作区范围"
+    "scopeRailLabel": "工作区范围",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue"
   },
   "fileTree": {
     "searchPlaceholder": "搜索文件...",
@@ -379,7 +382,9 @@
     "noCommands": "此代理没有可用的命令。"
   },
   "kanban": {
+    "noVisibleStatuses": "所有状态已隐藏。请使用显示设置或切换到其他标签页查看问题。",
     "noProjectFound": "未找到项目",
+    "unassigned": "未分配",
     "noTagsAvailable": "无可用标签",
     "createNewIssue": "创建新问题",
     "searchTags": "搜索标签...",
@@ -423,13 +428,25 @@
     "markIndependentIssue": "标记为独立问题",
     "parentIssue": "父级",
     "subIssueIndicator": "↳",
+    "viewTabs": {
+      "active": "活动",
+      "all": "全部"
+    },
     "loginRequired": {
       "title": "需要登录",
       "description": "请登录以查看此项目。",
       "action": "登录"
     },
+    "team": "Team",
+    "personal": "Personal",
+    "searchPlaceholder": "Search issues...",
+    "filters": "Filters",
     "clearFilters": "Clear filters",
+    "filtersDescription": "Adjust filters and sorting for this board view.",
+    "filterByTag": "Filter by tag",
     "filterByPriority": "Filter by priority",
+    "tags": "Tags",
+    "sortBy": "Sort",
     "workspaceSidebar": {
       "sortDialogTitle": "Sort workspaces",
       "sortDialogDescription": "Choose how workspaces are ordered in the sidebar.",
@@ -451,12 +468,34 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "负责人",
+    "filterByAssignee": "按负责人筛选",
+    "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "紧急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "选项",
+    "sortField": {
+      "sort_order": "手动",
+      "priority": "优先级",
+      "created_at": "创建时间",
+      "updated_at": "更新时间",
+      "title": "标题"
+    },
+    "subIssuesFilterLabel": "Sub-issues",
+    "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "隐藏被阻塞",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
+    "openProjectsGuide": "Projects guide",
+    "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
     "projectsGuide": {
@@ -544,10 +583,6 @@
     "commandBarTrigger": {
       "placeholder": "搜索命令...",
       "ariaLabel": "打开命令栏"
-    },
-    "repoSelector": {
-      "placeholder": "选择仓库",
-      "ariaLabel": "选择仓库"
     }
   },
   "appBar": {
@@ -557,7 +592,13 @@
     "workers": "工作者",
     "sprint": "看板",
     "analystDesk": "分析师工作台",
-    "settings": "设置"
+    "collapseSidebar": "折叠侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "settings": "设置",
+    "kanban": {
+      "title": "看板",
+      "description": "登录以使用看板管理您的编码代理。"
+    }
   },
   "dashboard": {
     "title": "仪表盘",
@@ -667,6 +708,7 @@
     "loadingRepos": "正在加载仓库...",
     "noReposMessage": "未注册任何仓库。请先添加仓库以查看其 Issue。",
     "selectRepoPrompt": "请选择一个仓库以查看其 Issue。",
+    "repoSelectorPlaceholder": "选择仓库",
     "openGroup": "打开",
     "closedGroup": "已关闭",
     "authorPrefix": "作者:",
@@ -685,7 +727,7 @@
     },
     "taskLinked": {
       "openWorkspace": "打开工作区",
-      "viewInSprint": "在看板中查看"
+      "viewInSprint": "在 Sprint 中查看"
     },
     "table": {
       "issue": "Issue",
@@ -716,10 +758,7 @@
       "enqueuedError": "加入队列失败。",
       "checkingConflicts": "正在检查现有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配给 {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
-      "assignAnyway": "仍然分配",
-      "skillsLabel": "技能",
-      "skillsPicker": "添加技能",
-      "skillsEmpty": "未安装技能。请在设置 → 技能中添加。"
+      "assignAnyway": "仍然分配"
     },
     "reassignDialog": {
       "title": "将 Issue #{{number}} 重新分配给其他工作者",
@@ -758,9 +797,7 @@
       "clear": "清除筛选",
       "noResults": "没有 Issue 符合当前筛选条件。",
       "noLabel": "无标签",
-      "noMilestone": "无里程碑",
-      "stateLabel": "状态",
-      "clearSearch": "清除搜索"
+      "noMilestone": "无里程碑"
     },
     "drawer": {
       "title": "Issue 详情",
@@ -791,11 +828,7 @@
     "loadError": "加载工作者失败。",
     "emptyTitle": "尚无工作者",
     "emptyDescription": "创建一个工作者以开始分配任务。",
-    "archive": "归档",
-    "unarchive": "恢复",
-    "purge": "彻底删除",
-    "archived_section_title": "已归档的工作者",
-    "purge_confirm": "彻底删除工作者 \"{{worker}}\"？将删除记录及其任务历史，且无法撤销。",
+    "confirmDelete": "删除工作者 \"{{worker}}\"？此操作不可撤销。",
     "stats": {
       "working": "工作中",
       "queued": "排队中",
@@ -815,6 +848,7 @@
       "menuLabel": "工作者操作",
       "edit": "编辑",
       "duplicate": "复制",
+      "delete": "删除",
       "queuedLabel": "排队",
       "completedLabel": "完成",
       "startNext": "开始下一个",
@@ -876,19 +910,15 @@
       "startError": "启动 {{worker}} 失败：{{message}}",
       "createSuccess": "工作者已创建。",
       "updateSuccess": "工作者已更新。",
+      "deleteSuccess": "{{worker}} 已删除。",
       "duplicateSuccess": "{{worker}} 已复制为“{{clone}}”。",
       "duplicateError": "复制 {{worker}} 失败：{{message}}",
-      "archiveSuccess": "{{worker}} 已归档。",
-      "archiveError": "归档 {{worker}} 失败：{{message}}",
-      "unarchiveSuccess": "{{worker}} 已恢复。",
-      "unarchiveError": "恢复 {{worker}} 失败：{{message}}",
-      "purgeSuccess": "{{worker}} 已彻底删除。",
-      "purgeError": "彻底删除 {{worker}} 失败：{{message}}",
       "dismiss": "关闭"
     }
   },
   "analystDesk": {
     "title": "分析师工作台",
+    "repoLabel": "仓库",
     "analystsLabel": "分析师",
     "statusIdle": "空闲",
     "statusBusy": "忙碌",
@@ -934,12 +964,11 @@
       "errorLabel": "上传失败",
       "uploadError": "无法上传 '{{name}}'：{{message}}",
       "tooLarge": "文件超过允许的最大大小。"
-    },
-    "skillsPicker": "添加技能",
-    "skillsEmpty": "未安装技能。请在设置 → 技能中添加。"
+    }
   },
   "sprint": {
     "title": "看板",
+    "repoSelectorPlaceholder": "选择仓库",
     "loadingRepos": "正在加载仓库...",
     "noReposMessage": "未注册任何仓库。请先添加仓库以规划冲刺。",
     "selectRepoPrompt": "请选择一个仓库以查看其冲刺看板。",
@@ -990,7 +1019,7 @@
       "removeConfirm": "移除"
     },
     "filters": {
-      "searchPlaceholder": "搜索 Issue…",
+      "searchPlaceholder": "搜索 Issue...",
       "clearSearch": "清除搜索",
       "epic": "史诗",
       "allEpics": "所有史诗",
@@ -1041,9 +1070,5 @@
       "label": "自动开始",
       "description": "任务分配后工作者立即开始"
     }
-  },
-  "notifications": {
-    "title": "通知",
-    "markAllRead": "全部标记为已读"
   }
 }

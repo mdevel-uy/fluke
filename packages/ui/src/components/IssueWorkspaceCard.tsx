@@ -332,7 +332,7 @@ export function IssueWorkspaceCreateCard({
 
       <div className="flex items-center justify-between gap-base">
         <span className="text-sm text-low truncate">
-          {t('workspaces.newWorkspace')}
+          {t('workspaces.openForIssue')}
         </span>
         <button
           type="button"
