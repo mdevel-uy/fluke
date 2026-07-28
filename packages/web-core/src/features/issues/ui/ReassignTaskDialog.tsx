@@ -89,9 +89,16 @@ const ReassignTaskDialogImpl = create<ReassignTaskDialogProps>(
       [workers, task.worker_id]
     );
 
-    const handleCancel = () => {
-      modal.resolve('canceled' as ReassignTaskResult);
+    // remove() unmounts after hide so the next show() starts with fresh
+    // state (NiceModal keeps hidden modals mounted by default).
+    const closeWith = (result: ReassignTaskResult) => {
+      modal.resolve(result);
       modal.hide();
+      modal.remove();
+    };
+
+    const handleCancel = () => {
+      closeWith('canceled');
     };
 
     const handleConfirm = async () => {
@@ -108,8 +115,7 @@ const ReassignTaskDialogImpl = create<ReassignTaskDialogProps>(
         queryClient.invalidateQueries({
           queryKey: repoIssuesKeys.byRepo(repoId),
         });
-        modal.resolve('reassigned' as ReassignTaskResult);
-        modal.hide();
+        closeWith('reassigned');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setSubmitError(message);

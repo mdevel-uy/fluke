@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Icon } from '@phosphor-icons/react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { getModifierKey } from '../lib/platform';
@@ -19,10 +20,12 @@ const COMMAND_BAR_ACTION_ID = 'open-command-bar';
 export interface NavbarActionItem {
   type?: 'action';
   id: string;
-  /** @deprecated Prefer materialIcon */
+  /** @deprecated Prefer lucideIcon */
   icon?: Icon;
-  /** Material Symbols Outlined icon name — preferred over icon */
+  /** @deprecated Prefer lucideIcon */
   materialIcon?: string;
+  /** Lucide icon component — canonical per UI-SPEC v3 */
+  lucideIcon?: LucideIcon;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -47,6 +50,7 @@ interface NavbarIconButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: Icon;
   materialIcon?: string;
+  lucideIcon?: LucideIcon;
   isActive?: boolean;
   tooltip?: string;
   shortcut?: string;
@@ -55,6 +59,7 @@ interface NavbarIconButtonProps
 function NavbarIconButton({
   icon: IconComponent,
   materialIcon,
+  lucideIcon: LucideIconComponent,
   isActive = false,
   tooltip,
   shortcut,
@@ -73,7 +78,9 @@ function NavbarIconButton({
       )}
       {...props}
     >
-      {materialIcon ? (
+      {LucideIconComponent ? (
+        <LucideIconComponent size={16} strokeWidth={1.75} />
+      ) : materialIcon ? (
         <MaterialIcon name={materialIcon} fill={isActive ? 1 : 0} size="base" />
       ) : IconComponent ? (
         <IconComponent
@@ -118,7 +125,8 @@ function CommandBarTrigger({
       aria-label={ariaLabel}
       className={cn(
         'group flex items-center gap-1.5 rounded-full border border-md-outline-variant',
-        'bg-md-surface-container-low text-md-on-surface-variant',
+        // White on the gray chrome so the trigger stands out (VSCode command center)
+        'bg-md-surface-container-lowest text-md-on-surface-variant',
         'hover:bg-md-surface-container hover:text-md-on-surface hover:border-md-outline',
         'transition-colors duration-150 active:scale-[0.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
@@ -211,6 +219,7 @@ export interface NavbarProps {
   leftItems?: NavbarSectionItem[];
   rightItems?: NavbarSectionItem[];
   leftSlot?: ReactNode;
+  rightSlot?: ReactNode;
   syncErrors?: readonly SyncErrorIndicatorError[] | null;
   className?: string;
   mobileMode?: boolean;
@@ -240,6 +249,7 @@ export function Navbar({
   leftItems = [],
   rightItems = [],
   leftSlot,
+  rightSlot,
   syncErrors,
   className,
   mobileMode = false,
@@ -292,6 +302,7 @@ export function Navbar({
         key={key}
         icon={item.icon}
         materialIcon={item.materialIcon}
+        lucideIcon={item.lucideIcon}
         isActive={item.isActive}
         onClick={item.onClick}
         aria-label={item.tooltip}
@@ -308,7 +319,7 @@ export function Navbar({
     return (
       <nav
         className={cn(
-          'flex flex-col bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0',
+          'flex flex-col bg-md-surface-container-low border-b border-md-outline-variant shrink-0',
           className
         )}
       >
@@ -482,7 +493,7 @@ export function Navbar({
       data-tauri-drag-region
       className={cn(
         'flex items-stretch justify-between',
-        'bg-md-surface-container-lowest border-b border-md-outline-variant shrink-0 h-9',
+        'bg-md-surface-container-low border-b border-md-outline-variant shrink-0 h-9',
         className
       )}
     >
@@ -523,6 +534,7 @@ export function Navbar({
         className="flex-1 flex items-center justify-end gap-base px-3"
       >
         <SyncErrorIndicator errors={syncErrors} />
+        {rightSlot}
         {visibleRightItems.map((item, index) =>
           renderItem(
             item,

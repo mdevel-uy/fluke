@@ -132,7 +132,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: `http://localhost:${process.env.BACKEND_PORT || '3001'}`,
-        changeOrigin: true,
+        // No `changeOrigin`: the backend's origin middleware compares the
+        // browser's Origin against Host, so the original Host must survive
+        // the proxy or every POST is rejected with a bare 403.
         ws: true,
       },
     },

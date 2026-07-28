@@ -6,7 +6,6 @@ import {
   type ClipboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import {
   AlertCircle,
@@ -21,20 +20,19 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@vibe/ui/components/Select';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { Textarea } from '@vibe/ui/components/Textarea';
-import { ApiError, attachmentsApi, repoApi } from '@/shared/lib/api';
+import { ApiError, attachmentsApi, skillsApi } from '@/shared/lib/api';
+import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { AnalystDeskSidebar } from './AnalystDeskSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { cn } from '@/shared/lib/utils';
 import {
   useWorkers,
@@ -278,12 +276,9 @@ export function AnalystDeskPage() {
   const selectedAnalyst =
     analysts.find((a) => a.id === selectedAnalystId) ?? analysts[0] ?? null;
 
-  const { data: repos = [] } = useQuery({
-    queryKey: ['repos'],
-    queryFn: () => repoApi.list(),
-  });
+  // Repo is picked once in the global navbar; this page only reads it.
+  const { repos } = useRepos();
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
-  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
   const selectedRepoId =
     storedRepoId && repos.some((r) => r.id === storedRepoId)
       ? storedRepoId
@@ -320,6 +315,11 @@ export function AnalystDeskPage() {
   }, [tasks]);
 
   const [prompt, setPrompt] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const { data: installedSkills = [] } = useQuery({
+    queryKey: ['skills'],
+    queryFn: () => skillsApi.list(),
+  });
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [images, setImages] = useState<PendingImage[]>([]);
@@ -507,8 +507,10 @@ export function AnalystDeskPage() {
         repoId: selectedRepoId,
         prompt: prompt.trim(),
         attachmentIds,
+        skills: selectedSkills,
       });
       setPrompt('');
+      setSelectedSkills([]);
       clearImages();
       showNotice({
         variant: startedNow ? 'success' : 'info',
@@ -572,32 +574,15 @@ export function AnalystDeskPage() {
   const isActionPending = cancelRequest.isPending || removeRequest.isPending;
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-md-outline-variant bg-md-surface-bright px-container-padding">
-        <h1 className="font-sans text-heading text-high">
-          {t('analystDesk.title')}
-        </h1>
-        {repos.length > 0 && (
-          <Select
-            value={selectedRepoId ?? undefined}
-            onValueChange={(value) => setStoredRepoId(value)}
-          >
-            <SelectTrigger
-              className="w-56"
-              aria-label={t('analystDesk.repoLabel')}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {repos.map((repo) => (
-                <SelectItem key={repo.id} value={repo.id}>
-                  {repo.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </header>
+    <div className="flex h-full w-full flex-col bg-primary">
+      <ShellSidebarPortal>
+        <AnalystDeskSidebar
+          analysts={analysts}
+          selectedAnalystId={selectedAnalyst?.id ?? null}
+          onSelectAnalyst={setSelectedAnalystId}
+        />
+      </ShellSidebarPortal>
+      <PageHeader title={t('analystDesk.title')} />
 
       {notice && (
         <div className="px-container-padding pt-4">
@@ -737,6 +722,15 @@ export function AnalystDeskPage() {
                   </>
                 )}
               </div>
+
+              <SkillsPicker
+                installed={installedSkills}
+                selected={selectedSkills}
+                onChange={setSelectedSkills}
+                disabled={createRequest.isPending}
+                triggerLabel={t('analystDesk.skillsPicker')}
+                emptyHint={t('analystDesk.skillsEmpty')}
+              />
 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-low">{t('analystDesk.hint')}</p>

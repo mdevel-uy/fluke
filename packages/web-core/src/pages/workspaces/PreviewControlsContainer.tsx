@@ -3,10 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PreviewControls } from '@vibe/ui/components/PreviewControls';
 import { usePreviewDevServer } from '@/features/workspace/model/hooks/usePreviewDevServer';
 import { useLogStream } from '@/shared/hooks/useLogStream';
-import {
-  useUiPreferencesStore,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
 import { VirtualizedProcessLogs } from '@/shared/components/VirtualizedProcessLogs';
@@ -24,8 +21,8 @@ export function PreviewControlsContainer({
   const { t } = useTranslation(['tasks', 'common']);
   const { repos } = useWorkspaceContext();
   const { viewProcessInPanel } = useLogsPanel();
-  const setRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.setRightMainPanelMode
+  const openWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.openWorkspaceViewTab
   );
 
   const { isStarting, runningDevServers, devServerProcesses } =
@@ -61,9 +58,9 @@ export function PreviewControlsContainer({
     if (targetId) {
       viewProcessInPanel(targetId);
     } else {
-      setRightMainPanelMode(RIGHT_MAIN_PANEL_MODES.LOGS);
+      openWorkspaceViewTab(workspaceId, 'logs');
     }
-  }, [activeProcess?.id, viewProcessInPanel, setRightMainPanelMode]);
+  }, [activeProcess?.id, viewProcessInPanel, openWorkspaceViewTab, workspaceId]);
 
   const handleTabChange = useCallback((processId: string) => {
     setActiveProcessId(processId);

@@ -329,9 +329,9 @@ export function WorkspacesSidebar({
     if (fallback) setScope(fallback);
   }, [isLoading, workspaces.length, scope, scopeWorkspaces]);
 
-  // Archived workspaces don't earn the chrome: a first-run user with an empty
-  // list and a deep archive still has nothing to slice.
-  const showChrome = !isLoading && workspaces.length >= CHROME_THRESHOLD;
+  // The rail is permanent chrome; only search/sort/filter wait until the list
+  // is big enough to need slicing tools.
+  const showSearch = !isLoading && workspaces.length >= CHROME_THRESHOLD;
   const railScope: WorkspaceRailScope = showArchive ? 'archive' : scope;
 
   const handleScopeChange = useCallback(
@@ -346,13 +346,10 @@ export function WorkspacesSidebar({
     [onShowArchiveChange, showArchive]
   );
 
-  // Without the rail there is no scope to name, so the panel keeps its own title.
-  const visibleWorkspaces = showChrome ? scopeWorkspaces[scope] : workspaces;
+  const visibleWorkspaces = scopeWorkspaces[scope];
   const panelTitle = showArchive
     ? t('common:workspaces.archived')
-    : showChrome
-      ? t(SCOPE_LABEL_KEYS[scope])
-      : t('common:workspaces.title');
+    : t(SCOPE_LABEL_KEYS[scope]);
   const panelCount = showArchive ? archivedWorkspaces.length : counts[scope];
 
   // "All" is the only scope where the groups add anything: everywhere else the
@@ -369,24 +366,21 @@ export function WorkspacesSidebar({
 
   return (
     <div className="w-full h-full bg-md-surface-container-lowest flex">
-      {showChrome && (
-        <WorkspaceScopeRail
-          scope={railScope}
-          counts={counts}
-          onScopeChange={handleScopeChange}
-        />
-      )}
+      <WorkspaceScopeRail
+        scope={railScope}
+        counts={counts}
+        onScopeChange={handleScopeChange}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header + Search */}
         <div className="flex flex-col gap-base">
           <CollapsibleSectionHeader
             title={panelTitle}
-            count={showChrome ? panelCount : undefined}
+            count={panelCount}
             collapsible={false}
-            className="border-b"
           />
-          {showChrome && (
+          {showSearch && (
             <div className="px-base flex items-stretch gap-half">
               <div className="flex-1 min-w-0">
                 <InputField
@@ -522,7 +516,7 @@ export function WorkspacesSidebar({
                 <span className="text-sm text-low opacity-60">
                   {t('common:workspaces.noWorkspaces')}
                 </span>
-              ) : (!showChrome || scope === 'all') && groups.length > 1 ? (
+              ) : scope === 'all' && groups.length > 1 ? (
                 groups.map((group) => (
                   <div key={group.id} className="flex flex-col gap-base">
                     <span className="text-label font-semibold uppercase tracking-wider text-low">
@@ -547,31 +541,6 @@ export function WorkspacesSidebar({
             </div>
           )}
         </div>
-
-        {/* Archive lives in the scope rail; without the rail it needs a way in */}
-        {!showChrome && (
-          <div className="border-t border-primary p-base">
-            <button
-              onClick={() => onShowArchiveChange?.(!showArchive)}
-              className="w-full flex items-center gap-base text-sm text-low hover:text-normal transition-colors duration-100"
-            >
-              {showArchive ? (
-                <>
-                  <MaterialIcon name="arrow_back" size="xs" />
-                  <span>{t('common:workspaces.backToActive')}</span>
-                </>
-              ) : (
-                <>
-                  <MaterialIcon name="archive" size="xs" />
-                  <span>{t('common:workspaces.viewArchive')}</span>
-                  <span className="ml-auto text-xs bg-tertiary px-1.5 py-0.5 rounded">
-                    {archivedWorkspaces.length}
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

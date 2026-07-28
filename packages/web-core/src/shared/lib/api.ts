@@ -1917,6 +1917,25 @@ export const workersApi = {
     return handleApiResponse<void>(response);
   },
 
+  archive: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/archive`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  unarchive: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/unarchive`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  listArchived: async (): Promise<WorkerResponse[]> => {
+    const response = await makeRequest('/api/workers/archived');
+    return handleApiResponse<WorkerResponse[]>(response);
+  },
+
   duplicate: async (workerId: string): Promise<WorkerResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}/duplicate`, {
       method: 'POST',

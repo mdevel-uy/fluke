@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
+import { Switch } from '@vibe/ui/components/Switch';
+import { PageHeader, PageHeaderToggle } from '@vibe/ui/components/PageHeader';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import { useDashboardData } from '@/features/dashboard/model/useDashboardData';
@@ -14,6 +16,8 @@ import { ImpactPanel } from './ImpactPanel';
 import { PullRequestsPanel } from './PullRequestsPanel';
 import { AttentionPanel } from './AttentionPanel';
 import { ActivityPanel } from './ActivityPanel';
+import { DashboardSidebar, DASHBOARD_ANCHORS } from './DashboardSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 
 export function DashboardPage() {
   const { t } = useTranslation('common');
@@ -33,7 +37,7 @@ export function DashboardPage() {
     data.workspaces.length === 0
   ) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-md-background">
+      <div className="flex h-full w-full items-center justify-center bg-primary">
         <Loader2
           className="h-5 w-5 animate-spin text-brand-on-surface"
           strokeWidth={1.75}
@@ -43,37 +47,29 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-md-outline-variant bg-md-surface-bright px-container-padding">
-        <h1 className="font-sans text-heading text-high">
-          {t('dashboard.title')}
-        </h1>
-        <LiveChip isConnected={data.isConnected} stampKey={data.workspaces} />
-        <span className="ml-auto flex items-center gap-2 text-xs text-normal">
-          {t('dashboard.autoIngest')}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoIngest}
-            aria-label={t('dashboard.autoIngest')}
-            onClick={() => setAutoIngest(!autoIngest)}
-            className={cn(
-              'relative h-[18px] w-8 rounded-full transition-colors',
-              autoIngest ? 'bg-brand' : 'bg-md-outline-variant'
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-on-brand transition-all',
-                autoIngest ? 'right-0.5' : 'left-0.5'
-              )}
+    <div className="flex h-full w-full flex-col bg-primary">
+      <PageHeader
+        title={t('dashboard.title')}
+        meta={
+          <LiveChip isConnected={data.isConnected} stampKey={data.workspaces} />
+        }
+        actions={
+          <PageHeaderToggle label={t('dashboard.autoIngest')}>
+            <Switch
+              checked={autoIngest}
+              onCheckedChange={setAutoIngest}
+              aria-label={t('dashboard.autoIngest')}
             />
-          </button>
-        </span>
-      </header>
+          </PageHeaderToggle>
+        }
+      />
 
+      <ShellSidebarPortal>
+        <DashboardSidebar showLimits={showLimits} />
+      </ShellSidebarPortal>
       <div className="flex-1 overflow-y-auto px-container-padding py-5">
         <div className="flex w-full flex-col gap-4">
+          <div id={DASHBOARD_ANCHORS.overview}>
           <KpiStrip
             stats={data.stats}
             pipeline={data.pipeline}
@@ -84,15 +80,19 @@ export function DashboardPage() {
             doneToday={data.doneToday}
             failedToday={data.failedToday}
           />
+          </div>
 
+          <div id={DASHBOARD_ANCHORS.workers}>
           <WorkerGrid
             workers={data.workers}
             workspaceById={data.workspaceById}
             activeTaskByWorkerId={data.activeTaskByWorkerId}
             doneTodayByWorker={data.doneTodayByWorker}
           />
+          </div>
 
           <div
+            id={DASHBOARD_ANCHORS.pipeline}
             className={cn(
               'grid grid-cols-1 items-stretch gap-4',
               showLimits && 'xl:grid-cols-[minmax(0,1fr)_minmax(300px,400px)]'
@@ -106,9 +106,14 @@ export function DashboardPage() {
             {showLimits && <ClaudeLimitsPanel usage={claudeUsage} />}
           </div>
 
-          <ImpactPanel />
+          <div id={DASHBOARD_ANCHORS.impact}>
+            <ImpactPanel />
+          </div>
 
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div
+            id={DASHBOARD_ANCHORS.pullRequests}
+            className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
+          >
             <PullRequestsPanel
               openPrs={data.openPrs}
               taskByWorkspaceId={data.taskByWorkspaceId}
@@ -116,7 +121,9 @@ export function DashboardPage() {
             <AttentionPanel attentionItems={data.attentionItems} />
           </div>
 
-          <ActivityPanel feedItems={data.feedItems} />
+          <div id={DASHBOARD_ANCHORS.activity}>
+            <ActivityPanel feedItems={data.feedItems} />
+          </div>
         </div>
       </div>
     </div>

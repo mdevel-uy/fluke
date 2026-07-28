@@ -1,6 +1,5 @@
 import { Actions } from '@/shared/actions';
 import type { ActionDefinition } from '@/shared/types/actions';
-import { RIGHT_MAIN_PANEL_MODES } from '@/shared/stores/useUiPreferencesStore';
 import type { StaticPageId, CommandBarPage } from '@/shared/types/commandBar';
 
 export const Pages: Record<StaticPageId, CommandBarPage> = {
@@ -96,8 +95,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
     id: 'diff-options',
     title: 'Diff Options',
     parent: 'root',
-    isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES,
+    isVisible: (ctx) => ctx.activeViewTabs.includes('changes'),
     items: [
       {
         type: 'group',

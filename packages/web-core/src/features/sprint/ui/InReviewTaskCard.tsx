@@ -5,6 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useTranslation } from 'react-i18next';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
+import { SkillChips } from './SkillChips';
 
 interface InReviewTaskCardProps {
   task: WorkerTask;
@@ -73,6 +74,7 @@ export function InReviewTaskCard({
           {taskDisplayTitle(task)}
         </p>
       </div>
+      <SkillChips skills={task.skills ?? []} />
       <div className="flex items-center gap-2 flex-wrap">
         {reviewResult === 'approved' && (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-caps font-geist font-semibold uppercase tracking-widest bg-success/10 text-success border border-success/20">

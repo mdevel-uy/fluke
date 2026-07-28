@@ -28,10 +28,8 @@ import {
 } from '@/features/workers/model/workerTaskInfo';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
-import {
-  WorkspacesSidebar,
-  type WorkspacesSidebarPersistKeys,
-} from '@vibe/ui/components/WorkspacesSidebar';
+import { type WorkspacesSidebarPersistKeys } from '@vibe/ui/components/WorkspacesSidebar';
+import { WorkspacesSidebarFlat } from '@vibe/ui/components/WorkspacesSidebarFlat';
 import {
   MultiSelectDropdown,
   type MultiSelectDropdownOption,
@@ -681,7 +679,7 @@ export function WorkspacesSidebarContainer({
   }, [routeHostId]);
 
   return (
-    <WorkspacesSidebar
+    <WorkspacesSidebarFlat
       workspaces={paginatedActiveWorkspaces}
       archivedWorkspaces={paginatedArchivedWorkspaces}
       isLoading={isWorkspacesListLoading}

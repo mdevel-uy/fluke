@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@vibe/ui/components/Select';
+import { Button } from '@vibe/ui/components/Button';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { repoApi } from '@/shared/lib/api';
+import { useRepos } from '@/shared/hooks/useRepos';
 import {
   useRepoIssues,
   useSyncRepoIssues,
@@ -32,6 +27,8 @@ import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
+import { IssuesSidebar } from './IssuesSidebar';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import type {
   IssueFilters,
   IssuePriorityFilter,
@@ -248,10 +245,7 @@ export function IssuesPage() {
   const filters = useMemo(() => filtersFromUrl(search), [search]);
   const selectedIssueNumber = search.issue;
 
-  const { data: repos = [], isLoading: isLoadingRepos } = useQuery({
-    queryKey: ['repos'],
-    queryFn: () => repoApi.list(),
-  });
+  const { repos, isLoadingRepos } = useRepos();
 
   useEffect(() => {
     if (
@@ -415,11 +409,6 @@ export function IssuesPage() {
     syncMutation.mutate();
   };
 
-  const handleRepoChange = (repoId: string) => {
-    setStoredRepoId(repoId);
-    appNavigation.goToIssues(repoId);
-  };
-
   const handleSelectIssue = useCallback(
     (issue: RepoIssue) => {
       updateUrl({ issue: issue.number });
@@ -456,61 +445,37 @@ export function IssuesPage() {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-md-background">
+    <div className="flex h-full w-full flex-col bg-primary">
       {/* MD3 top bar — 64px, surface-bright, border bottom */}
-      <header className="flex items-center justify-between px-container-padding border-b border-md-outline-variant gap-4 h-16 shrink-0 bg-md-surface-bright">
-        <h1 className="text-heading font-sans text-high shrink-0">
-          {t('issues.title')}
-        </h1>
+      <PageHeader
+        title={t('issues.title')}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 gap-1.5 text-sm"
+            onClick={handleRefresh}
+            disabled={!selectedRepoId || isSyncing}
+            title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+          >
+            <RefreshCw
+              className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
+              strokeWidth={1.75}
+            />
+            {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+          </Button>
+        }
+      />
 
-        {/* Segmented control: repo picker + refresh */}
-        <div className="flex items-center gap-2 ml-auto">
-          <div className="flex bg-md-surface-container-low rounded-lg p-1 border border-md-outline-variant gap-1">
-            <div className="min-w-[180px]">
-              <Select
-                value={selectedRepoId ?? ''}
-                onValueChange={handleRepoChange}
-                disabled={repos.length === 0}
-              >
-                <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-body-sm px-2 font-semibold text-md-on-surface">
-                  <SelectValue
-                    placeholder={t('issues.repoSelectorPlaceholder')}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {repos.map((repo) => (
-                    <SelectItem key={repo.id} value={repo.id}>
-                      {repo.display_name || repo.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={!selectedRepoId || isSyncing}
-              className={cn(
-                'flex items-center gap-1 px-2 py-1 rounded-md text-body-sm text-md-on-surface-variant',
-                'hover:bg-md-surface-container transition-colors duration-200',
-                'active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
-              )}
-              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-            >
-              <MaterialIcon
-                name="refresh"
-                size="sm"
-                className={isSyncing ? 'animate-spin' : ''}
-              />
-              <span className="hidden sm:inline">
-                {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Filters toolbar (only when there are issues) */}
+      {/* Search, repo, views and labels live in the shell sidebar (SHELL-SPEC R9);
+          the toolbar keeps the advanced filters the sidebar doesn't cover. */}
+      <ShellSidebarPortal>
+        <IssuesSidebar
+          filters={filters}
+          availableLabels={availableLabels}
+          onChange={handleFilterChange}
+        />
+      </ShellSidebarPortal>
       {hasIssues && (
         <IssuesToolbar
           filters={filters}
@@ -518,6 +483,8 @@ export function IssuesPage() {
           availableMilestones={availableMilestones}
           availableWorkers={availableWorkers}
           onChange={handleFilterChange}
+          hideSearch
+          hiddenFilterIds={['state', 'label']}
         />
       )}
 
