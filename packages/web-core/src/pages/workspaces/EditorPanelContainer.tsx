@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import CodeMirror, { keymap, type Extension } from '@uiw/react-codemirror';
+import CodeMirror, {
+  EditorView,
+  keymap,
+  type Extension,
+} from '@uiw/react-codemirror';
 import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { FileCode, X } from 'lucide-react';
@@ -40,6 +44,11 @@ export function EditorPanelContainer({
   const { t } = useTranslation('common');
   const { theme } = useTheme();
   const { openPaths, activePath } = useWorkspaceEditorFiles(workspaceId);
+  const pendingReveal = useWorkspaceEditorStore((s) => s.pendingReveal);
+  const viewRef = useRef<EditorView | null>(null);
+  // Bumped when CodeMirror (re)creates its view so the reveal effect reruns
+  // once the view actually exists.
+  const [viewVersion, setViewVersion] = useState(0);
 
   // Unsaved buffers survive tab switches; keyed by absolute path.
   const docsRef = useRef(new Map<string, FileDoc>());
@@ -102,6 +111,32 @@ export function EditorPanelContainer({
       cancelled = true;
     };
   }, [activePath]);
+
+  // One-shot line reveal (search results open "file at line").
+  useEffect(() => {
+    if (
+      !pendingReveal ||
+      pendingReveal.workspaceId !== workspaceId ||
+      pendingReveal.path !== activePath ||
+      !loadedDoc ||
+      loadedDoc.path !== activePath
+    ) {
+      return;
+    }
+    const view = viewRef.current;
+    if (!view) return;
+    const lineNumber = Math.min(
+      Math.max(1, pendingReveal.line),
+      view.state.doc.lines
+    );
+    const position = view.state.doc.line(lineNumber).from;
+    view.dispatch({
+      selection: { anchor: position },
+      effects: EditorView.scrollIntoView(position, { y: 'center' }),
+    });
+    view.focus();
+    useWorkspaceEditorStore.getState().consumeReveal();
+  }, [pendingReveal, workspaceId, activePath, loadedDoc, viewVersion]);
 
   const markDirty = useCallback((path: string, dirty: boolean) => {
     setDirtyPaths((current) => {
@@ -273,6 +308,10 @@ export function EditorPanelContainer({
             key={loadedDoc.path}
             value={loadedDoc.doc}
             onChange={handleChange}
+            onCreateEditor={(view) => {
+              viewRef.current = view;
+              setViewVersion((v) => v + 1);
+            }}
             theme={getResolvedTheme(theme)}
             extensions={
               langExtension

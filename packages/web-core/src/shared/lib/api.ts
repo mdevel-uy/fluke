@@ -580,6 +580,46 @@ export const workspacesApi = {
     return handleApiResponse<void>(response);
   },
 
+  createEditorEntry: async (
+    path: string,
+    isDirectory: boolean
+  ): Promise<void> => {
+    const response = await makeRequest('/api/editor/create', {
+      method: 'POST',
+      body: JSON.stringify({ path, is_directory: isDirectory }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  renameEditorEntry: async (path: string, newPath: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/rename', {
+      method: 'POST',
+      body: JSON.stringify({ path, new_path: newPath }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  deleteEditorEntry: async (path: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/delete', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  /** Case-insensitive content search under a root directory. */
+  searchEditorContent: async (
+    root: string,
+    q: string
+  ): Promise<{ path: string; line: number; preview: string }[]> => {
+    const response = await makeRequest(
+      `/api/editor/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(q)}`
+    );
+    return handleApiResponse<{ path: string; line: number; preview: string }[]>(
+      response
+    );
+  },
+
   getBranchStatus: async (workspaceId: string): Promise<RepoBranchStatus[]> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/git/status`
