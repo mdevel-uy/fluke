@@ -49,8 +49,13 @@ related: design/SHELL-SPEC.md (la UI que corre adentro), memoria editor-embebido
   por bloop.
 - **RD3 · Endpoint del updater**: el placeholder `__TAURI_UPDATE_ENDPOINT__`
   se inyecta en CI (mismo mecanismo del upstream) con
-  `https://github.com/mdevel-uy/vibe-kanban/releases/latest/download/latest.json`
-  (patrón estándar Tauri + GitHub Releases).
+  `https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-latest/latest.json`
+  — un **release rodante `desktop-latest`** (marcado prerelease para no
+  ocupar el slot "Latest" del repo) cuyo único asset es el `latest.json`,
+  re-subido con `--clobber` en cada release. Se descartó
+  `releases/latest/download/…`: apunta al último release *no-prerelease* del
+  repo, así que cualquier release futuro del fork estilo upstream (npm/`v*`)
+  rompería el endpoint. Los instaladores viven en los releases `desktop-v*`.
 - **RD4 · Workflow propio `release-desktop.yml`**: derivado del job
   `build-tauri` de `pre-release.yml` (que no se modifica, para poder seguir
   mergeando upstream). Disparo manual (`workflow_dispatch`) o tag

@@ -1,0 +1,215 @@
+# Desktop release for mdevel (DESKTOP-SPEC.md FD2, RD4-RD6).
+#
+# Derived from the `build-tauri` job of pre-release.yml (upstream, untouched).
+# Deliberately smaller than upstream:
+#   - Windows x64 only (cargo-xwin + NSIS cross-compile from ubuntu, same as upstream)
+#   - no Azure/Apple signing, no Sentry/PostHog/R2/relay secrets
+#   - artifacts + updater manifest live on GitHub Releases, not R2
+#
+# Update endpoint: a rolling "desktop-latest" release holds latest.json
+# (clobbered on every release). A fixed tag instead of releases/latest/download
+# so npm-style releases of the fork can never hijack the updater endpoint.
+#
+# Versioning (RD6): manual — the version input is patched into tauri.conf.json
+# at CI time and becomes tag desktop-v<version>. No commit is created.
+
+name: Desktop Release (mdevel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, e.g. 0.1.0 (creates tag desktop-v<version>)"
+        required: true
+        type: string
+      dry_run:
+        description: "Build only — no tag, no release"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.13.1
+  RUST_TOOLCHAIN: nightly-2025-12-04
+  CARGO_XWIN_VERSION: 0.20.2
+  TARGET: x86_64-pc-windows-msvc
+  UPDATE_ENDPOINT: https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-latest/latest.json
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_HOME: ${{ github.workspace }}/.cargo
+      RUSTUP_HOME: ${{ github.workspace }}/.rustup
+      XWIN_CACHE_DIR: ${{ github.workspace }}/.xwin-cache
+    steps:
+      - name: Validate version
+        run: |
+          if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must be X.Y.Z (got: ${{ inputs.version }})"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ env.TARGET }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            .cargo/registry/cache
+            .cargo/registry/index
+            .cargo/git/db
+            .cargo/bin
+            .cargo/.crates.toml
+            .cargo/.crates2.json
+          key: cargo-desktop-${{ env.RUST_TOOLCHAIN }}-${{ env.TARGET }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-desktop-${{ env.RUST_TOOLCHAIN }}-${{ env.TARGET }}-
+
+      - name: Cache xwin downloads
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.xwin-cache
+          key: xwin-desktop-${{ env.TARGET }}-cargo-xwin-${{ env.CARGO_XWIN_VERSION }}
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Install Windows cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y \
+            clang libclang-dev lld llvm nasm cmake ninja-build nsis
+
+      - name: Install cargo-xwin
+        uses: taiki-e/cache-cargo-install-action@34ce5120836e5f9f1508d8713d7fdea0e8facd6f # v3.0.1
+        with:
+          tool: cargo-xwin
+          git: https://github.com/rust-cross/cargo-xwin
+          rev: 635a9559d49d719e79e0f60d92eb44447faf3212 # v0.20.2
+
+      - name: Install Tauri CLI
+        uses: taiki-e/cache-cargo-install-action@34ce5120836e5f9f1508d8713d7fdea0e8facd6f # v3.0.1
+        with:
+          tool: tauri-cli@2
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # No Sentry/PostHog/shared-API env on purpose: telemetry stays off and
+      # the app is local-only (DESKTOP-SPEC.md decision 5, RD5/RD8).
+      - name: Build frontend
+        run: cd packages/local-web && npm run build
+
+      - name: Patch tauri.conf.json (version + updater endpoint)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('crates/tauri-app/tauri.conf.json', 'utf8'));
+            conf.version = '${{ inputs.version }}';
+            conf.plugins.updater.endpoints = conf.plugins.updater.endpoints.map(e =>
+              e === '__TAURI_UPDATE_ENDPOINT__' ? '${{ env.UPDATE_ENDPOINT }}' : e
+            );
+            fs.writeFileSync('crates/tauri-app/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+          git diff --stat crates/tauri-app/tauri.conf.json
+
+      - name: Build Tauri app (Windows x64, NSIS)
+        run: cargo tauri build --runner cargo-xwin --target ${{ env.TARGET }} --bundles nsis --ci
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # GitHub release assets are flat and normalize spaces, so rename to a
+      # stable name that the manifest URL can predict.
+      - name: Collect artifacts
+        id: collect
+        run: |
+          VERSION="${{ inputs.version }}"
+          OUT="dist-release"
+          mkdir -p "$OUT"
+          SETUP=$(find target/${{ env.TARGET }}/release/bundle -name "*-setup.exe" | head -1)
+          if [ -z "$SETUP" ]; then
+            echo "No NSIS installer found"; exit 1
+          fi
+          if [ ! -f "$SETUP.sig" ]; then
+            echo "Missing updater signature $SETUP.sig (check TAURI_SIGNING_PRIVATE_KEY secrets)"; exit 1
+          fi
+          cp "$SETUP" "$OUT/vibe-kanban_${VERSION}_x64-setup.exe"
+          cp "$SETUP.sig" "$OUT/vibe-kanban_${VERSION}_x64-setup.exe.sig"
+          ls -la "$OUT"
+
+      - name: Generate updater manifest
+        run: |
+          VERSION="${{ inputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const v = '$VERSION';
+            const file = 'vibe-kanban_' + v + '_x64-setup.exe';
+            fs.writeFileSync('dist-release/latest.json', JSON.stringify({
+              version: v,
+              notes: 'Vibe Kanban desktop-v' + v + ' (mdevel)',
+              pub_date: new Date().toISOString(),
+              platforms: {
+                'windows-x86_64': {
+                  url: 'https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-v' + v + '/' + file,
+                  signature: fs.readFileSync('dist-release/' + file + '.sig', 'utf8').trim(),
+                },
+              },
+            }, null, 2) + '\n');
+          "
+          cat dist-release/latest.json
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-windows-x86_64
+          path: dist-release/
+          retention-days: 7
+
+      - name: Create release desktop-v${{ inputs.version }}
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          gh release create "desktop-v$VERSION" \
+            --target "${{ github.sha }}" \
+            --title "Vibe Kanban Desktop v$VERSION" \
+            --notes "Instalador Windows x64 (NSIS, sin firma — build interno mdevel). El updater se sirve desde el release rodante desktop-latest." \
+            "dist-release/vibe-kanban_${VERSION}_x64-setup.exe" \
+            "dist-release/vibe-kanban_${VERSION}_x64-setup.exe.sig" \
+            "dist-release/latest.json"
+
+      - name: Publish manifest to rolling desktop-latest release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view desktop-latest > /dev/null 2>&1; then
+            gh release create desktop-latest \
+              --target "${{ github.sha }}" \
+              --prerelease \
+              --title "Desktop updater endpoint" \
+              --notes "Release rodante: solo hostea latest.json para el auto-update de la app de escritorio. Instaladores: releases desktop-v*."
+          fi
+          gh release upload desktop-latest dist-release/latest.json --clobber
+          echo "Updater endpoint now serves desktop-v${{ inputs.version }}"
