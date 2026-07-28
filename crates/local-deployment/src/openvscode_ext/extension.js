@@ -10,8 +10,16 @@ function activate(context) {
     return;
   }
 
-  // The vibe-kanban shell owns the explorer; keep the workbench editor-only.
-  vscode.commands.executeCommand('workbench.action.closeSidebar');
+  // The vibe-kanban shell owns the explorer and the asides; keep the
+  // workbench strictly editor-only. Run again shortly after startup to beat
+  // the workbench layout restore.
+  function hideChrome() {
+    void vscode.commands.executeCommand('workbench.action.closeSidebar');
+    void vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
+    void vscode.commands.executeCommand('workbench.action.closePanel');
+  }
+  hideChrome();
+  const hideChromeTimer = setTimeout(hideChrome, 1000);
 
   let stopped = false;
 
@@ -37,7 +45,7 @@ function activate(context) {
         console.error('vibe-kanban-bridge: open_file failed', e);
       }
     } else if (cmd.type === 'close_sidebar') {
-      vscode.commands.executeCommand('workbench.action.closeSidebar');
+      hideChrome();
     }
   }
 
@@ -69,6 +77,7 @@ function activate(context) {
   context.subscriptions.push({
     dispose: () => {
       stopped = true;
+      clearTimeout(hideChromeTimer);
     },
   });
 }

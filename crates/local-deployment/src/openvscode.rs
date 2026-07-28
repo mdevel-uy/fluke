@@ -51,7 +51,12 @@ const DEFAULT_USER_SETTINGS: &str = r#"{
     "window.commandCenter": false,
     "workbench.layoutControl.enabled": false,
     "workbench.tips.enabled": false,
-    "security.workspace.trust.enabled": false
+    "security.workspace.trust.enabled": false,
+    // Keep both asides out of the embedded editor (unknown keys are ignored
+    // by older workbench versions).
+    "workbench.secondarySideBar.defaultVisibility": "hidden",
+    "chat.commandCenter.enabled": false,
+    "workbench.editor.editorActionsLocation": "hidden"
 }
 "#;
 
