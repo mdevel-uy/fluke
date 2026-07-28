@@ -1,111 +1,289 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader } from '@vibe/ui/components/Loader';
-import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
+import CodeMirror, { keymap, type Extension } from '@uiw/react-codemirror';
+import { LanguageDescription } from '@codemirror/language';
+import { languages } from '@codemirror/language-data';
+import { FileCode, X } from 'lucide-react';
 import { workspacesApi } from '@/shared/lib/api';
-import { useUserSystem } from '@/shared/hooks/useUserSystem';
-import { useHostId } from '@/shared/providers/HostIdProvider';
+import {
+  useWorkspaceEditorFiles,
+  useWorkspaceEditorStore,
+} from '@/shared/stores/useWorkspaceEditorStore';
+import { useTheme, getResolvedTheme } from '@/shared/hooks/useTheme';
+import { cn } from '@/shared/lib/utils';
 
 interface EditorPanelContainerProps {
   workspaceId: string;
   className?: string;
 }
 
+interface FileDoc {
+  doc: string;
+  saved: string;
+}
+
+function basename(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.slice(normalized.lastIndexOf('/') + 1) || path;
+}
+
 /**
- * Embedded openvscode-server editor for the workspace worktree (SHELL-SPEC:
- * editor panel). The backend keeps a single openvscode-server per host on a
- * loopback port; the iframe reaches it through the preview proxy's subdomain
- * routing (origin isolation + WebSocket forwarding), opening the workspace
- * folder via the `?folder=` query parameter.
+ * Native embedded code editor (CodeMirror) for the workspace worktree.
+ * Files are opened from the shell-sidebar explorer
+ * (WorkspaceExplorerSidebarContainer → useWorkspaceEditorStore); this panel
+ * renders its own file tabs and the editing surface — nothing else.
  */
 export function EditorPanelContainer({
   workspaceId,
   className,
 }: EditorPanelContainerProps) {
   const { t } = useTranslation('common');
-  const hostId = useHostId();
-  const { previewProxyPort } = useUserSystem();
+  const { theme } = useTheme();
+  const { openPaths, activePath } = useWorkspaceEditorFiles(workspaceId);
 
-  const {
-    data: serverInfo,
-    error: serverError,
-    isLoading: isServerLoading,
-    refetch: retryServer,
-  } = useQuery({
-    queryKey: ['editor-server', hostId],
-    queryFn: () => workspacesApi.ensureEditorServer(),
-    // The server keeps running once spawned; only refetch on explicit retry.
-    staleTime: Infinity,
-    retry: false,
-  });
+  // Unsaved buffers survive tab switches; keyed by absolute path.
+  const docsRef = useRef(new Map<string, FileDoc>());
+  const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
+  const [loadedDoc, setLoadedDoc] = useState<{
+    path: string;
+    doc: string;
+  } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [langExtension, setLangExtension] = useState<Extension | null>(null);
 
-  const { data: pathInfo, isLoading: isPathLoading } = useQuery({
-    queryKey: ['editor-path', hostId, workspaceId],
-    queryFn: () => workspacesApi.getEditorPath(workspaceId),
-    staleTime: Infinity,
-  });
-
-  const editorUrl = useMemo(() => {
-    if (!serverInfo?.port || !pathInfo?.workspace_path) return null;
-
-    const folder = encodeURIComponent(pathInfo.workspace_path);
-    if (previewProxyPort) {
-      const hostToken =
-        hostId != null
-          ? `${serverInfo.port}--${hostId}`
-          : `${serverInfo.port}`;
-      return `http://${hostToken}.localhost:${previewProxyPort}/?folder=${folder}`;
+  // Load the active file (from cache when it has been opened before).
+  useEffect(() => {
+    if (!activePath) {
+      setLoadedDoc(null);
+      setLoadError(null);
+      return;
     }
 
-    // Without a preview proxy fall back to reaching the port directly.
-    return `http://localhost:${serverInfo.port}/?folder=${folder}`;
-  }, [serverInfo?.port, pathInfo?.workspace_path, previewProxyPort, hostId]);
+    const cached = docsRef.current.get(activePath);
+    if (cached) {
+      setLoadedDoc({ path: activePath, doc: cached.doc });
+      setLoadError(null);
+      return;
+    }
 
-  if (serverError) {
-    return (
-      <div className={className}>
-        <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-          <p className="text-sm text-normal">
-            {t('workspaces.editor.startFailed', {
-              defaultValue: 'Could not start the embedded editor.',
-            })}
-          </p>
-          <p className="max-w-md text-xs text-low">
-            {serverError instanceof Error
-              ? serverError.message
-              : String(serverError)}
-          </p>
-          <PrimaryButton onClick={() => void retryServer()}>
-            {t('workspaces.editor.retry', { defaultValue: 'Retry' })}
-          </PrimaryButton>
-        </div>
-      </div>
+    let cancelled = false;
+    setLoadedDoc(null);
+    setLoadError(null);
+    workspacesApi
+      .readEditorFile(activePath)
+      .then(({ content }) => {
+        if (cancelled) return;
+        docsRef.current.set(activePath, { doc: content, saved: content });
+        setLoadedDoc({ path: activePath, doc: content });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePath]);
+
+  // Syntax highlighting for the active file, lazily loaded per language.
+  useEffect(() => {
+    setLangExtension(null);
+    if (!activePath) return;
+    const description = LanguageDescription.matchFilename(
+      languages,
+      basename(activePath)
     );
-  }
+    if (!description) return;
+    let cancelled = false;
+    void description.load().then((support) => {
+      if (!cancelled) setLangExtension(support);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePath]);
 
-  if (isServerLoading || isPathLoading || !editorUrl) {
+  const markDirty = useCallback((path: string, dirty: boolean) => {
+    setDirtyPaths((current) => {
+      if (current.has(path) === dirty) return current;
+      const next = new Set(current);
+      if (dirty) next.add(path);
+      else next.delete(path);
+      return next;
+    });
+  }, []);
+
+  const handleChange = useCallback(
+    (value: string) => {
+      if (!activePath) return;
+      const entry = docsRef.current.get(activePath);
+      if (!entry) return;
+      entry.doc = value;
+      markDirty(activePath, value !== entry.saved);
+    },
+    [activePath, markDirty]
+  );
+
+  const saveFile = useCallback(
+    async (path: string) => {
+      const entry = docsRef.current.get(path);
+      if (!entry || entry.doc === entry.saved) return;
+      const doc = entry.doc;
+      try {
+        await workspacesApi.saveEditorFile(path, doc);
+        entry.saved = doc;
+        markDirty(path, entry.doc !== entry.saved);
+      } catch (error) {
+        console.error('Failed to save file', path, error);
+      }
+    },
+    [markDirty]
+  );
+
+  const saveFileRef = useRef(saveFile);
+  saveFileRef.current = saveFile;
+  const workspaceIdRef = useRef(workspaceId);
+  workspaceIdRef.current = workspaceId;
+
+  const saveKeymap = useRef<Extension>(
+    keymap.of([
+      {
+        key: 'Mod-s',
+        preventDefault: true,
+        run: () => {
+          const path =
+            useWorkspaceEditorStore.getState().byWorkspace[
+              workspaceIdRef.current
+            ]?.activePath;
+          if (path) void saveFileRef.current(path);
+          return true;
+        },
+      },
+    ])
+  );
+
+  const closeFile = useCallback(
+    (path: string) => {
+      docsRef.current.delete(path);
+      markDirty(path, false);
+      useWorkspaceEditorStore.getState().closeFile(workspaceId, path);
+    },
+    [workspaceId, markDirty]
+  );
+
+  const setActive = useCallback(
+    (path: string) => {
+      useWorkspaceEditorStore.getState().setActiveFile(workspaceId, path);
+    },
+    [workspaceId]
+  );
+
+  if (openPaths.length === 0) {
     return (
       <div className={className}>
-        <div className="flex h-full items-center justify-center">
-          <Loader
-            message={t('workspaces.editor.starting', {
-              defaultValue: 'Starting editor…',
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+          <FileCode size={28} strokeWidth={1.5} className="text-low" />
+          <p className="text-sm text-normal">
+            {t('workspaces.editor.emptyTitle', {
+              defaultValue: 'No file open',
             })}
-          />
+          </p>
+          <p className="max-w-sm text-xs text-low">
+            {t('workspaces.editor.emptyHint', {
+              defaultValue:
+                'Pick a file in the Explorer sidebar to edit it here.',
+            })}
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={className}>
-      <iframe
-        src={editorUrl}
-        title={t('workspaces.tabs.editor', { defaultValue: 'Editor' })}
-        className="h-full w-full border-0 bg-md-surface-container-lowest"
-        allow="clipboard-read; clipboard-write"
-      />
+    <div className={cn('flex h-full min-h-0 flex-col', className)}>
+      {/* File tabs */}
+      <div className="flex h-8 flex-none items-stretch overflow-x-auto border-b border-md-outline-variant bg-md-surface-container-low">
+        {openPaths.map((path) => {
+          const isActive = path === activePath;
+          const isDirty = dirtyPaths.has(path);
+          return (
+            <div
+              key={path}
+              className={cn(
+                'group/filetab flex flex-none items-center gap-1.5 border-r border-md-outline-variant px-3 text-xs',
+                isActive
+                  ? 'bg-md-surface-container-lowest text-high'
+                  : 'text-low hover:text-normal'
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setActive(path)}
+                title={path}
+                className="flex items-center gap-1.5 focus:outline-none cursor-pointer"
+              >
+                {basename(path)}
+              </button>
+              <button
+                type="button"
+                onClick={() => closeFile(path)}
+                aria-label={t('workspaces.tabs.close', {
+                  defaultValue: 'Close',
+                })}
+                className={cn(
+                  'flex h-4 w-4 items-center justify-center rounded-sm cursor-pointer -mr-1',
+                  isDirty
+                    ? 'text-high'
+                    : cn(
+                        'text-low hover:bg-md-surface-container-high hover:text-high',
+                        isActive
+                          ? 'visible'
+                          : 'invisible group-hover/filetab:visible'
+                      )
+                )}
+              >
+                {isDirty ? (
+                  <span
+                    className="h-2 w-2 rounded-full bg-current"
+                    aria-hidden
+                  />
+                ) : (
+                  <X size={11} strokeWidth={2} />
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Editing surface */}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {loadError ? (
+          <div className="flex h-full items-center justify-center px-8 text-center">
+            <p className="max-w-md text-xs text-low">{loadError}</p>
+          </div>
+        ) : !loadedDoc || loadedDoc.path !== activePath ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-xs text-low">
+              {t('workspaces.explorer.loading', { defaultValue: 'Loading…' })}
+            </p>
+          </div>
+        ) : (
+          <CodeMirror
+            key={loadedDoc.path}
+            value={loadedDoc.doc}
+            onChange={handleChange}
+            theme={getResolvedTheme(theme)}
+            extensions={
+              langExtension
+                ? [saveKeymap.current, langExtension]
+                : [saveKeymap.current]
+            }
+            height="100%"
+            className="h-full [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto"
+          />
+        )}
+      </div>
     </div>
   );
 }

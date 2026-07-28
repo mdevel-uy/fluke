@@ -1,99 +1,91 @@
-use std::time::Duration;
+use std::path::Path;
 
 use axum::{
-    Json, Router,
-    extract::State,
-    response::Json as ResponseJson,
-    routing::{get, post},
+    Json, Router, extract::Query, response::Json as ResponseJson, routing::get,
 };
-use deployment::Deployment;
-use local_deployment::openvscode::BridgeCommand;
 use serde::{Deserialize, Serialize};
 use utils::response::ApiResponse;
 
 use crate::{DeploymentImpl, error::ApiError};
 
-/// How long the bridge extension's long-poll parks before returning empty.
-/// Must stay below the extension's own request timeout (45s).
-const BRIDGE_POLL_TIMEOUT: Duration = Duration::from_secs(25);
+/// Files larger than this are refused — the embedded editor is for source
+/// files, not blobs.
+const MAX_EDITABLE_FILE_BYTES: u64 = 2 * 1024 * 1024;
 
-/// Connection info for the embedded openvscode-server instance. The frontend
-/// builds the iframe URL from this port via the preview proxy
-/// (`{port}--{hostId}.localhost:{previewProxyPort}`), passing the workspace
-/// folder as the `?folder=` query parameter. Mirrored inline in the frontend
-/// client (like `getEditorPath`), so it is not part of generate_types.
+#[derive(Debug, Deserialize)]
+pub struct FileQuery {
+    path: String,
+}
+
+/// Mirrored inline in the frontend client (like `getEditorPath`), so these
+/// are not part of generate_types.
 #[derive(Debug, Serialize)]
-pub struct EditorServerInfo {
-    pub port: u16,
+pub struct EditorFileContent {
+    pub content: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OpenFileRequest {
-    pub path: String,
-    pub line: Option<u32>,
+pub struct SaveFileRequest {
+    path: String,
+    content: String,
 }
 
-fn bridge_base(deployment: &DeploymentImpl) -> Result<String, ApiError> {
-    let addr = deployment.client_info().get_server_addr().ok_or_else(|| {
-        ApiError::BadRequest("Backend address not known yet, try again".to_string())
+fn validate_path(path: &str) -> Result<&Path, ApiError> {
+    let p = Path::new(path);
+    if !p.is_absolute() {
+        return Err(ApiError::BadRequest(
+            "File path must be absolute".to_string(),
+        ));
+    }
+    Ok(p)
+}
+
+/// Read a text file for the embedded editor.
+pub async fn read_file(
+    Query(query): Query<FileQuery>,
+) -> Result<ResponseJson<ApiResponse<EditorFileContent>>, ApiError> {
+    let path = validate_path(&query.path)?;
+
+    let metadata = tokio::fs::metadata(path).await?;
+    if !metadata.is_file() {
+        return Err(ApiError::BadRequest("Not a file".to_string()));
+    }
+    if metadata.len() > MAX_EDITABLE_FILE_BYTES {
+        return Err(ApiError::BadRequest(format!(
+            "File is too large to edit here ({} KB, limit {} KB)",
+            metadata.len() / 1024,
+            MAX_EDITABLE_FILE_BYTES / 1024
+        )));
+    }
+
+    let bytes = tokio::fs::read(path).await?;
+    let content = String::from_utf8(bytes).map_err(|_| {
+        ApiError::BadRequest("File is binary or not valid UTF-8".to_string())
     })?;
-    // The extension host runs next to the backend, so loopback always works.
-    Ok(format!("http://127.0.0.1:{}", addr.port()))
-}
 
-pub async fn ensure_editor_server(
-    State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<EditorServerInfo>>, ApiError> {
-    let base = bridge_base(&deployment)?;
-    let port = deployment
-        .openvscode()
-        .ensure(&base)
-        .await
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
-
-    Ok(ResponseJson(ApiResponse::success(EditorServerInfo {
-        port,
+    Ok(ResponseJson(ApiResponse::success(EditorFileContent {
+        content,
     })))
 }
 
-/// Open a file inside the embedded editor (via the bridge extension).
-pub async fn open_file(
-    State(deployment): State<DeploymentImpl>,
-    Json(payload): Json<OpenFileRequest>,
+/// Save a text file edited in the embedded editor.
+pub async fn save_file(
+    Json(payload): Json<SaveFileRequest>,
 ) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
-    // Make sure the editor is running so the command has somewhere to land.
-    let base = bridge_base(&deployment)?;
-    deployment
-        .openvscode()
-        .ensure(&base)
-        .await
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let path = validate_path(&payload.path)?;
 
-    deployment
-        .openvscode()
-        .push_bridge_command(BridgeCommand::OpenFile {
-            path: payload.path,
-            line: payload.line,
-        })
-        .await;
+    // Only overwrite existing files — the editor has no "create file" flow
+    // yet, and this guards against typos writing stray files.
+    let metadata = tokio::fs::metadata(path).await?;
+    if !metadata.is_file() {
+        return Err(ApiError::BadRequest("Not a file".to_string()));
+    }
+
+    tokio::fs::write(path, payload.content.as_bytes()).await?;
 
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
-/// Long-poll endpoint consumed by the bridge extension inside the editor.
-pub async fn bridge_poll(
-    State(deployment): State<DeploymentImpl>,
-) -> ResponseJson<ApiResponse<Vec<BridgeCommand>>> {
-    let commands = deployment
-        .openvscode()
-        .poll_bridge_commands(BRIDGE_POLL_TIMEOUT)
-        .await;
-    ResponseJson(ApiResponse::success(commands))
-}
-
 pub(super) fn router() -> Router<DeploymentImpl> {
-    Router::new()
-        .route("/editor-server/ensure", post(ensure_editor_server))
-        .route("/editor-server/open-file", post(open_file))
-        .route("/editor-server/bridge/poll", get(bridge_poll))
+    Router::new().route("/editor/file", get(read_file).post(save_file))
 }

@@ -42,13 +42,10 @@ use uuid::Uuid;
 use workspace_manager::WorkspaceManager;
 use worktree_manager::WorktreeManager;
 
-use crate::{
-    container::LocalContainerService, openvscode::OpenVscodeService, pty::PtyService,
-};
+use crate::{container::LocalContainerService, pty::PtyService};
 mod command;
 pub mod container;
 mod copy;
-pub mod openvscode;
 pub mod pty;
 
 #[derive(Clone)]
@@ -81,7 +78,6 @@ pub struct LocalDeployment {
     webrtc_host: OnceLock<Arc<WebRtcHost>>,
     ssh_config: Arc<russh::server::Config>,
     pty: PtyService,
-    openvscode: OpenVscodeService,
     pr_sync_notify: Arc<Notify>,
 }
 
@@ -243,7 +239,6 @@ impl Deployment for LocalDeployment {
         let file_search_cache = Arc::new(FileSearchCache::new());
 
         let pty = PtyService::new();
-        let openvscode = OpenVscodeService::new(shutdown.child_token());
         let relay_hosts = match remote_client.clone().ok() {
             Some(remote_client) => Some(Arc::new(
                 RelayHosts::load(
@@ -299,7 +294,6 @@ impl Deployment for LocalDeployment {
             webrtc_host: OnceLock::new(),
             ssh_config,
             pty,
-            openvscode,
             pr_sync_notify,
         };
 
@@ -484,10 +478,6 @@ impl LocalDeployment {
 
     pub fn pty(&self) -> &PtyService {
         &self.pty
-    }
-
-    pub fn openvscode(&self) -> &OpenVscodeService {
-        &self.openvscode
     }
 
     pub fn ssh_config(&self) -> &Arc<russh::server::Config> {

@@ -563,23 +563,19 @@ export const workspacesApi = {
     return handleApiResponse<{ workspace_path: string }>(response);
   },
 
-  /**
-   * Ensure the embedded openvscode-server is running on this host; returns
-   * its loopback port. The editor iframe reaches it through the preview
-   * proxy, passing the workspace folder via `?folder=`.
-   */
-  ensureEditorServer: async (): Promise<{ port: number }> => {
-    const response = await makeRequest('/api/editor-server/ensure', {
-      method: 'POST',
-    });
-    return handleApiResponse<{ port: number }>(response);
+  /** Read a text file for the embedded editor. */
+  readEditorFile: async (path: string): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/editor/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
   },
 
-  /** Open a file inside the embedded editor via the bridge extension. */
-  openFileInEditor: async (path: string, line?: number): Promise<void> => {
-    const response = await makeRequest('/api/editor-server/open-file', {
+  /** Save a text file edited in the embedded editor. */
+  saveEditorFile: async (path: string, content: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/file', {
       method: 'POST',
-      body: JSON.stringify({ path, line: line ?? null }),
+      body: JSON.stringify({ path, content }),
     });
     return handleApiResponse<void>(response);
   },

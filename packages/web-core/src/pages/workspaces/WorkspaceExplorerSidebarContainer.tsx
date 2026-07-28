@@ -12,6 +12,10 @@ import type { DirectoryEntry } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { fileSystemApi, workspacesApi } from '@/shared/lib/api';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import {
+  useWorkspaceEditorFiles,
+  useWorkspaceEditorStore,
+} from '@/shared/stores/useWorkspaceEditorStore';
 import { cn } from '@/shared/lib/utils';
 
 interface WorkspaceExplorerSidebarContainerProps {
@@ -55,7 +59,7 @@ export function WorkspaceExplorerSidebarContainer({
   const [entriesByDir, setEntriesByDir] = useState<
     Record<string, DirectoryEntry[]>
   >({});
-  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const { activePath: activeFile } = useWorkspaceEditorFiles(workspaceId);
 
   const loadDir = useCallback(async (dirPath: string) => {
     try {
@@ -102,13 +106,8 @@ export function WorkspaceExplorerSidebarContainer({
   const openFile = useCallback(
     (entry: DirectoryEntry) => {
       const filePath = String(entry.path);
-      setActiveFile(filePath);
-      // Surface the editor tab first so the iframe (and with it the editor
-      // server + bridge) is up; the command queues until the bridge polls.
+      useWorkspaceEditorStore.getState().openFile(workspaceId, filePath);
       openWorkspaceViewTab(workspaceId, 'editor');
-      workspacesApi.openFileInEditor(filePath).catch((error) => {
-        console.error('Failed to open file in editor', filePath, error);
-      });
     },
     [openWorkspaceViewTab, workspaceId]
   );
