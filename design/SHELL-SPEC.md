@@ -1,14 +1,14 @@
 ---
 scope: Refactor estructural del shell (frontend-only; excepción acotada en F7, ver R34–R40)
 slug: workbench-shell
-status: checkpoint — F1–F6 implementadas (27-jul-2026); funcionalidad general alcanzada, quedan detalles menores; F7 en standby (tarea propia junto a Sourcetree + edición de código)
+status: checkpoint — F1–F7 implementadas (F1–F6 27-jul-2026; F7 source control 29-jul-2026 en vk/tweaks); funcionalidad general alcanzada, quedan detalles menores
 approved_by: Dani (iterado y aprobado pieza por pieza, 27-jul-2026; v2 source control de flota aprobado 27-jul-2026)
 created: 2026-07-27
 version: 2
 implementation:
   prs: "#280 (F1) → #281 (F2) → #282 (F3) → #283 (F4) → #284 (F5) → #285 (F6), apilados hacia mdev"
-  deferred: "R28 (rutas /hosts quedan como detalle de implementación — decisión 27-jul); F7/R34–R40 en standby"
-  pending_minor: "verificación E2E con workspace real (tabs F4, aside F5, terminal F6, V2 contexto %); V1 CI por check (endpoint chico backend, a decidir); rename /sprint→kanban; demolición create-mode sin entry points"
+  deferred: "R28 (rutas /hosts quedan como detalle de implementación — decisión 27-jul)"
+  pending_minor: "verificación E2E con workspace real (tabs F4, aside F5, terminal F6, V2 contexto %); V1 CI por check (endpoint chico backend, a decidir); rename /sprint→kanban; demolición create-mode sin entry points; F7: botón Fetch all (R37) y chip contador de staged en tab Changes omitidos, aside de source control sin Push/Create PR"
 reference: https://claude.ai/code/artifact/02c4f5d8-ac26-4c44-b5c5-bae78e0e0bc4
 reference_v2: https://claude.ai/code/artifact/3249d592-6926-412c-b9c8-2a7a1e121c93
 mock: design/workbench-shell-mock.html (copia versionada del artifact, fuente de verdad visual)
