@@ -47,8 +47,9 @@ const DEFAULT_WIDTHS = {
   hash: 80,
 };
 type FixedColumn = keyof typeof DEFAULT_WIDTHS;
-// Copy stays a direct button (high frequency); the rest live in a kebab.
-const ACTIONS_COL_W = 64;
+// All row actions live in one kebab (decisión Dani) — the column is just
+// wide enough for it, with no header label.
+const ACTIONS_COL_W = 40;
 
 /** https://github.com/{owner}/{repo} from a git remote URL, else null. */
 function githubBaseUrl(remoteUrl: string): string | null {
@@ -816,9 +817,7 @@ export function FleetGraphView({
           t('sourceControl.graph.columns.commit', { defaultValue: 'Commit' }),
           <ColumnResizeHandle onResize={resizeFixed('hash')} />
         )}
-        {headerCell(
-          t('sourceControl.graph.columns.actions', { defaultValue: 'Actions' })
-        )}
+        {headerCell('')}
       </div>
 
       <div className="relative">
@@ -934,28 +933,9 @@ export function FleetGraphView({
                 {commit.short_oid}
               </div>
               <div
-                className="relative flex items-center justify-end gap-0.5 px-2"
+                className="relative flex items-center justify-end px-2"
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  type="button"
-                  onClick={() => copyHash(commit.oid)}
-                  title={t('sourceControl.graph.actions.copyHash', {
-                    defaultValue: 'Copy full hash',
-                  })}
-                  className={cn(
-                    'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
-                    copiedOid === commit.oid
-                      ? 'text-success'
-                      : 'text-low hover:text-high'
-                  )}
-                >
-                  {copiedOid === commit.oid ? (
-                    <Check size={13} strokeWidth={2} />
-                  ) : (
-                    <Copy size={13} strokeWidth={1.75} />
-                  )}
-                </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -965,15 +945,27 @@ export function FleetGraphView({
                       })}
                       className={cn(
                         'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
-                        branching?.oid === commit.oid
-                          ? 'text-brand-on-surface'
-                          : 'text-low hover:text-high'
+                        copiedOid === commit.oid
+                          ? 'text-success'
+                          : branching?.oid === commit.oid
+                            ? 'text-brand-on-surface'
+                            : 'text-low hover:text-high'
                       )}
                     >
-                      <MoreVertical size={13} strokeWidth={1.75} />
+                      {copiedOid === commit.oid ? (
+                        <Check size={13} strokeWidth={2} />
+                      ) : (
+                        <MoreVertical size={13} strokeWidth={1.75} />
+                      )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuItem onSelect={() => copyHash(commit.oid)}>
+                      <Copy size={13} strokeWidth={1.75} className="mr-2" />
+                      {t('sourceControl.graph.actions.copyHash', {
+                        defaultValue: 'Copy full hash',
+                      })}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
                         setBranching({
