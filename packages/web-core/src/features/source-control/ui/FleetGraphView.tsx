@@ -237,6 +237,12 @@ interface FleetGraphViewProps {
   onSelectCommit: (oid: string | null, containingBranches: string[]) => void;
   /** Branches excluded from the graph scope (tab-bar filter). */
   hiddenBranches?: Set<string>;
+  /** Sidebar navigation: reveal a branch tip or a specific commit. */
+  revealRequest?:
+    | { kind: 'oid'; oid: string }
+    | { kind: 'branch'; name: string }
+    | null;
+  onRevealHandled?: () => void;
 }
 
 /**
@@ -256,6 +262,8 @@ export function FleetGraphView({
   selectedCommitOid,
   onSelectCommit,
   hiddenBranches,
+  revealRequest,
+  onRevealHandled,
 }: FleetGraphViewProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -426,12 +434,7 @@ export function FleetGraphView({
     [commits]
   );
 
-  const handleRowClick = (commit: GraphCommit, rowFleet?: FleetBranch) => {
-    if (rowFleet) onSelect(rowFleet.workspace.id);
-    if (selectedCommitOid === commit.oid) {
-      onSelectCommit(null, []);
-      return;
-    }
+  const selectCommit = (commit: GraphCommit) => {
     const closure = descendantClosure(commit.oid);
     const containing = new Set<string>();
     for (const oid of closure) {
@@ -442,6 +445,48 @@ export function FleetGraphView({
     }
     onSelectCommit(commit.oid, [...containing].sort());
   };
+
+  const handleRowClick = (commit: GraphCommit, rowFleet?: FleetBranch) => {
+    if (rowFleet) onSelect(rowFleet.workspace.id);
+    if (selectedCommitOid === commit.oid) {
+      onSelectCommit(null, []);
+      return;
+    }
+    selectCommit(commit);
+  };
+
+  // Sidebar → graph reveal: resolve branch tips via the response's tips,
+  // page deeper until the commit is loaded (bounded), then select + scroll.
+  const MAX_REVEAL_PAGES = 30;
+  useEffect(() => {
+    if (!revealRequest || !data) return;
+    const oid =
+      revealRequest.kind === 'oid'
+        ? revealRequest.oid
+        : data.pages[0]?.tips.find((t) => t.branch === revealRequest.name)
+            ?.oid;
+    if (!oid) {
+      onRevealHandled?.();
+      return;
+    }
+    const commit = commitByOid.get(oid);
+    if (commit) {
+      selectCommit(commit);
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-commit-oid="${oid}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+      onRevealHandled?.();
+      return;
+    }
+    if (data.pages.length >= MAX_REVEAL_PAGES || !hasNextPage) {
+      onRevealHandled?.();
+      return;
+    }
+    if (!isFetchingNextPage) void fetchNextPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealRequest, data, commitByOid, hasNextPage, isFetchingNextPage]);
 
   // Column widths: graph tracks the lane count until manually resized.
   const [graphColWidth, setGraphColWidth] = useState<number | null>(null);
@@ -747,6 +792,7 @@ export function FleetGraphView({
             <div
               key={commit.oid}
               role="button"
+              data-commit-oid={commit.oid}
               onClick={() => handleRowClick(commit, rowFleet)}
               className={cn(
                 'group/row grid h-[30px] cursor-pointer items-center text-sm hover:bg-secondary/60',

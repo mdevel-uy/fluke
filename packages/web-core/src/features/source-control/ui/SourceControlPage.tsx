@@ -73,6 +73,17 @@ export function SourceControlPage() {
     setMainTab('graph');
   }, [selectedRepoId]);
 
+  // Sidebar → graph navigation: reveal a branch tip or a tag's commit.
+  const [revealRequest, setRevealRequest] = useState<
+    { kind: 'oid'; oid: string } | { kind: 'branch'; name: string } | null
+  >(null);
+  const requestReveal = (
+    request: { kind: 'oid'; oid: string } | { kind: 'branch'; name: string }
+  ) => {
+    setMainTab('graph');
+    setRevealRequest(request);
+  };
+
   const openDiffTab = (oid: string, path: string) => {
     const tab = { oid, path };
     setDiffTabs((prev) =>
@@ -139,6 +150,8 @@ export function SourceControlPage() {
           repoId={selectedRepoId}
           selectedWorkspaceId={selectedId}
           onSelect={setSelectedId}
+          onRevealBranch={(name) => requestReveal({ kind: 'branch', name })}
+          onRevealCommit={(oid) => requestReveal({ kind: 'oid', oid })}
         />
       </ShellSidebarPortal>
 
@@ -300,6 +313,8 @@ export function SourceControlPage() {
                   setSelectedCommit(oid ? { oid, branches } : null)
                 }
                 hiddenBranches={hiddenBranches}
+                revealRequest={revealRequest}
+                onRevealHandled={() => setRevealRequest(null)}
               />
             ) : (
               <FleetGraphPlaceholder

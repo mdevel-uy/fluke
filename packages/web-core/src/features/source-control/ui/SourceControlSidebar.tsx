@@ -67,6 +67,9 @@ interface SourceControlSidebarProps {
   repoId: string | null;
   selectedWorkspaceId: string | null;
   onSelect: (workspaceId: string) => void;
+  /** Jump the graph to a branch tip / a specific commit. */
+  onRevealBranch: (name: string) => void;
+  onRevealCommit: (oid: string) => void;
 }
 
 /**
@@ -79,6 +82,8 @@ export function SourceControlSidebar({
   repoId,
   selectedWorkspaceId,
   onSelect,
+  onRevealBranch,
+  onRevealCommit,
 }: SourceControlSidebarProps) {
   const { t } = useTranslation('common');
 
@@ -159,6 +164,8 @@ export function SourceControlSidebar({
           repoId={repoId}
           fleetBranches={Object.values(groups).flat()}
           onSelectWorkspace={onSelect}
+          onRevealBranch={onRevealBranch}
+          onRevealCommit={onRevealCommit}
         />
       </div>
     </div>
