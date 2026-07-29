@@ -134,6 +134,12 @@ impl From<WorkspaceManagerError> for ApiError {
             WorkspaceManagerError::NoRepositories => {
                 ApiError::BadRequest("Workspace has no repositories configured".to_string())
             }
+            WorkspaceManagerError::WorkspaceBranchMissing { repo_name, branch } => {
+                ApiError::Conflict(format!(
+                    "Workspace branch '{}' does not exist in repository '{}' — the workspace has not been materialized yet",
+                    branch, repo_name
+                ))
+            }
             WorkspaceManagerError::PartialCreation(msg) => ApiError::Conflict(msg),
         }
     }

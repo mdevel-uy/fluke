@@ -154,6 +154,13 @@ impl LocalContainerService {
                 branch,
                 repo_name
             )),
+            WorkspaceError::WorkspaceBranchMissing { repo_name, branch } => {
+                ContainerError::Other(anyhow!(
+                    "Workspace branch '{}' does not exist in repository '{}' — the workspace has not been materialized yet",
+                    branch,
+                    repo_name
+                ))
+            }
             WorkspaceError::PartialCreation(msg) => ContainerError::Other(anyhow!(msg)),
         }
     }
