@@ -106,7 +106,7 @@ pub async fn get_repo_branches(
 pub async fn get_repo_tags(
     State(deployment): State<DeploymentImpl>,
     Path(repo_id): Path<Uuid>,
-) -> Result<ResponseJson<ApiResponse<Vec<String>>>, ApiError> {
+) -> Result<ResponseJson<ApiResponse<Vec<git::GitTagInfo>>>, ApiError> {
     let repo = deployment
         .repo()
         .get_by_id(&deployment.db().pool, repo_id)

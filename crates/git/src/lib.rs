@@ -87,6 +87,13 @@ pub struct GitRemote {
     pub url: String,
 }
 
+/// Tag + target commit, mirrored inline in the frontend client.
+#[derive(Debug, Clone, Serialize)]
+pub struct GitTagInfo {
+    pub name: String,
+    pub target_oid: String,
+}
+
 // Fleet graph (SHELL-SPEC V4): multi-branch revwalk over the base branch
 // plus the attempt-branch tips. Mirrored inline in the frontend client
 // (like the editor endpoints), so not part of generate_types.
@@ -1998,12 +2005,24 @@ impl GitService {
         Ok(stats)
     }
 
-    /// All tag names in the repo, newest-name-first not guaranteed — plain
+    /// All tags with their target commit (annotated tags peeled), in plain
     /// `git tag` order (lexicographic). Mirrored inline in the client.
-    pub fn get_all_tags(&self, repo_path: &Path) -> Result<Vec<String>, GitServiceError> {
+    pub fn get_all_tags(&self, repo_path: &Path) -> Result<Vec<GitTagInfo>, GitServiceError> {
         let repo = self.open_repo(repo_path)?;
         let names = repo.tag_names(None)?;
-        Ok(names.iter().flatten().map(String::from).collect())
+        let mut tags = Vec::new();
+        for name in names.iter().flatten() {
+            let refname = format!("refs/tags/{name}");
+            if let Ok(reference) = repo.find_reference(&refname)
+                && let Ok(commit) = reference.peel_to_commit()
+            {
+                tags.push(GitTagInfo {
+                    name: name.to_string(),
+                    target_oid: commit.id().to_string(),
+                });
+            }
+        }
+        Ok(tags)
     }
 
     /// Multi-branch commit graph for the fleet view (SHELL-SPEC V4): commits

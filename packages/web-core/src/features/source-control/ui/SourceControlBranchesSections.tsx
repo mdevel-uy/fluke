@@ -193,12 +193,12 @@ export function SourceControlBranchesSections({
         >
           {tags!.map((tag) => (
             <div
-              key={tag}
+              key={tag.name}
               className="flex h-[22px] items-center gap-2 pl-4 pr-2 text-sm text-normal"
             >
               <Tag className="h-3 w-3 flex-none text-low" strokeWidth={1.75} />
               <span className="min-w-0 flex-1 truncate font-mono text-code">
-                {tag}
+                {tag.name}
               </span>
             </div>
           ))}

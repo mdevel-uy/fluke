@@ -1089,10 +1089,12 @@ export const repoApi = {
     return handleApiResponse<GitBranch[]>(response);
   },
 
-  /** Tag names of the repo (plain `git tag` order). */
-  getTags: async (repoId: string): Promise<string[]> => {
+  /** Tags with their target commit (plain `git tag` order). */
+  getTags: async (
+    repoId: string
+  ): Promise<{ name: string; target_oid: string }[]> => {
     const response = await makeRequest(`/api/repos/${repoId}/tags`);
-    return handleApiResponse<string[]>(response);
+    return handleApiResponse<{ name: string; target_oid: string }[]>(response);
   },
 
   // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline

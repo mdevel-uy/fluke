@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { GitBranch } from 'lucide-react';
+import { GitBranch, Tag } from 'lucide-react';
 import { repoApi } from '@/shared/lib/api';
 import { formatElapsed } from '@/shared/components/ui-new/aside/primitives';
 import { cn } from '@/shared/lib/utils';
@@ -89,13 +89,18 @@ interface LayoutRow {
  * first parent keeps the lane, extra merge parents reserve lanes to the
  * right. Works on newest-first input; date skew just opens a fresh lane.
  */
-function computeLayout(commits: GraphCommit[]): {
+function computeLayout(
+  commits: GraphCommit[],
+  pinnedTipOid?: string
+): {
   rows: LayoutRow[];
   laneByOid: Map<string, number>;
   laneCount: number;
 } {
   const present = new Set(commits.map((c) => c.oid));
-  const reserved: (string | null)[] = [];
+  // Pin the base head to lane 0 so the main line stays leftmost — newer
+  // branch tips would otherwise grab the left lanes under date ordering.
+  const reserved: (string | null)[] = [pinnedTipOid ?? null];
   const laneByOid = new Map<string, number>();
   let laneCount = 1;
 
@@ -191,6 +196,23 @@ export function FleetGraphView({
     refetchInterval: 30_000,
   });
 
+  // Inline tag chips: tag target oid → names. Shares the sidebar's cache.
+  const { data: repoTags } = useQuery({
+    queryKey: ['repo-tags', repoId],
+    queryFn: () => repoApi.getTags(repoId),
+    staleTime: 30_000,
+    refetchInterval: 120_000,
+  });
+  const tagsByOid = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const tag of repoTags ?? []) {
+      const list = map.get(tag.target_oid);
+      if (list) list.push(tag.name);
+      else map.set(tag.target_oid, [tag.name]);
+    }
+    return map;
+  }, [repoTags]);
+
   const fleetByBranch = useMemo(() => {
     const map = new Map<string, FleetBranch>();
     for (const fb of branches) map.set(fb.workspace.branch, fb);
@@ -198,10 +220,14 @@ export function FleetGraphView({
   }, [branches]);
 
   const commits = useMemo(() => data?.commits ?? [], [data]);
+  const baseTipOid = useMemo(
+    () => commits.find((c) => c.branch === null)?.oid,
+    [commits]
+  );
 
   const { rows, laneByOid, laneCount } = useMemo(
-    () => computeLayout(commits),
-    [commits]
+    () => computeLayout(commits, baseTipOid),
+    [commits, baseTipOid]
   );
 
   // Fleet branches tint their tip's lane with the mock's state colors; every
@@ -226,7 +252,6 @@ export function FleetGraphView({
     () => new Map(rows.map((r, i) => [r.commit.oid, i])),
     [rows]
   );
-  const baseTipOid = commits.find((c) => c.branch === null)?.oid;
   const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
 
   const colorOfLane = (lane: number): string => {
@@ -404,6 +429,15 @@ export function FleetGraphView({
                 className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
               >
                 {name}
+              </span>
+            ))}
+            {(tagsByOid.get(commit.oid) ?? []).map((tag) => (
+              <span
+                key={`tag-${tag}`}
+                className="flex flex-none items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 font-mono text-[10px] leading-4 text-warning"
+              >
+                <Tag className="h-2.5 w-2.5" strokeWidth={1.75} />
+                {tag}
               </span>
             ))}
             {commit.oid === baseTipOid && (
