@@ -26,6 +26,9 @@ import { PreviewBrowserContainer } from './PreviewBrowserContainer';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { workspacesApi } from '@/shared/lib/api';
 
 import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
@@ -242,6 +245,7 @@ export function WorkspacesLayout() {
             ) : null,
             editor: selectedWorkspace?.id ? (
               <EditorPanelContainer
+                key={selectedWorkspace.id}
                 className="h-full"
                 workspaceId={selectedWorkspace.id}
               />
@@ -289,12 +293,54 @@ export function WorkspacesLayout() {
     appNavigation,
   ]);
 
+  // Follow the status-bar project selector: when the active repo changes and
+  // the selected workspace doesn't belong to it, jump to the first active
+  // workspace of that repo so the explorer/editor show the right project.
+  const queryClient = useQueryClient();
+  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const prevRepoIdRef = useRef(selectedRepoId);
+  useEffect(() => {
+    if (selectedRepoId === prevRepoIdRef.current) return;
+    prevRepoIdRef.current = selectedRepoId;
+    if (!selectedRepoId) return;
+    if (repos.some((r) => r.id === selectedRepoId)) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (const candidate of activeWorkspaces) {
+        try {
+          const candidateRepos = await queryClient.fetchQuery({
+            queryKey: ['workspace-repos-for-project-switch', candidate.id],
+            queryFn: () => workspacesApi.getRepos(candidate.id),
+            staleTime: 60_000,
+          });
+          if (cancelled) return;
+          if (candidateRepos.some((r) => r.id === selectedRepoId)) {
+            appNavigation.goToWorkspace(candidate.id);
+            return;
+          }
+        } catch {
+          // Unreachable workspace — try the next one.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRepoId, repos, activeWorkspaces, queryClient, appNavigation]);
+
   const sidebarPortal = (
     <ShellSidebarPortal>
       {workspacesSidebarMode === 'explorer' && workspaceId ? (
-        <WorkspaceExplorerSidebarContainer workspaceId={workspaceId} />
+        <WorkspaceExplorerSidebarContainer
+          key={workspaceId}
+          workspaceId={workspaceId}
+        />
       ) : workspacesSidebarMode === 'search' && workspaceId ? (
-        <WorkspaceSearchSidebarContainer workspaceId={workspaceId} />
+        <WorkspaceSearchSidebarContainer
+          key={workspaceId}
+          workspaceId={workspaceId}
+        />
       ) : (
         <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
       )}
