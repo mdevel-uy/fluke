@@ -103,6 +103,19 @@ pub async fn get_repo_branches(
     Ok(ResponseJson(ApiResponse::success(branches)))
 }
 
+pub async fn get_repo_tags(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<String>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tags = deployment.git().get_all_tags(&repo.path)?;
+    Ok(ResponseJson(ApiResponse::success(tags)))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct RepoGraphQuery {
     /// Base branch of the fleet (e.g. the shared target branch).
@@ -657,6 +670,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_repo).put(update_repo).delete(delete_repo),
         )
         .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route("/repos/{repo_id}/tags", get(get_repo_tags))
         .route("/repos/{repo_id}/graph", get(get_repo_graph))
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))

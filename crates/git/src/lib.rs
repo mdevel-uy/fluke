@@ -1998,6 +1998,14 @@ impl GitService {
         Ok(stats)
     }
 
+    /// All tag names in the repo, newest-name-first not guaranteed — plain
+    /// `git tag` order (lexicographic). Mirrored inline in the client.
+    pub fn get_all_tags(&self, repo_path: &Path) -> Result<Vec<String>, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let names = repo.tag_names(None)?;
+        Ok(names.iter().flatten().map(String::from).collect())
+    }
+
     /// Multi-branch commit graph for the fleet view (SHELL-SPEC V4): commits
     /// exclusive to each attempt branch (tip ^base) tagged with the branch
     /// name, plus recent base commits, merged newest-first. Unresolvable tips

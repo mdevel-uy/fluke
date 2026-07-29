@@ -13,15 +13,9 @@ type GraphCommit = FleetGraphData['commits'][number];
 // Same geometry as the approved mock (design/git-fleet-mock.html).
 const ROW_H = 30;
 const laneX = (lane: number) => 16 + lane * 15;
+const GRAPH_LIMIT = 150;
 
-interface LaneInfo {
-  lane: number;
-  /** text-* color class — SVG strokes/fills use currentColor. */
-  colorClass: string;
-  branch: FleetBranch;
-}
-
-function laneColorClass(branch: FleetBranch): string {
+function fleetColorClass(branch: FleetBranch): string {
   if (branch.attentionReason === 'conflict') return 'text-error';
   if (branch.group === 'attention') return 'text-warning';
   if (branch.group === 'running') return 'text-brand-on-surface';
@@ -35,6 +29,18 @@ const OP_LABEL: Record<string, string> = {
   cherry_pick: 'cherry-pick',
   revert: 'revert',
 };
+
+// Sourcetree-style lane rainbow for branches without a workspace, built
+// from the theme's own accent tokens; fleet lanes override with their
+// semantic state color and the base lane stays neutral.
+const LANE_PALETTE = [
+  'text-brand-on-surface',
+  'text-merged',
+  'text-warning',
+  'text-success',
+  'text-info',
+  'text-error',
+];
 
 function stateTag(branch: FleetBranch): { label: string; className: string } {
   const ws = branch.workspace;
@@ -72,6 +78,70 @@ function stateTag(branch: FleetBranch): { label: string; className: string } {
   return { label: 'Idle', className: 'bg-secondary text-low' };
 }
 
+interface LayoutRow {
+  commit: GraphCommit;
+  lane: number;
+}
+
+/**
+ * DAG lane assignment, git-log--graph style: each commit takes the leftmost
+ * lane expecting it (lanes expecting the same commit merge into it), its
+ * first parent keeps the lane, extra merge parents reserve lanes to the
+ * right. Works on newest-first input; date skew just opens a fresh lane.
+ */
+function computeLayout(commits: GraphCommit[]): {
+  rows: LayoutRow[];
+  laneByOid: Map<string, number>;
+  laneCount: number;
+} {
+  const present = new Set(commits.map((c) => c.oid));
+  const reserved: (string | null)[] = [];
+  const laneByOid = new Map<string, number>();
+  let laneCount = 1;
+
+  const rows = commits.map((commit) => {
+    let lane = reserved.indexOf(commit.oid);
+    if (lane === -1) {
+      lane = reserved.indexOf(null);
+      if (lane === -1) {
+        lane = reserved.length;
+        reserved.push(null);
+      }
+    }
+    for (let i = 0; i < reserved.length; i++) {
+      if (reserved[i] === commit.oid) reserved[i] = null;
+    }
+    laneByOid.set(commit.oid, lane);
+
+    const parents = commit.parent_oids.filter((p) => present.has(p));
+    if (parents.length > 0) {
+      reserved[lane] = parents[0];
+      for (const parent of parents.slice(1)) {
+        if (reserved.includes(parent)) continue;
+        let free = -1;
+        for (let i = lane + 1; i < reserved.length; i++) {
+          if (reserved[i] === null) {
+            free = i;
+            break;
+          }
+        }
+        if (free === -1) {
+          free = reserved.length;
+          reserved.push(null);
+        }
+        reserved[free] = parent;
+      }
+    } else {
+      reserved[lane] = null;
+    }
+
+    laneCount = Math.max(laneCount, reserved.length);
+    return { commit, lane };
+  });
+
+  return { rows, laneByOid, laneCount };
+}
+
 interface FleetGraphViewProps {
   repoId: string;
   baseBranch: string;
@@ -81,9 +151,11 @@ interface FleetGraphViewProps {
 }
 
 /**
- * SHELL-SPEC R36: fleet graph — the base branch as neutral lane 0 plus one
- * colored lane per attempt branch, workspace state chip over each head.
- * Clicking a branch row selects it (master-detail sync with sidebar/aside).
+ * SHELL-SPEC R36: fleet graph over the FULL local branch topology — lanes
+ * come from the commit DAG (merge curves included, Sourcetree-style), the
+ * mock's semantic colors mark fleet lanes (running/attention/conflict/
+ * merged) while plain branches stay neutral. Clicking a fleet branch row
+ * selects it (master-detail sync with sidebar/aside).
  */
 export function FleetGraphView({
   repoId,
@@ -94,58 +166,75 @@ export function FleetGraphView({
 }: FleetGraphViewProps) {
   const { t } = useTranslation('common');
 
-  const tips = useMemo(
-    () => [...new Set(branches.map((b) => b.workspace.branch))],
-    [branches]
-  );
+  // All local branches ride along as tips so the whole topology shows up,
+  // not just workspace-backed branches. Shares the sidebar's query cache.
+  const { data: allBranches } = useQuery({
+    queryKey: ['repo-branches', repoId],
+    queryFn: () => repoApi.getBranches(repoId),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const tips = useMemo(() => {
+    const names = new Set(branches.map((b) => b.workspace.branch));
+    for (const b of allBranches ?? []) {
+      if (!b.is_remote) names.add(b.name);
+    }
+    names.delete(baseBranch);
+    return [...names].sort();
+  }, [branches, allBranches, baseBranch]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['repo-graph', repoId, baseBranch, tips.join(',')],
-    queryFn: () => repoApi.getGraph(repoId, baseBranch, tips),
+    queryFn: () => repoApi.getGraph(repoId, baseBranch, tips, GRAPH_LIMIT),
     enabled: !!repoId && !!baseBranch,
     refetchInterval: 30_000,
   });
 
-  // Lanes follow the sidebar's group order: attention, running, idle, merged.
-  const lanes = useMemo(() => {
-    const order: FleetBranch['group'][] = [
-      'attention',
-      'running',
-      'idle',
-      'merged',
-    ];
-    const map = new Map<string, LaneInfo>();
-    let lane = 1;
-    for (const group of order) {
-      for (const branch of branches.filter((b) => b.group === group)) {
-        if (map.has(branch.workspace.branch)) continue;
-        map.set(branch.workspace.branch, {
-          lane,
-          colorClass: laneColorClass(branch),
-          branch,
-        });
-        lane += 1;
-      }
-    }
+  const fleetByBranch = useMemo(() => {
+    const map = new Map<string, FleetBranch>();
+    for (const fb of branches) map.set(fb.workspace.branch, fb);
     return map;
   }, [branches]);
 
-  const commits = data?.commits ?? [];
-  const gutterWidth = Math.max(laneX(lanes.size) + 12, 60);
+  const commits = useMemo(() => data?.commits ?? [], [data]);
 
-  const indexByOid = useMemo(
-    () => new Map(commits.map((c, i) => [c.oid, i])),
+  const { rows, laneByOid, laneCount } = useMemo(
+    () => computeLayout(commits),
     [commits]
   );
 
-  const laneOf = (commit: GraphCommit): number =>
-    commit.branch ? (lanes.get(commit.branch)?.lane ?? 0) : 0;
-  const colorOf = (commit: GraphCommit): string =>
-    commit.branch
-      ? (lanes.get(commit.branch)?.colorClass ?? 'text-border-strong')
-      : 'text-border-strong';
+  // Fleet branches tint their tip's lane with the mock's state colors; every
+  // other lane stays neutral slate.
+  const laneColor = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const commit of commits) {
+      for (const name of commit.tip_of) {
+        const fleet = fleetByBranch.get(name);
+        if (!fleet) continue;
+        const lane = laneByOid.get(commit.oid);
+        if (lane !== undefined && !map.has(lane)) {
+          map.set(lane, fleetColorClass(fleet));
+        }
+      }
+    }
+    return map;
+  }, [commits, fleetByBranch, laneByOid]);
 
-  const baseTipIndex = commits.findIndex((c) => c.branch === null);
+  const gutterWidth = Math.max(laneX(laneCount) + 12, 60);
+  const rowIndexByOid = useMemo(
+    () => new Map(rows.map((r, i) => [r.commit.oid, i])),
+    [rows]
+  );
+  const baseTipOid = commits.find((c) => c.branch === null)?.oid;
+  const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
+
+  const colorOfLane = (lane: number): string => {
+    const fleet = laneColor.get(lane);
+    if (fleet) return fleet;
+    if (lane === baseLane) return 'text-border-strong';
+    return LANE_PALETTE[lane % LANE_PALETTE.length];
+  };
 
   if (isLoading || !data) {
     return (
@@ -170,37 +259,36 @@ export function FleetGraphView({
     );
   }
 
-  const height = commits.length * ROW_H;
+  const height = rows.length * ROW_H;
   const rowY = (index: number) => index * ROW_H + ROW_H / 2;
 
   const edges: React.ReactNode[] = [];
   const dots: React.ReactNode[] = [];
-  commits.forEach((commit, i) => {
-    const xc = laneX(laneOf(commit));
+  rows.forEach((row, i) => {
+    const { commit, lane } = row;
+    const xc = laneX(lane);
     const yc = rowY(i);
     for (const parentOid of commit.parent_oids) {
-      const j = indexByOid.get(parentOid);
+      const j = rowIndexByOid.get(parentOid);
       if (j === undefined) continue;
-      const parent = commits[j];
-      const xp = laneX(laneOf(parent));
+      const parentLane = rows[j].lane;
+      const xp = laneX(parentLane);
       const yp = rowY(j);
-      const childLane = laneOf(commit);
-      const parentLane = laneOf(parent);
       const colorClass =
-        childLane === parentLane
-          ? colorOf(commit)
-          : childLane > parentLane
-            ? colorOf(commit)
-            : colorOf(parent);
+        lane === parentLane
+          ? colorOfLane(lane)
+          : lane > parentLane
+            ? colorOfLane(lane)
+            : colorOfLane(parentLane);
       let d: string;
-      if (childLane === parentLane) {
+      if (lane === parentLane) {
         d = `M ${xc} ${yc} L ${xp} ${yp}`;
-      } else if (childLane > parentLane) {
-        // Branch lane descending to its fork point on the base.
+      } else if (lane > parentLane) {
+        // Branch lane descending to its fork point.
         const yb = yp - ROW_H * 0.8;
         d = `M ${xc} ${yc} L ${xc} ${yb} C ${xc} ${yb + 12}, ${xp} ${yp - 12}, ${xp} ${yp}`;
       } else {
-        // Merge: the base collects a branch.
+        // Merge: this lane collects one from the right.
         const yb = yc + ROW_H * 0.8;
         d = `M ${xc} ${yc} C ${xc} ${yc + 12}, ${xp} ${yb - 12}, ${xp} ${yb} L ${xp} ${yp}`;
       }
@@ -217,8 +305,11 @@ export function FleetGraphView({
     }
 
     const isBase = commit.branch === null;
-    const radius = isBase ? 3.2 : 4.2;
-    const dotClass = isBase ? 'text-low' : colorOf(commit);
+    const radius = isBase && commit.tip_of.length === 0 ? 3.2 : 4.2;
+    const dotClass =
+      lane === baseLane && !laneColor.has(lane)
+        ? 'text-low'
+        : colorOfLane(lane);
     dots.push(
       <circle
         key={commit.oid}
@@ -229,8 +320,7 @@ export function FleetGraphView({
         className={dotClass}
       />
     );
-    const isFleetTip = commit.tip_of.some((name) => lanes.has(name));
-    if (isFleetTip) {
+    if (commit.tip_of.length > 0) {
       dots.push(
         <circle
           key={`${commit.oid}-ring`}
@@ -258,31 +348,29 @@ export function FleetGraphView({
         {edges}
         {dots}
       </svg>
-      {commits.map((commit) => {
-        const laneInfo = commit.branch ? lanes.get(commit.branch) : undefined;
-        const tipBranches = commit.tip_of
-          .map((name) => lanes.get(name))
-          .filter((info): info is LaneInfo => !!info);
-        const rowBranch = laneInfo ?? tipBranches[0];
+      {rows.map(({ commit }) => {
+        const fleetTips = commit.tip_of
+          .map((name) => fleetByBranch.get(name))
+          .filter((fb): fb is FleetBranch => !!fb);
+        const plainTips = commit.tip_of.filter(
+          (name) => !fleetByBranch.has(name)
+        );
+        const rowFleet =
+          (commit.branch ? fleetByBranch.get(commit.branch) : undefined) ??
+          fleetTips[0];
         const isSelected =
-          !!rowBranch &&
-          rowBranch.branch.workspace.id === selectedWorkspaceId;
-        const isBaseTip =
-          commit.branch === null &&
-          indexByOid.get(commit.oid) === baseTipIndex;
+          !!rowFleet && rowFleet.workspace.id === selectedWorkspaceId;
 
         return (
           <div
             key={commit.oid}
-            role={rowBranch ? 'button' : undefined}
+            role={rowFleet ? 'button' : undefined}
             onClick={
-              rowBranch
-                ? () => onSelect(rowBranch.branch.workspace.id)
-                : undefined
+              rowFleet ? () => onSelect(rowFleet.workspace.id) : undefined
             }
             className={cn(
               'flex h-[30px] items-center gap-2 pr-3 text-sm',
-              rowBranch && 'cursor-pointer hover:bg-secondary/60',
+              rowFleet && 'cursor-pointer hover:bg-secondary/60',
               isSelected && 'bg-sel'
             )}
             style={{ paddingLeft: gutterWidth + 6 }}
@@ -290,34 +378,44 @@ export function FleetGraphView({
             <span
               className={cn(
                 'min-w-0 flex-none truncate',
-                commit.branch === null ? 'text-low' : 'text-high'
+                commit.branch === null && commit.tip_of.length === 0
+                  ? 'text-low'
+                  : 'text-high'
               )}
               style={{ maxWidth: '46%' }}
               title={commit.summary}
             >
               {commit.summary}
             </span>
-            {tipBranches.map((info) => (
+            {fleetTips.map((fleet) => (
               <span
-                key={info.branch.workspace.id}
+                key={fleet.workspace.id}
                 className={cn(
                   'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
-                  info.colorClass
+                  fleetColorClass(fleet)
                 )}
               >
-                {info.branch.workspace.branch}
+                {fleet.workspace.branch}
               </span>
             ))}
-            {isBaseTip && (
-              <span className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low">
+            {plainTips.map((name) => (
+              <span
+                key={name}
+                className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
+              >
+                {name}
+              </span>
+            ))}
+            {commit.oid === baseTipOid && (
+              <span className="flex-none rounded border border-border-strong bg-secondary px-1 font-mono text-[10px] leading-4 text-normal">
                 {baseBranch}
               </span>
             )}
-            {tipBranches.map((info) => {
-              const tag = stateTag(info.branch);
+            {fleetTips.map((fleet) => {
+              const tag = stateTag(fleet);
               return (
                 <span
-                  key={`${info.branch.workspace.id}-tag`}
+                  key={`${fleet.workspace.id}-tag`}
                   className={cn(
                     'flex-none rounded px-1.5 py-px text-[10px] font-medium',
                     tag.className

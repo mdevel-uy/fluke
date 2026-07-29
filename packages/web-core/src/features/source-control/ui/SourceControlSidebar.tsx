@@ -9,6 +9,7 @@ import type {
   FleetBranch,
   FleetGroup,
 } from '../model/useFleetBranches';
+import { SourceControlBranchesSections } from './SourceControlBranchesSections';
 
 const GROUP_DOT: Record<FleetGroup, string> = {
   attention: 'bg-warning',
@@ -63,6 +64,7 @@ function BranchRow({
 interface SourceControlSidebarProps {
   groups: Record<FleetGroup, FleetBranch[]>;
   baseBranch: string | null;
+  repoId: string | null;
   selectedWorkspaceId: string | null;
   onSelect: (workspaceId: string) => void;
 }
@@ -74,6 +76,7 @@ interface SourceControlSidebarProps {
 export function SourceControlSidebar({
   groups,
   baseBranch,
+  repoId,
   selectedWorkspaceId,
   onSelect,
 }: SourceControlSidebarProps) {
@@ -152,6 +155,11 @@ export function SourceControlSidebar({
             </div>
           </SidebarSection>
         )}
+        <SourceControlBranchesSections
+          repoId={repoId}
+          fleetBranches={Object.values(groups).flat()}
+          onSelectWorkspace={onSelect}
+        />
       </div>
     </div>
   );

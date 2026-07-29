@@ -59,6 +59,7 @@ export function SourceControlPage() {
         <SourceControlSidebar
           groups={fleet.groups}
           baseBranch={fleet.baseBranch}
+          repoId={selectedRepoId}
           selectedWorkspaceId={selectedId}
           onSelect={setSelectedId}
         />
