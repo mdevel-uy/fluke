@@ -75,6 +75,8 @@ interface SourceControlSidebarProps {
     | { kind: 'oid'; oid: string }
     | { kind: 'branch'; name: string }
     | null;
+  /** Branch → lane color from the graph (sidebar dots mirror lanes). */
+  branchColors: Record<string, import('../lib/laneColors').LaneColorToken>;
 }
 
 /**
@@ -90,6 +92,7 @@ export function SourceControlSidebar({
   onRevealBranch,
   onRevealCommit,
   pendingReveal,
+  branchColors,
 }: SourceControlSidebarProps) {
   const { t } = useTranslation('common');
 
@@ -173,6 +176,7 @@ export function SourceControlSidebar({
           onRevealBranch={onRevealBranch}
           onRevealCommit={onRevealCommit}
           pendingReveal={pendingReveal}
+          branchColors={branchColors}
         />
       </div>
     </div>

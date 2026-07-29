@@ -26,6 +26,11 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
 import { cn } from '@/shared/lib/utils';
+import {
+  LANE_TOKEN_PALETTE,
+  LANE_TOKEN_TEXT,
+  type LaneColorToken,
+} from '../lib/laneColors';
 import type { FleetBranch } from '../model/useFleetBranches';
 
 type FleetGraphData = Awaited<ReturnType<typeof repoApi.getGraph>>;
@@ -47,9 +52,9 @@ const DEFAULT_WIDTHS = {
   hash: 80,
 };
 type FixedColumn = keyof typeof DEFAULT_WIDTHS;
-// All row actions live in one kebab (decisión Dani) — the column is just
-// wide enough for it, with no header label.
-const ACTIONS_COL_W = 40;
+// All row actions live in one kebab (decisión Dani); the column stays wide
+// enough for its "Actions" header not to truncate.
+const ACTIONS_COL_W = 76;
 
 /** https://github.com/{owner}/{repo} from a git remote URL, else null. */
 function githubBaseUrl(remoteUrl: string): string | null {
@@ -95,12 +100,12 @@ function ColumnResizeHandle({
   );
 }
 
-function fleetColorClass(branch: FleetBranch): string {
-  if (branch.attentionReason === 'conflict') return 'text-error';
-  if (branch.group === 'attention') return 'text-warning';
-  if (branch.group === 'running') return 'text-brand-on-surface';
-  if (branch.group === 'merged') return 'text-merged';
-  return 'text-border-strong';
+function fleetColorToken(branch: FleetBranch): LaneColorToken {
+  if (branch.attentionReason === 'conflict') return 'error';
+  if (branch.group === 'attention') return 'warning';
+  if (branch.group === 'running') return 'brand';
+  if (branch.group === 'merged') return 'merged';
+  return 'neutral';
 }
 
 const OP_LABEL: Record<string, string> = {
@@ -110,17 +115,6 @@ const OP_LABEL: Record<string, string> = {
   revert: 'revert',
 };
 
-// Sourcetree-style lane rainbow for branches without a workspace, built
-// from the theme's own accent tokens; fleet lanes override with their
-// semantic state color and the base lane stays neutral.
-const LANE_PALETTE = [
-  'text-brand-on-surface',
-  'text-merged',
-  'text-warning',
-  'text-success',
-  'text-info',
-  'text-error',
-];
 
 function stateTag(branch: FleetBranch): { label: string; className: string } {
   const ws = branch.workspace;
@@ -244,6 +238,8 @@ interface FleetGraphViewProps {
     | { kind: 'branch'; name: string }
     | null;
   onRevealHandled?: () => void;
+  /** Reports branch → lane color so the sidebar can mirror the graph. */
+  onBranchColors?: (colors: Record<string, LaneColorToken>) => void;
 }
 
 /**
@@ -265,6 +261,7 @@ export function FleetGraphView({
   hiddenBranches,
   revealRequest,
   onRevealHandled,
+  onBranchColors,
 }: FleetGraphViewProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -375,16 +372,17 @@ export function FleetGraphView({
   );
 
   // Fleet branches tint their tip's lane with the mock's state colors; every
-  // other lane stays neutral slate.
+  // other lane rotates the accent palette (tokens shared with chips and the
+  // sidebar dots).
   const laneColor = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number, LaneColorToken>();
     for (const commit of commits) {
       for (const name of commit.tip_of) {
         const fleet = fleetByBranch.get(name);
         if (!fleet) continue;
         const lane = laneByOid.get(commit.oid);
         if (lane !== undefined && !map.has(lane)) {
-          map.set(lane, fleetColorClass(fleet));
+          map.set(lane, fleetColorToken(fleet));
         }
       }
     }
@@ -397,6 +395,40 @@ export function FleetGraphView({
     [rows]
   );
   const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
+
+  const tokenOfLane = useMemo(() => {
+    return (lane: number): LaneColorToken => {
+      const fleetToken = laneColor.get(lane);
+      if (fleetToken) return fleetToken;
+      if (lane === baseLane) return 'neutral';
+      return LANE_TOKEN_PALETTE[lane % LANE_TOKEN_PALETTE.length];
+    };
+  }, [laneColor, baseLane]);
+
+  // Branch → lane token, shared with the sidebar (its dots mirror the graph).
+  const branchTokenByName = useMemo(() => {
+    const map = new Map<string, LaneColorToken>();
+    for (const commit of commits) {
+      const lane = laneByOid.get(commit.oid);
+      if (lane === undefined) continue;
+      for (const name of commit.tip_of) {
+        if (!map.has(name)) map.set(name, tokenOfLane(lane));
+      }
+    }
+    map.set(baseBranch, 'neutral');
+    return map;
+  }, [commits, laneByOid, tokenOfLane, baseBranch]);
+
+  const branchColorsRef = useRef<string>('');
+  useEffect(() => {
+    if (!onBranchColors) return;
+    const record = Object.fromEntries(branchTokenByName);
+    const serialized = JSON.stringify(record);
+    if (serialized === branchColorsRef.current) return;
+    branchColorsRef.current = serialized;
+    onBranchColors(record);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchTokenByName]);
 
   const childrenByOid = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -686,12 +718,7 @@ export function FleetGraphView({
     const { commit, lane } = row;
     const xc = laneX(lane);
     const yc = rowY(i);
-    const colorOfLane = (l: number): string => {
-      const fleet = laneColor.get(l);
-      if (fleet) return fleet;
-      if (l === baseLane) return 'text-border-strong';
-      return LANE_PALETTE[l % LANE_PALETTE.length];
-    };
+    const colorOfLane = (l: number): string => LANE_TOKEN_TEXT[tokenOfLane(l)];
     for (const parentOid of commit.parent_oids) {
       const j = rowIndexByOid.get(parentOid);
       if (j === undefined) continue;
@@ -817,7 +844,9 @@ export function FleetGraphView({
           t('sourceControl.graph.columns.commit', { defaultValue: 'Commit' }),
           <ColumnResizeHandle onResize={resizeFixed('hash')} />
         )}
-        {headerCell('')}
+        {headerCell(
+          t('sourceControl.graph.columns.actions', { defaultValue: 'Actions' })
+        )}
       </div>
 
       <div className="relative">
@@ -880,7 +909,7 @@ export function FleetGraphView({
                     key={fleet.workspace.id}
                     className={cn(
                       'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
-                      fleetColorClass(fleet)
+                      LANE_TOKEN_TEXT[fleetColorToken(fleet)]
                     )}
                   >
                     {fleet.workspace.branch}
@@ -889,7 +918,12 @@ export function FleetGraphView({
                 {plainTips.map((name) => (
                   <span
                     key={name}
-                    className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
+                    className={cn(
+                      'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
+                      LANE_TOKEN_TEXT[
+                        branchTokenByName.get(name) ?? 'neutral'
+                      ]
+                    )}
                   >
                     {name}
                   </span>
@@ -897,7 +931,13 @@ export function FleetGraphView({
                 {(tagsByOid.get(commit.oid) ?? []).map((tag) => (
                   <span
                     key={`tag-${tag}`}
-                    className="flex flex-none items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 font-mono text-[10px] leading-4 text-warning"
+                    className={cn(
+                      // Tag chips wear their commit's lane color (Sourcetree).
+                      'flex flex-none items-center gap-0.5 rounded border border-current px-1 font-mono text-[10px] leading-4',
+                      LANE_TOKEN_TEXT[
+                        tokenOfLane(laneByOid.get(commit.oid) ?? 0)
+                      ]
+                    )}
                   >
                     <Tag className="h-2.5 w-2.5" strokeWidth={1.75} />
                     {tag}

@@ -15,6 +15,7 @@ import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
 import { CommitDetailAside } from './CommitDetailAside';
+import type { LaneColorToken } from '../lib/laneColors';
 import { CommitFileDiffView } from './CommitFileDiffView';
 import { FleetGraphView } from './FleetGraphView';
 import { GraphBranchFilter } from './GraphBranchFilter';
@@ -72,6 +73,11 @@ export function SourceControlPage() {
     setDiffTabs([]);
     setMainTab('graph');
   }, [selectedRepoId]);
+
+  // Lane colors reported by the graph — the sidebar dots mirror them.
+  const [branchColors, setBranchColors] = useState<
+    Record<string, LaneColorToken>
+  >({});
 
   // Sidebar → graph navigation: reveal a branch tip or a tag's commit.
   const [revealRequest, setRevealRequest] = useState<
@@ -153,6 +159,7 @@ export function SourceControlPage() {
           onRevealBranch={(name) => requestReveal({ kind: 'branch', name })}
           onRevealCommit={(oid) => requestReveal({ kind: 'oid', oid })}
           pendingReveal={revealRequest}
+          branchColors={branchColors}
         />
       </ShellSidebarPortal>
 
@@ -316,6 +323,7 @@ export function SourceControlPage() {
                 hiddenBranches={hiddenBranches}
                 revealRequest={revealRequest}
                 onRevealHandled={() => setRevealRequest(null)}
+                onBranchColors={setBranchColors}
               />
             ) : (
               <FleetGraphPlaceholder
