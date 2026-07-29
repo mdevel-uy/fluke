@@ -772,6 +772,7 @@
       "confirm": "Reassign"
     },
     "filters": {
+      "stateLabel": "State",
       "searchPlaceholder": "Search issues…",
       "state": {
         "all": "All",

@@ -772,6 +772,7 @@
       "confirm": "再割り当て"
     },
     "filters": {
+      "stateLabel": "状態",
       "searchPlaceholder": "Issue を検索…",
       "state": {
         "all": "すべて",

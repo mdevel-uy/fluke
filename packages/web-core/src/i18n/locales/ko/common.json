@@ -772,6 +772,7 @@
       "confirm": "재할당"
     },
     "filters": {
+      "stateLabel": "상태",
       "searchPlaceholder": "이슈 검색…",
       "state": {
         "all": "전체",

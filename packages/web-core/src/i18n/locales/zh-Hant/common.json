@@ -772,6 +772,7 @@
       "confirm": "重新指派"
     },
     "filters": {
+      "stateLabel": "狀態",
       "searchPlaceholder": "搜尋 Issue…",
       "state": {
         "all": "全部",

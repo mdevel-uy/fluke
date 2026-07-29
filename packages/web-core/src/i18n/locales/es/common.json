@@ -772,6 +772,7 @@
       "confirm": "Reasignar"
     },
     "filters": {
+      "stateLabel": "Estado",
       "searchPlaceholder": "Buscar issues…",
       "state": {
         "all": "Todos",
