@@ -15,8 +15,15 @@ const laneX = (lane: number) => 16 + lane * 15;
 const GRAPH_PAGE_SIZE = 100;
 
 // Sourcetree-style resizable column set: Graph | Description | Date |
-// Author | Commit. Graph auto-sizes to the lane count until dragged.
-const DEFAULT_WIDTHS = { date: 110, author: 150, hash: 76 };
+// Author | Commit. Every column has a fixed width and a visible drag
+// handle on its right edge; the Graph column auto-sizes to the lane count
+// until dragged. Overflow scrolls horizontally.
+const DEFAULT_WIDTHS = {
+  description: 520,
+  date: 110,
+  author: 150,
+  hash: 80,
+};
 type FixedColumn = keyof typeof DEFAULT_WIDTHS;
 
 function ColumnResizeHandle({
@@ -44,7 +51,12 @@ function ColumnResizeHandle({
         lastX.current = null;
         e.currentTarget.releasePointerCapture(e.pointerId);
       }}
-      className="absolute inset-y-0 right-0 z-10 w-[5px] cursor-col-resize hover:bg-brand/50"
+      className={cn(
+        'absolute inset-y-0 -right-[4px] z-10 w-[9px] cursor-col-resize',
+        // Visible affordance: hairline at rest, brand on hover/drag.
+        'after:absolute after:inset-y-1 after:left-[4px] after:w-px after:bg-border-strong',
+        'hover:after:inset-y-0 hover:after:w-[2px] hover:after:bg-brand'
+      )}
     />
   );
 }
@@ -403,7 +415,7 @@ export function FleetGraphView({
   const [fixedWidths, setFixedWidths] =
     useState<Record<FixedColumn, number>>(DEFAULT_WIDTHS);
   const graphW = graphColWidth ?? gutterWidth;
-  const gridTemplateColumns = `${graphW}px minmax(220px,1fr) ${fixedWidths.date}px ${fixedWidths.author}px ${fixedWidths.hash}px`;
+  const gridTemplateColumns = `${graphW}px ${fixedWidths.description}px ${fixedWidths.date}px ${fixedWidths.author}px ${fixedWidths.hash}px`;
 
   const resizeGraph = (dx: number) =>
     setGraphColWidth((prev) =>
@@ -412,7 +424,10 @@ export function FleetGraphView({
   const resizeFixed = (key: FixedColumn) => (dx: number) =>
     setFixedWidths((prev) => ({
       ...prev,
-      [key]: Math.min(Math.max(prev[key] + dx, 56), 400),
+      [key]: Math.min(
+        Math.max(prev[key] + dx, key === 'description' ? 220 : 56),
+        key === 'description' ? 1200 : 400
+      ),
     }));
 
   const dateFormat = useMemo(
@@ -574,7 +589,8 @@ export function FleetGraphView({
         {headerCell(
           t('sourceControl.graph.columns.description', {
             defaultValue: 'Description',
-          })
+          }),
+          <ColumnResizeHandle onResize={resizeFixed('description')} />
         )}
         {headerCell(
           t('sourceControl.graph.columns.date', { defaultValue: 'Date' }),
