@@ -1264,6 +1264,19 @@ export const repoApi = {
     const response = await makeRequest(`/api/repos/${repoId}/remotes`);
     return handleApiResponse<GitRemote[]>(response);
   },
+
+  /** Create a local branch at a commit (fleet graph inline action). */
+  createBranchAt: async (
+    repoId: string,
+    name: string,
+    atOid: string
+  ): Promise<void> => {
+    const response = await makeRequest(`/api/repos/${repoId}/branches`, {
+      method: 'POST',
+      body: JSON.stringify({ name, at_oid: atOid }),
+    });
+    return handleApiResponse<void>(response);
+  },
 };
 
 // Issue PR linking APIs

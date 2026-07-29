@@ -2060,6 +2060,20 @@ impl GitService {
         Ok(tags)
     }
 
+    /// Create a local branch pointing at an arbitrary commit (graph inline
+    /// action). Fails if the name is taken or invalid.
+    pub fn create_branch_at(
+        &self,
+        repo_path: &Path,
+        name: &str,
+        oid_str: &str,
+    ) -> Result<(), GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let commit = repo.find_commit(git2::Oid::from_str(oid_str)?)?;
+        repo.branch(name, &commit, false)?;
+        Ok(())
+    }
+
     /// Directory listing at a commit (read-only tree browsing for the
     /// embedded editor). Empty `rel_path` lists the root.
     pub fn get_commit_tree(

@@ -1,8 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { GitBranch, Tag } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  FileCode,
+  GitBranch,
+  GitBranchPlus,
+  MoreVertical,
+  Tag,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@vibe/ui/components/DropdownMenu';
 import { repoApi } from '@/shared/lib/api';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
 import { cn } from '@/shared/lib/utils';
 import type { FleetBranch } from '../model/useFleetBranches';
 
@@ -25,6 +47,17 @@ const DEFAULT_WIDTHS = {
   hash: 80,
 };
 type FixedColumn = keyof typeof DEFAULT_WIDTHS;
+// Copy stays a direct button (high frequency); the rest live in a kebab.
+const ACTIONS_COL_W = 64;
+
+/** https://github.com/{owner}/{repo} from a git remote URL, else null. */
+function githubBaseUrl(remoteUrl: string): string | null {
+  const ssh = /^git@github\.com:(.+?)(?:\.git)?$/.exec(remoteUrl);
+  if (ssh) return `https://github.com/${ssh[1]}`;
+  const https = /^https:\/\/github\.com\/(.+?)(?:\.git)?\/?$/.exec(remoteUrl);
+  if (https) return `https://github.com/${https[1]}`;
+  return null;
+}
 
 function ColumnResizeHandle({
   onResize,
@@ -415,7 +448,80 @@ export function FleetGraphView({
   const [fixedWidths, setFixedWidths] =
     useState<Record<FixedColumn, number>>(DEFAULT_WIDTHS);
   const graphW = graphColWidth ?? gutterWidth;
-  const gridTemplateColumns = `${graphW}px ${fixedWidths.description}px ${fixedWidths.date}px ${fixedWidths.author}px ${fixedWidths.hash}px`;
+  const gridTemplateColumns = `${graphW}px ${fixedWidths.description}px ${fixedWidths.date}px ${fixedWidths.author}px ${fixedWidths.hash}px ${ACTIONS_COL_W}px`;
+
+  // Inline row actions (GitHub-style): copy hash, branch from commit, open
+  // on GitHub (derived from the first github remote).
+  const queryClient = useQueryClient();
+  const [copiedOid, setCopiedOid] = useState<string | null>(null);
+  const [branching, setBranching] = useState<{
+    oid: string;
+    name: string;
+    busy: boolean;
+    error: string | null;
+  } | null>(null);
+
+  const { data: remotes } = useQuery({
+    queryKey: ['repo-remotes', repoId],
+    queryFn: () => repoApi.listRemotes(repoId),
+    staleTime: Infinity,
+  });
+  const githubBase = useMemo(() => {
+    for (const remote of remotes ?? []) {
+      const base = githubBaseUrl(remote.url);
+      if (base) return base;
+    }
+    return null;
+  }, [remotes]);
+
+  const copyHash = (oid: string) => {
+    void navigator.clipboard.writeText(oid).then(() => {
+      setCopiedOid(oid);
+      setTimeout(() => {
+        setCopiedOid((current) => (current === oid ? null : current));
+      }, 1500);
+    });
+  };
+
+  // Same flow as the commit aside's quick action: point the Editor's source
+  // picker at this commit and jump there (landing hosts it with no fleet).
+  const appNavigation = useAppNavigation();
+  const openCommitInEditor = (commit: GraphCommit) => {
+    useEditorSourceStore.getState().setCommitSource({
+      repoId,
+      oid: commit.oid,
+      summary: commit.summary,
+    });
+    const prefs = useUiPreferencesStore.getState();
+    prefs.setWorkspacesSidebarMode('explorer');
+    prefs.setLeftSidebarVisible(true);
+    const wsId = branches[0]?.workspace.id;
+    if (wsId) {
+      prefs.openWorkspaceViewTab(wsId, 'editor');
+      appNavigation.goToWorkspace(wsId);
+    } else {
+      appNavigation.goToWorkspaces();
+    }
+  };
+
+  const submitBranch = async () => {
+    if (!branching || branching.busy || !branching.name.trim()) return;
+    setBranching({ ...branching, busy: true, error: null });
+    try {
+      await repoApi.createBranchAt(repoId, branching.name.trim(), branching.oid);
+      setBranching(null);
+      void queryClient.invalidateQueries({
+        queryKey: ['repo-branches', repoId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['repo-graph', repoId] });
+    } catch (error) {
+      setBranching({
+        ...branching,
+        busy: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   const resizeGraph = (dx: number) =>
     setGraphColWidth((prev) =>
@@ -604,6 +710,9 @@ export function FleetGraphView({
           t('sourceControl.graph.columns.commit', { defaultValue: 'Commit' }),
           <ColumnResizeHandle onResize={resizeFixed('hash')} />
         )}
+        {headerCell(
+          t('sourceControl.graph.columns.actions', { defaultValue: 'Actions' })
+        )}
       </div>
 
       <div className="relative">
@@ -640,7 +749,7 @@ export function FleetGraphView({
               role="button"
               onClick={() => handleRowClick(commit, rowFleet)}
               className={cn(
-                'grid h-[30px] cursor-pointer items-center text-sm hover:bg-secondary/60',
+                'group/row grid h-[30px] cursor-pointer items-center text-sm hover:bg-secondary/60',
                 isSelected && 'bg-sel',
                 rowDimmed && 'opacity-50'
               )}
@@ -716,6 +825,126 @@ export function FleetGraphView({
               </div>
               <div className="truncate px-2 font-mono text-[11px] text-low">
                 {commit.short_oid}
+              </div>
+              <div
+                className="relative flex items-center justify-end gap-0.5 px-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => copyHash(commit.oid)}
+                  title={t('sourceControl.graph.actions.copyHash', {
+                    defaultValue: 'Copy full hash',
+                  })}
+                  className={cn(
+                    'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
+                    copiedOid === commit.oid
+                      ? 'text-success'
+                      : 'text-low hover:text-high'
+                  )}
+                >
+                  {copiedOid === commit.oid ? (
+                    <Check size={13} strokeWidth={2} />
+                  ) : (
+                    <Copy size={13} strokeWidth={1.75} />
+                  )}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      title={t('sourceControl.graph.actions.more', {
+                        defaultValue: 'Commit actions',
+                      })}
+                      className={cn(
+                        'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
+                        branching?.oid === commit.oid
+                          ? 'text-brand-on-surface'
+                          : 'text-low hover:text-high'
+                      )}
+                    >
+                      <MoreVertical size={13} strokeWidth={1.75} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        setBranching({
+                          oid: commit.oid,
+                          name: '',
+                          busy: false,
+                          error: null,
+                        })
+                      }
+                    >
+                      <GitBranchPlus
+                        size={13}
+                        strokeWidth={1.75}
+                        className="mr-2"
+                      />
+                      {t('sourceControl.graph.actions.branchHere', {
+                        defaultValue: 'Create branch from this commit…',
+                      })}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => openCommitInEditor(commit)}
+                    >
+                      <FileCode size={13} strokeWidth={1.75} className="mr-2" />
+                      {t('sourceControl.graph.actions.openInEditor', {
+                        defaultValue: 'Open commit in editor (read-only)',
+                      })}
+                    </DropdownMenuItem>
+                    {githubBase && (
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          window.open(
+                            `${githubBase}/commit/${commit.oid}`,
+                            '_blank'
+                          )
+                        }
+                      >
+                        <ExternalLink
+                          size={13}
+                          strokeWidth={1.75}
+                          className="mr-2"
+                        />
+                        {t('sourceControl.graph.actions.openOnGitHub', {
+                          defaultValue: 'Open commit on GitHub',
+                        })}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {branching?.oid === commit.oid && (
+                  <div className="absolute right-2 top-[27px] z-30 w-64 rounded-md border border-border-strong bg-panel p-2 shadow-overlay">
+                    <div className="mb-1 text-[11px] text-low">
+                      {t('sourceControl.graph.actions.branchAt', {
+                        defaultValue: 'New branch at {{oid}} — Enter creates',
+                        oid: commit.short_oid,
+                      })}
+                    </div>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={branching.name}
+                      disabled={branching.busy}
+                      onChange={(e) =>
+                        setBranching({ ...branching, name: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void submitBranch();
+                        if (e.key === 'Escape') setBranching(null);
+                      }}
+                      placeholder="feature/my-branch"
+                      className="h-6 w-full rounded border border-border-strong bg-md-surface-container-low px-2 font-mono text-code text-high placeholder:text-low focus:border-brand-on-surface focus:outline-none"
+                    />
+                    {branching.error && (
+                      <div className="mt-1 text-[11px] text-error">
+                        {branching.error}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );

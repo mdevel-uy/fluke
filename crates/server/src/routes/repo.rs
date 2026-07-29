@@ -188,6 +188,38 @@ pub struct CommitFileContent {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct CreateBranchRequest {
+    pub name: String,
+    pub at_oid: String,
+}
+
+/// Create a local branch at a commit (fleet graph inline action).
+pub async fn create_repo_branch(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    axum::Json(request): axum::Json<CreateBranchRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let name = request.name.trim().to_string();
+    if name.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Branch name cannot be empty".to_string(),
+        ));
+    }
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    tokio::task::spawn_blocking(move || {
+        git.create_branch_at(&repo.path, &name, &request.at_oid)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Branch creation failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CommitTreeQuery {
     #[serde(default)]
     path: String,
@@ -771,7 +803,10 @@ pub fn router() -> Router<DeploymentImpl> {
             "/repos/{repo_id}",
             get(get_repo).put(update_repo).delete(delete_repo),
         )
-        .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route(
+            "/repos/{repo_id}/branches",
+            get(get_repo_branches).post(create_repo_branch),
+        )
         .route("/repos/{repo_id}/tags", get(get_repo_tags))
         .route("/repos/{repo_id}/graph", get(get_repo_graph))
         .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
