@@ -13,7 +13,7 @@ use db::models::{
     repo_issue::RepoIssue,
 };
 use deployment::Deployment;
-use git::{GitBranch, GitRemote};
+use git::{FleetGraph, GitBranch, GitRemote};
 use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, PullRequestDetail};
 use serde::{Deserialize, Serialize};
 use services::services::{
@@ -101,6 +101,48 @@ pub async fn get_repo_branches(
 
     let branches = deployment.git().get_all_branches(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepoGraphQuery {
+    /// Base branch of the fleet (e.g. the shared target branch).
+    base: String,
+    /// Comma-separated attempt branch names; unresolvable ones are skipped.
+    #[serde(default)]
+    tips: String,
+    limit: Option<usize>,
+}
+
+/// Fleet graph (SHELL-SPEC V4): multi-branch commit log for the Source
+/// control section. Response type mirrored inline in the frontend client.
+pub async fn get_repo_graph(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<RepoGraphQuery>,
+) -> Result<ResponseJson<ApiResponse<FleetGraph>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tips: Vec<String> = query
+        .tips
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    let limit = query.limit.unwrap_or(100).clamp(1, 300);
+
+    let git = deployment.git().clone();
+    let base = query.base.clone();
+    let graph = tokio::task::spawn_blocking(move || {
+        git.get_fleet_graph(&repo.path, &base, &tips, limit)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Graph walk failed: {e}")))??;
+
+    Ok(ResponseJson(ApiResponse::success(graph)))
 }
 
 pub async fn get_repo_remotes(
@@ -615,6 +657,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_repo).put(update_repo).delete(delete_repo),
         )
         .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route("/repos/{repo_id}/graph", get(get_repo_graph))
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))

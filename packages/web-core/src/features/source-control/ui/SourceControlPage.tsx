@@ -9,6 +9,8 @@ import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
+import { FleetGraphView } from './FleetGraphView';
+import { StagingView } from './StagingView';
 
 type MainTab = 'graph' | 'changes';
 
@@ -123,15 +125,31 @@ export function SourceControlPage() {
 
         <div className="min-h-0 flex-1 overflow-auto">
           {mainTab === 'graph' ? (
-            <FleetGraphPlaceholder
-              branchCount={fleet.branches.length}
-              isLoading={fleet.isLoading}
+            selectedRepoId && fleet.baseBranch ? (
+              <FleetGraphView
+                repoId={selectedRepoId}
+                baseBranch={fleet.baseBranch}
+                branches={fleet.branches}
+                selectedWorkspaceId={selectedId}
+                onSelect={setSelectedId}
+              />
+            ) : (
+              <FleetGraphPlaceholder
+                branchCount={fleet.branches.length}
+                isLoading={fleet.isLoading}
+              />
+            )
+          ) : selected && selected.primaryStatus ? (
+            <StagingView
+              key={selected.workspace.id}
+              branch={selected}
+              repoId={selected.primaryStatus.repo_id}
             />
           ) : (
             <div className="flex h-full items-center justify-center px-6 text-sm text-low">
               {t('sourceControl.changesPlaceholder', {
                 defaultValue:
-                  'Selective staging lands here — review and commit the worker’s changes file by file.',
+                  'Select a branch in the sidebar to review and stage its changes.',
               })}
             </div>
           )}

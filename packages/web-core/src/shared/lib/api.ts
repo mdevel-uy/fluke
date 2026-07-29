@@ -627,6 +627,73 @@ export const workspacesApi = {
     return handleApiResponse<RepoBranchStatus[]>(response);
   },
 
+  // Selective staging (SHELL-SPEC V5/R38). Types mirror crates/git
+  // StagingState inline (like the editor endpoints — no generate_types).
+  getStagingState: async (
+    workspaceId: string,
+    repoId: string
+  ): Promise<{
+    files: Array<{
+      path: string;
+      status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+      is_binary: boolean;
+      staged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      unstaged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      has_staged_changes: boolean;
+      has_unstaged_changes: boolean;
+    }>;
+  }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging?repo_id=${encodeURIComponent(repoId)}`
+    );
+    return handleApiResponse(response);
+  },
+
+  stageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/stage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  unstageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/unstage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  commitStaged: async (
+    workspaceId: string,
+    data: { repo_id: string; message: string }
+  ): Promise<{ head_oid: string }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/commit`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<{ head_oid: string }>(response);
+  },
+
   getRepos: async (workspaceId: string): Promise<RepoWithTargetBranch[]> => {
     const response = await makeRequest(`/api/workspaces/${workspaceId}/repos`);
     return handleApiResponse<RepoWithTargetBranch[]>(response);
@@ -1020,6 +1087,41 @@ export const repoApi = {
       hostId
     );
     return handleApiResponse<GitBranch[]>(response);
+  },
+
+  // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
+  // (like the editor endpoints — not part of generate_types).
+  getGraph: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    limit = 100
+  ): Promise<{
+    base_branch: string;
+    commits: Array<{
+      oid: string;
+      short_oid: string;
+      parent_oids: string[];
+      summary: string;
+      author: string;
+      committed_at: string;
+      branch: string | null;
+      tip_of: string[];
+    }>;
+    tips: Array<{
+      branch: string;
+      oid: string;
+      ahead_from_base: number;
+      behind_from_base: number;
+    }>;
+  }> => {
+    const params = new URLSearchParams({
+      base,
+      tips: tips.join(','),
+      limit: String(limit),
+    });
+    const response = await makeRequest(`/api/repos/${repoId}/graph?${params}`);
+    return handleApiResponse(response);
   },
 
   init: async (
