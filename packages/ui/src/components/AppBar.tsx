@@ -230,16 +230,6 @@ export function AppBar({
         onClick: onEditorClick,
       });
     }
-    if (showSearchButton && onSearchClick) {
-      localItems.push({
-        key: 'local-search',
-        kind: 'icon-button',
-        label: t('appBar.search', { defaultValue: 'Search' }),
-        lucideIcon: Search,
-        isActive: isSearchActive,
-        onClick: onSearchClick,
-      });
-    }
     if (showSprintButton && onSprintClick) {
       localItems.push({
         key: 'local-sprint',
@@ -437,6 +427,23 @@ export function AppBar({
         )}
         {userPopover && (
           <div className="flex justify-center">{userPopover}</div>
+        )}
+        {showSearchButton && onSearchClick && (
+          <Tooltip
+            content={t('appBar.search', { defaultValue: 'Search' })}
+            side="right"
+          >
+            <button
+              type="button"
+              onClick={onSearchClick}
+              className={getStandardAppBarButtonClassName({
+                isActive: isSearchActive,
+              })}
+              aria-label={t('appBar.search', { defaultValue: 'Search' })}
+            >
+              <Search size={18} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
         )}
         {onOpenSettings && (
           <Tooltip content={t('appBar.settings')} side="right">
