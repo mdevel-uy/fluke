@@ -187,6 +187,32 @@ pub struct CommitFileContent {
     pub content: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CommitTreeQuery {
+    #[serde(default)]
+    path: String,
+}
+
+/// Directory listing at a commit, for the embedded editor's snapshot tree.
+pub async fn get_repo_commit_tree(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitTreeQuery>,
+) -> Result<ResponseJson<ApiResponse<Vec<git::CommitTreeEntry>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let entries = tokio::task::spawn_blocking(move || {
+        git.get_commit_tree(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit tree read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(entries)))
+}
+
 /// Read-only file snapshot at a commit, for the embedded editor.
 pub async fn get_repo_commit_file(
     State(deployment): State<DeploymentImpl>,
@@ -727,6 +753,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/repos/{repo_id}/commits/{oid}/file",
             get(get_repo_commit_file),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/tree",
+            get(get_repo_commit_tree),
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))

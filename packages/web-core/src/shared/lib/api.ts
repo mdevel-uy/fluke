@@ -1097,6 +1097,20 @@ export const repoApi = {
     return handleApiResponse<{ name: string; target_oid: string }[]>(response);
   },
 
+  /** Directory listing at a commit (editor snapshot tree). */
+  getCommitTree: async (
+    repoId: string,
+    oid: string,
+    path = ''
+  ): Promise<{ name: string; is_directory: boolean }[]> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/tree?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ name: string; is_directory: boolean }[]>(
+      response
+    );
+  },
+
   /** Read-only file content at a commit (editor snapshots). */
   getCommitFile: async (
     repoId: string,

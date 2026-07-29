@@ -10,7 +10,7 @@ import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
-import { WorkspaceExplorerSidebarContainer } from './WorkspaceExplorerSidebarContainer';
+import { EditorSidebarContainer } from './EditorSidebarContainer';
 import { WorkspaceSearchSidebarContainer } from './WorkspaceSearchSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
@@ -357,9 +357,9 @@ export function WorkspacesLayout() {
 
   const sidebarPortal = (
     <ShellSidebarPortal>
-      {workspacesSidebarMode === 'explorer' && workspaceId ? (
-        <WorkspaceExplorerSidebarContainer
-          key={workspaceId}
+      {workspacesSidebarMode === 'explorer' ? (
+        <EditorSidebarContainer
+          key={workspaceId ?? 'no-workspace'}
           workspaceId={workspaceId}
         />
       ) : workspacesSidebarMode === 'search' && workspaceId ? (

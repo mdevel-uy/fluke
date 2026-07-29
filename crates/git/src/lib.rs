@@ -94,6 +94,13 @@ pub struct GitTagInfo {
     pub target_oid: String,
 }
 
+/// Entry of a directory listing at a commit (mirrored inline in the client).
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitTreeEntry {
+    pub name: String,
+    pub is_directory: bool,
+}
+
 // Commit detail for the source-control aside (mirrored inline in the client).
 
 #[derive(Debug, Clone, Serialize)]
@@ -2051,6 +2058,45 @@ impl GitService {
             }
         }
         Ok(tags)
+    }
+
+    /// Directory listing at a commit (read-only tree browsing for the
+    /// embedded editor). Empty `rel_path` lists the root.
+    pub fn get_commit_tree(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<Vec<CommitTreeEntry>, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let root = repo.find_commit(oid)?.tree()?;
+        let tree = if rel_path.is_empty() {
+            root
+        } else {
+            root.get_path(Path::new(rel_path))?
+                .to_object(&repo)?
+                .into_tree()
+                .map_err(|_| {
+                    GitServiceError::InvalidRepository("Not a directory".to_string())
+                })?
+        };
+        let mut entries: Vec<CommitTreeEntry> = tree
+            .iter()
+            .filter_map(|entry| {
+                let name = entry.name()?.to_string();
+                Some(CommitTreeEntry {
+                    is_directory: entry.kind() == Some(git2::ObjectType::Tree),
+                    name,
+                })
+            })
+            .collect();
+        entries.sort_by(|a, b| {
+            b.is_directory
+                .cmp(&a.is_directory)
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        Ok(entries)
     }
 
     /// UTF-8 content of a file at a given commit (read-only snapshots for
