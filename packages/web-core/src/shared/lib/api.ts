@@ -563,11 +563,135 @@ export const workspacesApi = {
     return handleApiResponse<{ workspace_path: string }>(response);
   },
 
+  /** Read a text file for the embedded editor. */
+  readEditorFile: async (path: string): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/editor/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
+  },
+
+  /** Save a text file edited in the embedded editor. */
+  saveEditorFile: async (path: string, content: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/file', {
+      method: 'POST',
+      body: JSON.stringify({ path, content }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  createEditorEntry: async (
+    path: string,
+    isDirectory: boolean
+  ): Promise<void> => {
+    const response = await makeRequest('/api/editor/create', {
+      method: 'POST',
+      body: JSON.stringify({ path, is_directory: isDirectory }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  renameEditorEntry: async (path: string, newPath: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/rename', {
+      method: 'POST',
+      body: JSON.stringify({ path, new_path: newPath }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  deleteEditorEntry: async (path: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/delete', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  /** Case-insensitive content search under a root directory. */
+  searchEditorContent: async (
+    root: string,
+    q: string
+  ): Promise<{ path: string; line: number; preview: string }[]> => {
+    const response = await makeRequest(
+      `/api/editor/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(q)}`
+    );
+    return handleApiResponse<{ path: string; line: number; preview: string }[]>(
+      response
+    );
+  },
+
   getBranchStatus: async (workspaceId: string): Promise<RepoBranchStatus[]> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/git/status`
     );
     return handleApiResponse<RepoBranchStatus[]>(response);
+  },
+
+  // Selective staging (SHELL-SPEC V5/R38). Types mirror crates/git
+  // StagingState inline (like the editor endpoints — no generate_types).
+  getStagingState: async (
+    workspaceId: string,
+    repoId: string
+  ): Promise<{
+    files: Array<{
+      path: string;
+      status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+      is_binary: boolean;
+      staged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      unstaged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      has_staged_changes: boolean;
+      has_unstaged_changes: boolean;
+    }>;
+  }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging?repo_id=${encodeURIComponent(repoId)}`
+    );
+    return handleApiResponse(response);
+  },
+
+  stageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/stage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  unstageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/unstage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  commitStaged: async (
+    workspaceId: string,
+    data: { repo_id: string; message: string }
+  ): Promise<{ head_oid: string }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/commit`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<{ head_oid: string }>(response);
   },
 
   getRepos: async (workspaceId: string): Promise<RepoWithTargetBranch[]> => {
@@ -965,6 +1089,117 @@ export const repoApi = {
     return handleApiResponse<GitBranch[]>(response);
   },
 
+  /** Tags with their target commit (plain `git tag` order). */
+  getTags: async (
+    repoId: string
+  ): Promise<{ name: string; target_oid: string }[]> => {
+    const response = await makeRequest(`/api/repos/${repoId}/tags`);
+    return handleApiResponse<{ name: string; target_oid: string }[]>(response);
+  },
+
+  /** Directory listing at a commit (editor snapshot tree). */
+  getCommitTree: async (
+    repoId: string,
+    oid: string,
+    path = ''
+  ): Promise<{ name: string; is_directory: boolean }[]> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/tree?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ name: string; is_directory: boolean }[]>(
+      response
+    );
+  },
+
+  /** Unified diff of one file in a commit (editor diff tabs). */
+  getCommitFileDiff: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ patch: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file-diff?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ patch: string }>(response);
+  },
+
+  /** Read-only file content at a commit (editor snapshots). */
+  getCommitFile: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
+  },
+
+  /** Full detail of one commit (message, identity, per-file line stats). */
+  getCommit: async (
+    repoId: string,
+    oid: string
+  ): Promise<{
+    oid: string;
+    short_oid: string;
+    message: string;
+    author: string;
+    author_email: string;
+    committed_at: string;
+    parent_oids: string[];
+    files: Array<{
+      path: string;
+      status: 'added' | 'deleted' | 'modified' | 'renamed';
+      additions: number;
+      deletions: number;
+    }>;
+    additions: number;
+    deletions: number;
+  }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}`
+    );
+    return handleApiResponse(response);
+  },
+
+  // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
+  // (like the editor endpoints — not part of generate_types).
+  getGraph: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    limit = 100,
+    offset = 0
+  ): Promise<{
+    base_branch: string;
+    commits: Array<{
+      oid: string;
+      short_oid: string;
+      parent_oids: string[];
+      summary: string;
+      author: string;
+      committed_at: string;
+      branch: string | null;
+      tip_of: string[];
+    }>;
+    tips: Array<{
+      branch: string;
+      oid: string;
+      ahead_from_base: number;
+      behind_from_base: number;
+    }>;
+    has_more: boolean;
+  }> => {
+    const params = new URLSearchParams({
+      base,
+      tips: tips.join(','),
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const response = await makeRequest(`/api/repos/${repoId}/graph?${params}`);
+    return handleApiResponse(response);
+  },
+
   init: async (
     data: {
       parent_path: string;
@@ -1028,6 +1263,19 @@ export const repoApi = {
   listRemotes: async (repoId: string): Promise<GitRemote[]> => {
     const response = await makeRequest(`/api/repos/${repoId}/remotes`);
     return handleApiResponse<GitRemote[]>(response);
+  },
+
+  /** Create a local branch at a commit (fleet graph inline action). */
+  createBranchAt: async (
+    repoId: string,
+    name: string,
+    atOid: string
+  ): Promise<void> => {
+    const response = await makeRequest(`/api/repos/${repoId}/branches`, {
+      method: 'POST',
+      body: JSON.stringify({ name, at_oid: atOid }),
+    });
+    return handleApiResponse<void>(response);
   },
 };
 

@@ -13,7 +13,7 @@ use db::models::{
     repo_issue::RepoIssue,
 };
 use deployment::Deployment;
-use git::{GitBranch, GitRemote};
+use git::{FleetGraph, GitBranch, GitRemote};
 use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, PullRequestDetail};
 use serde::{Deserialize, Serialize};
 use services::services::{
@@ -101,6 +101,195 @@ pub async fn get_repo_branches(
 
     let branches = deployment.git().get_all_branches(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))
+}
+
+pub async fn get_repo_tags(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<git::GitTagInfo>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tags = deployment.git().get_all_tags(&repo.path)?;
+    Ok(ResponseJson(ApiResponse::success(tags)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepoGraphQuery {
+    /// Base branch of the fleet (e.g. the shared target branch).
+    base: String,
+    /// Comma-separated attempt branch names; unresolvable ones are skipped.
+    #[serde(default)]
+    tips: String,
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
+/// Fleet graph (SHELL-SPEC V4): multi-branch commit log for the Source
+/// control section. Response type mirrored inline in the frontend client.
+pub async fn get_repo_graph(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<RepoGraphQuery>,
+) -> Result<ResponseJson<ApiResponse<FleetGraph>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tips: Vec<String> = query
+        .tips
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    let limit = query.limit.unwrap_or(100).clamp(1, 300);
+    let offset = query.offset.unwrap_or(0).min(10_000);
+
+    let git = deployment.git().clone();
+    let base = query.base.clone();
+    let graph = tokio::task::spawn_blocking(move || {
+        git.get_fleet_graph(&repo.path, &base, &tips, limit, offset)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Graph walk failed: {e}")))??;
+
+    Ok(ResponseJson(ApiResponse::success(graph)))
+}
+
+pub async fn get_repo_commit(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+) -> Result<ResponseJson<ApiResponse<git::CommitDetail>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let detail =
+        tokio::task::spawn_blocking(move || git.get_commit_detail(&repo.path, &oid))
+            .await
+            .map_err(|e| ApiError::BadRequest(format!("Commit lookup failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(detail)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitFileQuery {
+    path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitFileContent {
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBranchRequest {
+    pub name: String,
+    pub at_oid: String,
+}
+
+/// Create a local branch at a commit (fleet graph inline action).
+pub async fn create_repo_branch(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    axum::Json(request): axum::Json<CreateBranchRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let name = request.name.trim().to_string();
+    if name.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Branch name cannot be empty".to_string(),
+        ));
+    }
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    tokio::task::spawn_blocking(move || {
+        git.create_branch_at(&repo.path, &name, &request.at_oid)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Branch creation failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitTreeQuery {
+    #[serde(default)]
+    path: String,
+}
+
+/// Directory listing at a commit, for the embedded editor's snapshot tree.
+pub async fn get_repo_commit_tree(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitTreeQuery>,
+) -> Result<ResponseJson<ApiResponse<Vec<git::CommitTreeEntry>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let entries = tokio::task::spawn_blocking(move || {
+        git.get_commit_tree(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit tree read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(entries)))
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitFileDiff {
+    pub patch: String,
+}
+
+/// Unified diff of one file in a commit, for the editor's diff tabs.
+pub async fn get_repo_commit_file_diff(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileDiff>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let patch = tokio::task::spawn_blocking(move || {
+        git.get_commit_file_diff(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit diff failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileDiff { patch })))
+}
+
+/// Read-only file snapshot at a commit, for the embedded editor.
+pub async fn get_repo_commit_file(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileContent>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let content = tokio::task::spawn_blocking(move || {
+        git.get_commit_file(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit file read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileContent {
+        content,
+    })))
 }
 
 pub async fn get_repo_remotes(
@@ -614,7 +803,25 @@ pub fn router() -> Router<DeploymentImpl> {
             "/repos/{repo_id}",
             get(get_repo).put(update_repo).delete(delete_repo),
         )
-        .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route(
+            "/repos/{repo_id}/branches",
+            get(get_repo_branches).post(create_repo_branch),
+        )
+        .route("/repos/{repo_id}/tags", get(get_repo_tags))
+        .route("/repos/{repo_id}/graph", get(get_repo_graph))
+        .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file",
+            get(get_repo_commit_file),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/tree",
+            get(get_repo_commit_tree),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file-diff",
+            get(get_repo_commit_file_diff),
+        )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))

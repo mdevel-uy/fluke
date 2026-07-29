@@ -11,6 +11,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         type: 'group',
         label: 'Actions',
         items: [
+          { type: 'action', action: Actions.SearchInFiles },
           { type: 'action', action: Actions.CreateWorkspaceFromPR },
           { type: 'action', action: Actions.CreateWorker },
           { type: 'action', action: Actions.OpenInIDE },
@@ -37,6 +38,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         label: 'Navigate',
         items: [
           { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
           { type: 'action', action: Actions.GoToSprint },
           { type: 'action', action: Actions.GoToIssues },
           { type: 'action', action: Actions.GoToDashboard },
@@ -71,8 +73,6 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         items: [
           { type: 'action', action: Actions.StartReview },
           { type: 'action', action: Actions.RenameWorkspace },
-          { type: 'action', action: Actions.DuplicateWorkspace },
-          { type: 'action', action: Actions.SpinOffWorkspace },
           { type: 'action', action: Actions.PinWorkspace },
           { type: 'action', action: Actions.ArchiveWorkspace },
           { type: 'action', action: Actions.DeleteWorkspace },
@@ -125,6 +125,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.ToggleLeftMainPanel },
           { type: 'action', action: Actions.ToggleRightSidebar },
           { type: 'action', action: Actions.ToggleChangesMode },
+          { type: 'action', action: Actions.ToggleEditorMode },
           { type: 'action', action: Actions.ToggleLogsMode },
           { type: 'action', action: Actions.TogglePreviewMode },
           { type: 'action', action: Actions.ToggleTerminal },
@@ -168,6 +169,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         label: 'Pages',
         items: [
           { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
           { type: 'action', action: Actions.GoToSprint },
           { type: 'action', action: Actions.GoToIssues },
           { type: 'action', action: Actions.GoToDashboard },

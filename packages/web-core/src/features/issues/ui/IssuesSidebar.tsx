@@ -6,7 +6,6 @@ import {
 } from '@vibe/ui/components/SidebarSectionsMenu';
 import { InputField } from '@vibe/ui/components/InputField';
 import {
-  SidebarRepoSection,
   SidebarRow,
   SidebarSection,
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
@@ -57,7 +56,6 @@ export function IssuesSidebar({
 
   const [hidden, toggleSection] = useHiddenSections('issues');
   const menuSections = [
-    { key: 'repo', label: t('navbar.repoSelector.placeholder', { defaultValue: 'Repository' }) },
     { key: 'views', label: t('issues.filters.stateLabel') },
     { key: 'labels', label: t('issues.filters.label') },
   ];
@@ -86,7 +84,6 @@ export function IssuesSidebar({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {!hidden.repo && <SidebarRepoSection persistKey="issues-sidebar-repo" />}
         {!hidden.views && (
         <SidebarSection
           persistKey="issues-sidebar-views"

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
-import { StatusDot, type DotTone } from './primitives';
+import { StatusDot, type DotTone } from '@/shared/components/ui-new/aside/primitives';
 
 // SHELL-SPEC R19: worker card — identity first (name + role chip), the model
 // is an attribute line (R31), context bar with % used, and Stop / Start task.

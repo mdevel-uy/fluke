@@ -156,7 +156,7 @@ html {
     --text-on-brand: 0 0% 100%;
     --brand-secondary: 234 89% 74%;
     --sel: 242 47% 34%; /* #312E81 — indigo-900 */
-    --card: 240 6% 10%; /* #18181B — zinc-900 */
+    --card: 222 32% 13%; /* navy panel (decisión Dani: dark azulado, sin #000) */
 
     --md-primary: var(--brand-on-surface);
     --md-on-primary: 210 60% 16%;
@@ -166,12 +166,12 @@ html {
     --md-primary-fixed-dim: 234 89% 74%;
     --md-inverse-primary: 243 75% 59%;
 
-    --md-secondary: 240 5% 65%;
+    --md-secondary: 220 12% 68%;
     --md-on-secondary: 0 0% 12%;
-    --md-secondary-container: 240 4% 16%; /* #27272A */
-    --md-on-secondary-container: 240 5% 84%;
-    --md-secondary-fixed: 240 5% 84%;
-    --md-secondary-fixed-dim: 240 5% 65%;
+    --md-secondary-container: 222 28% 19%; /* navy hover */
+    --md-on-secondary-container: 220 16% 86%;
+    --md-secondary-fixed: 220 16% 86%;
+    --md-secondary-fixed-dim: 220 12% 68%;
 
     --md-tertiary: 43 96% 56%; /* #FBBF24 */
     --md-on-tertiary: 36 60% 14%;
@@ -185,21 +185,23 @@ html {
     --md-error-container: 0 63% 31%;
     --md-on-error-container: 0 93% 94%;
 
-    --md-background: 240 10% 4%; /* #09090B — app ground (zinc-950) */
-    --md-surface: 240 6% 10%;
-    --md-surface-bright: 240 6% 10%;
-    --md-surface-dim: 240 6% 7%;
-    --md-surface-container-lowest: 240 6% 10%; /* #18181B — cards/panels */
-    --md-surface-container-low: 240 6% 7%; /* #101012 — inputs, rail */
-    --md-surface-container: 240 4% 16%; /* #27272A — hovers */
-    --md-surface-container-high: 240 5% 26%; /* #3F3F46 — pressed */
-    --md-surface-container-highest: 240 5% 34%;
+    /* Navy-slate dark scale (decisión Dani 29-jul: nada de negro casi puro
+       — hue 222 con saturación suave y piso levantado). */
+    --md-background: 222 40% 8%; /* ~#0C1424 — app ground */
+    --md-surface: 222 32% 13%;
+    --md-surface-bright: 222 32% 13%;
+    --md-surface-dim: 222 36% 10%;
+    --md-surface-container-lowest: 222 32% 13%; /* cards/panels */
+    --md-surface-container-low: 222 36% 10%; /* inputs, rail */
+    --md-surface-container: 222 28% 19%; /* hovers */
+    --md-surface-container-high: 222 22% 28%; /* pressed */
+    --md-surface-container-highest: 222 18% 36%;
 
-    --md-on-surface: 0 0% 98%; /* #FAFAFA */
-    --md-on-surface-variant: 240 5% 84%; /* #D4D4D8 */
-    --md-outline: 240 5% 65%; /* #A1A1AA — tertiary text */
-    --md-outline-variant: 240 5% 26%; /* #3F3F46 — default borders */
-    --outline-strong: 240 5% 34%; /* #52525B */
+    --md-on-surface: 210 20% 98%;
+    --md-on-surface-variant: 220 16% 86%;
+    --md-outline: 220 12% 68%; /* tertiary text */
+    --md-outline-variant: 222 20% 27%; /* default borders */
+    --outline-strong: 222 16% 35%;
 
     --md-inverse-surface: 0 0% 98%;
     --md-inverse-on-surface: 240 6% 10%;
@@ -208,9 +210,9 @@ html {
     --text-normal: var(--md-on-surface-variant);
     --text-low: var(--md-outline);
 
-    --_bg-primary-default: 240 6% 10%; /* canvas */
-    --_bg-secondary-default: 240 4% 16%; /* hover */
-    --_bg-panel-default: 240 7% 8%;
+    --_bg-primary-default: 222 32% 13%; /* canvas */
+    --_bg-secondary-default: 222 28% 19%; /* hover */
+    --_bg-panel-default: 222 38% 9%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,
@@ -232,13 +234,13 @@ html {
     --_warning-foreground: 43 96% 76%;
     --_info: 198 93% 60%; /* #38BDF8 */
     --_info-foreground: 198 93% 80%;
-    --_neutral: 240 4% 16%;
-    --_neutral-foreground: 0 0% 98%;
+    --_neutral: 222 28% 19%;
+    --_neutral-foreground: 210 20% 98%;
     --_destructive: 0 72% 51%;
     --_destructive-foreground: 0 0% 100%;
 
     /* Console (dark) */
-    --_console-background: 240 10% 4%;
+    --_console-background: 222 40% 8%;
     --_console-foreground: 0 0% 98%;
     --_console-success: 142 69% 58%;
     --_console-error: 0 91% 71%;

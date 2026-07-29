@@ -31,12 +31,14 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppUpdateStore } from '@/shared/stores/useAppUpdateStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
+import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
   getProjectDestination,
   isAnalystDeskDestination,
   isDashboardDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
+  isSourceControlDestination,
   isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
@@ -57,7 +59,6 @@ import {
 } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
 
-const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
 // Separators double as the divider's shadow: the Panel wrapper clips
@@ -178,6 +179,7 @@ export function SharedAppLayout() {
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isDashboardActive = isDashboardDestination(currentDestination);
+  const isSourceControlActive = isSourceControlDestination(currentDestination);
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
@@ -195,18 +197,53 @@ export function SharedAppLayout() {
   }, [activeProjectId, setSelectedProjectId]);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
-  // clicking any other item navigates to that section.
+  // clicking any other item navigates to that section. Workspaces and Editor
+  // share the workspaces section and switch its sidebar content instead
+  // (workspaces list vs file explorer), activity-bar style.
   const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const setLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.setLeftSidebarVisible
+  );
+  const workspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.workspacesSidebarMode
+  );
+  const setWorkspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.setWorkspacesSidebarMode
+  );
 
   const handleWorkspacesClick = useCallback(() => {
-    if (isWorkspacesActive) toggleLeftSidebar();
-    else void navigate({ to: '/workspaces' });
-  }, [isWorkspacesActive, toggleLeftSidebar, navigate]);
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'workspaces') {
+        setWorkspacesSidebarMode('workspaces');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('workspaces');
+      void navigate({ to: '/workspaces' });
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
 
   const handleDashboardClick = useCallback(() => {
     if (isDashboardActive) toggleLeftSidebar();
     else appNavigation.goToDashboard();
   }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
+
+  // SHELL-SPEC R34: rail badge = nº of fleet branches stopped on conflicts.
+  const sourceControlBadgeCount = useFleetConflictCount();
+
+  const handleSourceControlClick = useCallback(() => {
+    if (isSourceControlActive) toggleLeftSidebar();
+    else appNavigation.goToSourceControl();
+  }, [isSourceControlActive, toggleLeftSidebar, appNavigation]);
 
   const handleSprintClick = useCallback(() => {
     if (isSprintActive) toggleLeftSidebar();
@@ -228,34 +265,82 @@ export function SharedAppLayout() {
     else appNavigation.goToAnalystDesk();
   }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
+  // Editor rail item: switches the workspaces-section sidebar to the file
+  // explorer and surfaces the editor tab of the selected workspace.
+  const currentWorkspaceId =
+    currentDestination?.kind === 'workspace'
+      ? currentDestination.workspaceId
+      : undefined;
+  const isEditorActive =
+    isWorkspacesActive && workspacesSidebarMode === 'explorer';
+
+  const handleEditorClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'explorer') {
+        setWorkspacesSidebarMode('explorer');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('explorer');
+      void navigate({ to: '/workspaces' });
+    }
+    if (currentWorkspaceId) {
+      useUiPreferencesStore
+        .getState()
+        .openWorkspaceViewTab(currentWorkspaceId, 'editor');
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+    currentWorkspaceId,
+  ]);
+
+  // Search rail item: content search over the selected workspace's worktree.
+  const isSearchActive =
+    isWorkspacesActive && workspacesSidebarMode === 'search';
+
+  const handleSearchClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'search') {
+        setWorkspacesSidebarMode('search');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('search');
+      void navigate({ to: '/workspaces' });
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
+
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
   const sectionHasSidebar =
     isWorkspacesActive ||
+    isSourceControlActive ||
     isSprintActive ||
     isIssuesActive ||
     isWorkersActive ||
     isDashboardActive ||
     isAnalystDeskActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
-  const {
-    defaultLayout: shellSidebarLayout,
-    onLayoutChange: onShellSidebarLayoutChangeRaw,
-  } = useDefaultLayout({
-    storage: localStorage,
-    debounceSaveMs: 150,
-    id: SHELL_SIDEBAR_LAYOUT_ID,
-  });
-  // Only persist when the sidebar is mounted — a reduced layout would
-  // clobber the stored split (useDefaultLayout overwrites without merging).
-  const onShellSidebarLayoutChange = useCallback<
-    typeof onShellSidebarLayoutChangeRaw
-  >(
-    (layout) => {
-      if (showShellSidebar) onShellSidebarLayoutChangeRaw(layout);
-    },
-    [showShellSidebar, onShellSidebarLayoutChangeRaw]
-  );
+  // The horizontal split is intentionally NOT persisted: stored proportions
+  // re-applied after aside/terminal remounts made the sidebar grow on its
+  // own. Rule (decisión Dani): untouched, the sidebar always opens at its
+  // minimum; drags only last for the session.
 
   // SHELL-SPEC R18/R30: the shell owns the right aside panel; pages portal
   // their content in (ShellAsidePortal). Visibility = content + toggle.
@@ -311,12 +396,21 @@ export function SharedAppLayout() {
               {/* Desktop AppBar sidebar. */}
               <AppBar
                 onWorkspacesClick={handleWorkspacesClick}
+                onEditorClick={handleEditorClick}
+                onSearchClick={handleSearchClick}
+                onSourceControlClick={handleSourceControlClick}
                 onDashboardClick={handleDashboardClick}
                 onSprintClick={handleSprintClick}
                 onIssuesClick={handleIssuesClick}
                 onWorkersClick={handleWorkersClick}
                 onAnalystDeskClick={handleAnalystDeskClick}
-                isWorkspacesActive={isWorkspacesActive}
+                isWorkspacesActive={
+                  isWorkspacesActive && workspacesSidebarMode === 'workspaces'
+                }
+                isEditorActive={isEditorActive}
+                isSearchActive={isSearchActive}
+                isSourceControlActive={isSourceControlActive}
+                sourceControlBadgeCount={sourceControlBadgeCount}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}
@@ -327,15 +421,11 @@ export function SharedAppLayout() {
                 onOpenSettings={() => SettingsDialog.show()}
               />
               {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
-              <Group
-                orientation="horizontal"
-                className="flex-1 min-w-0 h-full"
-                defaultLayout={shellSidebarLayout}
-                onLayoutChange={onShellSidebarLayoutChange}
-              >
+              <Group orientation="horizontal" className="flex-1 min-w-0 h-full">
               {showShellSidebar && (
                 <Panel
                   id="shell-sidebar"
+                  defaultSize="220px"
                   minSize="220px"
                   maxSize="480px"
                   className="h-full overflow-hidden border-r border-md-outline-variant"
@@ -398,6 +488,7 @@ export function SharedAppLayout() {
               {showShellAside && (
                 <Panel
                   id="shell-aside"
+                  defaultSize="320px"
                   minSize="220px"
                   maxSize="480px"
                   className="h-full overflow-hidden border-l border-md-outline-variant"

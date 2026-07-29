@@ -42,14 +42,9 @@ interface ActionVisibilityOptions {
 export function useActionVisibilityContext(
   options?: ActionVisibilityOptions
 ): ActionVisibilityContext {
-  const { workspace, workspaceId, isCreateMode, repos } = useWorkspaceContext();
-  // Use workspace-specific panel state (pass undefined when in create mode)
-  const panelState = useWorkspacePanelState(
-    isCreateMode ? undefined : workspaceId
-  );
-  const activeViewTabs = useWorkspaceActiveViewTabs(
-    isCreateMode ? undefined : workspaceId
-  );
+  const { workspace, workspaceId, repos } = useWorkspaceContext();
+  const panelState = useWorkspacePanelState(workspaceId);
+  const activeViewTabs = useWorkspaceActiveViewTabs(workspaceId);
   const diffPathsSet = useDiffPaths();
   const diffViewMode = useDiffViewMode();
   const expanded = useUiPreferencesStore((s) => s.expanded);
@@ -150,7 +145,6 @@ export function useActionVisibilityContext(
       isLeftMainPanelVisible: panelState.isLeftMainPanelVisible,
       isRightSidebarVisible: panelState.isRightSidebarVisible,
       isTerminalVisible: panelState.isTerminalVisible,
-      isCreateMode,
       hasWorkspace: !!workspace,
       workspaceArchived: workspace?.archived ?? false,
       hasDiffs: diffPathsSet.size > 0,
@@ -180,7 +174,6 @@ export function useActionVisibilityContext(
     panelState.isLeftMainPanelVisible,
     panelState.isRightSidebarVisible,
     panelState.isTerminalVisible,
-    isCreateMode,
     workspace,
     repos,
     diffPathsSet,

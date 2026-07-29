@@ -137,7 +137,7 @@ export function NavbarContainer({
 }) {
   const { t } = useTranslation('common');
   const { executeAction } = useActions();
-  const { workspace: selectedWorkspace, isCreateMode } = useWorkspaceContext();
+  const { workspace: selectedWorkspace } = useWorkspaceContext();
   const { workspaces } = useUserContext();
   const syncErrorContext = useSyncErrorContext();
   const { remoteAuthDegraded, updateAndSaveConfig } = useUserSystem();
@@ -289,17 +289,12 @@ export function NavbarContainer({
     [layoutToggleItems, themeToggleItem]
   );
 
-  const navbarTitle = isCreateMode
-    ? 'Draft workspace'
-    : isOnProjectPage
-      ? orgName
-      : selectedWorkspace?.branch;
+  const navbarTitle = isOnProjectPage ? orgName : selectedWorkspace?.branch;
 
   // Breadcrumbs: Project / Issue / Workspace (only on workspace pages with linked project)
   const linkedProjectId = linkedRemoteWorkspace?.project_id ?? null;
   const linkedIssueId = linkedRemoteWorkspace?.issue_id ?? null;
-  const shouldResolveBreadcrumbData =
-    !isOnProjectPage && !isCreateMode && !!linkedProjectId;
+  const shouldResolveBreadcrumbData = !isOnProjectPage && !!linkedProjectId;
   const shouldResolveIssueBreadcrumb =
     shouldResolveBreadcrumbData && !!linkedIssueId;
 
@@ -381,13 +376,12 @@ export function NavbarContainer({
   const localBreadcrumbs = useMemo(():
     | NavbarBreadcrumbItem[]
     | undefined => {
-    if (isCreateMode || isOnProjectPage) return undefined;
+    if (isOnProjectPage) return undefined;
     const kind = destination?.kind ?? null;
     const section:
       | { label: string; goTo: () => void }
       | null =
       kind === 'workspaces' ||
-      kind === 'workspaces-create' ||
       kind === 'workspace' ||
       kind === 'workspace-vscode'
         ? {
@@ -438,7 +432,6 @@ export function NavbarContainer({
     }
     return items;
   }, [
-    isCreateMode,
     isOnProjectPage,
     destination?.kind,
     activeRepo,

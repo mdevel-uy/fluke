@@ -87,6 +87,195 @@ pub struct GitRemote {
     pub url: String,
 }
 
+/// Tag + target commit, mirrored inline in the frontend client.
+#[derive(Debug, Clone, Serialize)]
+pub struct GitTagInfo {
+    pub name: String,
+    pub target_oid: String,
+}
+
+/// Entry of a directory listing at a commit (mirrored inline in the client).
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitTreeEntry {
+    pub name: String,
+    pub is_directory: bool,
+}
+
+// Commit detail for the source-control aside (mirrored inline in the client).
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitFileChange {
+    pub path: String,
+    /// "added" | "deleted" | "modified" | "renamed"
+    pub status: String,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitDetail {
+    pub oid: String,
+    pub short_oid: String,
+    /// Full commit message (subject + body).
+    pub message: String,
+    pub author: String,
+    pub author_email: String,
+    pub committed_at: DateTime<Utc>,
+    pub parent_oids: Vec<String>,
+    pub files: Vec<CommitFileChange>,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+// Fleet graph (SHELL-SPEC V4): multi-branch revwalk over the base branch
+// plus the attempt-branch tips. Mirrored inline in the frontend client
+// (like the editor endpoints), so not part of generate_types.
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FleetGraphCommit {
+    pub oid: String,
+    pub short_oid: String,
+    pub parent_oids: Vec<String>,
+    pub summary: String,
+    pub author: String,
+    pub committed_at: DateTime<Utc>,
+    /// Attempt branch this commit is exclusive to; `None` = reachable from base.
+    pub branch: Option<String>,
+    /// Branch names whose tip is exactly this commit.
+    pub tip_of: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FleetGraphTip {
+    pub branch: String,
+    pub oid: String,
+    pub ahead_from_base: usize,
+    pub behind_from_base: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FleetGraph {
+    pub base_branch: String,
+    pub commits: Vec<FleetGraphCommit>,
+    pub tips: Vec<FleetGraphTip>,
+    /// More history exists past this page (`offset + limit` window).
+    pub has_more: bool,
+}
+
+// Selective staging (SHELL-SPEC V5/R38): index-aware view of the worktree.
+// Mirrored inline in the frontend client — not part of generate_types.
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StagingHunk {
+    /// The `@@ -a,b +c,d @@ ctx` header line.
+    pub header: String,
+    /// Raw diff body lines (leading ' ', '+', '-' or '\').
+    pub lines: Vec<String>,
+    /// Standalone patch (file headers + this hunk) for `git apply --cached`.
+    pub patch: String,
+    pub added: usize,
+    pub removed: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StagingFile {
+    pub path: String,
+    /// "modified" | "added" | "deleted" | "renamed" | "untracked"
+    pub status: String,
+    pub is_binary: bool,
+    pub staged_hunks: Vec<StagingHunk>,
+    pub unstaged_hunks: Vec<StagingHunk>,
+    pub has_staged_changes: bool,
+    pub has_unstaged_changes: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StagingState {
+    pub files: Vec<StagingFile>,
+}
+
+#[derive(Debug, Default)]
+struct ParsedDiffFile {
+    path: String,
+    header: Vec<String>,
+    is_binary: bool,
+    hunks: Vec<StagingHunk>,
+}
+
+/// Parse `git diff` unified output into files + hunks, building a standalone
+/// per-hunk patch (file header block + hunk) ready for `git apply --cached`.
+fn parse_unified_diff(diff: &str) -> Vec<ParsedDiffFile> {
+    let mut files: Vec<ParsedDiffFile> = Vec::new();
+    let mut current: Option<ParsedDiffFile> = None;
+    let mut in_hunks = false;
+
+    let finish = |file: Option<ParsedDiffFile>, files: &mut Vec<ParsedDiffFile>| {
+        if let Some(mut file) = file {
+            let header_block = file.header.join("\n");
+            for hunk in &mut file.hunks {
+                let body = hunk.lines.join("\n");
+                let mut patch = format!("{header_block}\n{}\n", hunk.header);
+                if !body.is_empty() {
+                    patch.push_str(&body);
+                    patch.push('\n');
+                }
+                hunk.patch = patch;
+            }
+            files.push(file);
+        }
+    };
+
+    for line in diff.lines() {
+        if line.starts_with("diff --git ") {
+            finish(current.take(), &mut files);
+            current = Some(ParsedDiffFile {
+                header: vec![line.to_string()],
+                ..Default::default()
+            });
+            in_hunks = false;
+            continue;
+        }
+        let Some(file) = current.as_mut() else {
+            continue;
+        };
+        if line.starts_with("@@") {
+            in_hunks = true;
+            file.hunks.push(StagingHunk {
+                header: line.to_string(),
+                lines: Vec::new(),
+                patch: String::new(),
+                added: 0,
+                removed: 0,
+            });
+            continue;
+        }
+        if in_hunks {
+            if let Some(hunk) = file.hunks.last_mut() {
+                if line.starts_with('+') {
+                    hunk.added += 1;
+                } else if line.starts_with('-') {
+                    hunk.removed += 1;
+                }
+                hunk.lines.push(line.to_string());
+            }
+            continue;
+        }
+        if line.starts_with("Binary files") || line.starts_with("GIT binary patch") {
+            file.is_binary = true;
+        }
+        if let Some(path) = line.strip_prefix("+++ b/") {
+            file.path = path.to_string();
+        } else if let Some(path) = line.strip_prefix("--- a/")
+            && file.path.is_empty()
+        {
+            file.path = path.to_string();
+        }
+        file.header.push(line.to_string());
+    }
+    finish(current, &mut files);
+    files
+}
+
 #[derive(Debug, Clone)]
 pub struct HeadInfo {
     pub branch: String,
@@ -1849,6 +2038,431 @@ impl GitService {
         }
 
         Ok(stats)
+    }
+
+    /// All tags with their target commit (annotated tags peeled), in plain
+    /// `git tag` order (lexicographic). Mirrored inline in the client.
+    pub fn get_all_tags(&self, repo_path: &Path) -> Result<Vec<GitTagInfo>, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let names = repo.tag_names(None)?;
+        let mut tags = Vec::new();
+        for name in names.iter().flatten() {
+            let refname = format!("refs/tags/{name}");
+            if let Ok(reference) = repo.find_reference(&refname)
+                && let Ok(commit) = reference.peel_to_commit()
+            {
+                tags.push(GitTagInfo {
+                    name: name.to_string(),
+                    target_oid: commit.id().to_string(),
+                });
+            }
+        }
+        Ok(tags)
+    }
+
+    /// Create a local branch pointing at an arbitrary commit (graph inline
+    /// action). Fails if the name is taken or invalid.
+    pub fn create_branch_at(
+        &self,
+        repo_path: &Path,
+        name: &str,
+        oid_str: &str,
+    ) -> Result<(), GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let commit = repo.find_commit(git2::Oid::from_str(oid_str)?)?;
+        repo.branch(name, &commit, false)?;
+        Ok(())
+    }
+
+    /// Directory listing at a commit (read-only tree browsing for the
+    /// embedded editor). Empty `rel_path` lists the root.
+    pub fn get_commit_tree(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<Vec<CommitTreeEntry>, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let root = repo.find_commit(oid)?.tree()?;
+        let tree = if rel_path.is_empty() {
+            root
+        } else {
+            root.get_path(Path::new(rel_path))?
+                .to_object(&repo)?
+                .into_tree()
+                .map_err(|_| {
+                    GitServiceError::InvalidRepository("Not a directory".to_string())
+                })?
+        };
+        let mut entries: Vec<CommitTreeEntry> = tree
+            .iter()
+            .filter_map(|entry| {
+                let name = entry.name()?.to_string();
+                Some(CommitTreeEntry {
+                    is_directory: entry.kind() == Some(git2::ObjectType::Tree),
+                    name,
+                })
+            })
+            .collect();
+        entries.sort_by(|a, b| {
+            b.is_directory
+                .cmp(&a.is_directory)
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        Ok(entries)
+    }
+
+    /// Unified diff of a single file in a commit (vs its first parent), as
+    /// a plain patch string for the editor's diff tabs.
+    pub fn get_commit_file_diff(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<String, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+        let parent_tree = match commit.parent(0) {
+            Ok(parent) => Some(parent.tree()?),
+            Err(_) => None,
+        };
+        let mut opts = DiffOptions::new();
+        opts.pathspec(rel_path);
+        let diff = repo.diff_tree_to_tree(
+            parent_tree.as_ref(),
+            Some(&commit.tree()?),
+            Some(&mut opts),
+        )?;
+        let patch = match git2::Patch::from_diff(&diff, 0)? {
+            Some(mut patch) => patch.to_buf()?.as_str().unwrap_or_default().to_string(),
+            None => String::new(),
+        };
+        Ok(patch)
+    }
+
+    /// UTF-8 content of a file at a given commit (read-only snapshots for
+    /// the embedded editor). Size-capped like the live editor endpoint.
+    pub fn get_commit_file(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<String, GitServiceError> {
+        const MAX_BYTES: usize = 2 * 1024 * 1024;
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+        let entry = commit.tree()?.get_path(Path::new(rel_path))?;
+        let blob = entry
+            .to_object(&repo)?
+            .into_blob()
+            .map_err(|_| GitServiceError::InvalidRepository("Not a file".to_string()))?;
+        if blob.content().len() > MAX_BYTES {
+            return Err(GitServiceError::InvalidRepository(
+                "File too large for the editor".to_string(),
+            ));
+        }
+        String::from_utf8(blob.content().to_vec()).map_err(|_| {
+            GitServiceError::InvalidRepository("File is not valid UTF-8".to_string())
+        })
+    }
+
+    /// Full detail of one commit: message, identity and per-file line stats
+    /// against its first parent (or the empty tree for a root commit).
+    pub fn get_commit_detail(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+    ) -> Result<CommitDetail, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+
+        let parent_tree = match commit.parent(0) {
+            Ok(parent) => Some(parent.tree()?),
+            Err(_) => None,
+        };
+        let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit.tree()?), None)?;
+
+        let mut files = Vec::new();
+        let mut additions = 0usize;
+        let mut deletions = 0usize;
+        for (index, delta) in diff.deltas().enumerate() {
+            let path = delta
+                .new_file()
+                .path()
+                .or_else(|| delta.old_file().path())
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let status = match delta.status() {
+                git2::Delta::Added => "added",
+                git2::Delta::Deleted => "deleted",
+                git2::Delta::Renamed => "renamed",
+                _ => "modified",
+            }
+            .to_string();
+            let (file_add, file_del) =
+                match git2::Patch::from_diff(&diff, index) {
+                    Ok(Some(patch)) => {
+                        let (_, add, del) = patch.line_stats()?;
+                        (add, del)
+                    }
+                    _ => (0, 0),
+                };
+            additions += file_add;
+            deletions += file_del;
+            files.push(CommitFileChange {
+                path,
+                status,
+                additions: file_add,
+                deletions: file_del,
+            });
+        }
+
+        Ok(CommitDetail {
+            oid: oid.to_string(),
+            short_oid: oid.to_string()[..7].to_string(),
+            message: commit.message().unwrap_or_default().trim_end().to_string(),
+            author: commit.author().name().unwrap_or_default().to_string(),
+            author_email: commit.author().email().unwrap_or_default().to_string(),
+            committed_at: DateTime::from_timestamp(commit.time().seconds(), 0)
+                .unwrap_or_else(Utc::now),
+            parent_oids: commit.parent_ids().map(|p| p.to_string()).collect(),
+            files,
+            additions,
+            deletions,
+        })
+    }
+
+    /// Multi-branch commit graph for the fleet view (SHELL-SPEC V4): commits
+    /// exclusive to each attempt branch (tip ^base) tagged with the branch
+    /// name, plus recent base commits, merged newest-first. Unresolvable tips
+    /// are skipped so callers can pass workspace branches blindly.
+    pub fn get_fleet_graph(
+        &self,
+        repo_path: &Path,
+        base_branch: &str,
+        tip_branches: &[String],
+        limit: usize,
+        offset: usize,
+    ) -> Result<FleetGraph, GitServiceError> {
+        const MAX_COMMITS_PER_BRANCH: usize = 50;
+        let window = offset.saturating_add(limit);
+
+        let repo = self.open_repo(repo_path)?;
+        let base_oid = Self::find_branch(&repo, base_branch)?
+            .get()
+            .peel_to_commit()?
+            .id();
+
+        let commit_info = |repo: &Repository,
+                           oid: git2::Oid,
+                           branch: Option<String>|
+         -> Result<FleetGraphCommit, GitServiceError> {
+            let commit = repo.find_commit(oid)?;
+            let committed_at = DateTime::from_timestamp(commit.time().seconds(), 0)
+                .unwrap_or_else(Utc::now);
+            Ok(FleetGraphCommit {
+                oid: oid.to_string(),
+                short_oid: oid.to_string()[..7].to_string(),
+                parent_oids: commit.parent_ids().map(|p| p.to_string()).collect(),
+                summary: commit.summary().unwrap_or_default().to_string(),
+                author: commit
+                    .author()
+                    .name()
+                    .unwrap_or_default()
+                    .to_string(),
+                committed_at,
+                branch,
+                tip_of: Vec::new(),
+            })
+        };
+
+        let mut commits: Vec<FleetGraphCommit> = Vec::new();
+        let mut seen: HashSet<git2::Oid> = HashSet::new();
+        let mut tips: Vec<FleetGraphTip> = Vec::new();
+        let mut tip_names_by_oid: HashMap<String, Vec<String>> = HashMap::new();
+
+        for branch_name in tip_branches {
+            let Ok(branch) = Self::find_branch(&repo, branch_name) else {
+                continue;
+            };
+            let Ok(tip_commit) = branch.get().peel_to_commit() else {
+                continue;
+            };
+            let tip_oid = tip_commit.id();
+            let (ahead, behind) = repo.graph_ahead_behind(tip_oid, base_oid).unwrap_or((0, 0));
+            tips.push(FleetGraphTip {
+                branch: branch_name.clone(),
+                oid: tip_oid.to_string(),
+                ahead_from_base: ahead,
+                behind_from_base: behind,
+            });
+            tip_names_by_oid
+                .entry(tip_oid.to_string())
+                .or_default()
+                .push(branch_name.clone());
+
+            // Commits exclusive to this branch (not reachable from base).
+            let mut walk = repo.revwalk()?;
+            walk.push(tip_oid)?;
+            walk.hide(base_oid)?;
+            walk.set_sorting(Sort::TIME)?;
+            for oid in walk.take(MAX_COMMITS_PER_BRANCH) {
+                let oid = oid?;
+                // A commit shared by two attempt branches keeps its first tag.
+                if !seen.insert(oid) {
+                    continue;
+                }
+                commits.push(commit_info(&repo, oid, Some(branch_name.clone()))?);
+            }
+        }
+
+        // Recent base commits (includes merged attempt branches' history).
+        // Walk one past the window so has_more is exact.
+        let mut walk = repo.revwalk()?;
+        walk.push(base_oid)?;
+        walk.set_sorting(Sort::TIME)?;
+        for oid in walk.take(window + 1) {
+            let oid = oid?;
+            if !seen.insert(oid) {
+                continue;
+            }
+            commits.push(commit_info(&repo, oid, None)?);
+        }
+
+        commits.sort_by(|a, b| b.committed_at.cmp(&a.committed_at));
+        let has_more = commits.len() > window;
+        let end = window.min(commits.len());
+        let start = offset.min(end);
+        let mut commits: Vec<FleetGraphCommit> = commits.drain(start..end).collect();
+
+        for commit in &mut commits {
+            if let Some(names) = tip_names_by_oid.get(&commit.oid) {
+                commit.tip_of = names.clone();
+            }
+        }
+
+        Ok(FleetGraph {
+            base_branch: base_branch.to_string(),
+            commits,
+            tips,
+            has_more,
+        })
+    }
+
+    /// Index-aware staging view (SHELL-SPEC V5): per-file staged/unstaged
+    /// hunks from `git diff` / `git diff --cached`, plus untracked files.
+    pub fn get_staging_state(
+        &self,
+        worktree_path: &Path,
+    ) -> Result<StagingState, GitServiceError> {
+        let cli = GitCli::new();
+        let status = cli.get_worktree_status(worktree_path)?;
+        let unstaged_raw = cli.git(worktree_path, ["diff", "--no-color", "--no-ext-diff"])?;
+        let staged_raw = cli.git(
+            worktree_path,
+            ["diff", "--cached", "--no-color", "--no-ext-diff"],
+        )?;
+
+        let mut files: Vec<StagingFile> = Vec::new();
+        let mut index_by_path: HashMap<String, usize> = HashMap::new();
+        let entry_for = |files: &mut Vec<StagingFile>,
+                             index_by_path: &mut HashMap<String, usize>,
+                             path: String|
+         -> usize {
+            if let Some(&i) = index_by_path.get(&path) {
+                return i;
+            }
+            files.push(StagingFile {
+                path: path.clone(),
+                status: "modified".to_string(),
+                is_binary: false,
+                staged_hunks: Vec::new(),
+                unstaged_hunks: Vec::new(),
+                has_staged_changes: false,
+                has_unstaged_changes: false,
+            });
+            index_by_path.insert(path, files.len() - 1);
+            files.len() - 1
+        };
+
+        for parsed in parse_unified_diff(&unstaged_raw) {
+            let i = entry_for(&mut files, &mut index_by_path, parsed.path.clone());
+            files[i].is_binary |= parsed.is_binary;
+            files[i].unstaged_hunks = parsed.hunks;
+        }
+        for parsed in parse_unified_diff(&staged_raw) {
+            let i = entry_for(&mut files, &mut index_by_path, parsed.path.clone());
+            files[i].is_binary |= parsed.is_binary;
+            files[i].staged_hunks = parsed.hunks;
+        }
+
+        for entry in &status.entries {
+            let path = String::from_utf8_lossy(&entry.path).to_string();
+            let i = entry_for(&mut files, &mut index_by_path, path);
+            let file = &mut files[i];
+            if entry.is_untracked {
+                file.status = "untracked".to_string();
+                file.has_unstaged_changes = true;
+                continue;
+            }
+            file.has_staged_changes = entry.staged != ' ' && entry.staged != '?';
+            file.has_unstaged_changes = entry.unstaged != ' ' && entry.unstaged != '?';
+            file.status = match (entry.staged, entry.unstaged) {
+                ('A', _) | (_, 'A') => "added",
+                ('D', _) | (_, 'D') => "deleted",
+                ('R', _) | (_, 'R') => "renamed",
+                _ => "modified",
+            }
+            .to_string();
+        }
+
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(StagingState { files })
+    }
+
+    /// Stage a whole path (tracked or untracked).
+    pub fn stage_path(
+        &self,
+        worktree_path: &Path,
+        path: &str,
+    ) -> Result<(), GitServiceError> {
+        Ok(GitCli::new().add_path(worktree_path, path)?)
+    }
+
+    /// Unstage a whole path, keeping worktree content.
+    pub fn unstage_path(
+        &self,
+        worktree_path: &Path,
+        path: &str,
+    ) -> Result<(), GitServiceError> {
+        Ok(GitCli::new().restore_staged(worktree_path, path)?)
+    }
+
+    /// Stage (or with `reverse`, unstage) a single hunk patch in the index.
+    pub fn apply_hunk_to_index(
+        &self,
+        worktree_path: &Path,
+        patch: &str,
+        reverse: bool,
+    ) -> Result<(), GitServiceError> {
+        Ok(GitCli::new().apply_cached(worktree_path, patch, reverse)?)
+    }
+
+    /// Commit only what is staged; returns the new head OID.
+    pub fn commit_staged(
+        &self,
+        worktree_path: &Path,
+        message: &str,
+    ) -> Result<String, GitServiceError> {
+        let cli = GitCli::new();
+        self.ensure_cli_commit_identity(worktree_path)?;
+        cli.commit(worktree_path, message)?;
+        let repo = self.open_repo(worktree_path)?;
+        Ok(repo.head()?.peel_to_commit()?.id().to_string())
     }
 }
 

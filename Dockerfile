@@ -89,6 +89,15 @@ RUN apt-get update \
 
 WORKDIR /repos
 
+# Coding-agent executors spawn `npx -y @anthropic-ai/claude-code…` (see
+# crates/executors) — the runtime needs a real Node toolchain. Copied from
+# the official image (same bookworm glibc base) instead of apt's ancient
+# nodejs; npm/npx are symlinks into the bundled npm package.
+COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+
 COPY --from=builder /usr/local/bin/server /usr/local/bin/server
 
 RUN mkdir -p /repos \

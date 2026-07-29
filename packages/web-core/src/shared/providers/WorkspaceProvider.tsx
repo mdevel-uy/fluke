@@ -12,7 +12,6 @@ import { workspacesApi } from '@/shared/lib/api';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
 import type { DiffStats } from 'shared/types';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 
 import { WorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 
@@ -23,10 +22,7 @@ interface WorkspaceProviderProps {
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const { workspaceId } = useParams({ strict: false });
   const appNavigation = useAppNavigation();
-  const currentDestination = useCurrentAppDestination();
   const queryClient = useQueryClient();
-
-  const isCreateMode = currentDestination?.kind === 'workspaces-create';
 
   const {
     workspaces: activeWorkspaces,
@@ -36,7 +32,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
 
   const { data: workspace, isLoading: isLoadingWorkspace } = useWorkspaceRecord(
     workspaceId,
-    { enabled: !!workspaceId && !isCreateMode }
+    { enabled: !!workspaceId }
   );
 
   const {
@@ -48,11 +44,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     isLoading: isSessionsLoading,
     isNewSessionMode,
     startNewSession,
-  } = useWorkspaceSessions(workspaceId, { enabled: !isCreateMode });
+  } = useWorkspaceSessions(workspaceId);
 
-  const { repos, isLoading: isReposLoading } = useWorkspaceRepo(workspaceId, {
-    enabled: !isCreateMode,
-  });
+  const { repos, isLoading: isReposLoading } = useWorkspaceRepo(workspaceId);
 
   // TODO: Support multiple repos - currently only fetches comments from the primary repo.
   const primaryRepoId = repos[0]?.id;
@@ -74,10 +68,10 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   } = useGitHubComments({
     workspaceId,
     repoId: primaryRepoId,
-    enabled: !isCreateMode && hasPrAttached,
+    enabled: hasPrAttached,
   });
 
-  const { diffs } = useDiffStream(workspaceId ?? null, !isCreateMode);
+  const { diffs } = useDiffStream(workspaceId ?? null, true);
 
   const diffPaths = useMemo(
     () =>
@@ -164,7 +158,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const isLoading = isLoadingList || isLoadingWorkspace;
 
   useEffect(() => {
-    if (!workspaceId || isCreateMode) return;
+    if (!workspaceId) return;
 
     workspacesApi
       .markSeen(workspaceId)
@@ -174,18 +168,11 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       .catch((error) => {
         console.warn('Failed to mark workspace as seen:', error);
       });
-  }, [workspaceId, isCreateMode, queryClient]);
+  }, [workspaceId, queryClient]);
 
   const selectWorkspace = useCallback(
     (id: string) => {
       appNavigation.goToWorkspace(id);
-    },
-    [appNavigation]
-  );
-
-  const navigateToCreate = useMemo(
-    () => () => {
-      appNavigation.goToWorkspacesCreate();
     },
     [appNavigation]
   );
@@ -198,9 +185,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       archivedWorkspaces,
       isWorkspacesListLoading: isLoadingList,
       isLoading,
-      isCreateMode,
       selectWorkspace,
-      navigateToCreate,
       sessions,
       selectedSession,
       selectedSessionId,
@@ -219,9 +204,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       archivedWorkspaces,
       isLoadingList,
       isLoading,
-      isCreateMode,
       selectWorkspace,
-      navigateToCreate,
       sessions,
       selectedSession,
       selectedSessionId,

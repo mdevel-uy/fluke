@@ -1,0 +1,24 @@
+services:
+  vibe-kanban:
+    image: vibe-kanban:local-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      RUST_LOG: info
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Fixed port so the preview/editor iframes can reach the proxy from the
+      # host browser ({port}--{hostId}.localhost:3009).
+      PREVIEW_PROXY_PORT: 3009
+    ports:
+      - "3000:3000"
+      - "3009:3009"
+    volumes:
+      - vk-repos:/repos
+      - vk-home:/home/appuser
+    restart: unless-stopped
+
+volumes:
+  vk-repos:
+  vk-home:

@@ -288,6 +288,10 @@ export const PERSIST_KEYS = {
   asideGitSection: 'aside-git-section',
   asidePrSection: 'aside-pr-section',
   asideQuickActions: 'aside-quick-actions',
+  asideConflictsSection: 'aside-conflicts-section',
+  asideEditorSource: 'aside-editor-source',
+  asideEditorOpenFiles: 'aside-editor-open-files',
+  asideEditorChanges: 'aside-editor-changes',
   // Dynamic keys (use helper functions)
   repoCard: (repoId: string) => `repo-card-${repoId}` as const,
 } as const;
@@ -315,6 +319,10 @@ export type PersistKey =
   | typeof PERSIST_KEYS.asideGitSection
   | typeof PERSIST_KEYS.asidePrSection
   | typeof PERSIST_KEYS.asideQuickActions
+  | typeof PERSIST_KEYS.asideConflictsSection
+  | typeof PERSIST_KEYS.asideEditorSource
+  | typeof PERSIST_KEYS.asideEditorOpenFiles
+  | typeof PERSIST_KEYS.asideEditorChanges
   | `repo-card-${string}`
   | `diff:${string}`
   | `edit:${string}`
@@ -343,6 +351,12 @@ type State = {
   isRightSidebarVisible: boolean;
   isTerminalVisible: boolean;
   previewRefreshKey: number;
+  /**
+   * What the workspaces-section shell sidebar shows: the workspaces list,
+   * the file explorer or the content search of the selected workspace
+   * (rail Editor/Search items, VSCode activity-bar style).
+   */
+  workspacesSidebarMode: 'workspaces' | 'explorer' | 'search';
   // Note: Kanban issue panel state (selectedKanbanIssueId, createMode, etc.)
   // is derived from URL via app navigation route state
 
@@ -402,6 +416,9 @@ type State = {
   // are handled by app navigation
   setLeftSidebarVisible: (value: boolean) => void;
   setLeftMainPanelVisible: (value: boolean, workspaceId?: string) => void;
+  setWorkspacesSidebarMode: (
+    mode: 'workspaces' | 'explorer' | 'search'
+  ) => void;
   triggerPreviewRefresh: () => void;
 
   // Workspace-specific panel state actions
@@ -490,6 +507,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   // Global layout state
   layoutMode: 'workspaces' as LayoutMode,
   isLeftSidebarVisible: true,
+  workspacesSidebarMode: 'workspaces' as const,
   isRightSidebarVisible: true,
   isTerminalVisible: false,
   previewRefreshKey: 0,
@@ -569,6 +587,7 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   setTerminalVisible: (value) => set({ isTerminalVisible: value }),
 
   setLeftSidebarVisible: (value) => set({ isLeftSidebarVisible: value }),
+  setWorkspacesSidebarMode: (mode) => set({ workspacesSidebarMode: mode }),
 
   setLeftMainPanelVisible: (value, workspaceId) => {
     if (!workspaceId) return;

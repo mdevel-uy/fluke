@@ -54,13 +54,15 @@ export function useWorkspaceShortcuts() {
 
   useHotkeys('g>s', () => execute(Actions.Settings), OPTIONS);
 
-  useHotkeys('w>d', () => execute(Actions.DuplicateWorkspace), OPTIONS);
+  useHotkeys('mod+shift+f', () => execute(Actions.SearchInFiles), OPTIONS);
+
   useHotkeys('w>r', () => execute(Actions.RenameWorkspace), OPTIONS);
   useHotkeys('w>p', () => execute(Actions.PinWorkspace), OPTIONS);
   useHotkeys('w>a', () => execute(Actions.ArchiveWorkspace), OPTIONS);
   useHotkeys('w>x', () => execute(Actions.DeleteWorkspace), OPTIONS);
 
   useHotkeys('v>c', () => execute(Actions.ToggleChangesMode), OPTIONS);
+  useHotkeys('v>e', () => execute(Actions.ToggleEditorMode), OPTIONS);
   useHotkeys('v>l', () => execute(Actions.ToggleLogsMode), OPTIONS);
   useHotkeys('v>p', () => execute(Actions.TogglePreviewMode), OPTIONS);
   useHotkeys('v>s', () => execute(Actions.ToggleLeftSidebar), OPTIONS);

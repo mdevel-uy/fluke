@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   MessageSquare,
   FileDiff,
+  FileCode,
   ScrollText,
   Globe,
   X,
@@ -35,6 +36,7 @@ const DRAG_MIME = 'application/x-vk-workspace-tab';
 const TAB_ICONS: Record<WorkspaceTabId, LucideIcon> = {
   chat: MessageSquare,
   changes: FileDiff,
+  editor: FileCode,
   logs: ScrollText,
   preview: Globe,
 };
@@ -74,6 +76,7 @@ export function WorkspaceTabGroups({
       ({
         chat: t('workspaces.tabs.chat', { defaultValue: 'Chat' }),
         changes: t('workspaces.tabs.changes', { defaultValue: 'Changes' }),
+        editor: t('workspaces.tabs.editor', { defaultValue: 'Editor' }),
         logs: t('workspaces.tabs.logs', { defaultValue: 'Logs' }),
         preview: t('workspaces.tabs.preview', { defaultValue: 'Preview' }),
       })[tab],

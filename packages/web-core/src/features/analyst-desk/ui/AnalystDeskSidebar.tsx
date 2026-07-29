@@ -6,7 +6,6 @@ import {
   useHiddenSections,
 } from '@vibe/ui/components/SidebarSectionsMenu';
 import {
-  SidebarRepoSection,
   SidebarRow,
   SidebarSection,
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
@@ -18,8 +17,8 @@ interface AnalystDeskSidebarProps {
 }
 
 /**
- * Shell sidebar for the Analyst Desk section: repository picker plus the
- * analyst roster (selection drives the desk's active analyst).
+ * Shell sidebar for the Analyst Desk section: the analyst roster
+ * (selection drives the desk's active analyst).
  */
 export function AnalystDeskSidebar({
   analysts,
@@ -30,12 +29,6 @@ export function AnalystDeskSidebar({
 
   const [hidden, toggleSection] = useHiddenSections('analyst-desk');
   const menuSections = [
-    {
-      key: 'repo',
-      label: t('navbar.repoSelector.placeholder', {
-        defaultValue: 'Repository',
-      }),
-    },
     { key: 'analysts', label: t('analystDesk.analystsLabel') },
   ];
 
@@ -55,9 +48,6 @@ export function AnalystDeskSidebar({
       />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {!hidden.repo && (
-          <SidebarRepoSection persistKey="analyst-desk-sidebar-repo" />
-        )}
         {!hidden.analysts && analysts.length > 0 && (
           <SidebarSection
             persistKey="analyst-desk-sidebar-analysts"

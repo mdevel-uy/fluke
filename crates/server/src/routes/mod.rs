@@ -11,6 +11,7 @@ pub mod approvals;
 pub mod attachments;
 pub mod config;
 pub mod containers;
+pub mod editor_server;
 pub mod events;
 pub mod execution_processes;
 pub mod filesystem;
@@ -61,6 +62,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(releases::router())
         .merge(sessions::router(&deployment))
         .merge(terminal::router())
+        .merge(editor_server::router())
         .route("/ssh-session", get(ssh_session::ssh_session_ws))
         .nest("/remote", remote::router())
         .merge(webrtc::router())

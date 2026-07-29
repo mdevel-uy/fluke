@@ -296,6 +296,34 @@ impl GitCli {
         Ok(())
     }
 
+    /// Stage a single path (also picks up untracked files).
+    pub fn add_path(&self, worktree_path: &Path, path: &str) -> Result<(), GitCliError> {
+        self.git(worktree_path, ["add", "--", path])?;
+        Ok(())
+    }
+
+    /// Unstage a single path, keeping the worktree content untouched.
+    pub fn restore_staged(&self, worktree_path: &Path, path: &str) -> Result<(), GitCliError> {
+        self.git(worktree_path, ["restore", "--staged", "--", path])?;
+        Ok(())
+    }
+
+    /// Apply a patch to the index only — stages (or with `reverse`, unstages)
+    /// exactly the hunks in the patch without touching the worktree.
+    pub fn apply_cached(
+        &self,
+        worktree_path: &Path,
+        patch: &str,
+        reverse: bool,
+    ) -> Result<(), GitCliError> {
+        let mut args = vec!["apply", "--cached", "--whitespace=nowarn"];
+        if reverse {
+            args.push("--reverse");
+        }
+        self.git_with_stdin(worktree_path, args, None, patch.as_bytes())?;
+        Ok(())
+    }
+
     pub fn list_worktrees(&self, repo_path: &Path) -> Result<Vec<WorktreeEntry>, GitCliError> {
         let out = self.git(repo_path, ["worktree", "list", "--porcelain"])?;
         let mut entries = Vec::new();

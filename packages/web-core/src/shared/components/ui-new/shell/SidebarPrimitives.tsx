@@ -1,11 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { ResizableSidebarSection } from '@vibe/ui/components/ResizableSidebarSection';
 import { cn } from '@/shared/lib/utils';
-import { useRepos, repoLabel } from '@/shared/hooks/useRepos';
-import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
-import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 /** 22px single-select row for shell sidebar filter/nav lists (SHELL-SPEC R11). */
 export function SidebarRow({
@@ -65,59 +59,5 @@ export function SidebarSection({
   );
 }
 
-/**
- * Repository picker section for repo-scoped sidebars (Sprint, Issues).
- * Replaces the old NavbarRepoSelector (removed in SHELL-SPEC F1/R4): the
- * repo selection store is the same, and Sprint/Issues keep mirroring the
- * repo into their URL.
- */
-export function SidebarRepoSection({ persistKey }: { persistKey: string }) {
-  const { t } = useTranslation('common');
-  const { repos } = useRepos();
-  const destination = useCurrentAppDestination();
-  const appNavigation = useAppNavigation();
-  const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
-  const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
-
-  const kind = destination?.kind ?? null;
-  const selectedRepoId = useMemo(() => {
-    if (storedRepoId && repos.some((r) => r.id === storedRepoId)) {
-      return storedRepoId;
-    }
-    return repos[0]?.id ?? null;
-  }, [storedRepoId, repos]);
-
-  const handleSelect = useCallback(
-    (repoId: string) => {
-      setStoredRepoId(repoId);
-      if (kind === 'sprint') appNavigation.goToSprint(repoId);
-      else if (kind === 'issues') appNavigation.goToIssues(repoId);
-    },
-    [setStoredRepoId, kind, appNavigation]
-  );
-
-  if (repos.length === 0) return null;
-
-  return (
-    <SidebarSection
-      persistKey={persistKey}
-      title={t('navbar.repoSelector.placeholder', {
-        defaultValue: 'Repository',
-      })}
-      count={repos.length}
-      defaultOpen={repos.length > 1}
-    >
-      {repos.map((repo) => (
-        <SidebarRow
-          key={repo.id}
-          selected={repo.id === selectedRepoId}
-          onClick={() => handleSelect(repo.id)}
-        >
-          <span className="truncate font-mono text-code">
-            {repoLabel(repo)}
-          </span>
-        </SidebarRow>
-      ))}
-    </SidebarSection>
-  );
-}
+// The repository picker that used to live here (SidebarRepoSection) was
+// removed: the status bar owns repo/project selection (SHELL-SPEC R25).

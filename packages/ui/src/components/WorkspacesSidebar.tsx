@@ -103,12 +103,6 @@ export interface WorkspacesSidebarProps {
   onSelectWorkspace: (id: string) => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  /** Whether we're in create mode */
-  isCreateMode?: boolean;
-  /** Title extracted from draft message (only shown when isCreateMode and non-empty) */
-  draftTitle?: string;
-  /** Handler to navigate back to create mode */
-  onSelectCreate?: () => void;
   /** Whether to show archived workspaces */
   showArchive?: boolean;
   /** Handler for toggling archive view */
@@ -238,9 +232,6 @@ export function WorkspacesSidebar({
   onSelectWorkspace,
   searchQuery,
   onSearchChange,
-  isCreateMode = false,
-  draftTitle,
-  onSelectCreate,
   showArchive = false,
   onShowArchiveChange,
   onLoadMore,
@@ -504,15 +495,7 @@ export function WorkspacesSidebar({
           ) : (
             /* Scope view */
             <div className="flex flex-col gap-base px-base">
-              {draftTitle && (
-                <WorkspaceSummary
-                  name={draftTitle}
-                  isActive={isCreateMode}
-                  isDraft={true}
-                  onClick={onSelectCreate}
-                />
-              )}
-              {visibleWorkspaces.length === 0 && !draftTitle ? (
+              {visibleWorkspaces.length === 0 ? (
                 <span className="text-sm text-low opacity-60">
                   {t('common:workspaces.noWorkspaces')}
                 </span>
