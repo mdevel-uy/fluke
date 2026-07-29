@@ -1,7 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
-import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
@@ -22,7 +21,6 @@ import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
 import { RemoteIssueLink } from './RemoteIssueLink';
 import { NavbarRepoSelectorContainer } from './NavbarRepoSelectorContainer';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
-import { useTheme } from '@/shared/hooks/useTheme';
 import { NavbarActionGroups } from '@/shared/actions';
 import {
   NavbarDivider,
@@ -47,11 +45,6 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
 
-const THEME_CYCLE: ThemeMode[] = [
-  ThemeMode.LIGHT,
-  ThemeMode.DARK,
-  ThemeMode.SYSTEM,
-];
 
 /**
  * Check if a NavbarItem is a divider
@@ -140,37 +133,8 @@ export function NavbarContainer({
   const { workspace: selectedWorkspace } = useWorkspaceContext();
   const { workspaces } = useUserContext();
   const syncErrorContext = useSyncErrorContext();
-  const { remoteAuthDegraded, updateAndSaveConfig } = useUserSystem();
-  const { theme, setTheme } = useTheme();
+  const { remoteAuthDegraded } = useUserSystem();
   const appNavigation = useAppNavigation();
-
-  const handleThemeToggle = useCallback(() => {
-    const currentIndex = THEME_CYCLE.indexOf(theme);
-    const nextTheme = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
-    setTheme(nextTheme);
-    updateAndSaveConfig({ theme: nextTheme }).catch(() => {});
-  }, [theme, setTheme, updateAndSaveConfig]);
-
-  const themeToggleItem: NavbarSectionItem = useMemo(
-    () => ({
-      type: 'action',
-      id: 'toggle-theme',
-      materialIcon:
-        theme === ThemeMode.LIGHT
-          ? 'light_mode'
-          : theme === ThemeMode.DARK
-            ? 'dark_mode'
-            : 'desktop_windows',
-      tooltip:
-        theme === ThemeMode.LIGHT
-          ? t('navbar.theme.light')
-          : theme === ThemeMode.DARK
-            ? t('navbar.theme.dark')
-            : t('navbar.theme.system'),
-      onClick: handleThemeToggle,
-    }),
-    [theme, t, handleThemeToggle]
-  );
   const destination = useCurrentAppDestination();
   const projectDestination = useMemo(
     () => getProjectDestination(destination),
@@ -277,17 +241,10 @@ export function NavbarContainer({
     ]
   );
 
-  // SHELL-SPEC R3: the shell navbar keeps only layout toggles + theme.
-  // Diff/Changes/Logs toggles stay reachable via command bar, shortcuts and
-  // the context bar. NavbarActionGroups.right is untouched (remote-web uses it).
-  const rightItems = useMemo(
-    () => [
-      ...layoutToggleItems,
-      { type: 'divider' as const },
-      themeToggleItem,
-    ],
-    [layoutToggleItems, themeToggleItem]
-  );
+  // SHELL-SPEC R3: the shell navbar keeps only layout toggles. Theme moved
+  // to Settings only (decisión Dani 29-jul); Diff/Changes/Logs toggles stay
+  // reachable via command bar, shortcuts and the context bar.
+  const rightItems = useMemo(() => [...layoutToggleItems], [layoutToggleItems]);
 
   const navbarTitle = isOnProjectPage ? orgName : selectedWorkspace?.branch;
 
