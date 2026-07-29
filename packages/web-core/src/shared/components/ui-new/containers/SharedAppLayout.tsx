@@ -291,6 +291,31 @@ export function SharedAppLayout() {
     currentWorkspaceId,
   ]);
 
+  // Search rail item: content search over the selected workspace's worktree.
+  const isSearchActive =
+    isWorkspacesActive && workspacesSidebarMode === 'search';
+
+  const handleSearchClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'search') {
+        setWorkspacesSidebarMode('search');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('search');
+      void navigate({ to: '/workspaces' });
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
+
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
   const sectionHasSidebar =
@@ -375,6 +400,7 @@ export function SharedAppLayout() {
               <AppBar
                 onWorkspacesClick={handleWorkspacesClick}
                 onEditorClick={handleEditorClick}
+                onSearchClick={handleSearchClick}
                 onDashboardClick={handleDashboardClick}
                 onSprintClick={handleSprintClick}
                 onIssuesClick={handleIssuesClick}
@@ -384,6 +410,7 @@ export function SharedAppLayout() {
                   isWorkspacesActive && workspacesSidebarMode === 'workspaces'
                 }
                 isEditorActive={isEditorActive}
+                isSearchActive={isSearchActive}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}

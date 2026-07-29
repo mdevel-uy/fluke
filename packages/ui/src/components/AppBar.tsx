@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   LayoutPanelLeft,
   ListChecks,
+  Search,
   Settings as SettingsIcon,
   Users,
   type LucideIcon,
@@ -32,6 +33,7 @@ interface AppBarProps {
   onExportClick?: () => void;
   onWorkspacesClick: () => void;
   onEditorClick?: () => void;
+  onSearchClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
   onIssuesClick?: () => void;
@@ -40,6 +42,7 @@ interface AppBarProps {
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showEditorButton?: boolean;
+  showSearchButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
   showIssuesButton?: boolean;
@@ -47,6 +50,7 @@ interface AppBarProps {
   showAnalystDeskButton?: boolean;
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
+  isSearchActive?: boolean;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
   isIssuesActive?: boolean;
@@ -151,6 +155,7 @@ export function AppBar({
   onExportClick,
   onWorkspacesClick,
   onEditorClick,
+  onSearchClick,
   onDashboardClick,
   onSprintClick,
   onIssuesClick,
@@ -159,6 +164,7 @@ export function AppBar({
   onHostClick,
   showWorkspacesButton = true,
   showEditorButton = true,
+  showSearchButton = true,
   showDashboardButton = true,
   showSprintButton = true,
   showIssuesButton = true,
@@ -166,6 +172,7 @@ export function AppBar({
   showAnalystDeskButton = true,
   isWorkspacesActive,
   isEditorActive = false,
+  isSearchActive = false,
   isDashboardActive = false,
   isSprintActive = false,
   isIssuesActive = false,
@@ -221,6 +228,16 @@ export function AppBar({
         lucideIcon: FileCode,
         isActive: isEditorActive,
         onClick: onEditorClick,
+      });
+    }
+    if (showSearchButton && onSearchClick) {
+      localItems.push({
+        key: 'local-search',
+        kind: 'icon-button',
+        label: t('appBar.search', { defaultValue: 'Search' }),
+        lucideIcon: Search,
+        isActive: isSearchActive,
+        onClick: onSearchClick,
       });
     }
     if (showSprintButton && onSprintClick) {

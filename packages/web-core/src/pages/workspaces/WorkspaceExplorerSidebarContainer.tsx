@@ -23,7 +23,6 @@ import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
 import { useDiffPaths } from '@/shared/stores/useWorkspaceDiffStore';
 import { cn } from '@/shared/lib/utils';
-import { WorkspaceSearchSidebar } from './WorkspaceSearchSidebar';
 
 interface WorkspaceExplorerSidebarContainerProps {
   workspaceId: string;
@@ -67,8 +66,6 @@ export function WorkspaceExplorerSidebarContainer({
   const activeFile = useWorkspaceEditorStore(
     (s) => s.byWorkspace[workspaceId]?.activePath ?? null
   );
-
-  const [view, setView] = useState<'files' | 'search'>('files');
 
   const { data: pathInfo, isLoading: isRootLoading } = useQuery({
     queryKey: ['editor-path', 'explorer-root', workspaceId],
@@ -428,64 +425,41 @@ export function WorkspaceExplorerSidebarContainer({
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
         <CollapsibleSectionHeader
-          title={
-            view === 'search'
-              ? t('workspaces.explorer.searchTitle', {
-                  defaultValue: 'Search',
-                })
-              : t('workspaces.explorer.title', { defaultValue: 'Explorer' })
-          }
+          title={t('workspaces.explorer.title', { defaultValue: 'Explorer' })}
           collapsible={false}
           actions={
-            view === 'search'
+            rootPath
               ? [
                   {
-                    materialIcon: 'folder_open',
-                    onClick: () => setView('files'),
+                    materialIcon: 'note_add',
+                    onClick: () => startCreate('create-file', rootPath),
+                  },
+                  {
+                    materialIcon: 'create_new_folder',
+                    onClick: () => startCreate('create-dir', rootPath),
                   },
                 ]
-              : [
-                  { materialIcon: 'search', onClick: () => setView('search') },
-                  ...(rootPath
-                    ? [
-                        {
-                          materialIcon: 'note_add',
-                          onClick: () => startCreate('create-file', rootPath),
-                        },
-                        {
-                          materialIcon: 'create_new_folder',
-                          onClick: () => startCreate('create-dir', rootPath),
-                        },
-                      ]
-                    : []),
-                ]
+              : []
           }
         />
       </div>
-      {view === 'search' && rootPath ? (
-        <WorkspaceSearchSidebar
-          rootPath={rootPath}
-          onOpenFile={(path, line) => openFile(path, line)}
-        />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-3 pt-1">
-          {pendingEdit &&
-            pendingEdit.mode !== 'rename' &&
-            pendingEdit.dirPath === rootPath &&
-            editInputRow(0)}
-          {isRootLoading || !rootEntries ? (
-            <div className="px-3 py-2 text-xs text-low">
-              {t('workspaces.explorer.loading', { defaultValue: 'Loading…' })}
-            </div>
-          ) : rootEntries.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-low">
-              {t('workspaces.explorer.empty', { defaultValue: 'Empty folder' })}
-            </div>
-          ) : (
-            renderEntries(rootEntries, 0)
-          )}
-        </div>
-      )}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-3 pt-1">
+        {pendingEdit &&
+          pendingEdit.mode !== 'rename' &&
+          pendingEdit.dirPath === rootPath &&
+          editInputRow(0)}
+        {isRootLoading || !rootEntries ? (
+          <div className="px-3 py-2 text-xs text-low">
+            {t('workspaces.explorer.loading', { defaultValue: 'Loading…' })}
+          </div>
+        ) : rootEntries.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-low">
+            {t('workspaces.explorer.empty', { defaultValue: 'Empty folder' })}
+          </div>
+        ) : (
+          renderEntries(rootEntries, 0)
+        )}
+      </div>
     </div>
   );
 }

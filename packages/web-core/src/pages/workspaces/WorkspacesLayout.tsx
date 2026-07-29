@@ -11,6 +11,7 @@ import { ReviewProvider } from '@/shared/hooks/ReviewProvider';
 import { ChangesViewProvider } from '@/shared/hooks/ChangesViewProvider';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
 import { WorkspaceExplorerSidebarContainer } from './WorkspaceExplorerSidebarContainer';
+import { WorkspaceSearchSidebarContainer } from './WorkspaceSearchSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { LogsContentContainer } from './LogsContentContainer';
@@ -265,6 +266,8 @@ export function WorkspacesLayout() {
     <ShellSidebarPortal>
       {workspacesSidebarMode === 'explorer' && workspaceId ? (
         <WorkspaceExplorerSidebarContainer workspaceId={workspaceId} />
+      ) : workspacesSidebarMode === 'search' && workspaceId ? (
+        <WorkspaceSearchSidebarContainer workspaceId={workspaceId} />
       ) : (
         <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
       )}

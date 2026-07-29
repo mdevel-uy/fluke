@@ -1,14 +1,67 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { FileText } from 'lucide-react';
+import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { InputField } from '@vibe/ui/components/InputField';
 import { workspacesApi } from '@/shared/lib/api';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
 import { cn } from '@/shared/lib/utils';
 
 interface WorkspaceSearchSidebarProps {
   rootPath: string;
   onOpenFile: (path: string, line: number) => void;
+}
+
+/**
+ * Shell-sidebar container for the rail's Search item: content search over
+ * the selected workspace's worktree.
+ */
+export function WorkspaceSearchSidebarContainer({
+  workspaceId,
+}: {
+  workspaceId: string;
+}) {
+  const { t } = useTranslation('common');
+  const openWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.openWorkspaceViewTab
+  );
+
+  const { data: pathInfo } = useQuery({
+    queryKey: ['editor-path', 'explorer-root', workspaceId],
+    queryFn: () => workspacesApi.getEditorPath(workspaceId),
+    staleTime: Infinity,
+  });
+  const rootPath = pathInfo?.workspace_path?.replace(/\\/g, '/');
+
+  const openFile = useCallback(
+    (path: string, line: number) => {
+      useWorkspaceEditorStore.getState().openFile(workspaceId, path, line);
+      openWorkspaceViewTab(workspaceId, 'editor');
+    },
+    [workspaceId, openWorkspaceViewTab]
+  );
+
+  return (
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
+      <div className="flex-none">
+        <CollapsibleSectionHeader
+          title={t('workspaces.explorer.searchTitle', {
+            defaultValue: 'Search',
+          })}
+          collapsible={false}
+        />
+      </div>
+      {rootPath ? (
+        <WorkspaceSearchSidebar rootPath={rootPath} onOpenFile={openFile} />
+      ) : (
+        <div className="px-3 py-2 text-xs text-low">
+          {t('workspaces.explorer.loading', { defaultValue: 'Loading…' })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface SearchHit {

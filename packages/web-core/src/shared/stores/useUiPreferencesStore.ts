@@ -344,11 +344,11 @@ type State = {
   isTerminalVisible: boolean;
   previewRefreshKey: number;
   /**
-   * What the workspaces-section shell sidebar shows: the workspaces list or
-   * the file explorer of the selected workspace (rail Editor item, VSCode
-   * activity-bar style).
+   * What the workspaces-section shell sidebar shows: the workspaces list,
+   * the file explorer or the content search of the selected workspace
+   * (rail Editor/Search items, VSCode activity-bar style).
    */
-  workspacesSidebarMode: 'workspaces' | 'explorer';
+  workspacesSidebarMode: 'workspaces' | 'explorer' | 'search';
   // Note: Kanban issue panel state (selectedKanbanIssueId, createMode, etc.)
   // is derived from URL via app navigation route state
 
@@ -408,7 +408,9 @@ type State = {
   // are handled by app navigation
   setLeftSidebarVisible: (value: boolean) => void;
   setLeftMainPanelVisible: (value: boolean, workspaceId?: string) => void;
-  setWorkspacesSidebarMode: (mode: 'workspaces' | 'explorer') => void;
+  setWorkspacesSidebarMode: (
+    mode: 'workspaces' | 'explorer' | 'search'
+  ) => void;
   triggerPreviewRefresh: () => void;
 
   // Workspace-specific panel state actions
