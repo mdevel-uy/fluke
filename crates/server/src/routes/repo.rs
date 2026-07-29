@@ -160,6 +160,23 @@ pub async fn get_repo_graph(
     Ok(ResponseJson(ApiResponse::success(graph)))
 }
 
+pub async fn get_repo_commit(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+) -> Result<ResponseJson<ApiResponse<git::CommitDetail>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let detail =
+        tokio::task::spawn_blocking(move || git.get_commit_detail(&repo.path, &oid))
+            .await
+            .map_err(|e| ApiError::BadRequest(format!("Commit lookup failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(detail)))
+}
+
 pub async fn get_repo_remotes(
     State(deployment): State<DeploymentImpl>,
     Path(repo_id): Path<Uuid>,
@@ -674,6 +691,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/repos/{repo_id}/branches", get(get_repo_branches))
         .route("/repos/{repo_id}/tags", get(get_repo_tags))
         .route("/repos/{repo_id}/graph", get(get_repo_graph))
+        .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))

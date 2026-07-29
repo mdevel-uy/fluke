@@ -3,7 +3,6 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GitBranch, Tag } from 'lucide-react';
 import { repoApi } from '@/shared/lib/api';
-import { formatElapsed } from '@/shared/components/ui-new/aside/primitives';
 import { cn } from '@/shared/lib/utils';
 import type { FleetBranch } from '../model/useFleetBranches';
 
@@ -14,6 +13,41 @@ type GraphCommit = FleetGraphData['commits'][number];
 const ROW_H = 30;
 const laneX = (lane: number) => 16 + lane * 15;
 const GRAPH_PAGE_SIZE = 100;
+
+// Sourcetree-style resizable column set: Graph | Description | Date |
+// Author | Commit. Graph auto-sizes to the lane count until dragged.
+const DEFAULT_WIDTHS = { date: 110, author: 150, hash: 76 };
+type FixedColumn = keyof typeof DEFAULT_WIDTHS;
+
+function ColumnResizeHandle({
+  onResize,
+}: {
+  onResize: (deltaX: number) => void;
+}) {
+  const lastX = useRef<number | null>(null);
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        lastX.current = e.clientX;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (lastX.current === null) return;
+        onResize(e.clientX - lastX.current);
+        lastX.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        lastX.current = null;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+      className="absolute inset-y-0 right-0 z-10 w-[5px] cursor-col-resize hover:bg-brand/50"
+    />
+  );
+}
 
 function fleetColorClass(branch: FleetBranch): string {
   if (branch.attentionReason === 'conflict') return 'text-error';
@@ -153,14 +187,18 @@ interface FleetGraphViewProps {
   branches: FleetBranch[];
   selectedWorkspaceId: string | null;
   onSelect: (workspaceId: string) => void;
+  selectedCommitOid: string | null;
+  /** oid null = deselect; branches = refs known to contain the commit. */
+  onSelectCommit: (oid: string | null, containingBranches: string[]) => void;
 }
 
 /**
- * SHELL-SPEC R36: fleet graph over the FULL local branch topology — lanes
- * come from the commit DAG (merge curves included, Sourcetree-style), the
- * mock's semantic colors mark fleet lanes (running/attention/conflict/
- * merged) while plain branches stay neutral. Clicking a fleet branch row
- * selects it (master-detail sync with sidebar/aside).
+ * SHELL-SPEC R36: fleet graph over the FULL local branch topology as a
+ * Sourcetree-style table (resizable Graph/Description/Date/Author/Commit
+ * columns). Lanes come from the commit DAG; the mock's semantic colors mark
+ * fleet lanes while plain branches rotate the accent palette. Clicking a
+ * row selects the commit (aside shows its detail) and lights up every
+ * descendant chain to the tips that contain it.
  */
 export function FleetGraphView({
   repoId,
@@ -168,8 +206,10 @@ export function FleetGraphView({
   branches,
   selectedWorkspaceId,
   onSelect,
+  selectedCommitOid,
+  onSelectCommit,
 }: FleetGraphViewProps) {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
 
   // All local branches ride along as tips so the whole topology shows up,
   // not just workspace-backed branches. Shares the sidebar's query cache.
@@ -231,11 +271,6 @@ export function FleetGraphView({
     for (const fb of branches) map.set(fb.workspace.branch, fb);
     return map;
   }, [branches]);
-
-  // Commit selection: clicking a row lights up the commit's containment
-  // paths — every descendant chain up to the tips that reach it — and dims
-  // the rest of the graph, answering "which branch is this commit on".
-  const [selectedOid, setSelectedOid] = useState<string | null>(null);
 
   const commits = useMemo(() => {
     const seen = new Set<string>();
@@ -301,37 +336,91 @@ export function FleetGraphView({
   );
   const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
 
-  // Descendant closure of the selected commit. Descendants are always newer
-  // than the commit, so they are guaranteed to be in the loaded pages.
-  const highlightSet = useMemo(() => {
-    if (!selectedOid) return null;
-    const childrenByOid = new Map<string, string[]>();
+  const childrenByOid = useMemo(() => {
+    const map = new Map<string, string[]>();
     for (const commit of commits) {
       for (const parent of commit.parent_oids) {
-        const list = childrenByOid.get(parent);
+        const list = map.get(parent);
         if (list) list.push(commit.oid);
-        else childrenByOid.set(parent, [commit.oid]);
+        else map.set(parent, [commit.oid]);
       }
     }
-    const set = new Set<string>([selectedOid]);
-    const queue = [selectedOid];
+    return map;
+  }, [commits]);
+
+  // Descendant closure of a commit. Descendants are always newer than the
+  // commit, so the closure is complete within the loaded pages.
+  const descendantClosure = (oid: string): Set<string> => {
+    const set = new Set<string>([oid]);
+    const queue = [oid];
     while (queue.length > 0) {
-      const oid = queue.pop()!;
-      for (const child of childrenByOid.get(oid) ?? []) {
+      const current = queue.pop()!;
+      for (const child of childrenByOid.get(current) ?? []) {
         if (set.has(child)) continue;
         set.add(child);
         queue.push(child);
       }
     }
     return set;
-  }, [selectedOid, commits]);
-
-  const colorOfLane = (lane: number): string => {
-    const fleet = laneColor.get(lane);
-    if (fleet) return fleet;
-    if (lane === baseLane) return 'text-border-strong';
-    return LANE_PALETTE[lane % LANE_PALETTE.length];
   };
+
+  const highlightSet = useMemo(() => {
+    if (!selectedCommitOid || !rowIndexByOid.has(selectedCommitOid)) {
+      return null;
+    }
+    return descendantClosure(selectedCommitOid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCommitOid, childrenByOid, rowIndexByOid]);
+
+  const commitByOid = useMemo(
+    () => new Map(commits.map((c) => [c.oid, c])),
+    [commits]
+  );
+
+  const handleRowClick = (commit: GraphCommit, rowFleet?: FleetBranch) => {
+    if (rowFleet) onSelect(rowFleet.workspace.id);
+    if (selectedCommitOid === commit.oid) {
+      onSelectCommit(null, []);
+      return;
+    }
+    const closure = descendantClosure(commit.oid);
+    const containing = new Set<string>();
+    for (const oid of closure) {
+      for (const name of commitByOid.get(oid)?.tip_of ?? []) {
+        containing.add(name);
+      }
+      if (oid === baseTipOid) containing.add(baseBranch);
+    }
+    onSelectCommit(commit.oid, [...containing].sort());
+  };
+
+  // Column widths: graph tracks the lane count until manually resized.
+  const [graphColWidth, setGraphColWidth] = useState<number | null>(null);
+  const [fixedWidths, setFixedWidths] =
+    useState<Record<FixedColumn, number>>(DEFAULT_WIDTHS);
+  const graphW = graphColWidth ?? gutterWidth;
+  const gridTemplateColumns = `${graphW}px minmax(220px,1fr) ${fixedWidths.date}px ${fixedWidths.author}px ${fixedWidths.hash}px`;
+
+  const resizeGraph = (dx: number) =>
+    setGraphColWidth((prev) =>
+      Math.min(Math.max((prev ?? gutterWidth) + dx, 40), 600)
+    );
+  const resizeFixed = (key: FixedColumn) => (dx: number) =>
+    setFixedWidths((prev) => ({
+      ...prev,
+      [key]: Math.min(Math.max(prev[key] + dx, 56), 400),
+    }));
+
+  const dateFormat = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language, {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [i18n.language]
+  );
 
   if (isLoading || !data) {
     return (
@@ -365,6 +454,12 @@ export function FleetGraphView({
     const { commit, lane } = row;
     const xc = laneX(lane);
     const yc = rowY(i);
+    const colorOfLane = (l: number): string => {
+      const fleet = laneColor.get(l);
+      if (fleet) return fleet;
+      if (l === baseLane) return 'text-border-strong';
+      return LANE_PALETTE[l % LANE_PALETTE.length];
+    };
     for (const parentOid of commit.parent_oids) {
       const j = rowIndexByOid.get(parentOid);
       if (j === undefined) continue;
@@ -372,11 +467,7 @@ export function FleetGraphView({
       const xp = laneX(parentLane);
       const yp = rowY(j);
       const colorClass =
-        lane === parentLane
-          ? colorOfLane(lane)
-          : lane > parentLane
-            ? colorOfLane(lane)
-            : colorOfLane(parentLane);
+        lane >= parentLane ? colorOfLane(lane) : colorOfLane(parentLane);
       let d: string;
       if (lane === parentLane) {
         d = `M ${xc} ${yc} L ${xp} ${yp}`;
@@ -411,21 +502,19 @@ export function FleetGraphView({
     const isBase = commit.branch === null;
     const radius = isBase && commit.tip_of.length === 0 ? 3.2 : 4.2;
     const dotClass =
-      lane === baseLane && !laneColor.has(lane)
-        ? 'text-low'
-        : colorOfLane(lane);
+      lane === baseLane && !laneColor.has(lane) ? 'text-low' : colorOfLane(lane);
     const dotDimmed = highlightSet !== null && !highlightSet.has(commit.oid);
     dots.push(
       <circle
         key={commit.oid}
         cx={xc}
         cy={yc}
-        r={commit.oid === selectedOid ? radius + 1 : radius}
+        r={commit.oid === selectedCommitOid ? radius + 1 : radius}
         fill="currentColor"
         className={cn(dotClass, 'transition-opacity', dotDimmed && 'opacity-15')}
       />
     );
-    if (commit.oid === selectedOid) {
+    if (commit.oid === selectedCommitOid) {
       dots.push(
         <circle
           key={`${commit.oid}-sel-ring`}
@@ -460,134 +549,170 @@ export function FleetGraphView({
     }
   });
 
-  return (
-    <div className="relative min-w-fit">
-      <svg
-        width={gutterWidth}
-        height={height}
-        aria-hidden
-        className="absolute left-0 top-0"
-      >
-        {edges}
-        {dots}
-      </svg>
-      {rows.map(({ commit }) => {
-        const fleetTips = commit.tip_of
-          .map((name) => fleetByBranch.get(name))
-          .filter((fb): fb is FleetBranch => !!fb);
-        const plainTips = commit.tip_of.filter(
-          (name) => !fleetByBranch.has(name)
-        );
-        const rowFleet =
-          (commit.branch ? fleetByBranch.get(commit.branch) : undefined) ??
-          fleetTips[0];
-        const isSelected =
-          commit.oid === selectedOid ||
-          (!!rowFleet && rowFleet.workspace.id === selectedWorkspaceId);
-        const rowDimmed =
-          highlightSet !== null && !highlightSet.has(commit.oid);
+  const headerCell = (label: string, handle?: React.ReactNode) => (
+    <div className="relative flex min-w-0 items-center px-2">
+      <span className="truncate">{label}</span>
+      {handle}
+    </div>
+  );
 
-        return (
-          <div
-            key={commit.oid}
-            role="button"
-            onClick={() => {
-              setSelectedOid((prev) =>
-                prev === commit.oid ? null : commit.oid
-              );
-              if (rowFleet) onSelect(rowFleet.workspace.id);
-            }}
-            className={cn(
-              'flex h-[30px] items-center gap-2 pr-3 text-sm',
-              'cursor-pointer hover:bg-secondary/60',
-              isSelected && 'bg-sel',
-              rowDimmed && 'opacity-50'
-            )}
-            style={{ paddingLeft: gutterWidth + 6 }}
-          >
-            <span
-              className={cn(
-                'min-w-0 flex-none truncate',
-                commit.branch === null && commit.tip_of.length === 0
-                  ? 'text-low'
-                  : 'text-high'
-              )}
-              style={{ maxWidth: '46%' }}
-              title={commit.summary}
-            >
-              {commit.summary}
-            </span>
-            {fleetTips.map((fleet) => (
-              <span
-                key={fleet.workspace.id}
-                className={cn(
-                  'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
-                  fleetColorClass(fleet)
-                )}
-              >
-                {fleet.workspace.branch}
-              </span>
-            ))}
-            {plainTips.map((name) => (
-              <span
-                key={name}
-                className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
-              >
-                {name}
-              </span>
-            ))}
-            {(tagsByOid.get(commit.oid) ?? []).map((tag) => (
-              <span
-                key={`tag-${tag}`}
-                className="flex flex-none items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 font-mono text-[10px] leading-4 text-warning"
-              >
-                <Tag className="h-2.5 w-2.5" strokeWidth={1.75} />
-                {tag}
-              </span>
-            ))}
-            {commit.oid === baseTipOid && (
-              <span className="flex-none rounded border border-border-strong bg-secondary px-1 font-mono text-[10px] leading-4 text-normal">
-                {baseBranch}
-              </span>
-            )}
-            {fleetTips.map((fleet) => {
-              const tag = stateTag(fleet);
-              return (
-                <span
-                  key={`${fleet.workspace.id}-tag`}
-                  className={cn(
-                    'flex-none rounded px-1.5 py-px text-[10px] font-medium',
-                    tag.className
-                  )}
-                >
-                  {tag.label}
-                </span>
-              );
-            })}
-            <span className="flex-1" />
-            <span className="flex-none text-[11px] text-low">
-              {commit.author}
-              {' · '}
-              {formatElapsed(commit.committed_at)}
-            </span>
-            <span className="flex-none font-mono text-[11px] text-low">
-              {commit.short_oid}
-            </span>
-          </div>
-        );
-      })}
-      {hasNextPage && (
+  return (
+    <div className="min-w-fit">
+      {/* Table header (R37 table treatment): sticky, resizable columns. */}
+      <div
+        className="sticky top-0 z-20 grid h-[26px] select-none border-b border-md-outline-variant bg-md-surface-container-low text-[11px] font-medium uppercase tracking-wider text-low"
+        style={{ gridTemplateColumns }}
+      >
+        {headerCell(
+          t('sourceControl.graph.columns.graph', { defaultValue: 'Graph' }),
+          <ColumnResizeHandle onResize={resizeGraph} />
+        )}
+        {headerCell(
+          t('sourceControl.graph.columns.description', {
+            defaultValue: 'Description',
+          })
+        )}
+        {headerCell(
+          t('sourceControl.graph.columns.date', { defaultValue: 'Date' }),
+          <ColumnResizeHandle onResize={resizeFixed('date')} />
+        )}
+        {headerCell(
+          t('sourceControl.graph.columns.author', { defaultValue: 'Author' }),
+          <ColumnResizeHandle onResize={resizeFixed('author')} />
+        )}
+        {headerCell(
+          t('sourceControl.graph.columns.commit', { defaultValue: 'Commit' }),
+          <ColumnResizeHandle onResize={resizeFixed('hash')} />
+        )}
+      </div>
+
+      <div className="relative">
+        {/* Lane gutter, clipped to the Graph column. */}
         <div
-          ref={sentinelRef}
-          className="flex h-[30px] items-center justify-center text-xs text-low"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 overflow-hidden"
+          style={{ width: graphW }}
         >
-          {isFetchingNextPage
-            ? t('sourceControl.graph.loadingMore', {
-                defaultValue: 'Loading older commits…',
-              })
-            : ''}
+          <svg width={gutterWidth} height={height} aria-hidden>
+            {edges}
+            {dots}
+          </svg>
         </div>
-      )}
+
+        {rows.map(({ commit }) => {
+          const fleetTips = commit.tip_of
+            .map((name) => fleetByBranch.get(name))
+            .filter((fb): fb is FleetBranch => !!fb);
+          const plainTips = commit.tip_of.filter(
+            (name) => !fleetByBranch.has(name)
+          );
+          const rowFleet =
+            (commit.branch ? fleetByBranch.get(commit.branch) : undefined) ??
+            fleetTips[0];
+          const isSelected =
+            commit.oid === selectedCommitOid ||
+            (!!rowFleet && rowFleet.workspace.id === selectedWorkspaceId);
+          const rowDimmed =
+            highlightSet !== null && !highlightSet.has(commit.oid);
+
+          return (
+            <div
+              key={commit.oid}
+              role="button"
+              onClick={() => handleRowClick(commit, rowFleet)}
+              className={cn(
+                'grid h-[30px] cursor-pointer items-center text-sm hover:bg-secondary/60',
+                isSelected && 'bg-sel',
+                rowDimmed && 'opacity-50'
+              )}
+              style={{ gridTemplateColumns }}
+            >
+              <div aria-hidden />
+              <div className="flex min-w-0 items-center gap-2 px-1.5">
+                <span
+                  className={cn(
+                    'min-w-0 flex-none truncate',
+                    commit.branch === null && commit.tip_of.length === 0
+                      ? 'text-low'
+                      : 'text-high'
+                  )}
+                  style={{ maxWidth: '60%' }}
+                  title={commit.summary}
+                >
+                  {commit.summary}
+                </span>
+                {fleetTips.map((fleet) => (
+                  <span
+                    key={fleet.workspace.id}
+                    className={cn(
+                      'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
+                      fleetColorClass(fleet)
+                    )}
+                  >
+                    {fleet.workspace.branch}
+                  </span>
+                ))}
+                {plainTips.map((name) => (
+                  <span
+                    key={name}
+                    className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
+                  >
+                    {name}
+                  </span>
+                ))}
+                {(tagsByOid.get(commit.oid) ?? []).map((tag) => (
+                  <span
+                    key={`tag-${tag}`}
+                    className="flex flex-none items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 font-mono text-[10px] leading-4 text-warning"
+                  >
+                    <Tag className="h-2.5 w-2.5" strokeWidth={1.75} />
+                    {tag}
+                  </span>
+                ))}
+                {commit.oid === baseTipOid && (
+                  <span className="flex-none rounded border border-border-strong bg-secondary px-1 font-mono text-[10px] leading-4 text-normal">
+                    {baseBranch}
+                  </span>
+                )}
+                {fleetTips.map((fleet) => {
+                  const tag = stateTag(fleet);
+                  return (
+                    <span
+                      key={`${fleet.workspace.id}-tag`}
+                      className={cn(
+                        'flex-none rounded px-1.5 py-px text-[10px] font-medium',
+                        tag.className
+                      )}
+                    >
+                      {tag.label}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="truncate px-2 text-[11px] text-low">
+                {dateFormat.format(new Date(commit.committed_at))}
+              </div>
+              <div className="truncate px-2 text-[11px] text-low">
+                {commit.author}
+              </div>
+              <div className="truncate px-2 font-mono text-[11px] text-low">
+                {commit.short_oid}
+              </div>
+            </div>
+          );
+        })}
+        {hasNextPage && (
+          <div
+            ref={sentinelRef}
+            className="flex h-[30px] items-center justify-center text-xs text-low"
+          >
+            {isFetchingNextPage
+              ? t('sourceControl.graph.loadingMore', {
+                  defaultValue: 'Loading older commits…',
+                })
+              : ''}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

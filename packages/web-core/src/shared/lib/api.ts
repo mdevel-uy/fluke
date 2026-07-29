@@ -1097,6 +1097,33 @@ export const repoApi = {
     return handleApiResponse<{ name: string; target_oid: string }[]>(response);
   },
 
+  /** Full detail of one commit (message, identity, per-file line stats). */
+  getCommit: async (
+    repoId: string,
+    oid: string
+  ): Promise<{
+    oid: string;
+    short_oid: string;
+    message: string;
+    author: string;
+    author_email: string;
+    committed_at: string;
+    parent_oids: string[];
+    files: Array<{
+      path: string;
+      status: 'added' | 'deleted' | 'modified' | 'renamed';
+      additions: number;
+      deletions: number;
+    }>;
+    additions: number;
+    deletions: number;
+  }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}`
+    );
+    return handleApiResponse(response);
+  },
+
   // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
   // (like the editor endpoints — not part of generate_types).
   getGraph: async (

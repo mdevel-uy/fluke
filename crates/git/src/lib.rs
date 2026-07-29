@@ -94,6 +94,32 @@ pub struct GitTagInfo {
     pub target_oid: String,
 }
 
+// Commit detail for the source-control aside (mirrored inline in the client).
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitFileChange {
+    pub path: String,
+    /// "added" | "deleted" | "modified" | "renamed"
+    pub status: String,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitDetail {
+    pub oid: String,
+    pub short_oid: String,
+    /// Full commit message (subject + body).
+    pub message: String,
+    pub author: String,
+    pub author_email: String,
+    pub committed_at: DateTime<Utc>,
+    pub parent_oids: Vec<String>,
+    pub files: Vec<CommitFileChange>,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
 // Fleet graph (SHELL-SPEC V4): multi-branch revwalk over the base branch
 // plus the attempt-branch tips. Mirrored inline in the frontend client
 // (like the editor endpoints), so not part of generate_types.
@@ -2025,6 +2051,73 @@ impl GitService {
             }
         }
         Ok(tags)
+    }
+
+    /// Full detail of one commit: message, identity and per-file line stats
+    /// against its first parent (or the empty tree for a root commit).
+    pub fn get_commit_detail(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+    ) -> Result<CommitDetail, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+
+        let parent_tree = match commit.parent(0) {
+            Ok(parent) => Some(parent.tree()?),
+            Err(_) => None,
+        };
+        let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit.tree()?), None)?;
+
+        let mut files = Vec::new();
+        let mut additions = 0usize;
+        let mut deletions = 0usize;
+        for (index, delta) in diff.deltas().enumerate() {
+            let path = delta
+                .new_file()
+                .path()
+                .or_else(|| delta.old_file().path())
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let status = match delta.status() {
+                git2::Delta::Added => "added",
+                git2::Delta::Deleted => "deleted",
+                git2::Delta::Renamed => "renamed",
+                _ => "modified",
+            }
+            .to_string();
+            let (file_add, file_del) =
+                match git2::Patch::from_diff(&diff, index) {
+                    Ok(Some(patch)) => {
+                        let (_, add, del) = patch.line_stats()?;
+                        (add, del)
+                    }
+                    _ => (0, 0),
+                };
+            additions += file_add;
+            deletions += file_del;
+            files.push(CommitFileChange {
+                path,
+                status,
+                additions: file_add,
+                deletions: file_del,
+            });
+        }
+
+        Ok(CommitDetail {
+            oid: oid.to_string(),
+            short_oid: oid.to_string()[..7].to_string(),
+            message: commit.message().unwrap_or_default().trim_end().to_string(),
+            author: commit.author().name().unwrap_or_default().to_string(),
+            author_email: commit.author().email().unwrap_or_default().to_string(),
+            committed_at: DateTime::from_timestamp(commit.time().seconds(), 0)
+                .unwrap_or_else(Utc::now),
+            parent_oids: commit.parent_ids().map(|p| p.to_string()).collect(),
+            files,
+            additions,
+            deletions,
+        })
     }
 
     /// Multi-branch commit graph for the fleet view (SHELL-SPEC V4): commits

@@ -9,6 +9,7 @@ import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
+import { CommitDetailAside } from './CommitDetailAside';
 import { FleetGraphView } from './FleetGraphView';
 import { StagingView } from './StagingView';
 
@@ -33,6 +34,17 @@ export function SourceControlPage() {
   const fleet = useFleetBranches(selectedRepoId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('graph');
+
+  // Selected commit (graph row click): the aside switches to its detail.
+  const [selectedCommit, setSelectedCommit] = useState<{
+    oid: string;
+    branches: string[];
+  } | null>(null);
+
+  // Commit selection is repo-scoped — drop it when the project changes.
+  useEffect(() => {
+    setSelectedCommit(null);
+  }, [selectedRepoId]);
 
   // The graph must not depend on having active workspaces: fall back to the
   // repo's default branch when the fleet is empty.
@@ -71,13 +83,25 @@ export function SourceControlPage() {
         />
       </ShellSidebarPortal>
 
-      {selected && (
+      {selectedCommit && selectedRepoId ? (
         <ShellAsidePortal>
-          <SourceControlAside
-            key={selected.workspace.id}
-            branch={selected}
+          <CommitDetailAside
+            key={selectedCommit.oid}
+            repoId={selectedRepoId}
+            oid={selectedCommit.oid}
+            containingBranches={selectedCommit.branches}
+            onClose={() => setSelectedCommit(null)}
           />
         </ShellAsidePortal>
+      ) : (
+        selected && (
+          <ShellAsidePortal>
+            <SourceControlAside
+              key={selected.workspace.id}
+              branch={selected}
+            />
+          </ShellAsidePortal>
+        )
       )}
 
       <div className="flex h-full min-h-0 flex-col bg-primary">
@@ -139,6 +163,10 @@ export function SourceControlPage() {
                 branches={fleet.branches}
                 selectedWorkspaceId={selectedId}
                 onSelect={setSelectedId}
+                selectedCommitOid={selectedCommit?.oid ?? null}
+                onSelectCommit={(oid, branches) =>
+                  setSelectedCommit(oid ? { oid, branches } : null)
+                }
               />
             ) : (
               <FleetGraphPlaceholder
