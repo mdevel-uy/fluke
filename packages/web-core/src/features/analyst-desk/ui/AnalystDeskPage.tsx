@@ -21,7 +21,6 @@ import {
   X,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { Textarea } from '@vibe/ui/components/Textarea';
@@ -56,57 +55,6 @@ function timeAgo(value: Date | string, locale: string): string {
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
   return rtf.format(Math.round(hours / 24), 'day');
-}
-
-function AnalystCard({
-  analyst,
-  isSelected,
-  onSelect,
-}: {
-  analyst: WorkerResponse;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  const { t } = useTranslation('common');
-  const isBusy = analyst.active_workspace_id !== null;
-  const soulExcerpt = analyst.soul.trim().split('\n')[0];
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={isSelected}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-        isSelected
-          ? 'border-brand-on-surface bg-brand/10'
-          : 'border-border bg-md-surface-container-lowest hover:border-border-strong'
-      )}
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-high">
-          {analyst.name}
-        </span>
-        <span className="block truncate text-xs text-low">{soulExcerpt}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1.5 text-xs text-low">
-        <span
-          aria-hidden
-          className={cn(
-            'h-1.5 w-1.5 rounded-full',
-            isBusy ? 'bg-warning' : 'bg-success'
-          )}
-        />
-        {isBusy
-          ? analyst.queued_count > 0
-            ? t('analystDesk.statusBusyQueued', {
-                queued: analyst.queued_count,
-              })
-            : t('analystDesk.statusBusy')
-          : t('analystDesk.statusIdle')}
-      </span>
-    </button>
-  );
 }
 
 function ImagePreview({
@@ -640,20 +588,6 @@ export function AnalystDeskPage() {
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
           <section className="flex shrink-0 flex-col gap-6 border-b border-md-outline-variant p-container-padding md:w-[400px] md:overflow-y-auto md:border-b-0 md:border-r">
-            <div className="flex flex-col gap-2.5">
-              <h2 className="text-label font-semibold uppercase tracking-wide text-low">
-                {t('analystDesk.analystsLabel')}
-              </h2>
-              {analysts.map((analyst) => (
-                <AnalystCard
-                  key={analyst.id}
-                  analyst={analyst}
-                  isSelected={analyst.id === selectedAnalyst?.id}
-                  onSelect={() => setSelectedAnalystId(analyst.id)}
-                />
-              ))}
-            </div>
-
             <div className="flex flex-col gap-2.5">
               <h2 className="text-label font-semibold uppercase tracking-wide text-low">
                 {t('analystDesk.requestLabel')}
