@@ -93,6 +93,14 @@ export function SourceControlPage() {
   const selected =
     fleet.branches.find((b) => b.workspace.id === selectedId) ?? null;
 
+  // The Staging tab follows the selection — fall back to the graph when the
+  // selected branch (or its git status) goes away.
+  useEffect(() => {
+    if (mainTab === 'changes' && !selected?.primaryStatus) {
+      setMainTab('graph');
+    }
+  }, [mainTab, selected]);
+
   return (
     <>
       <ShellSidebarPortal>
@@ -193,28 +201,29 @@ export function SourceControlPage() {
               defaultValue: 'Fleet graph',
             })}
           </button>
-          <button
-            type="button"
-            onClick={() => setMainTab('changes')}
-            className={cn(
-              'flex h-full cursor-pointer items-center gap-1.5 border-r border-md-outline-variant px-3 text-sm',
-              mainTab === 'changes'
-                ? 'bg-primary text-high'
-                : 'text-low hover:text-high'
-            )}
-          >
-            <GitCompareArrows className="h-3.5 w-3.5" strokeWidth={1.75} />
-            <span className="max-w-[260px] truncate">
-              {selected
-                ? t('sourceControl.tabs.changesFor', {
-                    defaultValue: 'Changes · {{branch}}',
-                    branch: selected.workspace.branch,
-                  })
-                : t('sourceControl.tabs.changes', {
-                    defaultValue: 'Changes',
-                  })}
-            </span>
-          </button>
+          {/* Staging (R38) is worktree work — the tab only exists when a
+              workspace-backed branch is selected. Committed diffs live in
+              the editor's diff tabs instead. */}
+          {selected && selected.primaryStatus && (
+            <button
+              type="button"
+              onClick={() => setMainTab('changes')}
+              className={cn(
+                'flex h-full cursor-pointer items-center gap-1.5 border-r border-md-outline-variant px-3 text-sm',
+                mainTab === 'changes'
+                  ? 'bg-primary text-high'
+                  : 'text-low hover:text-high'
+              )}
+            >
+              <GitCompareArrows className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <span className="max-w-[260px] truncate">
+                {t('sourceControl.tabs.staging', {
+                  defaultValue: 'Staging · {{branch}}',
+                  branch: selected.workspace.branch,
+                })}
+              </span>
+            </button>
+          )}
           <div className="ml-auto mr-2 flex items-center gap-1.5">
             <GraphBranchFilter
               branchNames={(repoBranches ?? [])
