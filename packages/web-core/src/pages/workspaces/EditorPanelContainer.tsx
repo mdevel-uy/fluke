@@ -7,8 +7,12 @@ import CodeMirror, {
 } from '@uiw/react-codemirror';
 import { LanguageDescription } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
-import { FileCode, X } from 'lucide-react';
-import { workspacesApi } from '@/shared/lib/api';
+import { FileCode, Lock, X } from 'lucide-react';
+import { repoApi, workspacesApi } from '@/shared/lib/api';
+import {
+  isCommitFilePath,
+  parseCommitFilePath,
+} from '@/shared/lib/commitFilePath';
 import {
   useWorkspaceEditorFiles,
   useWorkspaceEditorStore,
@@ -78,8 +82,13 @@ export function EditorPanelContainer({
     let cancelled = false;
     setLoadedDoc(null);
     setLoadError(null);
-    workspacesApi
-      .readEditorFile(activePath)
+    // Commit snapshots (`git:` scheme) load from the commit tree; live
+    // worktree files load from disk.
+    const ref = parseCommitFilePath(activePath);
+    const load = ref
+      ? repoApi.getCommitFile(ref.repoId, ref.oid, ref.path)
+      : workspacesApi.readEditorFile(activePath);
+    load
       .then(({ content }) => {
         if (cancelled) return;
         docsRef.current.set(activePath, { doc: content, saved: content });
@@ -161,6 +170,7 @@ export function EditorPanelContainer({
 
   const saveFile = useCallback(
     async (path: string) => {
+      if (isCommitFilePath(path)) return;
       const entry = docsRef.current.get(path);
       if (!entry || entry.doc === entry.saved) return;
       const doc = entry.doc;
@@ -258,6 +268,12 @@ export function EditorPanelContainer({
                 className="flex items-center gap-1.5 focus:outline-none cursor-pointer"
               >
                 {basename(path)}
+                {isCommitFilePath(path) && (
+                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-low">
+                    <Lock size={9} strokeWidth={2} />@
+                    {parseCommitFilePath(path)?.oid.slice(0, 7)}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -291,6 +307,18 @@ export function EditorPanelContainer({
         })}
       </div>
 
+      {/* Read-only banner for commit snapshots. */}
+      {activePath && isCommitFilePath(activePath) && (
+        <div className="flex h-6 flex-none items-center gap-1.5 border-b border-warning/40 bg-warning/10 px-3 text-[11px] text-warning">
+          <Lock size={11} strokeWidth={2} />
+          {t('workspaces.editor.commitSnapshot', {
+            defaultValue:
+              'Read-only snapshot of commit {{oid}} — edits are disabled.',
+            oid: parseCommitFilePath(activePath)?.oid.slice(0, 7),
+          })}
+        </div>
+      )}
+
       {/* Editing surface */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {loadError ? (
@@ -308,6 +336,8 @@ export function EditorPanelContainer({
             key={loadedDoc.path}
             value={loadedDoc.doc}
             onChange={handleChange}
+            editable={!isCommitFilePath(loadedDoc.path)}
+            readOnly={isCommitFilePath(loadedDoc.path)}
             onCreateEditor={(view) => {
               viewRef.current = view;
               setViewVersion((v) => v + 1);

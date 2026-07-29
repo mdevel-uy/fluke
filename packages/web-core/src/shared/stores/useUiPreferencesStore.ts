@@ -289,6 +289,9 @@ export const PERSIST_KEYS = {
   asidePrSection: 'aside-pr-section',
   asideQuickActions: 'aside-quick-actions',
   asideConflictsSection: 'aside-conflicts-section',
+  asideEditorSource: 'aside-editor-source',
+  asideEditorOpenFiles: 'aside-editor-open-files',
+  asideEditorChanges: 'aside-editor-changes',
   // Dynamic keys (use helper functions)
   repoCard: (repoId: string) => `repo-card-${repoId}` as const,
 } as const;
@@ -317,6 +320,9 @@ export type PersistKey =
   | typeof PERSIST_KEYS.asidePrSection
   | typeof PERSIST_KEYS.asideQuickActions
   | typeof PERSIST_KEYS.asideConflictsSection
+  | typeof PERSIST_KEYS.asideEditorSource
+  | typeof PERSIST_KEYS.asideEditorOpenFiles
+  | typeof PERSIST_KEYS.asideEditorChanges
   | `repo-card-${string}`
   | `diff:${string}`
   | `edit:${string}`

@@ -177,6 +177,38 @@ pub async fn get_repo_commit(
     Ok(ResponseJson(ApiResponse::success(detail)))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CommitFileQuery {
+    path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitFileContent {
+    pub content: String,
+}
+
+/// Read-only file snapshot at a commit, for the embedded editor.
+pub async fn get_repo_commit_file(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileContent>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let content = tokio::task::spawn_blocking(move || {
+        git.get_commit_file(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit file read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileContent {
+        content,
+    })))
+}
+
 pub async fn get_repo_remotes(
     State(deployment): State<DeploymentImpl>,
     Path(repo_id): Path<Uuid>,
@@ -692,6 +724,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/repos/{repo_id}/tags", get(get_repo_tags))
         .route("/repos/{repo_id}/graph", get(get_repo_graph))
         .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file",
+            get(get_repo_commit_file),
+        )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))

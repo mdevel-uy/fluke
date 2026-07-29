@@ -2053,6 +2053,33 @@ impl GitService {
         Ok(tags)
     }
 
+    /// UTF-8 content of a file at a given commit (read-only snapshots for
+    /// the embedded editor). Size-capped like the live editor endpoint.
+    pub fn get_commit_file(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<String, GitServiceError> {
+        const MAX_BYTES: usize = 2 * 1024 * 1024;
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+        let entry = commit.tree()?.get_path(Path::new(rel_path))?;
+        let blob = entry
+            .to_object(&repo)?
+            .into_blob()
+            .map_err(|_| GitServiceError::InvalidRepository("Not a file".to_string()))?;
+        if blob.content().len() > MAX_BYTES {
+            return Err(GitServiceError::InvalidRepository(
+                "File too large for the editor".to_string(),
+            ));
+        }
+        String::from_utf8(blob.content().to_vec()).map_err(|_| {
+            GitServiceError::InvalidRepository("File is not valid UTF-8".to_string())
+        })
+    }
+
     /// Full detail of one commit: message, identity and per-file line stats
     /// against its first parent (or the empty tree for a root commit).
     pub fn get_commit_detail(

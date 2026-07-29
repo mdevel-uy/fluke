@@ -4,7 +4,11 @@ import { GitBranch, GitCompareArrows } from 'lucide-react';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { useRepos } from '@/shared/hooks/useRepos';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
+import { makeCommitFilePath } from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
@@ -22,6 +26,7 @@ type MainTab = 'graph' | 'changes';
  */
 export function SourceControlPage() {
   const { t } = useTranslation('common');
+  const appNavigation = useAppNavigation();
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const { repos } = useRepos();
   const selectedRepoId = useMemo(() => {
@@ -91,6 +96,28 @@ export function SourceControlPage() {
             oid={selectedCommit.oid}
             containingBranches={selectedCommit.branches}
             onClose={() => setSelectedCommit(null)}
+            onOpenFileAtCommit={
+              fleet.branches.length > 0
+                ? (path) => {
+                    const wsId =
+                      selectedId ?? fleet.branches[0]!.workspace.id;
+                    useWorkspaceEditorStore
+                      .getState()
+                      .openFile(
+                        wsId,
+                        makeCommitFilePath({
+                          repoId: selectedRepoId,
+                          oid: selectedCommit.oid,
+                          path,
+                        })
+                      );
+                    const prefs = useUiPreferencesStore.getState();
+                    prefs.setWorkspacesSidebarMode('explorer');
+                    prefs.openWorkspaceViewTab(wsId, 'editor');
+                    appNavigation.goToWorkspace(wsId);
+                  }
+                : undefined
+            }
           />
         </ShellAsidePortal>
       ) : (

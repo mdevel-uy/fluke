@@ -1097,6 +1097,18 @@ export const repoApi = {
     return handleApiResponse<{ name: string; target_oid: string }[]>(response);
   },
 
+  /** Read-only file content at a commit (editor snapshots). */
+  getCommitFile: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
+  },
+
   /** Full detail of one commit (message, identity, per-file line stats). */
   getCommit: async (
     repoId: string,

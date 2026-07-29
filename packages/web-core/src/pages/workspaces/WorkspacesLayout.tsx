@@ -20,6 +20,7 @@ import {
   type WorkspacesMainContainerHandle,
 } from './WorkspacesMainContainer';
 import { RightSidebar } from './RightSidebar';
+import { EditorAside } from './EditorAside';
 import { ChangesPanelContainer } from './ChangesPanelContainer';
 import { EditorPanelContainer } from './EditorPanelContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
@@ -212,11 +213,26 @@ export function WorkspacesLayout() {
   // R18/R30) but renders inside these providers — React context flows through
   // the component tree, not the DOM — so the file tree keeps talking to the
   // Changes view.
+  // The aside follows what you're looking at: with an editor group focused
+  // the workspace master-detail confused people ("I chose Editor, why am I
+  // seeing workspace stuff?") — the editor gets its own aside instead.
+  const isEditorFocused = tabGroups.some((g) => g.active === 'editor');
+
   const mainContent = (
     <ReviewProvider workspaceId={selectedWorkspace?.id}>
       <ChangesViewProvider>
         <ShellAsidePortal>
-          <RightSidebar selectedWorkspace={selectedWorkspace} repos={repos} />
+          {isEditorFocused && selectedWorkspace ? (
+            <EditorAside
+              workspaceId={selectedWorkspace.id}
+              workspace={selectedWorkspace}
+            />
+          ) : (
+            <RightSidebar
+              selectedWorkspace={selectedWorkspace}
+              repos={repos}
+            />
+          )}
         </ShellAsidePortal>
         <WorkspaceTabGroups
           groups={tabGroups}

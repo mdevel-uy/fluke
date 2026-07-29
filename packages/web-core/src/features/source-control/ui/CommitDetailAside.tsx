@@ -23,6 +23,8 @@ interface CommitDetailAsideProps {
   /** Refs known (from the loaded graph) to contain this commit. */
   containingBranches: string[];
   onClose: () => void;
+  /** Open a changed file as a read-only snapshot in the embedded editor. */
+  onOpenFileAtCommit?: (path: string) => void;
 }
 
 /**
@@ -34,6 +36,7 @@ export function CommitDetailAside({
   oid,
   containingBranches,
   onClose,
+  onOpenFileAtCommit,
 }: CommitDetailAsideProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -146,11 +149,28 @@ export function CommitDetailAside({
               {detail.files.map((file) => {
                 const badge =
                   STATUS_BADGE[file.status] ?? STATUS_BADGE.modified;
+                const canOpen =
+                  !!onOpenFileAtCommit && file.status !== 'deleted';
                 return (
                   <div
                     key={file.path}
-                    className="flex h-[22px] items-center gap-2 px-3.5 text-sm text-normal"
-                    title={file.path}
+                    role={canOpen ? 'button' : undefined}
+                    onClick={
+                      canOpen ? () => onOpenFileAtCommit(file.path) : undefined
+                    }
+                    className={cn(
+                      'flex h-[22px] items-center gap-2 px-3.5 text-sm text-normal',
+                      canOpen && 'cursor-pointer hover:bg-secondary'
+                    )}
+                    title={
+                      canOpen
+                        ? t('sourceControl.commit.openSnapshot', {
+                            defaultValue:
+                              'Open read-only at this commit: {{path}}',
+                            path: file.path,
+                          })
+                        : file.path
+                    }
                   >
                     <FileText
                       className="h-3.5 w-3.5 flex-none text-low"
