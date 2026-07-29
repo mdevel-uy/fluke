@@ -59,7 +59,6 @@ import {
 } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
 
-const SHELL_SIDEBAR_LAYOUT_ID = 'shell-sidebar-layout';
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
 // Separators double as the divider's shadow: the Panel wrapper clips
@@ -338,24 +337,10 @@ export function SharedAppLayout() {
     isDashboardActive ||
     isAnalystDeskActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
-  const {
-    defaultLayout: shellSidebarLayout,
-    onLayoutChange: onShellSidebarLayoutChangeRaw,
-  } = useDefaultLayout({
-    storage: localStorage,
-    debounceSaveMs: 150,
-    id: SHELL_SIDEBAR_LAYOUT_ID,
-  });
-  // Only persist when the sidebar is mounted — a reduced layout would
-  // clobber the stored split (useDefaultLayout overwrites without merging).
-  const onShellSidebarLayoutChange = useCallback<
-    typeof onShellSidebarLayoutChangeRaw
-  >(
-    (layout) => {
-      if (showShellSidebar) onShellSidebarLayoutChangeRaw(layout);
-    },
-    [showShellSidebar, onShellSidebarLayoutChangeRaw]
-  );
+  // The horizontal split is intentionally NOT persisted: stored proportions
+  // re-applied after aside/terminal remounts made the sidebar grow on its
+  // own. Rule (decisión Dani): untouched, the sidebar always opens at its
+  // minimum; drags only last for the session.
 
   // SHELL-SPEC R18/R30: the shell owns the right aside panel; pages portal
   // their content in (ShellAsidePortal). Visibility = content + toggle.
@@ -436,12 +421,7 @@ export function SharedAppLayout() {
                 onOpenSettings={() => SettingsDialog.show()}
               />
               {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
-              <Group
-                orientation="horizontal"
-                className="flex-1 min-w-0 h-full"
-                defaultLayout={shellSidebarLayout}
-                onLayoutChange={onShellSidebarLayoutChange}
-              >
+              <Group orientation="horizontal" className="flex-1 min-w-0 h-full">
               {showShellSidebar && (
                 <Panel
                   id="shell-sidebar"
@@ -508,6 +488,7 @@ export function SharedAppLayout() {
               {showShellAside && (
                 <Panel
                   id="shell-aside"
+                  defaultSize="320px"
                   minSize="220px"
                   maxSize="480px"
                   className="h-full overflow-hidden border-l border-md-outline-variant"
