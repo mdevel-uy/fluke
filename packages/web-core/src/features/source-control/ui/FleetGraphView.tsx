@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GitBranch, Tag } from 'lucide-react';
 import { repoApi } from '@/shared/lib/api';
@@ -13,7 +13,7 @@ type GraphCommit = FleetGraphData['commits'][number];
 // Same geometry as the approved mock (design/git-fleet-mock.html).
 const ROW_H = 30;
 const laneX = (lane: number) => 16 + lane * 15;
-const GRAPH_LIMIT = 150;
+const GRAPH_PAGE_SIZE = 100;
 
 function fleetColorClass(branch: FleetBranch): string {
   if (branch.attentionReason === 'conflict') return 'text-error';
@@ -189,11 +189,24 @@ export function FleetGraphView({
     return [...names].sort();
   }, [branches, allBranches, baseBranch]);
 
-  const { data, isLoading } = useQuery({
+  // Infinite history: pages of GRAPH_PAGE_SIZE keyed by offset; the layout
+  // runs over everything loaded so far. The interval refetch replays every
+  // loaded page (react-query semantics), so it's kept slow.
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: ['repo-graph', repoId, baseBranch, tips.join(',')],
-    queryFn: () => repoApi.getGraph(repoId, baseBranch, tips, GRAPH_LIMIT),
+    queryFn: ({ pageParam }) =>
+      repoApi.getGraph(repoId, baseBranch, tips, GRAPH_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.has_more ? allPages.length * GRAPH_PAGE_SIZE : undefined,
     enabled: !!repoId && !!baseBranch,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   // Inline tag chips: tag target oid → names. Shares the sidebar's cache.
@@ -219,11 +232,40 @@ export function FleetGraphView({
     return map;
   }, [branches]);
 
-  const commits = useMemo(() => data?.commits ?? [], [data]);
+  const commits = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: GraphCommit[] = [];
+    for (const page of data?.pages ?? []) {
+      for (const commit of page.commits) {
+        if (seen.has(commit.oid)) continue;
+        seen.add(commit.oid);
+        merged.push(commit);
+      }
+    }
+    return merged;
+  }, [data]);
   const baseTipOid = useMemo(
     () => commits.find((c) => c.branch === null)?.oid,
     [commits]
   );
+
+  // Lazy loading: fetch the next page when the bottom sentinel scrolls into
+  // view inside the section's scroll container.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetchingNextPage) {
+          void fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const { rows, laneByOid, laneCount } = useMemo(
     () => computeLayout(commits, baseTipOid),
@@ -471,6 +513,18 @@ export function FleetGraphView({
           </div>
         );
       })}
+      {hasNextPage && (
+        <div
+          ref={sentinelRef}
+          className="flex h-[30px] items-center justify-center text-xs text-low"
+        >
+          {isFetchingNextPage
+            ? t('sourceControl.graph.loadingMore', {
+                defaultValue: 'Loading older commits…',
+              })
+            : ''}
+        </div>
+      )}
     </div>
   );
 }

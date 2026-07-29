@@ -125,6 +125,8 @@ pub struct FleetGraph {
     pub base_branch: String,
     pub commits: Vec<FleetGraphCommit>,
     pub tips: Vec<FleetGraphTip>,
+    /// More history exists past this page (`offset + limit` window).
+    pub has_more: bool,
 }
 
 // Selective staging (SHELL-SPEC V5/R38): index-aware view of the worktree.
@@ -2035,8 +2037,10 @@ impl GitService {
         base_branch: &str,
         tip_branches: &[String],
         limit: usize,
+        offset: usize,
     ) -> Result<FleetGraph, GitServiceError> {
         const MAX_COMMITS_PER_BRANCH: usize = 50;
+        let window = offset.saturating_add(limit);
 
         let repo = self.open_repo(repo_path)?;
         let base_oid = Self::find_branch(&repo, base_branch)?
@@ -2108,10 +2112,11 @@ impl GitService {
         }
 
         // Recent base commits (includes merged attempt branches' history).
+        // Walk one past the window so has_more is exact.
         let mut walk = repo.revwalk()?;
         walk.push(base_oid)?;
         walk.set_sorting(Sort::TIME)?;
-        for oid in walk.take(limit) {
+        for oid in walk.take(window + 1) {
             let oid = oid?;
             if !seen.insert(oid) {
                 continue;
@@ -2120,7 +2125,10 @@ impl GitService {
         }
 
         commits.sort_by(|a, b| b.committed_at.cmp(&a.committed_at));
-        commits.truncate(limit);
+        let has_more = commits.len() > window;
+        let end = window.min(commits.len());
+        let start = offset.min(end);
+        let mut commits: Vec<FleetGraphCommit> = commits.drain(start..end).collect();
 
         for commit in &mut commits {
             if let Some(names) = tip_names_by_oid.get(&commit.oid) {
@@ -2132,6 +2140,7 @@ impl GitService {
             base_branch: base_branch.to_string(),
             commits,
             tips,
+            has_more,
         })
     }
 

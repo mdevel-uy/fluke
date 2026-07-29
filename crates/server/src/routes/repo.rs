@@ -124,6 +124,7 @@ pub struct RepoGraphQuery {
     #[serde(default)]
     tips: String,
     limit: Option<usize>,
+    offset: Option<usize>,
 }
 
 /// Fleet graph (SHELL-SPEC V4): multi-branch commit log for the Source
@@ -146,11 +147,12 @@ pub async fn get_repo_graph(
         .map(String::from)
         .collect();
     let limit = query.limit.unwrap_or(100).clamp(1, 300);
+    let offset = query.offset.unwrap_or(0).min(10_000);
 
     let git = deployment.git().clone();
     let base = query.base.clone();
     let graph = tokio::task::spawn_blocking(move || {
-        git.get_fleet_graph(&repo.path, &base, &tips, limit)
+        git.get_fleet_graph(&repo.path, &base, &tips, limit, offset)
     })
     .await
     .map_err(|e| ApiError::BadRequest(format!("Graph walk failed: {e}")))??;

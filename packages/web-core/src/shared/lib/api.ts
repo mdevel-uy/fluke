@@ -1103,7 +1103,8 @@ export const repoApi = {
     repoId: string,
     base: string,
     tips: string[],
-    limit = 100
+    limit = 100,
+    offset = 0
   ): Promise<{
     base_branch: string;
     commits: Array<{
@@ -1122,11 +1123,13 @@ export const repoApi = {
       ahead_from_base: number;
       behind_from_base: number;
     }>;
+    has_more: boolean;
   }> => {
     const params = new URLSearchParams({
       base,
       tips: tips.join(','),
       limit: String(limit),
+      offset: String(offset),
     });
     const response = await makeRequest(`/api/repos/${repoId}/graph?${params}`);
     return handleApiResponse(response);
