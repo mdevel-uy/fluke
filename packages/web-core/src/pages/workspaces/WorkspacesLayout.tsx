@@ -74,6 +74,16 @@ export function WorkspacesLayout() {
   // VSCode-style tab groups (SHELL-SPEC R14)
   const [tabGroups, setTabGroups] = useWorkspaceTabGroups(workspaceId);
 
+  // Stale route guard: the workspace can disappear underneath us (purged
+  // from another tab / the API). Without this the explorer polls a dead id
+  // forever and the editor pane renders blank. `isLoading` covers both the
+  // list stream and the workspace record fetch, so archived workspaces
+  // (record resolves) never trigger the redirect.
+  useEffect(() => {
+    if (!workspaceId || isLoading || selectedWorkspace) return;
+    appNavigation.goToWorkspaces({ replace: true });
+  }, [workspaceId, isLoading, selectedWorkspace, appNavigation]);
+
   const {
     config,
     updateAndSaveConfig,

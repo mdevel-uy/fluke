@@ -67,7 +67,11 @@ export function WorkspaceExplorerSidebarContainer({
     (s) => s.byWorkspace[workspaceId]?.activePath ?? null
   );
 
-  const { data: pathInfo, isLoading: isRootLoading } = useQuery({
+  const {
+    data: pathInfo,
+    isLoading: isRootLoading,
+    isError: isRootError,
+  } = useQuery({
     queryKey: ['editor-path', 'explorer-root', workspaceId],
     queryFn: () => workspacesApi.getEditorPath(workspaceId),
     staleTime: Infinity,
@@ -448,7 +452,14 @@ export function WorkspaceExplorerSidebarContainer({
           pendingEdit.mode !== 'rename' &&
           pendingEdit.dirPath === rootPath &&
           editInputRow(0)}
-        {isRootLoading || !rootEntries ? (
+        {isRootError ? (
+          <div className="px-3 py-2 text-xs text-low">
+            {t('workspaces.explorer.rootError', {
+              defaultValue:
+                "Couldn't resolve this workspace's worktree. Pick another workspace in the sidebar.",
+            })}
+          </div>
+        ) : isRootLoading || !rootEntries ? (
           <div className="px-3 py-2 text-xs text-low">
             {t('workspaces.explorer.loading', { defaultValue: 'Loading…' })}
           </div>
