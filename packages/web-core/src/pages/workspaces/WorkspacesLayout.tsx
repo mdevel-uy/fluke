@@ -25,6 +25,7 @@ import { EditorPanelContainer } from './EditorPanelContainer';
 import { PreviewBrowserContainer } from './PreviewBrowserContainer';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
@@ -32,9 +33,12 @@ import { WorkspaceTabGroups } from './WorkspaceTabGroups';
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 
 export function WorkspacesLayout() {
+  const appNavigation = useAppNavigation();
   const {
     workspaceId,
     workspace: selectedWorkspace,
+    activeWorkspaces,
+    isWorkspacesListLoading,
     isLoading,
     selectedSession,
     selectedSessionId,
@@ -262,6 +266,29 @@ export function WorkspacesLayout() {
   const workspacesSidebarMode = useUiPreferencesStore(
     (s) => s.workspacesSidebarMode
   );
+
+  // Explorer/search need a selected workspace (their worktree). Landing on
+  // the section without one — e.g. clicking the rail's Editor item from the
+  // welcome view — auto-opens the first active workspace so the sidebar
+  // matches the rail state instead of silently falling back to the list.
+  useEffect(() => {
+    if (
+      (workspacesSidebarMode === 'explorer' ||
+        workspacesSidebarMode === 'search') &&
+      !workspaceId &&
+      !isWorkspacesListLoading &&
+      activeWorkspaces.length > 0
+    ) {
+      appNavigation.goToWorkspace(activeWorkspaces[0].id, { replace: true });
+    }
+  }, [
+    workspacesSidebarMode,
+    workspaceId,
+    isWorkspacesListLoading,
+    activeWorkspaces,
+    appNavigation,
+  ]);
+
   const sidebarPortal = (
     <ShellSidebarPortal>
       {workspacesSidebarMode === 'explorer' && workspaceId ? (
