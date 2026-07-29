@@ -7,7 +7,6 @@ import {
 } from '@vibe/ui/components/SidebarSectionsMenu';
 import { InputField } from '@vibe/ui/components/InputField';
 import {
-  SidebarRepoSection,
   SidebarRow,
   SidebarSection,
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
@@ -53,7 +52,6 @@ export function SprintSidebar({
 
   const [hidden, toggleSection] = useHiddenSections('sprint');
   const menuSections = [
-    { key: 'repo', label: t('navbar.repoSelector.placeholder', { defaultValue: 'Repository' }) },
     { key: 'workers', label: t('sprint.filters.worker', { defaultValue: 'Worker' }) },
     { key: 'priority', label: t('sprint.filters.priority', { defaultValue: 'Priority' }) },
     { key: 'labels', label: t('sprint.filters.label', { defaultValue: 'Label' }) },
@@ -86,7 +84,6 @@ export function SprintSidebar({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {!hidden.repo && <SidebarRepoSection persistKey="sprint-sidebar-repo" />}
         {!hidden.workers && workers.length > 0 && (
           <SidebarSection
             persistKey="sprint-sidebar-workers"
