@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { GitBranch, GitCompareArrows } from 'lucide-react';
+import { GitBranch, GitCompareArrows, X } from 'lucide-react';
 import { repoApi } from '@/shared/lib/api';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
@@ -9,22 +9,30 @@ import { useRepos } from '@/shared/hooks/useRepos';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
-import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
-import {
-  COMMIT_BROWSER_WORKSPACE_ID,
-  makeCommitDiffPath,
-} from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
 import { CommitDetailAside } from './CommitDetailAside';
+import { CommitFileDiffView } from './CommitFileDiffView';
 import { FleetGraphView } from './FleetGraphView';
 import { GraphBranchFilter } from './GraphBranchFilter';
 import { StagingView } from './StagingView';
 
-type MainTab = 'graph' | 'changes';
+/** 'graph' | 'changes' | `diff:{oid}:{path}` (in-page diff tabs). */
+type MainTab = string;
+
+interface DiffTab {
+  oid: string;
+  path: string;
+}
+
+const diffTabKey = (tab: DiffTab) => `diff:${tab.oid}:${tab.path}`;
+
+function basename(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1) || path;
+}
 
 /**
  * Source control section (SHELL-SPEC R34-R40): fleet-wide git view. Main
@@ -53,11 +61,32 @@ export function SourceControlPage() {
     branches: string[];
   } | null>(null);
 
-  // Commit selection is repo-scoped — drop it when the project changes.
+  // In-page diff tabs (GitHub-style, R37 tab bar) — one per commit file.
+  const [diffTabs, setDiffTabs] = useState<DiffTab[]>([]);
+
+  // Commit selection and diff tabs are repo-scoped — drop them when the
+  // project changes.
   useEffect(() => {
     setSelectedCommit(null);
     setHiddenBranches(new Set());
+    setDiffTabs([]);
+    setMainTab('graph');
   }, [selectedRepoId]);
+
+  const openDiffTab = (oid: string, path: string) => {
+    const tab = { oid, path };
+    setDiffTabs((prev) =>
+      prev.some((d) => d.oid === oid && d.path === path) ? prev : [...prev, tab]
+    );
+    setMainTab(diffTabKey(tab));
+  };
+
+  const closeDiffTab = (tab: DiffTab) => {
+    setDiffTabs((prev) =>
+      prev.filter((d) => !(d.oid === tab.oid && d.path === tab.path))
+    );
+    setMainTab((current) => (current === diffTabKey(tab) ? 'graph' : current));
+  };
 
   // Graph scope: which local branches ride along as graph tips.
   const [hiddenBranches, setHiddenBranches] = useState<Set<string>>(new Set());
@@ -138,38 +167,9 @@ export function SourceControlPage() {
                 appNavigation.goToWorkspaces();
               }
             }}
-            onOpenFileAtCommit={(path) => {
-              // A real workspace hosts the tab when one exists; otherwise
-              // the sentinel host renders the editor on the landing.
-              const wsId =
-                selectedId ??
-                fleet.branches[0]?.workspace.id ??
-                COMMIT_BROWSER_WORKSPACE_ID;
-              useWorkspaceEditorStore
-                .getState()
-                .openFile(
-                  wsId,
-                  makeCommitDiffPath({
-                    repoId: selectedRepoId,
-                    oid: selectedCommit.oid,
-                    path,
-                  })
-                );
-              useEditorSourceStore.getState().setCommitSource({
-                repoId: selectedRepoId,
-                oid: selectedCommit.oid,
-                summary: '',
-              });
-              const prefs = useUiPreferencesStore.getState();
-              prefs.setWorkspacesSidebarMode('explorer');
-              prefs.setLeftSidebarVisible(true);
-              if (wsId !== COMMIT_BROWSER_WORKSPACE_ID) {
-                prefs.openWorkspaceViewTab(wsId, 'editor');
-                appNavigation.goToWorkspace(wsId);
-              } else {
-                appNavigation.goToWorkspaces();
-              }
-            }}
+            onOpenFileAtCommit={(path) =>
+              openDiffTab(selectedCommit.oid, path)
+            }
           />
         </ShellAsidePortal>
       ) : (
@@ -224,6 +224,49 @@ export function SourceControlPage() {
               </span>
             </button>
           )}
+          {diffTabs.map((tab) => {
+            const key = diffTabKey(tab);
+            const isActive = mainTab === key;
+            return (
+              <div
+                key={key}
+                className={cn(
+                  'group/difftab flex h-full flex-none items-center gap-1.5 border-r border-md-outline-variant px-3 text-sm',
+                  isActive ? 'bg-primary text-high' : 'text-low hover:text-high'
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setMainTab(key)}
+                  title={`${tab.path} @ ${tab.oid.slice(0, 7)}`}
+                  className="flex cursor-pointer items-center gap-1.5 focus:outline-none"
+                >
+                  <span className="max-w-[180px] truncate font-mono text-code">
+                    {basename(tab.path)}
+                  </span>
+                  <span className="font-mono text-[10px] text-low">
+                    @{tab.oid.slice(0, 7)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => closeDiffTab(tab)}
+                  aria-label={t('workspaces.tabs.close', {
+                    defaultValue: 'Close',
+                  })}
+                  className={cn(
+                    '-mr-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm text-low',
+                    'hover:bg-md-surface-container-high hover:text-high',
+                    isActive
+                      ? 'visible'
+                      : 'invisible group-hover/difftab:visible'
+                  )}
+                >
+                  <X size={11} strokeWidth={2} />
+                </button>
+              </div>
+            );
+          })}
           <div className="ml-auto mr-2 flex items-center gap-1.5">
             <GraphBranchFilter
               branchNames={(repoBranches ?? [])
@@ -264,19 +307,33 @@ export function SourceControlPage() {
                 isLoading={fleet.isLoading}
               />
             )
-          ) : selected && selected.primaryStatus ? (
-            <StagingView
-              key={selected.workspace.id}
-              branch={selected}
-              repoId={selected.primaryStatus.repo_id}
-            />
+          ) : mainTab === 'changes' ? (
+            selected && selected.primaryStatus ? (
+              <StagingView
+                key={selected.workspace.id}
+                branch={selected}
+                repoId={selected.primaryStatus.repo_id}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-6 text-sm text-low">
+                {t('sourceControl.changesPlaceholder', {
+                  defaultValue:
+                    'Select a branch in the sidebar to review and stage its changes.',
+                })}
+              </div>
+            )
           ) : (
-            <div className="flex h-full items-center justify-center px-6 text-sm text-low">
-              {t('sourceControl.changesPlaceholder', {
-                defaultValue:
-                  'Select a branch in the sidebar to review and stage its changes.',
-              })}
-            </div>
+            (() => {
+              const tab = diffTabs.find((d) => diffTabKey(d) === mainTab);
+              return tab && selectedRepoId ? (
+                <CommitFileDiffView
+                  key={diffTabKey(tab)}
+                  repoId={selectedRepoId}
+                  oid={tab.oid}
+                  path={tab.path}
+                />
+              ) : null;
+            })()
           )}
         </div>
       </div>
