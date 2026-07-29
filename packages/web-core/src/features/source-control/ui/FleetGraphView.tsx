@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GitBranch, Tag } from 'lucide-react';
@@ -232,6 +232,11 @@ export function FleetGraphView({
     return map;
   }, [branches]);
 
+  // Commit selection: clicking a row lights up the commit's containment
+  // paths — every descendant chain up to the tips that reach it — and dims
+  // the rest of the graph, answering "which branch is this commit on".
+  const [selectedOid, setSelectedOid] = useState<string | null>(null);
+
   const commits = useMemo(() => {
     const seen = new Set<string>();
     const merged: GraphCommit[] = [];
@@ -296,6 +301,31 @@ export function FleetGraphView({
   );
   const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
 
+  // Descendant closure of the selected commit. Descendants are always newer
+  // than the commit, so they are guaranteed to be in the loaded pages.
+  const highlightSet = useMemo(() => {
+    if (!selectedOid) return null;
+    const childrenByOid = new Map<string, string[]>();
+    for (const commit of commits) {
+      for (const parent of commit.parent_oids) {
+        const list = childrenByOid.get(parent);
+        if (list) list.push(commit.oid);
+        else childrenByOid.set(parent, [commit.oid]);
+      }
+    }
+    const set = new Set<string>([selectedOid]);
+    const queue = [selectedOid];
+    while (queue.length > 0) {
+      const oid = queue.pop()!;
+      for (const child of childrenByOid.get(oid) ?? []) {
+        if (set.has(child)) continue;
+        set.add(child);
+        queue.push(child);
+      }
+    }
+    return set;
+  }, [selectedOid, commits]);
+
   const colorOfLane = (lane: number): string => {
     const fleet = laneColor.get(lane);
     if (fleet) return fleet;
@@ -359,14 +389,21 @@ export function FleetGraphView({
         const yb = yc + ROW_H * 0.8;
         d = `M ${xc} ${yc} C ${xc} ${yc + 12}, ${xp} ${yb - 12}, ${xp} ${yb} L ${xp} ${yp}`;
       }
+      const edgeDimmed =
+        highlightSet !== null &&
+        !(highlightSet.has(commit.oid) && highlightSet.has(parentOid));
       edges.push(
         <path
           key={`${commit.oid}-${parentOid}`}
           d={d}
           fill="none"
           stroke="currentColor"
-          strokeWidth={1.75}
-          className={colorClass}
+          strokeWidth={edgeDimmed ? 1.75 : highlightSet ? 2.25 : 1.75}
+          className={cn(
+            colorClass,
+            'transition-opacity',
+            edgeDimmed && 'opacity-15'
+          )}
         />
       );
     }
@@ -377,16 +414,31 @@ export function FleetGraphView({
       lane === baseLane && !laneColor.has(lane)
         ? 'text-low'
         : colorOfLane(lane);
+    const dotDimmed = highlightSet !== null && !highlightSet.has(commit.oid);
     dots.push(
       <circle
         key={commit.oid}
         cx={xc}
         cy={yc}
-        r={radius}
+        r={commit.oid === selectedOid ? radius + 1 : radius}
         fill="currentColor"
-        className={dotClass}
+        className={cn(dotClass, 'transition-opacity', dotDimmed && 'opacity-15')}
       />
     );
+    if (commit.oid === selectedOid) {
+      dots.push(
+        <circle
+          key={`${commit.oid}-sel-ring`}
+          cx={xc}
+          cy={yc}
+          r={radius + 3.6}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          className={dotClass}
+        />
+      );
+    }
     if (commit.tip_of.length > 0) {
       dots.push(
         <circle
@@ -398,7 +450,11 @@ export function FleetGraphView({
           stroke="currentColor"
           strokeOpacity={0.35}
           strokeWidth={1.5}
-          className={dotClass}
+          className={cn(
+            dotClass,
+            'transition-opacity',
+            dotDimmed && 'opacity-15'
+          )}
         />
       );
     }
@@ -426,19 +482,26 @@ export function FleetGraphView({
           (commit.branch ? fleetByBranch.get(commit.branch) : undefined) ??
           fleetTips[0];
         const isSelected =
-          !!rowFleet && rowFleet.workspace.id === selectedWorkspaceId;
+          commit.oid === selectedOid ||
+          (!!rowFleet && rowFleet.workspace.id === selectedWorkspaceId);
+        const rowDimmed =
+          highlightSet !== null && !highlightSet.has(commit.oid);
 
         return (
           <div
             key={commit.oid}
-            role={rowFleet ? 'button' : undefined}
-            onClick={
-              rowFleet ? () => onSelect(rowFleet.workspace.id) : undefined
-            }
+            role="button"
+            onClick={() => {
+              setSelectedOid((prev) =>
+                prev === commit.oid ? null : commit.oid
+              );
+              if (rowFleet) onSelect(rowFleet.workspace.id);
+            }}
             className={cn(
               'flex h-[30px] items-center gap-2 pr-3 text-sm',
-              rowFleet && 'cursor-pointer hover:bg-secondary/60',
-              isSelected && 'bg-sel'
+              'cursor-pointer hover:bg-secondary/60',
+              isSelected && 'bg-sel',
+              rowDimmed && 'opacity-50'
             )}
             style={{ paddingLeft: gutterWidth + 6 }}
           >
