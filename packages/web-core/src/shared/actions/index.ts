@@ -1457,6 +1457,30 @@ export const Actions = {
   } satisfies GlobalActionDefinition,
 
   // === Quick Open (CMD+P) Navigation Actions ===
+  SearchInFiles: {
+    id: 'search-in-files',
+    label: 'Search in Files',
+    icon: MagnifyingGlassIcon,
+    shortcut: '{mod} ⇧ F',
+    keywords: ['find', 'grep', 'buscar', 'search'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      const prefs = useUiPreferencesStore.getState();
+      prefs.setWorkspacesSidebarMode('search');
+      prefs.setLeftSidebarVisible(true);
+      const destination = ctx.appNavigation.resolveFromPath(
+        window.location.pathname
+      );
+      const inWorkspaces =
+        destination?.kind === 'workspaces' ||
+        destination?.kind === 'workspace' ||
+        destination?.kind === 'workspace-vscode';
+      if (!inWorkspaces) {
+        ctx.appNavigation.goToWorkspaces();
+      }
+    },
+  } satisfies GlobalActionDefinition,
+
   GoToWorkspaces: {
     id: 'go-to-workspaces',
     label: 'Workspaces',

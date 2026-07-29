@@ -54,6 +54,8 @@ export function useWorkspaceShortcuts() {
 
   useHotkeys('g>s', () => execute(Actions.Settings), OPTIONS);
 
+  useHotkeys('mod+shift+f', () => execute(Actions.SearchInFiles), OPTIONS);
+
   useHotkeys('w>r', () => execute(Actions.RenameWorkspace), OPTIONS);
   useHotkeys('w>p', () => execute(Actions.PinWorkspace), OPTIONS);
   useHotkeys('w>a', () => execute(Actions.ArchiveWorkspace), OPTIONS);

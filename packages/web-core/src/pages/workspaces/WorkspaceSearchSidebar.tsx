@@ -120,6 +120,7 @@ export function WorkspaceSearchSidebar({
           variant="search"
           value={query}
           onChange={setQuery}
+          autoFocus
           placeholder={t('workspaces.explorer.searchPlaceholder', {
             defaultValue: 'Search in files…',
           })}

@@ -11,6 +11,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         type: 'group',
         label: 'Actions',
         items: [
+          { type: 'action', action: Actions.SearchInFiles },
           { type: 'action', action: Actions.CreateWorkspaceFromPR },
           { type: 'action', action: Actions.CreateWorker },
           { type: 'action', action: Actions.OpenInIDE },
