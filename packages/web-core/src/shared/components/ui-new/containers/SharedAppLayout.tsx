@@ -31,6 +31,7 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppUpdateStore } from '@/shared/stores/useAppUpdateStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
+import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
   getProjectDestination,
   isAnalystDeskDestination,
@@ -237,6 +238,9 @@ export function SharedAppLayout() {
     else appNavigation.goToDashboard();
   }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
 
+  // SHELL-SPEC R34: rail badge = nº of fleet branches stopped on conflicts.
+  const sourceControlBadgeCount = useFleetConflictCount();
+
   const handleSourceControlClick = useCallback(() => {
     if (isSourceControlActive) toggleLeftSidebar();
     else appNavigation.goToSourceControl();
@@ -421,6 +425,7 @@ export function SharedAppLayout() {
                 isEditorActive={isEditorActive}
                 isSearchActive={isSearchActive}
                 isSourceControlActive={isSourceControlActive}
+                sourceControlBadgeCount={sourceControlBadgeCount}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}
