@@ -364,7 +364,7 @@ export function AppBar({
               aria-label={item.label}
             >
               {item.lucideIcon ? (
-                <item.lucideIcon size={18} strokeWidth={1.75} />
+                <item.lucideIcon size={22} strokeWidth={1.5} />
               ) : (
                 <MaterialIcon
                   name={item.materialIcon ?? ''}
@@ -475,7 +475,7 @@ export function AppBar({
               })}
               aria-label={t('appBar.search', { defaultValue: 'Search' })}
             >
-              <Search size={18} strokeWidth={1.75} />
+              <Search size={22} strokeWidth={1.5} />
             </button>
           </Tooltip>
         )}
@@ -487,7 +487,7 @@ export function AppBar({
               className={getStandardAppBarButtonClassName({})}
               aria-label={t('appBar.settings')}
             >
-              <SettingsIcon size={18} strokeWidth={1.75} />
+              <SettingsIcon size={22} strokeWidth={1.5} />
             </button>
           </Tooltip>
         )}
