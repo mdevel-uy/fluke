@@ -8,41 +8,52 @@ import { SidebarSection } from '@/shared/components/ui-new/shell/SidebarPrimitiv
 import { cn } from '@/shared/lib/utils';
 import type { FleetBranch } from '../model/useFleetBranches';
 
-interface BranchNode {
-  /** Last path segment, shown as the row label. */
+interface PathNode<T> {
+  /** Segment shown as the row label. */
   name: string;
-  /** Full ref path up to this node — folder key / branch name. */
+  /** Full path up to this node (folder key). */
   path: string;
-  children: BranchNode[];
-  /** Present on leaves only. */
-  branch?: GitBranch;
+  children: PathNode<T>[];
+  /** Present when this exact path is an item (a node can be both). */
+  value?: T;
 }
 
-// Git refuses refs where a name is both a file and a directory, so one
-// child per segment name is safe.
-function buildBranchTree(branches: GitBranch[]): BranchNode[] {
-  const root: BranchNode = { name: '', path: '', children: [] };
-  for (const branch of branches) {
-    const parts = branch.name.split('/');
+// Branches can't collide folder-vs-leaf (git forbids it), but tags split on
+// "-" can: `desktop` and `desktop-latest` coexist — the node then carries
+// both a value and children.
+function buildPathTree<T>(
+  items: T[],
+  getName: (item: T) => string,
+  separator: string
+): PathNode<T>[] {
+  const root: PathNode<T> = { name: '', path: '', children: [] };
+  for (const item of items) {
+    const parts = getName(item).split(separator);
     let node = root;
     let path = '';
     parts.forEach((part, index) => {
-      path = path ? `${path}/${part}` : part;
+      path = path ? `${path}${separator}${part}` : part;
       let child = node.children.find((c) => c.name === part);
       if (!child) {
         child = { name: part, path, children: [] };
         node.children.push(child);
       }
-      if (index === parts.length - 1) child.branch = branch;
+      if (index === parts.length - 1) child.value = item;
       node = child;
     });
   }
-  const sortChildren = (node: BranchNode) => {
+  const sortChildren = (node: PathNode<T>) => {
     node.children.sort((a, b) => a.name.localeCompare(b.name));
     node.children.forEach(sortChildren);
   };
   sortChildren(root);
   return root.children;
+}
+
+function countLeaves<T>(node: PathNode<T>): number {
+  let total = node.value ? 1 : 0;
+  for (const child of node.children) total += countLeaves(child);
+  return total;
 }
 
 const FLEET_DOT: Record<FleetBranch['group'], string> = {
@@ -52,6 +63,49 @@ const FLEET_DOT: Record<FleetBranch['group'], string> = {
   merged: 'bg-merged',
 };
 
+function FolderRow({
+  name,
+  count,
+  depth,
+  isOpen,
+  onToggle,
+}: {
+  name: string;
+  count: number;
+  depth: number;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      style={{ paddingLeft: 16 + depth * 14 }}
+      className="flex h-[22px] w-full cursor-pointer items-center gap-1.5 pr-2 text-left text-sm text-normal hover:bg-secondary"
+    >
+      {isOpen ? (
+        <ChevronDown className="h-3 w-3 flex-none text-low" />
+      ) : (
+        <ChevronRight className="h-3 w-3 flex-none text-low" />
+      )}
+      <span className="min-w-0 truncate">{name}</span>
+      <span className="flex-none text-[11px] text-low">{count}</span>
+    </button>
+  );
+}
+
+function useExpandedSet() {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (path: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  return { expanded, toggle };
+}
+
 interface SourceControlBranchesSectionsProps {
   repoId: string | null;
   fleetBranches: FleetBranch[];
@@ -59,9 +113,9 @@ interface SourceControlBranchesSectionsProps {
 }
 
 /**
- * Sourcetree-style Branches (slash-nested tree) and Tags sections for the
- * Source control sidebar. Branch leaves that back an active workspace show
- * their fleet dot and select that workspace on click.
+ * Sourcetree-style Branches (slash-nested) and Tags (dash-nested) trees for
+ * the Source control sidebar. Branch leaves that back an active workspace
+ * show their fleet dot and select that workspace on click.
  */
 export function SourceControlBranchesSections({
   repoId,
@@ -69,7 +123,8 @@ export function SourceControlBranchesSections({
   onSelectWorkspace,
 }: SourceControlBranchesSectionsProps) {
   const { t } = useTranslation('common');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const branchesExpanded = useExpandedSet();
+  const tagsExpanded = useExpandedSet();
 
   const { data: allBranches } = useQuery({
     queryKey: ['repo-branches', repoId],
@@ -91,7 +146,14 @@ export function SourceControlBranchesSections({
     () => (allBranches ?? []).filter((b) => !b.is_remote),
     [allBranches]
   );
-  const tree = useMemo(() => buildBranchTree(localBranches), [localBranches]);
+  const branchTree = useMemo(
+    () => buildPathTree(localBranches, (b) => b.name, '/'),
+    [localBranches]
+  );
+  const tagTree = useMemo(
+    () => buildPathTree(tags ?? [], (tag) => tag.name, '-'),
+    [tags]
+  );
 
   const fleetByBranch = useMemo(() => {
     const map = new Map<string, FleetBranch>();
@@ -99,55 +161,26 @@ export function SourceControlBranchesSections({
     return map;
   }, [fleetBranches]);
 
-  const toggleFolder = (path: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-
-  const renderNode = (node: BranchNode, depth: number): React.ReactNode => {
-    const indent = { paddingLeft: 16 + depth * 14 };
-    if (!node.branch) {
-      const isOpen = expanded.has(node.path);
-      return (
-        <div key={node.path}>
-          <button
-            type="button"
-            onClick={() => toggleFolder(node.path)}
-            style={indent}
-            className="flex h-[22px] w-full cursor-pointer items-center gap-1.5 pr-2 text-left text-sm text-normal hover:bg-secondary"
-          >
-            {isOpen ? (
-              <ChevronDown className="h-3 w-3 flex-none text-low" />
-            ) : (
-              <ChevronRight className="h-3 w-3 flex-none text-low" />
-            )}
-            <span className="min-w-0 truncate">{node.name}</span>
-            <span className="flex-none text-[11px] text-low">
-              {countLeaves(node)}
-            </span>
-          </button>
-          {isOpen && node.children.map((child) => renderNode(child, depth + 1))}
-        </div>
-      );
-    }
-
-    const fleet = fleetByBranch.get(node.branch.name);
-    const isCurrent = node.branch.is_current;
+  const renderBranchLeaf = (
+    node: PathNode<GitBranch>,
+    depth: number
+  ): React.ReactNode => {
+    const branch = node.value!;
+    const fleet = fleetByBranch.get(branch.name);
+    const isCurrent = branch.is_current;
     return (
       <button
-        key={node.path}
+        key={`leaf-${node.path}`}
         type="button"
         onClick={
           fleet ? () => onSelectWorkspace(fleet.workspace.id) : undefined
         }
-        style={indent}
+        style={{ paddingLeft: 16 + depth * 14 }}
         className={cn(
           'flex h-[22px] w-full items-center gap-2 pr-2 text-left text-sm',
-          fleet ? 'cursor-pointer hover:bg-secondary' : 'cursor-default',
-          !fleet && 'hover:bg-secondary/50'
+          fleet
+            ? 'cursor-pointer hover:bg-secondary'
+            : 'cursor-default hover:bg-secondary/50'
         )}
       >
         <span
@@ -175,6 +208,53 @@ export function SourceControlBranchesSections({
     );
   };
 
+  const renderTagLeaf = (
+    node: PathNode<{ name: string; target_oid: string }>,
+    depth: number
+  ): React.ReactNode => (
+    <div
+      key={`leaf-${node.path}`}
+      style={{ paddingLeft: 16 + depth * 14 }}
+      className="flex h-[22px] items-center gap-2 pr-2 text-sm text-normal hover:bg-secondary/50"
+    >
+      <Tag className="h-3 w-3 flex-none text-low" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1 truncate font-mono text-code">
+        {node.name}
+      </span>
+    </div>
+  );
+
+  // A node that is both an item and a folder renders the folder row and,
+  // when open, itself as the first leaf inside.
+  const renderTree = <T,>(
+    node: PathNode<T>,
+    depth: number,
+    state: ReturnType<typeof useExpandedSet>,
+    renderLeaf: (node: PathNode<T>, depth: number) => React.ReactNode
+  ): React.ReactNode => {
+    if (node.children.length === 0) return renderLeaf(node, depth);
+    const isOpen = state.expanded.has(node.path);
+    return (
+      <div key={`folder-${node.path}`}>
+        <FolderRow
+          name={node.name}
+          count={countLeaves(node)}
+          depth={depth}
+          isOpen={isOpen}
+          onToggle={() => state.toggle(node.path)}
+        />
+        {isOpen && (
+          <>
+            {node.value !== undefined && renderLeaf(node, depth + 1)}
+            {node.children.map((child) =>
+              renderTree(child, depth + 1, state, renderLeaf)
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <SidebarSection
@@ -182,7 +262,9 @@ export function SourceControlBranchesSections({
         title={t('sourceControl.branchesTitle', { defaultValue: 'Branches' })}
         count={localBranches.length}
       >
-        {tree.map((node) => renderNode(node, 0))}
+        {branchTree.map((node) =>
+          renderTree(node, 0, branchesExpanded, renderBranchLeaf)
+        )}
       </SidebarSection>
       {(tags?.length ?? 0) > 0 && (
         <SidebarSection
@@ -191,26 +273,11 @@ export function SourceControlBranchesSections({
           count={tags!.length}
           defaultOpen={false}
         >
-          {tags!.map((tag) => (
-            <div
-              key={tag.name}
-              className="flex h-[22px] items-center gap-2 pl-4 pr-2 text-sm text-normal"
-            >
-              <Tag className="h-3 w-3 flex-none text-low" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate font-mono text-code">
-                {tag.name}
-              </span>
-            </div>
-          ))}
+          {tagTree.map((node) =>
+            renderTree(node, 0, tagsExpanded, renderTagLeaf)
+          )}
         </SidebarSection>
       )}
     </>
   );
-}
-
-function countLeaves(node: BranchNode): number {
-  if (node.branch && node.children.length === 0) return 1;
-  let total = node.branch ? 1 : 0;
-  for (const child of node.children) total += countLeaves(child);
-  return total;
 }
