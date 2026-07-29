@@ -34,6 +34,12 @@ export function SourceControlPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('graph');
 
+  // The graph must not depend on having active workspaces: fall back to the
+  // repo's default branch when the fleet is empty.
+  const selectedRepo = repos.find((r) => r.id === selectedRepoId) ?? null;
+  const baseBranch =
+    fleet.baseBranch ?? selectedRepo?.default_target_branch ?? null;
+
   // Default selection: first branch needing attention, else first branch.
   // Re-run when the selected workspace leaves the fleet (archived/removed).
   useEffect(() => {
@@ -58,7 +64,7 @@ export function SourceControlPage() {
       <ShellSidebarPortal>
         <SourceControlSidebar
           groups={fleet.groups}
-          baseBranch={fleet.baseBranch}
+          baseBranch={baseBranch}
           repoId={selectedRepoId}
           selectedWorkspaceId={selectedId}
           onSelect={setSelectedId}
@@ -114,22 +120,22 @@ export function SourceControlPage() {
                   })}
             </span>
           </button>
-          {fleet.baseBranch && (
+          {baseBranch && (
             <span className="ml-auto mr-2 flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-low">
               <span className="uppercase tracking-wider text-[9px]">
                 {t('sourceControl.baseChip', { defaultValue: 'base' })}
               </span>
-              {fleet.baseBranch}
+              {baseBranch}
             </span>
           )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
           {mainTab === 'graph' ? (
-            selectedRepoId && fleet.baseBranch ? (
+            selectedRepoId && baseBranch ? (
               <FleetGraphView
                 repoId={selectedRepoId}
-                baseBranch={fleet.baseBranch}
+                baseBranch={baseBranch}
                 branches={fleet.branches}
                 selectedWorkspaceId={selectedId}
                 onSelect={setSelectedId}
