@@ -300,8 +300,12 @@ export function FleetGraphView({
     queryFn: ({ pageParam }) =>
       repoApi.getGraph(repoId, baseBranch, tips, GRAPH_PAGE_SIZE, pageParam),
     initialPageParam: 0,
+    // Pages can have variable sizes (the reveal path appends one big page),
+    // so the next offset is the total fetched so far, not pages × size.
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.has_more ? allPages.length * GRAPH_PAGE_SIZE : undefined,
+      lastPage.has_more
+        ? allPages.reduce((total, page) => total + page.commits.length, 0)
+        : undefined,
     enabled: !!repoId && !!baseBranch,
     refetchInterval: 60_000,
   });
@@ -455,9 +459,16 @@ export function FleetGraphView({
     selectCommit(commit);
   };
 
-  // Sidebar → graph reveal: resolve branch tips via the response's tips,
-  // page deeper until the commit is loaded (bounded), then select + scroll.
-  const MAX_REVEAL_PAGES = 30;
+  // Sidebar → graph reveal. When the commit isn't loaded, ONE locate call
+  // gives its index and ONE big fetch (appended as a variable-size page)
+  // jumps straight to it — no page-by-page crawling.
+  const graphQueryKey = useMemo(
+    () => ['repo-graph', repoId, baseBranch, tips.join(',')],
+    [repoId, baseBranch, tips]
+  );
+  const revealAttemptRef = useRef<{ oid: string; loaded: number } | null>(
+    null
+  );
   useEffect(() => {
     if (!revealRequest || !data) return;
     const oid =
@@ -471,6 +482,7 @@ export function FleetGraphView({
     }
     const commit = commitByOid.get(oid);
     if (commit) {
+      revealAttemptRef.current = null;
       selectCommit(commit);
       requestAnimationFrame(() => {
         document
@@ -480,13 +492,62 @@ export function FleetGraphView({
       onRevealHandled?.();
       return;
     }
-    if (data.pages.length >= MAX_REVEAL_PAGES || !hasNextPage) {
+
+    const loaded = commits.length;
+    const attempt = revealAttemptRef.current;
+    if (attempt && attempt.oid === oid && attempt.loaded >= loaded) {
+      // A fetch already ran for this target and brought no progress —
+      // it is out of the graph's scope. Stop instead of looping.
+      revealAttemptRef.current = null;
       onRevealHandled?.();
       return;
     }
-    if (!isFetchingNextPage) void fetchNextPage();
+    revealAttemptRef.current = { oid, loaded };
+
+    void (async () => {
+      try {
+        const { index } = await repoApi.locateGraphCommit(
+          repoId,
+          baseBranch,
+          tips,
+          oid
+        );
+        if (index === null) {
+          revealAttemptRef.current = null;
+          onRevealHandled?.();
+          return;
+        }
+        // Small buffer absorbs ordering skew between locate and the walk.
+        const target = Math.min(index + 100, loaded + 3000);
+        if (target <= loaded) return; // re-run will find it (or bail)
+        const page = await repoApi.getGraph(
+          repoId,
+          baseBranch,
+          tips,
+          target - loaded,
+          loaded
+        );
+        queryClient.setQueryData(
+          graphQueryKey,
+          (
+            old:
+              | { pages: (typeof page)[]; pageParams: number[] }
+              | undefined
+          ) =>
+            old
+              ? {
+                  pages: [...old.pages, page],
+                  pageParams: [...old.pageParams, loaded],
+                }
+              : old
+        );
+      } catch {
+        revealAttemptRef.current = null;
+        onRevealHandled?.();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealRequest, data, commitByOid, hasNextPage, isFetchingNextPage]);
+  }, [revealRequest, data, commitByOid]);
 
   // Column widths: graph tracks the lane count until manually resized.
   const [graphColWidth, setGraphColWidth] = useState<number | null>(null);

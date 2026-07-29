@@ -1162,6 +1162,20 @@ export const repoApi = {
     return handleApiResponse(response);
   },
 
+  /** Index of a commit within the fleet-graph ordering (null = not there). */
+  locateGraphCommit: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    oid: string
+  ): Promise<{ index: number | null }> => {
+    const params = new URLSearchParams({ base, tips: tips.join(','), oid });
+    const response = await makeRequest(
+      `/api/repos/${repoId}/graph/locate?${params}`
+    );
+    return handleApiResponse<{ index: number | null }>(response);
+  },
+
   // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
   // (like the editor endpoints — not part of generate_types).
   getGraph: async (

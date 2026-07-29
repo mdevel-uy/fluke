@@ -70,6 +70,11 @@ interface SourceControlSidebarProps {
   /** Jump the graph to a branch tip / a specific commit. */
   onRevealBranch: (name: string) => void;
   onRevealCommit: (oid: string) => void;
+  /** In-flight reveal — the matching row shows a spinner. */
+  pendingReveal:
+    | { kind: 'oid'; oid: string }
+    | { kind: 'branch'; name: string }
+    | null;
 }
 
 /**
@@ -84,6 +89,7 @@ export function SourceControlSidebar({
   onSelect,
   onRevealBranch,
   onRevealCommit,
+  pendingReveal,
 }: SourceControlSidebarProps) {
   const { t } = useTranslation('common');
 
@@ -166,6 +172,7 @@ export function SourceControlSidebar({
           onSelectWorkspace={onSelect}
           onRevealBranch={onRevealBranch}
           onRevealCommit={onRevealCommit}
+          pendingReveal={pendingReveal}
         />
       </div>
     </div>

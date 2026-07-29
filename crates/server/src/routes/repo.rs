@@ -146,8 +146,8 @@ pub async fn get_repo_graph(
         .filter(|s| !s.is_empty())
         .map(String::from)
         .collect();
-    let limit = query.limit.unwrap_or(100).clamp(1, 300);
-    let offset = query.offset.unwrap_or(0).min(10_000);
+    let limit = query.limit.unwrap_or(100).clamp(1, 3000);
+    let offset = query.offset.unwrap_or(0).min(30_000);
 
     let git = deployment.git().clone();
     let base = query.base.clone();
@@ -158,6 +158,50 @@ pub async fn get_repo_graph(
     .map_err(|e| ApiError::BadRequest(format!("Graph walk failed: {e}")))??;
 
     Ok(ResponseJson(ApiResponse::success(graph)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GraphLocateQuery {
+    base: String,
+    #[serde(default)]
+    tips: String,
+    oid: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GraphLocateResponse {
+    pub index: Option<usize>,
+}
+
+/// Where a commit sits in the fleet-graph ordering (sidebar → graph jumps).
+pub async fn locate_repo_graph_commit(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<GraphLocateQuery>,
+) -> Result<ResponseJson<ApiResponse<GraphLocateResponse>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tips: Vec<String> = query
+        .tips
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+
+    let git = deployment.git().clone();
+    let base = query.base.clone();
+    let index = tokio::task::spawn_blocking(move || {
+        git.locate_fleet_commit(&repo.path, &base, &tips, &query.oid)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Locate failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(GraphLocateResponse {
+        index,
+    })))
 }
 
 pub async fn get_repo_commit(
@@ -809,6 +853,10 @@ pub fn router() -> Router<DeploymentImpl> {
         )
         .route("/repos/{repo_id}/tags", get(get_repo_tags))
         .route("/repos/{repo_id}/graph", get(get_repo_graph))
+        .route(
+            "/repos/{repo_id}/graph/locate",
+            get(locate_repo_graph_commit),
+        )
         .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
         .route(
             "/repos/{repo_id}/commits/{oid}/file",

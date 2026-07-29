@@ -152,6 +152,7 @@ export function SourceControlPage() {
           onSelect={setSelectedId}
           onRevealBranch={(name) => requestReveal({ kind: 'branch', name })}
           onRevealCommit={(oid) => requestReveal({ kind: 'oid', oid })}
+          pendingReveal={revealRequest}
         />
       </ShellSidebarPortal>
 

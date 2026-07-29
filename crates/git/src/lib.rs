@@ -54,6 +54,14 @@ pub enum GitServiceError {
     RebaseInProgress,
 }
 
+impl GitServiceError {
+    /// True when the underlying git2 error is "a reference with that name
+    /// already exists" (e.g. creating a branch that is already there).
+    pub fn is_ref_exists(&self) -> bool {
+        matches!(self, GitServiceError::Git(e) if e.code() == git2::ErrorCode::Exists)
+    }
+}
+
 /// Service for managing Git operations in task execution workflows
 #[derive(Clone)]
 pub struct GitService {}
@@ -2234,6 +2242,76 @@ impl GitService {
             additions,
             deletions,
         })
+    }
+
+    /// Position of a commit within the fleet-graph ordering (same tips +
+    /// time-desc sort as `get_fleet_graph`), so the client can page straight
+    /// to it. `None` = not reachable within the walk cap.
+    pub fn locate_fleet_commit(
+        &self,
+        repo_path: &Path,
+        base_branch: &str,
+        tip_branches: &[String],
+        oid_str: &str,
+    ) -> Result<Option<usize>, GitServiceError> {
+        const MAX_COMMITS_PER_BRANCH: usize = 50;
+        const MAX_BASE_WALK: usize = 20_000;
+
+        let repo = self.open_repo(repo_path)?;
+        let target = git2::Oid::from_str(oid_str)?;
+        let base_oid = Self::find_branch(&repo, base_branch)?
+            .get()
+            .peel_to_commit()?
+            .id();
+
+        // (oid, commit time) pairs — same population as the graph walk.
+        let mut items: Vec<(git2::Oid, i64)> = Vec::new();
+        let mut seen: HashSet<git2::Oid> = HashSet::new();
+        let mut found = false;
+
+        for branch_name in tip_branches {
+            let Ok(branch) = Self::find_branch(&repo, branch_name) else {
+                continue;
+            };
+            let Ok(tip_commit) = branch.get().peel_to_commit() else {
+                continue;
+            };
+            let mut walk = repo.revwalk()?;
+            walk.push(tip_commit.id())?;
+            walk.hide(base_oid)?;
+            walk.set_sorting(Sort::TIME)?;
+            for oid in walk.take(MAX_COMMITS_PER_BRANCH) {
+                let oid = oid?;
+                if !seen.insert(oid) {
+                    continue;
+                }
+                found |= oid == target;
+                items.push((oid, repo.find_commit(oid)?.time().seconds()));
+            }
+        }
+
+        // Base walk is time-ordered: once the target shows up, everything
+        // newer is already collected, so the sorted position is final.
+        let mut walk = repo.revwalk()?;
+        walk.push(base_oid)?;
+        walk.set_sorting(Sort::TIME)?;
+        for oid in walk.take(MAX_BASE_WALK) {
+            let oid = oid?;
+            if !seen.insert(oid) {
+                continue;
+            }
+            items.push((oid, repo.find_commit(oid)?.time().seconds()));
+            if oid == target {
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            return Ok(None);
+        }
+        items.sort_by(|a, b| b.1.cmp(&a.1));
+        Ok(items.iter().position(|(oid, _)| *oid == target))
     }
 
     /// Multi-branch commit graph for the fleet view (SHELL-SPEC V4): commits
