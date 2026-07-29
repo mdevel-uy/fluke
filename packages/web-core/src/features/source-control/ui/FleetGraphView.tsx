@@ -190,6 +190,8 @@ interface FleetGraphViewProps {
   selectedCommitOid: string | null;
   /** oid null = deselect; branches = refs known to contain the commit. */
   onSelectCommit: (oid: string | null, containingBranches: string[]) => void;
+  /** Branches excluded from the graph scope (tab-bar filter). */
+  hiddenBranches?: Set<string>;
 }
 
 /**
@@ -208,6 +210,7 @@ export function FleetGraphView({
   onSelect,
   selectedCommitOid,
   onSelectCommit,
+  hiddenBranches,
 }: FleetGraphViewProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -226,8 +229,9 @@ export function FleetGraphView({
       if (!b.is_remote) names.add(b.name);
     }
     names.delete(baseBranch);
+    for (const name of hiddenBranches ?? []) names.delete(name);
     return [...names].sort();
-  }, [branches, allBranches, baseBranch]);
+  }, [branches, allBranches, baseBranch, hiddenBranches]);
 
   // Infinite history: pages of GRAPH_PAGE_SIZE keyed by offset; the layout
   // runs over everything loaded so far. The interval refetch replays every

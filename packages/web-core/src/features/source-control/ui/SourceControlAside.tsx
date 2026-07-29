@@ -67,6 +67,8 @@ function useAttentionLabel(reason: AttentionReason | null): string | undefined {
   }
 }
 
+// Link-look action rows, matching the workspace aside's prefixed-agent
+// quick actions (R24): brand-tinted text, 24px rows.
 function ActRow({
   icon: Icon,
   label,
@@ -80,10 +82,10 @@ function ActRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[26px] w-full cursor-pointer items-center gap-2 px-3.5 text-left text-sm text-normal hover:bg-secondary hover:text-high"
+      className="flex h-6 w-full cursor-pointer items-center gap-[7px] whitespace-nowrap px-3.5 text-left text-sm text-brand-on-surface hover:bg-secondary focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
     >
-      <Icon className="h-3.5 w-3.5 flex-none text-low" strokeWidth={1.75} />
-      <span className="min-w-0 truncate">{label}</span>
+      <Icon size={13} strokeWidth={1.75} className="flex-none" />
+      <span className="truncate">{label}</span>
     </button>
   );
 }

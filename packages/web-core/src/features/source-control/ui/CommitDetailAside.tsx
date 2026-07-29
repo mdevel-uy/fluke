@@ -152,13 +152,14 @@ export function CommitDetailAside({
                 <button
                   type="button"
                   onClick={() => onOpenInEditor(detail.message.split('\n')[0])}
-                  className="flex h-[26px] w-full cursor-pointer items-center gap-2 px-3.5 text-left text-sm text-normal hover:bg-secondary hover:text-high"
+                  className={cn(
+                    'flex h-6 w-full items-center gap-[7px] px-3.5 text-left text-sm text-brand-on-surface',
+                    'hover:bg-secondary cursor-pointer whitespace-nowrap',
+                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-brand'
+                  )}
                 >
-                  <FileCode
-                    className="h-3.5 w-3.5 flex-none text-low"
-                    strokeWidth={1.75}
-                  />
-                  <span className="min-w-0 truncate">
+                  <FileCode size={13} strokeWidth={1.75} className="flex-none" />
+                  <span className="truncate">
                     {t('sourceControl.commit.openInEditor', {
                       defaultValue: 'Open in editor (read-only)',
                     })}

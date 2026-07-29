@@ -15,8 +15,9 @@ import {
 import { useDiffPaths } from '@/shared/stores/useWorkspaceDiffStore';
 import { workspacesApi } from '@/shared/lib/api';
 import {
-  isCommitFilePath,
-  parseCommitFilePath,
+  isCommitDiffPath,
+  isCommitScopedPath,
+  parseCommitScopedPath,
 } from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 
@@ -49,10 +50,10 @@ export function EditorAside({ workspaceId, workspace }: EditorAsideProps) {
   });
   const rootPath = pathInfo?.workspace_path?.replace(/\\/g, '/');
 
-  const activeCommitRef = activePath ? parseCommitFilePath(activePath) : null;
+  const activeCommitRef = activePath ? parseCommitScopedPath(activePath) : null;
 
   const displayPath = (path: string): string => {
-    const commitRef = parseCommitFilePath(path);
+    const commitRef = parseCommitScopedPath(path);
     if (commitRef) return commitRef.path;
     const normalized = path.replace(/\\/g, '/');
     return rootPath && normalized.startsWith(`${rootPath}/`)
@@ -148,7 +149,7 @@ export function EditorAside({ workspaceId, workspace }: EditorAsideProps) {
           ) : (
             openPaths.map((path) => {
               const isActive = path === activePath;
-              const isSnapshot = isCommitFilePath(path);
+              const isSnapshot = isCommitScopedPath(path);
               return (
                 <button
                   key={path}
@@ -182,7 +183,8 @@ export function EditorAside({ workspaceId, workspace }: EditorAsideProps) {
                   </span>
                   {isSnapshot && (
                     <span className="flex-none font-mono text-[10px] text-warning">
-                      @{parseCommitFilePath(path)?.oid.slice(0, 7)}
+                      {isCommitDiffPath(path) ? 'diff@' : '@'}
+                      {parseCommitScopedPath(path)?.oid.slice(0, 7)}
                     </span>
                   )}
                 </button>

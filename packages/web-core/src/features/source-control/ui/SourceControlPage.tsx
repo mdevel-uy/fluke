@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GitBranch, GitCompareArrows } from 'lucide-react';
+import { repoApi } from '@/shared/lib/api';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -9,13 +11,14 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
-import { makeCommitFilePath } from '@/shared/lib/commitFilePath';
+import { makeCommitDiffPath } from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
 import { CommitDetailAside } from './CommitDetailAside';
 import { FleetGraphView } from './FleetGraphView';
+import { GraphBranchFilter } from './GraphBranchFilter';
 import { StagingView } from './StagingView';
 
 type MainTab = 'graph' | 'changes';
@@ -50,7 +53,17 @@ export function SourceControlPage() {
   // Commit selection is repo-scoped — drop it when the project changes.
   useEffect(() => {
     setSelectedCommit(null);
+    setHiddenBranches(new Set());
   }, [selectedRepoId]);
+
+  // Graph scope: which local branches ride along as graph tips.
+  const [hiddenBranches, setHiddenBranches] = useState<Set<string>>(new Set());
+  const { data: repoBranches } = useQuery({
+    queryKey: ['repo-branches', selectedRepoId],
+    queryFn: () => repoApi.getBranches(selectedRepoId!),
+    enabled: !!selectedRepoId,
+    staleTime: 30_000,
+  });
 
   // The graph must not depend on having active workspaces: fall back to the
   // repo's default branch when the fleet is empty.
@@ -123,7 +136,7 @@ export function SourceControlPage() {
                       .getState()
                       .openFile(
                         wsId,
-                        makeCommitFilePath({
+                        makeCommitDiffPath({
                           repoId: selectedRepoId,
                           oid: selectedCommit.oid,
                           path,
@@ -189,14 +202,23 @@ export function SourceControlPage() {
                   })}
             </span>
           </button>
-          {baseBranch && (
-            <span className="ml-auto mr-2 flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-low">
-              <span className="uppercase tracking-wider text-[9px]">
-                {t('sourceControl.baseChip', { defaultValue: 'base' })}
+          <div className="ml-auto mr-2 flex items-center gap-1.5">
+            <GraphBranchFilter
+              branchNames={(repoBranches ?? [])
+                .filter((b) => !b.is_remote && b.name !== baseBranch)
+                .map((b) => b.name)}
+              hidden={hiddenBranches}
+              onChange={setHiddenBranches}
+            />
+            {baseBranch && (
+              <span className="flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-low">
+                <span className="uppercase tracking-wider text-[9px]">
+                  {t('sourceControl.baseChip', { defaultValue: 'base' })}
+                </span>
+                {baseBranch}
               </span>
-              {baseBranch}
-            </span>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
@@ -212,6 +234,7 @@ export function SourceControlPage() {
                 onSelectCommit={(oid, branches) =>
                   setSelectedCommit(oid ? { oid, branches } : null)
                 }
+                hiddenBranches={hiddenBranches}
               />
             ) : (
               <FleetGraphPlaceholder

@@ -10,8 +10,11 @@ import { languages } from '@codemirror/language-data';
 import { FileCode, Lock, X } from 'lucide-react';
 import { repoApi, workspacesApi } from '@/shared/lib/api';
 import {
-  isCommitFilePath,
+  isCommitDiffPath,
+  isCommitScopedPath,
+  parseCommitDiffPath,
   parseCommitFilePath,
+  parseCommitScopedPath,
 } from '@/shared/lib/commitFilePath';
 import {
   useWorkspaceEditorFiles,
@@ -82,12 +85,17 @@ export function EditorPanelContainer({
     let cancelled = false;
     setLoadedDoc(null);
     setLoadError(null);
-    // Commit snapshots (`git:` scheme) load from the commit tree; live
-    // worktree files load from disk.
-    const ref = parseCommitFilePath(activePath);
-    const load = ref
-      ? repoApi.getCommitFile(ref.repoId, ref.oid, ref.path)
-      : workspacesApi.readEditorFile(activePath);
+    // Commit snapshots (`git:`) load from the commit tree, diff tabs
+    // (`gitdiff:`) load the unified patch; live worktree files from disk.
+    const fileRef = parseCommitFilePath(activePath);
+    const diffRef = parseCommitDiffPath(activePath);
+    const load = diffRef
+      ? repoApi
+          .getCommitFileDiff(diffRef.repoId, diffRef.oid, diffRef.path)
+          .then(({ patch }) => ({ content: patch }))
+      : fileRef
+        ? repoApi.getCommitFile(fileRef.repoId, fileRef.oid, fileRef.path)
+        : workspacesApi.readEditorFile(activePath);
     load
       .then(({ content }) => {
         if (cancelled) return;
@@ -104,12 +112,13 @@ export function EditorPanelContainer({
   }, [activePath]);
 
   // Syntax highlighting for the active file, lazily loaded per language.
+  // Diff tabs always highlight as unified patches.
   useEffect(() => {
     setLangExtension(null);
     if (!activePath) return;
     const description = LanguageDescription.matchFilename(
       languages,
-      basename(activePath)
+      isCommitDiffPath(activePath) ? 'changes.diff' : basename(activePath)
     );
     if (!description) return;
     let cancelled = false;
@@ -170,7 +179,7 @@ export function EditorPanelContainer({
 
   const saveFile = useCallback(
     async (path: string) => {
-      if (isCommitFilePath(path)) return;
+      if (isCommitScopedPath(path)) return;
       const entry = docsRef.current.get(path);
       if (!entry || entry.doc === entry.saved) return;
       const doc = entry.doc;
@@ -268,10 +277,11 @@ export function EditorPanelContainer({
                 className="flex items-center gap-1.5 focus:outline-none cursor-pointer"
               >
                 {basename(path)}
-                {isCommitFilePath(path) && (
+                {isCommitScopedPath(path) && (
                   <span className="flex items-center gap-0.5 font-mono text-[10px] text-low">
-                    <Lock size={9} strokeWidth={2} />@
-                    {parseCommitFilePath(path)?.oid.slice(0, 7)}
+                    <Lock size={9} strokeWidth={2} />
+                    {isCommitDiffPath(path) ? 'diff@' : '@'}
+                    {parseCommitScopedPath(path)?.oid.slice(0, 7)}
                   </span>
                 )}
               </button>
@@ -307,15 +317,21 @@ export function EditorPanelContainer({
         })}
       </div>
 
-      {/* Read-only banner for commit snapshots. */}
-      {activePath && isCommitFilePath(activePath) && (
+      {/* Read-only banner for commit-scoped buffers. */}
+      {activePath && isCommitScopedPath(activePath) && (
         <div className="flex h-6 flex-none items-center gap-1.5 border-b border-warning/40 bg-warning/10 px-3 text-[11px] text-warning">
           <Lock size={11} strokeWidth={2} />
-          {t('workspaces.editor.commitSnapshot', {
-            defaultValue:
-              'Read-only snapshot of commit {{oid}} — edits are disabled.',
-            oid: parseCommitFilePath(activePath)?.oid.slice(0, 7),
-          })}
+          {isCommitDiffPath(activePath)
+            ? t('workspaces.editor.commitDiff', {
+                defaultValue:
+                  'Diff of commit {{oid}} vs its parent — read-only.',
+                oid: parseCommitScopedPath(activePath)?.oid.slice(0, 7),
+              })
+            : t('workspaces.editor.commitSnapshot', {
+                defaultValue:
+                  'Read-only snapshot of commit {{oid}} — edits are disabled.',
+                oid: parseCommitScopedPath(activePath)?.oid.slice(0, 7),
+              })}
         </div>
       )}
 
@@ -336,8 +352,8 @@ export function EditorPanelContainer({
             key={loadedDoc.path}
             value={loadedDoc.doc}
             onChange={handleChange}
-            editable={!isCommitFilePath(loadedDoc.path)}
-            readOnly={isCommitFilePath(loadedDoc.path)}
+            editable={!isCommitScopedPath(loadedDoc.path)}
+            readOnly={isCommitScopedPath(loadedDoc.path)}
             onCreateEditor={(view) => {
               viewRef.current = view;
               setViewVersion((v) => v + 1);

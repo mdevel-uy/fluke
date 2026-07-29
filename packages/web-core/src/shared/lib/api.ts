@@ -1111,6 +1111,18 @@ export const repoApi = {
     );
   },
 
+  /** Unified diff of one file in a commit (editor diff tabs). */
+  getCommitFileDiff: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ patch: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file-diff?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ patch: string }>(response);
+  },
+
   /** Read-only file content at a commit (editor snapshots). */
   getCommitFile: async (
     repoId: string,

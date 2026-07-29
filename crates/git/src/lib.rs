@@ -2099,6 +2099,35 @@ impl GitService {
         Ok(entries)
     }
 
+    /// Unified diff of a single file in a commit (vs its first parent), as
+    /// a plain patch string for the editor's diff tabs.
+    pub fn get_commit_file_diff(
+        &self,
+        repo_path: &Path,
+        oid_str: &str,
+        rel_path: &str,
+    ) -> Result<String, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let oid = git2::Oid::from_str(oid_str)?;
+        let commit = repo.find_commit(oid)?;
+        let parent_tree = match commit.parent(0) {
+            Ok(parent) => Some(parent.tree()?),
+            Err(_) => None,
+        };
+        let mut opts = DiffOptions::new();
+        opts.pathspec(rel_path);
+        let diff = repo.diff_tree_to_tree(
+            parent_tree.as_ref(),
+            Some(&commit.tree()?),
+            Some(&mut opts),
+        )?;
+        let patch = match git2::Patch::from_diff(&diff, 0)? {
+            Some(mut patch) => patch.to_buf()?.as_str().unwrap_or_default().to_string(),
+            None => String::new(),
+        };
+        Ok(patch)
+    }
+
     /// UTF-8 content of a file at a given commit (read-only snapshots for
     /// the embedded editor). Size-capped like the live editor endpoint.
     pub fn get_commit_file(

@@ -213,6 +213,31 @@ pub async fn get_repo_commit_tree(
     Ok(ResponseJson(ApiResponse::success(entries)))
 }
 
+#[derive(Debug, Serialize)]
+pub struct CommitFileDiff {
+    pub patch: String,
+}
+
+/// Unified diff of one file in a commit, for the editor's diff tabs.
+pub async fn get_repo_commit_file_diff(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileDiff>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let patch = tokio::task::spawn_blocking(move || {
+        git.get_commit_file_diff(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit diff failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileDiff { patch })))
+}
+
 /// Read-only file snapshot at a commit, for the embedded editor.
 pub async fn get_repo_commit_file(
     State(deployment): State<DeploymentImpl>,
@@ -757,6 +782,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/repos/{repo_id}/commits/{oid}/tree",
             get(get_repo_commit_tree),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file-diff",
+            get(get_repo_commit_file_diff),
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))

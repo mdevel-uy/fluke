@@ -10,19 +10,12 @@ export interface CommitFileRef {
   path: string;
 }
 
-const PREFIX = 'git:';
+const FILE_PREFIX = 'git:';
+const DIFF_PREFIX = 'gitdiff:';
 
-export function makeCommitFilePath(ref: CommitFileRef): string {
-  return `${PREFIX}${ref.repoId}:${ref.oid}:${ref.path}`;
-}
-
-export function isCommitFilePath(path: string): boolean {
-  return path.startsWith(PREFIX);
-}
-
-export function parseCommitFilePath(path: string): CommitFileRef | null {
-  if (!isCommitFilePath(path)) return null;
-  const rest = path.slice(PREFIX.length);
+function parseWithPrefix(path: string, prefix: string): CommitFileRef | null {
+  if (!path.startsWith(prefix)) return null;
+  const rest = path.slice(prefix.length);
   const firstColon = rest.indexOf(':');
   const secondColon = rest.indexOf(':', firstColon + 1);
   if (firstColon === -1 || secondColon === -1) return null;
@@ -31,4 +24,39 @@ export function parseCommitFilePath(path: string): CommitFileRef | null {
     oid: rest.slice(firstColon + 1, secondColon),
     path: rest.slice(secondColon + 1),
   };
+}
+
+export function makeCommitFilePath(ref: CommitFileRef): string {
+  return `${FILE_PREFIX}${ref.repoId}:${ref.oid}:${ref.path}`;
+}
+
+export function isCommitFilePath(path: string): boolean {
+  return path.startsWith(FILE_PREFIX);
+}
+
+export function parseCommitFilePath(path: string): CommitFileRef | null {
+  return parseWithPrefix(path, FILE_PREFIX);
+}
+
+/** Diff tabs: the unified patch of one file in a commit. */
+export function makeCommitDiffPath(ref: CommitFileRef): string {
+  return `${DIFF_PREFIX}${ref.repoId}:${ref.oid}:${ref.path}`;
+}
+
+export function isCommitDiffPath(path: string): boolean {
+  return path.startsWith(DIFF_PREFIX);
+}
+
+export function parseCommitDiffPath(path: string): CommitFileRef | null {
+  return parseWithPrefix(path, DIFF_PREFIX);
+}
+
+/** Any read-only commit-scoped buffer (snapshot or diff). */
+export function isCommitScopedPath(path: string): boolean {
+  return isCommitFilePath(path) || isCommitDiffPath(path);
+}
+
+/** Ref of any commit-scoped buffer, whatever the scheme. */
+export function parseCommitScopedPath(path: string): CommitFileRef | null {
+  return parseCommitFilePath(path) ?? parseCommitDiffPath(path);
 }
