@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { FileText, GitBranch } from 'lucide-react';
+import { FileCode, FileText, GitBranch } from 'lucide-react';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import {
   AsideSection,
@@ -25,6 +25,8 @@ interface CommitDetailAsideProps {
   onClose: () => void;
   /** Open a changed file as a read-only snapshot in the embedded editor. */
   onOpenFileAtCommit?: (path: string) => void;
+  /** Browse this whole commit in the editor (source picker → snapshot). */
+  onOpenInEditor?: (summary: string) => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export function CommitDetailAside({
   containingBranches,
   onClose,
   onOpenFileAtCommit,
+  onOpenInEditor,
 }: CommitDetailAsideProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -136,6 +139,31 @@ export function CommitDetailAside({
                     </span>
                   </div>
                 ))}
+              </AsideSection>
+            )}
+
+            {onOpenInEditor && (
+              <AsideSection
+                persistKey={PERSIST_KEYS.asideQuickActions}
+                title={t('sourceControl.commit.quickActions', {
+                  defaultValue: 'Quick actions',
+                })}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpenInEditor(detail.message.split('\n')[0])}
+                  className="flex h-[26px] w-full cursor-pointer items-center gap-2 px-3.5 text-left text-sm text-normal hover:bg-secondary hover:text-high"
+                >
+                  <FileCode
+                    className="h-3.5 w-3.5 flex-none text-low"
+                    strokeWidth={1.75}
+                  />
+                  <span className="min-w-0 truncate">
+                    {t('sourceControl.commit.openInEditor', {
+                      defaultValue: 'Open in editor (read-only)',
+                    })}
+                  </span>
+                </button>
               </AsideSection>
             )}
 

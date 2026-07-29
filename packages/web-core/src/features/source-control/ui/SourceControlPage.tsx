@@ -8,6 +8,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
+import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
 import { makeCommitFilePath } from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
@@ -96,6 +97,23 @@ export function SourceControlPage() {
             oid={selectedCommit.oid}
             containingBranches={selectedCommit.branches}
             onClose={() => setSelectedCommit(null)}
+            onOpenInEditor={(summary) => {
+              useEditorSourceStore.getState().setCommitSource({
+                repoId: selectedRepoId,
+                oid: selectedCommit.oid,
+                summary,
+              });
+              const prefs = useUiPreferencesStore.getState();
+              prefs.setWorkspacesSidebarMode('explorer');
+              prefs.setLeftSidebarVisible(true);
+              const wsId = selectedId ?? fleet.branches[0]?.workspace.id;
+              if (wsId) {
+                prefs.openWorkspaceViewTab(wsId, 'editor');
+                appNavigation.goToWorkspace(wsId);
+              } else {
+                appNavigation.goToWorkspaces();
+              }
+            }}
             onOpenFileAtCommit={
               fleet.branches.length > 0
                 ? (path) => {

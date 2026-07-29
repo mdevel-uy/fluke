@@ -627,7 +627,7 @@ export function FleetGraphView({
               style={{ gridTemplateColumns }}
             >
               <div aria-hidden />
-              <div className="flex min-w-0 items-center gap-2 px-1.5">
+              <div className="flex min-w-0 items-center gap-2 overflow-hidden px-1.5">
                 <span
                   className={cn(
                     'min-w-0 flex-none truncate',
