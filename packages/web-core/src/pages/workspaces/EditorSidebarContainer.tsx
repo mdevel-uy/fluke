@@ -24,7 +24,10 @@ import {
   useEditorSourceStore,
   type EditorCommitSource,
 } from '@/shared/stores/useEditorSourceStore';
-import { makeCommitFilePath } from '@/shared/lib/commitFilePath';
+import {
+  COMMIT_BROWSER_WORKSPACE_ID,
+  makeCommitFilePath,
+} from '@/shared/lib/commitFilePath';
 import { WorkspaceExplorerSidebarContainer } from './WorkspaceExplorerSidebarContainer';
 import { cn } from '@/shared/lib/utils';
 
@@ -202,24 +205,28 @@ export function EditorSidebarContainer({
     staleTime: 30_000,
   });
 
-  const openSnapshotFile =
-    workspaceId && commitSource
-      ? (relPath: string) => {
-          useWorkspaceEditorStore
-            .getState()
-            .openFile(
-              workspaceId,
-              makeCommitFilePath({
-                repoId: commitSource.repoId,
-                oid: commitSource.oid,
-                path: relPath,
-              })
-            );
+  // Snapshot files always open: a real workspace hosts the tab when routed,
+  // otherwise the sentinel host renders the editor on the landing.
+  const openSnapshotFile = commitSource
+    ? (relPath: string) => {
+        const host = workspaceId ?? COMMIT_BROWSER_WORKSPACE_ID;
+        useWorkspaceEditorStore
+          .getState()
+          .openFile(
+            host,
+            makeCommitFilePath({
+              repoId: commitSource.repoId,
+              oid: commitSource.oid,
+              path: relPath,
+            })
+          );
+        if (workspaceId) {
           useUiPreferencesStore
             .getState()
             .openWorkspaceViewTab(workspaceId, 'editor');
         }
-      : null;
+      }
+    : null;
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">

@@ -11,7 +11,10 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
-import { makeCommitDiffPath } from '@/shared/lib/commitFilePath';
+import {
+  COMMIT_BROWSER_WORKSPACE_ID,
+  makeCommitDiffPath,
+} from '@/shared/lib/commitFilePath';
 import { cn } from '@/shared/lib/utils';
 import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
@@ -127,28 +130,38 @@ export function SourceControlPage() {
                 appNavigation.goToWorkspaces();
               }
             }}
-            onOpenFileAtCommit={
-              fleet.branches.length > 0
-                ? (path) => {
-                    const wsId =
-                      selectedId ?? fleet.branches[0]!.workspace.id;
-                    useWorkspaceEditorStore
-                      .getState()
-                      .openFile(
-                        wsId,
-                        makeCommitDiffPath({
-                          repoId: selectedRepoId,
-                          oid: selectedCommit.oid,
-                          path,
-                        })
-                      );
-                    const prefs = useUiPreferencesStore.getState();
-                    prefs.setWorkspacesSidebarMode('explorer');
-                    prefs.openWorkspaceViewTab(wsId, 'editor');
-                    appNavigation.goToWorkspace(wsId);
-                  }
-                : undefined
-            }
+            onOpenFileAtCommit={(path) => {
+              // A real workspace hosts the tab when one exists; otherwise
+              // the sentinel host renders the editor on the landing.
+              const wsId =
+                selectedId ??
+                fleet.branches[0]?.workspace.id ??
+                COMMIT_BROWSER_WORKSPACE_ID;
+              useWorkspaceEditorStore
+                .getState()
+                .openFile(
+                  wsId,
+                  makeCommitDiffPath({
+                    repoId: selectedRepoId,
+                    oid: selectedCommit.oid,
+                    path,
+                  })
+                );
+              useEditorSourceStore.getState().setCommitSource({
+                repoId: selectedRepoId,
+                oid: selectedCommit.oid,
+                summary: '',
+              });
+              const prefs = useUiPreferencesStore.getState();
+              prefs.setWorkspacesSidebarMode('explorer');
+              prefs.setLeftSidebarVisible(true);
+              if (wsId !== COMMIT_BROWSER_WORKSPACE_ID) {
+                prefs.openWorkspaceViewTab(wsId, 'editor');
+                appNavigation.goToWorkspace(wsId);
+              } else {
+                appNavigation.goToWorkspaces();
+              }
+            }}
           />
         </ShellAsidePortal>
       ) : (

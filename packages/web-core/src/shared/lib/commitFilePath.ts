@@ -10,6 +10,12 @@ export interface CommitFileRef {
   path: string;
 }
 
+/**
+ * Sentinel editor-store key hosting commit-scoped buffers when no real
+ * workspace exists — commit browsing must not depend on the fleet.
+ */
+export const COMMIT_BROWSER_WORKSPACE_ID = '__commit-browser__';
+
 const FILE_PREFIX = 'git:';
 const DIFF_PREFIX = 'gitdiff:';
 
