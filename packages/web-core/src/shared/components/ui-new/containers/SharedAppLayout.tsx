@@ -37,6 +37,7 @@ import {
   isDashboardDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
+  isSourceControlDestination,
   isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
@@ -178,6 +179,7 @@ export function SharedAppLayout() {
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isDashboardActive = isDashboardDestination(currentDestination);
+  const isSourceControlActive = isSourceControlDestination(currentDestination);
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
@@ -234,6 +236,11 @@ export function SharedAppLayout() {
     if (isDashboardActive) toggleLeftSidebar();
     else appNavigation.goToDashboard();
   }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
+
+  const handleSourceControlClick = useCallback(() => {
+    if (isSourceControlActive) toggleLeftSidebar();
+    else appNavigation.goToSourceControl();
+  }, [isSourceControlActive, toggleLeftSidebar, appNavigation]);
 
   const handleSprintClick = useCallback(() => {
     if (isSprintActive) toggleLeftSidebar();
@@ -320,6 +327,7 @@ export function SharedAppLayout() {
   // their content in. Sections without a contributed sidebar hide the panel.
   const sectionHasSidebar =
     isWorkspacesActive ||
+    isSourceControlActive ||
     isSprintActive ||
     isIssuesActive ||
     isWorkersActive ||
@@ -401,6 +409,7 @@ export function SharedAppLayout() {
                 onWorkspacesClick={handleWorkspacesClick}
                 onEditorClick={handleEditorClick}
                 onSearchClick={handleSearchClick}
+                onSourceControlClick={handleSourceControlClick}
                 onDashboardClick={handleDashboardClick}
                 onSprintClick={handleSprintClick}
                 onIssuesClick={handleIssuesClick}
@@ -411,6 +420,7 @@ export function SharedAppLayout() {
                 }
                 isEditorActive={isEditorActive}
                 isSearchActive={isSearchActive}
+                isSourceControlActive={isSourceControlActive}
                 isDashboardActive={isDashboardActive}
                 isSprintActive={isSprintActive}
                 isIssuesActive={isIssuesActive}

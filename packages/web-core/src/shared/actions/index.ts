@@ -47,6 +47,7 @@ import {
   LightningIcon,
   KanbanIcon,
   GaugeIcon,
+  GitBranchIcon,
   MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
@@ -1522,6 +1523,17 @@ export const Actions = {
     requiresTarget: ActionTargetType.NONE,
     execute: (ctx) => {
       ctx.appNavigation.goToDashboard();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToSourceControl: {
+    id: 'go-to-source-control',
+    label: 'Source Control',
+    icon: GitBranchIcon,
+    keywords: ['navigate', 'go to', 'page', 'git', 'fleet', 'branches'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToSourceControl();
     },
   } satisfies GlobalActionDefinition,
 

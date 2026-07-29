@@ -38,6 +38,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         label: 'Navigate',
         items: [
           { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
           { type: 'action', action: Actions.GoToSprint },
           { type: 'action', action: Actions.GoToIssues },
           { type: 'action', action: Actions.GoToDashboard },
@@ -168,6 +169,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         label: 'Pages',
         items: [
           { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
           { type: 'action', action: Actions.GoToSprint },
           { type: 'action', action: Actions.GoToIssues },
           { type: 'action', action: Actions.GoToDashboard },

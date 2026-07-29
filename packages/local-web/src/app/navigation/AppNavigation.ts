@@ -55,6 +55,8 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       return { kind: 'workers' };
     case '/_app/dashboard':
       return { kind: 'dashboard' };
+    case '/_app/source-control':
+      return { kind: 'source-control' };
     case '/_app/analyst-desk':
       return { kind: 'analyst-desk' };
     case '/_app/sprint': {
@@ -224,6 +226,8 @@ function destinationToLocalTarget(
       return { to: '/workers' } as const;
     case 'dashboard':
       return { to: '/dashboard' } as const;
+    case 'source-control':
+      return { to: '/source-control' } as const;
     case 'analyst-desk':
       return { to: '/analyst-desk' } as const;
     case 'sprint':
@@ -321,6 +325,8 @@ export function createLocalAppNavigation(): AppNavigation {
     goToExport: (transition) => navigateTo({ kind: 'export' }, transition),
     goToDashboard: (transition) =>
       navigateTo({ kind: 'dashboard' }, transition),
+    goToSourceControl: (transition) =>
+      navigateTo({ kind: 'source-control' }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),

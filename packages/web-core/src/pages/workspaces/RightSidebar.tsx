@@ -34,7 +34,7 @@ import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ForcePushDialog } from '@/shared/dialogs/command-bar/ForcePushDialog';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { FileTreeContainer } from './FileTreeContainer';
-import { WorkerDetailCard } from './aside/WorkerDetailCard';
+import { WorkerDetailCard } from '@/shared/components/ui-new/aside/WorkerDetailCard';
 import {
   AsideSection,
   GhostButton,
@@ -42,7 +42,7 @@ import {
   StatusDot,
   formatElapsed,
   type DotTone,
-} from './aside/primitives';
+} from '@/shared/components/ui-new/aside/primitives';
 
 // SHELL-SPEC R18-R24: the aside is a strict master-detail of the selected
 // workspace — worker card, Issue, Changes, Git, Pull request and Quick

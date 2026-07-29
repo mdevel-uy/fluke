@@ -5,6 +5,7 @@ import { MaterialIcon } from './MaterialIcon';
 import { useTranslation } from 'react-i18next';
 import {
   FileCode,
+  GitBranch,
   Headphones,
   Kanban,
   LayoutGrid,
@@ -34,6 +35,7 @@ interface AppBarProps {
   onWorkspacesClick: () => void;
   onEditorClick?: () => void;
   onSearchClick?: () => void;
+  onSourceControlClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
   onIssuesClick?: () => void;
@@ -43,6 +45,7 @@ interface AppBarProps {
   showWorkspacesButton?: boolean;
   showEditorButton?: boolean;
   showSearchButton?: boolean;
+  showSourceControlButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
   showIssuesButton?: boolean;
@@ -51,6 +54,9 @@ interface AppBarProps {
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
   isSearchActive?: boolean;
+  isSourceControlActive?: boolean;
+  /** Nº of fleet branches stopped on conflicts (SHELL-SPEC R34 badge). */
+  sourceControlBadgeCount?: number;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
   isIssuesActive?: boolean;
@@ -89,7 +95,7 @@ function getHostStatusIndicatorClass(status: AppBarHostStatus): string {
 
 // SHELL-SPEC R5: the rail is icons-only — 40px items, tooltip on the right.
 const appBarItemBase =
-  'flex items-center justify-center w-10 h-10 rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
+  'relative flex items-center justify-center w-10 h-10 rounded-sm text-sm font-normal transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand';
 
 type AppBarSection = {
   key: 'local' | 'remote' | 'export';
@@ -105,6 +111,8 @@ type AppBarSectionItem =
       materialIcon?: string;
       lucideIcon?: LucideIcon;
       isActive?: boolean;
+      /** Numeric badge on the icon's corner (0/undefined hides it). */
+      badgeCount?: number;
       onClick?: () => void;
       className?: string;
     }
@@ -156,6 +164,7 @@ export function AppBar({
   onWorkspacesClick,
   onEditorClick,
   onSearchClick,
+  onSourceControlClick,
   onDashboardClick,
   onSprintClick,
   onIssuesClick,
@@ -165,6 +174,7 @@ export function AppBar({
   showWorkspacesButton = true,
   showEditorButton = true,
   showSearchButton = true,
+  showSourceControlButton = true,
   showDashboardButton = true,
   showSprintButton = true,
   showIssuesButton = true,
@@ -173,6 +183,8 @@ export function AppBar({
   isWorkspacesActive,
   isEditorActive = false,
   isSearchActive = false,
+  isSourceControlActive = false,
+  sourceControlBadgeCount = 0,
   isDashboardActive = false,
   isSprintActive = false,
   isIssuesActive = false,
@@ -228,6 +240,17 @@ export function AppBar({
         lucideIcon: FileCode,
         isActive: isEditorActive,
         onClick: onEditorClick,
+      });
+    }
+    if (showSourceControlButton && onSourceControlClick) {
+      localItems.push({
+        key: 'local-source-control',
+        kind: 'icon-button',
+        label: t('appBar.sourceControl', { defaultValue: 'Source control' }),
+        lucideIcon: GitBranch,
+        isActive: isSourceControlActive,
+        badgeCount: sourceControlBadgeCount,
+        onClick: onSourceControlClick,
       });
     }
     if (showSprintButton && onSprintClick) {
@@ -348,6 +371,17 @@ export function AppBar({
                   fill={item.isActive ? 1 : 0}
                   size="base"
                 />
+              )}
+              {(item.badgeCount ?? 0) > 0 && (
+                <span
+                  className={cn(
+                    'absolute right-1 top-1 flex h-[14px] min-w-[14px] items-center justify-center',
+                    'rounded-full bg-error px-[3px] text-[9px] font-semibold leading-none text-white'
+                  )}
+                  aria-label={`${item.badgeCount}`}
+                >
+                  {item.badgeCount}
+                </span>
               )}
             </button>
           </Tooltip>
