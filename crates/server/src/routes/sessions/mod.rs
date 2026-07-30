@@ -121,6 +121,70 @@ pub struct ResetProcessRequest {
     pub perform_git_reset: Option<bool>,
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct StartInteractiveSessionRequest {
+    pub executor_config: ExecutorConfig,
+}
+
+/// Prepare an existing session for ad-hoc interactive use. Ensures the
+/// workspace container (worktree) exists and records the executor so
+/// subsequent `/follow-up` calls carry a consistent executor across the
+/// conversation. Idempotent: safe to call repeatedly with the same executor.
+///
+/// This bypasses the worker orchestrator queue entirely — sessions started
+/// this way are not backed by a WorkerTask and never get picked up by
+/// `try_take_next()`.
+pub async fn start_interactive_session(
+    Extension(session): Extension<Session>,
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<StartInteractiveSessionRequest>,
+) -> Result<ResponseJson<ApiResponse<Session>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let workspace = Workspace::find_by_id(pool, session.workspace_id)
+        .await?
+        .ok_or(ApiError::Session(SessionError::WorkspaceNotFound))?;
+
+    let requested_executor = payload.executor_config.profile_id().executor.to_string();
+
+    // If the session was already tied to a different executor, refuse the
+    // switch — mixing agents mid-conversation isn't supported.
+    if let Some(existing) = session.executor.as_deref()
+        && existing != requested_executor
+    {
+        return Err(ApiError::Session(SessionError::ExecutorMismatch {
+            expected: existing.to_string(),
+            actual: requested_executor,
+        }));
+    }
+
+    deployment
+        .container()
+        .ensure_container_exists(&workspace)
+        .await?;
+
+    if session.executor.is_none() {
+        Session::update_executor(pool, session.id, &requested_executor).await?;
+    }
+
+    let updated = Session::find_by_id(pool, session.id)
+        .await?
+        .ok_or(ApiError::Session(SessionError::NotFound))?;
+
+    deployment
+        .track_if_analytics_allowed(
+            "interactive_session_started",
+            serde_json::json!({
+                "session_id": updated.id.to_string(),
+                "workspace_id": workspace.id.to_string(),
+                "executor": requested_executor,
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(updated)))
+}
+
 pub async fn follow_up(
     Extension(session): Extension<Session>,
     State(deployment): State<DeploymentImpl>,
@@ -314,6 +378,7 @@ pub async fn run_setup_script(
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let session_id_router = Router::new()
         .route("/", get(get_session).put(update_session))
+        .route("/start", post(start_interactive_session))
         .route("/follow-up", post(follow_up))
         .route("/reset", post(reset_process))
         .route("/setup", post(run_setup_script))

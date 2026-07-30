@@ -10,6 +10,7 @@ pub mod integration;
 pub mod links;
 pub mod pr;
 pub mod repos;
+pub mod scratch;
 pub mod streams;
 pub mod workspace_summary;
 
@@ -47,6 +48,10 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
             get(core::get_workspaces).post(create::create_workspace),
         )
         .route("/start", post(create::create_and_start_workspace))
+        .route(
+            "/scratch",
+            get(scratch::get_or_create_scratch_workspace),
+        )
         .route("/from-pr", post(pr::create_workspace_from_pr))
         .route("/streams/ws", get(streams::stream_workspaces_ws))
         .route(

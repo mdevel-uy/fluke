@@ -74,7 +74,7 @@ pub struct CreateFollowUpAttempt {
     pub prompt: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct WorkspaceContext {
     pub workspace: Workspace,
     pub workspace_repos: Vec<RepoWithTargetBranch>,
@@ -588,6 +588,48 @@ impl Workspace {
             .execute(pool)
             .await?;
         Ok(result.rows_affected())
+    }
+
+    /// Find the scratch workspace that hosts ad-hoc sessions for the given repo.
+    ///
+    /// Scratch workspaces are per-repo. There should be at most one non-deleted
+    /// scratch workspace per repo; ORDER BY created_at ASC picks the oldest one
+    /// deterministically if any duplicate ever slips through.
+    pub async fn find_scratch_for_repo(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Workspace>(
+            r#"SELECT w.id,
+                      w.task_id,
+                      w.container_ref,
+                      w.branch,
+                      w.setup_completed_at,
+                      w.created_at,
+                      w.updated_at,
+                      w.archived,
+                      w.pinned,
+                      w.name,
+                      w.worktree_deleted
+               FROM workspaces w
+               JOIN workspace_repos wr ON wr.workspace_id = w.id
+               WHERE w.is_scratch = TRUE
+                 AND wr.repo_id = ?
+               ORDER BY w.created_at ASC
+               LIMIT 1"#,
+        )
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Mark an existing workspace as a scratch workspace.
+    pub async fn mark_scratch(pool: &SqlitePool, workspace_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workspaces SET is_scratch = TRUE WHERE id = ?")
+            .bind(workspace_id)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     /// Count total workspaces across all projects
