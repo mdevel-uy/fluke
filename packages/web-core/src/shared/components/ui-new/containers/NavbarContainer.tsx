@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
+import { PanelLeft, PanelBottom, PanelRight, Sparkles } from 'lucide-react';
+import { useAdhocSessionStore } from '@/features/adhoc-session';
 import { ThemeMode } from 'shared/types';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
@@ -232,6 +233,8 @@ export function NavbarContainer({
     (s) => s.isRightSidebarVisible
   );
   const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
+  const isAdhocPanelOpen = useAdhocSessionStore((s) => s.isOpen);
+  const toggleAdhocPanel = useAdhocSessionStore((s) => s.toggle);
 
   const layoutToggleItems: NavbarSectionItem[] = useMemo(
     () => [
@@ -265,6 +268,16 @@ export function NavbarContainer({
         }),
         onClick: toggleRightSidebar,
       },
+      {
+        type: 'action',
+        id: 'toggle-adhoc-panel',
+        lucideIcon: Sparkles,
+        isActive: isAdhocPanelOpen,
+        tooltip: t('navbar.layout.toggleAdhocPanel', {
+          defaultValue: 'Ask Claude',
+        }),
+        onClick: toggleAdhocPanel,
+      },
     ],
     [
       t,
@@ -274,6 +287,8 @@ export function NavbarContainer({
       toggleTerminal,
       isRightSidebarVisible,
       toggleRightSidebar,
+      isAdhocPanelOpen,
+      toggleAdhocPanel,
     ]
   );
 

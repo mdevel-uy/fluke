@@ -58,6 +58,7 @@ import {
   useShellAsideHasContent,
 } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
+import { AdhocClaudePanel } from '@/features/adhoc-session';
 
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
@@ -518,6 +519,10 @@ export function SharedAppLayout() {
             </div>
           </div>
         )}
+
+        {/* Ad-hoc Claude panel — global overlay drawer (issue #300). Rendered
+            here so it sits above the shell chrome regardless of route. */}
+        {!isMobile && <AdhocClaudePanel />}
 
         {/* Mobile navigation drawer */}
         <MobileDrawer
