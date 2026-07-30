@@ -10,6 +10,9 @@ export function useWorkers() {
     queryFn: () => workersApi.list() as Promise<Worker[]>,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    // Force a refetch every time Kanban/Issues mount — global staleTime is
+    // 5 min, so re-entering the page otherwise showed cached workers.
+    refetchOnMount: 'always',
   });
 }
 
@@ -29,6 +32,7 @@ export function useAllWorkerTasks(
       queryFn: () => workersApi.listTasks(worker.id) as Promise<WorkerTask[]>,
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
+      refetchOnMount: 'always' as const,
     })),
   });
 

@@ -10,6 +10,11 @@ export function useRepoIssues(repoId: string | undefined) {
     enabled: !!repoId,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    // Global QueryClient defaults staleTime to 5 minutes, so navigating back
+    // to Kanban/Issues within that window served stale cache without hitting
+    // the API. Force a refetch on every mount so users see fresh data as
+    // soon as the page opens.
+    refetchOnMount: 'always',
   });
 }
 
