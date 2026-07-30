@@ -30,6 +30,10 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import {
+  useAnalystDeskDraft,
+  useAnalystDeskDraftStore,
+} from '@/shared/stores/useAnalystDeskDraftStore';
 import { AnalystDeskSidebar } from './AnalystDeskSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { cn } from '@/shared/lib/utils';
@@ -262,7 +266,11 @@ export function AnalystDeskPage() {
     return new Map(queued.map((task, index) => [task.id, index]));
   }, [tasks]);
 
-  const [prompt, setPrompt] = useState('');
+  // Draft persists per repo (localStorage) so navigating away and back does
+  // not drop unsent instructions. Cleared on successful submit only.
+  const prompt = useAnalystDeskDraft(selectedRepoId);
+  const setPrompt = (value: string) =>
+    useAnalystDeskDraftStore.getState().setDraft(selectedRepoId, value);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const { data: installedSkills = [] } = useQuery({
     queryKey: ['skills'],
@@ -457,7 +465,7 @@ export function AnalystDeskPage() {
         attachmentIds,
         skills: selectedSkills,
       });
-      setPrompt('');
+      useAnalystDeskDraftStore.getState().clearDraft(selectedRepoId);
       setSelectedSkills([]);
       clearImages();
       showNotice({
