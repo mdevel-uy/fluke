@@ -165,13 +165,13 @@ export const RightSidebar = memo(function RightSidebar({
     openWorkspaceViewTab(workspaceId, 'chat');
   }, [workspaceId, openWorkspaceViewTab]);
 
-  // Quick actions (R24): preload the composer with an editable draft and
-  // surface the chat tab — never auto-send.
+  // Quick actions (R24): preload the composer with the preset draft, surface
+  // the chat tab, and auto-send so the click alone kicks off the worker.
   const requestPrefill = useComposerPrefillStore((s) => s.requestPrefill);
   const handleQuickAction = useCallback(
     (message: string) => {
       if (!workspaceId) return;
-      requestPrefill(workspaceId, message);
+      requestPrefill(workspaceId, message, { autoSend: true });
       openWorkspaceViewTab(workspaceId, 'chat');
     },
     [workspaceId, requestPrefill, openWorkspaceViewTab]
@@ -254,8 +254,7 @@ export const RightSidebar = memo(function RightSidebar({
       setPushStates((prev) => ({ ...prev, [repoId]: 'error' }));
       ConfirmDialog.show({
         title: 'Error',
-        message:
-          err instanceof Error ? err.message : 'Failed to push changes',
+        message: err instanceof Error ? err.message : 'Failed to push changes',
         confirmText: 'OK',
         showCancelButton: false,
         variant: 'destructive',
