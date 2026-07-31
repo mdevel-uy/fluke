@@ -32,7 +32,7 @@
         "skills": "Skills",
         "skillsDesc": "Gestionar skills de agentes instalados en ~/.claude/skills",
         "github": "GitHub",
-        "githubDesc": "Inicia sesión en GitHub con la CLI de gh"
+        "githubDesc": "Inicia sesión con tu cuenta de GitHub"
       }
     },
     "general": {
@@ -589,11 +589,12 @@
     "github": {
       "connection": {
         "title": "Conexión con GitHub",
-        "description": "Inicia sesión en GitHub mediante la CLI de gh para habilitar operaciones git y pull requests.",
+        "description": "Inicia sesión con tu cuenta de GitHub para habilitar operaciones git y pull requests. Sin necesidad de terminal.",
         "status": {
           "label": "Estado"
         }
       },
+      "cliWarning": "La CLI de GitHub (gh) no está instalada. Igual podés iniciar sesión, pero los pull requests y la sincronización de issues requieren gh en el PATH.",
       "status": {
         "loading": "Verificando conexión…",
         "connected": "Conectado a GitHub",
@@ -601,7 +602,10 @@
         "notConnected": "No conectado"
       },
       "actions": {
-        "connect": "Conectar GitHub"
+        "connect": "Conectar GitHub",
+        "disconnect": "Desconectar",
+        "installCli": "Instalar GitHub CLI",
+        "installingCli": "Instalando…"
       },
       "deviceFlow": {
         "title": "Autorizar en GitHub",
@@ -613,7 +617,9 @@
         "waiting": "Esperando la autorización… este diálogo se actualizará automáticamente cuando termines en GitHub."
       },
       "errors": {
-        "loginFailed": "No se pudo iniciar el login de GitHub."
+        "loginFailed": "No se pudo iniciar el login de GitHub.",
+        "logoutFailed": "No se pudo desconectar de GitHub.",
+        "installFailed": "No se pudo instalar la CLI de GitHub."
       }
     }
   },

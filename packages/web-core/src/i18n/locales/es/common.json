@@ -189,6 +189,7 @@
       "attention": "Te necesita",
       "running": "En ejecución",
       "idle": "Inactivos",
+      "failed": "Fallidos",
       "all": "Todos los espacios",
       "archive": "Archivo"
     },

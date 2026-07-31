@@ -74,10 +74,11 @@ function attentionReason(
   return t('common:workspaces.rowMeta.activity', { defaultValue: 'activity' });
 }
 
-type RowVariant = 'attention' | 'running' | 'idle' | 'archived';
+type RowVariant = 'attention' | 'running' | 'idle' | 'failed' | 'archived';
 
 function rowDotClass(variant: RowVariant, ws: WorkspacesSidebarWorkspace) {
   if (variant === 'running') return 'bg-brand-on-surface animate-pulse';
+  if (variant === 'failed') return 'bg-error';
   if (variant === 'attention')
     return ws.latestProcessStatus === 'failed' ? 'bg-error' : 'bg-warning';
   if (variant === 'archived') return 'bg-border-strong opacity-50';
@@ -92,6 +93,10 @@ function rowMeta(
   if (variant === 'attention') return attentionReason(ws, t);
   if (variant === 'running') {
     const elapsed = timeAgo(ws.latestProcessStartedAt);
+    return [ws.workerName, elapsed].filter(Boolean).join(' · ');
+  }
+  if (variant === 'failed') {
+    const elapsed = timeAgo(ws.latestProcessCompletedAt);
     return [ws.workerName, elapsed].filter(Boolean).join(' · ');
   }
   return timeAgo(ws.latestProcessCompletedAt);
@@ -231,14 +236,23 @@ export function WorkspacesSidebarFlat({
   const { t } = useTranslation();
 
   const groups = useMemo(() => {
-    const attention = workspaces.filter(needsAttention);
-    const rest = workspaces.filter((ws) => !needsAttention(ws));
+    // Failed worker tasks get their workspace auto-archived, so the Failed
+    // section pulls from both lists; those rows are removed from Archived to
+    // avoid duplicates.
+    const failed = [...workspaces, ...archivedWorkspaces].filter(
+      (ws) => ws.hasFailedTask
+    );
+    const live = workspaces.filter((ws) => !ws.hasFailedTask);
+    const attention = live.filter(needsAttention);
+    const rest = live.filter((ws) => !needsAttention(ws));
     return {
       attention,
       running: rest.filter((ws) => ws.isRunning),
       idle: rest.filter((ws) => !ws.isRunning),
+      failed,
+      archived: archivedWorkspaces.filter((ws) => !ws.hasFailedTask),
     };
-  }, [workspaces]);
+  }, [workspaces, archivedWorkspaces]);
 
   // VSCode "Views and More Actions": show/hide sections from the title ⋯
   const [hiddenSections, toggleSection] = useHiddenSections('workspaces');
@@ -248,6 +262,7 @@ export function WorkspacesSidebarFlat({
     }),
     running: t('common:workspaces.scopes.running', { defaultValue: 'Running' }),
     idle: t('common:workspaces.scopes.idle', { defaultValue: 'Idle' }),
+    failed: t('common:workspaces.scopes.failed', { defaultValue: 'Failed' }),
     archived: t('common:workspaces.archivedTitle', {
       defaultValue: 'Archived',
     }),
@@ -348,13 +363,26 @@ export function WorkspacesSidebarFlat({
           onOpenWorkspaceActions={onOpenWorkspaceActions}
         />
         )}
+        {!hiddenSections.failed && (
+        <Section
+          persistKey="ws-flat-failed"
+          title={t('common:workspaces.scopes.failed', {
+            defaultValue: 'Failed',
+          })}
+          items={groups.failed}
+          variant="failed"
+          selectedWorkspaceId={selectedWorkspaceId}
+          onSelectWorkspace={onSelectWorkspace}
+          onOpenWorkspaceActions={onOpenWorkspaceActions}
+        />
+        )}
         {!hiddenSections.archived && (
         <Section
           persistKey="ws-flat-archived"
           title={t('common:workspaces.archivedTitle', {
             defaultValue: 'Archived',
           })}
-          items={archivedWorkspaces}
+          items={groups.archived}
           variant="archived"
           selectedWorkspaceId={selectedWorkspaceId}
           onSelectWorkspace={onSelectWorkspace}

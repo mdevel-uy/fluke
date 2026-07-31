@@ -203,6 +203,7 @@
       "attention": "Needs you",
       "running": "Running",
       "idle": "Idle",
+      "failed": "Failed",
       "all": "All workspaces",
       "archive": "Archive"
     },

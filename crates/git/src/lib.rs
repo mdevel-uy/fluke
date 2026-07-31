@@ -1717,10 +1717,28 @@ impl GitService {
             return Err(e.into());
         }
 
-        let mut branch = Self::find_branch(&repo, branch_name)?;
+        // Best-effort bookkeeping: the push itself succeeded, so failures
+        // updating the tracking ref or upstream config (e.g. a narrow
+        // remote.<name>.fetch refspec that doesn't cover this branch) must
+        // not report the push as failed.
+        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name) {
+            tracing::warn!(
+                "Pushed '{branch_name}' but could not update tracking ref/upstream: {e}"
+            );
+        }
+
+        Ok(())
+    }
+
+    fn update_tracking_after_push(
+        repo: &Repository,
+        branch_name: &str,
+        remote_name: &str,
+    ) -> Result<(), GitServiceError> {
+        let mut branch = Self::find_branch(repo, branch_name)?;
         if !branch.get().is_remote() {
             if let Some(branch_target) = branch.get().target() {
-                let remote_ref = format!("refs/remotes/{}/{branch_name}", remote.name);
+                let remote_ref = format!("refs/remotes/{remote_name}/{branch_name}");
                 repo.reference(
                     &remote_ref,
                     branch_target,
@@ -1728,9 +1746,8 @@ impl GitService {
                     "update remote tracking branch",
                 )?;
             }
-            branch.set_upstream(Some(&format!("{}/{branch_name}", remote.name)))?;
+            branch.set_upstream(Some(&format!("{remote_name}/{branch_name}")))?;
         }
-
         Ok(())
     }
 

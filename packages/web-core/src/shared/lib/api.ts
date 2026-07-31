@@ -44,6 +44,7 @@ import {
   RunAgentSetupResponse,
   GhCliSetupError,
   GithubLoginResponse,
+  GithubCliInstallResponse,
   GithubStatusResponse,
   RunScriptError,
   StatusResponse,
@@ -2082,6 +2083,20 @@ export const githubApi = {
       method: 'POST',
     });
     return handleApiResponse<GithubLoginResponse>(response);
+  },
+
+  logout: async (): Promise<void> => {
+    const response = await makeRequest('/api/github/logout', {
+      method: 'POST',
+    });
+    await handleApiResponse<void>(response);
+  },
+
+  installCli: async (): Promise<GithubCliInstallResponse> => {
+    const response = await makeRequest('/api/github/cli/install', {
+      method: 'POST',
+    });
+    return handleApiResponse<GithubCliInstallResponse>(response);
   },
 
   listRepos: async (): Promise<GitHubRepoSummary[]> => {

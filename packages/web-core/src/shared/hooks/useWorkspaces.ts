@@ -55,6 +55,8 @@ export interface SidebarWorkspace {
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
   hasStalledTask?: boolean;
+  /** Backing worker task ended in failed status */
+  hasFailedTask?: boolean;
   /** When the latest coding-agent process started (for elapsed time) */
   latestProcessStartedAt?: string;
   /** Name of the worker that owns this workspace, if any */

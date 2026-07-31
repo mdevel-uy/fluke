@@ -344,7 +344,13 @@ export function SprintPage() {
         position: params.minQueuedPosition - 1,
       });
     },
-    onSuccess: () => invalidateWorkerData(),
+    onSuccess: () => {
+      invalidateWorkerData();
+      // The server auto-starts the retried task moments after the PATCH;
+      // refresh again shortly so the card reflects in_progress without
+      // waiting for the 30s poll.
+      setTimeout(invalidateWorkerData, 2500);
+    },
   });
 
   const discardTaskMutation = useMutation({
