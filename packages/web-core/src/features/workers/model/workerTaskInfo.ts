@@ -57,6 +57,7 @@ export function withWorkerTaskInfo<T extends SidebarWorkspace>(
         !ws.isRunning &&
         !ws.hasPendingApproval &&
         ws.latestProcessStatus !== 'running',
+      hasFailedTask: task.status === 'failed',
     };
   });
 }

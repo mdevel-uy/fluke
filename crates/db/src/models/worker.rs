@@ -27,6 +27,11 @@ pub struct Worker {
     /// the API is allowed to expose.
     #[serde(default, skip_serializing)]
     pub github_pat: Option<String>,
+    /// GitHub login the PAT belongs to. Captured server-side when the PAT is
+    /// validated against `/user` — never user-supplied. Cleared together with
+    /// the PAT. Used by the review-dispatch identity guard (a reviewer whose
+    /// login equals the PR author cannot submit an actionable review).
+    pub github_login: Option<String>,
     /// Per-worker override for plan mode. `None` = follow the global
     /// `executor_profile.permission_policy`; `Some(true)` = force plan mode
     /// on; `Some(false)` = force plan mode off for this worker.
@@ -47,6 +52,9 @@ pub struct CreateWorker {
     pub role: Option<String>,
     pub model: Option<String>,
     pub github_pat: Option<String>,
+    /// Login resolved from PAT validation; must be `Some` whenever
+    /// `github_pat` is `Some` (the route layer enforces this).
+    pub github_login: Option<String>,
     pub plan_mode: Option<bool>,
 }
 
@@ -60,6 +68,9 @@ pub struct UpdateWorker {
     pub model: Option<Option<String>>,
     /// `None` = don't touch; `Some(None)` = clear the PAT; `Some(Some(x))` = set new PAT.
     pub github_pat: Option<Option<String>>,
+    /// Follows `github_pat`: set alongside a new PAT, cleared alongside a
+    /// cleared PAT. The route layer keeps the two in lockstep.
+    pub github_login: Option<Option<String>>,
     /// `None` = don't touch; `Some(None)` = clear the override (follow global);
     /// `Some(Some(bool))` = force plan mode on/off for this worker.
     pub plan_mode: Option<Option<bool>>,
@@ -73,7 +84,7 @@ impl Worker {
     /// through `find_by_id` or `list_archived`.
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE archived = 0
                ORDER BY created_at ASC",
@@ -87,7 +98,7 @@ impl Worker {
     /// the "Workers archivados" section on the workers page.
     pub async fn list_archived(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE archived = 1
                ORDER BY created_at ASC",
@@ -98,7 +109,7 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE id = ?1",
         )
@@ -127,8 +138,8 @@ impl Worker {
         let id = Uuid::new_v4();
         let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat, plan_mode)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat, github_login, plan_mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         )
         .bind(id)
         .bind(&data.name)
@@ -137,6 +148,7 @@ impl Worker {
         .bind(&role)
         .bind(&data.model)
         .bind(&data.github_pat)
+        .bind(&data.github_login)
         .bind(data.plan_mode)
         .execute(pool)
         .await?;
@@ -165,17 +177,22 @@ impl Worker {
             .github_pat
             .clone()
             .unwrap_or(existing.github_pat.clone());
+        let github_login = data
+            .github_login
+            .clone()
+            .unwrap_or(existing.github_login.clone());
         let plan_mode = data.plan_mode.unwrap_or(existing.plan_mode);
 
         sqlx::query(
             "UPDATE workers
-                SET name       = ?2,
-                    emoji      = ?3,
-                    soul       = ?4,
-                    role       = ?5,
-                    model      = ?6,
-                    github_pat = ?7,
-                    plan_mode  = ?8
+                SET name         = ?2,
+                    emoji        = ?3,
+                    soul         = ?4,
+                    role         = ?5,
+                    model        = ?6,
+                    github_pat   = ?7,
+                    github_login = ?8,
+                    plan_mode    = ?9
               WHERE id = ?1",
         )
         .bind(id)
@@ -185,6 +202,7 @@ impl Worker {
         .bind(role)
         .bind(model)
         .bind(github_pat)
+        .bind(github_login)
         .bind(plan_mode)
         .execute(pool)
         .await?;
@@ -322,7 +340,7 @@ impl Worker {
     /// receives a fresh review dispatch.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE role = 'reviewer' AND archived = 0
                ORDER BY created_at ASC

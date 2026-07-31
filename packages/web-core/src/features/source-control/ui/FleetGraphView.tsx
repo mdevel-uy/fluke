@@ -26,6 +26,11 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
 import { cn } from '@/shared/lib/utils';
+import {
+  LANE_TOKEN_PALETTE,
+  LANE_TOKEN_TEXT,
+  type LaneColorToken,
+} from '../lib/laneColors';
 import type { FleetBranch } from '../model/useFleetBranches';
 
 type FleetGraphData = Awaited<ReturnType<typeof repoApi.getGraph>>;
@@ -47,8 +52,9 @@ const DEFAULT_WIDTHS = {
   hash: 80,
 };
 type FixedColumn = keyof typeof DEFAULT_WIDTHS;
-// Copy stays a direct button (high frequency); the rest live in a kebab.
-const ACTIONS_COL_W = 64;
+// All row actions live in one kebab (decisión Dani); the column stays wide
+// enough for its "Actions" header not to truncate.
+const ACTIONS_COL_W = 76;
 
 /** https://github.com/{owner}/{repo} from a git remote URL, else null. */
 function githubBaseUrl(remoteUrl: string): string | null {
@@ -94,12 +100,12 @@ function ColumnResizeHandle({
   );
 }
 
-function fleetColorClass(branch: FleetBranch): string {
-  if (branch.attentionReason === 'conflict') return 'text-error';
-  if (branch.group === 'attention') return 'text-warning';
-  if (branch.group === 'running') return 'text-brand-on-surface';
-  if (branch.group === 'merged') return 'text-merged';
-  return 'text-border-strong';
+function fleetColorToken(branch: FleetBranch): LaneColorToken {
+  if (branch.attentionReason === 'conflict') return 'error';
+  if (branch.group === 'attention') return 'warning';
+  if (branch.group === 'running') return 'brand';
+  if (branch.group === 'merged') return 'merged';
+  return 'neutral';
 }
 
 const OP_LABEL: Record<string, string> = {
@@ -109,17 +115,6 @@ const OP_LABEL: Record<string, string> = {
   revert: 'revert',
 };
 
-// Sourcetree-style lane rainbow for branches without a workspace, built
-// from the theme's own accent tokens; fleet lanes override with their
-// semantic state color and the base lane stays neutral.
-const LANE_PALETTE = [
-  'text-brand-on-surface',
-  'text-merged',
-  'text-warning',
-  'text-success',
-  'text-info',
-  'text-error',
-];
 
 function stateTag(branch: FleetBranch): { label: string; className: string } {
   const ws = branch.workspace;
@@ -237,6 +232,14 @@ interface FleetGraphViewProps {
   onSelectCommit: (oid: string | null, containingBranches: string[]) => void;
   /** Branches excluded from the graph scope (tab-bar filter). */
   hiddenBranches?: Set<string>;
+  /** Sidebar navigation: reveal a branch tip or a specific commit. */
+  revealRequest?:
+    | { kind: 'oid'; oid: string }
+    | { kind: 'branch'; name: string }
+    | null;
+  onRevealHandled?: () => void;
+  /** Reports branch → lane color so the sidebar can mirror the graph. */
+  onBranchColors?: (colors: Record<string, LaneColorToken>) => void;
 }
 
 /**
@@ -256,6 +259,9 @@ export function FleetGraphView({
   selectedCommitOid,
   onSelectCommit,
   hiddenBranches,
+  revealRequest,
+  onRevealHandled,
+  onBranchColors,
 }: FleetGraphViewProps) {
   const { t, i18n } = useTranslation('common');
 
@@ -292,8 +298,12 @@ export function FleetGraphView({
     queryFn: ({ pageParam }) =>
       repoApi.getGraph(repoId, baseBranch, tips, GRAPH_PAGE_SIZE, pageParam),
     initialPageParam: 0,
+    // Pages can have variable sizes (the reveal path appends one big page),
+    // so the next offset is the total fetched so far, not pages × size.
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.has_more ? allPages.length * GRAPH_PAGE_SIZE : undefined,
+      lastPage.has_more
+        ? allPages.reduce((total, page) => total + page.commits.length, 0)
+        : undefined,
     enabled: !!repoId && !!baseBranch,
     refetchInterval: 60_000,
   });
@@ -362,16 +372,17 @@ export function FleetGraphView({
   );
 
   // Fleet branches tint their tip's lane with the mock's state colors; every
-  // other lane stays neutral slate.
+  // other lane rotates the accent palette (tokens shared with chips and the
+  // sidebar dots).
   const laneColor = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number, LaneColorToken>();
     for (const commit of commits) {
       for (const name of commit.tip_of) {
         const fleet = fleetByBranch.get(name);
         if (!fleet) continue;
         const lane = laneByOid.get(commit.oid);
         if (lane !== undefined && !map.has(lane)) {
-          map.set(lane, fleetColorClass(fleet));
+          map.set(lane, fleetColorToken(fleet));
         }
       }
     }
@@ -384,6 +395,40 @@ export function FleetGraphView({
     [rows]
   );
   const baseLane = baseTipOid ? (laneByOid.get(baseTipOid) ?? 0) : 0;
+
+  const tokenOfLane = useMemo(() => {
+    return (lane: number): LaneColorToken => {
+      const fleetToken = laneColor.get(lane);
+      if (fleetToken) return fleetToken;
+      if (lane === baseLane) return 'neutral';
+      return LANE_TOKEN_PALETTE[lane % LANE_TOKEN_PALETTE.length];
+    };
+  }, [laneColor, baseLane]);
+
+  // Branch → lane token, shared with the sidebar (its dots mirror the graph).
+  const branchTokenByName = useMemo(() => {
+    const map = new Map<string, LaneColorToken>();
+    for (const commit of commits) {
+      const lane = laneByOid.get(commit.oid);
+      if (lane === undefined) continue;
+      for (const name of commit.tip_of) {
+        if (!map.has(name)) map.set(name, tokenOfLane(lane));
+      }
+    }
+    map.set(baseBranch, 'neutral');
+    return map;
+  }, [commits, laneByOid, tokenOfLane, baseBranch]);
+
+  const branchColorsRef = useRef<string>('');
+  useEffect(() => {
+    if (!onBranchColors) return;
+    const record = Object.fromEntries(branchTokenByName);
+    const serialized = JSON.stringify(record);
+    if (serialized === branchColorsRef.current) return;
+    branchColorsRef.current = serialized;
+    onBranchColors(record);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchTokenByName]);
 
   const childrenByOid = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -426,12 +471,7 @@ export function FleetGraphView({
     [commits]
   );
 
-  const handleRowClick = (commit: GraphCommit, rowFleet?: FleetBranch) => {
-    if (rowFleet) onSelect(rowFleet.workspace.id);
-    if (selectedCommitOid === commit.oid) {
-      onSelectCommit(null, []);
-      return;
-    }
+  const selectCommit = (commit: GraphCommit) => {
     const closure = descendantClosure(commit.oid);
     const containing = new Set<string>();
     for (const oid of closure) {
@@ -442,6 +482,105 @@ export function FleetGraphView({
     }
     onSelectCommit(commit.oid, [...containing].sort());
   };
+
+  const handleRowClick = (commit: GraphCommit, rowFleet?: FleetBranch) => {
+    if (rowFleet) onSelect(rowFleet.workspace.id);
+    if (selectedCommitOid === commit.oid) {
+      onSelectCommit(null, []);
+      return;
+    }
+    selectCommit(commit);
+  };
+
+  // Sidebar → graph reveal. When the commit isn't loaded, ONE locate call
+  // gives its index and ONE big fetch (appended as a variable-size page)
+  // jumps straight to it — no page-by-page crawling.
+  const graphQueryKey = useMemo(
+    () => ['repo-graph', repoId, baseBranch, tips.join(',')],
+    [repoId, baseBranch, tips]
+  );
+  const revealAttemptRef = useRef<{ oid: string; loaded: number } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!revealRequest || !data) return;
+    const oid =
+      revealRequest.kind === 'oid'
+        ? revealRequest.oid
+        : data.pages[0]?.tips.find((t) => t.branch === revealRequest.name)
+            ?.oid;
+    if (!oid) {
+      onRevealHandled?.();
+      return;
+    }
+    const commit = commitByOid.get(oid);
+    if (commit) {
+      revealAttemptRef.current = null;
+      selectCommit(commit);
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-commit-oid="${oid}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+      onRevealHandled?.();
+      return;
+    }
+
+    const loaded = commits.length;
+    const attempt = revealAttemptRef.current;
+    if (attempt && attempt.oid === oid && attempt.loaded >= loaded) {
+      // A fetch already ran for this target and brought no progress —
+      // it is out of the graph's scope. Stop instead of looping.
+      revealAttemptRef.current = null;
+      onRevealHandled?.();
+      return;
+    }
+    revealAttemptRef.current = { oid, loaded };
+
+    void (async () => {
+      try {
+        const { index } = await repoApi.locateGraphCommit(
+          repoId,
+          baseBranch,
+          tips,
+          oid
+        );
+        if (index === null) {
+          revealAttemptRef.current = null;
+          onRevealHandled?.();
+          return;
+        }
+        // Small buffer absorbs ordering skew between locate and the walk.
+        const target = Math.min(index + 100, loaded + 3000);
+        if (target <= loaded) return; // re-run will find it (or bail)
+        const page = await repoApi.getGraph(
+          repoId,
+          baseBranch,
+          tips,
+          target - loaded,
+          loaded
+        );
+        queryClient.setQueryData(
+          graphQueryKey,
+          (
+            old:
+              | { pages: (typeof page)[]; pageParams: number[] }
+              | undefined
+          ) =>
+            old
+              ? {
+                  pages: [...old.pages, page],
+                  pageParams: [...old.pageParams, loaded],
+                }
+              : old
+        );
+      } catch {
+        revealAttemptRef.current = null;
+        onRevealHandled?.();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealRequest, data, commitByOid]);
 
   // Column widths: graph tracks the lane count until manually resized.
   const [graphColWidth, setGraphColWidth] = useState<number | null>(null);
@@ -579,12 +718,7 @@ export function FleetGraphView({
     const { commit, lane } = row;
     const xc = laneX(lane);
     const yc = rowY(i);
-    const colorOfLane = (l: number): string => {
-      const fleet = laneColor.get(l);
-      if (fleet) return fleet;
-      if (l === baseLane) return 'text-border-strong';
-      return LANE_PALETTE[l % LANE_PALETTE.length];
-    };
+    const colorOfLane = (l: number): string => LANE_TOKEN_TEXT[tokenOfLane(l)];
     for (const parentOid of commit.parent_oids) {
       const j = rowIndexByOid.get(parentOid);
       if (j === undefined) continue;
@@ -747,6 +881,7 @@ export function FleetGraphView({
             <div
               key={commit.oid}
               role="button"
+              data-commit-oid={commit.oid}
               onClick={() => handleRowClick(commit, rowFleet)}
               className={cn(
                 'group/row grid h-[30px] cursor-pointer items-center text-sm hover:bg-secondary/60',
@@ -774,7 +909,7 @@ export function FleetGraphView({
                     key={fleet.workspace.id}
                     className={cn(
                       'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
-                      fleetColorClass(fleet)
+                      LANE_TOKEN_TEXT[fleetColorToken(fleet)]
                     )}
                   >
                     {fleet.workspace.branch}
@@ -783,7 +918,12 @@ export function FleetGraphView({
                 {plainTips.map((name) => (
                   <span
                     key={name}
-                    className="flex-none rounded border border-border-strong px-1 font-mono text-[10px] leading-4 text-low"
+                    className={cn(
+                      'flex-none rounded border border-current px-1 font-mono text-[10px] leading-4',
+                      LANE_TOKEN_TEXT[
+                        branchTokenByName.get(name) ?? 'neutral'
+                      ]
+                    )}
                   >
                     {name}
                   </span>
@@ -791,7 +931,13 @@ export function FleetGraphView({
                 {(tagsByOid.get(commit.oid) ?? []).map((tag) => (
                   <span
                     key={`tag-${tag}`}
-                    className="flex flex-none items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 font-mono text-[10px] leading-4 text-warning"
+                    className={cn(
+                      // Tag chips wear their commit's lane color (Sourcetree).
+                      'flex flex-none items-center gap-0.5 rounded border border-current px-1 font-mono text-[10px] leading-4',
+                      LANE_TOKEN_TEXT[
+                        tokenOfLane(laneByOid.get(commit.oid) ?? 0)
+                      ]
+                    )}
                   >
                     <Tag className="h-2.5 w-2.5" strokeWidth={1.75} />
                     {tag}
@@ -827,28 +973,9 @@ export function FleetGraphView({
                 {commit.short_oid}
               </div>
               <div
-                className="relative flex items-center justify-end gap-0.5 px-2"
+                className="relative flex items-center justify-end px-2"
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  type="button"
-                  onClick={() => copyHash(commit.oid)}
-                  title={t('sourceControl.graph.actions.copyHash', {
-                    defaultValue: 'Copy full hash',
-                  })}
-                  className={cn(
-                    'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
-                    copiedOid === commit.oid
-                      ? 'text-success'
-                      : 'text-low hover:text-high'
-                  )}
-                >
-                  {copiedOid === commit.oid ? (
-                    <Check size={13} strokeWidth={2} />
-                  ) : (
-                    <Copy size={13} strokeWidth={1.75} />
-                  )}
-                </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -858,15 +985,27 @@ export function FleetGraphView({
                       })}
                       className={cn(
                         'flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm hover:bg-secondary',
-                        branching?.oid === commit.oid
-                          ? 'text-brand-on-surface'
-                          : 'text-low hover:text-high'
+                        copiedOid === commit.oid
+                          ? 'text-success'
+                          : branching?.oid === commit.oid
+                            ? 'text-brand-on-surface'
+                            : 'text-low hover:text-high'
                       )}
                     >
-                      <MoreVertical size={13} strokeWidth={1.75} />
+                      {copiedOid === commit.oid ? (
+                        <Check size={13} strokeWidth={2} />
+                      ) : (
+                        <MoreVertical size={13} strokeWidth={1.75} />
+                      )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuItem onSelect={() => copyHash(commit.oid)}>
+                      <Copy size={13} strokeWidth={1.75} className="mr-2" />
+                      {t('sourceControl.graph.actions.copyHash', {
+                        defaultValue: 'Copy full hash',
+                      })}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
                         setBranching({

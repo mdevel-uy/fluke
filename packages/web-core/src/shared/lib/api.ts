@@ -44,6 +44,7 @@ import {
   RunAgentSetupResponse,
   GhCliSetupError,
   GithubLoginResponse,
+  GithubCliInstallResponse,
   GithubStatusResponse,
   RunScriptError,
   StatusResponse,
@@ -1162,6 +1163,20 @@ export const repoApi = {
     return handleApiResponse(response);
   },
 
+  /** Index of a commit within the fleet-graph ordering (null = not there). */
+  locateGraphCommit: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    oid: string
+  ): Promise<{ index: number | null }> => {
+    const params = new URLSearchParams({ base, tips: tips.join(','), oid });
+    const response = await makeRequest(
+      `/api/repos/${repoId}/graph/locate?${params}`
+    );
+    return handleApiResponse<{ index: number | null }>(response);
+  },
+
   // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
   // (like the editor endpoints — not part of generate_types).
   getGraph: async (
@@ -2068,6 +2083,20 @@ export const githubApi = {
       method: 'POST',
     });
     return handleApiResponse<GithubLoginResponse>(response);
+  },
+
+  logout: async (): Promise<void> => {
+    const response = await makeRequest('/api/github/logout', {
+      method: 'POST',
+    });
+    await handleApiResponse<void>(response);
+  },
+
+  installCli: async (): Promise<GithubCliInstallResponse> => {
+    const response = await makeRequest('/api/github/cli/install', {
+      method: 'POST',
+    });
+    return handleApiResponse<GithubCliInstallResponse>(response);
   },
 
   listRepos: async (): Promise<GitHubRepoSummary[]> => {

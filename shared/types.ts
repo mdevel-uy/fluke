@@ -318,9 +318,16 @@ export type GithubLoginState = "pending" | "completed" | "failed";
 
 export type GithubLoginProgress = { state: GithubLoginState, user_code: string | null, verification_uri: string | null, error: string | null, };
 
-export type GithubStatusResponse = { authenticated: boolean, username: string | null, login: GithubLoginProgress | null, };
+export type GithubStatusResponse = { authenticated: boolean, username: string | null,
+/**
+ * Whether the `gh` binary was found on PATH. Login works without it,
+ * but PRs, issue sync and reviews still require it.
+ */
+cli_available: boolean, login: GithubLoginProgress | null, };
 
 export type GithubLoginResponse = { user_code: string, verification_uri: string, };
+
+export type GithubCliInstallResponse = { version: string | null, path: string, };
 
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
@@ -454,7 +461,13 @@ export type WorkerResponse = { id: string, name: string, emoji: string, soul: st
  * is never exposed — the UI shows this boolean so the form can render a
  * masked placeholder and let the user replace or clear it.
  */
-has_github_pat: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+has_github_pat: boolean,
+/**
+ * GitHub login the stored PAT belongs to (resolved at validation time),
+ * or `null` when no PAT is stored. Lets the UI show which identity the
+ * worker acts as, and surface identity clashes (reviewer == PR author).
+ */
+github_login?: string | null, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
 
 export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
 /**
@@ -483,7 +496,12 @@ source: string,
  * TL reviewer's verdict: "approved" | "changes_requested" | null.
  * Set by pr_monitor when the PR review state is detected.
  */
-review_result: string | null, created_at: Date, };
+review_result: string | null,
+/**
+ * Why the task failed, when status == "failed". Recorded by the
+ * orchestrator at the moment of failure; null otherwise.
+ */
+failure_reason: string | null, created_at: Date, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
 /**

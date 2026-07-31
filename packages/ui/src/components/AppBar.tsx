@@ -4,12 +4,12 @@ import { Tooltip } from './Tooltip';
 import { MaterialIcon } from './MaterialIcon';
 import { useTranslation } from 'react-i18next';
 import {
+  Boxes,
   FileCode,
   GitBranch,
   Headphones,
   Kanban,
   LayoutGrid,
-  LayoutPanelLeft,
   ListChecks,
   Search,
   Settings as SettingsIcon,
@@ -227,7 +227,9 @@ export function AppBar({
         key: 'local-workspaces',
         kind: 'icon-button',
         label: t('appBar.workspaces'),
-        lucideIcon: LayoutPanelLeft,
+        // Distinct from Dashboard's LayoutGrid — both were near-identical
+        // rectangle grids (decisión Dani 29-jul).
+        lucideIcon: Boxes,
         isActive: isWorkspacesActive,
         onClick: onWorkspacesClick,
       });

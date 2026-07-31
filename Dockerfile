@@ -77,9 +77,12 @@ RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim AS runtime
 
+# `gh` is required by the PR/issue/review features; login itself uses the
+# native device flow and hands the token to gh (`gh auth login --with-token`).
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
+    gh \
     git \
     openssh-client \
     tini \

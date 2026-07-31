@@ -393,11 +393,13 @@ pub async fn get_workspace_branch_status(
         .map(|wr| (wr.repo_id, wr.target_branch.clone()))
         .collect();
 
-    let container_ref = deployment
-        .container()
-        .ensure_container_exists(&workspace)
-        .await?;
-    let workspace_dir = PathBuf::from(&container_ref);
+    // Read-only guard: a status poll must NEVER materialize the workspace.
+    // `ensure_container_exists` here used to create branch+worktree for
+    // queued workspaces and race the orchestrator's own create ("reference
+    // already exists" loop, orphan branches piling up). No container yet →
+    // degraded per-repo status with nulls.
+    let workspace_dir: Option<PathBuf> =
+        workspace.container_ref.as_ref().map(PathBuf::from);
 
     let all_merges = Merge::find_by_workspace_id(pool, workspace.id).await?;
     let merges_by_repo: HashMap<Uuid, Vec<Merge>> =
@@ -424,39 +426,38 @@ pub async fn get_workspace_branch_status(
         };
 
         let repo_merges = merges_by_repo.get(&repo.id).cloned().unwrap_or_default();
-        let worktree_path = workspace_dir.join(&repo.name);
+        let worktree_path = workspace_dir.as_ref().map(|d| d.join(&repo.name));
 
-        let head_oid = deployment
-            .git()
-            .get_head_info(&worktree_path)
-            .ok()
-            .map(|h| h.oid);
+        let head_oid = worktree_path
+            .as_ref()
+            .and_then(|p| deployment.git().get_head_info(p).ok().map(|h| h.oid));
 
-        let (is_rebase_in_progress, conflicted_files, conflict_op) = {
-            let in_rebase = deployment
-                .git()
-                .is_rebase_in_progress(&worktree_path)
-                .unwrap_or(false);
-            let conflicts = deployment
-                .git()
-                .get_conflicted_files(&worktree_path)
-                .unwrap_or_default();
-            let op = if conflicts.is_empty() {
-                None
-            } else {
-                deployment
-                    .git()
-                    .detect_conflict_op(&worktree_path)
-                    .unwrap_or(None)
+        let (is_rebase_in_progress, conflicted_files, conflict_op) =
+            match worktree_path.as_ref() {
+                Some(p) => {
+                    let in_rebase =
+                        deployment.git().is_rebase_in_progress(p).unwrap_or(false);
+                    let conflicts = deployment
+                        .git()
+                        .get_conflicted_files(p)
+                        .unwrap_or_default();
+                    let op = if conflicts.is_empty() {
+                        None
+                    } else {
+                        deployment.git().detect_conflict_op(p).unwrap_or(None)
+                    };
+                    (in_rebase, conflicts, op)
+                }
+                None => (false, Vec::new(), None),
             };
-            (in_rebase, conflicts, op)
+
+        let (uncommitted_count, untracked_count) = match worktree_path
+            .as_ref()
+            .map(|p| deployment.git().get_worktree_change_counts(p))
+        {
+            Some(Ok((a, b))) => (Some(a), Some(b)),
+            _ => (None, None),
         };
-
-        let (uncommitted_count, untracked_count) =
-            match deployment.git().get_worktree_change_counts(&worktree_path) {
-                Ok((a, b)) => (Some(a), Some(b)),
-                Err(_) => (None, None),
-            };
 
         let has_uncommitted_changes = uncommitted_count.map(|c| c > 0);
 
@@ -464,20 +465,28 @@ pub async fn get_workspace_branch_status(
             .git()
             .is_remote_branch(&repo.path, &target_branch)?;
 
-        let (commits_ahead, commits_behind) = if is_target_remote {
-            let (ahead, behind) = deployment.git().get_remote_branch_status(
+        // The branch itself may not exist yet for a queued workspace —
+        // ahead/behind stays null rather than erroring the whole poll.
+        let (commits_ahead, commits_behind) = if workspace_dir.is_none() {
+            (None, None)
+        } else if is_target_remote {
+            match deployment.git().get_remote_branch_status(
                 &repo.path,
                 &workspace.branch,
                 Some(&target_branch),
-            )?;
-            (Some(ahead), Some(behind))
+            ) {
+                Ok((ahead, behind)) => (Some(ahead), Some(behind)),
+                Err(_) => (None, None),
+            }
         } else {
-            let (a, b) = deployment.git().get_branch_status(
+            match deployment.git().get_branch_status(
                 &repo.path,
                 &workspace.branch,
                 &target_branch,
-            )?;
-            (Some(a), Some(b))
+            ) {
+                Ok((a, b)) => (Some(a), Some(b)),
+                Err(_) => (None, None),
+            }
         };
 
         let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {

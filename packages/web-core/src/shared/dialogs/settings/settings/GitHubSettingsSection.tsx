@@ -76,6 +76,44 @@ export function GitHubSettingsSection() {
     }
   }, [loginResponse]);
 
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isInstallingCli, setIsInstallingCli] = useState(false);
+
+  const handleInstallCli = useCallback(async () => {
+    setErrorMessage(null);
+    setIsInstallingCli(true);
+    try {
+      await githubApi.installCli();
+      await refetch();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('settings.github.errors.installFailed');
+      setErrorMessage(message);
+    } finally {
+      setIsInstallingCli(false);
+    }
+  }, [refetch, t]);
+
+  const handleDisconnect = useCallback(async () => {
+    setErrorMessage(null);
+    setIsDisconnecting(true);
+    try {
+      await githubApi.logout();
+      setLoginResponse(null);
+      await refetch();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('settings.github.errors.logoutFailed');
+      setErrorMessage(message);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  }, [refetch, t]);
+
   const authenticated = status?.authenticated ?? false;
   const username = status?.username ?? null;
   const verificationUri =
@@ -86,6 +124,25 @@ export function GitHubSettingsSection() {
       {errorMessage && (
         <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error text-sm">
           {errorMessage}
+        </div>
+      )}
+
+      {status && !status.cli_available && (
+        <div className="bg-warning/10 border border-warning/50 rounded-sm p-4 space-y-3">
+          <p className="text-warning text-sm">
+            {t('settings.github.cliWarning')}
+          </p>
+          <PrimaryButton
+            variant="tertiary"
+            onClick={() => void handleInstallCli()}
+            disabled={isInstallingCli}
+            actionIcon={isInstallingCli ? 'spinner' : undefined}
+            value={
+              isInstallingCli
+                ? t('settings.github.actions.installingCli')
+                : t('settings.github.actions.installCli')
+            }
+          />
         </div>
       )}
 
@@ -121,6 +178,18 @@ export function GitHubSettingsSection() {
             </div>
           )}
         </SettingsField>
+
+        {authenticated && (
+          <div>
+            <PrimaryButton
+              variant="tertiary"
+              onClick={() => void handleDisconnect()}
+              disabled={isDisconnecting}
+              actionIcon={isDisconnecting ? 'spinner' : undefined}
+              value={t('settings.github.actions.disconnect')}
+            />
+          </div>
+        )}
 
         {!authenticated && !loginResponse && (
           <div>

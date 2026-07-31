@@ -47,6 +47,7 @@ pub async fn get_interactive_shell() -> PathBuf {
 /// 2. The current process PATH via `which`.
 /// 3. A platform-specific refresh of PATH (login shell on Unix, PowerShell on Windows),
 ///    after which we re-run the `which` lookup and update the process PATH for future calls.
+/// 4. The app-managed bin directory (binaries installed from the UI, e.g. `gh`).
 pub async fn resolve_executable_path(executable: &str) -> Option<PathBuf> {
     if executable.trim().is_empty() {
         return None;
@@ -67,7 +68,23 @@ pub async fn resolve_executable_path(executable: &str) -> Option<PathBuf> {
         return Some(found);
     }
 
-    None
+    managed_bin_lookup(executable)
+}
+
+/// Directory where the app installs binaries it manages itself (e.g. `gh`
+/// downloaded from the GitHub settings screen). Checked as a final fallback
+/// by [`resolve_executable_path`], so managed binaries never shadow a
+/// system-wide install.
+pub fn managed_bin_dir() -> PathBuf {
+    crate::assets::asset_dir().join("bin")
+}
+
+fn managed_bin_lookup(executable: &str) -> Option<PathBuf> {
+    let mut candidate = managed_bin_dir().join(executable);
+    if cfg!(windows) && candidate.extension().is_none() {
+        candidate.set_extension("exe");
+    }
+    candidate.is_file().then_some(candidate)
 }
 
 pub fn resolve_executable_path_blocking(executable: &str) -> Option<PathBuf> {

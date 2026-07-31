@@ -112,6 +112,7 @@ fn generate_types_content() -> String {
         server::routes::github::GithubLoginProgress::decl(),
         server::routes::github::GithubStatusResponse::decl(),
         server::routes::github::GithubLoginResponse::decl(),
+        server::routes::github::GithubCliInstallResponse::decl(),
         relay_types::StartSpake2EnrollmentRequest::decl(),
         relay_types::FinishSpake2EnrollmentRequest::decl(),
         relay_types::StartSpake2EnrollmentResponse::decl(),

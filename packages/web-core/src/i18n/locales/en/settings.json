@@ -30,7 +30,7 @@
         "remote-projectsDesc": "Manage projects",
         "relayDesc": "Relay tunnel and enrollment",
         "github": "GitHub",
-        "githubDesc": "Sign in to GitHub with the gh CLI",
+        "githubDesc": "Sign in with your GitHub account",
         "skills": "Skills",
         "skillsDesc": "Manage agent skills installed in ~/.claude/skills"
       }
@@ -589,11 +589,12 @@
     "github": {
       "connection": {
         "title": "GitHub Connection",
-        "description": "Sign in to GitHub via the local gh CLI to enable git operations and pull requests.",
+        "description": "Sign in with your GitHub account to enable git operations and pull requests. No terminal needed.",
         "status": {
           "label": "Status"
         }
       },
+      "cliWarning": "The GitHub CLI (gh) is not installed. You can still sign in, but pull requests and issue sync require gh on PATH.",
       "status": {
         "loading": "Checking connection…",
         "connected": "Connected to GitHub",
@@ -601,7 +602,10 @@
         "notConnected": "Not connected"
       },
       "actions": {
-        "connect": "Connect GitHub"
+        "connect": "Connect GitHub",
+        "disconnect": "Disconnect",
+        "installCli": "Install GitHub CLI",
+        "installingCli": "Installing…"
       },
       "deviceFlow": {
         "title": "Authorize on GitHub",
@@ -613,7 +617,9 @@
         "waiting": "Waiting for authorization… this dialog will update automatically once you finish on GitHub."
       },
       "errors": {
-        "loginFailed": "Failed to start GitHub login."
+        "loginFailed": "Failed to start GitHub login.",
+        "logoutFailed": "Failed to disconnect from GitHub.",
+        "installFailed": "Failed to install the GitHub CLI."
       }
     }
   },

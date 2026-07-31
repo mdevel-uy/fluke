@@ -10,6 +10,7 @@ export type WorkerTask = WorkerTaskResponse & {
   pr_mergeable?: string | null;
   source?: string;
   review_result?: string | null;
+  failure_reason?: string | null;
 };
 
 export type SprintColumnStatus =

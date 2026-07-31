@@ -329,6 +329,7 @@ export const RightSidebar = memo(function RightSidebar({
           : t('workspaces.aside.ciNone', { defaultValue: 'no checks' });
 
   const reviewResult = task?.review_result;
+  const reviewActivity = sidebarWs?.prReviewActivity;
 
   const quickActions: { label: string; message: string; icon: ReactIcon }[] = [
     {
@@ -554,7 +555,9 @@ export const RightSidebar = memo(function RightSidebar({
                     ? 'border-success/45 text-success'
                     : reviewResult === 'changes_requested'
                       ? 'border-warning/45 text-warning'
-                      : 'border-border-strong text-low'
+                      : reviewActivity === 'running'
+                        ? 'animate-pulse border-info/45 text-info'
+                        : 'border-border-strong text-low'
                 )}
               >
                 {reviewResult === 'approved'
@@ -565,9 +568,17 @@ export const RightSidebar = memo(function RightSidebar({
                     ? t('workspaces.aside.reviewChangesRequested', {
                         defaultValue: 'Changes requested',
                       })
-                    : t('workspaces.aside.reviewPending', {
-                        defaultValue: 'Review pending',
-                      })}
+                    : reviewActivity === 'running'
+                      ? t('workspaces.aside.reviewRunning', {
+                          defaultValue: 'Reviewer working…',
+                        })
+                      : reviewActivity === 'queued'
+                        ? t('workspaces.aside.reviewQueued', {
+                            defaultValue: 'Queued for review',
+                          })
+                        : t('workspaces.aside.reviewWaiting', {
+                            defaultValue: 'Awaiting auto review',
+                          })}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-1 pt-[7px]">

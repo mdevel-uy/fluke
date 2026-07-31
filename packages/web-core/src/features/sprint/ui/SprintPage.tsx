@@ -46,7 +46,7 @@ import { SprintSidebar } from './SprintSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { extractSkillLabelNames } from '../lib/skillLabels';
 import { IssueDetailPanel } from './IssueDetailPanel';
-import type { SprintFilters } from './SprintFilterBar';
+import { SprintFilterBar, type SprintFilters } from './SprintFilterBar';
 
 const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
 const DONE_LIMIT = 20;
@@ -350,7 +350,13 @@ export function SprintPage() {
         position: params.minQueuedPosition - 1,
       });
     },
-    onSuccess: () => invalidateWorkerData(),
+    onSuccess: () => {
+      invalidateWorkerData();
+      // The server auto-starts the retried task moments after the PATCH;
+      // refresh again shortly so the card reflects in_progress without
+      // waiting for the 30s poll.
+      setTimeout(invalidateWorkerData, 2500);
+    },
   });
 
   const discardTaskMutation = useMutation({
@@ -862,7 +868,9 @@ export function SprintPage() {
         }
       />
 
-      {/* Filters moved to the shell sidebar (SHELL-SPEC R9). */}
+      {/* Filters live in the shell sidebar (SHELL-SPEC R9) AND as a top
+          filter bar, matching Issues (decisión Dani 29-jul) — same state,
+          two surfaces. */}
       <ShellSidebarPortal>
         <SprintSidebar
           filters={filters}
@@ -872,6 +880,14 @@ export function SprintPage() {
           onFiltersChange={handleFiltersChange}
         />
       </ShellSidebarPortal>
+      <SprintFilterBar
+        filters={filters}
+        epics={allEpics}
+        labels={allLabels}
+        workers={workers}
+        onFiltersChange={handleFiltersChange}
+        hideSearch
+      />
 
       {toasts.length > 0 && (
         <div className="px-container-padding pt-4 flex flex-col gap-2">

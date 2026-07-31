@@ -67,6 +67,16 @@ interface SourceControlSidebarProps {
   repoId: string | null;
   selectedWorkspaceId: string | null;
   onSelect: (workspaceId: string) => void;
+  /** Jump the graph to a branch tip / a specific commit. */
+  onRevealBranch: (name: string) => void;
+  onRevealCommit: (oid: string) => void;
+  /** In-flight reveal — the matching row shows a spinner. */
+  pendingReveal:
+    | { kind: 'oid'; oid: string }
+    | { kind: 'branch'; name: string }
+    | null;
+  /** Branch → lane color from the graph (sidebar dots mirror lanes). */
+  branchColors: Record<string, import('../lib/laneColors').LaneColorToken>;
 }
 
 /**
@@ -79,6 +89,10 @@ export function SourceControlSidebar({
   repoId,
   selectedWorkspaceId,
   onSelect,
+  onRevealBranch,
+  onRevealCommit,
+  pendingReveal,
+  branchColors,
 }: SourceControlSidebarProps) {
   const { t } = useTranslation('common');
 
@@ -159,6 +173,10 @@ export function SourceControlSidebar({
           repoId={repoId}
           fleetBranches={Object.values(groups).flat()}
           onSelectWorkspace={onSelect}
+          onRevealBranch={onRevealBranch}
+          onRevealCommit={onRevealCommit}
+          pendingReveal={pendingReveal}
+          branchColors={branchColors}
         />
       </div>
     </div>

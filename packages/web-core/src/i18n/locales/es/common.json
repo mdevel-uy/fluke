@@ -189,6 +189,7 @@
       "attention": "Te necesita",
       "running": "En ejecución",
       "idle": "Inactivos",
+      "failed": "Fallidos",
       "all": "Todos los espacios",
       "archive": "Archivo"
     },
@@ -783,6 +784,7 @@
       "confirm": "Reasignar"
     },
     "filters": {
+      "stateLabel": "Estado",
       "searchPlaceholder": "Buscar issues…",
       "state": {
         "all": "Todos",

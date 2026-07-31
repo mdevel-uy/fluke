@@ -783,6 +783,7 @@
       "confirm": "Réaffecter"
     },
     "filters": {
+      "stateLabel": "État",
       "searchPlaceholder": "Rechercher des issues…",
       "state": {
         "all": "Tous",

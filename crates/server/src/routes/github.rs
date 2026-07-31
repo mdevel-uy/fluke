@@ -1,15 +1,19 @@
-//! Routes for the local `gh` CLI-based GitHub integration.
+//! Routes for the local GitHub integration.
 //!
-//! These endpoints wrap the `gh` binary already used elsewhere in the
-//! backend (see `crates/git-host/src/github/cli.rs`). They expose:
+//! Authentication uses GitHub's OAuth device flow directly against
+//! github.com — no console interaction with `gh` is required. On success the
+//! token is persisted to the app config and, when the `gh` CLI is available,
+//! handed to it via `gh auth login --with-token` so every `gh`-backed
+//! feature (PRs, issues, reviews) keeps working unchanged.
 //!
 //! Authentication flow:
 //! - `GET  /api/github/status` — reports whether the user is authenticated
-//!   with `gh` and the state of any in-flight login attempt.
-//! - `POST /api/github/login` — starts (or resumes) a `gh auth login` web
-//!   flow, captures the one-time code plus verification URL from `gh`'s
-//!   output, and returns them to the client for display. Progress can be
-//!   polled from the status endpoint.
+//!   and the state of any in-flight login attempt.
+//! - `POST /api/github/login` — starts (or resumes) a device flow login and
+//!   returns the one-time code plus verification URL for display. Progress
+//!   can be polled from the status endpoint.
+//! - `POST /api/github/logout` — clears stored credentials and logs the
+//!   `gh` CLI out of github.com.
 //!
 //! Repository management:
 //! - `GET  /api/github/repos` — lists the authenticated user's repos plus
@@ -27,25 +31,22 @@ use std::{
 
 use axum::{
     Router,
+    extract::State,
     http::StatusCode,
     response::Json as ResponseJson,
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
+use deployment::Deployment;
 use serde::{Deserialize, Serialize};
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::Command,
-    sync::{Mutex, oneshot},
-    task,
-    time::timeout,
-};
+use services::services::config::save_config_to_file;
+use tokio::{io::AsyncWriteExt, process::Command, sync::Mutex, task};
 use ts_rs::TS;
 use utils::{
-    assets::asset_dir,
+    assets::{asset_dir, config_path},
     command_ext::NoWindowExt,
     response::ApiResponse,
-    shell::{resolve_executable_path, resolve_executable_path_blocking},
+    shell::{managed_bin_dir, resolve_executable_path, resolve_executable_path_blocking},
 };
 
 use crate::{DeploymentImpl, error::ApiError};
@@ -58,6 +59,8 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/github/status", get(get_status))
         .route("/github/login", post(post_login))
+        .route("/github/logout", post(post_logout))
+        .route("/github/cli/install", post(install_gh_cli))
         .route("/github/repos", get(list_github_repos))
         .route("/github/clone", post(clone_github_repo))
 }
@@ -66,7 +69,32 @@ pub fn router() -> Router<DeploymentImpl> {
 // Authentication flow (status / login)
 // ============================================================================
 
-/// State of the in-progress `gh auth login` flow.
+const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
+const ACCESS_TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
+const GITHUB_USER_URL: &str = "https://api.github.com/user";
+
+/// Public OAuth client ID of the official GitHub CLI application (published
+/// in <https://github.com/cli/cli>). Device flow tokens minted with it are
+/// the same kind `gh auth login` produces, so they can be handed straight
+/// back to `gh` via `--with-token`. Override with `GITHUB_APP_CLIENT_ID`.
+const DEFAULT_OAUTH_CLIENT_ID: &str = "178c6fc778ccc68e1d6a";
+const OAUTH_SCOPES: &str = "repo,read:org,gist,workflow";
+
+fn oauth_client_id() -> String {
+    std::env::var("GITHUB_APP_CLIENT_ID")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_OAUTH_CLIENT_ID.to_string())
+}
+
+fn http_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent("vibe-kanban-server")
+        .build()
+        .map_err(|e| format!("Failed to initialize HTTP client: {e}"))
+}
+
+/// State of the in-progress device flow login.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(rename_all = "snake_case")]
@@ -90,6 +118,9 @@ pub struct GithubLoginProgress {
 pub struct GithubStatusResponse {
     pub authenticated: bool,
     pub username: Option<String>,
+    /// Whether the `gh` binary was found on PATH. Login works without it,
+    /// but PRs, issue sync and reviews still require it.
+    pub cli_available: bool,
     pub login: Option<GithubLoginProgress>,
 }
 
@@ -114,41 +145,51 @@ fn flow_state() -> Arc<Mutex<LoginFlowState>> {
         .clone()
 }
 
-async fn get_status() -> Result<ResponseJson<ApiResponse<GithubStatusResponse>>, ApiError> {
-    let (authenticated, username) = gh_auth_status().await;
+async fn get_status(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<GithubStatusResponse>>, ApiError> {
+    let cli_available = resolve_executable_path("gh").await.is_some();
+    let (mut authenticated, mut username) = if cli_available {
+        gh_auth_status().await
+    } else {
+        (false, None)
+    };
+
+    // Fall back to the token stored by the device flow (covers hosts where
+    // `gh` is not installed or not yet configured).
+    if !authenticated {
+        let github = deployment.config().read().await.github.clone();
+        if github.token().is_some() {
+            authenticated = true;
+            username = github.username.clone();
+        }
+    }
+
     let login = flow_state().lock().await.progress.clone();
     Ok(ResponseJson(ApiResponse::success(GithubStatusResponse {
         authenticated,
         username,
+        cli_available,
         login,
     })))
 }
 
-async fn post_login() -> Result<ResponseJson<ApiResponse<GithubLoginResponse>>, ApiError> {
-    if resolve_executable_path("gh").await.is_none() {
-        return Err(ApiError::BadRequest(
-            "GitHub CLI (`gh`) is not installed or not on PATH".to_string(),
-        ));
-    }
-
+async fn post_login(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<GithubLoginResponse>>, ApiError> {
     let state = flow_state();
-    let resp = start_login(state).await?;
-    Ok(ResponseJson(ApiResponse::success(resp)))
-}
-
-async fn start_login(state: Arc<Mutex<LoginFlowState>>) -> Result<GithubLoginResponse, ApiError> {
     {
         let mut g = state.lock().await;
         if g.running {
-            // If a login is already in progress and we've already parsed the
-            // code/URL, return the cached values so the client can display them.
+            // If a login is already in progress, return the cached code/URL
+            // so the client can display them.
             if let Some(prog) = &g.progress
                 && let (Some(code), Some(uri)) = (&prog.user_code, &prog.verification_uri)
             {
-                return Ok(GithubLoginResponse {
+                return Ok(ResponseJson(ApiResponse::success(GithubLoginResponse {
                     user_code: code.clone(),
                     verification_uri: uri.clone(),
-                });
+                })));
             }
             return Err(ApiError::Conflict(
                 "A GitHub login is already in progress. Poll /api/github/status to see progress."
@@ -164,32 +205,266 @@ async fn start_login(state: Arc<Mutex<LoginFlowState>>) -> Result<GithubLoginRes
         g.running = true;
     }
 
-    let (tx, rx) = oneshot::channel::<Result<(String, String), String>>();
-    let state_task = state.clone();
+    let device = match request_device_code().await {
+        Ok(d) => d,
+        Err(msg) => {
+            finalize_failure(&state, &msg).await;
+            return Err(ApiError::BadGateway(msg));
+        }
+    };
+
+    {
+        let mut g = state.lock().await;
+        if let Some(p) = g.progress.as_mut() {
+            p.user_code = Some(device.user_code.clone());
+            p.verification_uri = Some(device.verification_uri.clone());
+        }
+    }
+
+    let response = GithubLoginResponse {
+        user_code: device.user_code.clone(),
+        verification_uri: device.verification_uri.clone(),
+    };
+
+    let poll_state = state.clone();
     tokio::spawn(async move {
-        run_gh_login_process(state_task, tx).await;
+        poll_for_token(poll_state, deployment, device).await;
     });
 
-    match timeout(Duration::from_secs(30), rx).await {
-        Ok(Ok(Ok((user_code, verification_uri)))) => Ok(GithubLoginResponse {
-            user_code,
-            verification_uri,
-        }),
-        Ok(Ok(Err(msg))) => Err(ApiError::BadGateway(msg)),
-        Ok(Err(_)) => Err(ApiError::BadGateway(
-            "gh login task terminated before returning a code".to_string(),
-        )),
-        Err(_) => Err(ApiError::BadGateway(
-            "Timed out waiting for `gh auth login` to provide a device code".to_string(),
-        )),
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+async fn post_logout(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    {
+        let state = flow_state();
+        let mut g = state.lock().await;
+        if !g.running {
+            g.progress = None;
+        }
+    }
+
+    if let Some(gh) = resolve_executable_path("gh").await {
+        let out = Command::new(&gh)
+            .args(["auth", "logout", "--hostname", "github.com"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .no_window()
+            .output()
+            .await;
+        match out {
+            Ok(o) if !o.status.success() => tracing::warn!(
+                stderr = %String::from_utf8_lossy(&o.stderr),
+                "`gh auth logout` exited unsuccessfully"
+            ),
+            Err(e) => tracing::warn!(?e, "failed to run `gh auth logout`"),
+            _ => {}
+        }
+    }
+
+    persist_github_config(&deployment, None, None)
+        .await
+        .map_err(|e| ApiError::BadGateway(format!("Failed to update config: {e}")))?;
+
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+#[derive(Debug, Deserialize)]
+struct DeviceCodeResponse {
+    device_code: String,
+    user_code: String,
+    verification_uri: String,
+    #[serde(default)]
+    interval: Option<u64>,
+    #[serde(default)]
+    expires_in: Option<u64>,
+}
+
+async fn request_device_code() -> Result<DeviceCodeResponse, String> {
+    let client = http_client()?;
+    let resp = client
+        .post(DEVICE_CODE_URL)
+        .header("Accept", "application/json")
+        .json(&serde_json::json!({
+            "client_id": oauth_client_id(),
+            "scope": OAUTH_SCOPES,
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to reach GitHub: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!(
+            "GitHub device code request failed with status {}",
+            resp.status()
+        ));
+    }
+
+    resp.json::<DeviceCodeResponse>()
+        .await
+        .map_err(|e| format!("Failed to parse GitHub device code response: {e}"))
+}
+
+#[derive(Debug, Deserialize)]
+struct AccessTokenResponse {
+    access_token: Option<String>,
+    error: Option<String>,
+    error_description: Option<String>,
+    interval: Option<u64>,
+}
+
+/// Polls GitHub for the access token until the user authorizes the device
+/// code (or it expires), then persists the credential and configures `gh`.
+async fn poll_for_token(
+    state: Arc<Mutex<LoginFlowState>>,
+    deployment: DeploymentImpl,
+    device: DeviceCodeResponse,
+) {
+    let client = match http_client() {
+        Ok(c) => c,
+        Err(msg) => {
+            finalize_failure(&state, &msg).await;
+            return;
+        }
+    };
+
+    let mut interval = device.interval.unwrap_or(5).max(1);
+    let expires_in = device.expires_in.unwrap_or(900);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in);
+
+    loop {
+        tokio::time::sleep(Duration::from_secs(interval)).await;
+        if tokio::time::Instant::now() >= deadline {
+            finalize_failure(
+                &state,
+                "The device code expired before the login was authorized. Start the login again.",
+            )
+            .await;
+            return;
+        }
+
+        let resp = client
+            .post(ACCESS_TOKEN_URL)
+            .header("Accept", "application/json")
+            .json(&serde_json::json!({
+                "client_id": oauth_client_id(),
+                "device_code": device.device_code,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            }))
+            .send()
+            .await;
+
+        let parsed: AccessTokenResponse = match resp {
+            Ok(r) => match r.json().await {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!(?e, "failed to parse GitHub token response; retrying");
+                    continue;
+                }
+            },
+            Err(e) => {
+                tracing::warn!(?e, "GitHub token poll request failed; retrying");
+                continue;
+            }
+        };
+
+        if let Some(token) = parsed.access_token {
+            complete_login(&state, &deployment, &token).await;
+            return;
+        }
+
+        match parsed.error.as_deref() {
+            Some("authorization_pending") => {}
+            Some("slow_down") => {
+                interval = parsed.interval.unwrap_or(interval + 5);
+            }
+            Some("expired_token") => {
+                finalize_failure(
+                    &state,
+                    "The device code expired before the login was authorized. Start the login again.",
+                )
+                .await;
+                return;
+            }
+            Some("access_denied") => {
+                finalize_failure(&state, "The login request was cancelled on GitHub.").await;
+                return;
+            }
+            Some(other) => {
+                let msg = parsed
+                    .error_description
+                    .unwrap_or_else(|| format!("GitHub returned an error during login: {other}"));
+                finalize_failure(&state, &msg).await;
+                return;
+            }
+            None => {
+                tracing::warn!("GitHub token response had neither a token nor an error; retrying");
+            }
+        }
     }
 }
 
-async fn run_gh_login_process(
-    state: Arc<Mutex<LoginFlowState>>,
-    ready_tx: oneshot::Sender<Result<(String, String), String>>,
+async fn complete_login(
+    state: &Arc<Mutex<LoginFlowState>>,
+    deployment: &DeploymentImpl,
+    token: &str,
 ) {
-    let mut cmd = Command::new("gh");
+    let username = fetch_username(token).await;
+
+    if let Err(e) = persist_github_config(deployment, Some(token.to_string()), username).await {
+        tracing::warn!(%e, "failed to persist GitHub credentials to config");
+    }
+
+    if let Some(gh) = resolve_executable_path("gh").await {
+        configure_gh_cli(&gh, token).await;
+    }
+
+    let mut g = state.lock().await;
+    g.running = false;
+    if let Some(p) = g.progress.as_mut() {
+        p.state = GithubLoginState::Completed;
+        p.error = None;
+    }
+}
+
+async fn fetch_username(token: &str) -> Option<String> {
+    let client = http_client().ok()?;
+    let resp = client
+        .get(GITHUB_USER_URL)
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let body: serde_json::Value = resp.json().await.ok()?;
+    body.get("login")?.as_str().map(|s| s.to_string())
+}
+
+async fn persist_github_config(
+    deployment: &DeploymentImpl,
+    oauth_token: Option<String>,
+    username: Option<String>,
+) -> Result<(), String> {
+    let snapshot = {
+        let mut config = deployment.config().write().await;
+        config.github.oauth_token = oauth_token;
+        config.github.username = username;
+        config.clone()
+    };
+    save_config_to_file(&snapshot, &config_path())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Hands the device flow token to the `gh` CLI so every `gh`-backed feature
+/// works with it, then wires up git credential helpers.
+async fn configure_gh_cli(gh: &Path, token: &str) {
+    let mut cmd = Command::new(gh);
     cmd.args([
         "auth",
         "login",
@@ -197,11 +472,8 @@ async fn run_gh_login_process(
         "github.com",
         "--git-protocol",
         "https",
-        "--web",
+        "--with-token",
     ]);
-    // Prevent gh from launching a browser on the server; the client renders
-    // the verification URL itself.
-    cmd.env("BROWSER", "true");
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -210,112 +482,41 @@ async fn run_gh_login_process(
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
-            let msg = format!("Failed to spawn `gh`: {e}");
-            finalize_failure(&state, &msg).await;
-            let _ = ready_tx.send(Err(msg));
+            tracing::warn!(?e, "failed to spawn `gh auth login --with-token`");
             return;
         }
     };
 
-    let stderr = child.stderr.take().expect("stderr piped");
-    let stdout = child.stdout.take().expect("stdout piped");
-    let mut stdin = child.stdin.take().expect("stdin piped");
-
-    let mut ready_tx = Some(ready_tx);
-    let mut user_code: Option<String> = None;
-    let mut verification_uri: Option<String> = None;
-    let mut sent_enter = false;
-
-    let mut merged = MergedLines::new(stderr, stdout);
-    while let Some(line) = merged.next_line().await {
-        if user_code.is_none() {
-            if let Some(code) = parse_user_code(&line) {
-                user_code = Some(code);
-            }
-        }
-        if verification_uri.is_none() {
-            if let Some(uri) = parse_verification_uri(&line) {
-                verification_uri = Some(uri);
-            }
-        }
-
-        if !sent_enter && line.contains("Press Enter") {
-            let _ = stdin.write_all(b"\n").await;
-            let _ = stdin.flush().await;
-            sent_enter = true;
-        }
-
-        if ready_tx.is_some() {
-            if let (Some(code), Some(uri)) = (user_code.clone(), verification_uri.clone()) {
-                {
-                    let mut g = state.lock().await;
-                    if let Some(p) = g.progress.as_mut() {
-                        p.user_code = Some(code.clone());
-                        p.verification_uri = Some(uri.clone());
-                    }
-                }
-                if let Some(tx) = ready_tx.take() {
-                    let _ = tx.send(Ok((code, uri)));
-                }
-            }
-        }
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(token.as_bytes()).await;
+        let _ = stdin.write_all(b"\n").await;
+        let _ = stdin.shutdown().await;
     }
 
-    // Drop stdin so `gh` sees EOF if it's still reading, then wait.
-    drop(stdin);
-    let exit_status = child.wait().await;
-
-    let succeeded = matches!(&exit_status, Ok(s) if s.success());
-    {
-        let mut g = state.lock().await;
-        g.running = false;
-        let progress = g.progress.get_or_insert_with(|| GithubLoginProgress {
-            state: GithubLoginState::Pending,
-            user_code: None,
-            verification_uri: None,
-            error: None,
-        });
-        match exit_status {
-            Ok(s) if s.success() => {
-                progress.state = GithubLoginState::Completed;
-                progress.error = None;
-            }
-            Ok(s) => {
-                progress.state = GithubLoginState::Failed;
-                progress.error = Some(format!("`gh auth login` exited with status {s}"));
-            }
-            Err(e) => {
-                progress.state = GithubLoginState::Failed;
-                progress.error = Some(format!("failed to wait for `gh`: {e}"));
+    match child.wait_with_output().await {
+        Ok(out) if out.status.success() => {
+            let setup = Command::new(gh)
+                .args(["auth", "setup-git"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .no_window()
+                .output()
+                .await;
+            match setup {
+                Ok(o) if !o.status.success() => tracing::warn!(
+                    stderr = %String::from_utf8_lossy(&o.stderr),
+                    "`gh auth setup-git` exited unsuccessfully"
+                ),
+                Err(e) => tracing::warn!(?e, "`gh auth setup-git` failed after login"),
+                _ => {}
             }
         }
-    }
-
-    if let Some(tx) = ready_tx.take() {
-        let _ = tx.send(Err(
-            "`gh auth login` exited before emitting a device code".to_string()
-        ));
-    }
-
-    if succeeded {
-        let setup = Command::new("gh")
-            .args(["auth", "setup-git"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .no_window()
-            .output()
-            .await;
-        if let Err(e) = setup {
-            tracing::warn!(?e, "`gh auth setup-git` failed after successful login");
-        } else if let Ok(out) = setup
-            && !out.status.success()
-        {
-            tracing::warn!(
-                stderr = %String::from_utf8_lossy(&out.stderr),
-                "`gh auth setup-git` exited unsuccessfully"
-            );
-        }
+        Ok(out) => tracing::warn!(
+            stderr = %String::from_utf8_lossy(&out.stderr),
+            "`gh auth login --with-token` exited unsuccessfully"
+        ),
+        Err(e) => tracing::warn!(?e, "failed to wait for `gh auth login --with-token`"),
     }
 }
 
@@ -330,12 +531,201 @@ async fn finalize_failure(state: &Arc<Mutex<LoginFlowState>>, message: &str) {
     });
 }
 
-async fn gh_auth_status() -> (bool, Option<String>) {
-    if resolve_executable_path("gh").await.is_none() {
-        return (false, None);
+// ============================================================================
+// gh CLI installation
+// ============================================================================
+
+/// Response body for `POST /api/github/cli/install`.
+#[derive(Debug, Serialize, TS)]
+pub struct GithubCliInstallResponse {
+    pub version: Option<String>,
+    pub path: String,
+}
+
+static INSTALL_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+/// Downloads the official `gh` release binary into the app-managed bin
+/// directory. No package manager or elevated permissions required; the
+/// managed dir is a final fallback in `resolve_executable_path`, so a later
+/// system-wide install takes precedence automatically.
+async fn install_gh_cli() -> Result<ResponseJson<ApiResponse<GithubCliInstallResponse>>, ApiError> {
+    let _guard = INSTALL_LOCK.get_or_init(|| Mutex::new(())).lock().await;
+
+    if let Some(existing) = resolve_executable_path("gh").await {
+        return Ok(ResponseJson(ApiResponse::success(
+            GithubCliInstallResponse {
+                version: gh_version(&existing).await,
+                path: existing.display().to_string(),
+            },
+        )));
     }
 
-    let output = Command::new("gh")
+    let installed = download_gh_cli().await.map_err(ApiError::BadGateway)?;
+    let version = gh_version(&installed).await;
+    Ok(ResponseJson(ApiResponse::success(
+        GithubCliInstallResponse {
+            version,
+            path: installed.display().to_string(),
+        },
+    )))
+}
+
+async fn gh_version(gh: &Path) -> Option<String> {
+    let out = Command::new(gh)
+        .arg("--version")
+        .stdin(Stdio::null())
+        .no_window()
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    // First line looks like "gh version 2.63.0 (2024-11-27)".
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(2))
+        .map(|v| v.to_string())
+}
+
+async fn download_gh_cli() -> Result<PathBuf, String> {
+    let os = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macOS"
+    } else {
+        "linux"
+    };
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        other => return Err(format!("Unsupported CPU architecture: {other}")),
+    };
+    let ext = if cfg!(target_os = "linux") {
+        "tar.gz"
+    } else {
+        "zip"
+    };
+
+    let client = http_client()?;
+    let release: serde_json::Value = client
+        .get("https://api.github.com/repos/cli/cli/releases/latest")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to reach GitHub: {e}"))?
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse GitHub release info: {e}"))?;
+    let tag = release
+        .get("tag_name")
+        .and_then(|t| t.as_str())
+        .ok_or_else(|| "GitHub release info had no tag_name".to_string())?
+        .to_string();
+    let version = tag.trim_start_matches('v');
+
+    let asset = format!("gh_{version}_{os}_{arch}.{ext}");
+    let url = format!("https://github.com/cli/cli/releases/download/{tag}/{asset}");
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download {asset}: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Download of {asset} failed with status {}",
+            resp.status()
+        ));
+    }
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to download {asset}: {e}"))?;
+
+    task::spawn_blocking(move || extract_gh_archive(&asset, &bytes))
+        .await
+        .map_err(|e| format!("Install task join failed: {e}"))?
+}
+
+/// Writes the downloaded archive to a staging dir, extracts it with the
+/// platform `tar` (bsdtar on Windows/macOS also handles zip), and moves the
+/// `gh` binary into the managed bin dir.
+fn extract_gh_archive(asset: &str, bytes: &[u8]) -> Result<PathBuf, String> {
+    let staging = asset_dir().join("tmp").join("gh-install");
+    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::create_dir_all(&staging).map_err(|e| format!("Failed to create staging dir: {e}"))?;
+
+    let archive_path = staging.join(asset);
+    std::fs::write(&archive_path, bytes).map_err(|e| format!("Failed to write archive: {e}"))?;
+
+    let extract_dir = staging.join("extracted");
+    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("Failed to create dir: {e}"))?;
+
+    let tar = resolve_executable_path_blocking("tar")
+        .ok_or_else(|| "`tar` was not found on this system".to_string())?;
+    let out = std::process::Command::new(&tar)
+        .arg("-xf")
+        .arg(&archive_path)
+        .arg("-C")
+        .arg(&extract_dir)
+        .no_window()
+        .output()
+        .map_err(|e| format!("Failed to run tar: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "tar failed to extract {asset}: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+
+    let binary_name = if cfg!(windows) { "gh.exe" } else { "gh" };
+    let extracted = find_file(&extract_dir, binary_name, 3)
+        .ok_or_else(|| format!("{binary_name} not found inside {asset}"))?;
+
+    let dest_dir = managed_bin_dir();
+    std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create bin dir: {e}"))?;
+    let dest = dest_dir.join(binary_name);
+    std::fs::copy(&extracted, &dest).map_err(|e| format!("Failed to install gh: {e}"))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| format!("Failed to mark gh executable: {e}"))?;
+    }
+
+    let _ = std::fs::remove_dir_all(&staging);
+    Ok(dest)
+}
+
+fn find_file(dir: &Path, name: &str, max_depth: usize) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    let mut subdirs = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.file_name().is_some_and(|f| f == name) {
+            return Some(path);
+        }
+        if path.is_dir() {
+            subdirs.push(path);
+        }
+    }
+    if max_depth == 0 {
+        return None;
+    }
+    subdirs
+        .into_iter()
+        .find_map(|d| find_file(&d, name, max_depth - 1))
+}
+
+async fn gh_auth_status() -> (bool, Option<String>) {
+    let Some(gh) = resolve_executable_path("gh").await else {
+        return (false, None);
+    };
+
+    let output = Command::new(&gh)
         .args(["auth", "status", "--hostname", "github.com"])
         .stdin(Stdio::null())
         .no_window()
@@ -372,91 +762,6 @@ fn parse_username(text: &str) -> Option<String> {
         }
     }
     None
-}
-
-fn parse_user_code(line: &str) -> Option<String> {
-    let idx = line.find("one-time code:")?;
-    let after = line[idx + "one-time code:".len()..].trim();
-    for token in after.split_whitespace() {
-        let clean = token.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-');
-        if is_device_code(clean) {
-            return Some(clean.to_string());
-        }
-    }
-    None
-}
-
-fn is_device_code(s: &str) -> bool {
-    let mut parts = s.split('-');
-    let a = parts.next().unwrap_or("");
-    let b = parts.next().unwrap_or("");
-    if parts.next().is_some() || a.len() != 4 || b.len() != 4 {
-        return false;
-    }
-    a.chars()
-        .chain(b.chars())
-        .all(|c| c.is_ascii_alphanumeric())
-}
-
-fn parse_verification_uri(line: &str) -> Option<String> {
-    let marker = "Press Enter to open ";
-    let idx = line.find(marker)?;
-    let after = &line[idx + marker.len()..];
-    let token = after.split_whitespace().next()?;
-    if token.starts_with("http") {
-        Some(
-            token
-                .trim_end_matches(|c: char| c == '.' || c == ',' || c == ';')
-                .to_string(),
-        )
-    } else {
-        // Older `gh` versions print "github.com" instead of the full URL.
-        Some("https://github.com/login/device".to_string())
-    }
-}
-
-/// Line-buffered reader that merges stderr + stdout so we don't miss any
-/// output regardless of where `gh` writes each prompt.
-struct MergedLines {
-    stderr: tokio::io::Lines<BufReader<tokio::process::ChildStderr>>,
-    stdout: tokio::io::Lines<BufReader<tokio::process::ChildStdout>>,
-    stderr_done: bool,
-    stdout_done: bool,
-}
-
-impl MergedLines {
-    fn new(stderr: tokio::process::ChildStderr, stdout: tokio::process::ChildStdout) -> Self {
-        Self {
-            stderr: BufReader::new(stderr).lines(),
-            stdout: BufReader::new(stdout).lines(),
-            stderr_done: false,
-            stdout_done: false,
-        }
-    }
-
-    async fn next_line(&mut self) -> Option<String> {
-        loop {
-            if self.stderr_done && self.stdout_done {
-                return None;
-            }
-            tokio::select! {
-                res = self.stderr.next_line(), if !self.stderr_done => {
-                    match res {
-                        Ok(Some(line)) => return Some(line),
-                        Ok(None) => self.stderr_done = true,
-                        Err(_) => self.stderr_done = true,
-                    }
-                }
-                res = self.stdout.next_line(), if !self.stdout_done => {
-                    match res {
-                        Ok(Some(line)) => return Some(line),
-                        Ok(None) => self.stdout_done = true,
-                        Err(_) => self.stdout_done = true,
-                    }
-                }
-            }
-        }
-    }
 }
 
 // ============================================================================
@@ -735,34 +1040,6 @@ mod tests {
     use super::*;
 
     // ---------- auth parsing ----------
-
-    #[test]
-    fn parses_device_code() {
-        assert_eq!(
-            parse_user_code("! First copy your one-time code: ABCD-1234"),
-            Some("ABCD-1234".to_string())
-        );
-        assert_eq!(
-            parse_user_code("! First copy your one-time code: 08D0-B023 "),
-            Some("08D0-B023".to_string())
-        );
-        assert_eq!(parse_user_code("no code here"), None);
-    }
-
-    #[test]
-    fn parses_verification_uri() {
-        assert_eq!(
-            parse_verification_uri(
-                "Press Enter to open https://github.com/login/device in your browser..."
-            ),
-            Some("https://github.com/login/device".to_string())
-        );
-        assert_eq!(
-            parse_verification_uri("Press Enter to open github.com in your browser..."),
-            Some("https://github.com/login/device".to_string())
-        );
-        assert_eq!(parse_verification_uri("something else"), None);
-    }
 
     #[test]
     fn parses_username_new_format() {

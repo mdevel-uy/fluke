@@ -19,6 +19,8 @@ interface SprintFilterBarProps {
   labels: IssueLabel[];
   workers: Worker[];
   onFiltersChange: (next: SprintFilters) => void;
+  /** The shell sidebar already offers search — the top bar can skip it. */
+  hideSearch?: boolean;
 }
 
 const PRIORITIES: IssuePriority[] = ['urgent', 'high', 'medium', 'low'];
@@ -41,6 +43,7 @@ export function SprintFilterBar({
   labels,
   workers,
   onFiltersChange,
+  hideSearch = false,
 }: SprintFilterBarProps) {
   const { t } = useTranslation('common');
 
@@ -118,13 +121,17 @@ export function SprintFilterBar({
 
   return (
     <FilterBar
-      search={{
-        value: filters.q,
-        onChange: (q) => setFilter('q', q),
-        placeholder: t('sprint.filters.searchPlaceholder'),
-        clearLabel: t('sprint.filters.clearSearch'),
-        debounceMs: 250,
-      }}
+      search={
+        hideSearch
+          ? undefined
+          : {
+              value: filters.q,
+              onChange: (q) => setFilter('q', q),
+              placeholder: t('sprint.filters.searchPlaceholder'),
+              clearLabel: t('sprint.filters.clearSearch'),
+              debounceMs: 250,
+            }
+      }
       filters={filterDefs}
       onClearAll={() => onFiltersChange(EMPTY_FILTERS)}
       clearAllLabel={t('sprint.filters.clearAll')}

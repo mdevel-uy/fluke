@@ -783,6 +783,7 @@
       "confirm": "重新分配"
     },
     "filters": {
+      "stateLabel": "状态",
       "searchPlaceholder": "搜索 Issue…",
       "state": {
         "all": "全部",

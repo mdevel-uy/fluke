@@ -15,6 +15,7 @@ import { useFleetBranches } from '../model/useFleetBranches';
 import { SourceControlSidebar } from './SourceControlSidebar';
 import { SourceControlAside } from './SourceControlAside';
 import { CommitDetailAside } from './CommitDetailAside';
+import type { LaneColorToken } from '../lib/laneColors';
 import { CommitFileDiffView } from './CommitFileDiffView';
 import { FleetGraphView } from './FleetGraphView';
 import { GraphBranchFilter } from './GraphBranchFilter';
@@ -72,6 +73,22 @@ export function SourceControlPage() {
     setDiffTabs([]);
     setMainTab('graph');
   }, [selectedRepoId]);
+
+  // Lane colors reported by the graph — the sidebar dots mirror them.
+  const [branchColors, setBranchColors] = useState<
+    Record<string, LaneColorToken>
+  >({});
+
+  // Sidebar → graph navigation: reveal a branch tip or a tag's commit.
+  const [revealRequest, setRevealRequest] = useState<
+    { kind: 'oid'; oid: string } | { kind: 'branch'; name: string } | null
+  >(null);
+  const requestReveal = (
+    request: { kind: 'oid'; oid: string } | { kind: 'branch'; name: string }
+  ) => {
+    setMainTab('graph');
+    setRevealRequest(request);
+  };
 
   const openDiffTab = (oid: string, path: string) => {
     const tab = { oid, path };
@@ -139,6 +156,10 @@ export function SourceControlPage() {
           repoId={selectedRepoId}
           selectedWorkspaceId={selectedId}
           onSelect={setSelectedId}
+          onRevealBranch={(name) => requestReveal({ kind: 'branch', name })}
+          onRevealCommit={(oid) => requestReveal({ kind: 'oid', oid })}
+          pendingReveal={revealRequest}
+          branchColors={branchColors}
         />
       </ShellSidebarPortal>
 
@@ -300,6 +321,9 @@ export function SourceControlPage() {
                   setSelectedCommit(oid ? { oid, branches } : null)
                 }
                 hiddenBranches={hiddenBranches}
+                revealRequest={revealRequest}
+                onRevealHandled={() => setRevealRequest(null)}
+                onBranchColors={setBranchColors}
               />
             ) : (
               <FleetGraphPlaceholder

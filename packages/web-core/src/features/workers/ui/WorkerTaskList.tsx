@@ -34,7 +34,13 @@ export function WorkerTaskList({
         position: minPosition - 1,
       });
     },
-    onSuccess: () => invalidate(),
+    onSuccess: () => {
+      invalidate();
+      // The server auto-starts the retried task moments after the PATCH;
+      // refresh again shortly so the card reflects in_progress without
+      // waiting for the 30s poll.
+      setTimeout(invalidate, 2500);
+    },
   });
 
   const discardMutation = useMutation({
