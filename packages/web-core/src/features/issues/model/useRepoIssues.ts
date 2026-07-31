@@ -10,6 +10,9 @@ export function useRepoIssues(repoId: string | undefined) {
     enabled: !!repoId,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    // Global staleTime is 5min; force a fetch whenever a page (Kanban/Issues)
+    // mounts so navigating in never shows stale data.
+    refetchOnMount: 'always',
   });
 }
 
