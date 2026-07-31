@@ -10,6 +10,9 @@ export function useWorkers() {
     queryFn: () => workersApi.list() as Promise<Worker[]>,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    // Bypass the global 5-min staleTime so navigating to a page shows
+    // current data instead of the last cached snapshot.
+    refetchOnMount: 'always',
   });
 }
 
@@ -29,6 +32,9 @@ export function useAllWorkerTasks(
       queryFn: () => workersApi.listTasks(worker.id) as Promise<WorkerTask[]>,
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
+      // Bypass the global 5-min staleTime so navigating to a page shows
+      // current data instead of the last cached snapshot.
+      refetchOnMount: 'always' as const,
     })),
   });
 

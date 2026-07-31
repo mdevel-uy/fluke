@@ -10,6 +10,9 @@ export function useRepoIssues(repoId: string | undefined) {
     enabled: !!repoId,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    // Bypass the global 5-min staleTime so navigating to a page shows
+    // current data instead of the last cached snapshot.
+    refetchOnMount: 'always',
   });
 }
 
