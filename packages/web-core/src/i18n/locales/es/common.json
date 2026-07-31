@@ -584,6 +584,17 @@
     "commandBarTrigger": {
       "placeholder": "Buscar comandos...",
       "ariaLabel": "Abrir barra de comandos"
+    },
+    "layout": {
+      "toggleAdhocClaude": "Claude ad-hoc"
+    }
+  },
+  "adhocPanel": {
+    "title": "Claude ad-hoc",
+    "close": "Cerrar panel de Claude ad-hoc",
+    "placeholder": {
+      "title": "Claude ad-hoc no disponible",
+      "description": "Este panel es la estructura base; la sesión de Claude se integra en un paso siguiente."
     }
   },
   "appBar": {

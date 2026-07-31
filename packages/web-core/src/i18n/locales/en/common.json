@@ -588,6 +588,17 @@
     "commandBarTrigger": {
       "placeholder": "Search commands...",
       "ariaLabel": "Open command bar"
+    },
+    "layout": {
+      "toggleAdhocClaude": "Ad-hoc Claude"
+    }
+  },
+  "adhocPanel": {
+    "title": "Ad-hoc Claude",
+    "close": "Close ad-hoc Claude panel",
+    "placeholder": {
+      "title": "Ad-hoc Claude unavailable",
+      "description": "This panel is the shell only; the Claude session is wired up in a follow-up step."
     }
   },
   "appBar": {

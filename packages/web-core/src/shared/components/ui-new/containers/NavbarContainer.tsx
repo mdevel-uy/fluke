@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
+import { PanelLeft, PanelBottom, PanelRight, Sparkles } from 'lucide-react';
+import { useAdhocPanelStore } from '@/features/adhoc-session';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
@@ -196,9 +197,21 @@ export function NavbarContainer({
     (s) => s.isRightSidebarVisible
   );
   const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
+  const isAdhocPanelOpen = useAdhocPanelStore((s) => s.isOpen);
+  const toggleAdhocPanel = useAdhocPanelStore((s) => s.toggle);
 
   const layoutToggleItems: NavbarSectionItem[] = useMemo(
     () => [
+      {
+        type: 'action',
+        id: 'toggle-adhoc-claude',
+        lucideIcon: Sparkles,
+        isActive: isAdhocPanelOpen,
+        tooltip: t('navbar.layout.toggleAdhocClaude', {
+          defaultValue: 'Ad-hoc Claude',
+        }),
+        onClick: toggleAdhocPanel,
+      },
       {
         type: 'action',
         id: 'toggle-left-sidebar',
@@ -238,6 +251,8 @@ export function NavbarContainer({
       toggleTerminal,
       isRightSidebarVisible,
       toggleRightSidebar,
+      isAdhocPanelOpen,
+      toggleAdhocPanel,
     ]
   );
 
@@ -330,14 +345,10 @@ export function NavbarContainer({
     [navRepos, selectedRepoId]
   );
 
-  const localBreadcrumbs = useMemo(():
-    | NavbarBreadcrumbItem[]
-    | undefined => {
+  const localBreadcrumbs = useMemo((): NavbarBreadcrumbItem[] | undefined => {
     if (isOnProjectPage) return undefined;
     const kind = destination?.kind ?? null;
-    const section:
-      | { label: string; goTo: () => void }
-      | null =
+    const section: { label: string; goTo: () => void } | null =
       kind === 'workspaces' ||
       kind === 'workspace' ||
       kind === 'workspace-vscode'

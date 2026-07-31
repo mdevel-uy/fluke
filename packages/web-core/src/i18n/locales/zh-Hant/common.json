@@ -583,6 +583,17 @@
     "commandBarTrigger": {
       "placeholder": "搜尋命令...",
       "ariaLabel": "開啟命令列"
+    },
+    "layout": {
+      "toggleAdhocClaude": "臨時 Claude"
+    }
+  },
+  "adhocPanel": {
+    "title": "臨時 Claude",
+    "close": "關閉臨時 Claude 面板",
+    "placeholder": {
+      "title": "臨時 Claude 無法使用",
+      "description": "此面板僅為基礎結構；Claude 工作階段將在後續步驟中整合。"
     }
   },
   "appBar": {

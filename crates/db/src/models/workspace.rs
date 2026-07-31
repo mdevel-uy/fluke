@@ -11,6 +11,7 @@ const WORKSPACE_NAME_MAX_LEN: usize = 60;
 
 use super::{
     execution_process::ExecutorActionField,
+    scratch_workspace::ScratchWorkspace,
     session::Session,
     workspace_repo::{RepoWithTargetBranch, WorkspaceRepo},
 };
@@ -74,7 +75,7 @@ pub struct CreateFollowUpAttempt {
     pub prompt: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct WorkspaceContext {
     pub workspace: Workspace,
     pub workspace_repos: Vec<RepoWithTargetBranch>,
@@ -88,7 +89,7 @@ pub struct CreateWorkspace {
 }
 
 impl Workspace {
-    /// Fetch all workspaces. Newest first.
+    /// Fetch all user-facing workspaces (excludes ad-hoc scratch workspaces). Newest first.
     pub async fn fetch_all(pool: &SqlitePool) -> Result<Vec<Self>, WorkspaceError> {
         let workspaces = sqlx::query_as!(
             Workspace,
@@ -110,7 +111,17 @@ impl Workspace {
         .await
         .map_err(WorkspaceError::Database)?;
 
-        Ok(workspaces)
+        let scratch_ids: std::collections::HashSet<Uuid> =
+            ScratchWorkspace::all_workspace_ids(pool)
+                .await
+                .map_err(WorkspaceError::Database)?
+                .into_iter()
+                .collect();
+
+        Ok(workspaces
+            .into_iter()
+            .filter(|w| !scratch_ids.contains(&w.id))
+            .collect())
     }
 
     /// Load full workspace context by workspace ID.
@@ -541,6 +552,12 @@ impl Workspace {
         .fetch_all(pool)
         .await?;
 
+        let scratch_ids: std::collections::HashSet<Uuid> =
+            ScratchWorkspace::all_workspace_ids(pool)
+                .await?
+                .into_iter()
+                .collect();
+
         let mut workspaces: Vec<WorkspaceWithStatus> = records
             .into_iter()
             .map(|rec| WorkspaceWithStatus {
@@ -560,6 +577,8 @@ impl Workspace {
                 is_running: rec.is_running != 0,
                 is_errored: rec.is_errored != 0,
             })
+            // Hide ad-hoc scratch workspaces from user-facing listings.
+            .filter(|ws| !scratch_ids.contains(&ws.workspace.id))
             // Apply archived filter if provided
             .filter(|ws| archived.is_none_or(|a| ws.workspace.archived == a))
             .collect();

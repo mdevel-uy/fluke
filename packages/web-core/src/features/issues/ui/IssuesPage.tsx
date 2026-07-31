@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
@@ -21,6 +22,7 @@ import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
@@ -237,10 +239,17 @@ export function IssuesPage() {
   usePageTitle(t('issues.title'));
   const appNavigation = useAppNavigation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as RawSearch;
   const selectedRepoIdFromUrl = search.repo;
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
+
+  // Refresh workers + tasks on page mount so navigating into Issues never
+  // shows stale data. Issues themselves refetch on mount via useRepoIssues.
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const filters = useMemo(() => filtersFromUrl(search), [search]);
   const selectedIssueNumber = search.issue;

@@ -583,6 +583,17 @@
     "commandBarTrigger": {
       "placeholder": "명령 검색...",
       "ariaLabel": "명령 바 열기"
+    },
+    "layout": {
+      "toggleAdhocClaude": "임시 Claude"
+    }
+  },
+  "adhocPanel": {
+    "title": "임시 Claude",
+    "close": "임시 Claude 패널 닫기",
+    "placeholder": {
+      "title": "임시 Claude를 사용할 수 없습니다",
+      "description": "이 패널은 기본 구조입니다. Claude 세션은 다음 단계에서 통합됩니다."
     }
   },
   "appBar": {
