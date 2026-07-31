@@ -358,7 +358,17 @@ export function SprintPage() {
     mutationFn: async (params: { workerId: string; taskId: string }) => {
       await workersApi.cancelTask(params.workerId, params.taskId);
     },
-    onSuccess: () => invalidateWorkerData(),
+    onSuccess: (_data, variables) => {
+      // Drop the cancelled task from the worker's cached task list synchronously
+      // so every consumer of `workersKeys.tasks(workerId)` — including a mounted
+      // Analyst Desk on the same client — reflects the removal instantly,
+      // instead of waiting for the invalidation refetch or the 30 s poll.
+      queryClient.setQueryData<WorkerTask[]>(
+        workersKeys.tasks(variables.workerId),
+        (old) => old?.filter((t) => t.id !== variables.taskId) ?? old
+      );
+    },
+    onSettled: () => invalidateWorkerData(),
   });
 
   const reRequestReviewMutation = useMutation({
