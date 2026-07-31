@@ -1227,12 +1227,22 @@ fn build_pr_body(task: &WorkerTask) -> String {
     body
 }
 
-/// Dispatch a review task to the first reviewer worker for the given PR.
+/// Dispatch a review task to the next available reviewer worker for the given
+/// PR.
+///
+/// Reviewer selection is least-recently-assigned first: with N active
+/// reviewer workers the dispatcher rotates through them by picking the one
+/// whose most recent `worker_task` is oldest (or who has never taken a task
+/// at all). See [`Worker::list_active_reviewers_lru`] for the exact ordering.
+/// With a single reviewer the behavior is unchanged from the old
+/// `find_first_reviewer`-based dispatch: the same reviewer is picked every
+/// time.
 ///
 /// No-op (with debug/warn logging) when:
 /// - `WORKER_LEAD_ENABLED=false`
 /// - No reviewer worker is registered
-/// - The reviewer is the same worker as the PR author (no self-review)
+/// - Every active reviewer is the PR author (no self-review; GitHub rejects
+///   self-approval)
 /// - An active reviewer task already exists for this PR (idempotent guard)
 /// - The PR has already reached the `Config.max_review_rounds` cap (escalated;
 ///   the `WORKER_REVIEW_MAX_ROUNDS` env var may still override the Config)
@@ -1251,32 +1261,36 @@ pub async fn dispatch_review_task(
 
     let pool = &db.pool;
 
-    let Some(reviewer) = Worker::find_first_reviewer(pool).await? else {
+    let candidates = Worker::list_active_reviewers_lru(pool).await?;
+    if candidates.is_empty() {
         debug!(
             pr_number,
             "No reviewer worker found — skipping review dispatch"
         );
         return Ok(());
+    }
+
+    // Iterate the LRU-ordered list and pick the first reviewer that is not
+    // the PR author. GitHub's PR review API rejects a review submitted by
+    // the PR author (`gh pr review --approve` returns 422 "author cannot
+    // approve their own pull request"), so a reviewer whose id matches the
+    // author has to be skipped. When every candidate is the author (e.g.
+    // the only reviewer configured is the author itself), we fall through
+    // to the same no-op the pre-balancing dispatch used.
+    let reviewer = match author_worker_id {
+        Some(author_id) => candidates.into_iter().find(|r| r.id != author_id),
+        None => candidates.into_iter().next(),
     };
 
-    if let Some(author_id) = author_worker_id {
-        if reviewer.id == author_id {
-            // GitHub's PR review API rejects a review submitted by the PR
-            // author (`gh pr review --approve` returns 422 "author cannot
-            // approve their own pull request"). This guard is what makes
-            // the per-worker PAT feature useful: a dedicated reviewer
-            // worker with its own PAT can approve PRs authored by a
-            // developer worker. Without distinct identities the review
-            // would round-trip and fail on submit.
-            debug!(
-                reviewer_id = %reviewer.id,
-                pr_number,
-                "Reviewer is the same as PR author — skipping self-review \
-                 (GitHub rejects self-approval; requires a distinct reviewer PAT)"
-            );
-            return Ok(());
-        }
-    }
+    let Some(reviewer) = reviewer else {
+        debug!(
+            pr_number,
+            author_worker_id = ?author_worker_id,
+            "All active reviewers are the PR author — skipping self-review \
+             (GitHub rejects self-approval; requires a distinct reviewer PAT)"
+        );
+        return Ok(());
+    };
 
     // Identity guard at the GitHub-account level. Distinct workers can still
     // share one GitHub identity (no PAT → both act as the machine's global
@@ -1543,6 +1557,7 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
 mod tests {
     use std::path::PathBuf;
 
+    use chrono::TimeZone;
     use db::models::{repo::Repo, worker::CreateWorker, worker_task::CreateWorkerTask};
     use sqlx::SqlitePool;
     use tempfile::TempDir;
@@ -1653,13 +1668,26 @@ mod tests {
     }
 
     async fn insert_worker(db: &DBService, name: &str) -> Worker {
+        insert_worker_with_role(db, name, None).await
+    }
+
+    async fn insert_reviewer(db: &DBService, name: &str) -> Worker {
+        insert_worker_with_role(
+            db,
+            name,
+            Some(db::models::worker::ROLE_REVIEWER.to_string()),
+        )
+        .await
+    }
+
+    async fn insert_worker_with_role(db: &DBService, name: &str, role: Option<String>) -> Worker {
         Worker::create(
             &db.pool,
             &CreateWorker {
                 name: name.to_string(),
                 emoji: "🤖".to_string(),
                 soul: "test soul".to_string(),
-                role: None,
+                role,
                 model: None,
                 github_pat: None,
                 github_login: None,
@@ -1940,5 +1968,214 @@ mod tests {
             .expect("task still exists");
         assert_eq!(refreshed.status, worker_task::STATUS_IN_PROGRESS);
         assert_eq!(refreshed.workspace_id, Some(workspace.id));
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_is_empty_when_no_reviewer_configured() {
+        // dispatch_review_task's first branch: with no reviewer registered the
+        // LRU list is empty and the caller must skip dispatch entirely
+        // (same no-op the old find_first_reviewer branch produced).
+        let db = setup_test_db().await;
+        let _dev = insert_worker(&db, "dev-only").await;
+
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert!(
+            list.is_empty(),
+            "developer-only fleet must not surface as a reviewer candidate"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_excludes_archived_reviewers() {
+        // An archived reviewer identity must never receive a fresh review
+        // dispatch — even if it's the only one with a `reviewer` role.
+        let db = setup_test_db().await;
+        let reviewer = insert_reviewer(&db, "retired").await;
+        Worker::set_archived(&db.pool, reviewer.id, true)
+            .await
+            .unwrap();
+
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert!(
+            list.is_empty(),
+            "archived reviewer must not appear in the LRU candidate list"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_single_reviewer_matches_legacy_pick() {
+        // Acceptance criterion: with a single active reviewer the behavior
+        // is unchanged — the LRU list has one entry that is the same
+        // reviewer the old find_first_reviewer helper would have returned.
+        let db = setup_test_db().await;
+        let solo = insert_reviewer(&db, "solo").await;
+
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, solo.id);
+        assert_eq!(
+            list[0].id,
+            Worker::find_first_reviewer(&db.pool)
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+        );
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_puts_never_assigned_before_assigned() {
+        // Reviewer A is the oldest identity and already has a task on its
+        // ledger; reviewer B was created later and has never taken a task.
+        // The LRU rule (nulls first) must surface B ahead of A so B gets
+        // the next review — otherwise A keeps accumulating work.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "lru-null-repo").await;
+        let reviewer_a = insert_reviewer(&db, "alpha").await;
+        let _reviewer_b = insert_reviewer(&db, "bravo").await;
+
+        WorkerTask::append(
+            &db.pool,
+            reviewer_a.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Review PR #1".to_string(),
+                prompt: "review".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].name, "bravo", "never-assigned reviewer must lead");
+        assert_eq!(list[1].name, "alpha");
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_rotates_after_each_append() {
+        // Simulates the core bug scenario: two reviewers, several review
+        // tasks dispatched back-to-back. After appending a task to whoever
+        // the LRU currently surfaces, the OTHER reviewer must move to the
+        // head so the next dispatch picks them — otherwise all tasks pile
+        // onto the same identity (issue #302).
+        //
+        // Each task's `created_at` is stamped explicitly with a monotonic
+        // offset so the `ORDER BY MAX(created_at)` on the LRU query has a
+        // well-defined winner without depending on wall-clock progress
+        // between iterations (CI schedulers can pin many inserts into the
+        // same sub-millisecond bucket, which used to make this flaky).
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "lru-rotate-repo").await;
+        let reviewer_a = insert_reviewer(&db, "alpha").await;
+        let reviewer_b = insert_reviewer(&db, "bravo").await;
+
+        let base = chrono::Utc
+            .with_ymd_and_hms(2026, 1, 1, 0, 0, 0)
+            .unwrap();
+        let mut sequence: Vec<String> = Vec::new();
+        for (i, pr_number) in (1..=4i64).enumerate() {
+            let picked = Worker::list_active_reviewers_lru(&db.pool)
+                .await
+                .unwrap()
+                .into_iter()
+                .next()
+                .expect("at least one reviewer available");
+            sequence.push(picked.name.clone());
+            let task = WorkerTask::append(
+                &db.pool,
+                picked.id,
+                &CreateWorkerTask {
+                    repo_id: repo.id,
+                    title: format!("Review PR #{pr_number}"),
+                    prompt: "review".to_string(),
+                    issue_number: Some(pr_number),
+                    skills: Vec::new(),
+                    source: worker_task::SOURCE_KANBAN.to_string(),
+                },
+            )
+            .await
+            .unwrap();
+            let stamped = base + chrono::Duration::seconds(i as i64);
+            sqlx::query("UPDATE worker_tasks SET created_at = ?1 WHERE id = ?2")
+                .bind(stamped)
+                .bind(task.id)
+                .execute(&db.pool)
+                .await
+                .unwrap();
+        }
+
+        // Four consecutive dispatches over two reviewers must alternate
+        // rather than all landing on the oldest one.
+        assert_eq!(
+            sequence,
+            vec![
+                "alpha".to_string(),
+                "bravo".to_string(),
+                "alpha".to_string(),
+                "bravo".to_string(),
+            ],
+            "reviewers must rotate under LRU; got {:?}",
+            sequence,
+        );
+
+        // Sanity: both identities ended up with the same number of tasks.
+        let count_a = WorkerTask::list_by_worker(&db.pool, reviewer_a.id)
+            .await
+            .unwrap()
+            .len();
+        let count_b = WorkerTask::list_by_worker(&db.pool, reviewer_b.id)
+            .await
+            .unwrap()
+            .len();
+        assert_eq!(count_a, 2);
+        assert_eq!(count_b, 2);
+    }
+
+    #[tokio::test]
+    async fn list_active_reviewers_lru_self_review_fallback_prefers_next_candidate() {
+        // Guard preservation: when the LRU-first candidate is the PR author,
+        // dispatch_review_task walks the list and picks the next non-author
+        // reviewer. This test exercises the same fallback path at the
+        // candidate-list level: skip the author, pick the next.
+        let db = setup_test_db().await;
+        let (_repo, _repo_tmp) = insert_repo(&db, "self-review-repo").await;
+        let author_reviewer = insert_reviewer(&db, "author").await;
+        let other_reviewer = insert_reviewer(&db, "other").await;
+
+        // The author reviewer has never taken a task, so LRU surfaces them
+        // first. The fallback must still land on the "other" reviewer.
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert_eq!(list[0].id, author_reviewer.id);
+
+        let picked = list.into_iter().find(|r| r.id != author_reviewer.id);
+        assert_eq!(
+            picked.map(|r| r.id),
+            Some(other_reviewer.id),
+            "must fall through to a non-author reviewer",
+        );
+
+        // And when the only reviewer is the author, the fallback returns
+        // None — same no-op the pre-balancing dispatch produced.
+        Worker::set_archived(&db.pool, other_reviewer.id, true)
+            .await
+            .unwrap();
+        let list = Worker::list_active_reviewers_lru(&db.pool).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert!(
+            !list.iter().any(|r| r.id != author_reviewer.id),
+            "no non-author reviewer means dispatch must no-op",
+        );
+
+        // Sanity: dispatch would skip in that branch, so the author's task
+        // ledger stays empty on this run.
+        let count = WorkerTask::list_by_worker(&db.pool, author_reviewer.id)
+            .await
+            .unwrap()
+            .len();
+        assert_eq!(count, 0);
     }
 }
