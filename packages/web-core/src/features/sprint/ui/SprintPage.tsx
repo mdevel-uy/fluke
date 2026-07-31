@@ -182,6 +182,14 @@ export function SprintPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
+  // Force fresh issues + workers/tasks on navigation to Kanban.
+  // Shared hooks inherit the global 5-min staleTime, so without this the
+  // page would show whatever was cached from a previous visit (#298).
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: repoIssuesKeys.all });
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
+
   // Update URL search params without TanStack Router typed navigate
   // (web-core doesn't have the route type declarations from local-web).
   const updateSearchParams = useCallback(

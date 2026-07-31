@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
@@ -16,11 +17,13 @@ import {
   useRemoveIssueLabel,
   useCloseIssue,
 } from '@/features/issues/model/useRepoIssues';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import type { RepoIssue, IssueLabel } from '@/features/issues/types';
 import {
   useAllWorkerTasks,
   useWorkers,
 } from '@/features/sprint/model/useWorkers';
+import { workersKeys } from '@/features/workers';
 import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
@@ -237,10 +240,19 @@ export function IssuesPage() {
   usePageTitle(t('issues.title'));
   const appNavigation = useAppNavigation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as RawSearch;
   const selectedRepoIdFromUrl = search.repo;
   const storedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
   const setStoredRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
+
+  // Force fresh issues + workers/tasks on navigation to Issues.
+  // Shared hooks inherit the global 5-min staleTime, so without this the
+  // page would show whatever was cached from a previous visit (#298).
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: repoIssuesKeys.all });
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
 
   const filters = useMemo(() => filtersFromUrl(search), [search]);
   const selectedIssueNumber = search.issue;
