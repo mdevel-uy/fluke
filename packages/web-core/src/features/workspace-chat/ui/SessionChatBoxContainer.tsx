@@ -439,10 +439,17 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
   // message. Only consumed by the chat of the workspace it targets.
   const pendingPrefill = useComposerPrefillStore((s) => s.pendingPrefill);
   const clearPrefill = useComposerPrefillStore((s) => s.clearPrefill);
+  // When the aside asks for auto-send, we can't fire immediately: setLocalMessage
+  // is async, so handleSend would read the stale draft. Instead we arm this ref
+  // and let the follow-up effect (after handleSend is defined) trigger the send
+  // on the render where localMessage reflects the prefilled text.
+  const autoSendPendingRef = useRef(false);
 
   useEffect(() => {
     if (!pendingPrefill || pendingPrefill.workspaceId !== workspaceId) return;
-    handleInsertMarkdown(pendingPrefill.text);
+    const { text, autoSend } = pendingPrefill;
+    handleInsertMarkdown(text);
+    if (autoSend) autoSendPendingRef.current = true;
     clearPrefill();
   }, [pendingPrefill, workspaceId, handleInsertMarkdown, clearPrefill]);
 
@@ -538,6 +545,16 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     clearDraft,
     reviewContext,
   ]);
+
+  // Fires once the prefilled text has landed in localMessage. We clear the ref
+  // before dispatching so a send failure (network, no executor) doesn't loop:
+  // the draft stays put for the user to retry manually.
+  useEffect(() => {
+    if (!autoSendPendingRef.current) return;
+    if (!localMessage.trim()) return;
+    autoSendPendingRef.current = false;
+    void handleSend();
+  }, [localMessage, handleSend]);
 
   // Track previous process count for queue refresh
   const prevProcessCountRef = useRef(processes.length);
