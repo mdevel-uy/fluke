@@ -49,15 +49,10 @@ import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
 import { PROJECTS_SHAPE } from 'shared/remote-types';
-import {
-  ShellSidebarProvider,
-  ShellSidebarSlot,
-} from '../shell/ShellSidebar';
-import {
-  ShellAsideSlot,
-  useShellAsideHasContent,
-} from '../shell/ShellAside';
+import { ShellSidebarProvider, ShellSidebarSlot } from '../shell/ShellSidebar';
+import { ShellAsideSlot, useShellAsideHasContent } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
+import { AdhocClaudePanel } from '@/features/adhoc-session';
 
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
@@ -375,242 +370,249 @@ export function SharedAppLayout() {
   return (
     <SyncErrorProvider>
       <ShellSidebarProvider>
-      <div
-        className={cn(
-          'bg-primary',
-          isMobile
-            ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-            : 'grid grid-rows-[auto_1fr_auto] h-screen'
-        )}
-      >
-        {!isMobile && (
-          <>
-            {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
-            <NavbarContainer
-              className={isTauriMac() ? 'pl-[64px]' : undefined}
-              onOpenDrawer={() => setIsDrawerOpen(true)}
-            />
-            {/* Middle row: activity rail + content. Flex (not grid) so the
-                resizable group gets a definite height to fill (min-h-0!). */}
-            <div className="flex min-h-0 overflow-hidden">
-              {/* Desktop AppBar sidebar. */}
-              <AppBar
-                onWorkspacesClick={handleWorkspacesClick}
-                onEditorClick={handleEditorClick}
-                onSearchClick={handleSearchClick}
-                onSourceControlClick={handleSourceControlClick}
-                onDashboardClick={handleDashboardClick}
-                onSprintClick={handleSprintClick}
-                onIssuesClick={handleIssuesClick}
-                onWorkersClick={handleWorkersClick}
-                onAnalystDeskClick={handleAnalystDeskClick}
-                isWorkspacesActive={
-                  isWorkspacesActive && workspacesSidebarMode === 'workspaces'
-                }
-                isEditorActive={isEditorActive}
-                isSearchActive={isSearchActive}
-                isSourceControlActive={isSourceControlActive}
-                sourceControlBadgeCount={sourceControlBadgeCount}
-                isDashboardActive={isDashboardActive}
-                isSprintActive={isSprintActive}
-                isIssuesActive={isIssuesActive}
-                isWorkersActive={isWorkersActive}
-                isAnalystDeskActive={isAnalystDeskActive}
-                updateVersion={updateVersion}
-                onUpdateClick={restartForUpdate ?? undefined}
-                onOpenSettings={() => SettingsDialog.show()}
+        <div
+          className={cn(
+            'bg-primary',
+            isMobile
+              ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
+              : 'grid grid-rows-[auto_1fr_auto] h-screen'
+          )}
+        >
+          {!isMobile && (
+            <>
+              {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
+              <NavbarContainer
+                className={isTauriMac() ? 'pl-[64px]' : undefined}
+                onOpenDrawer={() => setIsDrawerOpen(true)}
               />
-              {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
-              <Group orientation="horizontal" className="flex-1 min-w-0 h-full">
-              {showShellSidebar && (
-                <Panel
-                  id="shell-sidebar"
-                  defaultSize="220px"
-                  minSize="220px"
-                  maxSize="480px"
-                  className="h-full overflow-hidden border-r border-md-outline-variant"
-                >
-                  <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
-                </Panel>
-              )}
-              {showShellSidebar && (
-                <Separator
-                  id="shell-sidebar-separator"
-                  className={SHELL_SEPARATOR_CLASS}
+              {/* Middle row: activity rail + content. Flex (not grid) so the
+                resizable group gets a definite height to fill (min-h-0!). */}
+              <div className="flex min-h-0 overflow-hidden">
+                {/* Desktop AppBar sidebar. */}
+                <AppBar
+                  onWorkspacesClick={handleWorkspacesClick}
+                  onEditorClick={handleEditorClick}
+                  onSearchClick={handleSearchClick}
+                  onSourceControlClick={handleSourceControlClick}
+                  onDashboardClick={handleDashboardClick}
+                  onSprintClick={handleSprintClick}
+                  onIssuesClick={handleIssuesClick}
+                  onWorkersClick={handleWorkersClick}
+                  onAnalystDeskClick={handleAnalystDeskClick}
+                  isWorkspacesActive={
+                    isWorkspacesActive && workspacesSidebarMode === 'workspaces'
+                  }
+                  isEditorActive={isEditorActive}
+                  isSearchActive={isSearchActive}
+                  isSourceControlActive={isSourceControlActive}
+                  sourceControlBadgeCount={sourceControlBadgeCount}
+                  isDashboardActive={isDashboardActive}
+                  isSprintActive={isSprintActive}
+                  isIssuesActive={isIssuesActive}
+                  isWorkersActive={isWorkersActive}
+                  isAnalystDeskActive={isAnalystDeskActive}
+                  updateVersion={updateVersion}
+                  onUpdateClick={restartForUpdate ?? undefined}
+                  onOpenSettings={() => SettingsDialog.show()}
                 />
-              )}
-              {/* Desktop content: main column (outlet + global terminal). */}
-              <Panel
-                id="shell-content"
-                minSize="400px"
-                className="relative min-w-0 h-full overflow-hidden"
-              >
-                {!showShellSidebar && (
-                  <div className={SHELL_RAIL_SHADOW_CLASS} aria-hidden />
-                )}
+                {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
                 <Group
-                  orientation="vertical"
-                  className="h-full w-full min-h-0"
-                  defaultLayout={terminalDefaultLayout}
-                  onLayoutChange={onTerminalLayoutChange}
+                  orientation="horizontal"
+                  className="flex-1 min-w-0 h-full"
                 >
-                  <Panel
-                    id="workspace-top"
-                    minSize="200px"
-                    className="relative min-h-0 w-full overflow-hidden"
-                  >
-                    <Outlet />
-                  </Panel>
-                  {isTerminalVisible && (
+                  {showShellSidebar && (
+                    <Panel
+                      id="shell-sidebar"
+                      defaultSize="220px"
+                      minSize="220px"
+                      maxSize="480px"
+                      className="h-full overflow-hidden border-r border-md-outline-variant"
+                    >
+                      <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
+                    </Panel>
+                  )}
+                  {showShellSidebar && (
                     <Separator
-                      id="shell-terminal-separator"
-                      className={SHELL_SEPARATOR_ROW_CLASS}
+                      id="shell-sidebar-separator"
+                      className={SHELL_SEPARATOR_CLASS}
                     />
                   )}
-                  {isTerminalVisible && (
-                    <Panel
-                      id="bottom-panel"
-                      minSize="120px"
-                      maxSize="80%"
-                      className="min-h-0 w-full overflow-hidden"
+                  {/* Desktop content: main column (outlet + global terminal). */}
+                  <Panel
+                    id="shell-content"
+                    minSize="400px"
+                    className="relative min-w-0 h-full overflow-hidden"
+                  >
+                    {!showShellSidebar && (
+                      <div className={SHELL_RAIL_SHADOW_CLASS} aria-hidden />
+                    )}
+                    <Group
+                      orientation="vertical"
+                      className="h-full w-full min-h-0"
+                      defaultLayout={terminalDefaultLayout}
+                      onLayoutChange={onTerminalLayoutChange}
                     >
-                      <ShellTerminalPanel />
+                      <Panel
+                        id="workspace-top"
+                        minSize="200px"
+                        className="relative min-h-0 w-full overflow-hidden"
+                      >
+                        <Outlet />
+                      </Panel>
+                      {isTerminalVisible && (
+                        <Separator
+                          id="shell-terminal-separator"
+                          className={SHELL_SEPARATOR_ROW_CLASS}
+                        />
+                      )}
+                      {isTerminalVisible && (
+                        <Panel
+                          id="bottom-panel"
+                          minSize="120px"
+                          maxSize="80%"
+                          className="min-h-0 w-full overflow-hidden"
+                        >
+                          <ShellTerminalPanel />
+                        </Panel>
+                      )}
+                    </Group>
+                  </Panel>
+                  {showShellAside && (
+                    <Separator
+                      id="shell-aside-separator"
+                      className={SHELL_ASIDE_SEPARATOR_CLASS}
+                    />
+                  )}
+                  {showShellAside && (
+                    <Panel
+                      id="shell-aside"
+                      defaultSize="320px"
+                      minSize="220px"
+                      maxSize="480px"
+                      className="h-full overflow-hidden border-l border-md-outline-variant"
+                    >
+                      <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
                     </Panel>
                   )}
                 </Group>
-              </Panel>
-              {showShellAside && (
-                <Separator
-                  id="shell-aside-separator"
-                  className={SHELL_ASIDE_SEPARATOR_CLASS}
-                />
-              )}
-              {showShellAside && (
-                <Panel
-                  id="shell-aside"
-                  defaultSize="320px"
-                  minSize="220px"
-                  maxSize="480px"
-                  className="h-full overflow-hidden border-l border-md-outline-variant"
+              </div>
+              {/* Workbench status bar — full-width bottom row. */}
+              <StatusBarContainer
+                appVersion={appVersion}
+                updateVersion={updateVersion}
+                onUpdateClick={restartForUpdate ?? undefined}
+              />
+            </>
+          )}
+
+          {isMobile && (
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <NavbarContainer
+                mobileMode={isMobile}
+                onOpenDrawer={() => setIsDrawerOpen(true)}
+              />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Outlet />
+              </div>
+            </div>
+          )}
+
+          {/* Global ad-hoc Claude panel — right slide-in overlay, portaled to
+            document.body so it doesn't push the main column. */}
+          <AdhocClaudePanel />
+
+          {/* Mobile navigation drawer */}
+          <MobileDrawer
+            open={isDrawerOpen && isMobile}
+            onClose={() => setIsDrawerOpen(false)}
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-end p-4 border-b border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-1.5 rounded-md text-low hover:bg-secondary hover:text-high transition-colors cursor-pointer"
                 >
-                  <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
-                </Panel>
-              )}
-              </Group>
+                  <X className="h-4 w-4" strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-1 p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    appNavigation.goToDashboard();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <LayoutDashboard className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.dashboard')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate({ to: '/workspaces' });
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Layout className="h-4 w-4" strokeWidth={2} />
+                  Workspaces
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    appNavigation.goToIssues();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <AlertCircle className="h-4 w-4" strokeWidth={2} />
+                  Issues
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleWorkersClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Users className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.workers')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAnalystDeskClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <ClipboardList className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.analystDesk')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    appNavigation.goToSprint();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Zap className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.sprint')}
+                </button>
+              </div>
             </div>
-            {/* Workbench status bar — full-width bottom row. */}
-            <StatusBarContainer
-              appVersion={appVersion}
-              updateVersion={updateVersion}
-              onUpdateClick={restartForUpdate ?? undefined}
-            />
-          </>
-        )}
-
-        {isMobile && (
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-            <NavbarContainer
-              mobileMode={isMobile}
-              onOpenDrawer={() => setIsDrawerOpen(true)}
-            />
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Outlet />
-            </div>
-          </div>
-        )}
-
-        {/* Mobile navigation drawer */}
-        <MobileDrawer
-          open={isDrawerOpen && isMobile}
-          onClose={() => setIsDrawerOpen(false)}
-        >
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-end p-4 border-b border-border/60">
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                className="p-1.5 rounded-md text-low hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <X className="h-4 w-4" strokeWidth={2.5} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-1 p-3">
-              <button
-                type="button"
-                onClick={() => {
-                  appNavigation.goToDashboard();
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <LayoutDashboard className="h-4 w-4" strokeWidth={2} />
-                {t('appBar.dashboard')}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  void navigate({ to: '/workspaces' });
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <Layout className="h-4 w-4" strokeWidth={2} />
-                Workspaces
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  appNavigation.goToIssues();
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <AlertCircle className="h-4 w-4" strokeWidth={2} />
-                Issues
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleWorkersClick();
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <Users className="h-4 w-4" strokeWidth={2} />
-                {t('appBar.workers')}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleAnalystDeskClick();
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <ClipboardList className="h-4 w-4" strokeWidth={2} />
-                {t('appBar.analystDesk')}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  appNavigation.goToSprint();
-                  setIsDrawerOpen(false);
-                }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-              >
-                <Zap className="h-4 w-4" strokeWidth={2} />
-                {t('appBar.sprint')}
-              </button>
-            </div>
-          </div>
-        </MobileDrawer>
-      </div>
+          </MobileDrawer>
+        </div>
       </ShellSidebarProvider>
     </SyncErrorProvider>
   );
