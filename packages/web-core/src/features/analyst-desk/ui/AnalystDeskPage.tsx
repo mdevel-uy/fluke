@@ -30,6 +30,10 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import {
+  useAnalystDeskDraft,
+  useAnalystDeskDraftStore,
+} from '@/shared/stores/useAnalystDeskDraftStore';
 import { AnalystDeskSidebar } from './AnalystDeskSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { cn } from '@/shared/lib/utils';
@@ -262,7 +266,12 @@ export function AnalystDeskPage() {
     return new Map(queued.map((task, index) => [task.id, index]));
   }, [tasks]);
 
-  const [prompt, setPrompt] = useState('');
+  // Persisted per-repo draft: navigating away and back keeps what the user
+  // was typing, but a successful submit clears it (see handleSubmit).
+  const prompt = useAnalystDeskDraft(selectedRepoId);
+  const setDraft = useAnalystDeskDraftStore((s) => s.setDraft);
+  const clearDraft = useAnalystDeskDraftStore((s) => s.clearDraft);
+  const setPrompt = (next: string) => setDraft(selectedRepoId, next);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const { data: installedSkills = [] } = useQuery({
     queryKey: ['skills'],
@@ -457,7 +466,7 @@ export function AnalystDeskPage() {
         attachmentIds,
         skills: selectedSkills,
       });
-      setPrompt('');
+      clearDraft(selectedRepoId);
       setSelectedSkills([]);
       clearImages();
       showNotice({
