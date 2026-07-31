@@ -155,6 +155,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
     if (!template) return;
     setSoul(template.soul);
+    if (template.role) setRole(template.role);
   };
 
   const handleCancel = () => {

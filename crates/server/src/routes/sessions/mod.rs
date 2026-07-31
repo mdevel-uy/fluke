@@ -233,6 +233,73 @@ pub async fn follow_up(
     Ok(ResponseJson(ApiResponse::success(execution_process)))
 }
 
+#[derive(Debug, Deserialize, TS)]
+pub struct StartSessionRequest {
+    pub executor_config: ExecutorConfig,
+}
+
+#[derive(Debug, serde::Serialize, TS)]
+pub struct StartSessionResponse {
+    pub session_id: Uuid,
+}
+
+/// Prepare an interactive session for its first user message.
+///
+/// Used by the ad-hoc panel to bind a session to a chosen executor without
+/// dispatching a coding-agent run (there is no prompt yet). The endpoint:
+///   * validates the executor is compatible with any existing executions,
+///   * persists the executor selection on the session (so subsequent
+///     `/follow-up` calls pass the executor-match check without needing to
+///     resend it), and
+///   * ensures the workspace worktree exists on disk (recreates it if the
+///     periodic cleanup deleted it).
+///
+/// The actual coding-agent process is spawned when the user sends the first
+/// message via the existing `/sessions/{id}/follow-up` endpoint.
+pub async fn start_session(
+    Extension(session): Extension<Session>,
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<StartSessionRequest>,
+) -> Result<ResponseJson<ApiResponse<StartSessionResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let workspace = Workspace::find_by_id(pool, session.workspace_id)
+        .await?
+        .ok_or(ApiError::Workspace(WorkspaceError::ValidationError(
+            "Workspace not found".to_string(),
+        )))?;
+
+    let requested_executor = payload.executor_config.profile_id().executor.to_string();
+
+    let expected_executor: Option<String> =
+        ExecutionProcess::latest_executor_profile_for_session(pool, session.id)
+            .await?
+            .map(|profile| profile.executor.to_string())
+            .or_else(|| session.executor.clone());
+
+    if let Some(expected) = expected_executor
+        && expected != requested_executor
+    {
+        return Err(ApiError::Session(SessionError::ExecutorMismatch {
+            expected,
+            actual: requested_executor,
+        }));
+    }
+
+    if session.executor.as_deref() != Some(requested_executor.as_str()) {
+        Session::update_executor(pool, session.id, &requested_executor).await?;
+    }
+
+    deployment
+        .container()
+        .ensure_container_exists(&workspace)
+        .await?;
+
+    Ok(ResponseJson(ApiResponse::success(StartSessionResponse {
+        session_id: session.id,
+    })))
+}
+
 pub async fn reset_process(
     Extension(session): Extension<Session>,
     State(deployment): State<DeploymentImpl>,
@@ -314,6 +381,7 @@ pub async fn run_setup_script(
 pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let session_id_router = Router::new()
         .route("/", get(get_session).put(update_session))
+        .route("/start", post(start_session))
         .route("/follow-up", post(follow_up))
         .route("/reset", post(reset_process))
         .route("/setup", post(run_setup_script))

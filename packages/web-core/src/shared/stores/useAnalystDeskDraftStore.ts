@@ -2,67 +2,54 @@ import { useCallback } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Scope drafts by repoId so switching repos never leaks a request text between
-// them. The sentinel covers the brief window before a repo is selected (e.g.
-// on first load) so typing during that window is not silently dropped.
-const NO_REPO_SCOPE = '__no-repo__';
+// Drafts written before the user has picked a repo (or when the app is still
+// loading the repo list) live under this key so they are not lost on the
+// initial render.
+const NO_REPO_KEY = '__no_repo__';
 
-interface AnalystDeskDraftState {
-  draftsByRepoId: Record<string, string>;
+type State = {
+  drafts: Record<string, string>;
   setDraft: (repoId: string | null, prompt: string) => void;
-  clearDraft: (repoId: string | null) => void;
-}
+};
 
-export const useAnalystDeskDraftStore = create<AnalystDeskDraftState>()(
+export const useAnalystDeskDraftStore = create<State>()(
   persist(
     (set) => ({
-      draftsByRepoId: {},
+      drafts: {},
       setDraft: (repoId, prompt) =>
         set((state) => {
-          const key = repoId ?? NO_REPO_SCOPE;
-          const next = { ...state.draftsByRepoId };
-          if (prompt.length === 0) {
-            if (!(key in next)) return state;
-            delete next[key];
-          } else if (next[key] === prompt) {
-            return state;
-          } else {
-            next[key] = prompt;
+          const key = repoId ?? NO_REPO_KEY;
+          if (prompt === '') {
+            if (!(key in state.drafts)) return state;
+            const { [key]: _removed, ...rest } = state.drafts;
+            return { drafts: rest };
           }
-          return { draftsByRepoId: next };
-        }),
-      clearDraft: (repoId) =>
-        set((state) => {
-          const key = repoId ?? NO_REPO_SCOPE;
-          if (!(key in state.draftsByRepoId)) return state;
-          const next = { ...state.draftsByRepoId };
-          delete next[key];
-          return { draftsByRepoId: next };
+          if (state.drafts[key] === prompt) return state;
+          return { drafts: { ...state.drafts, [key]: prompt } };
         }),
     }),
     {
       name: 'analyst-desk-drafts',
-      partialize: (state) => ({ draftsByRepoId: state.draftsByRepoId }),
+      partialize: (state) => ({ drafts: state.drafts }),
     }
   )
 );
 
 /**
- * Analyst Desk request draft, scoped by repoId, persisted in localStorage.
- * The setter mirrors `useState<string>` semantics so callers can drop it in
- * as a replacement.
+ * Read/write the analyst desk instructions draft for a given repo. Drafts are
+ * isolated per `repoId` so switching repos shows that repo's own in-progress
+ * text. Setting `''` clears the entry so localStorage does not accumulate
+ * empty buckets.
  */
 export function useAnalystDeskDraft(
   repoId: string | null
-): [string, (value: string) => void] {
-  const key = repoId ?? NO_REPO_SCOPE;
-  const prompt = useAnalystDeskDraftStore(
-    (state) => state.draftsByRepoId[key] ?? ''
-  );
-  const setDraft = useAnalystDeskDraftStore((state) => state.setDraft);
+): [string, (prompt: string) => void] {
+  const key = repoId ?? NO_REPO_KEY;
+  const prompt = useAnalystDeskDraftStore((s) => s.drafts[key] ?? '');
+  const setDraftAction = useAnalystDeskDraftStore((s) => s.setDraft);
   const setPrompt = useCallback(
-    (value: string) => setDraft(repoId, value),
-    [repoId, setDraft]
+    (next: string) => setDraftAction(repoId, next),
+    [repoId, setDraftAction]
   );
   return [prompt, setPrompt];
 }

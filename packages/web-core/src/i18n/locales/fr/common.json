@@ -583,6 +583,17 @@
     "commandBarTrigger": {
       "placeholder": "Rechercher des commandes...",
       "ariaLabel": "Ouvrir la barre de commandes"
+    },
+    "layout": {
+      "toggleAdhocClaude": "Claude ad hoc"
+    }
+  },
+  "adhocPanel": {
+    "title": "Claude ad hoc",
+    "close": "Fermer le panneau Claude ad hoc",
+    "placeholder": {
+      "title": "Claude ad hoc indisponible",
+      "description": "Ce panneau n'est que la structure ; la session Claude sera intégrée dans une étape suivante."
     }
   },
   "appBar": {
@@ -837,7 +848,9 @@
     "templates": {
       "backend": "Spécialiste Backend",
       "frontend": "Spécialiste Frontend",
-      "generalist": "Généraliste"
+      "generalist": "Généraliste",
+      "analyst": "Analyste",
+      "reviewer": "Réviseur"
     },
     "card": {
       "statusWorking": "En cours",

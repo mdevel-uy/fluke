@@ -263,8 +263,6 @@ export function AnalystDeskPage() {
     return new Map(queued.map((task, index) => [task.id, index]));
   }, [tasks]);
 
-  // Draft is persisted per-repo so navigating away and back preserves the
-  // user's in-progress request; the submit success handler still clears it.
   const [prompt, setPrompt] = useAnalystDeskDraft(selectedRepoId);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const { data: installedSkills = [] } = useQuery({

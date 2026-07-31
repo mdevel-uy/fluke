@@ -583,6 +583,17 @@
     "commandBarTrigger": {
       "placeholder": "コマンドを検索...",
       "ariaLabel": "コマンドバーを開く"
+    },
+    "layout": {
+      "toggleAdhocClaude": "アドホック Claude"
+    }
+  },
+  "adhocPanel": {
+    "title": "アドホック Claude",
+    "close": "アドホック Claude パネルを閉じる",
+    "placeholder": {
+      "title": "アドホック Claude は利用できません",
+      "description": "このパネルは構造のみです。Claude セッションは今後のステップで統合されます。"
     }
   },
   "appBar": {
@@ -837,7 +848,9 @@
     "templates": {
       "backend": "バックエンドスペシャリスト",
       "frontend": "フロントエンドスペシャリスト",
-      "generalist": "ジェネラリスト"
+      "generalist": "ジェネラリスト",
+      "analyst": "アナリスト",
+      "reviewer": "レビュアー"
     },
     "card": {
       "statusWorking": "作業中",
