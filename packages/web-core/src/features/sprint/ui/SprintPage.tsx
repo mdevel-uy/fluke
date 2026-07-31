@@ -358,7 +358,30 @@ export function SprintPage() {
     mutationFn: async (params: { workerId: string; taskId: string }) => {
       await workersApi.cancelTask(params.workerId, params.taskId);
     },
-    onSuccess: () => invalidateWorkerData(),
+    // Optimistically drop the task from the affected worker's task cache.
+    // Analyst Desk observes the same `workersKeys.tasks(workerId)` entry, so
+    // updating it here removes the cancelled task from that view instantly
+    // instead of waiting on the invalidation-triggered refetch (which, until
+    // the observer re-mounts and pays the network round-trip, left the desk
+    // showing `in_progress` for up to the 30 s refetch interval — #168).
+    onMutate: async (params) => {
+      const key = workersKeys.tasks(params.workerId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<WorkerTask[]>(key);
+      if (prev) {
+        queryClient.setQueryData<WorkerTask[]>(
+          key,
+          prev.filter((task) => task.id !== params.taskId)
+        );
+      }
+      return { prev };
+    },
+    onError: (_err, params, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(workersKeys.tasks(params.workerId), ctx.prev);
+      }
+    },
+    onSettled: () => invalidateWorkerData(),
   });
 
   const reRequestReviewMutation = useMutation({
