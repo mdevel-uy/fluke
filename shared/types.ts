@@ -163,6 +163,8 @@ export type Workspace = { id: string, task_id: string | null, container_ref: str
 
 export type WorkspaceWithStatus = { is_running: boolean, is_errored: boolean, id: string, task_id: string | null, container_ref: string | null, branch: string, setup_completed_at: string | null, created_at: string, updated_at: string, archived: boolean, pinned: boolean, name: string | null, worktree_deleted: boolean, };
 
+export type WorkspaceContext = { workspace: Workspace, workspace_repos: Array<RepoWithTargetBranch>, orchestrator_session_id: string | null, };
+
 export type Session = { id: string, workspace_id: string, name: string | null, executor: string | null, agent_working_dir: string | null, created_at: string, updated_at: string, };
 
 export type ExecutionProcess = { id: string, session_id: string, run_reason: ExecutionProcessRunReason, executor_action: ExecutorAction, status: ExecutionProcessStatus, exit_code: bigint | null, 
@@ -341,6 +343,10 @@ export type RefreshRelaySigningSessionResponse = { signing_session_id: string, }
 export type CreateFollowUpAttempt = { prompt: string, executor_config: ExecutorConfig, retry_process_id: string | null, force_when_dirty: boolean | null, perform_git_reset: boolean | null, };
 
 export type ResetProcessRequest = { process_id: string, force_when_dirty: boolean | null, perform_git_reset: boolean | null, };
+
+export type StartSessionRequest = { executor_config: ExecutorConfig, };
+
+export type StartSessionResponse = { session_id: string, };
 
 export type ChangeTargetBranchRequest = { repo_id: string, new_target_branch: string, };
 
