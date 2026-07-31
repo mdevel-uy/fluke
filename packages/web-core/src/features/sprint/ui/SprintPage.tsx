@@ -289,6 +289,12 @@ export function SprintPage() {
     }
   }, [queryClient, selectedRepoId]);
 
+  // Refresh workers + tasks on page mount so navigating into the Kanban
+  // never shows stale data. Issues refetch on mount via useRepoIssues.
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: workersKeys.all });
+  }, [queryClient]);
+
   const createTaskMutation = useMutation({
     mutationFn: async (params: {
       workerId: string;
