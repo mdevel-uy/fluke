@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { WorkspacesSidebarContainer } from './WorkspacesSidebarContainer';
 import { EditorSidebarContainer } from './EditorSidebarContainer';
@@ -6,6 +7,8 @@ import { WorkspacesWelcome } from './WorkspacesWelcome';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useEditorSourceStore } from '@/shared/stores/useEditorSourceStore';
 import { useWorkspaceEditorFiles } from '@/shared/stores/useWorkspaceEditorStore';
+import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { COMMIT_BROWSER_WORKSPACE_ID } from '@/shared/lib/commitFilePath';
 
 /**
@@ -26,11 +29,33 @@ export function WorkspacesLanding() {
     workspacesSidebarMode === 'explorer' &&
     (commitSource !== null || sentinelFiles.openPaths.length > 0);
 
+  // Search needs a worktree — auto-jump to the first active workspace so the
+  // rail's Search item lands on a working sidebar instead of the workspaces
+  // list. Mirrors the equivalent effect in WorkspacesLayout for parity.
+  const { activeWorkspaces, isWorkspacesListLoading } = useWorkspaceContext();
+  const appNavigation = useAppNavigation();
+  useEffect(() => {
+    if (
+      workspacesSidebarMode === 'search' &&
+      !isWorkspacesListLoading &&
+      activeWorkspaces.length > 0
+    ) {
+      appNavigation.goToWorkspace(activeWorkspaces[0].id, { replace: true });
+    }
+  }, [
+    workspacesSidebarMode,
+    isWorkspacesListLoading,
+    activeWorkspaces,
+    appNavigation,
+  ]);
+
   return (
     <>
       <ShellSidebarPortal>
         {workspacesSidebarMode === 'explorer' ? (
           <EditorSidebarContainer />
+        ) : workspacesSidebarMode === 'search' ? (
+          <WorkspaceSearchSidebarPlaceholder />
         ) : (
           <WorkspacesSidebarContainer />
         )}
@@ -45,4 +70,14 @@ export function WorkspacesLanding() {
       )}
     </>
   );
+}
+
+/**
+ * Rendered on the landing route while the search mode is active but no
+ * workspace is selected yet (the auto-jump effect is about to run, or the
+ * fleet is empty and there's nothing to search). Keeps the shell sidebar
+ * from flashing the workspaces list under the Search rail item.
+ */
+function WorkspaceSearchSidebarPlaceholder() {
+  return <div className="h-full w-full bg-md-surface-container-low" />;
 }
