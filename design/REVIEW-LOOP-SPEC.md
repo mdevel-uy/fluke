@@ -174,6 +174,26 @@ Reglas, en orden:
      `FIX_CI_PROMPT`, `ADDRESS_PR_COMMENTS_PROMPT`) se funden en el prompt
      consolidado; las quick actions manuales de la UI quedan como atajos que
      llaman al mismo dispatcher.
+   - **El push y el comentario resumen son del sistema, no del agente**: al
+     terminar la task de remediación, el server pushea (flujo dev normal) y
+     postea el comentario resumen en el PR (derivado de la ronda: qué items
+     atendió, en qué commit) con la identidad del autor. Incidente que motiva
+     esto (31-jul, PR #306): un follow-up sobre un workspace `in_review` dejó
+     el commit de fixes local sin pushear (el push server-side solo corre al
+     terminar tasks `in_progress`) y el "resumen" del agente vivió solo en su
+     chat — el PR quedó como si nada hubiera pasado. La remediación como task
+     real cierra ambos agujeros.
+   - **Orden terminal garantizado**: remediación → comentario resumen del
+     sistema → re-review → verdict. Con `approve`, la última actividad del PR
+     es siempre la review APPROVED del reviewer (requisito de Dani: el último
+     comment visible es el del approver).
+   - **Prioridad de cola**: la task de remediación se inserta al FRENTE de la
+     cola del autor, no al final. Un PR a mitad del loop (con review pagada y
+     rondas corriendo) vale más que trabajo nuevo encolado. Hallazgo 31-jul:
+     el fix del #304 quedó último en la cola de Mancho detrás de dos features,
+     y el log "Author worker started on fix task" era falso — try_take_next
+     arrancó la siguiente task de la cola, no el fix. Corregir también ese log
+     (loguear QUÉ task arrancó realmente).
 3. Si `estado` está limpio y el head no tiene review que lo cubra → despachar
    review (Bloque A). **La remediación siempre precede a la review**: no se
    gastan tokens del reviewer en un PR que va a cambiar sí o sí.
@@ -202,6 +222,22 @@ Reglas, en orden:
    sidebar/kanban refresquen al toque, sin depender del refetch de 15–30s.
 4. Los intervalos actuales (poll 60s backend, 15s summaries, 30s tasks) se
    mantienen como red de seguridad, no como mecanismo primario.
+5. **Estado del loop visible por PR (anti-silencio)**: la card in_review y el
+   aside muestran SIEMPRE en qué punto del ciclo está el PR, derivado de
+   `review_rounds`: "esperando dispatch", "review en curso (ronda N/M)",
+   "fix en curso", "esperando re-review", "aprobado", "escalado",
+   "mal configurado". El estado sano y el estado roto no pueden verse
+   iguales — hoy ambos son silencio hasta que aparece un verdict.
+6. **Watchdog del loop**: invariante verificado en cada ciclo del monitor —
+   una task dev `in_review` cuyo PR está abierto debe tener o (a) una ronda
+   activa (pending) o (b) un verdict que cubra el head actual o (c) estado
+   escalated/misconfigured explícito. Si no cumple ninguna durante más de
+   N minutos (default 5), el PR se marca `loop_stalled` con el motivo
+   detectado (sin reviewer, cap, error de red persistente, PR sin registrar)
+   y aparece badge rojo en sidebar + kanban. Motivación (31-jul): el caso
+   #306 (commit huérfano, loop muerto en silencio) fue indistinguible en la
+   UI del caso #311/#312 (loop sano con latencia normal de <1 min) — la
+   confianza del operador exige que "nada visible" garantice "nada roto".
 
 ## Qué se poda de los prompts/souls
 
