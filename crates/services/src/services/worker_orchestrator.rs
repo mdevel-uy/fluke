@@ -1227,6 +1227,46 @@ fn build_pr_body(task: &WorkerTask) -> String {
     body
 }
 
+/// Walk an LRU-ordered reviewer candidate list and pick the first one that
+/// passes the dispatch-time guards:
+///   (a) not the same worker as the PR author (self-review guard — GitHub
+///       rejects `gh pr review --approve` from the PR author with 422), and
+///   (b) strictly under [`WORKER_MAX_IN_REVIEW_ENV`] (capacity guard — same
+///       cap that [`try_take_next`] enforces at start time; skipping saturated
+///       reviewers here prevents the task from being enqueued on a worker that
+///       already can't start it, which would starve the PR while other
+///       reviewers sit idle).
+///
+/// Returns `Ok(None)` when every candidate fails at least one guard; the
+/// caller logs and no-ops in that case.
+pub(crate) async fn select_lru_reviewer(
+    pool: &sqlx::SqlitePool,
+    candidates: Vec<Worker>,
+    author_worker_id: Option<Uuid>,
+    cap: i64,
+) -> Result<Option<Worker>, sqlx::Error> {
+    for candidate in candidates {
+        if let Some(author_id) = author_worker_id {
+            if candidate.id == author_id {
+                continue;
+            }
+        }
+        let in_review = WorkerTask::count_in_review(pool, candidate.id).await?;
+        if in_review >= cap {
+            debug!(
+                reviewer_id = %candidate.id,
+                in_review,
+                cap,
+                "Skipping LRU-first reviewer at WORKER_MAX_IN_REVIEW cap; \
+                 trying next candidate"
+            );
+            continue;
+        }
+        return Ok(Some(candidate));
+    }
+    Ok(None)
+}
+
 /// Dispatch a review task to the next available reviewer worker for the given
 /// PR.
 ///
@@ -1238,11 +1278,16 @@ fn build_pr_body(task: &WorkerTask) -> String {
 /// `find_first_reviewer`-based dispatch: the same reviewer is picked every
 /// time.
 ///
+/// The LRU walk (see [`select_lru_reviewer`]) skips candidates that are the
+/// PR author or already at the `WORKER_MAX_IN_REVIEW` cap, so a saturated
+/// reviewer never gets a fresh task enqueued while another reviewer has
+/// capacity — the exact starvation issue #302 asks us to eliminate.
+///
 /// No-op (with debug/warn logging) when:
 /// - `WORKER_LEAD_ENABLED=false`
 /// - No reviewer worker is registered
-/// - Every active reviewer is the PR author (no self-review; GitHub rejects
-///   self-approval)
+/// - Every active reviewer is the PR author or is at the
+///   `WORKER_MAX_IN_REVIEW` cap
 /// - An active reviewer task already exists for this PR (idempotent guard)
 /// - The PR has already reached the `Config.max_review_rounds` cap (escalated;
 ///   the `WORKER_REVIEW_MAX_ROUNDS` env var may still override the Config)
@@ -1270,24 +1315,18 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
-    // Iterate the LRU-ordered list and pick the first reviewer that is not
-    // the PR author. GitHub's PR review API rejects a review submitted by
-    // the PR author (`gh pr review --approve` returns 422 "author cannot
-    // approve their own pull request"), so a reviewer whose id matches the
-    // author has to be skipped. When every candidate is the author (e.g.
-    // the only reviewer configured is the author itself), we fall through
-    // to the same no-op the pre-balancing dispatch used.
-    let reviewer = match author_worker_id {
-        Some(author_id) => candidates.into_iter().find(|r| r.id != author_id),
-        None => candidates.into_iter().next(),
-    };
+    let cap = max_in_review_from_env();
+    let reviewer = select_lru_reviewer(pool, candidates, author_worker_id, cap).await?;
 
     let Some(reviewer) = reviewer else {
         debug!(
             pr_number,
             author_worker_id = ?author_worker_id,
-            "All active reviewers are the PR author — skipping self-review \
-             (GitHub rejects self-approval; requires a distinct reviewer PAT)"
+            cap,
+            "No eligible reviewer for PR #{} — every active reviewer is \
+             either the PR author or already at the WORKER_MAX_IN_REVIEW cap. \
+             Skipping dispatch.",
+            pr_number,
         );
         return Ok(());
     };
@@ -2177,5 +2216,161 @@ mod tests {
             .unwrap()
             .len();
         assert_eq!(count, 0);
+    }
+
+    /// Force a worker_task into `in_review` status so that
+    /// `WorkerTask::count_in_review` returns a value that trips the
+    /// dispatch-time capacity guard. The state-machine documented at the
+    /// top of this module says reviewer tasks go `queued → in_progress →
+    /// done` (they don't reach `in_review` on their own), so this helper
+    /// bypasses the orchestrator's normal transitions purely for test
+    /// scaffolding.
+    async fn force_in_review(pool: &sqlx::SqlitePool, task_id: Uuid) {
+        sqlx::query("UPDATE worker_tasks SET status = 'in_review' WHERE id = ?1")
+            .bind(task_id)
+            .execute(pool)
+            .await
+            .expect("force task into in_review");
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_skips_candidate_at_capacity_cap() {
+        // Sad path #1 from issue #302: the LRU-first candidate is at the
+        // WORKER_MAX_IN_REVIEW cap while another reviewer has capacity.
+        // The walk must skip the saturated one and land on the free one,
+        // otherwise the task piles onto a worker that can't start it and
+        // the PR waits while another reviewer sits idle.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "capacity-fallback-repo").await;
+        let alpha = insert_reviewer(&db, "alpha").await;
+        let bravo = insert_reviewer(&db, "bravo").await;
+
+        // Cap = 1 so a single `in_review` task saturates a reviewer.
+        let cap = 1i64;
+
+        // Saturate alpha: append a task and flip it to `in_review` so
+        // count_in_review(alpha) == cap.
+        let alpha_task = WorkerTask::append(
+            &db.pool,
+            alpha.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Review PR #1".to_string(),
+                prompt: "review".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        force_in_review(&db.pool, alpha_task.id).await;
+        assert_eq!(WorkerTask::count_in_review(&db.pool, alpha.id).await.unwrap(), 1);
+        assert_eq!(WorkerTask::count_in_review(&db.pool, bravo.id).await.unwrap(), 0);
+
+        // Feed the candidates in alpha-first order (the scenario the bug
+        // describes: LRU surfaces the saturated reviewer at the head). We
+        // don't rely on `list_active_reviewers_lru`'s current ordering
+        // here because it depends on subsecond timestamps of the seeded
+        // task; the point of this test is the walk logic, not the query.
+        let picked = select_lru_reviewer(
+            &db.pool,
+            vec![alpha.clone(), bravo.clone()],
+            None,
+            cap,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            picked.map(|w| w.id),
+            Some(bravo.id),
+            "walk must skip the saturated LRU-first candidate and land on bravo",
+        );
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_returns_none_when_every_candidate_is_saturated() {
+        // No-op path: every candidate is at the cap. `dispatch_review_task`
+        // logs and skips instead of enqueuing on a saturated worker.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "all-saturated-repo").await;
+        let alpha = insert_reviewer(&db, "alpha").await;
+        let bravo = insert_reviewer(&db, "bravo").await;
+        let cap = 1i64;
+
+        for (reviewer_id, title) in [(alpha.id, "a"), (bravo.id, "b")] {
+            let t = WorkerTask::append(
+                &db.pool,
+                reviewer_id,
+                &CreateWorkerTask {
+                    repo_id: repo.id,
+                    title: title.to_string(),
+                    prompt: "review".to_string(),
+                    issue_number: None,
+                    skills: Vec::new(),
+                    source: worker_task::SOURCE_KANBAN.to_string(),
+                },
+            )
+            .await
+            .unwrap();
+            force_in_review(&db.pool, t.id).await;
+        }
+
+        let picked = select_lru_reviewer(
+            &db.pool,
+            vec![alpha, bravo],
+            None,
+            cap,
+        )
+        .await
+        .unwrap();
+        assert!(
+            picked.is_none(),
+            "walk must return None when every candidate is at cap",
+        );
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_combines_self_review_and_capacity_guards() {
+        // LRU-first is the PR author (skipped by self-review guard).
+        // Next candidate is at cap (skipped by capacity guard).
+        // Third candidate is free → picked.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "combined-guards-repo").await;
+        let author = insert_reviewer(&db, "author").await;
+        let saturated = insert_reviewer(&db, "saturated").await;
+        let free = insert_reviewer(&db, "free").await;
+        let cap = 1i64;
+
+        let saturated_task = WorkerTask::append(
+            &db.pool,
+            saturated.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "existing".to_string(),
+                prompt: "review".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        force_in_review(&db.pool, saturated_task.id).await;
+
+        let picked = select_lru_reviewer(
+            &db.pool,
+            vec![author.clone(), saturated.clone(), free.clone()],
+            Some(author.id),
+            cap,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            picked.map(|w| w.id),
+            Some(free.id),
+            "walk must skip author (self-review) and saturated (capacity), \
+             then land on the free reviewer",
+        );
     }
 }
