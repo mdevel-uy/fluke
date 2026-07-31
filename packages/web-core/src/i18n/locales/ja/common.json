@@ -848,7 +848,9 @@
     "templates": {
       "backend": "バックエンドスペシャリスト",
       "frontend": "フロントエンドスペシャリスト",
-      "generalist": "ジェネラリスト"
+      "generalist": "ジェネラリスト",
+      "analyst": "アナリスト",
+      "reviewer": "レビュアー"
     },
     "card": {
       "statusWorking": "作業中",

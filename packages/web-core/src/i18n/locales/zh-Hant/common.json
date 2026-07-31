@@ -848,7 +848,9 @@
     "templates": {
       "backend": "後端專家",
       "frontend": "前端專家",
-      "generalist": "通才"
+      "generalist": "通才",
+      "analyst": "分析師",
+      "reviewer": "審閱者"
     },
     "card": {
       "statusWorking": "工作中",

@@ -848,7 +848,9 @@
     "templates": {
       "backend": "Especialista Backend",
       "frontend": "Especialista Frontend",
-      "generalist": "Generalista"
+      "generalist": "Generalista",
+      "analyst": "Analista",
+      "reviewer": "Revisor"
     },
     "card": {
       "statusWorking": "Trabajando",
