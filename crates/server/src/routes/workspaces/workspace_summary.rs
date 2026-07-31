@@ -9,6 +9,7 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
     merge::MergeStatus,
     pull_request::PullRequest,
+    worker_task::WorkerTask,
     workspace::Workspace,
 };
 use deployment::Deployment;
@@ -76,6 +77,12 @@ pub struct WorkspaceSummary {
     /// When the latest PR was merged, if it was
     #[ts(optional)]
     pub pr_merged_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Review-loop activity for the open PR: "queued" (reviewer task waiting
+    /// in the reviewer's queue) | "running" (reviewer working right now) |
+    /// null (no active reviewer task). Lets the UI distinguish "loop working"
+    /// from silence before a verdict exists.
+    #[ts(optional)]
+    pub pr_review_activity: Option<String>,
 }
 
 /// Response containing summaries for requested workspaces
@@ -165,6 +172,9 @@ pub async fn get_workspace_summaries(
     // 7b. CI rollup per PR URL (recorded by pr_monitor)
     let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
 
+    // 7c. Review-loop activity: active reviewer task per (repo, pr_number)
+    let reviewer_activity = WorkerTask::reviewer_activity_by_pr(pool).await?;
+
     // 8. Compute diff stats for each workspace (in parallel)
     let diff_futures: Vec<_> = workspaces
         .iter()
@@ -225,6 +235,13 @@ pub async fn get_workspace_summaries(
                 latest_activity: agent_signals.get(&id).and_then(|s| s.last_activity.clone()),
                 pr_created_at: pr_statuses.get(&id).map(|pr| pr.created_at),
                 pr_merged_at: pr_statuses.get(&id).and_then(|pr| pr.merged_at),
+                pr_review_activity: pr_statuses.get(&id).and_then(|pr| {
+                    if !matches!(pr.pr_status, MergeStatus::Open) {
+                        return None;
+                    }
+                    pr.repo_id
+                        .and_then(|rid| reviewer_activity.get(&(rid, pr.pr_number)).cloned())
+                }),
             }
         })
         .collect();

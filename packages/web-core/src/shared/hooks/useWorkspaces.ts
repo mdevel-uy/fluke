@@ -51,6 +51,8 @@ export interface SidebarWorkspace {
   prCreatedAt?: string;
   /** When the latest PR was merged, if it was */
   prMergedAt?: string;
+  /** Review-loop activity on the open PR: "queued" | "running" */
+  prReviewActivity?: string;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /** Worker task is in progress but the agent is no longer running */
@@ -107,6 +109,7 @@ function toSidebarWorkspace(
         latest_activity?: string | null;
         pr_created_at?: string | null;
         pr_merged_at?: string | null;
+        pr_review_activity?: string | null;
       })
     | undefined;
   const contextUsage = extendedSummary?.latest_context_usage;
@@ -159,6 +162,7 @@ function toSidebarWorkspace(
     latestActivity: extendedSummary?.latest_activity ?? undefined,
     prCreatedAt: extendedSummary?.pr_created_at ?? undefined,
     prMergedAt: extendedSummary?.pr_merged_at ?? undefined,
+    prReviewActivity: extendedSummary?.pr_review_activity ?? undefined,
   };
 }
 

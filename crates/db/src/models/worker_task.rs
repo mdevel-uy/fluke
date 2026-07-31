@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
@@ -395,6 +397,36 @@ impl WorkerTask {
         .bind(repo_id)
         .fetch_one(pool)
         .await
+    }
+
+    /// Review-loop activity per PR: `(repo_id, pr_number)` → `"queued"` |
+    /// `"running"` for every reviewer task currently queued or in progress.
+    /// Feeds the workspace summaries so the UI can show "reviewer working /
+    /// waiting for automatic review" instead of silence until a verdict.
+    pub async fn reviewer_activity_by_pr(
+        pool: &SqlitePool,
+    ) -> Result<HashMap<(Uuid, i64), String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (Uuid, i64, String)>(
+            "SELECT wt.repo_id, wt.issue_number, wt.status
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number IS NOT NULL
+                 AND wt.status IN ('queued', 'in_progress')",
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(repo_id, pr_number, status)| {
+                let activity = if status == STATUS_IN_PROGRESS {
+                    "running"
+                } else {
+                    "queued"
+                };
+                ((repo_id, pr_number), activity.to_string())
+            })
+            .collect())
     }
 
     /// Return the first active (queued / in_progress / in_review) reviewer task
