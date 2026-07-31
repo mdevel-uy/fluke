@@ -287,6 +287,8 @@ export function NavbarContainer({
       toggleTerminal,
       isRightSidebarVisible,
       toggleRightSidebar,
+      isAdhocPanelOpen,
+      toggleAdhocPanel,
     ]
   );
 

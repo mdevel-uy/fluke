@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, X } from 'lucide-react';
-import { Loader } from '@vibe/ui/components/Loader';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { useAdhocPanelStore } from '../model/useAdhocPanelStore';
 
@@ -10,6 +10,7 @@ import { useAdhocPanelStore } from '../model/useAdhocPanelStore';
 // Structure only in this issue: no session/chat wiring yet — just the shell.
 
 export function AdhocClaudePanel() {
+  const { t } = useTranslation('common');
   const isOpen = useAdhocPanelStore((s) => s.isOpen);
   const close = useAdhocPanelStore((s) => s.close);
 
@@ -51,12 +52,16 @@ export function AdhocClaudePanel() {
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, close]);
 
+  const panelLabel = t('adhocPanel.title', { defaultValue: 'Ad-hoc Claude' });
+  const closeLabel = t('adhocPanel.close', {
+    defaultValue: 'Close ad-hoc Claude panel',
+  });
+
   return createPortal(
-    <div
+    <aside
       ref={panelRef}
-      role="dialog"
-      aria-modal="false"
-      aria-label="Ad-hoc Claude"
+      role="complementary"
+      aria-label={panelLabel}
       aria-hidden={!isOpen}
       className={cn(
         'fixed right-0 top-0 h-full w-full max-w-[380px] z-[80]',
@@ -72,7 +77,7 @@ export function AdhocClaudePanel() {
             strokeWidth={1.75}
           />
           <span className="text-sm font-medium text-high truncate">
-            Ad-hoc Claude
+            {panelLabel}
           </span>
         </div>
         <button
@@ -80,7 +85,7 @@ export function AdhocClaudePanel() {
           type="button"
           onClick={close}
           className="p-1 rounded-md text-low hover:text-high hover:bg-secondary/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
-          aria-label="Close ad-hoc Claude panel"
+          aria-label={closeLabel}
         >
           <X className="h-4 w-4" />
         </button>
@@ -89,21 +94,28 @@ export function AdhocClaudePanel() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <AdhocClaudePanelPlaceholder />
       </div>
-    </div>,
+    </aside>,
     document.body
   );
 }
 
 function AdhocClaudePanelPlaceholder() {
+  const { t } = useTranslation('common');
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
-      <Loader
-        size={24}
-        message={<span className="text-low">Iniciando sesión de Claude…</span>}
-      />
+    <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/60 text-brand-on-surface">
+        <Sparkles className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <p className="text-sm font-medium text-high">
+        {t('adhocPanel.placeholder.title', {
+          defaultValue: 'Ad-hoc Claude no disponible',
+        })}
+      </p>
       <p className="text-xs text-low max-w-[260px]">
-        El chat ad-hoc todavía no está disponible. Este panel es la estructura
-        base; la sesión de Claude se integra en un paso siguiente.
+        {t('adhocPanel.placeholder.description', {
+          defaultValue:
+            'Este panel es la estructura base; la sesión de Claude se integra en un paso siguiente.',
+        })}
       </p>
     </div>
   );
