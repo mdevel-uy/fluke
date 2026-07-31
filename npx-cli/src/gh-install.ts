@@ -8,6 +8,13 @@ const HOME_DIR = os.homedir();
 const GH_BIN_DIR = path.join(HOME_DIR, ".vibe-kanban", "bin");
 const GH_STAGING_DIR = path.join(HOME_DIR, ".vibe-kanban", "gh-download");
 const SHELL_MARKER = "# vibe-kanban gh cli PATH";
+// Guard every network call so a stalled connection (captive portal, dropped
+// firewall packets) cannot hang `npx vibe-kanban` indefinitely — the outer
+// try/catch in installGh() surfaces the timeout as a warning and lets the
+// server keep starting.
+const HTTP_TIMEOUT_MS = 20_000;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+const MAX_REDIRECTS = 5;
 
 type Arch = "amd64" | "arm64";
 
@@ -149,6 +156,22 @@ function persistPath(binDir: string): void {
 function installViaBrew(): void {
   log("Installing gh via Homebrew...");
   execSync("brew install gh", { stdio: "inherit" });
+  // On a fresh Apple Silicon machine the brew prefix (/opt/homebrew) may not
+  // yet be on process.env.PATH, so isGhAvailable() and the spawned server
+  // child would miss it. Resolve the prefix and add its bin dir explicitly.
+  try {
+    const prefix = execSync("brew --prefix", { encoding: "utf8" }).trim();
+    if (prefix) {
+      const binDir = path.join(prefix, "bin");
+      if (fs.existsSync(path.join(binDir, "gh"))) {
+        addToProcessPath(binDir);
+      }
+    }
+  } catch (err: unknown) {
+    debug(
+      `brew --prefix failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 function installViaWinget(): void {
@@ -157,6 +180,61 @@ function installViaWinget(): void {
     "winget install --id GitHub.cli --silent --accept-source-agreements --accept-package-agreements",
     { stdio: "inherit" },
   );
+  // winget updates the Machine/User PATH, but process.env.PATH in the
+  // current Node process stays stale for its lifetime. Add the install dir
+  // so both the isGhAvailable() check below and the spawned server child
+  // find gh.exe.
+  refreshWindowsPathForGh();
+}
+
+function refreshWindowsPathForGh(): void {
+  const programFiles = process.env.PROGRAMFILES || "C:\\Program Files";
+  const localAppData = process.env.LOCALAPPDATA || "";
+  const knownDirs = [
+    path.join(programFiles, "GitHub CLI"),
+    localAppData
+      ? path.join(localAppData, "Programs", "GitHub CLI")
+      : "",
+  ].filter(Boolean);
+
+  for (const dir of knownDirs) {
+    if (fs.existsSync(path.join(dir, "gh.exe"))) {
+      addToProcessPath(dir);
+      return;
+    }
+  }
+
+  // Fallback: winget may have installed to a non-standard path. Read the
+  // fresh Machine+User PATH from the registry via PowerShell and pull out
+  // whichever entry contains gh.exe.
+  try {
+    const script =
+      "$m = [Environment]::GetEnvironmentVariable('PATH','Machine'); " +
+      "$u = [Environment]::GetEnvironmentVariable('PATH','User'); " +
+      "[Console]::Out.Write((($m,$u) -join ';'))";
+    const result = spawnSync(
+      "powershell",
+      ["-NoProfile", "-NonInteractive", "-Command", script],
+      { encoding: "utf8" },
+    );
+    if (result.status === 0 && result.stdout) {
+      const parts = result.stdout.split(";").filter(Boolean);
+      for (const p of parts) {
+        try {
+          if (fs.existsSync(path.join(p, "gh.exe"))) {
+            addToProcessPath(p);
+            return;
+          }
+        } catch {
+          // ignore malformed path entries
+        }
+      }
+    }
+  } catch (err: unknown) {
+    debug(
+      `Could not refresh Windows PATH after winget install: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 function fetchLatestGhVersion(): Promise<string> {
@@ -170,6 +248,7 @@ function fetchLatestGhVersion(): Promise<string> {
           "User-Agent": "vibe-kanban-cli",
           Accept: "application/vnd.github+json",
         },
+        timeout: HTTP_TIMEOUT_MS,
       },
       (res) => {
         if (res.statusCode !== 200) {
@@ -202,11 +281,22 @@ function fetchLatestGhVersion(): Promise<string> {
       },
     );
     req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy(
+        new Error(
+          `Timed out fetching latest gh release from GitHub API after ${HTTP_TIMEOUT_MS}ms`,
+        ),
+      );
+    });
     req.end();
   });
 }
 
-function downloadFile(url: string, destPath: string): Promise<void> {
+function downloadFile(
+  url: string,
+  destPath: string,
+  redirectsLeft: number = MAX_REDIRECTS,
+): Promise<void> {
   const tempPath = destPath + ".tmp";
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(tempPath);
@@ -217,48 +307,65 @@ function downloadFile(url: string, destPath: string): Promise<void> {
         // ignore
       }
     };
-    https
-      .get(
-        url,
-        { headers: { "User-Agent": "vibe-kanban-cli" } },
-        (res) => {
-          if (
-            (res.statusCode === 301 || res.statusCode === 302) &&
-            res.headers.location
-          ) {
-            file.close();
-            cleanup();
-            downloadFile(res.headers.location, destPath)
-              .then(resolve)
-              .catch(reject);
+    const req = https.get(
+      url,
+      {
+        headers: { "User-Agent": "vibe-kanban-cli" },
+        timeout: DOWNLOAD_TIMEOUT_MS,
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        if (
+          (status === 301 ||
+            status === 302 ||
+            status === 307 ||
+            status === 308) &&
+          res.headers.location
+        ) {
+          file.close();
+          cleanup();
+          res.resume();
+          if (redirectsLeft <= 0) {
+            reject(new Error(`Too many redirects downloading ${url}`));
             return;
           }
-          if (res.statusCode !== 200) {
-            file.close();
+          downloadFile(res.headers.location, destPath, redirectsLeft - 1)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+        if (status !== 200) {
+          file.close();
+          cleanup();
+          res.resume();
+          reject(new Error(`HTTP ${status} downloading ${url}`));
+          return;
+        }
+        res.pipe(file);
+        file.on("finish", () => {
+          file.close();
+          try {
+            fs.renameSync(tempPath, destPath);
+            resolve();
+          } catch (err: unknown) {
             cleanup();
-            reject(new Error(`HTTP ${res.statusCode} downloading ${url}`));
-            return;
+            reject(err instanceof Error ? err : new Error(String(err)));
           }
-          res.pipe(file);
-          file.on("finish", () => {
-            file.close();
-            try {
-              fs.renameSync(tempPath, destPath);
-              resolve();
-            } catch (err: unknown) {
-              cleanup();
-              reject(
-                err instanceof Error ? err : new Error(String(err)),
-              );
-            }
-          });
-        },
-      )
-      .on("error", (err) => {
-        file.close();
-        cleanup();
-        reject(err);
-      });
+        });
+      },
+    );
+    req.on("timeout", () => {
+      req.destroy(
+        new Error(
+          `Timed out downloading ${url} after ${DOWNLOAD_TIMEOUT_MS}ms`,
+        ),
+      );
+    });
+    req.on("error", (err) => {
+      file.close();
+      cleanup();
+      reject(err);
+    });
   });
 }
 
