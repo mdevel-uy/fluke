@@ -838,7 +838,9 @@
     "templates": {
       "backend": "后端专家",
       "frontend": "前端专家",
-      "generalist": "通才"
+      "generalist": "通才",
+      "analyst": "分析师",
+      "reviewer": "审阅者"
     },
     "card": {
       "statusWorking": "工作中",
