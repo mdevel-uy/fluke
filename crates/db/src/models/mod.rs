@@ -10,6 +10,7 @@ pub mod repo;
 pub mod repo_issue;
 pub mod requests;
 pub mod scratch;
+pub mod scratch_workspace;
 pub mod session;
 pub mod tag;
 pub mod task;
