@@ -402,6 +402,27 @@ async fn release_task_claim(db: &DBService, task_id: Uuid) {
     }
 }
 
+/// Archive a finished or failed worker workspace and detach it from its
+/// worker in the same step, so the worker immediately reads as free instead
+/// of staying attached to a dead workspace until the next
+/// `reconcile_worker_workspaces` happens to run.
+pub(crate) async fn archive_and_detach(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+) {
+    if let Err(e) = container.archive_workspace(workspace_id).await {
+        warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
+    }
+    if let Err(e) = Worker::detach_workspace(&db.pool, workspace_id).await {
+        warn!(
+            workspace_id = %workspace_id,
+            "Failed to detach workspace from worker: {}",
+            e
+        );
+    }
+}
+
 async fn rollback_workspace(db: &DBService, workspace_id: Uuid) {
     let pool = &db.pool;
     if let Err(e) = Workspace::set_archived(pool, workspace_id, true).await {
@@ -500,7 +521,12 @@ pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Err
                 worker_id = %task.worker_id,
                 "in_progress worker task has no workspace_id — marking failed (startup recovery)"
             );
-            if let Err(e) = WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await
+            if let Err(e) = WorkerTask::set_failed(
+                pool,
+                task.id,
+                "La task quedó in_progress sin workspace tras un reinicio del server",
+            )
+            .await
             {
                 warn!(
                     task_id = %task.id,
@@ -556,7 +582,14 @@ pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Err
         if has_commits {
             // Agent produced commits before being killed. Mark failed so a
             // human can inspect the workspace and decide whether to retry.
-            match WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await {
+            match WorkerTask::set_failed(
+                pool,
+                task.id,
+                "El server se reinició con el agente a mitad de trabajo (hay commits); \
+                 inspeccionar el workspace y decidir si reintentar",
+            )
+            .await
+            {
                 Ok(_) => info!(
                     task_id = %task.id,
                     worker_id = %task.worker_id,
@@ -763,7 +796,11 @@ pub async fn on_agent_finished(
         worker_task::STATUS_FAILED
     };
 
-    WorkerTask::set_status(pool, task.id, new_status).await?;
+    if succeeded {
+        WorkerTask::set_status(pool, task.id, new_status).await?;
+    } else {
+        WorkerTask::set_failed(pool, task.id, "El agente terminó con error").await?;
+    }
     info!(
         worker_id = %worker_id,
         task_id = %task.id,
@@ -775,13 +812,7 @@ pub async fn on_agent_finished(
     );
 
     // Archive the workspace now that the task is complete.
-    if let Err(e) = container.archive_workspace(workspace_id).await {
-        warn!(
-            workspace_id = %workspace_id,
-            "Failed to archive workspace after agent finished: {}",
-            e
-        );
-    }
+    archive_and_detach(db, container, workspace_id).await;
 
     // Auto-start the next queued task for this worker.
     if succeeded {
@@ -833,16 +864,14 @@ async fn on_developer_agent_finished(
     }
 
     if !succeeded {
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        WorkerTask::set_failed(pool, task.id, "El agente terminó con error").await?;
         info!(
             worker_id = %worker.id,
             task_id = %task.id,
             workspace_id = %workspace_id,
             "Developer worker task failed — agent did not complete successfully"
         );
-        if let Err(e) = container.archive_workspace(workspace_id).await {
-            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-        }
+        archive_and_detach(db, container, workspace_id).await;
         return Ok(());
     }
 
@@ -856,19 +885,25 @@ async fn on_developer_agent_finished(
     let workspace_repos = WorkspaceRepo::find_by_workspace_id(pool, workspace_id).await?;
     let Some(workspace_repo) = workspace_repos.into_iter().next() else {
         warn!(workspace_id = %workspace_id, "Developer workspace has no repos — marking failed");
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        WorkerTask::set_failed(pool, task.id, "El workspace no tiene repos asociados").await?;
         return Ok(());
     };
 
     let Some(repo) = Repo::find_by_id(pool, workspace_repo.repo_id).await? else {
         warn!(workspace_id = %workspace_id, "Workspace repo record not found — marking failed");
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        WorkerTask::set_failed(pool, task.id, "No se encontró el registro del repo del workspace")
+            .await?;
         return Ok(());
     };
 
     let Some(container_ref) = workspace.container_ref.as_ref() else {
         warn!(workspace_id = %workspace_id, "Workspace has no container_ref — marking failed");
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
+        WorkerTask::set_failed(
+            pool,
+            task.id,
+            "El workspace no tiene worktree materializado (container_ref vacío)",
+        )
+        .await?;
         return Ok(());
     };
 
@@ -883,10 +918,13 @@ async fn on_developer_agent_finished(
                 task_id = %task.id,
                 "Developer task ended with uncommitted changes — marking failed"
             );
-            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-            if let Err(e) = container.archive_workspace(workspace_id).await {
-                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-            }
+            WorkerTask::set_failed(
+                pool,
+                task.id,
+                "El agente dejó cambios sin commitear en el worktree",
+            )
+            .await?;
+            archive_and_detach(db, container, workspace_id).await;
             return Ok(());
         }
         Err(e) => {
@@ -905,10 +943,8 @@ async fn on_developer_agent_finished(
             task_id = %task.id,
             "Developer task ended with no new commits — marking failed"
         );
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-        if let Err(e) = container.archive_workspace(workspace_id).await {
-            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-        }
+        WorkerTask::set_failed(pool, task.id, "El agente terminó sin crear commits nuevos").await?;
+        archive_and_detach(db, container, workspace_id).await;
         return Ok(());
     }
 
@@ -946,10 +982,13 @@ async fn on_developer_agent_finished(
             workspace.branch,
             e
         );
-        WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-        if let Err(e) = container.archive_workspace(workspace_id).await {
-            warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-        }
+        WorkerTask::set_failed(
+            pool,
+            task.id,
+            &format!("Falló el push de '{}': {}", workspace.branch, e),
+        )
+        .await?;
+        archive_and_detach(db, container, workspace_id).await;
         return Ok(());
     }
     info!(
@@ -964,10 +1003,9 @@ async fn on_developer_agent_finished(
         Ok(r) => r,
         Err(e) => {
             error!(workspace_id = %workspace_id, "Could not resolve remote: {}", e);
-            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-            if let Err(e) = container.archive_workspace(workspace_id).await {
-                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-            }
+            WorkerTask::set_failed(pool, task.id, &format!("No se pudo resolver el remote: {e}"))
+                .await?;
+            archive_and_detach(db, container, workspace_id).await;
             return Ok(());
         }
     };
@@ -989,18 +1027,24 @@ async fn on_developer_agent_finished(
         Ok(h) => h,
         Err(GitHostError::UnsupportedProvider) => {
             error!(workspace_id = %workspace_id, "Unsupported git provider for URL '{}'", target_remote.url);
-            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-            if let Err(e) = container.archive_workspace(workspace_id).await {
-                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-            }
+            WorkerTask::set_failed(
+                pool,
+                task.id,
+                &format!("Proveedor git no soportado: {}", target_remote.url),
+            )
+            .await?;
+            archive_and_detach(db, container, workspace_id).await;
             return Ok(());
         }
         Err(e) => {
             error!(workspace_id = %workspace_id, "Failed to create GitHostService: {}", e);
-            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-            if let Err(e) = container.archive_workspace(workspace_id).await {
-                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", e);
-            }
+            WorkerTask::set_failed(
+                pool,
+                task.id,
+                &format!("No se pudo crear el cliente del git host: {e}"),
+            )
+            .await?;
+            archive_and_detach(db, container, workspace_id).await;
             return Ok(());
         }
     };
@@ -1124,10 +1168,8 @@ async fn on_developer_agent_finished(
                 "PR creation failed after retry: {}",
                 e
             );
-            WorkerTask::set_status(pool, task.id, worker_task::STATUS_FAILED).await?;
-            if let Err(archive_err) = container.archive_workspace(workspace_id).await {
-                warn!(workspace_id = %workspace_id, "Failed to archive workspace: {}", archive_err);
-            }
+            WorkerTask::set_failed(pool, task.id, &format!("Falló la creación del PR: {e}")).await?;
+            archive_and_detach(db, container, workspace_id).await;
             Ok(())
         }
     }
@@ -1231,6 +1273,51 @@ pub async fn dispatch_review_task(
                 pr_number,
                 "Reviewer is the same as PR author — skipping self-review \
                  (GitHub rejects self-approval; requires a distinct reviewer PAT)"
+            );
+            return Ok(());
+        }
+    }
+
+    // Identity guard at the GitHub-account level. Distinct workers can still
+    // share one GitHub identity (no PAT → both act as the machine's global
+    // gh account), and GitHub rejects actionable reviews from the PR
+    // author's account — the review silently degrades to COMMENTED and the
+    // loop burns rounds without ever producing a verdict. Block dispatch
+    // instead and tell the operator what to fix.
+    if reviewer.github_pat.is_none() {
+        warn!(
+            reviewer_id = %reviewer.id,
+            pr_number,
+            "Reviewer worker has no GitHub PAT — it would review as the \
+             machine's global account (usually the PR author), which GitHub \
+             caps at COMMENTED. Skipping dispatch; configure a PAT from a \
+             distinct GitHub account on the reviewer worker."
+        );
+        return Ok(());
+    }
+    let author_login = match author_worker_id {
+        Some(id) => Worker::find_by_id(pool, id)
+            .await?
+            .and_then(|w| w.github_login),
+        None => None,
+    };
+    // Fall back to the global gh account: a developer without its own PAT
+    // pushes and opens PRs as that identity.
+    let author_login = match author_login {
+        Some(login) => Some(login),
+        None => config.read().await.github.username.clone(),
+    };
+    if let (Some(reviewer_login), Some(author_login)) =
+        (reviewer.github_login.as_deref(), author_login.as_deref())
+    {
+        if reviewer_login.eq_ignore_ascii_case(author_login) {
+            warn!(
+                reviewer_id = %reviewer.id,
+                reviewer_login,
+                pr_number,
+                "Reviewer's GitHub account matches the PR author's — GitHub \
+                 rejects self-approval. Skipping dispatch; use a PAT from a \
+                 different account on the reviewer worker."
             );
             return Ok(());
         }
@@ -1575,6 +1662,8 @@ mod tests {
                 role: None,
                 model: None,
                 github_pat: None,
+                github_login: None,
+                plan_mode: None,
             },
         )
         .await

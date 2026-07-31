@@ -43,6 +43,10 @@ pub struct WorkerTask {
     pub created_at: DateTime<Utc>,
     /// The TL reviewer's verdict for this task's PR: 'approved' | 'changes_requested' | NULL.
     pub review_result: Option<String>,
+    /// Human-readable reason recorded when the task transitioned to
+    /// 'failed'. NULL for non-failed tasks (cleared on any transition away
+    /// from 'failed', e.g. a re-queue).
+    pub failure_reason: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,7 +67,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -77,7 +81,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -172,7 +176,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -188,7 +192,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -207,7 +211,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -281,7 +285,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -297,7 +301,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -403,7 +407,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
                     wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
-                    wt.created_at, wt.review_result
+                    wt.created_at, wt.review_result, wt.failure_reason
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -498,7 +502,7 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
@@ -518,9 +522,34 @@ impl WorkerTask {
         id: Uuid,
         status: &str,
     ) -> Result<Self, sqlx::Error> {
-        sqlx::query("UPDATE worker_tasks SET status = ?2 WHERE id = ?1")
+        // Any transition away from 'failed' clears the stale failure reason
+        // (a re-queued task starts clean).
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET status = ?2,
+                    failure_reason = CASE WHEN ?2 = 'failed' THEN failure_reason ELSE NULL END
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(status)
+        .execute(pool)
+        .await?;
+
+        Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Transition to 'failed' recording why. The reason is what the UI shows
+    /// on the failed card — keep it short, actionable and human-readable.
+    pub async fn set_failed(
+        pool: &SqlitePool,
+        id: Uuid,
+        reason: &str,
+    ) -> Result<Self, sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET status = 'failed', failure_reason = ?2 WHERE id = ?1")
             .bind(id)
-            .bind(status)
+            .bind(reason)
             .execute(pool)
             .await?;
 
@@ -590,7 +619,7 @@ impl WorkerTask {
         let updated = sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result
+                    created_at, review_result, failure_reason
                FROM worker_tasks
                WHERE id = ?1",
         )

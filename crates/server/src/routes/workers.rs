@@ -41,6 +41,11 @@ pub struct WorkerResponse {
     /// is never exposed — the UI shows this boolean so the form can render a
     /// masked placeholder and let the user replace or clear it.
     pub has_github_pat: bool,
+    /// GitHub login the stored PAT belongs to (resolved at validation time),
+    /// or `null` when no PAT is stored. Lets the UI show which identity the
+    /// worker acts as, and surface identity clashes (reviewer == PR author).
+    #[ts(optional, type = "string | null")]
+    pub github_login: Option<String>,
     /// Per-worker override for plan mode. `null` = follow the global setting;
     /// `true` = force plan mode on; `false` = force plan mode off.
     #[ts(optional, type = "boolean | null")]
@@ -86,6 +91,9 @@ pub struct WorkerTaskResponse {
     /// TL reviewer's verdict: "approved" | "changes_requested" | null.
     /// Set by pr_monitor when the PR review state is detected.
     pub review_result: Option<String>,
+    /// Why the task failed, when status == "failed". Recorded by the
+    /// orchestrator at the moment of failure; null otherwise.
+    pub failure_reason: Option<String>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -127,6 +135,7 @@ async fn worker_task_to_response(
         pr_mergeable,
         source: task.source,
         review_result: task.review_result,
+        failure_reason: task.failure_reason,
         created_at: task.created_at,
     })
 }
@@ -269,6 +278,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         role: worker.role,
         model: worker.model,
         has_github_pat: worker.github_pat.is_some(),
+        github_login: worker.github_login,
         plan_mode: worker.plan_mode,
         archived: worker.archived,
         active_workspace_id,
@@ -321,11 +331,15 @@ pub async fn create_worker(
     // Validate the PAT before touching the DB. Empty string is treated as
     // "no token" (same as omitted).
     let github_pat = normalize_pat(payload.github_pat);
+    let mut github_login = None;
     if let Some(ref token) = github_pat {
-        if let Err(reason) = validate_github_pat(token.clone()).await {
-            return Err(ApiError::BadRequest(format!(
-                "GitHub PAT rejected: {reason}"
-            )));
+        match validate_github_pat(token.clone()).await {
+            Ok(login) => github_login = Some(login),
+            Err(reason) => {
+                return Err(ApiError::BadRequest(format!(
+                    "GitHub PAT rejected: {reason}"
+                )));
+            }
         }
     }
 
@@ -339,6 +353,7 @@ pub async fn create_worker(
             role: payload.role,
             model: payload.model.filter(|m| !m.is_empty()),
             github_pat,
+            github_login,
             plan_mode: payload.plan_mode,
         },
     )
@@ -400,13 +415,20 @@ pub async fn update_worker(
     let github_pat = payload
         .github_pat
         .map(|opt| opt.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()));
-    if let Some(Some(ref token)) = github_pat {
-        if let Err(reason) = validate_github_pat(token.clone()).await {
-            return Err(ApiError::BadRequest(format!(
-                "GitHub PAT rejected: {reason}"
-            )));
-        }
-    }
+    // Keep login in lockstep with the PAT: new token → resolved login;
+    // cleared token → cleared login; untouched token → untouched login.
+    let github_login = match &github_pat {
+        None => None,
+        Some(None) => Some(None),
+        Some(Some(token)) => match validate_github_pat(token.clone()).await {
+            Ok(login) => Some(Some(login)),
+            Err(reason) => {
+                return Err(ApiError::BadRequest(format!(
+                    "GitHub PAT rejected: {reason}"
+                )));
+            }
+        },
+    };
 
     let worker = Worker::update(
         pool,
@@ -424,6 +446,7 @@ pub async fn update_worker(
             role,
             model,
             github_pat,
+            github_login,
             plan_mode: payload.plan_mode,
         },
     )
@@ -553,6 +576,7 @@ pub async fn duplicate_worker(
             role: Some(source.role),
             model: source.model,
             github_pat: None,
+            github_login: None,
             plan_mode: source.plan_mode,
         },
     )
@@ -733,6 +757,38 @@ pub async fn update_worker_task(
 
     let updated =
         WorkerTask::update(pool, task_id, payload.position, payload.status.as_deref()).await?;
+
+    // Retry: a failed task moved back to `queued` should not wait for an
+    // external poke (auto-advance, reconciler poll, manual Start) to run
+    // again. Kick the worker in the background; conflicts (already busy,
+    // in-review cap) are expected and simply leave the task queued.
+    if existing.status == worker_task::STATUS_FAILED
+        && updated.status == worker_task::STATUS_QUEUED
+    {
+        let deployment = deployment.clone();
+        task::spawn(async move {
+            match worker_orchestrator::try_take_next(
+                deployment.config(),
+                deployment.db(),
+                deployment.container(),
+                worker_id,
+            )
+            .await
+            {
+                Ok(started) => tracing::info!(
+                    worker_id = %worker_id,
+                    task_id = %started.task.id,
+                    "Retried task started immediately"
+                ),
+                Err(e) if e.is_conflict() => {}
+                Err(e) => tracing::warn!(
+                    worker_id = %worker_id,
+                    "Failed to auto-start retried task: {}",
+                    e
+                ),
+            }
+        });
+    }
 
     let response = worker_task_to_response(pool, updated).await?;
     Ok(ResponseJson(ApiResponse::success(response)))

@@ -9,6 +9,7 @@ pub mod pull_request;
 pub mod repo;
 pub mod repo_issue;
 pub mod requests;
+pub mod review_round;
 pub mod scratch;
 pub mod session;
 pub mod tag;
