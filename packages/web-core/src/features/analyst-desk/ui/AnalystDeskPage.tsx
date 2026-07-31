@@ -30,6 +30,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { useAnalystDeskDraft } from '@/shared/stores/useAnalystDeskDraftStore';
 import { AnalystDeskSidebar } from './AnalystDeskSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { cn } from '@/shared/lib/utils';
@@ -262,7 +263,9 @@ export function AnalystDeskPage() {
     return new Map(queued.map((task, index) => [task.id, index]));
   }, [tasks]);
 
-  const [prompt, setPrompt] = useState('');
+  // Draft is persisted per-repo so navigating away and back preserves the
+  // user's in-progress request; the submit success handler still clears it.
+  const [prompt, setPrompt] = useAnalystDeskDraft(selectedRepoId);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const { data: installedSkills = [] } = useQuery({
     queryKey: ['skills'],
