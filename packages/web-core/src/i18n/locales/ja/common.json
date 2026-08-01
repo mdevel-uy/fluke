@@ -610,6 +610,7 @@
     "workers": "ワーカー",
     "sprint": "カンバン",
     "analystDesk": "アナリストデスク",
+    "ciPipelines": "CIパイプライン",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
     "settings": "設定",
@@ -984,6 +985,152 @@
       "errorLabel": "アップロードに失敗しました",
       "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
       "tooLarge": "ファイルサイズが上限を超えています。"
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "トリガー",
+      "jobs": "ジョブ",
+      "prefabs": "プリセット",
+      "escapeHatch": "エスケープハッチ",
+      "community": "コミュニティ · マーケットプレイス",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "marketplaceHint": "2万以上のコミュニティアクション"
+    },
+    "picker": {
+      "placeholder": "ノードを検索…",
+      "noResults": "結果なし",
+      "triggers": "トリガー",
+      "jobs": "ジョブ",
+      "prefabs": "プリセット",
+      "escapeHatch": "エスケープハッチ",
+      "community": "コミュニティ",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "marketplaceHint": "2万以上のコミュニティアクション"
+    },
+    "sidebar": {
+      "workflows": "ワークフロー",
+      "newWorkflow": "新規",
+      "loading": "読み込み中…",
+      "noWorkflows": "ワークフローがまだありません — 作成して始めましょう。",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CIパイプラインスタジオ",
+      "compileErrors_other": "コンパイルエラー {{count}} 件",
+      "drifted": "YAMLがスタジオ外で変更されました",
+      "imported": "インポート済み — 保存するとファイルが正規化されます",
+      "dirty": "未保存の変更",
+      "inSync": "同期済み",
+      "viewYaml": "YAMLを表示",
+      "save": "保存",
+      "compilePr": "コンパイル → PR"
+    },
+    "canvas": {
+      "zoomIn": "ズームイン",
+      "zoomOut": "ズームアウト",
+      "fitView": "ビューを調整",
+      "hint": "Tab ノード追加 · 右クリック メニュー"
+    },
+    "contextMenu": {
+      "addNode": "ノードを追加…",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "autoLayout": "自動レイアウト",
+      "fitView": "ビューを調整",
+      "viewYaml": "コンパイル済みYAMLを表示",
+      "deleteNode": "ノードを削除"
+    },
+    "inspector": {
+      "workflowSection": "ワークフロー",
+      "workflowName": "ワークフロー名",
+      "emptyHint": "ノードを選択して編集します。YAMLはこのグラフからコンパイルされ、ジョブの順序とneedsは常にキャンバスから決まります。",
+      "triggerSection": "トリガー · {{kind}}",
+      "branches": "ブランチ（カンマ区切り）",
+      "pathsIgnore": "無視するパス（カンマ区切り）",
+      "cron": "Cron",
+      "manualHint": "Actionsタブから手動で実行します。",
+      "jobSection": "ジョブ",
+      "jobId": "ジョブID",
+      "label": "ラベル",
+      "executionSection": "実行",
+      "runsOn": "runs-on",
+      "needs": "needs · エッジから導出",
+      "needsNone": "依存関係なし",
+      "needsHint": "接続がneedsを定義します — 生YAMLに書かれたneedsより優先されます。",
+      "prefabSection": "プリセット · {{name}}",
+      "actionSection": "マーケットプレイスのアクション",
+      "uses": "uses",
+      "checkout": "先にリポジトリをチェックアウト",
+      "with": "入力（with）",
+      "inputKey": "キー",
+      "inputValue": "値",
+      "addInput": "+ 入力を追加",
+      "removeInput": "入力を削除",
+      "rawJobSection": "ジョブのYAML",
+      "rawFileSection": "インポートされたワークフロー（ファイル全体）",
+      "rawFileHint": "このワークフローはスタジオ外で作成されており、そのまま編集・コミットされます。",
+      "deleteNode": "ノードを削除",
+      "stepsSection": "ステップ（{{count}}）",
+      "stepName": "ステップ名（任意）",
+      "moveUp": "上へ",
+      "moveDown": "下へ",
+      "removeStep": "ステップを削除",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ runステップ",
+      "addUsesStep": "+ usesステップ",
+      "jobEnvSection": "ジョブのenv"
+    },
+    "marketplace": {
+      "placeholder": "GitHub Actions Marketplaceを検索…",
+      "useCustom": "\"{{uses}}\" を使用",
+      "useCustomHint": "owner/repo@ref で任意のアクションを挿入",
+      "noResults": "結果なし — owner/repo@ref を入力すると任意のアクションを挿入できます",
+      "footerCount": "キュレーション済み · ライブ検索は近日公開"
+    },
+    "compilePr": {
+      "title": "コンパイル → Pull Request",
+      "branch": "ブランチ",
+      "base": "ベースブランチ",
+      "prTitle": "PRタイトル",
+      "filesNote_other": "{{count}} 個のファイルが新しいブランチにコミットされます — 作業ツリーには触れません。",
+      "create": "PRを作成",
+      "success": "ブランチ {{branch}} にPRを作成しました。",
+      "openPr": "PRを開く",
+      "close": "閉じる"
+    },
+    "yamlPreview": {
+      "title": "コンパイル済みYAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "新しいワークフロー",
+      "name": "名前（ファイル: .github/workflows/<name>.yml）",
+      "create": "作成"
+    },
+    "empty": {
+      "selectWorkflow": "サイドバーからワークフローを選ぶか、新規作成してパイプラインを描き始めましょう。",
+      "noRepo": "リポジトリを追加してCIをここで設計します。"
+    },
+    "steps": {
+      "count": "{{count}} ステップ",
+      "hint": "Tab 挿入 · ドラッグで並べ替え · Esc 戻る",
+      "addStep": "ステップを追加",
+      "insertHere": "ここにステップを挿入",
+      "emptyHint": "チェーンのステップを選択して編集します。チェーンが実行順序を定義します。",
+      "stepSection": "ステップ {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "ステップのenv",
+      "deleteStep": "ステップ \"{{name}}\" を削除"
+    },
+    "stepPicker": {
+      "placeholder": "ステップを追加…",
+      "steps": "ステップ",
+      "runStep": "runステップ",
+      "runStepHint": "シェルコマンド",
+      "usesStep": "usesステップ",
+      "usesStepHint": "owner/repo@ref のアクション",
+      "checkout": "Checkout",
+      "marketplaceHint": "アクションをステップとして挿入"
     }
   },
   "sprint": {

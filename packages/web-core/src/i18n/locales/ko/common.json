@@ -610,6 +610,7 @@
     "workers": "워커",
     "sprint": "칸반",
     "analystDesk": "분석가 데스크",
+    "ciPipelines": "CI 파이프라인",
     "collapseSidebar": "사이드바 접기",
     "expandSidebar": "사이드바 펼치기",
     "settings": "설정",
@@ -984,6 +985,152 @@
       "errorLabel": "업로드 실패",
       "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
       "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "트리거",
+      "jobs": "작업",
+      "prefabs": "프리셋",
+      "escapeHatch": "탈출구",
+      "community": "커뮤니티 · 마켓플레이스",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "marketplaceHint": "2만+ 커뮤니티 액션"
+    },
+    "picker": {
+      "placeholder": "노드 검색…",
+      "noResults": "결과 없음",
+      "triggers": "트리거",
+      "jobs": "작업",
+      "prefabs": "프리셋",
+      "escapeHatch": "탈출구",
+      "community": "커뮤니티",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "marketplaceHint": "2만+ 커뮤니티 액션"
+    },
+    "sidebar": {
+      "workflows": "워크플로",
+      "newWorkflow": "새로 만들기",
+      "loading": "불러오는 중…",
+      "noWorkflows": "아직 워크플로가 없습니다 — 하나 만들어 시작하세요.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CI 파이프라인 스튜디오",
+      "compileErrors_other": "컴파일 오류 {{count}}개",
+      "drifted": "YAML이 스튜디오 밖에서 변경됨",
+      "imported": "가져옴 — 저장하면 파일이 정규화됩니다",
+      "dirty": "저장되지 않은 변경 사항",
+      "inSync": "동기화됨",
+      "viewYaml": "YAML 보기",
+      "save": "저장",
+      "compilePr": "컴파일 → PR"
+    },
+    "canvas": {
+      "zoomIn": "확대",
+      "zoomOut": "축소",
+      "fitView": "보기 맞추기",
+      "hint": "Tab 노드 추가 · 우클릭 메뉴"
+    },
+    "contextMenu": {
+      "addNode": "노드 추가…",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "autoLayout": "자동 배치",
+      "fitView": "보기 맞추기",
+      "viewYaml": "컴파일된 YAML 보기",
+      "deleteNode": "노드 삭제"
+    },
+    "inspector": {
+      "workflowSection": "워크플로",
+      "workflowName": "워크플로 이름",
+      "emptyHint": "노드를 선택해 편집하세요. YAML은 이 그래프에서 컴파일되며 작업 순서와 needs는 항상 캔버스에서 결정됩니다.",
+      "triggerSection": "트리거 · {{kind}}",
+      "branches": "브랜치(쉼표로 구분)",
+      "pathsIgnore": "무시할 경로(쉼표로 구분)",
+      "cron": "Cron",
+      "manualHint": "Actions 탭에서 수동으로 실행합니다.",
+      "jobSection": "작업",
+      "jobId": "작업 ID",
+      "label": "레이블",
+      "executionSection": "실행",
+      "runsOn": "runs-on",
+      "needs": "needs · 연결에서 파생",
+      "needsNone": "의존성 없음",
+      "needsHint": "연결이 needs를 정의합니다 — 원시 YAML에 적힌 needs보다 우선합니다.",
+      "prefabSection": "프리셋 · {{name}}",
+      "actionSection": "마켓플레이스 액션",
+      "uses": "uses",
+      "checkout": "먼저 저장소 체크아웃",
+      "with": "입력(with)",
+      "inputKey": "키",
+      "inputValue": "값",
+      "addInput": "+ 입력 추가",
+      "removeInput": "입력 제거",
+      "rawJobSection": "작업 YAML",
+      "rawFileSection": "가져온 워크플로(파일 전체)",
+      "rawFileHint": "이 워크플로는 스튜디오 밖에서 작성되어 그대로 편집·커밋됩니다.",
+      "deleteNode": "노드 삭제",
+      "stepsSection": "스텝 ({{count}})",
+      "stepName": "스텝 이름(선택)",
+      "moveUp": "위로",
+      "moveDown": "아래로",
+      "removeStep": "스텝 제거",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ run 스텝",
+      "addUsesStep": "+ uses 스텝",
+      "jobEnvSection": "작업 env"
+    },
+    "marketplace": {
+      "placeholder": "GitHub Actions Marketplace 검색…",
+      "useCustom": "\"{{uses}}\" 사용",
+      "useCustomHint": "owner/repo@ref로 아무 액션이나 삽입",
+      "noResults": "결과 없음 — owner/repo@ref를 입력하면 아무 액션이나 삽입할 수 있습니다",
+      "footerCount": "큐레이션 목록 · 실시간 검색 곧 제공"
+    },
+    "compilePr": {
+      "title": "컴파일 → Pull Request",
+      "branch": "브랜치",
+      "base": "베이스 브랜치",
+      "prTitle": "PR 제목",
+      "filesNote_other": "{{count}}개의 파일이 새 브랜치에 커밋됩니다 — 작업 트리는 건드리지 않습니다.",
+      "create": "PR 만들기",
+      "success": "{{branch}} 브랜치에 PR을 만들었습니다.",
+      "openPr": "PR 열기",
+      "close": "닫기"
+    },
+    "yamlPreview": {
+      "title": "컴파일된 YAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "새 워크플로",
+      "name": "이름(파일: .github/workflows/<name>.yml)",
+      "create": "만들기"
+    },
+    "empty": {
+      "selectWorkflow": "사이드바에서 워크플로를 선택하거나 새로 만들어 파이프라인을 그려보세요.",
+      "noRepo": "저장소를 추가해 여기서 CI를 설계하세요."
+    },
+    "steps": {
+      "count": "스텝 {{count}}개",
+      "hint": "Tab 삽입 · 드래그로 재정렬 · Esc 뒤로",
+      "addStep": "스텝 추가",
+      "insertHere": "여기에 스텝 삽입",
+      "emptyHint": "체인에서 스텝을 선택해 편집하세요. 체인이 실행 순서를 정의합니다.",
+      "stepSection": "스텝 {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "스텝 env",
+      "deleteStep": "스텝 \"{{name}}\" 삭제"
+    },
+    "stepPicker": {
+      "placeholder": "스텝 추가…",
+      "steps": "스텝",
+      "runStep": "run 스텝",
+      "runStepHint": "셸 명령",
+      "usesStep": "uses 스텝",
+      "usesStepHint": "owner/repo@ref 액션",
+      "checkout": "Checkout",
+      "marketplaceHint": "액션을 스텝으로 삽입"
     }
   },
   "sprint": {

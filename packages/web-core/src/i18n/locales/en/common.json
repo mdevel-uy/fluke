@@ -615,6 +615,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Analyst Desk",
+    "ciPipelines": "CI Pipelines",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "settings": "Settings",
@@ -985,6 +986,154 @@
       "errorLabel": "Upload failed",
       "uploadError": "Couldn't upload '{{name}}': {{message}}",
       "tooLarge": "The file exceeds the maximum allowed size."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "Triggers",
+      "jobs": "Jobs",
+      "prefabs": "Prefabs",
+      "escapeHatch": "Escape hatch",
+      "community": "Community · Marketplace",
+      "searchMarketplace": "Search marketplace…",
+      "marketplaceHint": "20k+ community actions"
+    },
+    "picker": {
+      "placeholder": "Search nodes…",
+      "noResults": "No results",
+      "triggers": "Triggers",
+      "jobs": "Jobs",
+      "prefabs": "Prefabs",
+      "escapeHatch": "Escape hatch",
+      "community": "Community",
+      "searchMarketplace": "Search marketplace…",
+      "marketplaceHint": "20k+ community actions"
+    },
+    "sidebar": {
+      "workflows": "Workflows",
+      "newWorkflow": "New",
+      "loading": "Loading…",
+      "noWorkflows": "No workflows yet — create one to get started.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CI Pipeline Studio",
+      "compileErrors_one": "{{count}} compile error",
+      "compileErrors_other": "{{count}} compile errors",
+      "drifted": "YAML changed outside the studio",
+      "imported": "Imported — saving normalizes the file",
+      "dirty": "Unsaved changes",
+      "inSync": "In sync",
+      "viewYaml": "View YAML",
+      "save": "Save",
+      "compilePr": "Compile → PR"
+    },
+    "canvas": {
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitView": "Fit view",
+      "hint": "Tab add node · right-click menu"
+    },
+    "contextMenu": {
+      "addNode": "Add node…",
+      "searchMarketplace": "Search marketplace…",
+      "autoLayout": "Auto-layout",
+      "fitView": "Fit view",
+      "viewYaml": "View compiled YAML",
+      "deleteNode": "Delete node"
+    },
+    "inspector": {
+      "workflowSection": "Workflow",
+      "workflowName": "Workflow name",
+      "emptyHint": "Select a node to edit it. The YAML is compiled from this graph — job order and needs always come from the canvas.",
+      "triggerSection": "Trigger · {{kind}}",
+      "branches": "Branches (comma-separated)",
+      "pathsIgnore": "Paths ignore (comma-separated)",
+      "cron": "Cron",
+      "manualHint": "Manually triggered from the Actions tab.",
+      "jobSection": "Job",
+      "jobId": "Job id",
+      "label": "Label",
+      "executionSection": "Execution",
+      "runsOn": "runs-on",
+      "needs": "needs · derived from edges",
+      "needsNone": "No dependencies",
+      "needsHint": "Connections define needs — they override any needs written in raw YAML.",
+      "prefabSection": "Prefab · {{name}}",
+      "actionSection": "Marketplace action",
+      "uses": "uses",
+      "checkout": "Checkout repo first",
+      "with": "Inputs (with)",
+      "inputKey": "key",
+      "inputValue": "value",
+      "addInput": "+ Add input",
+      "removeInput": "Remove input",
+      "rawJobSection": "Job YAML",
+      "rawFileSection": "Imported workflow (whole file)",
+      "rawFileHint": "This workflow was authored outside the studio; it is edited and committed as-is.",
+      "deleteNode": "Delete node",
+      "stepsSection": "Steps ({{count}})",
+      "stepName": "step name (optional)",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeStep": "Remove step",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ run step",
+      "addUsesStep": "+ uses step",
+      "jobEnvSection": "Job env"
+    },
+    "marketplace": {
+      "placeholder": "Search GitHub Actions Marketplace…",
+      "useCustom": "Use \"{{uses}}\"",
+      "useCustomHint": "Insert any action by owner/repo@ref",
+      "noResults": "No results — type owner/repo@ref to insert any action",
+      "footerCount": "Curated set · live search coming soon"
+    },
+    "compilePr": {
+      "title": "Compile → Pull Request",
+      "branch": "Branch",
+      "base": "Base branch",
+      "prTitle": "PR title",
+      "filesNote_one": "{{count}} file will be committed on a new branch — your working tree is not touched.",
+      "filesNote_other": "{{count}} files will be committed on a new branch — your working tree is not touched.",
+      "create": "Create PR",
+      "success": "PR created on branch {{branch}}.",
+      "openPr": "Open PR",
+      "close": "Close"
+    },
+    "yamlPreview": {
+      "title": "Compiled YAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "New workflow",
+      "name": "Name (file: .github/workflows/<name>.yml)",
+      "create": "Create"
+    },
+    "empty": {
+      "selectWorkflow": "Select a workflow from the sidebar, or create a new one to start drawing your pipeline.",
+      "noRepo": "Add a repository to design its CI here."
+    },
+    "steps": {
+      "count": "{{count}} steps",
+      "hint": "Tab insert step · drag to reorder · Esc back",
+      "addStep": "Add step",
+      "insertHere": "Insert step here",
+      "emptyHint": "Select a step on the chain to edit it. The chain defines the execution order.",
+      "stepSection": "Step {{position}} of {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "Step env",
+      "deleteStep": "Delete step \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "Add a step…",
+      "steps": "Steps",
+      "runStep": "Run step",
+      "runStepHint": "shell command",
+      "usesStep": "Uses step",
+      "usesStepHint": "action by owner/repo@ref",
+      "checkout": "Checkout",
+      "marketplaceHint": "insert an action as a step"
     }
   },
   "sprint": {

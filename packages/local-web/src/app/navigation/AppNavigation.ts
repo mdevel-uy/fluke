@@ -59,6 +59,8 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       return { kind: 'source-control' };
     case '/_app/analyst-desk':
       return { kind: 'analyst-desk' };
+    case '/_app/ci-pipelines':
+      return { kind: 'ci-pipelines' };
     case '/_app/sprint': {
       const params = new URLSearchParams(
         new URL(path, 'http://localhost').search
@@ -230,6 +232,8 @@ function destinationToLocalTarget(
       return { to: '/source-control' } as const;
     case 'analyst-desk':
       return { to: '/analyst-desk' } as const;
+    case 'ci-pipelines':
+      return { to: '/ci-pipelines' } as const;
     case 'sprint':
       return {
         to: '/sprint',
@@ -332,6 +336,8 @@ export function createLocalAppNavigation(): AppNavigation {
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
     goToAnalystDesk: (transition) =>
       navigateTo({ kind: 'analyst-desk' }, transition),
+    goToCiPipelines: (transition) =>
+      navigateTo({ kind: 'ci-pipelines' }, transition),
     goToSprint: (repoId, transition) =>
       navigateTo({ kind: 'sprint', ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>

@@ -568,7 +568,21 @@ completed_at: string, };
 
 export type CompletedWorkerTasksResponse = { tasks: Array<CompletedWorkerTask>, };
 
-export type ClaudeUsageMeter = { 
+export type CiPipelineFile = {
+/**
+ * Repo-relative path; must live under `.github/workflows/`.
+ */
+rel_path: string, content: string, };
+
+export type CreateCiPipelinePrRequest = { repo_id: string, files: Array<CiPipelineFile>, branch_name: string,
+/**
+ * Defaults to the repo's default target branch.
+ */
+base_branch: string | null, commit_message: string, pr_title: string, pr_body: string | null, };
+
+export type CreateCiPipelinePrResponse = { pr_url: string, branch: string, commit: string, };
+
+export type ClaudeUsageMeter = {
 /**
  * `session`, `week_all` or `week_opus`.
  */
