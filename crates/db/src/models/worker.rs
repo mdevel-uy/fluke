@@ -338,6 +338,10 @@ impl Worker {
     /// First active worker with the `reviewer` role (by creation order), if
     /// any. Archived reviewers are skipped so an archived identity never
     /// receives a fresh review dispatch.
+    ///
+    /// Prefer [`list_active_reviewers_lru`] for dispatch selection — this
+    /// helper picks the same reviewer every time and therefore does not
+    /// balance load across multiple reviewers.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
             "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
@@ -347,6 +351,43 @@ impl Worker {
                LIMIT 1",
         )
         .fetch_optional(pool)
+        .await
+    }
+
+    /// Active reviewers ordered "least-recently-assigned first" so callers can
+    /// balance load across multiple reviewer identities.
+    ///
+    /// Ranking rules:
+    /// 1. Reviewers that have never been given a `worker_task` come first
+    ///    (SQLite ranks `NULL` ahead of any timestamp under `ORDER BY ASC`).
+    /// 2. Then reviewers whose most-recent `worker_task.created_at` is
+    ///    oldest — i.e. the one who has been idle the longest.
+    /// 3. Ties (same last-assignment timestamp, or all-null within a group)
+    ///    break on `workers.created_at` to keep the order deterministic.
+    ///
+    /// Archived reviewers are excluded so an archived identity never receives
+    /// a fresh review dispatch.
+    ///
+    /// Callers iterate this list and pick the first reviewer that satisfies
+    /// their own filters (self-review guard, per-reviewer capacity, etc.).
+    /// With a single active reviewer the returned list has length 1 — the
+    /// same reviewer that the legacy `find_first_reviewer` would have picked.
+    pub async fn list_active_reviewers_lru(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Worker>(
+            "SELECT w.id, w.name, w.emoji, w.soul, w.role, w.model, w.github_pat,
+                    w.github_login, w.plan_mode, w.archived, w.created_at
+               FROM workers w
+               LEFT JOIN (
+                   SELECT worker_id, MAX(created_at) AS last_task_at
+                     FROM worker_tasks
+                    GROUP BY worker_id
+               ) t ON t.worker_id = w.id
+              WHERE w.role = 'reviewer'
+                AND w.archived = 0
+              ORDER BY t.last_task_at ASC,
+                       w.created_at ASC",
+        )
+        .fetch_all(pool)
         .await
     }
 
