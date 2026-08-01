@@ -19,3 +19,6 @@ jobs:
           script: /opt/vibe-kanban/update.sh
           command_timeout: 60m
           timeout: 2m
+          envs: GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
