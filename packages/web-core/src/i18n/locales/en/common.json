@@ -596,9 +596,16 @@
   "adhocPanel": {
     "title": "Ad-hoc Claude",
     "close": "Close ad-hoc Claude panel",
-    "placeholder": {
-      "title": "Ad-hoc Claude unavailable",
-      "description": "This panel is the shell only; the Claude session is wired up in a follow-up step."
+    "newSession": "New session",
+    "loading": "Preparing Claude session…",
+    "noRepo": {
+      "title": "No repository available",
+      "description": "Add a repository to start an ad-hoc Claude session."
+    },
+    "error": {
+      "title": "We couldn't open the ad-hoc session",
+      "description": "Something went wrong while preparing the scratch workspace.",
+      "retry": "Retry"
     }
   },
   "appBar": {

@@ -14,6 +14,9 @@ import {
   ExecutionProcess,
   ExecutionProcessRepoState,
   GitBranch,
+  StartSessionRequest,
+  StartSessionResponse,
+  WorkspaceContext,
   Repo,
   RepoWithTargetBranch,
   UpdateRepo,
@@ -430,6 +433,17 @@ export const sessionsApi = {
     });
     return handleApiResponse<Session>(response);
   },
+
+  start: async (
+    sessionId: string,
+    data: StartSessionRequest
+  ): Promise<StartSessionResponse> => {
+    const response = await makeRequest(`/api/sessions/${sessionId}/start`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<StartSessionResponse>(response);
+  },
 };
 
 // Workspace APIs
@@ -453,6 +467,17 @@ export const workspacesApi = {
   getAllWorkspaces: async (): Promise<Workspace[]> => {
     const response = await makeRequest('/api/workspaces');
     return handleApiResponse<Workspace[]>(response);
+  },
+
+  /**
+   * Resolve (or lazily create) the scratch workspace for a repo. Backs the
+   * ad-hoc chat panel — one scratch workspace per repo, shared across sessions.
+   */
+  getScratchByRepo: async (repoId: string): Promise<WorkspaceContext> => {
+    const response = await makeRequest(
+      `/api/workspaces/scratch?repo_id=${encodeURIComponent(repoId)}`
+    );
+    return handleApiResponse<WorkspaceContext>(response);
   },
 
   get: async (workspaceId: string): Promise<Workspace> => {

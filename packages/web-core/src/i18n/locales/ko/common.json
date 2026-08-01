@@ -591,9 +591,16 @@
   "adhocPanel": {
     "title": "임시 Claude",
     "close": "임시 Claude 패널 닫기",
-    "placeholder": {
-      "title": "임시 Claude를 사용할 수 없습니다",
-      "description": "이 패널은 기본 구조입니다. Claude 세션은 다음 단계에서 통합됩니다."
+    "newSession": "새 세션",
+    "loading": "Claude 세션 준비 중…",
+    "noRepo": {
+      "title": "사용 가능한 저장소가 없습니다",
+      "description": "임시 Claude 세션을 시작하려면 저장소를 추가하세요."
+    },
+    "error": {
+      "title": "임시 세션을 열 수 없습니다",
+      "description": "스크래치 워크스페이스를 준비하는 중에 오류가 발생했습니다.",
+      "retry": "다시 시도"
     }
   },
   "appBar": {
