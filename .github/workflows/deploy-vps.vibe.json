@@ -4,16 +4,13 @@
   "nodes": [
     {
       "type": "trigger",
-      "id": "n-trigger-push",
+      "id": "n-trigger-manual",
       "position": {
         "x": 40,
         "y": 140
       },
       "trigger": {
-        "kind": "push",
-        "branches": [
-          "mdev"
-        ]
+        "kind": "workflow_dispatch"
       }
     },
     {
@@ -35,7 +32,8 @@
             "username": "root",
             "key": "${{ secrets.VPS_SSH_KEY }}",
             "script": "/opt/vibe-kanban/update.sh",
-            "command_timeout": "60m"
+            "command_timeout": "60m",
+            "timeout": "2m"
           }
         }
       ]
@@ -43,8 +41,8 @@
   ],
   "edges": [
     {
-      "id": "e-n-trigger-push-n-job-deploy",
-      "source": "n-trigger-push",
+      "id": "e-n-trigger-manual-n-job-deploy",
+      "source": "n-trigger-manual",
       "target": "n-job-deploy"
     }
   ],

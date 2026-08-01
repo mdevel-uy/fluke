@@ -2,9 +2,7 @@
 # Source of truth: deploy-vps.vibe.json
 name: deploy-vps
 on:
-  push:
-    branches:
-      - mdev
+  workflow_dispatch: {}
 concurrency:
   group: deploy-vps
   cancel-in-progress: false
@@ -20,3 +18,4 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: /opt/vibe-kanban/update.sh
           command_timeout: 60m
+          timeout: 2m
