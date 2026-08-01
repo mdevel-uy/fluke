@@ -100,9 +100,8 @@ export const RightSidebar = memo(function RightSidebar({
     : undefined;
   const worker = task ? taskIndex.workerById.get(task.worker_id) : undefined;
 
-  // Active reviewer worker task backing this workspace's PR: same
-  // issue_number, role=reviewer and status=in_progress. Enables a
-  // clickable badge that jumps to the reviewer's workspace.
+  // Match by same issue_number, role=reviewer and status=in_progress
+  // so the badge can jump to the reviewer's workspace.
   const activeReviewerTask = useMemo(() => {
     const issueNumber = task?.issue_number;
     if (issueNumber == null) return undefined;
