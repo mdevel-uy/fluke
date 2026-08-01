@@ -1084,6 +1084,7 @@
     "failed": {
       "retry": "再試行",
       "discard": "破棄",
+      "viewPr": "PR を表示",
       "empty": "失敗したタスクはありません。"
     },
     "autoIngest": {

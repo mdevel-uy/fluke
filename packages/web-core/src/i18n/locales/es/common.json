@@ -1085,6 +1085,7 @@
     "failed": {
       "retry": "Reintentar",
       "discard": "Descartar",
+      "viewPr": "Ver PR",
       "empty": "No hay tareas fallidas."
     },
     "autoIngest": {

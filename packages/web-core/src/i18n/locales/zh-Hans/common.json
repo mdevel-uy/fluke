@@ -1084,6 +1084,7 @@
     "failed": {
       "retry": "重试",
       "discard": "丢弃",
+      "viewPr": "查看 PR",
       "empty": "没有失败的任务。"
     },
     "autoIngest": {
