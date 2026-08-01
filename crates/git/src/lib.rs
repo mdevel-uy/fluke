@@ -400,6 +400,75 @@ impl GitService {
         Ok(())
     }
 
+    /// Create `new_branch` at the tip of `base_branch` plus one commit
+    /// containing `files` (repo-relative path → content). The tree is built
+    /// entirely in memory with git2: the working tree and the checked-out
+    /// branch are never touched, so this is safe to run against a repo the
+    /// user is actively working in. Returns the new commit id.
+    pub fn commit_files_to_new_branch(
+        &self,
+        repo_path: &Path,
+        base_branch: &str,
+        new_branch: &str,
+        files: &[(String, String)],
+        message: &str,
+    ) -> Result<String, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        if repo.find_branch(new_branch, BranchType::Local).is_ok() {
+            return Err(GitServiceError::Git(GitError::new(
+                git2::ErrorCode::Exists,
+                git2::ErrorClass::Reference,
+                format!("branch '{new_branch}' already exists"),
+            )));
+        }
+        let base_ref = Self::find_branch(&repo, base_branch)?.into_reference();
+        let base_commit = base_ref.peel_to_commit()?;
+        let base_tree = base_commit.tree()?;
+
+        let mut builder = git2::build::TreeUpdateBuilder::new();
+        for (rel_path, content) in files {
+            let blob = repo.blob(content.as_bytes())?;
+            builder.upsert(rel_path, blob, git2::FileMode::Blob);
+        }
+        let tree_oid = builder.create_updated(&repo, &base_tree)?;
+        let tree = repo.find_tree(tree_oid)?;
+
+        let signature = self.signature_with_fallback(&repo)?;
+        let commit_oid = repo.commit(
+            None,
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &[&base_commit],
+        )?;
+        let commit = repo.find_commit(commit_oid)?;
+        repo.branch(new_branch, &commit, false)?;
+        Ok(commit_oid.to_string())
+    }
+
+    /// Push a local branch from the main repository without requiring a
+    /// clean working tree — used for branches built in memory (the push has
+    /// nothing to do with the working tree's state).
+    pub fn push_branch_with_token(
+        &self,
+        repo_path: &Path,
+        branch_name: &str,
+        force: bool,
+        token: Option<&str>,
+    ) -> Result<(), GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let remote = self.default_remote(&repo, repo_path)?;
+        let git_cli = GitCli::new();
+        git_cli.push_with_token(repo_path, &remote.url, branch_name, force, token)?;
+        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name) {
+            tracing::warn!(
+                "Pushed '{branch_name}' but could not update tracking ref/upstream: {e}"
+            );
+        }
+        Ok(())
+    }
+
     /// Ensure local (repo-scoped) identity exists for CLI commits.
     /// Sets user.name/email only if missing in the repo config.
     fn ensure_cli_commit_identity(&self, repo_path: &Path) -> Result<(), GitServiceError> {
