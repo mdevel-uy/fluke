@@ -104,7 +104,12 @@
     "loadingDetails": "Loading process details...",
     "errorLoadingDetails": "Failed to load process details. Please try again.",
     "copyLogs": "Copy logs",
-    "logsCopied": "Copied!"
+    "logsCopied": "Copied!",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "View pull request",
+      "reasonLabel": "Failure reason:"
+    }
   },
   "followUp": {
     "queuedMessage": "Message queued - will execute when current run finishes"

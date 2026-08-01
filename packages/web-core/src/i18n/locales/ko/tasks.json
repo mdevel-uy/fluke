@@ -280,7 +280,12 @@
     "selectAttempt": "Select an attempt to view execution processes.",
     "started": "Started: {{date}}",
     "copyLogs": "로그 복사",
-    "logsCopied": "복사됨!"
+    "logsCopied": "복사됨!",
+    "failureBanner": {
+      "issueLink": "이슈 #{{number}}",
+      "prLink": "풀 리퀘스트 보기",
+      "reasonLabel": "실패 사유:"
+    }
   },
   "rebase": {
     "common": {

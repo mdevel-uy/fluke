@@ -280,7 +280,12 @@
     "selectAttempt": "Select an attempt to view execution processes.",
     "started": "Started: {{date}}",
     "copyLogs": "Copiar registros",
-    "logsCopied": "¡Copiado!"
+    "logsCopied": "¡Copiado!",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "Ver pull request",
+      "reasonLabel": "Motivo del fallo:"
+    }
   },
   "rebase": {
     "common": {

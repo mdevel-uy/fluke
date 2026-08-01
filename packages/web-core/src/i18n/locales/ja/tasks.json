@@ -280,7 +280,12 @@
     "selectAttempt": "Select an attempt to view execution processes.",
     "started": "Started: {{date}}",
     "copyLogs": "ログをコピー",
-    "logsCopied": "コピーしました！"
+    "logsCopied": "コピーしました！",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "プルリクエストを表示",
+      "reasonLabel": "失敗の理由:"
+    }
   },
   "rebase": {
     "common": {
