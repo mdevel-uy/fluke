@@ -594,14 +594,20 @@
           "label": "状态"
         }
       },
+      "cliWarning": "未安装 GitHub CLI (gh)。你仍可通过下方的 Personal Access Token 登录，但拉取请求与 issue 同步需要 PATH 中存在 gh。",
+      "patExpired": "你的 Personal Access Token 已过期或被撤销。请在下方重新连接以保持 GitHub 功能可用。",
       "status": {
         "loading": "正在检查连接…",
         "connected": "已连接到 GitHub",
         "connectedAs": "以 @{{username}} 身份连接",
+        "connectedAsPat": "以 @{{username}} 身份连接（通过 PAT）",
         "notConnected": "未连接"
       },
       "actions": {
-        "connect": "连接 GitHub"
+        "connect": "连接 GitHub",
+        "disconnect": "断开连接",
+        "installCli": "安装 GitHub CLI",
+        "installingCli": "安装中…"
       },
       "deviceFlow": {
         "title": "在 GitHub 上授权",
@@ -612,8 +618,20 @@
         "checkStatus": "刷新状态",
         "waiting": "等待授权… 在 GitHub 上完成后此对话框会自动更新。"
       },
+      "pat": {
+        "title": "使用 Personal Access Token 连接",
+        "description": "无需终端或 gh CLI。粘贴一个具有 repo、read:org 与 workflow 权限的令牌。",
+        "placeholder": "ghp_…",
+        "submit": "验证并连接",
+        "helpBefore": "请前往",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "使用推荐权限生成令牌。"
+      },
       "errors": {
-        "loginFailed": "启动 GitHub 登录失败。"
+        "loginFailed": "启动 GitHub 登录失败。",
+        "logoutFailed": "断开 GitHub 连接失败。",
+        "installFailed": "安装 GitHub CLI 失败。",
+        "patLoginFailed": "验证 Personal Access Token 失败。"
       }
     }
   },

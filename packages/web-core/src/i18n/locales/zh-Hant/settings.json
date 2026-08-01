@@ -594,14 +594,20 @@
           "label": "狀態"
         }
       },
+      "cliWarning": "未安裝 GitHub CLI (gh)。你仍可透過下方的 Personal Access Token 登入，但 pull request 與 issue 同步需要 PATH 中有 gh。",
+      "patExpired": "你的 Personal Access Token 已過期或被撤銷。請在下方重新連線以保持 GitHub 功能可用。",
       "status": {
         "loading": "正在檢查連線…",
         "connected": "已連線到 GitHub",
         "connectedAs": "以 @{{username}} 身分連線",
+        "connectedAsPat": "以 @{{username}} 身分連線（透過 PAT）",
         "notConnected": "未連線"
       },
       "actions": {
-        "connect": "連線到 GitHub"
+        "connect": "連線到 GitHub",
+        "disconnect": "中斷連線",
+        "installCli": "安裝 GitHub CLI",
+        "installingCli": "安裝中…"
       },
       "deviceFlow": {
         "title": "在 GitHub 上授權",
@@ -612,8 +618,20 @@
         "checkStatus": "重新整理狀態",
         "waiting": "等待授權中… 在 GitHub 完成後此對話框會自動更新。"
       },
+      "pat": {
+        "title": "使用 Personal Access Token 連線",
+        "description": "無需終端機或 gh CLI。貼上具有 repo、read:org 與 workflow 權限的權杖。",
+        "placeholder": "ghp_…",
+        "submit": "驗證並連線",
+        "helpBefore": "請前往",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "以推薦權限生成權杖。"
+      },
       "errors": {
-        "loginFailed": "啟動 GitHub 登入失敗。"
+        "loginFailed": "啟動 GitHub 登入失敗。",
+        "logoutFailed": "中斷 GitHub 連線失敗。",
+        "installFailed": "安裝 GitHub CLI 失敗。",
+        "patLoginFailed": "驗證 Personal Access Token 失敗。"
       }
     }
   },

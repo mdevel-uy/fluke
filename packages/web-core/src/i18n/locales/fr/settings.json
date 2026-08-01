@@ -594,14 +594,20 @@
           "label": "État"
         }
       },
+      "cliWarning": "La CLI GitHub (gh) n’est pas installée. Vous pouvez tout de même vous connecter avec un Personal Access Token ci-dessous, mais les pull requests et la synchronisation d’issues nécessitent gh dans le PATH.",
+      "patExpired": "Votre Personal Access Token a expiré ou a été révoqué. Reconnectez-vous ci-dessous pour conserver les fonctions GitHub.",
       "status": {
         "loading": "Vérification de la connexion…",
         "connected": "Connecté à GitHub",
         "connectedAs": "Connecté en tant que @{{username}}",
+        "connectedAsPat": "Connecté en tant que @{{username}} (via PAT)",
         "notConnected": "Non connecté"
       },
       "actions": {
-        "connect": "Se connecter à GitHub"
+        "connect": "Se connecter à GitHub",
+        "disconnect": "Déconnecter",
+        "installCli": "Installer GitHub CLI",
+        "installingCli": "Installation…"
       },
       "deviceFlow": {
         "title": "Autoriser sur GitHub",
@@ -612,8 +618,20 @@
         "checkStatus": "Actualiser l’état",
         "waiting": "En attente de l’autorisation… cette boîte de dialogue se mettra à jour automatiquement une fois terminée sur GitHub."
       },
+      "pat": {
+        "title": "Se connecter avec un Personal Access Token",
+        "description": "Sans terminal ni CLI gh. Collez un token avec les scopes repo, read:org et workflow.",
+        "placeholder": "ghp_…",
+        "submit": "Valider et connecter",
+        "helpBefore": "Générez un token depuis",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "avec les scopes recommandés."
+      },
       "errors": {
-        "loginFailed": "Échec du démarrage de la connexion GitHub."
+        "loginFailed": "Échec du démarrage de la connexion GitHub.",
+        "logoutFailed": "Échec de la déconnexion GitHub.",
+        "installFailed": "Échec de l’installation de GitHub CLI.",
+        "patLoginFailed": "Échec de la validation du Personal Access Token."
       }
     }
   },
