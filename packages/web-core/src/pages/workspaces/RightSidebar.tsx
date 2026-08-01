@@ -30,6 +30,7 @@ import {
 } from '@/features/sprint/model/useWorkers';
 import { useWorkerTaskIndex } from '@/features/workers/model/workerTaskInfo';
 import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ForcePushDialog } from '@/shared/dialogs/command-bar/ForcePushDialog';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
@@ -77,6 +78,7 @@ export const RightSidebar = memo(function RightSidebar({
   repos,
 }: RightSidebarProps) {
   const { t } = useTranslation('common');
+  const appNavigation = useAppNavigation();
   const workspaceId = selectedWorkspace?.id;
 
   const { activeWorkspaces, archivedWorkspaces } = useWorkspaceContext();
@@ -97,6 +99,23 @@ export const RightSidebar = memo(function RightSidebar({
     ? taskIndex.taskByWorkspaceId.get(workspaceId)
     : undefined;
   const worker = task ? taskIndex.workerById.get(task.worker_id) : undefined;
+
+  // Active reviewer worker task backing this workspace's PR: same
+  // issue_number, role=reviewer and status=in_progress. Enables a
+  // clickable badge that jumps to the reviewer's workspace.
+  const activeReviewerTask = useMemo(() => {
+    const issueNumber = task?.issue_number;
+    if (issueNumber == null) return undefined;
+    return tasks.find((t) => {
+      const w = taskIndex.workerById.get(t.worker_id);
+      return (
+        w?.role === 'reviewer' &&
+        t.issue_number === issueNumber &&
+        t.status === 'in_progress' &&
+        t.workspace_id != null
+      );
+    });
+  }, [tasks, task, taskIndex]);
 
   const isRunning = !!sidebarWs?.isRunning;
   const hasStalledTask =
@@ -547,38 +566,59 @@ export const RightSidebar = memo(function RightSidebar({
               <span className="w-[46px] flex-none text-[10px] font-semibold uppercase tracking-wider text-low">
                 {t('workspaces.aside.review', { defaultValue: 'Review' })}
               </span>
-              <span
-                className={cn(
-                  'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
-                  reviewResult === 'approved'
-                    ? 'border-success/45 text-success'
-                    : reviewResult === 'changes_requested'
-                      ? 'border-warning/45 text-warning'
-                      : reviewActivity === 'running'
-                        ? 'animate-pulse border-info/45 text-info'
-                        : 'border-border-strong text-low'
-                )}
-              >
-                {reviewResult === 'approved'
-                  ? t('workspaces.aside.reviewApproved', {
-                      defaultValue: 'Approved',
-                    })
-                  : reviewResult === 'changes_requested'
-                    ? t('workspaces.aside.reviewChangesRequested', {
-                        defaultValue: 'Changes requested',
+              {!reviewResult && activeReviewerTask?.workspace_id ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    appNavigation.goToWorkspace(
+                      activeReviewerTask.workspace_id as string
+                    )
+                  }
+                  className={cn(
+                    'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
+                    'animate-pulse border-info/45 text-info',
+                    'cursor-pointer hover:bg-info/10',
+                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-brand'
+                  )}
+                >
+                  {t('workspaces.aside.reviewerWorking', {
+                    defaultValue: 'Reviewer working...',
+                  })}
+                </button>
+              ) : (
+                <span
+                  className={cn(
+                    'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
+                    reviewResult === 'approved'
+                      ? 'border-success/45 text-success'
+                      : reviewResult === 'changes_requested'
+                        ? 'border-warning/45 text-warning'
+                        : reviewActivity === 'running'
+                          ? 'animate-pulse border-info/45 text-info'
+                          : 'border-border-strong text-low'
+                  )}
+                >
+                  {reviewResult === 'approved'
+                    ? t('workspaces.aside.reviewApproved', {
+                        defaultValue: 'Approved',
                       })
-                    : reviewActivity === 'running'
-                      ? t('workspaces.aside.reviewRunning', {
-                          defaultValue: 'Reviewer working…',
+                    : reviewResult === 'changes_requested'
+                      ? t('workspaces.aside.reviewChangesRequested', {
+                          defaultValue: 'Changes requested',
                         })
-                      : reviewActivity === 'queued'
-                        ? t('workspaces.aside.reviewQueued', {
-                            defaultValue: 'Queued for review',
+                      : reviewActivity === 'running'
+                        ? t('workspaces.aside.reviewRunning', {
+                            defaultValue: 'Reviewer working…',
                           })
-                        : t('workspaces.aside.reviewWaiting', {
-                            defaultValue: 'Awaiting auto review',
-                          })}
-              </span>
+                        : reviewActivity === 'queued'
+                          ? t('workspaces.aside.reviewQueued', {
+                              defaultValue: 'Queued for review',
+                            })
+                          : t('workspaces.aside.reviewWaiting', {
+                              defaultValue: 'Awaiting auto review',
+                            })}
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-1 pt-[7px]">
               {task && (
