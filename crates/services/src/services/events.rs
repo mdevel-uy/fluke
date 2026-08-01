@@ -3,8 +3,8 @@ use std::{str::FromStr, sync::Arc};
 use db::{
     DBService,
     models::{
-        execution_process::ExecutionProcess, scratch::Scratch, session::Session,
-        workspace::Workspace,
+        execution_process::ExecutionProcess, scratch::Scratch,
+        scratch_workspace::ScratchWorkspace, session::Session, workspace::Workspace,
     },
 };
 use serde_json::json;
@@ -47,6 +47,7 @@ impl EventService {
         session_id: Uuid,
     ) -> Result<(), SqlxError> {
         if let Some(session) = Session::find_by_id(pool, session_id).await?
+            && !ScratchWorkspace::is_scratch(pool, session.workspace_id).await?
             && let Some(workspace_with_status) =
                 Workspace::find_by_id_with_status(pool, session.workspace_id).await?
         {
@@ -207,6 +208,17 @@ impl EventService {
                                     return;
                                 }
                                 RecordTypes::Workspace(workspace) => {
+                                    // Scratch workspaces are hidden from the
+                                    // fleet listing; the initial snapshot
+                                    // already filters them, so their live
+                                    // patches must be dropped too or every
+                                    // touch re-adds them to the sidebar.
+                                    if matches!(
+                                        ScratchWorkspace::is_scratch(&db.pool, workspace.id).await,
+                                        Ok(true)
+                                    ) {
+                                        return;
+                                    }
                                     // Emit workspace patch with status
                                     if let Ok(Some(workspace_with_status)) =
                                         Workspace::find_by_id_with_status(&db.pool, workspace.id)
