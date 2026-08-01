@@ -356,6 +356,42 @@ impl Workspace {
         Ok(())
     }
 
+    /// Record the branch name this workspace pushes to on the remote.
+    ///
+    /// `remote_branch` is intentionally kept out of the `Workspace` struct
+    /// and queried at runtime (same pattern as `pull_requests.pr_ci_status`):
+    /// the `query_as!` macros above don't select it, so the committed sqlx
+    /// offline metadata stays valid. Only workspaces created from an existing
+    /// PR set it — their local branch is unique, and pushes use an explicit
+    /// `local:remote` refspec to keep updating the PR's head branch.
+    pub async fn set_remote_branch(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+        remote_branch: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workspaces SET remote_branch = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(remote_branch)
+            .bind(workspace_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Branch name this workspace uses on the remote: `remote_branch` when
+    /// set, otherwise the local `branch` (they only differ for workspaces
+    /// created from an existing PR).
+    pub async fn remote_branch_name(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<String, sqlx::Error> {
+        let name: (String,) =
+            sqlx::query_as("SELECT COALESCE(remote_branch, branch) FROM workspaces WHERE id = ?")
+                .bind(workspace_id)
+                .fetch_one(pool)
+                .await?;
+        Ok(name.0)
+    }
+
     /// Find workspace by path using container-ref path containment.
     /// Used by clients that may open a repo subfolder rather than the workspace root.
     pub async fn resolve_container_ref_by_prefix(

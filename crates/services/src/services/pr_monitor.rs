@@ -209,8 +209,13 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 Err(_) => continue,
             };
 
+            // PRs live under the remote-facing branch name, which differs
+            // from the local one for workspaces created from an existing PR.
+            let remote_branch = Workspace::remote_branch_name(&self.db.pool, workspace_id)
+                .await
+                .unwrap_or_else(|_| workspace.branch.clone());
             let prs = match git_host
-                .list_prs_for_branch(&repo.path, &remote.url, &workspace.branch)
+                .list_prs_for_branch(&repo.path, &remote.url, &remote_branch)
                 .await
             {
                 Ok(prs) => prs,

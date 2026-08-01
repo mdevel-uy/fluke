@@ -293,6 +293,52 @@ pub async fn try_take_next(
         }
     };
 
+    // Author-fix tasks reference an existing PR via `issue_number` (PR and
+    // issue numbers share GitHub's sequence, so a PR-record match is
+    // unambiguous). Bind this workspace to the PR's head branch: pushes then
+    // use an explicit local:head refspec and the finish handler adopts the
+    // existing PR instead of opening a new one. The local branch stays
+    // unique, so the author's own worktree never loses its checkout.
+    if worker.role == ROLE_DEVELOPER
+        && let Some(pr_number) = task.issue_number
+    {
+        match PullRequest::find_latest_workspace_for_pr(pool, repo.id, pr_number).await {
+            Ok(Some(author_ws_id)) => {
+                match Workspace::remote_branch_name(pool, author_ws_id).await {
+                    Ok(head_branch) => {
+                        if let Err(e) =
+                            Workspace::set_remote_branch(pool, workspace.id, &head_branch).await
+                        {
+                            warn!(
+                                workspace_id = %workspace.id,
+                                pr_number,
+                                "Could not bind fix-task workspace to PR head branch: {e}"
+                            );
+                        } else {
+                            info!(
+                                workspace_id = %workspace.id,
+                                pr_number,
+                                head_branch = %head_branch,
+                                "Fix-task workspace bound to PR head branch"
+                            );
+                        }
+                    }
+                    Err(e) => warn!(
+                        workspace_id = %workspace.id,
+                        pr_number,
+                        "Could not resolve PR head branch from author workspace: {e}"
+                    ),
+                }
+            }
+            Ok(None) => {} // plain issue task — nothing to bind
+            Err(e) => warn!(
+                workspace_id = %workspace.id,
+                pr_number,
+                "PR lookup failed while starting task: {e}"
+            ),
+        }
+    }
+
     // Link the task to the workspace *before* attaching it to the worker:
     // from the moment the workspace becomes visible on the worker it is
     // backed by an active task, so a concurrent caller's
@@ -972,9 +1018,18 @@ async fn on_developer_agent_finished(
     // *its* credentials so both operations show up under the worker's own
     // GitHub identity — that is the point of the per-worker PAT feature.
     let worker_pat = worker.github_pat.clone();
-    if let Err(e) =
-        git.push_to_remote_with_token(&worktree_path, &workspace.branch, false, worker_pat.as_deref())
-    {
+    // Remote-facing branch name: differs from the local branch only for
+    // workspaces created from an existing PR (push maps local -> PR head).
+    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
+        .await
+        .unwrap_or_else(|_| workspace.branch.clone());
+    if let Err(e) = git.push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        false,
+        worker_pat.as_deref(),
+    ) {
         error!(
             workspace_id = %workspace_id,
             task_id = %task.id,
@@ -1051,7 +1106,7 @@ async fn on_developer_agent_finished(
 
     // Adoption: check if the agent already created a PR via `gh pr create`.
     match git_host
-        .list_prs_for_branch(&repo.path, &target_remote.url, &workspace.branch)
+        .list_prs_for_branch(&repo.path, &target_remote.url, &remote_branch)
         .await
     {
         Ok(prs) if !prs.is_empty() => {
@@ -1087,7 +1142,7 @@ async fn on_developer_agent_finished(
     let pr_request = CreatePrRequest {
         title: task.title.clone(),
         body: Some(pr_body),
-        head_branch: workspace.branch.clone(),
+        head_branch: remote_branch.clone(),
         base_branch: base_branch.clone(),
         draft: None,
         head_repo_url: Some(push_remote.url.clone()),
@@ -1137,7 +1192,7 @@ async fn on_developer_agent_finished(
             if let GitHostError::PullRequest(ref msg) = e {
                 if msg.to_ascii_lowercase().contains("already exists") {
                     if let Ok(prs) = git_host
-                        .list_prs_for_branch(&repo.path, &target_remote.url, &workspace.branch)
+                        .list_prs_for_branch(&repo.path, &target_remote.url, &remote_branch)
                         .await
                     {
                         if let Some(pr) = prs.into_iter().next() {
@@ -1515,9 +1570,14 @@ pub async fn dispatch_author_fix_task(
     let task_prompt = format!(
         "El reviewer solicitó cambios en el PR #{pr_number}. \
          Revisá los comentarios con `gh pr view {pr_number} --comments`. \
-         Para hacer los cambios: ejecutá `gh pr checkout {pr_number}` para posicionarte \
-         en el branch correcto, corregí los issues señalados por el reviewer, \
-         y pusheá con `git push`. El PR ya existe — NO crees uno nuevo."
+         Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
+         (la rama del PR puede estar checked out en el worktree del autor y \
+         git lo rechaza): traé el contenido a TU rama actual con \
+         `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
+         Corregí los issues señalados por el reviewer y commiteá. \
+         Después pusheá a la rama del PR con refspec explícito: \
+         `git push origin HEAD:$(gh pr view {pr_number} --json headRefName -q .headRefName)`. \
+         El PR ya existe — NO crees uno nuevo."
     );
 
     let task = WorkerTask::append(

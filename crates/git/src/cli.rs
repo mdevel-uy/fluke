@@ -393,14 +393,18 @@ impl GitCli {
     }
 
     /// Push a branch to the given remote using native git authentication.
+    /// `remote_branch` is the ref name on the remote side; it only differs
+    /// from `branch` for workspaces created from an existing PR, which use a
+    /// unique local branch but must keep updating the PR's head branch.
     pub fn push(
         &self,
         repo_path: &Path,
         remote_url: &str,
         branch: &str,
+        remote_branch: &str,
         force: bool,
     ) -> Result<(), GitCliError> {
-        self.push_with_token(repo_path, remote_url, branch, force, None)
+        self.push_with_token(repo_path, remote_url, branch, remote_branch, force, None)
     }
 
     /// Same as [`push`], but authenticates with the given token instead of
@@ -418,13 +422,14 @@ impl GitCli {
         repo_path: &Path,
         remote_url: &str,
         branch: &str,
+        remote_branch: &str,
         force: bool,
         token: Option<&str>,
     ) -> Result<(), GitCliError> {
         let refspec = if force {
-            format!("+refs/heads/{branch}:refs/heads/{branch}")
+            format!("+refs/heads/{branch}:refs/heads/{remote_branch}")
         } else {
-            format!("refs/heads/{branch}:refs/heads/{branch}")
+            format!("refs/heads/{branch}:refs/heads/{remote_branch}")
         };
         let envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
 

@@ -23,7 +23,10 @@ pub const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de me
 3. Verificá el build/typecheck que corresponda (pnpm run check) antes de
    pushear.
 4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Verificá el push con git log origin/<rama>.
+   nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
+   git te lo va a decir al pushear: usá `git push origin HEAD:<rama-del-PR>`
+   (la rama del PR es el upstream de tu rama). Verificá el push con
+   git log origin/<rama-del-PR>.
 5. Mirá el CI del PR con gh pr checks --watch y arreglá lo que falle."#;
 
 /// Dispatched by the "Address PR comments" quick action. Needs `{pr_number}`
@@ -41,7 +44,9 @@ pub const ADDRESS_PR_COMMENTS_PROMPT: &str = r#"Tu PR #{pr_number} ({pr_url}) ti
    o `cargo check` según corresponda) y ejecutá los tests que toquen las
    zonas modificadas.
 4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Verificá el push con `git log origin/<rama>`.
+   nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
+   usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream
+   de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.
 5. Cuando termines, dejá un comentario resumen en el PR listando qué
    pedidos atendiste y cuáles quedaron abiertos con su razón, para que el
    reviewer pueda re-revisar rápido."#;
@@ -61,7 +66,9 @@ pub const FIX_CI_PROMPT: &str = r#"El CI del PR #{pr_number} ({pr_url}) está fa
    (`pnpm run check`, `pnpm run lint`, `cargo check`, `cargo test`, etc.)
    para validar el fix antes de pushear.
 4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Verificá el push con `git log origin/<rama>`.
+   nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
+   usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream
+   de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.
 5. Después del push, seguí el CI con `gh pr checks {pr_number} --watch`.
    Si vuelve a fallar, iterá — no reportes la tarea como terminada hasta
    que los checks queden en verde."#;
@@ -72,7 +79,9 @@ pub fn format_review_pr_prompt(pr_number: i64) -> String {
     format!(
         "Revisá el PR #{pr_number} según tu checklist. \
          Usá `gh pr view {pr_number}`, `gh pr diff {pr_number}` y \
-         `gh pr checkout {pr_number}` para examinar los cambios. \
+         `gh pr checkout {pr_number} --branch review-pr-{pr_number}` para \
+         examinar los cambios (el nombre local propio evita bloquear la \
+         rama del autor, que puede estar checked out en otro worktree). \
          Cuando termines: si aprobás, ejecutá \
          `gh pr review {pr_number} --approve`; si pedís cambios, ejecutá \
          `gh pr review {pr_number} --request-changes -b '<razón>'`."

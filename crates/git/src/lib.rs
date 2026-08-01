@@ -460,8 +460,8 @@ impl GitService {
         let repo = self.open_repo(repo_path)?;
         let remote = self.default_remote(&repo, repo_path)?;
         let git_cli = GitCli::new();
-        git_cli.push_with_token(repo_path, &remote.url, branch_name, force, token)?;
-        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name) {
+        git_cli.push_with_token(repo_path, &remote.url, branch_name, branch_name, force, token)?;
+        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name, branch_name) {
             tracing::warn!(
                 "Pushed '{branch_name}' but could not update tracking ref/upstream: {e}"
             );
@@ -1757,18 +1757,24 @@ impl GitService {
         &self,
         worktree_path: &Path,
         branch_name: &str,
+        remote_branch_name: &str,
         force: bool,
     ) -> Result<(), GitServiceError> {
-        self.push_to_remote_with_token(worktree_path, branch_name, force, None)
+        self.push_to_remote_with_token(worktree_path, branch_name, remote_branch_name, force, None)
     }
 
     /// Same as [`push_to_remote`], but authenticates with the given PAT
     /// instead of the machine's git credential helper. Pass `None` to
     /// preserve the historical behaviour.
+    ///
+    /// `remote_branch_name` is the ref the push updates on the remote. It
+    /// only differs from `branch_name` for workspaces created from an
+    /// existing PR (unique local branch, PR head branch on the remote).
     pub fn push_to_remote_with_token(
         &self,
         worktree_path: &Path,
         branch_name: &str,
+        remote_branch_name: &str,
         force: bool,
         token: Option<&str>,
     ) -> Result<(), GitServiceError> {
@@ -1779,9 +1785,14 @@ impl GitService {
         let remote = self.default_remote(&repo, worktree_path)?;
 
         let git_cli = GitCli::new();
-        if let Err(e) =
-            git_cli.push_with_token(worktree_path, &remote.url, branch_name, force, token)
-        {
+        if let Err(e) = git_cli.push_with_token(
+            worktree_path,
+            &remote.url,
+            branch_name,
+            remote_branch_name,
+            force,
+            token,
+        ) {
             tracing::error!("Push to remote failed: {}", e);
             return Err(e.into());
         }
@@ -1790,7 +1801,9 @@ impl GitService {
         // updating the tracking ref or upstream config (e.g. a narrow
         // remote.<name>.fetch refspec that doesn't cover this branch) must
         // not report the push as failed.
-        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name) {
+        if let Err(e) =
+            Self::update_tracking_after_push(&repo, branch_name, &remote.name, remote_branch_name)
+        {
             tracing::warn!(
                 "Pushed '{branch_name}' but could not update tracking ref/upstream: {e}"
             );
@@ -1803,11 +1816,12 @@ impl GitService {
         repo: &Repository,
         branch_name: &str,
         remote_name: &str,
+        remote_branch_name: &str,
     ) -> Result<(), GitServiceError> {
         let mut branch = Self::find_branch(repo, branch_name)?;
         if !branch.get().is_remote() {
             if let Some(branch_target) = branch.get().target() {
-                let remote_ref = format!("refs/remotes/{remote_name}/{branch_name}");
+                let remote_ref = format!("refs/remotes/{remote_name}/{remote_branch_name}");
                 repo.reference(
                     &remote_ref,
                     branch_target,
@@ -1815,7 +1829,7 @@ impl GitService {
                     "update remote tracking branch",
                 )?;
             }
-            branch.set_upstream(Some(&format!("{remote_name}/{branch_name}")))?;
+            branch.set_upstream(Some(&format!("{remote_name}/{remote_branch_name}")))?;
         }
         Ok(())
     }
