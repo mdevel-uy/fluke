@@ -647,24 +647,33 @@ impl GhCli {
         Ok(login.to_string())
     }
 
+    /// Check out a PR in `repo_path`. When `local_branch` is given, the PR
+    /// head is checked out under that local name (`gh pr checkout --branch`);
+    /// gh still writes the upstream config pointing at the PR's real head
+    /// branch, so status against the remote keeps working.
     pub fn pr_checkout(
         &self,
         repo_path: &Path,
         owner: &str,
         repo: &str,
         pr_number: i64,
+        local_branch: Option<&str>,
     ) -> Result<(), GhCliError> {
-        self.run(
-            [
-                "pr",
-                "checkout",
-                &pr_number.to_string(),
-                "--repo",
-                &format!("{owner}/{repo}"),
-                "--force",
-            ],
-            Some(repo_path),
-        )?;
+        let pr_number = pr_number.to_string();
+        let repo_slug = format!("{owner}/{repo}");
+        let mut args = vec![
+            "pr",
+            "checkout",
+            &pr_number,
+            "--repo",
+            &repo_slug,
+            "--force",
+        ];
+        if let Some(branch) = local_branch {
+            args.push("--branch");
+            args.push(branch);
+        }
+        self.run(args, Some(repo_path))?;
         Ok(())
     }
 }

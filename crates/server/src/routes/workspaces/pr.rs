@@ -262,9 +262,14 @@ pub async fn create_pr(
     let worker_pat =
         Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
 
+    // Branch name on the remote — differs from the local branch only for
+    // workspaces created from an existing PR.
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
+
     if let Err(e) = git.push_to_remote_with_token(
         &worktree_path,
         &workspace.branch,
+        &remote_branch,
         false,
         worker_pat.as_deref(),
     ) {
@@ -306,7 +311,7 @@ pub async fn create_pr(
     let pr_request = CreatePrRequest {
         title: request.title.clone(),
         body: request.body.clone(),
-        head_branch: workspace.branch.clone(),
+        head_branch: remote_branch.clone(),
         base_branch: base_branch.clone(),
         draft: request.draft,
         head_repo_url: Some(push_remote.url.clone()),
@@ -394,11 +399,11 @@ pub async fn create_pr(
                 if msg.to_ascii_lowercase().contains("already exists") {
                     tracing::info!(
                         workspace_id = %workspace.id,
-                        branch = %workspace.branch,
+                        branch = %remote_branch,
                         "PR already exists on GitHub; adopting instead",
                     );
                     match git_host
-                        .list_prs_for_branch(&repo_path, &target_remote.url, &workspace.branch)
+                        .list_prs_for_branch(&repo_path, &target_remote.url, &remote_branch)
                         .await
                     {
                         Ok(prs) => {
@@ -525,9 +530,12 @@ pub async fn attach_existing_pr(
 
     let provider = git_host.provider_kind();
 
-    // List all PRs for branch (open, closed, and merged)
+    // List all PRs for branch (open, closed, and merged); PRs live under the
+    // remote-facing branch name, which differs from the local one for
+    // workspaces created from an existing PR.
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
     let prs = match git_host
-        .list_prs_for_branch(&repo.path, &remote.url, &workspace.branch)
+        .list_prs_for_branch(&repo.path, &remote.url, &remote_branch)
         .await
     {
         Ok(prs) => prs,
@@ -805,6 +813,17 @@ pub async fn create_workspace_from_pr(
 
     // Create workspace with target branch initially
     let workspace_id = Uuid::new_v4();
+
+    // The PR's head branch may already be checked out by the workspace that
+    // authored the PR, and git refuses to check out one branch in two
+    // worktrees. So this workspace gets its own unique local branch (same
+    // scheme as regular attempts) and records the PR head as its
+    // `remote_branch`: every push uses an explicit local:remote refspec to
+    // keep updating the PR.
+    let local_branch = deployment
+        .container()
+        .git_branch_from_workspace(&workspace_id, &payload.pr_title)
+        .await;
     let mut workspace = Workspace::create(
         pool,
         &CreateWorkspace {
@@ -843,6 +862,7 @@ pub async fn create_workspace_from_pr(
                 &repo_info.owner,
                 &repo_info.repo_name,
                 payload.pr_number,
+                Some(&local_branch),
             ) {
                 tracing::error!("Failed to checkout PR branch: {e}");
                 cleanup_failed_pr_workspace(pool, &workspace).await;
@@ -852,9 +872,10 @@ pub async fn create_workspace_from_pr(
                     },
                 )));
             }
-            // Update workspace branch to the actual PR branch
-            Workspace::update_branch_name(pool, workspace.id, &payload.head_branch).await?;
-            workspace.branch = payload.head_branch.clone();
+            // Unique local branch; pushes map to the PR head via remote_branch
+            Workspace::update_branch_name(pool, workspace.id, &local_branch).await?;
+            Workspace::set_remote_branch(pool, workspace.id, &payload.head_branch).await?;
+            workspace.branch = local_branch.clone();
         }
         Err(e) => {
             tracing::error!(

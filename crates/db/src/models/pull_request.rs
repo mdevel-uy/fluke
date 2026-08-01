@@ -141,6 +141,25 @@ impl PullRequest {
         Ok(())
     }
 
+    /// Workspace bound to the newest PR record for (repo, number), if any.
+    /// Runtime query (no macro) so the sqlx offline metadata stays valid.
+    pub async fn find_latest_workspace_for_pr(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        let row: Option<(Option<Uuid>,)> = sqlx::query_as(
+            "SELECT workspace_id FROM pull_requests
+              WHERE repo_id = ? AND pr_number = ?
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(pr_number)
+        .fetch_optional(pool)
+        .await?;
+        Ok(row.and_then(|r| r.0))
+    }
+
     /// CI rollup state per PR URL, for every PR that has one recorded.
     pub async fn get_ci_status_by_url(
         pool: &SqlitePool,
