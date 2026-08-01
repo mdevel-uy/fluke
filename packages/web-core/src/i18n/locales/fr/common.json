@@ -1234,6 +1234,8 @@
       "retry": "Réessayer",
       "discard": "Ignorer",
       "viewPr": "Voir la PR",
+      "viewProcesses": "Voir les processus",
+      "noProcessesYet": "Aucun processus à afficher pour cette tâche pour l'instant.",
       "empty": "Aucune tâche échouée."
     },
     "autoIngest": {

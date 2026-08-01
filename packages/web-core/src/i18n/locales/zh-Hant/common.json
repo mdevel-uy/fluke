@@ -1232,6 +1232,8 @@
       "retry": "重試",
       "discard": "丟棄",
       "viewPr": "查看 PR",
+      "viewProcesses": "檢視程序",
+      "noProcessesYet": "此任務尚無可顯示的程序。",
       "empty": "沒有失敗的任務。"
     },
     "autoIngest": {

@@ -1232,6 +1232,8 @@
       "retry": "再試行",
       "discard": "破棄",
       "viewPr": "PR を表示",
+      "viewProcesses": "プロセスを表示",
+      "noProcessesYet": "このタスクにはまだ表示できるプロセスがありません。",
       "empty": "失敗したタスクはありません。"
     },
     "autoIngest": {

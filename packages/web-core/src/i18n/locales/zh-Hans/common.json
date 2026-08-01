@@ -1232,6 +1232,8 @@
       "retry": "重试",
       "discard": "丢弃",
       "viewPr": "查看 PR",
+      "viewProcesses": "查看进程",
+      "noProcessesYet": "此任务暂无可显示的进程。",
       "empty": "没有失败的任务。"
     },
     "autoIngest": {
