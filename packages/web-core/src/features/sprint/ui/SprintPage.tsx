@@ -12,13 +12,7 @@ import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
-import {
-  ApiError,
-  workersApi,
-  repoIssuesApi,
-  sessionsApi,
-} from '@/shared/lib/api';
-import { ViewProcessesDialog } from '@/shared/dialogs/command-bar/ViewProcessesDialog';
+import { ApiError, workersApi, repoIssuesApi } from '@/shared/lib/api';
 import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type {
   RepoIssue,
@@ -581,31 +575,6 @@ export function SprintPage() {
     [discardTaskMutation]
   );
 
-  const handleViewProcesses = useCallback(
-    async (task: WorkerTask) => {
-      if (!task.workspace_id) return;
-      try {
-        const sessions = await sessionsApi.getByWorkspace(task.workspace_id);
-        const sessionId = sessions[0]?.id;
-        if (!sessionId) {
-          pushToast('info', t('sprint.failed.noProcessesYet'));
-          return;
-        }
-        await ViewProcessesDialog.show({
-          sessionId,
-          task: {
-            issue_number: task.issue_number ?? null,
-            pr_url: task.pr_url ?? null,
-            failure_reason: task.failure_reason ?? null,
-          },
-        });
-      } catch (err) {
-        pushToast('error', err instanceof Error ? err.message : String(err));
-      }
-    },
-    [pushToast, t]
-  );
-
   const handleCancelTask = useCallback(
     (task: WorkerTask) => {
       setBusyTaskId(task.id);
@@ -1118,7 +1087,6 @@ export function SprintPage() {
                           isBusy={busyTaskId === task.id}
                           onRetry={() => handleRetryTask(task)}
                           onDiscard={() => handleDiscardTask(task)}
-                          onViewProcesses={() => handleViewProcesses(task)}
                         />
                       ))}
                     </div>

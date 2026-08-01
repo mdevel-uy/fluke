@@ -1232,8 +1232,6 @@
       "retry": "재시도",
       "discard": "버리기",
       "viewPr": "PR 보기",
-      "viewProcesses": "프로세스 보기",
-      "noProcessesYet": "이 태스크에 표시할 프로세스가 아직 없습니다.",
       "empty": "실패한 태스크가 없습니다."
     },
     "autoIngest": {

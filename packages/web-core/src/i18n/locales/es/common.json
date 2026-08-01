@@ -1235,8 +1235,6 @@
       "retry": "Reintentar",
       "discard": "Descartar",
       "viewPr": "Ver PR",
-      "viewProcesses": "Ver procesos",
-      "noProcessesYet": "Aún no hay procesos para mostrar de esta tarea.",
       "empty": "No hay tareas fallidas."
     },
     "autoIngest": {

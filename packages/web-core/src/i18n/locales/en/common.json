@@ -1235,8 +1235,6 @@
       "retry": "Retry",
       "discard": "Discard",
       "viewPr": "View PR",
-      "viewProcesses": "View processes",
-      "noProcessesYet": "No processes to show for this task yet.",
       "empty": "No failed tasks."
     },
     "autoIngest": {

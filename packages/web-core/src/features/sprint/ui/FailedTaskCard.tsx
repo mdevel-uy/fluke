@@ -10,7 +10,6 @@ interface FailedTaskCardProps {
   isBusy: boolean;
   onRetry: () => void;
   onDiscard: () => void;
-  onViewProcesses?: () => void;
 }
 
 export function FailedTaskCard({
@@ -18,7 +17,6 @@ export function FailedTaskCard({
   isBusy,
   onRetry,
   onDiscard,
-  onViewProcesses,
 }: FailedTaskCardProps) {
   const { t } = useTranslation('common');
   const failureReason = task.failure_reason?.trim();
@@ -62,20 +60,6 @@ export function FailedTaskCard({
       )}
       <SkillChips skills={task.skills ?? []} />
       <div className="flex items-center justify-end gap-1.5">
-        {onViewProcesses && task.workspace_id && (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={onViewProcesses}
-            disabled={isBusy}
-            aria-label={t('sprint.failed.viewProcesses')}
-            title={t('sprint.failed.viewProcesses')}
-            className="text-md-on-surface-variant hover:text-md-primary hover:bg-md-primary/10"
-          >
-            <MaterialIcon name="visibility" size="xs" />
-            {t('sprint.failed.viewProcesses')}
-          </Button>
-        )}
         <Button
           variant="ghost"
           size="xs"
