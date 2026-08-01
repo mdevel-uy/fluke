@@ -195,7 +195,10 @@
     },
     "scopeRailLabel": "Ámbitos de espacios de trabajo",
     "draftWorkspace": "Borrador de espacio de trabajo",
-    "openForIssue": "Abrir un espacio de trabajo para este issue"
+    "openForIssue": "Abrir un espacio de trabajo para este issue",
+    "aside": {
+      "reviewerWorking": "Reviewer trabajando..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "Buscar archivos...",

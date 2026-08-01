@@ -194,7 +194,10 @@
     },
     "scopeRailLabel": "워크스페이스 범위",
     "draftWorkspace": "Draft workspace",
-    "openForIssue": "Open a workspace for this issue"
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "리뷰어 작업 중..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "파일 검색...",

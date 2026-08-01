@@ -194,7 +194,10 @@
     },
     "scopeRailLabel": "工作區範圍",
     "draftWorkspace": "Draft workspace",
-    "openForIssue": "Open a workspace for this issue"
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "審閱者工作中..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",

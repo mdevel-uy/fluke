@@ -14,6 +14,7 @@ import type { Merge, RepoWithTargetBranch, Workspace } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { workersApi, workspacesApi } from '@/shared/lib/api';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useBranchStatus } from '@/shared/hooks/useBranchStatus';
 import { usePush } from '@/shared/hooks/usePush';
 import { useActions } from '@/shared/hooks/useActions';
@@ -97,6 +98,24 @@ export const RightSidebar = memo(function RightSidebar({
     ? taskIndex.taskByWorkspaceId.get(workspaceId)
     : undefined;
   const worker = task ? taskIndex.workerById.get(task.worker_id) : undefined;
+
+  const appNavigation = useAppNavigation();
+
+  // In-progress reviewer worker task pointing at this workspace's PR (matched
+  // by issue number). When present, the REVIEW badge becomes a shortcut to
+  // that reviewer's workspace so you can watch the review as it happens.
+  const activeReviewerTask = useMemo(() => {
+    if (!task?.issue_number) return undefined;
+    return tasks.find((t) => {
+      const w = taskIndex.workerById.get(t.worker_id);
+      return (
+        w?.role === 'reviewer' &&
+        t.issue_number === task.issue_number &&
+        t.status === 'in_progress' &&
+        t.workspace_id != null
+      );
+    });
+  }, [tasks, task, taskIndex]);
 
   const isRunning = !!sidebarWs?.isRunning;
   const hasStalledTask =
@@ -547,38 +566,59 @@ export const RightSidebar = memo(function RightSidebar({
               <span className="w-[46px] flex-none text-[10px] font-semibold uppercase tracking-wider text-low">
                 {t('workspaces.aside.review', { defaultValue: 'Review' })}
               </span>
-              <span
-                className={cn(
-                  'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
-                  reviewResult === 'approved'
-                    ? 'border-success/45 text-success'
-                    : reviewResult === 'changes_requested'
-                      ? 'border-warning/45 text-warning'
-                      : reviewActivity === 'running'
-                        ? 'animate-pulse border-info/45 text-info'
-                        : 'border-border-strong text-low'
-                )}
-              >
-                {reviewResult === 'approved'
-                  ? t('workspaces.aside.reviewApproved', {
-                      defaultValue: 'Approved',
-                    })
-                  : reviewResult === 'changes_requested'
-                    ? t('workspaces.aside.reviewChangesRequested', {
-                        defaultValue: 'Changes requested',
+              {reviewResult == null && activeReviewerTask?.workspace_id ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    appNavigation.goToWorkspace(
+                      activeReviewerTask.workspace_id as string
+                    )
+                  }
+                  className={cn(
+                    'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
+                    'animate-pulse border-info/45 text-info',
+                    'cursor-pointer hover:bg-info/10',
+                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-brand'
+                  )}
+                >
+                  {t('workspaces.aside.reviewerWorking', {
+                    defaultValue: 'Reviewer working...',
+                  })}
+                </button>
+              ) : (
+                <span
+                  className={cn(
+                    'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
+                    reviewResult === 'approved'
+                      ? 'border-success/45 text-success'
+                      : reviewResult === 'changes_requested'
+                        ? 'border-warning/45 text-warning'
+                        : reviewActivity === 'running'
+                          ? 'animate-pulse border-info/45 text-info'
+                          : 'border-border-strong text-low'
+                  )}
+                >
+                  {reviewResult === 'approved'
+                    ? t('workspaces.aside.reviewApproved', {
+                        defaultValue: 'Approved',
                       })
-                    : reviewActivity === 'running'
-                      ? t('workspaces.aside.reviewRunning', {
-                          defaultValue: 'Reviewer working…',
+                    : reviewResult === 'changes_requested'
+                      ? t('workspaces.aside.reviewChangesRequested', {
+                          defaultValue: 'Changes requested',
                         })
-                      : reviewActivity === 'queued'
-                        ? t('workspaces.aside.reviewQueued', {
-                            defaultValue: 'Queued for review',
+                      : reviewActivity === 'running'
+                        ? t('workspaces.aside.reviewRunning', {
+                            defaultValue: 'Reviewer working…',
                           })
-                        : t('workspaces.aside.reviewWaiting', {
-                            defaultValue: 'Awaiting auto review',
-                          })}
-              </span>
+                        : reviewActivity === 'queued'
+                          ? t('workspaces.aside.reviewQueued', {
+                              defaultValue: 'Queued for review',
+                            })
+                          : t('workspaces.aside.reviewWaiting', {
+                              defaultValue: 'Awaiting auto review',
+                            })}
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-1 pt-[7px]">
               {task && (

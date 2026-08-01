@@ -209,7 +209,10 @@
     },
     "scopeRailLabel": "Workspace scopes",
     "draftWorkspace": "Draft workspace",
-    "openForIssue": "Open a workspace for this issue"
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "Reviewer working..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "Search files...",

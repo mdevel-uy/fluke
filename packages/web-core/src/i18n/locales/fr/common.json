@@ -194,7 +194,10 @@
     },
     "scopeRailLabel": "Portées des espaces de travail",
     "draftWorkspace": "Draft workspace",
-    "openForIssue": "Open a workspace for this issue"
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "Réviseur en cours..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",
