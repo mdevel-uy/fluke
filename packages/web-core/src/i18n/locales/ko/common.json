@@ -1084,6 +1084,7 @@
     "failed": {
       "retry": "재시도",
       "discard": "버리기",
+      "viewPr": "PR 보기",
       "empty": "실패한 태스크가 없습니다."
     },
     "autoIngest": {

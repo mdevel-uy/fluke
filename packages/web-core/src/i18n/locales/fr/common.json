@@ -1084,6 +1084,7 @@
     "failed": {
       "retry": "Réessayer",
       "discard": "Ignorer",
+      "viewPr": "Voir la PR",
       "empty": "Aucune tâche échouée."
     },
     "autoIngest": {
