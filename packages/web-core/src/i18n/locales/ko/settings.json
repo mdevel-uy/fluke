@@ -594,14 +594,20 @@
           "label": "상태"
         }
       },
+      "cliWarning": "GitHub CLI(gh)가 설치되어 있지 않습니다. 아래에서 Personal Access Token으로 로그인할 수 있지만, PR 및 이슈 동기화에는 PATH의 gh가 필요합니다.",
+      "patExpired": "Personal Access Token이 만료되었거나 취소되었습니다. GitHub 기능을 유지하려면 아래에서 다시 연결하세요.",
       "status": {
         "loading": "연결 확인 중…",
         "connected": "GitHub에 연결됨",
         "connectedAs": "@{{username}}(으)로 연결됨",
+        "connectedAsPat": "@{{username}}(으)로 연결됨 (PAT 사용)",
         "notConnected": "연결되지 않음"
       },
       "actions": {
-        "connect": "GitHub 연결"
+        "connect": "GitHub 연결",
+        "disconnect": "연결 해제",
+        "installCli": "GitHub CLI 설치",
+        "installingCli": "설치 중…"
       },
       "deviceFlow": {
         "title": "GitHub에서 승인",
@@ -612,8 +618,20 @@
         "checkStatus": "상태 새로 고침",
         "waiting": "승인을 기다리는 중… GitHub에서 작업을 완료하면 이 대화상자가 자동으로 갱신됩니다."
       },
+      "pat": {
+        "title": "Personal Access Token으로 연결",
+        "description": "터미널이나 gh CLI가 필요하지 않습니다. repo, read:org, workflow 범위가 있는 토큰을 붙여넣으세요.",
+        "placeholder": "ghp_…",
+        "submit": "확인 후 연결",
+        "helpBefore": "토큰은",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "에서 권장 범위로 생성하세요."
+      },
       "errors": {
-        "loginFailed": "GitHub 로그인을 시작하지 못했습니다."
+        "loginFailed": "GitHub 로그인을 시작하지 못했습니다.",
+        "logoutFailed": "GitHub 연결을 해제하지 못했습니다.",
+        "installFailed": "GitHub CLI 설치에 실패했습니다.",
+        "patLoginFailed": "Personal Access Token 확인에 실패했습니다."
       }
     }
   },

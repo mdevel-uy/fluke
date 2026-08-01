@@ -2112,11 +2112,33 @@ export const releasesApi = {
   },
 };
 
-// GitHub API (local `gh` CLI-backed)
+/**
+ * Which credential the current authenticated GitHub session is using.
+ * Kept local until `shared/types.ts` is regenerated from the backend.
+ */
+export type GithubAuthMethod = 'pat' | 'gh_cli';
+
+/**
+ * Extension of the generated `GithubStatusResponse` with the PAT-related
+ * fields added by the PAT auth work. Once `shared/types.ts` is
+ * regenerated these fields will move onto the base type and this alias
+ * can be dropped.
+ */
+export type GithubStatusResponseWithPat = GithubStatusResponse & {
+  has_pat: boolean;
+  auth_method: GithubAuthMethod | null;
+};
+
+export interface GithubPatLoginResponse {
+  username: string;
+}
+
+// GitHub API (local `gh` CLI-backed, with optional PAT fallback for hosts
+// where `gh` isn't installed).
 export const githubApi = {
-  getStatus: async (): Promise<GithubStatusResponse> => {
+  getStatus: async (): Promise<GithubStatusResponseWithPat> => {
     const response = await makeRequest('/api/github/status');
-    return handleApiResponse<GithubStatusResponse>(response);
+    return handleApiResponse<GithubStatusResponseWithPat>(response);
   },
 
   login: async (): Promise<GithubLoginResponse> => {
@@ -2124,6 +2146,21 @@ export const githubApi = {
       method: 'POST',
     });
     return handleApiResponse<GithubLoginResponse>(response);
+  },
+
+  loginWithPat: async (pat: string): Promise<GithubPatLoginResponse> => {
+    const response = await makeRequest('/api/github/login/pat', {
+      method: 'POST',
+      body: JSON.stringify({ pat }),
+    });
+    return handleApiResponse<GithubPatLoginResponse>(response);
+  },
+
+  disconnectPat: async (): Promise<void> => {
+    const response = await makeRequest('/api/github/pat', {
+      method: 'DELETE',
+    });
+    await handleApiResponse<void>(response);
   },
 
   logout: async (): Promise<void> => {

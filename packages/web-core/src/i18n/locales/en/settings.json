@@ -594,11 +594,13 @@
           "label": "Status"
         }
       },
-      "cliWarning": "The GitHub CLI (gh) is not installed. You can still sign in, but pull requests and issue sync require gh on PATH.",
+      "cliWarning": "The GitHub CLI (gh) is not installed. You can still sign in with a Personal Access Token below, but pull requests and issue sync require gh on PATH.",
+      "patExpired": "Your Personal Access Token expired or was revoked. Reconnect below to keep GitHub-backed features working.",
       "status": {
         "loading": "Checking connection…",
         "connected": "Connected to GitHub",
         "connectedAs": "Connected as @{{username}}",
+        "connectedAsPat": "Connected as @{{username}} (via PAT)",
         "notConnected": "Not connected"
       },
       "actions": {
@@ -616,10 +618,20 @@
         "checkStatus": "Refresh status",
         "waiting": "Waiting for authorization… this dialog will update automatically once you finish on GitHub."
       },
+      "pat": {
+        "title": "Connect with a Personal Access Token",
+        "description": "No terminal or gh CLI needed. Paste a token with repo, read:org, and workflow scopes.",
+        "placeholder": "ghp_…",
+        "submit": "Validate and connect",
+        "helpBefore": "Generate a token from",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "with the recommended scopes."
+      },
       "errors": {
         "loginFailed": "Failed to start GitHub login.",
         "logoutFailed": "Failed to disconnect from GitHub.",
-        "installFailed": "Failed to install the GitHub CLI."
+        "installFailed": "Failed to install the GitHub CLI.",
+        "patLoginFailed": "Failed to validate the Personal Access Token."
       }
     }
   },

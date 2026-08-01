@@ -594,14 +594,20 @@
           "label": "ステータス"
         }
       },
+      "cliWarning": "GitHub CLI (gh) がインストールされていません。以下の Personal Access Token でサインインできますが、プルリクエストや issue の同期には PATH 上の gh が必要です。",
+      "patExpired": "Personal Access Token の有効期限が切れたか無効化されました。GitHub 機能を維持するために下記から再接続してください。",
       "status": {
         "loading": "接続を確認中…",
         "connected": "GitHub に接続済み",
         "connectedAs": "@{{username}} として接続中",
+        "connectedAsPat": "@{{username}} として接続中 (PAT 経由)",
         "notConnected": "未接続"
       },
       "actions": {
-        "connect": "GitHub に接続"
+        "connect": "GitHub に接続",
+        "disconnect": "切断",
+        "installCli": "GitHub CLI をインストール",
+        "installingCli": "インストール中…"
       },
       "deviceFlow": {
         "title": "GitHub で認可する",
@@ -612,8 +618,20 @@
         "checkStatus": "ステータスを更新",
         "waiting": "認可を待機中… GitHub での操作が完了するとこのダイアログは自動的に更新されます。"
       },
+      "pat": {
+        "title": "Personal Access Token で接続",
+        "description": "ターミナルや gh CLI は不要です。repo、read:org、workflow スコープ付きのトークンを貼り付けてください。",
+        "placeholder": "ghp_…",
+        "submit": "検証して接続",
+        "helpBefore": "トークンは",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "で推奨スコープ付きで生成してください。"
+      },
       "errors": {
-        "loginFailed": "GitHub ログインの開始に失敗しました。"
+        "loginFailed": "GitHub ログインの開始に失敗しました。",
+        "logoutFailed": "GitHub からの切断に失敗しました。",
+        "installFailed": "GitHub CLI のインストールに失敗しました。",
+        "patLoginFailed": "Personal Access Token の検証に失敗しました。"
       }
     }
   },
