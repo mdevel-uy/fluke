@@ -7,16 +7,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@vibe/ui/components/KeyboardDialog';
-import ProcessesTab from '@/shared/components/tasks/TaskDetails/ProcessesTab';
+import ProcessesTab, {
+  type ProcessesTaskContext,
+} from '@/shared/components/tasks/TaskDetails/ProcessesTab';
 import { ProcessSelectionProvider } from '@/shared/hooks/ProcessSelectionContext';
 
 export interface ViewProcessesDialogProps {
   sessionId: string | undefined;
   initialProcessId?: string | null;
+  task?: ProcessesTaskContext;
 }
 
 const ViewProcessesDialogImpl = create<ViewProcessesDialogProps>(
-  ({ sessionId, initialProcessId }) => {
+  ({ sessionId, initialProcessId, task }) => {
     const { t } = useTranslation('tasks');
     const modal = useModal();
 
@@ -46,7 +49,7 @@ const ViewProcessesDialogImpl = create<ViewProcessesDialogProps>(
           </DialogHeader>
           <div className="h-[75vh] flex flex-col min-h-0 min-w-0">
             <ProcessSelectionProvider initialProcessId={initialProcessId}>
-              <ProcessesTab sessionId={sessionId} />
+              <ProcessesTab sessionId={sessionId} task={task} />
             </ProcessSelectionProvider>
           </div>
         </DialogContent>

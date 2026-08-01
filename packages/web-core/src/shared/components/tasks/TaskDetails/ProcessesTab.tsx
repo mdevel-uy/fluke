@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Play,
@@ -8,6 +8,7 @@ import {
   Clock,
   Cog,
   ArrowLeft,
+  ExternalLink,
 } from 'lucide-react';
 import { executionProcessesApi } from '@/shared/lib/api';
 import { ProfileVariantBadge } from '@/shared/components/common/ProfileVariantBadge.tsx';
@@ -19,11 +20,31 @@ import type { ExecutionProcessStatus, ExecutionProcess } from 'shared/types';
 import { useProcessSelection } from '@/shared/hooks/ProcessSelectionContext';
 import { useRetryUi } from '@/shared/hooks/useRetryUi';
 
-interface ProcessesTabProps {
-  sessionId?: string;
+export interface ProcessesTaskContext {
+  issue_number?: number | null;
+  pr_url?: string | null;
+  failure_reason?: string | null;
 }
 
-function ProcessesTab({ sessionId }: ProcessesTabProps) {
+interface ProcessesTabProps {
+  sessionId?: string;
+  task?: ProcessesTaskContext;
+}
+
+// Derives the GitHub repo prefix (e.g. "https://github.com/owner/repo") from
+// a pull request URL so we can build a companion issue URL when the task only
+// carries the issue number.
+function extractGitHubRepoPrefix(
+  prUrl: string | null | undefined
+): string | null {
+  if (!prUrl) return null;
+  const match = prUrl.match(
+    /^(https:\/\/github\.com\/[^/\s]+\/[^/\s]+)\/(?:pull|issues)\/\d+/
+  );
+  return match ? match[1] : null;
+}
+
+function ProcessesTab({ sessionId, task }: ProcessesTabProps) {
   const { t } = useTranslation('tasks');
   const {
     executionProcesses,
@@ -149,6 +170,74 @@ function ProcessesTab({ sessionId }: ProcessesTabProps) {
   };
 
   const { isProcessGreyed } = useRetryUi();
+
+  const failureBanner = useMemo(() => {
+    if (!task) return null;
+    const issueNumber = task.issue_number ?? null;
+    const prUrl = task.pr_url ?? null;
+    const reason = task.failure_reason?.trim() ?? null;
+    if (issueNumber == null && !prUrl && !reason) return null;
+
+    const repoPrefix = extractGitHubRepoPrefix(prUrl);
+    const issueUrl =
+      issueNumber != null && repoPrefix
+        ? `${repoPrefix}/issues/${issueNumber}`
+        : null;
+
+    return (
+      <div
+        role="alert"
+        className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      >
+        {(issueNumber != null || prUrl) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {issueNumber != null &&
+              (issueUrl ? (
+                <a
+                  href={issueUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1 font-medium hover:underline"
+                >
+                  <span>
+                    {t('processes.failureBanner.issueLink', {
+                      number: issueNumber,
+                    })}
+                  </span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="font-medium">
+                  {t('processes.failureBanner.issueLink', {
+                    number: issueNumber,
+                  })}
+                </span>
+              ))}
+            {prUrl && (
+              <a
+                href={prUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 font-medium hover:underline"
+                title={prUrl}
+              >
+                <span>{t('processes.failureBanner.prLink')}</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
+        {reason && (
+          <p className="mt-1 line-clamp-3 text-destructive/90" title={reason}>
+            <span className="font-medium">
+              {t('processes.failureBanner.reasonLabel')}
+            </span>{' '}
+            {reason}
+          </p>
+        )}
+      </div>
+    );
+  }, [task, t]);
 
   if (!sessionId) {
     return (
@@ -303,6 +392,7 @@ function ProcessesTab({ sessionId }: ProcessesTabProps) {
               </button>
             </div>
           </div>
+          {selectedProcess?.status === 'failed' && failureBanner}
           <div className="flex-1 min-h-0 flex flex-col">
             {selectedProcess ? (
               <ProcessLogsViewerContent logs={logs} error={logsError} />

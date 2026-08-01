@@ -104,7 +104,12 @@
     "loadingDetails": "Chargement des détails du processus...",
     "errorLoadingDetails": "Échec du chargement des détails du processus. Veuillez réessayer.",
     "copyLogs": "Copier les logs",
-    "logsCopied": "Copié !"
+    "logsCopied": "Copié !",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "Voir la pull request",
+      "reasonLabel": "Raison de l'échec :"
+    }
   },
   "followUp": {
     "queuedMessage": "Message en file d'attente - s'exécutera lorsque l'exécution actuelle sera terminée"
