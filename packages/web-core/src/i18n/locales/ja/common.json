@@ -194,7 +194,10 @@
     },
     "scopeRailLabel": "ワークスペースの範囲",
     "draftWorkspace": "Draft workspace",
-    "openForIssue": "Open a workspace for this issue"
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "レビュアー作業中..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",
