@@ -604,6 +604,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Mesa de analistas",
+    "ciPipelines": "Pipelines de CI",
     "collapseSidebar": "Contraer barra lateral",
     "expandSidebar": "Expandir barra lateral",
     "settings": "Configuración",
@@ -978,6 +979,154 @@
       "errorLabel": "Falló la carga",
       "uploadError": "No se pudo subir '{{name}}': {{message}}",
       "tooLarge": "El archivo supera el tamaño máximo permitido."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "Triggers",
+      "jobs": "Jobs",
+      "prefabs": "Prefabs",
+      "escapeHatch": "Escape hatch",
+      "community": "Comunidad · Marketplace",
+      "searchMarketplace": "Buscar en el marketplace…",
+      "marketplaceHint": "Más de 20k actions de la comunidad"
+    },
+    "picker": {
+      "placeholder": "Buscar nodos…",
+      "noResults": "Sin resultados",
+      "triggers": "Triggers",
+      "jobs": "Jobs",
+      "prefabs": "Prefabs",
+      "escapeHatch": "Escape hatch",
+      "community": "Comunidad",
+      "searchMarketplace": "Buscar en el marketplace…",
+      "marketplaceHint": "Más de 20k actions de la comunidad"
+    },
+    "sidebar": {
+      "workflows": "Workflows",
+      "newWorkflow": "Nuevo",
+      "loading": "Cargando…",
+      "noWorkflows": "Todavía no hay workflows — creá uno para empezar.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "Estudio de pipelines de CI",
+      "compileErrors_one": "{{count}} error de compilación",
+      "compileErrors_other": "{{count}} errores de compilación",
+      "drifted": "El YAML cambió fuera del estudio",
+      "imported": "Importado — al guardar se normaliza el archivo",
+      "dirty": "Cambios sin guardar",
+      "inSync": "Sincronizado",
+      "viewYaml": "Ver YAML",
+      "save": "Guardar",
+      "compilePr": "Compilar → PR"
+    },
+    "canvas": {
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "fitView": "Ajustar vista",
+      "hint": "Tab agregar nodo · clic derecho menú"
+    },
+    "contextMenu": {
+      "addNode": "Agregar nodo…",
+      "searchMarketplace": "Buscar en el marketplace…",
+      "autoLayout": "Auto-layout",
+      "fitView": "Ajustar vista",
+      "viewYaml": "Ver YAML compilado",
+      "deleteNode": "Eliminar nodo"
+    },
+    "inspector": {
+      "workflowSection": "Workflow",
+      "workflowName": "Nombre del workflow",
+      "emptyHint": "Seleccioná un nodo para editarlo. El YAML se compila desde este grafo — el orden de los jobs y los needs salen siempre del canvas.",
+      "triggerSection": "Trigger · {{kind}}",
+      "branches": "Branches (separadas por coma)",
+      "pathsIgnore": "Paths a ignorar (separados por coma)",
+      "cron": "Cron",
+      "manualHint": "Se dispara manualmente desde la pestaña Actions.",
+      "jobSection": "Job",
+      "jobId": "Id del job",
+      "label": "Etiqueta",
+      "executionSection": "Ejecución",
+      "runsOn": "runs-on",
+      "needs": "needs · derivado de las aristas",
+      "needsNone": "Sin dependencias",
+      "needsHint": "Las conexiones definen needs — pisan cualquier needs escrito en YAML crudo.",
+      "prefabSection": "Prefab · {{name}}",
+      "actionSection": "Action del marketplace",
+      "uses": "uses",
+      "checkout": "Hacer checkout del repo primero",
+      "with": "Inputs (with)",
+      "inputKey": "clave",
+      "inputValue": "valor",
+      "addInput": "+ Agregar input",
+      "removeInput": "Quitar input",
+      "rawJobSection": "YAML del job",
+      "rawFileSection": "Workflow importado (archivo completo)",
+      "rawFileHint": "Este workflow se escribió fuera del estudio; se edita y commitea tal cual.",
+      "deleteNode": "Eliminar nodo",
+      "stepsSection": "Steps ({{count}})",
+      "stepName": "nombre del step (opcional)",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "removeStep": "Quitar step",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ step run",
+      "addUsesStep": "+ step uses",
+      "jobEnvSection": "Env del job"
+    },
+    "marketplace": {
+      "placeholder": "Buscar en el GitHub Actions Marketplace…",
+      "useCustom": "Usar \"{{uses}}\"",
+      "useCustomHint": "Insertá cualquier action con owner/repo@ref",
+      "noResults": "Sin resultados — escribí owner/repo@ref para insertar cualquier action",
+      "footerCount": "Lista curada · la búsqueda en vivo llega pronto"
+    },
+    "compilePr": {
+      "title": "Compilar → Pull Request",
+      "branch": "Branch",
+      "base": "Branch base",
+      "prTitle": "Título del PR",
+      "filesNote_one": "Se commitea {{count}} archivo en una branch nueva — tu working tree no se toca.",
+      "filesNote_other": "Se commitean {{count}} archivos en una branch nueva — tu working tree no se toca.",
+      "create": "Crear PR",
+      "success": "PR creado en la branch {{branch}}.",
+      "openPr": "Abrir PR",
+      "close": "Cerrar"
+    },
+    "yamlPreview": {
+      "title": "YAML compilado · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "Nuevo workflow",
+      "name": "Nombre (archivo: .github/workflows/<nombre>.yml)",
+      "create": "Crear"
+    },
+    "empty": {
+      "selectWorkflow": "Elegí un workflow en la barra lateral o creá uno nuevo para empezar a dibujar tu pipeline.",
+      "noRepo": "Agregá un repositorio para diseñar acá su CI."
+    },
+    "steps": {
+      "count": "{{count}} steps",
+      "hint": "Tab insertar step · arrastrar reordena · Esc volver",
+      "addStep": "Agregar step",
+      "insertHere": "Insertar step acá",
+      "emptyHint": "Seleccioná un step de la cadena para editarlo. La cadena define el orden de ejecución.",
+      "stepSection": "Step {{position}} de {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "Env del step",
+      "deleteStep": "Eliminar step \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "Agregar un step…",
+      "steps": "Steps",
+      "runStep": "Step run",
+      "runStepHint": "comando de shell",
+      "usesStep": "Step uses",
+      "usesStepHint": "action por owner/repo@ref",
+      "checkout": "Checkout",
+      "marketplaceHint": "insertar una action como step"
     }
   },
   "sprint": {

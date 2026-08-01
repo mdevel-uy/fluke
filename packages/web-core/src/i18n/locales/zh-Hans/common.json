@@ -603,6 +603,7 @@
     "workers": "工作者",
     "sprint": "看板",
     "analystDesk": "分析师工作台",
+    "ciPipelines": "CI 流水线",
     "collapseSidebar": "折叠侧边栏",
     "expandSidebar": "展开侧边栏",
     "settings": "设置",
@@ -977,6 +978,152 @@
       "errorLabel": "上传失败",
       "uploadError": "无法上传 '{{name}}'：{{message}}",
       "tooLarge": "文件超过允许的最大大小。"
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "触发器",
+      "jobs": "作业",
+      "prefabs": "预制块",
+      "escapeHatch": "逃生舱",
+      "community": "社区 · 市场",
+      "searchMarketplace": "搜索市场…",
+      "marketplaceHint": "2 万+ 社区 Action"
+    },
+    "picker": {
+      "placeholder": "搜索节点…",
+      "noResults": "无结果",
+      "triggers": "触发器",
+      "jobs": "作业",
+      "prefabs": "预制块",
+      "escapeHatch": "逃生舱",
+      "community": "社区",
+      "searchMarketplace": "搜索市场…",
+      "marketplaceHint": "2 万+ 社区 Action"
+    },
+    "sidebar": {
+      "workflows": "工作流",
+      "newWorkflow": "新建",
+      "loading": "加载中…",
+      "noWorkflows": "还没有工作流 — 创建一个开始吧。",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CI 流水线工作室",
+      "compileErrors_other": "{{count}} 个编译错误",
+      "drifted": "YAML 在工作室之外被修改",
+      "imported": "已导入 — 保存时将规范化文件",
+      "dirty": "未保存的更改",
+      "inSync": "已同步",
+      "viewYaml": "查看 YAML",
+      "save": "保存",
+      "compilePr": "编译 → PR"
+    },
+    "canvas": {
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "fitView": "适应视图",
+      "hint": "Tab 添加节点 · 右键菜单"
+    },
+    "contextMenu": {
+      "addNode": "添加节点…",
+      "searchMarketplace": "搜索市场…",
+      "autoLayout": "自动布局",
+      "fitView": "适应视图",
+      "viewYaml": "查看编译后的 YAML",
+      "deleteNode": "删除节点"
+    },
+    "inspector": {
+      "workflowSection": "工作流",
+      "workflowName": "工作流名称",
+      "emptyHint": "选择一个节点进行编辑。YAML 由此图编译而来 — 作业顺序和 needs 始终来自画布。",
+      "triggerSection": "触发器 · {{kind}}",
+      "branches": "分支（逗号分隔）",
+      "pathsIgnore": "忽略路径（逗号分隔）",
+      "cron": "Cron",
+      "manualHint": "从 Actions 标签页手动触发。",
+      "jobSection": "作业",
+      "jobId": "作业 ID",
+      "label": "标签",
+      "executionSection": "执行",
+      "runsOn": "runs-on",
+      "needs": "needs · 由连线派生",
+      "needsNone": "无依赖",
+      "needsHint": "连线定义 needs — 会覆盖原始 YAML 中写的 needs。",
+      "prefabSection": "预制块 · {{name}}",
+      "actionSection": "市场 Action",
+      "uses": "uses",
+      "checkout": "先检出仓库",
+      "with": "输入（with）",
+      "inputKey": "键",
+      "inputValue": "值",
+      "addInput": "+ 添加输入",
+      "removeInput": "移除输入",
+      "rawJobSection": "作业 YAML",
+      "rawFileSection": "导入的工作流（整个文件）",
+      "rawFileHint": "此工作流在工作室之外编写，按原样编辑和提交。",
+      "deleteNode": "删除节点",
+      "stepsSection": "步骤（{{count}}）",
+      "stepName": "步骤名称（可选）",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "removeStep": "移除步骤",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ run 步骤",
+      "addUsesStep": "+ uses 步骤",
+      "jobEnvSection": "作业 env"
+    },
+    "marketplace": {
+      "placeholder": "搜索 GitHub Actions Marketplace…",
+      "useCustom": "使用 \"{{uses}}\"",
+      "useCustomHint": "通过 owner/repo@ref 插入任意 Action",
+      "noResults": "无结果 — 输入 owner/repo@ref 可插入任意 Action",
+      "footerCount": "精选列表 · 实时搜索即将推出"
+    },
+    "compilePr": {
+      "title": "编译 → Pull Request",
+      "branch": "分支",
+      "base": "基础分支",
+      "prTitle": "PR 标题",
+      "filesNote_other": "{{count}} 个文件将提交到新分支 — 不会触碰你的工作树。",
+      "create": "创建 PR",
+      "success": "已在分支 {{branch}} 上创建 PR。",
+      "openPr": "打开 PR",
+      "close": "关闭"
+    },
+    "yamlPreview": {
+      "title": "编译后的 YAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "新建工作流",
+      "name": "名称（文件：.github/workflows/<name>.yml）",
+      "create": "创建"
+    },
+    "empty": {
+      "selectWorkflow": "从侧边栏选择一个工作流，或新建一个开始绘制流水线。",
+      "noRepo": "添加一个仓库以在此设计它的 CI。"
+    },
+    "steps": {
+      "count": "{{count}} 个步骤",
+      "hint": "Tab 插入 · 拖动重排 · Esc 返回",
+      "addStep": "添加步骤",
+      "insertHere": "在此插入步骤",
+      "emptyHint": "在链上选择一个步骤进行编辑。链定义执行顺序。",
+      "stepSection": "步骤 {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "步骤 env",
+      "deleteStep": "删除步骤 \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "添加步骤…",
+      "steps": "步骤",
+      "runStep": "run 步骤",
+      "runStepHint": "Shell 命令",
+      "usesStep": "uses 步骤",
+      "usesStepHint": "通过 owner/repo@ref 的 Action",
+      "checkout": "Checkout",
+      "marketplaceHint": "将 Action 作为步骤插入"
     }
   },
   "sprint": {

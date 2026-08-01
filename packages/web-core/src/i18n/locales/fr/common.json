@@ -603,6 +603,7 @@
     "workers": "Workers",
     "sprint": "Kanban",
     "analystDesk": "Bureau des analystes",
+    "ciPipelines": "Pipelines CI",
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Étendre la barre latérale",
     "settings": "Paramètres",
@@ -977,6 +978,154 @@
       "errorLabel": "Échec de l'envoi",
       "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
       "tooLarge": "Le fichier dépasse la taille maximale autorisée."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "Déclencheurs",
+      "jobs": "Jobs",
+      "prefabs": "Préfabriqués",
+      "escapeHatch": "Échappatoire",
+      "community": "Communauté · Marketplace",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "marketplaceHint": "Plus de 20k actions communautaires"
+    },
+    "picker": {
+      "placeholder": "Rechercher des nœuds…",
+      "noResults": "Aucun résultat",
+      "triggers": "Déclencheurs",
+      "jobs": "Jobs",
+      "prefabs": "Préfabriqués",
+      "escapeHatch": "Échappatoire",
+      "community": "Communauté",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "marketplaceHint": "Plus de 20k actions communautaires"
+    },
+    "sidebar": {
+      "workflows": "Workflows",
+      "newWorkflow": "Nouveau",
+      "loading": "Chargement…",
+      "noWorkflows": "Aucun workflow — créez-en un pour commencer.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "Studio de pipelines CI",
+      "compileErrors_one": "{{count}} erreur de compilation",
+      "compileErrors_other": "{{count}} erreurs de compilation",
+      "drifted": "Le YAML a changé hors du studio",
+      "imported": "Importé — l’enregistrement normalise le fichier",
+      "dirty": "Modifications non enregistrées",
+      "inSync": "Synchronisé",
+      "viewYaml": "Voir le YAML",
+      "save": "Enregistrer",
+      "compilePr": "Compiler → PR"
+    },
+    "canvas": {
+      "zoomIn": "Zoomer",
+      "zoomOut": "Dézoomer",
+      "fitView": "Ajuster la vue",
+      "hint": "Tab ajouter un nœud · clic droit menu"
+    },
+    "contextMenu": {
+      "addNode": "Ajouter un nœud…",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "autoLayout": "Disposition auto",
+      "fitView": "Ajuster la vue",
+      "viewYaml": "Voir le YAML compilé",
+      "deleteNode": "Supprimer le nœud"
+    },
+    "inspector": {
+      "workflowSection": "Workflow",
+      "workflowName": "Nom du workflow",
+      "emptyHint": "Sélectionnez un nœud pour le modifier. Le YAML est compilé depuis ce graphe — l’ordre des jobs et les needs viennent toujours du canvas.",
+      "triggerSection": "Déclencheur · {{kind}}",
+      "branches": "Branches (séparées par des virgules)",
+      "pathsIgnore": "Chemins à ignorer (séparés par des virgules)",
+      "cron": "Cron",
+      "manualHint": "Déclenché manuellement depuis l’onglet Actions.",
+      "jobSection": "Job",
+      "jobId": "Id du job",
+      "label": "Libellé",
+      "executionSection": "Exécution",
+      "runsOn": "runs-on",
+      "needs": "needs · dérivé des liens",
+      "needsNone": "Aucune dépendance",
+      "needsHint": "Les connexions définissent needs — elles remplacent tout needs écrit en YAML brut.",
+      "prefabSection": "Préfabriqué · {{name}}",
+      "actionSection": "Action du marketplace",
+      "uses": "uses",
+      "checkout": "Checkout du dépôt d’abord",
+      "with": "Entrées (with)",
+      "inputKey": "clé",
+      "inputValue": "valeur",
+      "addInput": "+ Ajouter une entrée",
+      "removeInput": "Supprimer l’entrée",
+      "rawJobSection": "YAML du job",
+      "rawFileSection": "Workflow importé (fichier entier)",
+      "rawFileHint": "Ce workflow a été écrit hors du studio ; il est modifié et commité tel quel.",
+      "deleteNode": "Supprimer le nœud",
+      "stepsSection": "Étapes ({{count}})",
+      "stepName": "nom de l’étape (optionnel)",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "removeStep": "Supprimer l’étape",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ étape run",
+      "addUsesStep": "+ étape uses",
+      "jobEnvSection": "Env du job"
+    },
+    "marketplace": {
+      "placeholder": "Rechercher sur le GitHub Actions Marketplace…",
+      "useCustom": "Utiliser \"{{uses}}\"",
+      "useCustomHint": "Insérez n’importe quelle action via owner/repo@ref",
+      "noResults": "Aucun résultat — tapez owner/repo@ref pour insérer une action",
+      "footerCount": "Sélection organisée · recherche en direct à venir"
+    },
+    "compilePr": {
+      "title": "Compiler → Pull Request",
+      "branch": "Branche",
+      "base": "Branche de base",
+      "prTitle": "Titre de la PR",
+      "filesNote_one": "{{count}} fichier sera commité sur une nouvelle branche — votre arbre de travail n’est pas touché.",
+      "filesNote_other": "{{count}} fichiers seront commités sur une nouvelle branche — votre arbre de travail n’est pas touché.",
+      "create": "Créer la PR",
+      "success": "PR créée sur la branche {{branch}}.",
+      "openPr": "Ouvrir la PR",
+      "close": "Fermer"
+    },
+    "yamlPreview": {
+      "title": "YAML compilé · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "Nouveau workflow",
+      "name": "Nom (fichier : .github/workflows/<nom>.yml)",
+      "create": "Créer"
+    },
+    "empty": {
+      "selectWorkflow": "Sélectionnez un workflow dans la barre latérale ou créez-en un pour dessiner votre pipeline.",
+      "noRepo": "Ajoutez un dépôt pour concevoir son CI ici."
+    },
+    "steps": {
+      "count": "{{count}} étapes",
+      "hint": "Tab insérer · glisser réordonne · Esc retour",
+      "addStep": "Ajouter une étape",
+      "insertHere": "Insérer une étape ici",
+      "emptyHint": "Sélectionnez une étape de la chaîne pour la modifier. La chaîne définit l’ordre d’exécution.",
+      "stepSection": "Étape {{position}} sur {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "Env de l’étape",
+      "deleteStep": "Supprimer l’étape \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "Ajouter une étape…",
+      "steps": "Étapes",
+      "runStep": "Étape run",
+      "runStepHint": "commande shell",
+      "usesStep": "Étape uses",
+      "usesStepHint": "action via owner/repo@ref",
+      "checkout": "Checkout",
+      "marketplaceHint": "insérer une action comme étape"
     }
   },
   "sprint": {

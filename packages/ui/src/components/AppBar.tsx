@@ -14,6 +14,7 @@ import {
   Search,
   Settings as SettingsIcon,
   Users,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ interface AppBarProps {
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
   onAnalystDeskClick?: () => void;
+  onCiPipelinesClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showEditorButton?: boolean;
@@ -51,6 +53,7 @@ interface AppBarProps {
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showAnalystDeskButton?: boolean;
+  showCiPipelinesButton?: boolean;
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
   isSearchActive?: boolean;
@@ -62,6 +65,7 @@ interface AppBarProps {
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
   isAnalystDeskActive?: boolean;
+  isCiPipelinesActive?: boolean;
   isExportActive?: boolean;
   isSignedIn?: boolean;
   onHoverStart?: () => void;
@@ -170,6 +174,7 @@ export function AppBar({
   onIssuesClick,
   onWorkersClick,
   onAnalystDeskClick,
+  onCiPipelinesClick,
   onHostClick,
   showWorkspacesButton = true,
   showEditorButton = true,
@@ -180,6 +185,7 @@ export function AppBar({
   showIssuesButton = true,
   showWorkersButton = true,
   showAnalystDeskButton = true,
+  showCiPipelinesButton = true,
   isWorkspacesActive,
   isEditorActive = false,
   isSearchActive = false,
@@ -190,6 +196,7 @@ export function AppBar({
   isIssuesActive = false,
   isWorkersActive = false,
   isAnalystDeskActive = false,
+  isCiPipelinesActive = false,
   isExportActive = false,
   isSignedIn,
   onHoverStart,
@@ -209,7 +216,8 @@ export function AppBar({
     showSprintButton ||
     showIssuesButton ||
     showWorkersButton ||
-    showAnalystDeskButton
+    showAnalystDeskButton ||
+    showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
     if (showDashboardButton && onDashboardClick) {
@@ -293,6 +301,16 @@ export function AppBar({
         lucideIcon: Headphones,
         isActive: isAnalystDeskActive,
         onClick: onAnalystDeskClick,
+      });
+    }
+    if (showCiPipelinesButton && onCiPipelinesClick) {
+      localItems.push({
+        key: 'local-ci-pipelines',
+        kind: 'icon-button',
+        label: t('appBar.ciPipelines', { defaultValue: 'CI Pipelines' }),
+        lucideIcon: Workflow,
+        isActive: isCiPipelinesActive,
+        onClick: onCiPipelinesClick,
       });
     }
     if (localItems.length > 0) {

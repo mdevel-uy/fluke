@@ -58,6 +58,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
+    "@xyflow/react": "^12.8.3",
     "class-variance-authority": "^0.7.0",
     "click-to-react-component": "^1.1.2",
     "clsx": "^2.0.0",
@@ -94,11 +95,13 @@
     "tailwind-scrollbar": "^3.1.0",
     "tailwindcss-animate": "^1.0.7",
     "wa-sqlite": "^1.0.0",
+    "yaml": "^2.8.0",
     "zod": "^3.25.76",
     "zustand": "^4.5.4"
   },
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
@@ -130,6 +133,7 @@
     "prettier": "^3.6.1",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.9.2",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.4"
   }
 }

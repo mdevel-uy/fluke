@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Zap,
   ClipboardList,
+  Workflow,
 } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -35,6 +36,7 @@ import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
   getProjectDestination,
   isAnalystDeskDestination,
+  isCiPipelinesDestination,
   isDashboardDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
@@ -179,6 +181,7 @@ export function SharedAppLayout() {
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
+  const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
   const activeProjectId = projectDestination?.projectId ?? null;
 
   // Persist last selected project to scratch store
@@ -260,6 +263,11 @@ export function SharedAppLayout() {
     else appNavigation.goToAnalystDesk();
   }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
+  const handleCiPipelinesClick = useCallback(() => {
+    if (isCiPipelinesActive) toggleLeftSidebar();
+    else appNavigation.goToCiPipelines();
+  }, [isCiPipelinesActive, toggleLeftSidebar, appNavigation]);
+
   // Editor rail item: switches the workspaces-section sidebar to the file
   // explorer and surfaces the editor tab of the selected workspace.
   const currentWorkspaceId =
@@ -330,7 +338,8 @@ export function SharedAppLayout() {
     isIssuesActive ||
     isWorkersActive ||
     isDashboardActive ||
-    isAnalystDeskActive;
+    isAnalystDeskActive ||
+    isCiPipelinesActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   // The horizontal split is intentionally NOT persisted: stored proportions
   // re-applied after aside/terminal remounts made the sidebar grow on its
@@ -399,6 +408,7 @@ export function SharedAppLayout() {
                   onIssuesClick={handleIssuesClick}
                   onWorkersClick={handleWorkersClick}
                   onAnalystDeskClick={handleAnalystDeskClick}
+                  onCiPipelinesClick={handleCiPipelinesClick}
                   isWorkspacesActive={
                     isWorkspacesActive && workspacesSidebarMode === 'workspaces'
                   }
@@ -411,6 +421,7 @@ export function SharedAppLayout() {
                   isIssuesActive={isIssuesActive}
                   isWorkersActive={isWorkersActive}
                   isAnalystDeskActive={isAnalystDeskActive}
+                  isCiPipelinesActive={isCiPipelinesActive}
                   updateVersion={updateVersion}
                   onUpdateClick={restartForUpdate ?? undefined}
                   onOpenSettings={() => SettingsDialog.show()}
@@ -596,6 +607,18 @@ export function SharedAppLayout() {
                 >
                   <ClipboardList className="h-4 w-4" strokeWidth={2} />
                   {t('appBar.analystDesk')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCiPipelinesClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Workflow className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.ciPipelines')}
                 </button>
 
                 <button

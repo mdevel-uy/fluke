@@ -8,6 +8,8 @@ import {
   ResetProcessRequest,
   EditorType,
   CreatePrApiRequest,
+  CreateCiPipelinePrRequest,
+  CreateCiPipelinePrResponse,
   CreateTag,
   DirectoryListResponse,
   DirectoryEntry,
@@ -1018,6 +1020,20 @@ export const fileSystemApi = {
       `/api/filesystem/git-repos${queryParam}`
     );
     return handleApiResponse<DirectoryEntry[]>(response);
+  },
+};
+
+// CI Pipeline Studio APIs
+export const ciStudioApi = {
+  /** Commit compiled workflow files to a fresh branch and open a PR. */
+  compilePr: async (
+    request: CreateCiPipelinePrRequest
+  ): Promise<CreateCiPipelinePrResponse> => {
+    const response = await makeRequest('/api/ci-studio/compile-pr', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return handleApiResponse<CreateCiPipelinePrResponse>(response);
   },
 };
 

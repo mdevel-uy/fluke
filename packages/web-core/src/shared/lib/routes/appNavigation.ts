@@ -11,6 +11,7 @@ export type AppDestination =
   | { kind: 'issues'; repoId?: string }
   | { kind: 'workers' }
   | { kind: 'analyst-desk' }
+  | { kind: 'ci-pipelines' }
   | { kind: 'sprint'; repoId?: string }
   | { kind: 'project'; projectId: string }
   | {
@@ -54,6 +55,7 @@ export interface AppNavigation {
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
   goToWorkers(transition?: NavigationTransition): void;
   goToAnalystDesk(transition?: NavigationTransition): void;
+  goToCiPipelines(transition?: NavigationTransition): void;
   goToSprint(repoId?: string, transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
   goToProjectIssue(
@@ -81,10 +83,7 @@ type ProjectDestinationKind =
   | 'project-issue-workspace'
   | 'project-issue-workspace-create';
 
-type WorkspaceDestinationKind =
-  | 'workspaces'
-  | 'workspace'
-  | 'workspace-vscode';
+type WorkspaceDestinationKind = 'workspaces' | 'workspace' | 'workspace-vscode';
 
 export type ProjectDestination = Extract<
   AppDestination,
@@ -212,6 +211,12 @@ export function isAnalystDeskDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'analyst-desk' }> {
   return destination?.kind === 'analyst-desk';
+}
+
+export function isCiPipelinesDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'ci-pipelines' }> {
+  return destination?.kind === 'ci-pipelines';
 }
 
 export function isSprintDestination(
