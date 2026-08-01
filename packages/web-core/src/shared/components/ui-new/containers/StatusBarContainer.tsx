@@ -34,6 +34,7 @@ import { useHostId } from '@/shared/providers/HostIdProvider';
 import { useRemoteCloudHostsState } from '@/shared/hooks/useRemoteCloudHosts';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
@@ -69,6 +70,23 @@ export function StatusBarContainer({
   const setSelectedRepoId = useSelectedRepoStore((s) => s.setSelectedRepoId);
   const { data: remoteHostsState } = useRemoteCloudHostsState();
   const remoteHosts = remoteHostsState?.hosts ?? [];
+  const destinationKind = useCurrentAppDestination()?.kind ?? null;
+
+  // Sprint and Issues mirror the repo into the URL (`?repo=`) and derive the
+  // active repo from there — updating just the store leaves those views on
+  // the old repo until the next mount. Mirror the change into the URL so the
+  // kanban / issues list refetches immediately.
+  const handleSelectRepo = useCallback(
+    (repoId: string) => {
+      setSelectedRepoId(repoId);
+      if (destinationKind === 'sprint') {
+        appNavigation.goToSprint(repoId);
+      } else if (destinationKind === 'issues') {
+        appNavigation.goToIssues(repoId);
+      }
+    },
+    [setSelectedRepoId, destinationKind, appNavigation]
+  );
 
   const activeRepo = useMemo(
     () => repos.find((r) => r.id === selectedRepoId) ?? repos[0] ?? null,
@@ -88,7 +106,10 @@ export function StatusBarContainer({
 
   const handleSwitchToHost = useCallback(
     (id: string) => {
-      void navigate({ to: '/hosts/$hostId/workspaces', params: { hostId: id } });
+      void navigate({
+        to: '/hosts/$hostId/workspaces',
+        params: { hostId: id },
+      });
     },
     [navigate]
   );
@@ -159,7 +180,7 @@ export function StatusBarContainer({
           {repos.map((repo) => (
             <DropdownMenuItem
               key={repo.id}
-              onSelect={() => setSelectedRepoId(repo.id)}
+              onSelect={() => handleSelectRepo(repo.id)}
             >
               <span className="w-4 flex-none text-brand-on-surface">
                 {repo.id === activeRepo?.id && (
@@ -216,7 +237,9 @@ export function StatusBarContainer({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => void SettingsDialog.show({ initialSection: 'repos' })}
+            onSelect={() =>
+              void SettingsDialog.show({ initialSection: 'repos' })
+            }
           >
             <span className="w-4 flex-none" />
             <Plus size={14} strokeWidth={1.75} />
@@ -225,7 +248,9 @@ export function StatusBarContainer({
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => void SettingsDialog.show({ initialSection: 'relay' })}
+            onSelect={() =>
+              void SettingsDialog.show({ initialSection: 'relay' })
+            }
           >
             <span className="w-4 flex-none" />
             <HardDrive size={14} strokeWidth={1.75} />

@@ -8,12 +8,19 @@
 //!
 //! Authentication flow:
 //! - `GET  /api/github/status` — reports whether the user is authenticated
-//!   and the state of any in-flight login attempt.
+//!   and the state of any in-flight login attempt. Includes `has_pat` and
+//!   `auth_method` so the UI can distinguish PAT-backed sessions from the
+//!   `gh` CLI flow.
 //! - `POST /api/github/login` — starts (or resumes) a device flow login and
 //!   returns the one-time code plus verification URL for display. Progress
 //!   can be polled from the status endpoint.
-//! - `POST /api/github/logout` — clears stored credentials and logs the
-//!   `gh` CLI out of github.com.
+//! - `POST /api/github/login/pat` — alternative login for hosts without
+//!   `gh`: validates a Personal Access Token against `/user` and stores it
+//!   in the app config. The token is never returned by any endpoint.
+//! - `DELETE /api/github/pat` — clears the stored PAT while leaving the
+//!   device-flow oauth token untouched.
+//! - `POST /api/github/logout` — clears stored device-flow credentials and
+//!   logs the `gh` CLI out of github.com.
 //!
 //! Repository management:
 //! - `GET  /api/github/repos` — lists the authenticated user's repos plus
@@ -34,7 +41,7 @@ use axum::{
     extract::State,
     http::StatusCode,
     response::Json as ResponseJson,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use chrono::{DateTime, Utc};
 use deployment::Deployment;
@@ -59,6 +66,8 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/github/status", get(get_status))
         .route("/github/login", post(post_login))
+        .route("/github/login/pat", post(post_login_pat))
+        .route("/github/pat", delete(delete_pat))
         .route("/github/logout", post(post_logout))
         .route("/github/cli/install", post(install_gh_cli))
         .route("/github/repos", get(list_github_repos))
@@ -113,6 +122,17 @@ pub struct GithubLoginProgress {
     pub error: Option<String>,
 }
 
+/// How the user is currently authenticated with GitHub.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum GithubAuthMethod {
+    /// Authenticated via a Personal Access Token stored in the app config.
+    Pat,
+    /// Authenticated via the local `gh` CLI (device flow or `gh auth login`).
+    GhCli,
+}
+
 /// Response body for `GET /api/github/status`.
 #[derive(Debug, Serialize, Deserialize, TS)]
 pub struct GithubStatusResponse {
@@ -121,6 +141,12 @@ pub struct GithubStatusResponse {
     /// Whether the `gh` binary was found on PATH. Login works without it,
     /// but PRs, issue sync and reviews still require it.
     pub cli_available: bool,
+    /// Whether a Personal Access Token is stored in the app config. The
+    /// token value itself is never returned.
+    pub has_pat: bool,
+    /// Which credential the current authenticated session is using, or
+    /// `None` if the user is not authenticated.
+    pub auth_method: Option<GithubAuthMethod>,
     pub login: Option<GithubLoginProgress>,
 }
 
@@ -129,6 +155,18 @@ pub struct GithubStatusResponse {
 pub struct GithubLoginResponse {
     pub user_code: String,
     pub verification_uri: String,
+}
+
+/// Body for `POST /api/github/login/pat`.
+#[derive(Debug, Deserialize, TS)]
+pub struct GithubPatLoginRequest {
+    pub pat: String,
+}
+
+/// Response body for `POST /api/github/login/pat`.
+#[derive(Debug, Serialize, Deserialize, TS)]
+pub struct GithubPatLoginResponse {
+    pub username: String,
 }
 
 #[derive(Debug, Default)]
@@ -149,20 +187,51 @@ async fn get_status(
     State(deployment): State<DeploymentImpl>,
 ) -> Result<ResponseJson<ApiResponse<GithubStatusResponse>>, ApiError> {
     let cli_available = resolve_executable_path("gh").await.is_some();
-    let (mut authenticated, mut username) = if cli_available {
-        gh_auth_status().await
-    } else {
-        (false, None)
-    };
+    let github = deployment.config().read().await.github.clone();
+    let has_pat = github.pat.as_deref().is_some_and(|s| !s.trim().is_empty());
+
+    let mut authenticated = false;
+    let mut username: Option<String> = None;
+    let mut auth_method: Option<GithubAuthMethod> = None;
+
+    // PAT takes precedence when configured: the user explicitly set it in
+    // the UI, so we honour it even if `gh` is also authenticated with a
+    // different identity. Revocation/expiry is detected here by probing
+    // /user; on 401/403 we report unauthenticated so the UI can prompt the
+    // user to reconnect.
+    if let Some(pat) = github.pat.as_deref() {
+        match fetch_username(pat).await {
+            Some(name) => {
+                authenticated = true;
+                username = Some(name);
+                auth_method = Some(GithubAuthMethod::Pat);
+            }
+            None => {
+                tracing::warn!(
+                    "stored GitHub PAT was rejected by /user; reporting unauthenticated"
+                );
+            }
+        }
+    }
+
+    if !authenticated && cli_available {
+        let (gh_auth, gh_user) = gh_auth_status().await;
+        if gh_auth {
+            authenticated = true;
+            username = gh_user;
+            auth_method = Some(GithubAuthMethod::GhCli);
+        }
+    }
 
     // Fall back to the token stored by the device flow (covers hosts where
     // `gh` is not installed or not yet configured).
-    if !authenticated {
-        let github = deployment.config().read().await.github.clone();
-        if github.token().is_some() {
-            authenticated = true;
-            username = github.username.clone();
-        }
+    if !authenticated
+        && let Some(token) = github.oauth_token.as_deref()
+        && let Some(name) = fetch_username(token).await
+    {
+        authenticated = true;
+        username = Some(name);
+        auth_method = Some(GithubAuthMethod::GhCli);
     }
 
     let login = flow_state().lock().await.progress.clone();
@@ -170,6 +239,8 @@ async fn get_status(
         authenticated,
         username,
         cli_available,
+        has_pat,
+        auth_method,
         login,
     })))
 }
@@ -264,11 +335,88 @@ async fn post_logout(
         }
     }
 
-    persist_github_config(&deployment, None, None)
+    persist_github_config(&deployment, GithubConfigUpdate::clear_oauth())
         .await
         .map_err(|e| ApiError::BadGateway(format!("Failed to update config: {e}")))?;
 
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// Validates a Personal Access Token against the GitHub API and, on
+/// success, persists it to `config.github.pat`. The token value is never
+/// echoed back — only the resolved username is returned.
+async fn post_login_pat(
+    State(deployment): State<DeploymentImpl>,
+    ResponseJson(payload): ResponseJson<GithubPatLoginRequest>,
+) -> Result<ResponseJson<ApiResponse<GithubPatLoginResponse>>, ApiError> {
+    let pat = payload.pat.trim().to_string();
+    if pat.is_empty() {
+        return Err(ApiError::BadRequest("pat is required".to_string()));
+    }
+
+    let username = match validate_pat(&pat).await {
+        Ok(name) => name,
+        Err(msg) => return Err(ApiError::BadRequest(msg)),
+    };
+
+    persist_github_config(
+        &deployment,
+        GithubConfigUpdate::set_pat(pat.clone(), Some(username.clone())),
+    )
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("Failed to update config: {e}")))?;
+
+    Ok(ResponseJson(ApiResponse::success(GithubPatLoginResponse {
+        username,
+    })))
+}
+
+/// Clears any stored PAT from `config.github.pat`. Leaves the device-flow
+/// `oauth_token` untouched so users who authenticated via both methods keep
+/// their gh-CLI session.
+async fn delete_pat(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    persist_github_config(&deployment, GithubConfigUpdate::clear_pat())
+        .await
+        .map_err(|e| ApiError::BadGateway(format!("Failed to update config: {e}")))?;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// Validates a candidate PAT by calling `GET /user`. Returns the login on
+/// success, a descriptive error message on failure (401/403 → invalid or
+/// missing scopes; network errors → underlying reason).
+async fn validate_pat(pat: &str) -> Result<String, String> {
+    let client = http_client()?;
+    let resp = client
+        .get(GITHUB_USER_URL)
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(pat)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to reach GitHub: {e}"))?;
+
+    let status = resp.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED
+        || status == reqwest::StatusCode::FORBIDDEN
+    {
+        return Err(
+            "Token inválido o sin los scopes necesarios (repo, read:org, workflow)."
+                .to_string(),
+        );
+    }
+    if !status.is_success() {
+        return Err(format!("GitHub /user returned status {status}"));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse GitHub /user response: {e}"))?;
+    body.get("login")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "GitHub /user response did not include a login".to_string())
 }
 
 #[derive(Debug, Deserialize)]
@@ -413,7 +561,12 @@ async fn complete_login(
 ) {
     let username = fetch_username(token).await;
 
-    if let Err(e) = persist_github_config(deployment, Some(token.to_string()), username).await {
+    if let Err(e) = persist_github_config(
+        deployment,
+        GithubConfigUpdate::set_oauth(Some(token.to_string()), username),
+    )
+    .await
+    {
         tracing::warn!(%e, "failed to persist GitHub credentials to config");
     }
 
@@ -445,15 +598,70 @@ async fn fetch_username(token: &str) -> Option<String> {
     body.get("login")?.as_str().map(|s| s.to_string())
 }
 
+/// Selective update of `config.github`. Fields left as `None` are not
+/// touched; wrapping the value in `Some(...)` (including `Some(None)`
+/// through the constructors below) explicitly overwrites the stored value.
+#[derive(Debug)]
+struct GithubConfigUpdate {
+    pat: Option<Option<String>>,
+    oauth_token: Option<Option<String>>,
+    username: Option<Option<String>>,
+}
+
+impl GithubConfigUpdate {
+    /// Store a validated PAT and its resolved username. Leaves the
+    /// device-flow oauth token untouched so users authenticated via both
+    /// methods keep both credentials.
+    fn set_pat(pat: String, username: Option<String>) -> Self {
+        Self {
+            pat: Some(Some(pat)),
+            oauth_token: None,
+            username: Some(username),
+        }
+    }
+
+    fn clear_pat() -> Self {
+        Self {
+            pat: Some(None),
+            oauth_token: None,
+            // Clear the cached username too so the UI reverts to whatever
+            // `gh` (if any) reports.
+            username: Some(None),
+        }
+    }
+
+    fn set_oauth(oauth_token: Option<String>, username: Option<String>) -> Self {
+        Self {
+            pat: None,
+            oauth_token: Some(oauth_token),
+            username: Some(username),
+        }
+    }
+
+    fn clear_oauth() -> Self {
+        Self {
+            pat: None,
+            oauth_token: Some(None),
+            username: Some(None),
+        }
+    }
+}
+
 async fn persist_github_config(
     deployment: &DeploymentImpl,
-    oauth_token: Option<String>,
-    username: Option<String>,
+    update: GithubConfigUpdate,
 ) -> Result<(), String> {
     let snapshot = {
         let mut config = deployment.config().write().await;
-        config.github.oauth_token = oauth_token;
-        config.github.username = username;
+        if let Some(pat) = update.pat {
+            config.github.pat = pat;
+        }
+        if let Some(oauth_token) = update.oauth_token {
+            config.github.oauth_token = oauth_token;
+        }
+        if let Some(username) = update.username {
+            config.github.username = username;
+        }
         config.clone()
     };
     save_config_to_file(&snapshot, &config_path())
@@ -804,15 +1012,17 @@ struct GhRepoListItem {
 const REPO_LIST_JSON_FIELDS: &str = "nameWithOwner,visibility,updatedAt,description";
 const REPO_LIST_LIMIT: &str = "200";
 
-async fn list_github_repos() -> Result<ResponseJson<ApiResponse<Vec<GitHubRepoSummary>>>, ApiError>
-{
-    let repos = task::spawn_blocking(collect_all_repos_blocking)
+async fn list_github_repos(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<Vec<GitHubRepoSummary>>>, ApiError> {
+    let pat = configured_pat(&deployment).await;
+    let repos = task::spawn_blocking(move || collect_all_repos_blocking(pat.as_deref()))
         .await
         .map_err(|e| ApiError::BadGateway(format!("gh task join failed: {e}")))??;
     Ok(ResponseJson(ApiResponse::success(repos)))
 }
 
-fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
+fn collect_all_repos_blocking(pat: Option<&str>) -> Result<Vec<GitHubRepoSummary>, ApiError> {
     let user_raw = run_gh_blocking(
         &[
             "repo",
@@ -823,6 +1033,7 @@ fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
             REPO_LIST_LIMIT,
         ],
         None,
+        pat,
     )?;
     let user_repos: Vec<GhRepoListItem> = serde_json::from_str(user_raw.trim())
         .map_err(|e| ApiError::BadGateway(format!("Failed to parse `gh repo list` output: {e}")))?;
@@ -830,6 +1041,7 @@ fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
     let orgs_raw = run_gh_blocking(
         &["api", "user/orgs", "--paginate", "--jq", ".[].login"],
         None,
+        pat,
     )?;
     let orgs: Vec<String> = orgs_raw
         .lines()
@@ -857,6 +1069,7 @@ fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
                 REPO_LIST_LIMIT,
             ],
             None,
+            pat,
         )?;
         let org_repos: Vec<GhRepoListItem> = serde_json::from_str(org_raw.trim()).map_err(|e| {
             ApiError::BadGateway(format!("Failed to parse `gh repo list {org}` output: {e}"))
@@ -873,6 +1086,22 @@ fn collect_all_repos_blocking() -> Result<Vec<GitHubRepoSummary>, ApiError> {
     Ok(summaries)
 }
 
+/// Reads the currently configured PAT (if any) from the app config so it
+/// can be injected as `GH_TOKEN` when calling out to `gh`. Trimmed and
+/// filtered so an empty string is treated the same as "no token".
+async fn configured_pat(deployment: &DeploymentImpl) -> Option<String> {
+    deployment
+        .config()
+        .read()
+        .await
+        .github
+        .pat
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 fn to_summary(r: GhRepoListItem, owner_org: Option<String>) -> GitHubRepoSummary {
     GitHubRepoSummary {
         name_with_owner: r.name_with_owner,
@@ -884,6 +1113,7 @@ fn to_summary(r: GhRepoListItem, owner_org: Option<String>) -> GitHubRepoSummary
 }
 
 async fn clone_github_repo(
+    State(deployment): State<DeploymentImpl>,
     ResponseJson(payload): ResponseJson<CloneRepoRequest>,
 ) -> Result<(StatusCode, ResponseJson<ApiResponse<CloneRepoResponse>>), ApiError> {
     let repo_name = validate_name_with_owner(&payload.name_with_owner)?;
@@ -899,9 +1129,14 @@ async fn clone_github_repo(
 
     let name_with_owner = payload.name_with_owner.trim().to_string();
     let target_for_task = target.clone();
+    let pat = configured_pat(&deployment).await;
     let cloned_path = task::spawn_blocking(move || -> Result<PathBuf, ApiError> {
         let target_str = target_for_task.to_string_lossy().to_string();
-        run_gh_blocking(&["repo", "clone", &name_with_owner, &target_str], None)?;
+        run_gh_blocking(
+            &["repo", "clone", &name_with_owner, &target_str],
+            None,
+            pat.as_deref(),
+        )?;
         Ok(target_for_task)
     })
     .await
@@ -955,7 +1190,11 @@ fn is_safe_segment(s: &str) -> bool {
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-fn run_gh_blocking(args: &[&str], dir: Option<&Path>) -> Result<String, ApiError> {
+fn run_gh_blocking(
+    args: &[&str],
+    dir: Option<&Path>,
+    token: Option<&str>,
+) -> Result<String, ApiError> {
     let gh = resolve_executable_path_blocking("gh").ok_or_else(|| {
         ApiError::BadRequest(
             "GitHub CLI (`gh`) not found in PATH. Install it and run `gh auth login`.".to_string(),
@@ -965,6 +1204,12 @@ fn run_gh_blocking(args: &[&str], dir: Option<&Path>) -> Result<String, ApiError
     let mut cmd = std::process::Command::new(&gh);
     if let Some(d) = dir {
         cmd.current_dir(d);
+    }
+    if let Some(t) = token.filter(|t| !t.trim().is_empty()) {
+        // GH_TOKEN wins over any stored `gh auth` credentials, so a
+        // UI-configured PAT is used consistently even when a stale keyring
+        // entry exists.
+        cmd.env("GH_TOKEN", t);
     }
     for a in args {
         cmd.arg(a);

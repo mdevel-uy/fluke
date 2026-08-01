@@ -14,6 +14,7 @@ import type { Merge, RepoWithTargetBranch, Workspace } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { workersApi, workspacesApi } from '@/shared/lib/api';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useBranchStatus } from '@/shared/hooks/useBranchStatus';
 import { usePush } from '@/shared/hooks/usePush';
 import { useActions } from '@/shared/hooks/useActions';
@@ -30,7 +31,6 @@ import {
 } from '@/features/sprint/model/useWorkers';
 import { useWorkerTaskIndex } from '@/features/workers/model/workerTaskInfo';
 import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ForcePushDialog } from '@/shared/dialogs/command-bar/ForcePushDialog';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
@@ -78,7 +78,6 @@ export const RightSidebar = memo(function RightSidebar({
   repos,
 }: RightSidebarProps) {
   const { t } = useTranslation('common');
-  const appNavigation = useAppNavigation();
   const workspaceId = selectedWorkspace?.id;
 
   const { activeWorkspaces, archivedWorkspaces } = useWorkspaceContext();
@@ -100,16 +99,18 @@ export const RightSidebar = memo(function RightSidebar({
     : undefined;
   const worker = task ? taskIndex.workerById.get(task.worker_id) : undefined;
 
-  // Match by same issue_number, role=reviewer and status=in_progress
-  // so the badge can jump to the reviewer's workspace.
+  const appNavigation = useAppNavigation();
+
+  // In-progress reviewer worker task pointing at this workspace's PR (matched
+  // by issue number). When present, the REVIEW badge becomes a shortcut to
+  // that reviewer's workspace so you can watch the review as it happens.
   const activeReviewerTask = useMemo(() => {
-    const issueNumber = task?.issue_number;
-    if (issueNumber == null) return undefined;
+    if (!task?.issue_number) return undefined;
     return tasks.find((t) => {
       const w = taskIndex.workerById.get(t.worker_id);
       return (
         w?.role === 'reviewer' &&
-        t.issue_number === issueNumber &&
+        t.issue_number === task.issue_number &&
         t.status === 'in_progress' &&
         t.workspace_id != null
       );
@@ -565,7 +566,7 @@ export const RightSidebar = memo(function RightSidebar({
               <span className="w-[46px] flex-none text-[10px] font-semibold uppercase tracking-wider text-low">
                 {t('workspaces.aside.review', { defaultValue: 'Review' })}
               </span>
-              {!reviewResult && activeReviewerTask?.workspace_id ? (
+              {reviewResult == null && activeReviewerTask?.workspace_id ? (
                 <button
                   type="button"
                   onClick={() =>
