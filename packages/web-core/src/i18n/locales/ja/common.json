@@ -591,9 +591,16 @@
   "adhocPanel": {
     "title": "アドホック Claude",
     "close": "アドホック Claude パネルを閉じる",
-    "placeholder": {
-      "title": "アドホック Claude は利用できません",
-      "description": "このパネルは構造のみです。Claude セッションは今後のステップで統合されます。"
+    "newSession": "新しいセッション",
+    "loading": "Claude セッションを準備中…",
+    "noRepo": {
+      "title": "利用できるリポジトリがありません",
+      "description": "アドホック Claude セッションを開始するにはリポジトリを追加してください。"
+    },
+    "error": {
+      "title": "アドホックセッションを開けませんでした",
+      "description": "スクラッチワークスペースの準備中にエラーが発生しました。",
+      "retry": "再試行"
     }
   },
   "appBar": {
@@ -1224,6 +1231,7 @@
     "failed": {
       "retry": "再試行",
       "discard": "破棄",
+      "viewPr": "PR を表示",
       "empty": "失敗したタスクはありません。"
     },
     "autoIngest": {

@@ -18,6 +18,7 @@ import {
   installAndLaunch,
   cleanOldDesktopVersions,
 } from "./desktop";
+import { ensureGhCli } from "./gh-install";
 
 const CLI_VERSION: string = require("../package.json").version;
 
@@ -214,6 +215,7 @@ function checkForUpdates(): void {
 }
 
 async function runMcp(args: string[]): Promise<void> {
+  await ensureGhCli();
   await extractAndRun("vibe-kanban-mcp", (bin) => {
     const proc = spawn(bin, buildMcpArgs(args), {
       stdio: "inherit",
@@ -231,6 +233,7 @@ async function runMcp(args: string[]): Promise<void> {
 }
 
 async function runReview(args: string[]): Promise<void> {
+  await ensureGhCli();
   await extractAndRun("vibe-kanban-review", (bin) => {
     const proc = spawn(bin, args, { stdio: "inherit" });
     proc.on("exit", (c) => process.exit(c || 0));
@@ -243,6 +246,7 @@ async function runReview(args: string[]): Promise<void> {
 
 async function runMain(desktopMode: boolean): Promise<void> {
   checkForUpdates();
+  await ensureGhCli();
 
   const modeLabel = LOCAL_DEV_MODE ? " (local dev)" : "";
   const tauriPlatform = getTauriPlatform(platformDir);

@@ -591,9 +591,16 @@
   "adhocPanel": {
     "title": "临时 Claude",
     "close": "关闭临时 Claude 面板",
-    "placeholder": {
-      "title": "临时 Claude 不可用",
-      "description": "此面板仅为基础结构；Claude 会话将在后续步骤中集成。"
+    "newSession": "新会话",
+    "loading": "正在准备 Claude 会话…",
+    "noRepo": {
+      "title": "没有可用的仓库",
+      "description": "添加一个仓库以启动临时 Claude 会话。"
+    },
+    "error": {
+      "title": "无法打开临时会话",
+      "description": "准备 scratch 工作区时发生错误。",
+      "retry": "重试"
     }
   },
   "appBar": {
@@ -1224,6 +1231,7 @@
     "failed": {
       "retry": "重试",
       "discard": "丢弃",
+      "viewPr": "查看 PR",
       "empty": "没有失败的任务。"
     },
     "autoIngest": {

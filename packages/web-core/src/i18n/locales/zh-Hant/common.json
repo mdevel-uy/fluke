@@ -591,9 +591,16 @@
   "adhocPanel": {
     "title": "臨時 Claude",
     "close": "關閉臨時 Claude 面板",
-    "placeholder": {
-      "title": "臨時 Claude 無法使用",
-      "description": "此面板僅為基礎結構；Claude 工作階段將在後續步驟中整合。"
+    "newSession": "新工作階段",
+    "loading": "正在準備 Claude 工作階段…",
+    "noRepo": {
+      "title": "沒有可用的儲存庫",
+      "description": "新增儲存庫以啟動臨時 Claude 工作階段。"
+    },
+    "error": {
+      "title": "無法開啟臨時工作階段",
+      "description": "準備 scratch 工作區時發生錯誤。",
+      "retry": "重試"
     }
   },
   "appBar": {
@@ -1224,6 +1231,7 @@
     "failed": {
       "retry": "重試",
       "discard": "丟棄",
+      "viewPr": "查看 PR",
       "empty": "沒有失敗的任務。"
     },
     "autoIngest": {

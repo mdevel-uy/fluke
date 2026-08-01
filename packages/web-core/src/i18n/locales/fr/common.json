@@ -591,9 +591,16 @@
   "adhocPanel": {
     "title": "Claude ad hoc",
     "close": "Fermer le panneau Claude ad hoc",
-    "placeholder": {
-      "title": "Claude ad hoc indisponible",
-      "description": "Ce panneau n'est que la structure ; la session Claude sera intégrée dans une étape suivante."
+    "newSession": "Nouvelle session",
+    "loading": "Préparation de la session Claude…",
+    "noRepo": {
+      "title": "Aucun dépôt disponible",
+      "description": "Ajoutez un dépôt pour démarrer une session Claude ad hoc."
+    },
+    "error": {
+      "title": "Impossible d'ouvrir la session ad hoc",
+      "description": "Une erreur est survenue lors de la préparation du workspace scratch.",
+      "retry": "Réessayer"
     }
   },
   "appBar": {
@@ -1226,6 +1233,7 @@
     "failed": {
       "retry": "Réessayer",
       "discard": "Ignorer",
+      "viewPr": "Voir la PR",
       "empty": "Aucune tâche échouée."
     },
     "autoIngest": {
