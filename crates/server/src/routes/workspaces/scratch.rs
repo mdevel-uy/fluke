@@ -49,10 +49,7 @@ pub async fn get_or_create_scratch_workspace(
             .await?
             .ok_or(ApiError::Workspace(WorkspaceError::WorkspaceNotFound))?;
 
-        deployment
-            .container()
-            .ensure_container_exists(&workspace)
-            .await?;
+        materialize_scratch_workspace(&deployment, &workspace, &repo).await?;
 
         ensure_scratch_session(&deployment, workspace.id).await?;
 
@@ -97,15 +94,39 @@ pub async fn get_or_create_scratch_workspace(
         return Err(ApiError::Database(err));
     }
 
-    deployment
-        .container()
-        .ensure_container_exists(&managed_workspace.workspace)
-        .await?;
+    materialize_scratch_workspace(&deployment, &managed_workspace.workspace, &repo).await?;
 
     ensure_scratch_session(&deployment, workspace_id).await?;
 
     let ctx = Workspace::load_context(pool, workspace_id).await?;
     Ok(ResponseJson(ApiResponse::success(ctx)))
+}
+
+/// Materialize the scratch workspace's worktree, creating the workspace
+/// branch when needed.
+///
+/// `ensure_container_exists` deliberately never creates workspace branches
+/// (read paths must not be writers — see `WorkspaceBranchMissing`), so a
+/// scratch workspace whose branch doesn't exist yet — never started, or the
+/// branch was deleted — must go through `ContainerService::create`, which is
+/// the one path allowed to materialize it. This endpoint owns the scratch
+/// workspace, so it is legitimately a writer.
+async fn materialize_scratch_workspace(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    repo: &Repo,
+) -> Result<(), ApiError> {
+    let branch_exists = deployment
+        .git()
+        .check_branch_exists(&repo.path, &workspace.branch)?;
+
+    if branch_exists {
+        deployment.container().ensure_container_exists(workspace).await?;
+    } else {
+        deployment.container().create(workspace).await?;
+    }
+
+    Ok(())
 }
 
 async fn ensure_scratch_session(
