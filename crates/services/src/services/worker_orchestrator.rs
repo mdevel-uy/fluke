@@ -33,6 +33,7 @@ use db::{
     models::{
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
         execution_process_repo_state::ExecutionProcessRepoState,
+        plan_cap_hit::PlanCapHit,
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
@@ -115,7 +116,10 @@ pub enum StartError {
 }
 
 impl StartError {
-    /// Categorize preconditions that should surface as HTTP 409 to the API.
+    /// Precondition failures that callers should treat as expected: the
+    /// worker just wasn't eligible to start right now (already busy, nothing
+    /// queued, or the concurrent cap is full). Auto-start callers swallow
+    /// these; the API surfaces them as 409 (or 429 for the cap case).
     pub fn is_conflict(&self) -> bool {
         matches!(
             self,
@@ -346,6 +350,22 @@ pub async fn try_take_next(
     let cap = max_in_review_from_env();
     let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
     if in_review >= cap {
+        // Only count as a "plan cap hit" when a queued task was actually
+        // held back by the cap. A cap check with no queue is a no-op — the
+        // worker had nothing to run anyway, so this is not an upsell signal.
+        let has_queued = matches!(
+            WorkerTask::find_next_queued(pool, worker_id).await,
+            Ok(Some(_))
+        );
+        if has_queued
+            && let Err(e) = PlanCapHit::record_hit_today(pool).await
+        {
+            warn!(
+                worker_id = %worker_id,
+                "Failed to record plan cap hit: {}",
+                e
+            );
+        }
         return Err(StartError::InReviewCapReached(cap));
     }
 
