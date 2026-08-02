@@ -17,7 +17,6 @@ import {
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
@@ -27,6 +26,7 @@ import { workersKeys } from '@/features/workers';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import type { WorkerResponse } from 'shared/types';
 import type { WorkerTask } from '@/features/sprint/types';
+import { WorkerSelectItem } from './WorkerSelectItem';
 
 export interface ReassignTaskDialogProps {
   task: WorkerTask;
@@ -197,9 +197,7 @@ const ReassignTaskDialogImpl = create<ReassignTaskDialogProps>(
                     </SelectTrigger>
                     <SelectContent>
                       {otherWorkers.map((w) => (
-                        <SelectItem key={w.id} value={w.id}>
-                          {w.emoji} {w.name}
-                        </SelectItem>
+                        <WorkerSelectItem key={w.id} worker={w} showEmoji />
                       ))}
                     </SelectContent>
                   </Select>
