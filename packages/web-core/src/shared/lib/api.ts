@@ -2209,6 +2209,85 @@ export const githubApi = {
   },
 };
 
+// ============================================================================
+// Agent auth (Codex + Gemini connect/disconnect from Settings)
+// ============================================================================
+//
+// These types mirror the ts-rs–exported ones in
+// `crates/server/src/routes/agent_auth.rs`. They live here (not in
+// `shared/types.ts`) until infrastructure regenerates the shared types file;
+// the pattern is the same as `GithubStatusResponseWithPat` above.
+
+export type AgentAuthProvider = 'codex' | 'gemini';
+
+export type AgentLoginState = 'pending' | 'completed' | 'failed';
+
+export interface AgentLoginProgress {
+  state: AgentLoginState;
+  verification_uri: string | null;
+  user_code: string | null;
+  error: string | null;
+}
+
+export interface AgentAuthProviderStatus {
+  provider: AgentAuthProvider;
+  cli_available: boolean;
+  connected: boolean;
+  last_auth_at: number | null;
+  login: AgentLoginProgress | null;
+}
+
+export interface AgentAuthStatusResponse {
+  providers: AgentAuthProviderStatus[];
+}
+
+export interface AgentLoginRequest {
+  api_key?: string | null;
+}
+
+export interface AgentLoginResponse {
+  verification_uri: string | null;
+  user_code: string | null;
+  completed: boolean;
+}
+
+export const agentAuthApi = {
+  getStatus: async (): Promise<AgentAuthStatusResponse> => {
+    const response = await makeRequest('/api/agents/auth');
+    return handleApiResponse<AgentAuthStatusResponse>(response);
+  },
+
+  login: async (
+    provider: AgentAuthProvider,
+    body: AgentLoginRequest = {}
+  ): Promise<AgentLoginResponse> => {
+    const response = await makeRequest(
+      `/api/agents/auth/${provider}/login`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+    return handleApiResponse<AgentLoginResponse>(response);
+  },
+
+  cancelLogin: async (provider: AgentAuthProvider): Promise<void> => {
+    const response = await makeRequest(
+      `/api/agents/auth/${provider}/login/cancel`,
+      { method: 'POST' }
+    );
+    await handleApiResponse<void>(response);
+  },
+
+  logout: async (provider: AgentAuthProvider): Promise<void> => {
+    const response = await makeRequest(
+      `/api/agents/auth/${provider}/logout`,
+      { method: 'POST' }
+    );
+    await handleApiResponse<void>(response);
+  },
+};
+
 // Workers API
 export interface StartAllWorkersItemResponse {
   worker_id: string;

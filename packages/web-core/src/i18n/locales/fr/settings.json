@@ -34,7 +34,9 @@
         "skills": "Skills",
         "skillsDesc": "Gérer les skills des agents installés dans ~/.claude/skills",
         "github": "GitHub",
-        "githubDesc": "Connectez-vous à GitHub avec la CLI gh"
+        "githubDesc": "Connectez-vous à GitHub avec la CLI gh",
+        "agent-auth": "Connexions des agents",
+        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres"
       }
     },
     "general": {
@@ -634,6 +636,60 @@
         "logoutFailed": "Échec de la déconnexion GitHub.",
         "installFailed": "Échec de l’installation de GitHub CLI.",
         "patLoginFailed": "Échec de la validation du Personal Access Token."
+      }
+    },
+    "agentAuth": {
+      "loading": "Vérification des agents installés…",
+      "emptyState": "Aucun agent de code n'est encore installé sur cette machine.",
+      "statusLabel": "Statut",
+      "status": {
+        "connected": "Connecté",
+        "notConnected": "Non connecté"
+      },
+      "actions": {
+        "connect": "Se connecter",
+        "disconnect": "Se déconnecter",
+        "cancel": "Annuler"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "Connectez-vous à OpenAI Codex via le flux de dispositif dans le navigateur — aucun terminal requis."
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "Connectez Google Gemini avec une clé API obtenue depuis Google AI Studio."
+        }
+      },
+      "deviceFlow": {
+        "title": "Autoriser sur OpenAI",
+        "description": "Copiez le code à usage unique ci-dessous, puis ouvrez la page OpenAI et collez-le pour terminer la connexion.",
+        "codeLabel": "Code à usage unique",
+        "copyHint": "Cliquer pour copier",
+        "openBrowser": "Ouvrir OpenAI",
+        "checkStatus": "Actualiser le statut",
+        "waitingForCode": "Attente de l'affichage du code par la CLI…",
+        "waiting": "Attente de l'autorisation… cette carte se mettra à jour automatiquement lorsque vous aurez terminé dans le navigateur."
+      },
+      "apiKey": {
+        "title": "Connecter avec une clé API",
+        "description": "Collez une clé API Gemini obtenue depuis Google AI Studio. Elle est stockée sur cette machine sous GEMINI_API_KEY et n'en sort jamais.",
+        "placeholder": "AIza…",
+        "submit": "Enregistrer et connecter",
+        "helpBefore": "Obtenez une clé depuis",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "et collez-la ci-dessus."
+      },
+      "hidden": {
+        "title": "CLIs non installées",
+        "description": "Ces agents sont masqués parce que leur CLI n'est pas installée sur cette image : {{providers}}."
+      },
+      "errors": {
+        "loginFailed": "Impossible de démarrer la connexion.",
+        "logoutFailed": "Impossible de déconnecter l'agent.",
+        "cancelFailed": "Impossible d'annuler la connexion."
       }
     }
   },
