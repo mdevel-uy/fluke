@@ -477,6 +477,32 @@ pub async fn try_take_next(
                                 head_branch = %head_branch,
                                 "Fix-task workspace bound to PR head branch"
                             );
+                            // Link the PR to this workspace too (N:M), so the
+                            // sidebar / task cards of the fix workspace keep
+                            // the PR reference instead of losing it to the
+                            // original author workspace.
+                            match PullRequest::find_by_repo_and_number(pool, repo.id, pr_number)
+                                .await
+                            {
+                                Ok(Some(pr)) => {
+                                    if let Err(e) =
+                                        PullRequest::link_workspace(pool, workspace.id, &pr.id)
+                                            .await
+                                    {
+                                        warn!(
+                                            workspace_id = %workspace.id,
+                                            pr_number,
+                                            "Could not link PR to fix-task workspace: {e}"
+                                        );
+                                    }
+                                }
+                                Ok(None) => {}
+                                Err(e) => warn!(
+                                    workspace_id = %workspace.id,
+                                    pr_number,
+                                    "Could not look up PR record to link: {e}"
+                                ),
+                            }
                         }
                     }
                     Err(e) => warn!(
@@ -1176,10 +1202,39 @@ async fn on_developer_agent_finished(
         return Ok(());
     }
 
-    // Idempotency: if a PR is already recorded (agent created it via gh cli
-    // and the pr_monitor already adopted it), just ensure the task is in_review.
+    // When the author worker has a personal PAT, push and PR creation use
+    // *its* credentials so both operations show up under the worker's own
+    // GitHub identity — that is the point of the per-worker PAT feature.
+    let worker_pat = worker.github_pat.clone();
+    // Remote-facing branch name: differs from the local branch only for
+    // workspaces created from an existing PR (push maps local -> PR head).
+    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
+        .await
+        .unwrap_or_else(|_| workspace.branch.clone());
+
+    // Idempotency: if a PR is already recorded (fix-task workspaces are
+    // linked to their PR at claim time; otherwise the agent created it via
+    // gh cli and the pr_monitor already adopted it), push any local commits
+    // best-effort and ensure the task is in_review. The push must not be
+    // fatal here: agents are instructed to push themselves, and the PR head
+    // may have moved (reviewer edits), which would reject this safety-net
+    // push without invalidating the work already on the PR.
     match PullRequest::find_by_workspace_id(pool, workspace_id).await {
         Ok(prs) if !prs.is_empty() => {
+            if let Err(e) = git.push_to_remote_with_token(
+                &worktree_path,
+                &workspace.branch,
+                &remote_branch,
+                false,
+                worker_pat.as_deref(),
+            ) {
+                warn!(
+                    workspace_id = %workspace_id,
+                    task_id = %task.id,
+                    "Best-effort push for already-recorded PR failed: {}",
+                    e
+                );
+            }
             info!(
                 workspace_id = %workspace_id,
                 task_id = %task.id,
@@ -1195,16 +1250,6 @@ async fn on_developer_agent_finished(
 
     // Push the branch. A push failure is terminal for this run (no retry loop
     // per the spec); the human sees the cause on the card and can retry.
-    //
-    // When the author worker has a personal PAT, push and PR creation use
-    // *its* credentials so both operations show up under the worker's own
-    // GitHub identity — that is the point of the per-worker PAT feature.
-    let worker_pat = worker.github_pat.clone();
-    // Remote-facing branch name: differs from the local branch only for
-    // workspaces created from an existing PR (push maps local -> PR head).
-    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
-        .await
-        .unwrap_or_else(|_| workspace.branch.clone());
     if let Err(e) = git.push_to_remote_with_token(
         &worktree_path,
         &workspace.branch,

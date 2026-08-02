@@ -9,6 +9,9 @@ use super::merge::{Merge, MergeStatus, PrMerge, PullRequestInfo};
 #[derive(Debug, Clone, FromRow)]
 pub struct PullRequest {
     pub id: String,
+    /// Legacy "first owner" workspace. Kept for remote sync
+    /// (`local_workspace_id`); workspace-scoped lookups go through the
+    /// `workspace_pull_requests` N:M link table instead.
     pub workspace_id: Option<Uuid>,
     pub repo_id: Option<Uuid>,
     pub pr_url: String,
@@ -23,6 +26,21 @@ pub struct PullRequest {
     /// GitHub mergeable state: "mergeable", "conflicting", "unknown", or None if not yet polled.
     pub pr_mergeable: Option<String>,
 }
+
+/// Row shape for link-table queries that need both the linked workspace and
+/// the PR itself (`get_latest_for_workspaces`).
+#[derive(FromRow)]
+struct LinkedPullRequest {
+    link_workspace_id: Uuid,
+    #[sqlx(flatten)]
+    pr: PullRequest,
+}
+
+/// Column list for runtime (non-macro) SELECTs, prefixed with `p.`.
+/// `pr_ci_status` is intentionally excluded (see `update_ci_status`).
+const PR_COLUMNS: &str = "p.id, p.workspace_id, p.repo_id, p.pr_url, p.pr_number, p.pr_status, \
+     p.target_branch_name, p.merged_at, p.merge_commit_sha, p.created_at, p.updated_at, \
+     p.synced_at, p.pr_mergeable";
 
 impl PullRequest {
     pub async fn create(
@@ -57,7 +75,50 @@ impl PullRequest {
         let pr = Self::find_by_url(pool, pr_url)
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
+
+        // N:M: every workspace that (re-)records this PR keeps a link to it,
+        // regardless of which workspace the legacy owner column points at.
+        if let Some(workspace_id) = workspace_id {
+            Self::link_workspace(pool, workspace_id, &pr.id).await?;
+        }
         Ok(pr)
+    }
+
+    /// Link a workspace to a PR record (idempotent). This is what makes the
+    /// PR visible from that workspace: `find_by_workspace_id` and friends
+    /// resolve through the `workspace_pull_requests` table.
+    pub async fn link_workspace(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+        pull_request_id: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO workspace_pull_requests (workspace_id, pull_request_id)
+             VALUES (?, ?)",
+        )
+        .bind(workspace_id)
+        .bind(pull_request_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Newest PR record for (repo, number), if any. Runtime query so the
+    /// sqlx offline metadata stays valid.
+    pub async fn find_by_repo_and_number(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+    ) -> Result<Option<PullRequest>, sqlx::Error> {
+        sqlx::query_as::<_, PullRequest>(&format!(
+            "SELECT {PR_COLUMNS} FROM pull_requests p
+              WHERE p.repo_id = ? AND p.pr_number = ?
+              ORDER BY p.created_at DESC LIMIT 1"
+        ))
+        .bind(repo_id)
+        .bind(pr_number)
+        .fetch_optional(pool)
+        .await
     }
 
     pub async fn create_for_workspace(
@@ -141,23 +202,25 @@ impl PullRequest {
         Ok(())
     }
 
-    /// Workspace bound to the newest PR record for (repo, number), if any.
+    /// Workspace most recently linked to the PR (repo, number), if any.
     /// Runtime query (no macro) so the sqlx offline metadata stays valid.
     pub async fn find_latest_workspace_for_pr(
         pool: &SqlitePool,
         repo_id: Uuid,
         pr_number: i64,
     ) -> Result<Option<Uuid>, sqlx::Error> {
-        let row: Option<(Option<Uuid>,)> = sqlx::query_as(
-            "SELECT workspace_id FROM pull_requests
-              WHERE repo_id = ? AND pr_number = ?
-              ORDER BY created_at DESC LIMIT 1",
+        let row: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT l.workspace_id
+               FROM workspace_pull_requests l
+               JOIN pull_requests p ON p.id = l.pull_request_id
+              WHERE p.repo_id = ? AND p.pr_number = ?
+              ORDER BY l.created_at DESC LIMIT 1",
         )
         .bind(repo_id)
         .bind(pr_number)
         .fetch_optional(pool)
         .await?;
-        Ok(row.and_then(|r| r.0))
+        Ok(row.map(|r| r.0))
     }
 
     /// CI rollup state per PR URL, for every PR that has one recorded.
@@ -227,31 +290,20 @@ impl PullRequest {
         .await
     }
 
+    /// PRs linked to a workspace (via `workspace_pull_requests`), newest
+    /// first. Runtime query so the sqlx offline metadata stays valid.
     pub async fn find_by_workspace_id(
         pool: &SqlitePool,
         workspace_id: Uuid,
     ) -> Result<Vec<PullRequest>, sqlx::Error> {
-        sqlx::query_as!(
-            PullRequest,
-            r#"SELECT
-                id,
-                workspace_id AS "workspace_id: Uuid",
-                repo_id AS "repo_id: Uuid",
-                pr_url,
-                pr_number,
-                pr_status AS "pr_status: MergeStatus",
-                target_branch_name,
-                merged_at AS "merged_at: DateTime<Utc>",
-                merge_commit_sha,
-                created_at AS "created_at!: DateTime<Utc>",
-                updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>",
-                pr_mergeable
-            FROM pull_requests
-            WHERE workspace_id = $1
-            ORDER BY created_at DESC"#,
-            workspace_id,
-        )
+        sqlx::query_as::<_, PullRequest>(&format!(
+            "SELECT {PR_COLUMNS}
+               FROM pull_requests p
+               JOIN workspace_pull_requests l ON l.pull_request_id = p.id
+              WHERE l.workspace_id = ?
+              ORDER BY p.created_at DESC"
+        ))
+        .bind(workspace_id)
         .fetch_all(pool)
         .await
     }
@@ -261,28 +313,15 @@ impl PullRequest {
         workspace_id: Uuid,
         repo_id: Uuid,
     ) -> Result<Vec<PullRequest>, sqlx::Error> {
-        sqlx::query_as!(
-            PullRequest,
-            r#"SELECT
-                id,
-                workspace_id AS "workspace_id: Uuid",
-                repo_id AS "repo_id: Uuid",
-                pr_url,
-                pr_number,
-                pr_status AS "pr_status: MergeStatus",
-                target_branch_name,
-                merged_at AS "merged_at: DateTime<Utc>",
-                merge_commit_sha,
-                created_at AS "created_at!: DateTime<Utc>",
-                updated_at AS "updated_at!: DateTime<Utc>",
-                synced_at AS "synced_at: DateTime<Utc>",
-                pr_mergeable
-            FROM pull_requests
-            WHERE workspace_id = $1 AND repo_id = $2
-            ORDER BY created_at DESC"#,
-            workspace_id,
-            repo_id,
-        )
+        sqlx::query_as::<_, PullRequest>(&format!(
+            "SELECT {PR_COLUMNS}
+               FROM pull_requests p
+               JOIN workspace_pull_requests l ON l.pull_request_id = p.id
+              WHERE l.workspace_id = ? AND p.repo_id = ?
+              ORDER BY p.created_at DESC"
+        ))
+        .bind(workspace_id)
+        .bind(repo_id)
         .fetch_all(pool)
         .await
     }
@@ -291,52 +330,40 @@ impl PullRequest {
         pool: &SqlitePool,
         workspace_id: Uuid,
     ) -> Result<i64, sqlx::Error> {
-        let row = sqlx::query!(
-            r#"SELECT COUNT(1) AS "count!: i64" FROM pull_requests WHERE workspace_id = ? AND pr_status = 'open'"#,
-            workspace_id,
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(1)
+               FROM pull_requests p
+               JOIN workspace_pull_requests l ON l.pull_request_id = p.id
+              WHERE l.workspace_id = ? AND p.pr_status = 'open'",
         )
+        .bind(workspace_id)
         .fetch_one(pool)
         .await?;
-        Ok(row.count)
+        Ok(row.0)
     }
 
+    /// Latest linked PR per workspace. Rows come back oldest-first and later
+    /// entries overwrite earlier ones in the map, which yields the newest PR
+    /// for each workspace without a GROUP BY.
     pub async fn get_latest_for_workspaces(
         pool: &SqlitePool,
         archived: bool,
     ) -> Result<HashMap<Uuid, PullRequest>, sqlx::Error> {
-        let rows = sqlx::query_as!(
-            PullRequest,
-            r#"SELECT
-                t.id,
-                t.workspace_id AS "workspace_id: Uuid",
-                t.repo_id AS "repo_id: Uuid",
-                t.pr_url,
-                t.pr_number,
-                t.pr_status AS "pr_status: MergeStatus",
-                t.target_branch_name,
-                t.merged_at AS "merged_at: DateTime<Utc>",
-                t.merge_commit_sha,
-                t.created_at AS "created_at!: DateTime<Utc>",
-                t.updated_at AS "updated_at!: DateTime<Utc>",
-                t.synced_at AS "synced_at: DateTime<Utc>",
-                t.pr_mergeable
-            FROM pull_requests t
-            INNER JOIN (
-                SELECT workspace_id, MAX(created_at) as max_created_at
-                FROM pull_requests
-                WHERE workspace_id IS NOT NULL
-                GROUP BY workspace_id
-            ) latest ON t.workspace_id = latest.workspace_id AND t.created_at = latest.max_created_at
-            INNER JOIN workspaces w ON t.workspace_id = w.id
-            WHERE t.workspace_id IS NOT NULL AND w.archived = $1"#,
-            archived,
-        )
+        let rows = sqlx::query_as::<_, LinkedPullRequest>(&format!(
+            "SELECT l.workspace_id AS link_workspace_id, {PR_COLUMNS}
+               FROM pull_requests p
+               JOIN workspace_pull_requests l ON l.pull_request_id = p.id
+               JOIN workspaces w ON w.id = l.workspace_id
+              WHERE w.archived = ?
+              ORDER BY p.created_at ASC"
+        ))
+        .bind(archived)
         .fetch_all(pool)
         .await?;
 
         Ok(rows
             .into_iter()
-            .filter_map(|pr| pr.workspace_id.map(|ws_id| (ws_id, pr)))
+            .map(|row| (row.link_workspace_id, row.pr))
             .collect())
     }
 
@@ -422,6 +449,11 @@ impl PullRequest {
     }
 
     pub async fn delete(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+        // No FK cascade on the link table — clean it up explicitly.
+        sqlx::query("DELETE FROM workspace_pull_requests WHERE pull_request_id = ?")
+            .bind(id)
+            .execute(pool)
+            .await?;
         sqlx::query!("DELETE FROM pull_requests WHERE id = ?", id)
             .execute(pool)
             .await?;
