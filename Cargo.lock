@@ -8890,7 +8890,6 @@ dependencies = [
  "local-deployment",
  "mime_guess",
  "os_info",
- "portable-pty",
  "preview-proxy",
  "rand 0.8.5",
  "relay-client",
