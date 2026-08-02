@@ -680,6 +680,7 @@
     "summarySection": "Résumé",
     "offline": "Reconnexion…",
     "openWorkerWorkspace": "Ouvrir l'espace de travail de {{name}}",
+    "openPilotReport": "Ouvrir le rapport de pilote",
     "claudeLimits": {
       "title": "Limites Claude",
       "workersOnClaude": "{{count}} worker sur Claude Code",
@@ -707,6 +708,60 @@
       "tooltipIssues_other": "{{count}} issues fermées",
       "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
       "moreIssues": "+{{extra}} autres"
+    }
+  },
+  "pilotReport": {
+    "title": "Rapport de pilote",
+    "subtitle": "Instantané d'une page de ce que la flotte a livré pendant le pilote — prêt à être transmis à votre CTO.",
+    "rangeHeading": "Période du rapport : {{range}}",
+    "loadError": "Impossible de charger le rapport. Réessayez ou réduisez la plage de dates.",
+    "loading": "Chargement…",
+    "printFooter": "Généré le {{generatedAt}} · chiffres basés sur les hypothèses ci-dessus.",
+    "dateRange": {
+      "from": "Du",
+      "to": "Au",
+      "presets": "Plages prédéfinies",
+      "presetLabel": "{{days}} derniers jours"
+    },
+    "kpi": {
+      "ticketsResolved": "Tickets résolus",
+      "ticketsFailedHint": "+ {{count}} échoués",
+      "prsMerged": "PRs fusionnées",
+      "hoursSaved": "Heures économisées",
+      "hoursUnit": "h",
+      "fteEquivalent": "Équivalent ETP",
+      "fteUnit": "mois",
+      "monetaryValue": "Valeur estimée"
+    },
+    "assumptions": {
+      "title": "Hypothèses",
+      "hoursPerTicket": "Heures / ticket",
+      "hoursPerFteMonth": "Heures / ETP·mois",
+      "hourlyRate": "Taux horaire",
+      "currency": "Devise"
+    },
+    "tasksSection": {
+      "title": "Tâches de la période",
+      "empty": "Aucune tâche terminée dans cette plage pour le moment.",
+      "status": "Statut",
+      "titleColumn": "Titre",
+      "issue": "Issue",
+      "completedAt": "Terminée"
+    },
+    "prsSection": {
+      "title": "Pull requests fusionnées",
+      "empty": "Aucune pull request fusionnée dans cette plage.",
+      "number": "PR",
+      "targetBranch": "Branche cible",
+      "mergedAt": "Fusionnée"
+    },
+    "status": {
+      "done": "Terminé",
+      "failed": "Échec"
+    },
+    "actions": {
+      "print": "Imprimer",
+      "exportCsv": "Exporter CSV"
     }
   },
   "errors": {

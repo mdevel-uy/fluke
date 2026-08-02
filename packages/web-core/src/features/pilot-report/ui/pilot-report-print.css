@@ -1,0 +1,57 @@
+/*
+ * Print stylesheet for the Pilot Report page.
+ *
+ * Target: one A4 page the client can hand to their CTO. Hide the
+ * app chrome (navbar, appbar, sidebar), reset backgrounds to white,
+ * and tighten spacing so KPIs + tables fit above the fold.
+ */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm 14mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  /* Hide everything outside the print root, then reveal our article. */
+  body * {
+    visibility: hidden;
+  }
+
+  .pilot-report,
+  .pilot-report * {
+    visibility: visible;
+  }
+
+  .pilot-report {
+    position: absolute;
+    inset: 0;
+    max-width: 100%;
+    padding: 0;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .pilot-report a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .pilot-report table {
+    page-break-inside: auto;
+  }
+
+  .pilot-report tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .pilot-report thead {
+    display: table-header-group;
+  }
+}

@@ -49,6 +49,7 @@ import {
   GaugeIcon,
   GitBranchIcon,
   MagnifyingGlassIcon,
+  FileTextIcon,
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
@@ -413,8 +414,7 @@ export const Actions = {
     icon: ColumnsIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.activeViewTabs.includes('changes') &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     isActive: (ctx) => ctx.diffViewMode === 'split',
     getIcon: (ctx) => (ctx.diffViewMode === 'split' ? ColumnsIcon : RowsIcon),
     getTooltip: (ctx) =>
@@ -433,8 +433,7 @@ export const Actions = {
     icon: EyeSlashIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.activeViewTabs.includes('changes') &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
       store.setIgnoreWhitespace(!store.ignoreWhitespace);
@@ -451,8 +450,7 @@ export const Actions = {
     shortcut: 'T W',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.activeViewTabs.includes('changes') &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
       store.setWrapText(!store.wrapText);
@@ -512,8 +510,7 @@ export const Actions = {
     shortcut: 'V C',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
-    isActive: (ctx) =>
-      ctx.activeViewTabs.includes('changes'),
+    isActive: (ctx) => ctx.activeViewTabs.includes('changes'),
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('changes')
         ? 'Hide Changes Panel'
@@ -535,8 +532,7 @@ export const Actions = {
     // toggle stays reachable to close it, even if no processes exist.
     isVisible: (ctx) =>
       ctx.layoutMode === 'workspaces' &&
-      (ctx.hasExecutionProcesses ||
-        ctx.activeViewTabs.includes('logs')),
+      (ctx.hasExecutionProcesses || ctx.activeViewTabs.includes('logs')),
     isActive: (ctx) => ctx.activeViewTabs.includes('logs'),
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('logs')
@@ -591,8 +587,7 @@ export const Actions = {
     shortcut: 'V P',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
-    isActive: (ctx) =>
-      ctx.activeViewTabs.includes('preview'),
+    isActive: (ctx) => ctx.activeViewTabs.includes('preview'),
     getLabel: (ctx) =>
       ctx.activeViewTabs.includes('preview')
         ? 'Hide Preview Panel'
@@ -618,8 +613,7 @@ export const Actions = {
     icon: CaretDoubleUpIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.activeViewTabs.includes('changes') &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     getIcon: (ctx) =>
       ctx.isAllDiffsExpanded ? CaretDoubleUpIcon : CaretDoubleDownIcon,
     getTooltip: (ctx) =>
@@ -1523,6 +1517,25 @@ export const Actions = {
     requiresTarget: ActionTargetType.NONE,
     execute: (ctx) => {
       ctx.appNavigation.goToDashboard();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToPilotReport: {
+    id: 'go-to-pilot-report',
+    label: 'Pilot Report',
+    icon: FileTextIcon,
+    keywords: [
+      'navigate',
+      'go to',
+      'page',
+      'report',
+      'pilot',
+      'export',
+      'print',
+    ],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToPilotReport();
     },
   } satisfies GlobalActionDefinition,
 

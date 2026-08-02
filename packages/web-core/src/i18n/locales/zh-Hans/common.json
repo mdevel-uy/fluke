@@ -680,6 +680,7 @@
     "summarySection": "概览",
     "offline": "重新连接中…",
     "openWorkerWorkspace": "打开 {{name}} 的工作区",
+    "openPilotReport": "打开试点报告",
     "claudeLimits": {
       "title": "Claude 限额",
       "workersOnClaude": "{{count}} 个工作者使用 Claude Code",
@@ -707,6 +708,60 @@
       "tooltipIssues_other": "关闭 {{count}} 个议题",
       "tooltipHours": "{{issues}} × {{factor}} 小时 = {{hours}} 小时",
       "moreIssues": "另有 {{extra}} 个"
+    }
+  },
+  "pilotReport": {
+    "title": "试点报告",
+    "subtitle": "试点期间机队交付成果的一页快照 — 可直接交给你的 CTO。",
+    "rangeHeading": "报告期间：{{range}}",
+    "loadError": "无法加载报告。请刷新或缩小日期范围。",
+    "loading": "加载中…",
+    "printFooter": "生成时间：{{generatedAt}} · 数字基于上方所示假设计算。",
+    "dateRange": {
+      "from": "从",
+      "to": "到",
+      "presets": "预设范围",
+      "presetLabel": "最近 {{days}} 天"
+    },
+    "kpi": {
+      "ticketsResolved": "已解决工单",
+      "ticketsFailedHint": "+ {{count}} 个失败",
+      "prsMerged": "已合并 PR",
+      "hoursSaved": "节省工时",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 等效",
+      "fteUnit": "人月",
+      "monetaryValue": "预估价值"
+    },
+    "assumptions": {
+      "title": "假设",
+      "hoursPerTicket": "每工单小时数",
+      "hoursPerFteMonth": "每 FTE·月小时数",
+      "hourlyRate": "时薪",
+      "currency": "货币"
+    },
+    "tasksSection": {
+      "title": "期间内任务",
+      "empty": "该区间尚无已完成任务。",
+      "status": "状态",
+      "titleColumn": "标题",
+      "issue": "议题",
+      "completedAt": "完成时间"
+    },
+    "prsSection": {
+      "title": "已合并的 Pull Request",
+      "empty": "该区间没有合并的 Pull Request。",
+      "number": "PR",
+      "targetBranch": "目标分支",
+      "mergedAt": "合并时间"
+    },
+    "status": {
+      "done": "完成",
+      "failed": "失败"
+    },
+    "actions": {
+      "print": "打印",
+      "exportCsv": "导出 CSV"
     }
   },
   "errors": {

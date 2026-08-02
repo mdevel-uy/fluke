@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { Switch } from '@vibe/ui/components/Switch';
+import { Button } from '@vibe/ui/components/Button';
 import { PageHeader, PageHeaderToggle } from '@vibe/ui/components/PageHeader';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import { useDashboardData } from '@/features/dashboard/model/useDashboardData';
 import { useClaudeUsage } from '@/features/dashboard/model/useClaudeUsage';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { cn } from '@/shared/lib/utils';
 import { LiveChip } from './parts/LiveChip';
 import { KpiStrip } from './KpiStrip';
@@ -27,6 +29,7 @@ export function DashboardPage() {
   const claudeUsage = useClaudeUsage();
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
+  const appNavigation = useAppNavigation();
 
   // The panel cannot hide itself: it defines the second column of its row.
   const showLimits = claudeUsage !== null && claudeUsage.meters.length > 0;
@@ -54,13 +57,24 @@ export function DashboardPage() {
           <LiveChip isConnected={data.isConnected} stampKey={data.workspaces} />
         }
         actions={
-          <PageHeaderToggle label={t('dashboard.autoIngest')}>
-            <Switch
-              checked={autoIngest}
-              onCheckedChange={setAutoIngest}
-              aria-label={t('dashboard.autoIngest')}
-            />
-          </PageHeaderToggle>
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => appNavigation.goToPilotReport()}
+            >
+              <FileText size={16} strokeWidth={1.75} />
+              {t('dashboard.openPilotReport')}
+            </Button>
+            <PageHeaderToggle label={t('dashboard.autoIngest')}>
+              <Switch
+                checked={autoIngest}
+                onCheckedChange={setAutoIngest}
+                aria-label={t('dashboard.autoIngest')}
+              />
+            </PageHeaderToggle>
+          </>
         }
       />
 
@@ -70,25 +84,25 @@ export function DashboardPage() {
       <div className="flex-1 overflow-y-auto px-container-padding py-5">
         <div className="flex w-full flex-col gap-4">
           <div id={DASHBOARD_ANCHORS.overview}>
-          <KpiStrip
-            stats={data.stats}
-            pipeline={data.pipeline}
-            reposInProgress={data.reposInProgress}
-            nextQueuedTask={data.nextQueuedTask}
-            openPrs={data.openPrs}
-            oldestApprovalWait={data.oldestApprovalWait}
-            doneToday={data.doneToday}
-            failedToday={data.failedToday}
-          />
+            <KpiStrip
+              stats={data.stats}
+              pipeline={data.pipeline}
+              reposInProgress={data.reposInProgress}
+              nextQueuedTask={data.nextQueuedTask}
+              openPrs={data.openPrs}
+              oldestApprovalWait={data.oldestApprovalWait}
+              doneToday={data.doneToday}
+              failedToday={data.failedToday}
+            />
           </div>
 
           <div id={DASHBOARD_ANCHORS.workers}>
-          <WorkerGrid
-            workers={data.workers}
-            workspaceById={data.workspaceById}
-            activeTaskByWorkerId={data.activeTaskByWorkerId}
-            doneTodayByWorker={data.doneTodayByWorker}
-          />
+            <WorkerGrid
+              workers={data.workers}
+              workspaceById={data.workspaceById}
+              activeTaskByWorkerId={data.activeTaskByWorkerId}
+              doneTodayByWorker={data.doneTodayByWorker}
+            />
           </div>
 
           <div

@@ -25,6 +25,7 @@ pub mod host_relay;
 pub mod impact;
 pub mod oauth;
 pub mod organizations;
+pub mod pilot_report;
 pub mod preview;
 pub mod relay_auth;
 pub mod releases;
@@ -60,6 +61,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(ci_studio::router())
         .merge(repo::router())
         .merge(impact::router())
+        .merge(pilot_report::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))
