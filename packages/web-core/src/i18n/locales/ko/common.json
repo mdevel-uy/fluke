@@ -1241,5 +1241,33 @@
       "label": "자동 시작",
       "description": "작업이 할당되면 워커가 즉시 시작됩니다"
     }
+  },
+  "setupWizard": {
+    "aria": "온보딩 마법사",
+    "title": "시작하기",
+    "subtitle": "빈 인스턴스에서 첫 PR까지 네 단계.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub 연결",
+        "description": "Personal Access Token 또는 gh CLI로 인증하여 에이전트가 PR을 열 수 있게 합니다.",
+        "action": "연결"
+      },
+      "repo": {
+        "title": "저장소 추가",
+        "description": "로컬 저장소를 등록해 에이전트가 브랜치와 워크스페이스를 만들 수 있게 합니다.",
+        "action": "추가"
+      },
+      "agent": {
+        "title": "에이전트 연결",
+        "description": "Claude Code, Codex 또는 Gemini에 로그인해 워커가 실행할 에이전트를 준비합니다.",
+        "action": "연결"
+      },
+      "task": {
+        "title": "첫 태스크 만들기 및 할당",
+        "description": "이슈를 골라 워커에게 할당하면 에이전트가 실행되어 PR을 엽니다.",
+        "action": "이슈로 이동"
+      }
+    }
   }
 }

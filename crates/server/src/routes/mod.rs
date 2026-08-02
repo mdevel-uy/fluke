@@ -33,6 +33,7 @@ pub mod repo;
 pub mod scratch;
 pub mod search;
 pub mod sessions;
+pub mod setup_status;
 pub mod skills;
 pub mod ssh_session;
 pub mod system;
@@ -67,6 +68,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(preview::api_router())
         .merge(releases::router())
         .merge(sessions::router(&deployment))
+        .merge(setup_status::router())
         .merge(terminal::router())
         .merge(editor_server::router())
         .route("/ssh-session", get(ssh_session::ssh_session_ws))

@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
+import { SetupWizard } from '@/features/onboarding/ui/SetupWizard';
 
 // SHELL-SPEC R13: the main area is never empty — VSCode-style welcome view
 // (Start + Recent + shortcuts) instead of a bare redirect/spinner.
@@ -69,6 +70,8 @@ export function WorkspacesWelcome() {
               'Agentic workbench — nothing selected, so here is where you start.',
           })}
         </p>
+
+        <SetupWizard />
 
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2">
           <div>
