@@ -1,0 +1,143 @@
+---
+title: "Shipping instance metrics to Prometheus"
+description: "Enable the Grafana Alloy sidecar to scrape product, host and container metrics from a self-hosted instance and push them to a central Prometheus endpoint."
+---
+
+The same Grafana Alloy sidecar that ships logs (see [Shipping instance logs to Loki](/self-hosting/observability-logs)) also scrapes three local metrics endpoints every 30 seconds and forwards the samples to a central Prometheus via `remote_write` over HTTPS with basic auth.
+
+Fleet instances live behind customer VPNs and are not reachable from the central stack, so all metrics flow instance → stack (never the reverse).
+
+## What Alloy scrapes
+
+| Job              | Target                    | What it exposes                                          |
+|------------------|---------------------------|----------------------------------------------------------|
+| `vibe-kanban`    | `vibe-kanban:3000/api/metrics` | Product/health metrics from the app (see table below). |
+| `node-exporter`  | `node-exporter:9100/metrics`   | Host CPU, memory, disk (all mounts, including the volume that backs `/repos`). |
+| `cadvisor`       | `cadvisor:8080/metrics`        | Per-container CPU, memory, network, filesystem.        |
+
+Every sample is tagged with these external labels before being pushed:
+
+| Label       | Source                  | Example         |
+|-------------|-------------------------|-----------------|
+| `proyecto`  | Static in config        | `vibekanban`    |
+| `cliente`   | `VK_CLIENTE` env var    | `acme`          |
+| `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
+| `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
+
+The `proyecto` label keeps the fleet's samples isolated from anything else sharing the same Prometheus.
+
+## Product metrics exposed by the app
+
+`/api/metrics` returns Prometheus text-format. Metric names carry the `vibe_kanban_` prefix; the legacy `plan_*` series stays as-is for existing dashboards.
+
+| Metric                                             | Type    | What it means                                                       |
+|----------------------------------------------------|---------|---------------------------------------------------------------------|
+| `vibe_kanban_build_info{version="X"}`              | gauge   | Always `1`; `version` label carries the running app version.        |
+| `vibe_kanban_worker_tasks{status="..."}`           | gauge   | Current worker tasks per status: `queued`, `in_progress`, `in_review`, `done`, `failed`. |
+| `vibe_kanban_agents_running`                       | gauge   | Coding-agent execution processes currently in the `running` state (i.e. concurrent agents). |
+| `vibe_kanban_execution_processes_failed_total{run_reason="..."}` | counter | Cumulative failed execution processes, split by `run_reason` (`codingagent`, `setupscript`, …). |
+| `plan_cap_hits_total`                              | counter | Cumulative refusals due to the concurrent-agents cap.               |
+| `plan_cap_hits_by_date{date="YYYY-MM-DD"}`         | gauge   | One series per UTC day the cap was hit.                             |
+| `plan_concurrent_agents_limit`                     | gauge   | Current cap (`WORKER_MAX_IN_REVIEW`).                               |
+
+<Tip>
+`sum by (cliente, instancia) (vibe_kanban_agents_running)` and `sum by (cliente, instancia) (vibe_kanban_worker_tasks{status="done"})` are the two Grafana panels that satisfy the fleet acceptance criteria: concurrent agents and completed tasks per instance.
+</Tip>
+
+## Prerequisites
+
+- The instance can reach the Prometheus push endpoint over the public internet (typically `https://prom.mdevel.cloud/api/v1/write` for the mdevel fleet).
+- Basic auth credentials for the ingest user. On the mdevel fleet these are the same `vk-fleet` credentials used for Loki push, kept in `/root/vk-fleet-ingest.credentials` on the observability VPS and copied into place at provisioning — never commit them to this repository.
+- Docker Compose v2 on the instance (already required to run the app).
+
+## Environment variables
+
+When the `observability` profile is active, all variables below are required. Alloy fails to start if any are missing.
+
+| Variable            | Purpose                                                      |
+|---------------------|--------------------------------------------------------------|
+| `LOKI_PUSH_URL`     | Full Loki push URL (see logs doc).                           |
+| `PROM_PUSH_URL`     | Full Prometheus push URL, e.g. `https://prom.mdevel.cloud/api/v1/write`. |
+| `LOKI_PUSH_USER`    | Basic auth username, reused for both Loki and Prometheus push. |
+| `LOKI_PUSH_PASSWORD`| Basic auth password, reused for both Loki and Prometheus push. |
+| `VK_CLIENTE`        | Customer slug — becomes the `cliente` label.                 |
+| `VK_INSTANCIA`      | Instance slug — becomes the `instancia` label.               |
+| `VK_VERSION`        | Image or deployment version — becomes the `version` label.   |
+| `VK_METRICS_HOST`   | Optional. App scrape address; defaults to `vibe-kanban:3000`. Override only when the app binds to a non-default host or port. |
+
+## Enabling on an instance
+
+<Steps>
+<Step title="Add the Prometheus variables to the env file">
+Reuse the same `/opt/vibe-kanban/observability.env` from the logs runbook and add the Prometheus push URL. The basic-auth pair is shared with Loki.
+
+```env observability.env
+VK_CLIENTE=acme
+VK_INSTANCIA=acme-prod
+VK_VERSION=2026.08.02-1
+
+LOKI_PUSH_URL=https://loki.mdevel.cloud/loki/api/v1/push
+PROM_PUSH_URL=https://prom.mdevel.cloud/api/v1/write
+LOKI_PUSH_USER=<ingest-user>
+LOKI_PUSH_PASSWORD=<ingest-password>
+```
+</Step>
+
+<Step title="Start the observability profile">
+From the repository root on the instance:
+
+```bash
+docker compose \
+  --env-file /opt/vibe-kanban/observability.env \
+  --profile observability \
+  -f docker-compose.local.yml \
+  up -d
+```
+
+This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All three sit behind the same profile because Alloy assumes the other two are reachable by name.
+
+<Check>
+`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://vibe-kanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP vibe_kanban_build_info …`.
+</Check>
+</Step>
+
+<Step title="Verify samples land in Grafana">
+Query Prometheus for the running-agents gauge for this instance:
+
+```promql
+vibe_kanban_agents_running{proyecto="vibekanban", cliente="acme"}
+```
+
+Samples should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).
+</Step>
+</Steps>
+
+## Disabling metrics without disabling logs
+
+Metrics and logs share the `observability` profile — the two flows cannot be enabled independently at the compose level. If you need one without the other, stop the corresponding scrape/write block by removing it from `ops/alloy/config.alloy` and restarting Alloy.
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="Alloy starts but no metrics appear in Prometheus">
+Check the Alloy container logs for scrape errors:
+
+```bash
+docker compose --profile observability -f docker-compose.local.yml logs -f alloy
+```
+
+Common causes:
+
+- `dial tcp: lookup vibe-kanban on ... no such host` — the app container is not running under the compose file that started Alloy. Verify with `docker compose ps`.
+- `401 Unauthorized` from Prometheus — wrong `LOKI_PUSH_USER` / `LOKI_PUSH_PASSWORD` (the same credential is reused for Prometheus push).
+- `context deadline exceeded` on the `vibe-kanban` job — the app is up but `/api/metrics` is slow. Check the server logs for a DB stall.
+</Accordion>
+
+<Accordion title="`node-exporter` or `cadvisor` container restarts in a loop">
+Both need privileged access to the host (`/proc`, `/sys`, `/var/lib/docker`, `/dev/kmsg`). If the host is a rootless Docker or a hardened VM, some of those bind mounts may be denied. Inspect with `docker compose logs node-exporter` / `docker compose logs cadvisor` — the failing mount is usually named explicitly in the error message.
+</Accordion>
+
+<Accordion title="Metrics are there but `cliente` / `instancia` labels are wrong">
+The external labels come from `VK_CLIENTE` and `VK_INSTANCIA` at Alloy start-up. After editing the env file, re-run the `up -d` command from step 2 above — a plain `restart` reads the running env, whereas a full `up` also refreshes the compose spec.
+</Accordion>
+</AccordionGroup>

@@ -284,6 +284,33 @@ impl WorkerTask {
         .await
     }
 
+    /// Count of worker tasks grouped by status, across all workers. Feeds
+    /// `/api/metrics` (Prometheus) so the fleet stack can graph per-instance
+    /// task throughput and queue depth. Returns every valid status even when
+    /// the count is zero so the exposition stays stable across scrapes.
+    pub async fn counts_by_status(pool: &SqlitePool) -> Result<Vec<(String, i64)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, i64)>(
+            "SELECT status, COUNT(*) AS n
+               FROM worker_tasks
+               GROUP BY status",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut by_status: HashMap<String, i64> = rows.into_iter().collect();
+        let all = [
+            STATUS_QUEUED,
+            STATUS_IN_PROGRESS,
+            STATUS_IN_REVIEW,
+            STATUS_DONE,
+            STATUS_FAILED,
+        ];
+        Ok(all
+            .into_iter()
+            .map(|s| (s.to_string(), by_status.remove(s).unwrap_or(0)))
+            .collect())
+    }
+
     /// All in-progress tasks that have a workspace assigned (across all workers).
     /// Used by the pr_monitor to sweep for PRs created outside the app.
     pub async fn find_all_in_progress_with_workspace(

@@ -1,8 +1,11 @@
-//! Plan cap-hit metrics.
+//! Plan cap-hit + fleet health metrics.
 //!
 //! Two related endpoints:
-//! * `GET /api/metrics` — Prometheus text exposition; ventas / ops scrape it
-//!   to size upgrade conversations.
+//! * `GET /api/metrics` — Prometheus text exposition consumed by the local
+//!   Alloy sidecar (see `ops/alloy/config.alloy`), which forwards to the
+//!   central Prometheus via `remote_write`. Exposes: build/version info,
+//!   worker tasks per status, running coding agents, executor failure
+//!   counters, plan cap-hit counters, and the configured concurrency cap.
 //! * `GET /api/plan-limits` — JSON: the concurrent-agents limit, the
 //!   configured upsell CTA (if any), and today's cap-hit count. The
 //!   Workers/Sprint UI reads this so the toast that fires on a cap-hit can
@@ -15,12 +18,14 @@ use axum::{
     response::{IntoResponse, Json as ResponseJson, Response},
     routing::get,
 };
-use db::models::plan_cap_hit::PlanCapHit;
+use db::models::{
+    execution_process::ExecutionProcess, plan_cap_hit::PlanCapHit, worker_task::WorkerTask,
+};
 use deployment::Deployment;
 use serde::Serialize;
 use services::services::worker_orchestrator;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{response::ApiResponse, version::APP_VERSION};
 
 use crate::{DeploymentImpl, error::ApiError};
 
@@ -87,8 +92,70 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     let total = PlanCapHit::total_count(pool).await?;
     let cap = worker_orchestrator::max_in_review_from_env();
     let rows = PlanCapHit::list_all(pool).await?;
+    let task_counts = WorkerTask::counts_by_status(pool).await?;
+    let running_agents = ExecutionProcess::count_running_coding_agents(pool).await?;
+    let failed_by_reason = ExecutionProcess::counts_failed_by_run_reason(pool).await?;
 
     let mut body = String::new();
+
+    // Build info — standard Prometheus pattern: gauge = 1 with the version
+    // in a label so PromQL joins (`* on (instance) group_left vibe_kanban_build_info`)
+    // pin queries to a specific release.
+    body.push_str(
+        "# HELP vibe_kanban_build_info Build metadata for this instance; \
+         always 1, version carried in the label.\n",
+    );
+    body.push_str("# TYPE vibe_kanban_build_info gauge\n");
+    body.push_str(&format!(
+        "vibe_kanban_build_info{{version=\"{}\"}} 1\n",
+        escape_label(APP_VERSION),
+    ));
+
+    // Worker tasks by status. Emitted for every valid status even at 0 so
+    // Grafana panels do not flicker between "no data" and a number.
+    body.push_str(
+        "# HELP vibe_kanban_worker_tasks Current count of worker tasks by status.\n",
+    );
+    body.push_str("# TYPE vibe_kanban_worker_tasks gauge\n");
+    for (status, count) in &task_counts {
+        body.push_str(&format!(
+            "vibe_kanban_worker_tasks{{status=\"{}\"}} {}\n",
+            escape_label(status),
+            count,
+        ));
+    }
+
+    body.push_str(
+        "# HELP vibe_kanban_agents_running Number of coding-agent processes \
+         currently in the `running` state.\n",
+    );
+    body.push_str("# TYPE vibe_kanban_agents_running gauge\n");
+    body.push_str(&format!(
+        "vibe_kanban_agents_running {}\n",
+        running_agents,
+    ));
+
+    // Cumulative counter of failed executor processes per run_reason.
+    // Always emit the metric name so alerts on `rate(...)` don't disappear
+    // when no failures have been recorded yet.
+    body.push_str(
+        "# HELP vibe_kanban_execution_processes_failed_total Cumulative \
+         count of execution processes that ended in the `failed` state, \
+         partitioned by run_reason.\n",
+    );
+    body.push_str("# TYPE vibe_kanban_execution_processes_failed_total counter\n");
+    if failed_by_reason.is_empty() {
+        body.push_str("vibe_kanban_execution_processes_failed_total 0\n");
+    } else {
+        for (reason, count) in &failed_by_reason {
+            body.push_str(&format!(
+                "vibe_kanban_execution_processes_failed_total{{run_reason=\"{}\"}} {}\n",
+                escape_label(reason),
+                count,
+            ));
+        }
+    }
+
     body.push_str("# HELP plan_cap_hits_total Total number of times a worker start was refused because the concurrent-agents cap was reached.\n");
     body.push_str("# TYPE plan_cap_hits_total counter\n");
     body.push_str(&format!("plan_cap_hits_total {}\n", total));
@@ -115,4 +182,39 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
         body,
     )
         .into_response())
+}
+
+/// Escape backslash, double-quote and newline in a Prometheus label value.
+/// Applied to every dynamic value we splice into the text exposition so a
+/// stray character (e.g. a version suffix containing `"`) cannot corrupt the
+/// output.
+fn escape_label(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_label;
+
+    #[test]
+    fn escape_label_passes_plain_ascii_through() {
+        assert_eq!(escape_label("0.1.44"), "0.1.44");
+        assert_eq!(escape_label("in_progress"), "in_progress");
+    }
+
+    #[test]
+    fn escape_label_escapes_prometheus_specials() {
+        assert_eq!(escape_label("a\"b"), "a\\\"b");
+        assert_eq!(escape_label("a\\b"), "a\\\\b");
+        assert_eq!(escape_label("a\nb"), "a\\nb");
+    }
 }
