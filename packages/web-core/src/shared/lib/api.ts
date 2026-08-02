@@ -2261,13 +2261,10 @@ export const agentAuthApi = {
     provider: AgentAuthProvider,
     body: AgentLoginRequest = {}
   ): Promise<AgentLoginResponse> => {
-    const response = await makeRequest(
-      `/api/agents/auth/${provider}/login`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }
-    );
+    const response = await makeRequest(`/api/agents/auth/${provider}/login`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
     return handleApiResponse<AgentLoginResponse>(response);
   },
 
@@ -2280,10 +2277,9 @@ export const agentAuthApi = {
   },
 
   logout: async (provider: AgentAuthProvider): Promise<void> => {
-    const response = await makeRequest(
-      `/api/agents/auth/${provider}/logout`,
-      { method: 'POST' }
-    );
+    const response = await makeRequest(`/api/agents/auth/${provider}/logout`, {
+      method: 'POST',
+    });
     await handleApiResponse<void>(response);
   },
 };
@@ -2524,6 +2520,30 @@ export const systemApi = {
     const response = await makeRequest('/api/system/base-instructions');
     const data = await handleApiResponse<{ content: string }>(response);
     return data.content;
+  },
+};
+
+// Plan limits API — concurrent-agents cap, upsell CTA, cap-hit counters.
+// Types mirror `PlanLimitsResponse` in
+// `crates/server/src/routes/metrics.rs`; they live here (not in
+// `shared/types.ts`) until infrastructure regenerates the shared types file,
+// same pattern as the agent-auth shims above.
+export interface PlanUpgradeCta {
+  label: string;
+  url: string;
+}
+
+export interface PlanLimitsResponse {
+  concurrent_agents_limit: number;
+  upgrade_cta: PlanUpgradeCta | null;
+  cap_hits_today: number;
+  cap_hits_total: number;
+}
+
+export const planLimitsApi = {
+  get: async (): Promise<PlanLimitsResponse> => {
+    const response = await makeRequest('/api/plan-limits');
+    return handleApiResponse<PlanLimitsResponse>(response);
   },
 };
 

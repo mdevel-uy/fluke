@@ -933,6 +933,8 @@
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
       "startConflict": "{{worker}}에는 대기 중인 작업이 없거나 이미 작업 중입니다.",
       "startError": "{{worker}} 시작 실패: {{message}}",
+      "planCapReached": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedWithLimit": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
@@ -1218,6 +1220,8 @@
     "toast": {
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllError": "워커 시작 실패: {{message}}",
+      "planCapReachedGeneric": "일부 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedGenericWithLimit": "일부 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
       "reviewApproved": "리뷰 승인: {{title}}",

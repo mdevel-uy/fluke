@@ -933,6 +933,8 @@
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
       "startConflict": "{{worker}} には待機中のタスクがない、またはすでに作業中です。",
       "startError": "{{worker}} の開始に失敗しました：{{message}}",
+      "planCapReached": "{{worker}} のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedWithLimit": "{{worker}} のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
       "createSuccess": "ワーカーを作成しました。",
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
@@ -1218,6 +1220,8 @@
     "toast": {
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllError": "ワーカーの開始に失敗しました: {{message}}",
+      "planCapReachedGeneric": "一部のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedGenericWithLimit": "一部のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
