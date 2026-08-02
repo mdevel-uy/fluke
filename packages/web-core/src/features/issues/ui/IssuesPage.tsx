@@ -247,6 +247,10 @@ export function IssuesPage() {
 
   // Refresh workers + tasks on page mount so navigating into Issues never
   // shows stale data. Issues themselves refetch on mount via useRepoIssues.
+  // Ongoing auto-refresh of the workers overlay (every 30s and on window
+  // focus, per issue #155) is provided by the shared useWorkers /
+  // useAllWorkerTasks hooks below — do not swap them for a non-polling
+  // variant without preserving that behavior.
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: workersKeys.all });
   }, [queryClient]);
