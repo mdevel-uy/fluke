@@ -593,6 +593,12 @@
       "toggleAdhocClaude": "アドホック Claude"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} スロット",
+    "slotsTooltip": "使用中のエージェントスロット — AGENT_CONCURRENCY_LIMIT / config で設定します。",
+    "slotsQueued": "{{count}} 件待機中",
+    "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。"
+  },
   "adhocPanel": {
     "title": "アドホック Claude",
     "close": "アドホック Claude パネルを閉じる",

@@ -594,6 +594,12 @@
       "toggleAdhocClaude": "Claude ad-hoc"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Slots de agente en uso — configurado por AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} en cola",
+    "slotsQueuedTooltip": "Límite de concurrencia alcanzado. {{count}} ejecución(es) esperando un slot libre."
+  },
   "adhocPanel": {
     "title": "Claude ad-hoc",
     "close": "Cerrar panel de Claude ad-hoc",

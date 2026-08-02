@@ -12,12 +12,21 @@
 //! quickly (setup/cleanup) or don't compete with agent slots at all
 //! (dev servers).
 //!
-//! Limit resolution (checked on every gate check, so a config edit
-//! takes effect on the next spawn or process exit without a restart):
+//! Limit resolution (checked on every gate check):
 //!   1. `AGENT_CONCURRENCY_LIMIT` env var if it parses as a
 //!      non-negative integer
 //!   2. `Config.agent_concurrency_limit`
 //!   3. `0` (unlimited) fallback
+//!
+//! Reload semantics differ per source:
+//!   - `Config.agent_concurrency_limit` is read from a lock on every
+//!     check, so an in-place config edit takes effect on the next
+//!     spawn or process exit without a restart.
+//!   - `AGENT_CONCURRENCY_LIMIT` is read from the process environment,
+//!     which is snapshotted at startup. Changing the env var on a
+//!     running server does **not** take effect until the server is
+//!     restarted (or until the env var is cleared, at which point the
+//!     config value wins again).
 
 use std::{
     collections::{HashSet, VecDeque},

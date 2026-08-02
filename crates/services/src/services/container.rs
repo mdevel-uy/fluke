@@ -771,7 +771,15 @@ pub trait ContainerService {
                     {
                         continue;
                     }
-                    if process.status == ExecutionProcessStatus::Running {
+                    // Cancel both Running and Queued: leaving Queued rows in
+                    // the FIFO would cause the semaphore to spawn an agent
+                    // against an archived / reset workspace when a slot frees.
+                    // stop_execution handles Queued specially (drops from the
+                    // wait queue, no child kill needed).
+                    if matches!(
+                        process.status,
+                        ExecutionProcessStatus::Running | ExecutionProcessStatus::Queued
+                    ) {
                         self.stop_execution(&process, ExecutionProcessStatus::Killed)
                             .await
                             .unwrap_or_else(|e| {
