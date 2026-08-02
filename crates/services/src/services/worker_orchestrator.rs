@@ -174,6 +174,132 @@ pub fn resolve_max_review_rounds(config: &Config) -> i64 {
     }
 }
 
+/// Maximum consecutive infrastructure-failure retries per PR. Beyond this
+/// the dispatcher stops retrying and asks for manual intervention — with the
+/// exponential backoff below this covers several hours of API outage.
+const MAX_INFRA_RETRIES_PER_PR: i64 = 6;
+/// From this many consecutive infra failures on, the retry is dispatched
+/// with [`INFRA_FALLBACK_MODEL`] instead of the reviewer's own model.
+const INFRA_MODEL_FALLBACK_THRESHOLD: i64 = 2;
+/// Model the dispatcher degrades to after repeated infra failures. Opus is
+/// the fleet's workhorse model and the least likely to be gated: in the
+/// 02-ago-2026 incident `fable` returned API 404 for half an hour while
+/// opus workers kept running.
+const INFRA_FALLBACK_MODEL: &str = "opus";
+
+/// Exponential backoff between infra-failure retries: 2, 4, 8, 16, 30, 30…
+/// minutes. The PR monitor polls every minute; this gate is what keeps a
+/// doomed configuration from burning a dispatch per poll.
+fn infra_retry_backoff(trailing_failures: i64) -> chrono::Duration {
+    let exp = (trailing_failures - 1).clamp(0, 5) as u32;
+    chrono::Duration::minutes((2i64 << exp).min(30))
+}
+
+/// Substrings (lowercase) in the CLI's final error that identify an
+/// infrastructure problem — the agent never really worked, so the failure
+/// says nothing about the PR under review.
+const INFRA_ERROR_PATTERNS: &[&str] = &[
+    "rate limit",
+    "usage limit",
+    "overloaded",
+    "issue with the selected model",
+    "credit balance",
+    "api key",
+    "oauth token",
+    "try again later",
+];
+
+/// Minimal view of the Claude CLI's final `{"type":"result", …}` stream-json
+/// line — enough to distinguish an API-level failure from an agent failure.
+#[derive(serde::Deserialize)]
+struct CliResultLine {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    is_error: Option<bool>,
+    #[serde(default)]
+    result: Option<serde_json::Value>,
+    #[serde(default)]
+    api_error_status: Option<u16>,
+}
+
+/// What a failed agent run tells us about itself.
+struct AgentFailureDetails {
+    /// Human-readable reason shown on the failed card.
+    message: String,
+    /// True when the run died on an API error (rate limit, model not
+    /// available, auth) — an infrastructure failure that must not consume
+    /// review rounds and is worth retrying with backoff.
+    infra: bool,
+}
+
+fn default_failure_details() -> AgentFailureDetails {
+    AgentFailureDetails {
+        message: "El agente terminó con error".to_string(),
+        infra: false,
+    }
+}
+
+/// Inspect the raw execution logs of a failed run and classify the failure.
+/// Falls back to a generic agent-failure when the logs are missing or hold
+/// no recognizable final result (e.g. non-Claude executors).
+async fn agent_failure_details(
+    pool: &sqlx::SqlitePool,
+    execution_id: Option<Uuid>,
+) -> AgentFailureDetails {
+    let Some(execution_id) = execution_id else {
+        return default_failure_details();
+    };
+    let Some(messages) =
+        crate::services::execution_process::load_raw_log_messages(pool, execution_id).await
+    else {
+        return default_failure_details();
+    };
+
+    // The final `result` line is the CLI's own verdict on the run; scan from
+    // the tail so a long transcript costs nothing.
+    for msg in messages.iter().rev() {
+        let utils::log_msg::LogMsg::Stdout(chunk) = msg else {
+            continue;
+        };
+        for line in chunk.lines().rev() {
+            if let Some(details) = classify_cli_result_line(line) {
+                return details;
+            }
+        }
+    }
+    default_failure_details()
+}
+
+/// Classify one raw stream-json line. Returns `Some` only for a final
+/// `{"type":"result", …}` line; anything else is skipped by the caller.
+fn classify_cli_result_line(line: &str) -> Option<AgentFailureDetails> {
+    let parsed = serde_json::from_str::<CliResultLine>(line.trim()).ok()?;
+    if parsed.kind != "result" {
+        return None;
+    }
+    if !parsed.is_error.unwrap_or(false) {
+        // The CLI considered the run OK; the failure came from somewhere
+        // else (exit code, kill). Nothing to classify.
+        return Some(default_failure_details());
+    }
+    let text = parsed
+        .result
+        .as_ref()
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("El agente terminó con error");
+    let lowered = text.to_lowercase();
+    let infra = parsed.api_error_status.is_some()
+        || INFRA_ERROR_PATTERNS.iter().any(|p| lowered.contains(p));
+    let mut message: String = text.chars().take(400).collect();
+    if let Some(status) = parsed.api_error_status {
+        message = format!("Error de API ({status}): {message}");
+    }
+    Some(AgentFailureDetails { message, infra })
+}
+
 pub struct StartedTask {
     pub task: WorkerTask,
     pub workspace_id: Uuid,
@@ -243,6 +369,16 @@ pub async fn try_take_next(
     let mut executor_config: ExecutorConfig = executor_config.into();
     if let Some(model) = &worker.model {
         executor_config.model_id = Some(model.clone());
+    }
+    // The dispatcher may pin a fallback model on the task itself (after
+    // repeated infra failures); that override beats the worker's model.
+    if let Some(model) = WorkerTask::model_override(pool, task.id).await? {
+        info!(
+            task_id = %task.id,
+            model,
+            "Using dispatcher model override for this task"
+        );
+        executor_config.model_id = Some(model);
     }
     // Per-worker plan mode override. Setting the policy to `None` is *not*
     // enough to disable plan mode: every executor stores its own `plan`
@@ -809,6 +945,7 @@ pub async fn on_agent_finished(
     container: &(impl ContainerService + Send + Sync),
     workspace_id: Uuid,
     succeeded: bool,
+    execution_id: Option<Uuid>,
 ) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
 
@@ -820,8 +957,16 @@ pub async fn on_agent_finished(
     };
 
     if worker.role == ROLE_DEVELOPER {
-        return on_developer_agent_finished(config, db, container, workspace_id, &worker, succeeded)
-            .await;
+        return on_developer_agent_finished(
+            config,
+            db,
+            container,
+            workspace_id,
+            &worker,
+            succeeded,
+            execution_id,
+        )
+        .await;
     }
 
     let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
@@ -842,10 +987,14 @@ pub async fn on_agent_finished(
         worker_task::STATUS_FAILED
     };
 
+    let mut infra_failure = false;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
     } else {
-        WorkerTask::set_failed(pool, task.id, "El agente terminó con error").await?;
+        let details = agent_failure_details(pool, execution_id).await;
+        infra_failure = details.infra;
+        let kind = details.infra.then_some(worker_task::FAILURE_KIND_INFRA);
+        WorkerTask::set_failed_with_kind(pool, task.id, &details.message, kind).await?;
     }
     info!(
         worker_id = %worker_id,
@@ -853,9 +1002,18 @@ pub async fn on_agent_finished(
         workspace_id = %workspace_id,
         role = %worker.role,
         succeeded,
+        infra_failure,
         "Analyst/reviewer worker task finished — status set to {}",
         new_status
     );
+    if infra_failure {
+        warn!(
+            worker_id = %worker_id,
+            task_id = %task.id,
+            "Task failed for infrastructure reasons (API error) — it will not \
+             consume a review round; the dispatcher retries with backoff"
+        );
+    }
 
     // Archive the workspace now that the task is complete.
     archive_and_detach(db, container, workspace_id).await;
@@ -896,6 +1054,7 @@ async fn on_developer_agent_finished(
     workspace_id: Uuid,
     worker: &Worker,
     succeeded: bool,
+    execution_id: Option<Uuid>,
 ) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
 
@@ -910,11 +1069,14 @@ async fn on_developer_agent_finished(
     }
 
     if !succeeded {
-        WorkerTask::set_failed(pool, task.id, "El agente terminó con error").await?;
+        let details = agent_failure_details(pool, execution_id).await;
+        let kind = details.infra.then_some(worker_task::FAILURE_KIND_INFRA);
+        WorkerTask::set_failed_with_kind(pool, task.id, &details.message, kind).await?;
         info!(
             worker_id = %worker.id,
             task_id = %task.id,
             workspace_id = %workspace_id,
+            infra_failure = details.infra,
             "Developer worker task failed — agent did not complete successfully"
         );
         archive_and_detach(db, container, workspace_id).await;
@@ -1346,6 +1508,9 @@ pub(crate) async fn select_lru_reviewer(
 /// - An active reviewer task already exists for this PR (idempotent guard)
 /// - The PR has already reached the `Config.max_review_rounds` cap (escalated;
 ///   the `WORKER_REVIEW_MAX_ROUNDS` env var may still override the Config)
+/// - A recent infrastructure failure put the PR inside its retry backoff
+///   window (skipped when `manual` — an explicit human retry overrides the
+///   automatic throttle)
 pub async fn dispatch_review_task(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -1354,6 +1519,7 @@ pub async fn dispatch_review_task(
     pr_title: &str,
     repo_id: Uuid,
     author_worker_id: Option<Uuid>,
+    manual: bool,
 ) -> Result<(), sqlx::Error> {
     if !lead_enabled_from_env() {
         return Ok(());
@@ -1460,6 +1626,45 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
+    // Infrastructure-failure gate: previous dispatches for this PR whose
+    // agent never really ran (API error) don't count as rounds, but they do
+    // throttle the next attempt — exponential backoff instead of one doomed
+    // dispatch per monitor poll, and a hard stop after too many in a row.
+    let trailing_infra =
+        WorkerTask::count_trailing_infra_failures_for_pr(pool, pr_number, repo_id).await?;
+    if trailing_infra > 0 && !manual {
+        if trailing_infra >= MAX_INFRA_RETRIES_PER_PR {
+            warn!(
+                pr_number,
+                trailing_infra,
+                "Review dispatch for PR #{} suspended after {} consecutive \
+                 infrastructure failures — fix the API/model configuration \
+                 and relaunch the review manually",
+                pr_number,
+                trailing_infra,
+            );
+            return Ok(());
+        }
+        if let Some(last_failure) =
+            WorkerTask::last_infra_failure_at_for_pr(pool, pr_number, repo_id).await?
+        {
+            let backoff = infra_retry_backoff(trailing_infra);
+            if chrono::Utc::now() - last_failure < backoff {
+                debug!(
+                    pr_number,
+                    trailing_infra,
+                    backoff_minutes = backoff.num_minutes(),
+                    "Waiting out infra-failure backoff before redispatching review"
+                );
+                return Ok(());
+            }
+        }
+        info!(
+            pr_number,
+            trailing_infra, "Retrying review dispatch after infrastructure failure(s)"
+        );
+    }
+
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
     let task_prompt = quick_action_prompts::format_review_pr_prompt(pr_number);
 
@@ -1476,6 +1681,23 @@ pub async fn dispatch_review_task(
         },
     )
     .await?;
+
+    // After repeated infra failures, pin a known-good model on the retry —
+    // in practice the premium model is what gets gated first (e.g. `fable`
+    // returning 404 while opus workers keep running).
+    if trailing_infra >= INFRA_MODEL_FALLBACK_THRESHOLD
+        && reviewer.model.as_deref() != Some(INFRA_FALLBACK_MODEL)
+    {
+        WorkerTask::set_model_override(pool, task.id, INFRA_FALLBACK_MODEL).await?;
+        warn!(
+            reviewer_id = %reviewer.id,
+            pr_number,
+            task_id = %task.id,
+            trailing_infra,
+            "Degrading review to model '{}' after repeated infrastructure failures",
+            INFRA_FALLBACK_MODEL,
+        );
+    }
 
     info!(
         reviewer_id = %reviewer.id,
@@ -2431,6 +2653,209 @@ mod tests {
             Some(free.id),
             "walk must skip author (self-review) and saturated (capacity), \
              then land on the free reviewer",
+        );
+    }
+
+    // --- infra-failure classification + round accounting ---
+
+    /// Real payload from the 02-ago-2026 incident: the CLI died on an API
+    /// 404 for the configured model. Must classify as infra with the real
+    /// message surfaced.
+    #[test]
+    fn classify_cli_result_line_flags_model_404_as_infra() {
+        let line = r#"{"type":"result","subtype":"success","is_error":true,"api_error_status":404,"duration_ms":482,"num_turns":1,"result":"There's an issue with the selected model (fable). It may not exist or you may not have access to it. Run --model to pick a different model.","session_id":"s"}"#;
+        let details = classify_cli_result_line(line).expect("result line must classify");
+        assert!(details.infra, "API 404 is an infrastructure failure");
+        assert!(
+            details.message.contains("404") && details.message.contains("fable"),
+            "card message must carry the real error: {}",
+            details.message
+        );
+    }
+
+    #[test]
+    fn classify_cli_result_line_flags_rate_limit_text_as_infra() {
+        let line = r#"{"type":"result","is_error":true,"result":"Rate limited. Please try again later."}"#;
+        let details = classify_cli_result_line(line).expect("result line must classify");
+        assert!(details.infra);
+    }
+
+    #[test]
+    fn classify_cli_result_line_agent_error_is_not_infra() {
+        let line = r#"{"type":"result","is_error":true,"result":"Execution stopped: the task could not be completed."}"#;
+        let details = classify_cli_result_line(line).expect("result line must classify");
+        assert!(
+            !details.infra,
+            "a genuine agent failure must consume a round as before"
+        );
+        assert!(details.message.contains("Execution stopped"));
+    }
+
+    #[test]
+    fn classify_cli_result_line_skips_non_result_lines() {
+        assert!(classify_cli_result_line(r#"{"type":"assistant","message":{}}"#).is_none());
+        assert!(classify_cli_result_line("not json at all").is_none());
+    }
+
+    #[test]
+    fn infra_retry_backoff_grows_and_caps() {
+        assert_eq!(infra_retry_backoff(1).num_minutes(), 2);
+        assert_eq!(infra_retry_backoff(2).num_minutes(), 4);
+        assert_eq!(infra_retry_backoff(3).num_minutes(), 8);
+        assert_eq!(infra_retry_backoff(4).num_minutes(), 16);
+        assert_eq!(infra_retry_backoff(5).num_minutes(), 30);
+        assert_eq!(infra_retry_backoff(20).num_minutes(), 30);
+    }
+
+    async fn append_reviewer_task_for_pr(
+        db: &DBService,
+        worker_id: Uuid,
+        repo_id: Uuid,
+        pr_number: i64,
+    ) -> WorkerTask {
+        WorkerTask::append(
+            &db.pool,
+            worker_id,
+            &CreateWorkerTask {
+                repo_id,
+                title: format!("Review PR #{pr_number}"),
+                prompt: "review".to_string(),
+                issue_number: Some(pr_number),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .expect("append reviewer task")
+    }
+
+    /// Stamp a deterministic `created_at` so ordering-sensitive queries are
+    /// not at the mercy of sub-second insert timing.
+    async fn stamp_created_at(pool: &SqlitePool, task_id: Uuid, seconds_offset: i64) {
+        let base = chrono::Utc.with_ymd_and_hms(2026, 8, 2, 12, 0, 0).unwrap();
+        sqlx::query("UPDATE worker_tasks SET created_at = ?1 WHERE id = ?2")
+            .bind(base + chrono::Duration::seconds(seconds_offset))
+            .bind(task_id)
+            .execute(pool)
+            .await
+            .expect("stamp created_at");
+    }
+
+    #[tokio::test]
+    async fn infra_failed_tasks_do_not_consume_review_rounds() {
+        // The 02-ago-2026 incident: 3 dispatches all died on an API 404
+        // within minutes and burned the PR's whole round budget. With the
+        // kind recorded, only real rounds count.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "rounds-repo").await;
+        let reviewer = insert_reviewer(&db, "atlas").await;
+        let pr = 373i64;
+
+        for i in 0..3 {
+            let task = append_reviewer_task_for_pr(&db, reviewer.id, repo.id, pr).await;
+            stamp_created_at(&db.pool, task.id, i).await;
+            WorkerTask::set_failed_with_kind(
+                &db.pool,
+                task.id,
+                "Error de API (404): modelo no disponible",
+                Some(worker_task::FAILURE_KIND_INFRA),
+            )
+            .await
+            .unwrap();
+        }
+
+        assert_eq!(
+            WorkerTask::count_reviewer_tasks_for_pr(&db.pool, pr, repo.id)
+                .await
+                .unwrap(),
+            0,
+            "infra failures must not burn review rounds"
+        );
+        assert_eq!(
+            WorkerTask::count_trailing_infra_failures_for_pr(&db.pool, pr, repo.id)
+                .await
+                .unwrap(),
+            3,
+            "all three failures are consecutive (trailing)"
+        );
+
+        // A genuine agent failure still consumes a round and resets the
+        // trailing-infra counter.
+        let real = append_reviewer_task_for_pr(&db, reviewer.id, repo.id, pr).await;
+        stamp_created_at(&db.pool, real.id, 10).await;
+        WorkerTask::set_failed(&db.pool, real.id, "El agente terminó con error")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            WorkerTask::count_reviewer_tasks_for_pr(&db.pool, pr, repo.id)
+                .await
+                .unwrap(),
+            1,
+            "agent failures keep consuming rounds"
+        );
+        assert_eq!(
+            WorkerTask::count_trailing_infra_failures_for_pr(&db.pool, pr, repo.id)
+                .await
+                .unwrap(),
+            0,
+            "a task that really ran resets the consecutive-infra counter"
+        );
+    }
+
+    #[tokio::test]
+    async fn requeue_after_infra_failure_clears_kind_and_reason() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "requeue-repo").await;
+        let reviewer = insert_reviewer(&db, "chewax").await;
+        let task = append_reviewer_task_for_pr(&db, reviewer.id, repo.id, 374).await;
+
+        WorkerTask::set_failed_with_kind(
+            &db.pool,
+            task.id,
+            "Error de API (429): rate limited",
+            Some(worker_task::FAILURE_KIND_INFRA),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            WorkerTask::count_trailing_infra_failures_for_pr(&db.pool, 374, repo.id)
+                .await
+                .unwrap(),
+            1
+        );
+
+        // Manual retry from the UI re-queues the task: it starts clean.
+        let requeued = WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_QUEUED)
+            .await
+            .unwrap();
+        assert_eq!(requeued.failure_reason, None);
+        assert_eq!(
+            WorkerTask::count_trailing_infra_failures_for_pr(&db.pool, 374, repo.id)
+                .await
+                .unwrap(),
+            0,
+            "re-queued task no longer counts as an infra failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn model_override_roundtrip() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "override-repo").await;
+        let reviewer = insert_reviewer(&db, "solo").await;
+        let task = append_reviewer_task_for_pr(&db, reviewer.id, repo.id, 375).await;
+
+        assert_eq!(
+            WorkerTask::model_override(&db.pool, task.id).await.unwrap(),
+            None
+        );
+        WorkerTask::set_model_override(&db.pool, task.id, INFRA_FALLBACK_MODEL)
+            .await
+            .unwrap();
+        assert_eq!(
+            WorkerTask::model_override(&db.pool, task.id).await.unwrap(),
+            Some(INFRA_FALLBACK_MODEL.to_string())
         );
     }
 }

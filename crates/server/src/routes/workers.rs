@@ -1127,6 +1127,8 @@ pub async fn re_request_review(
         &existing.title,
         existing.repo_id,
         Some(existing.worker_id),
+        // Explicit human retry: skip the automatic infra-failure backoff.
+        true,
     )
     .await?;
 

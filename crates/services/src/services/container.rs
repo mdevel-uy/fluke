@@ -292,6 +292,7 @@ pub trait ContainerService {
                 self,
                 ctx.workspace.id,
                 succeeded,
+                Some(ctx.execution_process.id),
             )
             .await
             {
