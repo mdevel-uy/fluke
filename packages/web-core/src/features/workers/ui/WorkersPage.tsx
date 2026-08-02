@@ -13,8 +13,9 @@ import type { WorkerResponse } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
-import { ApiError } from '@/shared/lib/api';
+import { ApiError, type PlanUpgradeCta } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
+import { usePlanLimits } from '@/shared/hooks/usePlanLimits';
 import { cn } from '@/shared/lib/utils';
 import {
   useArchivedWorkers,
@@ -63,9 +64,13 @@ type Toast = {
   id: number;
   variant: 'success' | 'error' | 'info';
   message: string;
+  cta?: PlanUpgradeCta;
 };
 
 const TOAST_DURATION_MS = 4000;
+// Cap-hit toasts pull double duty as upsell prompts, so give the reader
+// enough time to actually notice and click the CTA before the toast fades.
+const CTA_TOAST_DURATION_MS = 8000;
 
 function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -82,10 +87,18 @@ function useToasts() {
   }, []);
 
   const push = useCallback(
-    (variant: Toast['variant'], message: string) => {
+    (
+      variant: Toast['variant'],
+      message: string,
+      options?: { cta?: PlanUpgradeCta }
+    ) => {
       const id = nextIdRef.current++;
-      setToasts((prev) => [...prev, { id, variant, message }]);
-      const timer = setTimeout(() => dismiss(id), TOAST_DURATION_MS);
+      setToasts((prev) => [
+        ...prev,
+        { id, variant, message, cta: options?.cta },
+      ]);
+      const duration = options?.cta ? CTA_TOAST_DURATION_MS : TOAST_DURATION_MS;
+      const timer = setTimeout(() => dismiss(id), duration);
       timersRef.current.set(id, timer);
     },
     [dismiss]
@@ -106,6 +119,7 @@ export function WorkersPage() {
   const { t } = useTranslation('common');
   usePageTitle(t('workers.title'));
 
+  const { data: planLimits } = usePlanLimits();
   const { data: workers = [], isLoading, isError } = useWorkers();
   const {
     data: archivedWorkers = [],
@@ -201,7 +215,22 @@ export function WorkersPage() {
         })
       );
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
+      if (err instanceof ApiError && err.status === 429) {
+        // Plan concurrent-agents cap reached — the task is still queued and
+        // will start as soon as capacity frees up. Frame it as a fila, not a
+        // pared, and surface the upsell CTA when one is configured.
+        const limit = planLimits?.concurrent_agents_limit;
+        pushToast(
+          'info',
+          limit != null
+            ? t('workers.toast.planCapReachedWithLimit', {
+                worker: worker.name,
+                limit,
+              })
+            : t('workers.toast.planCapReached', { worker: worker.name }),
+          planLimits?.upgrade_cta ? { cta: planLimits.upgrade_cta } : undefined
+        );
+      } else if (err instanceof ApiError && err.status === 409) {
         const serverMessage =
           err.message &&
           err.message !== 'API request failed' &&
@@ -381,9 +410,26 @@ export function WorkersPage() {
                     : 'text-high'
               )}
             >
-              <span className="min-w-0 flex-1 leading-relaxed">
-                {toast.message}
-              </span>
+              <div className="min-w-0 flex-1 leading-relaxed">
+                <span>{toast.message}</span>
+                {toast.cta ? (
+                  <>
+                    {' '}
+                    <a
+                      href={toast.cta.url}
+                      target={
+                        toast.cta.url.startsWith('mailto:')
+                          ? undefined
+                          : '_blank'
+                      }
+                      rel="noopener noreferrer"
+                      className="font-semibold underline underline-offset-2 hover:no-underline"
+                    >
+                      {toast.cta.label}
+                    </a>
+                  </>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
@@ -440,23 +486,23 @@ export function WorkersPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,380px))] gap-4 p-container-padding">
             {workers.map((worker) => (
               <div key={worker.id} id={workerCardDomId(worker.id)}>
-              <WorkerCard
-                worker={worker}
-                queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
-                activeTask={activeTaskByWorkerId.get(worker.id)}
-                needsAttention={stalledWorkerIds.has(worker.id)}
-                activeWorkspace={
-                  worker.active_workspace_id
-                    ? workspaceSummaryById.get(worker.active_workspace_id)
-                    : undefined
-                }
-                isStarting={startingWorkerId === worker.id}
-                isDuplicating={duplicatingWorkerIds.has(worker.id)}
-                onStartNext={() => handleStartNext(worker)}
-                onEdit={() => handleEditWorker(worker)}
-                onDuplicate={() => handleDuplicate(worker)}
-                onArchive={() => handleArchive(worker)}
-              />
+                <WorkerCard
+                  worker={worker}
+                  queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
+                  activeTask={activeTaskByWorkerId.get(worker.id)}
+                  needsAttention={stalledWorkerIds.has(worker.id)}
+                  activeWorkspace={
+                    worker.active_workspace_id
+                      ? workspaceSummaryById.get(worker.active_workspace_id)
+                      : undefined
+                  }
+                  isStarting={startingWorkerId === worker.id}
+                  isDuplicating={duplicatingWorkerIds.has(worker.id)}
+                  onStartNext={() => handleStartNext(worker)}
+                  onEdit={() => handleEditWorker(worker)}
+                  onDuplicate={() => handleDuplicate(worker)}
+                  onArchive={() => handleArchive(worker)}
+                />
               </div>
             ))}
           </div>

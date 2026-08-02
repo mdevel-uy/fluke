@@ -339,6 +339,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             &pr_info.title,
                             workspace_repo.repo_id,
                             author_worker_id,
+                            false,
                         )
                         .await
                         {
@@ -507,6 +508,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             &status.title,
                             repo_id,
                             author_worker_id,
+                            false,
                         )
                         .await
                         {

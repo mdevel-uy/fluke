@@ -933,6 +933,8 @@
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
       "startConflict": "{{worker}}에는 대기 중인 작업이 없거나 이미 작업 중입니다.",
       "startError": "{{worker}} 시작 실패: {{message}}",
+      "planCapReached": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedWithLimit": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
@@ -1218,6 +1220,8 @@
     "toast": {
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllError": "워커 시작 실패: {{message}}",
+      "planCapReachedGeneric": "일부 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedGenericWithLimit": "일부 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
       "reviewApproved": "리뷰 승인: {{title}}",
@@ -1240,6 +1244,34 @@
     "autoIngest": {
       "label": "자동 시작",
       "description": "작업이 할당되면 워커가 즉시 시작됩니다"
+    }
+  },
+  "setupWizard": {
+    "aria": "온보딩 마법사",
+    "title": "시작하기",
+    "subtitle": "빈 인스턴스에서 첫 PR까지 네 단계.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub 연결",
+        "description": "Personal Access Token 또는 gh CLI로 인증하여 에이전트가 PR을 열 수 있게 합니다.",
+        "action": "연결"
+      },
+      "repo": {
+        "title": "저장소 추가",
+        "description": "로컬 저장소를 등록해 에이전트가 브랜치와 워크스페이스를 만들 수 있게 합니다.",
+        "action": "추가"
+      },
+      "agent": {
+        "title": "에이전트 연결",
+        "description": "Claude Code, Codex 또는 Gemini에 로그인해 워커가 실행할 에이전트를 준비합니다.",
+        "action": "연결"
+      },
+      "task": {
+        "title": "첫 태스크 만들기 및 할당",
+        "description": "이슈를 골라 워커에게 할당하면 에이전트가 실행되어 PR을 엽니다.",
+        "action": "이슈로 이동"
+      }
     }
   }
 }

@@ -933,6 +933,8 @@
       "startSuccess": "{{worker}} a démarré « {{title}} ».",
       "startConflict": "{{worker}} n'a aucune tâche en file ou en a déjà une en cours.",
       "startError": "Échec du démarrage de {{worker}} : {{message}}",
+      "planCapReached": "La tâche de {{worker}} est en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedWithLimit": "La tâche de {{worker}} est en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
       "createSuccess": "Worker créé.",
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
@@ -1221,6 +1223,8 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllError": "Échec du démarrage des workers : {{message}}",
+      "planCapReachedGeneric": "Certaines tâches sont en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedGenericWithLimit": "Certaines tâches sont en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
       "reviewApproved": "Révision approuvée : {{title}}",
       "reviewChangesRequested": "Modifications demandées : {{title}}",
@@ -1242,6 +1246,34 @@
     "autoIngest": {
       "label": "Ingestion automatique",
       "description": "Les workers démarrent dès qu'une tâche est assignée"
+    }
+  },
+  "setupWizard": {
+    "aria": "Assistant d'onboarding",
+    "title": "Commencer",
+    "subtitle": "Quatre étapes entre une instance vide et votre première PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Connecter GitHub",
+        "description": "Authentifiez-vous avec un Personal Access Token ou la CLI gh pour que les agents puissent ouvrir des pull requests.",
+        "action": "Connecter"
+      },
+      "repo": {
+        "title": "Ajouter un dépôt",
+        "description": "Enregistrez un dépôt local pour que les agents y créent des branches et des workspaces.",
+        "action": "Ajouter"
+      },
+      "agent": {
+        "title": "Connecter un agent",
+        "description": "Connectez-vous à Claude Code, Codex ou Gemini pour donner un agent à un worker.",
+        "action": "Connecter"
+      },
+      "task": {
+        "title": "Créer et assigner votre première tâche",
+        "description": "Choisissez un issue et assignez-le à un worker — l'agent s'exécute et ouvre la PR.",
+        "action": "Aller aux issues"
+      }
     }
   }
 }

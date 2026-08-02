@@ -933,6 +933,8 @@
       "startSuccess": "{{worker}} 已開始「{{title}}」。",
       "startConflict": "{{worker}} 沒有排隊任務或已在工作中。",
       "startError": "啟動 {{worker}} 失敗：{{message}}",
+      "planCapReached": "{{worker}} 的任務已加入佇列 — 您的方案已達到並行代理數量上限。",
+      "planCapReachedWithLimit": "{{worker}} 的任務已加入佇列 — 您的方案可並行執行 {{limit}} 個代理。升級以執行更多。",
       "createSuccess": "工作者已建立。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已刪除。",
@@ -1218,6 +1220,8 @@
     "toast": {
       "startAllSuccess": "已啟動 {{count}} 個工作者。",
       "startAllError": "啟動工作者失敗：{{message}}",
+      "planCapReachedGeneric": "部分任務已加入佇列 — 您的方案已達到並行代理數量上限。",
+      "planCapReachedGenericWithLimit": "部分任務已加入佇列 — 您的方案可並行執行 {{limit}} 個代理。升級以執行更多。",
       "assignDuplicate": "此 Issue 已有一個分配給工作者的活躍任務。",
       "startAllSuccess_other": "已啟動 {{count}} 個工作者。",
       "reviewApproved": "審查已批准：{{title}}",
@@ -1240,6 +1244,34 @@
     "autoIngest": {
       "label": "自動開始",
       "description": "任務分配後工作者立即開始"
+    }
+  },
+  "setupWizard": {
+    "aria": "入門精靈",
+    "title": "開始使用",
+    "subtitle": "從空實例到第一個 PR 只需四步。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "連接 GitHub",
+        "description": "使用 Personal Access Token 或 gh CLI 授權，讓代理可以開 PR。",
+        "action": "連接"
+      },
+      "repo": {
+        "title": "新增儲存庫",
+        "description": "註冊本機儲存庫，代理可在其中建立分支和工作區。",
+        "action": "新增"
+      },
+      "agent": {
+        "title": "連接代理",
+        "description": "登入 Claude Code、Codex 或 Gemini，讓工作者有代理可執行。",
+        "action": "連接"
+      },
+      "task": {
+        "title": "建立並指派第一個任務",
+        "description": "選一個 issue 指派給工作者——代理會執行並開啟 PR。",
+        "action": "前往 issues"
+      }
     }
   }
 }

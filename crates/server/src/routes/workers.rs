@@ -871,9 +871,10 @@ pub async fn start_all_workers(
 }
 
 /// Attempt to take the next queued task for the worker and start an agent
-/// run for it. Returns 409 when the worker is not currently eligible to
-/// take a task (already in_progress, at the in_review cap, or nothing
-/// queued).
+/// run for it. Returns 409 when the worker is ineligible for a
+/// task-content reason (already in_progress, nothing queued) and 429 when
+/// the concurrent-agents cap is full — the frontend uses the 429 to show
+/// the plan-upgrade CTA.
 pub async fn start_worker(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
@@ -912,7 +913,12 @@ fn map_start_error(err: StartError) -> ApiError {
             ApiError::Conflict("Worker already has a task in progress".into())
         }
         StartError::InReviewCapReached(cap) => {
-            ApiError::Conflict(format!("Worker in-review cap reached ({cap})"))
+            // 429 (not 409) so the frontend can distinguish a plan-cap hit
+            // from other conflicts (already in progress, nothing queued) and
+            // surface the upsell CTA instead of a generic error toast.
+            ApiError::TooManyRequests(format!(
+                "Concurrent-agents limit reached ({cap}). Task remains queued."
+            ))
         }
         StartError::Sqlx(e) => e.into(),
         StartError::Container(e) => e.into(),
@@ -1127,6 +1133,8 @@ pub async fn re_request_review(
         &existing.title,
         existing.repo_id,
         Some(existing.worker_id),
+        // Explicit human retry: skip the automatic infra-failure backoff.
+        true,
     )
     .await?;
 
