@@ -715,6 +715,30 @@
       "tooltipIssues_other": "{{count}}건 종료",
       "tooltipHours": "{{issues}} × {{factor}}시간 = {{hours}}시간",
       "moreIssues": "+{{extra}}건 더"
+    },
+    "valueGenerated": {
+      "title": "창출된 가치",
+      "windowLabel": "이력 기간",
+      "windowMonths": "{{months}}개월",
+      "hoursPerTask": "시간 / 작업",
+      "hoursPerTaskLabel": "완료 작업당 기본 절감 공수(시간)",
+      "hoursPerFte": "시간 / FTE·월",
+      "hoursPerFteLabel": "FTE 1인당 월 근무 시간",
+      "thisMonthLabel": "이번 달 · {{month}}",
+      "summaryTickets": "티켓 {{count}}건 해결",
+      "summaryTickets_other": "티켓 {{count}}건 해결",
+      "summaryHours": "약 {{hours}}시간 절감",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "최근 {{months}}개월",
+      "totalsTickets": "티켓 {{count}}건",
+      "totalsHours": "{{hours}}시간",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "월",
+      "tableTickets": "티켓",
+      "tableHours": "시간",
+      "tableFte": "FTE",
+      "loading": "창출된 가치 불러오는 중…",
+      "emptyHistory": "아직 과거 월 데이터가 없습니다. 작업이 완료됨에 따라 표가 채워집니다."
     }
   },
   "errors": {

@@ -716,6 +716,30 @@
       "tooltipIssues_other": "{{count}} issues cerrados",
       "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
       "moreIssues": "+{{extra}} más"
+    },
+    "valueGenerated": {
+      "title": "Valor generado",
+      "windowLabel": "Ventana histórica",
+      "windowMonths": "{{months}} m",
+      "hoursPerTask": "h / tarea",
+      "hoursPerTaskLabel": "Horas hombre ahorradas por defecto por tarea completada",
+      "hoursPerFte": "h / FTE·mes",
+      "hoursPerFteLabel": "Horas de trabajo por FTE por mes",
+      "thisMonthLabel": "Este mes · {{month}}",
+      "summaryTickets": "{{count}} ticket resuelto",
+      "summaryTickets_other": "{{count}} tickets resueltos",
+      "summaryHours": "~{{hours}} h ahorradas",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "Últimos {{months}} meses",
+      "totalsTickets": "{{count}} tickets",
+      "totalsHours": "{{hours}} h",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "Mes",
+      "tableTickets": "Tickets",
+      "tableHours": "Horas",
+      "tableFte": "FTE",
+      "loading": "Cargando valor generado…",
+      "emptyHistory": "Todavía no hay meses históricos: la tabla se completa a medida que se cierran tareas."
     }
   },
   "errors": {

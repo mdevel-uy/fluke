@@ -715,6 +715,30 @@
       "tooltipIssues_other": "{{count}} 件クローズ",
       "tooltipHours": "{{issues}} × {{factor}} 時間 = {{hours}} 時間",
       "moreIssues": "他 {{extra}} 件"
+    },
+    "valueGenerated": {
+      "title": "創出された価値",
+      "windowLabel": "履歴期間",
+      "windowMonths": "{{months}}か月",
+      "hoursPerTask": "時間 / タスク",
+      "hoursPerTaskLabel": "完了タスクあたりの既定の削減工数（時間）",
+      "hoursPerFte": "時間 / FTE·月",
+      "hoursPerFteLabel": "FTE 1 人あたりの月間労働時間",
+      "thisMonthLabel": "今月 · {{month}}",
+      "summaryTickets": "{{count}} 件のチケットを解決",
+      "summaryTickets_other": "{{count}} 件のチケットを解決",
+      "summaryHours": "約 {{hours}} 時間の削減",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "直近 {{months}} か月",
+      "totalsTickets": "{{count}} 件",
+      "totalsHours": "{{hours}} 時間",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "月",
+      "tableTickets": "チケット",
+      "tableHours": "時間",
+      "tableFte": "FTE",
+      "loading": "創出された価値を読み込み中…",
+      "emptyHistory": "過去月のデータはまだありません。タスクが完了するごとに追加されます。"
     }
   },
   "errors": {
