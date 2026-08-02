@@ -147,6 +147,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} merged",
     "prOpen": "PR #{{number}} open",
+    "queuedPosition": "Queued · #{{position}}",
+    "queuedTooltip": "Waiting for a free agent slot (concurrency limit reached).",
     "expand": "Show details",
     "collapse": "Hide details",
     "details": {

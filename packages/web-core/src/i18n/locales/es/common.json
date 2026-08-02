@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} mergeado",
     "prOpen": "PR #{{number}} abierto",
+    "queuedPosition": "En cola · #{{position}}",
+    "queuedTooltip": "Esperando un slot de agente libre (límite de concurrencia alcanzado).",
     "expand": "Mostrar detalles",
     "collapse": "Ocultar detalles",
     "details": {

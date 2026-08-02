@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LinkIcon, PlusIcon } from '@phosphor-icons/react';
 import { useProjectContext } from '@/shared/hooks/useProjectContext';
+import { useConcurrencyStatus } from '@/shared/hooks/useConcurrencyStatus';
 import { useAuth } from '@/shared/hooks/auth/useAuth';
 import { useOrgContext } from '@/shared/hooks/useOrgContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
@@ -53,6 +54,23 @@ export function IssueWorkspacesSectionContainer({
   } = useProjectContext();
   const { activeWorkspaces, archivedWorkspaces } = useWorkspaceContext();
   const { membersWithProfilesById, isLoading: orgLoading } = useOrgContext();
+  const { data: concurrency } = useConcurrencyStatus();
+
+  // Map local_workspace_id → 1-based queue position. Computed once per
+  // poll so each card lookup is O(1).
+  const queuePositionByWorkspaceId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!concurrency) return map;
+    for (const entry of concurrency.queued) {
+      // Keep the smallest position per workspace in case a workspace
+      // ever has multiple queued executions (e.g. rapid follow-ups).
+      const existing = map.get(entry.workspace_id);
+      if (existing === undefined || entry.position < existing) {
+        map.set(entry.workspace_id, entry.position);
+      }
+    }
+    return map;
+  }, [concurrency]);
 
   const localWorkspacesById = useMemo(() => {
     const map = new Map<string, (typeof activeWorkspaces)[number]>();
@@ -90,6 +108,10 @@ export function IssueWorkspacesSectionContainer({
       const owner =
         membersWithProfilesById.get(workspace.owner_user_id) ?? null;
 
+      const queuePosition = workspace.local_workspace_id
+        ? queuePositionByWorkspaceId.get(workspace.local_workspace_id)
+        : undefined;
+
       return {
         id: workspace.id,
         localWorkspaceId: workspace.local_workspace_id,
@@ -108,6 +130,7 @@ export function IssueWorkspacesSectionContainer({
         hasUnseenActivity: localWorkspace?.hasUnseenActivity,
         latestProcessCompletedAt: localWorkspace?.latestProcessCompletedAt,
         latestProcessStatus: localWorkspace?.latestProcessStatus,
+        queuePosition,
       };
     });
   }, [
@@ -117,6 +140,7 @@ export function IssueWorkspacesSectionContainer({
     membersWithProfilesById,
     userId,
     localWorkspacesById,
+    queuePositionByWorkspaceId,
   ]);
 
   const isLoading = projectLoading || orgLoading;

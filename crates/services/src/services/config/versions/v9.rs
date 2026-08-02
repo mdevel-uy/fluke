@@ -29,6 +29,11 @@ fn default_max_review_rounds() -> u32 {
     3
 }
 
+fn default_agent_concurrency_limit() -> u32 {
+    // 0 means "unlimited" — matches historical behavior before the semaphore.
+    0
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 pub struct Config {
     pub config_version: String,
@@ -67,6 +72,12 @@ pub struct Config {
     pub host_nickname: Option<String>,
     #[serde(default = "default_max_review_rounds")]
     pub max_review_rounds: u32,
+    /// Maximum number of coding-agent executor processes that may run at
+    /// once. `0` = unlimited. Extras are queued FIFO by the container
+    /// semaphore and auto-start as slots free up. Reload takes effect on
+    /// the next spawn / process exit — no server restart required.
+    #[serde(default = "default_agent_concurrency_limit")]
+    pub agent_concurrency_limit: u32,
 }
 
 impl Config {
@@ -96,6 +107,7 @@ impl Config {
             relay_enabled: old_config.relay_enabled,
             host_nickname: old_config.host_nickname,
             max_review_rounds: default_max_review_rounds(),
+            agent_concurrency_limit: default_agent_concurrency_limit(),
         }
     }
 
@@ -153,6 +165,7 @@ impl Default for Config {
             relay_enabled: true,
             host_nickname: None,
             max_review_rounds: default_max_review_rounds(),
+            agent_concurrency_limit: default_agent_concurrency_limit(),
         }
     }
 }

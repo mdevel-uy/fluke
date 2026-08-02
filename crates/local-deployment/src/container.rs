@@ -43,6 +43,7 @@ use serde_json::json;
 use services::services::{
     analytics::AnalyticsContext,
     approvals::{Approvals, executor_approvals::ExecutorApprovalBridge},
+    concurrency::ConcurrencySemaphore,
     config::{Config, DEFAULT_COMMIT_REMINDER_PROMPT},
     container::{ContainerError, ContainerRef, ContainerService},
     diff_stream::{self, DiffStreamHandle},
@@ -86,6 +87,11 @@ pub struct LocalContainerService {
     queued_message_service: QueuedMessageService,
     notification_service: NotificationService,
     remote_client: Option<RemoteClient>,
+    /// Gates concurrent coding-agent spawns and holds the FIFO wait
+    /// queue. Only `CodingAgent` runs are gated — other run reasons
+    /// (setup/cleanup/archive scripts, dev servers) bypass this and
+    /// spawn immediately.
+    concurrency: ConcurrencySemaphore,
 }
 
 impl LocalContainerService {
@@ -108,6 +114,7 @@ impl LocalContainerService {
         let exit_monitor_handles = Arc::new(RwLock::new(HashMap::new()));
         let workspace_touch_times = Arc::new(RwLock::new(HashMap::new()));
         let notification_service = NotificationService::new(config.clone());
+        let concurrency = ConcurrencySemaphore::new(config.clone());
 
         let container = LocalContainerService {
             db,
@@ -126,9 +133,21 @@ impl LocalContainerService {
             queued_message_service,
             notification_service,
             remote_client,
+            concurrency,
         };
 
         container.spawn_workspace_cleanup();
+
+        // If the server previously died with rows still in `queued` status,
+        // hydrate the in-memory semaphore queue and try to drain it so no
+        // task is lost across restarts. Runs in the background so `new` stays
+        // non-blocking.
+        {
+            let container = container.clone();
+            tokio::spawn(async move {
+                container.recover_concurrency_queue().await;
+            });
+        }
 
         container
     }
@@ -817,6 +836,11 @@ impl LocalContainerService {
                 let _ = child.start_kill();
             }
             child_store.write().await.remove(&exec_id);
+
+            // Release the concurrency slot this exec was holding (if any)
+            // and hand the freed slot to the oldest queued execution.
+            container.concurrency.release(&exec_id).await;
+            container.drain_concurrency_queue().await;
         })
     }
 
@@ -1160,6 +1184,14 @@ impl ContainerService for LocalContainerService {
         &self.config
     }
 
+    fn concurrency(&self) -> Option<&ConcurrencySemaphore> {
+        Some(&self.concurrency)
+    }
+
+    async fn drain_queue(&self) {
+        self.drain_concurrency_queue().await;
+    }
+
     async fn touch(&self, workspace: &Workspace) -> Result<(), ContainerError> {
         let now = Instant::now();
 
@@ -1324,12 +1356,179 @@ impl ContainerService for LocalContainerService {
         Ok(true)
     }
 
+    /// Try to promote the oldest queued execution to `running` and
+    /// spawn it. Called after any process exits (freeing a slot) and
+    /// after a queued process is cancelled. Loops until either the
+    /// queue is drained, the concurrency limit is hit, or a start
+    /// error occurs — each iteration owns exactly one slot.
+    async fn drain_concurrency_queue(&self) {
+        while let Some(next_id) = self.concurrency.try_dequeue().await {
+            let ctx = match ExecutionProcess::load_context(&self.db.pool, next_id).await {
+                Ok(ctx) => ctx,
+                Err(e) => {
+                    tracing::warn!(
+                        execution_process_id = %next_id,
+                        "Queued execution vanished before dequeue: {}",
+                        e
+                    );
+                    // The row was deleted (or its parent workspace/session was)
+                    // between enqueue and now. The slot we just reserved is
+                    // ours — release it so the next iteration can try the
+                    // following queued item on the freed slot.
+                    self.concurrency.release(&next_id).await;
+                    continue;
+                }
+            };
+
+            // Skip queued rows that were soft-deleted between enqueue and
+            // dequeue (e.g. by drop_at_and_after during history trim).
+            if ctx.execution_process.dropped {
+                tracing::info!(
+                    execution_process_id = %next_id,
+                    "Skipping dropped queued execution during drain"
+                );
+                self.concurrency.release(&next_id).await;
+                continue;
+            }
+
+            let action = match ctx.execution_process.executor_action() {
+                Ok(action) => action.clone(),
+                Err(e) => {
+                    tracing::error!(
+                        execution_process_id = %next_id,
+                        "Queued execution has invalid executor_action: {}",
+                        e
+                    );
+                    self.concurrency.release(&next_id).await;
+                    let _ = ExecutionProcess::update_completion(
+                        &self.db.pool,
+                        next_id,
+                        ExecutionProcessStatus::Failed,
+                        None,
+                    )
+                    .await;
+                    continue;
+                }
+            };
+
+            if let Err(e) = ExecutionProcess::mark_running(&self.db.pool, next_id).await {
+                tracing::error!(
+                    execution_process_id = %next_id,
+                    "Failed to transition queued execution to running: {}",
+                    e
+                );
+                self.concurrency.release(&next_id).await;
+                continue;
+            }
+
+            // Reload the process so downstream sees status=running with
+            // the refreshed started_at (mark_running updated both).
+            let updated = match ExecutionProcess::find_by_id(&self.db.pool, next_id).await {
+                Ok(Some(ep)) => ep,
+                _ => {
+                    self.concurrency.release(&next_id).await;
+                    continue;
+                }
+            };
+
+            // Ensure a MsgStore exists for the newly-running process —
+            // start_execution_inner assumes one is in place (created by
+            // start_execution during the original enqueue call, but if
+            // we're recovering from a restart it may not be).
+            {
+                let mut stores = self.msg_stores.write().await;
+                stores
+                    .entry(next_id)
+                    .or_insert_with(|| Arc::new(MsgStore::new()));
+            }
+
+            // Kick off the actual spawn in the background so a single
+            // slow start does not block the drain loop from moving on
+            // if the semaphore frees more slots concurrently.
+            let container = self.clone();
+            tokio::spawn(async move {
+                if let Err(e) = container
+                    .start_execution_inner(&ctx.workspace, &updated, &action)
+                    .await
+                {
+                    tracing::error!(
+                        execution_process_id = %next_id,
+                        "Failed to start dequeued execution: {}",
+                        e
+                    );
+                    let _ = ExecutionProcess::update_completion(
+                        &container.db.pool,
+                        next_id,
+                        ExecutionProcessStatus::Failed,
+                        None,
+                    )
+                    .await;
+                    // A failed spawn releases the slot; drain again so
+                    // another queued execution can take our place.
+                    container.concurrency.release(&next_id).await;
+                    Box::pin(container.drain_concurrency_queue()).await;
+                }
+            });
+        }
+    }
+
+    /// Repopulate the in-memory queue from any `queued` rows left over
+    /// in the database (e.g. after a server restart). Called once at
+    /// startup so slots free up as running processes exit.
+    async fn recover_concurrency_queue(&self) {
+        match ExecutionProcess::find_queued(&self.db.pool).await {
+            Ok(queued) => {
+                let ids: Vec<Uuid> = queued.iter().map(|p| p.id).collect();
+                if !ids.is_empty() {
+                    tracing::info!(
+                        "Recovering {} queued execution process(es) after startup",
+                        ids.len()
+                    );
+                    self.concurrency.recover_queue(ids).await;
+                    self.drain_concurrency_queue().await;
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load queued execution processes at startup: {}", e);
+            }
+        }
+    }
+
     async fn start_execution_inner(
         &self,
         workspace: &Workspace,
         execution_process: &ExecutionProcess,
         executor_action: &ExecutorAction,
     ) -> Result<(), ContainerError> {
+        // Gate coding-agent spawns behind the concurrency semaphore.
+        // Other run reasons (setup / cleanup / archive scripts, dev
+        // servers) always spawn immediately — the limit is about how
+        // many *agents* run in parallel, not how many child processes
+        // in total the box is running.
+        if matches!(
+            execution_process.run_reason,
+            ExecutionProcessRunReason::CodingAgent
+        ) && !self.concurrency.try_acquire(execution_process.id).await
+        {
+            if let Err(e) =
+                ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
+            {
+                tracing::error!(
+                    "Failed to mark execution process {} as queued: {}",
+                    execution_process.id,
+                    e
+                );
+                return Err(e.into());
+            }
+            self.concurrency.enqueue(execution_process.id).await;
+            tracing::info!(
+                execution_process_id = %execution_process.id,
+                workspace_id = %workspace.id,
+                "Concurrency limit reached; execution queued"
+            );
+            return Ok(());
+        }
+
         // Get the worktree path
         let container_ref = workspace
             .container_ref
@@ -1438,6 +1637,33 @@ impl ContainerService for LocalContainerService {
         execution_process: &ExecutionProcess,
         status: ExecutionProcessStatus,
     ) -> Result<(), ContainerError> {
+        // A queued process has no child process yet: just drop it from the
+        // wait queue and record the terminal status. Without this branch we
+        // would fail with "Child process not found" and leave the row stuck
+        // in `queued` forever.
+        if execution_process.status == ExecutionProcessStatus::Queued {
+            let exit_code = if status == ExecutionProcessStatus::Completed {
+                Some(0)
+            } else {
+                None
+            };
+            ExecutionProcess::update_completion(
+                &self.db.pool,
+                execution_process.id,
+                status,
+                exit_code,
+            )
+            .await?;
+            self.concurrency.release(&execution_process.id).await;
+            // Wake up the next queued execution if the cancelled slot
+            // opened a spot (release also removes from the FIFO).
+            self.drain_concurrency_queue().await;
+            if let Some(msg) = self.msg_stores.write().await.remove(&execution_process.id) {
+                msg.push_finished();
+            }
+            return Ok(());
+        }
+
         let child = self
             .get_child_from_store(&execution_process.id)
             .await

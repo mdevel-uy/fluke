@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 병합됨",
     "prOpen": "PR #{{number}} 열림",
+    "queuedPosition": "대기열 · #{{position}}",
+    "queuedTooltip": "사용 가능한 에이전트 슬롯을 기다리는 중입니다(동시 실행 한도에 도달함).",
     "expand": "세부 정보 표시",
     "collapse": "세부 정보 숨기기",
     "details": {

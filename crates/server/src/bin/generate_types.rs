@@ -91,6 +91,8 @@ fn generate_types_content() -> String {
         api_types::ListMembersResponse::decl(),
         api_types::UpdateMemberRoleRequest::decl(),
         api_types::UpdateMemberRoleResponse::decl(),
+        server::routes::execution_processes::ConcurrencyStatus::decl(),
+        server::routes::execution_processes::QueuedExecutionSummary::decl(),
         server::routes::repo::RegisterRepoRequest::decl(),
         server::routes::repo::InitRepoRequest::decl(),
         server::routes::github::GitHubRepoSummary::decl(),

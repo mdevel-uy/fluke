@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 已合并",
     "prOpen": "PR #{{number}} 打开",
+    "queuedPosition": "排队中 · #{{position}}",
+    "queuedTooltip": "等待可用的代理槽位（已达到并发上限）。",
     "expand": "显示详情",
     "collapse": "隐藏详情",
     "details": {
