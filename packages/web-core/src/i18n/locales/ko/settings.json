@@ -21,6 +21,8 @@
         "reposDesc": "저장소 스크립트 및 구성",
         "agents": "에이전트",
         "agentsDesc": "코딩 에이전트 구성",
+        "guidelines": "가이드라인",
+        "guidelinesDesc": "모든 에이전트에 적용되는 전역 행동 규칙",
         "mcp": "MCP 서버",
         "mcpDesc": "Model Context Protocol 서버",
         "organizationsDesc": "Manage organization members and permissions",

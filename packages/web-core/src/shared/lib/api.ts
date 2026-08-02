@@ -45,6 +45,8 @@ import {
   ExecutorConfig,
   DraftFollowUpData,
   AgentPresetOptionsQuery,
+  AgentGuidelines,
+  SaveAgentGuidelinesRequest,
   RunAgentSetupRequest,
   RunAgentSetupResponse,
   GhCliSetupError,
@@ -1983,6 +1985,22 @@ export const agentsApi = {
       `/api/agents/preset-options?${params.toString()}`
     );
     return handleApiResponse<ExecutorConfig>(response);
+  },
+
+  getGuidelines: async (): Promise<AgentGuidelines> => {
+    const response = await makeRequest('/api/agents/guidelines');
+    return handleApiResponse<AgentGuidelines>(response);
+  },
+
+  saveGuidelines: async (
+    data: SaveAgentGuidelinesRequest
+  ): Promise<AgentGuidelines> => {
+    const response = await makeRequest('/api/agents/guidelines', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<AgentGuidelines>(response);
   },
 };
 

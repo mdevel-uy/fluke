@@ -21,6 +21,8 @@
         "reposDesc": "Scripts y configuración de repositorios",
         "agents": "Agentes",
         "agentsDesc": "Configuraciones de agentes",
+        "guidelines": "Lineamientos",
+        "guidelinesDesc": "Reglas de comportamiento globales para todos los agentes",
         "mcp": "Servidores MCP",
         "mcpDesc": "Servidores de Protocolo de Contexto de Modelo (MCP)",
         "organizationsDesc": "Manage organization members and permissions",

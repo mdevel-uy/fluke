@@ -18,6 +18,7 @@ pub mod execution_processes;
 pub mod filesystem;
 pub mod frontend;
 pub mod github;
+pub mod guidelines;
 pub mod health;
 pub mod host_relay;
 pub mod impact;
@@ -45,6 +46,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .route("/health", get(health::health_check))
         .merge(config::router())
         .merge(agents::router())
+        .merge(guidelines::router())
         .merge(containers::router(&deployment))
         .merge(workspaces::router(&deployment))
         .merge(execution_processes::router(&deployment))
