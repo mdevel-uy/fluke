@@ -1,0 +1,65 @@
+// Grafana Alloy configuration for a vibe-kanban instance.
+//
+// Collects stdout/stderr of every container on the local Docker daemon
+// (server + executors + Alloy itself + anything else in the compose stack)
+// and pushes to a remote Loki endpoint with the fleet label convention:
+//
+//   proyecto=vibekanban, cliente=<X>, instancia=<Y>, version=<Z>
+//
+// Credentials and endpoint are read from env vars at start-up:
+//   LOKI_PUSH_URL, LOKI_PUSH_USER, LOKI_PUSH_PASSWORD
+//   VK_CLIENTE,    VK_INSTANCIA,   VK_VERSION
+//
+// The compose file marks all six as required when the `observability`
+// profile is active, so Alloy fails fast if provisioning forgot one.
+
+logging {
+	level  = "info"
+	format = "logfmt"
+}
+
+discovery.docker "containers" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	// Container name → `contenedor` label (Docker prefixes with `/`).
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "contenedor"
+	}
+
+	// Compose service name (present when started via docker compose).
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "containers" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.containers.output
+	forward_to = [loki.write.central.receiver]
+
+	labels = {
+		proyecto  = "vibekanban",
+		cliente   = sys.env("VK_CLIENTE"),
+		instancia = sys.env("VK_INSTANCIA"),
+		version   = sys.env("VK_VERSION"),
+	}
+}
+
+loki.write "central" {
+	endpoint {
+		url = sys.env("LOKI_PUSH_URL")
+
+		basic_auth {
+			username = sys.env("LOKI_PUSH_USER")
+			password = sys.env("LOKI_PUSH_PASSWORD")
+		}
+	}
+}
