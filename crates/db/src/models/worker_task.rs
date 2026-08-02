@@ -18,6 +18,11 @@ pub fn is_valid_status(value: &str) -> bool {
     )
 }
 
+/// `failure_kind` value for tasks whose coding agent never really ran —
+/// the CLI died on an API error (rate limit, model not available, auth).
+/// These do not consume review rounds and are retried with backoff.
+pub const FAILURE_KIND_INFRA: &str = "infra";
+
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
 /// Ad-hoc request submitted from the Analyst Desk screen.
@@ -378,8 +383,11 @@ impl WorkerTask {
         Ok(count > 0)
     }
 
-    /// Count all reviewer-role tasks ever dispatched for a given PR (by
-    /// `pr_number` stored in `issue_number`). Used to enforce the review-round cap.
+    /// Count reviewer-role tasks dispatched for a given PR (by `pr_number`
+    /// stored in `issue_number`) that consume a review round. Tasks that
+    /// failed for infrastructure reasons (`failure_kind = 'infra'`: the agent
+    /// never really ran) are excluded — an API outage must not burn the PR's
+    /// round budget. Used to enforce the review-round cap.
     pub async fn count_reviewer_tasks_for_pr(
         pool: &SqlitePool,
         pr_number: i64,
@@ -391,7 +399,69 @@ impl WorkerTask {
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
                  AND wt.issue_number = ?1
-                 AND wt.repo_id = ?2",
+                 AND wt.repo_id = ?2
+                 AND NOT (wt.status = 'failed'
+                          AND COALESCE(wt.failure_kind, '') = 'infra')",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Count the run of infra-failed reviewer tasks for a PR that happened
+    /// *after* the last reviewer task that actually ran (or over the whole
+    /// history when nothing ever ran). This is the consecutive-retry counter
+    /// that drives the dispatch backoff and the model fallback; a round that
+    /// really executes resets it to zero.
+    pub async fn count_trailing_infra_failures_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number = ?1
+                 AND wt.repo_id = ?2
+                 AND wt.status = 'failed'
+                 AND wt.failure_kind = 'infra'
+                 AND wt.created_at > COALESCE(
+                       (SELECT MAX(wt2.created_at)
+                          FROM worker_tasks wt2
+                          JOIN workers w2 ON wt2.worker_id = w2.id
+                          WHERE w2.role = 'reviewer'
+                            AND wt2.issue_number = ?1
+                            AND wt2.repo_id = ?2
+                            AND NOT (wt2.status = 'failed'
+                                     AND COALESCE(wt2.failure_kind, '') = 'infra')),
+                       '1970-01-01')",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Timestamp of the most recent infra-failed reviewer task for a PR.
+    /// `created_at` is a good-enough proxy for the failure time: infra
+    /// failures die within seconds of dispatch.
+    pub async fn last_infra_failure_at_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+            "SELECT MAX(wt.created_at)
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               WHERE w.role = 'reviewer'
+                 AND wt.issue_number = ?1
+                 AND wt.repo_id = ?2
+                 AND wt.status = 'failed'
+                 AND wt.failure_kind = 'infra'",
         )
         .bind(pr_number)
         .bind(repo_id)
@@ -555,11 +625,12 @@ impl WorkerTask {
         status: &str,
     ) -> Result<Self, sqlx::Error> {
         // Any transition away from 'failed' clears the stale failure reason
-        // (a re-queued task starts clean).
+        // and kind (a re-queued task starts clean).
         sqlx::query(
             "UPDATE worker_tasks
                 SET status = ?2,
-                    failure_reason = CASE WHEN ?2 = 'failed' THEN failure_reason ELSE NULL END
+                    failure_reason = CASE WHEN ?2 = 'failed' THEN failure_reason ELSE NULL END,
+                    failure_kind = CASE WHEN ?2 = 'failed' THEN failure_kind ELSE NULL END
               WHERE id = ?1",
         )
         .bind(id)
@@ -579,15 +650,63 @@ impl WorkerTask {
         id: Uuid,
         reason: &str,
     ) -> Result<Self, sqlx::Error> {
-        sqlx::query("UPDATE worker_tasks SET status = 'failed', failure_reason = ?2 WHERE id = ?1")
-            .bind(id)
-            .bind(reason)
-            .execute(pool)
-            .await?;
+        Self::set_failed_with_kind(pool, id, reason, None).await
+    }
+
+    /// Like [`Self::set_failed`], additionally recording the failure kind.
+    /// Pass `Some(FAILURE_KIND_INFRA)` when the agent never really ran (API
+    /// error) so the task is excluded from review-round accounting; `None`
+    /// for genuine agent failures.
+    pub async fn set_failed_with_kind(
+        pool: &SqlitePool,
+        id: Uuid,
+        reason: &str,
+        kind: Option<&str>,
+    ) -> Result<Self, sqlx::Error> {
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET status = 'failed', failure_reason = ?2, failure_kind = ?3
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(kind)
+        .execute(pool)
+        .await?;
 
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Force a specific model for this task, overriding the worker's own
+    /// model when the run starts. Used by the dispatcher to degrade to a
+    /// known-good model after repeated infra failures.
+    pub async fn set_model_override(
+        pool: &SqlitePool,
+        id: Uuid,
+        model: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET model_override = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(model)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// The model forced for this task by the dispatcher, if any.
+    pub async fn model_override(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT model_override FROM worker_tasks WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map(Option::flatten)
     }
 
     /// Persist the TL reviewer's verdict on the developer's task so the UI
