@@ -194,7 +194,8 @@ async fn update_progress<F>(provider: AgentAuthProvider, mutator: F)
 where
     F: FnOnce(&mut AgentLoginProgress),
 {
-    let mut rt = runtime().lock().await;
+    let state = runtime();
+    let mut rt = state.lock().await;
     if let Some(p) = rt.progress.get_mut(&provider) {
         mutator(p);
     }
@@ -380,7 +381,8 @@ async fn post_login_cancel(
         .ok_or_else(|| ApiError::BadRequest(format!("Unknown provider {provider}")))?;
 
     let (task, child_slot) = {
-        let mut rt = runtime().lock().await;
+        let state = runtime();
+        let mut rt = state.lock().await;
         (rt.task.remove(&provider), rt.child.remove(&provider))
     };
     if let Some(slot) = child_slot
@@ -412,7 +414,8 @@ async fn post_logout(
     // still-running CLI may write the auth file back seconds after we clear
     // it, leaving the UI stuck on "connected".
     let (task, child_slot) = {
-        let mut rt = runtime().lock().await;
+        let state = runtime();
+        let mut rt = state.lock().await;
         (rt.task.remove(&provider), rt.child.remove(&provider))
     };
     if let Some(slot) = child_slot
@@ -445,7 +448,8 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
     // login, so we must not return a stale code from a login that timed out
     // in the browser.
     {
-        let mut rt = runtime().lock().await;
+        let state = runtime();
+        let mut rt = state.lock().await;
         if let Some(handle) = rt.task.remove(&AgentAuthProvider::Codex) {
             handle.abort();
         }
@@ -491,7 +495,8 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
 
     let child_slot = Arc::new(Mutex::new(Some(child)));
     {
-        let mut rt = runtime().lock().await;
+        let state = runtime();
+        let mut rt = state.lock().await;
         rt.child
             .insert(AgentAuthProvider::Codex, child_slot.clone());
     }
@@ -568,7 +573,8 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
     });
 
     {
-        let mut rt = runtime().lock().await;
+        let state = runtime();
+        let mut rt = state.lock().await;
         rt.task.insert(AgentAuthProvider::Codex, watcher);
     }
 
