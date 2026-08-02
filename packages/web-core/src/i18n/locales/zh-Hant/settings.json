@@ -34,7 +34,9 @@
         "skills": "技能",
         "skillsDesc": "管理和安裝 Claude 技能",
         "github": "GitHub",
-        "githubDesc": "使用 gh CLI 登入 GitHub"
+        "githubDesc": "使用 gh CLI 登入 GitHub",
+        "agent-auth": "代理連線",
+        "agent-authDesc": "在設定中連線和中斷每個已安裝的代理"
       }
     },
     "general": {
@@ -634,6 +636,60 @@
         "logoutFailed": "中斷 GitHub 連線失敗。",
         "installFailed": "安裝 GitHub CLI 失敗。",
         "patLoginFailed": "驗證 Personal Access Token 失敗。"
+      }
+    },
+    "agentAuth": {
+      "loading": "正在檢查已安裝的代理…",
+      "emptyState": "這台機器上尚未安裝任何編碼代理。",
+      "statusLabel": "狀態",
+      "status": {
+        "connected": "已連線",
+        "notConnected": "未連線"
+      },
+      "actions": {
+        "connect": "連線",
+        "disconnect": "中斷",
+        "cancel": "取消"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "使用瀏覽器裝置流程登入 OpenAI Codex,無需開啟終端機。"
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "使用在 Google AI Studio 取得的 API 金鑰連線至 Google Gemini。"
+        }
+      },
+      "deviceFlow": {
+        "title": "在 OpenAI 授權",
+        "description": "複製下方一次性代碼,然後開啟 OpenAI 頁面貼上以完成登入。",
+        "codeLabel": "一次性代碼",
+        "copyHint": "點擊複製",
+        "openBrowser": "開啟 OpenAI",
+        "checkStatus": "重新整理狀態",
+        "waitingForCode": "等待 CLI 顯示裝置代碼…",
+        "waiting": "等待授權中… 在瀏覽器中完成後此卡片將自動更新。"
+      },
+      "apiKey": {
+        "title": "使用 API 金鑰連線",
+        "description": "貼上從 Google AI Studio 取得的 Gemini API 金鑰。將以 GEMINI_API_KEY 儲存在這台機器上,不會外傳。",
+        "placeholder": "AIza…",
+        "submit": "儲存並連線",
+        "helpBefore": "在下列位置取得金鑰:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "然後貼到上方。"
+      },
+      "hidden": {
+        "title": "CLI 未安裝",
+        "description": "下列代理因為其 CLI 未安裝於此映像檔而被隱藏: {{providers}}。"
+      },
+      "errors": {
+        "loginFailed": "無法啟動連線流程。",
+        "logoutFailed": "無法中斷代理連線。",
+        "cancelFailed": "無法取消連線。"
       }
     }
   },

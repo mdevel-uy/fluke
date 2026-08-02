@@ -34,7 +34,9 @@
         "skills": "技能",
         "skillsDesc": "管理和安装 Claude 技能",
         "github": "GitHub",
-        "githubDesc": "使用 gh CLI 登录 GitHub"
+        "githubDesc": "使用 gh CLI 登录 GitHub",
+        "agent-auth": "代理连接",
+        "agent-authDesc": "在设置中连接和断开每个已安装的代理"
       }
     },
     "general": {
@@ -634,6 +636,60 @@
         "logoutFailed": "断开 GitHub 连接失败。",
         "installFailed": "安装 GitHub CLI 失败。",
         "patLoginFailed": "验证 Personal Access Token 失败。"
+      }
+    },
+    "agentAuth": {
+      "loading": "正在检查已安装的代理…",
+      "emptyState": "此机器上尚未安装任何编码代理。",
+      "statusLabel": "状态",
+      "status": {
+        "connected": "已连接",
+        "notConnected": "未连接"
+      },
+      "actions": {
+        "connect": "连接",
+        "disconnect": "断开",
+        "cancel": "取消"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "使用浏览器设备流程登录 OpenAI Codex,无需打开终端。"
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "使用在 Google AI Studio 获取的 API 密钥连接 Google Gemini。"
+        }
+      },
+      "deviceFlow": {
+        "title": "在 OpenAI 上授权",
+        "description": "复制下方的一次性代码,然后打开 OpenAI 页面粘贴以完成登录。",
+        "codeLabel": "一次性代码",
+        "copyHint": "点击复制",
+        "openBrowser": "打开 OpenAI",
+        "checkStatus": "刷新状态",
+        "waitingForCode": "等待 CLI 显示设备代码…",
+        "waiting": "等待授权中… 在浏览器中完成后此卡片将自动更新。"
+      },
+      "apiKey": {
+        "title": "使用 API 密钥连接",
+        "description": "粘贴从 Google AI Studio 获取的 Gemini API 密钥。它将作为 GEMINI_API_KEY 保存在此机器上,不会离开。",
+        "placeholder": "AIza…",
+        "submit": "保存并连接",
+        "helpBefore": "在以下位置获取密钥:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "然后粘贴到上方。"
+      },
+      "hidden": {
+        "title": "CLI 未安装",
+        "description": "以下代理因为其 CLI 未安装在此镜像中而被隐藏: {{providers}}。"
+      },
+      "errors": {
+        "loginFailed": "无法启动连接流程。",
+        "logoutFailed": "无法断开代理。",
+        "cancelFailed": "无法取消连接。"
       }
     }
   },

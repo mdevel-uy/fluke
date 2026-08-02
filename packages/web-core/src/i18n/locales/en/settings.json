@@ -34,7 +34,9 @@
         "github": "GitHub",
         "githubDesc": "Sign in with your GitHub account",
         "skills": "Skills",
-        "skillsDesc": "Manage agent skills installed in ~/.claude/skills"
+        "skillsDesc": "Manage agent skills installed in ~/.claude/skills",
+        "agent-auth": "Agent connections",
+        "agent-authDesc": "Sign each installed agent in or out from Settings"
       }
     },
     "hostPicker": {
@@ -634,6 +636,60 @@
         "logoutFailed": "Failed to disconnect from GitHub.",
         "installFailed": "Failed to install the GitHub CLI.",
         "patLoginFailed": "Failed to validate the Personal Access Token."
+      }
+    },
+    "agentAuth": {
+      "loading": "Checking installed agents…",
+      "emptyState": "No coding agents are installed on this machine yet.",
+      "statusLabel": "Status",
+      "status": {
+        "connected": "Connected",
+        "notConnected": "Not connected"
+      },
+      "actions": {
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "cancel": "Cancel"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "Sign in to OpenAI Codex with the browser device flow — no terminal needed."
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "Connect Google Gemini with an API key from Google AI Studio."
+        }
+      },
+      "deviceFlow": {
+        "title": "Authorize on OpenAI",
+        "description": "Copy the one-time code below, then open the OpenAI page and paste it to complete the sign-in.",
+        "codeLabel": "One-time code",
+        "copyHint": "Click to copy",
+        "openBrowser": "Open OpenAI",
+        "checkStatus": "Refresh status",
+        "waitingForCode": "Waiting for the CLI to print the device code…",
+        "waiting": "Waiting for authorization… this card will update automatically once you finish in the browser."
+      },
+      "apiKey": {
+        "title": "Connect with an API key",
+        "description": "Paste a Gemini API key from Google AI Studio. It is stored on this machine as GEMINI_API_KEY and never leaves it.",
+        "placeholder": "AIza…",
+        "submit": "Save and connect",
+        "helpBefore": "Get a key from",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "and paste it above."
+      },
+      "hidden": {
+        "title": "CLIs not installed",
+        "description": "These agents are hidden because their CLI is not installed on this image: {{providers}}."
+      },
+      "errors": {
+        "loginFailed": "Failed to start the connection flow.",
+        "logoutFailed": "Failed to disconnect the agent.",
+        "cancelFailed": "Failed to cancel the connection."
       }
     }
   },

@@ -34,7 +34,9 @@
         "skills": "スキル",
         "skillsDesc": "~/.claude/skills にインストールされたエージェントスキルを管理",
         "github": "GitHub",
-        "githubDesc": "gh CLI で GitHub にサインイン"
+        "githubDesc": "gh CLI で GitHub にサインイン",
+        "agent-auth": "エージェント接続",
+        "agent-authDesc": "設定画面から各エージェントの接続・切断を行います"
       }
     },
     "general": {
@@ -634,6 +636,60 @@
         "logoutFailed": "GitHub からの切断に失敗しました。",
         "installFailed": "GitHub CLI のインストールに失敗しました。",
         "patLoginFailed": "Personal Access Token の検証に失敗しました。"
+      }
+    },
+    "agentAuth": {
+      "loading": "インストール済みのエージェントを確認中…",
+      "emptyState": "このマシンにはまだコーディングエージェントがインストールされていません。",
+      "statusLabel": "状態",
+      "status": {
+        "connected": "接続済み",
+        "notConnected": "未接続"
+      },
+      "actions": {
+        "connect": "接続",
+        "disconnect": "切断",
+        "cancel": "キャンセル"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "ブラウザのデバイスフローで OpenAI Codex にサインインします。ターミナルは不要です。"
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "Google AI Studio で取得した API キーで Google Gemini に接続します。"
+        }
+      },
+      "deviceFlow": {
+        "title": "OpenAI で認可",
+        "description": "以下のワンタイムコードをコピーして OpenAI のページに貼り付け、サインインを完了してください。",
+        "codeLabel": "ワンタイムコード",
+        "copyHint": "クリックしてコピー",
+        "openBrowser": "OpenAI を開く",
+        "checkStatus": "状態を更新",
+        "waitingForCode": "CLI がデバイスコードを表示するのを待っています…",
+        "waiting": "認可を待っています… ブラウザで完了するとこのカードは自動的に更新されます。"
+      },
+      "apiKey": {
+        "title": "API キーで接続",
+        "description": "Google AI Studio で発行した Gemini API キーを貼り付けてください。このマシンに GEMINI_API_KEY として保存され、外部には送信されません。",
+        "placeholder": "AIza…",
+        "submit": "保存して接続",
+        "helpBefore": "キーは次から取得できます:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "上に貼り付けてください。"
+      },
+      "hidden": {
+        "title": "CLI 未インストール",
+        "description": "次のエージェントは CLI がこのイメージにインストールされていないため非表示になっています: {{providers}}。"
+      },
+      "errors": {
+        "loginFailed": "接続フローを開始できませんでした。",
+        "logoutFailed": "エージェントを切断できませんでした。",
+        "cancelFailed": "接続をキャンセルできませんでした。"
       }
     }
   },
