@@ -606,7 +606,25 @@ plan: string | null, meters: Array<ClaudeUsageMeter>,
  */
 workers_on_claude: bigint, };
 
-export type ClosedIssue = { repo_id: string, number: number, title: string, 
+export type AgentGuidelines = { content: string,
+/**
+ * RFC3339 mtime of the file; `None` when the file doesn't exist yet.
+ * Echoed back on save for optimistic concurrency.
+ */
+modified_at: string | null, exists: boolean,
+/**
+ * Template offered by "restore defaults" in the UI.
+ */
+default_content: string, };
+
+export type SaveAgentGuidelinesRequest = { content: string,
+/**
+ * `modified_at` from the last read. Save is rejected with 409 when the
+ * file changed since (concurrent edit over SSH or another client).
+ */
+expected_modified_at: string | null, };
+
+export type ClosedIssue = { repo_id: string, number: number, title: string,
 /**
  * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
  */

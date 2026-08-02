@@ -199,6 +199,8 @@ fn generate_types_content() -> String {
         server::routes::skills::InstallSkillRequest::decl(),
         server::routes::agents::ClaudeUsageMeter::decl(),
         server::routes::agents::ClaudeUsageResponse::decl(),
+        server::routes::guidelines::AgentGuidelines::decl(),
+        server::routes::guidelines::SaveAgentGuidelinesRequest::decl(),
         server::routes::impact::ClosedIssue::decl(),
         server::routes::impact::ClosedIssuesResponse::decl(),
         server::routes::repo::ListPrsError::decl(),

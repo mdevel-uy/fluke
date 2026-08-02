@@ -21,6 +21,8 @@
         "reposDesc": "仓库脚本和配置",
         "agents": "代理",
         "agentsDesc": "编码代理配置",
+        "guidelines": "行为准则",
+        "guidelinesDesc": "适用于所有代理的全局行为规则",
         "mcp": "MCP 服务器",
         "mcpDesc": "模型上下文协议服务器",
         "organizationsDesc": "管理组织成员和权限",

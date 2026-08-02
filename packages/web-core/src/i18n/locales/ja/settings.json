@@ -21,6 +21,8 @@
         "reposDesc": "リポジトリスクリプトと設定",
         "agents": "エージェント",
         "agentsDesc": "コーディングエージェントの設定",
+        "guidelines": "ガイドライン",
+        "guidelinesDesc": "全エージェント共通の行動ルール",
         "mcp": "MCPサーバー",
         "mcpDesc": "モデルコンテキストプロトコルサーバー",
         "organizationsDesc": "Manage organization members and permissions",
