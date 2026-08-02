@@ -1245,5 +1245,33 @@
       "label": "自動取り込み",
       "description": "タスクが割り当てられるとワーカーが自動的に開始します"
     }
+  },
+  "setupWizard": {
+    "aria": "オンボーディングウィザード",
+    "title": "はじめに",
+    "subtitle": "空のインスタンスから最初の PR までの 4 ステップ。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub に接続",
+        "description": "Personal Access Token または gh CLI で認証し、エージェントが PR を開けるようにします。",
+        "action": "接続"
+      },
+      "repo": {
+        "title": "リポジトリを追加",
+        "description": "ローカルリポジトリを登録し、エージェントがブランチとワークスペースを作れるようにします。",
+        "action": "追加"
+      },
+      "agent": {
+        "title": "エージェントに接続",
+        "description": "Claude Code、Codex または Gemini にログインして、ワーカーが実行するエージェントを用意します。",
+        "action": "接続"
+      },
+      "task": {
+        "title": "最初のタスクを作成して割り当て",
+        "description": "イシューを選んでワーカーに割り当てると、エージェントが実行して PR を開きます。",
+        "action": "イシューへ"
+      }
+    }
   }
 }

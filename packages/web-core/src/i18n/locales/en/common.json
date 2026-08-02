@@ -1248,5 +1248,33 @@
       "label": "Auto-ingest",
       "description": "Workers start as soon as a task is assigned"
     }
+  },
+  "setupWizard": {
+    "aria": "Onboarding wizard",
+    "title": "Get started",
+    "subtitle": "Four steps between an empty instance and your first PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Connect GitHub",
+        "description": "Authorize with a Personal Access Token or the gh CLI so agents can open pull requests.",
+        "action": "Connect"
+      },
+      "repo": {
+        "title": "Add a repository",
+        "description": "Register a local repo so agents can create branches and workspaces in it.",
+        "action": "Add"
+      },
+      "agent": {
+        "title": "Connect an agent",
+        "description": "Log in to Claude Code, Codex or Gemini so a worker has an agent to run.",
+        "action": "Connect"
+      },
+      "task": {
+        "title": "Create and assign your first task",
+        "description": "Pick an issue and assign it to a worker — the agent runs and opens the PR.",
+        "action": "Go to issues"
+      }
+    }
   }
 }

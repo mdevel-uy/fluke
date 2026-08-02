@@ -1248,5 +1248,33 @@
       "label": "Ingesta automática",
       "description": "Los workers arrancan ni bien se les asigna una tarea"
     }
+  },
+  "setupWizard": {
+    "aria": "Wizard de onboarding",
+    "title": "Empezá acá",
+    "subtitle": "Cuatro pasos entre una instancia vacía y tu primer PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Conectá GitHub",
+        "description": "Autorizate con un Personal Access Token o la CLI gh para que los agentes puedan abrir PRs.",
+        "action": "Conectar"
+      },
+      "repo": {
+        "title": "Agregá un repositorio",
+        "description": "Registrá un repo local para que los agentes puedan crear branches y workspaces.",
+        "action": "Agregar"
+      },
+      "agent": {
+        "title": "Conectá un agente",
+        "description": "Logueate en Claude Code, Codex o Gemini para que el worker tenga un agente que correr.",
+        "action": "Conectar"
+      },
+      "task": {
+        "title": "Creá y asigná tu primera tarea",
+        "description": "Elegí un issue y asignalo a un worker — el agente corre y abre el PR.",
+        "action": "Ir a issues"
+      }
+    }
   }
 }

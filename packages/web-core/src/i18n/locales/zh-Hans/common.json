@@ -1245,5 +1245,33 @@
       "label": "自动开始",
       "description": "任务分配后工作者立即开始"
     }
+  },
+  "setupWizard": {
+    "aria": "入门向导",
+    "title": "开始使用",
+    "subtitle": "从空实例到第一个 PR 只需四步。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "连接 GitHub",
+        "description": "使用 Personal Access Token 或 gh CLI 授权，让代理可以开 PR。",
+        "action": "连接"
+      },
+      "repo": {
+        "title": "添加仓库",
+        "description": "注册本地仓库，代理可在其中创建分支和工作区。",
+        "action": "添加"
+      },
+      "agent": {
+        "title": "连接代理",
+        "description": "登录 Claude Code、Codex 或 Gemini，让工作者有代理可运行。",
+        "action": "连接"
+      },
+      "task": {
+        "title": "创建并分配第一个任务",
+        "description": "选一个 issue 分配给工作者——代理会运行并打开 PR。",
+        "action": "前往 issues"
+      }
+    }
   }
 }
