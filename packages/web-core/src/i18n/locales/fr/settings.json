@@ -657,6 +657,11 @@
           "title": "Codex",
           "description": "Connectez-vous à OpenAI Codex via le flux de dispositif dans le navigateur — aucun terminal requis."
         },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Connectez-vous avec votre abonnement Claude — ouvrez l'URL, connectez-vous et collez le code d'échange ci-dessous."
+        },
         "gemini": {
           "name": "Gemini",
           "title": "Gemini",
@@ -682,6 +687,17 @@
         "helpLink": "Google AI Studio",
         "helpAfter": "et collez-la ci-dessus."
       },
+      "claudeFlow": {
+        "title": "Autoriser sur claude.com",
+        "description": "Ouvrez l'URL, connectez-vous à votre compte Claude et copiez le code d'échange renvoyé par la page.",
+        "openBrowser": "Ouvrir claude.com",
+        "copyUrl": "Copier l'URL",
+        "waitingForUrl": "Attente de l'affichage de l'URL de connexion par la CLI…",
+        "codeInputLabel": "Code d'échange",
+        "codeInputPlaceholder": "Collez le code depuis claude.com",
+        "codeInputHelp": "Cette carte se met à jour automatiquement dès que la CLI accepte le code.",
+        "submitCode": "Envoyer le code"
+      },
       "hidden": {
         "title": "CLIs non installées",
         "description": "Ces agents sont masqués parce que leur CLI n'est pas installée sur cette image : {{providers}}."
@@ -689,7 +705,8 @@
       "errors": {
         "loginFailed": "Impossible de démarrer la connexion.",
         "logoutFailed": "Impossible de déconnecter l'agent.",
-        "cancelFailed": "Impossible d'annuler la connexion."
+        "cancelFailed": "Impossible d'annuler la connexion.",
+        "submitCodeFailed": "Impossible d'envoyer le code d'échange."
       }
     }
   },

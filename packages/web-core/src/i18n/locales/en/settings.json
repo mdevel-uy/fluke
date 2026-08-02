@@ -657,6 +657,11 @@
           "title": "Codex",
           "description": "Sign in to OpenAI Codex with the browser device flow — no terminal needed."
         },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Sign in with your Claude subscription — open the URL, log in, and paste the exchange code below."
+        },
         "gemini": {
           "name": "Gemini",
           "title": "Gemini",
@@ -682,6 +687,17 @@
         "helpLink": "Google AI Studio",
         "helpAfter": "and paste it above."
       },
+      "claudeFlow": {
+        "title": "Authorize on claude.com",
+        "description": "Open the URL, sign in to your Claude account, and copy the exchange code the page hands back.",
+        "openBrowser": "Open claude.com",
+        "copyUrl": "Copy URL",
+        "waitingForUrl": "Waiting for the CLI to print the sign-in URL…",
+        "codeInputLabel": "Exchange code",
+        "codeInputPlaceholder": "Paste the code from claude.com",
+        "codeInputHelp": "This card updates automatically once the CLI accepts the code.",
+        "submitCode": "Submit code"
+      },
       "hidden": {
         "title": "CLIs not installed",
         "description": "These agents are hidden because their CLI is not installed on this image: {{providers}}."
@@ -689,7 +705,8 @@
       "errors": {
         "loginFailed": "Failed to start the connection flow.",
         "logoutFailed": "Failed to disconnect the agent.",
-        "cancelFailed": "Failed to cancel the connection."
+        "cancelFailed": "Failed to cancel the connection.",
+        "submitCodeFailed": "Failed to submit the exchange code."
       }
     }
   },

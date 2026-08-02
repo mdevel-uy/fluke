@@ -15,6 +15,13 @@
 //!   fall back to an API-key flow (same shape as GitHub PAT): the user
 //!   supplies a `GEMINI_API_KEY`, we validate the shape and persist it as
 //!   `~/.gemini/.env`, which the CLI picks up on startup.
+//! - **Claude Code** — spawns `claude setup-token` inside a PTY (the CLI
+//!   refuses to render its OAuth prompt on a bare pipe) and streams the
+//!   authorize URL out for the UI. The flow needs a second step: after
+//!   completing the browser handoff the user pastes the exchange code back,
+//!   which we forward to the CLI's stdin via
+//!   `POST /agents/auth/claude_code/login/submit`. Success is detected by
+//!   the appearance of `~/.claude/.credentials.json`.
 //!
 //! Providers whose CLI is not installed on the image are still reported so
 //! the UI can hide their card; the check reuses the same executable
@@ -22,7 +29,7 @@
 
 use std::{
     collections::HashMap,
-    io::Write as _,
+    io::{Read as _, Write as _},
     path::PathBuf,
     process::Stdio,
     sync::{Arc, OnceLock},
@@ -35,6 +42,7 @@ use axum::{
     response::Json as ResponseJson,
     routing::{get, post},
 };
+use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -58,15 +66,15 @@ use crate::{DeploymentImpl, error::ApiError};
 ///
 /// Kept as a small closed set instead of reusing `BaseCodingAgent` because
 /// only the CLIs that have a working "connect from Settings" story appear
-/// here — Claude Code is tracked separately by issue #343 and other agents
-/// (Cursor, Amp, Copilot, ...) run through the workspace-scoped setup
-/// helper.
+/// here — other agents (Cursor, Amp, Copilot, ...) run through the
+/// workspace-scoped setup helper.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 #[ts(rename_all = "snake_case")]
 pub enum AgentAuthProvider {
     Codex,
     Gemini,
+    ClaudeCode,
 }
 
 impl AgentAuthProvider {
@@ -74,6 +82,7 @@ impl AgentAuthProvider {
         match self {
             AgentAuthProvider::Codex => "codex",
             AgentAuthProvider::Gemini => "gemini",
+            AgentAuthProvider::ClaudeCode => "claude_code",
         }
     }
 
@@ -81,6 +90,7 @@ impl AgentAuthProvider {
         match slug {
             "codex" => Some(AgentAuthProvider::Codex),
             "gemini" => Some(AgentAuthProvider::Gemini),
+            "claude_code" => Some(AgentAuthProvider::ClaudeCode),
             _ => None,
         }
     }
@@ -136,11 +146,19 @@ pub struct AgentAuthStatusResponse {
 /// `POST /api/agents/auth/{provider}/login` — request body used by the
 /// providers that require the user to hand a secret upfront (currently just
 /// Gemini's API key). Optional for the providers whose login runs entirely
-/// server-side (Codex).
+/// server-side (Codex, Claude Code).
 #[derive(Debug, Deserialize, TS)]
 pub struct AgentLoginRequest {
     #[serde(default)]
     pub api_key: Option<String>,
+}
+
+/// `POST /api/agents/auth/{provider}/login/submit` — second step of the
+/// providers whose CLI prompts for a code after the browser flow (Claude
+/// Code's `setup-token`).
+#[derive(Debug, Deserialize, TS)]
+pub struct AgentLoginSubmitRequest {
+    pub code: String,
 }
 
 /// `POST /api/agents/auth/{provider}/login` — synchronous return values from
@@ -168,6 +186,22 @@ struct LoginRuntime {
     /// Child processes for in-flight logins. Held so we can kill them on
     /// cancel; the runtime task also cleans this up on exit.
     child: HashMap<AgentAuthProvider, Arc<Mutex<Option<Child>>>>,
+    /// PTY handles (writer + child killer) for CLIs that require an
+    /// interactive terminal (Claude Code). Kept separate from `child`
+    /// because a `portable_pty::Child` is not the same shape as
+    /// `tokio::process::Child`.
+    pty: HashMap<AgentAuthProvider, Arc<Mutex<Option<PtyLogin>>>>,
+}
+
+/// Holds the pieces of a PTY-based login so the runtime can write into
+/// the CLI's stdin (`submit-code`) or kill it (`cancel`/`logout`) later.
+/// The `_master` field owns the master side of the PTY: dropping it closes
+/// the pipe out from under the writer and the reader thread, so keep it
+/// alive as long as the login is in flight.
+struct PtyLogin {
+    writer: Box<dyn std::io::Write + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+    _master: Box<dyn portable_pty::MasterPty + Send>,
 }
 
 static LOGIN_RUNTIME: OnceLock<Arc<Mutex<LoginRuntime>>> = OnceLock::new();
@@ -235,6 +269,19 @@ fn gemini_oauth_file() -> Result<PathBuf, ApiError> {
     gemini_home().map(|h| h.join("oauth_creds.json"))
 }
 
+fn claude_home() -> Result<PathBuf, ApiError> {
+    if let Ok(v) = std::env::var("CLAUDE_CONFIG_DIR")
+        && !v.trim().is_empty()
+    {
+        return Ok(PathBuf::from(v));
+    }
+    home_dir().map(|h| h.join(".claude"))
+}
+
+fn claude_credentials_file() -> Result<PathBuf, ApiError> {
+    claude_home().map(|h| h.join(".credentials.json"))
+}
+
 /// Check whether the CLI needed to authenticate this provider is available.
 ///
 /// We look for the plain binary name (installed system-wide) rather than the
@@ -245,6 +292,7 @@ async fn cli_available(provider: AgentAuthProvider) -> bool {
     let bin = match provider {
         AgentAuthProvider::Codex => "codex",
         AgentAuthProvider::Gemini => "gemini",
+        AgentAuthProvider::ClaudeCode => "claude",
     };
     resolve_executable_path(bin).await.is_some()
 }
@@ -268,6 +316,9 @@ async fn provider_connection_state(
             .into_iter()
             .flatten()
             .collect(),
+        AgentAuthProvider::ClaudeCode => {
+            claude_credentials_file().ok().into_iter().collect()
+        }
     };
 
     let mut best: Option<i64> = None;
@@ -315,6 +366,10 @@ pub fn router() -> Router<DeploymentImpl> {
             "/agents/auth/{provider}/login/cancel",
             post(post_login_cancel),
         )
+        .route(
+            "/agents/auth/{provider}/login/submit",
+            post(post_login_submit),
+        )
         .route("/agents/auth/{provider}/logout", post(post_logout))
 }
 
@@ -326,7 +381,11 @@ async fn get_auth_status(
     State(_deployment): State<DeploymentImpl>,
 ) -> Result<ResponseJson<ApiResponse<AgentAuthStatusResponse>>, ApiError> {
     let mut providers = Vec::new();
-    for provider in [AgentAuthProvider::Codex, AgentAuthProvider::Gemini] {
+    for provider in [
+        AgentAuthProvider::Codex,
+        AgentAuthProvider::ClaudeCode,
+        AgentAuthProvider::Gemini,
+    ] {
         let cli = cli_available(provider).await;
         let (connected, last_auth_at) = provider_connection_state(provider).await;
         providers.push(AgentAuthProviderStatus {
@@ -370,6 +429,40 @@ async fn post_login(
                 })?;
             complete_gemini_login(api_key).await
         }
+        AgentAuthProvider::ClaudeCode => start_claude_login().await,
+    }
+}
+
+async fn post_login_submit(
+    State(_deployment): State<DeploymentImpl>,
+    Path(provider): Path<String>,
+    ResponseJson(body): ResponseJson<AgentLoginSubmitRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let provider = AgentAuthProvider::from_slug(&provider)
+        .ok_or_else(|| ApiError::BadRequest(format!("Unknown provider {provider}")))?;
+
+    let code = body.code.trim();
+    if code.is_empty() {
+        return Err(ApiError::BadRequest(
+            "The exchange code must not be empty.".to_string(),
+        ));
+    }
+    // Reject obvious paste accidents: `claude setup-token` codes are opaque
+    // strings, but they never contain whitespace or newlines. A pasted URL
+    // (a common mistake) fails this too, giving a clearer error than
+    // "invalid code" from the CLI ten seconds later.
+    if code.chars().any(char::is_whitespace) {
+        return Err(ApiError::BadRequest(
+            "The exchange code must not contain whitespace.".to_string(),
+        ));
+    }
+
+    match provider {
+        AgentAuthProvider::ClaudeCode => submit_claude_code(code).await,
+        _ => Err(ApiError::BadRequest(format!(
+            "Provider {} does not accept a submit-code step.",
+            provider.as_slug()
+        ))),
     }
 }
 
@@ -380,19 +473,7 @@ async fn post_login_cancel(
     let provider = AgentAuthProvider::from_slug(&provider)
         .ok_or_else(|| ApiError::BadRequest(format!("Unknown provider {provider}")))?;
 
-    let (task, child_slot) = {
-        let state = runtime();
-        let mut rt = state.lock().await;
-        (rt.task.remove(&provider), rt.child.remove(&provider))
-    };
-    if let Some(slot) = child_slot
-        && let Some(mut child) = slot.lock().await.take()
-    {
-        let _ = child.kill().await;
-    }
-    if let Some(task) = task {
-        task.abort();
-    }
+    stop_in_flight_login(provider).await;
     update_progress(provider, |p| {
         if matches!(p.state, AgentLoginState::Pending) {
             p.state = AgentLoginState::Failed;
@@ -401,6 +482,34 @@ async fn post_login_cancel(
     })
     .await;
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// Kill the CLI process (child or PTY-backed) associated with `provider`
+/// and abort its watcher task. Used by both cancel and logout paths so a
+/// stale login cannot re-write the auth file seconds after we clear it.
+async fn stop_in_flight_login(provider: AgentAuthProvider) {
+    let (task, child_slot, pty_slot) = {
+        let state = runtime();
+        let mut rt = state.lock().await;
+        (
+            rt.task.remove(&provider),
+            rt.child.remove(&provider),
+            rt.pty.remove(&provider),
+        )
+    };
+    if let Some(slot) = child_slot
+        && let Some(mut child) = slot.lock().await.take()
+    {
+        let _ = child.kill().await;
+    }
+    if let Some(slot) = pty_slot
+        && let Some(mut pty) = slot.lock().await.take()
+    {
+        let _ = pty.child.kill();
+    }
+    if let Some(task) = task {
+        task.abort();
+    }
 }
 
 async fn post_logout(
@@ -413,23 +522,12 @@ async fn post_logout(
     // Kill any in-flight login before wiping credentials — otherwise the
     // still-running CLI may write the auth file back seconds after we clear
     // it, leaving the UI stuck on "connected".
-    let (task, child_slot) = {
-        let state = runtime();
-        let mut rt = state.lock().await;
-        (rt.task.remove(&provider), rt.child.remove(&provider))
-    };
-    if let Some(slot) = child_slot
-        && let Some(mut child) = slot.lock().await.take()
-    {
-        let _ = child.kill().await;
-    }
-    if let Some(task) = task {
-        task.abort();
-    }
+    stop_in_flight_login(provider).await;
 
     match provider {
         AgentAuthProvider::Codex => codex_logout().await?,
         AgentAuthProvider::Gemini => gemini_logout().await?,
+        AgentAuthProvider::ClaudeCode => claude_logout().await?,
     }
 
     // Clear the last progress record too so a stale "Completed" toast does
@@ -903,6 +1001,423 @@ fn remove_env_var(contents: &str, key: &str) -> String {
     out
 }
 
+// ============================================================================
+// Claude Code login: OAuth PKCE via `claude setup-token`, driven through a PTY
+// ============================================================================
+//
+// The CLI refuses to render its OAuth prompt on a bare pipe (it TTY-detects
+// and stays silent), so a plain `Command::new` gets us no URL and no way to
+// deliver the exchange code. We open a pseudo-terminal, spawn the CLI on the
+// slave side, and treat the master as both stdout reader and stdin writer.
+// The reader thread strips terminal escapes, watches for the authorize URL
+// (the "Browser didn't open?" prompt prints it plainly), and pushes it into
+// the shared progress record. `submit-code` writes the pasted code + newline
+// back through the same master handle, and a watcher polls
+// `~/.claude/.credentials.json` for the file the CLI writes on success.
+//
+// The URL is presented alongside a `Paste code here if prompted >` line;
+// the CLI never prints a user-friendly code itself, so `user_code` stays
+// empty and the UI switches to a "paste your exchange code" input instead.
+
+/// How long the CLI can spend waiting for the user to complete the OAuth
+/// handoff before we tear it down. The setup-token flow is one browser hop
+/// plus one paste, so ten minutes is generous without risking a stuck child.
+const CLAUDE_LOGIN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+/// Reasonable terminal shape for the CLI's Ink renderer. Anything much
+/// smaller wraps the URL onto three lines, which the parser then has to
+/// stitch back together — 120x40 fits it whole.
+const CLAUDE_PTY_COLS: u16 = 120;
+const CLAUDE_PTY_ROWS: u16 = 40;
+
+async fn start_claude_login()
+-> Result<ResponseJson<ApiResponse<AgentLoginResponse>>, ApiError> {
+    // Fresh login means fresh state: abort any prior watcher so the CLI it
+    // was polling stops overwriting our progress record.
+    stop_in_flight_login(AgentAuthProvider::ClaudeCode).await;
+
+    set_progress(
+        AgentAuthProvider::ClaudeCode,
+        AgentLoginProgress {
+            state: AgentLoginState::Pending,
+            verification_uri: None,
+            user_code: None,
+            error: None,
+        },
+    )
+    .await;
+
+    let claude = resolve_executable_path("claude").await.ok_or_else(|| {
+        ApiError::BadRequest(
+            "The Claude Code CLI is not installed on this machine.".to_string(),
+        )
+    })?;
+    let creds_before_mtime = claude_credentials_file()
+        .ok()
+        .and_then(|p| file_mtime_epoch(&p));
+
+    let (pty_login, output_rx) = spawn_claude_pty(&claude).await?;
+    let pty_slot = Arc::new(Mutex::new(Some(pty_login)));
+    {
+        let state = runtime();
+        let mut rt = state.lock().await;
+        rt.pty
+            .insert(AgentAuthProvider::ClaudeCode, pty_slot.clone());
+    }
+
+    // Reader task folds CLI output into the shared progress record.
+    tokio::spawn(read_claude_pty_output(output_rx));
+
+    // Watcher: waits for the CLI to exit (which happens after the user
+    // pastes their code back) or for the credentials file to appear/refresh.
+    let watcher_slot = pty_slot.clone();
+    let watcher = tokio::spawn(async move {
+        let deadline = tokio::time::Instant::now() + CLAUDE_LOGIN_TIMEOUT;
+        let creds_path = claude_credentials_file().ok();
+        loop {
+            if tokio::time::Instant::now() >= deadline {
+                if let Some(mut pty) = watcher_slot.lock().await.take() {
+                    let _ = pty.child.kill();
+                }
+                update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                    if !matches!(p.state, AgentLoginState::Completed) {
+                        p.state = AgentLoginState::Failed;
+                        p.error = Some(
+                            "Login timed out. Please try again.".to_string(),
+                        );
+                    }
+                })
+                .await;
+                return;
+            }
+
+            // The file may appear even while the CLI is still cleaning up.
+            // Detecting it early lets the UI flip to "connected" without
+            // waiting on the child's final tick.
+            if let Some(path) = creds_path.as_deref()
+                && path.exists()
+            {
+                let now_mtime = file_mtime_epoch(path);
+                if now_mtime != creds_before_mtime {
+                    update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                        p.state = AgentLoginState::Completed;
+                        p.error = None;
+                    })
+                    .await;
+                    // Ask the CLI to exit cleanly by closing its stdin; if
+                    // it lingers we still take the write-lock away so a
+                    // stale watcher cannot flip us back to `Failed`.
+                    if let Some(mut pty) = watcher_slot.lock().await.take() {
+                        // Best-effort kill: setup-token has already
+                        // finished the work we care about.
+                        let _ = pty.child.kill();
+                    }
+                    return;
+                }
+            }
+
+            // Child exit check. Any non-successful exit before we saw the
+            // credentials file is a failure the UI should surface.
+            {
+                let mut guard = watcher_slot.lock().await;
+                if let Some(pty) = guard.as_mut() {
+                    match pty.child.try_wait() {
+                        Ok(Some(status)) => {
+                            let file_present = creds_path
+                                .as_deref()
+                                .map(|p| p.exists())
+                                .unwrap_or(false);
+                            update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                                if file_present && status.success() {
+                                    p.state = AgentLoginState::Completed;
+                                    p.error = None;
+                                } else if matches!(p.state, AgentLoginState::Pending) {
+                                    p.state = AgentLoginState::Failed;
+                                    if p.error.is_none() {
+                                        p.error = Some(format!(
+                                            "claude setup-token exited with status {}",
+                                            status.exit_code()
+                                        ));
+                                    }
+                                }
+                            })
+                            .await;
+                            guard.take();
+                            return;
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                                p.state = AgentLoginState::Failed;
+                                p.error =
+                                    Some(format!("Failed waiting on claude: {e}"));
+                            })
+                            .await;
+                            guard.take();
+                            return;
+                        }
+                    }
+                } else {
+                    // Torn down by cancel/logout — nothing left to do.
+                    return;
+                }
+            }
+
+            sleep(Duration::from_millis(500)).await;
+        }
+    });
+    {
+        let state = runtime();
+        let mut rt = state.lock().await;
+        rt.task.insert(AgentAuthProvider::ClaudeCode, watcher);
+    }
+
+    // Give the CLI a moment to print the authorize URL. Ten seconds is
+    // enough for both a warm binary and a cold `npx` fetch; if it takes
+    // longer the frontend keeps polling status.
+    for _ in 0..100 {
+        if let Some(p) = read_progress(AgentAuthProvider::ClaudeCode).await
+            && (p.verification_uri.is_some()
+                || matches!(p.state, AgentLoginState::Failed))
+        {
+            return Ok(ResponseJson(ApiResponse::success(AgentLoginResponse {
+                verification_uri: p.verification_uri.clone(),
+                user_code: None,
+                completed: false,
+            })));
+        }
+        sleep(Duration::from_millis(100)).await;
+    }
+
+    Ok(ResponseJson(ApiResponse::success(AgentLoginResponse {
+        verification_uri: None,
+        user_code: None,
+        completed: false,
+    })))
+}
+
+/// Open a PTY, spawn `claude setup-token` on the slave side, and hand back a
+/// writer for stdin plus a channel for stdout.
+async fn spawn_claude_pty(
+    claude: &std::path::Path,
+) -> Result<(PtyLogin, tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>), ApiError> {
+    let claude = claude.to_path_buf();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    let spawn_result = tokio::task::spawn_blocking(move || {
+        let pty_system = NativePtySystem::default();
+        let pty_pair = pty_system
+            .openpty(PtySize {
+                rows: CLAUDE_PTY_ROWS,
+                cols: CLAUDE_PTY_COLS,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|e| format!("failed to open pty: {e}"))?;
+
+        let mut cmd = CommandBuilder::new(&claude);
+        cmd.arg("setup-token");
+        // Signal a real terminal so the CLI's Ink renderer picks the
+        // interactive prompt path we need to parse.
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+        // Suppress its "open browser?" attempt: on a headless VPS there is
+        // no browser to open, and letting the CLI try it prints nothing
+        // useful and delays the URL.
+        cmd.env("BROWSER", "true");
+
+        let child = pty_pair
+            .slave
+            .spawn_command(cmd)
+            .map_err(|e| format!("failed to spawn claude setup-token: {e}"))?;
+
+        let writer = pty_pair
+            .master
+            .take_writer()
+            .map_err(|e| format!("failed to get pty writer: {e}"))?;
+
+        let mut reader = pty_pair
+            .master
+            .try_clone_reader()
+            .map_err(|e| format!("failed to clone pty reader: {e}"))?;
+
+        // Reader lives on its own OS thread: portable_pty's master reader
+        // is blocking, so mixing it with the tokio runtime would stall it.
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        if tx.send(buf[..n].to_vec()).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        Ok::<_, String>(PtyLogin {
+            writer,
+            child,
+            _master: pty_pair.master,
+        })
+    })
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("PTY task join failed: {e}")))?
+    .map_err(ApiError::BadGateway)?;
+
+    Ok((spawn_result, rx))
+}
+
+/// Fold PTY stdout into the shared progress record. Runs until the reader
+/// side closes (child exited or PTY torn down).
+async fn read_claude_pty_output(
+    mut rx: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>,
+) {
+    // Accumulate raw bytes across chunks so we can strip escapes over the
+    // whole stream (URL segments arrive across multiple reads). Cap the
+    // buffer so a chatty CLI cannot balloon our memory.
+    let mut acc: Vec<u8> = Vec::new();
+    while let Some(chunk) = rx.recv().await {
+        acc.extend_from_slice(&chunk);
+        if acc.len() > 64 * 1024 {
+            // Drop the oldest half; the URL always appears near the end of
+            // the stream so trimming from the front is safe.
+            acc.drain(..acc.len() / 2);
+        }
+        let text = strip_ansi_escapes::strip_str(String::from_utf8_lossy(&acc));
+        if let Some(url) = extract_claude_authorize_url(&text) {
+            update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                if p.verification_uri.is_none() {
+                    p.verification_uri = Some(url.clone());
+                }
+            })
+            .await;
+        }
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("invalid code") || lower.contains("authentication failed")
+        {
+            update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                if !matches!(p.state, AgentLoginState::Completed) {
+                    p.error = Some(
+                        "The exchange code was rejected. Try connecting again."
+                            .to_string(),
+                    );
+                }
+            })
+            .await;
+        }
+    }
+}
+
+/// Pluck the authorize URL out of the (already ANSI-stripped) CLI output.
+/// The CLI wraps the URL across three lines on narrow terminals and we
+/// sometimes catch it mid-render, so we walk the text as a single string
+/// and stitch it back together, treating a single wrap (one whitespace
+/// character) as part of the URL and two-or-more consecutive whitespace
+/// chars as end-of-URL (which is what the CLI prints before the "Paste
+/// code here" prompt).
+fn extract_claude_authorize_url(text: &str) -> Option<String> {
+    let start = text.find("https://claude.com/")?;
+    let rest = &text[start..];
+    let mut url = String::new();
+    let mut consecutive_ws = 0usize;
+    for ch in rest.chars() {
+        if ch.is_control() && ch != '\n' && ch != '\r' && ch != '\t' {
+            break;
+        }
+        if ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ' {
+            consecutive_ws += 1;
+            if consecutive_ws >= 2 {
+                break;
+            }
+            continue;
+        }
+        consecutive_ws = 0;
+        url.push(ch);
+    }
+    // Trim any trailing punctuation the CLI printed on the same line.
+    let trimmed = url.trim_end_matches(|c: char| {
+        matches!(c, '.' | ',' | ')' | ']' | '"' | '>')
+    });
+    if trimmed.starts_with("https://claude.com/") && trimmed.len() > 40 {
+        Some(trimmed.to_string())
+    } else {
+        None
+    }
+}
+
+async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let slot = {
+        let state = runtime();
+        let rt = state.lock().await;
+        rt.pty.get(&AgentAuthProvider::ClaudeCode).cloned()
+    };
+    let slot = slot.ok_or_else(|| {
+        ApiError::BadRequest(
+            "No Claude Code login is in progress. Start the connection first."
+                .to_string(),
+        )
+    })?;
+
+    let mut guard = slot.lock().await;
+    let pty = guard.as_mut().ok_or_else(|| {
+        ApiError::BadRequest(
+            "The Claude Code login has already finished.".to_string(),
+        )
+    })?;
+
+    // Write the code and a carriage return: the CLI treats CR as "enter" on
+    // its Ink prompt, so this submits the value the same way a keyboard
+    // paste would.
+    let mut payload = code.as_bytes().to_vec();
+    payload.push(b'\r');
+    pty.writer.write_all(&payload).map_err(|e| {
+        ApiError::BadGateway(format!("Failed to write to claude stdin: {e}"))
+    })?;
+    pty.writer.flush().map_err(|e| {
+        ApiError::BadGateway(format!("Failed to flush claude stdin: {e}"))
+    })?;
+
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+async fn claude_logout() -> Result<(), ApiError> {
+    // Prefer the CLI so any server-side session is invalidated too;
+    // fall back to removing the credentials file when the CLI is missing
+    // or exits non-zero (which happens when the file is already gone).
+    if let Some(claude) = resolve_executable_path("claude").await {
+        let out = Command::new(&claude)
+            .args(["auth", "logout"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .no_window()
+            .output()
+            .await;
+        match out {
+            Ok(o) if o.status.success() => return Ok(()),
+            Ok(o) => tracing::warn!(
+                stderr = %String::from_utf8_lossy(&o.stderr),
+                "`claude auth logout` exited unsuccessfully; falling back to file removal"
+            ),
+            Err(e) => tracing::warn!(?e, "failed to run `claude auth logout`; falling back"),
+        }
+    }
+    if let Ok(path) = claude_credentials_file()
+        && path.exists()
+    {
+        std::fs::remove_file(&path).map_err(|e| {
+            ApiError::BadGateway(format!(
+                "Failed to remove Claude credentials at {}: {e}",
+                path.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -978,5 +1493,39 @@ mod tests {
         let stripped =
             remove_env_var("GEMINI_API_KEY_OLD=x\n", "GEMINI_API_KEY");
         assert!(stripped.contains("GEMINI_API_KEY_OLD=x"));
+    }
+
+    #[test]
+    fn extracts_claude_authorize_url_from_wrapped_output() {
+        // The Ink renderer breaks the URL across multiple lines on
+        // narrow terminals; the parser has to stitch them back together.
+        let sample = "Browser didn't open? Use the url below to sign in\n\n\
+            https://claude.com/cai/oauth/authorize?code=true&client_id=9d1c250a-e61b-44d9-88\n\
+            ed-5944d1962f5e&response_type=code&scope=user%3Ainference&code_challenge=abcd\n\n\
+            Paste code here if prompted >";
+        let url = extract_claude_authorize_url(sample).expect("URL must parse");
+        assert!(url.starts_with("https://claude.com/cai/oauth/authorize?code=true"));
+        assert!(url.contains("client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e"));
+        assert!(!url.contains(' '));
+        assert!(!url.contains('\n'));
+    }
+
+    #[test]
+    fn claude_url_extractor_ignores_output_without_url() {
+        assert!(extract_claude_authorize_url("Waiting for browser…").is_none());
+        // Different origin — do not accept: the CLI only ever prints
+        // claude.com URLs, anything else is a masquerade.
+        assert!(extract_claude_authorize_url("https://example.com/oauth").is_none());
+    }
+
+    #[test]
+    fn claude_url_extractor_stops_before_paste_prompt() {
+        // Regression: an earlier version kept reading past the URL and
+        // glued the "Paste code here" prompt onto the end.
+        let sample = "https://claude.com/cai/oauth/authorize?state=abcd&client_id=xyzxyzxyz\n\n\
+            Paste code here if prompted >";
+        let url = extract_claude_authorize_url(sample).expect("URL must parse");
+        assert!(!url.contains("Paste"));
+        assert!(url.ends_with("client_id=xyzxyzxyz"));
     }
 }

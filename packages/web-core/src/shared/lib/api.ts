@@ -2218,7 +2218,7 @@ export const githubApi = {
 // `shared/types.ts`) until infrastructure regenerates the shared types file;
 // the pattern is the same as `GithubStatusResponseWithPat` above.
 
-export type AgentAuthProvider = 'codex' | 'gemini';
+export type AgentAuthProvider = 'codex' | 'gemini' | 'claude_code';
 
 export type AgentLoginState = 'pending' | 'completed' | 'failed';
 
@@ -2245,6 +2245,10 @@ export interface AgentLoginRequest {
   api_key?: string | null;
 }
 
+export interface AgentLoginSubmitRequest {
+  code: string;
+}
+
 export interface AgentLoginResponse {
   verification_uri: string | null;
   user_code: string | null;
@@ -2261,14 +2265,25 @@ export const agentAuthApi = {
     provider: AgentAuthProvider,
     body: AgentLoginRequest = {}
   ): Promise<AgentLoginResponse> => {
+    const response = await makeRequest(`/api/agents/auth/${provider}/login`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return handleApiResponse<AgentLoginResponse>(response);
+  },
+
+  submitCode: async (
+    provider: AgentAuthProvider,
+    body: AgentLoginSubmitRequest
+  ): Promise<void> => {
     const response = await makeRequest(
-      `/api/agents/auth/${provider}/login`,
+      `/api/agents/auth/${provider}/login/submit`,
       {
         method: 'POST',
         body: JSON.stringify(body),
       }
     );
-    return handleApiResponse<AgentLoginResponse>(response);
+    await handleApiResponse<void>(response);
   },
 
   cancelLogin: async (provider: AgentAuthProvider): Promise<void> => {
@@ -2280,10 +2295,9 @@ export const agentAuthApi = {
   },
 
   logout: async (provider: AgentAuthProvider): Promise<void> => {
-    const response = await makeRequest(
-      `/api/agents/auth/${provider}/logout`,
-      { method: 'POST' }
-    );
+    const response = await makeRequest(`/api/agents/auth/${provider}/logout`, {
+      method: 'POST',
+    });
     await handleApiResponse<void>(response);
   },
 };
