@@ -17,7 +17,6 @@ import {
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
@@ -32,6 +31,7 @@ import type { RepoIssue } from '@/features/issues/types';
 import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
 import { extractSkillLabelNames } from '@/features/sprint/lib/skillLabels';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
+import { WorkerSelectItem } from './WorkerSelectItem';
 
 export interface AssignToAgentDialogProps {
   issue: RepoIssue;
@@ -250,9 +250,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                     </SelectTrigger>
                     <SelectContent>
                       {workers.map((w) => (
-                        <SelectItem key={w.id} value={w.id}>
-                          {w.name}
-                        </SelectItem>
+                        <WorkerSelectItem key={w.id} worker={w} />
                       ))}
                     </SelectContent>
                   </Select>
