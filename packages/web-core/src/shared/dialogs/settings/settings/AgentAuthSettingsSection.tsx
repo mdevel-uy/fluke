@@ -24,17 +24,12 @@ const POLL_INTERVAL_MS = 2000;
 
 const GEMINI_API_KEY_URL = 'https://aistudio.google.com/app/apikey';
 
-const PROVIDER_ORDER: AgentAuthProvider[] = ['codex', 'gemini'];
+const PROVIDER_ORDER: AgentAuthProvider[] = ['codex', 'claude_code', 'gemini'];
 
 export function AgentAuthSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: AGENT_AUTH_STATUS_KEY,
     queryFn: () => agentAuthApi.getStatus(),
     // Poll while any provider has a pending login. `refetchInterval` accepts
@@ -123,6 +118,8 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [isSubmittingApiKey, setIsSubmittingApiKey] = useState(false);
+  const [exchangeCode, setExchangeCode] = useState('');
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
 
   // A previously started login that never finished should not linger as
   // "pending" on the card after the user disconnected: server-side we clear
@@ -172,10 +169,49 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
     }
   }, [apiKey, provider, refetch, t]);
 
+  const handleConnectClaudeCode = useCallback(async () => {
+    setErrorMessage(null);
+    setExchangeCode('');
+    setIsStartingLogin(true);
+    try {
+      await agentAuthApi.login(provider);
+      refetch();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('settings.agentAuth.errors.loginFailed');
+      setErrorMessage(message);
+    } finally {
+      setIsStartingLogin(false);
+    }
+  }, [provider, refetch, t]);
+
+  const handleSubmitClaudeCode = useCallback(async () => {
+    const trimmed = exchangeCode.trim();
+    if (!trimmed) return;
+    setErrorMessage(null);
+    setIsSubmittingCode(true);
+    try {
+      await agentAuthApi.submitCode(provider, { code: trimmed });
+      setExchangeCode('');
+      refetch();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('settings.agentAuth.errors.submitCodeFailed');
+      setErrorMessage(message);
+    } finally {
+      setIsSubmittingCode(false);
+    }
+  }, [exchangeCode, provider, refetch, t]);
+
   const handleCancelLogin = useCallback(async () => {
     setErrorMessage(null);
     try {
       await agentAuthApi.cancelLogin(provider);
+      setExchangeCode('');
       refetch();
     } catch (err) {
       const message =
@@ -192,6 +228,7 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
     try {
       await agentAuthApi.logout(provider);
       setApiKey('');
+      setExchangeCode('');
       refetch();
     } catch (err) {
       const message =
@@ -317,10 +354,7 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
                   }
                 >
                   {t('settings.agentAuth.deviceFlow.openBrowser')}
-                  <ArrowSquareOutIcon
-                    className="size-icon-sm"
-                    weight="bold"
-                  />
+                  <ArrowSquareOutIcon className="size-icon-sm" weight="bold" />
                 </PrimaryButton>
               )}
               <PrimaryButton
@@ -340,6 +374,113 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
             <p className="text-xs text-low">
               {t('settings.agentAuth.deviceFlow.waiting')}
             </p>
+          </div>
+        )}
+
+        {!status.connected && provider === 'claude_code' && !pending && (
+          <div>
+            <PrimaryButton
+              onClick={() => void handleConnectClaudeCode()}
+              disabled={isStartingLogin}
+              actionIcon={isStartingLogin ? 'spinner' : undefined}
+              value={t('settings.agentAuth.actions.connect')}
+            />
+          </div>
+        )}
+
+        {!status.connected && provider === 'claude_code' && pending && (
+          <div className="space-y-4 rounded-sm border border-border bg-secondary/50 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-normal">
+                {t('settings.agentAuth.claudeFlow.title')}
+              </p>
+              <p className="text-sm text-low">
+                {t('settings.agentAuth.claudeFlow.description')}
+              </p>
+            </div>
+
+            {status.login?.verification_uri ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <PrimaryButton
+                  onClick={() =>
+                    window.open(
+                      status.login!.verification_uri!,
+                      '_blank',
+                      'noopener,noreferrer'
+                    )
+                  }
+                >
+                  {t('settings.agentAuth.claudeFlow.openBrowser')}
+                  <ArrowSquareOutIcon className="size-icon-sm" weight="bold" />
+                </PrimaryButton>
+                <PrimaryButton
+                  variant="tertiary"
+                  onClick={() => {
+                    if (status.login?.verification_uri) {
+                      void navigator.clipboard
+                        .writeText(status.login.verification_uri)
+                        .catch(() => undefined);
+                    }
+                  }}
+                  value={t('settings.agentAuth.claudeFlow.copyUrl')}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-low">
+                <SpinnerIcon
+                  className="size-icon-sm animate-spin"
+                  weight="bold"
+                />
+                <span>{t('settings.agentAuth.claudeFlow.waitingForUrl')}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-low">
+                {t('settings.agentAuth.claudeFlow.codeInputLabel')}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={exchangeCode}
+                  onChange={(e) => setExchangeCode(e.target.value)}
+                  placeholder={t(
+                    'settings.agentAuth.claudeFlow.codeInputPlaceholder'
+                  )}
+                  className="flex-1 bg-panel border border-border rounded-sm px-base py-half text-sm text-high placeholder:text-low placeholder:opacity-80 focus:outline-none focus:ring-1 focus:ring-brand font-mono"
+                />
+                <PrimaryButton
+                  onClick={() => void handleSubmitClaudeCode()}
+                  disabled={
+                    isSubmittingCode ||
+                    !exchangeCode.trim() ||
+                    !status.login?.verification_uri
+                  }
+                  actionIcon={isSubmittingCode ? 'spinner' : undefined}
+                  value={t('settings.agentAuth.claudeFlow.submitCode')}
+                />
+              </div>
+              <p className="text-xs text-low">
+                {t('settings.agentAuth.claudeFlow.codeInputHelp')}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                variant="tertiary"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+                actionIcon={isFetching ? 'spinner' : undefined}
+                value={t('settings.agentAuth.deviceFlow.checkStatus')}
+              />
+              <PrimaryButton
+                variant="tertiary"
+                onClick={() => void handleCancelLogin()}
+                value={t('settings.agentAuth.actions.cancel')}
+              />
+            </div>
           </div>
         )}
 
@@ -378,10 +519,7 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
                 className="text-brand underline inline-flex items-center gap-1"
               >
                 {t('settings.agentAuth.apiKey.helpLink')}
-                <ArrowSquareOutIcon
-                  className="size-icon-xs"
-                  weight="bold"
-                />
+                <ArrowSquareOutIcon className="size-icon-xs" weight="bold" />
               </a>{' '}
               {t('settings.agentAuth.apiKey.helpAfter')}
             </p>

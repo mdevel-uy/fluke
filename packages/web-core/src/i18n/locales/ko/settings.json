@@ -657,6 +657,11 @@
           "title": "Codex",
           "description": "브라우저 디바이스 플로우로 OpenAI Codex에 로그인합니다. 터미널이 필요 없습니다."
         },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Claude 구독으로 로그인: URL을 열고 로그인한 다음 페이지에서 반환된 교환 코드를 아래에 붙여넣으세요."
+        },
         "gemini": {
           "name": "Gemini",
           "title": "Gemini",
@@ -682,6 +687,17 @@
         "helpLink": "Google AI Studio",
         "helpAfter": "위에 붙여넣으세요."
       },
+      "claudeFlow": {
+        "title": "claude.com에서 승인",
+        "description": "URL을 열고 Claude 계정에 로그인한 다음 페이지에서 반환된 교환 코드를 복사하세요.",
+        "openBrowser": "claude.com 열기",
+        "copyUrl": "URL 복사",
+        "waitingForUrl": "CLI가 로그인 URL을 표시할 때까지 기다리는 중…",
+        "codeInputLabel": "교환 코드",
+        "codeInputPlaceholder": "claude.com의 코드를 붙여넣기",
+        "codeInputHelp": "CLI가 코드를 승인하면 이 카드는 자동으로 업데이트됩니다.",
+        "submitCode": "코드 제출"
+      },
       "hidden": {
         "title": "CLI가 설치되지 않음",
         "description": "다음 에이전트는 이 이미지에 CLI가 설치되지 않아 숨겨졌습니다: {{providers}}."
@@ -689,7 +705,8 @@
       "errors": {
         "loginFailed": "연결 플로우를 시작하지 못했습니다.",
         "logoutFailed": "에이전트를 연결 해제하지 못했습니다.",
-        "cancelFailed": "연결을 취소하지 못했습니다."
+        "cancelFailed": "연결을 취소하지 못했습니다.",
+        "submitCodeFailed": "교환 코드를 제출하지 못했습니다."
       }
     }
   },

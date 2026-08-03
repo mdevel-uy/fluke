@@ -657,6 +657,11 @@
           "title": "Codex",
           "description": "使用浏览器设备流程登录 OpenAI Codex,无需打开终端。"
         },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "使用你的 Claude 订阅登录:打开 URL,登录后将页面返回的兑换码粘贴到下方。"
+        },
         "gemini": {
           "name": "Gemini",
           "title": "Gemini",
@@ -682,6 +687,17 @@
         "helpLink": "Google AI Studio",
         "helpAfter": "然后粘贴到上方。"
       },
+      "claudeFlow": {
+        "title": "在 claude.com 上授权",
+        "description": "打开 URL,登录到你的 Claude 账户,然后复制页面返回的兑换码。",
+        "openBrowser": "打开 claude.com",
+        "copyUrl": "复制 URL",
+        "waitingForUrl": "等待 CLI 显示登录 URL…",
+        "codeInputLabel": "兑换码",
+        "codeInputPlaceholder": "从 claude.com 粘贴兑换码",
+        "codeInputHelp": "CLI 接受兑换码后此卡片将自动更新。",
+        "submitCode": "提交兑换码"
+      },
       "hidden": {
         "title": "CLI 未安装",
         "description": "以下代理因为其 CLI 未安装在此镜像中而被隐藏: {{providers}}。"
@@ -689,7 +705,8 @@
       "errors": {
         "loginFailed": "无法启动连接流程。",
         "logoutFailed": "无法断开代理。",
-        "cancelFailed": "无法取消连接。"
+        "cancelFailed": "无法取消连接。",
+        "submitCodeFailed": "无法提交兑换码。"
       }
     }
   },
