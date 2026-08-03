@@ -1,7 +1,11 @@
-# Observability dashboards para Grafana
+# Observability para Grafana
 
-JSON de dashboards versionados junto al producto y provisionados en el stack
-central de observabilidad de mdevel (Grafana + Prometheus + Loki).
+Dashboards y alertas versionados junto al producto y provisionados en el
+stack central de observabilidad de mdevel (Grafana + Prometheus + Loki).
+
+- Dashboards: `dashboards/` — ver detalle abajo.
+- Alertas salientes a Telegram / email (Grafana Alerting, sin Alertmanager):
+  ver [`alerting/README.md`](./alerting/README.md).
 
 ## Dashboards
 
