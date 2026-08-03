@@ -738,7 +738,12 @@
       "tableHours": "小時",
       "tableFte": "FTE",
       "loading": "正在載入產生的價值…",
-      "emptyHistory": "尚無歷史月份 — 隨著任務完成，表格將逐步填入。"
+      "emptyHistory": "尚無歷史月份 — 隨著任務完成，表格將逐步填入。",
+      "overridePerTaskToggle": "編輯每個任務的小時數",
+      "overridePerTaskLoading": "正在載入本月任務…",
+      "overridePerTaskEmpty": "本月尚無已完成任務。",
+      "overridePerTaskInputLabel": "此任務節省的小時數",
+      "overridePerTaskClear": "使用預設值"
     }
   },
   "errors": {

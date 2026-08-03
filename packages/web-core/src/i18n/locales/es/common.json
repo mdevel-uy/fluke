@@ -739,7 +739,12 @@
       "tableHours": "Horas",
       "tableFte": "FTE",
       "loading": "Cargando valor generado…",
-      "emptyHistory": "Todavía no hay meses históricos: la tabla se completa a medida que se cierran tareas."
+      "emptyHistory": "Todavía no hay meses históricos: la tabla se completa a medida que se cierran tareas.",
+      "overridePerTaskToggle": "Editar horas por tarea",
+      "overridePerTaskLoading": "Cargando tareas del mes…",
+      "overridePerTaskEmpty": "Sin tareas completadas este mes.",
+      "overridePerTaskInputLabel": "Horas ahorradas para esta tarea",
+      "overridePerTaskClear": "Usar default"
     }
   },
   "errors": {

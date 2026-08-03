@@ -743,7 +743,12 @@
       "tableHours": "Hours",
       "tableFte": "FTE",
       "loading": "Loading value generated…",
-      "emptyHistory": "No historical months yet — the table fills in as tasks complete."
+      "emptyHistory": "No historical months yet — the table fills in as tasks complete.",
+      "overridePerTaskToggle": "Edit hours per task",
+      "overridePerTaskLoading": "Loading this month's tasks…",
+      "overridePerTaskEmpty": "No completed tasks this month.",
+      "overridePerTaskInputLabel": "Hours saved for this task",
+      "overridePerTaskClear": "Use default"
     }
   },
   "askQuestion": {

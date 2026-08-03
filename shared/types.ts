@@ -501,7 +501,13 @@ review_result: string | null,
  * Why the task failed, when status == "failed". Recorded by the
  * orchestrator at the moment of failure; null otherwise.
  */
-failure_reason: string | null, created_at: Date, };
+failure_reason: string | null,
+/**
+ * Per-task override for the estimated man-hours saved. `null` = use the
+ * installation default; a number replaces the default for aggregation
+ * (see `value_generated_summary`).
+ */
+hours_saved_override: number | null, created_at: Date, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
 /**
@@ -544,7 +550,14 @@ source?: string,
  */
 attachment_ids?: Array<string>, };
 
-export type UpdateWorkerTaskRequest = { position?: number | null, status?: string, };
+export type UpdateWorkerTaskRequest = { position?: number | null, status?: string,
+/**
+ * Per-task override for the estimated man-hours saved by this task.
+ * Three-state PATCH: `undefined` = don't touch, `null` = clear back to
+ * the installation default, `number` = persist the override for this
+ * task. Values are clamped server-side to `[MIN, MAX]_HOURS_PER_TASK`.
+ */
+hours_saved_override?: number | null, };
 
 export type ReassignWorkerTaskRequest = { target_worker_id: string, };
 
@@ -556,15 +569,26 @@ export type StartAllWorkersResponse = { results: Array<StartAllWorkersItemRespon
 
 export type ActiveIssueTaskInfo = { task_id: string, worker_id: string, worker_name: string, worker_emoji: string, status: string, };
 
-export type CompletedWorkerTask = { worker_id: string, title: string, issue_number: number | null, 
+export type CompletedWorkerTask = {
+/**
+ * Task UUID. Exposed so callers can PATCH the task (e.g. to set a
+ * per-task `hours_saved_override` from the value-generated panel).
+ */
+id: string, worker_id: string, title: string, issue_number: number | null,
 /**
  * "done" | "failed"
  */
-status: string, 
+status: string,
 /**
  * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
  */
-completed_at: string, };
+completed_at: string,
+/**
+ * Per-task man-hours override (`null` = use the installation default).
+ * Kept on the response so the value-generated panel can render the
+ * current value inline without a second round-trip per task.
+ */
+hours_saved_override: number | null, };
 
 export type CompletedWorkerTasksResponse = { tasks: Array<CompletedWorkerTask>, };
 
@@ -631,6 +655,33 @@ export type ClosedIssue = { repo_id: string, number: number, title: string,
 closed_at: string, };
 
 export type ClosedIssuesResponse = { issues: Array<ClosedIssue>, };
+
+export type ValueGeneratedMonth = {
+/**
+ * Month key in `YYYY-MM` form (UTC).
+ */
+year_month: string,
+/**
+ * Worker tasks that reached `done` inside this month.
+ */
+done_count: number,
+/**
+ * Worker tasks in `done_count` that carry a per-task override.
+ */
+tasks_with_override: number,
+/**
+ * Sum of `hours_saved_override` across the tasks in `tasks_with_override`.
+ * Zero when none of the month's tasks carry an override.
+ */
+override_hours_sum: number, };
+
+export type ValueGeneratedSummaryResponse = {
+/**
+ * Newest month first. Includes the current month even when it has zero
+ * completed tasks so the panel can render a "0" today without special-
+ * casing an empty response.
+ */
+months: Array<ValueGeneratedMonth>, };
 
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 
@@ -744,7 +795,7 @@ export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_pa
 
 export type SearchMode = "taskform" | "settings";
 
-export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, commit_reminder_enabled: boolean, commit_reminder_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, max_review_rounds: number, };
+export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, commit_reminder_enabled: boolean, commit_reminder_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, max_review_rounds: number, default_hours_saved_per_task: number, default_hours_per_fte_month: number, };
 
 export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
 

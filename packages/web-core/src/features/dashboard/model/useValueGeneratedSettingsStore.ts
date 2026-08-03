@@ -6,10 +6,12 @@ import {
 } from './useValueGenerated';
 
 /**
- * Default man-hours a completed worker task is credited with when nothing on
- * the task carries an override. Anchored on the pricing conversation: four
- * hours is the round number that lines up with the "half a working day" story
- * we tell customers, and matches the issue-353 default.
+ * Default man-hours a completed worker task is credited with when the
+ * installation has not been configured. Anchored on the pricing
+ * conversation: four hours is the round number that lines up with the
+ * "half a working day" story we tell customers, and matches the issue-353
+ * default. Only used as a fallback while the server config is loading —
+ * once loaded, `Config.default_hours_saved_per_task` takes over.
  */
 export const DEFAULT_HOURS_PER_TASK = 4;
 
@@ -19,35 +21,20 @@ export const MAX_HOURS_PER_TASK = 80;
 
 /**
  * Working hours in a month used to translate hours saved into FTE. 160 =
- * 8 h × 20 working days, the common industry benchmark. Kept editable
- * because a viewer's local working-hours assumption may differ.
+ * 8 h × 20 working days, the common industry benchmark. Only used as a
+ * fallback while the server config is loading — once loaded,
+ * `Config.default_hours_per_fte_month` takes over.
  */
 export const DEFAULT_HOURS_PER_FTE_MONTH = 160;
 export const MIN_HOURS_PER_FTE_MONTH = 40;
 export const MAX_HOURS_PER_FTE_MONTH = 320;
 
-type State = {
-  /**
-   * Hours attributed to a completed task without a per-task override.
-   * Kept client-side (same pattern as `useImpactSettingsStore`): it is a
-   * display assumption a viewer should be able to challenge inline.
-   */
-  hoursPerTask: number;
-  /** Working hours in a month used to render the FTE equivalent. */
-  hoursPerFteMonth: number;
-  /** Trailing history depth rendered by the panel. */
-  historyMonths: ValueHistoryWindow;
-  setHoursPerTask: (hours: number) => void;
-  setHoursPerFteMonth: (hours: number) => void;
-  setHistoryMonths: (months: ValueHistoryWindow) => void;
-};
-
-const clampHoursPerTask = (hours: number): number => {
+export const clampHoursPerTask = (hours: number): number => {
   if (!Number.isFinite(hours)) return DEFAULT_HOURS_PER_TASK;
   return Math.min(MAX_HOURS_PER_TASK, Math.max(MIN_HOURS_PER_TASK, hours));
 };
 
-const clampHoursPerFteMonth = (hours: number): number => {
+export const clampHoursPerFteMonth = (hours: number): number => {
   if (!Number.isFinite(hours)) return DEFAULT_HOURS_PER_FTE_MONTH;
   return Math.min(
     MAX_HOURS_PER_FTE_MONTH,
@@ -55,23 +42,33 @@ const clampHoursPerFteMonth = (hours: number): number => {
   );
 };
 
+/**
+ * View-only state for the value-generated panel: the trailing history
+ * window each viewer prefers. Kept in localStorage because it's a UI
+ * preference (not authoritative business data), so per-browser is the
+ * right scope.
+ *
+ * The `hoursPerTask` and `hoursPerFteMonth` defaults live on the server
+ * (`Config.default_hours_saved_per_task`,
+ * `Config.default_hours_per_fte_month`) so every viewer sees the same
+ * authoritative figure — the number that anchors pricing must not
+ * diverge per browser.
+ */
+type State = {
+  /** Trailing history depth rendered by the panel. */
+  historyMonths: ValueHistoryWindow;
+  setHistoryMonths: (months: ValueHistoryWindow) => void;
+};
+
 export const useValueGeneratedSettingsStore = create<State>()(
   persist(
     (set) => ({
-      hoursPerTask: DEFAULT_HOURS_PER_TASK,
-      hoursPerFteMonth: DEFAULT_HOURS_PER_FTE_MONTH,
       historyMonths: 12,
-      setHoursPerTask: (hours) =>
-        set({ hoursPerTask: clampHoursPerTask(hours) }),
-      setHoursPerFteMonth: (hours) =>
-        set({ hoursPerFteMonth: clampHoursPerFteMonth(hours) }),
       setHistoryMonths: (months) => set({ historyMonths: months }),
     }),
     {
       name: 'kanban-value-generated-settings',
       partialize: (state) => ({
-        hoursPerTask: state.hoursPerTask,
-        hoursPerFteMonth: state.hoursPerFteMonth,
         historyMonths: state.historyMonths,
       }),
       merge: (persisted, current) => {
@@ -79,12 +76,6 @@ export const useValueGeneratedSettingsStore = create<State>()(
         const saved = (persisted ?? {}) as Partial<State>;
         return {
           ...current,
-          hoursPerTask: clampHoursPerTask(
-            saved.hoursPerTask ?? DEFAULT_HOURS_PER_TASK
-          ),
-          hoursPerFteMonth: clampHoursPerFteMonth(
-            saved.hoursPerFteMonth ?? DEFAULT_HOURS_PER_FTE_MONTH
-          ),
           historyMonths: VALUE_HISTORY_WINDOWS.includes(
             saved.historyMonths as ValueHistoryWindow
           )

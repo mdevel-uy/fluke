@@ -1,26 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 import { useHostId } from '@/shared/providers/HostIdProvider';
+import type {
+  ValueGeneratedMonth,
+  ValueGeneratedSummaryResponse,
+} from 'shared/types';
 
-/**
- * Monthly bucket of value-generated telemetry returned by the API.
- *
- * The response splits `override_hours_sum` and `tasks_with_override` from
- * `done_count` so the panel can apply its "default hours per task" factor
- * only to the tasks that don't carry a per-task override.
- */
-export interface ValueGeneratedMonth {
-  /** UTC calendar month, `YYYY-MM`. */
-  year_month: string;
-  done_count: number;
-  tasks_with_override: number;
-  override_hours_sum: number;
-}
-
-export interface ValueGeneratedSummary {
-  /** Newest month first; `months[0]` is always the current calendar month. */
-  months: ValueGeneratedMonth[];
-}
+export type { ValueGeneratedMonth };
+export type ValueGeneratedSummary = ValueGeneratedSummaryResponse;
 
 /**
  * Trailing history depths offered by the panel, in months.
@@ -37,6 +24,10 @@ export type ValueHistoryWindow = (typeof VALUE_HISTORY_WINDOWS)[number];
  * The response is normalised to always include an entry for the current month
  * (backend fills a zero bucket if nothing has completed yet), so consumers can
  * safely read `months[0]` without special-casing an empty response.
+ *
+ * Polls every five minutes: the panel is a monthly narrative, not a live
+ * counter, so a tighter interval only burns bandwidth without changing what
+ * the viewer sees.
  */
 export function useValueGenerated(months: ValueHistoryWindow): {
   summary: ValueGeneratedSummary;
@@ -58,7 +49,7 @@ export function useValueGenerated(months: ValueHistoryWindow): {
         months: raw.map(normaliseMonth),
       };
     },
-    refetchInterval: 60000,
+    refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 

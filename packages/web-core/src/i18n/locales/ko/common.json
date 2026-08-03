@@ -738,7 +738,12 @@
       "tableHours": "시간",
       "tableFte": "FTE",
       "loading": "창출된 가치 불러오는 중…",
-      "emptyHistory": "아직 과거 월 데이터가 없습니다. 작업이 완료됨에 따라 표가 채워집니다."
+      "emptyHistory": "아직 과거 월 데이터가 없습니다. 작업이 완료됨에 따라 표가 채워집니다.",
+      "overridePerTaskToggle": "작업별 시간 편집",
+      "overridePerTaskLoading": "이번 달 작업 불러오는 중…",
+      "overridePerTaskEmpty": "이번 달 완료된 작업이 없습니다.",
+      "overridePerTaskInputLabel": "이 작업의 절약된 시간",
+      "overridePerTaskClear": "기본값 사용"
     }
   },
   "errors": {

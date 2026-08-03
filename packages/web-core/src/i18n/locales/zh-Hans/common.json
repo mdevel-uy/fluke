@@ -738,7 +738,12 @@
       "tableHours": "小时",
       "tableFte": "FTE",
       "loading": "正在加载生成的价值…",
-      "emptyHistory": "暂无历史月份 — 随着任务完成，表格将逐步填充。"
+      "emptyHistory": "暂无历史月份 — 随着任务完成，表格将逐步填充。",
+      "overridePerTaskToggle": "编辑每个任务的小时数",
+      "overridePerTaskLoading": "正在加载本月任务…",
+      "overridePerTaskEmpty": "本月尚无已完成任务。",
+      "overridePerTaskInputLabel": "该任务节省的小时数",
+      "overridePerTaskClear": "使用默认值"
     }
   },
   "errors": {

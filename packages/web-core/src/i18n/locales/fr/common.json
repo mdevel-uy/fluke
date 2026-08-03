@@ -738,7 +738,12 @@
       "tableHours": "Heures",
       "tableFte": "ETP",
       "loading": "Chargement de la valeur générée…",
-      "emptyHistory": "Pas encore de mois historiques — le tableau se remplit à mesure que les tâches se terminent."
+      "emptyHistory": "Pas encore de mois historiques — le tableau se remplit à mesure que les tâches se terminent.",
+      "overridePerTaskToggle": "Modifier les heures par tâche",
+      "overridePerTaskLoading": "Chargement des tâches du mois…",
+      "overridePerTaskEmpty": "Aucune tâche terminée ce mois-ci.",
+      "overridePerTaskInputLabel": "Heures économisées pour cette tâche",
+      "overridePerTaskClear": "Utiliser la valeur par défaut"
     }
   },
   "errors": {

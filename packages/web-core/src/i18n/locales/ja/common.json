@@ -738,7 +738,12 @@
       "tableHours": "時間",
       "tableFte": "FTE",
       "loading": "創出された価値を読み込み中…",
-      "emptyHistory": "過去月のデータはまだありません。タスクが完了するごとに追加されます。"
+      "emptyHistory": "過去月のデータはまだありません。タスクが完了するごとに追加されます。",
+      "overridePerTaskToggle": "タスクごとの時間を編集",
+      "overridePerTaskLoading": "今月のタスクを読み込み中…",
+      "overridePerTaskEmpty": "今月完了したタスクはありません。",
+      "overridePerTaskInputLabel": "このタスクの節約時間",
+      "overridePerTaskClear": "デフォルトを使用"
     }
   },
   "errors": {
