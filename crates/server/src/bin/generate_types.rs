@@ -214,6 +214,8 @@ fn generate_types_content() -> String {
         server::routes::guidelines::SaveAgentGuidelinesRequest::decl(),
         server::routes::impact::ClosedIssue::decl(),
         server::routes::impact::ClosedIssuesResponse::decl(),
+        server::routes::value_generated::ValueGeneratedMonth::decl(),
+        server::routes::value_generated::ValueGeneratedSummaryResponse::decl(),
         server::routes::repo::ListPrsError::decl(),
         server::routes::remote::pull_requests::LinkPrToIssueRequest::decl(),
         server::routes::workspaces::pr::CreateWorkspaceFromPrBody::decl(),

@@ -60,6 +60,11 @@ pub struct WorkerTask {
     /// 'failed'. NULL for non-failed tasks (cleared on any transition away
     /// from 'failed', e.g. a re-queue).
     pub failure_reason: Option<String>,
+    /// Per-task override for the estimated man-hours saved by completing
+    /// this task. `NULL` means "use the installation default"; a non-null
+    /// value takes precedence over the default in the value-generated
+    /// aggregation.
+    pub hours_saved_override: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +85,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -94,7 +100,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -190,11 +197,16 @@ impl WorkerTask {
     }
 
     /// Update mutable fields. Returns the updated row.
+    ///
+    /// `hours_saved_override` uses the three-state PATCH convention:
+    /// `None` = don't touch, `Some(None)` = clear back to the default,
+    /// `Some(Some(v))` = persist an override for this task.
     pub async fn update(
         pool: &SqlitePool,
         id: Uuid,
         position: Option<i64>,
         status: Option<&str>,
+        hours_saved_override: Option<Option<f64>>,
     ) -> Result<Self, sqlx::Error> {
         let existing = Self::find_by_id(pool, id)
             .await?
@@ -202,16 +214,20 @@ impl WorkerTask {
 
         let new_position = position.unwrap_or(existing.position);
         let new_status = status.unwrap_or(&existing.status);
+        let new_hours_override =
+            hours_saved_override.unwrap_or(existing.hours_saved_override);
 
         sqlx::query(
             "UPDATE worker_tasks
-                SET position = ?2,
-                    status   = ?3
+                SET position             = ?2,
+                    status               = ?3,
+                    hours_saved_override = ?4
               WHERE id = ?1",
         )
         .bind(id)
         .bind(new_position)
         .bind(new_status)
+        .bind(new_hours_override)
         .execute(pool)
         .await?;
 
@@ -234,7 +250,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -250,7 +267,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -269,7 +287,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -370,7 +389,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -386,7 +406,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -587,7 +608,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
                     wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
-                    wt.created_at, wt.review_result, wt.failure_reason
+                    wt.created_at, wt.review_result, wt.failure_reason,
+                    wt.hours_saved_override
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -659,7 +681,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
@@ -862,7 +885,8 @@ impl WorkerTask {
         let updated = sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE id = ?1",
         )

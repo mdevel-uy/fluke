@@ -40,6 +40,7 @@ pub mod ssh_session;
 pub mod system;
 pub mod tags;
 pub mod terminal;
+pub mod value_generated;
 pub mod webrtc;
 pub mod workers;
 pub mod workspaces;
@@ -63,6 +64,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(repo::router())
         .merge(impact::router())
         .merge(metrics::router())
+        .merge(value_generated::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))

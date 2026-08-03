@@ -13,6 +13,7 @@ import { WorkerGrid } from './WorkerGrid';
 import { PipelinePanel } from './PipelinePanel';
 import { ClaudeLimitsPanel } from './ClaudeLimitsPanel';
 import { ImpactPanel } from './ImpactPanel';
+import { ValueGeneratedPanel } from './ValueGeneratedPanel';
 import { PullRequestsPanel } from './PullRequestsPanel';
 import { AttentionPanel } from './AttentionPanel';
 import { ActivityPanel } from './ActivityPanel';
@@ -70,25 +71,25 @@ export function DashboardPage() {
       <div className="flex-1 overflow-y-auto px-container-padding py-5">
         <div className="flex w-full flex-col gap-4">
           <div id={DASHBOARD_ANCHORS.overview}>
-          <KpiStrip
-            stats={data.stats}
-            pipeline={data.pipeline}
-            reposInProgress={data.reposInProgress}
-            nextQueuedTask={data.nextQueuedTask}
-            openPrs={data.openPrs}
-            oldestApprovalWait={data.oldestApprovalWait}
-            doneToday={data.doneToday}
-            failedToday={data.failedToday}
-          />
+            <KpiStrip
+              stats={data.stats}
+              pipeline={data.pipeline}
+              reposInProgress={data.reposInProgress}
+              nextQueuedTask={data.nextQueuedTask}
+              openPrs={data.openPrs}
+              oldestApprovalWait={data.oldestApprovalWait}
+              doneToday={data.doneToday}
+              failedToday={data.failedToday}
+            />
           </div>
 
           <div id={DASHBOARD_ANCHORS.workers}>
-          <WorkerGrid
-            workers={data.workers}
-            workspaceById={data.workspaceById}
-            activeTaskByWorkerId={data.activeTaskByWorkerId}
-            doneTodayByWorker={data.doneTodayByWorker}
-          />
+            <WorkerGrid
+              workers={data.workers}
+              workspaceById={data.workspaceById}
+              activeTaskByWorkerId={data.activeTaskByWorkerId}
+              doneTodayByWorker={data.doneTodayByWorker}
+            />
           </div>
 
           <div
@@ -108,6 +109,10 @@ export function DashboardPage() {
 
           <div id={DASHBOARD_ANCHORS.impact}>
             <ImpactPanel />
+          </div>
+
+          <div id={DASHBOARD_ANCHORS.valueGenerated}>
+            <ValueGeneratedPanel />
           </div>
 
           <div
