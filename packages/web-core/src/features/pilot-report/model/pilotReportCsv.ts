@@ -25,43 +25,44 @@ function toCsv(rows: (string | number | null | undefined)[][]): string {
   );
 }
 
-function taskRows(tasks: PilotReportTask[]): (string | number | null)[][] {
-  const header = [
-    'Type',
-    'Status',
-    'Title',
-    'Issue',
-    'Worker ID',
-    'Completed at (UTC)',
+/**
+ * Neutral schema so tasks and PRs share the same columns — Excel/Sheets
+ * open the file as one aligned table, safe to hand to a CTO. Extra
+ * fields (worker id / target branch, task with no URL) collapse into
+ * the same `Extra` / `URL` slots rather than shifting row layout.
+ */
+const CSV_HEADER = [
+  'Type',
+  'Status',
+  'Title',
+  'Reference',
+  'Extra',
+  'Completed/Merged at (UTC)',
+  'URL',
+];
+
+function taskRow(t: PilotReportTask): (string | number | null)[] {
+  return [
+    'task',
+    t.status,
+    t.title,
+    t.issue_number,
+    t.worker_id,
+    t.completed_at,
+    '',
   ];
-  const rows: (string | number | null)[][] = [header];
-  for (const t of tasks) {
-    rows.push([
-      'task',
-      t.status,
-      t.title,
-      t.issue_number,
-      t.worker_id,
-      t.completed_at,
-    ]);
-  }
-  return rows;
 }
 
-function prRows(prs: PilotReportMergedPr[]): (string | number | null)[][] {
-  const rows: (string | number | null)[][] = [];
-  for (const p of prs) {
-    rows.push([
-      'pr',
-      'merged',
-      `PR #${p.pr_number}`,
-      p.pr_number,
-      p.target_branch_name,
-      p.merged_at,
-      p.pr_url,
-    ]);
-  }
-  return rows;
+function prRow(p: PilotReportMergedPr): (string | number | null)[] {
+  return [
+    'pr',
+    'merged',
+    `PR #${p.pr_number}`,
+    p.pr_number,
+    p.target_branch_name,
+    p.merged_at,
+    p.pr_url,
+  ];
 }
 
 /**
@@ -69,10 +70,10 @@ function prRows(prs: PilotReportMergedPr[]): (string | number | null)[][] {
  * the window — one file per pilot period, ordered newest-first.
  */
 export function buildPilotReportCsv(data: PilotReportData): string {
-  const tasks = taskRows(data.completed_tasks);
-  const prs = prRows(data.merged_prs);
-  const allRows = [...tasks, ...prs];
-  return toCsv(allRows);
+  const rows: (string | number | null)[][] = [CSV_HEADER];
+  for (const t of data.completed_tasks) rows.push(taskRow(t));
+  for (const p of data.merged_prs) rows.push(prRow(p));
+  return toCsv(rows);
 }
 
 /** Convenience filename: `pilot-report-YYYY-MM-DD_YYYY-MM-DD.csv`. */
