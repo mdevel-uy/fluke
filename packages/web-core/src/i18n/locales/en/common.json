@@ -693,6 +693,7 @@
     "summarySection": "Summary",
     "offline": "Reconnecting…",
     "openWorkerWorkspace": "Open {{name}}'s workspace",
+    "openPilotReport": "Open pilot report",
     "claudeLimits": {
       "title": "Claude limits",
       "workersOnClaude": "{{count}} worker on Claude Code",
@@ -749,6 +750,60 @@
       "overridePerTaskEmpty": "No completed tasks this month.",
       "overridePerTaskInputLabel": "Hours saved for this task",
       "overridePerTaskClear": "Use default"
+    }
+  },
+  "pilotReport": {
+    "title": "Pilot Report",
+    "subtitle": "One-page snapshot of what the fleet delivered during the pilot period — ready to hand to your CTO.",
+    "rangeHeading": "Reporting period: {{range}}",
+    "loadError": "Could not load the report. Try refreshing or narrow the date range.",
+    "loading": "Loading…",
+    "printFooter": "Generated on {{generatedAt}} · numbers based on the assumptions shown above.",
+    "dateRange": {
+      "from": "From",
+      "to": "To",
+      "presets": "Range presets",
+      "presetLabel": "Last {{days}} days"
+    },
+    "kpi": {
+      "ticketsResolved": "Tickets resolved",
+      "ticketsFailedHint": "+ {{count}} failed",
+      "prsMerged": "PRs merged",
+      "hoursSaved": "Hours saved",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE equivalent",
+      "fteUnit": "months",
+      "monetaryValue": "Estimated value"
+    },
+    "assumptions": {
+      "title": "Assumptions",
+      "hoursPerTicket": "Hours / ticket",
+      "hoursPerFteMonth": "Hours / FTE·month",
+      "hourlyRate": "Hourly rate",
+      "currency": "Currency"
+    },
+    "tasksSection": {
+      "title": "Tasks in the period",
+      "empty": "No tasks completed in this range yet.",
+      "status": "Status",
+      "titleColumn": "Title",
+      "issue": "Issue",
+      "completedAt": "Completed"
+    },
+    "prsSection": {
+      "title": "Pull requests merged",
+      "empty": "No pull requests merged in this range.",
+      "number": "PR",
+      "targetBranch": "Target branch",
+      "mergedAt": "Merged"
+    },
+    "status": {
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "actions": {
+      "print": "Print",
+      "exportCsv": "Export CSV"
     }
   },
   "askQuestion": {

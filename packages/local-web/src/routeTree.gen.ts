@@ -17,6 +17,7 @@ import { Route as AppWorkspacesRouteImport } from './routes/_app.workspaces'
 import { Route as AppWorkersRouteImport } from './routes/_app.workers'
 import { Route as AppSprintRouteImport } from './routes/_app.sprint'
 import { Route as AppSourceControlRouteImport } from './routes/_app.source-control'
+import { Route as AppPilotReportRouteImport } from './routes/_app.pilot-report'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
 import { Route as AppExportRouteImport } from './routes/_app.export'
@@ -78,6 +79,11 @@ const AppSourceControlRoute = AppSourceControlRouteImport.update({
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPilotReportRoute = AppPilotReportRouteImport.update({
+  id: '/pilot-report',
+  path: '/pilot-report',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIssuesRoute = AppIssuesRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/pilot-report': typeof AppPilotReportRoute
   '/source-control': typeof AppSourceControlRoute
   '/sprint': typeof AppSprintRoute
   '/workers': typeof AppWorkersRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/export': typeof AppExportRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
+  '/pilot-report': typeof AppPilotReportRoute
   '/source-control': typeof AppSourceControlRoute
   '/sprint': typeof AppSprintRoute
   '/workers': typeof AppWorkersRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/_app/export': typeof AppExportRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
+  '/_app/pilot-report': typeof AppPilotReportRoute
   '/_app/source-control': typeof AppSourceControlRoute
   '/_app/sprint': typeof AppSprintRoute
   '/_app/workers': typeof AppWorkersRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/pilot-report'
     | '/source-control'
     | '/sprint'
     | '/workers'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/export'
     | '/issues'
     | '/notifications'
+    | '/pilot-report'
     | '/source-control'
     | '/sprint'
     | '/workers'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/_app/export'
     | '/_app/issues'
     | '/_app/notifications'
+    | '/_app/pilot-report'
     | '/_app/source-control'
     | '/_app/sprint'
     | '/_app/workers'
@@ -421,6 +433,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/pilot-report': {
+      id: '/_app/pilot-report'
+      path: '/pilot-report'
+      fullPath: '/pilot-report'
+      preLoaderRoute: typeof AppPilotReportRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/issues': {
@@ -552,6 +571,7 @@ interface AppRouteChildren {
   AppExportRoute: typeof AppExportRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
+  AppPilotReportRoute: typeof AppPilotReportRoute
   AppSourceControlRoute: typeof AppSourceControlRoute
   AppSprintRoute: typeof AppSprintRoute
   AppWorkersRoute: typeof AppWorkersRoute
@@ -575,6 +595,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportRoute: AppExportRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
+  AppPilotReportRoute: AppPilotReportRoute,
   AppSourceControlRoute: AppSourceControlRoute,
   AppSprintRoute: AppSprintRoute,
   AppWorkersRoute: AppWorkersRoute,

@@ -689,6 +689,7 @@
     "summarySection": "Resumen",
     "offline": "Reconectando…",
     "openWorkerWorkspace": "Abrir el workspace de {{name}}",
+    "openPilotReport": "Abrir reporte del piloto",
     "claudeLimits": {
       "title": "Límites de Claude",
       "workersOnClaude": "{{count}} worker en Claude Code",
@@ -745,6 +746,60 @@
       "overridePerTaskEmpty": "Sin tareas completadas este mes.",
       "overridePerTaskInputLabel": "Horas ahorradas para esta tarea",
       "overridePerTaskClear": "Usar default"
+    }
+  },
+  "pilotReport": {
+    "title": "Reporte del piloto",
+    "subtitle": "Foto de una página con lo que la flota entregó durante el piloto — lista para enviar al CTO de tu cliente.",
+    "rangeHeading": "Período reportado: {{range}}",
+    "loadError": "No se pudo cargar el reporte. Probá recargar o achicá el rango de fechas.",
+    "loading": "Cargando…",
+    "printFooter": "Generado el {{generatedAt}} · los números se calculan con los supuestos de arriba.",
+    "dateRange": {
+      "from": "Desde",
+      "to": "Hasta",
+      "presets": "Rangos predefinidos",
+      "presetLabel": "Últimos {{days}} días"
+    },
+    "kpi": {
+      "ticketsResolved": "Tickets resueltos",
+      "ticketsFailedHint": "+ {{count}} fallados",
+      "prsMerged": "PRs mergeados",
+      "hoursSaved": "Horas ahorradas",
+      "hoursUnit": "h",
+      "fteEquivalent": "Equivalente en FTE",
+      "fteUnit": "meses",
+      "monetaryValue": "Valor estimado"
+    },
+    "assumptions": {
+      "title": "Supuestos",
+      "hoursPerTicket": "Horas / ticket",
+      "hoursPerFteMonth": "Horas / FTE·mes",
+      "hourlyRate": "Tarifa por hora",
+      "currency": "Moneda"
+    },
+    "tasksSection": {
+      "title": "Tareas del período",
+      "empty": "Todavía no hay tareas completadas en este rango.",
+      "status": "Estado",
+      "titleColumn": "Título",
+      "issue": "Issue",
+      "completedAt": "Completada"
+    },
+    "prsSection": {
+      "title": "Pull requests mergeados",
+      "empty": "No se mergeó ningún pull request en este rango.",
+      "number": "PR",
+      "targetBranch": "Rama destino",
+      "mergedAt": "Mergeado"
+    },
+    "status": {
+      "done": "Hecho",
+      "failed": "Falló"
+    },
+    "actions": {
+      "print": "Imprimir",
+      "exportCsv": "Exportar CSV"
     }
   },
   "errors": {

@@ -7,6 +7,7 @@ export type AppDestination =
   | { kind: 'workspace-vscode'; workspaceId: string; hostId?: string }
   | { kind: 'export' }
   | { kind: 'dashboard' }
+  | { kind: 'pilot-report' }
   | { kind: 'source-control' }
   | { kind: 'issues'; repoId?: string }
   | { kind: 'workers' }
@@ -51,6 +52,7 @@ export interface AppNavigation {
   ): void;
   goToExport(transition?: NavigationTransition): void;
   goToDashboard(transition?: NavigationTransition): void;
+  goToPilotReport(transition?: NavigationTransition): void;
   goToSourceControl(transition?: NavigationTransition): void;
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
   goToWorkers(transition?: NavigationTransition): void;
@@ -193,6 +195,12 @@ export function isDashboardDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'dashboard' }> {
   return destination?.kind === 'dashboard';
+}
+
+export function isPilotReportDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'pilot-report' }> {
+  return destination?.kind === 'pilot-report';
 }
 
 export function isSourceControlDestination(

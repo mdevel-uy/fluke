@@ -688,6 +688,7 @@
     "summarySection": "요약",
     "offline": "재연결 중…",
     "openWorkerWorkspace": "{{name}}의 워크스페이스 열기",
+    "openPilotReport": "파일럿 리포트 열기",
     "claudeLimits": {
       "title": "Claude 사용 한도",
       "workersOnClaude": "Claude Code 사용 워커 {{count}}명",
@@ -744,6 +745,60 @@
       "overridePerTaskEmpty": "이번 달 완료된 작업이 없습니다.",
       "overridePerTaskInputLabel": "이 작업의 절약된 시간",
       "overridePerTaskClear": "기본값 사용"
+    }
+  },
+  "pilotReport": {
+    "title": "파일럿 리포트",
+    "subtitle": "파일럿 기간 동안 플릿이 제공한 성과를 한 페이지로 정리한 스냅샷 — CTO에게 그대로 전달할 수 있습니다.",
+    "rangeHeading": "보고 기간: {{range}}",
+    "loadError": "리포트를 불러오지 못했습니다. 새로고침하거나 기간을 좁혀 보세요.",
+    "loading": "불러오는 중…",
+    "printFooter": "생성 시각: {{generatedAt}} · 위에 표시된 가정을 기준으로 계산됩니다.",
+    "dateRange": {
+      "from": "시작",
+      "to": "종료",
+      "presets": "기간 프리셋",
+      "presetLabel": "최근 {{days}}일"
+    },
+    "kpi": {
+      "ticketsResolved": "해결된 티켓",
+      "ticketsFailedHint": "+ {{count}}건 실패",
+      "prsMerged": "머지된 PR",
+      "hoursSaved": "절약된 시간",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 환산",
+      "fteUnit": "개월",
+      "monetaryValue": "예상 가치"
+    },
+    "assumptions": {
+      "title": "가정",
+      "hoursPerTicket": "티켓당 시간",
+      "hoursPerFteMonth": "FTE·월당 시간",
+      "hourlyRate": "시간당 요금",
+      "currency": "통화"
+    },
+    "tasksSection": {
+      "title": "기간 내 작업",
+      "empty": "아직 이 기간에 완료된 작업이 없습니다.",
+      "status": "상태",
+      "titleColumn": "제목",
+      "issue": "이슈",
+      "completedAt": "완료 시각"
+    },
+    "prsSection": {
+      "title": "머지된 풀 리퀘스트",
+      "empty": "이 기간에 머지된 풀 리퀘스트가 없습니다.",
+      "number": "PR",
+      "targetBranch": "대상 브랜치",
+      "mergedAt": "머지 시각"
+    },
+    "status": {
+      "done": "완료",
+      "failed": "실패"
+    },
+    "actions": {
+      "print": "인쇄",
+      "exportCsv": "CSV 내보내기"
     }
   },
   "errors": {

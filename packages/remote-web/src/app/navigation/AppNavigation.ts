@@ -151,6 +151,9 @@ function destinationToRemoteTarget(
     case "dashboard":
       // No dedicated dashboard route on the remote web; fall back to root.
       return { to: "/" } as const;
+    case "pilot-report":
+      // No dedicated pilot-report route on the remote web; fall back to root.
+      return { to: "/" } as const;
     case "source-control":
       // No dedicated source control route on the remote web; fall back to root.
       return { to: "/" } as const;
@@ -230,6 +233,8 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
     goToDashboard: (transition) =>
       navigateTo({ kind: "dashboard" }, transition),
+    goToPilotReport: (transition) =>
+      navigateTo({ kind: "pilot-report" }, transition),
     goToSourceControl: (transition) =>
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>
@@ -308,6 +313,8 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
     goToDashboard: (transition) =>
       navigateTo({ kind: "dashboard" }, transition),
+    goToPilotReport: (transition) =>
+      navigateTo({ kind: "pilot-report" }, transition),
     goToSourceControl: (transition) =>
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>

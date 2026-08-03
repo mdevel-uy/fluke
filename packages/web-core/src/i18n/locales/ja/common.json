@@ -688,6 +688,7 @@
     "summarySection": "サマリー",
     "offline": "再接続中…",
     "openWorkerWorkspace": "{{name}} のワークスペースを開く",
+    "openPilotReport": "パイロットレポートを開く",
     "claudeLimits": {
       "title": "Claude の上限",
       "workersOnClaude": "Claude Code で{{count}}件のワーカー",
@@ -744,6 +745,60 @@
       "overridePerTaskEmpty": "今月完了したタスクはありません。",
       "overridePerTaskInputLabel": "このタスクの節約時間",
       "overridePerTaskClear": "デフォルトを使用"
+    }
+  },
+  "pilotReport": {
+    "title": "パイロットレポート",
+    "subtitle": "パイロット期間にフリートが提供した内容の1ページのスナップショット — CTO へそのまま渡せます。",
+    "rangeHeading": "レポート期間: {{range}}",
+    "loadError": "レポートを読み込めませんでした。再読み込みするか、期間を短くしてください。",
+    "loading": "読み込み中…",
+    "printFooter": "生成日時: {{generatedAt}} · 数値は上記の前提に基づきます。",
+    "dateRange": {
+      "from": "開始",
+      "to": "終了",
+      "presets": "期間プリセット",
+      "presetLabel": "直近 {{days}} 日"
+    },
+    "kpi": {
+      "ticketsResolved": "解決したチケット",
+      "ticketsFailedHint": "+ {{count}} 件が失敗",
+      "prsMerged": "マージされた PR",
+      "hoursSaved": "節約時間",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 換算",
+      "fteUnit": "か月",
+      "monetaryValue": "推定価値"
+    },
+    "assumptions": {
+      "title": "前提条件",
+      "hoursPerTicket": "1 チケットあたりの時間",
+      "hoursPerFteMonth": "1 FTE·月の時間",
+      "hourlyRate": "時間単価",
+      "currency": "通貨"
+    },
+    "tasksSection": {
+      "title": "期間内のタスク",
+      "empty": "この期間に完了したタスクはまだありません。",
+      "status": "ステータス",
+      "titleColumn": "タイトル",
+      "issue": "イシュー",
+      "completedAt": "完了日時"
+    },
+    "prsSection": {
+      "title": "マージ済みプルリクエスト",
+      "empty": "この期間にマージされたプルリクエストはありません。",
+      "number": "PR",
+      "targetBranch": "ターゲットブランチ",
+      "mergedAt": "マージ日時"
+    },
+    "status": {
+      "done": "完了",
+      "failed": "失敗"
+    },
+    "actions": {
+      "print": "印刷",
+      "exportCsv": "CSV をエクスポート"
     }
   },
   "errors": {
