@@ -1243,6 +1243,7 @@
       "reRequestReviewNoOpenPr": "Esta tarea ya no tiene un pull request abierto.",
       "reRequestReviewNoReviewer": "No hay un worker reviewer disponible para tomar la revisión.",
       "reRequestReviewInProgress": "Ya hay una ronda de revisión en curso para este PR.",
+      "reRequestReviewHeadUnchanged": "El PR no tiene commits nuevos desde la última revisión — re-revisar repetiría el mismo veredicto. Primero subí un fix.",
       "reRequestReviewNoChangesRequested": "La tarea no está esperando una re-revisión en este momento.",
       "reRequestReviewError": "No se pudo solicitar la re-revisión: {{message}}"
     },

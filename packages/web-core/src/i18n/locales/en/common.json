@@ -1243,6 +1243,7 @@
       "reRequestReviewNoOpenPr": "This task no longer has an open pull request.",
       "reRequestReviewNoReviewer": "No reviewer worker is available to take the review.",
       "reRequestReviewInProgress": "A review round is already in progress for this PR.",
+      "reRequestReviewHeadUnchanged": "The PR has no new commits since the last review — a re-review would repeat the same verdict. Push a fix first.",
       "reRequestReviewNoChangesRequested": "The task is not waiting for a re-review right now.",
       "reRequestReviewError": "Could not request re-review: {{message}}"
     },

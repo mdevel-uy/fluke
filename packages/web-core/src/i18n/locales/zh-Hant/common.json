@@ -1240,6 +1240,7 @@
       "reRequestReviewNoOpenPr": "此任務已沒有開啟的拉取請求。",
       "reRequestReviewNoReviewer": "沒有可用的審查者工作者來接手審查。",
       "reRequestReviewInProgress": "此 PR 已有一個審查回合正在進行中。",
+      "reRequestReviewHeadUnchanged": "自上次審查以來該 PR 沒有新提交——重新審查只會得到相同的結論。請先推送修復。",
       "reRequestReviewNoChangesRequested": "該任務目前不在等待重新審查。",
       "reRequestReviewError": "無法請求重新審查：{{message}}"
     },

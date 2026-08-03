@@ -1240,6 +1240,7 @@
       "reRequestReviewNoOpenPr": "このタスクにはオープンなプルリクエストがありません。",
       "reRequestReviewNoReviewer": "レビューを担当できるレビュワーワーカーがいません。",
       "reRequestReviewInProgress": "このPRのレビューラウンドはすでに進行中です。",
+      "reRequestReviewHeadUnchanged": "前回のレビュー以降、このPRに新しいコミットはありません。再レビューしても同じ判定が繰り返されます。まず修正をプッシュしてください。",
       "reRequestReviewNoChangesRequested": "このタスクは現在、再レビュー待ちではありません。",
       "reRequestReviewError": "再レビューをリクエストできませんでした: {{message}}"
     },
