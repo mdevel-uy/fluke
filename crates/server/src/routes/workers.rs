@@ -15,7 +15,7 @@ use db::models::{
     workspace::Workspace,
 };
 use deployment::Deployment;
-use git_host::github::GhCli;
+use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     container::ContainerService,
@@ -1083,11 +1083,22 @@ pub async fn re_request_review(
         .workspace_id
         .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
     let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
-    let has_open_pr = prs
+    let open_pr = prs
         .iter()
-        .any(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open));
-    if !has_open_pr {
-        return Err(ApiError::BadRequest("no_open_pr".into()));
+        .find(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open))
+        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
+
+    // Freshness gate: a re-review on an unchanged head can only reproduce the
+    // previous verdict — the reviewer sees byte-identical code — while still
+    // burning a review round. Surface a dedicated code so the UI can say
+    // "push a fix first". Best-effort: an error while checking freshness must
+    // not block a manual action, so it falls through to dispatch.
+    if let Ok(host) = GitHostService::from_url(&open_pr.pr_url)
+        && let Ok(Some(review)) = host.get_pr_latest_review(&open_pr.pr_url).await
+        && let (Some(reviewed), Some(head)) = (&review.reviewed_sha, &review.head_sha)
+        && reviewed == head
+    {
+        return Err(ApiError::Conflict("pr_head_unchanged".into()));
     }
 
     // Without a reviewer worker configured there is nowhere to dispatch the

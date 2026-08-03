@@ -23,6 +23,12 @@ pub fn is_valid_status(value: &str) -> bool {
 /// These do not consume review rounds and are retried with backoff.
 pub const FAILURE_KIND_INFRA: &str = "infra";
 
+/// `kind` value for author fix tasks dispatched by the orchestrator on a
+/// changes-requested review. These jump to the front of the author's queue
+/// and are exempt from the `WORKER_MAX_IN_REVIEW` capacity guard: they exist
+/// to drain in_review debt, so holding them back deadlocks the worker.
+pub const KIND_REVIEW_FIX: &str = "review_fix";
+
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
 /// Ad-hoc request submitted from the Analyst Desk screen.
@@ -130,6 +136,51 @@ impl WorkerTask {
         .bind(data.issue_number)
         .bind(&skills_json)
         .bind(&data.source)
+        .execute(pool)
+        .await?;
+
+        Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Insert a review-fix task at the FRONT of the worker's queue (position
+    /// strictly below every existing task) and tag it `kind = 'review_fix'`.
+    /// A changes-requested PR occupies one of the worker's in_review slots,
+    /// so its remediation outranks any queued feature work.
+    pub async fn prepend_review_fix(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+        data: &CreateWorkerTask,
+    ) -> Result<Self, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let front_position: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COALESCE(MIN(position), 1) - 1
+               FROM worker_tasks
+               WHERE worker_id = ?1",
+        )
+        .bind(worker_id)
+        .fetch_one(pool)
+        .await?;
+
+        let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+
+        sqlx::query(
+            "INSERT INTO worker_tasks
+                 (id, worker_id, repo_id, position, title, prompt,
+                  issue_number, status, skills, source, kind)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10)",
+        )
+        .bind(id)
+        .bind(worker_id)
+        .bind(data.repo_id)
+        .bind(front_position)
+        .bind(&data.title)
+        .bind(&data.prompt)
+        .bind(data.issue_number)
+        .bind(&skills_json)
+        .bind(&data.source)
+        .bind(KIND_REVIEW_FIX)
         .execute(pool)
         .await?;
 
@@ -574,29 +625,6 @@ impl WorkerTask {
         .await
     }
 
-    /// Count ALL fix tasks ever dispatched to an author for a given PR
-    /// (regardless of status). Used alongside `count_reviewer_tasks_done_for_pr`
-    /// to prevent duplicate fix dispatches across poll cycles.
-    pub async fn count_all_author_fix_tasks_for_pr(
-        pool: &SqlitePool,
-        worker_id: Uuid,
-        pr_number: i64,
-        repo_id: Uuid,
-    ) -> Result<i64, sqlx::Error> {
-        sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*)
-               FROM worker_tasks
-               WHERE worker_id = ?1
-                 AND issue_number = ?2
-                 AND repo_id = ?3",
-        )
-        .bind(worker_id)
-        .bind(pr_number)
-        .bind(repo_id)
-        .fetch_one(pool)
-        .await
-    }
-
     /// Delete queued tasks referencing a PR (`pr_number` stored in
     /// `issue_number`): dispatched review rounds and author fix tasks that
     /// never started. Once the PR is merged or closed they are stale.
@@ -734,6 +762,43 @@ impl WorkerTask {
         .fetch_optional(pool)
         .await
         .map(Option::flatten)
+    }
+
+    /// The task's `kind`, if any (`'review_fix'` for orchestrator-dispatched
+    /// author fix tasks; NULL for regular work).
+    pub async fn kind(pool: &SqlitePool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT kind FROM worker_tasks WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .map(Option::flatten)
+    }
+
+    /// First still-pending (queued / in_progress) review-fix task for a PR,
+    /// across all workers. Duplicate-dispatch guard: while one remediation is
+    /// pending, no second one may be dispatched for the same PR — regardless
+    /// of how many review rounds have completed in the meantime.
+    pub async fn find_pending_review_fix_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, source,
+                    created_at, review_result, failure_reason
+               FROM worker_tasks
+               WHERE issue_number = ?1
+                 AND repo_id = ?2
+                 AND kind = 'review_fix'
+                 AND status IN ('queued', 'in_progress')
+               ORDER BY created_at ASC
+               LIMIT 1",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
     }
 
     /// Persist the TL reviewer's verdict on the developer's task so the UI

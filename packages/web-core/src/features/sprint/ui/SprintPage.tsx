@@ -673,7 +673,9 @@ export function SprintPage() {
                       ? 'sprint.toast.reRequestReviewInProgress'
                       : code === 'no_changes_requested'
                         ? 'sprint.toast.reRequestReviewNoChangesRequested'
-                        : 'sprint.toast.reRequestReviewError';
+                        : code === 'pr_head_unchanged'
+                          ? 'sprint.toast.reRequestReviewHeadUnchanged'
+                          : 'sprint.toast.reRequestReviewError';
             pushToast(
               'error',
               t(key, {

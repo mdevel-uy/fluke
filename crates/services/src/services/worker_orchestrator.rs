@@ -349,29 +349,37 @@ pub async fn try_take_next(
 
     let cap = max_in_review_from_env();
     let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
+    let next_queued = WorkerTask::find_next_queued(pool, worker_id).await?;
     if in_review >= cap {
-        // Only count as a "plan cap hit" when a queued task was actually
-        // held back by the cap. A cap check with no queue is a no-op — the
-        // worker had nothing to run anyway, so this is not an upsell signal.
-        let has_queued = matches!(
-            WorkerTask::find_next_queued(pool, worker_id).await,
-            Ok(Some(_))
-        );
-        if has_queued
-            && let Err(e) = PlanCapHit::record_hit_today(pool).await
-        {
-            warn!(
-                worker_id = %worker_id,
-                "Failed to record plan cap hit: {}",
-                e
-            );
+        // Review-fix tasks are exempt from the cap: they exist to drain
+        // in_review debt (the changes-requested PR occupying a slot can only
+        // leave in_review once its fix runs). Holding them back deadlocks
+        // the worker — in_review waits for the fix, the fix waits for a slot.
+        let next_is_review_fix = match &next_queued {
+            Some(task) => {
+                WorkerTask::kind(pool, task.id).await?.as_deref()
+                    == Some(worker_task::KIND_REVIEW_FIX)
+            }
+            None => false,
+        };
+        if !next_is_review_fix {
+            // Only count as a "plan cap hit" when a queued task was actually
+            // held back by the cap. A cap check with no queue is a no-op — the
+            // worker had nothing to run anyway, so this is not an upsell signal.
+            if next_queued.is_some()
+                && let Err(e) = PlanCapHit::record_hit_today(pool).await
+            {
+                warn!(
+                    worker_id = %worker_id,
+                    "Failed to record plan cap hit: {}",
+                    e
+                );
+            }
+            return Err(StartError::InReviewCapReached(cap));
         }
-        return Err(StartError::InReviewCapReached(cap));
     }
 
-    let task = WorkerTask::find_next_queued(pool, worker_id)
-        .await?
-        .ok_or(StartError::NothingQueued)?;
+    let task = next_queued.ok_or(StartError::NothingQueued)?;
 
     let repo = Repo::find_by_id(pool, task.repo_id)
         .await?
@@ -1826,10 +1834,8 @@ pub async fn dispatch_author_fix_task(
 
     let pool = &db.pool;
 
-    // Guard: dispatch a fix task only when more review rounds have COMPLETED
-    // than fix tasks have been dispatched. This prevents re-dispatching every
-    // poll cycle while the GitHub review state still shows "changes_requested"
-    // after the author has already pushed a fix.
+    // Sanity guard: a fix only makes sense after at least one review round
+    // actually completed.
     let completed_reviews =
         WorkerTask::count_reviewer_tasks_done_for_pr(pool, pr_number, repo_id).await?;
     if completed_reviews == 0 {
@@ -1839,16 +1845,18 @@ pub async fn dispatch_author_fix_task(
         );
         return Ok(());
     }
-    let dispatched_fixes =
-        WorkerTask::count_all_author_fix_tasks_for_pr(pool, author_worker_id, pr_number, repo_id)
-            .await?;
-    if dispatched_fixes >= completed_reviews {
+
+    // Idempotency guard: while one remediation for this PR is still pending
+    // (queued or running, on any worker), never dispatch a second one — no
+    // matter how many review rounds completed in between. Redundant rounds on
+    // an unchanged head must not multiply into redundant fix tasks.
+    if let Some(pending) = WorkerTask::find_pending_review_fix_for_pr(pool, pr_number, repo_id)
+        .await?
+    {
         debug!(
             pr_number,
-            author_worker_id = %author_worker_id,
-            fixes = dispatched_fixes,
-            reviews = completed_reviews,
-            "Author fix already dispatched for current review round — skipping"
+            pending_task_id = %pending.id,
+            "A review-fix task for this PR is already pending — skipping duplicate dispatch"
         );
         return Ok(());
     }
@@ -1867,7 +1875,9 @@ pub async fn dispatch_author_fix_task(
          El PR ya existe — NO crees uno nuevo."
     );
 
-    let task = WorkerTask::append(
+    // The fix goes to the FRONT of the author's queue: its PR is already
+    // burning an in_review slot, so remediation outranks queued feature work.
+    let task = WorkerTask::prepend_review_fix(
         pool,
         author_worker_id,
         &CreateWorkerTask {
@@ -1890,9 +1900,10 @@ pub async fn dispatch_author_fix_task(
     );
 
     match try_take_next(config, db, container, author_worker_id).await {
-        Ok(_) => info!(
+        Ok(started) => info!(
             author_worker_id = %author_worker_id,
-            "Author worker started on fix task"
+            started_task_id = %started.task.id,
+            "Author worker started its next queued task after fix dispatch"
         ),
         Err(e) if e.is_conflict() => {}
         Err(StartError::Sqlx(e)) => return Err(e),
@@ -2921,6 +2932,127 @@ mod tests {
         assert_eq!(
             WorkerTask::model_override(&db.pool, task.id).await.unwrap(),
             Some(INFRA_FALLBACK_MODEL.to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn prepend_review_fix_jumps_the_queue() {
+        // A changes-requested PR blocks an in_review slot, so its fix must
+        // run before any queued feature work — not behind it (the PR #373
+        // incident: the fix sat at the back of the queue for a day).
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "prepend-repo").await;
+        let author = insert_worker(&db, "author").await;
+
+        for title in ["feature A", "feature B"] {
+            WorkerTask::append(
+                &db.pool,
+                author.id,
+                &CreateWorkerTask {
+                    repo_id: repo.id,
+                    title: title.to_string(),
+                    prompt: "build".to_string(),
+                    issue_number: None,
+                    skills: Vec::new(),
+                    source: worker_task::SOURCE_KANBAN.to_string(),
+                },
+            )
+            .await
+            .unwrap();
+        }
+
+        let fix = WorkerTask::prepend_review_fix(
+            &db.pool,
+            author.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Atendé el review del PR #373".to_string(),
+                prompt: "fix".to_string(),
+                issue_number: Some(373),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let next = WorkerTask::find_next_queued(&db.pool, author.id)
+            .await
+            .unwrap()
+            .expect("queue is not empty");
+        assert_eq!(next.id, fix.id, "the fix must be first in the queue");
+        assert_eq!(
+            WorkerTask::kind(&db.pool, fix.id).await.unwrap().as_deref(),
+            Some(worker_task::KIND_REVIEW_FIX)
+        );
+    }
+
+    #[tokio::test]
+    async fn pending_review_fix_guard_blocks_duplicates_until_terminal() {
+        // Redundant review rounds on an unchanged head must not multiply
+        // into redundant fix tasks: while one remediation is pending for a
+        // PR, dispatch is a no-op. Once it reaches a terminal state, a new
+        // round may dispatch a fresh one.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "pending-fix-repo").await;
+        let author = insert_worker(&db, "author").await;
+
+        // A regular task referencing the same PR number must NOT trip the
+        // guard — only kind='review_fix' counts.
+        WorkerTask::append(
+            &db.pool,
+            author.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "feature that mentions the PR".to_string(),
+                prompt: "build".to_string(),
+                issue_number: Some(373),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            WorkerTask::find_pending_review_fix_for_pr(&db.pool, 373, repo.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        let fix = WorkerTask::prepend_review_fix(
+            &db.pool,
+            author.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Atendé el review del PR #373".to_string(),
+                prompt: "fix".to_string(),
+                issue_number: Some(373),
+                skills: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            WorkerTask::find_pending_review_fix_for_pr(&db.pool, 373, repo.id)
+                .await
+                .unwrap()
+                .map(|t| t.id),
+            Some(fix.id),
+            "a queued review_fix blocks a second dispatch"
+        );
+
+        WorkerTask::set_status(&db.pool, fix.id, worker_task::STATUS_DONE)
+            .await
+            .unwrap();
+        assert!(
+            WorkerTask::find_pending_review_fix_for_pr(&db.pool, 373, repo.id)
+                .await
+                .unwrap()
+                .is_none(),
+            "a completed fix no longer blocks the next round's remediation"
         );
     }
 }
