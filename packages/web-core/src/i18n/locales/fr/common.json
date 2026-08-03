@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} fusionnée",
     "prOpen": "PR #{{number}} ouverte",
+    "queuedPosition": "En attente · #{{position}}",
+    "queuedTooltip": "En attente d'un slot d'agent libre (limite de concurrence atteinte).",
     "expand": "Afficher les détails",
     "collapse": "Masquer les détails",
     "details": {
@@ -591,6 +593,12 @@
       "toggleAdhocClaude": "Claude ad hoc"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} en attente",
+    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre."
+  },
   "adhocPanel": {
     "title": "Claude ad hoc",
     "close": "Fermer le panneau Claude ad hoc",
@@ -708,6 +716,35 @@
       "tooltipIssues_other": "{{count}} issues fermées",
       "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
       "moreIssues": "+{{extra}} autres"
+    },
+    "valueGenerated": {
+      "title": "Valeur générée",
+      "windowLabel": "Fenêtre historique",
+      "windowMonths": "{{months}} m",
+      "hoursPerTask": "h / tâche",
+      "hoursPerTaskLabel": "Heures-personne économisées par défaut par tâche terminée",
+      "hoursPerFte": "h / ETP·mois",
+      "hoursPerFteLabel": "Heures de travail par ETP par mois",
+      "thisMonthLabel": "Ce mois-ci · {{month}}",
+      "summaryTickets": "{{count}} ticket résolu",
+      "summaryTickets_other": "{{count}} tickets résolus",
+      "summaryHours": "~{{hours}} h économisées",
+      "summaryFte": "≈ {{fte}} ETP",
+      "totalsLabel": "{{months}} derniers mois",
+      "totalsTickets": "{{count}} tickets",
+      "totalsHours": "{{hours}} h",
+      "totalsFte": "{{fte}} ETP",
+      "tableMonth": "Mois",
+      "tableTickets": "Tickets",
+      "tableHours": "Heures",
+      "tableFte": "ETP",
+      "loading": "Chargement de la valeur générée…",
+      "emptyHistory": "Pas encore de mois historiques — le tableau se remplit à mesure que les tâches se terminent.",
+      "overridePerTaskToggle": "Modifier les heures par tâche",
+      "overridePerTaskLoading": "Chargement des tâches du mois…",
+      "overridePerTaskEmpty": "Aucune tâche terminée ce mois-ci.",
+      "overridePerTaskInputLabel": "Heures économisées pour cette tâche",
+      "overridePerTaskClear": "Utiliser la valeur par défaut"
     }
   },
   "pilotReport": {
@@ -988,6 +1025,8 @@
       "startSuccess": "{{worker}} a démarré « {{title}} ».",
       "startConflict": "{{worker}} n'a aucune tâche en file ou en a déjà une en cours.",
       "startError": "Échec du démarrage de {{worker}} : {{message}}",
+      "planCapReached": "La tâche de {{worker}} est en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedWithLimit": "La tâche de {{worker}} est en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
       "createSuccess": "Worker créé.",
       "updateSuccess": "Worker mis à jour.",
       "deleteSuccess": "{{worker}} supprimé.",
@@ -1276,6 +1315,8 @@
       "startAllSuccess": "{{count}} worker démarré.",
       "startAllSuccess_other": "{{count}} workers démarrés.",
       "startAllError": "Échec du démarrage des workers : {{message}}",
+      "planCapReachedGeneric": "Certaines tâches sont en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedGenericWithLimit": "Certaines tâches sont en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
       "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
       "reviewApproved": "Révision approuvée : {{title}}",
       "reviewChangesRequested": "Modifications demandées : {{title}}",
@@ -1285,6 +1326,7 @@
       "reRequestReviewNoOpenPr": "Cette tâche n'a plus de pull request ouverte.",
       "reRequestReviewNoReviewer": "Aucun worker reviewer n'est disponible pour effectuer la revue.",
       "reRequestReviewInProgress": "Une ronde de revue est déjà en cours pour cette PR.",
+      "reRequestReviewHeadUnchanged": "La PR n'a aucun nouveau commit depuis la dernière revue — une nouvelle revue répéterait le même verdict. Poussez d'abord un correctif.",
       "reRequestReviewNoChangesRequested": "La tâche n'est pas en attente d'une nouvelle revue pour le moment.",
       "reRequestReviewError": "Impossible de demander la nouvelle revue : {{message}}"
     },
@@ -1297,6 +1339,34 @@
     "autoIngest": {
       "label": "Ingestion automatique",
       "description": "Les workers démarrent dès qu'une tâche est assignée"
+    }
+  },
+  "setupWizard": {
+    "aria": "Assistant d'onboarding",
+    "title": "Commencer",
+    "subtitle": "Quatre étapes entre une instance vide et votre première PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Connecter GitHub",
+        "description": "Authentifiez-vous avec un Personal Access Token ou la CLI gh pour que les agents puissent ouvrir des pull requests.",
+        "action": "Connecter"
+      },
+      "repo": {
+        "title": "Ajouter un dépôt",
+        "description": "Enregistrez un dépôt local pour que les agents y créent des branches et des workspaces.",
+        "action": "Ajouter"
+      },
+      "agent": {
+        "title": "Connecter un agent",
+        "description": "Connectez-vous à Claude Code, Codex ou Gemini pour donner un agent à un worker.",
+        "action": "Connecter"
+      },
+      "task": {
+        "title": "Créer et assigner votre première tâche",
+        "description": "Choisissez un issue et assignez-le à un worker — l'agent s'exécute et ouvre la PR.",
+        "action": "Aller aux issues"
+      }
     }
   }
 }

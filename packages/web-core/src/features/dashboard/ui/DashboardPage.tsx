@@ -15,6 +15,7 @@ import { WorkerGrid } from './WorkerGrid';
 import { PipelinePanel } from './PipelinePanel';
 import { ClaudeLimitsPanel } from './ClaudeLimitsPanel';
 import { ImpactPanel } from './ImpactPanel';
+import { ValueGeneratedPanel } from './ValueGeneratedPanel';
 import { PullRequestsPanel } from './PullRequestsPanel';
 import { AttentionPanel } from './AttentionPanel';
 import { ActivityPanel } from './ActivityPanel';
@@ -122,6 +123,10 @@ export function DashboardPage() {
 
           <div id={DASHBOARD_ANCHORS.impact}>
             <ImpactPanel />
+          </div>
+
+          <div id={DASHBOARD_ANCHORS.valueGenerated}>
+            <ValueGeneratedPanel />
           </div>
 
           <div

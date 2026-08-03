@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} mergeado",
     "prOpen": "PR #{{number}} abierto",
+    "queuedPosition": "En cola · #{{position}}",
+    "queuedTooltip": "Esperando un slot de agente libre (límite de concurrencia alcanzado).",
     "expand": "Mostrar detalles",
     "collapse": "Ocultar detalles",
     "details": {
@@ -592,6 +594,12 @@
       "toggleAdhocClaude": "Claude ad-hoc"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Slots de agente en uso — configurado por AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} en cola",
+    "slotsQueuedTooltip": "Límite de concurrencia alcanzado. {{count}} ejecución(es) esperando un slot libre."
+  },
   "adhocPanel": {
     "title": "Claude ad-hoc",
     "close": "Cerrar panel de Claude ad-hoc",
@@ -709,6 +717,35 @@
       "tooltipIssues_other": "{{count}} issues cerrados",
       "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
       "moreIssues": "+{{extra}} más"
+    },
+    "valueGenerated": {
+      "title": "Valor generado",
+      "windowLabel": "Ventana histórica",
+      "windowMonths": "{{months}} m",
+      "hoursPerTask": "h / tarea",
+      "hoursPerTaskLabel": "Horas hombre ahorradas por defecto por tarea completada",
+      "hoursPerFte": "h / FTE·mes",
+      "hoursPerFteLabel": "Horas de trabajo por FTE por mes",
+      "thisMonthLabel": "Este mes · {{month}}",
+      "summaryTickets": "{{count}} ticket resuelto",
+      "summaryTickets_other": "{{count}} tickets resueltos",
+      "summaryHours": "~{{hours}} h ahorradas",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "Últimos {{months}} meses",
+      "totalsTickets": "{{count}} tickets",
+      "totalsHours": "{{hours}} h",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "Mes",
+      "tableTickets": "Tickets",
+      "tableHours": "Horas",
+      "tableFte": "FTE",
+      "loading": "Cargando valor generado…",
+      "emptyHistory": "Todavía no hay meses históricos: la tabla se completa a medida que se cierran tareas.",
+      "overridePerTaskToggle": "Editar horas por tarea",
+      "overridePerTaskLoading": "Cargando tareas del mes…",
+      "overridePerTaskEmpty": "Sin tareas completadas este mes.",
+      "overridePerTaskInputLabel": "Horas ahorradas para esta tarea",
+      "overridePerTaskClear": "Usar default"
     }
   },
   "pilotReport": {
@@ -989,6 +1026,8 @@
       "startSuccess": "{{worker}} arrancó con \"{{title}}\".",
       "startConflict": "{{worker}} no tiene tareas en cola o ya hay una en curso.",
       "startError": "No se pudo iniciar {{worker}}: {{message}}",
+      "planCapReached": "La tarea de {{worker}} está encolada — tu plan está en el límite de agentes concurrentes.",
+      "planCapReachedWithLimit": "La tarea de {{worker}} está encolada — tu plan corre {{limit}} agentes en paralelo. Pasate a más.",
       "createSuccess": "Worker creado.",
       "updateSuccess": "Worker actualizado.",
       "deleteSuccess": "{{worker}} eliminado.",
@@ -1277,6 +1316,8 @@
       "startAllSuccess": "{{count}} worker arrancado.",
       "startAllSuccess_other": "{{count}} workers arrancados.",
       "startAllError": "No se pudieron iniciar los workers: {{message}}",
+      "planCapReachedGeneric": "Hay tareas encoladas — tu plan está en el límite de agentes concurrentes.",
+      "planCapReachedGenericWithLimit": "Hay tareas encoladas — tu plan corre {{limit}} agentes en paralelo. Pasate a más.",
       "assignDuplicate": "Este issue ya tiene una tarea activa asignada a un worker.",
       "reviewApproved": "Revisión aprobada: {{title}}",
       "reviewChangesRequested": "Cambios solicitados en: {{title}}",
@@ -1286,6 +1327,7 @@
       "reRequestReviewNoOpenPr": "Esta tarea ya no tiene un pull request abierto.",
       "reRequestReviewNoReviewer": "No hay un worker reviewer disponible para tomar la revisión.",
       "reRequestReviewInProgress": "Ya hay una ronda de revisión en curso para este PR.",
+      "reRequestReviewHeadUnchanged": "El PR no tiene commits nuevos desde la última revisión — re-revisar repetiría el mismo veredicto. Primero subí un fix.",
       "reRequestReviewNoChangesRequested": "La tarea no está esperando una re-revisión en este momento.",
       "reRequestReviewError": "No se pudo solicitar la re-revisión: {{message}}"
     },
@@ -1298,6 +1340,34 @@
     "autoIngest": {
       "label": "Ingesta automática",
       "description": "Los workers arrancan ni bien se les asigna una tarea"
+    }
+  },
+  "setupWizard": {
+    "aria": "Wizard de onboarding",
+    "title": "Empezá acá",
+    "subtitle": "Cuatro pasos entre una instancia vacía y tu primer PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Conectá GitHub",
+        "description": "Autorizate con un Personal Access Token o la CLI gh para que los agentes puedan abrir PRs.",
+        "action": "Conectar"
+      },
+      "repo": {
+        "title": "Agregá un repositorio",
+        "description": "Registrá un repo local para que los agentes puedan crear branches y workspaces.",
+        "action": "Agregar"
+      },
+      "agent": {
+        "title": "Conectá un agente",
+        "description": "Logueate en Claude Code, Codex o Gemini para que el worker tenga un agente que correr.",
+        "action": "Conectar"
+      },
+      "task": {
+        "title": "Creá y asigná tu primera tarea",
+        "description": "Elegí un issue y asignalo a un worker — el agente corre y abre el PR.",
+        "action": "Ir a issues"
+      }
     }
   }
 }

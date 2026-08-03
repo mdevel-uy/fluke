@@ -15,7 +15,7 @@ use db::models::{
     workspace::Workspace,
 };
 use deployment::Deployment;
-use git_host::github::GhCli;
+use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     container::ContainerService,
@@ -27,6 +27,12 @@ use utils::response::ApiResponse;
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
+
+/// Guard rails for `hours_saved_override`. Kept in lockstep with the client
+/// clamps in `useValueGeneratedSettingsStore` so the server rejects the same
+/// range the UI already refuses to submit.
+const MIN_HOURS_SAVED_OVERRIDE: f64 = 0.5;
+const MAX_HOURS_SAVED_OVERRIDE: f64 = 80.0;
 
 #[derive(Debug, Serialize, TS)]
 pub struct WorkerResponse {
@@ -94,6 +100,11 @@ pub struct WorkerTaskResponse {
     /// Why the task failed, when status == "failed". Recorded by the
     /// orchestrator at the moment of failure; null otherwise.
     pub failure_reason: Option<String>,
+    /// Per-task override for the estimated man-hours saved. `null` = use the
+    /// installation default; a number replaces the default for aggregation
+    /// (see `value_generated_summary`).
+    #[ts(type = "number | null")]
+    pub hours_saved_override: Option<f64>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -136,6 +147,7 @@ async fn worker_task_to_response(
         source: task.source,
         review_result: task.review_result,
         failure_reason: task.failure_reason,
+        hours_saved_override: task.hours_saved_override,
         created_at: task.created_at,
     })
 }
@@ -254,6 +266,13 @@ pub struct UpdateWorkerTaskRequest {
     pub position: Option<i64>,
     #[ts(optional)]
     pub status: Option<String>,
+    /// Per-task override for the estimated man-hours saved by this task.
+    /// Three-state PATCH: `undefined` = don't touch, `null` = clear back to
+    /// the installation default, `number` = persist the override for this
+    /// task. Values are clamped server-side to `[MIN, MAX]_HOURS_PER_TASK`.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "number | null")]
+    pub hours_saved_override: Option<Option<f64>>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -755,8 +774,35 @@ pub async fn update_worker_task(
         return Err(ApiError::BadRequest(format!("Invalid status: {status}")));
     }
 
-    let updated =
-        WorkerTask::update(pool, task_id, payload.position, payload.status.as_deref()).await?;
+    // Clamp the override server-side: mirrors the frontend guard rails so a
+    // hand-crafted request cannot bypass the UI validation and land a
+    // nonsensical FTE figure in the panel.
+    let hours_override = match payload.hours_saved_override {
+        None => None,
+        Some(None) => Some(None),
+        Some(Some(raw)) => {
+            if !raw.is_finite() {
+                return Err(ApiError::BadRequest(
+                    "hours_saved_override must be a finite number".into(),
+                ));
+            }
+            if !(MIN_HOURS_SAVED_OVERRIDE..=MAX_HOURS_SAVED_OVERRIDE).contains(&raw) {
+                return Err(ApiError::BadRequest(format!(
+                    "hours_saved_override must be between {MIN_HOURS_SAVED_OVERRIDE} and {MAX_HOURS_SAVED_OVERRIDE}"
+                )));
+            }
+            Some(Some(raw))
+        }
+    };
+
+    let updated = WorkerTask::update(
+        pool,
+        task_id,
+        payload.position,
+        payload.status.as_deref(),
+        hours_override,
+    )
+    .await?;
 
     // Retry: a failed task moved back to `queued` should not wait for an
     // external poke (auto-advance, reconciler poll, manual Start) to run
@@ -871,9 +917,10 @@ pub async fn start_all_workers(
 }
 
 /// Attempt to take the next queued task for the worker and start an agent
-/// run for it. Returns 409 when the worker is not currently eligible to
-/// take a task (already in_progress, at the in_review cap, or nothing
-/// queued).
+/// run for it. Returns 409 when the worker is ineligible for a
+/// task-content reason (already in_progress, nothing queued) and 429 when
+/// the concurrent-agents cap is full — the frontend uses the 429 to show
+/// the plan-upgrade CTA.
 pub async fn start_worker(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
@@ -912,7 +959,12 @@ fn map_start_error(err: StartError) -> ApiError {
             ApiError::Conflict("Worker already has a task in progress".into())
         }
         StartError::InReviewCapReached(cap) => {
-            ApiError::Conflict(format!("Worker in-review cap reached ({cap})"))
+            // 429 (not 409) so the frontend can distinguish a plan-cap hit
+            // from other conflicts (already in progress, nothing queued) and
+            // surface the upsell CTA instead of a generic error toast.
+            ApiError::TooManyRequests(format!(
+                "Concurrent-agents limit reached ({cap}). Task remains queued."
+            ))
         }
         StartError::Sqlx(e) => e.into(),
         StartError::Container(e) => e.into(),
@@ -1077,11 +1129,22 @@ pub async fn re_request_review(
         .workspace_id
         .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
     let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
-    let has_open_pr = prs
+    let open_pr = prs
         .iter()
-        .any(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open));
-    if !has_open_pr {
-        return Err(ApiError::BadRequest("no_open_pr".into()));
+        .find(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open))
+        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
+
+    // Freshness gate: a re-review on an unchanged head can only reproduce the
+    // previous verdict — the reviewer sees byte-identical code — while still
+    // burning a review round. Surface a dedicated code so the UI can say
+    // "push a fix first". Best-effort: an error while checking freshness must
+    // not block a manual action, so it falls through to dispatch.
+    if let Ok(host) = GitHostService::from_url(&open_pr.pr_url)
+        && let Ok(Some(review)) = host.get_pr_latest_review(&open_pr.pr_url).await
+        && let (Some(reviewed), Some(head)) = (&review.reviewed_sha, &review.head_sha)
+        && reviewed == head
+    {
+        return Err(ApiError::Conflict("pr_head_unchanged".into()));
     }
 
     // Without a reviewer worker configured there is nowhere to dispatch the
@@ -1127,6 +1190,8 @@ pub async fn re_request_review(
         &existing.title,
         existing.repo_id,
         Some(existing.worker_id),
+        // Explicit human retry: skip the automatic infra-failure backoff.
+        true,
     )
     .await?;
 
@@ -1141,6 +1206,9 @@ pub async fn re_request_review(
 /// the dashboard activity feed.
 #[derive(Debug, Serialize, TS, sqlx::FromRow)]
 pub struct CompletedWorkerTask {
+    /// Task UUID. Exposed so callers can PATCH the task (e.g. to set a
+    /// per-task `hours_saved_override` from the value-generated panel).
+    pub id: Uuid,
     pub worker_id: Uuid,
     pub title: String,
     #[ts(type = "number | null")]
@@ -1149,6 +1217,10 @@ pub struct CompletedWorkerTask {
     pub status: String,
     /// SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
     pub completed_at: String,
+    /// Per-task man-hours override (`NULL` = use the installation default).
+    /// Kept on the response so the value-generated panel can render the
+    /// current value inline without a second round-trip per task.
+    pub hours_saved_override: Option<f64>,
 }
 
 #[derive(Debug, Serialize, TS)]
@@ -1172,7 +1244,8 @@ pub async fn list_completed_worker_tasks(
     Query(query): Query<CompletedTasksQuery>,
 ) -> Result<ResponseJson<ApiResponse<CompletedWorkerTasksResponse>>, ApiError> {
     let tasks: Vec<CompletedWorkerTask> = sqlx::query_as(
-        "SELECT worker_id, title, issue_number, status, completed_at
+        "SELECT id, worker_id, title, issue_number, status, completed_at,
+                hours_saved_override
          FROM worker_tasks
          WHERE completed_at IS NOT NULL AND completed_at >= datetime($1)
          ORDER BY completed_at DESC
@@ -1298,6 +1371,23 @@ mod tests {
         let set: UpdateWorkerRequest =
             serde_json::from_str(r#"{"github_pat": "ghp_abc"}"#).unwrap();
         assert_eq!(set.github_pat, Some(Some("ghp_abc".to_string())));
+    }
+
+    /// `hours_saved_override` also needs the three-state distinction: missing
+    /// means "keep whatever is stored", `null` clears the override back to the
+    /// installation default, and a number persists the value for this task.
+    #[test]
+    fn update_worker_task_request_hours_override_distinguishes_missing_from_null() {
+        let missing: UpdateWorkerTaskRequest = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.hours_saved_override, None);
+
+        let null: UpdateWorkerTaskRequest =
+            serde_json::from_str(r#"{"hours_saved_override": null}"#).unwrap();
+        assert_eq!(null.hours_saved_override, Some(None));
+
+        let set: UpdateWorkerTaskRequest =
+            serde_json::from_str(r#"{"hours_saved_override": 6.5}"#).unwrap();
+        assert_eq!(set.hours_saved_override, Some(Some(6.5)));
     }
 
     /// `plan_mode` also needs the three-state distinction: missing means

@@ -58,7 +58,8 @@ use uuid::Uuid;
 use worktree_manager::WorktreeError;
 
 use crate::services::{
-    config::Config, execution_process, notification::NotificationService, worker_orchestrator,
+    concurrency::ConcurrencySemaphore, config::Config, execution_process,
+    notification::NotificationService, worker_orchestrator,
 };
 pub type ContainerRef = String;
 
@@ -97,6 +98,19 @@ pub trait ContainerService {
     fn notification_service(&self) -> &NotificationService;
 
     fn config(&self) -> &Arc<RwLock<Config>>;
+
+    /// Concurrency semaphore governing coding-agent spawns. Local
+    /// deployments implement this; remote deployments (which run
+    /// executors elsewhere) may return `None`.
+    fn concurrency(&self) -> Option<&ConcurrencySemaphore> {
+        None
+    }
+
+    /// Promote the oldest queued execution to running (if a slot is
+    /// available). Deployments that own the semaphore override this
+    /// to actually spawn; the default is a no-op. Used by error
+    /// recovery paths that release a slot without a natural exit.
+    async fn drain_queue(&self) {}
 
     async fn touch(&self, workspace: &Workspace) -> Result<(), ContainerError>;
 
@@ -292,6 +306,7 @@ pub trait ContainerService {
                 self,
                 ctx.workspace.id,
                 succeeded,
+                Some(ctx.execution_process.id),
             )
             .await
             {
@@ -757,7 +772,15 @@ pub trait ContainerService {
                     {
                         continue;
                     }
-                    if process.status == ExecutionProcessStatus::Running {
+                    // Cancel both Running and Queued: leaving Queued rows in
+                    // the FIFO would cause the semaphore to spawn an agent
+                    // against an archived / reset workspace when a slot frees.
+                    // stop_execution handles Queued specially (drops from the
+                    // wait queue, no child kill needed).
+                    if matches!(
+                        process.status,
+                        ExecutionProcessStatus::Running | ExecutionProcessStatus::Queued
+                    ) {
                         self.stop_execution(&process, ExecutionProcessStatus::Killed)
                             .await
                             .unwrap_or_else(|e| {
@@ -1274,6 +1297,16 @@ pub trait ContainerService {
                 .write()
                 .await
                 .remove(&execution_process.id);
+            // Release any concurrency slot the failed spawn may have
+            // acquired. Without this, a spawn that errors after
+            // `try_acquire` (e.g. missing container_ref, spawn timeout,
+            // executor not installed) would permanently leak a slot.
+            if let Some(sem) = self.concurrency() {
+                sem.release(&execution_process.id).await;
+            }
+            // The freed slot might unblock a queued execution — drain
+            // now instead of waiting for the next natural process exit.
+            self.drain_queue().await;
             // Mark process as failed
             if let Err(update_error) = ExecutionProcess::update_completion(
                 &self.db().pool,

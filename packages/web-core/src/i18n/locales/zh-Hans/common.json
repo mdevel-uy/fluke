@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 已合并",
     "prOpen": "PR #{{number}} 打开",
+    "queuedPosition": "排队中 · #{{position}}",
+    "queuedTooltip": "等待可用的代理槽位（已达到并发上限）。",
     "expand": "显示详情",
     "collapse": "隐藏详情",
     "details": {
@@ -591,6 +593,12 @@
       "toggleAdhocClaude": "临时 Claude"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} 槽位",
+    "slotsTooltip": "正在使用的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 设置。",
+    "slotsQueued": "{{count}} 个排队中",
+    "slotsQueuedTooltip": "已达到并发上限。{{count}} 个执行正在等待可用槽位。"
+  },
   "adhocPanel": {
     "title": "临时 Claude",
     "close": "关闭临时 Claude 面板",
@@ -708,6 +716,35 @@
       "tooltipIssues_other": "关闭 {{count}} 个议题",
       "tooltipHours": "{{issues}} × {{factor}} 小时 = {{hours}} 小时",
       "moreIssues": "另有 {{extra}} 个"
+    },
+    "valueGenerated": {
+      "title": "生成的价值",
+      "windowLabel": "历史范围",
+      "windowMonths": "{{months}} 个月",
+      "hoursPerTask": "小时 / 任务",
+      "hoursPerTaskLabel": "每个完成任务默认节约的人时",
+      "hoursPerFte": "小时 / FTE·月",
+      "hoursPerFteLabel": "每位 FTE 每月的工作小时数",
+      "thisMonthLabel": "本月 · {{month}}",
+      "summaryTickets": "已解决 {{count}} 张工单",
+      "summaryTickets_other": "已解决 {{count}} 张工单",
+      "summaryHours": "约节约 {{hours}} 小时",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "最近 {{months}} 个月",
+      "totalsTickets": "工单 {{count}} 张",
+      "totalsHours": "{{hours}} 小时",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "月份",
+      "tableTickets": "工单",
+      "tableHours": "小时",
+      "tableFte": "FTE",
+      "loading": "正在加载生成的价值…",
+      "emptyHistory": "暂无历史月份 — 随着任务完成，表格将逐步填充。",
+      "overridePerTaskToggle": "编辑每个任务的小时数",
+      "overridePerTaskLoading": "正在加载本月任务…",
+      "overridePerTaskEmpty": "本月尚无已完成任务。",
+      "overridePerTaskInputLabel": "该任务节省的小时数",
+      "overridePerTaskClear": "使用默认值"
     }
   },
   "pilotReport": {
@@ -988,6 +1025,8 @@
       "startSuccess": "{{worker}} 已开始“{{title}}”。",
       "startConflict": "{{worker}} 没有排队任务或已在工作中。",
       "startError": "启动 {{worker}} 失败：{{message}}",
+      "planCapReached": "{{worker}} 的任务已加入队列 — 你的套餐已达到并行代理数量上限。",
+      "planCapReachedWithLimit": "{{worker}} 的任务已加入队列 — 你的套餐可并行运行 {{limit}} 个代理。升级以运行更多。",
       "createSuccess": "工作者已创建。",
       "updateSuccess": "工作者已更新。",
       "deleteSuccess": "{{worker}} 已删除。",
@@ -1273,6 +1312,8 @@
     "toast": {
       "startAllSuccess": "已启动 {{count}} 个工作者。",
       "startAllError": "启动工作者失败：{{message}}",
+      "planCapReachedGeneric": "部分任务已加入队列 — 你的套餐已达到并行代理数量上限。",
+      "planCapReachedGenericWithLimit": "部分任务已加入队列 — 你的套餐可并行运行 {{limit}} 个代理。升级以运行更多。",
       "assignDuplicate": "该 Issue 已有一个分配给工作者的活跃任务。",
       "startAllSuccess_other": "已启动 {{count}} 个工作者。",
       "reviewApproved": "审查已批准：{{title}}",
@@ -1283,6 +1324,7 @@
       "reRequestReviewNoOpenPr": "此任务已没有打开的拉取请求。",
       "reRequestReviewNoReviewer": "没有可用的审查者工作者来接手审查。",
       "reRequestReviewInProgress": "此 PR 已有一个审查回合正在进行中。",
+      "reRequestReviewHeadUnchanged": "自上次审查以来该 PR 没有新提交——重新审查只会得到相同的结论。请先推送修复。",
       "reRequestReviewNoChangesRequested": "该任务当前不在等待重新审查。",
       "reRequestReviewError": "无法请求重新审查：{{message}}"
     },
@@ -1295,6 +1337,34 @@
     "autoIngest": {
       "label": "自动开始",
       "description": "任务分配后工作者立即开始"
+    }
+  },
+  "setupWizard": {
+    "aria": "入门向导",
+    "title": "开始使用",
+    "subtitle": "从空实例到第一个 PR 只需四步。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "连接 GitHub",
+        "description": "使用 Personal Access Token 或 gh CLI 授权，让代理可以开 PR。",
+        "action": "连接"
+      },
+      "repo": {
+        "title": "添加仓库",
+        "description": "注册本地仓库，代理可在其中创建分支和工作区。",
+        "action": "添加"
+      },
+      "agent": {
+        "title": "连接代理",
+        "description": "登录 Claude Code、Codex 或 Gemini，让工作者有代理可运行。",
+        "action": "连接"
+      },
+      "task": {
+        "title": "创建并分配第一个任务",
+        "description": "选一个 issue 分配给工作者——代理会运行并打开 PR。",
+        "action": "前往 issues"
+      }
     }
   }
 }

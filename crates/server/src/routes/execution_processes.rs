@@ -9,11 +9,13 @@ use axum::{
 use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
     execution_process_repo_state::ExecutionProcessRepoState,
+    session::Session,
 };
 use deployment::Deployment;
 use futures_util::{StreamExt, TryStreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use services::services::container::ContainerService;
+use ts_rs::TS;
 use utils::{log_msg::LogMsg, response::ApiResponse};
 use uuid::Uuid;
 
@@ -283,6 +285,72 @@ async fn get_execution_process_repo_states(
     Ok(ResponseJson(ApiResponse::success(repo_states)))
 }
 
+/// One entry in the concurrency wait queue, enriched with the parent
+/// session/workspace so the frontend can render "En cola (posición N)"
+/// on the workspace card without a second round-trip.
+#[derive(Debug, Serialize, TS)]
+pub struct QueuedExecutionSummary {
+    pub id: Uuid,
+    pub session_id: Uuid,
+    pub workspace_id: Uuid,
+    /// 1-based position in the FIFO queue (1 = next to run).
+    pub position: u32,
+}
+
+/// Snapshot of the concurrency semaphore. `limit == 0` means no limit
+/// is configured. Consumers should hide the indicator UI in that case
+/// since the semaphore never gates spawns.
+#[derive(Debug, Serialize, TS)]
+pub struct ConcurrencyStatus {
+    pub limit: u32,
+    pub used: u32,
+    pub queued: Vec<QueuedExecutionSummary>,
+}
+
+async fn get_concurrency_status(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<ConcurrencyStatus>>, ApiError> {
+    let snapshot = match deployment.container().concurrency() {
+        Some(sem) => sem.snapshot().await,
+        None => {
+            // Deployment does not expose a semaphore (e.g. remote-only).
+            // Report `limit=0` so the UI treats it as unlimited/hidden.
+            return Ok(ResponseJson(ApiResponse::success(ConcurrencyStatus {
+                limit: 0,
+                used: 0,
+                queued: Vec::new(),
+            })));
+        }
+    };
+
+    // Enrich each queued ID with its parent session+workspace so the
+    // per-workspace queue badge can be computed without extra fetches.
+    let pool = &deployment.db().pool;
+    let mut queued: Vec<QueuedExecutionSummary> = Vec::with_capacity(snapshot.queued.len());
+    for (idx, exec_id) in snapshot.queued.iter().enumerate() {
+        let Some(process) = ExecutionProcess::find_by_id(pool, *exec_id).await? else {
+            // Process was deleted between snapshot and enrichment — skip
+            // instead of erroring, drain_concurrency_queue will notice.
+            continue;
+        };
+        let Some(session) = Session::find_by_id(pool, process.session_id).await? else {
+            continue;
+        };
+        queued.push(QueuedExecutionSummary {
+            id: process.id,
+            session_id: session.id,
+            workspace_id: session.workspace_id,
+            position: (idx as u32) + 1,
+        });
+    }
+
+    Ok(ResponseJson(ApiResponse::success(ConcurrencyStatus {
+        limit: snapshot.limit,
+        used: snapshot.used,
+        queued,
+    })))
+}
+
 pub(super) fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
     let workspace_id_router = Router::new()
         .route("/", get(get_execution_process_by_id))
@@ -300,6 +368,7 @@ pub(super) fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
             "/stream/session/ws",
             get(stream_execution_processes_by_session_ws),
         )
+        .route("/concurrency-status", get(get_concurrency_status))
         .nest("/{id}", workspace_id_router);
 
     Router::new().nest("/execution-processes", workspaces_router)

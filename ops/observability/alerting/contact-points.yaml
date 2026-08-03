@@ -1,0 +1,70 @@
+# Grafana Alerting — contact points de la flota vibe-kanban.
+#
+# Dos receivers, ambos apuntan al canal de los socios:
+#   - Telegram (primario, para notificación push).
+#   - Email    (respaldo, por si Telegram falla o alguien está sin el móvil).
+#
+# Idempotente por `uid` — reprovisionar sólo actualiza estos dos receivers.
+#
+# Los tres secretos se resuelven vía env vars del contenedor de Grafana:
+#   - VK_TELEGRAM_BOT_TOKEN   Token del bot de Telegram (formato 12345:AAAA…).
+#   - VK_TELEGRAM_CHAT_ID     Chat ID del grupo/canal de socios (puede ser negativo).
+#   - VK_ALERT_EMAIL_TO       Lista de destinatarios separados por coma o punto y coma.
+#
+# El envío de email además necesita que el bloque `[smtp]` esté configurado
+# en `grafana.ini` — ver README.md.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: vk-socios-telegram
+    receivers:
+      - uid: vk-socios-telegram
+        type: telegram
+        disableResolveMessage: false
+        settings:
+          bottoken: $VK_TELEGRAM_BOT_TOKEN
+          chatid: $VK_TELEGRAM_CHAT_ID
+          parse_mode: HTML
+          # Mensaje deliberadamente compacto — Telegram trunca los mensajes
+          # largos y el objetivo es que en el móvil se lea el "qué" y el
+          # "quién" de una. El link al panel queda con el runbook completo.
+          message: |
+            <b>[{{ .Status | toUpper }}{{ if eq .Status "firing" }}{{ if .CommonLabels.severity }} · {{ .CommonLabels.severity }}{{ end }}{{ end }}] {{ .CommonLabels.alertname }}</b>
+
+            {{ range .Alerts }}• {{ .Annotations.summary }}
+            {{ end }}
+            {{ if .CommonAnnotations.runbook }}
+            <b>Runbook</b>
+            <pre>{{ .CommonAnnotations.runbook }}</pre>
+            {{ end }}
+            {{ range .Alerts }}{{ if .GeneratorURL }}<a href="{{ .GeneratorURL }}">Ver alerta</a>
+            {{ end }}{{ end }}
+
+  - orgId: 1
+    name: vk-socios-email
+    receivers:
+      - uid: vk-socios-email
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: $VK_ALERT_EMAIL_TO
+          singleEmail: true
+          subject: '[{{ .Status | toUpper }}] vibe-kanban · {{ .CommonLabels.alertname }}'
+          message: |
+            Estado: {{ .Status | toUpper }}
+            Alerta: {{ .CommonLabels.alertname }}
+            Severidad: {{ .CommonLabels.severity }}
+
+            Instancias afectadas:
+            {{ range .Alerts }}
+              - {{ .Labels.cliente }}/{{ .Labels.instancia }}: {{ .Annotations.summary }}
+            {{ end }}
+            {{ if .CommonAnnotations.description }}
+            Descripción:
+            {{ .CommonAnnotations.description }}
+            {{ end }}
+            {{ if .CommonAnnotations.runbook }}
+            Runbook:
+            {{ .CommonAnnotations.runbook }}
+            {{ end }}

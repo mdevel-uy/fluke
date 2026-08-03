@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} マージ済み",
     "prOpen": "PR #{{number}} オープン",
+    "queuedPosition": "キュー · #{{position}}",
+    "queuedTooltip": "エージェントスロットの空きを待機中（同時実行数の上限に達しました）。",
     "expand": "詳細を表示",
     "collapse": "詳細を隠す",
     "details": {
@@ -591,6 +593,12 @@
       "toggleAdhocClaude": "アドホック Claude"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} スロット",
+    "slotsTooltip": "使用中のエージェントスロット — AGENT_CONCURRENCY_LIMIT / config で設定します。",
+    "slotsQueued": "{{count}} 件待機中",
+    "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。"
+  },
   "adhocPanel": {
     "title": "アドホック Claude",
     "close": "アドホック Claude パネルを閉じる",
@@ -708,6 +716,35 @@
       "tooltipIssues_other": "{{count}} 件クローズ",
       "tooltipHours": "{{issues}} × {{factor}} 時間 = {{hours}} 時間",
       "moreIssues": "他 {{extra}} 件"
+    },
+    "valueGenerated": {
+      "title": "創出された価値",
+      "windowLabel": "履歴期間",
+      "windowMonths": "{{months}}か月",
+      "hoursPerTask": "時間 / タスク",
+      "hoursPerTaskLabel": "完了タスクあたりの既定の削減工数（時間）",
+      "hoursPerFte": "時間 / FTE·月",
+      "hoursPerFteLabel": "FTE 1 人あたりの月間労働時間",
+      "thisMonthLabel": "今月 · {{month}}",
+      "summaryTickets": "{{count}} 件のチケットを解決",
+      "summaryTickets_other": "{{count}} 件のチケットを解決",
+      "summaryHours": "約 {{hours}} 時間の削減",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "直近 {{months}} か月",
+      "totalsTickets": "{{count}} 件",
+      "totalsHours": "{{hours}} 時間",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "月",
+      "tableTickets": "チケット",
+      "tableHours": "時間",
+      "tableFte": "FTE",
+      "loading": "創出された価値を読み込み中…",
+      "emptyHistory": "過去月のデータはまだありません。タスクが完了するごとに追加されます。",
+      "overridePerTaskToggle": "タスクごとの時間を編集",
+      "overridePerTaskLoading": "今月のタスクを読み込み中…",
+      "overridePerTaskEmpty": "今月完了したタスクはありません。",
+      "overridePerTaskInputLabel": "このタスクの節約時間",
+      "overridePerTaskClear": "デフォルトを使用"
     }
   },
   "pilotReport": {
@@ -988,6 +1025,8 @@
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
       "startConflict": "{{worker}} には待機中のタスクがない、またはすでに作業中です。",
       "startError": "{{worker}} の開始に失敗しました：{{message}}",
+      "planCapReached": "{{worker}} のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedWithLimit": "{{worker}} のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
       "createSuccess": "ワーカーを作成しました。",
       "updateSuccess": "ワーカーを更新しました。",
       "deleteSuccess": "{{worker}} を削除しました。",
@@ -1273,6 +1312,8 @@
     "toast": {
       "startAllSuccess": "{{count}}件のワーカーを開始しました。",
       "startAllError": "ワーカーの開始に失敗しました: {{message}}",
+      "planCapReachedGeneric": "一部のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedGenericWithLimit": "一部のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
       "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
       "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
       "reviewApproved": "レビュー承認: {{title}}",
@@ -1283,6 +1324,7 @@
       "reRequestReviewNoOpenPr": "このタスクにはオープンなプルリクエストがありません。",
       "reRequestReviewNoReviewer": "レビューを担当できるレビュワーワーカーがいません。",
       "reRequestReviewInProgress": "このPRのレビューラウンドはすでに進行中です。",
+      "reRequestReviewHeadUnchanged": "前回のレビュー以降、このPRに新しいコミットはありません。再レビューしても同じ判定が繰り返されます。まず修正をプッシュしてください。",
       "reRequestReviewNoChangesRequested": "このタスクは現在、再レビュー待ちではありません。",
       "reRequestReviewError": "再レビューをリクエストできませんでした: {{message}}"
     },
@@ -1295,6 +1337,34 @@
     "autoIngest": {
       "label": "自動取り込み",
       "description": "タスクが割り当てられるとワーカーが自動的に開始します"
+    }
+  },
+  "setupWizard": {
+    "aria": "オンボーディングウィザード",
+    "title": "はじめに",
+    "subtitle": "空のインスタンスから最初の PR までの 4 ステップ。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub に接続",
+        "description": "Personal Access Token または gh CLI で認証し、エージェントが PR を開けるようにします。",
+        "action": "接続"
+      },
+      "repo": {
+        "title": "リポジトリを追加",
+        "description": "ローカルリポジトリを登録し、エージェントがブランチとワークスペースを作れるようにします。",
+        "action": "追加"
+      },
+      "agent": {
+        "title": "エージェントに接続",
+        "description": "Claude Code、Codex または Gemini にログインして、ワーカーが実行するエージェントを用意します。",
+        "action": "接続"
+      },
+      "task": {
+        "title": "最初のタスクを作成して割り当て",
+        "description": "イシューを選んでワーカーに割り当てると、エージェントが実行して PR を開きます。",
+        "action": "イシューへ"
+      }
     }
   }
 }

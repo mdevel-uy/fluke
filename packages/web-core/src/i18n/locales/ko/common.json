@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 병합됨",
     "prOpen": "PR #{{number}} 열림",
+    "queuedPosition": "대기열 · #{{position}}",
+    "queuedTooltip": "사용 가능한 에이전트 슬롯을 기다리는 중입니다(동시 실행 한도에 도달함).",
     "expand": "세부 정보 표시",
     "collapse": "세부 정보 숨기기",
     "details": {
@@ -591,6 +593,12 @@
       "toggleAdhocClaude": "임시 Claude"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} 슬롯",
+    "slotsTooltip": "사용 중인 에이전트 슬롯 — AGENT_CONCURRENCY_LIMIT / config로 설정합니다.",
+    "slotsQueued": "{{count}}개 대기 중",
+    "slotsQueuedTooltip": "동시 실행 한도에 도달했습니다. {{count}}개의 실행이 사용 가능한 슬롯을 기다리는 중입니다."
+  },
   "adhocPanel": {
     "title": "임시 Claude",
     "close": "임시 Claude 패널 닫기",
@@ -708,6 +716,35 @@
       "tooltipIssues_other": "{{count}}건 종료",
       "tooltipHours": "{{issues}} × {{factor}}시간 = {{hours}}시간",
       "moreIssues": "+{{extra}}건 더"
+    },
+    "valueGenerated": {
+      "title": "창출된 가치",
+      "windowLabel": "이력 기간",
+      "windowMonths": "{{months}}개월",
+      "hoursPerTask": "시간 / 작업",
+      "hoursPerTaskLabel": "완료 작업당 기본 절감 공수(시간)",
+      "hoursPerFte": "시간 / FTE·월",
+      "hoursPerFteLabel": "FTE 1인당 월 근무 시간",
+      "thisMonthLabel": "이번 달 · {{month}}",
+      "summaryTickets": "티켓 {{count}}건 해결",
+      "summaryTickets_other": "티켓 {{count}}건 해결",
+      "summaryHours": "약 {{hours}}시간 절감",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "최근 {{months}}개월",
+      "totalsTickets": "티켓 {{count}}건",
+      "totalsHours": "{{hours}}시간",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "월",
+      "tableTickets": "티켓",
+      "tableHours": "시간",
+      "tableFte": "FTE",
+      "loading": "창출된 가치 불러오는 중…",
+      "emptyHistory": "아직 과거 월 데이터가 없습니다. 작업이 완료됨에 따라 표가 채워집니다.",
+      "overridePerTaskToggle": "작업별 시간 편집",
+      "overridePerTaskLoading": "이번 달 작업 불러오는 중…",
+      "overridePerTaskEmpty": "이번 달 완료된 작업이 없습니다.",
+      "overridePerTaskInputLabel": "이 작업의 절약된 시간",
+      "overridePerTaskClear": "기본값 사용"
     }
   },
   "pilotReport": {
@@ -988,6 +1025,8 @@
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
       "startConflict": "{{worker}}에는 대기 중인 작업이 없거나 이미 작업 중입니다.",
       "startError": "{{worker}} 시작 실패: {{message}}",
+      "planCapReached": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedWithLimit": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "createSuccess": "워커를 만들었습니다.",
       "updateSuccess": "워커를 업데이트했습니다.",
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
@@ -1273,6 +1312,8 @@
     "toast": {
       "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
       "startAllError": "워커 시작 실패: {{message}}",
+      "planCapReachedGeneric": "일부 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedGenericWithLimit": "일부 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
       "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
       "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
       "reviewApproved": "리뷰 승인: {{title}}",
@@ -1283,6 +1324,7 @@
       "reRequestReviewNoOpenPr": "이 태스크에 열린 풀 리퀘스트가 없습니다.",
       "reRequestReviewNoReviewer": "리뷰를 담당할 리뷰어 워커가 없습니다.",
       "reRequestReviewInProgress": "이 PR에 대한 리뷰 라운드가 이미 진행 중입니다.",
+      "reRequestReviewHeadUnchanged": "마지막 리뷰 이후 이 PR에 새 커밋이 없습니다. 다시 리뷰해도 같은 판정이 반복됩니다. 먼저 수정 사항을 푸시하세요.",
       "reRequestReviewNoChangesRequested": "이 태스크는 현재 재검토를 대기 중이 아닙니다.",
       "reRequestReviewError": "재검토를 요청할 수 없습니다: {{message}}"
     },
@@ -1295,6 +1337,34 @@
     "autoIngest": {
       "label": "자동 시작",
       "description": "작업이 할당되면 워커가 즉시 시작됩니다"
+    }
+  },
+  "setupWizard": {
+    "aria": "온보딩 마법사",
+    "title": "시작하기",
+    "subtitle": "빈 인스턴스에서 첫 PR까지 네 단계.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub 연결",
+        "description": "Personal Access Token 또는 gh CLI로 인증하여 에이전트가 PR을 열 수 있게 합니다.",
+        "action": "연결"
+      },
+      "repo": {
+        "title": "저장소 추가",
+        "description": "로컬 저장소를 등록해 에이전트가 브랜치와 워크스페이스를 만들 수 있게 합니다.",
+        "action": "추가"
+      },
+      "agent": {
+        "title": "에이전트 연결",
+        "description": "Claude Code, Codex 또는 Gemini에 로그인해 워커가 실행할 에이전트를 준비합니다.",
+        "action": "연결"
+      },
+      "task": {
+        "title": "첫 태스크 만들기 및 할당",
+        "description": "이슈를 골라 워커에게 할당하면 에이전트가 실행되어 PR을 엽니다.",
+        "action": "이슈로 이동"
+      }
     }
   }
 }

@@ -147,6 +147,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} merged",
     "prOpen": "PR #{{number}} open",
+    "queuedPosition": "Queued · #{{position}}",
+    "queuedTooltip": "Waiting for a free agent slot (concurrency limit reached).",
     "expand": "Show details",
     "collapse": "Hide details",
     "details": {
@@ -596,6 +598,12 @@
       "toggleAdhocClaude": "Ad-hoc Claude"
     }
   },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Agent slots in use — set by AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} queued",
+    "slotsQueuedTooltip": "Concurrency limit reached. {{count}} execution(s) waiting for a free slot."
+  },
   "adhocPanel": {
     "title": "Ad-hoc Claude",
     "close": "Close ad-hoc Claude panel",
@@ -713,6 +721,35 @@
       "tooltipIssues_other": "{{count}} issues closed",
       "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
       "moreIssues": "+{{extra}} more"
+    },
+    "valueGenerated": {
+      "title": "Value generated",
+      "windowLabel": "History window",
+      "windowMonths": "{{months}}m",
+      "hoursPerTask": "h / task",
+      "hoursPerTaskLabel": "Default man-hours saved per completed task",
+      "hoursPerFte": "h / FTE·month",
+      "hoursPerFteLabel": "Working hours per FTE per month",
+      "thisMonthLabel": "This month · {{month}}",
+      "summaryTickets": "{{count}} ticket resolved",
+      "summaryTickets_other": "{{count}} tickets resolved",
+      "summaryHours": "~{{hours}} h saved",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "Last {{months}} months",
+      "totalsTickets": "{{count}} tickets",
+      "totalsHours": "{{hours}} h",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "Month",
+      "tableTickets": "Tickets",
+      "tableHours": "Hours",
+      "tableFte": "FTE",
+      "loading": "Loading value generated…",
+      "emptyHistory": "No historical months yet — the table fills in as tasks complete.",
+      "overridePerTaskToggle": "Edit hours per task",
+      "overridePerTaskLoading": "Loading this month's tasks…",
+      "overridePerTaskEmpty": "No completed tasks this month.",
+      "overridePerTaskInputLabel": "Hours saved for this task",
+      "overridePerTaskClear": "Use default"
     }
   },
   "pilotReport": {
@@ -989,6 +1026,8 @@
       "startSuccess": "{{worker}} started \"{{title}}\".",
       "startConflict": "{{worker}} has no queued tasks or is already working.",
       "startError": "Failed to start {{worker}}: {{message}}",
+      "planCapReached": "{{worker}}'s task is queued — your plan is running its concurrent-agents limit.",
+      "planCapReachedWithLimit": "{{worker}}'s task is queued — your plan runs {{limit}} agents in parallel. Upgrade to run more.",
       "createSuccess": "Worker created.",
       "updateSuccess": "Worker updated.",
       "deleteSuccess": "{{worker}} deleted.",
@@ -1277,6 +1316,8 @@
       "startAllSuccess": "{{count}} worker started.",
       "startAllSuccess_other": "{{count}} workers started.",
       "startAllError": "Failed to start workers: {{message}}",
+      "planCapReachedGeneric": "Some tasks are queued — your plan is running its concurrent-agents limit.",
+      "planCapReachedGenericWithLimit": "Some tasks are queued — your plan runs {{limit}} agents in parallel. Upgrade to run more.",
       "assignDuplicate": "This issue already has an active task assigned to a worker.",
       "reviewApproved": "Review approved: {{title}}",
       "reviewChangesRequested": "Changes requested: {{title}}",
@@ -1286,6 +1327,7 @@
       "reRequestReviewNoOpenPr": "This task no longer has an open pull request.",
       "reRequestReviewNoReviewer": "No reviewer worker is available to take the review.",
       "reRequestReviewInProgress": "A review round is already in progress for this PR.",
+      "reRequestReviewHeadUnchanged": "The PR has no new commits since the last review — a re-review would repeat the same verdict. Push a fix first.",
       "reRequestReviewNoChangesRequested": "The task is not waiting for a re-review right now.",
       "reRequestReviewError": "Could not request re-review: {{message}}"
     },
@@ -1298,6 +1340,34 @@
     "autoIngest": {
       "label": "Auto-ingest",
       "description": "Workers start as soon as a task is assigned"
+    }
+  },
+  "setupWizard": {
+    "aria": "Onboarding wizard",
+    "title": "Get started",
+    "subtitle": "Four steps between an empty instance and your first PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Connect GitHub",
+        "description": "Authorize with a Personal Access Token or the gh CLI so agents can open pull requests.",
+        "action": "Connect"
+      },
+      "repo": {
+        "title": "Add a repository",
+        "description": "Register a local repo so agents can create branches and workspaces in it.",
+        "action": "Add"
+      },
+      "agent": {
+        "title": "Connect an agent",
+        "description": "Log in to Claude Code, Codex or Gemini so a worker has an agent to run.",
+        "action": "Connect"
+      },
+      "task": {
+        "title": "Create and assign your first task",
+        "description": "Pick an issue and assign it to a worker — the agent runs and opens the PR.",
+        "action": "Go to issues"
+      }
     }
   }
 }

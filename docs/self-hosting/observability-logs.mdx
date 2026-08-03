@@ -1,0 +1,140 @@
+---
+title: "Shipping instance logs to Loki"
+description: "Enable the Grafana Alloy sidecar to push container logs from a self-hosted instance to a central Loki endpoint."
+---
+
+An optional Grafana Alloy sidecar collects the stdout/stderr of every container in the compose stack (server, executors, Alloy itself) and pushes them to a remote Loki endpoint over HTTPS with basic auth. It is intended for fleets of instances behind customer VPNs, where scraping from the observability side is not possible, so each instance pushes.
+
+The sidecar lives in `docker-compose.local.yml` under the `observability` profile and is off by default — enable it explicitly when provisioning a fleet instance.
+
+<Info>
+The same `observability` profile also ships product and host metrics to a central Prometheus. See [Shipping instance metrics to Prometheus](/self-hosting/observability-metrics) for the two extra environment variables (`PROM_PUSH_URL`, and optionally `VK_METRICS_HOST`) you need to set when enabling the profile.
+</Info>
+
+## What Alloy sends
+
+Every log line is pushed to `LOKI_PUSH_URL` with these labels:
+
+| Label       | Source                  | Example         |
+|-------------|-------------------------|-----------------|
+| `proyecto`  | Static in config        | `vibekanban`    |
+| `cliente`   | `VK_CLIENTE` env var    | `acme`          |
+| `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
+| `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
+| `contenedor`| Docker container name   | `vibe-kanban`   |
+| `service`   | Compose service name    | `vibe-kanban`   |
+
+The `proyecto` label keeps the fleet's data isolated from anything else sharing the same Loki tenant.
+
+## Prerequisites
+
+- The instance can reach the Loki push endpoint over the public internet (typically `https://loki.mdevel.cloud/loki/api/v1/push` for the mdevel fleet).
+- Basic auth credentials for the ingest user. On the mdevel fleet these live in `/root/vk-fleet-ingest.credentials` on the observability VPS and are copied into place at provisioning — never commit them to this repository.
+- Docker Compose v2 on the instance (already required to run the app).
+
+## Environment variables
+
+All six variables are required when the `observability` profile is active. Alloy fails to start if any are missing.
+
+| Variable            | Purpose                                                      |
+|---------------------|--------------------------------------------------------------|
+| `LOKI_PUSH_URL`     | Full push URL, e.g. `https://loki.mdevel.cloud/loki/api/v1/push`. |
+| `LOKI_PUSH_USER`    | Basic auth username for the ingest tenant.                   |
+| `LOKI_PUSH_PASSWORD`| Basic auth password for the ingest tenant.                   |
+| `VK_CLIENTE`        | Customer slug — becomes the `cliente` label.                 |
+| `VK_INSTANCIA`      | Instance slug — becomes the `instancia` label.               |
+| `VK_VERSION`        | Image or deployment version — becomes the `version` label.   |
+
+The recommended pattern is to put these in a `.env` file next to `docker-compose.local.yml` (excluded from git) and load it via `docker compose --env-file`.
+
+## Enabling on an instance
+
+<Steps>
+<Step title="Drop credentials into an env file">
+On the instance host, create `/opt/vibe-kanban/observability.env` with the six variables. Keep the file mode restrictive (`chmod 600`).
+
+```env observability.env
+VK_CLIENTE=acme
+VK_INSTANCIA=acme-prod
+VK_VERSION=2026.08.02-1
+
+LOKI_PUSH_URL=https://loki.mdevel.cloud/loki/api/v1/push
+LOKI_PUSH_USER=<ingest-user>
+LOKI_PUSH_PASSWORD=<ingest-password>
+```
+</Step>
+
+<Step title="Start the Alloy sidecar">
+From the repository root on the instance:
+
+```bash
+docker compose \
+  --env-file /opt/vibe-kanban/observability.env \
+  --profile observability \
+  -f docker-compose.local.yml \
+  up -d alloy
+```
+
+<Check>
+`docker compose ps alloy` should show the container `Up` and healthy.
+</Check>
+</Step>
+
+<Step title="Verify logs land in Grafana">
+Trigger some activity (any HTTP request against the server is enough) and query Loki for the instance:
+
+```logql
+{proyecto="vibekanban", cliente="acme"}
+```
+
+Lines should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).
+</Step>
+</Steps>
+
+## Updating labels or endpoint
+
+Both are runtime concerns — just update `/opt/vibe-kanban/observability.env` and restart the sidecar:
+
+```bash
+docker compose \
+  --env-file /opt/vibe-kanban/observability.env \
+  --profile observability \
+  -f docker-compose.local.yml \
+  up -d alloy
+```
+
+No image rebuild is needed; Alloy re-reads env vars on start.
+
+## Disabling the sidecar
+
+Because the service sits behind a compose profile, omitting `--profile observability` on subsequent `up`/`down` commands leaves it untouched. To stop and remove it explicitly:
+
+```bash
+docker compose --profile observability -f docker-compose.local.yml rm -sf alloy
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="Alloy exits immediately at start-up">
+Usually a missing env var. Compose will print `variable is not set` for the offending name. Confirm all six variables are exported (or present in the `--env-file`).
+</Accordion>
+
+<Accordion title="No logs in Grafana after a minute">
+Check the Alloy container logs:
+
+```bash
+docker compose --profile observability -f docker-compose.local.yml logs -f alloy
+```
+
+Common causes:
+
+- `401 Unauthorized` from Loki — wrong `LOKI_PUSH_USER` / `LOKI_PUSH_PASSWORD`.
+- `no such host` or TLS errors — the instance cannot reach `LOKI_PUSH_URL` from the customer network. Confirm the URL is reachable from inside the container with `docker compose exec alloy wget -S -O- $LOKI_PUSH_URL`.
+- `permission denied` on `/var/run/docker.sock` — the Docker socket is not readable by the Alloy container's user. On hosts with restrictive socket permissions, run the Alloy container with `group_add: [<docker gid>]` or expose the socket via a rootless proxy.
+</Accordion>
+
+<Accordion title="Wrong `cliente` or `instancia` label appears in Grafana">
+Alloy only reads env vars once at start-up. After editing the env file, re-run the `up -d alloy` command from the enabling step above — a plain `restart` will pick up the change but a full `up` also refreshes the compose spec.
+</Accordion>
+</AccordionGroup>

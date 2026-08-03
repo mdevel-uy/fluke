@@ -23,6 +23,7 @@ pub mod guidelines;
 pub mod health;
 pub mod host_relay;
 pub mod impact;
+pub mod metrics;
 pub mod oauth;
 pub mod organizations;
 pub mod pilot_report;
@@ -34,11 +35,13 @@ pub mod repo;
 pub mod scratch;
 pub mod search;
 pub mod sessions;
+pub mod setup_status;
 pub mod skills;
 pub mod ssh_session;
 pub mod system;
 pub mod tags;
 pub mod terminal;
+pub mod value_generated;
 pub mod webrtc;
 pub mod workers;
 pub mod workspaces;
@@ -62,6 +65,8 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(repo::router())
         .merge(impact::router())
         .merge(pilot_report::router())
+        .merge(metrics::router())
+        .merge(value_generated::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))
@@ -69,6 +74,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(preview::api_router())
         .merge(releases::router())
         .merge(sessions::router(&deployment))
+        .merge(setup_status::router())
         .merge(terminal::router())
         .merge(editor_server::router())
         .route("/ssh-session", get(ssh_session::ssh_session_ws))

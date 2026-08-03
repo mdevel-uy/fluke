@@ -8,6 +8,7 @@ import {
   FolderClosed,
   GitBranch,
   HardDrive,
+  Hourglass,
   Plus,
   SquareKanban,
   TriangleAlert,
@@ -36,6 +37,7 @@ import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useConcurrencyStatus } from '@/shared/hooks/useConcurrencyStatus';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 
@@ -138,6 +140,13 @@ export function StatusBarContainer({
     setRightSidebarVisible(true);
     appNavigation.goToWorkspaces();
   }, [setRightSidebarVisible, appNavigation]);
+
+  // Issue #346 · concurrency semaphore signal. Only shown when a
+  // non-zero limit is configured — `limit === 0` means "unlimited" and
+  // there is nothing to display.
+  const { data: concurrency } = useConcurrencyStatus();
+  const showConcurrency = !!concurrency && concurrency.limit > 0;
+  const queuedCount = concurrency?.queued.length ?? 0;
 
   const repoLabel = (repo: { display_name?: string | null; name: string }) =>
     repo.display_name || repo.name;
@@ -298,6 +307,39 @@ export function StatusBarContainer({
       )}
 
       <StatusBarSpacer />
+
+      {/* Issue #346 · concurrency semaphore: N/M coding-agent slots
+          used. Hidden when the plan limit is 0 (unlimited). */}
+      {showConcurrency && (
+        <StatusBarItem
+          readOnly
+          variant={queuedCount > 0 ? 'brand' : 'default'}
+          title={
+            queuedCount > 0
+              ? t('statusBar.slotsQueuedTooltip', {
+                  defaultValue:
+                    'Concurrency limit reached. {{count}} execution(s) waiting for a free slot.',
+                  count: queuedCount,
+                })
+              : t('statusBar.slotsTooltip', {
+                  defaultValue:
+                    'Agent slots in use — set by AGENT_CONCURRENCY_LIMIT / config.',
+                })
+          }
+        >
+          <Hourglass size={12} strokeWidth={1.75} aria-hidden />
+          {t('statusBar.slots', {
+            defaultValue: '{{used}}/{{limit}} slots',
+            used: concurrency.used,
+            limit: concurrency.limit,
+          })}
+          {queuedCount > 0 &&
+            ` · ${t('statusBar.slotsQueued', {
+              defaultValue: '{{count}} queued',
+              count: queuedCount,
+            })}`}
+        </StatusBarItem>
+      )}
 
       {/* R27 · fleet signal → Workspaces with the aside shown */}
       {(runningCount > 0 || attentionCount > 0) && (

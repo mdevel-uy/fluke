@@ -12,7 +12,13 @@ import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useRepos } from '@/shared/hooks/useRepos';
-import { ApiError, workersApi, repoIssuesApi } from '@/shared/lib/api';
+import {
+  ApiError,
+  workersApi,
+  repoIssuesApi,
+  type PlanUpgradeCta,
+} from '@/shared/lib/api';
+import { usePlanLimits } from '@/shared/hooks/usePlanLimits';
 import { useRepoIssues, useSyncRepoIssues } from '@/features/issues';
 import type {
   RepoIssue,
@@ -55,9 +61,13 @@ type Toast = {
   id: number;
   variant: 'success' | 'error' | 'info';
   message: string;
+  cta?: PlanUpgradeCta;
 };
 
 const TOAST_DURATION_MS = 4000;
+// Cap-hit toasts double as upsell prompts, so give the reader more time to
+// notice and click the CTA before the toast fades.
+const CTA_TOAST_DURATION_MS = 8000;
 
 function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -74,10 +84,18 @@ function useToasts() {
   }, []);
 
   const push = useCallback(
-    (variant: Toast['variant'], message: string) => {
+    (
+      variant: Toast['variant'],
+      message: string,
+      options?: { cta?: PlanUpgradeCta }
+    ) => {
       const id = nextIdRef.current++;
-      setToasts((prev) => [...prev, { id, variant, message }]);
-      const timer = setTimeout(() => dismiss(id), TOAST_DURATION_MS);
+      setToasts((prev) => [
+        ...prev,
+        { id, variant, message, cta: options?.cta },
+      ]);
+      const duration = options?.cta ? CTA_TOAST_DURATION_MS : TOAST_DURATION_MS;
+      const timer = setTimeout(() => dismiss(id), duration);
       timersRef.current.set(id, timer);
     },
     [dismiss]
@@ -279,6 +297,30 @@ export function SprintPage() {
     null
   );
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
+  const { data: planLimits } = usePlanLimits();
+
+  const pushPlanCapToast = useCallback(
+    (workerName?: string | null) => {
+      const limit = planLimits?.concurrent_agents_limit;
+      const message =
+        workerName != null
+          ? limit != null
+            ? t('workers.toast.planCapReachedWithLimit', {
+                worker: workerName,
+                limit,
+              })
+            : t('workers.toast.planCapReached', { worker: workerName })
+          : limit != null
+            ? t('sprint.toast.planCapReachedGenericWithLimit', { limit })
+            : t('sprint.toast.planCapReachedGeneric');
+      pushToast(
+        'info',
+        message,
+        planLimits?.upgrade_cta ? { cta: planLimits.upgrade_cta } : undefined
+      );
+    },
+    [planLimits, pushToast, t]
+  );
 
   const invalidateWorkerData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: workersKeys.all });
@@ -472,7 +514,9 @@ export function SprintPage() {
   }, [allTasks]);
 
   // With auto-ingest on, an idle worker picks up its queue as soon as a task
-  // is assigned. Conflicts (worker grabbed something else meanwhile) are fine.
+  // is assigned. Conflicts (worker grabbed something else meanwhile) are
+  // fine; a 429 means the concurrent-agents cap is full, which is the exact
+  // moment to surface the upsell CTA.
   const maybeAutoStart = useCallback(
     (workerId: string) => {
       if (!autoIngest) return;
@@ -480,12 +524,16 @@ export function SprintPage() {
       if (!worker || worker.active_workspace_id) return;
       startNextMutation.mutate(workerId, {
         onError: (err) => {
+          if (err instanceof ApiError && err.status === 429) {
+            pushPlanCapToast(worker.name);
+            return;
+          }
           if (err instanceof ApiError && err.status === 409) return;
           pushToast('error', err instanceof Error ? err.message : String(err));
         },
       });
     },
-    [autoIngest, workers, startNextMutation, pushToast]
+    [autoIngest, workers, startNextMutation, pushToast, pushPlanCapToast]
   );
 
   const handleAssignIssue = useCallback(
@@ -625,7 +673,9 @@ export function SprintPage() {
                       ? 'sprint.toast.reRequestReviewInProgress'
                       : code === 'no_changes_requested'
                         ? 'sprint.toast.reRequestReviewNoChangesRequested'
-                        : 'sprint.toast.reRequestReviewError';
+                        : code === 'pr_head_unchanged'
+                          ? 'sprint.toast.reRequestReviewHeadUnchanged'
+                          : 'sprint.toast.reRequestReviewError';
             pushToast(
               'error',
               t(key, {
@@ -768,12 +818,20 @@ export function SprintPage() {
     try {
       const result = await startAllMutation.mutateAsync();
       const started = result.results.filter((r) => r.started).length;
+      const capHit = result.results.some(
+        (r) => !r.started && r.reason === 'in_review_cap_reached'
+      );
       invalidateWorkerData();
       if (started > 0) {
         pushToast(
           'success',
           t('sprint.toast.startAllSuccess', { count: started })
         );
+      }
+      // Auto-ingest tried every worker; if any of them stayed queued because
+      // the cap was full, surface the upsell CTA once (not once per worker).
+      if (capHit) {
+        pushPlanCapToast(null);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -904,9 +962,26 @@ export function SprintPage() {
                     : 'border-md-outline-variant bg-md-surface-container-low text-md-on-surface',
               ].join(' ')}
             >
-              <span className="min-w-0 flex-1 leading-relaxed">
-                {toast.message}
-              </span>
+              <div className="min-w-0 flex-1 leading-relaxed">
+                <span>{toast.message}</span>
+                {toast.cta ? (
+                  <>
+                    {' '}
+                    <a
+                      href={toast.cta.url}
+                      target={
+                        toast.cta.url.startsWith('mailto:')
+                          ? undefined
+                          : '_blank'
+                      }
+                      rel="noopener noreferrer"
+                      className="font-semibold underline underline-offset-2 hover:no-underline"
+                    >
+                      {toast.cta.label}
+                    </a>
+                  </>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}

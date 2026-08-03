@@ -657,6 +657,11 @@
           "title": "Codex",
           "description": "ブラウザのデバイスフローで OpenAI Codex にサインインします。ターミナルは不要です。"
         },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Claude のサブスクリプションでサインイン: URL を開いてログインし、返された引換コードを下に貼り付けてください。"
+        },
         "gemini": {
           "name": "Gemini",
           "title": "Gemini",
@@ -682,6 +687,17 @@
         "helpLink": "Google AI Studio",
         "helpAfter": "上に貼り付けてください。"
       },
+      "claudeFlow": {
+        "title": "claude.com で認可",
+        "description": "URL を開いて Claude アカウントにサインインし、ページから返された引換コードをコピーしてください。",
+        "openBrowser": "claude.com を開く",
+        "copyUrl": "URL をコピー",
+        "waitingForUrl": "CLI がサインイン URL を表示するのを待っています…",
+        "codeInputLabel": "引換コード",
+        "codeInputPlaceholder": "claude.com のコードを貼り付け",
+        "codeInputHelp": "CLI がコードを受理するとこのカードは自動的に更新されます。",
+        "submitCode": "コードを送信"
+      },
       "hidden": {
         "title": "CLI 未インストール",
         "description": "次のエージェントは CLI がこのイメージにインストールされていないため非表示になっています: {{providers}}。"
@@ -689,7 +705,8 @@
       "errors": {
         "loginFailed": "接続フローを開始できませんでした。",
         "logoutFailed": "エージェントを切断できませんでした。",
-        "cancelFailed": "接続をキャンセルできませんでした。"
+        "cancelFailed": "接続をキャンセルできませんでした。",
+        "submitCodeFailed": "引換コードを送信できませんでした。"
       }
     }
   },

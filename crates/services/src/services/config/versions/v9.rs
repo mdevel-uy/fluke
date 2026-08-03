@@ -29,6 +29,24 @@ fn default_max_review_rounds() -> u32 {
     3
 }
 
+fn default_agent_concurrency_limit() -> u32 {
+    // 0 means "unlimited" — matches historical behavior before the semaphore.
+    0
+}
+
+/// Man-hours credited to a completed task that carries no per-task override.
+/// Four hours anchors the "half a working day" narrative used in the pricing
+/// conversation and matches the issue-353 default.
+fn default_hours_saved_per_task() -> f64 {
+    4.0
+}
+
+/// Working hours in a month used to translate hours saved into an FTE
+/// equivalent. 160 = 8 h × 20 working days, the industry benchmark.
+fn default_hours_per_fte_month() -> f64 {
+    160.0
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 pub struct Config {
     pub config_version: String,
@@ -67,6 +85,24 @@ pub struct Config {
     pub host_nickname: Option<String>,
     #[serde(default = "default_max_review_rounds")]
     pub max_review_rounds: u32,
+    /// Maximum number of coding-agent executor processes that may run at
+    /// once. `0` = unlimited. Extras are queued FIFO by the container
+    /// semaphore and auto-start as slots free up. Reload takes effect on
+    /// the next spawn / process exit — no server restart required.
+    #[serde(default = "default_agent_concurrency_limit")]
+    pub agent_concurrency_limit: u32,
+    /// Installation-wide default for the man-hours the "value generated"
+    /// panel credits to a completed task that carries no per-task override.
+    /// Persisted server-side so every viewer sees the same authoritative
+    /// figure — the number that anchors the pricing conversation must not
+    /// diverge per browser.
+    #[serde(default = "default_hours_saved_per_task")]
+    pub default_hours_saved_per_task: f64,
+    /// Installation-wide default for the working hours in a month used to
+    /// translate hours saved into the FTE equivalent shown in the value
+    /// generated panel.
+    #[serde(default = "default_hours_per_fte_month")]
+    pub default_hours_per_fte_month: f64,
 }
 
 impl Config {
@@ -96,6 +132,9 @@ impl Config {
             relay_enabled: old_config.relay_enabled,
             host_nickname: old_config.host_nickname,
             max_review_rounds: default_max_review_rounds(),
+            agent_concurrency_limit: default_agent_concurrency_limit(),
+            default_hours_saved_per_task: default_hours_saved_per_task(),
+            default_hours_per_fte_month: default_hours_per_fte_month(),
         }
     }
 
@@ -153,6 +192,9 @@ impl Default for Config {
             relay_enabled: true,
             host_nickname: None,
             max_review_rounds: default_max_review_rounds(),
+            agent_concurrency_limit: default_agent_concurrency_limit(),
+            default_hours_saved_per_task: default_hours_saved_per_task(),
+            default_hours_per_fte_month: default_hours_per_fte_month(),
         }
     }
 }
