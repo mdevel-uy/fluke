@@ -1255,10 +1255,15 @@ impl LocalContainerService {
                         None,
                     )
                     .await;
-                    // A failed spawn releases the slot; drain again so
-                    // another queued execution can take our place.
+                    // A failed spawn releases the slot. We deliberately do
+                    // NOT recurse into `drain_concurrency_queue` here — a
+                    // recursive `async fn` inside `tokio::spawn` cannot be
+                    // proved `Send` by the compiler. The next process exit
+                    // (any other running executor finishing) will drain
+                    // the queue via `spawn_exit_monitor`, so no queued
+                    // task is lost — only mildly delayed on this rare
+                    // error path.
                     container.concurrency.release(&next_id).await;
-                    Box::pin(container.drain_concurrency_queue()).await;
                 }
             });
         }
