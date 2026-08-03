@@ -1180,23 +1180,11 @@ async fn start_claude_login()
         rt.task.insert(AgentAuthProvider::ClaudeCode, watcher);
     }
 
-    // Give the CLI a moment to print the authorize URL. Ten seconds is
-    // enough for both a warm binary and a cold `npx` fetch; if it takes
-    // longer the frontend keeps polling status.
-    for _ in 0..100 {
-        if let Some(p) = read_progress(AgentAuthProvider::ClaudeCode).await
-            && (p.verification_uri.is_some()
-                || matches!(p.state, AgentLoginState::Failed))
-        {
-            return Ok(ResponseJson(ApiResponse::success(AgentLoginResponse {
-                verification_uri: p.verification_uri.clone(),
-                user_code: None,
-                completed: false,
-            })));
-        }
-        sleep(Duration::from_millis(100)).await;
-    }
-
+    // Return immediately: the frontend polls `GET /agents/auth` on a
+    // 2s tick while a login is `Pending`, so the URL surfaces there as
+    // soon as the reader task parses it out of the PTY. Blocking the
+    // "Connect" click on a synchronous URL wait adds visible latency
+    // (up to a few seconds on a cold `npx` fetch) for no benefit.
     Ok(ResponseJson(ApiResponse::success(AgentLoginResponse {
         verification_uri: None,
         user_code: None,
@@ -1327,11 +1315,13 @@ async fn read_claude_pty_output(
 /// chars as end-of-URL (which is what the CLI prints before the "Paste
 /// code here" prompt).
 ///
-/// The `https://claude.com/` origin is intentionally hardcoded to reject
-/// masquerading URLs from other hosts. If the flow ever goes silent (Connect
-/// stays on "waiting for URL"), the CLI may have switched to a different
-/// host (`login.anthropic.com`, `console.anthropic.com`, ...); this is the
-/// first place to look.
+/// The origin (`https://claude.com/`) is hardcoded deliberately: the CLI
+/// only prints URLs on that host, and accepting anything else would let a
+/// hostile output (interpolated MOTD, malicious npm package, ...) steer
+/// users to a phishing origin. If the flow ever goes silent — Connect
+/// stays on "waiting for URL" — the CLI may have moved the authorize
+/// endpoint to a different host (e.g. `login.anthropic.com`,
+/// `console.anthropic.com`); this parser is the first place to update.
 fn extract_claude_authorize_url(text: &str) -> Option<String> {
     let start = text.find("https://claude.com/")?;
     let rest = &text[start..];
@@ -1396,7 +1386,11 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
 
     // Write the code and a carriage return: the CLI treats CR as "enter" on
     // its Ink prompt, so this submits the value the same way a keyboard
-    // paste would.
+    // paste would. The write runs inside `spawn_blocking` because
+    // `pty.writer` is a synchronous `Write` (portable_pty does not expose an
+    // async writer) and we would otherwise stall the async runtime while
+    // the pipe drains. Payload is ~20 bytes so it should complete in
+    // microseconds, but the wrapping keeps the runtime honest.
     let mut payload = code.as_bytes().to_vec();
     payload.push(b'\r');
 
