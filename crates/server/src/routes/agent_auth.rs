@@ -200,8 +200,14 @@ struct LoginRuntime {
 /// The `_master` field owns the master side of the PTY: dropping it closes
 /// the pipe out from under the writer and the reader thread, so keep it
 /// alive as long as the login is in flight.
+///
+/// `writer` is wrapped in `Option` because `submit_claude_code` moves it out
+/// into a `spawn_blocking` task while the write happens (the PTY writer is
+/// synchronous and would block the async runtime otherwise) and puts it back
+/// on success so a subsequent submit — e.g. a retry after "invalid code" —
+/// can reach the CLI again.
 struct PtyLogin {
-    writer: Box<dyn std::io::Write + Send>,
+    writer: Option<Box<dyn std::io::Write + Send>>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
     _master: Box<dyn portable_pty::MasterPty + Send>,
 }
@@ -1260,7 +1266,7 @@ async fn spawn_claude_pty(
         });
 
         Ok::<_, String>(PtyLogin {
-            writer,
+            writer: Some(writer),
             child,
             _master: pty_pair.master,
         })
@@ -1320,6 +1326,12 @@ async fn read_claude_pty_output(
 /// character) as part of the URL and two-or-more consecutive whitespace
 /// chars as end-of-URL (which is what the CLI prints before the "Paste
 /// code here" prompt).
+///
+/// The `https://claude.com/` origin is intentionally hardcoded to reject
+/// masquerading URLs from other hosts. If the flow ever goes silent (Connect
+/// stays on "waiting for URL"), the CLI may have switched to a different
+/// host (`login.anthropic.com`, `console.anthropic.com`, ...); this is the
+/// first place to look.
 fn extract_claude_authorize_url(text: &str) -> Option<String> {
     let start = text.find("https://claude.com/")?;
     let rest = &text[start..];
@@ -1363,26 +1375,69 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
         )
     })?;
 
-    let mut guard = slot.lock().await;
-    let pty = guard.as_mut().ok_or_else(|| {
-        ApiError::BadRequest(
-            "The Claude Code login has already finished.".to_string(),
-        )
-    })?;
+    // Take the writer out of the slot so we can run the blocking write on a
+    // dedicated thread without holding the async mutex across the syscall.
+    // Put it back on success so a retry after "invalid code" can still reach
+    // the CLI; tear the whole login down on failure so `Pending` doesn't get
+    // stuck when the child has already died.
+    let writer = {
+        let mut guard = slot.lock().await;
+        let pty = guard.as_mut().ok_or_else(|| {
+            ApiError::BadRequest(
+                "The Claude Code login has already finished.".to_string(),
+            )
+        })?;
+        pty.writer.take().ok_or_else(|| {
+            ApiError::BadRequest(
+                "A previous exchange code is still being submitted.".to_string(),
+            )
+        })?
+    };
 
     // Write the code and a carriage return: the CLI treats CR as "enter" on
     // its Ink prompt, so this submits the value the same way a keyboard
     // paste would.
     let mut payload = code.as_bytes().to_vec();
     payload.push(b'\r');
-    pty.writer.write_all(&payload).map_err(|e| {
-        ApiError::BadGateway(format!("Failed to write to claude stdin: {e}"))
-    })?;
-    pty.writer.flush().map_err(|e| {
-        ApiError::BadGateway(format!("Failed to flush claude stdin: {e}"))
-    })?;
 
-    Ok(ResponseJson(ApiResponse::success(())))
+    let write_result = tokio::task::spawn_blocking(move || {
+        let mut writer = writer;
+        writer.write_all(&payload)?;
+        writer.flush()?;
+        Ok::<_, std::io::Error>(writer)
+    })
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("submit_claude_code join failed: {e}")))?;
+
+    match write_result {
+        Ok(writer) => {
+            let mut guard = slot.lock().await;
+            if let Some(pty) = guard.as_mut() {
+                pty.writer = Some(writer);
+            }
+            Ok(ResponseJson(ApiResponse::success(())))
+        }
+        Err(e) => {
+            // The child is gone or the PTY closed: without cleanup the
+            // runtime would keep the login as `Pending` forever, blocking
+            // any retry from the UI. Reuse `stop_in_flight_login` so the
+            // watcher task, child handle and PTY slot are all released, and
+            // flip the progress record to `Failed` so the frontend surfaces
+            // a real error instead of an endless spinner.
+            stop_in_flight_login(AgentAuthProvider::ClaudeCode).await;
+            let err_msg = format!("Failed to write to claude stdin: {e}");
+            update_progress(AgentAuthProvider::ClaudeCode, |p| {
+                if !matches!(p.state, AgentLoginState::Completed) {
+                    p.state = AgentLoginState::Failed;
+                    if p.error.is_none() {
+                        p.error = Some(err_msg.clone());
+                    }
+                }
+            })
+            .await;
+            Err(ApiError::BadGateway(err_msg))
+        }
+    }
 }
 
 async fn claude_logout() -> Result<(), ApiError> {
