@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} 已合并",
     "prOpen": "PR #{{number}} 打开",
+    "queuedPosition": "排队中 · #{{position}}",
+    "queuedTooltip": "等待可用的代理槽位（已达到并发上限）。",
     "expand": "显示详情",
     "collapse": "隐藏详情",
     "details": {
@@ -590,6 +592,12 @@
     "layout": {
       "toggleAdhocClaude": "临时 Claude"
     }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} 槽位",
+    "slotsTooltip": "正在使用的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 设置。",
+    "slotsQueued": "{{count}} 个排队中",
+    "slotsQueuedTooltip": "已达到并发上限。{{count}} 个执行正在等待可用槽位。"
   },
   "adhocPanel": {
     "title": "临时 Claude",

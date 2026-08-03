@@ -133,6 +133,8 @@
     "contextPct": "{{pct}}% ctx",
     "prMerged": "PR #{{number}} fusionnée",
     "prOpen": "PR #{{number}} ouverte",
+    "queuedPosition": "En attente · #{{position}}",
+    "queuedTooltip": "En attente d'un slot d'agent libre (limite de concurrence atteinte).",
     "expand": "Afficher les détails",
     "collapse": "Masquer les détails",
     "details": {
@@ -590,6 +592,12 @@
     "layout": {
       "toggleAdhocClaude": "Claude ad hoc"
     }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} en attente",
+    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre."
   },
   "adhocPanel": {
     "title": "Claude ad hoc",

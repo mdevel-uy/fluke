@@ -41,6 +41,10 @@ pub enum ExecutionProcessError {
 #[serde(rename_all = "lowercase")]
 #[ts(use_ts_enum)]
 pub enum ExecutionProcessStatus {
+    /// Waiting for a concurrency slot to free up. Row exists but no
+    /// child process is spawned yet — the container semaphore will
+    /// transition this to `Running` when a slot becomes available.
+    Queued,
     Running,
     Completed,
     Failed,
@@ -470,6 +474,68 @@ impl ExecutionProcess {
         false
     }
 
+    /// Transition an execution process from `queued` to `running` (or
+    /// simply set status = 'running' if it was already running). Also
+    /// refreshes `started_at` so the elapsed-time UI counts from the
+    /// point the child actually starts, not from enqueue time.
+    pub async fn mark_running(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query!(
+            r#"UPDATE execution_processes
+               SET status = $1, started_at = $2
+               WHERE id = $3"#,
+            ExecutionProcessStatus::Running,
+            now,
+            id
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Mark an execution process as queued (waiting for a concurrency slot).
+    /// Called when the container semaphore is full at spawn time.
+    pub async fn mark_queued(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"UPDATE execution_processes
+               SET status = $1
+               WHERE id = $2"#,
+            ExecutionProcessStatus::Queued,
+            id
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Return all processes that are currently in `queued` status, ordered
+    /// FIFO by creation time. Used on startup to re-hydrate the in-memory
+    /// queue after a restart. Dropped (soft-deleted) rows are excluded —
+    /// they represent history that was trimmed and must not be resurrected.
+    pub async fn find_queued(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as!(
+            ExecutionProcess,
+            r#"SELECT
+                    ep.id as "id!: Uuid",
+                    ep.session_id as "session_id!: Uuid",
+                    ep.run_reason as "run_reason!: ExecutionProcessRunReason",
+                    ep.executor_action as "executor_action!: sqlx::types::Json<ExecutorActionField>",
+                    ep.status as "status!: ExecutionProcessStatus",
+                    ep.exit_code,
+                    ep.dropped as "dropped!: bool",
+                    ep.started_at as "started_at!: DateTime<Utc>",
+                    ep.completed_at as "completed_at?: DateTime<Utc>",
+                    ep.created_at as "created_at!: DateTime<Utc>",
+                    ep.updated_at as "updated_at!: DateTime<Utc>"
+               FROM execution_processes ep
+               WHERE ep.status = 'queued'
+                 AND ep.dropped = FALSE
+               ORDER BY ep.created_at ASC"#,
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Update execution process status and completion info
     pub async fn update_completion(
         pool: &SqlitePool,
@@ -477,7 +543,10 @@ impl ExecutionProcess {
         status: ExecutionProcessStatus,
         exit_code: Option<i64>,
     ) -> Result<(), sqlx::Error> {
-        let completed_at = if matches!(status, ExecutionProcessStatus::Running) {
+        let completed_at = if matches!(
+            status,
+            ExecutionProcessStatus::Running | ExecutionProcessStatus::Queued
+        ) {
             None
         } else {
             Some(Utc::now())

@@ -1029,7 +1029,35 @@ export const executionProcessesApi = {
     );
     return handleApiResponse<void>(response);
   },
+
+  getConcurrencyStatus: async (): Promise<ConcurrencyStatus> => {
+    const response = await makeRequest(
+      '/api/execution-processes/concurrency-status'
+    );
+    return handleApiResponse<ConcurrencyStatus>(response);
+  },
 };
+
+// Concurrency semaphore status snapshot. Declared inline so this branch
+// does not require regenerating shared/types.ts; the backend types (see
+// crates/server/src/routes/execution_processes.rs) already emit these
+// via ts-rs and infrastructure will replace this block on the next
+// generate-types run.
+export interface QueuedExecutionSummary {
+  id: string;
+  session_id: string;
+  workspace_id: string;
+  /** 1-based FIFO position (1 = next to run). */
+  position: number;
+}
+
+export interface ConcurrencyStatus {
+  /** Configured limit. `0` means unlimited — UI should hide the indicator. */
+  limit: number;
+  /** Number of coding-agent processes currently holding a slot. */
+  used: number;
+  queued: QueuedExecutionSummary[];
+}
 
 // File System APIs
 export const fileSystemApi = {

@@ -43,6 +43,12 @@ export interface WorkspaceWithStats {
   hasUnseenActivity?: boolean;
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
+  /**
+   * Issue #346 · If this workspace has a coding-agent execution
+   * waiting in the concurrency queue, its 1-based position (1 = next
+   * to run). Absent = not queued.
+   */
+  queuePosition?: number;
 }
 
 export interface IssueWorkspaceCardProps {
@@ -151,6 +157,20 @@ export function IssueWorkspaceCard({
               {workspace.archived
                 ? t('workspaces.archived')
                 : t('workspaces.active')}
+            </span>
+          )}
+          {workspace.queuePosition !== undefined && (
+            <span
+              className="px-1.5 py-0.5 rounded text-xs font-medium shrink-0 bg-brand/10 text-brand-on-surface"
+              title={t('workspaces.queuedTooltip', {
+                defaultValue:
+                  'Waiting for a free agent slot (concurrency limit reached).',
+              })}
+            >
+              {t('workspaces.queuedPosition', {
+                defaultValue: 'Queued · #{{position}}',
+                position: workspace.queuePosition,
+              })}
             </span>
           )}
           {workspace.name && (
