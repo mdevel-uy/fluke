@@ -17,8 +17,12 @@ ALTER TABLE execution_processes
 UPDATE execution_processes
   SET status_new = status;
 
--- 3. Drop the old status index (recreated at the bottom against the new column).
+-- 3. Drop EVERY index that references the old column (all recreated at the
+--    bottom against the new one). SQLite refuses DROP COLUMN while any
+--    index still mentions the column — missing the composite one left the
+--    deploy in a crash loop ("no such column: status" on the index).
 DROP INDEX IF EXISTS idx_execution_processes_status;
+DROP INDEX IF EXISTS idx_execution_processes_session_status_run_reason;
 
 -- 4. Remove the old column (requires SQLite 3.35+).
 ALTER TABLE execution_processes DROP COLUMN status;
@@ -27,5 +31,7 @@ ALTER TABLE execution_processes DROP COLUMN status;
 ALTER TABLE execution_processes
   RENAME COLUMN status_new TO status;
 
--- 6. Re-create the status index.
+-- 6. Re-create the indexes against the new column.
 CREATE INDEX idx_execution_processes_status ON execution_processes(status);
+CREATE INDEX idx_execution_processes_session_status_run_reason
+        ON execution_processes (session_id, status, run_reason);
