@@ -282,6 +282,38 @@ impl ExecutionProcess {
         .await
     }
 
+    /// Number of coding-agent processes currently running across every
+    /// workspace. Exposed as `vibe_kanban_agents_running` in `/api/metrics`
+    /// so the fleet dashboard can plot concurrent-agents per instance.
+    /// Runtime-checked (`sqlx::query_scalar`) to keep the offline sqlx cache
+    /// unchanged.
+    pub async fn count_running_coding_agents(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM execution_processes
+               WHERE status = 'running' AND run_reason = 'codingagent'",
+        )
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Cumulative count of failed execution processes grouped by
+    /// `run_reason`. Feeds a Prometheus counter so ops can alert on
+    /// executor regressions per instance. Runtime-checked query.
+    pub async fn counts_failed_by_run_reason(
+        pool: &SqlitePool,
+    ) -> Result<Vec<(String, i64)>, sqlx::Error> {
+        sqlx::query_as::<_, (String, i64)>(
+            "SELECT run_reason, COUNT(*)
+               FROM execution_processes
+               WHERE status = 'failed'
+               GROUP BY run_reason
+               ORDER BY run_reason ASC",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Check if there's a running coding agent process for a session
     pub async fn has_running_coding_agent_for_session(
         pool: &SqlitePool,
