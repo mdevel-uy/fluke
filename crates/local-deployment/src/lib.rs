@@ -48,6 +48,13 @@ pub mod container;
 mod copy;
 pub mod pty;
 
+// Re-export the `portable-pty` crate so other workspace crates (currently
+// `server`, for the Claude Code setup-token flow) can spawn PTYs without a
+// separate direct dependency — `local-deployment` already pins it for the
+// interactive shell service, so this keeps `Cargo.lock` unchanged when a
+// downstream crate needs the same types.
+pub use portable_pty;
+
 #[derive(Clone)]
 pub struct LocalDeployment {
     config: Arc<RwLock<Config>>,

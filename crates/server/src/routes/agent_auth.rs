@@ -42,7 +42,9 @@ use axum::{
     response::Json as ResponseJson,
     routing::{get, post},
 };
-use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
+use local_deployment::portable_pty::{
+    self, CommandBuilder, NativePtySystem, PtySize, PtySystem,
+};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
