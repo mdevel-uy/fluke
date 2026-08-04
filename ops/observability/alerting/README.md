@@ -1,4 +1,4 @@
-# Alertas salientes para la flota vibe-kanban
+# Alertas salientes para la flota mkanban
 
 Reglas y contact points de Grafana Alerting (unified alerting) versionados
 junto al producto. Se aplican en el Grafana del VPS central de observabilidad;
@@ -9,19 +9,19 @@ Loki y envía notificaciones nativas a Telegram y email.
 
 | Archivo                                 | Qué provisiona                              | Impacto sobre otros proyectos |
 |-----------------------------------------|---------------------------------------------|-------------------------------|
-| `alert-rules.yaml`                      | Grupo de reglas `vibe-kanban-fleet` en la carpeta `vibe-kanban`. | Ninguno — idempotente por `uid`, no toca reglas ajenas. |
+| `alert-rules.yaml`                      | Grupo de reglas `mkanban-fleet` en la carpeta `mkanban`. | Ninguno — idempotente por `uid`, no toca reglas ajenas. |
 | `contact-points.yaml`                   | Receivers `vk-socios-telegram` y `vk-socios-email`. | Ninguno — idempotente por `uid`. |
-| `notification-policy.example.yaml`      | Ruta anidada `proyecto = vibekanban` → receivers de socios. | **Sí** si se copia tal cual: los provisioning files de policies REEMPLAZAN el árbol completo. Ver más abajo. |
+| `notification-policy.example.yaml`      | Ruta anidada `proyecto = mkanban` → receivers de socios. | **Sí** si se copia tal cual: los provisioning files de policies REEMPLAZAN el árbol completo. Ver más abajo. |
 
 ## Reglas
 
-Las tres reglas viven en el grupo `vibe-kanban-fleet` (carpeta `vibe-kanban`)
-y se evalúan cada 1 minuto. Todas etiquetan `proyecto=vibekanban` para que la
+Las tres reglas viven en el grupo `mkanban-fleet` (carpeta `mkanban`)
+y se evalúan cada 1 minuto. Todas etiquetan `proyecto=mkanban` para que la
 notification policy del stack pueda ruterlas al canal correcto.
 
 | UID                          | Alcance                                                                          | Umbral                                     | `for` |
 |------------------------------|----------------------------------------------------------------------------------|--------------------------------------------|-------|
-| `vk-instance-not-reporting`  | Instancia (`cliente`, `instancia`) sin `vibe_kanban_build_info` reciente.        | staleness > 300 s                          | 0 m   |
+| `vk-instance-not-reporting`  | Instancia (`cliente`, `instancia`) sin `mkanban_build_info` reciente.        | staleness > 300 s                          | 0 m   |
 | `vk-disk-repos-high`         | Cualquier filesystem no efímero de la instancia por arriba del 80% de uso.       | uso > 0.80                                 | 5 m   |
 | `vk-executor-error-rate`     | Tasa sostenida de fallos de execution processes.                                 | > 2 fallos/min (rate 10 m)                 | 10 m  |
 
@@ -43,7 +43,7 @@ verdad: [`alert-rules.yaml`](./alert-rules.yaml).
    `PROM_PUSH_URL`.
 4. Si la instancia está sana pero el Prometheus central no ve muestras:
    verificar el datasource `prometheus` en Grafana y consultar directamente
-   `{proyecto="vibekanban", instancia="X"}`.
+   `{proyecto="mkanban", instancia="X"}`.
 
 ### `vk-disk-repos-high`
 
@@ -64,10 +64,10 @@ verdad: [`alert-rules.yaml`](./alert-rules.yaml).
 
 **Qué mirar primero**
 
-1. Abrir el dashboard `vibe-kanban-cliente` para la instancia afectada — el
+1. Abrir el dashboard `mkanban-cliente` para la instancia afectada — el
    panel "Errores executor por instancia" muestra el desglose por `run_reason`.
 2. Filtrar logs en Loki:
-   `{proyecto="vibekanban", cliente="X", instancia="Y"} |~ "(?i)error"` en el
+   `{proyecto="mkanban", cliente="X", instancia="Y"} |~ "(?i)error"` en el
    rango de los últimos 15 min.
 3. Causas comunes por `run_reason`:
    - `codingagent`: credenciales/cuota del proveedor del agente
@@ -130,7 +130,7 @@ docker exec observability-grafana kill -HUP 1
 ```
 
 O reiniciando el contenedor. Después de recargar, en la UI: Alerting → Alert
-rules debería listar el grupo `vibe-kanban-fleet` con tres reglas, y
+rules debería listar el grupo `mkanban-fleet` con tres reglas, y
 Alerting → Contact points debería listar `vk-socios-telegram` y
 `vk-socios-email`.
 
@@ -149,7 +149,7 @@ central y agregarle una ruta anidada bajo el root, del tipo:
 routes:
   - receiver: vk-socios-telegram
     matchers:
-      - proyecto = vibekanban
+      - proyecto = mkanban
     group_by:
       - alertname
       - cliente
@@ -161,7 +161,7 @@ routes:
     routes:
       - receiver: vk-socios-email
         matchers:
-          - proyecto = vibekanban
+          - proyecto = mkanban
         group_wait: 30s
         group_interval: 5m
         repeat_interval: 12h
@@ -169,7 +169,7 @@ routes:
 
 `continue: true` en la ruta padre asegura que Grafana también recorra la
 ruta hija de email — el email es respaldo, se dispara siempre que se dispare
-Telegram. El resto de las alertas (que no tienen `proyecto=vibekanban`)
+Telegram. El resto de las alertas (que no tienen `proyecto=mkanban`)
 siguen cayendo al policy default del stack como hasta ahora.
 
 Después de editar, un SIGHUP al contenedor de Grafana (paso 3) recarga la
@@ -180,7 +180,7 @@ policy sin reiniciar.
 Apagar una instancia de prueba (parar `vibe-kanban` y `alloy` con
 `docker compose stop`) y esperar hasta 5 minutos + eval_interval (~6 min en
 total). En Telegram tiene que llegar la notificación
-`[FIRING · critical] Instancia vibe-kanban sin reportar métricas` con el
+`[FIRING · critical] instancia mkanban sin reportar métricas` con el
 `cliente/instancia` afectados. Cuando la instancia vuelva y Alloy pushee
 métricas, llegará el mensaje `[RESOLVED]`.
 

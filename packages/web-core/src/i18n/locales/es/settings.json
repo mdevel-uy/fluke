@@ -91,7 +91,7 @@
           "host": {
             "label": "Host SSH Remoto (Opcional)",
             "placeholder": "ej., nombre de host o dirección IP",
-            "helper": "Configura esto si Vibe Kanban se ejecuta en un servidor remoto. Cuando se establece, al hacer clic en \"Abrir en Editor\" se generará una URL para abrir tu editor a través de SSH en lugar de ejecutar un comando local."
+            "helper": "Configura esto si mkanban se ejecuta en un servidor remoto. Cuando se establece, al hacer clic en \"Abrir en Editor\" se generará una URL para abrir tu editor a través de SSH en lugar de ejecutar un comando local."
           },
           "user": {
             "label": "Usuario SSH Remoto (Opcional)",
@@ -101,7 +101,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the Vibe Kanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "Verificando disponibilidad...",
@@ -165,10 +165,10 @@
         "workspaceDir": {
           "label": "Directorio de Espacios de Trabajo",
           "placeholder": "~/",
-          "helper": "Los espacios de trabajo se crearán en un subdirectorio .vibe-kanban-workspaces dentro de esta ruta. Dejar vacío para usar el valor predeterminado del sistema. Los cambios requieren reiniciar la aplicación.",
+          "helper": "Los espacios de trabajo se crearán en un subdirectorio .mkanban-workspaces dentro de esta ruta. Dejar vacío para usar el valor predeterminado del sistema. Los cambios requieren reiniciar la aplicación.",
           "browse": "Explorar",
           "dialogTitle": "Seleccionar Directorio de Espacios de Trabajo",
-          "dialogDescription": "Elija un directorio. Los espacios de trabajo se crearán en un subdirectorio .vibe-kanban-workspaces dentro de él."
+          "dialogDescription": "Elija un directorio. Los espacios de trabajo se crearán en un subdirectorio .mkanban-workspaces dentro de él."
         }
       },
       "pullRequests": {
@@ -547,11 +547,11 @@
       },
       "remove": {
         "title": "Eliminar Repositorio",
-        "description": "Desvincular este repositorio de Vibe Kanban. Los archivos en disco no se eliminarán.",
+        "description": "Desvincular este repositorio de mkanban. Los archivos en disco no se eliminarán.",
         "button": "Eliminar",
         "confirm": "Eliminar Repositorio",
         "dialogTitle": "¿Eliminar \"{{name}}\"?",
-        "dialogDescription": "Esto desvinculará el repositorio de Vibe Kanban. Tus archivos en disco no se verán afectados. Puedes volver a agregarlo más tarde.",
+        "dialogDescription": "Esto desvinculará el repositorio de mkanban. Tus archivos en disco no se verán afectados. Puedes volver a agregarlo más tarde.",
         "success": "Repositorio eliminado exitosamente.",
         "error": "Error al eliminar el repositorio."
       },

@@ -16,7 +16,7 @@
 // the Loki push route on the central stack). Every stream and every metric
 // carries the fleet label convention:
 //
-//   proyecto=vibekanban, cliente=<X>, instancia=<Y>, version=<Z>
+//   proyecto=mkanban, cliente=<X>, instancia=<Y>, version=<Z>
 //
 // Environment (required — Alloy fails fast if any is missing):
 //   LOKI_PUSH_URL, LOKI_PUSH_USER, LOKI_PUSH_PASSWORD
@@ -59,7 +59,7 @@ loki.source.docker "containers" {
 	forward_to = [loki.write.central.receiver]
 
 	labels = {
-		proyecto  = "vibekanban",
+		proyecto  = "mkanban",
 		cliente   = sys.env("VK_CLIENTE"),
 		instancia = sys.env("VK_INSTANCIA"),
 		version   = sys.env("VK_VERSION"),
@@ -90,7 +90,7 @@ prometheus.scrape "vibe_kanban" {
 	targets = [{
 		__address__      = sys.env("VK_METRICS_HOST"),
 		__metrics_path__ = "/api/metrics",
-		job              = "vibe-kanban",
+		job              = "mkanban",
 	}]
 	scrape_interval = "30s"
 	scrape_timeout  = "10s"
@@ -122,7 +122,7 @@ prometheus.scrape "cadvisor" {
 // Prometheus (which sees dozens of fleet instances share the same job).
 prometheus.remote_write "central" {
 	external_labels = {
-		proyecto  = "vibekanban",
+		proyecto  = "mkanban",
 		cliente   = sys.env("VK_CLIENTE"),
 		instancia = sys.env("VK_INSTANCIA"),
 		version   = sys.env("VK_VERSION"),

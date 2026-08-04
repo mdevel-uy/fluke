@@ -1,0 +1,103 @@
+name: publish-ghcr
+
+# Publishes the on-prem docker image to GHCR when the version in package.json
+# is bumped on main. Tags pushed:
+#   - <X.Y.Z>  immutable release tag (never overwritten — the check job skips
+#              the build entirely if the tag already exists in GHCR)
+#   - stable   moving channel tag; client updaters pull this one
+#
+# Clients pull with a read-only token (classic PAT, read:packages scope).
+# Revoking that token cuts the client off from updates.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-ghcr
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+# La imagen se publica bajo la marca comercial (mkanban), no bajo el nombre
+# del repo. Cambiar acá si algún día se renombra el repositorio.
+env:
+  IMAGE: ghcr.io/mdevel-uy/mkanban
+
+jobs:
+  version:
+    name: Detect version bump
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      publish: ${{ steps.check.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from package.json
+        id: ver
+        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip if this version is already published
+        id: check
+        run: |
+          if docker manifest inspect "$IMAGE:${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "Version ${{ steps.ver.outputs.version }} already in GHCR — skipping publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Build & push image
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The release cargo build needs more disk than the runner has free by
+      # default; drop the preinstalled toolchains we never use.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE }}:stable
+          labels: |
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://mkanban.dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

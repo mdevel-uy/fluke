@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn accepts_workflow_paths() {
         assert!(validate_rel_path(".github/workflows/ci.yml").is_ok());
-        assert!(validate_rel_path(".github/workflows/deploy.vibe.json").is_ok());
+        assert!(validate_rel_path(".github/workflows/deploy.mkanban.json").is_ok());
     }
 
     #[test]

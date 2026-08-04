@@ -1,4 +1,4 @@
-# Grafana Alerting — contact points de la flota vibe-kanban.
+# Grafana Alerting — contact points de la flota mkanban.
 #
 # Dos receivers, ambos apuntan al canal de los socios:
 #   - Telegram (primario, para notificación push).
@@ -50,7 +50,7 @@ contactPoints:
         settings:
           addresses: $VK_ALERT_EMAIL_TO
           singleEmail: true
-          subject: '[{{ .Status | toUpper }}] vibe-kanban · {{ .CommonLabels.alertname }}'
+          subject: '[{{ .Status | toUpper }}] mkanban · {{ .CommonLabels.alertname }}'
           message: |
             Estado: {{ .Status | toUpper }}
             Alerta: {{ .CommonLabels.alertname }}

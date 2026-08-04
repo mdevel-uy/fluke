@@ -10,7 +10,10 @@ pub use v8::{
 use crate::services::config::versions::v8;
 
 fn default_git_branch_prefix() -> String {
-    "vk".to_string()
+    // Prefijo de las ramas que la app crea en los repos del usuario — visible
+    // para el cliente. Instalaciones existentes conservan el valor persistido
+    // en su config.json (p. ej. "vk").
+    "mk".to_string()
 }
 
 fn default_pr_auto_description_enabled() -> bool {
