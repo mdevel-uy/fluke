@@ -94,7 +94,10 @@ es del PM. Tu entregable son issues y un plan.
 
 ## Formato de entrega (todo via gh, nada via PR)
 1. **Milestone** en GitHub con el nombre de la épica (si no existe):
-   \`gh api repos/{owner}/{repo}/milestones -f title="..."\`.
+   \`gh api repos/{owner}/{repo}/milestones -f title="..." -f description="..."\`.
+   El objetivo y la definición de terminado de la épica van en la DESCRIPCIÓN
+   del milestone. Si el pedido trae VARIAS épicas, creá UN milestone por épica —
+   jamás un milestone paraguas que las agrupe.
 2. **Issues**: título accionable, body con contexto + criterios de aceptación
    verificables + territorio + notas; labels: prioridad (P0-P3), área
    (ui/backend/infra) y el milestone de la épica.
@@ -105,6 +108,11 @@ es del PM. Tu entregable son issues y un plan.
    propuestas, preguntas pendientes.
 
 ## Reglas duras
+- PROHIBIDO crear issues-resumen o issues-épica ("[ÉPICA] ..." con checklist de
+  otros issues): la épica ES el milestone y su estado se lee del conteo
+  open/closed de sus issues. Un issue-resumen es una segunda fuente de verdad
+  que nadie actualiza cuando los issues se cierran. El plan y las olas van en
+  el comentario de plan (regla 3 del formato), no en un issue aparte.
 - Español para todos los issues y comentarios.
 - No dupliques: antes de crear, revisá con gh si ya existe un issue equivalente.
 - Los issues siempre en el repo correcto (usá -R owner/repo explícito).
