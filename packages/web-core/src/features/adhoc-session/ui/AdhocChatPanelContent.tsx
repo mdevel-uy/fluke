@@ -133,24 +133,24 @@ export function AdhocChatPanelContent({
                     sessionScopeId={selectedSession.id}
                   />
                 </RetryUiProvider>
-                {/* Floating read-navigation: previous user message + back to
-                    bottom. In compact mode these replace the composer-header
-                    turn navigation. */}
-                <div className="absolute bottom-2 right-3 z-10 flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={handleScrollToPreviousMessage}
-                    className="flex items-center justify-center size-8 rounded-full bg-secondary/80 backdrop-blur-sm border border-secondary text-low hover:text-normal hover:bg-secondary shadow-md transition-all"
-                    aria-label={t('conversation.scrollToPreviousMessage', {
-                      defaultValue: 'Scroll to previous message',
-                    })}
-                    title={t('conversation.scrollToPreviousMessage', {
-                      defaultValue: 'Scroll to previous message',
-                    })}
-                  >
-                    <ArrowUpIcon className="size-icon-base" weight="bold" />
-                  </button>
-                  {!isAtBottom && (
+                {/* Floating read-navigation: only while scrolled up, so it
+                    never sits next to the composer's send button. In compact
+                    mode these replace the composer-header turn navigation. */}
+                {!isAtBottom && (
+                  <div className="absolute bottom-2 right-3 z-10 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={handleScrollToPreviousMessage}
+                      className="flex items-center justify-center size-8 rounded-full bg-secondary/80 backdrop-blur-sm border border-secondary text-low hover:text-normal hover:bg-secondary shadow-md transition-all"
+                      aria-label={t('conversation.scrollToPreviousMessage', {
+                        defaultValue: 'Scroll to previous message',
+                      })}
+                      title={t('conversation.scrollToPreviousMessage', {
+                        defaultValue: 'Scroll to previous message',
+                      })}
+                    >
+                      <ArrowUpIcon className="size-icon-base" weight="bold" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleScrollToBottom('auto')}
@@ -164,8 +164,8 @@ export function AdhocChatPanelContent({
                     >
                       <ArrowDownIcon className="size-icon-base" weight="bold" />
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <div
                 className="@container shrink-0 pl-px"
