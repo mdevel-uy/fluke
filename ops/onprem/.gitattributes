@@ -1,0 +1,5 @@
+# Estos archivos se ejecutan/parsean en el host Linux del cliente — LF siempre,
+# aunque el checkout sea en Windows (un .sh con CRLF falla con "bad interpreter").
+update.sh text eol=lf
+docker-compose.yml text eol=lf
+.env.example text eol=lf
