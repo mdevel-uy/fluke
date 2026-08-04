@@ -14,8 +14,8 @@ use tracing::info;
 use crate::{
     GitHostProvider,
     types::{
-        CreatePrRequest, GitHostError, PrComment, PrReviewComment, ProviderKind, PullRequestDetail,
-        UnifiedPrComment,
+        CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrReviewComment, ProviderKind,
+        PullRequestDetail, UnifiedPrComment,
     },
 };
 
@@ -28,6 +28,15 @@ impl GitHubProvider {
     pub fn new() -> Result<Self, GitHostError> {
         Ok(Self {
             gh_cli: GhCli::new(),
+        })
+    }
+
+    /// Construct a provider whose underlying `gh` invocations use the given
+    /// PAT (via `GH_TOKEN`) instead of the machine's stored gh credentials.
+    /// Pass `None` to get the same behaviour as `new()`.
+    pub fn with_token(token: Option<String>) -> Result<Self, GitHostError> {
+        Ok(Self {
+            gh_cli: GhCli::with_token(token),
         })
     }
 
@@ -391,6 +400,64 @@ impl GitHostProvider for GitHubProvider {
             );
         })
         .await
+    }
+
+    async fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_mergeable(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR mergeable check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_ci_status(&self, pr_url: &str) -> Result<String, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_ci_status(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR CI status check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_latest_review_state(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<String>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_latest_review_state(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR review state check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_latest_review(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_latest_review(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR review check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
     }
 
     fn provider_kind(&self) -> ProviderKind {

@@ -13,6 +13,7 @@ import type { Icon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useDeferredValue, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getModifierKey } from '../lib/platform';
 import {
   Command,
   CommandEmpty,
@@ -145,7 +146,7 @@ const BRANCH_SEARCH_RESULT_LIMIT = 300;
 const PRIORITY_CONFIG: Record<PriorityId, { icon: Icon; colorClass: string }> =
   {
     urgent: { icon: ArrowFatLineUpIcon, colorClass: 'text-error' },
-    high: { icon: ArrowUpIcon, colorClass: 'text-brand' },
+    high: { icon: ArrowUpIcon, colorClass: 'text-brand-on-surface' },
     medium: { icon: MinusIcon, colorClass: 'text-low' },
     low: { icon: ArrowDownIcon, colorClass: 'text-success' },
   };
@@ -353,7 +354,7 @@ export function CommandBar<
                     onSelect={() => onSelect(item)}
                   >
                     <PlusIcon
-                      className="h-4 w-4 shrink-0 text-brand"
+                      className="h-4 w-4 shrink-0 text-brand-on-surface"
                       weight="bold"
                     />
                     <span>{t('kanban.createNewIssue')}</span>
@@ -409,7 +410,9 @@ export function CommandBar<
                   />
                   <span>{label}</span>
                   {item.action.shortcut && (
-                    <CommandShortcut>{item.action.shortcut}</CommandShortcut>
+                    <CommandShortcut>
+                      {item.action.shortcut.replace('{mod}', getModifierKey())}
+                    </CommandShortcut>
                   )}
                 </CommandItem>
               );

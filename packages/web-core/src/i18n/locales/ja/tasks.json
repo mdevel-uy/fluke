@@ -130,7 +130,16 @@
       "mergeChanges": "変更のマージに失敗しました",
       "pushChanges": "変更のプッシュに失敗しました",
       "rebaseBranch": "ブランチのリベースに失敗しました",
-      "branchStatusUnavailable": "ブランチのステータスを取得できません。ターゲットブランチの変更は引き続き可能です。"
+      "branchStatusUnavailable": "ブランチのステータスを取得できません。ターゲットブランチの変更は引き続き可能です。",
+      "resolveConflictsFailed": "コンフリクト解決のフォローアップ送信に失敗しました。",
+      "resolveConflictsNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "resolveConflictsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。",
+      "addressPrCommentsFailed": "PR コメント対応のフォローアップ送信に失敗しました。",
+      "addressPrCommentsNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "addressPrCommentsNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。",
+      "fixCiFailed": "CI 修正のフォローアップ送信に失敗しました。",
+      "fixCiNoPr": "このワークスペースにはオープンな PR がリンクされていません。",
+      "fixCiNoAgentSession": "このワークスペースにはアクティブなエージェントセッションがありません — エージェントを再起動してから再試行してください。"
     },
     "labels": {
       "taskBranch": "タスクブランチ"
@@ -146,7 +155,7 @@
       "prMerged": "PR #{{number}} は既にマージされています",
       "loginRequired": {
         "title": "Git アクションを管理するにはサインインしてください",
-        "description": "このタスクでブランチのプッシュ、変更のマージ、プルリクエストの作成を行うには Vibe Kanban にサインインしてください。",
+        "description": "このタスクでブランチのプッシュ、変更のマージ、プルリクエストの作成を行うには mkanban にサインインしてください。",
         "action": "サインイン"
       }
     },
@@ -182,6 +191,9 @@
     },
     "states": {
       "createPr": "PRを作成",
+      "resolveConflicts": "コンフリクトを解決",
+      "sendingConflicts": "送信中...",
+      "resolveConflictsSent": "エージェントに送信済み",
       "creating": "作成中...",
       "merge": "マージ",
       "merged": "マージ完了！",
@@ -193,7 +205,14 @@
       "forcePush": "強制プッシュ",
       "forcePushing": "強制プッシュ中...",
       "rebase": "リベース",
-      "rebasing": "リベース中..."
+      "rebasing": "リベース中...",
+      "addressPrComments": "PR のコメントに対応",
+      "addressPrCommentsSending": "送信中...",
+      "addressPrCommentsSent": "エージェントに送信済み",
+      "fixCi": "CI を修正",
+      "fixCiSending": "送信中...",
+      "fixCiSent": "エージェントに送信済み",
+      "fixMergeConflicts": "マージコンフリクトを解決"
     },
     "status": {
       "ahead": "先行",
@@ -261,7 +280,12 @@
     "selectAttempt": "Select an attempt to view execution processes.",
     "started": "Started: {{date}}",
     "copyLogs": "ログをコピー",
-    "logsCopied": "コピーしました！"
+    "logsCopied": "コピーしました！",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "プルリクエストを表示",
+      "reasonLabel": "失敗の理由:"
+    }
   },
   "rebase": {
     "common": {
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "PRのリンクに失敗しました。もう一度お試しください。"
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "承認済み",
+      "changesRequested": "変更を要求"
+    },
+    "loop": {
+      "reviewing": "レビュー実行中…",
+      "reviewQueued": "レビュー待機中",
+      "fixing": "修正実行中…",
+      "fixQueued": "修正待機中",
+      "awaitingReview": "レビュー待ち",
+      "stalled": "ループ停滞"
     }
   }
 }

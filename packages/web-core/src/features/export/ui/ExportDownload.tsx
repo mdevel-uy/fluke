@@ -108,7 +108,7 @@ export function ExportDownload({
       {isExporting && (
         <div className="flex flex-col items-center gap-base py-double">
           <SpinnerIcon
-            className="size-icon-lg text-brand animate-spin"
+            className="size-icon-lg text-brand-on-surface animate-spin"
             weight="bold"
           />
           <div className="text-center space-y-half">

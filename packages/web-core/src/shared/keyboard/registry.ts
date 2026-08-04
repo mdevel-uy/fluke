@@ -31,6 +31,7 @@ export enum Action {
   SUBMIT_TASK_ALT = 'submit_task_alt',
   SUBMIT_COMMENT = 'submit_comment',
   CYCLE_VIEW_BACKWARD = 'cycle_view_backward',
+  TOGGLE_TERMINAL = 'toggle_terminal',
 }
 
 export interface KeyBinding {
@@ -80,14 +81,6 @@ export const sequentialBindings: SequentialBinding[] = [
     group: 'Navigation',
     actionId: 'settings',
   },
-  {
-    id: 'seq-go-new-workspace',
-    keys: ['g', 'n'],
-    description: 'Go to New Workspace',
-    group: 'Navigation',
-    actionId: 'new-workspace',
-  },
-
   // Workspace (W)
   {
     id: 'seq-workspace-duplicate',
@@ -508,6 +501,15 @@ export const keyBindings: KeyBinding[] = [
     scopes: [Scope.EDIT_COMMENT],
     description: 'Submit review comment',
     group: 'Comments',
+  },
+
+  // Terminal / bottom panel toggle
+  {
+    action: Action.TOGGLE_TERMINAL,
+    keys: ['meta+j', 'ctrl+j'],
+    scopes: [Scope.WORKSPACE],
+    description: 'Toggle terminal',
+    group: 'View',
   },
 ];
 

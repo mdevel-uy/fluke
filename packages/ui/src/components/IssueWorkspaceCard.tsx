@@ -43,6 +43,12 @@ export interface WorkspaceWithStats {
   hasUnseenActivity?: boolean;
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
+  /**
+   * Issue #346 · If this workspace has a coding-agent execution
+   * waiting in the concurrency queue, its 1-based position (1 = next
+   * to run). Absent = not queued.
+   */
+  queuePosition?: number;
 }
 
 export interface IssueWorkspaceCardProps {
@@ -153,6 +159,20 @@ export function IssueWorkspaceCard({
                 : t('workspaces.active')}
             </span>
           )}
+          {workspace.queuePosition !== undefined && (
+            <span
+              className="px-1.5 py-0.5 rounded text-xs font-medium shrink-0 bg-brand/10 text-brand-on-surface"
+              title={t('workspaces.queuedTooltip', {
+                defaultValue:
+                  'Waiting for a free agent slot (concurrency limit reached).',
+              })}
+            >
+              {t('workspaces.queuedPosition', {
+                defaultValue: 'Queued · #{{position}}',
+                position: workspace.queuePosition,
+              })}
+            </span>
+          )}
           {workspace.name && (
             <span className="text-sm text-high truncate">{workspace.name}</span>
           )}
@@ -215,7 +235,7 @@ export function IssueWorkspaceCard({
           <div className="flex items-center gap-half shrink-0">
             {hasRunningDevServer && (
               <PlayIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}
@@ -230,7 +250,7 @@ export function IssueWorkspaceCard({
             {isRunning &&
               (hasPendingApproval ? (
                 <HandIcon
-                  className="size-icon-xs text-brand shrink-0"
+                  className="size-icon-xs text-brand-on-surface shrink-0"
                   weight="fill"
                 />
               ) : (
@@ -239,7 +259,7 @@ export function IssueWorkspaceCard({
 
             {hasUnseenActivity && !isRunning && !isFailed && (
               <CircleIcon
-                className="size-icon-xs text-brand shrink-0"
+                className="size-icon-xs text-brand-on-surface shrink-0"
                 weight="fill"
               />
             )}
@@ -332,7 +352,7 @@ export function IssueWorkspaceCreateCard({
 
       <div className="flex items-center justify-between gap-base">
         <span className="text-sm text-low truncate">
-          {t('workspaces.newWorkspace')}
+          {t('workspaces.openForIssue')}
         </span>
         <button
           type="button"

@@ -104,7 +104,12 @@
     "loadingDetails": "Loading process details...",
     "errorLoadingDetails": "Failed to load process details. Please try again.",
     "copyLogs": "Copy logs",
-    "logsCopied": "Copied!"
+    "logsCopied": "Copied!",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "View pull request",
+      "reasonLabel": "Failure reason:"
+    }
   },
   "followUp": {
     "queuedMessage": "Message queued - will execute when current run finishes"
@@ -236,14 +241,33 @@
       "forcePush": "Force Push",
       "forcePushing": "Force Pushing...",
       "creating": "Creating...",
-      "createPr": "Create PR"
+      "createPr": "Create PR",
+      "resolveConflicts": "Resolve conflicts",
+      "sendingConflicts": "Sending...",
+      "resolveConflictsSent": "Sent to agent",
+      "addressPrComments": "Address PR comments",
+      "addressPrCommentsSending": "Sending...",
+      "addressPrCommentsSent": "Sent to agent",
+      "fixCi": "Fix CI",
+      "fixCiSending": "Sending...",
+      "fixCiSent": "Sent to agent",
+      "fixMergeConflicts": "Fix merge conflicts"
     },
     "errors": {
       "changeTargetBranch": "Failed to change target branch",
       "pushChanges": "Failed to push changes",
       "mergeChanges": "Failed to merge changes",
       "rebaseBranch": "Failed to rebase branch",
-      "branchStatusUnavailable": "Unable to fetch branch status. You can still change the target branch."
+      "branchStatusUnavailable": "Unable to fetch branch status. You can still change the target branch.",
+      "resolveConflictsFailed": "Failed to send the resolve-conflicts follow-up.",
+      "resolveConflictsNoPr": "No open PR is attached to this workspace.",
+      "resolveConflictsNoAgentSession": "This workspace has no active agent session — start the agent again and retry.",
+      "addressPrCommentsFailed": "Failed to send the address-PR-comments follow-up.",
+      "addressPrCommentsNoPr": "No open PR is attached to this workspace.",
+      "addressPrCommentsNoAgentSession": "This workspace has no active agent session — start the agent again and retry.",
+      "fixCiFailed": "Failed to send the fix-CI follow-up.",
+      "fixCiNoPr": "No open PR is attached to this workspace.",
+      "fixCiNoAgentSession": "This workspace has no active agent session — start the agent again and retry."
     },
     "pr": {
       "open": "Open PR #{{number}}",
@@ -256,7 +280,7 @@
       "prMerged": "PR #{{number}} is already merged",
       "loginRequired": {
         "title": "Sign in to manage git actions",
-        "description": "Sign in to Vibe Kanban so you can push branches, merge changes, or open pull requests for this task.",
+        "description": "Sign in to mkanban so you can push branches, merge changes, or open pull requests for this task.",
         "action": "Sign in"
       }
     },
@@ -480,8 +504,8 @@
     }
   },
   "createWorkspaceFromPr": {
-    "title": "Create Workspace from PR",
-    "description": "Select an open pull request to create a workspace from. A task will be created automatically using the PR title.",
+    "title": "Adopt PR",
+    "description": "Select an open pull request to adopt. A workspace opens on its branch and a task is created from the PR title.",
     "repositoryLabel": "Repository",
     "remoteLabel": "Remote",
     "pullRequestLabel": "Pull Request",
@@ -493,7 +517,7 @@
     "noPullRequestsFound": "No open pull requests found",
     "runSetupScript": "Run setup script",
     "creating": "Creating...",
-    "createWorkspace": "Create Workspace",
+    "createWorkspace": "Open workspace",
     "selectRepository": "Select a repository",
     "selectRemote": "Select a remote",
     "selectPullRequest": "Select a pull request",
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "Failed to link PR. Please try again."
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested"
+    },
+    "loop": {
+      "reviewing": "Reviewer working…",
+      "reviewQueued": "Review queued",
+      "fixing": "Fix in progress…",
+      "fixQueued": "Fix queued",
+      "awaitingReview": "Awaiting review",
+      "stalled": "Loop stalled"
     }
   }
 }

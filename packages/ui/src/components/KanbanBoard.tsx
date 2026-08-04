@@ -109,11 +109,12 @@ export const KanbanCard = ({
         return (
           <Card
             className={cn(
-              'p-base outline-none flex-col border -mt-[1px] -mx-[1px] bg-primary',
-              snapshot.isDragging && 'cursor-grabbing shadow-lg',
+              'group/card p-3 outline-none flex-col border border-border rounded-lg bg-card transition-colors duration-150',
+              'hover:border-border-strong hover:bg-secondary/40',
+              snapshot.isDragging && 'cursor-grabbing shadow-overlay',
               isSelected
-                ? 'ring-2 ring-accent ring-inset bg-accent/5'
-                : isOpen && 'ring-2 ring-secondary-foreground ring-inset',
+                ? 'ring-1 ring-brand-on-surface bg-sel/50'
+                : isOpen && 'ring-1 ring-brand-on-surface/50',
               className
             )}
             ref={setRefs}
@@ -180,7 +181,10 @@ export const KanbanCards = ({ id, children, className }: KanbanCardsProps) => (
   <Droppable droppableId={id}>
     {(provided: DroppableProvided) => (
       <div
-        className={cn('flex flex-1 flex-col', className)}
+        className={cn(
+          'flex flex-1 flex-col gap-1.5 p-1.5 bg-md-surface-container-lowest border border-border rounded-lg overflow-hidden',
+          className
+        )}
         ref={provided.innerRef}
         {...provided.droppableProps}
       >
@@ -214,23 +218,22 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
   }
 
   return (
-    <Card
+    <div
       className={cn(
-        'sticky top-0 z-20 flex shrink-0 items-center gap-base p-base flex gap-base',
-        'bg-background',
+        'sticky top-0 z-20 flex shrink-0 items-center gap-2 px-3 py-2.5',
+        'bg-background/95 backdrop-blur-sm border-b border-border/60',
         props.className
       )}
-      style={{
-        backgroundImage: `linear-gradient(hsl(var(${props.color}) / 0.03), hsl(var(${props.color}) / 0.03))`,
-      }}
     >
-      <span className="flex-1 flex items-center gap-base">
+      <span className="flex-1 flex items-center gap-2">
         <div
-          className="h-2 w-2 rounded-full"
+          className="h-2 w-2 rounded-full shrink-0"
           style={{ backgroundColor: `hsl(var(${props.color}))` }}
         />
 
-        <p className="m-0 text-sm">{props.name}</p>
+        <p className="m-0 text-xs font-semibold text-high uppercase tracking-wide">
+          {props.name}
+        </p>
       </span>
       <TooltipProvider>
         <Tooltip>
@@ -247,7 +250,7 @@ export const KanbanHeader = (props: KanbanHeaderProps) => {
           <TooltipContent side="top">{t('actions.addTask')}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-    </Card>
+    </div>
   );
 };
 
@@ -270,7 +273,7 @@ export const KanbanProvider = ({
     <DragDropContext onDragEnd={onDragEnd}>
       <div
         className={cn(
-          'inline-grid grid-flow-col auto-cols-[minmax(200px,400px)] divide-x border-x items-stretch min-h-full',
+          'inline-grid grid-flow-col auto-cols-[minmax(240px,400px)] gap-3 p-3 items-stretch min-h-full',
           className
         )}
       >

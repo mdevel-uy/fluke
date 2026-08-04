@@ -12,11 +12,28 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#f2f2f2" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#212121" media="(prefers-color-scheme: dark)">
-    <title>Vibe Kanban</title>
+    <title>mkanban</title>
 </head>
 
 <body>
     <div id="root"></div>
+    <script>
+      // Apply theme class before React mounts to prevent flash of wrong theme
+      (function () {
+        try {
+          var stored = localStorage.getItem('vk-theme');
+          var theme = stored || 'SYSTEM';
+          if (theme === 'DARK') {
+            document.documentElement.classList.add('dark');
+          } else if (theme === 'LIGHT') {
+            document.documentElement.classList.add('light');
+          } else {
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script>
       // Polyfill crypto.randomUUID for non-secure contexts (e.g. HTTP access
       // via LAN IP). Required because @tanstack/db calls crypto.randomUUID()

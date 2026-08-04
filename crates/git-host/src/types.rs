@@ -151,6 +151,19 @@ pub struct PullRequestDetail {
     pub head_branch: String,
 }
 
+/// The latest actionable review on a PR plus the PR's current head commit.
+/// Backend-internal (not TS-exported): used to decide whether a re-review is
+/// warranted (new commits since the review) or the verdict still stands.
+#[derive(Debug, Clone)]
+pub struct LatestPrReview {
+    /// `"approved"` or `"changes_requested"` (lowercase).
+    pub state: String,
+    /// Commit the review was submitted against, when the host reports it.
+    pub reviewed_sha: Option<String>,
+    /// Current head commit of the PR, when the host reports it.
+    pub head_sha: Option<String>,
+}
+
 impl From<PullRequestDetail> for PullRequestInfo {
     fn from(d: PullRequestDetail) -> Self {
         PullRequestInfo {
@@ -159,6 +172,7 @@ impl From<PullRequestDetail> for PullRequestInfo {
             status: d.status,
             merged_at: d.merged_at,
             merge_commit_sha: d.merge_commit_sha,
+            mergeable: None,
         }
     }
 }

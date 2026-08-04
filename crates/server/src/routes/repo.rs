@@ -5,14 +5,23 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json as ResponseJson,
-    routing::{get, post},
+    routing::{delete, get, post, put},
 };
-use db::models::repo::{Repo, SearchResult, UpdateRepo};
+use chrono::{DateTime, Utc};
+use db::models::{
+    repo::{Repo, SearchResult, UpdateRepo},
+    repo_issue::RepoIssue,
+};
 use deployment::Deployment;
-use git::{GitBranch, GitRemote};
+use git::{FleetGraph, GitBranch, GitRemote};
 use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, PullRequestDetail};
 use serde::{Deserialize, Serialize};
-use services::services::file_search::SearchQuery;
+use services::services::{
+    file_search::SearchQuery,
+    repo_issues::{
+        RepoIssuesError, RepoIssuesService, StoredLabel, derive_priority, parse_stored_labels,
+    },
+};
 use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
@@ -55,6 +64,7 @@ pub async fn register_repo(
         .repo()
         .register(
             &deployment.db().pool,
+            deployment.git(),
             &payload.path,
             payload.display_name.as_deref(),
         )
@@ -91,6 +101,239 @@ pub async fn get_repo_branches(
 
     let branches = deployment.git().get_all_branches(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))
+}
+
+pub async fn get_repo_tags(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<git::GitTagInfo>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tags = deployment.git().get_all_tags(&repo.path)?;
+    Ok(ResponseJson(ApiResponse::success(tags)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepoGraphQuery {
+    /// Base branch of the fleet (e.g. the shared target branch).
+    base: String,
+    /// Comma-separated attempt branch names; unresolvable ones are skipped.
+    #[serde(default)]
+    tips: String,
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
+/// Fleet graph (SHELL-SPEC V4): multi-branch commit log for the Source
+/// control section. Response type mirrored inline in the frontend client.
+pub async fn get_repo_graph(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<RepoGraphQuery>,
+) -> Result<ResponseJson<ApiResponse<FleetGraph>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tips: Vec<String> = query
+        .tips
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    let limit = query.limit.unwrap_or(100).clamp(1, 3000);
+    let offset = query.offset.unwrap_or(0).min(30_000);
+
+    let git = deployment.git().clone();
+    let base = query.base.clone();
+    let graph = tokio::task::spawn_blocking(move || {
+        git.get_fleet_graph(&repo.path, &base, &tips, limit, offset)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Graph walk failed: {e}")))??;
+
+    Ok(ResponseJson(ApiResponse::success(graph)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GraphLocateQuery {
+    base: String,
+    #[serde(default)]
+    tips: String,
+    oid: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GraphLocateResponse {
+    pub index: Option<usize>,
+}
+
+/// Where a commit sits in the fleet-graph ordering (sidebar → graph jumps).
+pub async fn locate_repo_graph_commit(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    Query(query): Query<GraphLocateQuery>,
+) -> Result<ResponseJson<ApiResponse<GraphLocateResponse>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let tips: Vec<String> = query
+        .tips
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+
+    let git = deployment.git().clone();
+    let base = query.base.clone();
+    let index = tokio::task::spawn_blocking(move || {
+        git.locate_fleet_commit(&repo.path, &base, &tips, &query.oid)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Locate failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(GraphLocateResponse {
+        index,
+    })))
+}
+
+pub async fn get_repo_commit(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+) -> Result<ResponseJson<ApiResponse<git::CommitDetail>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let detail =
+        tokio::task::spawn_blocking(move || git.get_commit_detail(&repo.path, &oid))
+            .await
+            .map_err(|e| ApiError::BadRequest(format!("Commit lookup failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(detail)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitFileQuery {
+    path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitFileContent {
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBranchRequest {
+    pub name: String,
+    pub at_oid: String,
+}
+
+/// Create a local branch at a commit (fleet graph inline action).
+pub async fn create_repo_branch(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    axum::Json(request): axum::Json<CreateBranchRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let name = request.name.trim().to_string();
+    if name.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Branch name cannot be empty".to_string(),
+        ));
+    }
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    tokio::task::spawn_blocking(move || {
+        git.create_branch_at(&repo.path, &name, &request.at_oid)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Branch creation failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitTreeQuery {
+    #[serde(default)]
+    path: String,
+}
+
+/// Directory listing at a commit, for the embedded editor's snapshot tree.
+pub async fn get_repo_commit_tree(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitTreeQuery>,
+) -> Result<ResponseJson<ApiResponse<Vec<git::CommitTreeEntry>>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let entries = tokio::task::spawn_blocking(move || {
+        git.get_commit_tree(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit tree read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(entries)))
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitFileDiff {
+    pub patch: String,
+}
+
+/// Unified diff of one file in a commit, for the editor's diff tabs.
+pub async fn get_repo_commit_file_diff(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileDiff>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let patch = tokio::task::spawn_blocking(move || {
+        git.get_commit_file_diff(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit diff failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileDiff { patch })))
+}
+
+/// Read-only file snapshot at a commit, for the embedded editor.
+pub async fn get_repo_commit_file(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, oid)): Path<(Uuid, String)>,
+    Query(query): Query<CommitFileQuery>,
+) -> Result<ResponseJson<ApiResponse<CommitFileContent>>, ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+
+    let git = deployment.git().clone();
+    let content = tokio::task::spawn_blocking(move || {
+        git.get_commit_file(&repo.path, &oid, &query.path)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Commit file read failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(CommitFileContent {
+        content,
+    })))
 }
 
 pub async fn get_repo_remotes(
@@ -365,6 +608,235 @@ pub async fn delete_repo(
     Ok((StatusCode::OK, ResponseJson(ApiResponse::success(()))))
 }
 
+// ---------------------------------------------------------------------------
+// Issue types and handlers
+// ---------------------------------------------------------------------------
+
+/// A GitHub label as returned by the API. `color` is a 6-digit hex without '#'.
+#[derive(Debug, Serialize, TS)]
+pub struct IssueLabel {
+    pub name: String,
+    pub color: String,
+}
+
+impl From<StoredLabel> for IssueLabel {
+    fn from(l: StoredLabel) -> Self {
+        Self {
+            name: l.name,
+            color: l.color,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, TS)]
+pub struct RepoIssueResponse {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    #[ts(type = "number")]
+    pub number: i64,
+    pub title: String,
+    pub body: String,
+    pub state: String,
+    pub labels: Vec<IssueLabel>,
+    pub author: String,
+    #[ts(type = "Date")]
+    pub updated_at: DateTime<Utc>,
+    #[ts(type = "Date")]
+    pub synced_at: DateTime<Utc>,
+    pub milestone: Option<String>,
+    pub priority: Option<String>,
+    /// When the issue was closed; `null` while open, and also for closed issues
+    /// not yet re-synced since `closed_at` was introduced.
+    #[ts(type = "Date | null")]
+    pub closed_at: Option<DateTime<Utc>>,
+}
+
+impl From<RepoIssue> for RepoIssueResponse {
+    fn from(issue: RepoIssue) -> Self {
+        let stored = parse_stored_labels(&issue.labels);
+        let priority = derive_priority(&stored);
+        let labels: Vec<IssueLabel> = stored.into_iter().map(Into::into).collect();
+        Self {
+            id: issue.id,
+            repo_id: issue.repo_id,
+            number: issue.number,
+            title: issue.title,
+            body: issue.body.unwrap_or_default(),
+            state: issue.state,
+            labels,
+            author: issue.author.unwrap_or_default(),
+            updated_at: issue.updated_at,
+            synced_at: issue.synced_at,
+            milestone: issue.milestone,
+            priority,
+            closed_at: issue.closed_at,
+        }
+    }
+}
+
+pub async fn list_repo_issues(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<RepoIssueResponse>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let issues = RepoIssuesService::new().list(&pool, repo_id).await?;
+    let response: Vec<RepoIssueResponse> = issues.into_iter().map(Into::into).collect();
+
+    // Kick off a background refresh so the list stays fresh without
+    // blocking the request. Errors are logged only.
+    let git = deployment.git().clone();
+    tokio::spawn(async move {
+        if let Err(err) = RepoIssuesService::new().sync(&pool, &git, repo_id).await {
+            tracing::debug!(
+                repo_id = %repo_id,
+                "background repo issues sync failed: {}",
+                err
+            );
+        }
+    });
+
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+pub async fn sync_repo_issues(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<RepoIssueResponse>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let service = RepoIssuesService::new();
+    service.sync(&pool, deployment.git(), repo_id).await?;
+    let issues = service.list(&pool, repo_id).await?;
+    let response: Vec<RepoIssueResponse> = issues.into_iter().map(Into::into).collect();
+
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct SetIssuePriorityRequest {
+    pub priority: Option<String>,
+}
+
+pub async fn set_issue_priority(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<SetIssuePriorityRequest>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .set_priority(&pool, repo_id, issue_number, payload.priority.as_deref())
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct AddIssueLabelRequest {
+    pub label: String,
+    pub color: Option<String>,
+}
+
+pub async fn add_issue_label(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<AddIssueLabelRequest>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .add_label(
+            &pool,
+            repo_id,
+            issue_number,
+            &payload.label,
+            payload.color.as_deref(),
+        )
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+pub async fn remove_issue_label(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number, label_name)): Path<(Uuid, i64, String)>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .remove_label(&pool, repo_id, issue_number, &label_name)
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+pub async fn close_issue(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+) -> Result<ResponseJson<ApiResponse<RepoIssueResponse>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .close_issue(&pool, repo_id, issue_number)
+        .await?;
+
+    let issue = RepoIssue::find_by_repo_and_number(&pool, repo_id, issue_number)
+        .await
+        .map_err(ApiError::Database)?
+        .ok_or_else(|| ApiError::BadRequest("Issue not found".to_string()))?;
+
+    Ok(ResponseJson(ApiResponse::success(RepoIssueResponse::from(
+        issue,
+    ))))
+}
+
+impl From<RepoIssuesError> for ApiError {
+    fn from(err: RepoIssuesError) -> Self {
+        match err {
+            RepoIssuesError::Sqlx(e) => ApiError::Database(e),
+            RepoIssuesError::Io(e) => ApiError::Io(e),
+            RepoIssuesError::Json(e) => {
+                ApiError::BadGateway(format!("Failed to parse gh output: {e}"))
+            }
+            RepoIssuesError::RepoNotFound => {
+                ApiError::BadRequest("Repository not found".to_string())
+            }
+            RepoIssuesError::NoGithubRemote => {
+                ApiError::BadRequest("Repository has no GitHub remote".to_string())
+            }
+            RepoIssuesError::NotGithubOrigin(url) => {
+                ApiError::BadRequest(format!("origin remote URL is not a GitHub URL: {url}"))
+            }
+            RepoIssuesError::GhCliNotAvailable => {
+                ApiError::BadRequest("`gh` CLI is not installed or not on PATH".to_string())
+            }
+            RepoIssuesError::GhCommandFailed(msg) => {
+                ApiError::BadGateway(format!("`gh` command failed: {msg}"))
+            }
+            RepoIssuesError::IssueNotFound => ApiError::BadRequest("Issue not found".to_string()),
+            RepoIssuesError::InvalidPriority(p) => {
+                ApiError::BadRequest(format!("Invalid priority value: {p}"))
+            }
+        }
+    }
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/repos", get(get_repos).post(register_repo))
@@ -375,10 +847,50 @@ pub fn router() -> Router<DeploymentImpl> {
             "/repos/{repo_id}",
             get(get_repo).put(update_repo).delete(delete_repo),
         )
-        .route("/repos/{repo_id}/branches", get(get_repo_branches))
+        .route(
+            "/repos/{repo_id}/branches",
+            get(get_repo_branches).post(create_repo_branch),
+        )
+        .route("/repos/{repo_id}/tags", get(get_repo_tags))
+        .route("/repos/{repo_id}/graph", get(get_repo_graph))
+        .route(
+            "/repos/{repo_id}/graph/locate",
+            get(locate_repo_graph_commit),
+        )
+        .route("/repos/{repo_id}/commits/{oid}", get(get_repo_commit))
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file",
+            get(get_repo_commit_file),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/tree",
+            get(get_repo_commit_tree),
+        )
+        .route(
+            "/repos/{repo_id}/commits/{oid}/file-diff",
+            get(get_repo_commit_file_diff),
+        )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route("/repos/pr-info", get(get_pr_info))
         .route("/repos/{repo_id}/search", get(search_repo))
         .route("/repos/{repo_id}/open-editor", post(open_repo_in_editor))
+        .route("/repos/{repo_id}/issues", get(list_repo_issues))
+        .route("/repos/{repo_id}/issues/sync", post(sync_repo_issues))
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/priority",
+            put(set_issue_priority),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/labels",
+            post(add_issue_label),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/labels/{label_name}",
+            delete(remove_issue_label),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/close",
+            post(close_issue),
+        )
 }

@@ -1,0 +1,90 @@
+services:
+  vibe-kanban:
+    image: vibe-kanban:local-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      RUST_LOG: info
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Fixed port so the preview/editor iframes can reach the proxy from the
+      # host browser ({port}--{hostId}.localhost:3009).
+      PREVIEW_PROXY_PORT: 3009
+    ports:
+      - "3000:3000"
+      - "3009:3009"
+    volumes:
+      - vk-repos:/repos
+      - vk-home:/home/appuser
+    restart: unless-stopped
+
+  # Observability sidecars for the fleet. All three sit behind the same
+  # `observability` profile so they either all come up or none of them do
+  # (Alloy assumes node-exporter and cAdvisor are reachable by name).
+  # Enable with
+  #   docker compose --profile observability up -d
+  # and provide the eight env vars below (typically injected at provisioning
+  # time from /root/vk-fleet-ingest.credentials on the observability VPS).
+  # See docs/self-hosting/observability-metrics.mdx for the runbook.
+  alloy:
+    profiles: ["observability"]
+    image: grafana/alloy:v1.4.3
+    restart: unless-stopped
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      VK_CLIENTE: ${VK_CLIENTE:?required when observability profile is active}
+      VK_INSTANCIA: ${VK_INSTANCIA:?required when observability profile is active}
+      VK_VERSION: ${VK_VERSION:?required when observability profile is active}
+      LOKI_PUSH_URL: ${LOKI_PUSH_URL:?required when observability profile is active}
+      LOKI_PUSH_USER: ${LOKI_PUSH_USER:?required when observability profile is active}
+      LOKI_PUSH_PASSWORD: ${LOKI_PUSH_PASSWORD:?required when observability profile is active}
+      PROM_PUSH_URL: ${PROM_PUSH_URL:?required when observability profile is active}
+      # App scrape target on the compose network. Override VK_METRICS_HOST
+      # only for non-standard binds (e.g. custom PORT). Metrics path is
+      # hardcoded to `/api/metrics` in ops/alloy/config.alloy.
+      VK_METRICS_HOST: ${VK_METRICS_HOST:-vibe-kanban:3000}
+    volumes:
+      - ./ops/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vk-alloy-data:/var/lib/alloy/data
+    depends_on:
+      - node-exporter
+      - cadvisor
+
+  # Host-level metrics: CPU, memory, disk usage of the volume that backs
+  # /repos (the biggest disk consumer on a fleet instance).
+  node-exporter:
+    profiles: ["observability"]
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
+  # Container-level metrics: per-container CPU, memory, network. Exposed on
+  # port 8080 inside the compose network for Alloy to scrape.
+  cadvisor:
+    profiles: ["observability"]
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+volumes:
+  vk-repos:
+  vk-home:
+  vk-alloy-data:

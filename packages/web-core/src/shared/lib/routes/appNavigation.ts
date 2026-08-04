@@ -3,10 +3,17 @@ export type AppDestination =
   | { kind: 'onboarding' }
   | { kind: 'onboarding-sign-in' }
   | { kind: 'workspaces'; hostId?: string }
-  | { kind: 'workspaces-create'; hostId?: string }
   | { kind: 'workspace'; workspaceId: string; hostId?: string }
   | { kind: 'workspace-vscode'; workspaceId: string; hostId?: string }
   | { kind: 'export' }
+  | { kind: 'dashboard' }
+  | { kind: 'pilot-report' }
+  | { kind: 'source-control' }
+  | { kind: 'issues'; repoId?: string }
+  | { kind: 'workers' }
+  | { kind: 'analyst-desk' }
+  | { kind: 'ci-pipelines' }
+  | { kind: 'sprint'; repoId?: string }
   | { kind: 'project'; projectId: string }
   | {
       kind: 'project-issue';
@@ -26,12 +33,6 @@ export type AppDestination =
       issueId: string;
       draftId: string;
       hostId?: string;
-    }
-  | {
-      kind: 'project-workspace-create';
-      projectId: string;
-      draftId: string;
-      hostId?: string;
     };
 
 export type NavigationTransition = {
@@ -44,13 +45,20 @@ export interface AppNavigation {
   goToOnboarding(transition?: NavigationTransition): void;
   goToOnboardingSignIn(transition?: NavigationTransition): void;
   goToWorkspaces(transition?: NavigationTransition): void;
-  goToWorkspacesCreate(transition?: NavigationTransition): void;
   goToWorkspace(workspaceId: string, transition?: NavigationTransition): void;
   goToWorkspaceVsCode(
     workspaceId: string,
     transition?: NavigationTransition
   ): void;
   goToExport(transition?: NavigationTransition): void;
+  goToDashboard(transition?: NavigationTransition): void;
+  goToPilotReport(transition?: NavigationTransition): void;
+  goToSourceControl(transition?: NavigationTransition): void;
+  goToIssues(repoId?: string, transition?: NavigationTransition): void;
+  goToWorkers(transition?: NavigationTransition): void;
+  goToAnalystDesk(transition?: NavigationTransition): void;
+  goToCiPipelines(transition?: NavigationTransition): void;
+  goToSprint(repoId?: string, transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
   goToProjectIssue(
     projectId: string,
@@ -69,25 +77,15 @@ export interface AppNavigation {
     draftId: string,
     transition?: NavigationTransition
   ): void;
-  goToProjectWorkspaceCreate(
-    projectId: string,
-    draftId: string,
-    transition?: NavigationTransition
-  ): void;
 }
 
 type ProjectDestinationKind =
   | 'project'
   | 'project-issue'
   | 'project-issue-workspace'
-  | 'project-issue-workspace-create'
-  | 'project-workspace-create';
+  | 'project-issue-workspace-create';
 
-type WorkspaceDestinationKind =
-  | 'workspaces'
-  | 'workspaces-create'
-  | 'workspace'
-  | 'workspace-vscode';
+type WorkspaceDestinationKind = 'workspaces' | 'workspace' | 'workspace-vscode';
 
 export type ProjectDestination = Extract<
   AppDestination,
@@ -140,7 +138,6 @@ export function isProjectDestination(
     case 'project-issue':
     case 'project-issue-workspace':
     case 'project-issue-workspace-create':
-    case 'project-workspace-create':
       return true;
     default:
       return false;
@@ -156,7 +153,6 @@ export function isWorkspacesDestination(
 
   switch (destination.kind) {
     case 'workspaces':
-    case 'workspaces-create':
     case 'workspace':
     case 'workspace-vscode':
       return true;
@@ -187,6 +183,54 @@ export function getProjectDestination(
   destination: AppDestination | null
 ): ProjectDestination | null {
   return isProjectDestination(destination) ? destination : null;
+}
+
+export function isIssuesDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'issues' }> {
+  return destination?.kind === 'issues';
+}
+
+export function isDashboardDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'dashboard' }> {
+  return destination?.kind === 'dashboard';
+}
+
+export function isPilotReportDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'pilot-report' }> {
+  return destination?.kind === 'pilot-report';
+}
+
+export function isSourceControlDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'source-control' }> {
+  return destination?.kind === 'source-control';
+}
+
+export function isWorkersDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'workers' }> {
+  return destination?.kind === 'workers';
+}
+
+export function isAnalystDeskDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'analyst-desk' }> {
+  return destination?.kind === 'analyst-desk';
+}
+
+export function isCiPipelinesDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'ci-pipelines' }> {
+  return destination?.kind === 'ci-pipelines';
+}
+
+export function isSprintDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'sprint' }> {
+  return destination?.kind === 'sprint';
 }
 
 function isValidUuid(value: string): boolean {
@@ -223,21 +267,18 @@ export function resolveKanbanRouteState(
       : null;
 
   const rawDraftId =
-    projectDestination?.kind === 'project-issue-workspace-create' ||
-    projectDestination?.kind === 'project-workspace-create'
+    projectDestination?.kind === 'project-issue-workspace-create'
       ? projectDestination.draftId
       : null;
   const draftId = rawDraftId && isValidUuid(rawDraftId) ? rawDraftId : null;
 
   const hasInvalidWorkspaceCreateDraftId =
-    (projectDestination?.kind === 'project-issue-workspace-create' ||
-      projectDestination?.kind === 'project-workspace-create') &&
+    projectDestination?.kind === 'project-issue-workspace-create' &&
     rawDraftId !== null &&
     !draftId;
 
   const isWorkspaceCreateMode =
-    (projectDestination?.kind === 'project-issue-workspace-create' ||
-      projectDestination?.kind === 'project-workspace-create') &&
+    projectDestination?.kind === 'project-issue-workspace-create' &&
     draftId !== null;
 
   const sidebarMode = (() => {
@@ -253,7 +294,6 @@ export function resolveKanbanRouteState(
       case 'project-issue-workspace':
         return 'issue-workspace';
       case 'project-issue-workspace-create':
-      case 'project-workspace-create':
         return 'workspace-create';
     }
   })();

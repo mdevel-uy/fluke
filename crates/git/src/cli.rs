@@ -296,6 +296,34 @@ impl GitCli {
         Ok(())
     }
 
+    /// Stage a single path (also picks up untracked files).
+    pub fn add_path(&self, worktree_path: &Path, path: &str) -> Result<(), GitCliError> {
+        self.git(worktree_path, ["add", "--", path])?;
+        Ok(())
+    }
+
+    /// Unstage a single path, keeping the worktree content untouched.
+    pub fn restore_staged(&self, worktree_path: &Path, path: &str) -> Result<(), GitCliError> {
+        self.git(worktree_path, ["restore", "--staged", "--", path])?;
+        Ok(())
+    }
+
+    /// Apply a patch to the index only — stages (or with `reverse`, unstages)
+    /// exactly the hunks in the patch without touching the worktree.
+    pub fn apply_cached(
+        &self,
+        worktree_path: &Path,
+        patch: &str,
+        reverse: bool,
+    ) -> Result<(), GitCliError> {
+        let mut args = vec!["apply", "--cached", "--whitespace=nowarn"];
+        if reverse {
+            args.push("--reverse");
+        }
+        self.git_with_stdin(worktree_path, args, None, patch.as_bytes())?;
+        Ok(())
+    }
+
     pub fn list_worktrees(&self, repo_path: &Path) -> Result<Vec<WorktreeEntry>, GitCliError> {
         let out = self.git(repo_path, ["worktree", "list", "--porcelain"])?;
         let mut entries = Vec::new();
@@ -365,25 +393,60 @@ impl GitCli {
     }
 
     /// Push a branch to the given remote using native git authentication.
+    /// `remote_branch` is the ref name on the remote side; it only differs
+    /// from `branch` for workspaces created from an existing PR, which use a
+    /// unique local branch but must keep updating the PR's head branch.
     pub fn push(
         &self,
         repo_path: &Path,
         remote_url: &str,
         branch: &str,
+        remote_branch: &str,
         force: bool,
     ) -> Result<(), GitCliError> {
+        self.push_with_token(repo_path, remote_url, branch, remote_branch, force, None)
+    }
+
+    /// Same as [`push`], but authenticates with the given token instead of
+    /// the machine's git credential helper. When `token` is `Some`, the
+    /// token is passed to `git` via a per-invocation
+    /// `http.extraHeader` config (an `Authorization: Basic
+    /// base64("x-access-token:{token}")` header). The value never touches
+    /// the on-disk git config and disappears when the process exits.
+    ///
+    /// The header format uses HTTP Basic with `x-access-token` as the
+    /// username, which GitHub documents as the accepted way to authenticate
+    /// a PAT for git-over-HTTPS. Passing `None` is identical to `push`.
+    pub fn push_with_token(
+        &self,
+        repo_path: &Path,
+        remote_url: &str,
+        branch: &str,
+        remote_branch: &str,
+        force: bool,
+        token: Option<&str>,
+    ) -> Result<(), GitCliError> {
         let refspec = if force {
-            format!("+refs/heads/{branch}:refs/heads/{branch}")
+            format!("+refs/heads/{branch}:refs/heads/{remote_branch}")
         } else {
-            format!("refs/heads/{branch}:refs/heads/{branch}")
+            format!("refs/heads/{branch}:refs/heads/{remote_branch}")
         };
         let envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
 
-        let args = [
-            OsString::from("push"),
-            OsString::from(remote_url),
-            OsString::from(refspec),
-        ];
+        let mut args: Vec<OsString> = Vec::with_capacity(6);
+        if let Some(token) = token.filter(|t| !t.is_empty()) {
+            // `-c` on the command line only lives for the duration of this
+            // process; the token never lands in .git/config.
+            let auth =
+                base64_encode_basic_userpass("x-access-token", token);
+            args.push(OsString::from("-c"));
+            args.push(OsString::from(format!(
+                "http.extraHeader=Authorization: Basic {auth}"
+            )));
+        }
+        args.push(OsString::from("push"));
+        args.push(OsString::from(remote_url));
+        args.push(OsString::from(refspec));
 
         match self.git_with_env(repo_path, args, &envs) {
             Ok(_) => Ok(()),
@@ -921,6 +984,62 @@ impl GitCli {
             .collect()
     }
 }
+/// Encode `{user}:{pass}` as standard base64 for use in an HTTP Basic
+/// `Authorization` header. Inlined (rather than pulling in the `base64`
+/// crate) so the `git` crate keeps its current dependency set — the input
+/// is always small (login + PAT) and the algorithm is stable.
+fn base64_encode_basic_userpass(user: &str, pass: &str) -> String {
+    const ALPHA: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let input = format!("{user}:{pass}");
+    let bytes = input.as_bytes();
+    let mut out = String::with_capacity((bytes.len().div_ceil(3)) * 4);
+    let mut i = 0;
+    while i + 3 <= bytes.len() {
+        let n = (u32::from(bytes[i]) << 16)
+            | (u32::from(bytes[i + 1]) << 8)
+            | u32::from(bytes[i + 2]);
+        out.push(ALPHA[((n >> 18) & 0x3f) as usize] as char);
+        out.push(ALPHA[((n >> 12) & 0x3f) as usize] as char);
+        out.push(ALPHA[((n >> 6) & 0x3f) as usize] as char);
+        out.push(ALPHA[(n & 0x3f) as usize] as char);
+        i += 3;
+    }
+    let rem = bytes.len() - i;
+    if rem == 1 {
+        let n = u32::from(bytes[i]) << 16;
+        out.push(ALPHA[((n >> 18) & 0x3f) as usize] as char);
+        out.push(ALPHA[((n >> 12) & 0x3f) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = (u32::from(bytes[i]) << 16) | (u32::from(bytes[i + 1]) << 8);
+        out.push(ALPHA[((n >> 18) & 0x3f) as usize] as char);
+        out.push(ALPHA[((n >> 12) & 0x3f) as usize] as char);
+        out.push(ALPHA[((n >> 6) & 0x3f) as usize] as char);
+        out.push('=');
+    }
+    out
+}
+
+#[cfg(test)]
+mod base64_tests {
+    use super::base64_encode_basic_userpass;
+
+    // Cross-checked against `printf '%s' 'user:pass' | base64` for common
+    // shapes and edge cases (empty pass, 1/2/3-byte tail).
+    #[test]
+    fn encodes_known_vectors() {
+        assert_eq!(
+            base64_encode_basic_userpass("x-access-token", "ghp_abc"),
+            "eC1hY2Nlc3MtdG9rZW46Z2hwX2FiYw=="
+        );
+        assert_eq!(base64_encode_basic_userpass("u", "p"), "dTpw");
+        assert_eq!(base64_encode_basic_userpass("us", "p"), "dXM6cA==");
+        assert_eq!(base64_encode_basic_userpass("usr", "pw"), "dXNyOnB3");
+    }
+}
+
 /// Parsed entry from `git status --porcelain`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusEntry {

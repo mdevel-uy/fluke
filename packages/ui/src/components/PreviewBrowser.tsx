@@ -564,7 +564,7 @@ export function PreviewBrowser({
           <div className="w-full h-full flex flex-col items-center justify-center gap-base text-low">
             {isLoading || isWaitingForDelay ? (
               <>
-                <SpinnerIcon className="size-icon-lg animate-spin text-brand" />
+                <SpinnerIcon className="size-icon-lg animate-spin text-brand-on-surface" />
                 <p className="text-sm">
                   {isStarting
                     ? t('preview.loading.startingServer')
@@ -612,10 +612,10 @@ export function PreviewBrowser({
                     />
                   </div>
                   <a
-                    href="https://www.vibekanban.com/docs/core-features/testing-your-application"
+                    href="https://mkanban.dev/docs/core-features/testing-your-application"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand hover:text-brand-hover underline"
+                    className="text-brand-on-surface hover:text-brand-hover underline"
                   >
                     {t('preview.noServer.learnMore')}
                   </a>

@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router';
 import {
   useUiPreferencesStore,
   useWorkspacePanelState,
+  useWorkspaceActiveViewTabs,
   type LayoutMode,
 } from '@/shared/stores/useUiPreferencesStore';
 import { useDiffViewMode } from '@/shared/stores/useDiffViewStore';
@@ -15,7 +16,10 @@ import { useShape } from '@/shared/integrations/electric/hooks';
 import { useExecutionProcessesContext } from '@/shared/hooks/useExecutionProcessesContext';
 import { useLogsPanel } from '@/shared/hooks/useLogsPanel';
 import { useAuth } from '@/shared/hooks/auth/useAuth';
-import { isProjectDestination } from '@/shared/lib/routes/appNavigation';
+import {
+  isProjectDestination,
+  isWorkspacesDestination,
+} from '@/shared/lib/routes/appNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useCurrentKanbanRouteState } from '@/shared/hooks/useCurrentKanbanRouteState';
 import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
@@ -38,11 +42,9 @@ interface ActionVisibilityOptions {
 export function useActionVisibilityContext(
   options?: ActionVisibilityOptions
 ): ActionVisibilityContext {
-  const { workspace, workspaceId, isCreateMode, repos } = useWorkspaceContext();
-  // Use workspace-specific panel state (pass undefined when in create mode)
-  const panelState = useWorkspacePanelState(
-    isCreateMode ? undefined : workspaceId
-  );
+  const { workspace, workspaceId, repos } = useWorkspaceContext();
+  const panelState = useWorkspacePanelState(workspaceId);
+  const activeViewTabs = useWorkspaceActiveViewTabs(workspaceId);
   const diffPathsSet = useDiffPaths();
   const diffViewMode = useDiffViewMode();
   const expanded = useUiPreferencesStore((s) => s.expanded);
@@ -82,15 +84,24 @@ export function useActionVisibilityContext(
     return !!selectedIssue?.parent_issue_id;
   }, [shouldResolveSelectedIssueParent, projectIssues, effectiveIssueIds]);
 
-  // Derive layoutMode from current route instead of persisted state
-  const layoutMode: LayoutMode = isProjectDestination(destination)
+  // Derive layoutMode from current route instead of persisted state.
+  // Standalone pages (sprint, issues, workers, export…) are 'none' so that
+  // workspace/kanban panel toggles don't leak into their navbar — they would
+  // toggle state for panels those pages never render.
+  const layoutMode: LayoutMode | 'none' = isProjectDestination(destination)
     ? 'kanban'
-    : 'workspaces';
+    : isWorkspacesDestination(destination)
+      ? 'workspaces'
+      : 'none';
+  // Raw destination kind — lets actions target a specific standalone page
+  // (e.g. Sprint) that layoutMode can't distinguish because it maps to 'none'.
+  const currentView = destination?.kind ?? null;
   const { config } = useUserSystem();
   const { isStarting, isStopping, runningDevServers } =
     useDevServer(workspaceId);
   const { data: branchStatus } = useBranchStatus(workspaceId);
-  const { isAttemptRunningVisible } = useExecutionProcessesContext();
+  const { isAttemptRunningVisible, executionProcessesVisible } =
+    useExecutionProcessesContext();
   const { logsPanelContent } = useLogsPanel();
   const { isSignedIn } = useAuth();
 
@@ -123,13 +134,17 @@ export function useActionVisibilityContext(
       branchStatus?.some((repo) => (repo.remote_commits_ahead ?? 0) > 0) ??
       false;
 
+    const isBranchPushed =
+      branchStatus?.some((repo) => repo.remote_commits_ahead !== null) ?? false;
+
     return {
       layoutMode,
-      rightMainPanelMode: panelState.rightMainPanelMode,
+      currentView,
+      activeViewTabs,
       isLeftSidebarVisible: panelState.isLeftSidebarVisible,
       isLeftMainPanelVisible: panelState.isLeftMainPanelVisible,
       isRightSidebarVisible: panelState.isRightSidebarVisible,
-      isCreateMode,
+      isTerminalVisible: panelState.isTerminalVisible,
       hasWorkspace: !!workspace,
       workspaceArchived: workspace?.archived ?? false,
       hasDiffs: diffPathsSet.size > 0,
@@ -142,7 +157,9 @@ export function useActionVisibilityContext(
       hasMultipleRepos: repos.length > 1,
       hasOpenPR,
       hasUnpushedCommits,
+      isBranchPushed,
       isAttemptRunning: isAttemptRunningVisible,
+      hasExecutionProcesses: executionProcessesVisible.length > 0,
       logsPanelContent,
       hasSelectedKanbanIssue,
       hasSelectedKanbanIssueParent,
@@ -151,11 +168,12 @@ export function useActionVisibilityContext(
     };
   }, [
     layoutMode,
-    panelState.rightMainPanelMode,
+    currentView,
+    activeViewTabs,
     panelState.isLeftSidebarVisible,
     panelState.isLeftMainPanelVisible,
     panelState.isRightSidebarVisible,
-    isCreateMode,
+    panelState.isTerminalVisible,
     workspace,
     repos,
     diffPathsSet,
@@ -167,6 +185,7 @@ export function useActionVisibilityContext(
     runningDevServers,
     branchStatus,
     isAttemptRunningVisible,
+    executionProcessesVisible,
     logsPanelContent,
     hasSelectedKanbanIssue,
     hasSelectedKanbanIssueParent,

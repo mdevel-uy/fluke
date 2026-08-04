@@ -27,9 +27,9 @@ export function Tooltip({
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Content
             side={side}
-            sideOffset={4}
+            sideOffset={6}
             className={cn(
-              'z-[10000] flex items-center rounded-sm bg-panel px-base py-half text-xs text-normal shadow-md',
+              'z-[10000] flex items-center rounded-lg border border-border/60 bg-primary px-2.5 py-1.5 text-xs text-normal shadow-overlay',
               'animate-in fade-in-0 zoom-in-95',
               className
             )}
@@ -38,8 +38,8 @@ export function Tooltip({
             {formattedShortcut && (
               <kbd
                 className={cn(
-                  'ml-2 inline-flex items-center gap-0.5 px-2 py-0.5',
-                  'rounded-sm border border-border bg-secondary',
+                  'ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5',
+                  'rounded-md border border-border/70 bg-secondary',
                   'font-ibm-plex-mono text-xs text-high'
                 )}
               >

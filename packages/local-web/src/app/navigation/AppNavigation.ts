@@ -44,15 +44,35 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       return { kind: 'workspaces' };
     case '/_app/export':
       return { kind: 'export' };
+    case '/_app/issues': {
+      const params = new URLSearchParams(
+        new URL(path, 'http://localhost').search
+      );
+      const repoId = params.get('repo');
+      return { kind: 'issues', ...(repoId ? { repoId } : {}) };
+    }
+    case '/_app/workers':
+      return { kind: 'workers' };
+    case '/_app/dashboard':
+      return { kind: 'dashboard' };
+    case '/_app/pilot-report':
+      return { kind: 'pilot-report' };
+    case '/_app/source-control':
+      return { kind: 'source-control' };
+    case '/_app/analyst-desk':
+      return { kind: 'analyst-desk' };
+    case '/_app/ci-pipelines':
+      return { kind: 'ci-pipelines' };
+    case '/_app/sprint': {
+      const params = new URLSearchParams(
+        new URL(path, 'http://localhost').search
+      );
+      const repoId = params.get('repo');
+      return { kind: 'sprint', ...(repoId ? { repoId } : {}) };
+    }
     case '/_app/hosts/$hostId/workspaces': {
       const hostId = getPathParam(routeParams, 'hostId');
       return hostId ? { kind: 'workspaces', hostId } : null;
-    }
-    case '/_app/workspaces_/create':
-      return { kind: 'workspaces-create' };
-    case '/_app/hosts/$hostId/workspaces_/create': {
-      const hostId = getPathParam(routeParams, 'hostId');
-      return hostId ? { kind: 'workspaces-create', hostId } : null;
     }
     case '/_app/workspaces_/$workspaceId': {
       const workspaceId = getPathParam(routeParams, 'workspaceId');
@@ -143,30 +163,6 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
           }
         : null;
     }
-    case '/_app/projects/$projectId_/workspaces/create/$draftId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const draftId = getPathParam(routeParams, 'draftId');
-      return projectId && draftId
-        ? {
-            kind: 'project-workspace-create',
-            projectId,
-            draftId,
-          }
-        : null;
-    }
-    case '/_app/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const hostId = getPathParam(routeParams, 'hostId');
-      const draftId = getPathParam(routeParams, 'draftId');
-      return projectId && hostId && draftId
-        ? {
-            kind: 'project-workspace-create',
-            projectId,
-            hostId,
-            draftId,
-          }
-        : null;
-    }
     default:
       return null;
   }
@@ -195,14 +191,6 @@ function destinationToLocalTarget(
         } as const;
       }
       return { to: '/workspaces' } as const;
-    case 'workspaces-create':
-      if (effectiveHostId) {
-        return {
-          to: '/hosts/$hostId/workspaces/create',
-          params: { hostId: effectiveHostId },
-        } as const;
-      }
-      return { to: '/workspaces/create' } as const;
     case 'workspace':
       if (effectiveHostId) {
         return {
@@ -233,6 +221,28 @@ function destinationToLocalTarget(
       } as const;
     case 'export':
       return { to: '/export' } as const;
+    case 'issues':
+      return {
+        to: '/issues',
+        search: destination.repoId ? { repo: destination.repoId } : {},
+      } as const;
+    case 'workers':
+      return { to: '/workers' } as const;
+    case 'dashboard':
+      return { to: '/dashboard' } as const;
+    case 'pilot-report':
+      return { to: '/pilot-report' } as const;
+    case 'source-control':
+      return { to: '/source-control' } as const;
+    case 'analyst-desk':
+      return { to: '/analyst-desk' } as const;
+    case 'ci-pipelines':
+      return { to: '/ci-pipelines' } as const;
+    case 'sprint':
+      return {
+        to: '/sprint',
+        search: destination.repoId ? { repo: destination.repoId } : {},
+      } as const;
     case 'project':
       return {
         to: '/projects/$projectId',
@@ -286,24 +296,6 @@ function destinationToLocalTarget(
           draftId: destination.draftId,
         },
       } as const;
-    case 'project-workspace-create':
-      if (effectiveHostId) {
-        return {
-          to: '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId',
-          params: {
-            projectId: destination.projectId,
-            hostId: effectiveHostId,
-            draftId: destination.draftId,
-          },
-        } as const;
-      }
-      return {
-        to: '/projects/$projectId/workspaces/create/$draftId',
-        params: {
-          projectId: destination.projectId,
-          draftId: destination.draftId,
-        },
-      } as const;
   }
 }
 
@@ -334,13 +326,26 @@ export function createLocalAppNavigation(): AppNavigation {
       navigateTo({ kind: 'onboarding-sign-in' }, transition),
     goToWorkspaces: (transition) =>
       navigateTo({ kind: 'workspaces' }, transition),
-    goToWorkspacesCreate: (transition) =>
-      navigateTo({ kind: 'workspaces-create' }, transition),
     goToWorkspace: (workspaceId, transition) =>
       navigateTo({ kind: 'workspace', workspaceId }, transition),
     goToWorkspaceVsCode: (workspaceId, transition) =>
       navigateTo({ kind: 'workspace-vscode', workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: 'export' }, transition),
+    goToDashboard: (transition) =>
+      navigateTo({ kind: 'dashboard' }, transition),
+    goToPilotReport: (transition) =>
+      navigateTo({ kind: 'pilot-report' }, transition),
+    goToSourceControl: (transition) =>
+      navigateTo({ kind: 'source-control' }, transition),
+    goToIssues: (repoId, transition) =>
+      navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
+    goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
+    goToAnalystDesk: (transition) =>
+      navigateTo({ kind: 'analyst-desk' }, transition),
+    goToCiPipelines: (transition) =>
+      navigateTo({ kind: 'ci-pipelines' }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: 'sprint', ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: 'project', projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>
@@ -358,11 +363,6 @@ export function createLocalAppNavigation(): AppNavigation {
     ) =>
       navigateTo(
         { kind: 'project-issue-workspace-create', projectId, issueId, draftId },
-        transition
-      ),
-    goToProjectWorkspaceCreate: (projectId, draftId, transition) =>
-      navigateTo(
-        { kind: 'project-workspace-create', projectId, draftId },
         transition
       ),
   };

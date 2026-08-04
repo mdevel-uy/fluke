@@ -22,10 +22,8 @@ import { Route as InvitationsTokenAcceptRouteImport } from './routes/invitations
 import { Route as HostsHostIdWorkspacesRouteImport } from './routes/hosts.$hostId.workspaces'
 import { Route as AccountOrganizationsOrgIdRouteImport } from './routes/account_.organizations.$orgId'
 import { Route as ProjectsProjectIdIssuesIssueIdRouteImport } from './routes/projects.$projectId_.issues.$issueId'
-import { Route as HostsHostIdWorkspacesCreateRouteImport } from './routes/hosts.$hostId.workspaces_.create'
 import { Route as HostsHostIdWorkspacesWorkspaceIdRouteImport } from './routes/hosts.$hostId.workspaces_.$workspaceId'
 import { Route as HostsHostIdWorkspacesWorkspaceIdVscodeRouteImport } from './routes/hosts.$hostId.workspaces.$workspaceId.vscode'
-import { Route as ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRouteImport } from './routes/projects.$projectId_.hosts.$hostId.workspaces.create.$draftId'
 import { Route as ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRouteImport } from './routes/projects.$projectId_.issues.$issueId_.hosts.$hostId.workspaces.$workspaceId'
 import { Route as ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRouteImport } from './routes/projects.$projectId_.issues.$issueId_.hosts.$hostId.workspaces.create.$draftId'
 
@@ -97,12 +95,6 @@ const ProjectsProjectIdIssuesIssueIdRoute =
     path: '/projects/$projectId/issues/$issueId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const HostsHostIdWorkspacesCreateRoute =
-  HostsHostIdWorkspacesCreateRouteImport.update({
-    id: '/hosts/$hostId/workspaces_/create',
-    path: '/hosts/$hostId/workspaces/create',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const HostsHostIdWorkspacesWorkspaceIdRoute =
   HostsHostIdWorkspacesWorkspaceIdRouteImport.update({
     id: '/hosts/$hostId/workspaces_/$workspaceId',
@@ -114,12 +106,6 @@ const HostsHostIdWorkspacesWorkspaceIdVscodeRoute =
     id: '/$workspaceId/vscode',
     path: '/$workspaceId/vscode',
     getParentRoute: () => HostsHostIdWorkspacesRoute,
-  } as any)
-const ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute =
-  ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRouteImport.update({
-    id: '/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId',
-    path: '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId',
-    getParentRoute: () => rootRouteImport,
   } as any)
 const ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute =
   ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRouteImport.update(
@@ -152,10 +138,8 @@ export interface FileRoutesByFullPath {
   '/invitations/$token/accept': typeof InvitationsTokenAcceptRoute
   '/invitations/$token/complete': typeof InvitationsTokenCompleteRoute
   '/hosts/$hostId/workspaces/$workspaceId': typeof HostsHostIdWorkspacesWorkspaceIdRoute
-  '/hosts/$hostId/workspaces/create': typeof HostsHostIdWorkspacesCreateRoute
   '/projects/$projectId/issues/$issueId': typeof ProjectsProjectIdIssuesIssueIdRoute
   '/hosts/$hostId/workspaces/$workspaceId/vscode': typeof HostsHostIdWorkspacesWorkspaceIdVscodeRoute
-  '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute
   '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/$workspaceId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute
   '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute
 }
@@ -173,10 +157,8 @@ export interface FileRoutesByTo {
   '/invitations/$token/accept': typeof InvitationsTokenAcceptRoute
   '/invitations/$token/complete': typeof InvitationsTokenCompleteRoute
   '/hosts/$hostId/workspaces/$workspaceId': typeof HostsHostIdWorkspacesWorkspaceIdRoute
-  '/hosts/$hostId/workspaces/create': typeof HostsHostIdWorkspacesCreateRoute
   '/projects/$projectId/issues/$issueId': typeof ProjectsProjectIdIssuesIssueIdRoute
   '/hosts/$hostId/workspaces/$workspaceId/vscode': typeof HostsHostIdWorkspacesWorkspaceIdVscodeRoute
-  '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute
   '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/$workspaceId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute
   '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute
 }
@@ -195,10 +177,8 @@ export interface FileRoutesById {
   '/invitations/$token/accept': typeof InvitationsTokenAcceptRoute
   '/invitations/$token/complete': typeof InvitationsTokenCompleteRoute
   '/hosts/$hostId/workspaces_/$workspaceId': typeof HostsHostIdWorkspacesWorkspaceIdRoute
-  '/hosts/$hostId/workspaces_/create': typeof HostsHostIdWorkspacesCreateRoute
   '/projects/$projectId_/issues/$issueId': typeof ProjectsProjectIdIssuesIssueIdRoute
   '/hosts/$hostId/workspaces/$workspaceId/vscode': typeof HostsHostIdWorkspacesWorkspaceIdVscodeRoute
-  '/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute
   '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/$workspaceId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute
   '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/create/$draftId': typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute
 }
@@ -218,10 +198,8 @@ export interface FileRouteTypes {
     | '/invitations/$token/accept'
     | '/invitations/$token/complete'
     | '/hosts/$hostId/workspaces/$workspaceId'
-    | '/hosts/$hostId/workspaces/create'
     | '/projects/$projectId/issues/$issueId'
     | '/hosts/$hostId/workspaces/$workspaceId/vscode'
-    | '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId'
     | '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/$workspaceId'
     | '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/create/$draftId'
   fileRoutesByTo: FileRoutesByTo
@@ -239,10 +217,8 @@ export interface FileRouteTypes {
     | '/invitations/$token/accept'
     | '/invitations/$token/complete'
     | '/hosts/$hostId/workspaces/$workspaceId'
-    | '/hosts/$hostId/workspaces/create'
     | '/projects/$projectId/issues/$issueId'
     | '/hosts/$hostId/workspaces/$workspaceId/vscode'
-    | '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId'
     | '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/$workspaceId'
     | '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/create/$draftId'
   id:
@@ -260,10 +236,8 @@ export interface FileRouteTypes {
     | '/invitations/$token/accept'
     | '/invitations/$token/complete'
     | '/hosts/$hostId/workspaces_/$workspaceId'
-    | '/hosts/$hostId/workspaces_/create'
     | '/projects/$projectId_/issues/$issueId'
     | '/hosts/$hostId/workspaces/$workspaceId/vscode'
-    | '/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId'
     | '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/$workspaceId'
     | '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/create/$draftId'
   fileRoutesById: FileRoutesById
@@ -282,9 +256,7 @@ export interface RootRouteChildren {
   InvitationsTokenAcceptRoute: typeof InvitationsTokenAcceptRoute
   InvitationsTokenCompleteRoute: typeof InvitationsTokenCompleteRoute
   HostsHostIdWorkspacesWorkspaceIdRoute: typeof HostsHostIdWorkspacesWorkspaceIdRoute
-  HostsHostIdWorkspacesCreateRoute: typeof HostsHostIdWorkspacesCreateRoute
   ProjectsProjectIdIssuesIssueIdRoute: typeof ProjectsProjectIdIssuesIssueIdRoute
-  ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute: typeof ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute
   ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute: typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute
   ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute: typeof ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute
 }
@@ -382,13 +354,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdIssuesIssueIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/hosts/$hostId/workspaces_/create': {
-      id: '/hosts/$hostId/workspaces_/create'
-      path: '/hosts/$hostId/workspaces/create'
-      fullPath: '/hosts/$hostId/workspaces/create'
-      preLoaderRoute: typeof HostsHostIdWorkspacesCreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/hosts/$hostId/workspaces_/$workspaceId': {
       id: '/hosts/$hostId/workspaces_/$workspaceId'
       path: '/hosts/$hostId/workspaces/$workspaceId'
@@ -402,13 +367,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/hosts/$hostId/workspaces/$workspaceId/vscode'
       preLoaderRoute: typeof HostsHostIdWorkspacesWorkspaceIdVscodeRouteImport
       parentRoute: typeof HostsHostIdWorkspacesRoute
-    }
-    '/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId': {
-      id: '/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId'
-      path: '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId'
-      fullPath: '/projects/$projectId/hosts/$hostId/workspaces/create/$draftId'
-      preLoaderRoute: typeof ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/$workspaceId': {
       id: '/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/$workspaceId'
@@ -455,10 +413,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvitationsTokenAcceptRoute: InvitationsTokenAcceptRoute,
   InvitationsTokenCompleteRoute: InvitationsTokenCompleteRoute,
   HostsHostIdWorkspacesWorkspaceIdRoute: HostsHostIdWorkspacesWorkspaceIdRoute,
-  HostsHostIdWorkspacesCreateRoute: HostsHostIdWorkspacesCreateRoute,
   ProjectsProjectIdIssuesIssueIdRoute: ProjectsProjectIdIssuesIssueIdRoute,
-  ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute:
-    ProjectsProjectIdHostsHostIdWorkspacesCreateDraftIdRoute,
   ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute:
     ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesWorkspaceIdRoute,
   ProjectsProjectIdIssuesIssueIdHostsHostIdWorkspacesCreateDraftIdRoute:

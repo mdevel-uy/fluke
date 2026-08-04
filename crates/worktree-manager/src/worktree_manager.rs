@@ -69,7 +69,7 @@ impl WorktreeManager {
             let branch_name_owned = branch_name.to_string();
             let base_branch_owned = base_branch.to_string();
 
-            tokio::task::spawn_blocking(move || {
+            let created = tokio::task::spawn_blocking(move || {
                 GitService::new().create_branch(
                     &repo_path_owned,
                     &branch_name_owned,
@@ -77,7 +77,23 @@ impl WorktreeManager {
                 )
             })
             .await
-            .map_err(|e| WorktreeError::TaskJoin(format!("Task join error: {e}")))??;
+            .map_err(|e| WorktreeError::TaskJoin(format!("Task join error: {e}")))?;
+
+            match created {
+                Ok(()) => {}
+                // Branch names are workspace-unique, so an existing branch can
+                // only come from a concurrent flow or an earlier partial
+                // attempt for this same workspace — reuse it instead of
+                // failing the whole start.
+                Err(e) if e.is_ref_exists() => {
+                    tracing::warn!(
+                        "Branch '{}' already exists in {:?}; reusing it",
+                        branch_name,
+                        repo_path
+                    );
+                }
+                Err(e) => return Err(e.into()),
+            }
         }
 
         Self::ensure_worktree_exists(repo_path, branch_name, worktree_path).await
@@ -507,12 +523,12 @@ impl WorktreeManager {
         .map_err(|e| WorktreeError::TaskJoin(format!("{e}")))?
     }
 
-    /// Get the base directory for vibe-kanban worktrees
+    /// Get the base directory for mkanban worktrees
     pub fn get_worktree_base_dir() -> std::path::PathBuf {
         if let Some(override_path) = WORKSPACE_DIR_OVERRIDE.get() {
             // Always use app-owned subdirectory within custom path for safety.
             // This ensures orphan cleanup never touches user's existing folders.
-            return override_path.join(".vibe-kanban-workspaces");
+            return override_path.join(".mkanban-workspaces");
         }
         Self::get_default_worktree_base_dir()
     }

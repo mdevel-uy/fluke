@@ -75,6 +75,8 @@ pub enum ApiError {
     BadRequest(String),
     #[error("Conflict: {0}")]
     Conflict(String),
+    #[error("Unprocessable entity: {0}")]
+    UnprocessableEntity(String),
     #[error("Forbidden: {0}")]
     Forbidden(String),
     #[error("Too many requests: {0}")]
@@ -131,6 +133,12 @@ impl From<WorkspaceManagerError> for ApiError {
             }
             WorkspaceManagerError::NoRepositories => {
                 ApiError::BadRequest("Workspace has no repositories configured".to_string())
+            }
+            WorkspaceManagerError::WorkspaceBranchMissing { repo_name, branch } => {
+                ApiError::Conflict(format!(
+                    "Workspace branch '{}' does not exist in repository '{}' — the workspace has not been materialized yet",
+                    branch, repo_name
+                ))
             }
             WorkspaceManagerError::PartialCreation(msg) => ApiError::Conflict(msg),
         }
@@ -461,6 +469,11 @@ impl IntoResponse for ApiError {
             ),
             ApiError::BadRequest(msg) => ErrorInfo::bad_request("BadRequest", msg.clone()),
             ApiError::Conflict(msg) => ErrorInfo::conflict("ConflictError", msg.clone()),
+            ApiError::UnprocessableEntity(msg) => ErrorInfo::with_status(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "UnprocessableEntity",
+                msg.clone(),
+            ),
             ApiError::Forbidden(msg) => {
                 ErrorInfo::with_status(StatusCode::FORBIDDEN, "ForbiddenError", msg.clone())
             }

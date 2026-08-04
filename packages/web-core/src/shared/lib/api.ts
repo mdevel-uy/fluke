@@ -8,12 +8,17 @@ import {
   ResetProcessRequest,
   EditorType,
   CreatePrApiRequest,
+  CreateCiPipelinePrRequest,
+  CreateCiPipelinePrResponse,
   CreateTag,
   DirectoryListResponse,
   DirectoryEntry,
   ExecutionProcess,
   ExecutionProcessRepoState,
   GitBranch,
+  StartSessionRequest,
+  StartSessionResponse,
+  WorkspaceContext,
   Repo,
   RepoWithTargetBranch,
   UpdateRepo,
@@ -40,9 +45,14 @@ import {
   ExecutorConfig,
   DraftFollowUpData,
   AgentPresetOptionsQuery,
+  AgentGuidelines,
+  SaveAgentGuidelinesRequest,
   RunAgentSetupRequest,
   RunAgentSetupResponse,
   GhCliSetupError,
+  GithubLoginResponse,
+  GithubCliInstallResponse,
+  GithubStatusResponse,
   RunScriptError,
   StatusResponse,
   CreateOrganizationRequest,
@@ -100,13 +110,30 @@ import {
   OpenRemoteWorkspaceInEditorRequest,
   OpenRemoteEditorResponse,
   ProfileResponse,
+  GitHubRepoSummary,
+  CloneRepoRequest,
+  CloneRepoResponse,
+  WorkerResponse,
+  WorkerTaskResponse,
+  CreateWorkerTaskRequest,
+  UpdateWorkerTaskRequest,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
+import type { RepoIssue } from '@/features/issues/types';
 import type { WorkspaceWithSession } from '@/shared/types/attempt';
 import { createWorkspaceWithSession } from '@/shared/types/attempt';
 import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
 import { makeRequest as makeRemoteRequest } from '@/shared/lib/remoteApi';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
+
+/** Info about an existing active worker task for a given issue. */
+export interface ActiveIssueTaskInfo {
+  task_id: string;
+  worker_id: string;
+  worker_name: string;
+  worker_emoji: string;
+  status: string;
+}
 
 export class ApiError<E = unknown> extends Error {
   public status?: number;
@@ -178,6 +205,22 @@ export type Err<E> = { success: false; error: E | undefined; message?: string };
 
 // Result type for endpoints that need typed errors
 export type Result<T, E> = Ok<T> | Err<E>;
+
+// Local shims for the quick-action endpoint typed errors.
+// Mirror ResolveMergeConflictsError / AddressPrCommentsError / FixCiError in
+// crates/server/src/routes/workspaces/pr.rs and will be replaced by the
+// generated types when infra runs `pnpm run generate-types`.
+export type ResolveMergeConflictsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
+export type AddressPrCommentsError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
+
+export type FixCiError =
+  | { type: 'no_pr_attached' }
+  | { type: 'no_agent_session' };
 
 type ListRemoteProjectsResponse = {
   projects: RemoteProject[];
@@ -394,6 +437,17 @@ export const sessionsApi = {
     });
     return handleApiResponse<Session>(response);
   },
+
+  start: async (
+    sessionId: string,
+    data: StartSessionRequest
+  ): Promise<StartSessionResponse> => {
+    const response = await makeRequest(`/api/sessions/${sessionId}/start`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<StartSessionResponse>(response);
+  },
 };
 
 // Workspace APIs
@@ -417,6 +471,17 @@ export const workspacesApi = {
   getAllWorkspaces: async (): Promise<Workspace[]> => {
     const response = await makeRequest('/api/workspaces');
     return handleApiResponse<Workspace[]>(response);
+  },
+
+  /**
+   * Resolve (or lazily create) the scratch workspace for a repo. Backs the
+   * ad-hoc chat panel — one scratch workspace per repo, shared across sessions.
+   */
+  getScratchByRepo: async (repoId: string): Promise<WorkspaceContext> => {
+    const response = await makeRequest(
+      `/api/workspaces/scratch?repo_id=${encodeURIComponent(repoId)}`
+    );
+    return handleApiResponse<WorkspaceContext>(response);
   },
 
   get: async (workspaceId: string): Promise<Workspace> => {
@@ -528,11 +593,135 @@ export const workspacesApi = {
     return handleApiResponse<{ workspace_path: string }>(response);
   },
 
+  /** Read a text file for the embedded editor. */
+  readEditorFile: async (path: string): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/editor/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
+  },
+
+  /** Save a text file edited in the embedded editor. */
+  saveEditorFile: async (path: string, content: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/file', {
+      method: 'POST',
+      body: JSON.stringify({ path, content }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  createEditorEntry: async (
+    path: string,
+    isDirectory: boolean
+  ): Promise<void> => {
+    const response = await makeRequest('/api/editor/create', {
+      method: 'POST',
+      body: JSON.stringify({ path, is_directory: isDirectory }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  renameEditorEntry: async (path: string, newPath: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/rename', {
+      method: 'POST',
+      body: JSON.stringify({ path, new_path: newPath }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  deleteEditorEntry: async (path: string): Promise<void> => {
+    const response = await makeRequest('/api/editor/delete', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  /** Case-insensitive content search under a root directory. */
+  searchEditorContent: async (
+    root: string,
+    q: string
+  ): Promise<{ path: string; line: number; preview: string }[]> => {
+    const response = await makeRequest(
+      `/api/editor/search?root=${encodeURIComponent(root)}&q=${encodeURIComponent(q)}`
+    );
+    return handleApiResponse<{ path: string; line: number; preview: string }[]>(
+      response
+    );
+  },
+
   getBranchStatus: async (workspaceId: string): Promise<RepoBranchStatus[]> => {
     const response = await makeRequest(
       `/api/workspaces/${workspaceId}/git/status`
     );
     return handleApiResponse<RepoBranchStatus[]>(response);
+  },
+
+  // Selective staging (SHELL-SPEC V5/R38). Types mirror crates/git
+  // StagingState inline (like the editor endpoints — no generate_types).
+  getStagingState: async (
+    workspaceId: string,
+    repoId: string
+  ): Promise<{
+    files: Array<{
+      path: string;
+      status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+      is_binary: boolean;
+      staged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      unstaged_hunks: Array<{
+        header: string;
+        lines: string[];
+        patch: string;
+        added: number;
+        removed: number;
+      }>;
+      has_staged_changes: boolean;
+      has_unstaged_changes: boolean;
+    }>;
+  }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging?repo_id=${encodeURIComponent(repoId)}`
+    );
+    return handleApiResponse(response);
+  },
+
+  stageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/stage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  unstageChanges: async (
+    workspaceId: string,
+    data: { repo_id: string; path?: string; patch?: string }
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/unstage`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  commitStaged: async (
+    workspaceId: string,
+    data: { repo_id: string; message: string }
+  ): Promise<{ head_oid: string }> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/git/staging/commit`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+    return handleApiResponse<{ head_oid: string }>(response);
   },
 
   getRepos: async (workspaceId: string): Promise<RepoWithTargetBranch[]> => {
@@ -676,6 +865,36 @@ export const workspacesApi = {
     return handleApiResponseAsResult<string, PrError>(response);
   },
 
+  resolveMergeConflicts: async (
+    workspaceId: string
+  ): Promise<Result<void, ResolveMergeConflictsError>> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/resolve-merge-conflicts`,
+      { method: 'POST' }
+    );
+    return handleApiResponseAsResult<void, ResolveMergeConflictsError>(
+      response
+    );
+  },
+
+  addressPrComments: async (
+    workspaceId: string
+  ): Promise<Result<void, AddressPrCommentsError>> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/address-pr-comments`,
+      { method: 'POST' }
+    );
+    return handleApiResponseAsResult<void, AddressPrCommentsError>(response);
+  },
+
+  fixCi: async (workspaceId: string): Promise<Result<void, FixCiError>> => {
+    const response = await makeRequest(
+      `/api/workspaces/${workspaceId}/pull-requests/fix-ci`,
+      { method: 'POST' }
+    );
+    return handleApiResponseAsResult<void, FixCiError>(response);
+  },
+
   /** Try to auto-attach a PR by matching the workspace branch */
   attachPr: async (
     workspaceId: string,
@@ -810,7 +1029,35 @@ export const executionProcessesApi = {
     );
     return handleApiResponse<void>(response);
   },
+
+  getConcurrencyStatus: async (): Promise<ConcurrencyStatus> => {
+    const response = await makeRequest(
+      '/api/execution-processes/concurrency-status'
+    );
+    return handleApiResponse<ConcurrencyStatus>(response);
+  },
 };
+
+// Concurrency semaphore status snapshot. Declared inline so this branch
+// does not require regenerating shared/types.ts; the backend types (see
+// crates/server/src/routes/execution_processes.rs) already emit these
+// via ts-rs and infrastructure will replace this block on the next
+// generate-types run.
+export interface QueuedExecutionSummary {
+  id: string;
+  session_id: string;
+  workspace_id: string;
+  /** 1-based FIFO position (1 = next to run). */
+  position: number;
+}
+
+export interface ConcurrencyStatus {
+  /** Configured limit. `0` means unlimited — UI should hide the indicator. */
+  limit: number;
+  /** Number of coding-agent processes currently holding a slot. */
+  used: number;
+  queued: QueuedExecutionSummary[];
+}
 
 // File System APIs
 export const fileSystemApi = {
@@ -828,6 +1075,20 @@ export const fileSystemApi = {
       `/api/filesystem/git-repos${queryParam}`
     );
     return handleApiResponse<DirectoryEntry[]>(response);
+  },
+};
+
+// CI Pipeline Studio APIs
+export const ciStudioApi = {
+  /** Commit compiled workflow files to a fresh branch and open a PR. */
+  compilePr: async (
+    request: CreateCiPipelinePrRequest
+  ): Promise<CreateCiPipelinePrResponse> => {
+    const response = await makeRequest('/api/ci-studio/compile-pr', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return handleApiResponse<CreateCiPipelinePrResponse>(response);
   },
 };
 
@@ -900,6 +1161,131 @@ export const repoApi = {
     return handleApiResponse<GitBranch[]>(response);
   },
 
+  /** Tags with their target commit (plain `git tag` order). */
+  getTags: async (
+    repoId: string
+  ): Promise<{ name: string; target_oid: string }[]> => {
+    const response = await makeRequest(`/api/repos/${repoId}/tags`);
+    return handleApiResponse<{ name: string; target_oid: string }[]>(response);
+  },
+
+  /** Directory listing at a commit (editor snapshot tree). */
+  getCommitTree: async (
+    repoId: string,
+    oid: string,
+    path = ''
+  ): Promise<{ name: string; is_directory: boolean }[]> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/tree?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ name: string; is_directory: boolean }[]>(
+      response
+    );
+  },
+
+  /** Unified diff of one file in a commit (editor diff tabs). */
+  getCommitFileDiff: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ patch: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file-diff?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ patch: string }>(response);
+  },
+
+  /** Read-only file content at a commit (editor snapshots). */
+  getCommitFile: async (
+    repoId: string,
+    oid: string,
+    path: string
+  ): Promise<{ content: string }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}/file?path=${encodeURIComponent(path)}`
+    );
+    return handleApiResponse<{ content: string }>(response);
+  },
+
+  /** Full detail of one commit (message, identity, per-file line stats). */
+  getCommit: async (
+    repoId: string,
+    oid: string
+  ): Promise<{
+    oid: string;
+    short_oid: string;
+    message: string;
+    author: string;
+    author_email: string;
+    committed_at: string;
+    parent_oids: string[];
+    files: Array<{
+      path: string;
+      status: 'added' | 'deleted' | 'modified' | 'renamed';
+      additions: number;
+      deletions: number;
+    }>;
+    additions: number;
+    deletions: number;
+  }> => {
+    const response = await makeRequest(
+      `/api/repos/${repoId}/commits/${encodeURIComponent(oid)}`
+    );
+    return handleApiResponse(response);
+  },
+
+  /** Index of a commit within the fleet-graph ordering (null = not there). */
+  locateGraphCommit: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    oid: string
+  ): Promise<{ index: number | null }> => {
+    const params = new URLSearchParams({ base, tips: tips.join(','), oid });
+    const response = await makeRequest(
+      `/api/repos/${repoId}/graph/locate?${params}`
+    );
+    return handleApiResponse<{ index: number | null }>(response);
+  },
+
+  // Fleet graph (SHELL-SPEC V4). Types mirror crates/git FleetGraph inline
+  // (like the editor endpoints — not part of generate_types).
+  getGraph: async (
+    repoId: string,
+    base: string,
+    tips: string[],
+    limit = 100,
+    offset = 0
+  ): Promise<{
+    base_branch: string;
+    commits: Array<{
+      oid: string;
+      short_oid: string;
+      parent_oids: string[];
+      summary: string;
+      author: string;
+      committed_at: string;
+      branch: string | null;
+      tip_of: string[];
+    }>;
+    tips: Array<{
+      branch: string;
+      oid: string;
+      ahead_from_base: number;
+      behind_from_base: number;
+    }>;
+    has_more: boolean;
+  }> => {
+    const params = new URLSearchParams({
+      base,
+      tips: tips.join(','),
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const response = await makeRequest(`/api/repos/${repoId}/graph?${params}`);
+    return handleApiResponse(response);
+  },
+
   init: async (
     data: {
       parent_path: string;
@@ -963,6 +1349,19 @@ export const repoApi = {
   listRemotes: async (repoId: string): Promise<GitRemote[]> => {
     const response = await makeRequest(`/api/repos/${repoId}/remotes`);
     return handleApiResponse<GitRemote[]>(response);
+  },
+
+  /** Create a local branch at a commit (fleet graph inline action). */
+  createBranchAt: async (
+    repoId: string,
+    name: string,
+    atOid: string
+  ): Promise<void> => {
+    const response = await makeRequest(`/api/repos/${repoId}/branches`, {
+      method: 'POST',
+      body: JSON.stringify({ name, at_oid: atOid }),
+    });
+    return handleApiResponse<void>(response);
   },
 };
 
@@ -1486,6 +1885,67 @@ export const remoteProjectsApi = {
   },
 };
 
+// Repo Issues API
+export const repoIssuesApi = {
+  list: async (repoId: string): Promise<RepoIssue[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues`
+    );
+    return handleApiResponse<RepoIssue[]>(response);
+  },
+  sync: async (repoId: string): Promise<RepoIssue[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/sync`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<RepoIssue[]>(response);
+  },
+  setPriority: async (
+    repoId: string,
+    issueNumber: number,
+    priority: import('@/features/issues/types').IssuePriority | null
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/priority`,
+      { method: 'PUT', body: JSON.stringify({ priority }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  addLabel: async (
+    repoId: string,
+    issueNumber: number,
+    label: string,
+    color?: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels`,
+      { method: 'POST', body: JSON.stringify({ label, color }) }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  removeLabel: async (
+    repoId: string,
+    issueNumber: number,
+    labelName: string
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`,
+      { method: 'DELETE' }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+  closeIssue: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<RepoIssue> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/close`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<RepoIssue>(response);
+  },
+};
+
 // Scratch API
 export const scratchApi = {
   create: async (
@@ -1553,6 +2013,22 @@ export const agentsApi = {
       `/api/agents/preset-options?${params.toString()}`
     );
     return handleApiResponse<ExecutorConfig>(response);
+  },
+
+  getGuidelines: async (): Promise<AgentGuidelines> => {
+    const response = await makeRequest('/api/agents/guidelines');
+    return handleApiResponse<AgentGuidelines>(response);
+  },
+
+  saveGuidelines: async (
+    data: SaveAgentGuidelinesRequest
+  ): Promise<AgentGuidelines> => {
+    const response = await makeRequest('/api/agents/guidelines', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<AgentGuidelines>(response);
   },
 };
 
@@ -1679,6 +2155,494 @@ export const releasesApi = {
     const response = await makeRequest('/api/releases');
     const result = await handleApiResponse<ReleasesResponse>(response);
     return result.releases;
+  },
+};
+
+/**
+ * Which credential the current authenticated GitHub session is using.
+ * Kept local until `shared/types.ts` is regenerated from the backend.
+ */
+export type GithubAuthMethod = 'pat' | 'gh_cli';
+
+/**
+ * Extension of the generated `GithubStatusResponse` with the PAT-related
+ * fields added by the PAT auth work. Once `shared/types.ts` is
+ * regenerated these fields will move onto the base type and this alias
+ * can be dropped.
+ */
+export type GithubStatusResponseWithPat = GithubStatusResponse & {
+  has_pat: boolean;
+  auth_method: GithubAuthMethod | null;
+};
+
+export interface GithubPatLoginResponse {
+  username: string;
+}
+
+// GitHub API (local `gh` CLI-backed, with optional PAT fallback for hosts
+// where `gh` isn't installed).
+export const githubApi = {
+  getStatus: async (): Promise<GithubStatusResponseWithPat> => {
+    const response = await makeRequest('/api/github/status');
+    return handleApiResponse<GithubStatusResponseWithPat>(response);
+  },
+
+  login: async (): Promise<GithubLoginResponse> => {
+    const response = await makeRequest('/api/github/login', {
+      method: 'POST',
+    });
+    return handleApiResponse<GithubLoginResponse>(response);
+  },
+
+  loginWithPat: async (pat: string): Promise<GithubPatLoginResponse> => {
+    const response = await makeRequest('/api/github/login/pat', {
+      method: 'POST',
+      body: JSON.stringify({ pat }),
+    });
+    return handleApiResponse<GithubPatLoginResponse>(response);
+  },
+
+  disconnectPat: async (): Promise<void> => {
+    const response = await makeRequest('/api/github/pat', {
+      method: 'DELETE',
+    });
+    await handleApiResponse<void>(response);
+  },
+
+  logout: async (): Promise<void> => {
+    const response = await makeRequest('/api/github/logout', {
+      method: 'POST',
+    });
+    await handleApiResponse<void>(response);
+  },
+
+  installCli: async (): Promise<GithubCliInstallResponse> => {
+    const response = await makeRequest('/api/github/cli/install', {
+      method: 'POST',
+    });
+    return handleApiResponse<GithubCliInstallResponse>(response);
+  },
+
+  listRepos: async (): Promise<GitHubRepoSummary[]> => {
+    const response = await makeRequest('/api/github/repos');
+    return handleApiResponse<GitHubRepoSummary[]>(response);
+  },
+
+  clone: async (data: CloneRepoRequest): Promise<CloneRepoResponse> => {
+    const response = await makeRequest('/api/github/clone', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<CloneRepoResponse>(response);
+  },
+};
+
+// ============================================================================
+// Agent auth (Codex + Gemini + Claude Code connect/disconnect from Settings)
+// ============================================================================
+//
+// These types mirror the ts-rs–exported ones in
+// `crates/server/src/routes/agent_auth.rs`. They live here (not in
+// `shared/types.ts`) until infrastructure regenerates the shared types file;
+// the pattern is the same as `GithubStatusResponseWithPat` above.
+
+export type AgentAuthProvider = 'codex' | 'gemini' | 'claude_code';
+
+export type AgentLoginState = 'pending' | 'completed' | 'failed';
+
+export interface AgentLoginProgress {
+  state: AgentLoginState;
+  verification_uri: string | null;
+  user_code: string | null;
+  error: string | null;
+}
+
+export interface AgentAuthProviderStatus {
+  provider: AgentAuthProvider;
+  cli_available: boolean;
+  connected: boolean;
+  last_auth_at: number | null;
+  login: AgentLoginProgress | null;
+}
+
+export interface AgentAuthStatusResponse {
+  providers: AgentAuthProviderStatus[];
+}
+
+export interface AgentLoginRequest {
+  api_key?: string | null;
+}
+
+export interface AgentLoginSubmitRequest {
+  code: string;
+}
+
+export interface AgentLoginResponse {
+  verification_uri: string | null;
+  user_code: string | null;
+  completed: boolean;
+}
+
+export const agentAuthApi = {
+  getStatus: async (): Promise<AgentAuthStatusResponse> => {
+    const response = await makeRequest('/api/agents/auth');
+    return handleApiResponse<AgentAuthStatusResponse>(response);
+  },
+
+  login: async (
+    provider: AgentAuthProvider,
+    body: AgentLoginRequest = {}
+  ): Promise<AgentLoginResponse> => {
+    const response = await makeRequest(`/api/agents/auth/${provider}/login`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return handleApiResponse<AgentLoginResponse>(response);
+  },
+
+  submitCode: async (
+    provider: AgentAuthProvider,
+    body: AgentLoginSubmitRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/agents/auth/${provider}/login/submit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+    await handleApiResponse<void>(response);
+  },
+
+  cancelLogin: async (provider: AgentAuthProvider): Promise<void> => {
+    const response = await makeRequest(
+      `/api/agents/auth/${provider}/login/cancel`,
+      { method: 'POST' }
+    );
+    await handleApiResponse<void>(response);
+  },
+
+  logout: async (provider: AgentAuthProvider): Promise<void> => {
+    const response = await makeRequest(`/api/agents/auth/${provider}/logout`, {
+      method: 'POST',
+    });
+    await handleApiResponse<void>(response);
+  },
+};
+
+// ============================================================================
+// Setup status (onboarding wizard checklist)
+// ============================================================================
+//
+// Mirrors `SetupStatusResponse` in `crates/server/src/routes/setup_status.rs`.
+// Declared locally until `shared/types.ts` is regenerated by infrastructure —
+// same pattern as `GithubStatusResponseWithPat` and `AgentAuthStatusResponse`
+// above.
+
+export interface SetupStatusResponse {
+  github_connected: boolean;
+  repo_added: boolean;
+  agent_connected: boolean;
+  task_created: boolean;
+  is_complete: boolean;
+}
+
+export const setupStatusApi = {
+  get: async (): Promise<SetupStatusResponse> => {
+    const response = await makeRequest('/api/setup-status');
+    return handleApiResponse<SetupStatusResponse>(response);
+  },
+};
+
+// Workers API
+export interface StartAllWorkersItemResponse {
+  worker_id: string;
+  worker_name: string;
+  started: boolean;
+  task_title: string | null;
+  reason: string | null;
+}
+
+export interface StartAllWorkersResponse {
+  results: StartAllWorkersItemResponse[];
+}
+
+export interface CreateWorkerRequest {
+  name: string;
+  emoji: string;
+  soul: string;
+  role?: string;
+  model?: string | null;
+  /**
+   * Optional per-worker GitHub PAT. Sent write-only; the server never
+   * returns it. Empty string or `null` means "no override" — the worker
+   * falls back to the machine's global gh credentials.
+   */
+  github_pat?: string | null;
+  /**
+   * Per-worker plan mode override. `null` or omitted → follow the global
+   * executor profile; `true` → force plan mode on; `false` → force plan
+   * mode off for this worker.
+   */
+  plan_mode?: boolean | null;
+}
+
+export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
+
+export interface ValidateGithubPatResponse {
+  /** GitHub login the token belongs to (e.g. "chewax"). */
+  login: string;
+}
+
+/**
+ * Body for POST /workers/{worker_id}/tasks/{task_id}/reassign.
+ * Kept locally until `shared/types.ts` is regenerated so the frontend
+ * compiles independently of the backend regen step.
+ */
+export interface ReassignWorkerTaskRequest {
+  target_worker_id: string;
+}
+
+export const workersApi = {
+  list: async (): Promise<WorkerResponse[]> => {
+    const response = await makeRequest('/api/workers');
+    return handleApiResponse<WorkerResponse[]>(response);
+  },
+
+  create: async (data: CreateWorkerRequest): Promise<WorkerResponse> => {
+    const response = await makeRequest('/api/workers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  update: async (
+    workerId: string,
+    data: UpdateWorkerRequest
+  ): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  delete: async (workerId: string): Promise<void> => {
+    const response = await makeRequest(`/api/workers/${workerId}`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<void>(response);
+  },
+
+  archive: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/archive`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  unarchive: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/unarchive`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  listArchived: async (): Promise<WorkerResponse[]> => {
+    const response = await makeRequest('/api/workers/archived');
+    return handleApiResponse<WorkerResponse[]>(response);
+  },
+
+  duplicate: async (workerId: string): Promise<WorkerResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/duplicate`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerResponse>(response);
+  },
+
+  /**
+   * Probe a GitHub PAT against `/user`. Returns the token's login on
+   * success; throws with the server's rejection reason on failure. The
+   * token is not stored — this is a pre-save validation for the form.
+   */
+  validateGithubPat: async (
+    token: string
+  ): Promise<ValidateGithubPatResponse> => {
+    const response = await makeRequest('/api/workers/validate-github-pat', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    return handleApiResponse<ValidateGithubPatResponse>(response);
+  },
+
+  listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
+    const response = await makeRequest(`/api/workers/${workerId}/tasks`);
+    return handleApiResponse<WorkerTaskResponse[]>(response);
+  },
+
+  checkActiveIssueTask: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<ActiveIssueTaskInfo | null> => {
+    const response = await makeRequest(
+      `/api/workers/active-issue-task?repo_id=${encodeURIComponent(repoId)}&issue_number=${issueNumber}`
+    );
+    return handleApiResponse<ActiveIssueTaskInfo | null>(response);
+  },
+
+  createTask: async (
+    workerId: string,
+    data: CreateWorkerTaskRequest & {
+      skills?: string[];
+      force_duplicate?: boolean;
+      source?: string;
+    }
+  ): Promise<WorkerTaskResponse & { skills: string[] }> => {
+    const response = await makeRequest(`/api/workers/${workerId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerTaskResponse & { skills: string[] }>(
+      response
+    );
+  },
+
+  updateTask: async (
+    workerId: string,
+    taskId: string,
+    data: UpdateWorkerTaskRequest
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  deleteTask: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  cancelTask: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/cancel`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  reRequestReview: async (workerId: string, taskId: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/re-request-review`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<void>(response);
+  },
+
+  reassignTask: async (
+    workerId: string,
+    taskId: string,
+    targetWorkerId: string
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/reassign`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          target_worker_id: targetWorkerId,
+        } satisfies ReassignWorkerTaskRequest),
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  startNext: async (workerId: string): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(`/api/workers/${workerId}/start`, {
+      method: 'POST',
+    });
+    return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  startAll: async (): Promise<StartAllWorkersResponse> => {
+    const response = await makeRequest('/api/workers/start-all', {
+      method: 'POST',
+    });
+    return handleApiResponse<StartAllWorkersResponse>(response);
+  },
+};
+
+export const systemApi = {
+  getBaseInstructions: async (): Promise<string> => {
+    const response = await makeRequest('/api/system/base-instructions');
+    const data = await handleApiResponse<{ content: string }>(response);
+    return data.content;
+  },
+};
+
+// Plan limits API — concurrent-agents cap, upsell CTA, cap-hit counters.
+// Types mirror `PlanLimitsResponse` in
+// `crates/server/src/routes/metrics.rs`; they live here (not in
+// `shared/types.ts`) until infrastructure regenerates the shared types file,
+// same pattern as the agent-auth shims above.
+export interface PlanUpgradeCta {
+  label: string;
+  url: string;
+}
+
+export interface PlanLimitsResponse {
+  concurrent_agents_limit: number;
+  upgrade_cta: PlanUpgradeCta | null;
+  cap_hits_today: number;
+  cap_hits_total: number;
+}
+
+export const planLimitsApi = {
+  get: async (): Promise<PlanLimitsResponse> => {
+    const response = await makeRequest('/api/plan-limits');
+    return handleApiResponse<PlanLimitsResponse>(response);
+  },
+};
+
+// Skills API — manages ~/.claude/skills on the container
+export interface SkillInfo {
+  name: string;
+  description: string;
+}
+
+export const skillsApi = {
+  list: async (): Promise<SkillInfo[]> => {
+    const response = await makeRequest('/api/skills');
+    return handleApiResponse<SkillInfo[]>(response);
+  },
+
+  install: async (url: string): Promise<SkillInfo> => {
+    const response = await makeRequest('/api/skills', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+    return handleApiResponse<SkillInfo>(response);
+  },
+
+  delete: async (name: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/skills/${encodeURIComponent(name)}`,
+      { method: 'DELETE' }
+    );
+    return handleApiResponse<void>(response);
   },
 };
 

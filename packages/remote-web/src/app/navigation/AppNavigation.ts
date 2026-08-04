@@ -35,10 +35,6 @@ export function resolveRemoteDestinationFromPath(
       const hostId = getPathParam(routeParams, "hostId");
       return hostId ? { kind: "workspaces", hostId } : null;
     }
-    case "/hosts/$hostId/workspaces_/create": {
-      const hostId = getPathParam(routeParams, "hostId");
-      return hostId ? { kind: "workspaces-create", hostId } : null;
-    }
     case "/hosts/$hostId/workspaces_/$workspaceId": {
       const hostId = getPathParam(routeParams, "hostId");
       const workspaceId = getPathParam(routeParams, "workspaceId");
@@ -94,19 +90,6 @@ export function resolveRemoteDestinationFromPath(
           }
         : null;
     }
-    case "/projects/$projectId_/hosts/$hostId/workspaces/create/$draftId": {
-      const projectId = getPathParam(routeParams, "projectId");
-      const hostId = getPathParam(routeParams, "hostId");
-      const draftId = getPathParam(routeParams, "draftId");
-      return projectId && hostId && draftId
-        ? {
-            kind: "project-workspace-create",
-            projectId,
-            hostId,
-            draftId,
-          }
-        : null;
-    }
     default:
       return null;
   }
@@ -135,14 +118,6 @@ function destinationToRemoteTarget(
         } as const;
       }
       return { to: "/" } as const;
-    case "workspaces-create":
-      if (effectiveHostId) {
-        return {
-          to: "/hosts/$hostId/workspaces/create",
-          params: { hostId: effectiveHostId },
-        } as const;
-      }
-      return { to: "/" } as const;
     case "workspace":
       if (effectiveHostId) {
         return {
@@ -167,6 +142,30 @@ function destinationToRemoteTarget(
       return { to: "/" } as const;
     case "export":
       return { to: "/export" } as const;
+    case "issues":
+      // No dedicated issues route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "workers":
+      // No dedicated workers route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "dashboard":
+      // No dedicated dashboard route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "pilot-report":
+      // No dedicated pilot-report route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "source-control":
+      // No dedicated source control route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "analyst-desk":
+      // No dedicated analyst desk route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "ci-pipelines":
+      // No dedicated CI pipelines route on the remote web; fall back to root.
+      return { to: "/" } as const;
+    case "sprint":
+      // No dedicated sprint route on the remote web; fall back to root.
+      return { to: "/" } as const;
     case "project":
       return {
         to: "/projects/$projectId",
@@ -200,15 +199,6 @@ function destinationToRemoteTarget(
           draftId: destination.draftId,
         },
       } as const;
-    case "project-workspace-create":
-      return {
-        to: "/projects/$projectId/hosts/$hostId/workspaces/create/$draftId",
-        params: {
-          projectId: destination.projectId,
-          hostId: destination.hostId,
-          draftId: destination.draftId,
-        },
-      } as const;
   }
 }
 
@@ -236,13 +226,26 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
       navigateTo({ kind: "onboarding-sign-in" }, transition),
     goToWorkspaces: (transition) =>
       navigateTo({ kind: "workspaces", hostId }, transition),
-    goToWorkspacesCreate: (transition) =>
-      navigateTo({ kind: "workspaces-create", hostId }, transition),
     goToWorkspace: (workspaceId, transition) =>
       navigateTo({ kind: "workspace", hostId, workspaceId }, transition),
     goToWorkspaceVsCode: (workspaceId, transition) =>
       navigateTo({ kind: "workspace-vscode", hostId, workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
+    goToDashboard: (transition) =>
+      navigateTo({ kind: "dashboard" }, transition),
+    goToPilotReport: (transition) =>
+      navigateTo({ kind: "pilot-report" }, transition),
+    goToSourceControl: (transition) =>
+      navigateTo({ kind: "source-control" }, transition),
+    goToIssues: (repoId, transition) =>
+      navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToAnalystDesk: (transition) =>
+      navigateTo({ kind: "analyst-desk" }, transition),
+    goToCiPipelines: (transition) =>
+      navigateTo({ kind: "ci-pipelines" }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: "sprint", ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>
@@ -274,11 +277,6 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
         },
         transition,
       ),
-    goToProjectWorkspaceCreate: (projectId, draftId, transition) =>
-      navigateTo(
-        { kind: "project-workspace-create", hostId, projectId, draftId },
-        transition,
-      ),
   };
 
   return navigation;
@@ -308,13 +306,26 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
       navigateTo({ kind: "onboarding-sign-in" }, transition),
     goToWorkspaces: (transition) =>
       navigateTo({ kind: "workspaces" }, transition),
-    goToWorkspacesCreate: (transition) =>
-      navigateTo({ kind: "workspaces-create" }, transition),
     goToWorkspace: (workspaceId, transition) =>
       navigateTo({ kind: "workspace", workspaceId }, transition),
     goToWorkspaceVsCode: (workspaceId, transition) =>
       navigateTo({ kind: "workspace-vscode", workspaceId }, transition),
     goToExport: (transition) => navigateTo({ kind: "export" }, transition),
+    goToDashboard: (transition) =>
+      navigateTo({ kind: "dashboard" }, transition),
+    goToPilotReport: (transition) =>
+      navigateTo({ kind: "pilot-report" }, transition),
+    goToSourceControl: (transition) =>
+      navigateTo({ kind: "source-control" }, transition),
+    goToIssues: (repoId, transition) =>
+      navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToAnalystDesk: (transition) =>
+      navigateTo({ kind: "analyst-desk" }, transition),
+    goToCiPipelines: (transition) =>
+      navigateTo({ kind: "ci-pipelines" }, transition),
+    goToSprint: (repoId, transition) =>
+      navigateTo({ kind: "sprint", ...(repoId ? { repoId } : {}) }, transition),
     goToProject: (projectId, transition) =>
       navigateTo({ kind: "project", projectId }, transition),
     goToProjectIssue: (projectId, issueId, transition) =>
@@ -332,11 +343,6 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
     ) =>
       navigateTo(
         { kind: "project-issue-workspace-create", projectId, issueId, draftId },
-        transition,
-      ),
-    goToProjectWorkspaceCreate: (projectId, draftId, transition) =>
-      navigateTo(
-        { kind: "project-workspace-create", projectId, draftId },
         transition,
       ),
   };

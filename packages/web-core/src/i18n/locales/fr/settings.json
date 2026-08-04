@@ -21,18 +21,22 @@
         "reposDesc": "Scripts et configuration des dépôts",
         "agents": "Agents",
         "agentsDesc": "Configurations des agents de codage",
+        "guidelines": "Directives",
+        "guidelinesDesc": "Règles de comportement globales pour tous les agents",
         "mcp": "Serveurs MCP",
         "mcpDesc": "Serveurs Model Context Protocol",
-        "organizations": "Paramètres de l'organisation",
         "organizationsDesc": "Gérer les membres et les permissions de l'organisation",
-        "remote-projects": "Projets",
         "remote-projectsDesc": "Gérer les projets",
-        "relay": "Remote Access",
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "pairOtherMachines": "Pair other machines",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "Skills",
+        "skillsDesc": "Gérer les skills des agents installés dans ~/.claude/skills",
+        "github": "GitHub",
+        "githubDesc": "Connectez-vous à GitHub avec la CLI gh",
+        "agent-auth": "Connexions des agents",
+        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres"
       }
     },
     "general": {
@@ -87,7 +91,7 @@
           "host": {
             "label": "Hôte SSH distant (optionnel)",
             "placeholder": "ex: nom d'hôte ou adresse IP",
-            "helper": "Définissez ceci si Vibe Kanban fonctionne sur un serveur distant. Lorsque défini, cliquer sur \"Ouvrir dans l'éditeur\" générera une URL pour ouvrir votre éditeur via SSH au lieu de lancer une commande locale."
+            "helper": "Définissez ceci si mkanban fonctionne sur un serveur distant. Lorsque défini, cliquer sur \"Ouvrir dans l'éditeur\" générera une URL pour ouvrir votre éditeur via SSH au lieu de lancer une commande locale."
           },
           "user": {
             "label": "Utilisateur SSH distant (optionnel)",
@@ -97,7 +101,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the Vibe Kanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "Vérification de la disponibilité...",
@@ -161,10 +165,10 @@
         "workspaceDir": {
           "label": "Répertoire des espaces de travail",
           "placeholder": "~/",
-          "helper": "Les espaces de travail seront créés dans un sous-répertoire .vibe-kanban-workspaces à l'intérieur de ce chemin. Laissez vide pour utiliser la valeur par défaut du système. Les modifications nécessitent un redémarrage de l'application.",
+          "helper": "Les espaces de travail seront créés dans un sous-répertoire .mkanban-workspaces à l'intérieur de ce chemin. Laissez vide pour utiliser la valeur par défaut du système. Les modifications nécessitent un redémarrage de l'application.",
           "browse": "Parcourir",
           "dialogTitle": "Sélectionner le répertoire des espaces de travail",
-          "dialogDescription": "Choisissez un répertoire. Les espaces de travail seront créés dans un sous-répertoire .vibe-kanban-workspaces à l'intérieur."
+          "dialogDescription": "Choisissez un répertoire. Les espaces de travail seront créés dans un sous-répertoire .mkanban-workspaces à l'intérieur."
         }
       },
       "pullRequests": {
@@ -177,6 +181,19 @@
         "customPrompt": {
           "useCustom": "Utiliser un prompt personnalisé",
           "helper": "Prompt personnalisé pour l'agent IA lors de la génération des descriptions de PR. Utilisez {pr_number} et {pr_url} comme variables."
+        }
+      },
+      "autoReview": {
+        "title": "Review automatique",
+        "description": "Configurez la boucle automatique change-request / re-review pour les PR générées par les agents.",
+        "maxRounds": {
+          "label": "Nombre maximum de tours de review",
+          "helper": "Nombre maximum d'itérations change-request ↔ re-review avant l'arrêt du review automatique. Doit être au moins 1.",
+          "errors": {
+            "required": "Saisissez une valeur.",
+            "notInteger": "La valeur doit être un nombre entier.",
+            "min": "La valeur doit être d'au moins 1."
+          }
         }
       },
       "commits": {
@@ -436,7 +453,32 @@
         "button": "Ajouter un dépôt",
         "dialogTitle": "Sélectionner un dépôt Git",
         "dialogDescription": "Choisissez un dépôt git existant à enregistrer.",
-        "error": "Échec de l'enregistrement du dépôt"
+        "error": "Échec de l'enregistrement du dépôt",
+        "tabs": {
+          "folder": "Dossier local",
+          "github": "Depuis GitHub"
+        },
+        "folder": {
+          "pathLabel": "Chemin du dépôt",
+          "pathPlaceholder": "/chemin/vers/votre/depot",
+          "helper": "Indiquez le chemin absolu vers un dépôt git local existant.",
+          "browse": "Parcourir un dossier",
+          "submit": "Ajouter le dépôt"
+        },
+        "github": {
+          "searchPlaceholder": "Filtrer les dépôts par nom",
+          "loading": "Chargement des dépôts…",
+          "cloning": "Clonage du dépôt…",
+          "cloneInProgress": "Un clonage est en cours",
+          "noRepos": "Aucun dépôt disponible. Assurez-vous d’être connecté à `gh`.",
+          "noMatches": "Aucun dépôt ne correspond à votre recherche.",
+          "notAuthenticated": "Vous n’êtes pas authentifié auprès de GitHub. Exécutez `gh auth login` puis réessayez."
+        },
+        "errors": {
+          "pathRequired": "Le chemin du dépôt est obligatoire",
+          "cloneFailed": "Échec du clonage du dépôt",
+          "listFailed": "Échec du chargement des dépôts"
+        }
       },
       "selector": {
         "label": "Sélectionner un dépôt",
@@ -505,11 +547,11 @@
       },
       "remove": {
         "title": "Retirer le dépôt",
-        "description": "Dissocier ce dépôt de Vibe Kanban. Les fichiers sur le disque ne seront pas supprimés.",
+        "description": "Dissocier ce dépôt de mkanban. Les fichiers sur le disque ne seront pas supprimés.",
         "button": "Retirer",
         "confirm": "Retirer le dépôt",
         "dialogTitle": "Retirer « {{name}} » ?",
-        "dialogDescription": "Cela dissociera le dépôt de Vibe Kanban. Vos fichiers sur le disque ne seront pas affectés. Vous pourrez le rajouter ultérieurement.",
+        "dialogDescription": "Cela dissociera le dépôt de mkanban. Vos fichiers sur le disque ne seront pas affectés. Vous pourrez le rajouter ultérieurement.",
         "success": "Dépôt retiré avec succès.",
         "error": "Échec du retrait du dépôt."
       },
@@ -522,87 +564,150 @@
         "confirmSwitch": "Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir changer de dépôt ? Vos modifications seront perdues."
       }
     },
-    "relay": {
-      "title": "Remote Access",
-      "description": "Allow access to this instance from the web via relay tunnel.",
-      "enabled": {
-        "label": "Enable remote access",
-        "helper": "When enabled, this instance can be accessed remotely through a relay tunnel."
-      },
-      "enrollmentCode": {
-        "label": "Pairing Code",
-        "helper": "Enter this code in the browser to pair with this instance.",
-        "loginRequired": "Log in to generate a pairing code.",
-        "fetchError": "Failed to fetch pairing code.",
-        "show": "Show pairing code"
-      },
-      "host": {
-        "label": "Hôte"
-      },
-      "client": {
-        "label": "Client"
-      },
-      "overview": {
-        "available": "Available",
-        "unavailable": "Unavailable"
-      }
-    },
-    "remoteProjects": {
-      "title": "Remote Projects",
-      "description": "Manage cloud-synced projects across organizations.",
-      "loading": "Loading remote projects...",
-      "loadError": "Failed to load organizations",
-      "noProjects": "No projects yet. Create one to get started.",
-      "selectOrg": "Select an organization",
-      "createSuccess": "Project created successfully",
-      "deleteSuccess": "Project deleted successfully",
-      "nameRequired": "Project name is required",
-      "saveSuccess": "Project updated successfully",
-      "saveError": "Failed to update project",
-      "columns": {
-        "organizations": "Organizations",
-        "projects": "Projects"
-      },
-      "actions": {
-        "addProject": "Add Project"
-      },
-      "form": {
-        "name": {
-          "label": "Project Name",
-          "placeholder": "Enter project name"
-        },
-        "color": {
-          "label": "Project Color"
-        },
-        "statuses": {
-          "label": "Project Statuses",
-          "description": "Manage kanban columns for this project."
-        },
-        "defaultRepos": {
-          "label": "Default Repositories",
-          "description": "Repositories that are automatically added when creating workspaces from this project's issues.",
-          "empty": "No default repositories configured",
-          "addButton": "Add",
-          "addNew": "Add new repository...",
-          "branchLabel": "Branch",
-          "noBranches": "No branches found for this repository",
-          "fetchError": "Could not load repositories",
-          "saveError": "Failed to save default repositories"
-        }
-      },
-      "loginRequired": {
-        "title": "Sign in required",
-        "description": "Sign in to manage your remote projects.",
-        "action": "Sign in"
-      }
-    },
     "hostPicker": {
       "thisMachine": "This machine",
       "localHost": "Local host",
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
-      "pairMachineHint": "Pair a machine to open machine settings.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "Skills installés",
+        "description": "Skills disponibles pour tous les agents dans ~/.claude/skills.",
+        "loading": "Chargement des skills...",
+        "loadError": "Échec du chargement des skills.",
+        "empty": "Aucun skill installé. Installez-en un depuis une URL de dépôt git.",
+        "delete": "Supprimer {{name}}"
+      },
+      "install": {
+        "title": "Installer un skill",
+        "description": "Cloner un skill depuis un dépôt git dans ~/.claude/skills.",
+        "urlLabel": "URL du dépôt",
+        "urlHelper": "Le nom du skill est dérivé du dernier segment de l'URL.",
+        "urlPlaceholder": "https://github.com/org/nom-du-skill",
+        "button": "Installer",
+        "error": "Échec de l'installation du skill."
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "Connexion GitHub",
+        "description": "Connectez-vous à GitHub via la CLI gh locale pour activer les opérations git et les pull requests.",
+        "status": {
+          "label": "État"
+        }
+      },
+      "cliWarning": "La CLI GitHub (gh) n’est pas installée. Vous pouvez tout de même vous connecter avec un Personal Access Token ci-dessous, mais les pull requests et la synchronisation d’issues nécessitent gh dans le PATH.",
+      "patExpired": "Votre Personal Access Token a expiré ou a été révoqué. Reconnectez-vous ci-dessous pour conserver les fonctions GitHub.",
+      "status": {
+        "loading": "Vérification de la connexion…",
+        "connected": "Connecté à GitHub",
+        "connectedAs": "Connecté en tant que @{{username}}",
+        "connectedAsPat": "Connecté en tant que @{{username}} (via PAT)",
+        "notConnected": "Non connecté"
+      },
+      "actions": {
+        "connect": "Se connecter à GitHub",
+        "disconnect": "Déconnecter",
+        "installCli": "Installer GitHub CLI",
+        "installingCli": "Installation…"
+      },
+      "deviceFlow": {
+        "title": "Autoriser sur GitHub",
+        "description": "Copiez le code à usage unique ci-dessous, puis ouvrez GitHub et collez-le pour terminer la connexion.",
+        "codeLabel": "Code à usage unique",
+        "copyHint": "Cliquer pour copier",
+        "openGitHub": "Ouvrir github.com/login/device",
+        "checkStatus": "Actualiser l’état",
+        "waiting": "En attente de l’autorisation… cette boîte de dialogue se mettra à jour automatiquement une fois terminée sur GitHub."
+      },
+      "pat": {
+        "title": "Se connecter avec un Personal Access Token",
+        "description": "Sans terminal ni CLI gh. Collez un token avec les scopes repo, read:org et workflow.",
+        "placeholder": "ghp_…",
+        "submit": "Valider et connecter",
+        "helpBefore": "Générez un token depuis",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "avec les scopes recommandés."
+      },
+      "errors": {
+        "loginFailed": "Échec du démarrage de la connexion GitHub.",
+        "logoutFailed": "Échec de la déconnexion GitHub.",
+        "installFailed": "Échec de l’installation de GitHub CLI.",
+        "patLoginFailed": "Échec de la validation du Personal Access Token."
+      }
+    },
+    "agentAuth": {
+      "loading": "Vérification des agents installés…",
+      "emptyState": "Aucun agent de code n'est encore installé sur cette machine.",
+      "statusLabel": "Statut",
+      "status": {
+        "connected": "Connecté",
+        "notConnected": "Non connecté"
+      },
+      "actions": {
+        "connect": "Se connecter",
+        "disconnect": "Se déconnecter",
+        "cancel": "Annuler"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "Connectez-vous à OpenAI Codex via le flux de dispositif dans le navigateur — aucun terminal requis."
+        },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Connectez-vous avec votre abonnement Claude — ouvrez l'URL, connectez-vous et collez le code d'échange ci-dessous."
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "Connectez Google Gemini avec une clé API obtenue depuis Google AI Studio."
+        }
+      },
+      "deviceFlow": {
+        "title": "Autoriser sur OpenAI",
+        "description": "Copiez le code à usage unique ci-dessous, puis ouvrez la page OpenAI et collez-le pour terminer la connexion.",
+        "codeLabel": "Code à usage unique",
+        "copyHint": "Cliquer pour copier",
+        "openBrowser": "Ouvrir OpenAI",
+        "checkStatus": "Actualiser le statut",
+        "waitingForCode": "Attente de l'affichage du code par la CLI…",
+        "waiting": "Attente de l'autorisation… cette carte se mettra à jour automatiquement lorsque vous aurez terminé dans le navigateur."
+      },
+      "apiKey": {
+        "title": "Connecter avec une clé API",
+        "description": "Collez une clé API Gemini obtenue depuis Google AI Studio. Elle est stockée sur cette machine sous GEMINI_API_KEY et n'en sort jamais.",
+        "placeholder": "AIza…",
+        "submit": "Enregistrer et connecter",
+        "helpBefore": "Obtenez une clé depuis",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "et collez-la ci-dessus."
+      },
+      "claudeFlow": {
+        "title": "Autoriser sur claude.com",
+        "description": "Ouvrez l'URL, connectez-vous à votre compte Claude et copiez le code d'échange renvoyé par la page.",
+        "openBrowser": "Ouvrir claude.com",
+        "copyUrl": "Copier l'URL",
+        "waitingForUrl": "Attente de l'affichage de l'URL de connexion par la CLI…",
+        "codeInputLabel": "Code d'échange",
+        "codeInputPlaceholder": "Collez le code depuis claude.com",
+        "codeInputHelp": "Cette carte se met à jour automatiquement dès que la CLI accepte le code.",
+        "submitCode": "Envoyer le code"
+      },
+      "hidden": {
+        "title": "CLIs non installées",
+        "description": "Ces agents sont masqués parce que leur CLI n'est pas installée sur cette image : {{providers}}."
+      },
+      "errors": {
+        "loginFailed": "Impossible de démarrer la connexion.",
+        "logoutFailed": "Impossible de déconnecter l'agent.",
+        "cancelFailed": "Impossible d'annuler la connexion.",
+        "submitCodeFailed": "Impossible d'envoyer le code d'échange."
+      }
     }
   },
   "integrations": {

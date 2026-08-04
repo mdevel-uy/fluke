@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
 
 use axum::{Json, extract::State, response::Json as ResponseJson};
 use db::models::{
@@ -6,12 +9,18 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessStatus},
     merge::MergeStatus,
     pull_request::PullRequest,
+    worker_task::WorkerTask,
     workspace::Workspace,
 };
 use deployment::Deployment;
+use executors::logs::{
+    NormalizedEntryType, TokenUsageInfo, utils::patch::extract_normalized_entry_from_patch,
+};
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use services::services::container::ContainerService;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{log_msg::LogMsg, response::ApiResponse};
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
@@ -51,6 +60,29 @@ pub struct WorkspaceSummary {
     pub pr_number: Option<i64>,
     /// PR URL for this workspace (if any PR exists)
     pub pr_url: Option<String>,
+    /// Mergeable state of the open PR: "mergeable", "conflicting", "unknown", or null.
+    pub pr_mergeable: Option<String>,
+    /// Context-window usage of the latest coding-agent session, if known
+    pub latest_context_usage: Option<TokenUsageInfo>,
+    /// When the latest coding-agent process started (for elapsed-time display)
+    #[ts(optional)]
+    pub latest_process_started_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// CI rollup of the latest PR: "passing" | "failing" | "pending" | "none" | "unknown"
+    pub pr_ci_status: Option<String>,
+    /// The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`")
+    pub latest_activity: Option<String>,
+    /// When the latest PR was recorded (for the dashboard activity feed)
+    #[ts(optional)]
+    pub pr_created_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// When the latest PR was merged, if it was
+    #[ts(optional)]
+    pub pr_merged_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Review-loop activity for the open PR: "queued" (reviewer task waiting
+    /// in the reviewer's queue) | "running" (reviewer working right now) |
+    /// null (no active reviewer task). Lets the UI distinguish "loop working"
+    /// from silence before a verdict exists.
+    #[ts(optional)]
+    pub pr_review_activity: Option<String>,
 }
 
 /// Response containing summaries for requested workspaces
@@ -112,7 +144,38 @@ pub async fn get_workspace_summaries(
     // 6. Get PR status for each workspace
     let pr_statuses = PullRequest::get_latest_for_workspaces(pool, archived).await?;
 
-    // 7. Compute diff stats for each workspace (in parallel)
+    // 7. Latest coding-agent process per workspace: context usage + last
+    //    activity + started_at
+    let coding_agent_processes =
+        ExecutionProcess::find_latest_coding_agent_for_workspaces(pool, archived).await?;
+    let signal_futures: Vec<_> = coding_agent_processes
+        .values()
+        .map(|info| {
+            let execution_id = info.execution_process_id;
+            let workspace_id = info.workspace_id;
+            let is_terminal = info.status != ExecutionProcessStatus::Running;
+            let deployment = deployment.clone();
+            async move {
+                (
+                    workspace_id,
+                    find_latest_agent_signals(&deployment, execution_id, is_terminal).await,
+                )
+            }
+        })
+        .collect();
+    let agent_signals: HashMap<Uuid, AgentLogSignals> =
+        futures_util::stream::iter(signal_futures)
+            .buffer_unordered(MAX_CONCURRENT_LOG_SCANS)
+            .collect()
+            .await;
+
+    // 7b. CI rollup per PR URL (recorded by pr_monitor)
+    let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
+
+    // 7c. Review-loop activity: active reviewer task per (repo, pr_number)
+    let reviewer_activity = WorkerTask::reviewer_activity_by_pr(pool).await?;
+
+    // 8. Compute diff stats for each workspace (in parallel)
     let diff_futures: Vec<_> = workspaces
         .iter()
         .map(|ws| {
@@ -130,11 +193,13 @@ pub async fn get_workspace_summaries(
         })
         .collect();
 
-    let diff_results: Vec<Option<(Uuid, DiffStats)>> =
-        futures_util::future::join_all(diff_futures).await;
+    let diff_results: Vec<Option<(Uuid, DiffStats)>> = futures_util::stream::iter(diff_futures)
+        .buffer_unordered(MAX_CONCURRENT_DIFF_STATS)
+        .collect()
+        .await;
     let diff_stats: HashMap<Uuid, DiffStats> = diff_results.into_iter().flatten().collect();
 
-    // 8. Assemble response
+    // 9. Assemble response
     let summaries: Vec<WorkspaceSummary> = workspaces
         .iter()
         .map(|ws| {
@@ -159,6 +224,24 @@ pub async fn get_workspace_summaries(
                 pr_status: pr_statuses.get(&id).map(|pr| pr.pr_status.clone()),
                 pr_number: pr_statuses.get(&id).map(|pr| pr.pr_number),
                 pr_url: pr_statuses.get(&id).map(|pr| pr.pr_url.clone()),
+                pr_mergeable: pr_statuses.get(&id).and_then(|pr| pr.pr_mergeable.clone()),
+                latest_context_usage: agent_signals.get(&id).and_then(|s| s.usage.clone()),
+                latest_process_started_at: coding_agent_processes
+                    .get(&id)
+                    .map(|info| info.started_at),
+                pr_ci_status: pr_statuses
+                    .get(&id)
+                    .and_then(|pr| ci_status_by_url.get(&pr.pr_url).cloned()),
+                latest_activity: agent_signals.get(&id).and_then(|s| s.last_activity.clone()),
+                pr_created_at: pr_statuses.get(&id).map(|pr| pr.created_at),
+                pr_merged_at: pr_statuses.get(&id).and_then(|pr| pr.merged_at),
+                pr_review_activity: pr_statuses.get(&id).and_then(|pr| {
+                    if !matches!(pr.pr_status, MergeStatus::Open) {
+                        return None;
+                    }
+                    pr.repo_id
+                        .and_then(|rid| reviewer_activity.get(&(rid, pr.pr_number)).cloned())
+                }),
             }
         })
         .collect();
@@ -166,6 +249,130 @@ pub async fn get_workspace_summaries(
     Ok(ResponseJson(ApiResponse::success(
         WorkspaceSummaryResponse { summaries },
     )))
+}
+
+/// Signals mined from an execution process's normalized logs: the latest
+/// token-usage entry and the latest tool activity.
+#[derive(Debug, Clone, Default)]
+struct AgentLogSignals {
+    usage: Option<TokenUsageInfo>,
+    last_activity: Option<String>,
+}
+
+/// Cache of log signals for *finished* execution processes: their logs are
+/// immutable, so the (expensive) re-normalization below only runs once per
+/// execution for the lifetime of the server process.
+static FINISHED_SIGNALS_CACHE: LazyLock<Mutex<HashMap<Uuid, AgentLogSignals>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// How many log re-normalizations may run at once.
+///
+/// Re-normalizing one execution reads its whole raw log off disk, replays it
+/// through a `MsgStore` and normalizes it — hundreds of MB of transient
+/// allocation for a long session. This endpoint runs over *every* workspace
+/// (211 of them on a busy instance), so an unbounded `join_all` peaked at
+/// several GB and got the server OOM-killed on the first poll after a
+/// restart, before the cache below could ever fill. Bound the fan-out so the
+/// peak stays proportional to this constant instead of the workspace count.
+const MAX_CONCURRENT_LOG_SCANS: usize = 4;
+
+/// How many workspaces may have their diff stats computed at once. Each one
+/// shells out to git over a worktree, so the same fan-out argument applies.
+const MAX_CONCURRENT_DIFF_STATS: usize = 8;
+
+/// Find the most recent token-usage and tool-activity entries of an execution
+/// process.
+///
+/// Normalized entries only exist in memory: the persisted raw logs contain
+/// `Stdout`/`Stderr` lines exclusively (`spawn_stream_raw_logs_to_storage`
+/// skips `JsonPatch` messages). So for a running process we scan its live
+/// `MsgStore` history, and for a finished one we re-normalize the persisted
+/// raw logs via `stream_normalized_logs` (cached, see above).
+async fn find_latest_agent_signals(
+    deployment: &DeploymentImpl,
+    execution_id: Uuid,
+    is_terminal: bool,
+) -> AgentLogSignals {
+    if let Some(store) = deployment
+        .container()
+        .get_msg_store_by_id(&execution_id)
+        .await
+    {
+        // Scan the history in place. `get_history()` would clone every message
+        // (the store holds up to 100 MB) on each poll of every live workspace.
+        return AgentLogSignals {
+            usage: store.find_map_history_rev(token_usage_from_log_msg),
+            last_activity: store.find_map_history_rev(tool_activity_from_log_msg),
+        };
+    }
+
+    if let Some(cached) = FINISHED_SIGNALS_CACHE.lock().unwrap().get(&execution_id) {
+        return cached.clone();
+    }
+
+    let mut result = AgentLogSignals::default();
+    if let Some(mut stream) = deployment
+        .container()
+        .stream_normalized_logs(&execution_id)
+        .await
+    {
+        // Scan forward keeping the newest hit of each signal — same answer as
+        // a reverse scan, without materializing the whole normalized log. The
+        // stream terminates with `LogMsg::Finished` for stopped processes.
+        while let Some(msg) = stream.next().await {
+            let Ok(msg) = msg else { continue };
+            if let Some(usage) = token_usage_from_log_msg(&msg) {
+                result.usage = Some(usage);
+            }
+            if let Some(activity) = tool_activity_from_log_msg(&msg) {
+                result.last_activity = Some(activity);
+            }
+        }
+    }
+
+    // Memoize terminal processes even when the scan came up empty. Their logs
+    // can no longer change, so a miss is as final as a hit — and *not* caching
+    // it means re-normalizing that log on every poll, forever. That was the
+    // leak: 211 archived workspaces whose logs yield no signals (worktree
+    // deleted, log pruned) re-normalized every 15s, ~700 MB/min, until OOM.
+    // A running process is skipped: its logs are still growing.
+    if is_terminal {
+        FINISHED_SIGNALS_CACHE
+            .lock()
+            .unwrap()
+            .insert(execution_id, result.clone());
+    }
+    result
+}
+
+/// Extract the content of a `tool_use` entry from a normalized `JsonPatch`
+/// message (e.g. "Edit: `src/foo.rs`").
+///
+/// Op values are NOT bare entries: `ConversationPatch` wraps them in the
+/// externally-tagged `PatchType` (`{"type":"NORMALIZED_ENTRY","content":…}`),
+/// so this goes through `extract_normalized_entry_from_patch` instead of
+/// poking at the JSON by hand — reading `value.entry_type` directly matches
+/// nothing, ever (that bug shipped once and nulled every summary signal).
+fn tool_activity_from_log_msg(msg: &LogMsg) -> Option<String> {
+    let LogMsg::JsonPatch(patch) = msg else {
+        return None;
+    };
+    let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+    matches!(entry.entry_type, NormalizedEntryType::ToolUse { .. })
+        .then_some(entry.content)
+        .filter(|content| !content.is_empty())
+}
+
+/// Extract a token-usage entry from a normalized `JsonPatch` message.
+fn token_usage_from_log_msg(msg: &LogMsg) -> Option<TokenUsageInfo> {
+    let LogMsg::JsonPatch(patch) = msg else {
+        return None;
+    };
+    let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+    match entry.entry_type {
+        NormalizedEntryType::TokenUsageInfo(info) => Some(info),
+        _ => None,
+    }
 }
 
 /// Compute diff stats for a workspace.
@@ -185,4 +392,67 @@ pub async fn compute_workspace_diff_stats(
         lines_added: stats.lines_added,
         lines_removed: stats.lines_removed,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use executors::logs::{
+        ActionType, NormalizedEntry, ToolStatus, utils::patch::ConversationPatch,
+    };
+
+    use super::*;
+
+    /// Build the message exactly like the executors do — through
+    /// `ConversationPatch` — so this test breaks if the wire shape and the
+    /// scanner ever drift apart again (they shipped out of sync once: the
+    /// scanner read `value.entry_type` while ops carry
+    /// `value.content.entry_type`, and every summary reported null usage).
+    fn patch_msg(entry: NormalizedEntry) -> LogMsg {
+        LogMsg::JsonPatch(ConversationPatch::add_normalized_entry(3, entry))
+    }
+
+    #[test]
+    fn scan_signals_extracts_usage_and_activity_from_real_patches() {
+        let msgs = vec![
+            patch_msg(NormalizedEntry {
+                timestamp: None,
+                entry_type: NormalizedEntryType::ToolUse {
+                    tool_name: "grep".to_string(),
+                    action_type: ActionType::Search {
+                        query: "foo".to_string(),
+                    },
+                    status: ToolStatus::Success,
+                },
+                content: "Search: `foo`".to_string(),
+                metadata: None,
+            }),
+            patch_msg(NormalizedEntry {
+                timestamp: None,
+                entry_type: NormalizedEntryType::TokenUsageInfo(TokenUsageInfo {
+                    total_tokens: 112_000,
+                    model_context_window: 200_000,
+                    ..Default::default()
+                }),
+                content: "Tokens used: 112000 / Context window: 200000".to_string(),
+                metadata: None,
+            }),
+        ];
+
+        let signals = scan_signals(msgs.iter().rev());
+        let usage = signals.usage.expect("token usage must be extracted");
+        assert_eq!(usage.total_tokens, 112_000);
+        assert_eq!(usage.model_context_window, 200_000);
+        assert_eq!(signals.last_activity.as_deref(), Some("Search: `foo`"));
+    }
+
+    #[test]
+    fn scan_signals_ignores_non_entry_patches() {
+        let msgs = vec![
+            LogMsg::Stdout("plain output".to_string()),
+            LogMsg::JsonPatch(ConversationPatch::add_stdout(0, "raw".to_string())),
+        ];
+        let signals = scan_signals(msgs.iter().rev());
+        assert!(signals.usage.is_none());
+        assert!(signals.last_activity.is_none());
+    }
 }

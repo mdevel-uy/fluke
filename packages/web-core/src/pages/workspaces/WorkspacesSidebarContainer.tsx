@@ -3,12 +3,9 @@ import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
-import { useScratch } from '@/shared/hooks/useScratch';
 import { useAllOrganizationProjects } from '@/shared/hooks/useAllOrganizationProjects';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
-import { ScratchType, type DraftWorkspaceData } from 'shared/types';
 import type { Project } from 'shared/remote-types';
-import { splitMessageToTitleDescription } from '@/shared/lib/string';
 import { cn } from '@/shared/lib/utils';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import {
@@ -20,12 +17,16 @@ import {
   type WorkspaceSortOrder,
 } from '@/shared/stores/useUiPreferencesStore';
 import type { Workspace } from '@/shared/hooks/useWorkspaces';
+import { useWorkers } from '@/features/workers/model/useWorkers';
+import { useAllWorkerTasks } from '@/features/sprint/model/useWorkers';
+import {
+  useWorkerTaskIndex,
+  withWorkerTaskInfo,
+} from '@/features/workers/model/workerTaskInfo';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
-import {
-  WorkspacesSidebar,
-  type WorkspacesSidebarPersistKeys,
-} from '@vibe/ui/components/WorkspacesSidebar';
+import { type WorkspacesSidebarPersistKeys } from '@vibe/ui/components/WorkspacesSidebar';
+import { WorkspacesSidebarFlat } from '@vibe/ui/components/WorkspacesSidebarFlat';
 import {
   MultiSelectDropdown,
   type MultiSelectDropdownOption,
@@ -53,11 +54,6 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
-
-export type WorkspaceLayoutMode = 'flat' | 'accordion';
-
-// Fixed UUID for the universal workspace draft (same as in useCreateModeState.ts)
-const DRAFT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 
 const PAGE_SIZE = 50;
 const NO_PROJECT_ID = '__no_project__';
@@ -259,9 +255,7 @@ export function WorkspacesSidebarContainer({
     activeWorkspaces,
     archivedWorkspaces,
     isWorkspacesListLoading,
-    isCreateMode,
     selectWorkspace,
-    navigateToCreate,
   } = useWorkspaceContext();
 
   const isMobile = useIsMobile();
@@ -273,20 +267,11 @@ export function WorkspacesSidebarContainer({
     PERSIST_KEYS.workspacesSidebarArchived,
     false
   );
-  const [isAccordionLayout, setAccordionLayout] = usePersistedExpanded(
-    PERSIST_KEYS.workspacesSidebarAccordionLayout,
-    true
-  );
   const [isSortDialogOpen, setIsSortDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const { t } = useTranslation('common');
   const sortDialogTitle = t('kanban.workspaceSidebar.sortButtonTitle');
   const filterDialogTitle = t('kanban.workspaceSidebar.filterButtonTitle');
-
-  const layoutMode: WorkspaceLayoutMode = isAccordionLayout
-    ? 'accordion'
-    : 'flat';
-  const toggleLayoutMode = () => setAccordionLayout(!isAccordionLayout);
 
   // Workspace sidebar filters + sort
   const workspaceFilters = useUiPreferencesStore((s) => s.workspaceFilters);
@@ -519,21 +504,34 @@ export function WorkspacesSidebarContainer({
     [filteredArchivedWorkspaces, sortWorkspaces]
   );
 
+  // Worker-task overlay: worker identity, task title, backing issue badge +
+  // stalled-task detection
+  const { data: sidebarWorkers } = useWorkers();
+  const { tasks: workerTasks } = useAllWorkerTasks(sidebarWorkers ?? []);
+
+  const workerTaskIndex = useWorkerTaskIndex(sidebarWorkers, workerTasks);
+
   // Apply pagination (only when not searching)
   const paginatedActiveWorkspaces = useMemo(
     () =>
-      isSearching
-        ? sortedActiveWorkspaces
-        : sortedActiveWorkspaces.slice(0, displayLimit),
-    [sortedActiveWorkspaces, displayLimit, isSearching]
+      withWorkerTaskInfo(
+        isSearching
+          ? sortedActiveWorkspaces
+          : sortedActiveWorkspaces.slice(0, displayLimit),
+        workerTaskIndex
+      ),
+    [sortedActiveWorkspaces, displayLimit, isSearching, workerTaskIndex]
   );
 
   const paginatedArchivedWorkspaces = useMemo(
     () =>
-      isSearching
-        ? sortedArchivedWorkspaces
-        : sortedArchivedWorkspaces.slice(0, displayLimit),
-    [sortedArchivedWorkspaces, displayLimit, isSearching]
+      withWorkerTaskInfo(
+        isSearching
+          ? sortedArchivedWorkspaces
+          : sortedArchivedWorkspaces.slice(0, displayLimit),
+        workerTaskIndex
+      ),
+    [sortedArchivedWorkspaces, displayLimit, isSearching, workerTaskIndex]
   );
 
   // Check if there are more workspaces to load
@@ -547,26 +545,6 @@ export function WorkspacesSidebarContainer({
       setDisplayLimit((prev) => prev + PAGE_SIZE);
     }
   }, [isSearching, hasMoreWorkspaces]);
-
-  // Read persisted draft for sidebar placeholder
-  const { scratch: draftScratch } = useScratch(
-    ScratchType.DRAFT_WORKSPACE,
-    DRAFT_WORKSPACE_ID
-  );
-
-  // Extract draft title from persisted scratch
-  const persistedDraftTitle = useMemo(() => {
-    const scratchData: DraftWorkspaceData | undefined =
-      draftScratch?.payload?.type === 'DRAFT_WORKSPACE'
-        ? draftScratch.payload.data
-        : undefined;
-
-    if (!scratchData?.message?.trim()) return undefined;
-    const { title } = splitMessageToTitleDescription(
-      scratchData.message.trim()
-    );
-    return title || 'New Workspace';
-  }, [draftScratch]);
 
   // Handle workspace selection - scroll to bottom if re-selecting same workspace
   const handleSelectWorkspace = useCallback(
@@ -589,13 +567,6 @@ export function WorkspacesSidebarContainer({
     ]
   );
 
-  const handleAddWorkspace = useCallback(() => {
-    navigateToCreate();
-    if (isMobile) {
-      setMobileActiveTab('chat');
-    }
-  }, [navigateToCreate, isMobile, setMobileActiveTab]);
-
   const handleOpenWorkspaceActions = useCallback((workspaceId: string) => {
     CommandBarDialog.show({
       page: 'workspaceActions',
@@ -604,9 +575,7 @@ export function WorkspacesSidebarContainer({
   }, []);
 
   const sidebarPersistKeys: WorkspacesSidebarPersistKeys = {
-    raisedHand: PERSIST_KEYS.workspacesSidebarRaisedHand,
-    notRunning: PERSIST_KEYS.workspacesSidebarNotRunning,
-    running: PERSIST_KEYS.workspacesSidebarRunning,
+    statusTab: PERSIST_KEYS.workspacesSidebarStatusTab,
   };
 
   const searchControls = (
@@ -624,7 +593,8 @@ export function WorkspacesSidebarContainer({
             title={sortDialogTitle}
             className={cn(
               '!h-cta !px-half !py-0',
-              hasNonDefaultSort && 'text-brand hover:text-brand'
+              hasNonDefaultSort &&
+                'text-brand-on-surface hover:text-brand-on-surface'
             )}
             iconClassName="size-icon-lg"
           />
@@ -634,7 +604,10 @@ export function WorkspacesSidebarContainer({
             aria-label={filterDialogTitle}
             title={filterDialogTitle}
             className="!h-cta !px-half !py-0"
-            iconClassName={cn('size-icon-lg', hasActiveFilters && 'text-brand')}
+            iconClassName={cn(
+              'size-icon-lg',
+              hasActiveFilters && 'text-brand-on-surface'
+            )}
           />
         </div>
       </div>
@@ -678,23 +651,16 @@ export function WorkspacesSidebarContainer({
   }, [routeHostId]);
 
   return (
-    <WorkspacesSidebar
+    <WorkspacesSidebarFlat
       workspaces={paginatedActiveWorkspaces}
-      totalWorkspacesCount={activeWorkspaces.length}
       archivedWorkspaces={paginatedArchivedWorkspaces}
       isLoading={isWorkspacesListLoading}
       selectedWorkspaceId={selectedWorkspaceId ?? null}
       onSelectWorkspace={handleSelectWorkspace}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      onAddWorkspace={handleAddWorkspace}
-      isCreateMode={isCreateMode}
-      draftTitle={persistedDraftTitle}
-      onSelectCreate={navigateToCreate}
       showArchive={showArchive}
       onShowArchiveChange={setShowArchive}
-      layoutMode={layoutMode}
-      onToggleLayoutMode={toggleLayoutMode}
       onLoadMore={handleLoadMore}
       hasMoreWorkspaces={hasMoreWorkspaces && !isSearching}
       searchControls={searchControls}

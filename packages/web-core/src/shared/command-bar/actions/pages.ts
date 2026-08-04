@@ -1,6 +1,5 @@
 import { Actions } from '@/shared/actions';
 import type { ActionDefinition } from '@/shared/types/actions';
-import { RIGHT_MAIN_PANEL_MODES } from '@/shared/stores/useUiPreferencesStore';
 import type { StaticPageId, CommandBarPage } from '@/shared/types/commandBar';
 
 export const Pages: Record<StaticPageId, CommandBarPage> = {
@@ -12,8 +11,9 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         type: 'group',
         label: 'Actions',
         items: [
-          { type: 'action', action: Actions.NewWorkspace },
+          { type: 'action', action: Actions.SearchInFiles },
           { type: 'action', action: Actions.CreateWorkspaceFromPR },
+          { type: 'action', action: Actions.CreateWorker },
           { type: 'action', action: Actions.OpenInIDE },
           { type: 'action', action: Actions.CopyWorkspacePath },
           { type: 'action', action: Actions.CopyRawLogs },
@@ -22,6 +22,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'childPages', id: 'workspaceActions' },
           { type: 'childPages', id: 'repoActions' },
           { type: 'childPages', id: 'issueActions' },
+          { type: 'childPages', id: 'sprintActions' },
         ],
       },
       {
@@ -34,10 +35,22 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
       },
       {
         type: 'group',
+        label: 'Navigate',
+        items: [
+          { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
+          { type: 'action', action: Actions.GoToSprint },
+          { type: 'action', action: Actions.GoToIssues },
+          { type: 'action', action: Actions.GoToDashboard },
+          { type: 'action', action: Actions.GoToPilotReport },
+          { type: 'action', action: Actions.GoToWorkers },
+          { type: 'action', action: Actions.GoToAnalystDesk },
+        ],
+      },
+      {
+        type: 'group',
         label: 'General',
         items: [
-          { type: 'action', action: Actions.SignIn },
-          { type: 'action', action: Actions.SignOut },
           { type: 'action', action: Actions.Feedback },
           { type: 'action', action: Actions.WorkspacesGuide },
           { type: 'action', action: Actions.ProjectsGuide },
@@ -61,8 +74,6 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
         items: [
           { type: 'action', action: Actions.StartReview },
           { type: 'action', action: Actions.RenameWorkspace },
-          { type: 'action', action: Actions.DuplicateWorkspace },
-          { type: 'action', action: Actions.SpinOffWorkspace },
           { type: 'action', action: Actions.PinWorkspace },
           { type: 'action', action: Actions.ArchiveWorkspace },
           { type: 'action', action: Actions.DeleteWorkspace },
@@ -85,8 +96,7 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
     id: 'diff-options',
     title: 'Diff Options',
     parent: 'root',
-    isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES,
+    isVisible: (ctx) => ctx.activeViewTabs.includes('changes'),
     items: [
       {
         type: 'group',
@@ -116,8 +126,10 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.ToggleLeftMainPanel },
           { type: 'action', action: Actions.ToggleRightSidebar },
           { type: 'action', action: Actions.ToggleChangesMode },
+          { type: 'action', action: Actions.ToggleEditorMode },
           { type: 'action', action: Actions.ToggleLogsMode },
           { type: 'action', action: Actions.TogglePreviewMode },
+          { type: 'action', action: Actions.ToggleTerminal },
         ],
       },
     ],
@@ -144,6 +156,43 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.GitRebase },
           { type: 'action', action: Actions.GitChangeTarget },
         ],
+      },
+    ],
+  },
+
+  // Quick Open page - VSCode-style "Go to Page" navigator (CMD+P)
+  goToPage: {
+    id: 'go-to-page',
+    title: 'Go to Page',
+    items: [
+      {
+        type: 'group',
+        label: 'Pages',
+        items: [
+          { type: 'action', action: Actions.GoToWorkspaces },
+          { type: 'action', action: Actions.GoToSourceControl },
+          { type: 'action', action: Actions.GoToSprint },
+          { type: 'action', action: Actions.GoToIssues },
+          { type: 'action', action: Actions.GoToDashboard },
+          { type: 'action', action: Actions.GoToPilotReport },
+          { type: 'action', action: Actions.GoToWorkers },
+          { type: 'action', action: Actions.GoToAnalystDesk },
+        ],
+      },
+    ],
+  },
+
+  // Sprint actions page - shown only in the Sprint view
+  sprintActions: {
+    id: 'sprint-actions',
+    title: 'Sprint Actions',
+    parent: 'root',
+    isVisible: (ctx) => ctx.currentView === 'sprint',
+    items: [
+      {
+        type: 'group',
+        label: 'Actions',
+        items: [{ type: 'action', action: Actions.SyncSprint }],
       },
     ],
   },

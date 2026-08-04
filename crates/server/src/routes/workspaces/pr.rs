@@ -14,6 +14,7 @@ use db::models::{
     pull_request::PullRequest,
     repo::{Repo, RepoError},
     session::{CreateSession, Session},
+    worker::Worker,
     workspace::{CreateWorkspace, Workspace, WorkspaceError},
     workspace_repo::{CreateWorkspaceRepo, WorkspaceRepo},
 };
@@ -29,7 +30,8 @@ use git_host::{
 };
 use serde::{Deserialize, Serialize};
 use services::services::{
-    config::DEFAULT_PR_DESCRIPTION_PROMPT, container::ContainerService, remote_sync,
+    config::DEFAULT_PR_DESCRIPTION_PROMPT, container::ContainerService, quick_action_prompts,
+    remote_sync,
 };
 use ts_rs::TS;
 use utils::response::ApiResponse;
@@ -253,7 +255,24 @@ pub async fn create_pr(
         Ok(true) => {}
     }
 
-    if let Err(e) = git.push_to_remote(&worktree_path, &workspace.branch, false) {
+    // Resolve the author worker's PAT (if any) so push AND PR creation
+    // authenticate as that worker's GitHub identity instead of relying on
+    // the machine's global gh credentials. Manual PR creation from the UI
+    // hits this path — same identity story as agent-driven creation.
+    let worker_pat =
+        Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+
+    // Branch name on the remote — differs from the local branch only for
+    // workspaces created from an existing PR.
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
+
+    if let Err(e) = git.push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        false,
+        worker_pat.as_deref(),
+    ) {
         tracing::error!("Failed to push branch to remote: {}", e);
         match e {
             GitServiceError::GitCLI(GitCliError::AuthFailed(_)) => {
@@ -270,7 +289,8 @@ pub async fn create_pr(
         }
     }
 
-    let git_host = match GitHostService::from_url(&target_remote.url) {
+    let git_host = match GitHostService::from_url_with_token(&target_remote.url, worker_pat.clone())
+    {
         Ok(host) => host,
         Err(GitHostError::UnsupportedProvider) => {
             return Ok(ResponseJson(ApiResponse::error_with_data(
@@ -291,7 +311,7 @@ pub async fn create_pr(
     let pr_request = CreatePrRequest {
         title: request.title.clone(),
         body: request.body.clone(),
-        head_branch: workspace.branch.clone(),
+        head_branch: remote_branch.clone(),
         base_branch: base_branch.clone(),
         draft: request.draft,
         head_repo_url: Some(push_remote.url.clone()),
@@ -372,6 +392,82 @@ pub async fn create_pr(
                 provider,
                 e
             );
+
+            // If GitHub says the PR already exists (agent created it via gh cli),
+            // fall back to adopting it so the UI sees it as if it were created here.
+            if let GitHostError::PullRequest(msg) = &e {
+                if msg.to_ascii_lowercase().contains("already exists") {
+                    tracing::info!(
+                        workspace_id = %workspace.id,
+                        branch = %remote_branch,
+                        "PR already exists on GitHub; adopting instead",
+                    );
+                    match git_host
+                        .list_prs_for_branch(&repo_path, &target_remote.url, &remote_branch)
+                        .await
+                    {
+                        Ok(prs) => {
+                            if let Some(pr_info) = prs.into_iter().next() {
+                                if let Err(db_err) = PullRequest::create_for_workspace(
+                                    pool,
+                                    workspace.id,
+                                    workspace_repo.repo_id,
+                                    &base_branch,
+                                    pr_info.number,
+                                    &pr_info.url,
+                                )
+                                .await
+                                {
+                                    tracing::error!(
+                                        "Failed to create local PR record during adoption fallback: {}",
+                                        db_err
+                                    );
+                                }
+
+                                if let Ok(client) = deployment.remote_client() {
+                                    let pr_status = match &pr_info.status {
+                                        MergeStatus::Open => PullRequestStatus::Open,
+                                        MergeStatus::Merged => PullRequestStatus::Merged,
+                                        MergeStatus::Closed => PullRequestStatus::Closed,
+                                        MergeStatus::Unknown => PullRequestStatus::Open,
+                                    };
+                                    let upsert_req = UpsertPullRequestRequest {
+                                        url: pr_info.url.clone(),
+                                        number: pr_info.number as i32,
+                                        status: pr_status,
+                                        merged_at: pr_info.merged_at,
+                                        merge_commit_sha: pr_info.merge_commit_sha.clone(),
+                                        target_branch_name: base_branch.clone(),
+                                        local_workspace_id: workspace.id,
+                                    };
+                                    tokio::spawn(async move {
+                                        remote_sync::sync_pr_to_remote(&client, upsert_req).await;
+                                    });
+                                }
+
+                                if let Err(open_err) =
+                                    utils::browser::open_browser(&pr_info.url).await
+                                {
+                                    tracing::warn!(
+                                        "Failed to open adopted PR in browser: {}",
+                                        open_err
+                                    );
+                                }
+
+                                return Ok(ResponseJson(ApiResponse::success(pr_info.url)));
+                            }
+                        }
+                        Err(list_err) => {
+                            tracing::warn!(
+                                "Failed to list PRs for adoption fallback (workspace {}): {}",
+                                workspace.id,
+                                list_err
+                            );
+                        }
+                    }
+                }
+            }
+
             match &e {
                 GitHostError::CliNotInstalled { provider } => Ok(ResponseJson(
                     ApiResponse::error_with_data(PrError::CliNotInstalled {
@@ -434,9 +530,12 @@ pub async fn attach_existing_pr(
 
     let provider = git_host.provider_kind();
 
-    // List all PRs for branch (open, closed, and merged)
+    // List all PRs for branch (open, closed, and merged); PRs live under the
+    // remote-facing branch name, which differs from the local one for
+    // workspaces created from an existing PR.
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
     let prs = match git_host
-        .list_prs_for_branch(&repo.path, &remote.url, &workspace.branch)
+        .list_prs_for_branch(&repo.path, &remote.url, &remote_branch)
         .await
     {
         Ok(prs) => prs,
@@ -714,6 +813,17 @@ pub async fn create_workspace_from_pr(
 
     // Create workspace with target branch initially
     let workspace_id = Uuid::new_v4();
+
+    // The PR's head branch may already be checked out by the workspace that
+    // authored the PR, and git refuses to check out one branch in two
+    // worktrees. So this workspace gets its own unique local branch (same
+    // scheme as regular attempts) and records the PR head as its
+    // `remote_branch`: every push uses an explicit local:remote refspec to
+    // keep updating the PR.
+    let local_branch = deployment
+        .container()
+        .git_branch_from_workspace(&workspace_id, &payload.pr_title)
+        .await;
     let mut workspace = Workspace::create(
         pool,
         &CreateWorkspace {
@@ -752,6 +862,7 @@ pub async fn create_workspace_from_pr(
                 &repo_info.owner,
                 &repo_info.repo_name,
                 payload.pr_number,
+                Some(&local_branch),
             ) {
                 tracing::error!("Failed to checkout PR branch: {e}");
                 cleanup_failed_pr_workspace(pool, &workspace).await;
@@ -761,9 +872,10 @@ pub async fn create_workspace_from_pr(
                     },
                 )));
             }
-            // Update workspace branch to the actual PR branch
-            Workspace::update_branch_name(pool, workspace.id, &payload.head_branch).await?;
-            workspace.branch = payload.head_branch.clone();
+            // Unique local branch; pushes map to the PR head via remote_branch
+            Workspace::update_branch_name(pool, workspace.id, &local_branch).await?;
+            Workspace::set_remote_branch(pool, workspace.id, &payload.head_branch).await?;
+            workspace.branch = local_branch.clone();
         }
         Err(e) => {
             tracing::error!(
@@ -843,9 +955,213 @@ pub async fn create_workspace_from_pr(
     )))
 }
 
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum ResolveMergeConflictsError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum AddressPrCommentsError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(tag = "type", rename_all = "snake_case")]
+pub enum FixCiError {
+    NoPrAttached,
+    NoAgentSession,
+}
+
+/// Internal outcome for the shared quick-action dispatch: either the follow-up
+/// was queued for the workspace agent, or the workspace has no coding-agent
+/// session to attach it to (which each endpoint maps to its own typed error).
+/// Callers verify PR presence before invoking, so "no PR attached" is not a
+/// dispatch outcome.
+enum QuickActionDispatchOutcome {
+    Dispatched,
+    NoAgentSession,
+}
+
+/// Send a fully-formatted follow-up prompt to the workspace's coding agent —
+/// creating a session if none exists and reusing the latest agent turn so the
+/// conversation stays continuous. Shared by "Fix merge conflicts", "Address PR
+/// comments" and "Fix CI".
+async fn dispatch_quick_action_follow_up(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    prompt: String,
+) -> Result<QuickActionDispatchOutcome, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let session = match Session::find_latest_by_workspace_id(pool, workspace.id).await? {
+        Some(s) => s,
+        None => {
+            Session::create(
+                pool,
+                &CreateSession {
+                    executor: None,
+                    name: None,
+                },
+                Uuid::new_v4(),
+                workspace.id,
+            )
+            .await?
+        }
+    };
+
+    let Some(executor_profile_id) =
+        ExecutionProcess::latest_executor_profile_for_session(pool, session.id).await?
+    else {
+        tracing::warn!(
+            workspace_id = %workspace.id,
+            "No executor profile for quick-action follow-up; skipping",
+        );
+        return Ok(QuickActionDispatchOutcome::NoAgentSession);
+    };
+
+    let latest_session_info = CodingAgentTurn::find_latest_session_info(pool, session.id).await?;
+
+    let working_dir = session
+        .agent_working_dir
+        .as_ref()
+        .filter(|dir| !dir.is_empty())
+        .cloned();
+
+    let action_type = if let Some(info) = latest_session_info {
+        ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
+            prompt,
+            session_id: info.session_id,
+            reset_to_message_id: None,
+            executor_config: executors::profile::ExecutorConfig::from(executor_profile_id),
+            working_dir,
+        })
+    } else {
+        ExecutorActionType::CodingAgentInitialRequest(CodingAgentInitialRequest {
+            prompt,
+            executor_config: executors::profile::ExecutorConfig::from(executor_profile_id),
+            working_dir,
+        })
+    };
+
+    let action = ExecutorAction::new(action_type, None);
+
+    deployment
+        .container()
+        .start_execution(
+            workspace,
+            &session,
+            &action,
+            &ExecutionProcessRunReason::CodingAgent,
+        )
+        .await?;
+
+    Ok(QuickActionDispatchOutcome::Dispatched)
+}
+
+pub async fn resolve_merge_conflicts_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), ResolveMergeConflictsError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let target_branch = match &open_pr {
+        Some(pr) => pr.target_branch_name.clone(),
+        None => {
+            return Ok(ResponseJson(ApiResponse::error_with_data(
+                ResolveMergeConflictsError::NoPrAttached,
+            )));
+        }
+    };
+
+    let prompt = quick_action_prompts::format_resolve_merge_conflicts_prompt(&target_branch);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(ResolveMergeConflictsError::NoAgentSession),
+        )),
+    }
+}
+
+pub async fn address_pr_comments_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), AddressPrCommentsError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let Some(open_pr) = open_pr else {
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            AddressPrCommentsError::NoPrAttached,
+        )));
+    };
+
+    let prompt =
+        quick_action_prompts::format_address_pr_comments_prompt(open_pr.pr_number, &open_pr.pr_url);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(AddressPrCommentsError::NoAgentSession),
+        )),
+    }
+}
+
+pub async fn fix_ci_follow_up(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<(), FixCiError>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let prs = PullRequest::find_by_workspace_id(pool, workspace.id).await?;
+    let open_pr = prs
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
+
+    let Some(open_pr) = open_pr else {
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            FixCiError::NoPrAttached,
+        )));
+    };
+
+    let prompt = quick_action_prompts::format_fix_ci_prompt(open_pr.pr_number, &open_pr.pr_url);
+
+    match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
+        QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
+        QuickActionDispatchOutcome::NoAgentSession => Ok(ResponseJson(
+            ApiResponse::error_with_data(FixCiError::NoAgentSession),
+        )),
+    }
+}
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/", post(create_pr))
         .route("/attach", post(attach_existing_pr))
         .route("/comments", get(get_pr_comments))
+        .route(
+            "/resolve-merge-conflicts",
+            post(resolve_merge_conflicts_follow_up),
+        )
+        .route(
+            "/address-pr-comments",
+            post(address_pr_comments_follow_up),
+        )
+        .route("/fix-ci", post(fix_ci_follow_up))
 }

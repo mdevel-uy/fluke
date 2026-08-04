@@ -13,7 +13,10 @@ use tracing::info;
 
 use crate::{
     GitHostProvider,
-    types::{CreatePrRequest, GitHostError, ProviderKind, PullRequestDetail, UnifiedPrComment},
+    types::{
+        CreatePrRequest, GitHostError, LatestPrReview, ProviderKind, PullRequestDetail,
+        UnifiedPrComment,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -254,6 +257,28 @@ impl GitHostProvider for AzureDevOpsProvider {
     ) -> Result<Vec<PullRequestDetail>, GitHostError> {
         // TODO: Implement list_open_prs for Azure DevOps
         Err(GitHostError::UnsupportedProvider)
+    }
+
+    async fn get_pr_mergeable(&self, _pr_url: &str) -> Result<String, GitHostError> {
+        Ok("unknown".to_string())
+    }
+
+    async fn get_pr_ci_status(&self, _pr_url: &str) -> Result<String, GitHostError> {
+        Ok("unknown".to_string())
+    }
+
+    async fn get_pr_latest_review_state(
+        &self,
+        _pr_url: &str,
+    ) -> Result<Option<String>, GitHostError> {
+        Ok(None)
+    }
+
+    async fn get_pr_latest_review(
+        &self,
+        _pr_url: &str,
+    ) -> Result<Option<LatestPrReview>, GitHostError> {
+        Ok(None)
     }
 
     fn provider_kind(&self) -> ProviderKind {

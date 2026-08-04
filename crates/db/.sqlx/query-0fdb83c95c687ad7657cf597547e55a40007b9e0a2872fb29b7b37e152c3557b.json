@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE pull_requests SET pr_mergeable = ?, updated_at = ? WHERE pr_url = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "0fdb83c95c687ad7657cf597547e55a40007b9e0a2872fb29b7b37e152c3557b"
+}

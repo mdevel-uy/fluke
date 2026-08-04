@@ -1,0 +1,43 @@
+# Bundle on-premises de mkanban (mkanban.dev).
+#
+# Este archivo es GENÉRICO e idéntico en todos los clientes — nunca se edita
+# en el host. Toda la configuración por-cliente vive en el `.env` de al lado
+# (ver .env.example). Los updates OTA (update.sh) hacen pull de la imagen y
+# `up -d`; ni este archivo ni el .env se tocan.
+#
+# La imagen no contiene código fuente: es el binario `server` (Rust, release)
+# con el frontend embebido. Las migraciones de DB corren solas al arranque.
+
+services:
+  mkanban:
+    image: ${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}:${MK_CHANNEL:-stable}
+    # Nombre fijo: update.sh lo usa para inspeccionar imagen corriente y health.
+    container_name: mkanban
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Puerto fijo para que los iframes de preview/editor lleguen al proxy
+      # desde el browser del host ({port}--{hostId}.localhost:3009).
+      PREVIEW_PROXY_PORT: 3009
+      # Cap de agentes concurrentes según el plan contratado. Vacío = default
+      # de la app (el parse fallido cae al default, no rompe el arranque).
+      WORKER_MAX_IN_REVIEW: ${WORKER_MAX_IN_REVIEW:-}
+      PLAN_UPGRADE_CTA_URL: ${PLAN_UPGRADE_CTA_URL:-}
+      PLAN_UPGRADE_CTA_LABEL: ${PLAN_UPGRADE_CTA_LABEL:-}
+      MK_ALLOWED_ORIGINS: ${MK_ALLOWED_ORIGINS:-}
+    ports:
+      - "${MK_PORT:-3000}:3000"
+      - "${MK_PREVIEW_PORT:-3009}:3009"
+    volumes:
+      - mk-repos:/repos
+      - mk-home:/home/appuser
+    restart: unless-stopped
+
+volumes:
+  # Nombres explícitos: así update.sh puede montarlos para backup/restore sin
+  # depender del nombre del directorio del proyecto compose.
+  mk-repos:
+    name: mk-repos
+  mk-home:
+    name: mk-home

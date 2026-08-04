@@ -165,6 +165,20 @@ const StartReviewDialogImpl = create<StartReviewDialogProps>(
       }
     };
 
+    const handleProfileChange = useCallback(
+      (profile: ExecutorProfileId) => {
+        setUserSelectedProfile(profile);
+        if (
+          sessionExecutor &&
+          profile.executor !== sessionExecutor &&
+          !createNewSession
+        ) {
+          setCreateNewSession(true);
+        }
+      },
+      [sessionExecutor, createNewSession]
+    );
+
     const hasReviewComments = Boolean(reviewMarkdown);
 
     return (
@@ -240,14 +254,13 @@ const StartReviewDialogImpl = create<StartReviewDialogProps>(
                 <AgentSelector
                   profiles={profiles}
                   selectedExecutorProfile={effectiveProfile}
-                  onChange={setUserSelectedProfile}
-                  disabled={!createNewSession}
+                  onChange={handleProfileChange}
                   showLabel={false}
                 />
                 <ConfigSelector
                   profiles={profiles}
                   selectedExecutorProfile={effectiveProfile}
-                  onChange={setUserSelectedProfile}
+                  onChange={handleProfileChange}
                   showLabel={false}
                 />
               </div>

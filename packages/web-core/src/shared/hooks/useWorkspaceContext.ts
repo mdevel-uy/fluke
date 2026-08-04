@@ -35,9 +35,7 @@ export interface WorkspaceContextValue {
   archivedWorkspaces: SidebarWorkspace[];
   isWorkspacesListLoading: boolean;
   isLoading: boolean;
-  isCreateMode: boolean;
   selectWorkspace: (id: string) => void;
-  navigateToCreate: () => void;
   /** Sessions for the current workspace */
   sessions: Session[];
   selectedSession: Session | undefined;

@@ -15,7 +15,9 @@ export type PageId =
   | 'diffOptions'
   | 'viewOptions'
   | 'repoActions' // Page for repo-specific actions (opened from repo card or CMD+K)
-  | 'issueActions'; // Page for issue-specific actions (kanban mode)
+  | 'issueActions' // Page for issue-specific actions (kanban mode)
+  | 'sprintActions' // Page for sprint-specific actions (sprint view)
+  | 'goToPage'; // VSCode-style Quick Open — navigate between top-level pages (CMD+P)
 
 // Items that can appear inside a group
 export type CommandBarGroupItem =

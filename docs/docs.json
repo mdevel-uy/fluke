@@ -104,7 +104,10 @@
         "group": "Self-Hosting",
         "pages": [
           "self-hosting/local-development",
-          "self-hosting/deploy-docker"
+          "self-hosting/deploy-docker",
+          "self-hosting/observability-logs",
+          "self-hosting/observability-metrics",
+          "self-hosting/observability-alerts"
         ]
       },
       {

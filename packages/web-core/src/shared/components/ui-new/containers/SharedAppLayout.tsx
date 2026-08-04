@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DropResult } from '@hello-pangea/dnd';
-import { Outlet, useNavigate, useParams } from '@tanstack/react-router';
-import { siDiscord, siGithub } from 'simple-icons';
+import { Outlet, useNavigate } from '@tanstack/react-router';
 import {
-  XIcon,
-  PlusIcon,
-  LayoutIcon,
-  KanbanIcon,
-  DownloadSimpleIcon,
-} from '@phosphor-icons/react';
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from 'react-resizable-panels';
+import {
+  X,
+  Layout,
+  LayoutDashboard,
+  Users,
+  AlertCircle,
+  Zap,
+  ClipboardList,
+  Workflow,
+} from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
@@ -16,64 +23,73 @@ import { cn } from '@/shared/lib/utils';
 import { isTauriMac } from '@/shared/lib/platform';
 
 import { NavbarContainer } from './NavbarContainer';
-import { AppBar, type AppBarHostStatus } from '@vibe/ui/components/AppBar';
+import { StatusBarContainer } from './StatusBarContainer';
+import { AppBar } from '@vibe/ui/components/AppBar';
 import { MobileDrawer } from '@vibe/ui/components/MobileDrawer';
-import { AppBarUserPopoverContainer } from './AppBarUserPopoverContainer';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
 import { useOrganizationStore } from '@/shared/stores/useOrganizationStore';
-import { useAuth } from '@/shared/hooks/auth/useAuth';
-import { useDiscordOnlineCount } from '@/shared/hooks/useDiscordOnlineCount';
-import { useGitHubStars } from '@/shared/hooks/useGitHubStars';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppUpdateStore } from '@/shared/stores/useAppUpdateStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
+import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
-  getDestinationHostId,
   getProjectDestination,
-  isProjectDestination,
+  isAnalystDeskDestination,
+  isCiPipelinesDestination,
+  isDashboardDestination,
+  isIssuesDestination,
   isLocalWorkspacesDestination,
+  isSourceControlDestination,
+  isSprintDestination,
+  isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
-import {
-  CreateRemoteProjectDialog,
-  type CreateRemoteProjectResult,
-} from '@/shared/dialogs/org/CreateRemoteProjectDialog';
-import { OAuthDialog } from '@/shared/dialogs/global/OAuthDialog';
-import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
+import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
+import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
-import { useWorkspaceSidebarPreviewController } from '@/shared/hooks/useWorkspaceSidebarPreviewController';
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
-import {
-  PROJECT_MUTATION,
-  PROJECTS_SHAPE,
-  type Project as RemoteProject,
-} from 'shared/remote-types';
-import { AppBarNotificationBellContainer } from '@/pages/workspaces/AppBarNotificationBellContainer';
-import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebarContainer';
-import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
-import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
-import { CloudShutdownExportBanner } from '@/shared/components/CloudShutdownExportBanner';
+import { PROJECTS_SHAPE } from 'shared/remote-types';
+import { ShellSidebarProvider, ShellSidebarSlot } from '../shell/ShellSidebar';
+import { ShellAsideSlot, useShellAsideHasContent } from '../shell/ShellAside';
+import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
+import { AdhocClaudePanel } from '@/features/adhoc-session';
+
+// Kept from the old WorkspacesLayout split so stored terminal heights migrate.
+const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
+// Separators double as the divider's shadow: the Panel wrapper clips
+// box-shadows (overflow hidden), so the sash carries an overflowing
+// gradient pseudo-element that fades onto the main column, VSCode-style.
+const SHELL_SEPARATOR_CLASS =
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:left-0 after:w-1.5 ' +
+  'after:bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
+const SHELL_ASIDE_SEPARATOR_CLASS =
+  'relative z-10 w-1 bg-transparent hover:bg-brand/50 transition-colors cursor-col-resize ' +
+  'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-1.5 ' +
+  'after:bg-[linear-gradient(to_left,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
+const SHELL_SEPARATOR_ROW_CLASS =
+  'h-1 bg-transparent hover:bg-brand/50 transition-colors cursor-row-resize';
+// Same depth cue as the sash, painted at the content's left edge when the
+// sidebar is hidden and the rail borders the main column directly.
+const SHELL_RAIL_SHADOW_CLASS =
+  'pointer-events-none absolute inset-y-0 left-0 z-30 w-1.5 ' +
+  'bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
   const currentDestination = useCurrentAppDestination();
+  const { t } = useTranslation('common');
   const isMobile = useIsMobile();
   const mobileFontScale = useUiPreferencesStore((s) => s.mobileFontScale);
   const isLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.isLeftSidebarVisible
   );
-  const { isSignedIn } = useAuth();
   const { appVersion } = useUserSystem();
   const updateVersion = useAppUpdateStore((s) => s.updateVersion);
   const restartForUpdate = useAppUpdateStore((s) => s.restart);
-  const { data: onlineCount } = useDiscordOnlineCount();
-  const { data: starCount } = useGitHubStars();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isAppBarHovered, setIsAppBarHovered] = useState(false);
-  const { hosts: remoteCloudHosts } = useRemoteCloudHostsAppBarModel();
-  const { hostId: routeHostId } = useParams({ strict: false });
   const navigate = useNavigate();
 
   // Register CMD+K shortcut globally for all routes under SharedAppLayout
@@ -124,28 +140,15 @@ export function SharedAppLayout() {
     () => ({ organization_id: selectedOrgId || '' }),
     [selectedOrgId]
   );
-  const {
-    data: orgProjects = [],
-    isLoading,
-    updateMany: updateManyProjects,
-  } = useShape(PROJECTS_SHAPE, projectParams, {
-    enabled: isSignedIn && !!selectedOrgId,
-    mutation: PROJECT_MUTATION,
-  });
+  const { data: orgProjects = [], isLoading } = useShape(
+    PROJECTS_SHAPE,
+    projectParams,
+    { enabled: false }
+  );
   const sortedProjects = useMemo(
     () => sortProjectsByOrder(orgProjects),
     [orgProjects]
   );
-  const [orderedProjects, setOrderedProjects] =
-    useState<RemoteProject[]>(sortedProjects);
-  const [isSavingProjectOrder, setIsSavingProjectOrder] = useState(false);
-
-  useEffect(() => {
-    if (isSavingProjectOrder) {
-      return;
-    }
-    setOrderedProjects(sortedProjects);
-  }, [isSavingProjectOrder, sortedProjects]);
 
   // Navigate to the first ordered project when org changes
   useEffect(() => {
@@ -172,18 +175,14 @@ export function SharedAppLayout() {
     [currentDestination]
   );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
-  const isExportActive = currentDestination?.kind === 'export';
-  const showCloudShutdownBanner =
-    isExportActive || (isSignedIn && isProjectDestination(currentDestination));
-  const isWorkspaceSidebarPreviewEnabled =
-    !isMobile && isWorkspacesActive && !isLeftSidebarVisible;
+  const isDashboardActive = isDashboardDestination(currentDestination);
+  const isSourceControlActive = isSourceControlDestination(currentDestination);
+  const isSprintActive = isSprintDestination(currentDestination);
+  const isIssuesActive = isIssuesDestination(currentDestination);
+  const isWorkersActive = isWorkersDestination(currentDestination);
+  const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
+  const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
   const activeProjectId = projectDestination?.projectId ?? null;
-  const activeHostId =
-    getDestinationHostId(currentDestination) ?? routeHostId ?? null;
-  const sidebarPreview = useWorkspaceSidebarPreviewController({
-    enabled: isWorkspaceSidebarPreviewEnabled,
-    isAppBarHovered,
-  });
 
   // Persist last selected project to scratch store
   const setSelectedProjectId = useUiPreferencesStore(
@@ -195,361 +194,449 @@ export function SharedAppLayout() {
     }
   }, [activeProjectId, setSelectedProjectId]);
 
+  // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
+  // clicking any other item navigates to that section. Workspaces and Editor
+  // share the workspaces section and switch its sidebar content instead
+  // (workspaces list vs file explorer), activity-bar style.
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const setLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.setLeftSidebarVisible
+  );
+  const workspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.workspacesSidebarMode
+  );
+  const setWorkspacesSidebarMode = useUiPreferencesStore(
+    (s) => s.setWorkspacesSidebarMode
+  );
+
   const handleWorkspacesClick = useCallback(() => {
-    void navigate({ to: '/workspaces' });
-  }, [navigate]);
-
-  const handleExportClick = useCallback(() => {
-    appNavigation.goToExport();
-  }, [appNavigation]);
-
-  const handleProjectClick = useCallback(
-    (projectId: string) => {
-      appNavigation.goToProject(projectId);
-    },
-    [appNavigation]
-  );
-
-  const handleProjectsDragEnd = useCallback(
-    async ({ source, destination }: DropResult) => {
-      if (isSavingProjectOrder) {
-        return;
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'workspaces') {
+        setWorkspacesSidebarMode('workspaces');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
       }
-      if (!destination || source.index === destination.index) {
-        return;
-      }
-
-      const previousOrder = orderedProjects;
-      const reordered = [...orderedProjects];
-      const [moved] = reordered.splice(source.index, 1);
-
-      if (!moved) {
-        return;
-      }
-
-      reordered.splice(destination.index, 0, moved);
-      setOrderedProjects(reordered);
-      setIsSavingProjectOrder(true);
-
-      try {
-        await updateManyProjects(
-          reordered.map((project, index) => ({
-            id: project.id,
-            changes: { sort_order: index },
-          }))
-        ).persisted;
-      } catch (error) {
-        console.error('Failed to reorder projects:', error);
-        setOrderedProjects(previousOrder);
-      } finally {
-        setIsSavingProjectOrder(false);
-      }
-    },
-    [isSavingProjectOrder, orderedProjects, updateManyProjects]
-  );
-
-  const handleCreateProject = useCallback(async () => {
-    if (!selectedOrgId) return;
-
-    try {
-      const result: CreateRemoteProjectResult =
-        await CreateRemoteProjectDialog.show({ organizationId: selectedOrgId });
-
-      if (result.action === 'created' && result.project) {
-        appNavigation.goToProject(result.project.id);
-      }
-    } catch {
-      // Dialog cancelled
+    } else {
+      setWorkspacesSidebarMode('workspaces');
+      void navigate({ to: '/workspaces' });
     }
-  }, [selectedOrgId, appNavigation]);
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
 
-  const handleSignIn = useCallback(async () => {
-    try {
-      await OAuthDialog.show({});
-    } catch {
-      // Dialog cancelled
-    }
-  }, []);
+  const handleDashboardClick = useCallback(() => {
+    if (isDashboardActive) toggleLeftSidebar();
+    else appNavigation.goToDashboard();
+  }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
 
-  const openRelaySettings = useCallback((hostId?: string) => {
-    void SettingsDialog.show({
-      initialSection: 'relay',
-      ...(hostId ? { initialState: { hostId } } : {}),
-    });
-  }, []);
+  // SHELL-SPEC R34: rail badge = nº of fleet branches stopped on conflicts.
+  const sourceControlBadgeCount = useFleetConflictCount();
 
-  const handleHostClick = useCallback(
-    (hostId: string, status: AppBarHostStatus) => {
-      if (status === 'offline') {
-        return;
+  const handleSourceControlClick = useCallback(() => {
+    if (isSourceControlActive) toggleLeftSidebar();
+    else appNavigation.goToSourceControl();
+  }, [isSourceControlActive, toggleLeftSidebar, appNavigation]);
+
+  const handleSprintClick = useCallback(() => {
+    if (isSprintActive) toggleLeftSidebar();
+    else appNavigation.goToSprint();
+  }, [isSprintActive, toggleLeftSidebar, appNavigation]);
+
+  const handleIssuesClick = useCallback(() => {
+    if (isIssuesActive) toggleLeftSidebar();
+    else appNavigation.goToIssues();
+  }, [isIssuesActive, toggleLeftSidebar, appNavigation]);
+
+  const handleWorkersClick = useCallback(() => {
+    if (isWorkersActive) toggleLeftSidebar();
+    else appNavigation.goToWorkers();
+  }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
+
+  const handleAnalystDeskClick = useCallback(() => {
+    if (isAnalystDeskActive) toggleLeftSidebar();
+    else appNavigation.goToAnalystDesk();
+  }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
+
+  const handleCiPipelinesClick = useCallback(() => {
+    if (isCiPipelinesActive) toggleLeftSidebar();
+    else appNavigation.goToCiPipelines();
+  }, [isCiPipelinesActive, toggleLeftSidebar, appNavigation]);
+
+  // Editor rail item: switches the workspaces-section sidebar to the file
+  // explorer and surfaces the editor tab of the selected workspace.
+  const currentWorkspaceId =
+    currentDestination?.kind === 'workspace'
+      ? currentDestination.workspaceId
+      : undefined;
+  const isEditorActive =
+    isWorkspacesActive && workspacesSidebarMode === 'explorer';
+
+  const handleEditorClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'explorer') {
+        setWorkspacesSidebarMode('explorer');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
       }
+    } else {
+      setWorkspacesSidebarMode('explorer');
+      void navigate({ to: '/workspaces' });
+    }
+    if (currentWorkspaceId) {
+      useUiPreferencesStore
+        .getState()
+        .openWorkspaceViewTab(currentWorkspaceId, 'editor');
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+    currentWorkspaceId,
+  ]);
 
-      void navigate({
-        to: '/hosts/$hostId/workspaces',
-        params: { hostId },
-      });
-    },
-    [navigate]
+  // Search rail item: content search over the selected workspace's worktree.
+  const isSearchActive =
+    isWorkspacesActive && workspacesSidebarMode === 'search';
+
+  const handleSearchClick = useCallback(() => {
+    if (isWorkspacesActive) {
+      if (workspacesSidebarMode !== 'search') {
+        setWorkspacesSidebarMode('search');
+        setLeftSidebarVisible(true);
+      } else {
+        toggleLeftSidebar();
+      }
+    } else {
+      setWorkspacesSidebarMode('search');
+      void navigate({ to: '/workspaces' });
+    }
+  }, [
+    isWorkspacesActive,
+    workspacesSidebarMode,
+    setWorkspacesSidebarMode,
+    setLeftSidebarVisible,
+    toggleLeftSidebar,
+    navigate,
+  ]);
+
+  // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
+  // their content in. Sections without a contributed sidebar hide the panel.
+  const sectionHasSidebar =
+    isWorkspacesActive ||
+    isSourceControlActive ||
+    isSprintActive ||
+    isIssuesActive ||
+    isWorkersActive ||
+    isDashboardActive ||
+    isAnalystDeskActive ||
+    isCiPipelinesActive;
+  const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
+  // The horizontal split is intentionally NOT persisted: stored proportions
+  // re-applied after aside/terminal remounts made the sidebar grow on its
+  // own. Rule (decisión Dani): untouched, the sidebar always opens at its
+  // minimum; drags only last for the session.
+
+  // SHELL-SPEC R18/R30: the shell owns the right aside panel; pages portal
+  // their content in (ShellAsidePortal). Visibility = content + toggle.
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
   );
+  const asideHasContent = useShellAsideHasContent();
+  const showShellAside = asideHasContent && isRightSidebarVisible;
 
-  const handlePairHostClick = useCallback(() => {
-    openRelaySettings();
-  }, [openRelaySettings]);
+  // SHELL-SPEC R29-R30: global terminal in the shell, spanning only the main
+  // column (the aside is a sibling panel). Height persisted (70/30 default).
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const {
+    defaultLayout: terminalLayoutStored,
+    onLayoutChange: onTerminalLayoutChangeRaw,
+  } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: SHELL_TERMINAL_LAYOUT_ID,
+  });
+  const terminalDefaultLayout = terminalLayoutStored ?? {
+    'workspace-top': 70,
+    'bottom-panel': 30,
+  };
+  const onTerminalLayoutChange = useCallback<typeof onTerminalLayoutChangeRaw>(
+    (layout) => {
+      if (isTerminalVisible) onTerminalLayoutChangeRaw(layout);
+    },
+    [isTerminalVisible, onTerminalLayoutChangeRaw]
+  );
 
   return (
     <SyncErrorProvider>
-      <div
-        className={cn(
-          'bg-primary',
-          isMobile
-            ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-            : cn(
-                'grid grid-cols-[auto_1fr] h-screen',
-                showCloudShutdownBanner
-                  ? 'grid-rows-[auto_auto_1fr]'
-                  : 'grid-rows-[auto_1fr]'
-              )
-        )}
-      >
-        {!isMobile && (
-          <>
-            {showCloudShutdownBanner && (
-              <div className="col-span-2">
-                <CloudShutdownExportBanner onClick={handleExportClick} />
-              </div>
-            )}
-            {/* Desktop corner spacer. */}
-            <div
-              data-tauri-drag-region
-              className="bg-secondary"
-              style={isTauriMac() ? { minWidth: 56 } : undefined}
-            />
-            {/* Desktop navbar. */}
-            <NavbarContainer
-              onOrgSelect={setSelectedOrgId}
-              onOpenDrawer={() => setIsDrawerOpen(true)}
-            />
-            {/* Desktop AppBar sidebar. */}
-            <AppBar
-              projects={orderedProjects}
-              hosts={remoteCloudHosts}
-              activeHostId={activeHostId}
-              onCreateProject={handleCreateProject}
-              onExportClick={handleExportClick}
-              onWorkspacesClick={handleWorkspacesClick}
-              onHostClick={handleHostClick}
-              onPairHostClick={handlePairHostClick}
-              onProjectClick={handleProjectClick}
-              onProjectsDragEnd={handleProjectsDragEnd}
-              isSavingProjectOrder={isSavingProjectOrder}
-              isWorkspacesActive={isWorkspacesActive}
-              isExportActive={isExportActive}
-              activeProjectId={activeProjectId}
-              isSignedIn={isSignedIn}
-              isLoadingProjects={isLoading}
-              onSignIn={handleSignIn}
-              onHoverStart={() => setIsAppBarHovered(true)}
-              onHoverEnd={() => setIsAppBarHovered(false)}
-              notificationBell={
-                isSignedIn ? <AppBarNotificationBellContainer /> : undefined
-              }
-              userPopover={
-                <AppBarUserPopoverContainer
-                  organizations={organizations}
-                  selectedOrgId={selectedOrgId ?? ''}
-                  onOrgSelect={setSelectedOrgId}
-                />
-              }
-              starCount={starCount}
-              onlineCount={onlineCount}
-              appVersion={appVersion}
-              updateVersion={updateVersion}
-              onUpdateClick={restartForUpdate ?? undefined}
-              githubIconPath={siGithub.path}
-              discordIconPath={siDiscord.path}
-            />
-            {/* Desktop content. */}
-            <div className="relative min-h-0 overflow-hidden">
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div className="absolute inset-y-0 left-0 z-20 flex items-center">
-                  <WorkspacesSidebarReopenTag
-                    active={sidebarPreview.isPreviewOpen}
-                    onHoverStart={sidebarPreview.handleHandleHoverStart}
-                    onHoverEnd={sidebarPreview.handleHandleHoverEnd}
-                    ariaLabel="Workspaces"
-                  />
-                </div>
-              )}
-
-              {isWorkspaceSidebarPreviewEnabled && (
-                <div
-                  className={cn(
-                    'absolute left-0 top-0 z-30 h-full w-[300px] transition-transform duration-150 ease-out',
-                    sidebarPreview.isPreviewOpen
-                      ? 'translate-x-0 pointer-events-auto'
-                      : '-translate-x-full pointer-events-none'
-                  )}
-                  onMouseEnter={sidebarPreview.handlePreviewHoverStart}
-                  onMouseLeave={sidebarPreview.handlePreviewHoverEnd}
-                >
-                  <div className="h-full w-full overflow-hidden border-r border-border bg-secondary shadow-lg">
-                    <WorkspacesSidebarContainer />
-                  </div>
-                </div>
-              )}
-
-              <Outlet />
-            </div>
-          </>
-        )}
-
-        {isMobile && (
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-            {showCloudShutdownBanner && (
-              <CloudShutdownExportBanner onClick={handleExportClick} />
-            )}
-            <NavbarContainer
-              mobileMode={isMobile}
-              onOrgSelect={setSelectedOrgId}
-              onOpenDrawer={() => setIsDrawerOpen(true)}
-            />
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Outlet />
-            </div>
-          </div>
-        )}
-
-        {/* Mobile project navigation drawer */}
-        <MobileDrawer
-          open={isDrawerOpen && isMobile}
-          onClose={() => setIsDrawerOpen(false)}
+      <ShellSidebarProvider>
+        <div
+          className={cn(
+            'bg-primary',
+            isMobile
+              ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
+              : 'grid grid-rows-[auto_1fr_auto] h-screen'
+          )}
         >
-          <div className="flex flex-col h-full">
-            {/* Header: org name + close button */}
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <span className="text-sm font-medium text-high truncate">
-                {organizations.find((o) => o.id === selectedOrgId)?.name ??
-                  'Organization'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                className="p-1 rounded-sm text-low hover:text-normal cursor-pointer"
-              >
-                <XIcon className="h-4 w-4" weight="bold" />
-              </button>
-            </div>
-
-            {/* Workspaces link */}
-            <button
-              type="button"
-              onClick={() => {
-                void navigate({ to: '/workspaces' });
-                setIsDrawerOpen(false);
-              }}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-normal hover:bg-secondary cursor-pointer"
-            >
-              <LayoutIcon className="h-4 w-4" />
-              Workspaces
-            </button>
-
-            {/* Divider */}
-            <div className="border-t border-border mx-4" />
-
-            {/* Export link */}
-            {isSignedIn && (
-              <div className="px-4 py-3">
-                <p className="mb-2 text-xs font-medium text-low">Export</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleExportClick();
-                    setIsDrawerOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm text-normal hover:bg-secondary cursor-pointer"
+          {!isMobile && (
+            <>
+              {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
+              <NavbarContainer
+                className={isTauriMac() ? 'pl-[64px]' : undefined}
+                onOpenDrawer={() => setIsDrawerOpen(true)}
+              />
+              {/* Middle row: activity rail + content. Flex (not grid) so the
+                resizable group gets a definite height to fill (min-h-0!). */}
+              <div className="flex min-h-0 overflow-hidden">
+                {/* Desktop AppBar sidebar. */}
+                <AppBar
+                  onWorkspacesClick={handleWorkspacesClick}
+                  onEditorClick={handleEditorClick}
+                  onSearchClick={handleSearchClick}
+                  onSourceControlClick={handleSourceControlClick}
+                  onDashboardClick={handleDashboardClick}
+                  onSprintClick={handleSprintClick}
+                  onIssuesClick={handleIssuesClick}
+                  onWorkersClick={handleWorkersClick}
+                  onAnalystDeskClick={handleAnalystDeskClick}
+                  onCiPipelinesClick={handleCiPipelinesClick}
+                  isWorkspacesActive={
+                    isWorkspacesActive && workspacesSidebarMode === 'workspaces'
+                  }
+                  isEditorActive={isEditorActive}
+                  isSearchActive={isSearchActive}
+                  isSourceControlActive={isSourceControlActive}
+                  sourceControlBadgeCount={sourceControlBadgeCount}
+                  isDashboardActive={isDashboardActive}
+                  isSprintActive={isSprintActive}
+                  isIssuesActive={isIssuesActive}
+                  isWorkersActive={isWorkersActive}
+                  isAnalystDeskActive={isAnalystDeskActive}
+                  isCiPipelinesActive={isCiPipelinesActive}
+                  updateVersion={updateVersion}
+                  onUpdateClick={restartForUpdate ?? undefined}
+                  onOpenSettings={() => SettingsDialog.show()}
+                />
+                {/* Shell sidebar + content: one resizable group (SHELL-SPEC R9). */}
+                <Group
+                  orientation="horizontal"
+                  className="flex-1 min-w-0 h-full"
                 >
-                  <DownloadSimpleIcon className="h-4 w-4" />
-                  Export data
-                </button>
-              </div>
-            )}
-
-            {/* Divider */}
-            {isSignedIn && <div className="border-t border-border mx-4" />}
-
-            {/* Project list */}
-            <div className="flex-1 overflow-y-auto p-2">
-              {isSignedIn ? (
-                orderedProjects.map((project) => (
-                  <button
-                    type="button"
-                    key={project.id}
-                    onClick={() => {
-                      handleProjectClick(project.id);
-                      setIsDrawerOpen(false);
-                    }}
-                    className={cn(
-                      'flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-sm text-left cursor-pointer',
-                      'transition-colors',
-                      project.id === activeProjectId
-                        ? 'bg-brand/10 text-high'
-                        : 'text-normal hover:bg-secondary'
-                    )}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: `hsl(${project.color})` }}
-                    />
-                    <span className="truncate">{project.name}</span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-4 py-6 text-center">
-                  <KanbanIcon
-                    className="h-8 w-8 mx-auto text-low"
-                    weight="bold"
-                  />
-                  <p className="mt-3 text-sm font-medium text-high">
-                    Kanban Boards
-                  </p>
-                  <p className="mt-1 text-xs text-low">
-                    Sign in to organise your coding agents with kanban boards.
-                  </p>
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleSignIn();
-                        setIsDrawerOpen(false);
-                      }}
-                      className="w-full px-3 py-2 rounded-md text-sm font-medium bg-brand text-on-brand hover:bg-brand-hover cursor-pointer"
+                  {showShellSidebar && (
+                    <Panel
+                      id="shell-sidebar"
+                      defaultSize="220px"
+                      minSize="220px"
+                      maxSize="480px"
+                      className="h-full overflow-hidden border-r border-md-outline-variant"
                     >
-                      Sign in
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                      <ShellSidebarSlot className="h-full min-h-0 overflow-hidden" />
+                    </Panel>
+                  )}
+                  {showShellSidebar && (
+                    <Separator
+                      id="shell-sidebar-separator"
+                      className={SHELL_SEPARATOR_CLASS}
+                    />
+                  )}
+                  {/* Desktop content: main column (outlet + global terminal). */}
+                  <Panel
+                    id="shell-content"
+                    minSize="400px"
+                    className="relative min-w-0 h-full overflow-hidden"
+                  >
+                    {!showShellSidebar && (
+                      <div className={SHELL_RAIL_SHADOW_CLASS} aria-hidden />
+                    )}
+                    <Group
+                      orientation="vertical"
+                      className="h-full w-full min-h-0"
+                      defaultLayout={terminalDefaultLayout}
+                      onLayoutChange={onTerminalLayoutChange}
+                    >
+                      <Panel
+                        id="workspace-top"
+                        minSize="200px"
+                        className="relative min-h-0 w-full overflow-hidden"
+                      >
+                        <Outlet />
+                      </Panel>
+                      {isTerminalVisible && (
+                        <Separator
+                          id="shell-terminal-separator"
+                          className={SHELL_SEPARATOR_ROW_CLASS}
+                        />
+                      )}
+                      {isTerminalVisible && (
+                        <Panel
+                          id="bottom-panel"
+                          minSize="120px"
+                          maxSize="80%"
+                          className="min-h-0 w-full overflow-hidden"
+                        >
+                          <ShellTerminalPanel />
+                        </Panel>
+                      )}
+                    </Group>
+                  </Panel>
+                  {showShellAside && (
+                    <Separator
+                      id="shell-aside-separator"
+                      className={SHELL_ASIDE_SEPARATOR_CLASS}
+                    />
+                  )}
+                  {showShellAside && (
+                    <Panel
+                      id="shell-aside"
+                      defaultSize="320px"
+                      minSize="220px"
+                      maxSize="480px"
+                      className="h-full overflow-hidden border-l border-md-outline-variant"
+                    >
+                      <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
+                    </Panel>
+                  )}
+                </Group>
+              </div>
+              {/* Workbench status bar — full-width bottom row. */}
+              <StatusBarContainer
+                appVersion={appVersion}
+                updateVersion={updateVersion}
+                onUpdateClick={restartForUpdate ?? undefined}
+              />
+            </>
+          )}
 
-            {/* Create Project button */}
-            {isSignedIn && (
-              <div className="p-3 border-t border-border">
+          {isMobile && (
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <NavbarContainer
+                mobileMode={isMobile}
+                onOpenDrawer={() => setIsDrawerOpen(true)}
+              />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Outlet />
+              </div>
+            </div>
+          )}
+
+          {/* Global ad-hoc Claude panel — right slide-in overlay, portaled to
+            document.body so it doesn't push the main column. */}
+          <AdhocClaudePanel />
+
+          {/* Mobile navigation drawer */}
+          <MobileDrawer
+            open={isDrawerOpen && isMobile}
+            onClose={() => setIsDrawerOpen(false)}
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-end p-4 border-b border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-1.5 rounded-md text-low hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-1 p-3">
                 <button
                   type="button"
                   onClick={() => {
-                    handleCreateProject();
+                    appNavigation.goToDashboard();
                     setIsDrawerOpen(false);
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-md text-sm text-low hover:text-normal hover:bg-secondary cursor-pointer"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
                 >
-                  <PlusIcon className="h-4 w-4" />
-                  Create Project
+                  <LayoutDashboard className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.dashboard')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate({ to: '/workspaces' });
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Layout className="h-4 w-4" strokeWidth={2} />
+                  Workspaces
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    appNavigation.goToIssues();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <AlertCircle className="h-4 w-4" strokeWidth={2} />
+                  Issues
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleWorkersClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Users className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.workers')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAnalystDeskClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <ClipboardList className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.analystDesk')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCiPipelinesClick();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Workflow className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.ciPipelines')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    appNavigation.goToSprint();
+                    setIsDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
+                >
+                  <Zap className="h-4 w-4" strokeWidth={2} />
+                  {t('appBar.sprint')}
                 </button>
               </div>
-            )}
-          </div>
-        </MobileDrawer>
-      </div>
+            </div>
+          </MobileDrawer>
+        </div>
+      </ShellSidebarProvider>
     </SyncErrorProvider>
   );
 }

@@ -43,7 +43,7 @@ const variantConfig: Record<Variant, VariantConfig> = {
   system: {
     icon: GearIcon,
     border: 'border-border',
-    headerBg: 'bg-gray-50 dark:bg-gray-900/30',
+    headerBg: 'bg-secondary',
     bg: '',
   },
 };

@@ -9,6 +9,7 @@ import {
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
 import {
   type BaseCodingAgent,
+  type Config,
   DEFAULT_COMMIT_REMINDER_PROMPT,
   DEFAULT_PR_DESCRIPTION_PROMPT,
   EditorType,
@@ -54,6 +55,12 @@ import {
 } from './SettingsComponents';
 import { useSettingsDirty } from './SettingsDirtyContext';
 
+// `max_review_rounds` exists in the Rust Config v9 struct but has not yet
+// been regenerated into `shared/types.ts`. This local extension keeps the
+// UI type-safe until infra re-runs `pnpm run generate-types` — remove it
+// once the field appears in the generated `Config`.
+type ConfigWithReview = Config & { max_review_rounds?: number };
+
 export function GeneralSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
   const { setDirty: setContextDirty } = useSettingsDirty();
@@ -76,6 +83,10 @@ export function GeneralSettingsSection() {
   const [branchPrefixError, setBranchPrefixError] = useState<string | null>(
     null
   );
+  const [maxReviewRoundsError, setMaxReviewRoundsError] = useState<
+    string | null
+  >(null);
+  const [maxReviewRoundsDraft, setMaxReviewRoundsDraft] = useState<string>('');
   const { setTheme } = useTheme();
 
   // Executor options for the default coding agent dropdown
@@ -130,6 +141,10 @@ export function GeneralSettingsSection() {
     if (!config) return;
     if (!dirty) {
       setDraft(cloneDeep(config));
+      setMaxReviewRoundsDraft(
+        String((config as ConfigWithReview).max_review_rounds ?? 3)
+      );
+      setMaxReviewRoundsError(null);
     }
   }, [config, dirty]);
 
@@ -200,6 +215,10 @@ export function GeneralSettingsSection() {
   const handleDiscard = () => {
     if (!config) return;
     setDraft(cloneDeep(config));
+    setMaxReviewRoundsDraft(
+      String((config as ConfigWithReview).max_review_rounds ?? 3)
+    );
+    setMaxReviewRoundsError(null);
     setDirty(false);
   };
 
@@ -215,7 +234,7 @@ export function GeneralSettingsSection() {
     return (
       <div className="flex items-center justify-center py-8 gap-2">
         <SpinnerIcon
-          className="size-icon-lg animate-spin text-brand"
+          className="size-icon-lg animate-spin text-brand-on-surface"
           weight="bold"
         />
         <span className="text-normal">{t('settings.general.loading')}</span>
@@ -641,6 +660,56 @@ export function GeneralSettingsSection() {
         </SettingsField>
       </SettingsCard>
 
+      {/* Auto Review */}
+      <SettingsCard
+        title={t('settings.general.autoReview.title')}
+        description={t('settings.general.autoReview.description')}
+      >
+        <SettingsField
+          label={t('settings.general.autoReview.maxRounds.label')}
+          description={t('settings.general.autoReview.maxRounds.helper')}
+          error={maxReviewRoundsError}
+        >
+          <SettingsInput
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            value={maxReviewRoundsDraft}
+            error={!!maxReviewRoundsError}
+            className="w-24"
+            placeholder="3"
+            onChange={(value) => {
+              setMaxReviewRoundsDraft(value);
+              const trimmed = value.trim();
+              if (trimmed === '') {
+                setMaxReviewRoundsError(
+                  t('settings.general.autoReview.maxRounds.errors.required')
+                );
+                return;
+              }
+              if (!/^\d+$/.test(trimmed)) {
+                setMaxReviewRoundsError(
+                  t('settings.general.autoReview.maxRounds.errors.notInteger')
+                );
+                return;
+              }
+              const parsed = Number(trimmed);
+              if (!Number.isFinite(parsed) || parsed < 1) {
+                setMaxReviewRoundsError(
+                  t('settings.general.autoReview.maxRounds.errors.min')
+                );
+                return;
+              }
+              setMaxReviewRoundsError(null);
+              updateDraft({
+                max_review_rounds: parsed,
+              } as Partial<ConfigWithReview>);
+            }}
+          />
+        </SettingsField>
+      </SettingsCard>
+
       {/* Commits */}
       <SettingsCard
         title={t('settings.general.commits.title')}
@@ -839,7 +908,7 @@ export function GeneralSettingsSection() {
       <SettingsSaveBar
         show={hasUnsavedChanges}
         saving={saving}
-        saveDisabled={!!branchPrefixError}
+        saveDisabled={!!branchPrefixError || !!maxReviewRoundsError}
         onSave={handleSave}
         onDiscard={handleDiscard}
       />

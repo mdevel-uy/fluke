@@ -149,14 +149,33 @@
       "forcePush": "강제 푸시",
       "forcePushing": "강제 푸시 중...",
       "creating": "생성 중...",
-      "createPr": "PR 생성"
+      "createPr": "PR 생성",
+      "resolveConflicts": "충돌 해결",
+      "sendingConflicts": "전송 중...",
+      "resolveConflictsSent": "에이전트에 전송됨",
+      "addressPrComments": "PR 코멘트 처리",
+      "addressPrCommentsSending": "전송 중...",
+      "addressPrCommentsSent": "에이전트에 전송됨",
+      "fixCi": "CI 수정",
+      "fixCiSending": "전송 중...",
+      "fixCiSent": "에이전트에 전송됨",
+      "fixMergeConflicts": "머지 충돌 해결"
     },
     "errors": {
       "changeTargetBranch": "대상 브랜치를 변경하지 못했습니다",
       "pushChanges": "변경사항을 푸시하지 못했습니다",
       "mergeChanges": "변경사항을 병합하지 못했습니다",
       "rebaseBranch": "브랜치를 리베이스하지 못했습니다",
-      "branchStatusUnavailable": "브랜치 상태를 가져올 수 없습니다. 대상 브랜치는 여전히 변경할 수 있습니다."
+      "branchStatusUnavailable": "브랜치 상태를 가져올 수 없습니다. 대상 브랜치는 여전히 변경할 수 있습니다.",
+      "resolveConflictsFailed": "충돌 해결 후속 요청을 보내지 못했습니다.",
+      "resolveConflictsNoPr": "이 워크스페이스에 연결된 열린 PR이 없습니다.",
+      "resolveConflictsNoAgentSession": "이 워크스페이스에 활성 에이전트 세션이 없습니다 — 에이전트를 다시 시작한 후 재시도하세요.",
+      "addressPrCommentsFailed": "PR 코멘트 처리 후속 요청을 보내지 못했습니다.",
+      "addressPrCommentsNoPr": "이 워크스페이스에 연결된 열린 PR이 없습니다.",
+      "addressPrCommentsNoAgentSession": "이 워크스페이스에 활성 에이전트 세션이 없습니다 — 에이전트를 다시 시작한 후 재시도하세요.",
+      "fixCiFailed": "CI 수정 후속 요청을 보내지 못했습니다.",
+      "fixCiNoPr": "이 워크스페이스에 연결된 열린 PR이 없습니다.",
+      "fixCiNoAgentSession": "이 워크스페이스에 활성 에이전트 세션이 없습니다 — 에이전트를 다시 시작한 후 재시도하세요."
     },
     "pr": {
       "open": "Open PR #{{number}}",
@@ -169,7 +188,7 @@
       "prMerged": "PR #{{number}}은(는) 이미 병합되었습니다",
       "loginRequired": {
         "title": "Git 작업을 관리하려면 로그인하세요",
-        "description": "이 작업에서 브랜치를 푸시하고 변경 사항을 병합하거나 풀 리퀘스트를 만들려면 Vibe Kanban에 로그인하세요.",
+        "description": "이 작업에서 브랜치를 푸시하고 변경 사항을 병합하거나 풀 리퀘스트를 만들려면 mkanban에 로그인하세요.",
         "action": "로그인"
       }
     },
@@ -261,7 +280,12 @@
     "selectAttempt": "Select an attempt to view execution processes.",
     "started": "Started: {{date}}",
     "copyLogs": "로그 복사",
-    "logsCopied": "복사됨!"
+    "logsCopied": "복사됨!",
+    "failureBanner": {
+      "issueLink": "이슈 #{{number}}",
+      "prLink": "풀 리퀘스트 보기",
+      "reasonLabel": "실패 사유:"
+    }
   },
   "rebase": {
     "common": {
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "PR 연결에 실패했습니다. 다시 시도해 주세요."
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "승인됨",
+      "changesRequested": "변경 요청"
+    },
+    "loop": {
+      "reviewing": "리뷰 진행 중…",
+      "reviewQueued": "리뷰 대기열",
+      "fixing": "수정 진행 중…",
+      "fixQueued": "수정 대기열",
+      "awaitingReview": "리뷰 대기 중",
+      "stalled": "루프 정체"
     }
   }
 }

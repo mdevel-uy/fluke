@@ -100,6 +100,27 @@ impl ExecutionProcessLogs {
         .await
     }
 
+    /// Most recent log chunks for an execution process, newest first.
+    /// Used to scan backwards for the latest token-usage entry without
+    /// loading the full log history.
+    pub async fn find_recent_by_execution_id(
+        pool: &SqlitePool,
+        execution_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as(
+            r#"SELECT execution_id, logs, byte_size, inserted_at
+               FROM execution_process_logs
+               WHERE execution_id = $1
+               ORDER BY inserted_at DESC
+               LIMIT $2"#,
+        )
+        .bind(execution_id)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+    }
+
     /// Find logs by execution process ID as a stream of strings
     pub fn stream_log_lines_by_execution_id<'a>(
         pool: &'a SqlitePool,

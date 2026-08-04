@@ -193,6 +193,11 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
     [state.tabsByWorkspace]
   );
 
+  const getAllTabs = useCallback(
+    (): TerminalTab[] => Object.values(state.tabsByWorkspace).flat(),
+    [state.tabsByWorkspace]
+  );
+
   const getActiveTab = useCallback(
     (workspaceId: string): TerminalTab | null => {
       const activeId = state.activeTabByWorkspace[workspaceId];
@@ -440,6 +445,7 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
   const value = useMemo(
     () => ({
       getTabsForWorkspace,
+      getAllTabs,
       getActiveTab,
       createTab,
       closeTab,
@@ -454,6 +460,7 @@ export function TerminalProvider({ children }: TerminalProviderProps) {
     }),
     [
       getTabsForWorkspace,
+      getAllTabs,
       getActiveTab,
       createTab,
       closeTab,

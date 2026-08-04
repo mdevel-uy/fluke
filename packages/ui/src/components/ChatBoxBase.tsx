@@ -42,6 +42,13 @@ interface ChatBoxBaseProps {
   // Banner content (queued message indicator, feedback mode indicator)
   banner?: ReactNode;
 
+  // Compact layout: no header row; contextual info renders via contextStrip
+  compact?: boolean;
+
+  // Slim contextual strip above the editor (diff stats, running todo) —
+  // only rendered in compact mode, and only when there is something to say
+  contextStrip?: ReactNode;
+
   // visualVariant
   visualVariant: VisualVariant;
 
@@ -65,6 +72,8 @@ export function ChatBoxBase({
   footerRight,
   modelSelector,
   banner,
+  compact,
+  contextStrip,
   visualVariant,
   isRunning,
   dropzone,
@@ -77,7 +86,7 @@ export function ChatBoxBase({
     <div
       {...(dropzone?.getRootProps() ?? {})}
       className={cn(
-        'relative flex w-chat max-w-full flex-col rounded-sm border border-border bg-secondary',
+        'relative flex w-chat max-w-full flex-col rounded-lg border border-border-strong bg-card',
         (visualVariant === VisualVariant.FEEDBACK ||
           visualVariant === VisualVariant.EDIT ||
           visualVariant === VisualVariant.PLAN) &&
@@ -91,7 +100,7 @@ export function ChatBoxBase({
         <div className="absolute inset-0 z-50 flex items-center justify-center rounded-sm border-2 border-dashed border-brand bg-primary/80 backdrop-blur-sm pointer-events-none animate-in fade-in-0 duration-150">
           <div className="text-center">
             <div className="mx-auto mb-2 w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center">
-              <ImageIcon className="h-5 w-5 text-brand" />
+              <ImageIcon className="h-5 w-5 text-brand-on-surface" />
             </div>
             <p className="text-sm font-medium text-high">
               {t('tasks:dropzone.dropImagesHere')}
@@ -112,8 +121,8 @@ export function ChatBoxBase({
       {/* Banner content (queued indicator, feedback mode, etc.) */}
       {banner}
 
-      {/* Header - Stats and selector */}
-      {visualVariant === VisualVariant.NORMAL && (
+      {/* Header - Stats and selector (hidden in compact mode) */}
+      {visualVariant === VisualVariant.NORMAL && !compact && (
         <div className="flex items-center gap-base border-b px-base py-base">
           <div className="flex flex-1 items-center gap-base text-sm min-w-0 overflow-hidden">
             {headerLeft}
@@ -121,6 +130,9 @@ export function ChatBoxBase({
           <Toolbar className="gap-[9px]">{headerRight}</Toolbar>
         </div>
       )}
+
+      {/* Compact mode: slim contextual strip above the editor */}
+      {compact && contextStrip}
 
       {/* Editor area */}
       <div className="flex flex-col gap-plusfifty px-base py-base rounded-md">

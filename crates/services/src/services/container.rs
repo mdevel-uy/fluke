@@ -57,7 +57,10 @@ use utils::{
 use uuid::Uuid;
 use worktree_manager::WorktreeError;
 
-use crate::services::{execution_process, notification::NotificationService};
+use crate::services::{
+    concurrency::ConcurrencySemaphore, config::Config, execution_process,
+    notification::NotificationService, worker_orchestrator,
+};
 pub type ContainerRef = String;
 
 #[derive(Debug, Error)]
@@ -93,6 +96,21 @@ pub trait ContainerService {
     fn git(&self) -> &GitService;
 
     fn notification_service(&self) -> &NotificationService;
+
+    fn config(&self) -> &Arc<RwLock<Config>>;
+
+    /// Concurrency semaphore governing coding-agent spawns. Local
+    /// deployments implement this; remote deployments (which run
+    /// executors elsewhere) may return `None`.
+    fn concurrency(&self) -> Option<&ConcurrencySemaphore> {
+        None
+    }
+
+    /// Promote the oldest queued execution to running (if a slot is
+    /// available). Deployments that own the semaphore override this
+    /// to actually spawn; the default is a no-op. Used by error
+    /// recovery paths that release a slot without a natural exit.
+    async fn drain_queue(&self) {}
 
     async fn touch(&self, workspace: &Workspace) -> Result<(), ContainerError>;
 
@@ -234,8 +252,12 @@ pub trait ContainerService {
         action.next_action.is_none()
     }
 
-    /// Finalize workspace execution by sending notifications
-    async fn finalize_task(&self, ctx: &ExecutionContext) {
+    /// Finalize workspace execution by sending notifications and reconciling
+    /// analyst/reviewer worker task state.
+    async fn finalize_task(&self, ctx: &ExecutionContext)
+    where
+        Self: Sized + Send + Sync,
+    {
         // Skip notification if process was intentionally killed by user
         if matches!(ctx.execution_process.status, ExecutionProcessStatus::Killed) {
             return;
@@ -267,6 +289,34 @@ pub trait ContainerService {
         self.notification_service()
             .notify(&title, &message, Some(ctx.workspace.id))
             .await;
+
+        // Analyst and reviewer workers transition to done/failed when their
+        // coding-agent run finishes, rather than waiting for a PR to be merged.
+        if matches!(
+            ctx.execution_process.run_reason,
+            ExecutionProcessRunReason::CodingAgent
+        ) {
+            let succeeded = matches!(
+                ctx.execution_process.status,
+                ExecutionProcessStatus::Completed
+            );
+            if let Err(e) = worker_orchestrator::on_agent_finished(
+                self.config(),
+                self.db(),
+                self,
+                ctx.workspace.id,
+                succeeded,
+                Some(ctx.execution_process.id),
+            )
+            .await
+            {
+                tracing::warn!(
+                    workspace_id = %ctx.workspace.id,
+                    "Failed to reconcile analyst/reviewer task on agent finish: {}",
+                    e
+                );
+            }
+        }
     }
 
     /// Cleanup executions marked as running in the db, call at startup
@@ -722,7 +772,15 @@ pub trait ContainerService {
                     {
                         continue;
                     }
-                    if process.status == ExecutionProcessStatus::Running {
+                    // Cancel both Running and Queued: leaving Queued rows in
+                    // the FIFO would cause the semaphore to spawn an agent
+                    // against an archived / reset workspace when a slot frees.
+                    // stop_execution handles Queued specially (drops from the
+                    // wait queue, no child kill needed).
+                    if matches!(
+                        process.status,
+                        ExecutionProcessStatus::Running | ExecutionProcessStatus::Queued
+                    ) {
                         self.stop_execution(&process, ExecutionProcessStatus::Killed)
                             .await
                             .unwrap_or_else(|e| {
@@ -892,12 +950,18 @@ pub trait ContainerService {
                     }
                 };
 
-            if let Err(err) = self.ensure_container_exists(&workspace).await {
-                tracing::warn!(
-                    "Failed to recreate worktree before log normalization for workspace {}: {}",
-                    workspace.id,
-                    err
-                );
+            // Normalizing historical logs only needs the worktree path for
+            // display, so don't resurrect a worktree that was deliberately
+            // torn down: for an archived workspace this always failed anyway
+            // ("Permission denied"), once per poll of the summary endpoint.
+            if !workspace.archived && !workspace.worktree_deleted {
+                if let Err(err) = self.ensure_container_exists(&workspace).await {
+                    tracing::warn!(
+                        "Failed to recreate worktree before log normalization for workspace {}: {}",
+                        workspace.id,
+                        err
+                    );
+                }
             }
 
             let current_dir = self.workspace_to_current_dir(&workspace);
@@ -1233,6 +1297,16 @@ pub trait ContainerService {
                 .write()
                 .await
                 .remove(&execution_process.id);
+            // Release any concurrency slot the failed spawn may have
+            // acquired. Without this, a spawn that errors after
+            // `try_acquire` (e.g. missing container_ref, spawn timeout,
+            // executor not installed) would permanently leak a slot.
+            if let Some(sem) = self.concurrency() {
+                sem.release(&execution_process.id).await;
+            }
+            // The freed slot might unblock a queued execution — drain
+            // now instead of waiting for the next natural process exit.
+            self.drain_queue().await;
             // Mark process as failed
             if let Err(update_error) = ExecutionProcess::update_completion(
                 &self.db().pool,

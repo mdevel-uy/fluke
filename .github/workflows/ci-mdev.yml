@@ -1,0 +1,78 @@
+name: CI (mdev)
+
+on:
+  pull_request:
+    branches:
+      - mdev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10.13.1'
+  RUST_TOOLCHAIN: nightly-2025-12-04
+
+jobs:
+  frontend:
+    name: Frontend build & typecheck
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck local-web
+        run: pnpm run local-web:check
+
+      - name: Typecheck web-core
+        run: pnpm run web-core:check
+
+      - name: Typecheck ui
+        run: pnpm run ui:check
+
+      - name: Build local-web
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: pnpm --filter @vibe/local-web run build
+
+  backend:
+    name: Backend cargo check
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_NET_RETRY: '10'
+      RUSTUP_MAX_RETRIES: '10'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-mdev-backend
+          cache-on-failure: 'true'
+
+      - name: cargo check -p server
+        run: cargo check --locked -p server

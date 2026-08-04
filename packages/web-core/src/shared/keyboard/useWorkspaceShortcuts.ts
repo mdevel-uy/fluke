@@ -8,6 +8,8 @@ import {
   ActionTargetType,
 } from '@/shared/types/actions';
 import { Scope } from '@/shared/keyboard/registry';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { isMac } from '@/shared/lib/platform';
 
 const SEQUENCE_TIMEOUT_MS = 1500;
 
@@ -51,15 +53,16 @@ export function useWorkspaceShortcuts() {
   }, []);
 
   useHotkeys('g>s', () => execute(Actions.Settings), OPTIONS);
-  useHotkeys('g>n', () => execute(Actions.NewWorkspace), OPTIONS);
 
-  useHotkeys('w>d', () => execute(Actions.DuplicateWorkspace), OPTIONS);
+  useHotkeys('mod+shift+f', () => execute(Actions.SearchInFiles), OPTIONS);
+
   useHotkeys('w>r', () => execute(Actions.RenameWorkspace), OPTIONS);
   useHotkeys('w>p', () => execute(Actions.PinWorkspace), OPTIONS);
   useHotkeys('w>a', () => execute(Actions.ArchiveWorkspace), OPTIONS);
   useHotkeys('w>x', () => execute(Actions.DeleteWorkspace), OPTIONS);
 
   useHotkeys('v>c', () => execute(Actions.ToggleChangesMode), OPTIONS);
+  useHotkeys('v>e', () => execute(Actions.ToggleEditorMode), OPTIONS);
   useHotkeys('v>l', () => execute(Actions.ToggleLogsMode), OPTIONS);
   useHotkeys('v>p', () => execute(Actions.TogglePreviewMode), OPTIONS);
   useHotkeys('v>s', () => execute(Actions.ToggleLeftSidebar), OPTIONS);
@@ -78,4 +81,24 @@ export function useWorkspaceShortcuts() {
 
   useHotkeys('r>s', () => execute(Actions.RunSetupScript), OPTIONS);
   useHotkeys('r>c', () => execute(Actions.RunCleanupScript), OPTIONS);
+
+  // Cmd+J (Mac) / Ctrl+J (Windows/Linux) toggles the terminal bottom panel.
+  // Registered as a native listener on the capture phase so xterm can't
+  // swallow the key first — mirrors useCommandBarShortcut for Cmd+K.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const modifier = isMac() ? event.metaKey : event.ctrlKey;
+      if (!modifier || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== 'j') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      useUiPreferencesStore.getState().toggleTerminal();
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, []);
 }

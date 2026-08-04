@@ -21,18 +21,22 @@
         "reposDesc": "저장소 스크립트 및 구성",
         "agents": "에이전트",
         "agentsDesc": "코딩 에이전트 구성",
+        "guidelines": "가이드라인",
+        "guidelinesDesc": "모든 에이전트에 적용되는 전역 행동 규칙",
         "mcp": "MCP 서버",
         "mcpDesc": "Model Context Protocol 서버",
-        "organizations": "Organization Settings",
         "organizationsDesc": "Manage organization members and permissions",
-        "remote-projects": "프로젝트",
         "remote-projectsDesc": "프로젝트 관리",
-        "relay": "Remote Access",
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "pairOtherMachines": "Pair other machines",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "스킬",
+        "skillsDesc": "~/.claude/skills에 설치된 에이전트 스킬 관리",
+        "github": "GitHub",
+        "githubDesc": "gh CLI로 GitHub에 로그인",
+        "agent-auth": "에이전트 연결",
+        "agent-authDesc": "설정에서 설치된 각 에이전트를 연결하거나 해제합니다"
       }
     },
     "general": {
@@ -87,7 +91,7 @@
           "host": {
             "label": "원격 SSH 호스트 (선택사항)",
             "placeholder": "예: 호스트 이름 또는 IP 주소",
-            "helper": "Vibe Kanban이 원격 서버에서 실행 중인 경우 설정하세요. 설정하면 \"에디터에서 열기\"를 클릭할 때 로컬 명령을 실행하는 대신 SSH를 통해 에디터를 여는 URL이 생성됩니다."
+            "helper": "mkanban이 원격 서버에서 실행 중인 경우 설정하세요. 설정하면 \"에디터에서 열기\"를 클릭할 때 로컬 명령을 실행하는 대신 SSH를 통해 에디터를 여는 URL이 생성됩니다."
           },
           "user": {
             "label": "원격 SSH 사용자 (선택사항)",
@@ -97,7 +101,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the Vibe Kanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "사용 가능 여부 확인 중...",
@@ -161,10 +165,10 @@
         "workspaceDir": {
           "label": "워크스페이스 디렉토리",
           "placeholder": "~/",
-          "helper": "이 경로 내의 .vibe-kanban-workspaces 하위 디렉토리에 워크스페이스가 생성됩니다. 시스템 기본값을 사용하려면 비워두세요. 변경 사항은 앱을 다시 시작해야 적용됩니다.",
+          "helper": "이 경로 내의 .mkanban-workspaces 하위 디렉토리에 워크스페이스가 생성됩니다. 시스템 기본값을 사용하려면 비워두세요. 변경 사항은 앱을 다시 시작해야 적용됩니다.",
           "browse": "찾아보기",
           "dialogTitle": "워크스페이스 디렉토리 선택",
-          "dialogDescription": "디렉토리를 선택하세요. 워크스페이스는 해당 디렉토리 내의 .vibe-kanban-workspaces 하위 디렉토리에 생성됩니다."
+          "dialogDescription": "디렉토리를 선택하세요. 워크스페이스는 해당 디렉토리 내의 .mkanban-workspaces 하위 디렉토리에 생성됩니다."
         }
       },
       "pullRequests": {
@@ -177,6 +181,19 @@
         "customPrompt": {
           "useCustom": "사용자 정의 프롬프트 사용",
           "helper": "PR 설명 생성 시 AI 에이전트용 사용자 정의 프롬프트. {pr_number}와 {pr_url}을 플레이스홀더로 사용하세요."
+        }
+      },
+      "autoReview": {
+        "title": "자동 리뷰",
+        "description": "에이전트가 생성한 PR에 대한 자동 변경 요청 / 재리뷰 루프를 구성합니다.",
+        "maxRounds": {
+          "label": "최대 리뷰 라운드 수",
+          "helper": "자동 리뷰를 중지하기 전 변경 요청 ↔ 재리뷰 반복의 최대 횟수입니다. 최소 1 이상이어야 합니다.",
+          "errors": {
+            "required": "값을 입력하세요.",
+            "notInteger": "값은 정수여야 합니다.",
+            "min": "값은 최소 1 이상이어야 합니다."
+          }
         }
       },
       "commits": {
@@ -436,7 +453,32 @@
         "button": "저장소 추가",
         "dialogTitle": "Git 저장소 선택",
         "dialogDescription": "등록할 기존 git 저장소를 선택하세요.",
-        "error": "저장소 등록에 실패했습니다"
+        "error": "저장소 등록에 실패했습니다",
+        "tabs": {
+          "folder": "로컬 폴더",
+          "github": "GitHub에서"
+        },
+        "folder": {
+          "pathLabel": "저장소 경로",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "기존 로컬 git 저장소의 절대 경로를 입력하세요.",
+          "browse": "폴더 찾아보기",
+          "submit": "저장소 추가"
+        },
+        "github": {
+          "searchPlaceholder": "이름으로 저장소 필터링",
+          "loading": "저장소를 불러오는 중…",
+          "cloning": "저장소를 복제하는 중…",
+          "cloneInProgress": "복제가 진행 중입니다",
+          "noRepos": "사용 가능한 저장소가 없습니다. `gh`에 로그인되어 있는지 확인하세요.",
+          "noMatches": "검색어와 일치하는 저장소가 없습니다.",
+          "notAuthenticated": "GitHub 인증이 되어 있지 않습니다. `gh auth login`을 실행한 뒤 다시 시도하세요."
+        },
+        "errors": {
+          "pathRequired": "저장소 경로는 필수입니다",
+          "cloneFailed": "저장소를 복제하지 못했습니다",
+          "listFailed": "저장소를 불러오지 못했습니다"
+        }
       },
       "selector": {
         "label": "저장소 선택",
@@ -505,11 +547,11 @@
       },
       "remove": {
         "title": "저장소 제거",
-        "description": "이 저장소를 Vibe Kanban에서 연결 해제합니다. 디스크의 파일은 삭제되지 않습니다.",
+        "description": "이 저장소를 mkanban에서 연결 해제합니다. 디스크의 파일은 삭제되지 않습니다.",
         "button": "제거",
         "confirm": "저장소 제거",
         "dialogTitle": "\"{{name}}\"을(를) 제거하시겠습니까?",
-        "dialogDescription": "저장소를 Vibe Kanban에서 연결 해제합니다. 디스크의 파일은 영향을 받지 않습니다. 나중에 다시 추가할 수 있습니다.",
+        "dialogDescription": "저장소를 mkanban에서 연결 해제합니다. 디스크의 파일은 영향을 받지 않습니다. 나중에 다시 추가할 수 있습니다.",
         "success": "저장소가 성공적으로 제거되었습니다.",
         "error": "저장소 제거에 실패했습니다."
       },
@@ -522,87 +564,150 @@
         "confirmSwitch": "저장되지 않은 변경사항이 있습니다. 정말 저장소를 전환하시겠습니까? 변경사항이 손실됩니다."
       }
     },
-    "relay": {
-      "title": "Remote Access",
-      "description": "Allow access to this instance from the web via relay tunnel.",
-      "enabled": {
-        "label": "Enable remote access",
-        "helper": "When enabled, this instance can be accessed remotely through a relay tunnel."
-      },
-      "enrollmentCode": {
-        "label": "Pairing Code",
-        "helper": "Enter this code in the browser to pair with this instance.",
-        "loginRequired": "Log in to generate a pairing code.",
-        "fetchError": "Failed to fetch pairing code.",
-        "show": "Show pairing code"
-      },
-      "host": {
-        "label": "호스트"
-      },
-      "client": {
-        "label": "클라이언트"
-      },
-      "overview": {
-        "available": "Available",
-        "unavailable": "Unavailable"
-      }
-    },
-    "remoteProjects": {
-      "title": "Remote Projects",
-      "description": "Manage cloud-synced projects across organizations.",
-      "loading": "Loading remote projects...",
-      "loadError": "Failed to load organizations",
-      "noProjects": "No projects yet. Create one to get started.",
-      "selectOrg": "Select an organization",
-      "createSuccess": "Project created successfully",
-      "deleteSuccess": "Project deleted successfully",
-      "nameRequired": "Project name is required",
-      "saveSuccess": "Project updated successfully",
-      "saveError": "Failed to update project",
-      "columns": {
-        "organizations": "Organizations",
-        "projects": "Projects"
-      },
-      "actions": {
-        "addProject": "Add Project"
-      },
-      "form": {
-        "name": {
-          "label": "Project Name",
-          "placeholder": "Enter project name"
-        },
-        "color": {
-          "label": "Project Color"
-        },
-        "statuses": {
-          "label": "Project Statuses",
-          "description": "Manage kanban columns for this project."
-        },
-        "defaultRepos": {
-          "label": "Default Repositories",
-          "description": "Repositories that are automatically added when creating workspaces from this project's issues.",
-          "empty": "No default repositories configured",
-          "addButton": "Add",
-          "addNew": "Add new repository...",
-          "branchLabel": "Branch",
-          "noBranches": "No branches found for this repository",
-          "fetchError": "Could not load repositories",
-          "saveError": "Failed to save default repositories"
-        }
-      },
-      "loginRequired": {
-        "title": "Sign in required",
-        "description": "Sign in to manage your remote projects.",
-        "action": "Sign in"
-      }
-    },
     "hostPicker": {
       "thisMachine": "This machine",
       "localHost": "Local host",
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
-      "pairMachineHint": "Pair a machine to open machine settings.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "설치된 스킬",
+        "description": "~/.claude/skills에서 모든 에이전트가 사용할 수 있는 스킬.",
+        "loading": "스킬 불러오는 중...",
+        "loadError": "스킬을 불러오지 못했습니다.",
+        "empty": "설치된 스킬이 없습니다. 아래 git 저장소 URL에서 설치하세요.",
+        "delete": "{{name}} 삭제"
+      },
+      "install": {
+        "title": "스킬 설치",
+        "description": "git 저장소에서 ~/.claude/skills로 스킬을 복제합니다.",
+        "urlLabel": "저장소 URL",
+        "urlHelper": "스킬 이름은 URL의 마지막 경로 세그먼트에서 파생됩니다.",
+        "urlPlaceholder": "https://github.com/org/skill-name",
+        "button": "설치",
+        "error": "스킬 설치에 실패했습니다."
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 연결",
+        "description": "로컬 gh CLI를 통해 GitHub에 로그인하여 git 작업 및 풀 리퀘스트를 활성화합니다.",
+        "status": {
+          "label": "상태"
+        }
+      },
+      "cliWarning": "GitHub CLI(gh)가 설치되어 있지 않습니다. 아래에서 Personal Access Token으로 로그인할 수 있지만, PR 및 이슈 동기화에는 PATH의 gh가 필요합니다.",
+      "patExpired": "Personal Access Token이 만료되었거나 취소되었습니다. GitHub 기능을 유지하려면 아래에서 다시 연결하세요.",
+      "status": {
+        "loading": "연결 확인 중…",
+        "connected": "GitHub에 연결됨",
+        "connectedAs": "@{{username}}(으)로 연결됨",
+        "connectedAsPat": "@{{username}}(으)로 연결됨 (PAT 사용)",
+        "notConnected": "연결되지 않음"
+      },
+      "actions": {
+        "connect": "GitHub 연결",
+        "disconnect": "연결 해제",
+        "installCli": "GitHub CLI 설치",
+        "installingCli": "설치 중…"
+      },
+      "deviceFlow": {
+        "title": "GitHub에서 승인",
+        "description": "아래 일회용 코드를 복사한 뒤 GitHub를 열어 붙여 넣고 로그인을 완료하세요.",
+        "codeLabel": "일회용 코드",
+        "copyHint": "클릭하여 복사",
+        "openGitHub": "github.com/login/device 열기",
+        "checkStatus": "상태 새로 고침",
+        "waiting": "승인을 기다리는 중… GitHub에서 작업을 완료하면 이 대화상자가 자동으로 갱신됩니다."
+      },
+      "pat": {
+        "title": "Personal Access Token으로 연결",
+        "description": "터미널이나 gh CLI가 필요하지 않습니다. repo, read:org, workflow 범위가 있는 토큰을 붙여넣으세요.",
+        "placeholder": "ghp_…",
+        "submit": "확인 후 연결",
+        "helpBefore": "토큰은",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "에서 권장 범위로 생성하세요."
+      },
+      "errors": {
+        "loginFailed": "GitHub 로그인을 시작하지 못했습니다.",
+        "logoutFailed": "GitHub 연결을 해제하지 못했습니다.",
+        "installFailed": "GitHub CLI 설치에 실패했습니다.",
+        "patLoginFailed": "Personal Access Token 확인에 실패했습니다."
+      }
+    },
+    "agentAuth": {
+      "loading": "설치된 에이전트를 확인 중…",
+      "emptyState": "이 머신에는 아직 코딩 에이전트가 설치되어 있지 않습니다.",
+      "statusLabel": "상태",
+      "status": {
+        "connected": "연결됨",
+        "notConnected": "연결 안 됨"
+      },
+      "actions": {
+        "connect": "연결",
+        "disconnect": "연결 해제",
+        "cancel": "취소"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "브라우저 디바이스 플로우로 OpenAI Codex에 로그인합니다. 터미널이 필요 없습니다."
+        },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "Claude 구독으로 로그인: URL을 열고 로그인한 다음 페이지에서 반환된 교환 코드를 아래에 붙여넣으세요."
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "Google AI Studio에서 발급한 API 키로 Google Gemini에 연결합니다."
+        }
+      },
+      "deviceFlow": {
+        "title": "OpenAI에서 승인",
+        "description": "아래 일회용 코드를 복사한 뒤 OpenAI 페이지에 붙여넣어 로그인을 완료하세요.",
+        "codeLabel": "일회용 코드",
+        "copyHint": "클릭해서 복사",
+        "openBrowser": "OpenAI 열기",
+        "checkStatus": "상태 새로고침",
+        "waitingForCode": "CLI가 디바이스 코드를 표시할 때까지 기다리는 중…",
+        "waiting": "승인 대기 중… 브라우저에서 완료하면 이 카드가 자동으로 업데이트됩니다."
+      },
+      "apiKey": {
+        "title": "API 키로 연결",
+        "description": "Google AI Studio에서 발급한 Gemini API 키를 붙여넣으세요. 이 머신에 GEMINI_API_KEY로 저장되며 외부로 전송되지 않습니다.",
+        "placeholder": "AIza…",
+        "submit": "저장하고 연결",
+        "helpBefore": "다음에서 키를 발급받으세요:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "위에 붙여넣으세요."
+      },
+      "claudeFlow": {
+        "title": "claude.com에서 승인",
+        "description": "URL을 열고 Claude 계정에 로그인한 다음 페이지에서 반환된 교환 코드를 복사하세요.",
+        "openBrowser": "claude.com 열기",
+        "copyUrl": "URL 복사",
+        "waitingForUrl": "CLI가 로그인 URL을 표시할 때까지 기다리는 중…",
+        "codeInputLabel": "교환 코드",
+        "codeInputPlaceholder": "claude.com의 코드를 붙여넣기",
+        "codeInputHelp": "CLI가 코드를 승인하면 이 카드는 자동으로 업데이트됩니다.",
+        "submitCode": "코드 제출"
+      },
+      "hidden": {
+        "title": "CLI가 설치되지 않음",
+        "description": "다음 에이전트는 이 이미지에 CLI가 설치되지 않아 숨겨졌습니다: {{providers}}."
+      },
+      "errors": {
+        "loginFailed": "연결 플로우를 시작하지 못했습니다.",
+        "logoutFailed": "에이전트를 연결 해제하지 못했습니다.",
+        "cancelFailed": "연결을 취소하지 못했습니다.",
+        "submitCodeFailed": "교환 코드를 제출하지 못했습니다."
+      }
     }
   },
   "integrations": {

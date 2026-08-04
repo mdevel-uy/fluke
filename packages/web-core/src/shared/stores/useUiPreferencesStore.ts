@@ -2,15 +2,14 @@ import { useCallback, useMemo, useRef } from 'react';
 import { create } from 'zustand';
 import type { RepoAction } from '@vibe/ui/components/RepoCard';
 import type { IssuePriority } from 'shared/remote-types';
-
-export const RIGHT_MAIN_PANEL_MODES = {
-  CHANGES: 'changes',
-  LOGS: 'logs',
-  PREVIEW: 'preview',
-} as const;
-
-export type RightMainPanelMode =
-  (typeof RIGHT_MAIN_PANEL_MODES)[keyof typeof RIGHT_MAIN_PANEL_MODES];
+import {
+  defaultTabGroups,
+  normalizeGroups,
+  openTab,
+  toggleTab,
+  type WorkspaceTabGroup,
+  type WorkspaceTabId,
+} from '@/shared/lib/workspaceTabGroups';
 
 export type LayoutMode = 'workspaces' | 'kanban';
 
@@ -37,6 +36,33 @@ const loadMobileFontScale = (): MobileFontScale => {
   return 'default';
 };
 
+const TAB_GROUPS_KEY = 'vk-workspace-tab-groups';
+
+const loadTabGroups = (): Record<string, WorkspaceTabGroup[]> => {
+  try {
+    const raw = localStorage.getItem(TAB_GROUPS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, WorkspaceTabGroup[]>;
+    if (parsed && typeof parsed === 'object') {
+      for (const key of Object.keys(parsed)) {
+        parsed[key] = normalizeGroups(parsed[key] ?? []);
+      }
+      return parsed;
+    }
+  } catch {
+    // localStorage may be unavailable or hold invalid JSON
+  }
+  return {};
+};
+
+const saveTabGroups = (groups: Record<string, WorkspaceTabGroup[]>) => {
+  try {
+    localStorage.setItem(TAB_GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    // localStorage may be unavailable
+  }
+};
+
 export type KanbanViewMode = 'kanban' | 'list';
 
 export type ContextBarPosition =
@@ -47,15 +73,14 @@ export type ContextBarPosition =
   | 'bottom-left'
   | 'bottom-right';
 
-// Workspace-specific panel state
+// Workspace-specific panel state. The old rightMainPanelMode was replaced by
+// the tab-groups model (SHELL-SPEC R14) — views live in workspaceTabGroups.
 export type WorkspacePanelState = {
-  rightMainPanelMode: RightMainPanelMode | null;
   isLeftMainPanelVisible: boolean;
 };
 
 const DEFAULT_WORKSPACE_PANEL_STATE: WorkspacePanelState = {
-  rightMainPanelMode: null,
-  isLeftMainPanelVisible: true,
+  isLeftMainPanelVisible: false,
 };
 
 // Kanban filter state
@@ -232,11 +257,7 @@ const DEFAULT_WORKSPACE_SORT_STATE: WorkspaceSortState = {
 export const PERSIST_KEYS = {
   // Sidebar sections
   workspacesSidebarArchived: 'workspaces-sidebar-archived',
-  // v2 key forces accordion default to true for all users
-  workspacesSidebarAccordionLayout: 'workspaces-sidebar-accordion-layout-v2',
-  workspacesSidebarRaisedHand: 'workspaces-sidebar-raised-hand',
-  workspacesSidebarNotRunning: 'workspaces-sidebar-not-running',
-  workspacesSidebarRunning: 'workspaces-sidebar-running',
+  workspacesSidebarStatusTab: 'workspaces-sidebar-status-tab',
   // Right panel sections
   gitAdvancedSettings: 'git-advanced-settings',
   gitPanelRepositories: 'git-panel-repositories',
@@ -252,8 +273,6 @@ export const PERSIST_KEYS = {
   devServerSection: 'dev-server-section',
   // Terminal panel section
   terminalSection: 'terminal-section',
-  // Notes panel section
-  notesSection: 'notes-section',
   // GitHub comments toggle
   showGitHubComments: 'show-github-comments',
   // Panel sizes
@@ -263,19 +282,22 @@ export const PERSIST_KEYS = {
   kanbanIssueSubIssues: 'kanban-issue-sub-issues',
   kanbanIssueRelationships: 'kanban-issue-relationships',
   kanbanIssueAttachments: 'kanban-issue-attachments',
+  // Aside (master-detail) sections — SHELL-SPEC R18-R24
+  asideIssueSection: 'aside-issue-section',
+  asideChangesSection: 'aside-changes-section',
+  asideGitSection: 'aside-git-section',
+  asidePrSection: 'aside-pr-section',
+  asideQuickActions: 'aside-quick-actions',
+  asideConflictsSection: 'aside-conflicts-section',
+  asideEditorSource: 'aside-editor-source',
+  asideEditorOpenFiles: 'aside-editor-open-files',
+  asideEditorChanges: 'aside-editor-changes',
   // Dynamic keys (use helper functions)
   repoCard: (repoId: string) => `repo-card-${repoId}` as const,
 } as const;
 
-// Check if screen is wide enough to keep sidebar visible
-const isWideScreen = () => window.innerWidth > 2048;
-
 export type PersistKey =
   | typeof PERSIST_KEYS.workspacesSidebarArchived
-  | typeof PERSIST_KEYS.workspacesSidebarAccordionLayout
-  | typeof PERSIST_KEYS.workspacesSidebarRaisedHand
-  | typeof PERSIST_KEYS.workspacesSidebarNotRunning
-  | typeof PERSIST_KEYS.workspacesSidebarRunning
   | typeof PERSIST_KEYS.gitAdvancedSettings
   | typeof PERSIST_KEYS.gitPanelRepositories
   | typeof PERSIST_KEYS.gitPanelProject
@@ -284,7 +306,6 @@ export type PersistKey =
   | typeof PERSIST_KEYS.changesSection
   | typeof PERSIST_KEYS.devServerSection
   | typeof PERSIST_KEYS.terminalSection
-  | typeof PERSIST_KEYS.notesSection
   | typeof PERSIST_KEYS.showGitHubComments
   | typeof PERSIST_KEYS.rightMainPanel
   | typeof PERSIST_KEYS.rightPanelprocesses
@@ -293,6 +314,15 @@ export type PersistKey =
   | typeof PERSIST_KEYS.kanbanIssueSubIssues
   | typeof PERSIST_KEYS.kanbanIssueRelationships
   | typeof PERSIST_KEYS.kanbanIssueAttachments
+  | typeof PERSIST_KEYS.asideIssueSection
+  | typeof PERSIST_KEYS.asideChangesSection
+  | typeof PERSIST_KEYS.asideGitSection
+  | typeof PERSIST_KEYS.asidePrSection
+  | typeof PERSIST_KEYS.asideQuickActions
+  | typeof PERSIST_KEYS.asideConflictsSection
+  | typeof PERSIST_KEYS.asideEditorSource
+  | typeof PERSIST_KEYS.asideEditorOpenFiles
+  | typeof PERSIST_KEYS.asideEditorChanges
   | `repo-card-${string}`
   | `diff:${string}`
   | `edit:${string}`
@@ -321,11 +351,20 @@ type State = {
   isRightSidebarVisible: boolean;
   isTerminalVisible: boolean;
   previewRefreshKey: number;
+  /**
+   * What the workspaces-section shell sidebar shows: the workspaces list,
+   * the file explorer or the content search of the selected workspace
+   * (rail Editor/Search items, VSCode activity-bar style).
+   */
+  workspacesSidebarMode: 'workspaces' | 'explorer' | 'search';
   // Note: Kanban issue panel state (selectedKanbanIssueId, createMode, etc.)
   // is derived from URL via app navigation route state
 
   // Workspace-specific panel state
   workspacePanelStates: Record<string, WorkspacePanelState>;
+
+  // VSCode-style tab groups per workspace (SHELL-SPEC R14), persisted.
+  workspaceTabGroups: Record<string, WorkspaceTabGroup[]>;
 
   // Selected built-in kanban view per project
   kanbanProjectViewSelections: Record<string, KanbanProjectViewSelection>;
@@ -369,22 +408,17 @@ type State = {
   setLayoutMode: (mode: LayoutMode) => void;
   toggleLayoutMode: () => void;
   toggleLeftSidebar: () => void;
-  toggleLeftMainPanel: (workspaceId?: string) => void;
   toggleRightSidebar: () => void;
+  setRightSidebarVisible: (value: boolean) => void;
   toggleTerminal: () => void;
   setTerminalVisible: (value: boolean) => void;
   // Note: Kanban panel actions (openKanbanIssuePanel, closeKanbanIssuePanel, etc.)
   // are handled by app navigation
-  toggleRightMainPanelMode: (
-    mode: RightMainPanelMode,
-    workspaceId?: string
-  ) => void;
-  setRightMainPanelMode: (
-    mode: RightMainPanelMode | null,
-    workspaceId?: string
-  ) => void;
   setLeftSidebarVisible: (value: boolean) => void;
   setLeftMainPanelVisible: (value: boolean, workspaceId?: string) => void;
+  setWorkspacesSidebarMode: (
+    mode: 'workspaces' | 'explorer' | 'search'
+  ) => void;
   triggerPreviewRefresh: () => void;
 
   // Workspace-specific panel state actions
@@ -392,6 +426,22 @@ type State = {
   setWorkspacePanelState: (
     workspaceId: string,
     state: Partial<WorkspacePanelState>
+  ) => void;
+
+  // Tab group actions (SHELL-SPEC R14-R16)
+  getWorkspaceTabGroups: (workspaceId: string) => WorkspaceTabGroup[];
+  setWorkspaceTabGroups: (
+    workspaceId: string,
+    groups: WorkspaceTabGroup[]
+  ) => void;
+  /** Shortcut bridge: active → close, else open+activate (chat never closes). */
+  toggleWorkspaceViewTab: (
+    workspaceId: string | undefined,
+    tab: WorkspaceTabId
+  ) => void;
+  openWorkspaceViewTab: (
+    workspaceId: string | undefined,
+    tab: WorkspaceTabId
   ) => void;
 
   // Kanban view selection actions
@@ -457,12 +507,16 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   // Global layout state
   layoutMode: 'workspaces' as LayoutMode,
   isLeftSidebarVisible: true,
+  workspacesSidebarMode: 'workspaces' as const,
   isRightSidebarVisible: true,
-  isTerminalVisible: true,
+  isTerminalVisible: false,
   previewRefreshKey: 0,
 
   // Workspace-specific panel state
   workspacePanelStates: {},
+
+  // VSCode-style tab groups per workspace
+  workspaceTabGroups: loadTabGroups(),
 
   // Kanban per-project view selection
   kanbanProjectViewSelections: {},
@@ -522,81 +576,18 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
   toggleLeftSidebar: () =>
     set((s) => ({ isLeftSidebarVisible: !s.isLeftSidebarVisible })),
 
-  toggleLeftMainPanel: (workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    if (wsState.isLeftMainPanelVisible && wsState.rightMainPanelMode === null)
-      return;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          isLeftMainPanelVisible: !wsState.isLeftMainPanelVisible,
-        },
-      },
-    });
-  },
-
   toggleRightSidebar: () =>
     set((s) => ({ isRightSidebarVisible: !s.isRightSidebarVisible })),
+
+  setRightSidebarVisible: (value) => set({ isRightSidebarVisible: value }),
 
   toggleTerminal: () =>
     set((s) => ({ isTerminalVisible: !s.isTerminalVisible })),
 
   setTerminalVisible: (value) => set({ isTerminalVisible: value }),
 
-  toggleRightMainPanelMode: (mode, workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    const isCurrentlyActive = wsState.rightMainPanelMode === mode;
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          rightMainPanelMode: isCurrentlyActive ? null : mode,
-        },
-      },
-      isLeftSidebarVisible: isCurrentlyActive
-        ? true
-        : isWideScreen()
-          ? state.isLeftSidebarVisible
-          : false,
-      ...(isMobile &&
-        !isCurrentlyActive && { mobileActiveTab: mode as MobileTab }),
-    });
-  },
-
-  setRightMainPanelMode: (mode, workspaceId) => {
-    if (!workspaceId) return;
-    const state = get();
-    const wsState =
-      state.workspacePanelStates[workspaceId] ?? DEFAULT_WORKSPACE_PANEL_STATE;
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
-    set({
-      workspacePanelStates: {
-        ...state.workspacePanelStates,
-        [workspaceId]: {
-          ...wsState,
-          rightMainPanelMode: mode,
-        },
-      },
-      ...(mode !== null && {
-        isLeftSidebarVisible: isWideScreen()
-          ? state.isLeftSidebarVisible
-          : false,
-      }),
-      ...(isMobile && mode !== null && { mobileActiveTab: mode as MobileTab }),
-    });
-  },
-
   setLeftSidebarVisible: (value) => set({ isLeftSidebarVisible: value }),
+  setWorkspacesSidebarMode: (mode) => set({ workspacesSidebarMode: mode }),
 
   setLeftMainPanelVisible: (value, workspaceId) => {
     if (!workspaceId) return;
@@ -638,6 +629,30 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
         },
       },
     });
+  },
+
+  getWorkspaceTabGroups: (workspaceId) =>
+    get().workspaceTabGroups[workspaceId] ?? defaultTabGroups(),
+
+  toggleWorkspaceViewTab: (workspaceId, tab) => {
+    if (!workspaceId) return;
+    const groups = get().getWorkspaceTabGroups(workspaceId);
+    get().setWorkspaceTabGroups(workspaceId, toggleTab(groups, tab));
+  },
+
+  openWorkspaceViewTab: (workspaceId, tab) => {
+    if (!workspaceId) return;
+    const groups = get().getWorkspaceTabGroups(workspaceId);
+    get().setWorkspaceTabGroups(workspaceId, openTab(groups, tab));
+  },
+
+  setWorkspaceTabGroups: (workspaceId, groups) => {
+    const next = {
+      ...get().workspaceTabGroups,
+      [workspaceId]: normalizeGroups(groups),
+    };
+    saveTabGroups(next);
+    set({ workspaceTabGroups: next });
   },
 
   // Kanban view selection actions
@@ -933,6 +948,30 @@ export function usePersistedCollapsedPaths(
   return [pathSet, setPathSet];
 }
 
+// Hook for the workspace's VSCode-style tab groups (SHELL-SPEC R14)
+export function useWorkspaceTabGroups(workspaceId: string | undefined) {
+  const groups = useUiPreferencesStore((s) =>
+    workspaceId ? s.workspaceTabGroups[workspaceId] : undefined
+  );
+  const setGroups = useUiPreferencesStore((s) => s.setWorkspaceTabGroups);
+
+  const resolved = useMemo(
+    () => groups ?? defaultTabGroups(),
+    [groups]
+  );
+
+  const update = useCallback(
+    (next: WorkspaceTabGroup[]) => {
+      if (workspaceId) setGroups(workspaceId, next);
+    },
+    [workspaceId, setGroups]
+  );
+
+  return [resolved, update] as const;
+}
+
+export type { WorkspaceTabGroup, WorkspaceTabId };
+
 // Hook for mobile active tab
 export function useMobileActiveTab() {
   const tab = useUiPreferencesStore((s) => s.mobileActiveTab);
@@ -966,29 +1005,11 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
   const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
 
   // Actions from store
-  const toggleRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.toggleRightMainPanelMode
-  );
-  const setRightMainPanelMode = useUiPreferencesStore(
-    (s) => s.setRightMainPanelMode
-  );
   const setLeftMainPanelVisible = useUiPreferencesStore(
     (s) => s.setLeftMainPanelVisible
   );
   const setLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.setLeftSidebarVisible
-  );
-
-  // Memoized callbacks that include workspaceId
-  const toggleRightMainPanelModeForWorkspace = useCallback(
-    (mode: RightMainPanelMode) => toggleRightMainPanelMode(mode, workspaceId),
-    [toggleRightMainPanelMode, workspaceId]
-  );
-
-  const setRightMainPanelModeForWorkspace = useCallback(
-    (mode: RightMainPanelMode | null) =>
-      setRightMainPanelMode(mode, workspaceId),
-    [setRightMainPanelMode, workspaceId]
   );
 
   const setLeftMainPanelVisibleForWorkspace = useCallback(
@@ -998,7 +1019,6 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
 
   return {
     // Workspace-specific state
-    rightMainPanelMode: wsState.rightMainPanelMode,
     isLeftMainPanelVisible: wsState.isLeftMainPanelVisible,
 
     // Global state (sidebars and terminal)
@@ -1007,11 +1027,24 @@ export function useWorkspacePanelState(workspaceId: string | undefined) {
     isTerminalVisible,
 
     // Workspace-specific actions
-    toggleRightMainPanelMode: toggleRightMainPanelModeForWorkspace,
-    setRightMainPanelMode: setRightMainPanelModeForWorkspace,
     setLeftMainPanelVisible: setLeftMainPanelVisibleForWorkspace,
 
     // Global actions
     setLeftSidebarVisible,
   };
+}
+
+// Active view tabs of a workspace's tab groups (SHELL-SPEC R14): one entry
+// per group. Replaces the old rightMainPanelMode as the "which views are on
+// screen" signal for action visibility and providers.
+export function useWorkspaceActiveViewTabs(
+  workspaceId: string | undefined
+): WorkspaceTabId[] {
+  const groups = useUiPreferencesStore((s) =>
+    workspaceId ? s.workspaceTabGroups[workspaceId] : undefined
+  );
+  return useMemo(
+    () => (groups ?? defaultTabGroups()).map((g) => g.active),
+    [groups]
+  );
 }

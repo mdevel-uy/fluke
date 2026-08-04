@@ -87,7 +87,7 @@ export function ChatScriptEntry({
         <button
           type="button"
           onClick={handleFixClick}
-          className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs text-brand hover:text-brand-hover hover:bg-secondary rounded transition-colors"
+          className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs text-brand-on-surface hover:text-brand-hover hover:bg-secondary rounded transition-colors"
           title={t('scriptFixer.fixScript')}
         >
           <WrenchIcon className="size-icon-xs" />

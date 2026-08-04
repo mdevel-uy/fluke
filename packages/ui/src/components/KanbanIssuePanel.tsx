@@ -471,7 +471,7 @@ export function KanbanIssuePanel({
               <div className="absolute inset-0 z-50 bg-primary/80 backdrop-blur-sm border-2 border-dashed border-brand rounded flex items-center justify-center pointer-events-none animate-in fade-in-0 duration-150">
                 <div className="text-center">
                   <div className="mx-auto mb-2 w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center">
-                    <ImageIcon className="h-5 w-5 text-brand" />
+                    <ImageIcon className="h-5 w-5 text-brand-on-surface" />
                   </div>
                   <p className="text-sm font-medium text-high">
                     {t('kanban.dropFilesHere')}

@@ -1,6 +1,6 @@
 import { forwardRef, createElement } from 'react';
 import type { Icon, IconProps } from '@phosphor-icons/react';
-import type { ExecutorConfig, Merge, Workspace } from 'shared/types';
+import type { Merge, Workspace } from 'shared/types';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   CopyIcon,
@@ -16,10 +16,10 @@ import {
   EyeSlashIcon,
   SidebarSimpleIcon,
   ChatsTeardropIcon,
+  CodeIcon,
   GitDiffIcon,
   TerminalIcon,
-  SignInIcon,
-  SignOutIcon,
+  TerminalWindowIcon,
   CaretDoubleUpIcon,
   CaretDoubleDownIcon,
   PlayIcon,
@@ -27,7 +27,6 @@ import {
   SpinnerIcon,
   GitPullRequestIcon,
   GitMergeIcon,
-  GitForkIcon,
   ArrowsClockwiseIcon,
   CrosshairIcon,
   DesktopIcon,
@@ -44,20 +43,27 @@ import {
   LinkIcon,
   ArrowBendUpRightIcon,
   ProhibitIcon,
+  SquaresFourIcon,
+  LightningIcon,
+  KanbanIcon,
+  GaugeIcon,
+  GitBranchIcon,
+  MagnifyingGlassIcon,
+  FileTextIcon,
 } from '@phosphor-icons/react';
 import { useDiffViewStore } from '@/shared/stores/useDiffViewStore';
 import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
-import {
-  useUiPreferencesStore,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 
-import { workspacesApi, relayApi, repoApi } from '@/shared/lib/api';
+import { workspacesApi, repoApi, repoIssuesApi } from '@/shared/lib/api';
+import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { bulkUpdateIssues } from '@/shared/lib/remoteApi';
 import { workspaceRecordKeys } from '@/shared/hooks/useWorkspaceRecord';
 import { workspaceRepoKeys } from '@/shared/hooks/useWorkspaceRepo';
 import { repoBranchKeys } from '@/shared/hooks/useRepoBranches';
 import { workspaceSummaryKeys } from '@/shared/hooks/workspaceSummaryKeys';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ChangeTargetDialog } from '@vibe/ui/components/ChangeTargetDialog';
 import { DeleteWorkspaceDialog } from '@vibe/ui/components/DeleteWorkspaceDialog';
@@ -66,15 +72,13 @@ import { ResolveConflictsDialog } from '@/shared/dialogs/tasks/ResolveConflictsD
 import { RenameWorkspaceDialog } from '@vibe/ui/components/RenameWorkspaceDialog';
 import { ProjectsGuideDialog } from '@vibe/ui/components/ProjectsGuideDialog';
 import { CreatePRDialog } from '@/shared/dialogs/command-bar/CreatePRDialog';
-import { getIdeName } from '@/shared/lib/ideName';
-import { EditorSelectionDialog } from '@/shared/dialogs/command-bar/EditorSelectionDialog';
+import i18n from '@/i18n';
 import { StartReviewDialog } from '@/shared/dialogs/command-bar/StartReviewDialog';
 import posthog from 'posthog-js';
 import { WorkspacesGuideDialog } from '@/shared/dialogs/shared/WorkspacesGuideDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { CreateWorkspaceFromPrDialog } from '@/shared/dialogs/command-bar/CreateWorkspaceFromPrDialog';
-import { buildWorkspaceCreateInitialState } from '@/shared/lib/workspaceCreateState';
-import { setCreateModeSeedState } from '@/features/create-mode/model/createModeSeedStore';
+import { WorkerFormDialog } from '@/features/workers/ui/WorkerFormDialog';
 
 // Mirrored sidebar icon for right sidebar toggle
 const RightSidebarIcon: Icon = forwardRef<SVGSVGElement, IconProps>(
@@ -97,21 +101,9 @@ import type {
 } from '@/shared/types/actions';
 import { ActionTargetType, NavbarDivider } from '@/shared/types/actions';
 
-async function resolveLinkedIssue(
-  workspaceId: string,
-  remoteWorkspaces: {
-    local_workspace_id: string | null;
-    issue_id: string | null;
-    project_id: string;
-  }[]
-): Promise<{ issueId: string; remoteProjectId: string } | undefined> {
-  const remoteWs = remoteWorkspaces.find(
-    (w) => w.local_workspace_id === workspaceId
-  );
-  if (remoteWs?.issue_id) {
-    return { issueId: remoteWs.issue_id, remoteProjectId: remoteWs.project_id };
-  }
-  return undefined;
+function parseGithubOwnerRepo(url: string): string | null {
+  const match = url.match(/github\.com\/([^/]+\/[^/?#]+)/);
+  return match ? match[1] : null;
 }
 
 async function getWorkspace(
@@ -173,51 +165,6 @@ function navigateToCreateSubIssue(
 // All application actions
 export const Actions = {
   // === Workspace Actions ===
-  DuplicateWorkspace: {
-    id: 'duplicate-workspace',
-    label: 'Duplicate',
-    icon: CopyIcon,
-    shortcut: 'W D',
-    requiresTarget: ActionTargetType.WORKSPACE,
-    execute: async (ctx, workspaceId) => {
-      try {
-        const [firstMessage, repos, workspaceWithSession] = await Promise.all([
-          workspacesApi.getFirstUserMessage(workspaceId),
-          workspacesApi.getRepos(workspaceId),
-          workspacesApi.getWithSession(workspaceId),
-        ]);
-
-        const linkedIssue = await resolveLinkedIssue(
-          workspaceId,
-          ctx.remoteWorkspaces
-        );
-
-        const executorConfig = workspaceWithSession.session?.executor
-          ? {
-              executor: workspaceWithSession.session
-                .executor as ExecutorConfig['executor'],
-            }
-          : null;
-
-        const createState = buildWorkspaceCreateInitialState({
-          prompt: firstMessage,
-          defaults: {
-            preferredRepos: repos.map((r) => ({
-              repo_id: r.id,
-              target_branch: r.target_branch,
-            })),
-          },
-          linkedIssue,
-          executorConfig,
-        });
-        setCreateModeSeedState(createState);
-        ctx.appNavigation.goToWorkspacesCreate();
-      } catch {
-        ctx.appNavigation.goToWorkspacesCreate();
-      }
-    },
-  },
-
   RenameWorkspace: {
     id: 'rename-workspace',
     label: 'Rename',
@@ -326,13 +273,16 @@ export const Actions = {
         ctx.queryClient.invalidateQueries({
           queryKey: workspaceSummaryKeys.all,
         });
+        ctx.queryClient.invalidateQueries({
+          queryKey: workersKeys.all,
+        });
 
         // Navigate away if we deleted the current workspace
         if (isCurrentWorkspace) {
           if (nextWorkspaceId) {
             ctx.selectWorkspace(nextWorkspaceId);
           } else {
-            ctx.appNavigation.goToWorkspacesCreate();
+            ctx.appNavigation.goToWorkspaces();
           }
         }
       }
@@ -353,53 +303,9 @@ export const Actions = {
     },
   },
 
-  SpinOffWorkspace: {
-    id: 'spin-off-workspace',
-    label: 'Spin off workspace',
-    icon: GitForkIcon,
-    requiresTarget: ActionTargetType.WORKSPACE,
-    isVisible: (ctx) => ctx.hasWorkspace,
-    execute: async (ctx, workspaceId) => {
-      try {
-        const [workspace, repos] = await Promise.all([
-          getWorkspace(ctx.queryClient, workspaceId),
-          workspacesApi.getRepos(workspaceId),
-        ]);
-        const linkedIssue = await resolveLinkedIssue(
-          workspaceId,
-          ctx.remoteWorkspaces
-        );
-
-        const createState = buildWorkspaceCreateInitialState({
-          prompt: null,
-          defaults: {
-            preferredRepos: repos.map((r) => ({
-              repo_id: r.id,
-              target_branch: workspace.branch,
-            })),
-          },
-          linkedIssue,
-        });
-        setCreateModeSeedState(createState);
-        ctx.appNavigation.goToWorkspacesCreate();
-      } catch {
-        ctx.appNavigation.goToWorkspacesCreate();
-      }
-    },
-  },
-
   // === Global/Navigation Actions ===
-  NewWorkspace: {
-    id: 'new-workspace',
-    label: 'New Workspace',
-    icon: PlusIcon,
-    shortcut: 'G N',
-    requiresTarget: ActionTargetType.NONE,
-    execute: (ctx) => {
-      ctx.appNavigation.goToWorkspacesCreate();
-    },
-  },
-
+  // No NewWorkspace action: workspaces are born from assigning an issue to a
+  // worker, never created ad hoc (SHELL-SPEC R13).
   CreateWorkspaceFromPR: {
     id: 'create-workspace-from-pr',
     label: 'Create Workspace from PR',
@@ -409,6 +315,17 @@ export const Actions = {
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
     execute: async () => {
       await CreateWorkspaceFromPrDialog.show({});
+    },
+  } satisfies GlobalActionDefinition,
+
+  CreateWorker: {
+    id: 'create-worker',
+    label: 'Create Worker',
+    icon: PlusIcon,
+    keywords: ['new', 'worker', 'agent'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: async () => {
+      await WorkerFormDialog.show({});
     },
   } satisfies GlobalActionDefinition,
 
@@ -437,44 +354,6 @@ export const Actions = {
           projectId: ctx.kanbanProjectId,
         },
       });
-    },
-  } satisfies GlobalActionDefinition,
-
-  SignIn: {
-    id: 'sign-in',
-    label: 'Sign In',
-    icon: SignInIcon,
-    requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isSignedIn,
-    execute: async () => {
-      const { OAuthDialog } = await import(
-        '@/shared/dialogs/global/OAuthDialog'
-      );
-      await OAuthDialog.show({});
-    },
-  } satisfies GlobalActionDefinition,
-
-  SignOut: {
-    id: 'sign-out',
-    label: 'Sign Out',
-    icon: SignOutIcon,
-    requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => ctx.isSignedIn,
-    execute: async (ctx) => {
-      const { oauthApi } = await import('@/shared/lib/api');
-      const { useOrganizationStore } = await import(
-        '@/shared/stores/useOrganizationStore'
-      );
-      const { organizationKeys } = await import(
-        '@/shared/hooks/organizationKeys'
-      );
-
-      await oauthApi.logout();
-      useOrganizationStore.getState().clearSelectedOrgId();
-      ctx.queryClient.removeQueries({ queryKey: organizationKeys.all });
-      // Invalidate user-system query to update loginStatus/useAuth state
-      await ctx.queryClient.invalidateQueries({ queryKey: ['user-system'] });
-      ctx.appNavigation.goToWorkspaces();
     },
   } satisfies GlobalActionDefinition,
 
@@ -535,8 +414,7 @@ export const Actions = {
     icon: ColumnsIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     isActive: (ctx) => ctx.diffViewMode === 'split',
     getIcon: (ctx) => (ctx.diffViewMode === 'split' ? ColumnsIcon : RowsIcon),
     getTooltip: (ctx) =>
@@ -555,8 +433,7 @@ export const Actions = {
     icon: EyeSlashIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
       store.setIgnoreWhitespace(!store.ignoreWhitespace);
@@ -573,8 +450,7 @@ export const Actions = {
     shortcut: 'T W',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     execute: () => {
       const store = useDiffViewStore.getState();
       store.setWrapText(!store.wrapText);
@@ -600,20 +476,15 @@ export const Actions = {
 
   ToggleLeftMainPanel: {
     id: 'toggle-left-main-panel',
-    label: 'Toggle Chat Panel',
+    label: 'Focus Chat',
     icon: ChatsTeardropIcon,
     shortcut: 'V H',
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.layoutMode === 'workspaces',
-    isActive: (ctx) => ctx.isLeftMainPanelVisible,
-    isEnabled: (ctx) =>
-      !(ctx.isLeftMainPanelVisible && ctx.rightMainPanelMode === null),
-    getLabel: (ctx) =>
-      ctx.isLeftMainPanelVisible ? 'Hide Chat Panel' : 'Show Chat Panel',
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleLeftMainPanel(ctx.currentWorkspaceId ?? undefined);
+        .openWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'chat');
     },
   },
 
@@ -638,21 +509,16 @@ export const Actions = {
     icon: GitDiffIcon,
     shortcut: 'V C',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
-    isActive: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES,
-    isEnabled: (ctx) => !ctx.isCreateMode,
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.activeViewTabs.includes('changes'),
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES
+      ctx.activeViewTabs.includes('changes')
         ? 'Hide Changes Panel'
         : 'Show Changes Panel',
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.CHANGES,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'changes');
     },
   },
 
@@ -662,20 +528,55 @@ export const Actions = {
     icon: TerminalIcon,
     shortcut: 'V L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
-    isActive: (ctx) => ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS,
-    isEnabled: (ctx) => !ctx.isCreateMode,
+    // Keep visible while the LOGS panel is open (e.g. tool output) so the
+    // toggle stays reachable to close it, even if no processes exist.
+    isVisible: (ctx) =>
+      ctx.layoutMode === 'workspaces' &&
+      (ctx.hasExecutionProcesses || ctx.activeViewTabs.includes('logs')),
+    isActive: (ctx) => ctx.activeViewTabs.includes('logs'),
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS
+      ctx.activeViewTabs.includes('logs')
         ? 'Hide Logs Panel'
         : 'Show Logs Panel',
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.LOGS,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'logs');
+    },
+  },
+
+  ToggleEditorMode: {
+    id: 'toggle-editor-mode',
+    label: 'Toggle Editor Panel',
+    icon: CodeIcon,
+    shortcut: 'V E',
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.activeViewTabs.includes('editor'),
+    getLabel: (ctx) =>
+      ctx.activeViewTabs.includes('editor')
+        ? 'Hide Editor Panel'
+        : 'Show Editor Panel',
+    execute: (ctx) => {
+      useUiPreferencesStore
+        .getState()
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'editor');
+    },
+  },
+
+  ToggleTerminal: {
+    id: 'toggle-terminal',
+    label: 'Toggle Terminal',
+    icon: TerminalWindowIcon,
+    shortcut: '{mod} J',
+    keywords: ['terminal', 'bottom panel', 'console', 'shell'],
+    requiresTarget: ActionTargetType.NONE,
+    // SHELL-SPEC R29: the terminal lives in the shell — available anywhere.
+    isActive: (ctx) => ctx.isTerminalVisible,
+    getLabel: (ctx) =>
+      ctx.isTerminalVisible ? 'Hide Terminal' : 'Show Terminal',
+    execute: () => {
+      useUiPreferencesStore.getState().toggleTerminal();
     },
   },
 
@@ -685,21 +586,16 @@ export const Actions = {
     icon: DesktopIcon,
     shortcut: 'V P',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) => !ctx.isCreateMode && ctx.layoutMode === 'workspaces',
-    isActive: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW,
-    isEnabled: (ctx) => !ctx.isCreateMode,
+    isVisible: (ctx) => ctx.layoutMode === 'workspaces',
+    isActive: (ctx) => ctx.activeViewTabs.includes('preview'),
     getLabel: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.PREVIEW
+      ctx.activeViewTabs.includes('preview')
         ? 'Hide Preview Panel'
         : 'Show Preview Panel',
     execute: (ctx) => {
       useUiPreferencesStore
         .getState()
-        .toggleRightMainPanelMode(
-          RIGHT_MAIN_PANEL_MODES.PREVIEW,
-          ctx.currentWorkspaceId ?? undefined
-        );
+        .toggleWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'preview');
     },
   },
 
@@ -717,8 +613,7 @@ export const Actions = {
     icon: CaretDoubleUpIcon,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES &&
-      ctx.layoutMode === 'workspaces',
+      ctx.activeViewTabs.includes('changes') && ctx.layoutMode === 'workspaces',
     getIcon: (ctx) =>
       ctx.isAllDiffsExpanded ? CaretDoubleUpIcon : CaretDoubleDownIcon,
     getTooltip: (ctx) =>
@@ -736,34 +631,47 @@ export const Actions = {
   // === ContextBar Actions ===
   OpenInIDE: {
     id: 'open-in-ide',
-    label: 'Open in IDE',
+    label: 'Open in VS Code web',
     icon: 'ide-icon' as const,
     requiresTarget: ActionTargetType.NONE,
     isVisible: (ctx) => ctx.hasWorkspace,
-    getTooltip: (ctx) => `Open in ${getIdeName(ctx.editorType)}`,
+    isEnabled: (ctx) => ctx.isBranchPushed,
+    getTooltip: (ctx) =>
+      ctx.isBranchPushed
+        ? i18n.t('common:githubDev.openInVSCodeWeb')
+        : i18n.t('common:githubDev.branchNotPushed'),
     execute: async (ctx) => {
       if (!ctx.currentWorkspaceId) return;
       try {
-        const response =
-          ctx.appRuntime === 'local' && ctx.currentHostId
-            ? await relayApi.openRemoteWorkspaceInEditor({
-                host_id: ctx.currentHostId,
-                workspace_id: ctx.currentWorkspaceId,
-                editor_type: null,
-                file_path: null,
-              })
-            : await workspacesApi.openEditor(ctx.currentWorkspaceId, {
-                editor_type: null,
-                file_path: null,
-              });
-        if (response.url) {
-          window.open(response.url, '_blank');
+        const branchStatus = await workspacesApi.getBranchStatus(
+          ctx.currentWorkspaceId
+        );
+        let prUrl: string | null = null;
+        outer: for (const status of branchStatus) {
+          for (const merge of status.merges) {
+            if (merge.type === 'pr') {
+              prUrl = merge.pr_info.url;
+              break outer;
+            }
+          }
         }
+        if (!prUrl) return;
+        const ownerRepo = parseGithubOwnerRepo(prUrl);
+        if (!ownerRepo) return;
+
+        // Find current branch from active workspaces
+        const branch = ctx.activeWorkspaces.find(
+          (w) => w.id === ctx.currentWorkspaceId
+        )?.branch;
+        if (!branch) return;
+
+        window.open(
+          `https://github.dev/${ownerRepo}/tree/${branch}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
       } catch {
-        // Show editor selection dialog on failure
-        EditorSelectionDialog.show({
-          selectedAttemptId: ctx.currentWorkspaceId,
-        });
+        // silently ignore — branch may not be pushed yet
       }
     },
   },
@@ -787,9 +695,7 @@ export const Actions = {
     icon: CopyIcon,
     shortcut: 'Y L',
     requiresTarget: ActionTargetType.NONE,
-    isVisible: (ctx) =>
-      ctx.rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.LOGS &&
-      ctx.logsPanelContent?.type !== 'terminal',
+    isVisible: (ctx) => ctx.activeViewTabs.includes('logs'),
     execute: async (ctx) => {
       if (!ctx.currentLogs || ctx.currentLogs.length === 0) return;
       const rawText = ctx.currentLogs.map((log) => log.content).join('\n');
@@ -837,13 +743,10 @@ export const Actions = {
         ctx.stopDevServer();
       } else {
         ctx.startDevServer();
-        // Auto-open preview mode when starting dev server
+        // Auto-open the preview tab when starting the dev server
         useUiPreferencesStore
           .getState()
-          .setRightMainPanelMode(
-            RIGHT_MAIN_PANEL_MODES.PREVIEW,
-            ctx.currentWorkspaceId ?? undefined
-          );
+          .openWorkspaceViewTab(ctx.currentWorkspaceId ?? undefined, 'preview');
       }
     },
   },
@@ -1530,27 +1433,159 @@ export const Actions = {
       }
     },
   } satisfies IssueActionDefinition,
+
+  // === Sprint Actions ===
+  SyncSprint: {
+    id: 'sync-sprint',
+    label: 'Sync Sprint',
+    icon: ArrowsClockwiseIcon,
+    keywords: ['sprint', 'refresh', 'reload', 'issues'],
+    requiresTarget: ActionTargetType.NONE,
+    isVisible: (ctx) => ctx.currentView === 'sprint',
+    isEnabled: () => useSelectedRepoStore.getState().selectedRepoId !== null,
+    execute: async (ctx) => {
+      const repoId = useSelectedRepoStore.getState().selectedRepoId;
+      if (!repoId) return;
+      const data = await repoIssuesApi.sync(repoId);
+      ctx.queryClient.setQueryData(repoIssuesKeys.byRepo(repoId), data);
+    },
+  } satisfies GlobalActionDefinition,
+
+  // === Quick Open (CMD+P) Navigation Actions ===
+  SearchInFiles: {
+    id: 'search-in-files',
+    label: 'Search in Files',
+    icon: MagnifyingGlassIcon,
+    shortcut: '{mod} ⇧ F',
+    keywords: ['find', 'grep', 'buscar', 'search'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      const prefs = useUiPreferencesStore.getState();
+      prefs.setWorkspacesSidebarMode('search');
+      prefs.setLeftSidebarVisible(true);
+      const destination = ctx.appNavigation.resolveFromPath(
+        window.location.pathname
+      );
+      const inWorkspaces =
+        destination?.kind === 'workspaces' ||
+        destination?.kind === 'workspace' ||
+        destination?.kind === 'workspace-vscode';
+      if (!inWorkspaces) {
+        ctx.appNavigation.goToWorkspaces();
+      }
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToWorkspaces: {
+    id: 'go-to-workspaces',
+    label: 'Workspaces',
+    icon: SquaresFourIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkspaces();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToSprint: {
+    id: 'go-to-sprint',
+    label: 'Sprint',
+    icon: LightningIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToSprint();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToIssues: {
+    id: 'go-to-issues',
+    label: 'Issues',
+    icon: KanbanIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToIssues();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToDashboard: {
+    id: 'go-to-dashboard',
+    label: 'Dashboard',
+    icon: GaugeIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToDashboard();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToPilotReport: {
+    id: 'go-to-pilot-report',
+    label: 'Pilot Report',
+    icon: FileTextIcon,
+    keywords: [
+      'navigate',
+      'go to',
+      'page',
+      'report',
+      'pilot',
+      'export',
+      'print',
+    ],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToPilotReport();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToSourceControl: {
+    id: 'go-to-source-control',
+    label: 'Source Control',
+    icon: GitBranchIcon,
+    keywords: ['navigate', 'go to', 'page', 'git', 'fleet', 'branches'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToSourceControl();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToWorkers: {
+    id: 'go-to-workers',
+    label: 'Workers',
+    icon: UsersIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToWorkers();
+    },
+  } satisfies GlobalActionDefinition,
+
+  GoToAnalystDesk: {
+    id: 'go-to-analyst-desk',
+    label: 'Analyst Desk',
+    icon: MagnifyingGlassIcon,
+    keywords: ['navigate', 'go to', 'page'],
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToAnalystDesk();
+    },
+  } satisfies GlobalActionDefinition,
 } as const satisfies Record<string, ActionDefinition>;
 
 // Navbar action groups define which actions appear in each section
 export const NavbarActionGroups = {
-  left: [Actions.ArchiveWorkspace] as NavbarItem[],
+  left: [] as NavbarItem[],
   right: [
     Actions.ToggleDiffViewMode,
     Actions.ToggleAllDiffs,
     NavbarDivider,
     Actions.ToggleLeftSidebar,
-    Actions.ToggleLeftMainPanel,
     Actions.ToggleChangesMode,
     Actions.ToggleLogsMode,
-    Actions.TogglePreviewMode,
     Actions.ToggleRightSidebar,
     NavbarDivider,
     Actions.OpenCommandBar,
-    Actions.Feedback,
-    Actions.WorkspacesGuide,
-    Actions.ProjectsGuide,
-    Actions.Settings,
   ] as NavbarItem[],
 };
 
@@ -1561,5 +1596,6 @@ export const ContextBarActionGroups = {
     Actions.ToggleDevServer,
     Actions.TogglePreviewMode,
     Actions.ToggleChangesMode,
+    Actions.ToggleTerminal,
   ] as ActionDefinition[],
 };

@@ -15,7 +15,10 @@ const TableHead = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <thead
     ref={ref}
-    className={cn('uppercase text-muted-foreground', className)}
+    className={cn(
+      'uppercase text-label text-md-on-surface-variant bg-md-surface-container-lowest',
+      className
+    )}
     {...props}
   />
 ));
@@ -38,8 +41,8 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      'border-t',
-      clickable && 'cursor-pointer hover:bg-muted',
+      'border-t border-md-outline-variant h-[30px]',
+      clickable && 'cursor-pointer hover:bg-secondary',
       className
     )}
     {...props}
@@ -51,7 +54,11 @@ const TableHeaderCell = React.forwardRef<
   HTMLTableCellElement,
   React.ThHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
-  <th ref={ref} className={cn('text-left', className)} {...props} />
+  <th
+    ref={ref}
+    className={cn('text-left h-7 font-semibold', className)}
+    {...props}
+  />
 ));
 TableHeaderCell.displayName = 'TableHeaderCell';
 
@@ -59,7 +66,7 @@ const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
-  <td ref={ref} className={cn('py-2', className)} {...props} />
+  <td ref={ref} className={cn('py-1', className)} {...props} />
 ));
 TableCell.displayName = 'TableCell';
 

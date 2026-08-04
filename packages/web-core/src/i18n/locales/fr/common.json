@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "Personnalisé"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "Ouvrir dans VS Code web (github.dev)",
+    "branchNotPushed": "La branche n'est pas encore sur GitHub"
+  },
   "buttons": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -49,7 +53,7 @@
     "subagent": {
       "defaultType": "Sous-agent"
     },
-    "loadingEarlierMessages": "Chargement des messages pr\u00e9c\u00e9dents"
+    "loadingEarlierMessages": "Chargement des messages précédents"
   },
   "folderPicker": {
     "legend": "Cliquez sur les noms de dossiers pour naviguer • Utilisez les boutons d'action pour sélectionner",
@@ -79,7 +83,7 @@
   "signIn": "Se connecter",
   "signOut": "Se déconnecter",
   "oauth": {
-    "title": "Se connecter à Vibe Kanban",
+    "title": "Se connecter à mkanban",
     "description": "Connectez-vous pour rejoindre des organisations et partager des tâches avec votre équipe",
     "continueWithGitHub": "Continuer avec GitHub",
     "continueWithGoogle": "Continuer avec Google",
@@ -119,11 +123,40 @@
     "viewArchive": "Voir les archives",
     "backToActive": "Retour aux actifs",
     "noArchived": "Aucun espace de travail archivé",
-    "noWorkspaces": "Aucun espace de travail",
-    "newWorkspace": "Nouvel espace de travail",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "Nécessite Attention",
     "idle": "Inactif",
     "running": "En Cours",
+    "all": "Tous",
+    "activityWorking": "En cours…",
+    "activityWaitingApproval": "En attente d'approbation",
+    "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} fusionnée",
+    "prOpen": "PR #{{number}} ouverte",
+    "queuedPosition": "En attente · #{{position}}",
+    "queuedTooltip": "En attente d'un slot d'agent libre (limite de concurrence atteinte).",
+    "expand": "Afficher les détails",
+    "collapse": "Masquer les détails",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "ouverte",
+        "merged": "fusionnée",
+        "closed": "fermée",
+        "unknown": "inconnu"
+      },
+      "conflicting": "conflits de fusion",
+      "mergeable": "fusionnable",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI en cours…",
+      "branch": "Branche",
+      "lastActivity": "Dernière activité",
+      "openWorkspace": "Ouvrir l'espace de travail",
+      "viewPr": "Voir la PR",
+      "viewIssue": "Voir l'issue"
+    },
     "pin": "Épingler",
     "unpin": "Désépingler",
     "archive": "Archiver",
@@ -152,7 +185,21 @@
       "cannotDeleteOpenPr": "Impossible de supprimer la branche tant que la PR est ouverte",
       "unlinkFromIssueLabel": "Également dissocier du ticket"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "Tâche bloquée — l'agent s'est arrêté mais la tâche n'a pas avancé",
+    "scopes": {
+      "attention": "Requiert votre attention",
+      "running": "En cours",
+      "idle": "Inactifs",
+      "all": "Tous les espaces",
+      "archive": "Archives"
+    },
+    "scopeRailLabel": "Portées des espaces de travail",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "Réviseur en cours..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "Rechercher des fichiers...",
@@ -175,19 +222,13 @@
     "recent": "Récent",
     "other": "Autre",
     "devServerPreview": "Aperçu du serveur de développement",
-    "terminal": "Terminal",
-    "notes": "Notes"
-  },
-  "notes": {
-    "placeholder": "Ajouter des notes sur cet espace de travail...",
-    "selectWorkspace": "Sélectionnez un espace de travail pour voir les notes"
+    "terminal": "Terminal"
   },
   "actions": {
     "copyPath": "Copier le chemin",
     "cancel": "Annuler",
     "saveChanges": "Enregistrer les modifications",
-    "copied": "Copié",
-    "collapse": "Réduire"
+    "copied": "Copié"
   },
   "comments": {
     "addReviewComment": "Ajouter un commentaire de révision",
@@ -216,7 +257,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "Bienvenue",
-      "content": "Bienvenue dans les Espaces de travail, une interface repensée pour Vibe Kanban. Nous la déployons auprès d'utilisateurs sélectionnés pour recueillir leurs premiers retours. Partagez vos impressions à tout moment en utilisant l'icône de feedback dans la barre de navigation."
+      "content": "Bienvenue dans les Espaces de travail, une interface repensée pour mkanban. Nous la déployons auprès d'utilisateurs sélectionnés pour recueillir leurs premiers retours. Partagez vos impressions à tout moment en utilisant l'icône de feedback dans la barre de navigation."
     },
     "commandBar": {
       "title": "Barre de commandes",
@@ -256,8 +297,7 @@
     "selectProcessToView": "Sélectionnez un processus pour voir les logs"
   },
   "processes": {
-    "noProcesses": "Aucun processus",
-    "terminal": "Terminal"
+    "noProcesses": "Aucun processus"
   },
   "search": {
     "matchCount": "{{current}} sur {{total}}",
@@ -298,10 +338,10 @@
       "moveLeft": "Déplacer vers la gauche",
       "moveRight": "Déplacer vers la droite",
       "openCommandBar": "Ouvrir la barre de commandes",
+      "toggleTerminal": "Afficher/masquer le terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Envoyer le message",
       "settings": "Aller aux Paramètres",
-      "new-workspace": "Aller au Nouvel espace de travail",
       "duplicate-workspace": "Dupliquer l'espace de travail",
       "rename-workspace": "Renommer l'espace de travail",
       "pin-workspace": "Épingler/Désépingler l'espace de travail",
@@ -433,34 +473,40 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "Assignés",
+    "filterByAssignee": "Filtrer par assigné",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "options": "Options",
+    "sortField": {
+      "sort_order": "Manuel",
+      "priority": "Priorité",
+      "created_at": "Création",
+      "updated_at": "Mise à jour",
+      "title": "Titre"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "Masquer les bloqués",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
-    "changeColor": "Change color",
-    "editName": "Edit name",
-    "deleteStatus": "Delete status",
-    "cannotDeleteWithIssues": "Move issues first",
-    "lastVisibleStatus": "At least one status must be visible",
-    "showStatus": "Show status",
-    "hideStatus": "Hide status",
-    "newStatus": "New Status",
-    "visibleColumns": "Visible Columns",
-    "dragToRearrange": "Drag to re-arrange",
-    "addColumn": "Add column",
     "projectsGuide": {
       "intro": {
         "title": "Welcome",
-        "content": "Welcome to Vibe Kanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
+        "content": "Welcome to mkanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
       },
       "welcome": {
         "title": "Projects",
@@ -476,7 +522,7 @@
       },
       "organizations": {
         "title": "Invite your team",
-        "content": "We've automatically created a personal organization and initial project so you can get started with Vibe Kanban. Export your cloud data before shutdown."
+        "content": "We've automatically created a personal organization and initial project so you can get started with mkanban. Export your cloud data before shutdown."
       }
     }
   },
@@ -533,11 +579,226 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "Thème clair",
+      "dark": "Thème sombre",
+      "system": "Thème système"
+    },
+    "commandBarTrigger": {
+      "placeholder": "Rechercher des commandes...",
+      "ariaLabel": "Ouvrir la barre de commandes"
+    },
+    "layout": {
+      "toggleAdhocClaude": "Claude ad hoc"
+    }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} slots",
+    "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
+    "slotsQueued": "{{count}} en attente",
+    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre."
+  },
+  "adhocPanel": {
+    "title": "Claude ad hoc",
+    "close": "Fermer le panneau Claude ad hoc",
+    "newSession": "Nouvelle session",
+    "loading": "Préparation de la session Claude…",
+    "noRepo": {
+      "title": "Aucun dépôt disponible",
+      "description": "Ajoutez un dépôt pour démarrer une session Claude ad hoc."
+    },
+    "error": {
+      "title": "Impossible d'ouvrir la session ad hoc",
+      "description": "Une erreur est survenue lors de la préparation du workspace scratch.",
+      "retry": "Réessayer"
+    }
+  },
   "appBar": {
+    "dashboard": "Tableau de bord",
+    "workspaces": "Espaces de travail",
+    "issues": "Tickets",
+    "workers": "Workers",
+    "sprint": "Kanban",
+    "analystDesk": "Bureau des analystes",
+    "ciPipelines": "Pipelines CI",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Étendre la barre latérale",
+    "settings": "Paramètres",
     "kanban": {
-      "tooltip": "Connectez-vous pour voir les projets",
       "title": "Tableaux Kanban",
       "description": "Connectez-vous pour organiser vos agents de codage avec des tableaux kanban."
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "live": "En direct",
+    "workersActive": "Workers actifs",
+    "inProgress": "En cours",
+    "queued": "En attente",
+    "inReview": "En relecture",
+    "openPrs": "PRs ouvertes",
+    "approvals": "Approbations",
+    "done": "Terminées",
+    "failed": "Échouées",
+    "workersSection": "Workers",
+    "pipelineSection": "Pipeline des tâches",
+    "prsSection": "Pull requests",
+    "attentionSection": "Attention requise",
+    "attentionEmpty": "Tout va bien — rien ne requiert votre attention.",
+    "prsEmpty": "Aucune pull request ouverte.",
+    "noWorkers": "Aucun worker configuré pour l'instant.",
+    "noActiveTask": "Aucune tâche active",
+    "context": "Contexte",
+    "queue": "File",
+    "running": "En cours",
+    "idle": "Inactif",
+    "mergeable": "Fusionnable",
+    "conflicting": "En conflit",
+    "approvalPending": "Approbation en attente — {{worker}}",
+    "prConflict": "La PR #{{number}} a des conflits",
+    "highContext": "{{name}} à {{pct}} % de contexte",
+    "taskStalled": "Tâche bloquée — {{name}}",
+    "processFailed": "Dernière exécution échouée — {{name}}",
+    "updatedAgo": "mis à jour il y a {{time}}",
+    "autoIngest": "Auto-ingestion",
+    "runningSub": "{{names}} en cours",
+    "acrossRepos": "sur {{count}} dépôts",
+    "nextUp": "suivant : {{label}}",
+    "conflictingCount": "{{count}} en conflit",
+    "waitingFor": "en attente {{time}}",
+    "doneToday": "Terminées aujourd'hui",
+    "failedCount": "{{count}} échouées",
+    "pipelineHint": "aujourd'hui · tous les workers",
+    "openCount": "{{count}} ouvertes",
+    "openPill": "Ouverte",
+    "actionReview": "Examiner",
+    "actionOpen": "Ouvrir",
+    "actionView": "Voir",
+    "actionNudge": "Relancer",
+    "compactionLikely": "compaction probable cette session",
+    "activitySection": "Activité",
+    "activityEmpty": "Aucune activité récente.",
+    "feedTaskDone": "{{worker}} a terminé la tâche {{task}}",
+    "feedTaskFailed": "La tâche {{task}} a échoué",
+    "feedPrOpened": "{{worker}} a ouvert la PR #{{number}}",
+    "feedPrMerged": "PR #{{number}} fusionnée",
+    "feedApprovalRequested": "Approbation demandée — {{tool}}",
+    "feedTaskStarted": "{{worker}} a démarré {{task}}",
+    "summarySection": "Résumé",
+    "offline": "Reconnexion…",
+    "openWorkerWorkspace": "Ouvrir l'espace de travail de {{name}}",
+    "openPilotReport": "Ouvrir le rapport de pilote",
+    "claudeLimits": {
+      "title": "Limites Claude",
+      "workersOnClaude": "{{count}} worker sur Claude Code",
+      "workersOnClaude_other": "{{count}} workers sur Claude Code",
+      "resetsAt": "réinitialisation {{time}}",
+      "meter": {
+        "session": "Session · fenêtre de 5 h",
+        "week_all": "Semaine · tous les modèles",
+        "week_opus": "Semaine · Opus"
+      }
+    },
+    "impact": {
+      "title": "Issues fermées",
+      "windowLabel": "Fenêtre temporelle",
+      "windowDays": "{{days}} j",
+      "hoursPerIssue": "h / issue",
+      "hoursPerIssueLabel": "Heures-personne estimées par issue",
+      "hoursSaved": "≈ {{hours}} h économisées",
+      "summary": "{{count}} issue fermée ces {{days}} derniers jours",
+      "summary_other": "{{count}} issues fermées ces {{days}} derniers jours",
+      "loading": "Chargement des issues fermées…",
+      "empty": "Aucune issue fermée sur cette période — l'historique se remplit au prochain sync des issues.",
+      "chartLabel": "Issues fermées par jour sur les {{days}} derniers jours : {{total}} au total, environ {{hours}} heures-personne.",
+      "tooltipIssues": "{{count}} issue fermée",
+      "tooltipIssues_other": "{{count}} issues fermées",
+      "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
+      "moreIssues": "+{{extra}} autres"
+    },
+    "valueGenerated": {
+      "title": "Valeur générée",
+      "windowLabel": "Fenêtre historique",
+      "windowMonths": "{{months}} m",
+      "hoursPerTask": "h / tâche",
+      "hoursPerTaskLabel": "Heures-personne économisées par défaut par tâche terminée",
+      "hoursPerFte": "h / ETP·mois",
+      "hoursPerFteLabel": "Heures de travail par ETP par mois",
+      "thisMonthLabel": "Ce mois-ci · {{month}}",
+      "summaryTickets": "{{count}} ticket résolu",
+      "summaryTickets_other": "{{count}} tickets résolus",
+      "summaryHours": "~{{hours}} h économisées",
+      "summaryFte": "≈ {{fte}} ETP",
+      "totalsLabel": "{{months}} derniers mois",
+      "totalsTickets": "{{count}} tickets",
+      "totalsHours": "{{hours}} h",
+      "totalsFte": "{{fte}} ETP",
+      "tableMonth": "Mois",
+      "tableTickets": "Tickets",
+      "tableHours": "Heures",
+      "tableFte": "ETP",
+      "loading": "Chargement de la valeur générée…",
+      "emptyHistory": "Pas encore de mois historiques — le tableau se remplit à mesure que les tâches se terminent.",
+      "overridePerTaskToggle": "Modifier les heures par tâche",
+      "overridePerTaskLoading": "Chargement des tâches du mois…",
+      "overridePerTaskEmpty": "Aucune tâche terminée ce mois-ci.",
+      "overridePerTaskInputLabel": "Heures économisées pour cette tâche",
+      "overridePerTaskClear": "Utiliser la valeur par défaut"
+    }
+  },
+  "pilotReport": {
+    "title": "Rapport de pilote",
+    "subtitle": "Instantané d'une page de ce que la flotte a livré pendant le pilote — prêt à être transmis à votre CTO.",
+    "rangeHeading": "Période du rapport : {{range}}",
+    "loadError": "Impossible de charger le rapport. Réessayez ou réduisez la plage de dates.",
+    "loading": "Chargement…",
+    "printFooter": "Généré le {{generatedAt}} · chiffres basés sur les hypothèses ci-dessus.",
+    "dateRange": {
+      "from": "Du",
+      "to": "Au",
+      "presets": "Plages prédéfinies",
+      "presetLabel": "{{days}} derniers jours"
+    },
+    "kpi": {
+      "ticketsResolved": "Tickets résolus",
+      "ticketsFailedHint": "+ {{count}} échoués",
+      "prsMerged": "PRs fusionnées",
+      "hoursSaved": "Heures économisées",
+      "hoursUnit": "h",
+      "fteEquivalent": "Équivalent ETP",
+      "fteUnit": "mois",
+      "monetaryValue": "Valeur estimée"
+    },
+    "assumptions": {
+      "title": "Hypothèses",
+      "hoursPerTicket": "Heures / ticket",
+      "hoursPerFteMonth": "Heures / ETP·mois",
+      "hourlyRate": "Taux horaire",
+      "currency": "Devise"
+    },
+    "tasksSection": {
+      "title": "Tâches de la période",
+      "empty": "Aucune tâche terminée dans cette plage pour le moment.",
+      "status": "Statut",
+      "titleColumn": "Titre",
+      "issue": "Issue",
+      "completedAt": "Terminée"
+    },
+    "prsSection": {
+      "title": "Pull requests fusionnées",
+      "empty": "Aucune pull request fusionnée dans cette plage.",
+      "number": "PR",
+      "targetBranch": "Branche cible",
+      "mergedAt": "Fusionnée"
+    },
+    "status": {
+      "done": "Terminé",
+      "failed": "Échec"
+    },
+    "actions": {
+      "print": "Imprimer",
+      "exportCsv": "Exporter CSV"
     }
   },
   "errors": {
@@ -551,5 +812,561 @@
     "submitting": "Envoi des réponses...",
     "answeredCount": "Répondu à {{count}} question",
     "answeredCount_other": "Répondu à {{count}} questions"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "loading": "Chargement des issues...",
+    "loadError": "Échec du chargement des issues.",
+    "loadingRepos": "Chargement des dépôts...",
+    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour voir ses issues.",
+    "selectRepoPrompt": "Sélectionnez un dépôt pour voir ses issues.",
+    "repoSelectorPlaceholder": "Sélectionner un dépôt",
+    "openGroup": "Ouverts",
+    "closedGroup": "Fermés",
+    "authorPrefix": "par",
+    "countLabel": "{{count}} issue",
+    "countLabel_other": "{{count}} issues",
+    "emptyTitle": "Aucun issue pour l'instant",
+    "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
+    "assignToAgent": "Assigner à un agent",
+    "reassignAction": "Réaffecter",
+    "archiveAction": "Archiver",
+    "taskStatus": {
+      "queued": "En attente",
+      "in_progress": "En cours",
+      "in_review": "En revue",
+      "done": "Terminé"
+    },
+    "taskLinked": {
+      "openWorkspace": "Ouvrir le workspace",
+      "viewInSprint": "Voir dans Sprint"
+    },
+    "table": {
+      "issue": "Issue",
+      "title": "Titre",
+      "state": "État",
+      "worker": "Worker",
+      "branch": "Branche",
+      "updated": "Mis à jour",
+      "actions": "Actions",
+      "timeAgo": {
+        "justNow": "à l'instant",
+        "minutes": "il y a {{count}} min",
+        "hours": "il y a {{count}} h",
+        "days": "il y a {{count}} j",
+        "weeks": "il y a {{count}} sem"
+      }
+    },
+    "assignDialog": {
+      "title": "Assigner l'issue #{{number}} à un worker",
+      "description": "Sélectionnez un worker. La tâche sera ajoutée à la file du worker.",
+      "workerLabel": "Assigner à",
+      "workerPlaceholder": "Sélectionner un worker...",
+      "noWorkers": "Aucun worker disponible. Créez un worker d'abord.",
+      "workerLoadError": "Impossible de charger les workers.",
+      "loadingWorkers": "Chargement des workers...",
+      "cancel": "Annuler",
+      "confirm": "Mettre en file d'attente",
+      "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
+      "checkingConflicts": "Vérification des assignations existantes...",
+      "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
+      "assignAnyway": "Assigner quand même"
+    },
+    "reassignDialog": {
+      "title": "Réaffecter l'issue #{{number}} à un autre worker",
+      "description": "Déplacer « {{title}} » vers un autre worker. La tâche conserve son prompt et son historique.",
+      "currentWorker": "Actuellement assignée à :",
+      "targetWorkerLabel": "Déplacer vers",
+      "unknownWorker": "inconnu",
+      "noOtherWorkers": "Aucun autre worker disponible pour la réaffectation. Créez un autre worker d'abord.",
+      "notQueuedWarning": "Cette tâche est {{status}} et ne peut pas être réaffectée de manière atomique. Annulez-la depuis la file du worker, puis réaffectez-la.",
+      "reassignError": "Impossible de réaffecter la tâche.",
+      "confirm": "Réaffecter"
+    },
+    "filters": {
+      "stateLabel": "État",
+      "searchPlaceholder": "Rechercher des issues…",
+      "state": {
+        "all": "Tous",
+        "open": "Ouverts",
+        "closed": "Fermés"
+      },
+      "priority": "Priorité",
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Basse"
+      },
+      "label": "Étiquette",
+      "milestone": "Jalon",
+      "worker": "Worker",
+      "groupBy": "Grouper par",
+      "groupByOptions": {
+        "none": "Aucun",
+        "label": "Étiquette",
+        "milestone": "Jalon"
+      },
+      "clear": "Effacer les filtres",
+      "noResults": "Aucun issue ne correspond aux filtres actuels.",
+      "noLabel": "Sans étiquette",
+      "noMilestone": "Sans jalon"
+    },
+    "drawer": {
+      "title": "Détail de l'issue",
+      "close": "Fermer",
+      "openOnGitHub": "Ouvrir sur GitHub",
+      "stateOpen": "ouvert",
+      "stateClosed": "fermé",
+      "priority": "Priorité",
+      "milestone": "Jalon",
+      "author": "Auteur",
+      "labels": "Étiquettes",
+      "addLabel": "Ajouter une étiquette",
+      "searchLabels": "Rechercher des étiquettes…",
+      "createLabel": "Créer \"{{name}}\"",
+      "noLabels": "Aucune étiquette trouvée",
+      "description": "Description",
+      "noDescription": "Aucune description fournie.",
+      "archive": "Archiver",
+      "archiveTitle": "Archiver l'issue",
+      "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
+      "archiveAction": "Fermer l'issue"
+    }
+  },
+  "workers": {
+    "title": "Workers",
+    "newWorker": "Nouveau worker",
+    "loading": "Chargement des workers...",
+    "loadError": "Échec du chargement des workers.",
+    "emptyTitle": "Aucun worker pour l'instant",
+    "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
+    "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "stats": {
+      "working": "En cours",
+      "queued": "En file d'attente",
+      "completed": "Complétés"
+    },
+    "templates": {
+      "backend": "Spécialiste Backend",
+      "frontend": "Spécialiste Frontend",
+      "generalist": "Généraliste",
+      "analyst": "Analyste",
+      "reviewer": "Réviseur"
+    },
+    "card": {
+      "statusWorking": "En cours",
+      "statusIdle": "En attente",
+      "currentTaskLink": "Ouvrir l'espace de travail actuel",
+      "noCurrentTask": "Aucune tâche en cours",
+      "stalledShort": "Agent arrêté, tâche ouverte",
+      "menuLabel": "Actions du worker",
+      "edit": "Modifier",
+      "duplicate": "Dupliquer",
+      "delete": "Supprimer",
+      "queuedLabel": "en file",
+      "completedLabel": "terminées",
+      "startNext": "Démarrer la suivante",
+      "expandQueue": "Voir la file",
+      "collapseQueue": "Masquer la file",
+      "queueLoading": "Chargement de la file...",
+      "queueError": "Échec du chargement de la file.",
+      "queueEmpty": "La file est vide.",
+      "needsAttention": "Attention requise",
+      "planModeOnBadge": "Plan mode",
+      "planModeOffBadge": "Sans plan mode",
+      "planModeOnTooltip": "Plan mode forcé activé pour ce worker.",
+      "planModeOffTooltip": "Plan mode forcé désactivé pour ce worker."
+    },
+    "form": {
+      "newTitle": "Nouveau worker",
+      "editTitle": "Modifier le worker",
+      "description": "Donnez un nom et une âme au worker. L'âme est le prompt qui guide son travail.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "ex. Abeille Backend",
+      "roleLabel": "Rôle",
+      "templatesLabel": "Partir d'un modèle",
+      "soulLabel": "Âme (soul)",
+      "soulPlaceholder": "Décrivez territoire, standards et Definition of Done...",
+      "systemInstructionsTitle": "Instructions système",
+      "systemInstructionsReadOnly": "(lecture seule — appliquées à tous les workers)",
+      "cancel": "Annuler",
+      "saveNew": "Créer le worker",
+      "saveEdit": "Enregistrer",
+      "modelLabel": "Modèle",
+      "modelDefault": "Par défaut (global)",
+      "planModeLabel": "Plan mode",
+      "planModeGlobal": "Suivre la configuration globale",
+      "planModeOn": "Forcer activé",
+      "planModeOff": "Forcer désactivé",
+      "planModeHelp": "Surcharge le plan mode global de l'exécuteur pour ce worker.",
+      "githubPatLabel": "PAT GitHub (optionnel)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (enregistré — laissez vide pour conserver)",
+      "githubPatValidate": "Valider",
+      "githubPatValidateOk": "Valide — authentifié en tant que {{login}}",
+      "githubPatHelp": "Laissez vide pour utiliser les identifiants gh globaux de la machine. Note : GitHub interdit d'approuver son propre PR ; un réviseur a donc besoin d'un PAT distinct de celui de l'auteur.",
+      "githubPatStored": "Un PAT est enregistré.",
+      "githubPatWillClear": "Le PAT sera effacé lors de l'enregistrement.",
+      "githubPatClear": "Effacer",
+      "githubPatUndoClear": "Annuler"
+    },
+    "roles": {
+      "developer": "Développeur",
+      "analyst": "Analyste",
+      "reviewer": "Réviseur",
+      "developerDescription": "Implémente des fonctionnalités et crée des pull requests",
+      "analystDescription": "Effectue des recherches et produit des livrables écrits",
+      "reviewerDescription": "Révise le code et fournit des retours"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} a démarré « {{title}} ».",
+      "startConflict": "{{worker}} n'a aucune tâche en file ou en a déjà une en cours.",
+      "startError": "Échec du démarrage de {{worker}} : {{message}}",
+      "planCapReached": "La tâche de {{worker}} est en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedWithLimit": "La tâche de {{worker}} est en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
+      "createSuccess": "Worker créé.",
+      "updateSuccess": "Worker mis à jour.",
+      "deleteSuccess": "{{worker}} supprimé.",
+      "duplicateSuccess": "{{worker}} dupliqué en « {{clone}} ».",
+      "duplicateError": "Échec de la duplication de {{worker}} : {{message}}",
+      "dismiss": "Fermer"
+    }
+  },
+  "analystDesk": {
+    "title": "Bureau des analystes",
+    "repoLabel": "Dépôt",
+    "analystsLabel": "Analyste",
+    "skillsPicker": "Skills",
+    "skillsEmpty": "Aucune skill installée.",
+    "requestLabel": "Demande",
+    "promptPlaceholder": "Décrivez ce dont vous avez besoin de l'analyste. Ex. : découper l'epic notifications en petites issues avec critères d'acceptation.",
+    "hint": "Envoyée immédiatement si l'analyste est libre ; sinon elle rejoint sa file.",
+    "submit": "Envoyer la demande",
+    "loading": "Chargement...",
+    "loadError": "Impossible de charger les analystes.",
+    "noAnalystsTitle": "Aucun analyste pour l'instant",
+    "noAnalystsDescription": "Créez un worker avec le rôle Analyste pour commencer à envoyer des demandes.",
+    "goToWorkers": "Aller aux Workers",
+    "historyTitle": "Demandes à {{worker}}",
+    "historyEmpty": "Aucune demande pour l'instant. Vos demandes et leurs résultats apparaîtront ici.",
+    "openWorkspace": "Voir l'exécution",
+    "retry": "Réessayer",
+    "stop": "Arrêter",
+    "remove": "Retirer",
+    "stopConfirmMessage": "Arrêter cette demande ? Le conteneur sera arrêté et la demande supprimée.",
+    "removeConfirmMessage": "Retirer cette demande de la file de l'analyste ?",
+    "cancelConfirm": "Annuler",
+    "stopConfirm": "Arrêter",
+    "removeConfirm": "Retirer",
+    "dismiss": "Fermer",
+    "status": {
+      "queued": "En file",
+      "queuedAhead": "En file · {{ahead}} devant",
+      "inProgress": "En cours",
+      "done": "Terminée",
+      "failed": "Échouée"
+    },
+    "toast": {
+      "started": "{{worker}} a commencé votre demande.",
+      "queued": "Demande mise en file pour {{worker}}.",
+      "error": "Échec de l'envoi de la demande : {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "Glissez des images ici, cliquez pour ajouter ou collez",
+      "addMore": "Ajouter d'autres images",
+      "removeAria": "Retirer {{name}}",
+      "uploading": "Envoi en cours",
+      "errorLabel": "Échec de l'envoi",
+      "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
+      "tooLarge": "Le fichier dépasse la taille maximale autorisée."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "Déclencheurs",
+      "jobs": "Jobs",
+      "prefabs": "Préfabriqués",
+      "escapeHatch": "Échappatoire",
+      "community": "Communauté · Marketplace",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "marketplaceHint": "Plus de 20k actions communautaires"
+    },
+    "picker": {
+      "placeholder": "Rechercher des nœuds…",
+      "noResults": "Aucun résultat",
+      "triggers": "Déclencheurs",
+      "jobs": "Jobs",
+      "prefabs": "Préfabriqués",
+      "escapeHatch": "Échappatoire",
+      "community": "Communauté",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "marketplaceHint": "Plus de 20k actions communautaires"
+    },
+    "sidebar": {
+      "workflows": "Workflows",
+      "newWorkflow": "Nouveau",
+      "loading": "Chargement…",
+      "noWorkflows": "Aucun workflow — créez-en un pour commencer.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "Studio de pipelines CI",
+      "compileErrors_one": "{{count}} erreur de compilation",
+      "compileErrors_other": "{{count}} erreurs de compilation",
+      "drifted": "Le YAML a changé hors du studio",
+      "imported": "Importé — l’enregistrement normalise le fichier",
+      "dirty": "Modifications non enregistrées",
+      "inSync": "Synchronisé",
+      "viewYaml": "Voir le YAML",
+      "save": "Enregistrer",
+      "compilePr": "Compiler → PR"
+    },
+    "canvas": {
+      "zoomIn": "Zoomer",
+      "zoomOut": "Dézoomer",
+      "fitView": "Ajuster la vue",
+      "hint": "Tab ajouter un nœud · clic droit menu"
+    },
+    "contextMenu": {
+      "addNode": "Ajouter un nœud…",
+      "searchMarketplace": "Rechercher sur le marketplace…",
+      "autoLayout": "Disposition auto",
+      "fitView": "Ajuster la vue",
+      "viewYaml": "Voir le YAML compilé",
+      "deleteNode": "Supprimer le nœud"
+    },
+    "inspector": {
+      "workflowSection": "Workflow",
+      "workflowName": "Nom du workflow",
+      "emptyHint": "Sélectionnez un nœud pour le modifier. Le YAML est compilé depuis ce graphe — l’ordre des jobs et les needs viennent toujours du canvas.",
+      "triggerSection": "Déclencheur · {{kind}}",
+      "branches": "Branches (séparées par des virgules)",
+      "pathsIgnore": "Chemins à ignorer (séparés par des virgules)",
+      "cron": "Cron",
+      "manualHint": "Déclenché manuellement depuis l’onglet Actions.",
+      "jobSection": "Job",
+      "jobId": "Id du job",
+      "label": "Libellé",
+      "executionSection": "Exécution",
+      "runsOn": "runs-on",
+      "needs": "needs · dérivé des liens",
+      "needsNone": "Aucune dépendance",
+      "needsHint": "Les connexions définissent needs — elles remplacent tout needs écrit en YAML brut.",
+      "prefabSection": "Préfabriqué · {{name}}",
+      "actionSection": "Action du marketplace",
+      "uses": "uses",
+      "checkout": "Checkout du dépôt d’abord",
+      "with": "Entrées (with)",
+      "inputKey": "clé",
+      "inputValue": "valeur",
+      "addInput": "+ Ajouter une entrée",
+      "removeInput": "Supprimer l’entrée",
+      "rawJobSection": "YAML du job",
+      "rawFileSection": "Workflow importé (fichier entier)",
+      "rawFileHint": "Ce workflow a été écrit hors du studio ; il est modifié et commité tel quel.",
+      "deleteNode": "Supprimer le nœud",
+      "stepsSection": "Étapes ({{count}})",
+      "stepName": "nom de l’étape (optionnel)",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "removeStep": "Supprimer l’étape",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ étape run",
+      "addUsesStep": "+ étape uses",
+      "jobEnvSection": "Env du job"
+    },
+    "marketplace": {
+      "placeholder": "Rechercher sur le GitHub Actions Marketplace…",
+      "useCustom": "Utiliser \"{{uses}}\"",
+      "useCustomHint": "Insérez n’importe quelle action via owner/repo@ref",
+      "noResults": "Aucun résultat — tapez owner/repo@ref pour insérer une action",
+      "footerCount": "Sélection organisée · recherche en direct à venir"
+    },
+    "compilePr": {
+      "title": "Compiler → Pull Request",
+      "branch": "Branche",
+      "base": "Branche de base",
+      "prTitle": "Titre de la PR",
+      "filesNote_one": "{{count}} fichier sera commité sur une nouvelle branche — votre arbre de travail n’est pas touché.",
+      "filesNote_other": "{{count}} fichiers seront commités sur une nouvelle branche — votre arbre de travail n’est pas touché.",
+      "create": "Créer la PR",
+      "success": "PR créée sur la branche {{branch}}.",
+      "openPr": "Ouvrir la PR",
+      "close": "Fermer"
+    },
+    "yamlPreview": {
+      "title": "YAML compilé · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "Nouveau workflow",
+      "name": "Nom (fichier : .github/workflows/<nom>.yml)",
+      "create": "Créer"
+    },
+    "empty": {
+      "selectWorkflow": "Sélectionnez un workflow dans la barre latérale ou créez-en un pour dessiner votre pipeline.",
+      "noRepo": "Ajoutez un dépôt pour concevoir son CI ici."
+    },
+    "steps": {
+      "count": "{{count}} étapes",
+      "hint": "Tab insérer · glisser réordonne · Esc retour",
+      "addStep": "Ajouter une étape",
+      "insertHere": "Insérer une étape ici",
+      "emptyHint": "Sélectionnez une étape de la chaîne pour la modifier. La chaîne définit l’ordre d’exécution.",
+      "stepSection": "Étape {{position}} sur {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "Env de l’étape",
+      "deleteStep": "Supprimer l’étape \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "Ajouter une étape…",
+      "steps": "Étapes",
+      "runStep": "Étape run",
+      "runStepHint": "commande shell",
+      "usesStep": "Étape uses",
+      "usesStepHint": "action via owner/repo@ref",
+      "checkout": "Checkout",
+      "marketplaceHint": "insérer une action comme étape"
+    }
+  },
+  "sprint": {
+    "title": "Kanban",
+    "repoSelectorPlaceholder": "Sélectionner un dépôt",
+    "loadingRepos": "Chargement des dépôts...",
+    "noReposMessage": "Aucun dépôt enregistré. Ajoutez un dépôt pour planifier un sprint.",
+    "selectRepoPrompt": "Sélectionnez un dépôt pour voir son tableau de sprint.",
+    "loading": "Chargement du sprint...",
+    "loadError": "Échec du chargement du tableau de sprint.",
+    "sync": "Synchroniser",
+    "syncing": "Synchronisation...",
+    "columns": {
+      "backlog": "Backlog",
+      "queued": "En file",
+      "inProgress": "En cours",
+      "inReview": "En revue",
+      "done": "Terminé",
+      "failed": "Échouées"
+    },
+    "backlog": {
+      "assign": "Assigner",
+      "noWorkers": "Aucun worker disponible",
+      "empty": "Aucun ticket ouvert en attente.",
+      "moreActions": "Plus d'actions",
+      "setPriority": "Définir la priorité",
+      "assignTo": "Assigner à un worker"
+    },
+    "queued": {
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "remove": "Retirer",
+      "empty": "Rien en file."
+    },
+    "inProgress": {
+      "openWorkspace": "Ouvrir l'espace de travail",
+      "stop": "Arrêter",
+      "stopConfirmMessage": "Arrêter l'exécution et renvoyer le ticket au backlog ?",
+      "stopAndUnassign": "Arrêter et désassigner",
+      "empty": "Aucune tâche en cours."
+    },
+    "inReview": {
+      "unassign": "Désassigner",
+      "unassignConfirmMessage": "Désassigner la tâche et renvoyer le ticket au backlog ?",
+      "unassignConfirm": "Désassigner",
+      "reRequestReview": "Demander une nouvelle revue",
+      "empty": "Rien en attente de revue."
+    },
+    "done": {
+      "empty": "Aucune tâche terminée pour l'instant.",
+      "remove": "Retirer",
+      "removeConfirmMessage": "Retirer cette tâche terminée du tableau ?",
+      "removeConfirm": "Retirer"
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher des tickets...",
+      "clearSearch": "Effacer la recherche",
+      "epic": "Épique",
+      "allEpics": "Toutes les épiques",
+      "label": "Étiquette",
+      "allLabels": "Toutes les étiquettes",
+      "priority": "Priorité",
+      "allPriorities": "Toutes les priorités",
+      "worker": "Worker",
+      "allWorkers": "Tous les workers",
+      "clearAll": "Effacer les filtres",
+      "noResults": "Aucun ticket ne correspond aux filtres actifs."
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse"
+    },
+    "detail": {
+      "panelLabel": "Détail du ticket",
+      "close": "Fermer le panneau",
+      "noPriority": "Sans priorité",
+      "noBody": "Aucune description fournie.",
+      "assignedTo": "Assigné à {{worker}}"
+    },
+    "toast": {
+      "startAllSuccess": "{{count}} worker démarré.",
+      "startAllSuccess_other": "{{count}} workers démarrés.",
+      "startAllError": "Échec du démarrage des workers : {{message}}",
+      "planCapReachedGeneric": "Certaines tâches sont en file d'attente — votre plan a atteint sa limite d'agents concurrents.",
+      "planCapReachedGenericWithLimit": "Certaines tâches sont en file d'attente — votre plan exécute {{limit}} agents en parallèle. Passez à un forfait supérieur pour en exécuter davantage.",
+      "assignDuplicate": "Cette issue a déjà une tâche active assignée à un worker.",
+      "reviewApproved": "Révision approuvée : {{title}}",
+      "reviewChangesRequested": "Modifications demandées : {{title}}",
+      "cancelError": "Échec de l'arrêt de la tâche : {{message}}",
+      "reRequestReviewSuccess": "Nouvelle ronde de revue demandée.",
+      "reRequestReviewMaxRounds": "Cette PR a déjà atteint le nombre maximum de rondes de revue.",
+      "reRequestReviewNoOpenPr": "Cette tâche n'a plus de pull request ouverte.",
+      "reRequestReviewNoReviewer": "Aucun worker reviewer n'est disponible pour effectuer la revue.",
+      "reRequestReviewInProgress": "Une ronde de revue est déjà en cours pour cette PR.",
+      "reRequestReviewHeadUnchanged": "La PR n'a aucun nouveau commit depuis la dernière revue — une nouvelle revue répéterait le même verdict. Poussez d'abord un correctif.",
+      "reRequestReviewNoChangesRequested": "La tâche n'est pas en attente d'une nouvelle revue pour le moment.",
+      "reRequestReviewError": "Impossible de demander la nouvelle revue : {{message}}"
+    },
+    "failed": {
+      "retry": "Réessayer",
+      "discard": "Ignorer",
+      "viewPr": "Voir la PR",
+      "empty": "Aucune tâche échouée."
+    },
+    "autoIngest": {
+      "label": "Ingestion automatique",
+      "description": "Les workers démarrent dès qu'une tâche est assignée"
+    }
+  },
+  "setupWizard": {
+    "aria": "Assistant d'onboarding",
+    "title": "Commencer",
+    "subtitle": "Quatre étapes entre une instance vide et votre première PR.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "Connecter GitHub",
+        "description": "Authentifiez-vous avec un Personal Access Token ou la CLI gh pour que les agents puissent ouvrir des pull requests.",
+        "action": "Connecter"
+      },
+      "repo": {
+        "title": "Ajouter un dépôt",
+        "description": "Enregistrez un dépôt local pour que les agents y créent des branches et des workspaces.",
+        "action": "Ajouter"
+      },
+      "agent": {
+        "title": "Connecter un agent",
+        "description": "Connectez-vous à Claude Code, Codex ou Gemini pour donner un agent à un worker.",
+        "action": "Connecter"
+      },
+      "task": {
+        "title": "Créer et assigner votre première tâche",
+        "description": "Choisissez un issue et assignez-le à un worker — l'agent s'exécute et ouvre la PR.",
+        "action": "Aller aux issues"
+      }
+    }
   }
 }

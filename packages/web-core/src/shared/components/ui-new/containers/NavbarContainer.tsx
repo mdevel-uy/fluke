@@ -1,9 +1,13 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PanelLeft, PanelBottom, PanelRight, Sparkles } from 'lucide-react';
+import { useAdhocPanelStore } from '@/features/adhoc-session';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserContext } from '@/shared/hooks/useUserContext';
 import { useActions } from '@/shared/hooks/useActions';
 import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
+import { useRepos } from '@/shared/hooks/useRepos';
+import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUserOrganizations } from '@/shared/hooks/useUserOrganizations';
 import { useOrganizationStore } from '@/shared/stores/useOrganizationStore';
 import {
@@ -16,7 +20,7 @@ import { useAllOrganizationProjects } from '@/shared/hooks/useAllOrganizationPro
 import { useShape } from '@/shared/integrations/electric/hooks';
 import { PROJECT_ISSUES_SHAPE } from 'shared/remote-types';
 import { RemoteIssueLink } from './RemoteIssueLink';
-import { AppBarUserPopoverContainer } from './AppBarUserPopoverContainer';
+import { NavbarRepoSelectorContainer } from './NavbarRepoSelectorContainer';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { NavbarActionGroups } from '@/shared/actions';
 import {
@@ -32,13 +36,16 @@ import {
   isActionVisible,
 } from '@/shared/types/actions';
 import { useActionVisibilityContext } from '@/shared/hooks/useActionVisibilityContext';
-import { useMobileActiveTab } from '@/shared/stores/useUiPreferencesStore';
+import {
+  useMobileActiveTab,
+  useUiPreferencesStore,
+} from '@/shared/stores/useUiPreferencesStore';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
-import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { getProjectDestination } from '@/shared/lib/routes/appNavigation';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
+
 
 /**
  * Check if a NavbarItem is a divider
@@ -115,16 +122,16 @@ function toNavbarSectionItems(
 
 export function NavbarContainer({
   mobileMode = false,
-  onOrgSelect,
   onOpenDrawer,
+  className,
 }: {
   mobileMode?: boolean;
-  onOrgSelect?: (orgId: string) => void;
   onOpenDrawer?: () => void;
+  className?: string;
 }) {
   const { t } = useTranslation('common');
   const { executeAction } = useActions();
-  const { workspace: selectedWorkspace, isCreateMode } = useWorkspaceContext();
+  const { workspace: selectedWorkspace } = useWorkspaceContext();
   const { workspaces } = useUserContext();
   const syncErrorContext = useSyncErrorContext();
   const { remoteAuthDegraded } = useUserSystem();
@@ -179,27 +186,87 @@ export function NavbarContainer({
     [actionCtx, handleExecuteAction]
   );
 
-  const rightItems = useMemo(
-    () =>
-      toNavbarSectionItems(
-        filterNavbarItems(NavbarActionGroups.right, actionCtx),
-        actionCtx,
-        handleExecuteAction
-      ),
-    [actionCtx, handleExecuteAction]
+  // Layout toggles (sidebar / terminal / aside), VSCode-style — SHELL-SPEC R3
+  const isLeftSidebarVisible = useUiPreferencesStore(
+    (s) => s.isLeftSidebarVisible
+  );
+  const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
+  const isTerminalVisible = useUiPreferencesStore((s) => s.isTerminalVisible);
+  const toggleTerminal = useUiPreferencesStore((s) => s.toggleTerminal);
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
+  );
+  const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
+  const isAdhocPanelOpen = useAdhocPanelStore((s) => s.isOpen);
+  const toggleAdhocPanel = useAdhocPanelStore((s) => s.toggle);
+
+  const layoutToggleItems: NavbarSectionItem[] = useMemo(
+    () => [
+      {
+        type: 'action',
+        id: 'toggle-adhoc-claude',
+        lucideIcon: Sparkles,
+        isActive: isAdhocPanelOpen,
+        tooltip: t('navbar.layout.toggleAdhocClaude', {
+          defaultValue: 'Ad-hoc Claude',
+        }),
+        onClick: toggleAdhocPanel,
+      },
+      {
+        type: 'action',
+        id: 'toggle-left-sidebar',
+        lucideIcon: PanelLeft,
+        isActive: isLeftSidebarVisible,
+        tooltip: t('navbar.layout.toggleSidebar', {
+          defaultValue: 'Toggle sidebar',
+        }),
+        onClick: toggleLeftSidebar,
+      },
+      {
+        type: 'action',
+        id: 'toggle-terminal',
+        lucideIcon: PanelBottom,
+        isActive: isTerminalVisible,
+        tooltip: t('navbar.layout.toggleTerminal', {
+          defaultValue: 'Toggle terminal',
+        }),
+        onClick: toggleTerminal,
+      },
+      {
+        type: 'action',
+        id: 'toggle-right-sidebar',
+        lucideIcon: PanelRight,
+        isActive: isRightSidebarVisible,
+        tooltip: t('navbar.layout.toggleRightPanel', {
+          defaultValue: 'Toggle right panel',
+        }),
+        onClick: toggleRightSidebar,
+      },
+    ],
+    [
+      t,
+      isLeftSidebarVisible,
+      toggleLeftSidebar,
+      isTerminalVisible,
+      toggleTerminal,
+      isRightSidebarVisible,
+      toggleRightSidebar,
+      isAdhocPanelOpen,
+      toggleAdhocPanel,
+    ]
   );
 
-  const navbarTitle = isCreateMode
-    ? 'Create Workspace'
-    : isOnProjectPage
-      ? orgName
-      : selectedWorkspace?.branch;
+  // SHELL-SPEC R3: the shell navbar keeps only layout toggles. Theme moved
+  // to Settings only (decisión Dani 29-jul); Diff/Changes/Logs toggles stay
+  // reachable via command bar, shortcuts and the context bar.
+  const rightItems = useMemo(() => [...layoutToggleItems], [layoutToggleItems]);
+
+  const navbarTitle = isOnProjectPage ? orgName : selectedWorkspace?.branch;
 
   // Breadcrumbs: Project / Issue / Workspace (only on workspace pages with linked project)
   const linkedProjectId = linkedRemoteWorkspace?.project_id ?? null;
   const linkedIssueId = linkedRemoteWorkspace?.issue_id ?? null;
-  const shouldResolveBreadcrumbData =
-    !isOnProjectPage && !isCreateMode && !!linkedProjectId;
+  const shouldResolveBreadcrumbData = !isOnProjectPage && !!linkedProjectId;
   const shouldResolveIssueBreadcrumb =
     shouldResolveBreadcrumbData && !!linkedIssueId;
 
@@ -269,13 +336,82 @@ export function NavbarContainer({
     appNavigation,
   ]);
 
+  // SHELL-SPEC R2 fallback: `proyecto › sección › workspace` (mock crumbs)
+  // whenever the richer remote Project › Issue › Workspace doesn't apply.
+  const { repos: navRepos } = useRepos();
+  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const activeRepo = useMemo(
+    () => navRepos.find((r) => r.id === selectedRepoId) ?? navRepos[0] ?? null,
+    [navRepos, selectedRepoId]
+  );
+
+  const localBreadcrumbs = useMemo((): NavbarBreadcrumbItem[] | undefined => {
+    if (isOnProjectPage) return undefined;
+    const kind = destination?.kind ?? null;
+    const section: { label: string; goTo: () => void } | null =
+      kind === 'workspaces' ||
+      kind === 'workspace' ||
+      kind === 'workspace-vscode'
+        ? {
+            label: t('appBar.workspaces', { defaultValue: 'Workspaces' }),
+            goTo: () => appNavigation.goToWorkspaces(),
+          }
+        : kind === 'sprint'
+          ? {
+              label: t('appBar.kanban', { defaultValue: 'Kanban' }),
+              goTo: () => appNavigation.goToSprint(),
+            }
+          : kind === 'issues'
+            ? {
+                label: t('appBar.issues', { defaultValue: 'Issues' }),
+                goTo: () => appNavigation.goToIssues(),
+              }
+            : kind === 'workers'
+              ? {
+                  label: t('appBar.workers', { defaultValue: 'Workers' }),
+                  goTo: () => appNavigation.goToWorkers(),
+                }
+              : kind === 'dashboard'
+                ? {
+                    label: t('appBar.dashboard', { defaultValue: 'Dashboard' }),
+                    goTo: () => appNavigation.goToDashboard(),
+                  }
+                : kind === 'analyst-desk'
+                  ? {
+                      label: t('appBar.analystDesk', {
+                        defaultValue: 'Analyst Desk',
+                      }),
+                      goTo: () => appNavigation.goToAnalystDesk(),
+                    }
+                  : null;
+    if (!section) return undefined;
+
+    const items: NavbarBreadcrumbItem[] = [];
+    if (activeRepo) {
+      items.push({ label: activeRepo.display_name || activeRepo.name });
+    }
+    const workspaceLabel =
+      selectedWorkspace?.name || selectedWorkspace?.branch || '';
+    if (workspaceLabel) {
+      items.push({ label: section.label, onClick: section.goTo });
+      items.push({ label: workspaceLabel });
+    } else {
+      items.push({ label: section.label });
+    }
+    return items;
+  }, [
+    isOnProjectPage,
+    destination?.kind,
+    activeRepo,
+    selectedWorkspace?.name,
+    selectedWorkspace?.branch,
+    appNavigation,
+    t,
+  ]);
+
   // Mobile-specific callbacks
   const handleOpenCommandBar = useCallback(() => {
     CommandBarDialog.show();
-  }, []);
-
-  const handleOpenSettings = useCallback(() => {
-    SettingsDialog.show();
   }, []);
 
   const handleNavigateBack = useCallback(() => {
@@ -294,18 +430,6 @@ export function NavbarContainer({
       appNavigation.goToProject(projectId);
     };
   }, [isOnProjectPage, projectId, appNavigation]);
-
-  // Build user popover slot for mobile mode
-  const userPopoverSlot = useMemo(() => {
-    if (!mobileMode) return undefined;
-    return (
-      <AppBarUserPopoverContainer
-        organizations={orgsData?.organizations ?? []}
-        selectedOrgId={selectedOrgId ?? ''}
-        onOrgSelect={onOrgSelect ?? (() => {})}
-      />
-    );
-  }, [mobileMode, orgsData?.organizations, selectedOrgId, onOrgSelect]);
 
   const syncErrors = useMemo(() => {
     const errors = syncErrorContext?.errors ? [...syncErrorContext.errors] : [];
@@ -326,32 +450,35 @@ export function NavbarContainer({
 
   return (
     <Navbar
+      className={className}
       workspaceTitle={navbarTitle}
-      breadcrumbs={breadcrumbs}
+      breadcrumbs={breadcrumbs ?? localBreadcrumbs}
       leftItems={leftItems}
       rightItems={rightItems}
       syncErrors={syncErrors}
       mobileMode={mobileMode}
-      mobileUserSlot={userPopoverSlot}
       isOnProjectPage={isOnProjectPage}
       isOnProjectSubRoute={isOnProjectSubRoute}
       onOpenCommandBar={handleOpenCommandBar}
-      onOpenSettings={handleOpenSettings}
       onNavigateBack={handleNavigateBack}
       onNavigateToBoard={handleNavigateToBoard}
       onOpenDrawer={onOpenDrawer}
       mobileActiveTab={mobileActiveTab as MobileTabId}
       onMobileTabChange={(tab) => setMobileActiveTab(tab)}
       leftSlot={
-        !breadcrumbs &&
-        !isWaitingForBreadcrumbData &&
-        linkedRemoteWorkspace?.issue_id ? (
-          <RemoteIssueLink
-            projectId={linkedRemoteWorkspace.project_id}
-            issueId={linkedRemoteWorkspace.issue_id}
-          />
-        ) : null
+        <>
+          {mobileMode ? <NavbarRepoSelectorContainer /> : null}
+          {!breadcrumbs &&
+          !isWaitingForBreadcrumbData &&
+          linkedRemoteWorkspace?.issue_id ? (
+            <RemoteIssueLink
+              projectId={linkedRemoteWorkspace.project_id}
+              issueId={linkedRemoteWorkspace.issue_id}
+            />
+          ) : null}
+        </>
       }
+      rightSlot={null}
     />
   );
 }

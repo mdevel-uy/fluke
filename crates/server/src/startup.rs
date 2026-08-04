@@ -5,7 +5,7 @@ use std::{
 };
 
 use deployment::{Deployment, DeploymentError};
-use services::services::container::ContainerService;
+use services::services::{container::ContainerService, worker_orchestrator};
 use tokio_util::sync::CancellationToken;
 use tower_http::validate_request::ValidateRequestHeaderLayer;
 use utils::assets::asset_dir;
@@ -158,6 +158,12 @@ pub async fn initialize_deployment(
     deployment
         .container()
         .cleanup_orphan_executions()
+        .await
+        .map_err(DeploymentError::from)?;
+    // Sweep in_progress worker tasks whose agent was killed by this restart.
+    // Must run after cleanup_orphan_executions so execution processes are
+    // already settled before we flip task statuses.
+    worker_orchestrator::reconcile_in_progress_tasks(deployment.db())
         .await
         .map_err(DeploymentError::from)?;
     deployment

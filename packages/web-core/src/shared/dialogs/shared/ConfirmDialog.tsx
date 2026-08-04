@@ -46,9 +46,9 @@ const ConfirmDialogImpl = create<ConfirmDialogProps>((props) => {
       case 'destructive':
         return <AlertTriangle className="h-6 w-6 text-destructive" />;
       case 'info':
-        return <Info className="h-6 w-6 text-blue-500" />;
+        return <Info className="h-6 w-6 text-info" />;
       case 'success':
-        return <CheckCircle className="h-6 w-6 text-green-500" />;
+        return <CheckCircle className="h-6 w-6 text-success" />;
       default:
         return <XCircle className="h-6 w-6 text-muted-foreground" />;
     }

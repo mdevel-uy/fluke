@@ -8,6 +8,15 @@ export type Repo = { id: string, path: string, name: string, display_name: strin
 
 export type Project = { id: string, name: string, default_agent_working_dir: string | null, remote_project_id: string | null, created_at: Date, updated_at: Date, };
 
+export type RepoIssueResponse = { id: string, repo_id: string, number: number, title: string, body: string, state: string, labels: Array<IssueLabel>, author: string, updated_at: Date, synced_at: Date, milestone: string | null, priority: string | null, 
+/**
+ * When the issue was closed; `null` while open, and also for closed issues
+ * not yet re-synced since `closed_at` was introduced.
+ */
+closed_at: Date | null, };
+
+export type IssueLabel = { name: string, color: string, };
+
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 
 export type SearchResult = { path: string, is_file: boolean, match_type: SearchMatchType, 
@@ -55,8 +64,6 @@ project_id: string,
 parent_issue_id: string | null, };
 
 export type PreviewSettingsData = { url: string, screen_size: string | null, responsive_width: number | null, responsive_height: number | null, };
-
-export type WorkspaceNotesData = { content: string, };
 
 export type WorkspacePanelStateData = { right_main_panel_mode: string | null, is_left_main_panel_visible: boolean, };
 
@@ -142,9 +149,9 @@ kanban_project_view_preferences: { [key in string]?: JsonValue }, };
 
 export type ProjectRepoDefaultsData = { repos: Array<DraftWorkspaceRepo>, };
 
-export type ScratchPayload = { "type": "DRAFT_TASK", "data": string } | { "type": "DRAFT_FOLLOW_UP", "data": DraftFollowUpData } | { "type": "DRAFT_WORKSPACE", "data": DraftWorkspaceData } | { "type": "DRAFT_ISSUE", "data": DraftIssueData } | { "type": "PREVIEW_SETTINGS", "data": PreviewSettingsData } | { "type": "WORKSPACE_NOTES", "data": WorkspaceNotesData } | { "type": "UI_PREFERENCES", "data": UiPreferencesData } | { "type": "PROJECT_REPO_DEFAULTS", "data": ProjectRepoDefaultsData };
+export type ScratchPayload = { "type": "DRAFT_TASK", "data": string } | { "type": "DRAFT_FOLLOW_UP", "data": DraftFollowUpData } | { "type": "DRAFT_WORKSPACE", "data": DraftWorkspaceData } | { "type": "DRAFT_ISSUE", "data": DraftIssueData } | { "type": "PREVIEW_SETTINGS", "data": PreviewSettingsData } | { "type": "UI_PREFERENCES", "data": UiPreferencesData } | { "type": "PROJECT_REPO_DEFAULTS", "data": ProjectRepoDefaultsData };
 
-export enum ScratchType { DRAFT_TASK = "DRAFT_TASK", DRAFT_FOLLOW_UP = "DRAFT_FOLLOW_UP", DRAFT_WORKSPACE = "DRAFT_WORKSPACE", DRAFT_ISSUE = "DRAFT_ISSUE", PREVIEW_SETTINGS = "PREVIEW_SETTINGS", WORKSPACE_NOTES = "WORKSPACE_NOTES", UI_PREFERENCES = "UI_PREFERENCES", PROJECT_REPO_DEFAULTS = "PROJECT_REPO_DEFAULTS" }
+export enum ScratchType { DRAFT_TASK = "DRAFT_TASK", DRAFT_FOLLOW_UP = "DRAFT_FOLLOW_UP", DRAFT_WORKSPACE = "DRAFT_WORKSPACE", DRAFT_ISSUE = "DRAFT_ISSUE", PREVIEW_SETTINGS = "PREVIEW_SETTINGS", UI_PREFERENCES = "UI_PREFERENCES", PROJECT_REPO_DEFAULTS = "PROJECT_REPO_DEFAULTS" }
 
 export type Scratch = { id: string, payload: ScratchPayload, created_at: string, updated_at: string, };
 
@@ -155,6 +162,8 @@ export type UpdateScratch = { payload: ScratchPayload, };
 export type Workspace = { id: string, task_id: string | null, container_ref: string | null, branch: string, setup_completed_at: string | null, created_at: string, updated_at: string, archived: boolean, pinned: boolean, name: string | null, worktree_deleted: boolean, };
 
 export type WorkspaceWithStatus = { is_running: boolean, is_errored: boolean, id: string, task_id: string | null, container_ref: string | null, branch: string, setup_completed_at: string | null, created_at: string, updated_at: string, archived: boolean, pinned: boolean, name: string | null, worktree_deleted: boolean, };
+
+export type WorkspaceContext = { workspace: Workspace, workspace_repos: Array<RepoWithTargetBranch>, orchestrator_session_id: string | null, };
 
 export type Session = { id: string, workspace_id: string, name: string | null, executor: string | null, agent_working_dir: string | null, created_at: string, updated_at: string, };
 
@@ -180,7 +189,11 @@ export type PrMerge = { id: string, workspace_id: string, repo_id: string, creat
 
 export type MergeStatus = "open" | "merged" | "closed" | "unknown";
 
-export type PullRequestInfo = { number: bigint, url: string, status: MergeStatus, merged_at: string | null, merge_commit_sha: string | null, };
+export type PullRequestInfo = { number: bigint, url: string, status: MergeStatus, merged_at: string | null, merge_commit_sha: string | null, 
+/**
+ * Mergeable state: "mergeable", "conflicting", "unknown", or None if not yet polled.
+ */
+mergeable: string | null, };
 
 export type ApprovalInfo = { approval_id: string, tool_name: string, execution_process_id: string, is_question: boolean, created_at: string, timeout_at: string, };
 
@@ -262,6 +275,17 @@ export type RegisterRepoRequest = { path: string, display_name: string | null, }
 
 export type InitRepoRequest = { parent_path: string, folder_name: string, };
 
+export type GitHubRepoSummary = { nameWithOwner: string, visibility: string, updatedAt: string | null, description: string | null, 
+/**
+ * Owner login when the repo comes from an organization list;
+ * `None` when it comes from the authenticated user's own repos.
+ */
+ownerOrg: string | null, };
+
+export type CloneRepoRequest = { name_with_owner: string, };
+
+export type CloneRepoResponse = { path: string, };
+
 export type TagSearchParams = { search: string | null, };
 
 export type TokenResponse = { access_token: string, expires_at: string | null, };
@@ -290,6 +314,21 @@ export type AgentPresetOptionsQuery = { executor: BaseCodingAgent, variant: stri
 
 export type CurrentUserResponse = { user_id: string, };
 
+export type GithubLoginState = "pending" | "completed" | "failed";
+
+export type GithubLoginProgress = { state: GithubLoginState, user_code: string | null, verification_uri: string | null, error: string | null, };
+
+export type GithubStatusResponse = { authenticated: boolean, username: string | null,
+/**
+ * Whether the `gh` binary was found on PATH. Login works without it,
+ * but PRs, issue sync and reviews still require it.
+ */
+cli_available: boolean, login: GithubLoginProgress | null, };
+
+export type GithubLoginResponse = { user_code: string, verification_uri: string, };
+
+export type GithubCliInstallResponse = { version: string | null, path: string, };
+
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
 export type FinishSpake2EnrollmentRequest = { enrollment_id: string, client_id: string, client_name: string, client_browser: string, client_os: string, client_device: string, public_key_b64: string, client_proof_b64: string, };
@@ -311,6 +350,10 @@ export type RefreshRelaySigningSessionResponse = { signing_session_id: string, }
 export type CreateFollowUpAttempt = { prompt: string, executor_config: ExecutorConfig, retry_process_id: string | null, force_when_dirty: boolean | null, perform_git_reset: boolean | null, };
 
 export type ResetProcessRequest = { process_id: string, force_when_dirty: boolean | null, perform_git_reset: boolean | null, };
+
+export type StartSessionRequest = { executor_config: ExecutorConfig, };
+
+export type StartSessionResponse = { session_id: string, };
 
 export type ChangeTargetBranchRequest = { repo_id: string, new_target_branch: string, };
 
@@ -398,6 +441,8 @@ export type GetPrCommentsError = { "type": "no_pr_attached" } | { "type": "cli_n
 
 export type GetPrCommentsQuery = { repo_id: string, };
 
+export type ResolveMergeConflictsError = { "type": "no_pr_attached" } | { "type": "no_agent_session" };
+
 export type CreateAndStartWorkspaceRequest = { name: string | null, repos: Array<WorkspaceRepoInput>, linked_issue: LinkedIssueInfo | null, executor_config: ExecutorConfig, prompt: string, attachment_ids: Array<string> | null, };
 
 export type CreateAndStartWorkspaceResponse = { workspace: Workspace, execution_process: ExecutionProcess, };
@@ -410,6 +455,244 @@ export type PullRequestDetail = { number: bigint, url: string, status: MergeStat
 
 export type GitRemote = { name: string, url: string, };
 
+export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, model?: string, 
+/**
+ * Whether the worker has a personal GitHub PAT stored. The token itself
+ * is never exposed — the UI shows this boolean so the form can render a
+ * masked placeholder and let the user replace or clear it.
+ */
+has_github_pat: boolean,
+/**
+ * GitHub login the stored PAT belongs to (resolved at validation time),
+ * or `null` when no PAT is stored. Lets the UI show which identity the
+ * worker acts as, and surface identity clashes (reviewer == PR author).
+ */
+github_login?: string | null, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+
+export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
+/**
+ * Skills selected for this task (stored as JSON array, exposed as array).
+ */
+skills: Array<string>, 
+/**
+ * URL of the most recent pull request tracked for this task's workspace,
+ * or `null` when no PR has been created yet.
+ */
+pr_url: string | null, 
+/**
+ * State of the most recent PR: `"open" | "merged" | "closed"`, or
+ * `null` when there is no tracked PR.
+ */
+pr_state: string | null, 
+/**
+ * Mergeable state: "mergeable", "conflicting", "unknown", or null.
+ */
+pr_mergeable: string | null, 
+/**
+ * Origin of the task: `"kanban"` or `"desk"`.
+ */
+source: string, 
+/**
+ * TL reviewer's verdict: "approved" | "changes_requested" | null.
+ * Set by pr_monitor when the PR review state is detected.
+ */
+review_result: string | null,
+/**
+ * Live state of the review loop for an `in_review` task with an open PR:
+ * "review_queued" | "reviewing" | "fix_queued" | "fixing" |
+ * "awaiting_review" | "stalled", or null when the loop has nothing
+ * pending (e.g. approved and waiting for a human merge, or the task is
+ * not in review). "stalled" means no round is active, no fix is pending,
+ * there is no approval, and nothing has moved for over five minutes —
+ * the board's way of saying "nothing visible" must never hide "broken".
+ */
+loop_state: string | null,
+/**
+ * Why the task failed, when status == "failed". Recorded by the
+ * orchestrator at the moment of failure; null otherwise.
+ */
+failure_reason: string | null,
+/**
+ * Per-task override for the estimated man-hours saved. `null` = use the
+ * installation default; a number replaces the default for aggregation
+ * (see `value_generated_summary`).
+ */
+hours_saved_override: number | null, created_at: Date, };
+
+export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
+/**
+ * Optional GitHub PAT to authenticate this worker's push/PR/review
+ * operations. Empty string or omitted → fall back to global gh auth.
+ * Validated against `/user` before persisting; never returned by the API.
+ */
+github_pat?: string, };
+
+export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string, 
+/**
+ * `undefined` = no change; `null` = clear to global default; `string` = set override
+ */
+model?: string | null, 
+/**
+ * `undefined` = don't touch PAT; `null` = clear (fall back to global gh);
+ * `string` = new PAT (validated before persisting).
+ */
+github_pat?: string | null, };
+
+export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, 
+/**
+ * Skills to associate with this task. Each skill name must correspond to
+ * an installed skill in `~/.claude/skills`. The instructions are appended
+ * to the stored prompt so the agent receives them automatically.
+ */
+skills?: Array<string>, 
+/**
+ * When true, skip the duplicate-assignment guard and create the task anyway.
+ */
+force_duplicate?: boolean, 
+/**
+ * Origin of the task: `"kanban"` (default) or `"desk"` for Analyst Desk
+ * requests.
+ */
+source?: string, 
+/**
+ * UUIDs de adjuntos previamente subidos vía POST /api/attachments/upload.
+ * El backend resuelve los file_path y los incluye en el contexto del worker.
+ */
+attachment_ids?: Array<string>, };
+
+export type UpdateWorkerTaskRequest = { position?: number | null, status?: string,
+/**
+ * Per-task override for the estimated man-hours saved by this task.
+ * Three-state PATCH: `undefined` = don't touch, `null` = clear back to
+ * the installation default, `number` = persist the override for this
+ * task. Values are clamped server-side to `[MIN, MAX]_HOURS_PER_TASK`.
+ */
+hours_saved_override?: number | null, };
+
+export type ReassignWorkerTaskRequest = { target_worker_id: string, };
+
+export type StartWorkerResponse = { task: WorkerTaskResponse, workspace_id: string, };
+
+export type StartAllWorkersItemResponse = { worker_id: string, worker_name: string, started: boolean, task_title: string | null, reason: string | null, };
+
+export type StartAllWorkersResponse = { results: Array<StartAllWorkersItemResponse>, };
+
+export type ActiveIssueTaskInfo = { task_id: string, worker_id: string, worker_name: string, worker_emoji: string, status: string, };
+
+export type CompletedWorkerTask = {
+/**
+ * Task UUID. Exposed so callers can PATCH the task (e.g. to set a
+ * per-task `hours_saved_override` from the value-generated panel).
+ */
+id: string, worker_id: string, title: string, issue_number: number | null,
+/**
+ * "done" | "failed"
+ */
+status: string,
+/**
+ * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
+ */
+completed_at: string,
+/**
+ * Per-task man-hours override (`null` = use the installation default).
+ * Kept on the response so the value-generated panel can render the
+ * current value inline without a second round-trip per task.
+ */
+hours_saved_override: number | null, };
+
+export type CompletedWorkerTasksResponse = { tasks: Array<CompletedWorkerTask>, };
+
+export type CiPipelineFile = {
+/**
+ * Repo-relative path; must live under `.github/workflows/`.
+ */
+rel_path: string, content: string, };
+
+export type CreateCiPipelinePrRequest = { repo_id: string, files: Array<CiPipelineFile>, branch_name: string,
+/**
+ * Defaults to the repo's default target branch.
+ */
+base_branch: string | null, commit_message: string, pr_title: string, pr_body: string | null, };
+
+export type CreateCiPipelinePrResponse = { pr_url: string, branch: string, commit: string, };
+
+export type ClaudeUsageMeter = {
+/**
+ * `session`, `week_all` or `week_opus`.
+ */
+key: string, 
+/**
+ * 0-100.
+ */
+used_percent: number, 
+/**
+ * RFC3339, when Claude reported a reset time.
+ */
+resets_at: string | null, };
+
+export type ClaudeUsageResponse = { 
+/**
+ * Human plan label derived from the stored credentials (e.g. "Max 20x").
+ */
+plan: string | null, meters: Array<ClaudeUsageMeter>, 
+/**
+ * Workers whose active workspace runs Claude Code.
+ */
+workers_on_claude: bigint, };
+
+export type AgentGuidelines = { content: string,
+/**
+ * RFC3339 mtime of the file; `None` when the file doesn't exist yet.
+ * Echoed back on save for optimistic concurrency.
+ */
+modified_at: string | null, exists: boolean,
+/**
+ * Template offered by "restore defaults" in the UI.
+ */
+default_content: string, };
+
+export type SaveAgentGuidelinesRequest = { content: string,
+/**
+ * `modified_at` from the last read. Save is rejected with 409 when the
+ * file changed since (concurrent edit over SSH or another client).
+ */
+expected_modified_at: string | null, };
+
+export type ClosedIssue = { repo_id: string, number: number, title: string,
+/**
+ * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
+ */
+closed_at: string, };
+
+export type ClosedIssuesResponse = { issues: Array<ClosedIssue>, };
+
+export type ValueGeneratedMonth = {
+/**
+ * Month key in `YYYY-MM` form (UTC).
+ */
+year_month: string,
+/**
+ * Worker tasks that reached `done` inside this month.
+ */
+done_count: number,
+/**
+ * Worker tasks in `done_count` that carry a per-task override.
+ */
+tasks_with_override: number,
+/**
+ * Sum of `hours_saved_override` across the tasks in `tasks_with_override`.
+ * Zero when none of the month's tasks carry an override.
+ */
+override_hours_sum: number, };
+
+export type ValueGeneratedSummaryResponse = {
+/**
+ * Newest month first. Includes the current month even when it has zero
+ * completed tasks so the panel can render a "0" today without special-
+ * casing an empty response.
+ */
+months: Array<ValueGeneratedMonth>, };
+
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 
 export type LinkPrToIssueRequest = { pr_url: string, pr_number: number, base_branch: string, };
@@ -420,7 +703,13 @@ export type CreateWorkspaceFromPrResponse = { workspace: Workspace, };
 
 export type CreateFromPrError = { "type": "pr_not_found" } | { "type": "branch_fetch_failed", message: string, } | { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 
-export type RepoBranchStatus = { repo_id: string, repo_name: string, commits_behind: number | null, commits_ahead: number | null, has_uncommitted_changes: boolean | null, head_oid: string | null, uncommitted_count: number | null, untracked_count: number | null, target_branch_name: string, remote_commits_behind: number | null, remote_commits_ahead: number | null, merges: Array<Merge>, is_rebase_in_progress: boolean, conflict_op: ConflictOp | null, conflicted_files: Array<string>, is_target_remote: boolean, };
+export type RepoBranchStatus = { repo_id: string, repo_name: string, commits_behind: number | null, commits_ahead: number | null, has_uncommitted_changes: boolean | null, head_oid: string | null, uncommitted_count: number | null, untracked_count: number | null, target_branch_name: string, remote_commits_behind: number | null, remote_commits_ahead: number | null, merges: Array<Merge>, is_rebase_in_progress: boolean, conflict_op: ConflictOp | null, conflicted_files: Array<string>, is_target_remote: boolean, 
+/**
+ * CI rollup ("passing" | "failing" | "pending" | "none" | "unknown") of
+ * the open PR attached to this repo, or `None` when there is no open PR
+ * or its status has not been polled yet.
+ */
+pr_ci_status: string | null, };
 
 export type UpdateWorkspace = { archived: boolean | null, pinned: boolean | null, name: string | null, };
 
@@ -476,7 +765,35 @@ pr_number: bigint | null,
 /**
  * PR URL for this workspace (if any PR exists)
  */
-pr_url: string | null, };
+pr_url: string | null, 
+/**
+ * Mergeable state of the open PR: "mergeable", "conflicting", "unknown", or null.
+ */
+pr_mergeable: string | null, 
+/**
+ * Context-window usage of the latest coding-agent session, if known
+ */
+latest_context_usage: TokenUsageInfo | null, 
+/**
+ * When the latest coding-agent process started (for elapsed-time display)
+ */
+latest_process_started_at?: string, 
+/**
+ * CI rollup of the latest PR: "passing" | "failing" | "pending" | "none" | "unknown"
+ */
+pr_ci_status: string | null, 
+/**
+ * The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`")
+ */
+latest_activity: string | null, 
+/**
+ * When the latest PR was recorded (for the dashboard activity feed)
+ */
+pr_created_at?: string, 
+/**
+ * When the latest PR was merged, if it was
+ */
+pr_merged_at?: string, };
 
 export type WorkspaceSummaryResponse = { summaries: Array<WorkspaceSummary>, };
 
@@ -488,7 +805,7 @@ export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_pa
 
 export type SearchMode = "taskform" | "settings";
 
-export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, commit_reminder_enabled: boolean, commit_reminder_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, };
+export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, commit_reminder_enabled: boolean, commit_reminder_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, max_review_rounds: number, default_hours_saved_per_task: number, default_hours_per_fte_month: number, };
 
 export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
 
@@ -713,7 +1030,7 @@ export type NormalizedEntry = { timestamp: string | null, entry_type: Normalized
 
 export type NormalizedEntryType = { "type": "user_message" } | { "type": "user_feedback", denied_tool: string, } | { "type": "assistant_message" } | { "type": "tool_use", tool_name: string, action_type: ActionType, status: ToolStatus, } | { "type": "system_message" } | { "type": "error_message", error_type: NormalizedEntryError, } | { "type": "thinking" } | { "type": "loading" } | { "type": "next_action", failed: boolean, execution_processes: number, needs_setup: boolean, } | { "type": "token_usage_info" } & TokenUsageInfo | { "type": "user_answered_questions", answers: Array<AnsweredQuestion>, };
 
-export type TokenUsageInfo = { total_tokens: number, model_context_window: number, };
+export type TokenUsageInfo = { total_tokens: number, model_context_window: number, input_tokens: bigint | null, output_tokens: bigint | null, cache_creation_input_tokens: bigint | null, cache_read_input_tokens: bigint | null, };
 
 export type FileChange = { "action": "write", content: string, } | { "action": "delete" } | { "action": "rename", new_path: string, } | { "action": "edit", 
 /**

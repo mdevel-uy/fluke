@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
 import { useRouter } from '@tanstack/react-router';
-import { BellIcon, CheckIcon, ChecksIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { BellIcon, CheckIcon } from '@phosphor-icons/react';
+import { CheckCheck } from 'lucide-react';
 import { UserAvatar } from '@vibe/ui/components/UserAvatar';
+import { Button } from '@vibe/ui/components/Button';
+import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useNotificationMembers } from '@/shared/hooks/useNotificationMembers';
 import type { GroupedNotification } from '@/shared/lib/notifications';
@@ -57,6 +61,7 @@ function NotificationMessage({
 }
 
 export function NotificationsPage() {
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { data, updateMany, enabled, unseenCount, groupedNotifications } =
     useNotifications();
@@ -105,19 +110,22 @@ export function NotificationsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-double py-base border-b border-border">
-        <h1 className="text-xl font-medium text-high">Notifications</h1>
-        {unseenCount > 0 && (
-          <button
-            type="button"
-            onClick={handleMarkAllSeen}
-            className="flex items-center gap-1 px-base py-half text-sm text-low hover:text-normal transition-colors cursor-pointer"
-          >
-            <ChecksIcon size={16} />
-            Mark all as read
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title={t('notifications.title')}
+        actions={
+          unseenCount > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-sm text-low hover:text-high"
+              onClick={handleMarkAllSeen}
+            >
+              <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t('notifications.markAllRead')}
+            </Button>
+          ) : null
+        }
+      />
 
       <div className="flex-1 overflow-y-auto">
         {groupedNotifications.length === 0 ? (

@@ -11,7 +11,6 @@ import {
 import {
   useUiPreferencesStore,
   DEFAULT_CREATE_DRAFT_WORKSPACE_BY_DEFAULT,
-  type RightMainPanelMode,
   type ContextBarPosition,
   type WorkspacePanelState,
   type WorkspaceFilterState,
@@ -57,7 +56,8 @@ function storeToScratchData(state: {
   const workspacePanelStates: { [key: string]: WorkspacePanelStateData } = {};
   for (const [key, value] of Object.entries(state.workspacePanelStates)) {
     workspacePanelStates[key] = {
-      right_main_panel_mode: value.rightMainPanelMode,
+      // Kept for payload compatibility; the mode was replaced by tab groups.
+      right_main_panel_mode: null,
       is_left_main_panel_visible: value.isLeftMainPanelVisible,
     };
   }
@@ -123,8 +123,6 @@ function scratchDataToStore(data: UiPreferencesData): {
     for (const [key, value] of Object.entries(data.workspace_panel_states)) {
       if (value) {
         workspacePanelStates[key] = {
-          rightMainPanelMode:
-            (value.right_main_panel_mode as RightMainPanelMode) ?? null,
           isLeftMainPanelVisible: value.is_left_main_panel_visible ?? true,
         };
       }
@@ -154,7 +152,7 @@ function scratchDataToStore(data: UiPreferencesData): {
     fileSearchRepoId: data.file_search_repo_id ?? legacyFileSearchRepoId,
     isLeftSidebarVisible: data.is_left_sidebar_visible ?? true,
     isRightSidebarVisible: data.is_right_sidebar_visible ?? true,
-    isTerminalVisible: data.is_terminal_visible ?? true,
+    isTerminalVisible: data.is_terminal_visible ?? false,
     workspacePanelStates,
     workspaceFilters: {
       projectIds: data.workspace_filters?.project_ids ?? [],

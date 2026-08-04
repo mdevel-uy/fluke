@@ -13,7 +13,7 @@ import { ApiError } from '@/shared/lib/api';
 import { defineModal } from '@/shared/lib/modals';
 import type { Repo, UpdateRepo } from 'shared/types';
 import { SearchableDropdownContainer } from '@/shared/components/ui-new/containers/SearchableDropdownContainer';
-import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
+import { AddRepoDialog } from '@/shared/dialogs/settings/AddRepoDialog';
 import { Button } from '@vibe/ui/components/Button';
 import {
   Dialog,
@@ -286,20 +286,17 @@ export function ReposSettingsSection({
     }
   }, [machineClient, queryClient, reposQueryKey, selectedRepo]);
 
-  // Handle adding a new repo via folder picker
+  // Handle adding a new repo (local folder path or GitHub clone)
   const handleAddRepo = useCallback(async () => {
     try {
-      const selectedPath = await FolderPickerDialog.show({
-        title: t('settings.repos.addRepo.dialogTitle'),
-        description: t('settings.repos.addRepo.dialogDescription'),
-      });
-      if (!selectedPath) return;
+      const result = await AddRepoDialog.show({});
+      if (!result) return;
 
       if (!machineClient) {
         return;
       }
 
-      const repo = await machineClient.registerRepo({ path: selectedPath });
+      const repo = await machineClient.registerRepo({ path: result.path });
       await queryClient.invalidateQueries({ queryKey: reposQueryKey });
       setSelectedRepoId(repo.id);
     } catch (err) {
@@ -391,7 +388,7 @@ export function ReposSettingsSection({
     return (
       <div className="flex items-center justify-center py-8 gap-2">
         <SpinnerIcon
-          className="size-icon-lg animate-spin text-brand"
+          className="size-icon-lg animate-spin text-brand-on-surface"
           weight="bold"
         />
         <span className="text-normal">{t('settings.repos.loading')}</span>

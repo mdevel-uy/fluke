@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "workflowName": "deploy-vps",
+  "nodes": [
+    {
+      "type": "trigger",
+      "id": "n-trigger-manual",
+      "position": {
+        "x": 40,
+        "y": 140
+      },
+      "trigger": {
+        "kind": "workflow_dispatch"
+      }
+    },
+    {
+      "type": "script",
+      "id": "n-job-deploy",
+      "position": {
+        "x": 320,
+        "y": 120
+      },
+      "jobId": "deploy",
+      "label": "deploy",
+      "runsOn": "ubuntu-latest",
+      "steps": [
+        {
+          "name": "Deploy over SSH",
+          "uses": "appleboy/ssh-action@v1",
+          "with": {
+            "host": "${{ secrets.VPS_HOST }}",
+            "username": "root",
+            "key": "${{ secrets.VPS_SSH_KEY }}",
+            "script": "/opt/vibe-kanban/update.sh",
+            "command_timeout": "60m",
+            "timeout": "2m",
+            "envs": "GITHUB_TOKEN"
+          },
+          "env": {
+            "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+          }
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-n-trigger-manual-n-job-deploy",
+      "source": "n-trigger-manual",
+      "target": "n-job-deploy"
+    }
+  ],
+  "extras": {
+    "workflowYaml": "concurrency:\n  group: deploy-vps\n  cancel-in-progress: false\n"
+  }
+}

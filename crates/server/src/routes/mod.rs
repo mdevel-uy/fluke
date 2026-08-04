@@ -6,19 +6,27 @@ use tower_http::{compression::CompressionLayer, validate_request::ValidateReques
 
 use crate::{DeploymentImpl, middleware};
 
+pub mod agent_auth;
+pub mod agents;
 pub mod approvals;
+pub mod attachments;
+pub mod ci_studio;
 pub mod config;
 pub mod containers;
-pub mod filesystem;
-// pub mod github;
-pub mod attachments;
+pub mod editor_server;
 pub mod events;
 pub mod execution_processes;
+pub mod filesystem;
 pub mod frontend;
+pub mod github;
+pub mod guidelines;
 pub mod health;
 pub mod host_relay;
+pub mod impact;
+pub mod metrics;
 pub mod oauth;
 pub mod organizations;
+pub mod pilot_report;
 pub mod preview;
 pub mod relay_auth;
 pub mod releases;
@@ -27,16 +35,24 @@ pub mod repo;
 pub mod scratch;
 pub mod search;
 pub mod sessions;
+pub mod setup_status;
+pub mod skills;
 pub mod ssh_session;
+pub mod system;
 pub mod tags;
 pub mod terminal;
+pub mod value_generated;
 pub mod webrtc;
+pub mod workers;
 pub mod workspaces;
 
 pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
     let relay_signed_routes = Router::new()
         .route("/health", get(health::health_check))
         .merge(config::router())
+        .merge(agents::router())
+        .merge(agent_auth::router())
+        .merge(guidelines::router())
         .merge(containers::router(&deployment))
         .merge(workspaces::router(&deployment))
         .merge(execution_processes::router(&deployment))
@@ -44,7 +60,13 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(oauth::router())
         .merge(organizations::router())
         .merge(filesystem::router())
+        .merge(github::router())
+        .merge(ci_studio::router())
         .merge(repo::router())
+        .merge(impact::router())
+        .merge(pilot_report::router())
+        .merge(metrics::router())
+        .merge(value_generated::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))
@@ -52,10 +74,15 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(preview::api_router())
         .merge(releases::router())
         .merge(sessions::router(&deployment))
+        .merge(setup_status::router())
         .merge(terminal::router())
+        .merge(editor_server::router())
         .route("/ssh-session", get(ssh_session::ssh_session_ws))
         .nest("/remote", remote::router())
         .merge(webrtc::router())
+        .merge(skills::router())
+        .merge(system::router())
+        .merge(workers::router())
         .nest("/attachments", attachments::routes())
         .layer(axum::middleware::from_fn_with_state(
             deployment.clone(),

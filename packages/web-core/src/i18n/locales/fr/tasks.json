@@ -104,7 +104,12 @@
     "loadingDetails": "Chargement des détails du processus...",
     "errorLoadingDetails": "Échec du chargement des détails du processus. Veuillez réessayer.",
     "copyLogs": "Copier les logs",
-    "logsCopied": "Copié !"
+    "logsCopied": "Copié !",
+    "failureBanner": {
+      "issueLink": "Issue #{{number}}",
+      "prLink": "Voir la pull request",
+      "reasonLabel": "Raison de l'échec :"
+    }
   },
   "followUp": {
     "queuedMessage": "Message en file d'attente - s'exécutera lorsque l'exécution actuelle sera terminée"
@@ -236,14 +241,33 @@
       "forcePush": "Push forcé",
       "forcePushing": "Push forcé en cours...",
       "creating": "Création en cours...",
-      "createPr": "Créer une PR"
+      "createPr": "Créer une PR",
+      "resolveConflicts": "Résoudre les conflits",
+      "sendingConflicts": "Envoi en cours...",
+      "resolveConflictsSent": "Envoyé à l'agent",
+      "addressPrComments": "Traiter les commentaires de la PR",
+      "addressPrCommentsSending": "Envoi en cours...",
+      "addressPrCommentsSent": "Envoyé à l'agent",
+      "fixCi": "Réparer la CI",
+      "fixCiSending": "Envoi en cours...",
+      "fixCiSent": "Envoyé à l'agent",
+      "fixMergeConflicts": "Résoudre les conflits de fusion"
     },
     "errors": {
       "changeTargetBranch": "Échec du changement de branche cible",
       "pushChanges": "Échec du push des modifications",
       "mergeChanges": "Échec de la fusion des modifications",
       "rebaseBranch": "Échec du rebasage de la branche",
-      "branchStatusUnavailable": "Impossible de récupérer le statut de la branche. Vous pouvez toujours changer la branche cible."
+      "branchStatusUnavailable": "Impossible de récupérer le statut de la branche. Vous pouvez toujours changer la branche cible.",
+      "resolveConflictsFailed": "Échec de l'envoi du suivi pour résoudre les conflits.",
+      "resolveConflictsNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
+      "resolveConflictsNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez.",
+      "addressPrCommentsFailed": "Échec de l'envoi du suivi pour traiter les commentaires de la PR.",
+      "addressPrCommentsNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
+      "addressPrCommentsNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez.",
+      "fixCiFailed": "Échec de l'envoi du suivi pour réparer la CI.",
+      "fixCiNoPr": "Aucune PR ouverte n'est associée à cet espace de travail.",
+      "fixCiNoAgentSession": "Cet espace de travail n'a pas de session d'agent active — relancez l'agent puis réessayez."
     },
     "pr": {
       "open": "Ouvrir la PR #{{number}}",
@@ -256,7 +280,7 @@
       "prMerged": "La PR #{{number}} est déjà fusionnée",
       "loginRequired": {
         "title": "Connectez-vous pour gérer les actions git",
-        "description": "Connectez-vous à Vibe Kanban pour pouvoir pousser des branches, fusionner des modifications ou ouvrir des pull requests pour cette tâche.",
+        "description": "Connectez-vous à mkanban pour pouvoir pousser des branches, fusionner des modifications ou ouvrir des pull requests pour cette tâche.",
         "action": "Se connecter"
       }
     },
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "Échec de la liaison du PR. Veuillez réessayer."
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "Approuvé",
+      "changesRequested": "Modifications demandées"
+    },
+    "loop": {
+      "reviewing": "Revue en cours…",
+      "reviewQueued": "Revue en file",
+      "fixing": "Correctif en cours…",
+      "fixQueued": "Correctif en file",
+      "awaitingReview": "En attente de revue",
+      "stalled": "Boucle bloquée"
     }
   }
 }

@@ -1,0 +1,53 @@
+# Grafana Alerting — notification policy de ejemplo para mkanban.
+#
+# ATENCIÓN: NO copiar este archivo directamente al directorio de provisioning
+# del stack. Grafana REEMPLAZA el árbol completo de notification policies
+# cuando encuentra un archivo de este tipo — hacer eso rompería el ruteo de
+# alertas de los otros proyectos que comparten el stack.
+#
+# En lugar de eso, integrar manualmente la ruta anidada de abajo en el
+# archivo `notification-policies.yaml` existente del stack central. La ruta
+# matchea `proyecto = mkanban` y enruta a los contact points de este
+# proyecto. Todo lo que no matchee cae al policy default del stack como
+# hasta ahora.
+#
+# Si por algún motivo estás inicializando un Grafana desde cero solo para
+# mkanban, sí podés renombrar este archivo a `notification-policies.yaml`
+# y aplicarlo tal cual.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    # Receiver default del stack central — reemplazar con el que ya tiene el
+    # stack (usualmente `grafana-default-email` o similar).
+    receiver: grafana-default-email
+    group_by:
+      - grafana_folder
+      - alertname
+    routes:
+      # -----------------------------------------------------------------
+      # Todo lo de mkanban va a Telegram y email de socios.
+      # -----------------------------------------------------------------
+      - receiver: vk-socios-telegram
+        matchers:
+          - proyecto = mkanban
+        group_by:
+          - alertname
+          - cliente
+          - instancia
+        group_wait: 30s
+        group_interval: 5m
+        # Repetir cada 4 horas mientras la alerta siga firing. Suficiente
+        # para no perder de vista una instancia caída, poco frecuente como
+        # para no saturar el canal.
+        repeat_interval: 4h
+        continue: true
+        routes:
+          # Email como respaldo del email — mismo trigger, otro canal.
+          - receiver: vk-socios-email
+            matchers:
+              - proyecto = mkanban
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 12h
+            continue: false

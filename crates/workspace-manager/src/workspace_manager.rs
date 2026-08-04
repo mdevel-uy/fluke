@@ -50,6 +50,10 @@ pub enum WorkspaceError {
     RepoAlreadyAttached,
     #[error("Branch '{branch}' does not exist in repository '{repo_name}'")]
     BranchNotFound { repo_name: String, branch: String },
+    #[error(
+        "Workspace branch '{branch}' does not exist in repository '{repo_name}' — the workspace has not been materialized yet"
+    )]
+    WorkspaceBranchMissing { repo_name: String, branch: String },
     #[error("No repositories provided")]
     NoRepositories,
     #[error("Partial workspace creation failed: {0}")]
@@ -311,17 +315,40 @@ impl WorkspaceManager {
         for input in repos {
             let worktree_path = workspace_dir.join(&input.repo.name);
 
+            // Fetch and fast-forward the target branch before creating the worktree
+            // so the new workspace branch starts from the latest remote tip, not a
+            // potentially stale local ref. Best-effort: if the fetch fails (no
+            // network, auth error, etc.) we fall through to whatever is locally
+            // available and log a warning.
+            let effective_target = {
+                let repo_path = input.repo.path.clone();
+                let target = input.target_branch.clone();
+                let fallback = input.target_branch.clone();
+                tokio::task::spawn_blocking(move || {
+                    GitService::new().fetch_and_update_target_branch(&repo_path, &target)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    warn!(
+                        "fetch_and_update_target_branch join error for '{}': {}. Using original.",
+                        fallback, e
+                    );
+                    fallback
+                })
+            };
+
             debug!(
-                "Creating worktree for repo '{}' at {}",
+                "Creating worktree for repo '{}' at {} (base: '{}')",
                 input.repo.name,
-                worktree_path.display()
+                worktree_path.display(),
+                effective_target
             );
 
             match WorktreeManager::create_worktree(
                 &input.repo.path,
                 branch_name,
                 &worktree_path,
-                &input.target_branch,
+                &effective_target,
                 true,
             )
             .await
@@ -406,18 +433,17 @@ impl WorkspaceManager {
                 WorktreeManager::ensure_worktree_exists(&repo.path, branch_name, &worktree_path)
                     .await?;
             } else {
-                info!(
-                    "Workspace branch '{}' missing in repo '{}'; creating from target branch '{}'",
-                    branch_name, repo.name, input.target_branch
-                );
-                WorktreeManager::create_worktree(
-                    &repo.path,
-                    branch_name,
-                    &worktree_path,
-                    &input.target_branch,
-                    true,
-                )
-                .await?;
+                // Do NOT create the branch here. `ensure_*` is called from
+                // read paths (branch status polls, editor, diffs); creating
+                // the branch turned those polls into writers and raced the
+                // start flow, which then failed its own branch creation with
+                // "reference already exists" and rolled the whole start back.
+                // Only `create_workspace` (via ContainerService::create) may
+                // materialize a workspace branch.
+                return Err(WorkspaceError::WorkspaceBranchMissing {
+                    repo_name: repo.name.clone(),
+                    branch: branch_name.to_string(),
+                });
             }
         }
 

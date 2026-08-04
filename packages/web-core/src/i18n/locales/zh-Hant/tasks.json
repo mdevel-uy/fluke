@@ -107,7 +107,12 @@
     "loadingDetails": "載入程序詳情中...",
     "errorLoadingDetails": "載入程序詳情失敗。請重試。",
     "copyLogs": "複製日誌",
-    "logsCopied": "已複製！"
+    "logsCopied": "已複製！",
+    "failureBanner": {
+      "issueLink": "議題 #{{number}}",
+      "prLink": "檢視拉取請求",
+      "reasonLabel": "失敗原因："
+    }
   },
   "followUp": {
     "queuedMessage": "訊息已加入佇列 - 會在目前執行完成後處理"
@@ -157,14 +162,33 @@
       "forcePush": "強制推送",
       "forcePushing": "強制推送中...",
       "creating": "建立中...",
-      "createPr": "建立 PR"
+      "createPr": "建立 PR",
+      "resolveConflicts": "解決衝突",
+      "sendingConflicts": "傳送中...",
+      "resolveConflictsSent": "已傳送給代理",
+      "addressPrComments": "處理 PR 評論",
+      "addressPrCommentsSending": "傳送中...",
+      "addressPrCommentsSent": "已傳送給代理",
+      "fixCi": "修復 CI",
+      "fixCiSending": "傳送中...",
+      "fixCiSent": "已傳送給代理",
+      "fixMergeConflicts": "解決合併衝突"
     },
     "errors": {
       "changeTargetBranch": "變更目標分支失敗",
       "pushChanges": "推送變更失敗",
       "mergeChanges": "合併變更失敗",
       "rebaseBranch": "重基底分支失敗",
-      "branchStatusUnavailable": "無法取得分支狀態。您仍然可以變更目標分支。"
+      "branchStatusUnavailable": "無法取得分支狀態。您仍然可以變更目標分支。",
+      "resolveConflictsFailed": "解決衝突的後續訊息傳送失敗。",
+      "resolveConflictsNoPr": "此工作區沒有關聯的開啟 PR。",
+      "resolveConflictsNoAgentSession": "此工作區沒有活躍的代理工作階段 — 請重新啟動代理後再試一次。",
+      "addressPrCommentsFailed": "處理 PR 評論的後續訊息傳送失敗。",
+      "addressPrCommentsNoPr": "此工作區沒有關聯的開啟 PR。",
+      "addressPrCommentsNoAgentSession": "此工作區沒有活躍的代理工作階段 — 請重新啟動代理後再試一次。",
+      "fixCiFailed": "修復 CI 的後續訊息傳送失敗。",
+      "fixCiNoPr": "此工作區沒有關聯的開啟 PR。",
+      "fixCiNoAgentSession": "此工作區沒有活躍的代理工作階段 — 請重新啟動代理後再試一次。"
     },
     "pr": {
       "open": "開啟 PR #{{number}}",
@@ -177,7 +201,7 @@
       "prMerged": "PR #{{number}} 已合併",
       "loginRequired": {
         "title": "登入以管理 Git 操作",
-        "description": "登入 Vibe Kanban，才能推送分支、合併變更或為此任務建立 PR。",
+        "description": "登入 mkanban，才能推送分支、合併變更或為此任務建立 PR。",
         "action": "登入"
       }
     },
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "連結 PR 失敗，請重試。"
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "已批准",
+      "changesRequested": "要求更改"
+    },
+    "loop": {
+      "reviewing": "審查進行中…",
+      "reviewQueued": "審查排隊中",
+      "fixing": "修復進行中…",
+      "fixQueued": "修復排隊中",
+      "awaitingReview": "等待審查",
+      "stalled": "循環停滯"
     }
   }
 }

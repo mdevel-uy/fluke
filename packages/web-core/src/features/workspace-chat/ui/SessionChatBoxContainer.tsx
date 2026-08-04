@@ -25,6 +25,7 @@ import { useTodos } from '../model/hooks/useTodos';
 import { getLatestConfigFromProcesses } from '@/shared/lib/executor';
 import { useExecutorConfig } from '@/shared/hooks/useExecutorConfig';
 import { useSessionMessageEditor } from '../model/hooks/useSessionMessageEditor';
+import { useComposerPrefillStore } from '../model/store/useComposerPrefillStore';
 import { useSessionQueueInteraction } from '../model/hooks/useSessionQueueInteraction';
 import { useSessionSend } from '../model/hooks/useSessionSend';
 import { useSessionAttachments } from '../model/hooks/useSessionAttachments';
@@ -44,10 +45,7 @@ import {
   type SessionChatBoxEditorRenderProps,
 } from '@vibe/ui/components/SessionChatBox';
 import { ModelSelectorContainer } from '@/shared/components/ModelSelectorContainer';
-import {
-  useWorkspacePanelState,
-  RIGHT_MAIN_PANEL_MODES,
-} from '@/shared/stores/useUiPreferencesStore';
+import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useInspectModeStore } from '../model/store/useInspectModeStore';
 import { Actions } from '@/shared/actions';
 import {
@@ -108,6 +106,8 @@ interface SharedProps {
   disableViewCode: boolean;
   /** Replace diff stats with an "Open Workspace" button in header */
   showOpenWorkspaceButton: boolean;
+  /** Compact layout for narrow surfaces (ad-hoc drawer) */
+  compact?: boolean;
 }
 
 /** Props for existing session mode */
@@ -153,6 +153,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     getActiveTurnPatchKey,
     disableViewCode = false,
     showOpenWorkspaceButton,
+    compact,
   } = props;
 
   // Extract mode-specific values
@@ -191,16 +192,13 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
 
   const { executeAction } = useActions();
   const actionCtx = useActionVisibilityContext();
-  const { rightMainPanelMode, setRightMainPanelMode } =
-    useWorkspacePanelState(workspaceId);
+  const toggleWorkspaceViewTab = useUiPreferencesStore(
+    (s) => s.toggleWorkspaceViewTab
+  );
 
   const handleViewCode = useCallback(() => {
-    setRightMainPanelMode(
-      rightMainPanelMode === RIGHT_MAIN_PANEL_MODES.CHANGES
-        ? null
-        : RIGHT_MAIN_PANEL_MODES.CHANGES
-    );
-  }, [rightMainPanelMode, setRightMainPanelMode]);
+    toggleWorkspaceViewTab(workspaceId, 'changes');
+  }, [toggleWorkspaceViewTab, workspaceId]);
 
   const handleOpenWorkspace = useCallback(() => {
     if (!workspaceId) return;
@@ -440,6 +438,24 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     clearPendingComponentMarkdown,
   ]);
 
+  // Aside quick actions (SHELL-SPEC R24): preload the composer with a draft
+  // message. Only consumed by the chat of the workspace it targets.
+  const pendingPrefill = useComposerPrefillStore((s) => s.pendingPrefill);
+  const clearPrefill = useComposerPrefillStore((s) => s.clearPrefill);
+  // When the aside asks for auto-send, we can't fire immediately: setLocalMessage
+  // is async, so handleSend would read the stale draft. Instead we arm this ref
+  // and let the follow-up effect (after handleSend is defined) trigger the send
+  // on the render where localMessage reflects the prefilled text.
+  const autoSendPendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!pendingPrefill || pendingPrefill.workspaceId !== workspaceId) return;
+    const { text, autoSend } = pendingPrefill;
+    handleInsertMarkdown(text);
+    if (autoSend) autoSendPendingRef.current = true;
+    clearPrefill();
+  }, [pendingPrefill, workspaceId, handleInsertMarkdown, clearPrefill]);
+
   const { uploadFiles, localAttachments, clearUploadedAttachments } =
     useSessionAttachments(workspaceId, sessionId, handleInsertMarkdown);
 
@@ -532,6 +548,16 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     clearDraft,
     reviewContext,
   ]);
+
+  // Fires once the prefilled text has landed in localMessage. We clear the ref
+  // before dispatching so a send failure (network, no executor) doesn't loop:
+  // the draft stays put for the user to retry manually.
+  useEffect(() => {
+    if (!autoSendPendingRef.current) return;
+    if (!localMessage.trim()) return;
+    autoSendPendingRef.current = false;
+    void handleSend();
+  }, [localMessage, handleSend]);
 
   // Track previous process count for queue refresh
   const prevProcessCountRef = useRef(processes.length);
@@ -954,6 +980,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     return (
       <SessionChatBox<BaseCodingAgent>
         status="idle"
+        compact={compact}
         renderEditor={renderEditor}
         repoIds={repoIds}
         tokenUsageInfo={tokenUsageInfo}
@@ -1001,6 +1028,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
   return (
     <SessionChatBox<BaseCodingAgent>
       status={status}
+      compact={compact}
       onViewCode={disableViewCode ? undefined : handleViewCode}
       onOpenWorkspace={
         showOpenWorkspaceButton && workspaceId ? handleOpenWorkspace : undefined

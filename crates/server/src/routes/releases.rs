@@ -21,7 +21,7 @@ static RELEASES_CACHE: OnceLock<ReleasesCache> = OnceLock::new();
 fn client() -> &'static Client {
     HTTP_CLIENT.get_or_init(|| {
         Client::builder()
-            .user_agent("vibe-kanban-server")
+            .user_agent("mkanban-server")
             .build()
             .expect("failed to build releases HTTP client")
     })

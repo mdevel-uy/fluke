@@ -41,7 +41,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         onKeyDown={handleKeyDown}
         className={twMerge(
           cn(
-            'flex h-10 w-full border px-3 py-2 text-sm ring-offset-background file:border-0 bg-transparent file:text-sm file:font-medium focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            'flex h-9 w-full rounded-lg border border-border/70 bg-secondary px-3 py-2 text-sm text-high placeholder:text-low transition-colors',
+            'file:border-0 file:bg-transparent file:text-sm file:font-medium',
+            'focus-visible:outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/25',
+            'disabled:cursor-not-allowed disabled:opacity-50',
             className
           )
         )}

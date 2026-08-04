@@ -22,10 +22,31 @@ pub fn asset_dir() -> std::path::PathBuf {
 }
 
 pub fn prod_asset_dir_path() -> std::path::PathBuf {
-    ProjectDirs::from("ai", "bloop", "vibe-kanban")
+    let new = ProjectDirs::from("dev", "mkanban", "mkanban")
         .expect("OS didn't give us a home directory")
         .data_dir()
-        .to_path_buf()
+        .to_path_buf();
+
+    // Migración del data dir legacy (rebrand vibe-kanban → mkanban): si el
+    // path nuevo todavía no existe pero el viejo sí, se renombra en el lugar.
+    // Si el rename falla (permisos, cross-device), se sigue usando el viejo
+    // para no arrancar jamás con una DB vacía.
+    let legacy = ProjectDirs::from("ai", "bloop", "vibe-kanban")
+        .expect("OS didn't give us a home directory")
+        .data_dir()
+        .to_path_buf();
+    if !new.exists() && legacy.exists() {
+        let renamed = new
+            .parent()
+            .map(|parent| std::fs::create_dir_all(parent).is_ok())
+            .unwrap_or(false)
+            && std::fs::rename(&legacy, &new).is_ok();
+        if !renamed {
+            return legacy;
+        }
+    }
+
+    new
 }
 
 pub fn config_path() -> std::path::PathBuf {

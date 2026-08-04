@@ -1,0 +1,139 @@
+// Grafana Alloy configuration for a vibe-kanban instance.
+//
+// Two data planes, one process:
+//
+//   1. Logs   → stdout/stderr of every container on the local Docker daemon
+//               (server + executors + Alloy itself + anything else in the
+//               compose stack) → central Loki via `loki.write`.
+//   2. Metrics → three local exporters scraped every 30s:
+//               - vibe-kanban  /api/metrics  (product + plan health, see
+//                                             crates/server/src/routes/metrics.rs)
+//               - node-exporter :9100/metrics (host CPU/mem/disk)
+//               - cadvisor      :8080/metrics (per-container CPU/mem/net)
+//               → central Prometheus via `prometheus.remote_write`.
+//
+// Both writes use HTTPS + basic auth (single ingest credential shared with
+// the Loki push route on the central stack). Every stream and every metric
+// carries the fleet label convention:
+//
+//   proyecto=mkanban, cliente=<X>, instancia=<Y>, version=<Z>
+//
+// Environment (required — Alloy fails fast if any is missing):
+//   LOKI_PUSH_URL, LOKI_PUSH_USER, LOKI_PUSH_PASSWORD
+//   PROM_PUSH_URL, LOKI_PUSH_USER, LOKI_PUSH_PASSWORD (auth is shared)
+//   VK_CLIENTE,    VK_INSTANCIA,   VK_VERSION
+//   VK_METRICS_URL (optional; defaults set in docker-compose.local.yml)
+
+logging {
+	level  = "info"
+	format = "logfmt"
+}
+
+// --- Logs ------------------------------------------------------------------
+
+discovery.docker "containers" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	// Container name → `contenedor` label (Docker prefixes with `/`).
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "contenedor"
+	}
+
+	// Compose service name (present when started via docker compose).
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "containers" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.containers.output
+	forward_to = [loki.write.central.receiver]
+
+	labels = {
+		proyecto  = "mkanban",
+		cliente   = sys.env("VK_CLIENTE"),
+		instancia = sys.env("VK_INSTANCIA"),
+		version   = sys.env("VK_VERSION"),
+	}
+}
+
+loki.write "central" {
+	endpoint {
+		url = sys.env("LOKI_PUSH_URL")
+
+		basic_auth {
+			username = sys.env("LOKI_PUSH_USER")
+			password = sys.env("LOKI_PUSH_PASSWORD")
+		}
+	}
+}
+
+// --- Metrics ---------------------------------------------------------------
+
+// Three static scrape targets on the compose network. Static (not Docker
+// service-discovery) so a temporarily missing container surfaces as a
+// scrape failure in Prometheus instead of silently dropping off the target
+// list.
+//
+// VK_METRICS_HOST defaults to `vibe-kanban:3000` in docker-compose.local.yml
+// — override only when the app is exposed on a non-default host:port.
+prometheus.scrape "vibe_kanban" {
+	targets = [{
+		__address__      = sys.env("VK_METRICS_HOST"),
+		__metrics_path__ = "/api/metrics",
+		job              = "mkanban",
+	}]
+	scrape_interval = "30s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.central.receiver]
+}
+
+prometheus.scrape "node" {
+	targets = [{
+		__address__ = "node-exporter:9100",
+		job         = "node-exporter",
+	}]
+	scrape_interval = "30s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.central.receiver]
+}
+
+prometheus.scrape "cadvisor" {
+	targets = [{
+		__address__ = "cadvisor:8080",
+		job         = "cadvisor",
+	}]
+	scrape_interval = "30s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.remote_write.central.receiver]
+}
+
+// External labels tag every sample before it leaves the box. They are what
+// makes per-instance / per-client dashboards possible on the central
+// Prometheus (which sees dozens of fleet instances share the same job).
+prometheus.remote_write "central" {
+	external_labels = {
+		proyecto  = "mkanban",
+		cliente   = sys.env("VK_CLIENTE"),
+		instancia = sys.env("VK_INSTANCIA"),
+		version   = sys.env("VK_VERSION"),
+	}
+
+	endpoint {
+		url = sys.env("PROM_PUSH_URL")
+
+		basic_auth {
+			username = sys.env("LOKI_PUSH_USER")
+			password = sys.env("LOKI_PUSH_PASSWORD")
+		}
+	}
+}

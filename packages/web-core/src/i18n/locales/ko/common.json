@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "사용자 지정"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "VS Code 웹(github.dev)에서 열기",
+    "branchNotPushed": "브랜치가 아직 GitHub에 없습니다"
+  },
   "folderPicker": {
     "legend": "폴더 이름을 클릭하여 탐색 • 작업 버튼을 사용하여 선택",
     "manualPathLabel": "경로 직접 입력:",
@@ -79,7 +83,7 @@
   "signIn": "로그인",
   "signOut": "로그아웃",
   "oauth": {
-    "title": "Vibe Kanban 로그인",
+    "title": "mkanban 로그인",
     "description": "로그인하여 조직에 참여하고 팀과 작업을 공유하세요",
     "continueWithGitHub": "GitHub로 계속",
     "continueWithGoogle": "Google로 계속",
@@ -119,11 +123,40 @@
     "viewArchive": "보관함 보기",
     "backToActive": "활성으로 돌아가기",
     "noArchived": "보관된 워크스페이스 없음",
-    "noWorkspaces": "워크스페이스 없음",
-    "newWorkspace": "새 워크스페이스",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "주의 필요",
     "idle": "대기 중",
     "running": "실행 중",
+    "all": "전체",
+    "activityWorking": "작업 중…",
+    "activityWaitingApproval": "승인 대기 중",
+    "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} 병합됨",
+    "prOpen": "PR #{{number}} 열림",
+    "queuedPosition": "대기열 · #{{position}}",
+    "queuedTooltip": "사용 가능한 에이전트 슬롯을 기다리는 중입니다(동시 실행 한도에 도달함).",
+    "expand": "세부 정보 표시",
+    "collapse": "세부 정보 숨기기",
+    "details": {
+      "issue": "이슈",
+      "pr": "PR",
+      "prStatus": {
+        "open": "열림",
+        "merged": "병합됨",
+        "closed": "닫힘",
+        "unknown": "알 수 없음"
+      },
+      "conflicting": "병합 충돌",
+      "mergeable": "병합 가능",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 실행 중…",
+      "branch": "브랜치",
+      "lastActivity": "마지막 활동",
+      "openWorkspace": "워크스페이스 열기",
+      "viewPr": "PR 보기",
+      "viewIssue": "이슈 보기"
+    },
     "pin": "고정",
     "unpin": "고정 해제",
     "archive": "보관",
@@ -152,7 +185,21 @@
       "cannotDeleteOpenPr": "PR이 열려 있는 동안에는 브랜치를 삭제할 수 없습니다",
       "unlinkFromIssueLabel": "이슈에서도 연결 해제"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "작업 정체 — 에이전트는 멈췄지만 작업이 진행되지 않았습니다",
+    "scopes": {
+      "attention": "확인 필요",
+      "running": "실행 중",
+      "idle": "대기 중",
+      "all": "전체 워크스페이스",
+      "archive": "보관함"
+    },
+    "scopeRailLabel": "워크스페이스 범위",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "리뷰어 작업 중..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "파일 검색...",
@@ -175,19 +222,13 @@
     "recent": "최근",
     "other": "기타",
     "devServerPreview": "개발 서버 미리보기",
-    "terminal": "터미널",
-    "notes": "노트"
-  },
-  "notes": {
-    "placeholder": "이 워크스페이스에 대한 노트 추가...",
-    "selectWorkspace": "노트를 보려면 워크스페이스를 선택하세요"
+    "terminal": "터미널"
   },
   "actions": {
     "copyPath": "워크트리 경로 복사",
     "cancel": "취소",
     "saveChanges": "변경사항 저장",
-    "copied": "복사됨",
-    "collapse": "접기"
+    "copied": "복사됨"
   },
   "comments": {
     "addReviewComment": "리뷰 코멘트 추가",
@@ -216,7 +257,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "환영합니다",
-      "content": "Vibe Kanban의 새롭게 디자인된 UI인 Workspaces에 오신 것을 환영합니다. 초기 피드백을 위해 일부 사용자에게 먼저 공개하고 있습니다. 네비게이션 바의 피드백 아이콘을 통해 언제든지 의견을 공유해 주세요."
+      "content": "mkanban의 새롭게 디자인된 UI인 Workspaces에 오신 것을 환영합니다. 초기 피드백을 위해 일부 사용자에게 먼저 공개하고 있습니다. 네비게이션 바의 피드백 아이콘을 통해 언제든지 의견을 공유해 주세요."
     },
     "commandBar": {
       "title": "명령 바",
@@ -256,8 +297,7 @@
     "selectProcessToView": "로그를 보려면 프로세스를 선택하세요"
   },
   "processes": {
-    "noProcesses": "프로세스 없음",
-    "terminal": "터미널"
+    "noProcesses": "프로세스 없음"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",
@@ -298,10 +338,10 @@
       "moveLeft": "왼쪽으로 이동",
       "moveRight": "오른쪽으로 이동",
       "openCommandBar": "명령 바 열기",
+      "toggleTerminal": "터미널 표시/숨기기",
       "formatInlineCode": "Format inline code",
       "sendMessage": "메시지 보내기",
       "settings": "설정으로 이동",
-      "new-workspace": "새 워크스페이스로 이동",
       "duplicate-workspace": "워크스페이스 복제",
       "rename-workspace": "워크스페이스 이름 변경",
       "pin-workspace": "워크스페이스 고정/해제",
@@ -433,34 +473,40 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "담당자",
+    "filterByAssignee": "담당자로 필터링",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "긴급",
+      "high": "높음",
+      "medium": "보통",
+      "low": "낮음"
+    },
+    "options": "옵션",
+    "sortField": {
+      "sort_order": "수동",
+      "priority": "우선순위",
+      "created_at": "생성일",
+      "updated_at": "수정일",
+      "title": "제목"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "차단됨 숨기기",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
-    "changeColor": "Change color",
-    "editName": "Edit name",
-    "deleteStatus": "Delete status",
-    "cannotDeleteWithIssues": "Move issues first",
-    "lastVisibleStatus": "At least one status must be visible",
-    "showStatus": "Show status",
-    "hideStatus": "Hide status",
-    "newStatus": "New Status",
-    "visibleColumns": "Visible Columns",
-    "dragToRearrange": "Drag to re-arrange",
-    "addColumn": "Add column",
     "projectsGuide": {
       "intro": {
         "title": "Welcome",
-        "content": "Welcome to Vibe Kanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
+        "content": "Welcome to mkanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
       },
       "welcome": {
         "title": "Projects",
@@ -476,7 +522,7 @@
       },
       "organizations": {
         "title": "Invite your team",
-        "content": "We've automatically created a personal organization and initial project so you can get started with Vibe Kanban. Export your cloud data before shutdown."
+        "content": "We've automatically created a personal organization and initial project so you can get started with mkanban. Export your cloud data before shutdown."
       }
     }
   },
@@ -533,11 +579,226 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "라이트 테마",
+      "dark": "다크 테마",
+      "system": "시스템 테마"
+    },
+    "commandBarTrigger": {
+      "placeholder": "명령 검색...",
+      "ariaLabel": "명령 바 열기"
+    },
+    "layout": {
+      "toggleAdhocClaude": "임시 Claude"
+    }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} 슬롯",
+    "slotsTooltip": "사용 중인 에이전트 슬롯 — AGENT_CONCURRENCY_LIMIT / config로 설정합니다.",
+    "slotsQueued": "{{count}}개 대기 중",
+    "slotsQueuedTooltip": "동시 실행 한도에 도달했습니다. {{count}}개의 실행이 사용 가능한 슬롯을 기다리는 중입니다."
+  },
+  "adhocPanel": {
+    "title": "임시 Claude",
+    "close": "임시 Claude 패널 닫기",
+    "newSession": "새 세션",
+    "loading": "Claude 세션 준비 중…",
+    "noRepo": {
+      "title": "사용 가능한 저장소가 없습니다",
+      "description": "임시 Claude 세션을 시작하려면 저장소를 추가하세요."
+    },
+    "error": {
+      "title": "임시 세션을 열 수 없습니다",
+      "description": "스크래치 워크스페이스를 준비하는 중에 오류가 발생했습니다.",
+      "retry": "다시 시도"
+    }
+  },
   "appBar": {
+    "dashboard": "대시보드",
+    "workspaces": "워크스페이스",
+    "issues": "이슈",
+    "workers": "워커",
+    "sprint": "칸반",
+    "analystDesk": "분석가 데스크",
+    "ciPipelines": "CI 파이프라인",
+    "collapseSidebar": "사이드바 접기",
+    "expandSidebar": "사이드바 펼치기",
+    "settings": "설정",
     "kanban": {
-      "tooltip": "프로젝트를 보려면 로그인하세요",
       "title": "칸반 보드",
       "description": "로그인하여 칸반 보드로 코딩 에이전트를 정리하세요."
+    }
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "live": "실시간",
+    "workersActive": "활동 중인 워커",
+    "inProgress": "진행 중",
+    "queued": "대기 중",
+    "inReview": "리뷰 중",
+    "openPrs": "열린 PR",
+    "approvals": "승인 대기",
+    "done": "완료",
+    "failed": "실패",
+    "workersSection": "워커",
+    "pipelineSection": "작업 파이프라인",
+    "prsSection": "풀 리퀘스트",
+    "attentionSection": "주의 필요",
+    "attentionEmpty": "모두 정상입니다 — 처리할 항목이 없습니다.",
+    "prsEmpty": "열린 풀 리퀘스트가 없습니다.",
+    "noWorkers": "아직 설정된 워커가 없습니다.",
+    "noActiveTask": "활성 작업 없음",
+    "context": "컨텍스트",
+    "queue": "큐",
+    "running": "실행 중",
+    "idle": "대기",
+    "mergeable": "병합 가능",
+    "conflicting": "충돌",
+    "approvalPending": "승인 대기 — {{worker}}",
+    "prConflict": "PR #{{number}}에 충돌이 있습니다",
+    "highContext": "{{name}} 컨텍스트 {{pct}}%",
+    "taskStalled": "작업 정체 — {{name}}",
+    "processFailed": "마지막 실행 실패 — {{name}}",
+    "updatedAgo": "{{time}} 전 업데이트",
+    "autoIngest": "자동 수집",
+    "runningSub": "{{names}} 실행 중",
+    "acrossRepos": "{{count}}개 저장소",
+    "nextUp": "다음: {{label}}",
+    "conflictingCount": "{{count}}건 충돌",
+    "waitingFor": "{{time}} 대기 중",
+    "doneToday": "오늘 완료",
+    "failedCount": "{{count}}건 실패",
+    "pipelineHint": "오늘 · 모든 워커",
+    "openCount": "{{count}}건 열림",
+    "openPill": "열림",
+    "actionReview": "검토",
+    "actionOpen": "열기",
+    "actionView": "보기",
+    "actionNudge": "재촉",
+    "compactionLikely": "이 세션에서 컴팩션 가능성 있음",
+    "activitySection": "활동",
+    "activityEmpty": "최근 활동이 없습니다.",
+    "feedTaskDone": "{{worker}}가 작업 {{task}} 완료",
+    "feedTaskFailed": "작업 {{task}} 실패",
+    "feedPrOpened": "{{worker}}가 PR #{{number}} 생성",
+    "feedPrMerged": "PR #{{number}} 병합됨",
+    "feedApprovalRequested": "승인 요청 — {{tool}}",
+    "feedTaskStarted": "{{worker}}가 {{task}} 시작",
+    "summarySection": "요약",
+    "offline": "재연결 중…",
+    "openWorkerWorkspace": "{{name}}의 워크스페이스 열기",
+    "openPilotReport": "파일럿 리포트 열기",
+    "claudeLimits": {
+      "title": "Claude 사용 한도",
+      "workersOnClaude": "Claude Code 사용 워커 {{count}}명",
+      "workersOnClaude_other": "Claude Code 사용 워커 {{count}}명",
+      "resetsAt": "{{time}}에 초기화",
+      "meter": {
+        "session": "세션 · 5시간 창",
+        "week_all": "주간 · 전체 모델",
+        "week_opus": "주간 · Opus"
+      }
+    },
+    "impact": {
+      "title": "종료된 이슈",
+      "windowLabel": "기간",
+      "windowDays": "{{days}}일",
+      "hoursPerIssue": "시간 / 이슈",
+      "hoursPerIssueLabel": "이슈당 가정 공수(시간)",
+      "hoursSaved": "약 {{hours}}시간 절감",
+      "summary": "지난 {{days}}일간 {{count}}건 종료",
+      "summary_other": "지난 {{days}}일간 {{count}}건 종료",
+      "loading": "종료된 이슈 불러오는 중…",
+      "empty": "이 기간에 종료된 이슈가 없습니다. 다음 이슈 동기화 시 기록이 채워집니다.",
+      "chartLabel": "지난 {{days}}일간 일자별 종료 이슈: 총 {{total}}건, 약 {{hours}}시간 분량.",
+      "tooltipIssues": "{{count}}건 종료",
+      "tooltipIssues_other": "{{count}}건 종료",
+      "tooltipHours": "{{issues}} × {{factor}}시간 = {{hours}}시간",
+      "moreIssues": "+{{extra}}건 더"
+    },
+    "valueGenerated": {
+      "title": "창출된 가치",
+      "windowLabel": "이력 기간",
+      "windowMonths": "{{months}}개월",
+      "hoursPerTask": "시간 / 작업",
+      "hoursPerTaskLabel": "완료 작업당 기본 절감 공수(시간)",
+      "hoursPerFte": "시간 / FTE·월",
+      "hoursPerFteLabel": "FTE 1인당 월 근무 시간",
+      "thisMonthLabel": "이번 달 · {{month}}",
+      "summaryTickets": "티켓 {{count}}건 해결",
+      "summaryTickets_other": "티켓 {{count}}건 해결",
+      "summaryHours": "약 {{hours}}시간 절감",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "최근 {{months}}개월",
+      "totalsTickets": "티켓 {{count}}건",
+      "totalsHours": "{{hours}}시간",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "월",
+      "tableTickets": "티켓",
+      "tableHours": "시간",
+      "tableFte": "FTE",
+      "loading": "창출된 가치 불러오는 중…",
+      "emptyHistory": "아직 과거 월 데이터가 없습니다. 작업이 완료됨에 따라 표가 채워집니다.",
+      "overridePerTaskToggle": "작업별 시간 편집",
+      "overridePerTaskLoading": "이번 달 작업 불러오는 중…",
+      "overridePerTaskEmpty": "이번 달 완료된 작업이 없습니다.",
+      "overridePerTaskInputLabel": "이 작업의 절약된 시간",
+      "overridePerTaskClear": "기본값 사용"
+    }
+  },
+  "pilotReport": {
+    "title": "파일럿 리포트",
+    "subtitle": "파일럿 기간 동안 플릿이 제공한 성과를 한 페이지로 정리한 스냅샷 — CTO에게 그대로 전달할 수 있습니다.",
+    "rangeHeading": "보고 기간: {{range}}",
+    "loadError": "리포트를 불러오지 못했습니다. 새로고침하거나 기간을 좁혀 보세요.",
+    "loading": "불러오는 중…",
+    "printFooter": "생성 시각: {{generatedAt}} · 위에 표시된 가정을 기준으로 계산됩니다.",
+    "dateRange": {
+      "from": "시작",
+      "to": "종료",
+      "presets": "기간 프리셋",
+      "presetLabel": "최근 {{days}}일"
+    },
+    "kpi": {
+      "ticketsResolved": "해결된 티켓",
+      "ticketsFailedHint": "+ {{count}}건 실패",
+      "prsMerged": "머지된 PR",
+      "hoursSaved": "절약된 시간",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 환산",
+      "fteUnit": "개월",
+      "monetaryValue": "예상 가치"
+    },
+    "assumptions": {
+      "title": "가정",
+      "hoursPerTicket": "티켓당 시간",
+      "hoursPerFteMonth": "FTE·월당 시간",
+      "hourlyRate": "시간당 요금",
+      "currency": "통화"
+    },
+    "tasksSection": {
+      "title": "기간 내 작업",
+      "empty": "아직 이 기간에 완료된 작업이 없습니다.",
+      "status": "상태",
+      "titleColumn": "제목",
+      "issue": "이슈",
+      "completedAt": "완료 시각"
+    },
+    "prsSection": {
+      "title": "머지된 풀 리퀘스트",
+      "empty": "이 기간에 머지된 풀 리퀘스트가 없습니다.",
+      "number": "PR",
+      "targetBranch": "대상 브랜치",
+      "mergedAt": "머지 시각"
+    },
+    "status": {
+      "done": "완료",
+      "failed": "실패"
+    },
+    "actions": {
+      "print": "인쇄",
+      "exportCsv": "CSV 내보내기"
     }
   },
   "errors": {
@@ -551,5 +812,559 @@
     "submitting": "답변 제출 중...",
     "answeredCount": "{{count}}개의 질문에 답변함",
     "answeredCount_other": "{{count}}개의 질문에 답변함"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "새로 고침",
+    "refreshing": "새로 고치는 중...",
+    "loading": "이슈를 불러오는 중...",
+    "loadError": "이슈를 불러오지 못했습니다.",
+    "loadingRepos": "저장소를 불러오는 중...",
+    "noReposMessage": "등록된 저장소가 없습니다. 이슈를 보려면 먼저 저장소를 추가하세요.",
+    "selectRepoPrompt": "이슈를 보려면 저장소를 선택하세요.",
+    "repoSelectorPlaceholder": "저장소 선택",
+    "openGroup": "열림",
+    "closedGroup": "닫힘",
+    "authorPrefix": "작성자:",
+    "countLabel": "{{count}}개의 이슈",
+    "countLabel_other": "{{count}}개의 이슈",
+    "emptyTitle": "아직 이슈가 없습니다",
+    "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
+    "assignToAgent": "에이전트에게 할당",
+    "reassignAction": "재할당",
+    "archiveAction": "보관",
+    "taskStatus": {
+      "queued": "대기 중",
+      "in_progress": "진행 중",
+      "in_review": "검토 중",
+      "done": "완료"
+    },
+    "taskLinked": {
+      "openWorkspace": "워크스페이스 열기",
+      "viewInSprint": "스프린트에서 보기"
+    },
+    "table": {
+      "issue": "이슈",
+      "title": "제목",
+      "state": "상태",
+      "worker": "워커",
+      "branch": "브랜치",
+      "updated": "업데이트",
+      "actions": "작업",
+      "timeAgo": {
+        "justNow": "방금 전",
+        "minutes": "{{count}}분 전",
+        "hours": "{{count}}시간 전",
+        "days": "{{count}}일 전",
+        "weeks": "{{count}}주 전"
+      }
+    },
+    "assignDialog": {
+      "title": "이슈 #{{number}}를 워커에게 할당",
+      "description": "워커를 선택하세요. 작업이 워커의 대기열에 추가됩니다.",
+      "workerLabel": "담당 워커",
+      "workerPlaceholder": "워커 선택...",
+      "noWorkers": "사용 가능한 워커가 없습니다. 먼저 워커를 생성하세요.",
+      "workerLoadError": "워커를 불러올 수 없습니다.",
+      "loadingWorkers": "워커 불러오는 중...",
+      "cancel": "취소",
+      "confirm": "작업 대기열에 추가",
+      "enqueuedError": "작업 대기열 추가에 실패했습니다.",
+      "checkingConflicts": "기존 할당 확인 중...",
+      "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
+      "assignAnyway": "그래도 할당"
+    },
+    "reassignDialog": {
+      "title": "이슈 #{{number}}을(를) 다른 워커에게 재할당",
+      "description": "\"{{title}}\"을(를) 다른 워커로 이동합니다. 프롬프트와 기록은 유지됩니다.",
+      "currentWorker": "현재 담당:",
+      "targetWorkerLabel": "이동 대상",
+      "unknownWorker": "알 수 없음",
+      "noOtherWorkers": "재할당할 다른 워커가 없습니다. 먼저 다른 워커를 생성하세요.",
+      "notQueuedWarning": "이 작업은 {{status}} 상태이므로 원자적으로 재할당할 수 없습니다. 먼저 워커 큐에서 취소한 후 재할당하세요.",
+      "reassignError": "작업 재할당에 실패했습니다.",
+      "confirm": "재할당"
+    },
+    "filters": {
+      "stateLabel": "상태",
+      "searchPlaceholder": "이슈 검색…",
+      "state": {
+        "all": "전체",
+        "open": "열림",
+        "closed": "닫힘"
+      },
+      "priority": "우선순위",
+      "priorities": {
+        "urgent": "긴급",
+        "high": "높음",
+        "medium": "보통",
+        "low": "낮음"
+      },
+      "label": "레이블",
+      "milestone": "마일스톤",
+      "worker": "워커",
+      "groupBy": "그룹화",
+      "groupByOptions": {
+        "none": "없음",
+        "label": "레이블",
+        "milestone": "마일스톤"
+      },
+      "clear": "필터 초기화",
+      "noResults": "현재 필터에 맞는 이슈가 없습니다.",
+      "noLabel": "레이블 없음",
+      "noMilestone": "마일스톤 없음"
+    },
+    "drawer": {
+      "title": "이슈 상세",
+      "close": "닫기",
+      "openOnGitHub": "GitHub에서 열기",
+      "stateOpen": "열림",
+      "stateClosed": "닫힘",
+      "priority": "우선순위",
+      "milestone": "마일스톤",
+      "author": "작성자",
+      "labels": "레이블",
+      "addLabel": "레이블 추가",
+      "searchLabels": "레이블 검색…",
+      "createLabel": "\"{{name}}\" 생성",
+      "noLabels": "레이블을 찾을 수 없습니다",
+      "description": "설명",
+      "noDescription": "설명이 없습니다.",
+      "archive": "보관",
+      "archiveTitle": "이슈 보관",
+      "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
+      "archiveAction": "이슈 닫기"
+    }
+  },
+  "workers": {
+    "title": "워커",
+    "newWorker": "새 워커",
+    "loading": "워커를 불러오는 중...",
+    "loadError": "워커를 불러오지 못했습니다.",
+    "emptyTitle": "아직 워커가 없습니다",
+    "emptyDescription": "워커를 만들어 작업을 할당해 보세요.",
+    "confirmDelete": "워커 \"{{worker}}\"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "stats": {
+      "working": "작업 중",
+      "queued": "대기 중",
+      "completed": "완료"
+    },
+    "templates": {
+      "backend": "백엔드 전문가",
+      "frontend": "프론트엔드 전문가",
+      "generalist": "제너럴리스트",
+      "analyst": "분석가",
+      "reviewer": "리뷰어"
+    },
+    "card": {
+      "statusWorking": "작업 중",
+      "statusIdle": "대기 중",
+      "currentTaskLink": "현재 워크스페이스 열기",
+      "noCurrentTask": "진행 중인 작업 없음",
+      "stalledShort": "에이전트 중지됨, 작업 미완료",
+      "menuLabel": "워커 작업",
+      "edit": "편집",
+      "duplicate": "복제",
+      "delete": "삭제",
+      "queuedLabel": "대기",
+      "completedLabel": "완료",
+      "startNext": "다음 작업 시작",
+      "expandQueue": "대기열 보기",
+      "collapseQueue": "대기열 숨기기",
+      "queueLoading": "대기열을 불러오는 중...",
+      "queueError": "대기열을 불러오지 못했습니다.",
+      "queueEmpty": "대기열이 비었습니다.",
+      "needsAttention": "확인 필요",
+      "planModeOnBadge": "플랜 모드",
+      "planModeOffBadge": "플랜 모드 해제",
+      "planModeOnTooltip": "이 워커에 대해 플랜 모드를 강제로 활성화했습니다.",
+      "planModeOffTooltip": "이 워커에 대해 플랜 모드를 강제로 비활성화했습니다."
+    },
+    "form": {
+      "newTitle": "새 워커",
+      "editTitle": "워커 편집",
+      "description": "이름과 소울을 지정하세요. 소울은 워커의 동작을 이끄는 프롬프트입니다.",
+      "nameLabel": "이름",
+      "namePlaceholder": "예: Backend Bee",
+      "roleLabel": "역할",
+      "templatesLabel": "템플릿으로 시작",
+      "soulLabel": "소울(Soul)",
+      "soulPlaceholder": "영역, 표준, Definition of Done을 설명하세요...",
+      "systemInstructionsTitle": "시스템 지침",
+      "systemInstructionsReadOnly": "(읽기 전용 — 모든 워커에 적용)",
+      "cancel": "취소",
+      "saveNew": "워커 만들기",
+      "saveEdit": "변경 사항 저장",
+      "modelLabel": "모델",
+      "modelDefault": "기본값 (글로벌)",
+      "planModeLabel": "플랜 모드",
+      "planModeGlobal": "전역 설정 따르기",
+      "planModeOn": "강제 활성화",
+      "planModeOff": "강제 비활성화",
+      "planModeHelp": "이 워커에 한해 executor의 전역 플랜 모드를 재정의합니다.",
+      "githubPatLabel": "GitHub PAT (선택)",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "•••••• (저장됨 — 유지하려면 비워두세요)",
+      "githubPatValidate": "검증",
+      "githubPatValidateOk": "유효함 — {{login}}(으)로 인증됨",
+      "githubPatHelp": "비워두면 머신의 전역 gh 자격 증명을 사용합니다. 참고: GitHub는 자신의 PR을 승인할 수 없으므로 리뷰어는 작성자와 다른 PAT가 필요합니다.",
+      "githubPatStored": "저장된 PAT가 있습니다.",
+      "githubPatWillClear": "저장 시 PAT가 삭제됩니다.",
+      "githubPatClear": "지우기",
+      "githubPatUndoClear": "실행 취소"
+    },
+    "roles": {
+      "developer": "개발자",
+      "analyst": "분석가",
+      "reviewer": "리뷰어",
+      "developerDescription": "기능을 구현하고 풀 리퀘스트를 생성합니다",
+      "analystDescription": "조사를 수행하고 서면 결과물을 생성합니다",
+      "reviewerDescription": "코드를 검토하고 피드백을 제공합니다"
+    },
+    "toast": {
+      "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
+      "startConflict": "{{worker}}에는 대기 중인 작업이 없거나 이미 작업 중입니다.",
+      "startError": "{{worker}} 시작 실패: {{message}}",
+      "planCapReached": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedWithLimit": "{{worker}}의 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
+      "createSuccess": "워커를 만들었습니다.",
+      "updateSuccess": "워커를 업데이트했습니다.",
+      "deleteSuccess": "{{worker}}를 삭제했습니다.",
+      "duplicateSuccess": "{{worker}}를 \"{{clone}}\"(으)로 복제했습니다.",
+      "duplicateError": "{{worker}} 복제 실패: {{message}}",
+      "dismiss": "닫기"
+    }
+  },
+  "analystDesk": {
+    "title": "분석가 데스크",
+    "repoLabel": "저장소",
+    "analystsLabel": "분석가",
+    "skillsPicker": "스킬",
+    "skillsEmpty": "설치된 스킬이 없습니다.",
+    "requestLabel": "요청",
+    "promptPlaceholder": "분석가에게 요청할 내용을 설명하세요. 예: 알림 에픽을 수용 기준이 있는 작은 이슈로 분해.",
+    "hint": "분석가가 비어 있으면 즉시 실행되고, 아니면 대기열에 추가됩니다.",
+    "submit": "요청 보내기",
+    "loading": "불러오는 중...",
+    "loadError": "분석가를 불러오지 못했습니다.",
+    "noAnalystsTitle": "아직 분석가가 없습니다",
+    "noAnalystsDescription": "Analyst 역할의 워커를 만들면 요청을 보낼 수 있습니다.",
+    "goToWorkers": "Workers로 이동",
+    "historyTitle": "{{worker}}에게 보낸 요청",
+    "historyEmpty": "아직 요청이 없습니다. 요청과 결과가 여기에 표시됩니다.",
+    "openWorkspace": "실행 보기",
+    "retry": "다시 시도",
+    "stop": "중지",
+    "remove": "제거",
+    "stopConfirmMessage": "이 요청을 중지하시겠습니까? 컨테이너가 중지되고 요청이 삭제됩니다.",
+    "removeConfirmMessage": "분석가의 대기열에서 이 요청을 제거하시겠습니까?",
+    "cancelConfirm": "취소",
+    "stopConfirm": "중지",
+    "removeConfirm": "제거",
+    "dismiss": "닫기",
+    "status": {
+      "queued": "대기 중",
+      "queuedAhead": "대기 중 · 앞에 {{ahead}}건",
+      "inProgress": "진행 중",
+      "done": "완료",
+      "failed": "실패"
+    },
+    "toast": {
+      "started": "{{worker}}이(가) 요청을 시작했습니다.",
+      "queued": "{{worker}}의 대기열에 추가되었습니다.",
+      "error": "요청을 보내지 못했습니다: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "이미지를 여기에 끌어다 놓거나, 클릭하여 추가하거나, 붙여넣기",
+      "addMore": "이미지 더 추가",
+      "removeAria": "{{name}} 제거",
+      "uploading": "업로드 중",
+      "errorLabel": "업로드 실패",
+      "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
+      "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "트리거",
+      "jobs": "작업",
+      "prefabs": "프리셋",
+      "escapeHatch": "탈출구",
+      "community": "커뮤니티 · 마켓플레이스",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "marketplaceHint": "2만+ 커뮤니티 액션"
+    },
+    "picker": {
+      "placeholder": "노드 검색…",
+      "noResults": "결과 없음",
+      "triggers": "트리거",
+      "jobs": "작업",
+      "prefabs": "프리셋",
+      "escapeHatch": "탈출구",
+      "community": "커뮤니티",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "marketplaceHint": "2만+ 커뮤니티 액션"
+    },
+    "sidebar": {
+      "workflows": "워크플로",
+      "newWorkflow": "새로 만들기",
+      "loading": "불러오는 중…",
+      "noWorkflows": "아직 워크플로가 없습니다 — 하나 만들어 시작하세요.",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CI 파이프라인 스튜디오",
+      "compileErrors_other": "컴파일 오류 {{count}}개",
+      "drifted": "YAML이 스튜디오 밖에서 변경됨",
+      "imported": "가져옴 — 저장하면 파일이 정규화됩니다",
+      "dirty": "저장되지 않은 변경 사항",
+      "inSync": "동기화됨",
+      "viewYaml": "YAML 보기",
+      "save": "저장",
+      "compilePr": "컴파일 → PR"
+    },
+    "canvas": {
+      "zoomIn": "확대",
+      "zoomOut": "축소",
+      "fitView": "보기 맞추기",
+      "hint": "Tab 노드 추가 · 우클릭 메뉴"
+    },
+    "contextMenu": {
+      "addNode": "노드 추가…",
+      "searchMarketplace": "마켓플레이스 검색…",
+      "autoLayout": "자동 배치",
+      "fitView": "보기 맞추기",
+      "viewYaml": "컴파일된 YAML 보기",
+      "deleteNode": "노드 삭제"
+    },
+    "inspector": {
+      "workflowSection": "워크플로",
+      "workflowName": "워크플로 이름",
+      "emptyHint": "노드를 선택해 편집하세요. YAML은 이 그래프에서 컴파일되며 작업 순서와 needs는 항상 캔버스에서 결정됩니다.",
+      "triggerSection": "트리거 · {{kind}}",
+      "branches": "브랜치(쉼표로 구분)",
+      "pathsIgnore": "무시할 경로(쉼표로 구분)",
+      "cron": "Cron",
+      "manualHint": "Actions 탭에서 수동으로 실행합니다.",
+      "jobSection": "작업",
+      "jobId": "작업 ID",
+      "label": "레이블",
+      "executionSection": "실행",
+      "runsOn": "runs-on",
+      "needs": "needs · 연결에서 파생",
+      "needsNone": "의존성 없음",
+      "needsHint": "연결이 needs를 정의합니다 — 원시 YAML에 적힌 needs보다 우선합니다.",
+      "prefabSection": "프리셋 · {{name}}",
+      "actionSection": "마켓플레이스 액션",
+      "uses": "uses",
+      "checkout": "먼저 저장소 체크아웃",
+      "with": "입력(with)",
+      "inputKey": "키",
+      "inputValue": "값",
+      "addInput": "+ 입력 추가",
+      "removeInput": "입력 제거",
+      "rawJobSection": "작업 YAML",
+      "rawFileSection": "가져온 워크플로(파일 전체)",
+      "rawFileHint": "이 워크플로는 스튜디오 밖에서 작성되어 그대로 편집·커밋됩니다.",
+      "deleteNode": "노드 삭제",
+      "stepsSection": "스텝 ({{count}})",
+      "stepName": "스텝 이름(선택)",
+      "moveUp": "위로",
+      "moveDown": "아래로",
+      "removeStep": "스텝 제거",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ run 스텝",
+      "addUsesStep": "+ uses 스텝",
+      "jobEnvSection": "작업 env"
+    },
+    "marketplace": {
+      "placeholder": "GitHub Actions Marketplace 검색…",
+      "useCustom": "\"{{uses}}\" 사용",
+      "useCustomHint": "owner/repo@ref로 아무 액션이나 삽입",
+      "noResults": "결과 없음 — owner/repo@ref를 입력하면 아무 액션이나 삽입할 수 있습니다",
+      "footerCount": "큐레이션 목록 · 실시간 검색 곧 제공"
+    },
+    "compilePr": {
+      "title": "컴파일 → Pull Request",
+      "branch": "브랜치",
+      "base": "베이스 브랜치",
+      "prTitle": "PR 제목",
+      "filesNote_other": "{{count}}개의 파일이 새 브랜치에 커밋됩니다 — 작업 트리는 건드리지 않습니다.",
+      "create": "PR 만들기",
+      "success": "{{branch}} 브랜치에 PR을 만들었습니다.",
+      "openPr": "PR 열기",
+      "close": "닫기"
+    },
+    "yamlPreview": {
+      "title": "컴파일된 YAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "새 워크플로",
+      "name": "이름(파일: .github/workflows/<name>.yml)",
+      "create": "만들기"
+    },
+    "empty": {
+      "selectWorkflow": "사이드바에서 워크플로를 선택하거나 새로 만들어 파이프라인을 그려보세요.",
+      "noRepo": "저장소를 추가해 여기서 CI를 설계하세요."
+    },
+    "steps": {
+      "count": "스텝 {{count}}개",
+      "hint": "Tab 삽입 · 드래그로 재정렬 · Esc 뒤로",
+      "addStep": "스텝 추가",
+      "insertHere": "여기에 스텝 삽입",
+      "emptyHint": "체인에서 스텝을 선택해 편집하세요. 체인이 실행 순서를 정의합니다.",
+      "stepSection": "스텝 {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "스텝 env",
+      "deleteStep": "스텝 \"{{name}}\" 삭제"
+    },
+    "stepPicker": {
+      "placeholder": "스텝 추가…",
+      "steps": "스텝",
+      "runStep": "run 스텝",
+      "runStepHint": "셸 명령",
+      "usesStep": "uses 스텝",
+      "usesStepHint": "owner/repo@ref 액션",
+      "checkout": "Checkout",
+      "marketplaceHint": "액션을 스텝으로 삽입"
+    }
+  },
+  "sprint": {
+    "title": "칸반",
+    "repoSelectorPlaceholder": "저장소 선택",
+    "loadingRepos": "저장소를 불러오는 중...",
+    "noReposMessage": "등록된 저장소가 없습니다. 스프린트를 계획하려면 저장소를 추가하세요.",
+    "selectRepoPrompt": "스프린트 보드를 보려면 저장소를 선택하세요.",
+    "loading": "스프린트를 불러오는 중...",
+    "loadError": "스프린트 보드를 불러오지 못했습니다.",
+    "sync": "동기화",
+    "syncing": "동기화 중...",
+    "columns": {
+      "backlog": "백로그",
+      "queued": "대기열",
+      "inProgress": "진행 중",
+      "inReview": "검토 중",
+      "done": "완료",
+      "failed": "실패"
+    },
+    "backlog": {
+      "assign": "할당",
+      "noWorkers": "사용 가능한 워커가 없습니다",
+      "empty": "대기 중인 오픈 이슈가 없습니다.",
+      "moreActions": "더 많은 작업",
+      "setPriority": "우선순위 설정",
+      "assignTo": "워커에게 할당"
+    },
+    "queued": {
+      "moveUp": "위로",
+      "moveDown": "아래로",
+      "remove": "제거",
+      "empty": "대기열이 비어 있습니다."
+    },
+    "inProgress": {
+      "openWorkspace": "워크스페이스 열기",
+      "stop": "중지",
+      "stopConfirmMessage": "실행을 중지하고 이슈를 백로그로 돌려보내시겠습니까?",
+      "stopAndUnassign": "중지 및 할당 해제",
+      "empty": "진행 중인 태스크가 없습니다."
+    },
+    "inReview": {
+      "unassign": "할당 해제",
+      "unassignConfirmMessage": "태스크 할당을 해제하고 이슈를 백로그로 돌려보내시겠습니까?",
+      "unassignConfirm": "할당 해제",
+      "reRequestReview": "재검토 요청",
+      "empty": "검토 대기 중인 항목이 없습니다."
+    },
+    "done": {
+      "empty": "아직 완료된 태스크가 없습니다.",
+      "remove": "제거",
+      "removeConfirmMessage": "이 완료된 태스크를 보드에서 제거하시겠습니까?",
+      "removeConfirm": "제거"
+    },
+    "filters": {
+      "searchPlaceholder": "이슈 검색...",
+      "clearSearch": "검색 지우기",
+      "epic": "에픽",
+      "allEpics": "모든 에픽",
+      "label": "레이블",
+      "allLabels": "모든 레이블",
+      "priority": "우선순위",
+      "allPriorities": "모든 우선순위",
+      "worker": "워커",
+      "allWorkers": "모든 워커",
+      "clearAll": "필터 초기화",
+      "noResults": "활성 필터와 일치하는 이슈가 없습니다."
+    },
+    "priority": {
+      "urgent": "긴급",
+      "high": "높음",
+      "medium": "보통",
+      "low": "낮음"
+    },
+    "detail": {
+      "panelLabel": "이슈 상세",
+      "close": "패널 닫기",
+      "noPriority": "우선순위 없음",
+      "noBody": "설명이 없습니다.",
+      "assignedTo": "{{worker}}에게 할당됨"
+    },
+    "toast": {
+      "startAllSuccess": "{{count}}명의 워커가 시작되었습니다.",
+      "startAllError": "워커 시작 실패: {{message}}",
+      "planCapReachedGeneric": "일부 작업이 대기열에 추가되었습니다 — 요금제의 동시 에이전트 한도에 도달했습니다.",
+      "planCapReachedGenericWithLimit": "일부 작업이 대기열에 추가되었습니다 — 요금제는 {{limit}}개의 에이전트를 병렬로 실행합니다. 더 많이 실행하려면 업그레이드하세요.",
+      "assignDuplicate": "이 이슈에는 이미 워커에게 할당된 활성 작업이 있습니다.",
+      "startAllSuccess_other": "{{count}}명의 워커가 시작되었습니다.",
+      "reviewApproved": "리뷰 승인: {{title}}",
+      "reviewChangesRequested": "변경 요청: {{title}}",
+      "cancelError": "태스크 중지 실패: {{message}}",
+      "reRequestReviewSuccess": "새 리뷰 라운드를 요청했습니다.",
+      "reRequestReviewMaxRounds": "이 PR은 이미 최대 리뷰 라운드 수에 도달했습니다.",
+      "reRequestReviewNoOpenPr": "이 태스크에 열린 풀 리퀘스트가 없습니다.",
+      "reRequestReviewNoReviewer": "리뷰를 담당할 리뷰어 워커가 없습니다.",
+      "reRequestReviewInProgress": "이 PR에 대한 리뷰 라운드가 이미 진행 중입니다.",
+      "reRequestReviewHeadUnchanged": "마지막 리뷰 이후 이 PR에 새 커밋이 없습니다. 다시 리뷰해도 같은 판정이 반복됩니다. 먼저 수정 사항을 푸시하세요.",
+      "reRequestReviewNoChangesRequested": "이 태스크는 현재 재검토를 대기 중이 아닙니다.",
+      "reRequestReviewError": "재검토를 요청할 수 없습니다: {{message}}"
+    },
+    "failed": {
+      "retry": "재시도",
+      "discard": "버리기",
+      "viewPr": "PR 보기",
+      "empty": "실패한 태스크가 없습니다."
+    },
+    "autoIngest": {
+      "label": "자동 시작",
+      "description": "작업이 할당되면 워커가 즉시 시작됩니다"
+    }
+  },
+  "setupWizard": {
+    "aria": "온보딩 마법사",
+    "title": "시작하기",
+    "subtitle": "빈 인스턴스에서 첫 PR까지 네 단계.",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub 연결",
+        "description": "Personal Access Token 또는 gh CLI로 인증하여 에이전트가 PR을 열 수 있게 합니다.",
+        "action": "연결"
+      },
+      "repo": {
+        "title": "저장소 추가",
+        "description": "로컬 저장소를 등록해 에이전트가 브랜치와 워크스페이스를 만들 수 있게 합니다.",
+        "action": "추가"
+      },
+      "agent": {
+        "title": "에이전트 연결",
+        "description": "Claude Code, Codex 또는 Gemini에 로그인해 워커가 실행할 에이전트를 준비합니다.",
+        "action": "연결"
+      },
+      "task": {
+        "title": "첫 태스크 만들기 및 할당",
+        "description": "이슈를 골라 워커에게 할당하면 에이전트가 실행되어 PR을 엽니다.",
+        "action": "이슈로 이동"
+      }
+    }
   }
 }

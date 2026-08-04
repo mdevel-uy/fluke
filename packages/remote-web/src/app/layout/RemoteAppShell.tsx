@@ -7,7 +7,6 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
-import { siDiscord, siGithub } from "simple-icons";
 import { AppBar, type AppBarHostStatus } from "@vibe/ui/components/AppBar";
 import { XIcon, PlusIcon, HouseIcon, KanbanIcon } from "@phosphor-icons/react";
 import { MobileDrawer } from "@vibe/ui/components/MobileDrawer";
@@ -17,8 +16,6 @@ import { cn } from "@/shared/lib/utils";
 import { useUserOrganizations } from "@/shared/hooks/useUserOrganizations";
 import { useAuth } from "@/shared/hooks/auth/useAuth";
 import { useOrganizationStore } from "@/shared/stores/useOrganizationStore";
-import { useDiscordOnlineCount } from "@/shared/hooks/useDiscordOnlineCount";
-import { useGitHubStars } from "@/shared/hooks/useGitHubStars";
 import { AppBarNotificationBellContainer } from "@/pages/workspaces/AppBarNotificationBellContainer";
 import { SettingsDialog } from "@/shared/dialogs/settings/SettingsDialog";
 import { CommandBarDialog } from "@/shared/dialogs/command-bar/CommandBarDialog";
@@ -125,8 +122,6 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
   const isLoadingProjects =
     isSignedIn && !!activeOrganizationId && projectsQuery.isLoading;
 
-  const { data: onlineCount } = useDiscordOnlineCount();
-  const { data: starCount } = useGitHubStars();
   const { hosts: relayHosts } = useRelayAppBarHosts(isSignedIn);
 
   const selectedOrgName =
@@ -257,24 +252,14 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
       <div className="flex min-h-0 flex-1">
         {!isMobile && (
           <AppBar
-            projects={projects}
             hosts={relayHosts}
             onPairHostClick={isSignedIn ? handlePairHostClick : undefined}
             activeHostId={activeHostId}
-            onCreateProject={handleCreateProject}
             onWorkspacesClick={handleWorkspacesClick}
             onHostClick={handleHostClick}
             showWorkspacesButton={false}
-            onProjectClick={handleProjectClick}
-            onProjectsDragEnd={() => {}}
-            isSavingProjectOrder={true}
             isWorkspacesActive={isWorkspacesActive}
-            activeProjectId={activeProjectId}
             isSignedIn={isSignedIn}
-            isLoadingProjects={isLoadingProjects}
-            onSignIn={() => {
-              navigate({ to: "/account" });
-            }}
             notificationBell={
               isSignedIn ? <AppBarNotificationBellContainer /> : undefined
             }
@@ -285,10 +270,6 @@ export function RemoteAppShell({ children }: RemoteAppShellProps) {
                 onOrgSelect={setSelectedOrgId}
               />
             }
-            starCount={starCount}
-            onlineCount={onlineCount}
-            githubIconPath={siGithub.path}
-            discordIconPath={siDiscord.path}
           />
         )}
 

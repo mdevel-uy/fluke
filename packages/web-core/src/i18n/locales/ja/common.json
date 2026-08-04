@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "カスタム"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "VS Code Web (github.dev) で開く",
+    "branchNotPushed": "ブランチはまだ GitHub にプッシュされていません"
+  },
   "folderPicker": {
     "legend": "フォルダ名をクリックして移動 • アクションボタンで選択",
     "manualPathLabel": "パスを手動入力:",
@@ -79,7 +83,7 @@
   "signIn": "サインイン",
   "signOut": "サインアウト",
   "oauth": {
-    "title": "Vibe Kanbanにサインイン",
+    "title": "mkanbanにサインイン",
     "description": "サインインして組織に参加し、チームとタスクを共有します",
     "continueWithGitHub": "GitHubで続行",
     "continueWithGoogle": "Googleで続行",
@@ -119,11 +123,40 @@
     "viewArchive": "アーカイブを表示",
     "backToActive": "アクティブに戻る",
     "noArchived": "アーカイブされたワークスペースはありません",
-    "noWorkspaces": "ワークスペースがありません",
-    "newWorkspace": "新しいワークスペース",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "対応が必要",
     "idle": "待機中",
     "running": "実行中",
+    "all": "すべて",
+    "activityWorking": "作業中…",
+    "activityWaitingApproval": "承認待ち",
+    "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} マージ済み",
+    "prOpen": "PR #{{number}} オープン",
+    "queuedPosition": "キュー · #{{position}}",
+    "queuedTooltip": "エージェントスロットの空きを待機中（同時実行数の上限に達しました）。",
+    "expand": "詳細を表示",
+    "collapse": "詳細を隠す",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "オープン",
+        "merged": "マージ済み",
+        "closed": "クローズ",
+        "unknown": "不明"
+      },
+      "conflicting": "マージコンフリクト",
+      "mergeable": "マージ可能",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 実行中…",
+      "branch": "ブランチ",
+      "lastActivity": "最終アクティビティ",
+      "openWorkspace": "ワークスペースを開く",
+      "viewPr": "PRを表示",
+      "viewIssue": "Issueを表示"
+    },
     "pin": "ピン留め",
     "unpin": "ピン留め解除",
     "archive": "アーカイブ",
@@ -152,7 +185,21 @@
       "cannotDeleteOpenPr": "PRがオープン中はブランチを削除できません",
       "unlinkFromIssueLabel": "イシューからもリンク解除する"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "タスクが停滞 — エージェントは停止しましたがタスクが進んでいません",
+    "scopes": {
+      "attention": "対応が必要",
+      "running": "実行中",
+      "idle": "待機中",
+      "all": "すべてのワークスペース",
+      "archive": "アーカイブ"
+    },
+    "scopeRailLabel": "ワークスペースの範囲",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "レビュアー作業中..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "ファイルを検索...",
@@ -175,19 +222,13 @@
     "recent": "最近",
     "other": "その他",
     "devServerPreview": "開発サーバープレビュー",
-    "terminal": "ターミナル",
-    "notes": "メモ"
-  },
-  "notes": {
-    "placeholder": "このワークスペースについてメモを追加...",
-    "selectWorkspace": "メモを表示するにはワークスペースを選択してください"
+    "terminal": "ターミナル"
   },
   "actions": {
     "copyPath": "パスをコピー",
     "cancel": "キャンセル",
     "saveChanges": "変更を保存",
-    "copied": "コピーしました",
-    "collapse": "折りたたむ"
+    "copied": "コピーしました"
   },
   "comments": {
     "addReviewComment": "レビューコメントを追加",
@@ -216,7 +257,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "ようこそ",
-      "content": "Vibe Kanbanの新しいUIであるWorkspacesへようこそ。早期フィードバックのために一部のユーザーに先行公開しています。ナビバーのフィードバックアイコンからいつでもご意見をお聞かせください。"
+      "content": "mkanbanの新しいUIであるWorkspacesへようこそ。早期フィードバックのために一部のユーザーに先行公開しています。ナビバーのフィードバックアイコンからいつでもご意見をお聞かせください。"
     },
     "commandBar": {
       "title": "コマンドバー",
@@ -256,8 +297,7 @@
     "selectProcessToView": "プロセスを選択してログを表示"
   },
   "processes": {
-    "noProcesses": "プロセスがありません",
-    "terminal": "ターミナル"
+    "noProcesses": "プロセスがありません"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",
@@ -298,10 +338,10 @@
       "moveLeft": "左に移動",
       "moveRight": "右に移動",
       "openCommandBar": "コマンドバーを開く",
+      "toggleTerminal": "ターミナルの表示/非表示",
       "formatInlineCode": "Format inline code",
       "sendMessage": "メッセージを送信",
       "settings": "設定に移動",
-      "new-workspace": "新しいワークスペースに移動",
       "duplicate-workspace": "ワークスペースを複製",
       "rename-workspace": "ワークスペースの名前を変更",
       "pin-workspace": "ワークスペースをピン留め/解除",
@@ -433,34 +473,40 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "担当者",
+    "filterByAssignee": "担当者で絞り込む",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "オプション",
+    "sortField": {
+      "sort_order": "手動",
+      "priority": "優先度",
+      "created_at": "作成日",
+      "updated_at": "更新日",
+      "title": "タイトル"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "ブロック中を非表示",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
-    "changeColor": "Change color",
-    "editName": "Edit name",
-    "deleteStatus": "Delete status",
-    "cannotDeleteWithIssues": "Move issues first",
-    "lastVisibleStatus": "At least one status must be visible",
-    "showStatus": "Show status",
-    "hideStatus": "Hide status",
-    "newStatus": "New Status",
-    "visibleColumns": "Visible Columns",
-    "dragToRearrange": "Drag to re-arrange",
-    "addColumn": "Add column",
     "projectsGuide": {
       "intro": {
         "title": "Welcome",
-        "content": "Welcome to Vibe Kanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
+        "content": "Welcome to mkanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
       },
       "welcome": {
         "title": "Projects",
@@ -476,7 +522,7 @@
       },
       "organizations": {
         "title": "Invite your team",
-        "content": "We've automatically created a personal organization and initial project so you can get started with Vibe Kanban. Export your cloud data before shutdown."
+        "content": "We've automatically created a personal organization and initial project so you can get started with mkanban. Export your cloud data before shutdown."
       }
     }
   },
@@ -533,11 +579,226 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "ライトテーマ",
+      "dark": "ダークテーマ",
+      "system": "システムテーマ"
+    },
+    "commandBarTrigger": {
+      "placeholder": "コマンドを検索...",
+      "ariaLabel": "コマンドバーを開く"
+    },
+    "layout": {
+      "toggleAdhocClaude": "アドホック Claude"
+    }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} スロット",
+    "slotsTooltip": "使用中のエージェントスロット — AGENT_CONCURRENCY_LIMIT / config で設定します。",
+    "slotsQueued": "{{count}} 件待機中",
+    "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。"
+  },
+  "adhocPanel": {
+    "title": "アドホック Claude",
+    "close": "アドホック Claude パネルを閉じる",
+    "newSession": "新しいセッション",
+    "loading": "Claude セッションを準備中…",
+    "noRepo": {
+      "title": "利用できるリポジトリがありません",
+      "description": "アドホック Claude セッションを開始するにはリポジトリを追加してください。"
+    },
+    "error": {
+      "title": "アドホックセッションを開けませんでした",
+      "description": "スクラッチワークスペースの準備中にエラーが発生しました。",
+      "retry": "再試行"
+    }
+  },
   "appBar": {
+    "dashboard": "ダッシュボード",
+    "workspaces": "ワークスペース",
+    "issues": "課題",
+    "workers": "ワーカー",
+    "sprint": "カンバン",
+    "analystDesk": "アナリストデスク",
+    "ciPipelines": "CIパイプライン",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "settings": "設定",
     "kanban": {
-      "tooltip": "サインインしてプロジェクトを表示",
       "title": "カンバンボード",
       "description": "サインインしてカンバンボードでコーディングエージェントを整理しましょう。"
+    }
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "live": "ライブ",
+    "workersActive": "稼働中のワーカー",
+    "inProgress": "進行中",
+    "queued": "待機中",
+    "inReview": "レビュー中",
+    "openPrs": "オープンPR",
+    "approvals": "承認待ち",
+    "done": "完了",
+    "failed": "失敗",
+    "workersSection": "ワーカー",
+    "pipelineSection": "タスクパイプライン",
+    "prsSection": "プルリクエスト",
+    "attentionSection": "要対応",
+    "attentionEmpty": "問題ありません — 対応が必要な項目はありません。",
+    "prsEmpty": "オープンなプルリクエストはありません。",
+    "noWorkers": "ワーカーがまだ設定されていません。",
+    "noActiveTask": "アクティブなタスクなし",
+    "context": "コンテキスト",
+    "queue": "キュー",
+    "running": "実行中",
+    "idle": "待機",
+    "mergeable": "マージ可能",
+    "conflicting": "コンフリクト",
+    "approvalPending": "承認待ち — {{worker}}",
+    "prConflict": "PR #{{number}} にコンフリクトがあります",
+    "highContext": "{{name}} のコンテキストが {{pct}}%",
+    "taskStalled": "タスクが停滞 — {{name}}",
+    "processFailed": "直近の実行が失敗 — {{name}}",
+    "updatedAgo": "{{time}}前に更新",
+    "autoIngest": "自動取り込み",
+    "runningSub": "{{names}} 実行中",
+    "acrossRepos": "{{count}} リポジトリ",
+    "nextUp": "次: {{label}}",
+    "conflictingCount": "{{count}} 件コンフリクト",
+    "waitingFor": "{{time}} 待機中",
+    "doneToday": "今日の完了",
+    "failedCount": "{{count}} 件失敗",
+    "pipelineHint": "今日 · 全ワーカー",
+    "openCount": "{{count}} 件オープン",
+    "openPill": "オープン",
+    "actionReview": "レビュー",
+    "actionOpen": "開く",
+    "actionView": "表示",
+    "actionNudge": "促す",
+    "compactionLikely": "このセッションでコンパクションの可能性",
+    "activitySection": "アクティビティ",
+    "activityEmpty": "最近のアクティビティはありません。",
+    "feedTaskDone": "{{worker}} がタスク {{task}} を完了",
+    "feedTaskFailed": "タスク {{task}} が失敗",
+    "feedPrOpened": "{{worker}} が PR #{{number}} を作成",
+    "feedPrMerged": "PR #{{number}} がマージされました",
+    "feedApprovalRequested": "承認リクエスト — {{tool}}",
+    "feedTaskStarted": "{{worker}} が {{task}} を開始",
+    "summarySection": "サマリー",
+    "offline": "再接続中…",
+    "openWorkerWorkspace": "{{name}} のワークスペースを開く",
+    "openPilotReport": "パイロットレポートを開く",
+    "claudeLimits": {
+      "title": "Claude の上限",
+      "workersOnClaude": "Claude Code で{{count}}件のワーカー",
+      "workersOnClaude_other": "Claude Code で{{count}}件のワーカー",
+      "resetsAt": "{{time}} にリセット",
+      "meter": {
+        "session": "セッション · 5時間ウィンドウ",
+        "week_all": "週 · 全モデル",
+        "week_opus": "週 · Opus"
+      }
+    },
+    "impact": {
+      "title": "クローズした Issue",
+      "windowLabel": "期間",
+      "windowDays": "{{days}}日",
+      "hoursPerIssue": "時間 / Issue",
+      "hoursPerIssueLabel": "Issue あたりの想定工数（時間）",
+      "hoursSaved": "約 {{hours}} 時間の削減",
+      "summary": "直近 {{days}} 日間で {{count}} 件クローズ",
+      "summary_other": "直近 {{days}} 日間で {{count}} 件クローズ",
+      "loading": "クローズした Issue を読み込み中…",
+      "empty": "この期間にクローズした Issue はありません。履歴は次回の Issue 同期で埋まります。",
+      "chartLabel": "直近 {{days}} 日間の日別クローズ件数：合計 {{total}} 件、約 {{hours}} 時間分。",
+      "tooltipIssues": "{{count}} 件クローズ",
+      "tooltipIssues_other": "{{count}} 件クローズ",
+      "tooltipHours": "{{issues}} × {{factor}} 時間 = {{hours}} 時間",
+      "moreIssues": "他 {{extra}} 件"
+    },
+    "valueGenerated": {
+      "title": "創出された価値",
+      "windowLabel": "履歴期間",
+      "windowMonths": "{{months}}か月",
+      "hoursPerTask": "時間 / タスク",
+      "hoursPerTaskLabel": "完了タスクあたりの既定の削減工数（時間）",
+      "hoursPerFte": "時間 / FTE·月",
+      "hoursPerFteLabel": "FTE 1 人あたりの月間労働時間",
+      "thisMonthLabel": "今月 · {{month}}",
+      "summaryTickets": "{{count}} 件のチケットを解決",
+      "summaryTickets_other": "{{count}} 件のチケットを解決",
+      "summaryHours": "約 {{hours}} 時間の削減",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "直近 {{months}} か月",
+      "totalsTickets": "{{count}} 件",
+      "totalsHours": "{{hours}} 時間",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "月",
+      "tableTickets": "チケット",
+      "tableHours": "時間",
+      "tableFte": "FTE",
+      "loading": "創出された価値を読み込み中…",
+      "emptyHistory": "過去月のデータはまだありません。タスクが完了するごとに追加されます。",
+      "overridePerTaskToggle": "タスクごとの時間を編集",
+      "overridePerTaskLoading": "今月のタスクを読み込み中…",
+      "overridePerTaskEmpty": "今月完了したタスクはありません。",
+      "overridePerTaskInputLabel": "このタスクの節約時間",
+      "overridePerTaskClear": "デフォルトを使用"
+    }
+  },
+  "pilotReport": {
+    "title": "パイロットレポート",
+    "subtitle": "パイロット期間にフリートが提供した内容の1ページのスナップショット — CTO へそのまま渡せます。",
+    "rangeHeading": "レポート期間: {{range}}",
+    "loadError": "レポートを読み込めませんでした。再読み込みするか、期間を短くしてください。",
+    "loading": "読み込み中…",
+    "printFooter": "生成日時: {{generatedAt}} · 数値は上記の前提に基づきます。",
+    "dateRange": {
+      "from": "開始",
+      "to": "終了",
+      "presets": "期間プリセット",
+      "presetLabel": "直近 {{days}} 日"
+    },
+    "kpi": {
+      "ticketsResolved": "解決したチケット",
+      "ticketsFailedHint": "+ {{count}} 件が失敗",
+      "prsMerged": "マージされた PR",
+      "hoursSaved": "節約時間",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 換算",
+      "fteUnit": "か月",
+      "monetaryValue": "推定価値"
+    },
+    "assumptions": {
+      "title": "前提条件",
+      "hoursPerTicket": "1 チケットあたりの時間",
+      "hoursPerFteMonth": "1 FTE·月の時間",
+      "hourlyRate": "時間単価",
+      "currency": "通貨"
+    },
+    "tasksSection": {
+      "title": "期間内のタスク",
+      "empty": "この期間に完了したタスクはまだありません。",
+      "status": "ステータス",
+      "titleColumn": "タイトル",
+      "issue": "イシュー",
+      "completedAt": "完了日時"
+    },
+    "prsSection": {
+      "title": "マージ済みプルリクエスト",
+      "empty": "この期間にマージされたプルリクエストはありません。",
+      "number": "PR",
+      "targetBranch": "ターゲットブランチ",
+      "mergedAt": "マージ日時"
+    },
+    "status": {
+      "done": "完了",
+      "failed": "失敗"
+    },
+    "actions": {
+      "print": "印刷",
+      "exportCsv": "CSV をエクスポート"
     }
   },
   "errors": {
@@ -551,5 +812,559 @@
     "submitting": "回答を送信中...",
     "answeredCount": "{{count}}件の質問に回答済み",
     "answeredCount_other": "{{count}}件の質問に回答済み"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "更新",
+    "refreshing": "更新中...",
+    "loading": "Issue を読み込み中...",
+    "loadError": "Issue の読み込みに失敗しました。",
+    "loadingRepos": "リポジトリを読み込み中...",
+    "noReposMessage": "登録されているリポジトリがありません。Issue を表示するにはリポジトリを追加してください。",
+    "selectRepoPrompt": "Issue を表示するリポジトリを選択してください。",
+    "repoSelectorPlaceholder": "リポジトリを選択",
+    "openGroup": "オープン",
+    "closedGroup": "クローズ",
+    "authorPrefix": "作成者:",
+    "countLabel": "{{count}} 件の Issue",
+    "countLabel_other": "{{count}} 件の Issue",
+    "emptyTitle": "Issue はまだありません",
+    "emptyDescription": "更新してソースから Issue を同期してください。",
+    "assignToAgent": "エージェントに割り当てる",
+    "reassignAction": "再割り当て",
+    "archiveAction": "アーカイブ",
+    "taskStatus": {
+      "queued": "待機中",
+      "in_progress": "進行中",
+      "in_review": "レビュー中",
+      "done": "完了"
+    },
+    "taskLinked": {
+      "openWorkspace": "ワークスペースを開く",
+      "viewInSprint": "スプリントで表示"
+    },
+    "table": {
+      "issue": "Issue",
+      "title": "タイトル",
+      "state": "状態",
+      "worker": "ワーカー",
+      "branch": "ブランチ",
+      "updated": "更新",
+      "actions": "操作",
+      "timeAgo": {
+        "justNow": "たった今",
+        "minutes": "{{count}}分前",
+        "hours": "{{count}}時間前",
+        "days": "{{count}}日前",
+        "weeks": "{{count}}週間前"
+      }
+    },
+    "assignDialog": {
+      "title": "Issue #{{number}} をワーカーに割り当てる",
+      "description": "ワーカーを選択してください。タスクはワーカーのキューに追加されます。",
+      "workerLabel": "担当ワーカー",
+      "workerPlaceholder": "ワーカーを選択...",
+      "noWorkers": "利用可能なワーカーがいません。先にワーカーを作成してください。",
+      "workerLoadError": "ワーカーを読み込めませんでした。",
+      "loadingWorkers": "ワーカーを読み込み中...",
+      "cancel": "キャンセル",
+      "confirm": "タスクをキューに追加",
+      "enqueuedError": "タスクのキュー追加に失敗しました。",
+      "checkingConflicts": "既存の割り当てを確認中...",
+      "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
+      "assignAnyway": "それでも割り当てる"
+    },
+    "reassignDialog": {
+      "title": "Issue #{{number}} を別のワーカーに再割り当て",
+      "description": "「{{title}}」を別のワーカーに移動します。プロンプトと履歴はそのまま引き継がれます。",
+      "currentWorker": "現在の担当:",
+      "targetWorkerLabel": "移動先",
+      "unknownWorker": "不明",
+      "noOtherWorkers": "再割り当て可能な他のワーカーがいません。別のワーカーを先に作成してください。",
+      "notQueuedWarning": "このタスクは {{status}} のため、アトミックに再割り当てできません。まずワーカーのキューからキャンセルしてから再割り当てしてください。",
+      "reassignError": "タスクの再割り当てに失敗しました。",
+      "confirm": "再割り当て"
+    },
+    "filters": {
+      "stateLabel": "状態",
+      "searchPlaceholder": "Issue を検索…",
+      "state": {
+        "all": "すべて",
+        "open": "オープン",
+        "closed": "クローズ"
+      },
+      "priority": "優先度",
+      "priorities": {
+        "urgent": "緊急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "ラベル",
+      "milestone": "マイルストーン",
+      "worker": "ワーカー",
+      "groupBy": "グループ化",
+      "groupByOptions": {
+        "none": "なし",
+        "label": "ラベル",
+        "milestone": "マイルストーン"
+      },
+      "clear": "フィルターをクリア",
+      "noResults": "現在のフィルターに一致する Issue はありません。",
+      "noLabel": "ラベルなし",
+      "noMilestone": "マイルストーンなし"
+    },
+    "drawer": {
+      "title": "Issue 詳細",
+      "close": "閉じる",
+      "openOnGitHub": "GitHub で開く",
+      "stateOpen": "オープン",
+      "stateClosed": "クローズ",
+      "priority": "優先度",
+      "milestone": "マイルストーン",
+      "author": "作成者",
+      "labels": "ラベル",
+      "addLabel": "ラベルを追加",
+      "searchLabels": "ラベルを検索…",
+      "createLabel": "\"{{name}}\" を作成",
+      "noLabels": "ラベルが見つかりません",
+      "description": "説明",
+      "noDescription": "説明はありません。",
+      "archive": "アーカイブ",
+      "archiveTitle": "Issue をアーカイブ",
+      "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
+      "archiveAction": "Issue をクローズ"
+    }
+  },
+  "workers": {
+    "title": "ワーカー",
+    "newWorker": "新しいワーカー",
+    "loading": "ワーカーを読み込み中...",
+    "loadError": "ワーカーの読み込みに失敗しました。",
+    "emptyTitle": "まだワーカーはいません",
+    "emptyDescription": "ワーカーを作成してタスクを割り当てましょう。",
+    "confirmDelete": "ワーカー「{{worker}}」を削除しますか？この操作は元に戻せません。",
+    "stats": {
+      "working": "作業中",
+      "queued": "待機中",
+      "completed": "完了"
+    },
+    "templates": {
+      "backend": "バックエンドスペシャリスト",
+      "frontend": "フロントエンドスペシャリスト",
+      "generalist": "ジェネラリスト",
+      "analyst": "アナリスト",
+      "reviewer": "レビュアー"
+    },
+    "card": {
+      "statusWorking": "作業中",
+      "statusIdle": "待機中",
+      "currentTaskLink": "現在のワークスペースを開く",
+      "noCurrentTask": "進行中のタスクなし",
+      "stalledShort": "エージェント停止、タスク未完了",
+      "menuLabel": "ワーカーのアクション",
+      "edit": "編集",
+      "duplicate": "複製",
+      "delete": "削除",
+      "queuedLabel": "待機",
+      "completedLabel": "完了",
+      "startNext": "次のタスクを開始",
+      "expandQueue": "キューを表示",
+      "collapseQueue": "キューを隠す",
+      "queueLoading": "キューを読み込み中...",
+      "queueError": "キューの読み込みに失敗しました。",
+      "queueEmpty": "キューは空です。",
+      "needsAttention": "要対応",
+      "planModeOnBadge": "プランモード",
+      "planModeOffBadge": "プランモード無効",
+      "planModeOnTooltip": "このワーカーではプランモードを強制的に有効にしています。",
+      "planModeOffTooltip": "このワーカーではプランモードを強制的に無効にしています。"
+    },
+    "form": {
+      "newTitle": "新しいワーカー",
+      "editTitle": "ワーカーを編集",
+      "description": "名前とソウルを設定します。ソウルはワーカーの動作を導くプロンプトです。",
+      "nameLabel": "名前",
+      "namePlaceholder": "例：Backend Bee",
+      "roleLabel": "役割",
+      "templatesLabel": "テンプレートから始める",
+      "soulLabel": "ソウル",
+      "soulPlaceholder": "領域、基準、Definition of Done を記述してください...",
+      "systemInstructionsTitle": "システム指示",
+      "systemInstructionsReadOnly": "(読み取り専用 — 全ワーカーに適用)",
+      "cancel": "キャンセル",
+      "saveNew": "ワーカーを作成",
+      "saveEdit": "変更を保存",
+      "modelLabel": "モデル",
+      "modelDefault": "デフォルト（グローバル）",
+      "planModeLabel": "プランモード",
+      "planModeGlobal": "グローバル設定に従う",
+      "planModeOn": "強制的に有効",
+      "planModeOff": "強制的に無効",
+      "planModeHelp": "このワーカーに対して、executor のグローバルなプランモードを上書きします。",
+      "githubPatLabel": "GitHub PAT（任意）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（保存済み — 変更しない場合は空欄のまま）",
+      "githubPatValidate": "検証",
+      "githubPatValidateOk": "有効 — {{login}} として認証されました",
+      "githubPatHelp": "空欄にするとマシンのグローバル gh 認証情報を使用します。注意：GitHub は自分自身の PR を承認できないため、レビュアーは作者と異なる PAT が必要です。",
+      "githubPatStored": "PAT が保存されています。",
+      "githubPatWillClear": "保存時に PAT を削除します。",
+      "githubPatClear": "削除",
+      "githubPatUndoClear": "取り消し"
+    },
+    "roles": {
+      "developer": "開発者",
+      "analyst": "アナリスト",
+      "reviewer": "レビュアー",
+      "developerDescription": "機能を実装してプルリクエストを作成します",
+      "analystDescription": "調査を行い、書面による成果物を作成します",
+      "reviewerDescription": "コードをレビューしてフィードバックを提供します"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
+      "startConflict": "{{worker}} には待機中のタスクがない、またはすでに作業中です。",
+      "startError": "{{worker}} の開始に失敗しました：{{message}}",
+      "planCapReached": "{{worker}} のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedWithLimit": "{{worker}} のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
+      "createSuccess": "ワーカーを作成しました。",
+      "updateSuccess": "ワーカーを更新しました。",
+      "deleteSuccess": "{{worker}} を削除しました。",
+      "duplicateSuccess": "{{worker}} を「{{clone}}」として複製しました。",
+      "duplicateError": "{{worker}} の複製に失敗しました：{{message}}",
+      "dismiss": "閉じる"
+    }
+  },
+  "analystDesk": {
+    "title": "アナリストデスク",
+    "repoLabel": "リポジトリ",
+    "analystsLabel": "アナリスト",
+    "skillsPicker": "スキル",
+    "skillsEmpty": "インストール済みのスキルはありません。",
+    "requestLabel": "依頼",
+    "promptPlaceholder": "アナリストに依頼したい内容を記述してください。例: 通知エピックを受け入れ基準付きの小さなissueに分解する。",
+    "hint": "アナリストが空いていれば即時実行、作業中ならキューに追加されます。",
+    "submit": "依頼を送信",
+    "loading": "読み込み中...",
+    "loadError": "アナリストを読み込めませんでした。",
+    "noAnalystsTitle": "アナリストがいません",
+    "noAnalystsDescription": "Analystロールのワーカーを作成すると依頼を送れます。",
+    "goToWorkers": "Workersへ",
+    "historyTitle": "{{worker}} への依頼",
+    "historyEmpty": "まだ依頼はありません。依頼と結果がここに表示されます。",
+    "openWorkspace": "実行を見る",
+    "retry": "再試行",
+    "stop": "停止",
+    "remove": "削除",
+    "stopConfirmMessage": "この依頼を停止しますか？コンテナが停止し、依頼が削除されます。",
+    "removeConfirmMessage": "この依頼をアナリストのキューから削除しますか？",
+    "cancelConfirm": "キャンセル",
+    "stopConfirm": "停止",
+    "removeConfirm": "削除",
+    "dismiss": "閉じる",
+    "status": {
+      "queued": "待機中",
+      "queuedAhead": "待機中 · 前に {{ahead}} 件",
+      "inProgress": "実行中",
+      "done": "完了",
+      "failed": "失敗"
+    },
+    "toast": {
+      "started": "{{worker}} が依頼に着手しました。",
+      "queued": "{{worker}} のキューに追加しました。",
+      "error": "依頼を送信できませんでした: {{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "画像をここにドラッグ、クリックして追加、または貼り付け",
+      "addMore": "画像を追加",
+      "removeAria": "{{name}} を削除",
+      "uploading": "アップロード中",
+      "errorLabel": "アップロードに失敗しました",
+      "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
+      "tooLarge": "ファイルサイズが上限を超えています。"
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "トリガー",
+      "jobs": "ジョブ",
+      "prefabs": "プリセット",
+      "escapeHatch": "エスケープハッチ",
+      "community": "コミュニティ · マーケットプレイス",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "marketplaceHint": "2万以上のコミュニティアクション"
+    },
+    "picker": {
+      "placeholder": "ノードを検索…",
+      "noResults": "結果なし",
+      "triggers": "トリガー",
+      "jobs": "ジョブ",
+      "prefabs": "プリセット",
+      "escapeHatch": "エスケープハッチ",
+      "community": "コミュニティ",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "marketplaceHint": "2万以上のコミュニティアクション"
+    },
+    "sidebar": {
+      "workflows": "ワークフロー",
+      "newWorkflow": "新規",
+      "loading": "読み込み中…",
+      "noWorkflows": "ワークフローがまだありません — 作成して始めましょう。",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CIパイプラインスタジオ",
+      "compileErrors_other": "コンパイルエラー {{count}} 件",
+      "drifted": "YAMLがスタジオ外で変更されました",
+      "imported": "インポート済み — 保存するとファイルが正規化されます",
+      "dirty": "未保存の変更",
+      "inSync": "同期済み",
+      "viewYaml": "YAMLを表示",
+      "save": "保存",
+      "compilePr": "コンパイル → PR"
+    },
+    "canvas": {
+      "zoomIn": "ズームイン",
+      "zoomOut": "ズームアウト",
+      "fitView": "ビューを調整",
+      "hint": "Tab ノード追加 · 右クリック メニュー"
+    },
+    "contextMenu": {
+      "addNode": "ノードを追加…",
+      "searchMarketplace": "マーケットプレイスを検索…",
+      "autoLayout": "自動レイアウト",
+      "fitView": "ビューを調整",
+      "viewYaml": "コンパイル済みYAMLを表示",
+      "deleteNode": "ノードを削除"
+    },
+    "inspector": {
+      "workflowSection": "ワークフロー",
+      "workflowName": "ワークフロー名",
+      "emptyHint": "ノードを選択して編集します。YAMLはこのグラフからコンパイルされ、ジョブの順序とneedsは常にキャンバスから決まります。",
+      "triggerSection": "トリガー · {{kind}}",
+      "branches": "ブランチ（カンマ区切り）",
+      "pathsIgnore": "無視するパス（カンマ区切り）",
+      "cron": "Cron",
+      "manualHint": "Actionsタブから手動で実行します。",
+      "jobSection": "ジョブ",
+      "jobId": "ジョブID",
+      "label": "ラベル",
+      "executionSection": "実行",
+      "runsOn": "runs-on",
+      "needs": "needs · エッジから導出",
+      "needsNone": "依存関係なし",
+      "needsHint": "接続がneedsを定義します — 生YAMLに書かれたneedsより優先されます。",
+      "prefabSection": "プリセット · {{name}}",
+      "actionSection": "マーケットプレイスのアクション",
+      "uses": "uses",
+      "checkout": "先にリポジトリをチェックアウト",
+      "with": "入力（with）",
+      "inputKey": "キー",
+      "inputValue": "値",
+      "addInput": "+ 入力を追加",
+      "removeInput": "入力を削除",
+      "rawJobSection": "ジョブのYAML",
+      "rawFileSection": "インポートされたワークフロー（ファイル全体）",
+      "rawFileHint": "このワークフローはスタジオ外で作成されており、そのまま編集・コミットされます。",
+      "deleteNode": "ノードを削除",
+      "stepsSection": "ステップ（{{count}}）",
+      "stepName": "ステップ名（任意）",
+      "moveUp": "上へ",
+      "moveDown": "下へ",
+      "removeStep": "ステップを削除",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ runステップ",
+      "addUsesStep": "+ usesステップ",
+      "jobEnvSection": "ジョブのenv"
+    },
+    "marketplace": {
+      "placeholder": "GitHub Actions Marketplaceを検索…",
+      "useCustom": "\"{{uses}}\" を使用",
+      "useCustomHint": "owner/repo@ref で任意のアクションを挿入",
+      "noResults": "結果なし — owner/repo@ref を入力すると任意のアクションを挿入できます",
+      "footerCount": "キュレーション済み · ライブ検索は近日公開"
+    },
+    "compilePr": {
+      "title": "コンパイル → Pull Request",
+      "branch": "ブランチ",
+      "base": "ベースブランチ",
+      "prTitle": "PRタイトル",
+      "filesNote_other": "{{count}} 個のファイルが新しいブランチにコミットされます — 作業ツリーには触れません。",
+      "create": "PRを作成",
+      "success": "ブランチ {{branch}} にPRを作成しました。",
+      "openPr": "PRを開く",
+      "close": "閉じる"
+    },
+    "yamlPreview": {
+      "title": "コンパイル済みYAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "新しいワークフロー",
+      "name": "名前（ファイル: .github/workflows/<name>.yml）",
+      "create": "作成"
+    },
+    "empty": {
+      "selectWorkflow": "サイドバーからワークフローを選ぶか、新規作成してパイプラインを描き始めましょう。",
+      "noRepo": "リポジトリを追加してCIをここで設計します。"
+    },
+    "steps": {
+      "count": "{{count}} ステップ",
+      "hint": "Tab 挿入 · ドラッグで並べ替え · Esc 戻る",
+      "addStep": "ステップを追加",
+      "insertHere": "ここにステップを挿入",
+      "emptyHint": "チェーンのステップを選択して編集します。チェーンが実行順序を定義します。",
+      "stepSection": "ステップ {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "ステップのenv",
+      "deleteStep": "ステップ \"{{name}}\" を削除"
+    },
+    "stepPicker": {
+      "placeholder": "ステップを追加…",
+      "steps": "ステップ",
+      "runStep": "runステップ",
+      "runStepHint": "シェルコマンド",
+      "usesStep": "usesステップ",
+      "usesStepHint": "owner/repo@ref のアクション",
+      "checkout": "Checkout",
+      "marketplaceHint": "アクションをステップとして挿入"
+    }
+  },
+  "sprint": {
+    "title": "カンバン",
+    "repoSelectorPlaceholder": "リポジトリを選択",
+    "loadingRepos": "リポジトリを読み込み中...",
+    "noReposMessage": "登録されているリポジトリがありません。スプリントを計画するにはリポジトリを追加してください。",
+    "selectRepoPrompt": "スプリントボードを表示するリポジトリを選択してください。",
+    "loading": "スプリントを読み込み中...",
+    "loadError": "スプリントボードの読み込みに失敗しました。",
+    "sync": "同期",
+    "syncing": "同期中...",
+    "columns": {
+      "backlog": "バックログ",
+      "queued": "キュー",
+      "inProgress": "進行中",
+      "inReview": "レビュー中",
+      "done": "完了",
+      "failed": "失敗"
+    },
+    "backlog": {
+      "assign": "割り当てる",
+      "noWorkers": "利用可能なワーカーがありません",
+      "empty": "着手待ちのオープン Issue はありません。",
+      "moreActions": "その他のアクション",
+      "setPriority": "優先度を設定",
+      "assignTo": "ワーカーに割り当てる"
+    },
+    "queued": {
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "remove": "削除",
+      "empty": "キューは空です。"
+    },
+    "inProgress": {
+      "openWorkspace": "ワークスペースを開く",
+      "stop": "停止",
+      "stopConfirmMessage": "実行を停止してIssueをバックログに戻しますか？",
+      "stopAndUnassign": "停止して割り当て解除",
+      "empty": "進行中のタスクはありません。"
+    },
+    "inReview": {
+      "unassign": "割り当て解除",
+      "unassignConfirmMessage": "タスクの割り当てを解除してIssueをバックログに戻しますか？",
+      "unassignConfirm": "割り当て解除",
+      "reRequestReview": "再レビューを依頼",
+      "empty": "レビュー待ちはありません。"
+    },
+    "done": {
+      "empty": "完了したタスクはまだありません。",
+      "remove": "削除",
+      "removeConfirmMessage": "この完了タスクをボードから削除しますか？",
+      "removeConfirm": "削除"
+    },
+    "filters": {
+      "searchPlaceholder": "Issue を検索...",
+      "clearSearch": "検索をクリア",
+      "epic": "エピック",
+      "allEpics": "すべてのエピック",
+      "label": "ラベル",
+      "allLabels": "すべてのラベル",
+      "priority": "優先度",
+      "allPriorities": "すべての優先度",
+      "worker": "ワーカー",
+      "allWorkers": "すべてのワーカー",
+      "clearAll": "フィルターをクリア",
+      "noResults": "アクティブなフィルターに一致する Issue がありません。"
+    },
+    "priority": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "detail": {
+      "panelLabel": "Issue の詳細",
+      "close": "パネルを閉じる",
+      "noPriority": "優先度なし",
+      "noBody": "説明がありません。",
+      "assignedTo": "{{worker}} に割り当て済み"
+    },
+    "toast": {
+      "startAllSuccess": "{{count}}件のワーカーを開始しました。",
+      "startAllError": "ワーカーの開始に失敗しました: {{message}}",
+      "planCapReachedGeneric": "一部のタスクはキューに追加されました — プランの同時実行エージェント数の上限に達しています。",
+      "planCapReachedGenericWithLimit": "一部のタスクはキューに追加されました — プランでは {{limit}} 個のエージェントを並列実行できます。さらに実行するにはアップグレードしてください。",
+      "assignDuplicate": "この Issue にはすでにワーカーに割り当てられたアクティブなタスクがあります。",
+      "startAllSuccess_other": "{{count}}件のワーカーを開始しました。",
+      "reviewApproved": "レビュー承認: {{title}}",
+      "reviewChangesRequested": "変更要求: {{title}}",
+      "cancelError": "タスクの停止に失敗しました: {{message}}",
+      "reRequestReviewSuccess": "新しいレビューラウンドをリクエストしました。",
+      "reRequestReviewMaxRounds": "このPRはすでに最大レビューラウンド数に達しています。",
+      "reRequestReviewNoOpenPr": "このタスクにはオープンなプルリクエストがありません。",
+      "reRequestReviewNoReviewer": "レビューを担当できるレビュワーワーカーがいません。",
+      "reRequestReviewInProgress": "このPRのレビューラウンドはすでに進行中です。",
+      "reRequestReviewHeadUnchanged": "前回のレビュー以降、このPRに新しいコミットはありません。再レビューしても同じ判定が繰り返されます。まず修正をプッシュしてください。",
+      "reRequestReviewNoChangesRequested": "このタスクは現在、再レビュー待ちではありません。",
+      "reRequestReviewError": "再レビューをリクエストできませんでした: {{message}}"
+    },
+    "failed": {
+      "retry": "再試行",
+      "discard": "破棄",
+      "viewPr": "PR を表示",
+      "empty": "失敗したタスクはありません。"
+    },
+    "autoIngest": {
+      "label": "自動取り込み",
+      "description": "タスクが割り当てられるとワーカーが自動的に開始します"
+    }
+  },
+  "setupWizard": {
+    "aria": "オンボーディングウィザード",
+    "title": "はじめに",
+    "subtitle": "空のインスタンスから最初の PR までの 4 ステップ。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "GitHub に接続",
+        "description": "Personal Access Token または gh CLI で認証し、エージェントが PR を開けるようにします。",
+        "action": "接続"
+      },
+      "repo": {
+        "title": "リポジトリを追加",
+        "description": "ローカルリポジトリを登録し、エージェントがブランチとワークスペースを作れるようにします。",
+        "action": "追加"
+      },
+      "agent": {
+        "title": "エージェントに接続",
+        "description": "Claude Code、Codex または Gemini にログインして、ワーカーが実行するエージェントを用意します。",
+        "action": "接続"
+      },
+      "task": {
+        "title": "最初のタスクを作成して割り当て",
+        "description": "イシューを選んでワーカーに割り当てると、エージェントが実行して PR を開きます。",
+        "action": "イシューへ"
+      }
+    }
   }
 }

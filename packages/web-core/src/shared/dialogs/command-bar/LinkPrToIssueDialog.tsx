@@ -281,11 +281,11 @@ function LinkPrToIssueContent({ issueId }: { issueId: string }) {
   const statusColor = (status: string) => {
     switch (status) {
       case 'open':
-        return 'text-green-600 dark:text-green-400';
+        return 'text-success';
       case 'merged':
-        return 'text-purple-600 dark:text-purple-400';
+        return 'text-merged';
       case 'closed':
-        return 'text-red-600 dark:text-red-400';
+        return 'text-error';
       default:
         return 'text-muted-foreground';
     }

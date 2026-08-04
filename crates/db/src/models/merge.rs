@@ -51,6 +51,8 @@ pub struct PullRequestInfo {
     pub status: MergeStatus,
     pub merged_at: Option<chrono::DateTime<chrono::Utc>>,
     pub merge_commit_sha: Option<String>,
+    /// Mergeable state: "mergeable", "conflicting", "unknown", or None if not yet polled.
+    pub mergeable: Option<String>,
 }
 
 /// Row type for direct merges only (PR data now lives in pull_requests).

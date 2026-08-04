@@ -1,8 +1,8 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
-import { CaretDownIcon } from '@phosphor-icons/react';
 import { cn } from '../lib/cn';
+import { MaterialIcon } from './MaterialIcon';
 
 const STORAGE_KEY_PREFIX = 'vibe.ui.collapsible.';
 
@@ -23,7 +23,9 @@ function getInitialExpanded(
 }
 
 export type SectionAction = {
-  icon: Icon;
+  /** @deprecated Prefer materialIcon */
+  icon?: Icon;
+  materialIcon?: string;
   onClick: () => void;
   isActive?: boolean;
 };
@@ -31,23 +33,29 @@ export type SectionAction = {
 interface CollapsibleSectionHeaderProps {
   persistKey?: string;
   title: string;
+  /** Item count shown after the title, VSCode-style ("RUNNING — 2") */
+  count?: number;
   defaultExpanded?: boolean;
   collapsible?: boolean;
   actions?: SectionAction[];
   headerExtra?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Reports the expanded state (on mount and on toggle). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function CollapsibleSectionHeader({
   persistKey,
   title,
+  count,
   defaultExpanded = true,
   collapsible = true,
   actions = [],
   headerExtra,
   children,
   className,
+  onExpandedChange,
 }: CollapsibleSectionHeaderProps) {
   const [expanded, setExpanded] = useState(() =>
     getInitialExpanded(persistKey, defaultExpanded)
@@ -89,10 +97,41 @@ export function CollapsibleSectionHeader({
 
   const isExpanded = collapsible ? expanded : true;
 
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
+
   const headerContent = (
     <>
-      <span className="font-medium truncate text-normal">{title}</span>
-      <div className="flex items-center gap-half">
+      <span className="flex items-center gap-0.5 min-w-0">
+        {collapsible && (
+          <MaterialIcon
+            name="chevron_left"
+            size="xs"
+            className={cn(
+              'text-md-on-surface-variant transition-transform duration-150 shrink-0',
+              expanded ? '-rotate-90' : 'rotate-180'
+            )}
+          />
+        )}
+        <span
+          className={cn(
+            'text-label uppercase tracking-wider truncate',
+            // VSCode: section headers read darker/heavier than the panel title
+            collapsible ? 'font-bold text-high' : 'font-semibold text-normal'
+          )}
+        >
+          {title}
+          {count !== undefined && (
+            <span className="text-low font-normal tabular-nums">
+              {' '}
+              — {count}
+            </span>
+          )}
+        </span>
+      </span>
+      <div className="flex items-center gap-0.5">
         {headerExtra}
         {actions.map((action, index) => {
           const ActionIcon = action.icon;
@@ -104,23 +143,24 @@ export function CollapsibleSectionHeader({
               onClick={(e) => handleActionClick(e, action.onClick)}
               onKeyDown={(e) => handleActionKeyDown(e, action.onClick)}
               className={cn(
-                'hover:text-normal',
-                action.isActive ? 'text-brand' : 'text-low'
+                'flex items-center justify-center w-5 h-5 rounded-sm transition-colors duration-150 hover:bg-md-surface-container hover:text-md-on-surface',
+                action.isActive
+                  ? 'text-brand-on-surface'
+                  : 'text-md-on-surface-variant'
               )}
             >
-              <ActionIcon className="size-icon-xs" weight="bold" />
+              {action.materialIcon ? (
+                <MaterialIcon
+                  name={action.materialIcon}
+                  fill={action.isActive ? 1 : 0}
+                  size="xs"
+                />
+              ) : ActionIcon ? (
+                <ActionIcon className="size-icon-xs" weight="bold" />
+              ) : null}
             </span>
           );
         })}
-        {collapsible && (
-          <CaretDownIcon
-            weight="fill"
-            className={cn(
-              'size-icon-xs text-low transition-transform',
-              !expanded && '-rotate-90'
-            )}
-          />
-        )}
       </div>
     </>
   );
@@ -132,18 +172,12 @@ export function CollapsibleSectionHeader({
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className={cn(
-              'flex items-center justify-between w-full px-base py-half cursor-pointer'
-            )}
+            className="flex items-center justify-between w-full h-[22px] px-1.5 cursor-pointer hover:text-md-on-surface select-none"
           >
             {headerContent}
           </button>
         ) : (
-          <div
-            className={cn(
-              'flex items-center justify-between w-full px-base py-half'
-            )}
-          >
+          <div className="flex items-center justify-between w-full h-[30px] pl-[22px] pr-2 mb-1 select-none">
             {headerContent}
           </div>
         )}

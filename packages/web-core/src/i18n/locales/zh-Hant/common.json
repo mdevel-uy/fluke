@@ -2,6 +2,10 @@
   "editorNames": {
     "custom": "自訂"
   },
+  "githubDev": {
+    "openInVSCodeWeb": "在 VS Code Web (github.dev) 中開啟",
+    "branchNotPushed": "分支尚未推送到 GitHub"
+  },
   "buttons": {
     "save": "儲存",
     "cancel": "取消",
@@ -79,7 +83,7 @@
   "signIn": "登入",
   "signOut": "登出",
   "oauth": {
-    "title": "登入 Vibe Kanban",
+    "title": "登入 mkanban",
     "description": "登入以加入組織並與團隊共享任務",
     "continueWithGitHub": "使用 GitHub 繼續",
     "continueWithGoogle": "使用 Google 繼續",
@@ -119,11 +123,40 @@
     "viewArchive": "檢視封存",
     "backToActive": "返回活躍",
     "noArchived": "沒有已封存的工作區",
-    "noWorkspaces": "沒有工作區",
-    "newWorkspace": "新工作區",
+    "noWorkspaces": "No workspaces yet — one opens when a worker picks up an issue.",
     "needsAttention": "需要關注",
     "idle": "閒置",
     "running": "執行中",
+    "all": "全部",
+    "activityWorking": "工作中…",
+    "activityWaitingApproval": "等待核准",
+    "contextPct": "{{pct}}% ctx",
+    "prMerged": "PR #{{number}} 已合併",
+    "prOpen": "PR #{{number}} 開啟",
+    "queuedPosition": "排隊中 · #{{position}}",
+    "queuedTooltip": "等待可用的代理槽位（已達到並發上限）。",
+    "expand": "顯示詳情",
+    "collapse": "隱藏詳情",
+    "details": {
+      "issue": "Issue",
+      "pr": "PR",
+      "prStatus": {
+        "open": "開放",
+        "merged": "已合併",
+        "closed": "已關閉",
+        "unknown": "未知"
+      },
+      "conflicting": "合併衝突",
+      "mergeable": "可合併",
+      "ciPassing": "CI ✓",
+      "ciFailing": "CI ✗",
+      "ciPending": "CI 執行中…",
+      "branch": "分支",
+      "lastActivity": "最近活動",
+      "openWorkspace": "開啟工作區",
+      "viewPr": "檢視 PR",
+      "viewIssue": "檢視 Issue"
+    },
     "pin": "釘選",
     "unpin": "取消釘選",
     "archive": "封存",
@@ -152,7 +185,21 @@
       "cannotDeleteOpenPr": "PR 開啟時無法刪除分支",
       "unlinkFromIssueLabel": "同時取消與議題的關聯"
     },
-    "linkError": "Failed to link workspace"
+    "linkError": "Failed to link workspace",
+    "stalledTask": "任務停滯 — 代理已停止但任務未推進",
+    "scopes": {
+      "attention": "需要你處理",
+      "running": "執行中",
+      "idle": "閒置",
+      "all": "全部工作區",
+      "archive": "封存"
+    },
+    "scopeRailLabel": "工作區範圍",
+    "draftWorkspace": "Draft workspace",
+    "openForIssue": "Open a workspace for this issue",
+    "aside": {
+      "reviewerWorking": "審閱者工作中..."
+    }
   },
   "fileTree": {
     "searchPlaceholder": "搜尋檔案...",
@@ -175,19 +222,13 @@
     "recent": "最近",
     "other": "其他",
     "devServerPreview": "開發伺服器預覽",
-    "terminal": "終端機",
-    "notes": "筆記"
-  },
-  "notes": {
-    "placeholder": "新增關於此工作區的筆記...",
-    "selectWorkspace": "選擇一個工作區以查看筆記"
+    "terminal": "終端機"
   },
   "actions": {
     "copyPath": "複製路徑",
     "cancel": "取消",
     "saveChanges": "儲存變更",
-    "copied": "已複製",
-    "collapse": "收起"
+    "copied": "已複製"
   },
   "comments": {
     "addReviewComment": "新增審查評論",
@@ -216,7 +257,7 @@
   "workspacesGuide": {
     "welcome": {
       "title": "歡迎",
-      "content": "歡迎使用 Workspaces，這是 Vibe Kanban 的全新設計介面。我們正在向部分使用者推出以獲取早期回饋。您可以隨時透過導覽列中的回饋圖示分享您的想法。"
+      "content": "歡迎使用 Workspaces，這是 mkanban 的全新設計介面。我們正在向部分使用者推出以獲取早期回饋。您可以隨時透過導覽列中的回饋圖示分享您的想法。"
     },
     "commandBar": {
       "title": "命令列",
@@ -256,8 +297,7 @@
     "selectProcessToView": "選擇一個程序以查看日誌"
   },
   "processes": {
-    "noProcesses": "無程序",
-    "terminal": "終端機"
+    "noProcesses": "無程序"
   },
   "search": {
     "matchCount": "{{current}} / {{total}}",
@@ -298,10 +338,10 @@
       "moveLeft": "向左移動",
       "moveRight": "向右移動",
       "openCommandBar": "開啟命令列",
+      "toggleTerminal": "切換終端",
       "formatInlineCode": "Format inline code",
       "sendMessage": "傳送訊息",
       "settings": "前往設定",
-      "new-workspace": "前往新工作區",
       "duplicate-workspace": "複製工作區",
       "rename-workspace": "重新命名工作區",
       "pin-workspace": "釘選/取消釘選工作區",
@@ -433,34 +473,40 @@
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
     "assignee": "Assignee",
+    "assignees": "負責人",
+    "filterByAssignee": "依負責人篩選",
     "self": "Me",
     "priority": "Priority",
+    "priorityLevels": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "options": "選項",
+    "sortField": {
+      "sort_order": "手動",
+      "priority": "優先順序",
+      "created_at": "建立時間",
+      "updated_at": "更新時間",
+      "title": "標題"
+    },
     "subIssuesFilterLabel": "Sub-issues",
     "workspacesFilterLabel": "Workspaces",
+    "hideBlockedFilterLabel": "隱藏受阻項目",
     "selectAssignees": "Select assignees...",
     "relationships": "Relationships",
     "noRelationships": "No relationships",
     "openProjectsGuide": "Projects guide",
     "editProjectSettings": "Edit project settings",
     "linkWorkspace": "Link workspace...",
-    "createNewWorkspace": "Create new workspace",
+    "createNewWorkspace": "Open a new workspace for this issue",
     "workspaces": "Workspaces",
     "showingWorkspaces": "Showing {{count}} of {{total}}",
-    "changeColor": "Change color",
-    "editName": "Edit name",
-    "deleteStatus": "Delete status",
-    "cannotDeleteWithIssues": "Move issues first",
-    "lastVisibleStatus": "At least one status must be visible",
-    "showStatus": "Show status",
-    "hideStatus": "Hide status",
-    "newStatus": "New Status",
-    "visibleColumns": "Visible Columns",
-    "dragToRearrange": "Drag to re-arrange",
-    "addColumn": "Add column",
     "projectsGuide": {
       "intro": {
         "title": "Welcome",
-        "content": "Welcome to Vibe Kanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
+        "content": "Welcome to mkanban. Use the help sections in this panel to learn how things work, then create your first issue. You can re-open this help dialog or give feedback anytime from the navbar."
       },
       "welcome": {
         "title": "Projects",
@@ -476,7 +522,7 @@
       },
       "organizations": {
         "title": "Invite your team",
-        "content": "We've automatically created a personal organization and initial project so you can get started with Vibe Kanban. Export your cloud data before shutdown."
+        "content": "We've automatically created a personal organization and initial project so you can get started with mkanban. Export your cloud data before shutdown."
       }
     }
   },
@@ -533,11 +579,226 @@
     "yes": "Yes",
     "no": "No"
   },
+  "navbar": {
+    "theme": {
+      "light": "淺色主題",
+      "dark": "深色主題",
+      "system": "系統主題"
+    },
+    "commandBarTrigger": {
+      "placeholder": "搜尋命令...",
+      "ariaLabel": "開啟命令列"
+    },
+    "layout": {
+      "toggleAdhocClaude": "臨時 Claude"
+    }
+  },
+  "statusBar": {
+    "slots": "{{used}}/{{limit}} 槽位",
+    "slotsTooltip": "使用中的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 設定。",
+    "slotsQueued": "{{count}} 個排隊中",
+    "slotsQueuedTooltip": "已達到並發上限。{{count}} 個執行正在等待可用槽位。"
+  },
+  "adhocPanel": {
+    "title": "臨時 Claude",
+    "close": "關閉臨時 Claude 面板",
+    "newSession": "新工作階段",
+    "loading": "正在準備 Claude 工作階段…",
+    "noRepo": {
+      "title": "沒有可用的儲存庫",
+      "description": "新增儲存庫以啟動臨時 Claude 工作階段。"
+    },
+    "error": {
+      "title": "無法開啟臨時工作階段",
+      "description": "準備 scratch 工作區時發生錯誤。",
+      "retry": "重試"
+    }
+  },
   "appBar": {
+    "dashboard": "儀表板",
+    "workspaces": "工作區",
+    "issues": "問題",
+    "workers": "工作者",
+    "sprint": "看板",
+    "analystDesk": "分析師工作台",
+    "ciPipelines": "CI 流水線",
+    "collapseSidebar": "收合側邊欄",
+    "expandSidebar": "展開側邊欄",
+    "settings": "設定",
     "kanban": {
-      "tooltip": "登入以查看專案",
       "title": "看板",
       "description": "登入以使用看板管理您的編碼代理。"
+    }
+  },
+  "dashboard": {
+    "title": "儀表板",
+    "live": "即時",
+    "workersActive": "活躍工作者",
+    "inProgress": "進行中",
+    "queued": "排隊中",
+    "inReview": "審查中",
+    "openPrs": "開放的 PR",
+    "approvals": "待審批",
+    "done": "已完成",
+    "failed": "失敗",
+    "workersSection": "工作者",
+    "pipelineSection": "任務管線",
+    "prsSection": "拉取請求",
+    "attentionSection": "需要關注",
+    "attentionEmpty": "一切正常 — 沒有需要處理的事項。",
+    "prsEmpty": "沒有開放的拉取請求。",
+    "noWorkers": "尚未設定工作者。",
+    "noActiveTask": "無進行中任務",
+    "context": "上下文",
+    "queue": "佇列",
+    "running": "執行中",
+    "idle": "閒置",
+    "mergeable": "可合併",
+    "conflicting": "有衝突",
+    "approvalPending": "等待審批 — {{worker}}",
+    "prConflict": "PR #{{number}} 存在衝突",
+    "highContext": "{{name}} 上下文已達 {{pct}}%",
+    "taskStalled": "任務停滯 — {{name}}",
+    "processFailed": "上次執行失敗 — {{name}}",
+    "updatedAgo": "{{time}}前更新",
+    "autoIngest": "自動擷取",
+    "runningSub": "{{names}} 執行中",
+    "acrossRepos": "跨 {{count}} 個儲存庫",
+    "nextUp": "下一個: {{label}}",
+    "conflictingCount": "{{count}} 個有衝突",
+    "waitingFor": "等待 {{time}}",
+    "doneToday": "今日完成",
+    "failedCount": "{{count}} 個失敗",
+    "pipelineHint": "今天 · 所有 worker",
+    "openCount": "{{count}} 個開啟",
+    "openPill": "開啟",
+    "actionReview": "審查",
+    "actionOpen": "開啟",
+    "actionView": "檢視",
+    "actionNudge": "催促",
+    "compactionLikely": "本工作階段可能發生壓縮",
+    "activitySection": "活動",
+    "activityEmpty": "暫無最近活動。",
+    "feedTaskDone": "{{worker}} 完成了任務 {{task}}",
+    "feedTaskFailed": "任務 {{task}} 失敗",
+    "feedPrOpened": "{{worker}} 建立了 PR #{{number}}",
+    "feedPrMerged": "PR #{{number}} 已合併",
+    "feedApprovalRequested": "請求核准 — {{tool}}",
+    "feedTaskStarted": "{{worker}} 開始了 {{task}}",
+    "summarySection": "概覽",
+    "offline": "重新連線中…",
+    "openWorkerWorkspace": "開啟 {{name}} 的工作區",
+    "openPilotReport": "開啟試點報告",
+    "claudeLimits": {
+      "title": "Claude 限額",
+      "workersOnClaude": "{{count}} 個工作者使用 Claude Code",
+      "workersOnClaude_other": "{{count}} 個工作者使用 Claude Code",
+      "resetsAt": "{{time}} 重設",
+      "meter": {
+        "session": "會話 · 5 小時視窗",
+        "week_all": "本週 · 全部模型",
+        "week_opus": "本週 · Opus"
+      }
+    },
+    "impact": {
+      "title": "已關閉的議題",
+      "windowLabel": "時間範圍",
+      "windowDays": "{{days}} 天",
+      "hoursPerIssue": "小時 / 議題",
+      "hoursPerIssueLabel": "每個議題預估的人時",
+      "hoursSaved": "約節約 {{hours}} 小時",
+      "summary": "過去 {{days}} 天關閉 {{count}} 個議題",
+      "summary_other": "過去 {{days}} 天關閉 {{count}} 個議題",
+      "loading": "正在載入已關閉的議題…",
+      "empty": "此時間範圍内尚無已關閉的議題 — 下次議題同步時將補全歷史。",
+      "chartLabel": "過去 {{days}} 天每日關閉的議題：共 {{total}} 個，約 {{hours}} 人時。",
+      "tooltipIssues": "關閉 {{count}} 個議題",
+      "tooltipIssues_other": "關閉 {{count}} 個議題",
+      "tooltipHours": "{{issues}} × {{factor}} 小時 = {{hours}} 小時",
+      "moreIssues": "另有 {{extra}} 個"
+    },
+    "valueGenerated": {
+      "title": "產生的價值",
+      "windowLabel": "歷史範圍",
+      "windowMonths": "{{months}} 個月",
+      "hoursPerTask": "小時 / 任務",
+      "hoursPerTaskLabel": "每個完成任務預設節省的人時",
+      "hoursPerFte": "小時 / FTE·月",
+      "hoursPerFteLabel": "每位 FTE 每月的工作小時數",
+      "thisMonthLabel": "本月 · {{month}}",
+      "summaryTickets": "已解決 {{count}} 張工單",
+      "summaryTickets_other": "已解決 {{count}} 張工單",
+      "summaryHours": "約節省 {{hours}} 小時",
+      "summaryFte": "≈ {{fte}} FTE",
+      "totalsLabel": "最近 {{months}} 個月",
+      "totalsTickets": "工單 {{count}} 張",
+      "totalsHours": "{{hours}} 小時",
+      "totalsFte": "{{fte}} FTE",
+      "tableMonth": "月份",
+      "tableTickets": "工單",
+      "tableHours": "小時",
+      "tableFte": "FTE",
+      "loading": "正在載入產生的價值…",
+      "emptyHistory": "尚無歷史月份 — 隨著任務完成，表格將逐步填入。",
+      "overridePerTaskToggle": "編輯每個任務的小時數",
+      "overridePerTaskLoading": "正在載入本月任務…",
+      "overridePerTaskEmpty": "本月尚無已完成任務。",
+      "overridePerTaskInputLabel": "此任務節省的小時數",
+      "overridePerTaskClear": "使用預設值"
+    }
+  },
+  "pilotReport": {
+    "title": "試點報告",
+    "subtitle": "試點期間機隊交付成果的一頁快照 — 可直接交給你的 CTO。",
+    "rangeHeading": "報告期間：{{range}}",
+    "loadError": "無法載入報告。請重新整理或縮小日期範圍。",
+    "loading": "載入中…",
+    "printFooter": "產生時間：{{generatedAt}} · 數字依上方所示假設計算。",
+    "dateRange": {
+      "from": "從",
+      "to": "到",
+      "presets": "預設範圍",
+      "presetLabel": "最近 {{days}} 天"
+    },
+    "kpi": {
+      "ticketsResolved": "已解決工單",
+      "ticketsFailedHint": "+ {{count}} 個失敗",
+      "prsMerged": "已合併 PR",
+      "hoursSaved": "節省工時",
+      "hoursUnit": "h",
+      "fteEquivalent": "FTE 換算",
+      "fteUnit": "人月",
+      "monetaryValue": "預估價值"
+    },
+    "assumptions": {
+      "title": "假設",
+      "hoursPerTicket": "每工單小時數",
+      "hoursPerFteMonth": "每 FTE·月小時數",
+      "hourlyRate": "時薪",
+      "currency": "貨幣"
+    },
+    "tasksSection": {
+      "title": "期間內任務",
+      "empty": "此區間尚無已完成任務。",
+      "status": "狀態",
+      "titleColumn": "標題",
+      "issue": "議題",
+      "completedAt": "完成時間"
+    },
+    "prsSection": {
+      "title": "已合併的 Pull Request",
+      "empty": "此區間沒有合併的 Pull Request。",
+      "number": "PR",
+      "targetBranch": "目標分支",
+      "mergedAt": "合併時間"
+    },
+    "status": {
+      "done": "完成",
+      "failed": "失敗"
+    },
+    "actions": {
+      "print": "列印",
+      "exportCsv": "匯出 CSV"
     }
   },
   "errors": {
@@ -551,5 +812,559 @@
     "submitting": "正在提交回答...",
     "answeredCount": "已回答{{count}}個問題",
     "answeredCount_other": "已回答{{count}}個問題"
+  },
+  "issues": {
+    "title": "Issues",
+    "refresh": "重新整理",
+    "refreshing": "正在重新整理...",
+    "loading": "正在載入 Issue...",
+    "loadError": "載入 Issue 失敗。",
+    "loadingRepos": "正在載入儲存庫...",
+    "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以查看其 Issue。",
+    "selectRepoPrompt": "請選擇一個儲存庫以查看其 Issue。",
+    "repoSelectorPlaceholder": "選擇儲存庫",
+    "openGroup": "開啟",
+    "closedGroup": "已關閉",
+    "authorPrefix": "作者：",
+    "countLabel": "{{count}} 個 Issue",
+    "countLabel_other": "{{count}} 個 Issue",
+    "emptyTitle": "尚無 Issue",
+    "emptyDescription": "重新整理以從來源同步 Issue。",
+    "assignToAgent": "指派給代理",
+    "reassignAction": "重新指派",
+    "archiveAction": "封存",
+    "taskStatus": {
+      "queued": "排隊中",
+      "in_progress": "進行中",
+      "in_review": "審查中",
+      "done": "已完成"
+    },
+    "taskLinked": {
+      "openWorkspace": "開啟工作區",
+      "viewInSprint": "在 Sprint 中檢視"
+    },
+    "table": {
+      "issue": "Issue",
+      "title": "標題",
+      "state": "狀態",
+      "worker": "工作者",
+      "branch": "分支",
+      "updated": "更新時間",
+      "actions": "操作",
+      "timeAgo": {
+        "justNow": "剛剛",
+        "minutes": "{{count}} 分鐘前",
+        "hours": "{{count}} 小時前",
+        "days": "{{count}} 天前",
+        "weeks": "{{count}} 週前"
+      }
+    },
+    "assignDialog": {
+      "title": "將 Issue #{{number}} 指派給工作者",
+      "description": "選擇一個工作者。任務將被加入工作者的佇列。",
+      "workerLabel": "指派給",
+      "workerPlaceholder": "選擇工作者...",
+      "noWorkers": "沒有可用的工作者。請先建立一個工作者。",
+      "workerLoadError": "無法載入工作者。",
+      "loadingWorkers": "正在載入工作者...",
+      "cancel": "取消",
+      "confirm": "加入佇列",
+      "enqueuedError": "加入佇列失敗。",
+      "checkingConflicts": "正在檢查現有分配...",
+      "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
+      "assignAnyway": "仍然分配"
+    },
+    "reassignDialog": {
+      "title": "將 Issue #{{number}} 重新指派給其他工作者",
+      "description": "將「{{title}}」移動到其他工作者。任務將保留其提示詞和歷史記錄。",
+      "currentWorker": "目前指派給：",
+      "targetWorkerLabel": "移動到",
+      "unknownWorker": "未知",
+      "noOtherWorkers": "沒有其他工作者可供重新指派。請先建立另一個工作者。",
+      "notQueuedWarning": "此任務處於 {{status}} 狀態，無法進行原子性重新指派。請先從工作者佇列中取消它，然後再重新指派。",
+      "reassignError": "重新指派任務失敗。",
+      "confirm": "重新指派"
+    },
+    "filters": {
+      "stateLabel": "狀態",
+      "searchPlaceholder": "搜尋 Issue…",
+      "state": {
+        "all": "全部",
+        "open": "開啟",
+        "closed": "已關閉"
+      },
+      "priority": "優先順序",
+      "priorities": {
+        "urgent": "緊急",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "label": "標籤",
+      "milestone": "里程碑",
+      "worker": "工作者",
+      "groupBy": "分組",
+      "groupByOptions": {
+        "none": "不分組",
+        "label": "標籤",
+        "milestone": "里程碑"
+      },
+      "clear": "清除篩選",
+      "noResults": "沒有 Issue 符合目前的篩選條件。",
+      "noLabel": "無標籤",
+      "noMilestone": "無里程碑"
+    },
+    "drawer": {
+      "title": "Issue 詳情",
+      "close": "關閉",
+      "openOnGitHub": "在 GitHub 開啟",
+      "stateOpen": "開啟",
+      "stateClosed": "已關閉",
+      "priority": "優先順序",
+      "milestone": "里程碑",
+      "author": "作者",
+      "labels": "標籤",
+      "addLabel": "新增標籤",
+      "searchLabels": "搜尋標籤…",
+      "createLabel": "建立「{{name}}」",
+      "noLabels": "找不到標籤",
+      "description": "描述",
+      "noDescription": "尚無描述。",
+      "archive": "封存",
+      "archiveTitle": "封存 Issue",
+      "archiveConfirm": "在 GitHub 上關閉 Issue #{{number}}？它將移至已關閉篩選器。",
+      "archiveAction": "關閉 Issue"
+    }
+  },
+  "workers": {
+    "title": "工作者",
+    "newWorker": "新增工作者",
+    "loading": "正在載入工作者...",
+    "loadError": "載入工作者失敗。",
+    "emptyTitle": "尚無工作者",
+    "emptyDescription": "建立一位工作者以開始指派任務。",
+    "confirmDelete": "刪除工作者「{{worker}}」？此操作無法復原。",
+    "stats": {
+      "working": "工作中",
+      "queued": "排隊中",
+      "completed": "已完成"
+    },
+    "templates": {
+      "backend": "後端專家",
+      "frontend": "前端專家",
+      "generalist": "通才",
+      "analyst": "分析師",
+      "reviewer": "審閱者"
+    },
+    "card": {
+      "statusWorking": "工作中",
+      "statusIdle": "閒置",
+      "currentTaskLink": "開啟目前工作區",
+      "noCurrentTask": "無進行中的任務",
+      "stalledShort": "代理已停止，任務未完成",
+      "menuLabel": "工作者動作",
+      "edit": "編輯",
+      "duplicate": "複製",
+      "delete": "刪除",
+      "queuedLabel": "排隊",
+      "completedLabel": "完成",
+      "startNext": "開始下一個",
+      "expandQueue": "顯示佇列",
+      "collapseQueue": "隱藏佇列",
+      "queueLoading": "正在載入佇列...",
+      "queueError": "載入佇列失敗。",
+      "queueEmpty": "佇列為空。",
+      "needsAttention": "需要關注",
+      "planModeOnBadge": "計劃模式",
+      "planModeOffBadge": "關閉計劃模式",
+      "planModeOnTooltip": "已為該工作者強制啟用計劃模式。",
+      "planModeOffTooltip": "已為該工作者強制關閉計劃模式。"
+    },
+    "form": {
+      "newTitle": "新增工作者",
+      "editTitle": "編輯工作者",
+      "description": "為工作者指定名稱與靈魂。靈魂是引導其工作的提示詞。",
+      "nameLabel": "名稱",
+      "namePlaceholder": "例如：Backend Bee",
+      "roleLabel": "角色",
+      "templatesLabel": "從範本開始",
+      "soulLabel": "靈魂 (Soul)",
+      "soulPlaceholder": "描述領域、標準與 Definition of Done...",
+      "systemInstructionsTitle": "系統指令",
+      "systemInstructionsReadOnly": "(唯讀 — 適用於所有工作者)",
+      "cancel": "取消",
+      "saveNew": "建立工作者",
+      "saveEdit": "儲存變更",
+      "modelLabel": "模型",
+      "modelDefault": "預設（全域）",
+      "planModeLabel": "計劃模式",
+      "planModeGlobal": "使用全域設定",
+      "planModeOn": "強制啟用",
+      "planModeOff": "強制關閉",
+      "planModeHelp": "為此工作者覆蓋執行器的全域計劃模式。",
+      "githubPatLabel": "GitHub PAT（選填）",
+      "githubPatPlaceholder": "ghp_…",
+      "githubPatMaskedPlaceholder": "••••••（已儲存 — 保留請留空）",
+      "githubPatValidate": "驗證",
+      "githubPatValidateOk": "有效 — 已認證為 {{login}}",
+      "githubPatHelp": "留空則使用本機的全域 gh 憑證。注意：GitHub 不允許核准自己的 PR，因此審閱者需要與作者不同的 PAT。",
+      "githubPatStored": "已儲存 PAT。",
+      "githubPatWillClear": "儲存時將清除 PAT。",
+      "githubPatClear": "清除",
+      "githubPatUndoClear": "還原"
+    },
+    "roles": {
+      "developer": "開發者",
+      "analyst": "分析師",
+      "reviewer": "審閱者",
+      "developerDescription": "實作功能並建立拉取請求",
+      "analystDescription": "研究並產出書面交付物",
+      "reviewerDescription": "審查程式碼並提供回饋"
+    },
+    "toast": {
+      "startSuccess": "{{worker}} 已開始「{{title}}」。",
+      "startConflict": "{{worker}} 沒有排隊任務或已在工作中。",
+      "startError": "啟動 {{worker}} 失敗：{{message}}",
+      "planCapReached": "{{worker}} 的任務已加入佇列 — 您的方案已達到並行代理數量上限。",
+      "planCapReachedWithLimit": "{{worker}} 的任務已加入佇列 — 您的方案可並行執行 {{limit}} 個代理。升級以執行更多。",
+      "createSuccess": "工作者已建立。",
+      "updateSuccess": "工作者已更新。",
+      "deleteSuccess": "{{worker}} 已刪除。",
+      "duplicateSuccess": "{{worker}} 已複製為「{{clone}}」。",
+      "duplicateError": "複製 {{worker}} 失敗：{{message}}",
+      "dismiss": "關閉"
+    }
+  },
+  "analystDesk": {
+    "title": "分析師工作台",
+    "repoLabel": "儲存庫",
+    "analystsLabel": "分析師",
+    "skillsPicker": "技能",
+    "skillsEmpty": "沒有已安裝的技能。",
+    "requestLabel": "請求",
+    "promptPlaceholder": "描述你需要分析師做什麼。例如：將通知 epic 拆分為帶驗收標準的小 issue。",
+    "hint": "分析師空閒時立即執行，否則加入其佇列。",
+    "submit": "送出請求",
+    "loading": "載入中...",
+    "loadError": "無法載入分析師。",
+    "noAnalystsTitle": "還沒有分析師",
+    "noAnalystsDescription": "建立一個 Analyst 角色的 worker 即可開始送出請求。",
+    "goToWorkers": "前往 Workers",
+    "historyTitle": "發給 {{worker}} 的請求",
+    "historyEmpty": "還沒有請求。你的請求及其結果將顯示在這裡。",
+    "openWorkspace": "查看執行",
+    "retry": "重試",
+    "stop": "停止",
+    "remove": "移除",
+    "stopConfirmMessage": "確定停止該請求嗎？容器將被停止，請求也會被刪除。",
+    "removeConfirmMessage": "確定要從分析師佇列中移除該請求嗎？",
+    "cancelConfirm": "取消",
+    "stopConfirm": "停止",
+    "removeConfirm": "移除",
+    "dismiss": "關閉",
+    "status": {
+      "queued": "排隊中",
+      "queuedAhead": "排隊中 · 前面還有 {{ahead}} 個",
+      "inProgress": "進行中",
+      "done": "已完成",
+      "failed": "失敗"
+    },
+    "toast": {
+      "started": "{{worker}} 已開始處理你的請求。",
+      "queued": "請求已加入 {{worker}} 的佇列。",
+      "error": "請求送出失敗：{{message}}"
+    },
+    "attachments": {
+      "dropzoneLabel": "將圖片拖到此處、點擊新增或貼上",
+      "addMore": "新增更多圖片",
+      "removeAria": "移除 {{name}}",
+      "uploading": "上傳中",
+      "errorLabel": "上傳失敗",
+      "uploadError": "無法上傳 '{{name}}'：{{message}}",
+      "tooLarge": "檔案超過允許的最大大小。"
+    }
+  },
+  "ciPipelines": {
+    "palette": {
+      "triggers": "觸發器",
+      "jobs": "作業",
+      "prefabs": "預製件",
+      "escapeHatch": "逃生口",
+      "community": "社群 · 市集",
+      "searchMarketplace": "搜尋市集…",
+      "marketplaceHint": "2 萬+ 社群 Action"
+    },
+    "picker": {
+      "placeholder": "搜尋節點…",
+      "noResults": "沒有結果",
+      "triggers": "觸發器",
+      "jobs": "作業",
+      "prefabs": "預製件",
+      "escapeHatch": "逃生口",
+      "community": "社群",
+      "searchMarketplace": "搜尋市集…",
+      "marketplaceHint": "2 萬+ 社群 Action"
+    },
+    "sidebar": {
+      "workflows": "工作流程",
+      "newWorkflow": "新增",
+      "loading": "載入中…",
+      "noWorkflows": "還沒有工作流程 — 建立一個開始吧。",
+      "importedTag": "yaml"
+    },
+    "toolbar": {
+      "noWorkflow": "CI 流水線工作室",
+      "compileErrors_other": "{{count}} 個編譯錯誤",
+      "drifted": "YAML 在工作室之外被修改",
+      "imported": "已匯入 — 儲存時將正規化檔案",
+      "dirty": "未儲存的變更",
+      "inSync": "已同步",
+      "viewYaml": "檢視 YAML",
+      "save": "儲存",
+      "compilePr": "編譯 → PR"
+    },
+    "canvas": {
+      "zoomIn": "放大",
+      "zoomOut": "縮小",
+      "fitView": "符合視圖",
+      "hint": "Tab 新增節點 · 右鍵選單"
+    },
+    "contextMenu": {
+      "addNode": "新增節點…",
+      "searchMarketplace": "搜尋市集…",
+      "autoLayout": "自動排版",
+      "fitView": "符合視圖",
+      "viewYaml": "檢視編譯後的 YAML",
+      "deleteNode": "刪除節點"
+    },
+    "inspector": {
+      "workflowSection": "工作流程",
+      "workflowName": "工作流程名稱",
+      "emptyHint": "選擇一個節點進行編輯。YAML 由此圖編譯而來 — 作業順序與 needs 一律來自畫布。",
+      "triggerSection": "觸發器 · {{kind}}",
+      "branches": "分支（逗號分隔）",
+      "pathsIgnore": "忽略路徑（逗號分隔）",
+      "cron": "Cron",
+      "manualHint": "從 Actions 分頁手動觸發。",
+      "jobSection": "作業",
+      "jobId": "作業 ID",
+      "label": "標籤",
+      "executionSection": "執行",
+      "runsOn": "runs-on",
+      "needs": "needs · 由連線導出",
+      "needsNone": "沒有相依",
+      "needsHint": "連線定義 needs — 會覆蓋原始 YAML 中寫的 needs。",
+      "prefabSection": "預製件 · {{name}}",
+      "actionSection": "市集 Action",
+      "uses": "uses",
+      "checkout": "先簽出儲存庫",
+      "with": "輸入（with）",
+      "inputKey": "鍵",
+      "inputValue": "值",
+      "addInput": "+ 新增輸入",
+      "removeInput": "移除輸入",
+      "rawJobSection": "作業 YAML",
+      "rawFileSection": "匯入的工作流程（整個檔案）",
+      "rawFileHint": "此工作流程在工作室之外撰寫，按原樣編輯與提交。",
+      "deleteNode": "刪除節點",
+      "stepsSection": "步驟（{{count}}）",
+      "stepName": "步驟名稱（選填）",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "removeStep": "移除步驟",
+      "addWith": "+ with",
+      "addEnv": "+ env",
+      "addRunStep": "+ run 步驟",
+      "addUsesStep": "+ uses 步驟",
+      "jobEnvSection": "作業 env"
+    },
+    "marketplace": {
+      "placeholder": "搜尋 GitHub Actions Marketplace…",
+      "useCustom": "使用 \"{{uses}}\"",
+      "useCustomHint": "以 owner/repo@ref 插入任意 Action",
+      "noResults": "沒有結果 — 輸入 owner/repo@ref 可插入任意 Action",
+      "footerCount": "精選清單 · 即時搜尋即將推出"
+    },
+    "compilePr": {
+      "title": "編譯 → Pull Request",
+      "branch": "分支",
+      "base": "基底分支",
+      "prTitle": "PR 標題",
+      "filesNote_other": "{{count}} 個檔案將提交到新分支 — 不會動到你的工作樹。",
+      "create": "建立 PR",
+      "success": "已在分支 {{branch}} 建立 PR。",
+      "openPr": "開啟 PR",
+      "close": "關閉"
+    },
+    "yamlPreview": {
+      "title": "編譯後的 YAML · {{name}}.yml"
+    },
+    "newWorkflow": {
+      "title": "新增工作流程",
+      "name": "名稱（檔案：.github/workflows/<name>.yml）",
+      "create": "建立"
+    },
+    "empty": {
+      "selectWorkflow": "從側邊欄選擇一個工作流程，或新增一個開始繪製流水線。",
+      "noRepo": "新增一個儲存庫以在此設計它的 CI。"
+    },
+    "steps": {
+      "count": "{{count}} 個步驟",
+      "hint": "Tab 插入 · 拖曳重排 · Esc 返回",
+      "addStep": "新增步驟",
+      "insertHere": "在此插入步驟",
+      "emptyHint": "在鏈上選擇一個步驟進行編輯。鏈定義執行順序。",
+      "stepSection": "步驟 {{position}} / {{total}} · {{job}}",
+      "runCommand": "run",
+      "stepEnvSection": "步驟 env",
+      "deleteStep": "刪除步驟 \"{{name}}\""
+    },
+    "stepPicker": {
+      "placeholder": "新增步驟…",
+      "steps": "步驟",
+      "runStep": "run 步驟",
+      "runStepHint": "Shell 指令",
+      "usesStep": "uses 步驟",
+      "usesStepHint": "以 owner/repo@ref 的 Action",
+      "checkout": "Checkout",
+      "marketplaceHint": "將 Action 作為步驟插入"
+    }
+  },
+  "sprint": {
+    "title": "看板",
+    "repoSelectorPlaceholder": "選擇儲存庫",
+    "loadingRepos": "正在載入儲存庫...",
+    "noReposMessage": "尚未註冊任何儲存庫。請先新增儲存庫以規劃衝刺。",
+    "selectRepoPrompt": "請選擇一個儲存庫以查看其衝刺看板。",
+    "loading": "正在載入衝刺...",
+    "loadError": "載入衝刺看板失敗。",
+    "sync": "同步",
+    "syncing": "同步中...",
+    "columns": {
+      "backlog": "待辦",
+      "queued": "排隊中",
+      "inProgress": "進行中",
+      "inReview": "審查中",
+      "done": "已完成",
+      "failed": "已失敗"
+    },
+    "backlog": {
+      "assign": "指派",
+      "noWorkers": "沒有可用的工人",
+      "empty": "沒有等待處理的開啟 Issue。",
+      "moreActions": "更多操作",
+      "setPriority": "設定優先級",
+      "assignTo": "指派給工人"
+    },
+    "queued": {
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "remove": "移除",
+      "empty": "佇列為空。"
+    },
+    "inProgress": {
+      "openWorkspace": "開啟工作區",
+      "stop": "停止",
+      "stopConfirmMessage": "停止執行並將 Issue 返回待辦列表？",
+      "stopAndUnassign": "停止並取消指派",
+      "empty": "沒有進行中的任務。"
+    },
+    "inReview": {
+      "unassign": "取消指派",
+      "unassignConfirmMessage": "取消任務指派並將 Issue 返回待辦列表？",
+      "unassignConfirm": "取消指派",
+      "reRequestReview": "請求重新審查",
+      "empty": "沒有等待審查的項目。"
+    },
+    "done": {
+      "empty": "尚未完成任何任務。",
+      "remove": "移除",
+      "removeConfirmMessage": "從看板中移除這個已完成的任務？",
+      "removeConfirm": "移除"
+    },
+    "filters": {
+      "searchPlaceholder": "搜尋 Issue...",
+      "clearSearch": "清除搜尋",
+      "epic": "史詩",
+      "allEpics": "所有史詩",
+      "label": "標籤",
+      "allLabels": "所有標籤",
+      "priority": "優先級",
+      "allPriorities": "所有優先級",
+      "worker": "工人",
+      "allWorkers": "所有工人",
+      "clearAll": "清除篩選",
+      "noResults": "沒有 Issue 符合目前的篩選條件。"
+    },
+    "priority": {
+      "urgent": "緊急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "detail": {
+      "panelLabel": "Issue 詳情",
+      "close": "關閉面板",
+      "noPriority": "無優先級",
+      "noBody": "暫無描述。",
+      "assignedTo": "已指派給 {{worker}}"
+    },
+    "toast": {
+      "startAllSuccess": "已啟動 {{count}} 個工作者。",
+      "startAllError": "啟動工作者失敗：{{message}}",
+      "planCapReachedGeneric": "部分任務已加入佇列 — 您的方案已達到並行代理數量上限。",
+      "planCapReachedGenericWithLimit": "部分任務已加入佇列 — 您的方案可並行執行 {{limit}} 個代理。升級以執行更多。",
+      "assignDuplicate": "此 Issue 已有一個分配給工作者的活躍任務。",
+      "startAllSuccess_other": "已啟動 {{count}} 個工作者。",
+      "reviewApproved": "審查已批准：{{title}}",
+      "reviewChangesRequested": "要求更改：{{title}}",
+      "cancelError": "停止任務失敗：{{message}}",
+      "reRequestReviewSuccess": "已請求新的審查回合。",
+      "reRequestReviewMaxRounds": "此 PR 已達到最大審查回合數。",
+      "reRequestReviewNoOpenPr": "此任務已沒有開啟的拉取請求。",
+      "reRequestReviewNoReviewer": "沒有可用的審查者工作者來接手審查。",
+      "reRequestReviewInProgress": "此 PR 已有一個審查回合正在進行中。",
+      "reRequestReviewHeadUnchanged": "自上次審查以來該 PR 沒有新提交——重新審查只會得到相同的結論。請先推送修復。",
+      "reRequestReviewNoChangesRequested": "該任務目前不在等待重新審查。",
+      "reRequestReviewError": "無法請求重新審查：{{message}}"
+    },
+    "failed": {
+      "retry": "重試",
+      "discard": "丟棄",
+      "viewPr": "查看 PR",
+      "empty": "沒有失敗的任務。"
+    },
+    "autoIngest": {
+      "label": "自動開始",
+      "description": "任務分配後工作者立即開始"
+    }
+  },
+  "setupWizard": {
+    "aria": "入門精靈",
+    "title": "開始使用",
+    "subtitle": "從空實例到第一個 PR 只需四步。",
+    "progress": "{{done}} / {{total}}",
+    "steps": {
+      "github": {
+        "title": "連接 GitHub",
+        "description": "使用 Personal Access Token 或 gh CLI 授權，讓代理可以開 PR。",
+        "action": "連接"
+      },
+      "repo": {
+        "title": "新增儲存庫",
+        "description": "註冊本機儲存庫，代理可在其中建立分支和工作區。",
+        "action": "新增"
+      },
+      "agent": {
+        "title": "連接代理",
+        "description": "登入 Claude Code、Codex 或 Gemini，讓工作者有代理可執行。",
+        "action": "連接"
+      },
+      "task": {
+        "title": "建立並指派第一個任務",
+        "description": "選一個 issue 指派給工作者——代理會執行並開啟 PR。",
+        "action": "前往 issues"
+      }
+    }
   }
 }

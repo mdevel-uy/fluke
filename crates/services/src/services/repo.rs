@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use db::models::repo::{Repo as RepoModel, SearchMatchType, SearchResult};
+use db::models::repo::{
+    Repo as RepoModel, RepoError as DbRepoError, SearchMatchType, SearchResult, UpdateRepo,
+};
 use git::{GitService, GitServiceError};
 use sqlx::SqlitePool;
 use thiserror::Error;
@@ -64,6 +66,7 @@ impl RepoService {
     pub async fn register(
         &self,
         pool: &SqlitePool,
+        git: &GitService,
         path: &str,
         display_name: Option<&str>,
     ) -> Result<RepoModel> {
@@ -77,7 +80,33 @@ impl RepoService {
 
         let display_name = display_name.unwrap_or(&name);
 
-        let repo = RepoModel::find_or_create(pool, &normalized_path, display_name).await?;
+        let mut repo = RepoModel::find_or_create(pool, &normalized_path, display_name).await?;
+
+        if repo.default_target_branch.is_none() {
+            let branch = git
+                .get_remote_default_branch(&normalized_path)
+                .or_else(|| git.get_current_branch(&normalized_path).ok());
+            if let Some(branch) = branch {
+                let update = UpdateRepo {
+                    default_target_branch: Some(Some(branch)),
+                    display_name: None,
+                    setup_script: None,
+                    cleanup_script: None,
+                    archive_script: None,
+                    copy_files: None,
+                    parallel_setup_script: None,
+                    dev_server_script: None,
+                    default_working_dir: None,
+                };
+                repo = RepoModel::update(pool, repo.id, &update)
+                    .await
+                    .map_err(|e| match e {
+                        DbRepoError::Database(db_err) => RepoError::Database(db_err),
+                        DbRepoError::NotFound => RepoError::NotFound,
+                    })?;
+            }
+        }
+
         Ok(repo)
     }
 
@@ -123,7 +152,28 @@ impl RepoService {
 
         git.initialize_repo_with_main_branch(&repo_path)?;
 
-        let repo = RepoModel::find_or_create(pool, &repo_path, folder_name).await?;
+        let mut repo = RepoModel::find_or_create(pool, &repo_path, folder_name).await?;
+
+        if repo.default_target_branch.is_none() {
+            let update = UpdateRepo {
+                default_target_branch: Some(Some("main".to_string())),
+                display_name: None,
+                setup_script: None,
+                cleanup_script: None,
+                archive_script: None,
+                copy_files: None,
+                parallel_setup_script: None,
+                dev_server_script: None,
+                default_working_dir: None,
+            };
+            repo = RepoModel::update(pool, repo.id, &update)
+                .await
+                .map_err(|e| match e {
+                    DbRepoError::Database(db_err) => RepoError::Database(db_err),
+                    DbRepoError::NotFound => RepoError::NotFound,
+                })?;
+        }
+
         Ok(repo)
     }
 

@@ -5,18 +5,20 @@ use std::{
 
 use axum::{
     Extension, Json, Router,
-    extract::State,
+    extract::{Query, State},
     response::{IntoResponse, Json as ResponseJson},
     routing::{get, post},
 };
 use db::models::{
     merge::{Merge, MergeStatus, PrMerge, PullRequestInfo},
+    pull_request::PullRequest,
     repo::{Repo, RepoError},
+    worker::Worker,
     workspace::Workspace,
     workspace_repo::WorkspaceRepo,
 };
 use deployment::Deployment;
-use git::{ConflictOp, GitCliError, GitServiceError};
+use git::{ConflictOp, GitCliError, GitServiceError, StagingState};
 use serde::{Deserialize, Serialize};
 use services::services::{container::ContainerService, diff_stream, remote_sync};
 use ts_rs::TS;
@@ -89,6 +91,10 @@ pub struct BranchStatus {
     pub conflict_op: Option<ConflictOp>,
     pub conflicted_files: Vec<String>,
     pub is_target_remote: bool,
+    /// CI rollup ("passing" | "failing" | "pending" | "none" | "unknown") of
+    /// the open PR attached to this repo, or `None` when there is no open PR
+    /// or its status has not been polled yet.
+    pub pr_ci_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -144,6 +150,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/rebase", post(rebase_workspace))
         .route("/rebase/continue", post(continue_workspace_rebase))
         .route("/conflicts/abort", post(abort_workspace_conflicts))
+        .route("/staging", get(get_workspace_staging))
+        .route("/staging/stage", post(stage_workspace_changes))
+        .route("/staging/unstage", post(unstage_workspace_changes))
+        .route("/staging/commit", post(commit_workspace_staged))
         .route("/target-branch", axum::routing::put(change_target_branch))
         .route("/branch", axum::routing::put(rename_branch))
 }
@@ -288,10 +298,18 @@ pub async fn push_workspace_branch(
     let workspace_path = Path::new(&container_ref);
     let worktree_path = workspace_path.join(&repo.name);
 
-    match deployment
-        .git()
-        .push_to_remote(&worktree_path, &workspace.branch, false)
-    {
+    // Manual push initiated from the UI must still authenticate as the
+    // worker that owns the workspace, otherwise the commit shows up under
+    // the wrong identity even though the worker has a PAT configured.
+    let worker_pat = Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
+    match deployment.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        false,
+        worker_pat.as_deref(),
+    ) {
         Ok(_) => {
             if let Ok(client) = deployment.remote_client() {
                 let pool = deployment.db().pool.clone();
@@ -342,9 +360,15 @@ pub async fn force_push_workspace_branch(
     let workspace_path = Path::new(&container_ref);
     let worktree_path = workspace_path.join(&repo.name);
 
-    deployment
-        .git()
-        .push_to_remote(&worktree_path, &workspace.branch, true)?;
+    let worker_pat = Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+    let remote_branch = Workspace::remote_branch_name(pool, workspace.id).await?;
+    deployment.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        true,
+        worker_pat.as_deref(),
+    )?;
 
     if let Ok(client) = deployment.remote_client() {
         let pool = deployment.db().pool.clone();
@@ -373,11 +397,13 @@ pub async fn get_workspace_branch_status(
         .map(|wr| (wr.repo_id, wr.target_branch.clone()))
         .collect();
 
-    let container_ref = deployment
-        .container()
-        .ensure_container_exists(&workspace)
-        .await?;
-    let workspace_dir = PathBuf::from(&container_ref);
+    // Read-only guard: a status poll must NEVER materialize the workspace.
+    // `ensure_container_exists` here used to create branch+worktree for
+    // queued workspaces and race the orchestrator's own create ("reference
+    // already exists" loop, orphan branches piling up). No container yet →
+    // degraded per-repo status with nulls.
+    let workspace_dir: Option<PathBuf> =
+        workspace.container_ref.as_ref().map(PathBuf::from);
 
     let all_merges = Merge::find_by_workspace_id(pool, workspace.id).await?;
     let merges_by_repo: HashMap<Uuid, Vec<Merge>> =
@@ -392,6 +418,10 @@ pub async fn get_workspace_branch_status(
                 acc
             });
 
+    // Cached CI rollup (populated by `pr_monitor`) keyed by PR URL. We fetch
+    // the full map once so per-repo lookups below stay in-memory.
+    let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
+
     let mut results = Vec::with_capacity(repositories.len());
 
     for repo in repositories {
@@ -400,39 +430,38 @@ pub async fn get_workspace_branch_status(
         };
 
         let repo_merges = merges_by_repo.get(&repo.id).cloned().unwrap_or_default();
-        let worktree_path = workspace_dir.join(&repo.name);
+        let worktree_path = workspace_dir.as_ref().map(|d| d.join(&repo.name));
 
-        let head_oid = deployment
-            .git()
-            .get_head_info(&worktree_path)
-            .ok()
-            .map(|h| h.oid);
+        let head_oid = worktree_path
+            .as_ref()
+            .and_then(|p| deployment.git().get_head_info(p).ok().map(|h| h.oid));
 
-        let (is_rebase_in_progress, conflicted_files, conflict_op) = {
-            let in_rebase = deployment
-                .git()
-                .is_rebase_in_progress(&worktree_path)
-                .unwrap_or(false);
-            let conflicts = deployment
-                .git()
-                .get_conflicted_files(&worktree_path)
-                .unwrap_or_default();
-            let op = if conflicts.is_empty() {
-                None
-            } else {
-                deployment
-                    .git()
-                    .detect_conflict_op(&worktree_path)
-                    .unwrap_or(None)
+        let (is_rebase_in_progress, conflicted_files, conflict_op) =
+            match worktree_path.as_ref() {
+                Some(p) => {
+                    let in_rebase =
+                        deployment.git().is_rebase_in_progress(p).unwrap_or(false);
+                    let conflicts = deployment
+                        .git()
+                        .get_conflicted_files(p)
+                        .unwrap_or_default();
+                    let op = if conflicts.is_empty() {
+                        None
+                    } else {
+                        deployment.git().detect_conflict_op(p).unwrap_or(None)
+                    };
+                    (in_rebase, conflicts, op)
+                }
+                None => (false, Vec::new(), None),
             };
-            (in_rebase, conflicts, op)
+
+        let (uncommitted_count, untracked_count) = match worktree_path
+            .as_ref()
+            .map(|p| deployment.git().get_worktree_change_counts(p))
+        {
+            Some(Ok((a, b))) => (Some(a), Some(b)),
+            _ => (None, None),
         };
-
-        let (uncommitted_count, untracked_count) =
-            match deployment.git().get_worktree_change_counts(&worktree_path) {
-                Ok((a, b)) => (Some(a), Some(b)),
-                Err(_) => (None, None),
-            };
 
         let has_uncommitted_changes = uncommitted_count.map(|c| c > 0);
 
@@ -440,20 +469,28 @@ pub async fn get_workspace_branch_status(
             .git()
             .is_remote_branch(&repo.path, &target_branch)?;
 
-        let (commits_ahead, commits_behind) = if is_target_remote {
-            let (ahead, behind) = deployment.git().get_remote_branch_status(
+        // The branch itself may not exist yet for a queued workspace —
+        // ahead/behind stays null rather than erroring the whole poll.
+        let (commits_ahead, commits_behind) = if workspace_dir.is_none() {
+            (None, None)
+        } else if is_target_remote {
+            match deployment.git().get_remote_branch_status(
                 &repo.path,
                 &workspace.branch,
                 Some(&target_branch),
-            )?;
-            (Some(ahead), Some(behind))
+            ) {
+                Ok((ahead, behind)) => (Some(ahead), Some(behind)),
+                Err(_) => (None, None),
+            }
         } else {
-            let (a, b) = deployment.git().get_branch_status(
+            match deployment.git().get_branch_status(
                 &repo.path,
                 &workspace.branch,
                 &target_branch,
-            )?;
-            (Some(a), Some(b))
+            ) {
+                Ok((a, b)) => (Some(a), Some(b)),
+                Err(_) => (None, None),
+            }
         };
 
         let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {
@@ -476,6 +513,19 @@ pub async fn get_workspace_branch_status(
             (None, None)
         };
 
+        let pr_ci_status = repo_merges.iter().find_map(|m| match m {
+            Merge::Pr(PrMerge {
+                pr_info:
+                    PullRequestInfo {
+                        status: MergeStatus::Open,
+                        url,
+                        ..
+                    },
+                ..
+            }) => ci_status_by_url.get(url).cloned(),
+            _ => None,
+        });
+
         results.push(RepoBranchStatus {
             repo_id: repo.id,
             repo_name: repo.name,
@@ -494,6 +544,7 @@ pub async fn get_workspace_branch_status(
                 conflict_op,
                 conflicted_files,
                 is_target_remote,
+                pr_ci_status,
             },
         });
     }
@@ -837,4 +888,150 @@ pub async fn continue_workspace_rebase(
     deployment.git().continue_rebase(&worktree_path)?;
 
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+// --- Selective staging (SHELL-SPEC V5/R38) -------------------------------
+// Request/response types are mirrored inline in the frontend client (like
+// the editor endpoints), so they are not part of generate_types.
+
+#[derive(Debug, Deserialize)]
+pub struct StagingQuery {
+    pub repo_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StageRequest {
+    pub repo_id: Uuid,
+    /// Whole-file stage/unstage (also covers untracked files).
+    pub path: Option<String>,
+    /// Single-hunk patch (as returned by GET /staging) for index-only apply.
+    pub patch: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitStagedRequest {
+    pub repo_id: Uuid,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommitStagedResponse {
+    pub head_oid: String,
+}
+
+async fn resolve_worktree_path(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    repo_id: Uuid,
+) -> Result<(PathBuf, String), ApiError> {
+    let pool = &deployment.db().pool;
+    let repo = Repo::find_by_id(pool, repo_id)
+        .await?
+        .ok_or(RepoError::NotFound)?;
+    let container_ref = deployment
+        .container()
+        .ensure_container_exists(workspace)
+        .await?;
+    Ok((Path::new(&container_ref).join(&repo.name), container_ref))
+}
+
+pub async fn get_workspace_staging(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<StagingQuery>,
+) -> Result<ResponseJson<ApiResponse<StagingState>>, ApiError> {
+    let (worktree_path, _) =
+        resolve_worktree_path(&deployment, &workspace, query.repo_id).await?;
+    let git = deployment.git().clone();
+    let state = tokio::task::spawn_blocking(move || git.get_staging_state(&worktree_path))
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Staging scan failed: {e}")))??;
+    Ok(ResponseJson(ApiResponse::success(state)))
+}
+
+pub async fn stage_workspace_changes(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+    Json(request): Json<StageRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let (worktree_path, _) =
+        resolve_worktree_path(&deployment, &workspace, request.repo_id).await?;
+    match (&request.patch, &request.path) {
+        (Some(patch), _) => deployment
+            .git()
+            .apply_hunk_to_index(&worktree_path, patch, false)?,
+        (None, Some(path)) => deployment.git().stage_path(&worktree_path, path)?,
+        (None, None) => {
+            return Err(ApiError::BadRequest(
+                "Either path or patch is required".to_string(),
+            ));
+        }
+    }
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+pub async fn unstage_workspace_changes(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+    Json(request): Json<StageRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let (worktree_path, _) =
+        resolve_worktree_path(&deployment, &workspace, request.repo_id).await?;
+    match (&request.patch, &request.path) {
+        (Some(patch), _) => deployment
+            .git()
+            .apply_hunk_to_index(&worktree_path, patch, true)?,
+        (None, Some(path)) => deployment.git().unstage_path(&worktree_path, path)?,
+        (None, None) => {
+            return Err(ApiError::BadRequest(
+                "Either path or patch is required".to_string(),
+            ));
+        }
+    }
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+pub async fn commit_workspace_staged(
+    Extension(workspace): Extension<Workspace>,
+    State(deployment): State<DeploymentImpl>,
+    Json(request): Json<CommitStagedRequest>,
+) -> Result<ResponseJson<ApiResponse<CommitStagedResponse>>, ApiError> {
+    let message = request.message.trim().to_string();
+    if message.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Commit message cannot be empty".to_string(),
+        ));
+    }
+    let (worktree_path, container_ref) =
+        resolve_worktree_path(&deployment, &workspace, request.repo_id).await?;
+
+    let git = deployment.git().clone();
+    let staging_path = worktree_path.clone();
+    let staging = tokio::task::spawn_blocking(move || git.get_staging_state(&staging_path))
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Staging scan failed: {e}")))??;
+    if !staging.files.iter().any(|f| f.has_staged_changes) {
+        return Err(ApiError::BadRequest("Nothing staged to commit".to_string()));
+    }
+
+    let head_oid = deployment
+        .git()
+        .commit_staged(&worktree_path, &message)?;
+
+    // Uncommitted counters and ahead/behind change; the client re-polls the
+    // branch status, and the remote mirror gets fresh diff stats.
+    if let Ok(client) = deployment.remote_client() {
+        let pool = deployment.db().pool.clone();
+        let git = deployment.git().clone();
+        let mut ws = workspace.clone();
+        ws.container_ref = Some(container_ref);
+        tokio::spawn(async move {
+            let stats = diff_stream::compute_diff_stats(&pool, &git, &ws).await;
+            remote_sync::sync_workspace_to_remote(&client, ws.id, None, None, stats.as_ref()).await;
+        });
+    }
+
+    Ok(ResponseJson(ApiResponse::success(CommitStagedResponse {
+        head_oid,
+    })))
 }

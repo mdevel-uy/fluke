@@ -34,7 +34,10 @@ import type {
 import type { GhCliSetupError } from 'shared/types';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { defineModal } from '@/shared/lib/modals';
-import { splitMessageToTitleDescription } from '@/shared/lib/string';
+import {
+  splitMessageToTitleDescription,
+  stripSystemPreamble,
+} from '@/shared/lib/string';
 
 interface CreatePRDialogProps {
   attempt: Workspace;
@@ -48,7 +51,7 @@ export type CreatePRDialogResult = {
   error?: string;
 };
 
-const PR_TITLE_SUFFIX = ' (vibe-kanban)';
+const PR_TITLE_SUFFIX = ' (mkanban)';
 
 const appendPrTitleSuffix = (title: string): string => {
   const trimmedTitle = title.trim();
@@ -119,10 +122,19 @@ const CreatePRDialogImpl = create<CreatePRDialogProps>(
           if (isCancelled) return;
 
           if (firstUserMessage?.trim()) {
-            const { title, description } =
-              splitMessageToTitleDescription(firstUserMessage);
-            setPrTitle(appendPrTitleSuffix(title));
-            setPrBody(description ?? '');
+            const cleanMessage = stripSystemPreamble(firstUserMessage);
+
+            if (attempt.name?.trim()) {
+              // Workspace name is derived from the worker task title — use it
+              // directly so the PR title is never the raw injected prompt.
+              setPrTitle(appendPrTitleSuffix(attempt.name.trim()));
+              setPrBody(cleanMessage);
+            } else {
+              const { title, description } =
+                splitMessageToTitleDescription(cleanMessage);
+              setPrTitle(appendPrTitleSuffix(title));
+              setPrBody(description ?? '');
+            }
             return;
           }
         } catch {
@@ -130,7 +142,10 @@ const CreatePRDialogImpl = create<CreatePRDialogProps>(
         }
 
         if (isCancelled) return;
-        setPrTitle('');
+        // No first message — fall back to workspace name if available.
+        setPrTitle(
+          attempt.name?.trim() ? appendPrTitleSuffix(attempt.name.trim()) : ''
+        );
         setPrBody('');
       };
 
@@ -141,7 +156,7 @@ const CreatePRDialogImpl = create<CreatePRDialogProps>(
       return () => {
         isCancelled = true;
       };
-    }, [attempt.id, modal.visible, isLoaded, issueIdentifier]);
+    }, [attempt.id, attempt.name, modal.visible, isLoaded, issueIdentifier]);
 
     // Set default base branch when branches are loaded
     useEffect(() => {
@@ -435,7 +450,6 @@ const CreatePRDialogImpl = create<CreatePRDialogProps>(
               <Button
                 onClick={handleConfirmCreatePR}
                 disabled={creatingPR || !prTitle.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
               >
                 {creatingPR ? (
                   <>

@@ -93,7 +93,7 @@ export function GuideDialogShell({
                   className={cn(
                     'text-left px-3 py-2 rounded-sm text-sm transition-colors',
                     idx === selectedIndex
-                      ? 'bg-brand/10 text-brand font-medium'
+                      ? 'bg-brand/10 text-brand-on-surface font-medium'
                       : 'text-normal hover:bg-primary/10'
                   )}
                 >

@@ -1,27 +1,57 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
-import {
-  PlusIcon,
-  ArrowLeftIcon,
-  ArchiveIcon,
-  StackIcon,
-  SpinnerIcon,
-} from '@phosphor-icons/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { InputField } from './InputField';
-import { WorkspaceSummary } from './WorkspaceSummary';
-import type { AppBarHostStatus } from './AppBar';
+import { MaterialIcon } from './MaterialIcon';
 import {
-  CollapsibleSectionHeader,
-  type SectionAction,
-} from './CollapsibleSectionHeader';
+  WorkspaceSummary,
+  type WorkspaceContextUsage,
+} from './WorkspaceSummary';
+import type { AppBarHostStatus } from './AppBar';
+import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
+import {
+  WorkspaceScopeRail,
+  WORKSPACE_SCOPES,
+  type WorkspaceScope,
+  type WorkspaceRailScope,
+  type WorkspaceScopeCounts,
+} from './WorkspaceScopeRail';
 
-export type WorkspaceLayoutMode = 'flat' | 'accordion';
+/**
+ * Below this many workspaces the scope rail, the search field and the sort /
+ * filter controls are not rendered at all: there is nothing to slice yet, and
+ * chrome over an empty list is the bug this replaces.
+ */
+const CHROME_THRESHOLD = 8;
+
+const SCOPE_LABEL_KEYS: Record<WorkspaceScope, string> = {
+  attention: 'common:workspaces.scopes.attention',
+  running: 'common:workspaces.scopes.running',
+  idle: 'common:workspaces.scopes.idle',
+  all: 'common:workspaces.scopes.all',
+};
+
+const TAB_STORAGE_KEY_PREFIX = 'vibe.ui.tab.';
+
+function getInitialScope(persistKey: string | undefined): WorkspaceScope {
+  if (!persistKey || typeof window === 'undefined') return 'all';
+  try {
+    const stored = window.localStorage.getItem(
+      `${TAB_STORAGE_KEY_PREFIX}${persistKey}`
+    );
+    return WORKSPACE_SCOPES.includes(stored as WorkspaceScope)
+      ? (stored as WorkspaceScope)
+      : 'all';
+  } catch {
+    return 'all';
+  }
+}
 
 export interface WorkspacesSidebarWorkspace {
   id: string;
   name: string;
+  branch?: string;
   filesChanged?: number;
   linesAdded?: number;
   linesRemoved?: number;
@@ -33,44 +63,52 @@ export interface WorkspacesSidebarWorkspace {
   latestProcessCompletedAt?: string;
   latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
+  prNumber?: number;
+  prUrl?: string;
+  prMergeable?: string;
+  /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
+  prCiStatus?: string;
+  contextUsage?: WorkspaceContextUsage | null;
+  /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
+  latestActivity?: string;
+  /** GitHub issue backing this workspace's worker task, if any */
+  issueNumber?: number;
+  /** Worker task is in progress but the agent is no longer running */
+  hasStalledTask?: boolean;
+  /** Backing worker task ended in failed status */
+  hasFailedTask?: boolean;
+  /** When the latest coding-agent process started (for elapsed time) */
+  latestProcessStartedAt?: string;
+  /** Name of the worker that owns this workspace, if any */
+  workerName?: string;
+  /** Role of the owning worker: developer | analyst | reviewer */
+  workerRole?: string;
+  /** Model configured for the owning worker, if any */
+  workerModel?: string;
+  /** Display title of the worker task backing this workspace */
+  taskTitle?: string;
 }
 
 export interface WorkspacesSidebarPersistKeys {
-  raisedHand: string;
-  notRunning: string;
-  running: string;
+  statusTab: string;
 }
 
 const DEFAULT_PERSIST_KEYS: WorkspacesSidebarPersistKeys = {
-  raisedHand: 'workspaces-sidebar-raised-hand',
-  notRunning: 'workspaces-sidebar-not-running',
-  running: 'workspaces-sidebar-running',
+  statusTab: 'workspaces-sidebar-status-tab',
 };
 
 export interface WorkspacesSidebarProps {
   workspaces: WorkspacesSidebarWorkspace[];
-  totalWorkspacesCount: number;
   archivedWorkspaces?: WorkspacesSidebarWorkspace[];
   isLoading?: boolean;
   selectedWorkspaceId: string | null;
   onSelectWorkspace: (id: string) => void;
-  onAddWorkspace?: () => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  /** Whether we're in create mode */
-  isCreateMode?: boolean;
-  /** Title extracted from draft message (only shown when isCreateMode and non-empty) */
-  draftTitle?: string;
-  /** Handler to navigate back to create mode */
-  onSelectCreate?: () => void;
   /** Whether to show archived workspaces */
   showArchive?: boolean;
   /** Handler for toggling archive view */
   onShowArchiveChange?: (show: boolean) => void;
-  /** Layout mode for active workspaces */
-  layoutMode?: WorkspaceLayoutMode;
-  /** Handler for toggling layout mode */
-  onToggleLayoutMode?: () => void;
   /** Handler to load more workspaces on scroll */
   onLoadMore?: () => void;
   /** Whether there are more workspaces to load */
@@ -79,7 +117,7 @@ export interface WorkspacesSidebarProps {
   searchControls?: ReactNode;
   /** Callback for opening workspace actions */
   onOpenWorkspaceActions?: (workspaceId: string) => void;
-  /** Persist keys for collapsible sections */
+  /** Persist keys for sidebar view state */
   persistKeys?: WorkspacesSidebarPersistKeys;
   activeRemoteHost?: {
     name: string;
@@ -128,6 +166,14 @@ export function WorkspacesSidebarReopenTag({
   );
 }
 
+function needsAttention(ws: WorkspacesSidebarWorkspace) {
+  return (
+    !!ws.hasPendingApproval ||
+    !!ws.hasStalledTask ||
+    (!!ws.hasUnseenActivity && !ws.isRunning)
+  );
+}
+
 function WorkspaceList({
   workspaces,
   selectedWorkspaceId,
@@ -158,6 +204,20 @@ function WorkspaceList({
           latestProcessCompletedAt={workspace.latestProcessCompletedAt}
           latestProcessStatus={workspace.latestProcessStatus}
           prStatus={workspace.prStatus}
+          prNumber={workspace.prNumber}
+          prUrl={workspace.prUrl}
+          prMergeable={workspace.prMergeable}
+          prCiStatus={workspace.prCiStatus}
+          branch={workspace.branch}
+          contextUsage={workspace.contextUsage}
+          latestActivity={workspace.latestActivity}
+          issueNumber={workspace.issueNumber}
+          hasStalledTask={workspace.hasStalledTask}
+          latestProcessStartedAt={workspace.latestProcessStartedAt}
+          workerName={workspace.workerName}
+          workerRole={workspace.workerRole}
+          workerModel={workspace.workerModel}
+          taskTitle={workspace.taskTitle}
           onOpenWorkspaceActions={onOpenWorkspaceActions}
           onClick={() => onSelectWorkspace(workspace.id)}
         />
@@ -168,21 +228,14 @@ function WorkspaceList({
 
 export function WorkspacesSidebar({
   workspaces,
-  totalWorkspacesCount,
   archivedWorkspaces = [],
   isLoading = false,
   selectedWorkspaceId,
   onSelectWorkspace,
-  onAddWorkspace,
   searchQuery,
   onSearchChange,
-  isCreateMode = false,
-  draftTitle,
-  onSelectCreate,
   showArchive = false,
   onShowArchiveChange,
-  layoutMode = 'flat',
-  onToggleLayoutMode,
   onLoadMore,
   hasMoreWorkspaces = false,
   searchControls,
@@ -214,289 +267,265 @@ export function WorkspacesSidebar({
     }
   };
 
-  // Categorize workspaces for accordion layout
-  const { raisedHandWorkspaces, idleWorkspaces, runningWorkspaces } =
-    useMemo(() => {
-      // Running workspaces should stay in the "Running" section even if unseen.
-      const needsAttention = (ws: WorkspacesSidebarWorkspace) =>
-        ws.hasPendingApproval || (ws.hasUnseenActivity && !ws.isRunning);
+  // Selected scope, persisted per sidebar instance
+  const [scope, setScope] = useState<WorkspaceScope>(() =>
+    getInitialScope(persistKeys.statusTab)
+  );
 
-      return {
-        raisedHandWorkspaces: workspaces.filter((ws) => needsAttention(ws)),
-        idleWorkspaces: workspaces.filter(
-          (ws) => !ws.isRunning && !needsAttention(ws)
-        ),
-        runningWorkspaces: workspaces.filter(
-          (ws) => ws.isRunning && !needsAttention(ws)
-        ),
-      };
-    }, [workspaces]);
+  useEffect(() => {
+    if (!persistKeys.statusTab) return;
+    try {
+      window.localStorage.setItem(
+        `${TAB_STORAGE_KEY_PREFIX}${persistKeys.statusTab}`,
+        scope
+      );
+    } catch {
+      // Ignore localStorage failures (private mode/quota/security errors).
+    }
+  }, [persistKeys.statusTab, scope]);
 
-  const headerActions: SectionAction[] = [
-    {
-      icon: StackIcon,
-      onClick: () => onToggleLayoutMode?.(),
-      isActive: layoutMode === 'accordion',
+  // Categorize workspaces per scope, preserving the incoming sort order.
+  // Attention wins over running/idle so a workspace is only listed once.
+  const scopeWorkspaces = useMemo(() => {
+    const attention = workspaces.filter(needsAttention);
+    const rest = workspaces.filter((ws) => !needsAttention(ws));
+    return {
+      attention,
+      running: workspaces.filter((ws) => ws.isRunning),
+      idle: workspaces.filter((ws) => !ws.isRunning),
+      all: workspaces,
+      restRunning: rest.filter((ws) => ws.isRunning),
+      restIdle: rest.filter((ws) => !ws.isRunning),
+    };
+  }, [workspaces]);
+
+  const counts: WorkspaceScopeCounts = {
+    attention: scopeWorkspaces.attention.length,
+    running: scopeWorkspaces.running.length,
+    idle: scopeWorkspaces.idle.length,
+    all: workspaces.length,
+    archive: archivedWorkspaces.length,
+  };
+
+  // A persisted scope that has since emptied is a dead end: once the list has
+  // loaded, fall through to the first scope that actually has something in it.
+  const hasResolvedScopeRef = useRef(false);
+  useEffect(() => {
+    if (hasResolvedScopeRef.current || isLoading || workspaces.length === 0) {
+      return;
+    }
+    hasResolvedScopeRef.current = true;
+    if (scopeWorkspaces[scope].length > 0) return;
+    const fallback = WORKSPACE_SCOPES.find(
+      (candidate) => scopeWorkspaces[candidate].length > 0
+    );
+    if (fallback) setScope(fallback);
+  }, [isLoading, workspaces.length, scope, scopeWorkspaces]);
+
+  // The rail is permanent chrome; only search/sort/filter wait until the list
+  // is big enough to need slicing tools.
+  const showSearch = !isLoading && workspaces.length >= CHROME_THRESHOLD;
+  const railScope: WorkspaceRailScope = showArchive ? 'archive' : scope;
+
+  const handleScopeChange = useCallback(
+    (next: WorkspaceRailScope) => {
+      if (next === 'archive') {
+        onShowArchiveChange?.(true);
+        return;
+      }
+      if (showArchive) onShowArchiveChange?.(false);
+      setScope(next);
     },
-    {
-      icon: PlusIcon,
-      onClick: () => onAddWorkspace?.(),
-    },
-  ];
+    [onShowArchiveChange, showArchive]
+  );
+
+  const visibleWorkspaces = scopeWorkspaces[scope];
+  const panelTitle = showArchive
+    ? t('common:workspaces.archived')
+    : t(SCOPE_LABEL_KEYS[scope]);
+  const panelCount = showArchive ? archivedWorkspaces.length : counts[scope];
+
+  // "All" is the only scope where the groups add anything: everywhere else the
+  // scope itself is the grouping.
+  const groups = useMemo(
+    () =>
+      [
+        { id: 'attention' as const, items: scopeWorkspaces.attention },
+        { id: 'running' as const, items: scopeWorkspaces.restRunning },
+        { id: 'idle' as const, items: scopeWorkspaces.restIdle },
+      ].filter((group) => group.items.length > 0),
+    [scopeWorkspaces]
+  );
 
   return (
-    <div className="w-full h-full bg-secondary flex flex-col">
-      {/* Header + Search */}
-      <div className="flex flex-col gap-base">
-        <CollapsibleSectionHeader
-          title={t('common:workspaces.title')}
-          collapsible={false}
-          actions={headerActions}
-          className="border-b"
-        />
-        {!isLoading && (
-          <div className="px-base flex items-stretch gap-half">
-            <div className="flex-1 min-w-0">
-              <InputField
-                variant="search"
-                value={searchQuery}
-                onChange={onSearchChange}
-                placeholder={t('common:workspaces.searchPlaceholder')}
-              />
-            </div>
-            {searchControls}
-          </div>
-        )}
+    <div className="w-full h-full bg-md-surface-container-lowest flex">
+      <WorkspaceScopeRail
+        scope={railScope}
+        counts={counts}
+        onScopeChange={handleScopeChange}
+      />
 
-        {activeRemoteHost && (
-          <div className="px-base">
-            <div className="rounded-sm border border-border bg-panel/60 px-base py-half flex items-center justify-between gap-base">
-              <div className="min-w-0">
-                <p className="text-xs text-low uppercase tracking-wide">
-                  {t('common:workspaces.remoteHostLabel', {
-                    defaultValue: 'Remote host',
-                  })}
-                </p>
-                <p className="text-sm text-high truncate">
-                  {activeRemoteHost.name}
-                </p>
-              </div>
-              <div className="flex items-center gap-half shrink-0">
-                <span
-                  className={cn(
-                    'inline-flex h-2.5 w-2.5 rounded-full',
-                    activeRemoteHost.status === 'online'
-                      ? 'bg-success'
-                      : activeRemoteHost.status === 'offline'
-                        ? 'bg-low'
-                        : 'bg-warning'
-                  )}
-                  aria-hidden="true"
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Header + Search */}
+        <div className="flex flex-col gap-base">
+          <CollapsibleSectionHeader
+            title={panelTitle}
+            count={panelCount}
+            collapsible={false}
+          />
+          {showSearch && (
+            <div className="px-base flex items-stretch gap-half">
+              <div className="flex-1 min-w-0">
+                <InputField
+                  variant="search"
+                  value={searchQuery}
+                  onChange={onSearchChange}
+                  placeholder={t('common:workspaces.searchPlaceholder')}
                 />
-                {onOpenRemoteHostSettings && (
-                  <button
-                    type="button"
-                    onClick={onOpenRemoteHostSettings}
-                    className="text-xs text-brand hover:underline"
-                  >
-                    {t('common:workspaces.remoteHostManage', {
-                      defaultValue: 'Manage',
-                    })}
-                  </button>
-                )}
               </div>
+              {searchControls}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Scrollable workspace list */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto py-base"
-      >
-        {isLoading ? (
-          <div className="flex h-full min-h-[220px] items-center justify-center px-base">
-            <div className="flex items-center justify-center text-low">
-              <SpinnerIcon className="size-6 animate-spin" weight="bold" />
-            </div>
-          </div>
-        ) : showArchive ? (
-          /* Archived workspaces view */
-          <div className="flex flex-col gap-base">
-            <span className="text-sm font-medium text-low px-base">
-              {t('common:workspaces.archived')}
-            </span>
-            {archivedWorkspaces.length === 0 ? (
-              <span className="text-sm text-low opacity-60 px-base">
-                {t('common:workspaces.noArchived')}
-              </span>
-            ) : (
-              archivedWorkspaces.map((workspace) => (
-                <WorkspaceSummary
-                  summary
-                  key={workspace.id}
-                  name={workspace.name}
-                  workspaceId={workspace.id}
-                  filesChanged={workspace.filesChanged}
-                  linesAdded={workspace.linesAdded}
-                  linesRemoved={workspace.linesRemoved}
-                  isActive={selectedWorkspaceId === workspace.id}
-                  isRunning={workspace.isRunning}
-                  isPinned={workspace.isPinned}
-                  hasPendingApproval={workspace.hasPendingApproval}
-                  hasRunningDevServer={workspace.hasRunningDevServer}
-                  hasUnseenActivity={workspace.hasUnseenActivity}
-                  latestProcessCompletedAt={workspace.latestProcessCompletedAt}
-                  latestProcessStatus={workspace.latestProcessStatus}
-                  prStatus={workspace.prStatus}
-                  onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  onClick={() => onSelectWorkspace(workspace.id)}
-                />
-              ))
-            )}
-          </div>
-        ) : layoutMode === 'accordion' ? (
-          /* Accordion layout view */
-          <div className="flex flex-col gap-base">
-            {/* Needs Attention section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.needsAttention')}
-              persistKey={persistKeys.raisedHand}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {draftTitle && (
-                  <WorkspaceSummary
-                    name={draftTitle}
-                    isActive={isCreateMode}
-                    isDraft={true}
-                    onClick={onSelectCreate}
-                  />
-                )}
-                {raisedHandWorkspaces.length === 0 && !draftTitle ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={raisedHandWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-
-            {/* Running section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.running')}
-              persistKey={persistKeys.running}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {runningWorkspaces.length === 0 ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={runningWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-
-            {/* Idle section */}
-            <CollapsibleSectionHeader
-              title={t('common:workspaces.idle')}
-              persistKey={persistKeys.notRunning}
-              defaultExpanded={true}
-            >
-              <div className="flex flex-col gap-base py-half">
-                {idleWorkspaces.length === 0 ? (
-                  <span className="text-sm text-low opacity-60 pl-base">
-                    {t('common:workspaces.noWorkspaces')}
-                  </span>
-                ) : (
-                  <WorkspaceList
-                    workspaces={idleWorkspaces}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onSelectWorkspace={onSelectWorkspace}
-                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                  />
-                )}
-              </div>
-            </CollapsibleSectionHeader>
-          </div>
-        ) : (
-          /* Active workspaces flat view */
-          <div className="flex flex-col gap-base">
-            <div className="flex items-center justify-between px-base">
-              <span className="text-sm font-medium text-low">
-                {t('common:workspaces.active')}
-              </span>
-              <span className="text-xs text-low">{totalWorkspacesCount}</span>
-            </div>
-            {draftTitle && (
-              <WorkspaceSummary
-                name={draftTitle}
-                isActive={isCreateMode}
-                isDraft={true}
-                onClick={onSelectCreate}
-              />
-            )}
-            {workspaces.map((workspace) => (
-              <WorkspaceSummary
-                key={workspace.id}
-                name={workspace.name}
-                workspaceId={workspace.id}
-                filesChanged={workspace.filesChanged}
-                linesAdded={workspace.linesAdded}
-                linesRemoved={workspace.linesRemoved}
-                isActive={selectedWorkspaceId === workspace.id}
-                isRunning={workspace.isRunning}
-                isPinned={workspace.isPinned}
-                hasPendingApproval={workspace.hasPendingApproval}
-                hasRunningDevServer={workspace.hasRunningDevServer}
-                hasUnseenActivity={workspace.hasUnseenActivity}
-                latestProcessCompletedAt={workspace.latestProcessCompletedAt}
-                latestProcessStatus={workspace.latestProcessStatus}
-                prStatus={workspace.prStatus}
-                onOpenWorkspaceActions={handleOpenWorkspaceActions}
-                onClick={() => onSelectWorkspace(workspace.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Fixed footer toggle - only show if there are archived workspaces */}
-      <div className="border-t border-primary p-base">
-        <button
-          onClick={() => onShowArchiveChange?.(!showArchive)}
-          className="w-full flex items-center gap-base text-sm text-low hover:text-normal transition-colors duration-100"
-        >
-          {showArchive ? (
-            <>
-              <ArrowLeftIcon className="size-icon-xs" />
-              <span>{t('common:workspaces.backToActive')}</span>
-            </>
-          ) : (
-            <>
-              <ArchiveIcon className="size-icon-xs" />
-              <span>{t('common:workspaces.viewArchive')}</span>
-              <span className="ml-auto text-xs bg-tertiary px-1.5 py-0.5 rounded">
-                {archivedWorkspaces.length}
-              </span>
-            </>
           )}
-        </button>
+
+          {activeRemoteHost && (
+            <div className="px-base">
+              <div className="rounded-sm border border-border bg-panel/60 px-base py-half flex items-center justify-between gap-base">
+                <div className="min-w-0">
+                  <p className="text-xs text-low uppercase tracking-wide">
+                    {t('common:workspaces.remoteHostLabel', {
+                      defaultValue: 'Remote host',
+                    })}
+                  </p>
+                  <p className="text-sm text-high truncate">
+                    {activeRemoteHost.name}
+                  </p>
+                </div>
+                <div className="flex items-center gap-half shrink-0">
+                  <span
+                    className={cn(
+                      'inline-flex h-2.5 w-2.5 rounded-full',
+                      activeRemoteHost.status === 'online'
+                        ? 'bg-success'
+                        : activeRemoteHost.status === 'offline'
+                          ? 'bg-low'
+                          : 'bg-warning'
+                    )}
+                    aria-hidden="true"
+                  />
+                  {onOpenRemoteHostSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenRemoteHostSettings}
+                      className="text-xs text-brand-on-surface hover:underline"
+                    >
+                      {t('common:workspaces.remoteHostManage', {
+                        defaultValue: 'Manage',
+                      })}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable workspace list */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto py-base"
+        >
+          {isLoading ? (
+            <div className="flex h-full min-h-[220px] items-center justify-center px-base">
+              <div className="flex items-center justify-center text-md-on-surface-variant">
+                <MaterialIcon
+                  name="progress_activity"
+                  size="base"
+                  className="animate-spin"
+                />
+              </div>
+            </div>
+          ) : showArchive ? (
+            /* Archived workspaces view */
+            <div className="flex flex-col gap-base px-base">
+              <span className="text-sm font-medium text-low">
+                {t('common:workspaces.archived')}
+              </span>
+              {archivedWorkspaces.length === 0 ? (
+                <span className="text-sm text-low opacity-60">
+                  {t('common:workspaces.noArchived')}
+                </span>
+              ) : (
+                archivedWorkspaces.map((workspace) => (
+                  <WorkspaceSummary
+                    summary
+                    key={workspace.id}
+                    name={workspace.name}
+                    workspaceId={workspace.id}
+                    filesChanged={workspace.filesChanged}
+                    linesAdded={workspace.linesAdded}
+                    linesRemoved={workspace.linesRemoved}
+                    isActive={selectedWorkspaceId === workspace.id}
+                    isRunning={workspace.isRunning}
+                    isPinned={workspace.isPinned}
+                    hasPendingApproval={workspace.hasPendingApproval}
+                    hasRunningDevServer={workspace.hasRunningDevServer}
+                    hasUnseenActivity={workspace.hasUnseenActivity}
+                    latestProcessCompletedAt={
+                      workspace.latestProcessCompletedAt
+                    }
+                    latestProcessStatus={workspace.latestProcessStatus}
+                    prStatus={workspace.prStatus}
+                    prNumber={workspace.prNumber}
+                    prUrl={workspace.prUrl}
+                    prMergeable={workspace.prMergeable}
+                    prCiStatus={workspace.prCiStatus}
+                    branch={workspace.branch}
+                    contextUsage={workspace.contextUsage}
+                    latestActivity={workspace.latestActivity}
+                    latestProcessStartedAt={workspace.latestProcessStartedAt}
+                    workerName={workspace.workerName}
+                    workerRole={workspace.workerRole}
+                    workerModel={workspace.workerModel}
+                    taskTitle={workspace.taskTitle}
+                    onOpenWorkspaceActions={handleOpenWorkspaceActions}
+                    onClick={() => onSelectWorkspace(workspace.id)}
+                  />
+                ))
+              )}
+            </div>
+          ) : (
+            /* Scope view */
+            <div className="flex flex-col gap-base px-base">
+              {visibleWorkspaces.length === 0 ? (
+                <span className="text-sm text-low opacity-60">
+                  {t('common:workspaces.noWorkspaces')}
+                </span>
+              ) : scope === 'all' && groups.length > 1 ? (
+                groups.map((group) => (
+                  <div key={group.id} className="flex flex-col gap-base">
+                    <span className="text-label font-semibold uppercase tracking-wider text-low">
+                      {t(SCOPE_LABEL_KEYS[group.id])}
+                    </span>
+                    <WorkspaceList
+                      workspaces={group.items}
+                      selectedWorkspaceId={selectedWorkspaceId}
+                      onSelectWorkspace={onSelectWorkspace}
+                      onOpenWorkspaceActions={handleOpenWorkspaceActions}
+                    />
+                  </div>
+                ))
+              ) : (
+                <WorkspaceList
+                  workspaces={visibleWorkspaces}
+                  selectedWorkspaceId={selectedWorkspaceId}
+                  onSelectWorkspace={onSelectWorkspace}
+                  onOpenWorkspaceActions={handleOpenWorkspaceActions}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

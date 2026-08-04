@@ -16,6 +16,7 @@ interface InputFieldProps {
   actionIcon?: Icon;
   onAction?: () => void;
   disabled?: boolean;
+  autoFocus?: boolean;
   onFocusChange?: (focused: boolean) => void;
 }
 
@@ -28,6 +29,7 @@ export function InputField({
   actionIcon: ActionIcon,
   onAction,
   disabled,
+  autoFocus,
   onFocusChange,
 }: InputFieldProps) {
   const [isEditing, setIsEditing] = React.useState(false);
@@ -88,10 +90,10 @@ export function InputField({
   const getBorderClass = () => {
     if (variant === 'editable') {
       if (justSaved) return 'border-success';
-      if (isEditing) return 'border-brand';
+      if (isEditing) return 'border-brand-on-surface';
     }
-    if (variant === 'search' && isFocused) return 'border-brand';
-    return 'border-border';
+    if (variant === 'search' && isFocused) return 'border-brand-on-surface';
+    return 'border-border-strong';
   };
 
   // For search variant: always show input
@@ -101,7 +103,7 @@ export function InputField({
   return (
     <div
       className={cn(
-        'bg-secondary border rounded-sm px-base py-half flex items-center gap-base transition-colors',
+        'bg-md-surface-container-low border rounded-sm h-[26px] px-2 flex items-center gap-1.5 transition-colors',
         getBorderClass(),
         className
       )}
@@ -127,6 +129,7 @@ export function InputField({
           }}
           placeholder={placeholder}
           disabled={disabled}
+          autoFocus={autoFocus}
           className="flex-1 text-sm text-high bg-transparent placeholder:text-low placeholder:opacity-80 focus:outline-none min-w-0"
         />
       ) : (

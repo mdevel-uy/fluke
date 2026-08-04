@@ -21,18 +21,22 @@
         "reposDesc": "儲存庫腳本與設定",
         "agents": "代理",
         "agentsDesc": "編碼代理設定",
+        "guidelines": "行為準則",
+        "guidelinesDesc": "適用於所有代理的全域行為規則",
         "mcp": "MCP 伺服器",
         "mcpDesc": "模型上下文協議伺服器",
-        "organizations": "組織設定",
         "organizationsDesc": "管理組織成員與權限",
-        "remote-projects": "專案",
         "remote-projectsDesc": "管理專案",
-        "relay": "Remote Access",
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "pairOtherMachines": "Pair other machines",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "技能",
+        "skillsDesc": "管理和安裝 Claude 技能",
+        "github": "GitHub",
+        "githubDesc": "使用 gh CLI 登入 GitHub",
+        "agent-auth": "代理連線",
+        "agent-authDesc": "在設定中連線和中斷每個已安裝的代理"
       }
     },
     "general": {
@@ -87,7 +91,7 @@
           "host": {
             "label": "遠端 SSH 主機（選填）",
             "placeholder": "例如：主機名稱或 IP 位址",
-            "helper": "若 Vibe Kanban 在遠端伺服器上執行，請設定此項。設定後，點擊在編輯器中開啟將產生 URL 以透過 SSH 開啟編輯器，而非執行本機指令。"
+            "helper": "若 mkanban 在遠端伺服器上執行，請設定此項。設定後，點擊在編輯器中開啟將產生 URL 以透過 SSH 開啟編輯器，而非執行本機指令。"
           },
           "user": {
             "label": "遠端 SSH 使用者（選填）",
@@ -97,7 +101,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the Vibe Kanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "檢查可用性...",
@@ -161,10 +165,10 @@
         "workspaceDir": {
           "label": "工作區目錄",
           "placeholder": "~/",
-          "helper": "工作區將在此路徑內的 .vibe-kanban-workspaces 子目錄中建立。留空以使用系統預設值。變更需要重新啟動應用程式。",
+          "helper": "工作區將在此路徑內的 .mkanban-workspaces 子目錄中建立。留空以使用系統預設值。變更需要重新啟動應用程式。",
           "browse": "瀏覽",
           "dialogTitle": "選擇工作區目錄",
-          "dialogDescription": "選擇一個目錄。工作區將在其中的 .vibe-kanban-workspaces 子目錄中建立。"
+          "dialogDescription": "選擇一個目錄。工作區將在其中的 .mkanban-workspaces 子目錄中建立。"
         }
       },
       "pullRequests": {
@@ -177,6 +181,19 @@
         "customPrompt": {
           "useCustom": "使用自訂提示",
           "helper": "產生 PR 描述時 AI 代理使用的自訂提示。使用 {pr_number} 與 {pr_url} 作為佔位符。"
+        }
+      },
+      "autoReview": {
+        "title": "自動審查",
+        "description": "為代理生成的 PR 設定自動的變更請求 / 再審查循環。",
+        "maxRounds": {
+          "label": "最大審查輪數",
+          "helper": "在停止自動審查前，變更請求 ↔ 再審查迭代的最大次數。至少為 1。",
+          "errors": {
+            "required": "請輸入一個值。",
+            "notInteger": "值必須為整數。",
+            "min": "值至少為 1。"
+          }
         }
       },
       "commits": {
@@ -217,7 +234,7 @@
       },
       "privacy": {
         "title": "隱私",
-        "description": "透過分享匿名使用資料來協助改善 Vibe Kanban。",
+        "description": "透過分享匿名使用資料來協助改善 mkanban。",
         "telemetry": {
           "label": "啟用遙測",
           "helper": "啟用匿名使用事件追蹤以協助改善應用程式。不會收集提示或專案資訊。"
@@ -436,7 +453,32 @@
         "button": "新增儲存庫",
         "dialogTitle": "選擇 Git 儲存庫",
         "dialogDescription": "選擇一個現有的 git 儲存庫進行註冊。",
-        "error": "註冊儲存庫失敗"
+        "error": "註冊儲存庫失敗",
+        "tabs": {
+          "folder": "本機資料夾",
+          "github": "從 GitHub"
+        },
+        "folder": {
+          "pathLabel": "儲存庫路徑",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "請提供既有本機 git 儲存庫的絕對路徑。",
+          "browse": "瀏覽資料夾",
+          "submit": "新增儲存庫"
+        },
+        "github": {
+          "searchPlaceholder": "依名稱過濾儲存庫",
+          "loading": "正在載入儲存庫…",
+          "cloning": "正在複製儲存庫…",
+          "cloneInProgress": "複製作業進行中",
+          "noRepos": "沒有可用的儲存庫。請確認已登入 `gh`。",
+          "noMatches": "沒有儲存庫符合搜尋條件。",
+          "notAuthenticated": "尚未通過 GitHub 認證。請執行 `gh auth login` 後再試一次。"
+        },
+        "errors": {
+          "pathRequired": "儲存庫路徑為必填",
+          "cloneFailed": "複製儲存庫失敗",
+          "listFailed": "載入儲存庫失敗"
+        }
       },
       "selector": {
         "label": "選擇儲存庫",
@@ -505,11 +547,11 @@
       },
       "remove": {
         "title": "移除儲存庫",
-        "description": "從 Vibe Kanban 取消關聯此儲存庫。磁碟上的檔案不會被刪除。",
+        "description": "從 mkanban 取消關聯此儲存庫。磁碟上的檔案不會被刪除。",
         "button": "移除",
         "confirm": "移除儲存庫",
         "dialogTitle": "移除「{{name}}」？",
-        "dialogDescription": "這將從 Vibe Kanban 取消關聯此儲存庫。您磁碟上的檔案不受影響。您可以稍後重新加入。",
+        "dialogDescription": "這將從 mkanban 取消關聯此儲存庫。您磁碟上的檔案不受影響。您可以稍後重新加入。",
         "success": "儲存庫移除成功。",
         "error": "移除儲存庫失敗。"
       },
@@ -522,87 +564,150 @@
         "confirmSwitch": "您有未儲存的變更。確定要切換儲存庫嗎？您的變更將會遺失。"
       }
     },
-    "relay": {
-      "title": "Remote Access",
-      "description": "Allow access to this instance from the web via relay tunnel.",
-      "enabled": {
-        "label": "Enable remote access",
-        "helper": "When enabled, this instance can be accessed remotely through a relay tunnel."
-      },
-      "enrollmentCode": {
-        "label": "Pairing Code",
-        "helper": "Enter this code in the browser to pair with this instance.",
-        "loginRequired": "Log in to generate a pairing code.",
-        "fetchError": "Failed to fetch pairing code.",
-        "show": "Show pairing code"
-      },
-      "host": {
-        "label": "主機"
-      },
-      "client": {
-        "label": "用戶端"
-      },
-      "overview": {
-        "available": "Available",
-        "unavailable": "Unavailable"
-      }
-    },
-    "remoteProjects": {
-      "title": "Remote Projects",
-      "description": "Manage cloud-synced projects across organizations.",
-      "loading": "Loading remote projects...",
-      "loadError": "Failed to load organizations",
-      "noProjects": "No projects yet. Create one to get started.",
-      "selectOrg": "Select an organization",
-      "createSuccess": "Project created successfully",
-      "deleteSuccess": "Project deleted successfully",
-      "nameRequired": "Project name is required",
-      "saveSuccess": "Project updated successfully",
-      "saveError": "Failed to update project",
-      "columns": {
-        "organizations": "Organizations",
-        "projects": "Projects"
-      },
-      "actions": {
-        "addProject": "Add Project"
-      },
-      "form": {
-        "name": {
-          "label": "Project Name",
-          "placeholder": "Enter project name"
-        },
-        "color": {
-          "label": "Project Color"
-        },
-        "statuses": {
-          "label": "Project Statuses",
-          "description": "Manage kanban columns for this project."
-        },
-        "defaultRepos": {
-          "label": "Default Repositories",
-          "description": "Repositories that are automatically added when creating workspaces from this project's issues.",
-          "empty": "No default repositories configured",
-          "addButton": "Add",
-          "addNew": "Add new repository...",
-          "branchLabel": "Branch",
-          "noBranches": "No branches found for this repository",
-          "fetchError": "Could not load repositories",
-          "saveError": "Failed to save default repositories"
-        }
-      },
-      "loginRequired": {
-        "title": "Sign in required",
-        "description": "Sign in to manage your remote projects.",
-        "action": "Sign in"
-      }
-    },
     "hostPicker": {
       "thisMachine": "This machine",
       "localHost": "Local host",
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
-      "pairMachineHint": "Pair a machine to open machine settings.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "已安裝的技能",
+        "description": "在 ~/.claude/skills 中找到的技能",
+        "loading": "載入技能中...",
+        "loadError": "載入技能失敗。",
+        "empty": "尚未安裝任何技能。",
+        "delete": "刪除"
+      },
+      "install": {
+        "title": "安裝技能",
+        "description": "透過 git URL 安裝技能。",
+        "urlLabel": "Git URL",
+        "urlHelper": "技能儲存庫的 URL（例如：https://github.com/user/my-skill）",
+        "urlPlaceholder": "https://github.com/user/skill-name",
+        "button": "安裝",
+        "error": "安裝技能失敗。"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 連線",
+        "description": "透過本機 gh CLI 登入 GitHub，以啟用 git 操作與 pull request。",
+        "status": {
+          "label": "狀態"
+        }
+      },
+      "cliWarning": "未安裝 GitHub CLI (gh)。你仍可透過下方的 Personal Access Token 登入，但 pull request 與 issue 同步需要 PATH 中有 gh。",
+      "patExpired": "你的 Personal Access Token 已過期或被撤銷。請在下方重新連線以保持 GitHub 功能可用。",
+      "status": {
+        "loading": "正在檢查連線…",
+        "connected": "已連線到 GitHub",
+        "connectedAs": "以 @{{username}} 身分連線",
+        "connectedAsPat": "以 @{{username}} 身分連線（透過 PAT）",
+        "notConnected": "未連線"
+      },
+      "actions": {
+        "connect": "連線到 GitHub",
+        "disconnect": "中斷連線",
+        "installCli": "安裝 GitHub CLI",
+        "installingCli": "安裝中…"
+      },
+      "deviceFlow": {
+        "title": "在 GitHub 上授權",
+        "description": "複製下方的一次性代碼，然後開啟 GitHub 並貼上以完成登入。",
+        "codeLabel": "一次性代碼",
+        "copyHint": "點擊複製",
+        "openGitHub": "開啟 github.com/login/device",
+        "checkStatus": "重新整理狀態",
+        "waiting": "等待授權中… 在 GitHub 完成後此對話框會自動更新。"
+      },
+      "pat": {
+        "title": "使用 Personal Access Token 連線",
+        "description": "無需終端機或 gh CLI。貼上具有 repo、read:org 與 workflow 權限的權杖。",
+        "placeholder": "ghp_…",
+        "submit": "驗證並連線",
+        "helpBefore": "請前往",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "以推薦權限生成權杖。"
+      },
+      "errors": {
+        "loginFailed": "啟動 GitHub 登入失敗。",
+        "logoutFailed": "中斷 GitHub 連線失敗。",
+        "installFailed": "安裝 GitHub CLI 失敗。",
+        "patLoginFailed": "驗證 Personal Access Token 失敗。"
+      }
+    },
+    "agentAuth": {
+      "loading": "正在檢查已安裝的代理…",
+      "emptyState": "這台機器上尚未安裝任何編碼代理。",
+      "statusLabel": "狀態",
+      "status": {
+        "connected": "已連線",
+        "notConnected": "未連線"
+      },
+      "actions": {
+        "connect": "連線",
+        "disconnect": "中斷",
+        "cancel": "取消"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "使用瀏覽器裝置流程登入 OpenAI Codex,無需開啟終端機。"
+        },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "使用你的 Claude 訂閱登入:開啟 URL,登入後將頁面返回的兌換碼貼到下方。"
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "使用在 Google AI Studio 取得的 API 金鑰連線至 Google Gemini。"
+        }
+      },
+      "deviceFlow": {
+        "title": "在 OpenAI 授權",
+        "description": "複製下方一次性代碼,然後開啟 OpenAI 頁面貼上以完成登入。",
+        "codeLabel": "一次性代碼",
+        "copyHint": "點擊複製",
+        "openBrowser": "開啟 OpenAI",
+        "checkStatus": "重新整理狀態",
+        "waitingForCode": "等待 CLI 顯示裝置代碼…",
+        "waiting": "等待授權中… 在瀏覽器中完成後此卡片將自動更新。"
+      },
+      "apiKey": {
+        "title": "使用 API 金鑰連線",
+        "description": "貼上從 Google AI Studio 取得的 Gemini API 金鑰。將以 GEMINI_API_KEY 儲存在這台機器上,不會外傳。",
+        "placeholder": "AIza…",
+        "submit": "儲存並連線",
+        "helpBefore": "在下列位置取得金鑰:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "然後貼到上方。"
+      },
+      "claudeFlow": {
+        "title": "在 claude.com 授權",
+        "description": "開啟 URL,登入你的 Claude 帳號,然後複製頁面返回的兌換碼。",
+        "openBrowser": "開啟 claude.com",
+        "copyUrl": "複製 URL",
+        "waitingForUrl": "等待 CLI 顯示登入 URL…",
+        "codeInputLabel": "兌換碼",
+        "codeInputPlaceholder": "從 claude.com 貼上兌換碼",
+        "codeInputHelp": "CLI 接受兌換碼後此卡片將自動更新。",
+        "submitCode": "送出兌換碼"
+      },
+      "hidden": {
+        "title": "CLI 未安裝",
+        "description": "下列代理因為其 CLI 未安裝於此映像檔而被隱藏: {{providers}}。"
+      },
+      "errors": {
+        "loginFailed": "無法啟動連線流程。",
+        "logoutFailed": "無法中斷代理連線。",
+        "cancelFailed": "無法取消連線。",
+        "submitCodeFailed": "無法送出兌換碼。"
+      }
     }
   },
   "integrations": {

@@ -41,6 +41,10 @@ pub enum ExecutionProcessError {
 #[serde(rename_all = "lowercase")]
 #[ts(use_ts_enum)]
 pub enum ExecutionProcessStatus {
+    /// Waiting for a concurrency slot to free up. Row exists but no
+    /// child process is spawned yet — the container semaphore will
+    /// transition this to `Running` when a slot becomes available.
+    Queued,
     Running,
     Completed,
     Failed,
@@ -100,6 +104,17 @@ pub struct LatestProcessInfo {
     pub session_id: Uuid,
     pub status: ExecutionProcessStatus,
     pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct LatestCodingAgentProcess {
+    pub workspace_id: Uuid,
+    pub execution_process_id: Uuid,
+    pub started_at: DateTime<Utc>,
+    /// Needed to decide whether the process's logs are still growing. Only a
+    /// terminal process has immutable logs, and only those may be memoized by
+    /// the workspace-summary signal cache.
+    pub status: ExecutionProcessStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,6 +286,38 @@ impl ExecutionProcess {
         .await
     }
 
+    /// Number of coding-agent processes currently running across every
+    /// workspace. Exposed as `mkanban_agents_running` in `/api/metrics`
+    /// so the fleet dashboard can plot concurrent-agents per instance.
+    /// Runtime-checked (`sqlx::query_scalar`) to keep the offline sqlx cache
+    /// unchanged.
+    pub async fn count_running_coding_agents(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM execution_processes
+               WHERE status = 'running' AND run_reason = 'codingagent'",
+        )
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Cumulative count of failed execution processes grouped by
+    /// `run_reason`. Feeds a Prometheus counter so ops can alert on
+    /// executor regressions per instance. Runtime-checked query.
+    pub async fn counts_failed_by_run_reason(
+        pool: &SqlitePool,
+    ) -> Result<Vec<(String, i64)>, sqlx::Error> {
+        sqlx::query_as::<_, (String, i64)>(
+            "SELECT run_reason, COUNT(*)
+               FROM execution_processes
+               WHERE status = 'failed'
+               GROUP BY run_reason
+               ORDER BY run_reason ASC",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Check if there's a running coding agent process for a session
     pub async fn has_running_coding_agent_for_session(
         pool: &SqlitePool,
@@ -427,6 +474,68 @@ impl ExecutionProcess {
         false
     }
 
+    /// Transition an execution process from `queued` to `running` (or
+    /// simply set status = 'running' if it was already running). Also
+    /// refreshes `started_at` so the elapsed-time UI counts from the
+    /// point the child actually starts, not from enqueue time.
+    pub async fn mark_running(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query!(
+            r#"UPDATE execution_processes
+               SET status = $1, started_at = $2
+               WHERE id = $3"#,
+            ExecutionProcessStatus::Running,
+            now,
+            id
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Mark an execution process as queued (waiting for a concurrency slot).
+    /// Called when the container semaphore is full at spawn time.
+    pub async fn mark_queued(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"UPDATE execution_processes
+               SET status = $1
+               WHERE id = $2"#,
+            ExecutionProcessStatus::Queued,
+            id
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Return all processes that are currently in `queued` status, ordered
+    /// FIFO by creation time. Used on startup to re-hydrate the in-memory
+    /// queue after a restart. Dropped (soft-deleted) rows are excluded —
+    /// they represent history that was trimmed and must not be resurrected.
+    pub async fn find_queued(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as!(
+            ExecutionProcess,
+            r#"SELECT
+                    ep.id as "id!: Uuid",
+                    ep.session_id as "session_id!: Uuid",
+                    ep.run_reason as "run_reason!: ExecutionProcessRunReason",
+                    ep.executor_action as "executor_action!: sqlx::types::Json<ExecutorActionField>",
+                    ep.status as "status!: ExecutionProcessStatus",
+                    ep.exit_code,
+                    ep.dropped as "dropped!: bool",
+                    ep.started_at as "started_at!: DateTime<Utc>",
+                    ep.completed_at as "completed_at?: DateTime<Utc>",
+                    ep.created_at as "created_at!: DateTime<Utc>",
+                    ep.updated_at as "updated_at!: DateTime<Utc>"
+               FROM execution_processes ep
+               WHERE ep.status = 'queued'
+                 AND ep.dropped = FALSE
+               ORDER BY ep.created_at ASC"#,
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Update execution process status and completion info
     pub async fn update_completion(
         pool: &SqlitePool,
@@ -434,7 +543,10 @@ impl ExecutionProcess {
         status: ExecutionProcessStatus,
         exit_code: Option<i64>,
     ) -> Result<(), sqlx::Error> {
-        let completed_at = if matches!(status, ExecutionProcessStatus::Running) {
+        let completed_at = if matches!(
+            status,
+            ExecutionProcessStatus::Running | ExecutionProcessStatus::Queued
+        ) {
             None
         } else {
             Some(Utc::now())
@@ -654,6 +766,68 @@ impl ExecutionProcess {
             .collect();
 
         Ok(result)
+    }
+
+    /// Latest coding-agent execution per workspace. Unlike
+    /// `find_latest_for_workspaces` this ignores setup/cleanup scripts, so the
+    /// result always points at the process whose logs carry token usage.
+    pub async fn find_latest_coding_agent_for_workspaces(
+        pool: &SqlitePool,
+        archived: bool,
+    ) -> Result<HashMap<Uuid, LatestCodingAgentProcess>, sqlx::Error> {
+        let rows: Vec<LatestCodingAgentProcess> = sqlx::query_as(
+            r#"
+            SELECT workspace_id, execution_process_id, started_at, status
+            FROM (
+                SELECT
+                    s.workspace_id as workspace_id,
+                    ep.id as execution_process_id,
+                    ep.started_at as started_at,
+                    ep.status as status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY s.workspace_id
+                        ORDER BY ep.created_at DESC
+                    ) as rn
+                FROM execution_processes ep
+                JOIN sessions s ON ep.session_id = s.id
+                JOIN workspaces w ON s.workspace_id = w.id
+                WHERE w.archived = $1
+                  AND ep.run_reason = 'codingagent'
+                  AND ep.dropped = FALSE
+            )
+            WHERE rn = 1
+            "#,
+        )
+        .bind(archived)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|info| (info.workspace_id, info))
+            .collect())
+    }
+
+    /// True if any execution for the given workspace recorded a non-NULL
+    /// `after_head_commit` in its repo states — meaning the agent produced
+    /// at least one commit before the process was killed. Used during
+    /// startup recovery to decide re-queue vs. mark-failed.
+    pub async fn workspace_has_any_after_commit(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let count: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM execution_process_repo_states eprs
+               JOIN execution_processes ep ON ep.id = eprs.execution_process_id
+               JOIN sessions s ON ep.session_id = s.id
+               WHERE s.workspace_id = ?1
+                 AND eprs.after_head_commit IS NOT NULL",
+        )
+        .bind(workspace_id)
+        .fetch_one(pool)
+        .await?;
+        Ok(count > 0)
     }
 
     /// Find all workspaces with running dev servers, filtered by archived status.

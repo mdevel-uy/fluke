@@ -181,7 +181,7 @@ export function SearchableTagDropdown({
                           <span className="flex-1 truncate">{tag.name}</span>
                           {isSelected && (
                             <CheckIcon
-                              className="size-icon-sm text-brand shrink-0"
+                              className="size-icon-sm text-brand-on-surface shrink-0"
                               weight="bold"
                             />
                           )}
@@ -197,7 +197,7 @@ export function SearchableTagDropdown({
                       type="button"
                       onClick={onStartCreate}
                       className={cn(
-                        'flex items-center gap-base w-full px-base py-half text-sm text-brand hover:bg-secondary transition-colors',
+                        'flex items-center gap-base w-full px-base py-half text-sm text-brand-on-surface hover:bg-secondary transition-colors',
                         createOptionHighlighted && 'bg-secondary'
                       )}
                     >

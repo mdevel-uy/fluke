@@ -1,12 +1,15 @@
 import {
   ArrowRight,
   GitBranch as GitBranchIcon,
+  GitMerge,
   GitPullRequest,
+  MessageSquare,
   RefreshCw,
   Settings,
   AlertTriangle,
   CheckCircle,
   ExternalLink,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import {
@@ -25,7 +28,15 @@ import { CreatePRDialog } from '@/shared/dialogs/command-bar/CreatePRDialog';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceRepo } from '@/shared/hooks/useWorkspaceRepo';
 import { useGitOperations } from '@/shared/hooks/useGitOperations';
+import { useGitOperationsError } from '@/shared/hooks/GitOperationsContext';
 import { useRepoBranches } from '@/shared/hooks/useRepoBranches';
+import {
+  workspacesApi,
+  type AddressPrCommentsError,
+  type FixCiError,
+  type ResolveMergeConflictsError,
+} from '@/shared/lib/api';
+import { cn } from '@/shared/lib/utils';
 
 interface GitOperationsProps {
   selectedAttempt: Workspace;
@@ -35,6 +46,19 @@ interface GitOperationsProps {
   selectedBranch: string | null;
   layout?: 'horizontal' | 'vertical';
   issueIdentifier?: string;
+  prMergeable?: string;
+  /**
+   * CI rollup for the open PR: "passing" | "failing" | "pending" | "none" |
+   * "unknown". The "Fix CI" quick action is only shown when this is
+   * `"failing"` — pass `undefined` if the parent hasn't fetched CI status.
+   */
+  prCiStatus?: string;
+  /**
+   * Number of review comments on the open PR. The "Address PR comments"
+   * quick action is only shown when this is greater than zero — pass
+   * `undefined` while the count is loading to hide the button.
+   */
+  prCommentsCount?: number;
 }
 
 export type GitOperationsInputs = Omit<GitOperationsProps, 'selectedAttempt'>;
@@ -47,6 +71,9 @@ function GitOperations({
   selectedBranch,
   layout = 'horizontal',
   issueIdentifier,
+  prMergeable,
+  prCiStatus,
+  prCommentsCount,
 }: GitOperationsProps) {
   const { t } = useTranslation('tasks');
 
@@ -55,6 +82,7 @@ function GitOperations({
   );
   const git = useGitOperations(selectedAttempt.id, selectedRepoId ?? undefined);
   const { data: branches = [] } = useRepoBranches(selectedRepoId);
+  const { setError: setGitError } = useGitOperationsError();
   const isChangingTargetBranch = git.states.changeTargetBranchPending;
 
   // Local state for git operations
@@ -63,6 +91,12 @@ function GitOperations({
   const [rebasing, setRebasing] = useState(false);
   const [mergeSuccess, setMergeSuccess] = useState(false);
   const [pushSuccess, setPushSuccess] = useState(false);
+  const [sendingConflicts, setSendingConflicts] = useState(false);
+  const [conflictsSent, setConflictsSent] = useState(false);
+  const [sendingPrComments, setSendingPrComments] = useState(false);
+  const [prCommentsSent, setPrCommentsSent] = useState(false);
+  const [sendingFixCi, setSendingFixCi] = useState(false);
+  const [fixCiSent, setFixCiSent] = useState(false);
 
   // Target branch change handlers
   const handleChangeTargetBranchClick = async (newBranch: string) => {
@@ -165,6 +199,113 @@ function GitOperations({
     }
     return t('git.states.createPr');
   }, [mergeInfo.hasOpenPR, pushSuccess, pushing, t]);
+
+  const resolveConflictsErrorMessage = (
+    err: ResolveMergeConflictsError | undefined,
+    fallback: string | undefined
+  ): string => {
+    if (err?.type === 'no_pr_attached') {
+      return t('git.errors.resolveConflictsNoPr');
+    }
+    if (err?.type === 'no_agent_session') {
+      return t('git.errors.resolveConflictsNoAgentSession');
+    }
+    return fallback || t('git.errors.resolveConflictsFailed');
+  };
+
+  const addressPrCommentsErrorMessage = (
+    err: AddressPrCommentsError | undefined,
+    fallback: string | undefined
+  ): string => {
+    if (err?.type === 'no_pr_attached') {
+      return t('git.errors.addressPrCommentsNoPr');
+    }
+    if (err?.type === 'no_agent_session') {
+      return t('git.errors.addressPrCommentsNoAgentSession');
+    }
+    return fallback || t('git.errors.addressPrCommentsFailed');
+  };
+
+  const fixCiErrorMessage = (
+    err: FixCiError | undefined,
+    fallback: string | undefined
+  ): string => {
+    if (err?.type === 'no_pr_attached') {
+      return t('git.errors.fixCiNoPr');
+    }
+    if (err?.type === 'no_agent_session') {
+      return t('git.errors.fixCiNoAgentSession');
+    }
+    return fallback || t('git.errors.fixCiFailed');
+  };
+
+  const handleResolveConflictsClick = async () => {
+    setGitError(null);
+    setSendingConflicts(true);
+    try {
+      const result = await workspacesApi.resolveMergeConflicts(
+        selectedAttempt.id
+      );
+      if (result.success) {
+        setConflictsSent(true);
+        setTimeout(() => setConflictsSent(false), 2500);
+      } else {
+        setGitError(resolveConflictsErrorMessage(result.error, result.message));
+      }
+    } catch (err) {
+      setGitError(
+        err instanceof Error
+          ? err.message
+          : t('git.errors.resolveConflictsFailed')
+      );
+    } finally {
+      setSendingConflicts(false);
+    }
+  };
+
+  const handleAddressPrCommentsClick = async () => {
+    setGitError(null);
+    setSendingPrComments(true);
+    try {
+      const result = await workspacesApi.addressPrComments(selectedAttempt.id);
+      if (result.success) {
+        setPrCommentsSent(true);
+        setTimeout(() => setPrCommentsSent(false), 2500);
+      } else {
+        setGitError(
+          addressPrCommentsErrorMessage(result.error, result.message)
+        );
+      }
+    } catch (err) {
+      setGitError(
+        err instanceof Error
+          ? err.message
+          : t('git.errors.addressPrCommentsFailed')
+      );
+    } finally {
+      setSendingPrComments(false);
+    }
+  };
+
+  const handleFixCiClick = async () => {
+    setGitError(null);
+    setSendingFixCi(true);
+    try {
+      const result = await workspacesApi.fixCi(selectedAttempt.id);
+      if (result.success) {
+        setFixCiSent(true);
+        setTimeout(() => setFixCiSent(false), 2500);
+      } else {
+        setGitError(fixCiErrorMessage(result.error, result.message));
+      }
+    } catch (err) {
+      setGitError(
+        err instanceof Error ? err.message : t('git.errors.fixCiFailed')
+      );
+    } finally {
+      setSendingFixCi(false);
+    }
+  };
 
   const handleMergeClick = async () => {
     // Directly perform merge without checking branch status
@@ -278,7 +419,7 @@ function GitOperations({
 
         if (hasConflictsCalculated) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
               {t('git.status.conflicts')}
             </span>
@@ -287,7 +428,7 @@ function GitOperations({
 
         if (selectedRepoStatus?.is_rebase_in_progress) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               {t('git.states.rebasing')}
             </span>
@@ -296,7 +437,7 @@ function GitOperations({
 
         if (mergeInfo.hasMergedPR) {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success">
               <CheckCircle className="h-3.5 w-3.5" />
               {t('git.states.merged')}
             </span>
@@ -308,7 +449,7 @@ function GitOperations({
           return (
             <button
               onClick={() => window.open(prMerge.pr_info.url, '_blank')}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-100/60 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:underline truncate max-w-[180px] sm:max-w-none"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-info/10 text-info hover:underline truncate max-w-[180px] sm:max-w-none"
               aria-label={t('git.pr.open', {
                 number: Number(prMerge.pr_info.number),
               })}
@@ -327,7 +468,7 @@ function GitOperations({
           chips.push(
             <span
               key="ahead"
-              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success"
             >
               +{commitsAhead} {t('git.status.commits', { count: commitsAhead })}{' '}
               {t('git.status.ahead')}
@@ -338,7 +479,7 @@ function GitOperations({
           chips.push(
             <span
               key="behind"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100/60 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 text-warning"
             >
               {commitsBehind}{' '}
               {t('git.status.commits', { count: commitsBehind })}{' '}
@@ -526,6 +667,96 @@ function GitOperations({
               />
               <span className="truncate max-w-[10ch]">{rebaseButtonLabel}</span>
             </Button>
+
+            {mergeInfo.hasOpenPR &&
+              typeof prCommentsCount === 'number' &&
+              prCommentsCount > 0 && (
+                <Button
+                  onClick={handleAddressPrCommentsClick}
+                  disabled={sendingPrComments || prCommentsSent}
+                  variant="outline"
+                  size="xs"
+                  className={cn(
+                    'gap-1 shrink-0',
+                    prCommentsSent
+                      ? 'border-success text-success hover:bg-success/10'
+                      : 'border-info text-info hover:bg-info/10'
+                  )}
+                  aria-label={t('git.states.addressPrComments')}
+                >
+                  {prCommentsSent ? (
+                    <CheckCircle className="h-3.5 w-3.5" />
+                  ) : (
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  )}
+                  <span className="truncate max-w-[14ch]">
+                    {prCommentsSent
+                      ? t('git.states.addressPrCommentsSent')
+                      : sendingPrComments
+                        ? t('git.states.addressPrCommentsSending')
+                        : t('git.states.addressPrComments')}
+                  </span>
+                </Button>
+              )}
+
+            {mergeInfo.hasOpenPR && prCiStatus === 'failing' && (
+              <Button
+                onClick={handleFixCiClick}
+                disabled={sendingFixCi || fixCiSent}
+                variant="outline"
+                size="xs"
+                className={cn(
+                  'gap-1 shrink-0',
+                  fixCiSent
+                    ? 'border-success text-success hover:bg-success/10'
+                    : 'border-destructive text-destructive hover:bg-destructive/10'
+                )}
+                aria-label={t('git.states.fixCi')}
+              >
+                {fixCiSent ? (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <Wrench className="h-3.5 w-3.5" />
+                )}
+                <span className="truncate max-w-[14ch]">
+                  {fixCiSent
+                    ? t('git.states.fixCiSent')
+                    : sendingFixCi
+                      ? t('git.states.fixCiSending')
+                      : t('git.states.fixCi')}
+                </span>
+              </Button>
+            )}
+
+            {mergeInfo.hasOpenPR &&
+              (hasConflictsCalculated || prMergeable === 'conflicting') && (
+                <Button
+                  onClick={handleResolveConflictsClick}
+                  disabled={sendingConflicts || conflictsSent}
+                  variant="outline"
+                  size="xs"
+                  className={cn(
+                    'gap-1 shrink-0',
+                    conflictsSent
+                      ? 'border-success text-success hover:bg-success/10'
+                      : 'border-destructive text-destructive hover:bg-destructive/10'
+                  )}
+                  aria-label={t('git.states.fixMergeConflicts')}
+                >
+                  {conflictsSent ? (
+                    <CheckCircle className="h-3.5 w-3.5" />
+                  ) : (
+                    <GitMerge className="h-3.5 w-3.5" />
+                  )}
+                  <span className="truncate max-w-[14ch]">
+                    {conflictsSent
+                      ? t('git.states.resolveConflictsSent')
+                      : sendingConflicts
+                        ? t('git.states.sendingConflicts')
+                        : t('git.states.fixMergeConflicts')}
+                  </span>
+                </Button>
+              )}
           </div>
         ) : null}
       </div>

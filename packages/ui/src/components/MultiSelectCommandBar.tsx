@@ -78,7 +78,10 @@ export function MultiSelectCommandBar<T extends string = string>({
                   {option.renderOption?.() ?? <span>{option.label}</span>}
                 </div>
                 {isSelected && (
-                  <CheckIcon className="h-4 w-4 text-brand" weight="bold" />
+                  <CheckIcon
+                    className="h-4 w-4 text-brand-on-surface"
+                    weight="bold"
+                  />
                 )}
               </CommandItem>
             );

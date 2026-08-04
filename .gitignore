@@ -2,6 +2,9 @@
 target/
 **/*.rs.bk
 
+# Claude Code agent runtime state (scheduler locks, etc.)
+.claude/
+
 # Node.js
 node_modules/
 npm-debug.log*
@@ -95,3 +98,7 @@ vibe-kanban-cloud/
 *.ts.net.key
 Caddyfile
 Caddyfile.dev
+
+# Claude Code runtime state
+.claude/
+.gstack/

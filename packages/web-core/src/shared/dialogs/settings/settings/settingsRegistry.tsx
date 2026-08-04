@@ -1,20 +1,22 @@
 import {
   GearIcon,
   GitBranchIcon,
-  BuildingsIcon,
-  CloudIcon,
+  GithubLogoIcon,
   CpuIcon,
+  KeyIcon,
   PlugIcon,
-  BroadcastIcon,
+  PuzzlePieceIcon,
+  ScrollIcon,
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
 import { ReposSettingsSection } from './ReposSettingsSection';
-import { OrganizationsSettingsSection } from './OrganizationsSettingsSection';
-import { RemoteProjectsSettingsSection } from './RemoteProjectsSettingsSection';
 import { AgentsSettingsSection } from './AgentsSettingsSection';
+import { AgentAuthSettingsSection } from './AgentAuthSettingsSection';
+import { GuidelinesSettingsSection } from './GuidelinesSettingsSection';
 import { McpSettingsSection } from './McpSettingsSection';
-import { RelaySettingsSectionContent } from './RelaySettingsSection';
+import { GitHubSettingsSection } from './GitHubSettingsSection';
+import { SkillsSettingsSection } from './SkillsSettingsSection';
 
 export type SettingsSectionType =
   | 'general'
@@ -22,8 +24,12 @@ export type SettingsSectionType =
   | 'organizations'
   | 'remote-projects'
   | 'agents'
+  | 'agent-auth'
+  | 'guidelines'
   | 'mcp'
-  | 'relay';
+  | 'relay'
+  | 'github'
+  | 'skills';
 
 export type SettingsSectionGroup = 'host' | 'universal';
 
@@ -35,8 +41,12 @@ export type SettingsSectionInitialState = {
     | { organizationId?: string; projectId?: string }
     | undefined;
   agents: { executor?: string; variant?: string } | undefined;
+  'agent-auth': undefined;
+  guidelines: undefined;
   mcp: undefined;
   relay: { hostId?: string } | undefined;
+  github: undefined;
+  skills: undefined;
 };
 
 export interface SettingsSectionDefinition {
@@ -49,10 +59,11 @@ export const SETTINGS_SECTION_DEFINITIONS: SettingsSectionDefinition[] = [
   { id: 'general', icon: GearIcon, group: 'host' },
   { id: 'repos', icon: GitBranchIcon, group: 'host' },
   { id: 'agents', icon: CpuIcon, group: 'host' },
+  { id: 'agent-auth', icon: KeyIcon, group: 'host' },
+  { id: 'guidelines', icon: ScrollIcon, group: 'host' },
   { id: 'mcp', icon: PlugIcon, group: 'host' },
-  { id: 'organizations', icon: BuildingsIcon, group: 'universal' },
-  { id: 'remote-projects', icon: CloudIcon, group: 'universal' },
-  { id: 'relay', icon: BroadcastIcon, group: 'universal' },
+  { id: 'skills', icon: PuzzlePieceIcon, group: 'host' },
+  { id: 'github', icon: GithubLogoIcon, group: 'universal' },
 ];
 
 export function isHostSpecificSettingsSection(
@@ -67,7 +78,7 @@ export function isHostSpecificSettingsSection(
 export function renderSettingsSection(
   type: SettingsSectionType,
   initialState?: SettingsSectionInitialState[SettingsSectionType],
-  onClose?: () => void
+  _onClose?: () => void
 ) {
   switch (type) {
     case 'general':
@@ -78,27 +89,18 @@ export function renderSettingsSection(
           initialState={initialState as SettingsSectionInitialState['repos']}
         />
       );
-    case 'organizations':
-      return <OrganizationsSettingsSection />;
-    case 'remote-projects':
-      return (
-        <RemoteProjectsSettingsSection
-          initialState={
-            initialState as SettingsSectionInitialState['remote-projects']
-          }
-        />
-      );
     case 'agents':
       return <AgentsSettingsSection />;
+    case 'agent-auth':
+      return <AgentAuthSettingsSection />;
+    case 'guidelines':
+      return <GuidelinesSettingsSection />;
     case 'mcp':
       return <McpSettingsSection />;
-    case 'relay':
-      return (
-        <RelaySettingsSectionContent
-          initialState={initialState as SettingsSectionInitialState['relay']}
-          onClose={onClose}
-        />
-      );
+    case 'skills':
+      return <SkillsSettingsSection />;
+    case 'github':
+      return <GitHubSettingsSection />;
     default:
       return <GeneralSettingsSection />;
   }

@@ -142,7 +142,7 @@ export const CheckboxWidget = (props: WidgetProps) => {
       onChange={(e) => handleChange(e.target.checked)}
       disabled={disabled || readonly}
       className={cn(
-        'h-4 w-4 rounded border-border bg-secondary text-brand focus:ring-brand focus:ring-offset-0',
+        'h-4 w-4 rounded border-border bg-secondary text-brand-on-surface focus:ring-brand focus:ring-offset-0',
         (disabled || readonly) && 'opacity-50 cursor-not-allowed'
       )}
     />

@@ -21,18 +21,22 @@
         "reposDesc": "仓库脚本和配置",
         "agents": "代理",
         "agentsDesc": "编码代理配置",
+        "guidelines": "行为准则",
+        "guidelinesDesc": "适用于所有代理的全局行为规则",
         "mcp": "MCP 服务器",
         "mcpDesc": "模型上下文协议服务器",
-        "organizations": "组织设置",
         "organizationsDesc": "管理组织成员和权限",
-        "remote-projects": "项目",
         "remote-projectsDesc": "管理项目",
-        "relay": "Remote Access",
         "relayDesc": "Relay tunnel and enrollment",
         "machineSettings": "Machine Settings",
         "accountSettings": "Account Settings",
-        "pairOtherMachines": "Pair other machines",
-        "selectHost": "Select host"
+        "selectHost": "Select host",
+        "skills": "技能",
+        "skillsDesc": "管理和安装 Claude 技能",
+        "github": "GitHub",
+        "githubDesc": "使用 gh CLI 登录 GitHub",
+        "agent-auth": "代理连接",
+        "agent-authDesc": "在设置中连接和断开每个已安装的代理"
       }
     },
     "general": {
@@ -87,7 +91,7 @@
           "host": {
             "label": "远程 SSH 主机（可选）",
             "placeholder": "例如：主机名或 IP 地址",
-            "helper": "如果 Vibe Kanban 在远程服务器上运行，请设置此项。设置后，点击在编辑器中打开将生成 URL 以通过 SSH 打开编辑器，而不是执行本地命令。"
+            "helper": "如果 mkanban 在远程服务器上运行，请设置此项。设置后，点击在编辑器中打开将生成 URL 以通过 SSH 打开编辑器，而不是执行本地命令。"
           },
           "user": {
             "label": "远程 SSH 用户（可选）",
@@ -97,7 +101,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the Vibe Kanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "检查可用性...",
@@ -161,10 +165,10 @@
         "workspaceDir": {
           "label": "工作区目录",
           "placeholder": "~/",
-          "helper": "工作区将在此路径内的 .vibe-kanban-workspaces 子目录中创建。留空以使用系统默认值。更改需要重启应用程序。",
+          "helper": "工作区将在此路径内的 .mkanban-workspaces 子目录中创建。留空以使用系统默认值。更改需要重启应用程序。",
           "browse": "浏览",
           "dialogTitle": "选择工作区目录",
-          "dialogDescription": "选择一个目录。工作区将在其中的 .vibe-kanban-workspaces 子目录中创建。"
+          "dialogDescription": "选择一个目录。工作区将在其中的 .mkanban-workspaces 子目录中创建。"
         }
       },
       "pullRequests": {
@@ -177,6 +181,19 @@
         "customPrompt": {
           "useCustom": "使用自定义提示",
           "helper": "生成PR描述时AI代理使用的自定义提示。使用{pr_number}和{pr_url}作为占位符。"
+        }
+      },
+      "autoReview": {
+        "title": "自动评审",
+        "description": "为代理生成的PR配置自动的变更请求 / 再评审循环。",
+        "maxRounds": {
+          "label": "最大评审轮数",
+          "helper": "在停止自动评审前，变更请求 ↔ 再评审迭代的最大次数。至少为1。",
+          "errors": {
+            "required": "请输入一个值。",
+            "notInteger": "值必须为整数。",
+            "min": "值至少为1。"
+          }
         }
       },
       "commits": {
@@ -436,7 +453,32 @@
         "button": "添加仓库",
         "dialogTitle": "选择 Git 仓库",
         "dialogDescription": "选择一个现有的 git 仓库进行注册。",
-        "error": "注册仓库失败"
+        "error": "注册仓库失败",
+        "tabs": {
+          "folder": "本地文件夹",
+          "github": "从 GitHub"
+        },
+        "folder": {
+          "pathLabel": "仓库路径",
+          "pathPlaceholder": "/path/to/your/repository",
+          "helper": "请提供现有本地 git 仓库的绝对路径。",
+          "browse": "浏览文件夹",
+          "submit": "添加仓库"
+        },
+        "github": {
+          "searchPlaceholder": "按名称过滤仓库",
+          "loading": "正在加载仓库…",
+          "cloning": "正在克隆仓库…",
+          "cloneInProgress": "克隆正在进行中",
+          "noRepos": "没有可用的仓库。请确认已登录 `gh`。",
+          "noMatches": "没有仓库与搜索条件匹配。",
+          "notAuthenticated": "尚未通过 GitHub 认证。请运行 `gh auth login` 后重试。"
+        },
+        "errors": {
+          "pathRequired": "仓库路径为必填项",
+          "cloneFailed": "克隆仓库失败",
+          "listFailed": "加载仓库失败"
+        }
       },
       "selector": {
         "label": "选择仓库",
@@ -505,11 +547,11 @@
       },
       "remove": {
         "title": "移除仓库",
-        "description": "从 Vibe Kanban 取消关联此仓库。磁盘上的文件不会被删除。",
+        "description": "从 mkanban 取消关联此仓库。磁盘上的文件不会被删除。",
         "button": "移除",
         "confirm": "移除仓库",
         "dialogTitle": "移除「{{name}}」？",
-        "dialogDescription": "这将从 Vibe Kanban 取消关联此仓库。您磁盘上的文件不受影响。您可以稍后重新添加。",
+        "dialogDescription": "这将从 mkanban 取消关联此仓库。您磁盘上的文件不受影响。您可以稍后重新添加。",
         "success": "仓库移除成功。",
         "error": "移除仓库失败。"
       },
@@ -522,87 +564,150 @@
         "confirmSwitch": "您有未保存的更改。您确定要切换仓库吗？您的更改将丢失。"
       }
     },
-    "relay": {
-      "title": "Remote Access",
-      "description": "Allow access to this instance from the web via relay tunnel.",
-      "enabled": {
-        "label": "Enable remote access",
-        "helper": "When enabled, this instance can be accessed remotely through a relay tunnel."
-      },
-      "enrollmentCode": {
-        "label": "Pairing Code",
-        "helper": "Enter this code in the browser to pair with this instance.",
-        "loginRequired": "Log in to generate a pairing code.",
-        "fetchError": "Failed to fetch pairing code.",
-        "show": "Show pairing code"
-      },
-      "host": {
-        "label": "主机"
-      },
-      "client": {
-        "label": "客户端"
-      },
-      "overview": {
-        "available": "Available",
-        "unavailable": "Unavailable"
-      }
-    },
-    "remoteProjects": {
-      "title": "Remote Projects",
-      "description": "Manage cloud-synced projects across organizations.",
-      "loading": "Loading remote projects...",
-      "loadError": "Failed to load organizations",
-      "noProjects": "No projects yet. Create one to get started.",
-      "selectOrg": "Select an organization",
-      "createSuccess": "Project created successfully",
-      "deleteSuccess": "Project deleted successfully",
-      "nameRequired": "Project name is required",
-      "saveSuccess": "Project updated successfully",
-      "saveError": "Failed to update project",
-      "columns": {
-        "organizations": "Organizations",
-        "projects": "Projects"
-      },
-      "actions": {
-        "addProject": "Add Project"
-      },
-      "form": {
-        "name": {
-          "label": "Project Name",
-          "placeholder": "Enter project name"
-        },
-        "color": {
-          "label": "Project Color"
-        },
-        "statuses": {
-          "label": "Project Statuses",
-          "description": "Manage kanban columns for this project."
-        },
-        "defaultRepos": {
-          "label": "Default Repositories",
-          "description": "Repositories that are automatically added when creating workspaces from this project's issues.",
-          "empty": "No default repositories configured",
-          "addButton": "Add",
-          "addNew": "Add new repository...",
-          "branchLabel": "Branch",
-          "noBranches": "No branches found for this repository",
-          "fetchError": "Could not load repositories",
-          "saveError": "Failed to save default repositories"
-        }
-      },
-      "loginRequired": {
-        "title": "Sign in required",
-        "description": "Sign in to manage your remote projects.",
-        "action": "Sign in"
-      }
-    },
     "hostPicker": {
       "thisMachine": "This machine",
       "localHost": "Local host",
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
-      "pairMachineHint": "Pair a machine to open machine settings.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "skills": {
+      "installed": {
+        "title": "已安装的技能",
+        "description": "在 ~/.claude/skills 中找到的技能",
+        "loading": "加载技能中...",
+        "loadError": "加载技能失败。",
+        "empty": "尚未安装任何技能。",
+        "delete": "删除"
+      },
+      "install": {
+        "title": "安装技能",
+        "description": "通过 git URL 安装技能。",
+        "urlLabel": "Git URL",
+        "urlHelper": "技能仓库的 URL（例如：https://github.com/user/my-skill）",
+        "urlPlaceholder": "https://github.com/user/skill-name",
+        "button": "安装",
+        "error": "安装技能失败。"
+      }
+    },
+    "github": {
+      "connection": {
+        "title": "GitHub 连接",
+        "description": "通过本地 gh CLI 登录 GitHub，以启用 git 操作与 pull request。",
+        "status": {
+          "label": "状态"
+        }
+      },
+      "cliWarning": "未安装 GitHub CLI (gh)。你仍可通过下方的 Personal Access Token 登录，但拉取请求与 issue 同步需要 PATH 中存在 gh。",
+      "patExpired": "你的 Personal Access Token 已过期或被撤销。请在下方重新连接以保持 GitHub 功能可用。",
+      "status": {
+        "loading": "正在检查连接…",
+        "connected": "已连接到 GitHub",
+        "connectedAs": "以 @{{username}} 身份连接",
+        "connectedAsPat": "以 @{{username}} 身份连接（通过 PAT）",
+        "notConnected": "未连接"
+      },
+      "actions": {
+        "connect": "连接 GitHub",
+        "disconnect": "断开连接",
+        "installCli": "安装 GitHub CLI",
+        "installingCli": "安装中…"
+      },
+      "deviceFlow": {
+        "title": "在 GitHub 上授权",
+        "description": "复制下方的一次性代码，然后打开 GitHub 并粘贴以完成登录。",
+        "codeLabel": "一次性代码",
+        "copyHint": "点击复制",
+        "openGitHub": "打开 github.com/login/device",
+        "checkStatus": "刷新状态",
+        "waiting": "等待授权… 在 GitHub 上完成后此对话框会自动更新。"
+      },
+      "pat": {
+        "title": "使用 Personal Access Token 连接",
+        "description": "无需终端或 gh CLI。粘贴一个具有 repo、read:org 与 workflow 权限的令牌。",
+        "placeholder": "ghp_…",
+        "submit": "验证并连接",
+        "helpBefore": "请前往",
+        "helpLink": "github.com/settings/tokens",
+        "helpAfter": "使用推荐权限生成令牌。"
+      },
+      "errors": {
+        "loginFailed": "启动 GitHub 登录失败。",
+        "logoutFailed": "断开 GitHub 连接失败。",
+        "installFailed": "安装 GitHub CLI 失败。",
+        "patLoginFailed": "验证 Personal Access Token 失败。"
+      }
+    },
+    "agentAuth": {
+      "loading": "正在检查已安装的代理…",
+      "emptyState": "此机器上尚未安装任何编码代理。",
+      "statusLabel": "状态",
+      "status": {
+        "connected": "已连接",
+        "notConnected": "未连接"
+      },
+      "actions": {
+        "connect": "连接",
+        "disconnect": "断开",
+        "cancel": "取消"
+      },
+      "providers": {
+        "codex": {
+          "name": "Codex",
+          "title": "Codex",
+          "description": "使用浏览器设备流程登录 OpenAI Codex,无需打开终端。"
+        },
+        "claude_code": {
+          "name": "Claude Code",
+          "title": "Claude Code",
+          "description": "使用你的 Claude 订阅登录:打开 URL,登录后将页面返回的兑换码粘贴到下方。"
+        },
+        "gemini": {
+          "name": "Gemini",
+          "title": "Gemini",
+          "description": "使用在 Google AI Studio 获取的 API 密钥连接 Google Gemini。"
+        }
+      },
+      "deviceFlow": {
+        "title": "在 OpenAI 上授权",
+        "description": "复制下方的一次性代码,然后打开 OpenAI 页面粘贴以完成登录。",
+        "codeLabel": "一次性代码",
+        "copyHint": "点击复制",
+        "openBrowser": "打开 OpenAI",
+        "checkStatus": "刷新状态",
+        "waitingForCode": "等待 CLI 显示设备代码…",
+        "waiting": "等待授权中… 在浏览器中完成后此卡片将自动更新。"
+      },
+      "apiKey": {
+        "title": "使用 API 密钥连接",
+        "description": "粘贴从 Google AI Studio 获取的 Gemini API 密钥。它将作为 GEMINI_API_KEY 保存在此机器上,不会离开。",
+        "placeholder": "AIza…",
+        "submit": "保存并连接",
+        "helpBefore": "在以下位置获取密钥:",
+        "helpLink": "Google AI Studio",
+        "helpAfter": "然后粘贴到上方。"
+      },
+      "claudeFlow": {
+        "title": "在 claude.com 上授权",
+        "description": "打开 URL,登录到你的 Claude 账户,然后复制页面返回的兑换码。",
+        "openBrowser": "打开 claude.com",
+        "copyUrl": "复制 URL",
+        "waitingForUrl": "等待 CLI 显示登录 URL…",
+        "codeInputLabel": "兑换码",
+        "codeInputPlaceholder": "从 claude.com 粘贴兑换码",
+        "codeInputHelp": "CLI 接受兑换码后此卡片将自动更新。",
+        "submitCode": "提交兑换码"
+      },
+      "hidden": {
+        "title": "CLI 未安装",
+        "description": "以下代理因为其 CLI 未安装在此镜像中而被隐藏: {{providers}}。"
+      },
+      "errors": {
+        "loginFailed": "无法启动连接流程。",
+        "logoutFailed": "无法断开代理。",
+        "cancelFailed": "无法取消连接。",
+        "submitCodeFailed": "无法提交兑换码。"
+      }
     }
   },
   "integrations": {

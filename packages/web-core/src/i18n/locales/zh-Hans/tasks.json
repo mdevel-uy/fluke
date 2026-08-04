@@ -107,7 +107,12 @@
     "loadingDetails": "加载进程详情中...",
     "errorLoadingDetails": "加载进程详情失败。请重试。",
     "copyLogs": "复制日志",
-    "logsCopied": "已复制！"
+    "logsCopied": "已复制！",
+    "failureBanner": {
+      "issueLink": "问题 #{{number}}",
+      "prLink": "查看拉取请求",
+      "reasonLabel": "失败原因："
+    }
   },
   "followUp": {
     "queuedMessage": "消息已排队 - 将在当前运行完成时执行"
@@ -157,14 +162,33 @@
       "forcePush": "强制推送",
       "forcePushing": "强制推送中...",
       "creating": "创建中...",
-      "createPr": "创建 PR"
+      "createPr": "创建 PR",
+      "resolveConflicts": "解决冲突",
+      "sendingConflicts": "发送中...",
+      "resolveConflictsSent": "已发送给代理",
+      "addressPrComments": "处理 PR 评论",
+      "addressPrCommentsSending": "发送中...",
+      "addressPrCommentsSent": "已发送给代理",
+      "fixCi": "修复 CI",
+      "fixCiSending": "发送中...",
+      "fixCiSent": "已发送给代理",
+      "fixMergeConflicts": "解决合并冲突"
     },
     "errors": {
       "changeTargetBranch": "更改目标分支失败",
       "pushChanges": "推送更改失败",
       "mergeChanges": "合并更改失败",
       "rebaseBranch": "变基分支失败",
-      "branchStatusUnavailable": "无法获取分支状态。您仍然可以更改目标分支。"
+      "branchStatusUnavailable": "无法获取分支状态。您仍然可以更改目标分支。",
+      "resolveConflictsFailed": "解决冲突的跟进消息发送失败。",
+      "resolveConflictsNoPr": "该工作区未关联任何开放的 PR。",
+      "resolveConflictsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。",
+      "addressPrCommentsFailed": "处理 PR 评论的跟进消息发送失败。",
+      "addressPrCommentsNoPr": "该工作区未关联任何开放的 PR。",
+      "addressPrCommentsNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。",
+      "fixCiFailed": "修复 CI 的跟进消息发送失败。",
+      "fixCiNoPr": "该工作区未关联任何开放的 PR。",
+      "fixCiNoAgentSession": "该工作区没有活跃的代理会话——请重新启动代理后再试。"
     },
     "pr": {
       "open": "打开 PR #{{number}}",
@@ -177,7 +201,7 @@
       "prMerged": "PR #{{number}} 已合并",
       "loginRequired": {
         "title": "登录以管理 git 操作",
-        "description": "登录 Vibe Kanban，以便您可以推送分支、合并更改或为此任务打开拉取请求。",
+        "description": "登录 mkanban，以便您可以推送分支、合并更改或为此任务打开拉取请求。",
         "action": "登录"
       }
     },
@@ -532,6 +556,20 @@
     },
     "errors": {
       "failed": "关联 PR 失败，请重试。"
+    }
+  },
+  "review": {
+    "result": {
+      "approved": "已批准",
+      "changesRequested": "要求更改"
+    },
+    "loop": {
+      "reviewing": "审查进行中…",
+      "reviewQueued": "审查排队中",
+      "fixing": "修复进行中…",
+      "fixQueued": "修复排队中",
+      "awaitingReview": "等待审查",
+      "stalled": "循环停滞"
     }
   }
 }
