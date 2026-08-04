@@ -498,6 +498,16 @@ source: string,
  */
 review_result: string | null,
 /**
+ * Live state of the review loop for an `in_review` task with an open PR:
+ * "review_queued" | "reviewing" | "fix_queued" | "fixing" |
+ * "awaiting_review" | "stalled", or null when the loop has nothing
+ * pending (e.g. approved and waiting for a human merge, or the task is
+ * not in review). "stalled" means no round is active, no fix is pending,
+ * there is no approval, and nothing has moved for over five minutes —
+ * the board's way of saying "nothing visible" must never hide "broken".
+ */
+loop_state: string | null,
+/**
  * Why the task failed, when status == "failed". Recorded by the
  * orchestrator at the moment of failure; null otherwise.
  */

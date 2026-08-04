@@ -26,6 +26,47 @@ function stateBadgeClass(state: string | null | undefined): string {
   return 'bg-md-surface-container text-md-on-surface border border-md-outline-variant';
 }
 
+const LOOP_BADGES: Record<
+  string,
+  { key: string; icon: string; className: string; pulse?: boolean }
+> = {
+  reviewing: {
+    key: 'review.loop.reviewing',
+    icon: 'rate_review',
+    className: 'bg-md-primary/10 text-md-primary border border-md-primary/20',
+    pulse: true,
+  },
+  review_queued: {
+    key: 'review.loop.reviewQueued',
+    icon: 'schedule',
+    className:
+      'bg-md-surface-container text-md-on-surface-variant border border-md-outline-variant',
+  },
+  fixing: {
+    key: 'review.loop.fixing',
+    icon: 'build',
+    className: 'bg-md-primary/10 text-md-primary border border-md-primary/20',
+    pulse: true,
+  },
+  fix_queued: {
+    key: 'review.loop.fixQueued',
+    icon: 'schedule',
+    className:
+      'bg-md-surface-container text-md-on-surface-variant border border-md-outline-variant',
+  },
+  awaiting_review: {
+    key: 'review.loop.awaitingReview',
+    icon: 'hourglass_empty',
+    className:
+      'bg-md-surface-container text-md-on-surface-variant border border-md-outline-variant',
+  },
+  stalled: {
+    key: 'review.loop.stalled',
+    icon: 'warning',
+    className: 'bg-destructive/10 text-destructive border border-destructive/20',
+  },
+};
+
 export function InReviewTaskCard({
   task,
   isBusy,
@@ -39,6 +80,7 @@ export function InReviewTaskCard({
   const prState = task.pr_state ?? null;
   const isConflicting = task.pr_mergeable === 'conflicting';
   const reviewResult = task.review_result ?? null;
+  const loopBadge = task.loop_state ? LOOP_BADGES[task.loop_state] : undefined;
   const [isConfirming, setIsConfirming] = useState(false);
   const canReRequestReview = reviewResult === 'changes_requested';
 
@@ -86,6 +128,21 @@ export function InReviewTaskCard({
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-caps font-geist font-semibold uppercase tracking-widest bg-warning/10 text-warning border border-warning/20">
             <MaterialIcon name="edit_note" size="xs" />
             {tTasks('review.result.changesRequested')}
+          </span>
+        )}
+        {loopBadge && (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-caps font-geist font-semibold uppercase tracking-widest',
+              loopBadge.className
+            )}
+          >
+            <MaterialIcon
+              name={loopBadge.icon}
+              size="xs"
+              className={loopBadge.pulse ? 'animate-pulse' : undefined}
+            />
+            {tTasks(loopBadge.key)}
           </span>
         )}
         {prUrl && (

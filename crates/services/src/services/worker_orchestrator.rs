@@ -1861,7 +1861,13 @@ pub async fn dispatch_author_fix_task(
         return Ok(());
     }
 
-    let task_title = format!("Atendé el review del PR #{}", pr_number);
+    // Number the round in the title so two remediation runs for the same PR
+    // never look like duplicates on the board. `completed_reviews` is the
+    // round this fix answers (round N verdict → fix N).
+    let task_title = format!(
+        "Atendé el review del PR #{} — ronda {}",
+        pr_number, completed_reviews
+    );
     let task_prompt = format!(
         "El reviewer solicitó cambios en el PR #{pr_number}. \
          Revisá los comentarios con `gh pr view {pr_number} --comments`. \
@@ -3053,6 +3059,90 @@ mod tests {
                 .unwrap()
                 .is_none(),
             "a completed fix no longer blocks the next round's remediation"
+        );
+    }
+
+    #[tokio::test]
+    async fn merged_pr_sweep_closes_orphaned_review_fix_tasks() {
+        // A review-fix task lives in its own workspace, so `on_pr_merged`
+        // (which reconciles the PR's primary workspace) never closes it: the
+        // card sits in_review forever with a MERGED badge. The sweep must
+        // close exactly those — and leave fixes for still-open PRs alone.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "sweep-repo").await;
+        let author = insert_worker(&db, "author").await;
+
+        let mk_fix = |pr_number: i64| CreateWorkerTask {
+            repo_id: repo.id,
+            title: format!("Atendé el review del PR #{pr_number} — ronda 1"),
+            prompt: "fix".to_string(),
+            issue_number: Some(pr_number),
+            skills: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
+        };
+
+        let merged_fix = WorkerTask::prepend_review_fix(&db.pool, author.id, &mk_fix(402))
+            .await
+            .unwrap();
+        force_in_review(&db.pool, merged_fix.id).await;
+        PullRequest::create(
+            &db.pool,
+            None,
+            Some(repo.id),
+            "https://github.com/o/r/pull/402",
+            402,
+            "main",
+        )
+        .await
+        .unwrap();
+        sqlx::query("UPDATE pull_requests SET pr_status = 'merged' WHERE pr_number = 402")
+            .execute(&db.pool)
+            .await
+            .unwrap();
+
+        let open_fix = WorkerTask::prepend_review_fix(&db.pool, author.id, &mk_fix(403))
+            .await
+            .unwrap();
+        force_in_review(&db.pool, open_fix.id).await;
+        PullRequest::create(
+            &db.pool,
+            None,
+            Some(repo.id),
+            "https://github.com/o/r/pull/403",
+            403,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        let completed = WorkerTask::complete_review_fix_tasks_for_merged_prs(&db.pool)
+            .await
+            .unwrap();
+        assert_eq!(completed, vec![(merged_fix.id, author.id)]);
+        assert_eq!(
+            WorkerTask::find_by_id(&db.pool, merged_fix.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .status,
+            worker_task::STATUS_DONE
+        );
+        assert_eq!(
+            WorkerTask::find_by_id(&db.pool, open_fix.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .status,
+            worker_task::STATUS_IN_REVIEW,
+            "a fix for a still-open PR must not be touched"
+        );
+
+        // Idempotent: a second sweep finds nothing.
+        assert!(
+            WorkerTask::complete_review_fix_tasks_for_merged_prs(&db.pool)
+                .await
+                .unwrap()
+                .is_empty()
         );
     }
 }

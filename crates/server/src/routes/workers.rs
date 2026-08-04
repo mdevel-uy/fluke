@@ -97,6 +97,14 @@ pub struct WorkerTaskResponse {
     /// TL reviewer's verdict: "approved" | "changes_requested" | null.
     /// Set by pr_monitor when the PR review state is detected.
     pub review_result: Option<String>,
+    /// Live state of the review loop for an `in_review` task with an open PR:
+    /// "review_queued" | "reviewing" | "fix_queued" | "fixing" |
+    /// "awaiting_review" | "stalled", or null when the loop has nothing
+    /// pending (e.g. approved and waiting for a human merge, or the task is
+    /// not in review). "stalled" means no round is active, no fix is pending,
+    /// there is no approval, and nothing has moved for over five minutes —
+    /// the board's way of saying "nothing visible" must never hide "broken".
+    pub loop_state: Option<String>,
     /// Why the task failed, when status == "failed". Recorded by the
     /// orchestrator at the moment of failure; null otherwise.
     pub failure_reason: Option<String>,
@@ -113,19 +121,35 @@ async fn worker_task_to_response(
     pool: &sqlx::SqlitePool,
     task: WorkerTask,
 ) -> Result<WorkerTaskResponse, ApiError> {
-    let (pr_url, pr_state, pr_mergeable) = match task.workspace_id {
+    let (pr_url, pr_state, pr_mergeable, open_pr_number) = match task.workspace_id {
         Some(workspace_id) => {
             let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
             match prs.into_iter().next() {
-                Some(pr) => (
-                    Some(pr.pr_url),
-                    Some(merge_status_str(&pr.pr_status)),
-                    pr.pr_mergeable,
-                ),
-                None => (None, None, None),
+                Some(pr) => {
+                    let open_pr_number =
+                        matches!(pr.pr_status, MergeStatus::Open).then_some(pr.pr_number);
+                    (
+                        Some(pr.pr_url),
+                        Some(merge_status_str(&pr.pr_status)),
+                        pr.pr_mergeable,
+                        open_pr_number,
+                    )
+                }
+                None => (None, None, None, None),
             }
         }
-        None => (None, None, None),
+        None => (None, None, None, None),
+    };
+
+    // Live loop state, only where it means something: an in_review task whose
+    // PR is still open. Everything else renders from status + review_result.
+    let loop_state = match open_pr_number {
+        Some(pr_number) if task.status == worker_task::STATUS_IN_REVIEW => {
+            let (reviewer, fix, last_activity) =
+                WorkerTask::loop_activity_for_pr(pool, pr_number, task.repo_id).await?;
+            compute_loop_state(&task, reviewer, fix, last_activity)
+        }
+        _ => None,
     };
 
     let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
@@ -146,10 +170,47 @@ async fn worker_task_to_response(
         pr_mergeable,
         source: task.source,
         review_result: task.review_result,
+        loop_state,
         failure_reason: task.failure_reason,
         hours_saved_override: task.hours_saved_override,
         created_at: task.created_at,
     })
+}
+
+/// How long the loop may show no activity for an in_review open PR before the
+/// board flags it as stalled.
+const LOOP_STALL_THRESHOLD_SECS: i64 = 300;
+
+/// Derive the loop badge for an in_review task with an open PR from the PR's
+/// reviewer/fix activity. Precedence: a running/queued fix beats the reviewer
+/// (remediation is the actionable half), an approval means the loop is done
+/// (no badge — the verdict badge already says it), and silence beyond the
+/// threshold is a stall, never a blank.
+fn compute_loop_state(
+    task: &WorkerTask,
+    reviewer: Option<String>,
+    fix: Option<String>,
+    last_activity: Option<DateTime<Utc>>,
+) -> Option<String> {
+    match fix.as_deref() {
+        Some("running") => return Some("fixing".to_string()),
+        Some("queued") => return Some("fix_queued".to_string()),
+        _ => {}
+    }
+    match reviewer.as_deref() {
+        Some("running") => return Some("reviewing".to_string()),
+        Some("queued") => return Some("review_queued".to_string()),
+        _ => {}
+    }
+    if task.review_result.as_deref() == Some("approved") {
+        return None;
+    }
+    let reference = last_activity.unwrap_or(task.created_at);
+    if (Utc::now() - reference).num_seconds() > LOOP_STALL_THRESHOLD_SECS {
+        Some("stalled".to_string())
+    } else {
+        Some("awaiting_review".to_string())
+    }
 }
 
 fn merge_status_str(status: &MergeStatus) -> String {

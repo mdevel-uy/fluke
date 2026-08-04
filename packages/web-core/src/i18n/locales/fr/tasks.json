@@ -562,6 +562,14 @@
     "result": {
       "approved": "Approuvé",
       "changesRequested": "Modifications demandées"
+    },
+    "loop": {
+      "reviewing": "Revue en cours…",
+      "reviewQueued": "Revue en file",
+      "fixing": "Correctif en cours…",
+      "fixQueued": "Correctif en file",
+      "awaitingReview": "En attente de revue",
+      "stalled": "Boucle bloquée"
     }
   }
 }

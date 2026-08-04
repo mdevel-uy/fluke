@@ -562,6 +562,14 @@
     "result": {
       "approved": "승인됨",
       "changesRequested": "변경 요청"
+    },
+    "loop": {
+      "reviewing": "리뷰 진행 중…",
+      "reviewQueued": "리뷰 대기열",
+      "fixing": "수정 진행 중…",
+      "fixQueued": "수정 대기열",
+      "awaitingReview": "리뷰 대기 중",
+      "stalled": "루프 정체"
     }
   }
 }
