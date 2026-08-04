@@ -42,6 +42,13 @@ interface ChatBoxBaseProps {
   // Banner content (queued message indicator, feedback mode indicator)
   banner?: ReactNode;
 
+  // Compact layout: no header row; contextual info renders via contextStrip
+  compact?: boolean;
+
+  // Slim contextual strip above the editor (diff stats, running todo) —
+  // only rendered in compact mode, and only when there is something to say
+  contextStrip?: ReactNode;
+
   // visualVariant
   visualVariant: VisualVariant;
 
@@ -65,6 +72,8 @@ export function ChatBoxBase({
   footerRight,
   modelSelector,
   banner,
+  compact,
+  contextStrip,
   visualVariant,
   isRunning,
   dropzone,
@@ -112,8 +121,8 @@ export function ChatBoxBase({
       {/* Banner content (queued indicator, feedback mode, etc.) */}
       {banner}
 
-      {/* Header - Stats and selector */}
-      {visualVariant === VisualVariant.NORMAL && (
+      {/* Header - Stats and selector (hidden in compact mode) */}
+      {visualVariant === VisualVariant.NORMAL && !compact && (
         <div className="flex items-center gap-base border-b px-base py-base">
           <div className="flex flex-1 items-center gap-base text-sm min-w-0 overflow-hidden">
             {headerLeft}
@@ -121,6 +130,9 @@ export function ChatBoxBase({
           <Toolbar className="gap-[9px]">{headerRight}</Toolbar>
         </div>
       )}
+
+      {/* Compact mode: slim contextual strip above the editor */}
+      {compact && contextStrip}
 
       {/* Editor area */}
       <div className="flex flex-col gap-plusfifty px-base py-base rounded-md">

@@ -14,8 +14,10 @@ import {
   ArrowsOutIcon,
   GithubLogoIcon,
   PencilSimpleIcon,
+  StopIcon,
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '../lib/cn';
 import { ChatBoxBase, VisualVariant, type DropzoneProps } from './ChatBoxBase';
 import { type EditorProps, type ExecutorProps } from './CreateChatBox';
 import type { AskUserQuestionItem, QuestionAnswer } from 'shared/types';
@@ -155,6 +157,13 @@ export interface SessionChatBoxEditorRenderProps<
 
 interface SessionChatBoxProps<TExecutor extends string = string> {
   status: ExecutionStatus;
+  /**
+   * Compact layout for narrow surfaces (ad-hoc drawer): no header row,
+   * contextual info (diff stats, running todo, conflicts) collapses into a
+   * slim strip that only renders when there is something to show, and the
+   * primary actions become round icon buttons.
+   */
+  compact?: boolean;
   editor: EditorProps;
   renderEditor: (
     props: SessionChatBoxEditorRenderProps<TExecutor>
@@ -216,12 +225,66 @@ function defaultFormatSessionDate(createdAt: string | Date) {
   });
 }
 
+type CompactActionKind = 'send' | 'stop' | 'cancel' | 'busy';
+
+const COMPACT_ACTION_ICONS: Record<CompactActionKind, Icon> = {
+  send: ArrowUpIcon,
+  stop: StopIcon,
+  cancel: XIcon,
+  busy: SpinnerIcon,
+};
+
+/** Round icon button used as primary action in compact mode */
+function CompactActionButton({
+  kind,
+  label,
+  onClick,
+  disabled,
+}: {
+  kind: CompactActionKind;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const IconComponent = COMPACT_ACTION_ICONS[kind];
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex size-8 shrink-0 items-center justify-center rounded-full transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+        kind === 'send' &&
+          !disabled &&
+          'bg-brand text-on-brand hover:bg-brand-hover shadow-soft active:scale-[0.96]',
+        kind === 'stop' &&
+          !disabled &&
+          'bg-error/10 text-error hover:bg-error/20',
+        kind === 'cancel' &&
+          !disabled &&
+          'bg-secondary text-normal border border-border/60 hover:bg-panel hover:text-high',
+        (kind === 'busy' || disabled) &&
+          'bg-secondary text-low cursor-not-allowed'
+      )}
+    >
+      <IconComponent
+        className={cn('size-icon-base', kind === 'busy' && 'animate-spin')}
+        weight={kind === 'stop' ? 'fill' : 'bold'}
+      />
+    </button>
+  );
+}
+
 /**
  * Full-featured chat box for session mode.
  * Supports queue, stop, attach, feedback mode, stats, and session switching.
  */
 export function SessionChatBox<TExecutor extends string = string>({
   status,
+  compact,
   editor,
   renderEditor,
   actions,
@@ -309,7 +372,9 @@ export function SessionChatBox<TExecutor extends string = string>({
           ? 'Type a different answer...'
           : session.isNewSessionMode
             ? 'Start a new conversation...'
-            : 'Continue working on this task...';
+            : compact && (status === 'running' || status === 'queued')
+              ? 'Type to queue a follow-up...'
+              : 'Continue working on this task...';
 
   // Cmd+Enter handler
   const handleCmdEnter = () => {
@@ -576,6 +641,155 @@ export function SessionChatBox<TExecutor extends string = string>({
     }
   };
 
+  // Compact mode: round icon buttons for the plain statuses; the rich modes
+  // (feedback/edit/approval/question) keep their labelled buttons.
+  const renderCompactActionButtons = () => {
+    if (
+      isInFeedbackMode ||
+      isInEditMode ||
+      isInApprovalMode ||
+      isInAskQuestionMode
+    ) {
+      return renderActionButtons();
+    }
+    switch (status) {
+      case 'idle':
+        return (
+          <CompactActionButton
+            kind="send"
+            label={t('conversation.actions.send')}
+            onClick={actions.onSend}
+            disabled={!canSend}
+          />
+        );
+      case 'running':
+        return (
+          <>
+            {canSend && (
+              <CompactActionButton
+                kind="send"
+                label={t('conversation.actions.queue')}
+                onClick={actions.onQueue}
+              />
+            )}
+            <CompactActionButton
+              kind="stop"
+              label={t('conversation.actions.stop')}
+              onClick={actions.onStop}
+            />
+          </>
+        );
+      case 'queued':
+        return (
+          <>
+            <CompactActionButton
+              kind="cancel"
+              label={t('conversation.actions.cancelQueue')}
+              onClick={actions.onCancelQueue}
+            />
+            <CompactActionButton
+              kind="stop"
+              label={t('conversation.actions.stop')}
+              onClick={actions.onStop}
+            />
+          </>
+        );
+      case 'sending':
+        return (
+          <CompactActionButton
+            kind="busy"
+            label={t('conversation.actions.sending')}
+            disabled
+          />
+        );
+      case 'stopping':
+        return (
+          <CompactActionButton
+            kind="busy"
+            label={t('conversation.actions.stopping')}
+            disabled
+          />
+        );
+      case 'queue-loading':
+        return (
+          <CompactActionButton
+            kind="busy"
+            label={t('conversation.actions.loading')}
+            disabled
+          />
+        );
+      default:
+        return renderActionButtons();
+    }
+  };
+
+  // Compact mode: slim contextual strip above the editor. Renders exactly one
+  // thing — the running todo, a conflict warning, or diff stats — and nothing
+  // when there is nothing to say.
+  const renderContextStrip = () => {
+    if (isRunning && inProgressTodo) {
+      const totalTodos = todos?.length ?? 0;
+      const completedTodos =
+        todos?.filter((todo) => todo.status?.toLowerCase() === 'completed')
+          .length ?? 0;
+      return (
+        <div className="flex items-center gap-base border-b px-base py-half text-sm text-low min-w-0">
+          <SpinnerIcon className="size-icon-sm animate-spin flex-shrink-0 text-brand-on-surface" />
+          <span className="flex-1 truncate">{inProgressTodo.content}</span>
+          {totalTodos > 0 && (
+            <span className="text-xs tabular-nums flex-shrink-0">
+              {completedTodos}/{totalTodos}
+            </span>
+          )}
+        </div>
+      );
+    }
+    if (stats?.hasConflicts) {
+      return (
+        <button
+          type="button"
+          className="flex w-full items-center gap-base border-b px-base py-half text-sm text-warning min-w-0 cursor-pointer hover:underline"
+          title={t('conversation.approval.conflictWarning')}
+          onClick={stats.onResolveConflicts}
+        >
+          <WarningIcon className="size-icon-sm flex-shrink-0" />
+          <span className="truncate">
+            {t('conversation.approval.conflicts', {
+              count: stats.conflictedFilesCount,
+            })}
+          </span>
+        </button>
+      );
+    }
+    if (filesChanged > 0) {
+      const diffContent = (
+        <>
+          <span>{t('diff.filesChanged', { count: filesChanged })}</span>
+          {linesAdded !== undefined && (
+            <span className="text-success">+{linesAdded}</span>
+          )}
+          {linesRemoved !== undefined && (
+            <span className="text-error">-{linesRemoved}</span>
+          )}
+        </>
+      );
+      return onViewCode ? (
+        <button
+          type="button"
+          onClick={onViewCode}
+          className="flex w-full items-center gap-half border-b px-base py-half text-sm text-low hover:text-normal hover:bg-secondary/40 transition-colors"
+        >
+          {diffContent}
+        </button>
+      ) : (
+        <div className="flex items-center gap-half border-b px-base py-half text-sm text-low">
+          {diffContent}
+        </div>
+      );
+    }
+    return null;
+  };
+
   // Banner content
   const renderBanner = () => {
     const banners: ReactNode[] = [];
@@ -672,6 +886,8 @@ export function SessionChatBox<TExecutor extends string = string>({
       isRunning={showRunningAnimation}
       dropzone={dropzone}
       modelSelector={modelSelector}
+      compact={compact}
+      contextStrip={compact ? renderContextStrip() : undefined}
       headerLeft={
         <>
           {/* New session mode: agent icon + executor dropdown */}
@@ -883,6 +1099,31 @@ export function SessionChatBox<TExecutor extends string = string>({
       }
       footerLeft={
         <>
+          {/* Compact mode relocations: the executor picker (new-session mode)
+              and the context gauge normally live in the header row */}
+          {compact && isNewSessionMode && executor && (
+            <ToolbarDropdown
+              label={
+                executor.selected
+                  ? formatExecutorLabel(executor.selected)
+                  : emptyExecutorLabel
+              }
+            >
+              <DropdownMenuLabel>{t('conversation.executors')}</DropdownMenuLabel>
+              {executor.options.map((exec) => (
+                <DropdownMenuItem
+                  key={exec}
+                  icon={executor.selected === exec ? CheckIcon : undefined}
+                  onClick={() => executor.onChange(exec)}
+                >
+                  {formatExecutorLabel(exec)}
+                </DropdownMenuItem>
+              ))}
+            </ToolbarDropdown>
+          )}
+          {compact && supportsContextUsage && (
+            <ContextUsageGauge tokenUsageInfo={tokenUsageInfo} />
+          )}
           <ToolbarIconButton
             icon={PaperclipIcon}
             aria-label={t('tasks:taskFormDialog.attachFile')}
@@ -918,7 +1159,9 @@ export function SessionChatBox<TExecutor extends string = string>({
           ))}
         </>
       }
-      footerRight={renderActionButtons()}
+      footerRight={
+        compact ? renderCompactActionButtons() : renderActionButtons()
+      }
     />
   );
 }
