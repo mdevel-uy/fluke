@@ -1,9 +1,28 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Plus, Sparkles, X } from 'lucide-react';
-import { SpinnerIcon } from '@phosphor-icons/react';
+import {
+  CheckIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  SpinnerIcon,
+} from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
+import { AgentIcon } from '@/shared/components/AgentIcon';
+import { useHostId } from '@/shared/providers/HostIdProvider';
+import { workspaceSessionKeys } from '@/shared/hooks/workspaceSessionKeys';
+import { sessionsApi } from '@/shared/lib/api';
+import { formatDateShortWithTime } from '@/shared/lib/date';
+import { ToolbarDropdown } from '@vibe/ui/components/Toolbar';
+import {
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@vibe/ui/components/Dropdown';
+import { RenameSessionDialog } from '@vibe/ui/components/RenameSessionDialog';
+import type { BaseCodingAgent } from 'shared/types';
 import { useAdhocPanelStore } from '../model/useAdhocPanelStore';
 import { useAdhocSession } from '../model/useAdhocSession';
 import { AdhocChatPanelContent } from './AdhocChatPanelContent';
@@ -15,8 +34,11 @@ import { AdhocChatPanelContent } from './AdhocChatPanelContent';
 
 export function AdhocClaudePanel() {
   const { t } = useTranslation('common');
+  const { t: tTasks } = useTranslation('tasks');
   const isOpen = useAdhocPanelStore((s) => s.isOpen);
   const close = useAdhocPanelStore((s) => s.close);
+  const queryClient = useQueryClient();
+  const hostId = useHostId();
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -24,6 +46,7 @@ export function AdhocClaudePanel() {
 
   const {
     workspaceContext,
+    workspaceId,
     selectedSession,
     sessions,
     selectSession,
@@ -74,6 +97,31 @@ export function AdhocClaudePanel() {
     void startNewSession();
   }, [startNewSession]);
 
+  const handleRenameSession = useCallback(
+    (targetSessionId: string, currentName: string) => {
+      void RenameSessionDialog.show({
+        currentName,
+        onRename: async (newName: string) => {
+          await sessionsApi.update(targetSessionId, { name: newName });
+          void queryClient.invalidateQueries({
+            queryKey: workspaceSessionKeys.byWorkspace(workspaceId, hostId),
+          });
+        },
+      });
+    },
+    [queryClient, hostId, workspaceId]
+  );
+
+  // Session chip in the panel header — in the compact composer the session
+  // dropdown no longer lives inside the chat box, it belongs to the drawer.
+  const isLatestSelected =
+    sessions.length > 0 && selectedSession?.id === sessions[0].id;
+  const sessionChipLabel = selectedSession?.name
+    ? selectedSession.name
+    : isLatestSelected
+      ? tTasks('conversation.sessions.latest')
+      : tTasks('conversation.sessions.previous');
+
   const panelLabel = t('adhocPanel.title', { defaultValue: 'Ad-hoc Claude' });
   const closeLabel = t('adhocPanel.close', {
     defaultValue: 'Close ad-hoc Claude panel',
@@ -101,9 +149,67 @@ export function AdhocClaudePanel() {
             className="h-4 w-4 text-brand-on-surface shrink-0"
             strokeWidth={1.75}
           />
-          <span className="text-sm font-medium text-high truncate">
+          <span className="text-sm font-medium text-high truncate shrink-0">
             {panelLabel}
           </span>
+          {isReady && selectedSession && (
+            <ToolbarDropdown
+              label={sessionChipLabel}
+              className="min-w-0 max-w-[140px]"
+            >
+              <DropdownMenuItem icon={PlusIcon} onClick={handleNewSession}>
+                {tTasks('conversation.sessions.newSession')}
+              </DropdownMenuItem>
+              {sessions.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>
+                    {tTasks('conversation.sessions.label')}
+                  </DropdownMenuLabel>
+                  {sessions.map((s, index) => (
+                    <DropdownMenuItem
+                      key={s.id}
+                      icon={
+                        s.id === selectedSession.id ? CheckIcon : undefined
+                      }
+                      onClick={() => selectSession(s.id)}
+                    >
+                      <span className="flex items-center gap-1.5 max-w-[200px]">
+                        <AgentIcon
+                          agent={
+                            (s.executor ?? null) as
+                              | BaseCodingAgent
+                              | null
+                              | undefined
+                          }
+                          className="size-icon shrink-0"
+                        />
+                        <span className="truncate">
+                          {s.name
+                            ? s.name
+                            : index === 0
+                              ? tTasks('conversation.sessions.latest')
+                              : formatDateShortWithTime(s.created_at)}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                icon={PencilSimpleIcon}
+                onClick={() =>
+                  handleRenameSession(
+                    selectedSession.id,
+                    selectedSession.name ?? ''
+                  )
+                }
+              >
+                {tTasks('conversation.sessions.rename')}
+              </DropdownMenuItem>
+            </ToolbarDropdown>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownIcon } from '@phosphor-icons/react';
+import { ArrowDownIcon, ArrowUpIcon } from '@phosphor-icons/react';
 import type { Session, WorkspaceContext } from 'shared/types';
 import {
   ConversationList,
@@ -133,21 +133,39 @@ export function AdhocChatPanelContent({
                     sessionScopeId={selectedSession.id}
                   />
                 </RetryUiProvider>
-                {!isAtBottom && (
+                {/* Floating read-navigation: previous user message + back to
+                    bottom. In compact mode these replace the composer-header
+                    turn navigation. */}
+                <div className="absolute bottom-2 right-3 z-10 flex flex-col gap-1">
                   <button
                     type="button"
-                    onClick={() => handleScrollToBottom('auto')}
-                    className="absolute bottom-2 right-3 z-10 flex items-center justify-center size-8 rounded-full bg-secondary/80 backdrop-blur-sm border border-secondary text-low hover:text-normal hover:bg-secondary shadow-md transition-all"
-                    aria-label={t('conversation.scrollToBottom', {
-                      defaultValue: 'Scroll to bottom',
+                    onClick={handleScrollToPreviousMessage}
+                    className="flex items-center justify-center size-8 rounded-full bg-secondary/80 backdrop-blur-sm border border-secondary text-low hover:text-normal hover:bg-secondary shadow-md transition-all"
+                    aria-label={t('conversation.scrollToPreviousMessage', {
+                      defaultValue: 'Scroll to previous message',
                     })}
-                    title={t('conversation.scrollToBottom', {
-                      defaultValue: 'Scroll to bottom',
+                    title={t('conversation.scrollToPreviousMessage', {
+                      defaultValue: 'Scroll to previous message',
                     })}
                   >
-                    <ArrowDownIcon className="size-icon-base" weight="bold" />
+                    <ArrowUpIcon className="size-icon-base" weight="bold" />
                   </button>
-                )}
+                  {!isAtBottom && (
+                    <button
+                      type="button"
+                      onClick={() => handleScrollToBottom('auto')}
+                      className="flex items-center justify-center size-8 rounded-full bg-secondary/80 backdrop-blur-sm border border-secondary text-low hover:text-normal hover:bg-secondary shadow-md transition-all"
+                      aria-label={t('conversation.scrollToBottom', {
+                        defaultValue: 'Scroll to bottom',
+                      })}
+                      title={t('conversation.scrollToBottom', {
+                        defaultValue: 'Scroll to bottom',
+                      })}
+                    >
+                      <ArrowDownIcon className="size-icon-base" weight="bold" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div
                 className="@container shrink-0 pl-px"
@@ -155,6 +173,7 @@ export function AdhocChatPanelContent({
               >
                 <SessionChatBoxContainer
                   mode="existing-session"
+                  compact
                   session={selectedSession}
                   sessions={sessions}
                   onSelectSession={onSelectSession}

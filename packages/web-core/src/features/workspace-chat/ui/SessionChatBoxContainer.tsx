@@ -106,6 +106,8 @@ interface SharedProps {
   disableViewCode: boolean;
   /** Replace diff stats with an "Open Workspace" button in header */
   showOpenWorkspaceButton: boolean;
+  /** Compact layout for narrow surfaces (ad-hoc drawer) */
+  compact?: boolean;
 }
 
 /** Props for existing session mode */
@@ -151,6 +153,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     getActiveTurnPatchKey,
     disableViewCode = false,
     showOpenWorkspaceButton,
+    compact,
   } = props;
 
   // Extract mode-specific values
@@ -977,6 +980,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     return (
       <SessionChatBox<BaseCodingAgent>
         status="idle"
+        compact={compact}
         renderEditor={renderEditor}
         repoIds={repoIds}
         tokenUsageInfo={tokenUsageInfo}
@@ -1024,6 +1028,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
   return (
     <SessionChatBox<BaseCodingAgent>
       status={status}
+      compact={compact}
       onViewCode={disableViewCode ? undefined : handleViewCode}
       onOpenWorkspace={
         showOpenWorkspaceButton && workspaceId ? handleOpenWorkspace : undefined
