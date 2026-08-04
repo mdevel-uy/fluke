@@ -13,7 +13,7 @@ use db::models::{
 };
 use deployment::Deployment;
 use serde::Deserialize;
-use services::services::container::ContainerService;
+use services::services::{container::ContainerService, events::workspace_patch};
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
@@ -54,6 +54,7 @@ pub async fn get_or_create_scratch_workspace(
         ensure_scratch_session(&deployment, workspace.id).await?;
 
         let ctx = Workspace::load_context(pool, workspace.id).await?;
+        retract_from_fleet_sidebar(&deployment, workspace.id);
         return Ok(ResponseJson(ApiResponse::success(ctx)));
     }
 
@@ -99,7 +100,22 @@ pub async fn get_or_create_scratch_workspace(
     ensure_scratch_session(&deployment, workspace_id).await?;
 
     let ctx = Workspace::load_context(pool, workspace_id).await?;
+    retract_from_fleet_sidebar(&deployment, workspace_id);
     Ok(ResponseJson(ApiResponse::success(ctx)))
+}
+
+/// The workspace INSERT (and the repo attachment) fire the live-events hook
+/// before the `scratch_workspaces` registration exists, so those first patches
+/// pass the `is_scratch` filter and the scratch workspace leaks into the fleet
+/// sidebar as an idle agent — and since every later patch IS filtered, no
+/// remove ever follows. Broadcast an explicit remove once the registration is
+/// in place; clients ignore removes for keys they never saw, so this is safe
+/// to send on every panel open and also heals already-connected clients.
+fn retract_from_fleet_sidebar(deployment: &DeploymentImpl, workspace_id: Uuid) {
+    deployment
+        .events()
+        .msg_store()
+        .push_patch(workspace_patch::remove(workspace_id));
 }
 
 /// Materialize the scratch workspace's worktree, creating the workspace
