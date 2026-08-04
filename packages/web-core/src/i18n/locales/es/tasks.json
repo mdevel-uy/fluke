@@ -562,6 +562,14 @@
     "result": {
       "approved": "Aprobado",
       "changesRequested": "Cambios solicitados"
+    },
+    "loop": {
+      "reviewing": "Reviewer trabajando…",
+      "reviewQueued": "Review en cola",
+      "fixing": "Fix en curso…",
+      "fixQueued": "Fix en cola",
+      "awaitingReview": "Esperando review",
+      "stalled": "Loop detenido"
     }
   }
 }

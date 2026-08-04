@@ -562,6 +562,14 @@
     "result": {
       "approved": "已批准",
       "changesRequested": "要求更改"
+    },
+    "loop": {
+      "reviewing": "審查進行中…",
+      "reviewQueued": "審查排隊中",
+      "fixing": "修復進行中…",
+      "fixQueued": "修復排隊中",
+      "awaitingReview": "等待審查",
+      "stalled": "循環停滯"
     }
   }
 }

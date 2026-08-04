@@ -23,6 +23,7 @@ use tokio::{
     time::interval,
 };
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 use crate::services::{
     analytics::AnalyticsContext,
@@ -402,6 +403,49 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
 
     /// Check all open PRs for updates
     async fn check_all_open_prs(&self) -> Result<(), PrMonitorError> {
+        // Reconcile review-fix tasks whose PR already merged/closed. Their
+        // workspaces are not the PR's primary workspace, so `on_pr_merged`
+        // never reaches them — without this sweep they sit in_review forever
+        // (card showing a MERGED badge that never closes). Runs before the
+        // open-PR early return: it is precisely about PRs that are no longer
+        // open. Freed workers get offered their next queued task.
+        match WorkerTask::complete_review_fix_tasks_for_merged_prs(&self.db.pool).await {
+            Ok(completed) => {
+                let mut freed_workers: Vec<Uuid> = Vec::new();
+                for (task_id, worker_id) in completed {
+                    info!(
+                        task_id = %task_id,
+                        worker_id = %worker_id,
+                        "Review-fix task closed: its PR is merged/closed",
+                    );
+                    if !freed_workers.contains(&worker_id) {
+                        freed_workers.push(worker_id);
+                    }
+                }
+                for worker_id in freed_workers {
+                    match worker_orchestrator::try_take_next(
+                        &self.config,
+                        &self.db,
+                        &self.container,
+                        worker_id,
+                    )
+                    .await
+                    {
+                        Ok(_) => info!(
+                            worker_id = %worker_id,
+                            "Worker took next task after review-fix cleanup",
+                        ),
+                        Err(e) if e.is_conflict() => {}
+                        Err(e) => warn!(
+                            worker_id = %worker_id,
+                            "Failed to start next task after review-fix cleanup: {}", e
+                        ),
+                    }
+                }
+            }
+            Err(e) => warn!("Review-fix merged-PR sweep failed: {}", e),
+        }
+
         let open_prs = PullRequest::get_open(&self.db.pool).await?;
 
         if open_prs.is_empty() {

@@ -562,6 +562,14 @@
     "result": {
       "approved": "承認済み",
       "changesRequested": "変更を要求"
+    },
+    "loop": {
+      "reviewing": "レビュー実行中…",
+      "reviewQueued": "レビュー待機中",
+      "fixing": "修正実行中…",
+      "fixQueued": "修正待機中",
+      "awaitingReview": "レビュー待ち",
+      "stalled": "ループ停滞"
     }
   }
 }

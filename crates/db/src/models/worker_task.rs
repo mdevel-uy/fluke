@@ -809,7 +809,8 @@ impl WorkerTask {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
-                    created_at, review_result, failure_reason
+                    created_at, review_result, failure_reason,
+                    hours_saved_override
                FROM worker_tasks
                WHERE issue_number = ?1
                  AND repo_id = ?2
@@ -822,6 +823,104 @@ impl WorkerTask {
         .bind(repo_id)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Close review-fix tasks whose PR is already merged or closed: the
+    /// remediation's reason to exist is gone. Only `in_review` tasks are
+    /// touched — the primary merge path (`on_pr_merged`) never sees them
+    /// because they live in their own workspace, not the PR's primary one.
+    /// Returns the affected (task_id, worker_id) pairs so the caller can
+    /// offer freed workers their next queued task.
+    pub async fn complete_review_fix_tasks_for_merged_prs(
+        pool: &SqlitePool,
+    ) -> Result<Vec<(Uuid, Uuid)>, sqlx::Error> {
+        let stale = sqlx::query_as::<_, (Uuid, Uuid)>(
+            "SELECT DISTINCT wt.id, wt.worker_id
+               FROM worker_tasks wt
+               JOIN pull_requests pr
+                 ON pr.repo_id = wt.repo_id
+                AND pr.pr_number = wt.issue_number
+              WHERE wt.kind = 'review_fix'
+                AND wt.status = 'in_review'
+                AND pr.pr_status IN ('merged', 'closed')",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        for (task_id, _) in &stale {
+            sqlx::query("UPDATE worker_tasks SET status = 'done' WHERE id = ?1 AND status = 'in_review'")
+                .bind(task_id)
+                .execute(pool)
+                .await?;
+        }
+        Ok(stale)
+    }
+
+    /// Loop activity snapshot for a PR, feeding the kanban card's loop badge:
+    /// - `reviewer`: status of the active reviewer task ('queued' | 'running')
+    /// - `fix`: status of the pending review-fix task ('queued' | 'running')
+    /// - `last_activity_at`: newest completed_at/created_at across the PR's
+    ///   reviewer and fix tasks — the reference point for stall detection.
+    pub async fn loop_activity_for_pr(
+        pool: &SqlitePool,
+        pr_number: i64,
+        repo_id: Uuid,
+    ) -> Result<(Option<String>, Option<String>, Option<DateTime<Utc>>), sqlx::Error> {
+        let reviewer = sqlx::query_scalar::<_, String>(
+            "SELECT wt.status
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+              WHERE w.role = 'reviewer'
+                AND wt.issue_number = ?1
+                AND wt.repo_id = ?2
+                AND wt.status IN ('queued', 'in_progress')
+              ORDER BY wt.created_at ASC
+              LIMIT 1",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let fix = sqlx::query_scalar::<_, String>(
+            "SELECT status
+               FROM worker_tasks
+              WHERE issue_number = ?1
+                AND repo_id = ?2
+                AND kind = 'review_fix'
+                AND status IN ('queued', 'in_progress')
+              ORDER BY created_at ASC
+              LIMIT 1",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let to_activity = |status: Option<String>| {
+            status.map(|s| {
+                if s == STATUS_IN_PROGRESS {
+                    "running".to_string()
+                } else {
+                    "queued".to_string()
+                }
+            })
+        };
+
+        let last_activity_at = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+            "SELECT MAX(COALESCE(wt.completed_at, wt.created_at))
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+              WHERE wt.issue_number = ?1
+                AND wt.repo_id = ?2
+                AND (w.role = 'reviewer' OR wt.kind = 'review_fix')",
+        )
+        .bind(pr_number)
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok((to_activity(reviewer), to_activity(fix), last_activity_at))
     }
 
     /// Persist the TL reviewer's verdict on the developer's task so the UI
