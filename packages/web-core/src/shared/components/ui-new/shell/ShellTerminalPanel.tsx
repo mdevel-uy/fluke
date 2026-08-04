@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Terminal, X } from 'lucide-react';
+import { GitBranch, Plus, Terminal, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useTerminal } from '@/shared/hooks/useTerminal';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
@@ -88,6 +88,39 @@ export function ShellTerminalPanel() {
 
   const canCreate = !!workspaceId && !!containerRef;
 
+  // Why the panel is empty: no workspace selected, or the selected workspace
+  // has no worktree on disk yet (branches only materialize on create()).
+  // null while canCreate — the auto-open effect fills the panel right away.
+  const emptyReason: 'no-workspace' | 'no-worktree' | null = !workspaceId
+    ? 'no-workspace'
+    : !containerRef
+      ? 'no-worktree'
+      : null;
+
+  // Single-line fallback when the bottom panel is resized too short for the
+  // centered empty state.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setIsCompact(entry.contentRect.height < 120);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const newTerminalTooltip = canCreate
+    ? t('shellTerminal.new', { defaultValue: 'New terminal' })
+    : emptyReason === 'no-worktree'
+      ? t('shellTerminal.empty.noWorktree.title', {
+          defaultValue: 'This workspace has no worktree yet',
+        })
+      : t('shellTerminal.newDisabled', {
+          defaultValue: 'Select a workspace to open a terminal',
+        });
+
   return (
     <div className="flex h-full min-h-0 flex-col border-t bg-primary">
       <div className="flex h-8 flex-none items-stretch bg-md-surface-container-low">
@@ -126,16 +159,7 @@ export function ShellTerminalPanel() {
           ))}
         </div>
         <div className="flex flex-none items-center gap-0.5 px-1">
-          <Tooltip
-            content={
-              canCreate
-                ? t('shellTerminal.new', { defaultValue: 'New terminal' })
-                : t('shellTerminal.newDisabled', {
-                    defaultValue: 'Select a workspace to open a terminal',
-                  })
-            }
-            side="top"
-          >
+          <Tooltip content={newTerminalTooltip} side="top">
             <button
               type="button"
               disabled={!canCreate}
@@ -166,14 +190,89 @@ export function ShellTerminalPanel() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 border-t">
+      <div ref={bodyRef} className="min-h-0 flex-1 border-t">
         {tabs.length === 0 ? (
-          <div className="px-3.5 py-3 text-sm text-low">
-            {t('shellTerminal.empty', {
-              defaultValue:
-                'No terminal sessions — select a workspace and press + to open one.',
-            })}
-          </div>
+          emptyReason === null ? null : isCompact ? (
+            <div
+              role="status"
+              className="flex h-full items-center gap-2.5 px-4 text-xs text-low"
+            >
+              <Terminal size={14} strokeWidth={1.75} className="flex-none" />
+              <span>
+                <span className="font-medium text-normal">
+                  {emptyReason === 'no-workspace'
+                    ? t('shellTerminal.empty.noWorkspace.title', {
+                        defaultValue: 'No workspace selected',
+                      })
+                    : t('shellTerminal.empty.noWorktree.titleShort', {
+                        defaultValue: 'No worktree yet',
+                      })}
+                </span>
+                {' — '}
+                {emptyReason === 'no-workspace'
+                  ? t('shellTerminal.empty.noWorkspace.descShort', {
+                      defaultValue:
+                        'pick one in the sidebar to open a terminal.',
+                    })
+                  : t('shellTerminal.empty.noWorktree.descShort', {
+                      defaultValue:
+                        "start the workspace's first session to open a terminal.",
+                    })}
+              </span>
+            </div>
+          ) : (
+            <div
+              role="status"
+              className="flex h-full items-center justify-center p-6"
+            >
+              <div className="flex max-w-md flex-col items-center gap-1.5 text-center">
+                {emptyReason === 'no-workspace' ? (
+                  <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-border text-low">
+                    <Terminal size={18} strokeWidth={1.75} />
+                  </div>
+                ) : (
+                  <span className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-border bg-md-surface-container-low px-2.5 py-0.5 font-mono text-[11px] text-normal">
+                    <GitBranch
+                      size={11}
+                      strokeWidth={2}
+                      className="text-low"
+                    />
+                    {workspace?.branch}
+                  </span>
+                )}
+                <p className="text-[13px] font-semibold text-normal">
+                  {emptyReason === 'no-workspace'
+                    ? t('shellTerminal.empty.noWorkspace.title', {
+                        defaultValue: 'No workspace selected',
+                      })
+                    : t('shellTerminal.empty.noWorktree.title', {
+                        defaultValue: 'This workspace has no worktree yet',
+                      })}
+                </p>
+                <p className="text-xs leading-relaxed text-low">
+                  {emptyReason === 'no-workspace'
+                    ? t('shellTerminal.empty.noWorkspace.desc', {
+                        defaultValue:
+                          "Terminals open inside a workspace's worktree. Pick a workspace in the sidebar and one will open here automatically.",
+                      })
+                    : t('shellTerminal.empty.noWorktree.desc', {
+                        defaultValue:
+                          "The branch hasn't been checked out on disk, so there's nowhere to open a shell. Start the workspace's first session and the terminal will connect here.",
+                      })}
+                </p>
+                {emptyReason === 'no-workspace' && (
+                  <span className="mt-2 inline-flex items-center gap-1.5 text-xs text-low">
+                    <span className="font-semibold text-brand-on-surface">
+                      ←
+                    </span>
+                    {t('shellTerminal.empty.noWorkspace.hint', {
+                      defaultValue: 'Workspaces live in the left sidebar',
+                    })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
         ) : (
           tabs.map((tab) => (
             <div
