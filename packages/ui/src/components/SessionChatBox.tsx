@@ -724,9 +724,34 @@ export function SessionChatBox<TExecutor extends string = string>({
   };
 
   // Compact mode: slim contextual strip above the editor. Renders exactly one
-  // thing — the running todo, a conflict warning, or diff stats — and nothing
-  // when there is nothing to say.
+  // thing — the executor picker (new session), the running todo, a conflict
+  // warning, or diff stats — and nothing when there is nothing to say.
   const renderContextStrip = () => {
+    if (isNewSessionMode && executor) {
+      return (
+        <div className="flex items-center gap-base border-b px-base py-half min-w-0">
+          {renderAgentIcon?.(agent, 'size-icon-xl')}
+          <ToolbarDropdown
+            label={
+              executor.selected
+                ? formatExecutorLabel(executor.selected)
+                : emptyExecutorLabel
+            }
+          >
+            <DropdownMenuLabel>{t('conversation.executors')}</DropdownMenuLabel>
+            {executor.options.map((exec) => (
+              <DropdownMenuItem
+                key={exec}
+                icon={executor.selected === exec ? CheckIcon : undefined}
+                onClick={() => executor.onChange(exec)}
+              >
+                {formatExecutorLabel(exec)}
+              </DropdownMenuItem>
+            ))}
+          </ToolbarDropdown>
+        </div>
+      );
+    }
     if (isRunning && inProgressTodo) {
       const totalTodos = todos?.length ?? 0;
       const completedTodos =
@@ -1099,29 +1124,10 @@ export function SessionChatBox<TExecutor extends string = string>({
       }
       footerLeft={
         <>
-          {/* Compact mode relocations: the executor picker (new-session mode)
-              and the context gauge normally live in the header row */}
-          {compact && isNewSessionMode && executor && (
-            <ToolbarDropdown
-              label={
-                executor.selected
-                  ? formatExecutorLabel(executor.selected)
-                  : emptyExecutorLabel
-              }
-            >
-              <DropdownMenuLabel>{t('conversation.executors')}</DropdownMenuLabel>
-              {executor.options.map((exec) => (
-                <DropdownMenuItem
-                  key={exec}
-                  icon={executor.selected === exec ? CheckIcon : undefined}
-                  onClick={() => executor.onChange(exec)}
-                >
-                  {formatExecutorLabel(exec)}
-                </DropdownMenuItem>
-              ))}
-            </ToolbarDropdown>
-          )}
-          {compact && supportsContextUsage && (
+          {/* Compact mode: the context gauge normally lives in the header
+              row; only shown once there is real usage data so it doesn't
+              render as an empty ring */}
+          {compact && supportsContextUsage && tokenUsageInfo && (
             <ContextUsageGauge tokenUsageInfo={tokenUsageInfo} />
           )}
           <ToolbarIconButton
