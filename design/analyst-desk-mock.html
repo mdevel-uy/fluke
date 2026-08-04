@@ -1,0 +1,567 @@
+<title>Vibe Kanban — Analyst Desk Redesign Mock</title>
+<style>
+  /* ---------- Tokens (Workbench v3 · Slate & Signal) ---------- */
+  :root {
+    --bg: #F4F4F5;
+    --panel: #FFFFFF;
+    --rail: #FAFAFA;
+    --hover: #F4F4F5;
+    --active: #E4E4E7;
+    --sel: #EEF2FF;
+    --border: #E4E4E7;
+    --border-strong: #D4D4D8;
+    --t-high: #18181B;
+    --t-normal: #3F3F46;
+    --t-low: #71717A;
+    --brand: #4F46E5;
+    --brand-ink: #4F46E5;
+    --on-brand: #FFFFFF;
+    --success: #16A34A;
+    --warning: #D97706;
+    --error: #DC2626;
+    --shadow-overlay: 0 8px 24px rgba(24,24,27,.12), 0 2px 6px rgba(24,24,27,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #09090B; --panel: #18181B; --rail: #101012;
+      --hover: #27272A; --active: #3F3F46; --sel: #312E81;
+      --border: #27272A; --border-strong: #52525B;
+      --t-high: #FAFAFA; --t-normal: #D4D4D8; --t-low: #A1A1AA;
+      --brand: #6366F1; --brand-ink: #818CF8; --on-brand: #FFFFFF;
+      --success: #4ADE80; --warning: #FBBF24; --error: #F87171;
+      --shadow-overlay: 0 8px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #09090B; --panel: #18181B; --rail: #101012;
+    --hover: #27272A; --active: #3F3F46; --sel: #312E81;
+    --border: #27272A; --border-strong: #52525B;
+    --t-high: #FAFAFA; --t-normal: #D4D4D8; --t-low: #A1A1AA;
+    --brand: #6366F1; --brand-ink: #818CF8; --on-brand: #FFFFFF;
+    --success: #4ADE80; --warning: #FBBF24; --error: #F87171;
+    --shadow-overlay: 0 8px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F4F5; --panel: #FFFFFF; --rail: #FAFAFA;
+    --hover: #F4F4F5; --active: #E4E4E7; --sel: #EEF2FF;
+    --border: #E4E4E7; --border-strong: #D4D4D8;
+    --t-high: #18181B; --t-normal: #3F3F46; --t-low: #71717A;
+    --brand: #4F46E5; --brand-ink: #4F46E5; --on-brand: #FFFFFF;
+    --success: #16A34A; --warning: #D97706; --error: #DC2626;
+    --shadow-overlay: 0 8px 24px rgba(24,24,27,.12), 0 2px 6px rgba(24,24,27,.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+    color: var(--t-normal);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; }
+  svg { display: block; flex: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--brand); outline-offset: -1px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ---------- Mock controls (not part of the design) ---------- */
+  .mock-controls {
+    position: fixed; right: 12px; bottom: 12px; z-index: 50;
+    display: flex; gap: 6px;
+    background: var(--panel); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 6px; box-shadow: var(--shadow-overlay);
+  }
+  .mock-controls button {
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--t-normal);
+    border: 1px solid transparent;
+  }
+  .mock-controls button:hover { background: var(--hover); }
+  .mock-controls button[aria-pressed="true"] {
+    background: var(--sel); color: var(--brand-ink); border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  }
+  .mock-notes {
+    position: fixed; right: 12px; bottom: 52px; z-index: 50; width: 380px; max-height: 70vh; overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px;
+    padding: 14px 16px; box-shadow: var(--shadow-overlay); display: none;
+  }
+  body.show-notes .mock-notes { display: block; }
+  .mock-notes h2 { margin: 0 0 8px; font-size: 13px; color: var(--t-high); }
+  .mock-notes ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+  .mock-notes li { font-size: 12px; line-height: 1.5; }
+  .mock-notes b { color: var(--t-high); font-weight: 600; }
+
+  /* ---------- Shell chrome (context only) ---------- */
+  .shell { display: grid; grid-template-rows: 36px 1fr; height: 100vh; }
+  .topbar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border-bottom: 1px solid var(--border); padding: 0 8px;
+  }
+  .crumbs { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .crumb { color: var(--t-low); padding: 2px 4px; border-radius: 4px; }
+  .crumb.here { color: var(--t-high); }
+  .crumb-sep { color: var(--t-low); opacity: .6; }
+  .cmdbar {
+    flex: 0 1 420px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    height: 24px; padding: 0 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--t-low); font-size: 12px;
+  }
+  .top-utils { flex: 1; display: flex; justify-content: flex-end; gap: 8px; }
+  .avatar-sm { width: 22px; height: 22px; border-radius: 50%; background: var(--active); }
+
+  .mid { display: grid; grid-template-columns: 48px 240px 1fr; min-height: 0; }
+
+  .rail {
+    background: var(--rail); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0;
+  }
+  .rail-btn {
+    width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: var(--t-low);
+  }
+  .rail-btn:hover { background: var(--hover); color: var(--t-high); }
+  .rail-btn.here { background: var(--sel); color: var(--brand-ink); }
+
+  .sidebar {
+    background: var(--rail); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+  }
+  .sb-title {
+    padding: 12px 12px 8px; font-size: 13px; font-weight: 600; color: var(--t-high);
+  }
+  .sb-label {
+    padding: 10px 12px 4px; font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--t-low);
+  }
+  .sb-row {
+    display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 0 6px;
+    padding: 5px 8px; border-radius: 6px; color: var(--t-normal); text-align: left;
+  }
+  .sb-row:hover { background: var(--hover); }
+  .sb-row.sel { background: var(--sel); color: var(--brand-ink); font-weight: 500; }
+  .sb-row .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .sb-row .count {
+    margin-left: auto; font-size: 10px; color: var(--t-low);
+    background: var(--active); border-radius: 8px; padding: 1px 6px;
+  }
+  .dot.ok { background: var(--success); }
+  .dot.busy { background: var(--warning); }
+
+  /* ---------- Page ---------- */
+  .page { min-width: 0; overflow-y: auto; background: var(--bg); }
+  .desk {
+    max-width: 780px; margin: 0 auto; padding: 28px 24px 60px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* Analyst identity header */
+  .analyst-hero { display: flex; align-items: center; gap: 14px; }
+  .analyst-avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex: none;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, var(--brand) 14%, transparent);
+    color: var(--brand-ink); font-weight: 700; font-size: 15px; letter-spacing: .02em;
+  }
+  .analyst-id { min-width: 0; flex: 1; }
+  .analyst-name-row { display: flex; align-items: center; gap: 10px; }
+  .analyst-name { font-size: 17px; font-weight: 650; color: var(--t-high); }
+  .analyst-soul {
+    margin-top: 2px; font-size: 12px; color: var(--t-low);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+  }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-pill.ok {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 12%, transparent);
+  }
+  .hero-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; color: var(--t-low); border-radius: 6px; padding: 4px 8px;
+  }
+  .hero-link:hover { background: var(--hover); color: var(--t-high); }
+
+  /* Composer */
+  .composer {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: border-color .15s;
+  }
+  .composer:focus-within { border-color: var(--brand); }
+  .composer textarea {
+    border: 0; resize: none; background: transparent; color: var(--t-high);
+    font: inherit; line-height: 1.55; padding: 14px 16px 6px; min-height: 84px; outline: none;
+  }
+  .composer textarea::placeholder { color: var(--t-low); }
+  .attach-row { display: flex; gap: 8px; padding: 4px 16px 0; flex-wrap: wrap; }
+  .attach-thumb {
+    position: relative; width: 52px; height: 52px; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border); background: var(--hover);
+  }
+  .attach-thumb .img {
+    width: 100%; height: 100%;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--brand) 28%, transparent), color-mix(in srgb, var(--brand) 6%, transparent));
+  }
+  .attach-thumb .x {
+    position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center;
+  }
+  .composer-bar {
+    display: flex; align-items: center; gap: 6px; padding: 10px 12px 12px;
+  }
+  .tool-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 9px; border-radius: 7px;
+    color: var(--t-low); font-size: 12px;
+  }
+  .tool-btn:hover { background: var(--hover); color: var(--t-high); }
+  .skill-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 500;
+    color: var(--brand-ink);
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+  .skill-chip .x { opacity: .6; }
+  .skill-chip .x:hover { opacity: 1; }
+  .composer-bar .spacer { flex: 1; }
+  .send-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 14px; border-radius: 8px;
+    background: var(--brand); color: var(--on-brand); font-weight: 600; font-size: 12.5px;
+  }
+  .send-btn:hover { filter: brightness(1.08); }
+  .composer-hint { font-size: 11.5px; color: var(--t-low); padding: 0 2px; }
+
+  /* Requests */
+  .req-section { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+  .req-header { display: flex; align-items: baseline; gap: 8px; }
+  .req-header h2 {
+    margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--t-low);
+  }
+  .req-header .count { font-size: 11px; color: var(--t-low); }
+  .req-group-label {
+    font-size: 11px; font-weight: 600; color: var(--t-low); margin: 6px 0 -2px;
+  }
+
+  .req-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start;
+    transition: border-color .15s;
+  }
+  .req-card:hover { border-color: var(--border-strong); }
+  .req-status-ico {
+    width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; margin-top: 1px;
+  }
+  .req-status-ico.progress { background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand-ink); }
+  .req-status-ico.queued   { background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--warning); }
+  .req-status-ico.done     { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
+  .req-status-ico.failed   { background: color-mix(in srgb, var(--error) 12%, transparent); color: var(--error); }
+  .req-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .req-title-row { display: flex; align-items: center; gap: 10px; }
+  .req-title {
+    font-size: 13px; font-weight: 600; color: var(--t-high);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+  }
+  .req-excerpt {
+    font-size: 12px; color: var(--t-low); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .req-meta {
+    display: flex; align-items: center; gap: 12px; margin-top: 3px;
+    font-size: 11.5px; color: var(--t-low);
+  }
+  .issue-badge {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px;
+    padding: 1px 6px; border-radius: 5px; background: var(--hover); border: 1px solid var(--border);
+  }
+  .req-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    color: var(--brand-ink); font-weight: 550;
+  }
+  .req-link:hover { text-decoration: underline; }
+  .req-action {
+    display: inline-flex; align-items: center; gap: 4px; color: var(--t-low); font-weight: 500;
+    opacity: 0; transition: opacity .12s;
+  }
+  .req-card:hover .req-action { opacity: 1; }
+  .req-action:hover { color: var(--error); }
+  .req-action.retry:hover { color: var(--t-high); }
+  .req-action.always { opacity: 1; }
+  .req-meta .push { margin-left: auto; }
+  .pill {
+    font-size: 10.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; flex: none;
+  }
+  .pill.progress { color: var(--brand-ink); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+  .pill.queued { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+  .pill.done { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+  .pill.failed { color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
+
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Empty state */
+  .empty {
+    border: 1px dashed var(--border-strong); border-radius: 12px;
+    padding: 36px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  }
+  .empty .ico { color: var(--t-low); }
+  .empty h3 { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--t-high); }
+  .empty p { margin: 0; font-size: 12.5px; color: var(--t-low); max-width: 380px; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+  .suggestion {
+    font-size: 12px; color: var(--t-normal);
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 999px; padding: 6px 13px;
+  }
+  .suggestion:hover { border-color: var(--brand); color: var(--brand-ink); }
+
+  /* Variant switching */
+  body[data-variant="empty"] .v-filled { display: none; }
+  body[data-variant="filled"] .v-empty { display: none; }
+</style>
+
+<div class="shell">
+  <!-- Top bar (existing shell, context only) -->
+  <div class="topbar">
+    <div class="crumbs">
+      <span class="crumb">vibe-kanban</span>
+      <span class="crumb-sep">/</span>
+      <span class="crumb here">Analyst Desk</span>
+    </div>
+    <div class="cmdbar"><span>Search or run a command…</span></div>
+    <div class="top-utils"><div class="avatar-sm"></div></div>
+  </div>
+
+  <div class="mid">
+    <!-- Rail (context only) -->
+    <div class="rail">
+      <div class="rail-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></div>
+      <div class="rail-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></div>
+      <div class="rail-btn here"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
+      <div class="rail-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    </div>
+
+    <!-- Shell sidebar: the ONLY analyst roster (no longer duplicated in the page) -->
+    <div class="sidebar">
+      <div class="sb-title">Analyst Desk</div>
+      <div class="sb-label">Repository</div>
+      <button class="sb-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/></svg><span>vibe-kanban</span></button>
+      <div class="sb-label">Analysts</div>
+      <button class="sb-row sel"><span class="dot ok"></span><span>Carla</span></button>
+      <button class="sb-row"><span class="dot busy"></span><span>Bruno</span><span class="count">2</span></button>
+      <button class="sb-row"><span class="dot ok"></span><span>Nadia</span></button>
+    </div>
+
+    <!-- ============ Redesigned page ============ -->
+    <div class="page">
+      <div class="desk">
+
+        <!-- 1 · Analyst identity: replaces the old left-column card list -->
+        <div class="analyst-hero">
+          <div class="analyst-avatar" aria-hidden="true">CA</div>
+          <div class="analyst-id">
+            <div class="analyst-name-row">
+              <span class="analyst-name">Carla</span>
+              <span class="status-pill ok"><span class="dot ok"></span>Available</span>
+            </div>
+            <div class="analyst-soul">Senior Business Analyst — breaks epics into small, well-scoped issues with acceptance criteria.</div>
+          </div>
+          <button class="hero-link">
+            Worker settings
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          </button>
+        </div>
+
+        <!-- 2 · Composer: chat-style, one focused surface -->
+        <div>
+          <div class="composer">
+            <textarea placeholder="Describe what you need from Carla… e.g. break the notifications epic into small issues with acceptance criteria." aria-label="Request"></textarea>
+            <div class="attach-row v-filled">
+              <div class="attach-thumb"><div class="img"></div><button class="x" aria-label="Remove image"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+            </div>
+            <div class="composer-bar">
+              <button class="tool-btn" title="Attach images — drag or paste also works">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+              </button>
+              <button class="tool-btn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                <span>Skills</span>
+              </button>
+              <span class="skill-chip v-filled">gsd-plan-phase
+                <button class="x" aria-label="Remove skill"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              </span>
+              <span class="spacer"></span>
+              <button class="send-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 4.5 3 9.8a.8.8 0 0 0 .1 1.5l6.2 1.9a1.5 1.5 0 0 1 1 1l1.9 6.2a.8.8 0 0 0 1.5.1l5.3-11.5a1.2 1.2 0 0 0-1.5-1.5z"/></svg>
+                Send request
+              </button>
+            </div>
+          </div>
+          <p class="composer-hint" style="margin: 7px 0 0;">Dispatches immediately if Carla is free; otherwise it joins her queue.</p>
+        </div>
+
+        <!-- 3a · Requests: grouped timeline -->
+        <div class="req-section v-filled">
+          <div class="req-header"><h2>Requests</h2><span class="count">4</span></div>
+
+          <div class="req-group-label">Active</div>
+
+          <article class="req-card">
+            <div class="req-status-ico progress">
+              <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.56"/></svg>
+            </div>
+            <div class="req-body">
+              <div class="req-title-row">
+                <span class="req-title">Break the notifications epic into small issues</span>
+                <span class="pill progress">In progress</span>
+              </div>
+              <p class="req-excerpt">Split the epic into issues of at most one day each, with acceptance criteria and dependencies between them.</p>
+              <div class="req-meta">
+                <span>12 min ago</span>
+                <span class="issue-badge">#482</span>
+                <button class="req-link">View run
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>
+                </button>
+                <button class="req-action push">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                  Stop
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="req-card">
+            <div class="req-status-ico queued">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div class="req-body">
+              <div class="req-title-row">
+                <span class="req-title">Draft acceptance criteria for the billing settings page</span>
+                <span class="pill queued">Queued · 1 ahead</span>
+              </div>
+              <div class="req-meta">
+                <span>25 min ago</span>
+                <button class="req-action push">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                  Remove
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <div class="req-group-label">Earlier</div>
+
+          <article class="req-card">
+            <div class="req-status-ico done">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <div class="req-body">
+              <div class="req-title-row">
+                <span class="req-title">Compare auth providers for the desktop app</span>
+                <span class="pill done">Done</span>
+              </div>
+              <div class="req-meta">
+                <span>2 h ago</span>
+                <span class="issue-badge">#479</span>
+                <button class="req-link">View run
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="req-card">
+            <div class="req-status-ico failed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            </div>
+            <div class="req-body">
+              <div class="req-title-row">
+                <span class="req-title">Summarise last week's PR review comments into themes</span>
+                <span class="pill failed">Failed</span>
+              </div>
+              <div class="req-meta">
+                <span>yesterday</span>
+                <button class="req-action retry always">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.6-6.3L3 8"/><path d="M3 3v5h5"/></svg>
+                  Retry
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- 3b · Empty state with prompt suggestions -->
+        <div class="req-section v-empty">
+          <div class="req-header"><h2>Requests</h2></div>
+          <div class="empty">
+            <svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            <h3>No requests yet</h3>
+            <p>Ask Carla for analysis work — results land here and each run opens as a workspace.</p>
+            <div class="suggestions">
+              <button class="suggestion">Break an epic into issues</button>
+              <button class="suggestion">Write acceptance criteria</button>
+              <button class="suggestion">Compare two approaches</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mock-only controls -->
+<div class="mock-controls" role="toolbar" aria-label="Mock controls">
+  <button id="btn-theme" aria-pressed="false">Dark</button>
+  <button id="btn-filled" aria-pressed="true">With requests</button>
+  <button id="btn-empty" aria-pressed="false">Empty</button>
+  <button id="btn-notes" aria-pressed="false">Notes</button>
+</div>
+
+<aside class="mock-notes" aria-label="Design notes">
+  <h2>Rediseño Analyst Desk — decisiones</h2>
+  <ol>
+    <li><b>Una sola columna centrada (780px).</b> La columna izquierda de la página duplicaba el roster del sidebar del shell; se elimina. El sidebar es el único selector de analista.</li>
+    <li><b>Identidad del analista arriba.</b> Avatar + nombre + estado + descripción (soul) reemplazan la lista de cards. Cambiar de analista = click en el sidebar.</li>
+    <li><b>Composer tipo chat.</b> Textarea sin bordes internos, barra inferior con adjuntar imágenes (ícono; drag &amp; paste siguen funcionando), picker de skills como chips, y Send a la derecha. Desaparece el dropzone gigante permanente.</li>
+    <li><b>Skills como chips.</b> Fix del bug i18n: <code>analystDesk.skillsPicker</code> / <code>skillsEmpty</code> no existen en common.json y se ven crudas en la UI actual.</li>
+    <li><b>Historial debajo del composer</b>, agrupado en Active / Earlier. Ícono de estado con tinte semántico + pill; acciones destructivas (Stop / Remove) solo al hover.</li>
+    <li><b>Empty state útil:</b> sugerencias clickeables que prellenan el composer, en vez de un inbox vacío que ocupa el 70% de la pantalla.</li>
+    <li><b>El hint de despacho</b> ("dispatches immediately…") pasa a texto secundario bajo el composer y nombra al analista seleccionado.</li>
+  </ol>
+</aside>
+
+<script>
+  const root = document.documentElement;
+  const btnTheme = document.getElementById('btn-theme');
+  btnTheme.addEventListener('click', () => {
+    const dark = root.getAttribute('data-theme') === 'dark';
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    btnTheme.setAttribute('aria-pressed', String(!dark));
+    btnTheme.textContent = dark ? 'Dark' : 'Light';
+  });
+
+  const btnFilled = document.getElementById('btn-filled');
+  const btnEmpty = document.getElementById('btn-empty');
+  function setVariant(v) {
+    document.body.dataset.variant = v;
+    btnFilled.setAttribute('aria-pressed', String(v === 'filled'));
+    btnEmpty.setAttribute('aria-pressed', String(v === 'empty'));
+  }
+  document.body.dataset.variant = 'filled';
+  btnFilled.addEventListener('click', () => setVariant('filled'));
+  btnEmpty.addEventListener('click', () => setVariant('empty'));
+
+  const btnNotes = document.getElementById('btn-notes');
+  btnNotes.addEventListener('click', () => {
+    const on = document.body.classList.toggle('show-notes');
+    btnNotes.setAttribute('aria-pressed', String(on));
+  });
+</script>
