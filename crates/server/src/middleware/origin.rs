@@ -139,7 +139,11 @@ fn default_port(https: bool) -> u16 {
 fn allowed_origins() -> &'static Vec<OriginKey> {
     static ALLOWED: OnceLock<Vec<OriginKey>> = OnceLock::new();
     ALLOWED.get_or_init(|| {
-        let value = match std::env::var("VK_ALLOWED_ORIGINS") {
+        // MK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); VK_ALLOWED_ORIGINS
+        // se mantiene como fallback para deployments existentes.
+        let value = match std::env::var("MK_ALLOWED_ORIGINS")
+            .or_else(|_| std::env::var("VK_ALLOWED_ORIGINS"))
+        {
             Ok(value) => value,
             Err(_) => return Vec::new(),
         };

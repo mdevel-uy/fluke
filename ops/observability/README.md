@@ -11,10 +11,10 @@ stack central de observabilidad de mdevel (Grafana + Prometheus + Loki).
 
 | Archivo                          | UID                    | Título                    | Para qué sirve                                                                                                    |
 |----------------------------------|------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `dashboards/vibe-kanban-flota.json`   | `vibe-kanban-flota`    | vibe-kanban — Flota       | Vista de una pantalla de toda la flota. Un socio ve si todas las instancias están sanas y qué instancia mirar.    |
-| `dashboards/vibe-kanban-cliente.json` | `vibe-kanban-cliente`  | vibe-kanban — Cliente     | Drill-down por instancia: semáforo, métricas de producto, recursos del contenedor y logs. Variables `cliente`, `instancia`. |
+| `dashboards/mkanban-flota.json`   | `mkanban-flota`    | vibe-kanban — Flota       | Vista de una pantalla de toda la flota. Un socio ve si todas las instancias están sanas y qué instancia mirar.    |
+| `dashboards/mkanban-cliente.json` | `mkanban-cliente`  | vibe-kanban — Cliente     | Drill-down por instancia: semáforo, métricas de producto, recursos del contenedor y logs. Variables `cliente`, `instancia`. |
 
-El dashboard de flota linkea a `vibe-kanban-cliente` en la columna Cliente y
+El dashboard de flota linkea a `mkanban-cliente` en la columna Cliente y
 Instancia de la tabla "Salud por instancia" — un click abre el detalle con las
 variables ya cargadas. El de cliente tiene un link de vuelta a la flota arriba.
 
@@ -26,18 +26,18 @@ samples pusheados por remote_write y Loki con los logs pusheados por
 (`datasource_prom`, `datasource_loki`) que resuelven al datasource
 correspondiente sin necesidad de hardcodear UIDs.
 
-Las queries filtran por `proyecto="vibekanban"` para no mezclar con otros
+Las queries filtran por `proyecto="mkanban"` para no mezclar con otros
 proyectos que compartan el mismo Prometheus/Loki. Los labels externos que
 espera son los que ya emite el Alloy de cada instancia:
 
-- `proyecto` (siempre `vibekanban`)
+- `proyecto` (siempre `mkanban`)
 - `cliente`
 - `instancia`
 - `version`
 
 Además de las métricas de producto de `/api/metrics`
-(`vibe_kanban_build_info`, `vibe_kanban_worker_tasks`,
-`vibe_kanban_agents_running`, `vibe_kanban_execution_processes_failed_total`,
+(`mkanban_build_info`, `mkanban_worker_tasks`,
+`mkanban_agents_running`, `mkanban_execution_processes_failed_total`,
 `plan_cap_hits_total`, `plan_concurrent_agents_limit`), los dashboards leen
 métricas de `node-exporter` (`node_filesystem_avail_bytes`,
 `node_filesystem_size_bytes`) y `cadvisor` (`container_memory_usage_bytes`,
@@ -73,7 +73,7 @@ sobre `/docker/observability/`. Pasos idempotentes:
    ```
 
 3. Abrir Grafana y confirmar que aparecen los dos dashboards con los UIDs
-   `vibe-kanban-flota` y `vibe-kanban-cliente`. Al primer render, elegí el
+   `mkanban-flota` y `mkanban-cliente`. Al primer render, elegí el
    datasource de Prometheus y Loki en las variables del tope; Grafana
    recuerda la elección.
 

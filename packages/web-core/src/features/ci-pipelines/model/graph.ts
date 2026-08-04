@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Pipeline graph — the source of truth for a workflow edited in the CI
  * Pipeline Studio. The GitHub Actions YAML is a compiled artifact derived
  * from this structure (see compiler.ts); the graph is persisted as a sidecar
- * file next to the generated YAML (`<name>.vibe.json`, see workflowFiles.ts).
+ * file next to the generated YAML (`<name>.mkanban.json`, see workflowFiles.ts).
  *
  * Mapping to Actions concepts:
  * - job nodes  → entries under `jobs:`

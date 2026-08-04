@@ -19,7 +19,7 @@ Every sample is tagged with these external labels before being pushed:
 
 | Label       | Source                  | Example         |
 |-------------|-------------------------|-----------------|
-| `proyecto`  | Static in config        | `vibekanban`    |
+| `proyecto`  | Static in config        | `mkanban`    |
 | `cliente`   | `VK_CLIENTE` env var    | `acme`          |
 | `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
 | `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
@@ -28,20 +28,20 @@ The `proyecto` label keeps the fleet's samples isolated from anything else shari
 
 ## Product metrics exposed by the app
 
-`/api/metrics` returns Prometheus text-format. Metric names carry the `vibe_kanban_` prefix; the legacy `plan_*` series stays as-is for existing dashboards.
+`/api/metrics` returns Prometheus text-format. Metric names carry the `mkanban_` prefix; the legacy `plan_*` series stays as-is for existing dashboards.
 
 | Metric                                             | Type    | What it means                                                       |
 |----------------------------------------------------|---------|---------------------------------------------------------------------|
-| `vibe_kanban_build_info{version="X"}`              | gauge   | Always `1`; `version` label carries the running app version.        |
-| `vibe_kanban_worker_tasks{status="..."}`           | gauge   | Current worker tasks per status: `queued`, `in_progress`, `in_review`, `done`, `failed`. |
-| `vibe_kanban_agents_running`                       | gauge   | Coding-agent execution processes currently in the `running` state (i.e. concurrent agents). |
-| `vibe_kanban_execution_processes_failed_total{run_reason="..."}` | counter | Cumulative failed execution processes, split by `run_reason` (`codingagent`, `setupscript`, …). |
+| `mkanban_build_info{version="X"}`              | gauge   | Always `1`; `version` label carries the running app version.        |
+| `mkanban_worker_tasks{status="..."}`           | gauge   | Current worker tasks per status: `queued`, `in_progress`, `in_review`, `done`, `failed`. |
+| `mkanban_agents_running`                       | gauge   | Coding-agent execution processes currently in the `running` state (i.e. concurrent agents). |
+| `mkanban_execution_processes_failed_total{run_reason="..."}` | counter | Cumulative failed execution processes, split by `run_reason` (`codingagent`, `setupscript`, …). |
 | `plan_cap_hits_total`                              | counter | Cumulative refusals due to the concurrent-agents cap.               |
 | `plan_cap_hits_by_date{date="YYYY-MM-DD"}`         | gauge   | One series per UTC day the cap was hit.                             |
 | `plan_concurrent_agents_limit`                     | gauge   | Current cap (`WORKER_MAX_IN_REVIEW`).                               |
 
 <Tip>
-`sum by (cliente, instancia) (vibe_kanban_agents_running)` and `sum by (cliente, instancia) (vibe_kanban_worker_tasks{status="done"})` are the two Grafana panels that satisfy the fleet acceptance criteria: concurrent agents and completed tasks per instance.
+`sum by (cliente, instancia) (mkanban_agents_running)` and `sum by (cliente, instancia) (mkanban_worker_tasks{status="done"})` are the two Grafana panels that satisfy the fleet acceptance criteria: concurrent agents and completed tasks per instance.
 </Tip>
 
 ## Prerequisites
@@ -97,7 +97,7 @@ docker compose \
 This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All three sit behind the same profile because Alloy assumes the other two are reachable by name.
 
 <Check>
-`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://vibe-kanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP vibe_kanban_build_info …`.
+`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://vibe-kanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP mkanban_build_info …`.
 </Check>
 </Step>
 
@@ -105,7 +105,7 @@ This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All thr
 Query Prometheus for the running-agents gauge for this instance:
 
 ```promql
-vibe_kanban_agents_running{proyecto="vibekanban", cliente="acme"}
+mkanban_agents_running{proyecto="mkanban", cliente="acme"}
 ```
 
 Samples should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).

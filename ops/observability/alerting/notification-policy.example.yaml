@@ -1,4 +1,4 @@
-# Grafana Alerting — notification policy de ejemplo para vibe-kanban.
+# Grafana Alerting — notification policy de ejemplo para mkanban.
 #
 # ATENCIÓN: NO copiar este archivo directamente al directorio de provisioning
 # del stack. Grafana REEMPLAZA el árbol completo de notification policies
@@ -7,12 +7,12 @@
 #
 # En lugar de eso, integrar manualmente la ruta anidada de abajo en el
 # archivo `notification-policies.yaml` existente del stack central. La ruta
-# matchea `proyecto = vibekanban` y enruta a los contact points de este
+# matchea `proyecto = mkanban` y enruta a los contact points de este
 # proyecto. Todo lo que no matchee cae al policy default del stack como
 # hasta ahora.
 #
 # Si por algún motivo estás inicializando un Grafana desde cero solo para
-# vibe-kanban, sí podés renombrar este archivo a `notification-policies.yaml`
+# mkanban, sí podés renombrar este archivo a `notification-policies.yaml`
 # y aplicarlo tal cual.
 apiVersion: 1
 
@@ -26,11 +26,11 @@ policies:
       - alertname
     routes:
       # -----------------------------------------------------------------
-      # Todo lo de vibe-kanban va a Telegram y email de socios.
+      # Todo lo de mkanban va a Telegram y email de socios.
       # -----------------------------------------------------------------
       - receiver: vk-socios-telegram
         matchers:
-          - proyecto = vibekanban
+          - proyecto = mkanban
         group_by:
           - alertname
           - cliente
@@ -46,7 +46,7 @@ policies:
           # Email como respaldo del email — mismo trigger, otro canal.
           - receiver: vk-socios-email
             matchers:
-              - proyecto = vibekanban
+              - proyecto = mkanban
             group_wait: 30s
             group_interval: 5m
             repeat_interval: 12h

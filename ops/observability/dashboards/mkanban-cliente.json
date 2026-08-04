@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Drill-down por instancia vibe-kanban: semáforo de salud, métricas de producto, recursos del contenedor y logs. Se llega desde el dashboard de flota con cliente/instancia ya cargadas.",
+  "description": "Drill-down por instancia mkanban: semáforo de salud, métricas de producto, recursos del contenedor y logs. Se llega desde el dashboard de flota con cliente/instancia ya cargadas.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -31,7 +31,7 @@
       "title": "Volver a la flota",
       "tooltip": "Vista general de todas las instancias",
       "type": "link",
-      "url": "/d/vibe-kanban-flota/vibe-kanban-flota"
+      "url": "/d/mkanban-flota/mkanban-flota"
     }
   ],
   "liveNow": false,
@@ -114,7 +114,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "time() - timestamp(vibe_kanban_build_info{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
+          "expr": "time() - timestamp(mkanban_build_info{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -129,7 +129,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "Versión de la app que está corriendo, según el label `version` de `vibe_kanban_build_info`.",
+      "description": "Versión de la app que está corriendo, según el label `version` de `mkanban_build_info`.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -167,7 +167,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "max by (version) (vibe_kanban_build_info{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
+          "expr": "max by (version) (mkanban_build_info{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -225,7 +225,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(vibe_kanban_agents_running{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
+          "expr": "sum(mkanban_agents_running{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
           "instant": true,
           "legendFormat": "corriendo",
           "range": false,
@@ -237,7 +237,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "max(plan_concurrent_agents_limit{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
+          "expr": "max(plan_concurrent_agents_limit{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
           "hide": true,
           "instant": true,
           "legendFormat": "cap",
@@ -292,7 +292,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(plan_cap_hits_total{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[24h]))",
+          "expr": "sum(increase(plan_cap_hits_total{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[24h]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -346,7 +346,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(vibe_kanban_execution_processes_failed_total{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[24h]))",
+          "expr": "sum(increase(mkanban_execution_processes_failed_total{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[24h]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -424,7 +424,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (status) (vibe_kanban_worker_tasks{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
+          "expr": "sum by (status) (mkanban_worker_tasks{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"})",
           "legendFormat": "{{status}}",
           "range": true,
           "refId": "A"
@@ -493,7 +493,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (run_reason) (rate(vibe_kanban_execution_processes_failed_total{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[5m])) * 60",
+          "expr": "sum by (run_reason) (rate(mkanban_execution_processes_failed_total{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"}[5m])) * 60",
           "legendFormat": "{{run_reason}}",
           "range": true,
           "refId": "A"
@@ -557,7 +557,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "min(node_filesystem_avail_bytes{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"} / node_filesystem_size_bytes{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"})",
+          "expr": "min(node_filesystem_avail_bytes{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"} / node_filesystem_size_bytes{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"})",
           "instant": true,
           "legendFormat": "libre",
           "range": false,
@@ -627,7 +627,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (container_memory_usage_bytes{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|alloy\"})",
+          "expr": "sum by (name) (container_memory_usage_bytes{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|mkanban|alloy\"})",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -696,7 +696,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|alloy\"}[5m]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|mkanban|alloy\"}[5m]))",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -786,7 +786,7 @@
             "uid": "${datasource_loki}"
           },
           "editorMode": "code",
-          "expr": "sum (rate({proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"} |~ \"(?i)error\" [$__auto]))",
+          "expr": "sum (rate({proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"} |~ \"(?i)error\" [$__auto]))",
           "legendFormat": "error",
           "queryType": "range",
           "refId": "A"
@@ -797,7 +797,7 @@
             "uid": "${datasource_loki}"
           },
           "editorMode": "code",
-          "expr": "sum (rate({proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"} |~ \"(?i)warn(ing)?\" [$__auto]))",
+          "expr": "sum (rate({proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"} |~ \"(?i)warn(ing)?\" [$__auto]))",
           "legendFormat": "warn",
           "queryType": "range",
           "refId": "B"
@@ -832,7 +832,7 @@
             "uid": "${datasource_loki}"
           },
           "editorMode": "code",
-          "expr": "{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\", contenedor=~\"$contenedor\"}",
+          "expr": "{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\", contenedor=~\"$contenedor\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -843,7 +843,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["vibe-kanban", "cliente", "proyecto:vibekanban"],
+  "tags": ["mkanban", "cliente", "proyecto:mkanban"],
   "templating": {
     "list": [
       {
@@ -890,7 +890,7 @@
           "type": "prometheus",
           "uid": "${datasource_prom}"
         },
-        "definition": "label_values(vibe_kanban_build_info{proyecto=\"vibekanban\"}, cliente)",
+        "definition": "label_values(mkanban_build_info{proyecto=\"mkanban\"}, cliente)",
         "hide": 0,
         "includeAll": false,
         "label": "Cliente",
@@ -899,7 +899,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(vibe_kanban_build_info{proyecto=\"vibekanban\"}, cliente)",
+          "query": "label_values(mkanban_build_info{proyecto=\"mkanban\"}, cliente)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -914,7 +914,7 @@
           "type": "prometheus",
           "uid": "${datasource_prom}"
         },
-        "definition": "label_values(vibe_kanban_build_info{proyecto=\"vibekanban\", cliente=\"$cliente\"}, instancia)",
+        "definition": "label_values(mkanban_build_info{proyecto=\"mkanban\", cliente=\"$cliente\"}, instancia)",
         "hide": 0,
         "includeAll": false,
         "label": "Instancia",
@@ -923,7 +923,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(vibe_kanban_build_info{proyecto=\"vibekanban\", cliente=\"$cliente\"}, instancia)",
+          "query": "label_values(mkanban_build_info{proyecto=\"mkanban\", cliente=\"$cliente\"}, instancia)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -952,7 +952,7 @@
         "query": {
           "label": "contenedor",
           "refId": "LokiVariableQueryEditor-VariableQuery",
-          "stream": "{proyecto=\"vibekanban\", cliente=\"$cliente\", instancia=\"$instancia\"}",
+          "stream": "{proyecto=\"mkanban\", cliente=\"$cliente\", instancia=\"$instancia\"}",
           "type": 1
         },
         "refresh": 2,
@@ -966,8 +966,8 @@
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "vibe-kanban — Cliente",
-  "uid": "vibe-kanban-cliente",
+  "title": "mkanban — Cliente",
+  "uid": "mkanban-cliente",
   "version": 1,
   "weekStart": ""
 }

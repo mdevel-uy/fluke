@@ -287,7 +287,7 @@ impl ExecutionProcess {
     }
 
     /// Number of coding-agent processes currently running across every
-    /// workspace. Exposed as `vibe_kanban_agents_running` in `/api/metrics`
+    /// workspace. Exposed as `mkanban_agents_running` in `/api/metrics`
     /// so the fleet dashboard can plot concurrent-agents per instance.
     /// Runtime-checked (`sqlx::query_scalar`) to keep the offline sqlx cache
     /// unchanged.
