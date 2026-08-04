@@ -113,7 +113,13 @@ ENV PORT=3000
 
 EXPOSE 3000
 
+# Se verifica el CUERPO de `/api/health`, no el código de estado: el catch-all
+# que sirve la SPA responde 200 con index.html para cualquier ruta —incluidas
+# las que empiezan con /api—, así que un `wget --spider` pasa aunque el backend
+# esté caído. El updater on-prem decide el rollback con este healthcheck
+# (ops/onprem/update.sh); un falso positivo dejaría al cliente con una versión
+# rota y sin vuelta atrás.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["/bin/sh", "-c", "wget --spider -q http://127.0.0.1:${PORT:-3000}/health"]
+  CMD ["/bin/sh", "-c", "wget -qO- http://127.0.0.1:${PORT:-3000}/api/health | grep -q '\"success\":true'"]
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/server"]
