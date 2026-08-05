@@ -52,7 +52,17 @@ binary or the frontend bundle.
 
 The npm bumps are enforced through a `overrides` block in
 `pnpm-workspace.yaml` because most are transitives whose direct parent has not
-released a patched version.
+released a patched version. Every override carries an upper bound so that
+`--frozen-lockfile` in CI stays reproducible and a future `pnpm install` cannot
+silently escalate to a new major (which could raise the required Node engine,
+drop APIs, etc.).
+
+The second CRITICAL npm advisory (`shell-quote`, GHSA‑w7jw‑789q‑3m8p /
+GHSA‑395f‑4hp3‑45gv) is **not** listed in the "ships to frontend bundle"
+table on purpose: `shell-quote` only reaches this repo through `concurrently`,
+a dev-time script runner, and is not present in the compiled JS bundle. It is
+documented in Bucket 2 (§ 2c) and the override is applied purely to zero out
+the Dependabot counter for the customer security scan.
 
 `pnpm audit --prod` reports **0 vulnerabilities** after this PR (was
 28 unique advisories including 1 CRITICAL and 15 HIGH before).
@@ -68,7 +78,7 @@ they already are on `mdev` today.
 
 | Package | Version | Advisory | Why not in this PR | Follow-up estimate |
 |---------|---------|----------|--------------------|--------------------|
-| `russh` | 0.48.2 | 10 alerts (GHSA‑wwx6, GHSA‑4r3c, GHSA‑g9f8, GHSA‑f5v4, GHSA‑76r6, GHSA‑g9g7, GHSA‑hpv4, GHSA‑h5rc, GHSA‑cqjc, GHSA‑5xvq, GHSA‑m65r, GHSA‑g9hv) | Pinned to `= "0.48"` in `crates/embedded-ssh` + `crates/local-deployment`. Fixed in 0.60/0.61/0.62 which change the client/server trait signatures and the ChannelMsg surface. | 1–2 days: rewrite `embedded_ssh::handler`, sftp forwarder, channel loop. Ship with the next scheduled server release. |
+| `russh` | 0.48.2 | 12 alerts (GHSA‑wwx6, GHSA‑4r3c, GHSA‑g9f8, GHSA‑f5v4, GHSA‑76r6, GHSA‑g9g7, GHSA‑hpv4, GHSA‑h5rc, GHSA‑cqjc, GHSA‑5xvq, GHSA‑m65r, GHSA‑g9hv) | Pinned to `= "0.48"` in `crates/embedded-ssh` + `crates/local-deployment`. Fixed in 0.60/0.61/0.62 which change the client/server trait signatures and the ChannelMsg surface. | 1–2 days: rewrite `embedded_ssh::handler`, sftp forwarder, channel loop. Ship with the next scheduled server release. |
 | `russh‑cryptovec` | 0.48.0 | GHSA‑g9f8‑wqj9‑fjw5 (high) | Ships as part of `russh`; will be resolved together with the russh bump above. | Bundled with russh bump. |
 | `aws‑lc‑sys` | 0.37.0 | GHSA‑9f94‑5g5w‑gf6r, GHSA‑394x‑vwmw‑crm3, GHSA‑hfpc‑8r3f‑gw53, GHSA‑65p9‑r9h6‑22vj, GHSA‑vw5v‑4f2q‑w9xf (high×5) | Pinned by `rama-tls-rustls` inside the `codex` fork we vendor via git tag `rust-v0.124.0`. `cargo update -p aws-lc-sys` is a no-op. | Bump codex fork to next release (`codex` publishes bi‑weekly; scheduled after `codex ≥ 0.126`). |
 | `rmcp` | 0.15.0 | GHSA‑89vp‑x53w‑74fx (high) | Pinned by `codex-app-server-protocol` in the same codex fork. Fix is 1.4.0, i.e. a major bump the upstream fork has not yet taken. | Bundled with codex fork bump. |
