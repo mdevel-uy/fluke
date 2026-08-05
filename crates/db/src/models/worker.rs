@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub const ROLE_DEVELOPER: &str = "developer";
 pub const ROLE_ANALYST: &str = "analyst";
 pub const ROLE_REVIEWER: &str = "reviewer";
+pub const ROLE_DESIGNER: &str = "designer";
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Worker {

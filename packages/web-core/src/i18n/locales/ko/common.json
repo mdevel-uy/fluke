@@ -954,7 +954,8 @@
       "frontend": "프론트엔드 전문가",
       "generalist": "제너럴리스트",
       "analyst": "분석가",
-      "reviewer": "리뷰어"
+      "reviewer": "리뷰어",
+      "designer": "UI/UX 디자이너"
     },
     "card": {
       "statusWorking": "작업 중",
@@ -1017,9 +1018,11 @@
       "developer": "개발자",
       "analyst": "분석가",
       "reviewer": "리뷰어",
+      "designer": "디자이너",
       "developerDescription": "기능을 구현하고 풀 리퀘스트를 생성합니다",
       "analystDescription": "조사를 수행하고 서면 결과물을 생성합니다",
-      "reviewerDescription": "코드를 검토하고 피드백을 제공합니다"
+      "reviewerDescription": "코드를 검토하고 피드백을 제공합니다",
+      "designerDescription": "Claude 아티팩트로 디자인 제안을 생성합니다"
     },
     "toast": {
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",

@@ -37,7 +37,12 @@ import {
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useModelSelectorConfig } from '@/shared/hooks/useExecutorDiscovery';
 
-export const WORKER_ROLES = ['developer', 'analyst', 'reviewer'] as const;
+export const WORKER_ROLES = [
+  'developer',
+  'analyst',
+  'reviewer',
+  'designer',
+] as const;
 export type WorkerRole = (typeof WORKER_ROLES)[number];
 
 // Temporary augmentation: the backend now returns `has_github_pat: boolean`

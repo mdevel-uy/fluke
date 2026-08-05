@@ -954,7 +954,8 @@
       "frontend": "フロントエンドスペシャリスト",
       "generalist": "ジェネラリスト",
       "analyst": "アナリスト",
-      "reviewer": "レビュアー"
+      "reviewer": "レビュアー",
+      "designer": "UI/UX デザイナー"
     },
     "card": {
       "statusWorking": "作業中",
@@ -1017,9 +1018,11 @@
       "developer": "開発者",
       "analyst": "アナリスト",
       "reviewer": "レビュアー",
+      "designer": "デザイナー",
       "developerDescription": "機能を実装してプルリクエストを作成します",
       "analystDescription": "調査を行い、書面による成果物を作成します",
-      "reviewerDescription": "コードをレビューしてフィードバックを提供します"
+      "reviewerDescription": "コードをレビューしてフィードバックを提供します",
+      "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します"
     },
     "toast": {
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",

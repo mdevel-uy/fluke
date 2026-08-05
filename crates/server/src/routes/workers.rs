@@ -10,7 +10,10 @@ use db::models::{
     file::File,
     merge::MergeStatus,
     pull_request::PullRequest,
-    worker::{CreateWorker, ROLE_ANALYST, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker, Worker},
+    worker::{
+        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
+        Worker,
+    },
     worker_task::{self, CreateWorkerTask, WorkerTask},
     workspace::Workspace,
 };
@@ -342,7 +345,10 @@ pub struct ReassignWorkerTaskRequest {
 }
 
 fn is_valid_role(role: &str) -> bool {
-    matches!(role, ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER)
+    matches!(
+        role,
+        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER
+    )
 }
 
 async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {

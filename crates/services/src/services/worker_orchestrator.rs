@@ -37,7 +37,7 @@ use db::{
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
-        worker::{ROLE_ANALYST, ROLE_DEVELOPER, Worker},
+        worker::{ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -90,6 +90,17 @@ assigned developer owns the diagnosis and the solution. \
 Your deliverable is the issues (and plan comment) you created via `gh` — NOT \
 a pull request. Do NOT create any PR. When you finish, end with a concise \
 summary listing the issues you created.";
+
+/// Role framing for designer workers: produce a design artifact, not code.
+pub const DESIGNER_ROLE_INSTRUCTION: &str = "\
+You are a UI/UX designer, not an engineer. Your job is to produce a design \
+proposal as a Claude artifact — NOT to write production code, NOT to create \
+PRs or GitHub issues. Explore the codebase only enough to understand the \
+existing design system and current implementation. Your deliverable is the \
+artifact: a wireframe, HTML mockup, component specification, user flow, or \
+visual proposal — whichever format best communicates the design. When you \
+finish, present the artifact and add a concise summary of the design decisions \
+and open questions for the PM.";
 
 #[derive(Debug, Error)]
 pub enum StartError {
@@ -1940,6 +1951,8 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
         WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch)
     } else if role == ROLE_ANALYST {
         ANALYST_ROLE_INSTRUCTION.to_string()
+    } else if role == ROLE_DESIGNER {
+        DESIGNER_ROLE_INSTRUCTION.to_string()
     } else {
         NON_DEVELOPER_FINAL_INSTRUCTION.to_string()
     };
@@ -2047,6 +2060,18 @@ mod tests {
             build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_REVIEWER);
         assert!(!prompt.contains("gh pr create"));
         assert!(prompt.contains("Do NOT create any PR"));
+    }
+
+    #[test]
+    fn builds_prompt_with_designer_framing_for_designer() {
+        let prompt =
+            build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_DESIGNER);
+        assert!(!prompt.contains("gh pr create"));
+        // Designer must not be told to create PRs or issues; the deliverable is
+        // a Claude artifact, so the role-specific framing must show up.
+        assert!(prompt.contains("UI/UX designer"));
+        assert!(prompt.contains("Claude artifact"));
+        assert!(prompt.contains("NOT to create"));
     }
 
     async fn setup_test_db() -> DBService {

@@ -955,7 +955,8 @@
       "frontend": "Frontend Specialist",
       "generalist": "Generalist",
       "analyst": "Analyst",
-      "reviewer": "Reviewer"
+      "reviewer": "Reviewer",
+      "designer": "UI/UX Designer"
     },
     "card": {
       "statusWorking": "Working",
@@ -1018,9 +1019,11 @@
       "developer": "Developer",
       "analyst": "Analyst",
       "reviewer": "Reviewer",
+      "designer": "Designer",
       "developerDescription": "Implements features and creates pull requests",
       "analystDescription": "Researches and produces written deliverables",
-      "reviewerDescription": "Reviews code and provides feedback"
+      "reviewerDescription": "Reviews code and provides feedback",
+      "designerDescription": "Produces design proposals as Claude artifacts"
     },
     "toast": {
       "startSuccess": "{{worker}} started \"{{title}}\".",
