@@ -20,6 +20,7 @@ members = [
     "crates/client-info",
     "crates/remote-info",
     "crates/utils",
+    "crates/licensing",
     "crates/git",
     "crates/git-host",
     "crates/local-deployment",

@@ -76,3 +76,33 @@ jobs:
 
       - name: cargo check -p server
         run: cargo check --locked -p server
+
+  # Tests unitarios, acotados a los crates que mantenemos nosotros. Se listan
+  # explícitamente en lugar de correr el workspace entero: la mayoría de los
+  # crates vienen de upstream y sus tests no están saneados, así que un
+  # `--workspace` daría rojo permanente y el job dejaría de servir como señal.
+  # Agregar crates a esta lista a medida que se saneen.
+  tests:
+    name: Backend tests
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_NET_RETRY: '10'
+      RUSTUP_MAX_RETRIES: '10'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-mdev-tests
+          cache-on-failure: 'true'
+
+      - name: cargo test -p licensing
+        run: cargo test --locked -p licensing
