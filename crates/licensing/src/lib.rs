@@ -86,9 +86,19 @@ pub fn signing_message(payload: &LicensePayload) -> String {
     canonical_message(payload)
 }
 
-/// Verifica el contenido crudo de `license.json` contra la clave pública
-/// embebida en el binario.
-pub fn verify(raw: &str, key: &VerifyingKey) -> Result<LicensePayload, LicenseError> {
+/// Verifica el contenido crudo de `license.json` contra las claves públicas
+/// confiables embebidas en el binario.
+///
+/// Recibe una **lista** y no una sola clave a propósito: permite rotar sin día
+/// de bandera. Con una única clave, cambiarla obliga a publicar una versión y
+/// forzar el update en todos los clientes antes del vencimiento más próximo
+/// (procedimiento de emergencia del runbook, 2.5). Con varias se puede publicar
+/// una versión que confíe en la vieja y la nueva, migrar sin apuro, y retirar la
+/// vieja en la siguiente. También habilita tener una clave *online* en el
+/// control plane y otra de respaldo guardada fuera de línea.
+///
+/// El orden no importa: alcanza con que **una** verifique.
+pub fn verify(raw: &str, keys: &[VerifyingKey]) -> Result<LicensePayload, LicenseError> {
     let file: LicenseFile = serde_json::from_str(raw).map_err(|_| LicenseError::Malformed)?;
 
     if file.payload.v != SUPPORTED_VERSION {
@@ -101,8 +111,14 @@ pub fn verify(raw: &str, key: &VerifyingKey) -> Result<LicensePayload, LicenseEr
     let signature =
         Signature::from_slice(&sig_bytes).map_err(|_| LicenseError::MalformedSignature)?;
 
-    key.verify(canonical_message(&file.payload).as_bytes(), &signature)
-        .map_err(|_| LicenseError::InvalidSignature)?;
+    let message = canonical_message(&file.payload);
+    let verified = keys
+        .iter()
+        .any(|key| key.verify(message.as_bytes(), &signature).is_ok());
+
+    if !verified {
+        return Err(LicenseError::InvalidSignature);
+    }
 
     Ok(file.payload)
 }
@@ -245,7 +261,7 @@ mod tests {
         let key = SigningKey::generate(&mut OsRng);
         let raw = sign_with(&key, &payload());
 
-        let out = verify(&raw, &key.verifying_key()).expect("debe verificar");
+        let out = verify(&raw, &[key.verifying_key()]).expect("debe verificar");
         assert_eq!(out, payload());
     }
 
@@ -258,9 +274,31 @@ mod tests {
         assert_ne!(raw, tampered, "el test debe alterar algo");
 
         assert_eq!(
-            verify(&tampered, &key.verifying_key()),
+            verify(&tampered, &[key.verifying_key()]),
             Err(LicenseError::InvalidSignature)
         );
+    }
+
+    #[test]
+    fn acepta_cualquiera_de_las_claves_confiables() {
+        // Escenario de rotación: el binario confía en la clave vieja y la nueva
+        // a la vez, así las licencias emitidas con cualquiera siguen valiendo
+        // durante la migración.
+        let vieja = SigningKey::generate(&mut OsRng);
+        let nueva = SigningKey::generate(&mut OsRng);
+        let confiables = [vieja.verifying_key(), nueva.verifying_key()];
+
+        for emisora in [&vieja, &nueva] {
+            let raw = sign_with(emisora, &payload());
+            assert!(verify(&raw, &confiables).is_ok());
+        }
+    }
+
+    #[test]
+    fn con_lista_vacia_ninguna_licencia_verifica() {
+        let key = SigningKey::generate(&mut OsRng);
+        let raw = sign_with(&key, &payload());
+        assert_eq!(verify(&raw, &[]), Err(LicenseError::InvalidSignature));
     }
 
     #[test]
@@ -270,7 +308,7 @@ mod tests {
         let raw = sign_with(&impostor, &payload());
 
         assert_eq!(
-            verify(&raw, &real.verifying_key()),
+            verify(&raw, &[real.verifying_key()]),
             Err(LicenseError::InvalidSignature)
         );
     }
@@ -278,14 +316,14 @@ mod tests {
     #[test]
     fn rechaza_json_invalido_y_firma_corrupta() {
         let key = SigningKey::generate(&mut OsRng);
-        assert_eq!(verify("no soy json", &key.verifying_key()), Err(LicenseError::Malformed));
+        assert_eq!(verify("no soy json", &[key.verifying_key()]), Err(LicenseError::Malformed));
 
         let raw = sign_with(&key, &payload()).replace(
             &BASE64_STANDARD.encode(key.sign(canonical_message(&payload()).as_bytes()).to_bytes()),
             "no-es-base64!!",
         );
         assert_eq!(
-            verify(&raw, &key.verifying_key()),
+            verify(&raw, &[key.verifying_key()]),
             Err(LicenseError::MalformedSignature)
         );
     }
@@ -298,7 +336,7 @@ mod tests {
         let raw = sign_with(&key, &p);
 
         assert_eq!(
-            verify(&raw, &key.verifying_key()),
+            verify(&raw, &[key.verifying_key()]),
             Err(LicenseError::UnsupportedVersion { found: 2 })
         );
     }
@@ -311,7 +349,7 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
         let pretty = serde_json::to_string_pretty(&value).unwrap();
 
-        assert!(verify(&pretty, &key.verifying_key()).is_ok());
+        assert!(verify(&pretty, &[key.verifying_key()]).is_ok());
     }
 
     // ── Máquina de estados ───────────────────────────────────────────────
