@@ -1,0 +1,26 @@
+[package]
+name = "mkanban-license"
+version = "1.0.0"
+edition = "2024"
+
+# Herramienta interna de mdevel para emitir y verificar licencias. NO se
+# distribuye al cliente (el binario del producto solo verifica, con la clave
+# pública embebida).
+
+[[bin]]
+name = "mkanban-license"
+path = "src/main.rs"
+
+[dependencies]
+licensing = { path = "../licensing" }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+aes-gcm = "0.10"
+scrypt = { version = "0.11", default-features = false }
+rpassword = "7"
+anyhow = { workspace = true }

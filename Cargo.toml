@@ -21,6 +21,7 @@ members = [
     "crates/remote-info",
     "crates/utils",
     "crates/licensing",
+    "crates/mkanban-license",
     "crates/git",
     "crates/git-host",
     "crates/local-deployment",
