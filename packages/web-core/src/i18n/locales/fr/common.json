@@ -954,7 +954,8 @@
       "frontend": "Spécialiste Frontend",
       "generalist": "Généraliste",
       "analyst": "Analyste",
-      "reviewer": "Réviseur"
+      "reviewer": "Réviseur",
+      "designer": "Designer UI/UX"
     },
     "card": {
       "statusWorking": "En cours",
@@ -1017,9 +1018,11 @@
       "developer": "Développeur",
       "analyst": "Analyste",
       "reviewer": "Réviseur",
+      "designer": "Designer",
       "developerDescription": "Implémente des fonctionnalités et crée des pull requests",
       "analystDescription": "Effectue des recherches et produit des livrables écrits",
-      "reviewerDescription": "Révise le code et fournit des retours"
+      "reviewerDescription": "Révise le code et fournit des retours",
+      "designerDescription": "Produit des propositions de design comme artefacts Claude"
     },
     "toast": {
       "startSuccess": "{{worker}} a démarré « {{title}} ».",

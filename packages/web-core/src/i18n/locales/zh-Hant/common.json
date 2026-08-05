@@ -954,7 +954,8 @@
       "frontend": "前端專家",
       "generalist": "通才",
       "analyst": "分析師",
-      "reviewer": "審閱者"
+      "reviewer": "審閱者",
+      "designer": "UI/UX 設計師"
     },
     "card": {
       "statusWorking": "工作中",
@@ -1017,9 +1018,11 @@
       "developer": "開發者",
       "analyst": "分析師",
       "reviewer": "審閱者",
+      "designer": "設計師",
       "developerDescription": "實作功能並建立拉取請求",
       "analystDescription": "研究並產出書面交付物",
-      "reviewerDescription": "審查程式碼並提供回饋"
+      "reviewerDescription": "審查程式碼並提供回饋",
+      "designerDescription": "以 Claude 產物的形式產出設計方案"
     },
     "toast": {
       "startSuccess": "{{worker}} 已開始「{{title}}」。",
