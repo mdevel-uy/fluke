@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write # crear el tag de git vX.Y.Z tras publicar
   packages: write
 
 # La imagen se publica bajo la marca comercial (mkanban), no bajo el nombre
@@ -101,3 +101,19 @@ jobs:
             org.opencontainers.image.source=https://mkanban.dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Tag de git que apunta al commit exacto que produjo la imagen. Con esto,
+      # ante un bug reportado por un cliente en la vX.Y.Z, `git checkout vX.Y.Z`
+      # reproduce lo que tiene instalado. La imagen ya lleva el SHA en el label
+      # org.opencontainers.image.revision; el tag lo hace navegable.
+      # Idempotente: si el tag ya existe (re-corrida manual), no falla.
+      - name: Tag git release
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "El tag v${VERSION} ya existe — no se recrea."
+            exit 0
+          fi
+          git tag -a "v${VERSION}" -m "mkanban ${VERSION}"
+          git push origin "v${VERSION}"
