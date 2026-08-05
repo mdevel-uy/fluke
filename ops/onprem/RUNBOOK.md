@@ -83,6 +83,46 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 - ▸ Avisar a los clientes si la versión trae cambios visibles; el updater la
   instala esa madrugada sin intervención.
 
+## 1.4 Emisión y renovación de licencias
+
+La herramienta es `mkanban-license` (crate `crates/mkanban-license`, interno —
+no se distribuye al cliente). La clave privada se guarda **cifrada con
+passphrase**; el archivo `.enc` en reposo no sirve sin ella.
+
+**Setup por única vez (generar el par de claves)**
+
+- ▸ En la máquina del operador (nunca en un servidor):
+  `mkanban-license keygen --out mkanban-signing.key.enc`
+  Pide una passphrase y la repite; imprime la **clave pública** por stdout.
+- ▸ 🔴 Guardar la clave pública: se embebe en el binario del producto (es la que
+  usa el cliente para verificar). Va al código, no es secreta.
+- ▸ 🔴 Resguardar `mkanban-signing.key.enc` en la bóveda (ver [LICENSING-SPEC](../../design/LICENSING-SPEC.md)).
+  La passphrase va **por separado** del archivo. Si se pierde cualquiera de los
+  dos, no se puede firmar → ver QRH 2.5.
+- ▸ Registrar quién tiene acceso al archivo y a la passphrase, y desde cuándo.
+
+**Emitir o renovar una licencia (rutina mensual, por cliente que paga)**
+
+- ▸ Confirmar que el cliente está al día (es el acto de cobro: se firma porque pagó).
+- ▸ Obtener el `instance_id` de la instancia del cliente (lo expone `GET /api/license`
+  o el panel; es estable por instalación).
+- ▸ Firmar:
+  `mkanban-license new --cliente <slug> --instance <instance_id> --dias 45 --out license.json`
+  Pide la passphrase. `--dias 45` es el default de la etapa manual (ver spec).
+- ✓ Verificar antes de entregar:
+  `mkanban-license inspect license.json --pubkey <clave_pública>` → firma válida
+  y fecha de vencimiento correcta. (La herramienta ya verifica al emitir, pero el
+  `inspect` explícito confirma que el archivo que vas a mandar es el bueno.)
+- ▸ Entregar el `license.json` al cliente: se coloca en el data dir de la
+  instancia (`~/.local/share/mkanban/license.json`, dentro del volumen `mk-home`).
+- ✓ Confirmar en el panel del cliente (o `GET /api/license`) que el estado quedó
+  `valid` y con la nueva fecha.
+- ▸ Registrar la emisión en el control de flota: cliente, fecha, vencimiento.
+
+> Uso no interactivo (CI, o el control plane de la fase 5b que renueva solo):
+> la passphrase se pasa por la variable `MKANBAN_LICENSE_PASSPHRASE` en vez del
+> prompt. No usarla en un shell interactivo: quedaría en el historial.
+
 ---
 
 # Parte 2 — Procedimientos anormales (QRH)
