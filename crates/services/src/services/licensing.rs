@@ -1,17 +1,19 @@
 //! Servicio de licenciamiento: carga el archivo de licencia, lo verifica contra
 //! las claves públicas embebidas en el binario, y expone el estado vigente.
 //!
-//! Esta es la fundación **read-only**: carga, verificación, persistencia del
-//! estado anti-reloj-retrocedido, y una evaluación cacheada. NO aplica todavía
-//! ningún efecto sobre la ejecución de agentes; ese gate llega en un paso
-//! aparte para no mezclar un cambio de comportamiento con la fundación.
+//! Carga, verificación, persistencia del estado anti-reloj-retrocedido, y una
+//! evaluación cacheada. El gate del orquestador consume `evaluation_for_gate()`
+//! para no arrancar agentes nuevos con la licencia suspendida.
 //!
 //! **Licenciamiento desactivado por defecto**: si no hay claves públicas
 //! embebidas (build de desarrollo, o la flota actual), el estado es siempre
 //! `Valid` y nada cambia. El enforcement solo existe en builds que embeben una
 //! clave real vía `MKANBAN_LICENSE_PUBKEYS`.
 
-use std::sync::{OnceLock, RwLock};
+use std::{
+    sync::{OnceLock, RwLock},
+    time::{Duration, Instant},
+};
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use chrono::{DateTime, Utc};
@@ -39,7 +41,16 @@ pub struct LicenseService {
     keys: Vec<VerifyingKey>,
     grace_days: i64,
     cached: RwLock<Evaluation>,
+    /// Último `refresh()` desde disco. El gate re-evalúa como mucho una vez cada
+    /// `GATE_REFRESH_EVERY`, para no leer/escribir el estado en cada intento de
+    /// arranque de agente.
+    last_refresh: RwLock<Option<Instant>>,
 }
+
+/// Cada cuánto, como máximo, el gate re-lee la licencia desde disco. Una
+/// licencia que vence a mitad de camino se detecta dentro de esta ventana; no
+/// hace falta más precisión para un cambio que ocurre en escala de días.
+const GATE_REFRESH_EVERY: Duration = Duration::from_secs(15 * 60);
 
 fn parse_keys(raw: &str) -> Vec<VerifyingKey> {
     raw.split(',')
@@ -64,9 +75,40 @@ impl LicenseService {
                 days_remaining: None,
                 reason: None,
             }),
+            last_refresh: RwLock::new(None),
         };
         svc.refresh();
+        if let Ok(mut g) = svc.last_refresh.write() {
+            *g = Some(Instant::now());
+        }
         svc
+    }
+
+    /// Evaluación para el gate del orquestador. Re-lee desde disco a lo sumo una
+    /// vez cada [`GATE_REFRESH_EVERY`]; el resto de las veces devuelve la cache.
+    /// Así una licencia que vence se detecta sin poner IO de disco en el camino
+    /// caliente de cada intento de arranque de agente.
+    pub fn evaluation_for_gate(&self) -> Evaluation {
+        // Licenciamiento desactivado: nunca bloquea, sin tocar disco ni reloj.
+        if self.keys.is_empty() {
+            return self.current();
+        }
+        let stale = self
+            .last_refresh
+            .read()
+            .ok()
+            .and_then(|g| *g)
+            .map(|t| t.elapsed() >= GATE_REFRESH_EVERY)
+            .unwrap_or(true);
+        if stale {
+            let eval = self.refresh();
+            if let Ok(mut g) = self.last_refresh.write() {
+                *g = Some(Instant::now());
+            }
+            eval
+        } else {
+            self.current()
+        }
     }
 
     /// `true` cuando el binario embebe al menos una clave. Con licenciamiento
@@ -141,9 +183,8 @@ impl Default for LicenseService {
     }
 }
 
-/// Instancia process-global. Read-only por ahora: la evaluación ocurre al
-/// construirla (arranque) y en cada `refresh()`. El loop de refresco periódico
-/// y el gate en el orquestador se conectan en un paso aparte.
+/// Instancia process-global. Se evalúa al construirla (arranque) y el gate la
+/// re-evalúa con rate-limit vía `evaluation_for_gate()`.
 static GLOBAL: OnceLock<LicenseService> = OnceLock::new();
 
 pub fn global() -> &'static LicenseService {
@@ -184,6 +225,15 @@ mod tests {
         let svc = LicenseService::new();
         assert!(!svc.is_enforced());
         assert_eq!(svc.current().status, LicenseStatus::Valid);
+    }
+
+    #[test]
+    fn con_licenciamiento_desactivado_el_gate_nunca_bloquea() {
+        // Propiedad crítica para la flota actual (sin clave embebida): el gate
+        // del orquestador debe devolver siempre Valid, sin tocar disco.
+        let svc = LicenseService::new();
+        assert!(!svc.is_enforced());
+        assert_eq!(svc.evaluation_for_gate().status, LicenseStatus::Valid);
     }
 
     #[test]
