@@ -60,18 +60,33 @@ fi
 
 # Backup del data dir (DB sqlite + config + credenciales) con la app parada:
 # journal mode Delete ⇒ el archivo se copia limpio con el proceso detenido.
-mkdir -p "${BACKUP_DIR}"
-stamp="$(date -u +%Y%m%d-%H%M%S)"
-backup_file="mk-data-${stamp}.tgz"
-log "backup → backups/${backup_file}"
+#
+# En una instalación nueva el volumen está vacío y no hay nada que respaldar;
+# intentar el tar igual aborta el script (set -e) y la app nunca arranca. Por eso
+# se consulta el volumen antes en lugar de asumir que el data dir existe.
 docker compose stop "${SERVICE}"
-docker run --rm \
-  -v "${DATA_VOLUME}:/data:ro" \
-  -v "${BACKUP_DIR}:/backup" \
-  alpine tar czf "/backup/${backup_file}" -C /data "${DATA_SUBDIR}"
 
-# Rotación de backups.
-ls -1t "${BACKUP_DIR}"/mk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
+# `docker volume inspect` primero: montar el volumen con `docker run` lo crearía
+# vacío y sin las etiquetas de compose, lo que hace que el `up` siguiente emita
+# un warning de "volume already exists but was not created by Docker Compose".
+backup_file=""
+if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
+   docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
+     test -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
+  mkdir -p "${BACKUP_DIR}"
+  stamp="$(date -u +%Y%m%d-%H%M%S)"
+  backup_file="mk-data-${stamp}.tgz"
+  log "backup → backups/${backup_file}"
+  docker run --rm \
+    -v "${DATA_VOLUME}:/data:ro" \
+    -v "${BACKUP_DIR}:/backup" \
+    alpine tar czf "/backup/${backup_file}" -C /data "${DATA_SUBDIR}"
+
+  # Rotación de backups.
+  ls -1t "${BACKUP_DIR}"/mk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
+else
+  log "sin datos previos que respaldar (instalación nueva)"
+fi
 
 log "arrancando versión nueva"
 docker compose up -d "${SERVICE}"
@@ -91,17 +106,22 @@ log "ERROR: healthcheck no pasó en ${HEALTH_TIMEOUT_SECS}s — rollback"
 docker compose stop "${SERVICE}" || true
 
 if [[ -z "${current_id}" ]]; then
-  log "sin imagen previa para rollback; instancia detenida, intervención manual requerida"
+  log "instalación nueva fallida: no hay versión previa a la que volver."
+  log "revisar 'docker compose logs ${SERVICE}' — la instancia queda detenida."
   exit 1
 fi
 
 # Restaurar datos al estado pre-update (las migraciones nuevas pueden haber
 # corrido) y volver a apuntar el tag de canal LOCAL a la imagen anterior.
 # El próximo pull vuelve a traer el canal remoto, así que esto no pisa nada.
-docker run --rm \
-  -v "${DATA_VOLUME}:/data" \
-  -v "${BACKUP_DIR}:/backup:ro" \
-  alpine sh -c "rm -rf '/data/${DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
+if [[ -n "${backup_file}" ]]; then
+  docker run --rm \
+    -v "${DATA_VOLUME}:/data" \
+    -v "${BACKUP_DIR}:/backup:ro" \
+    alpine sh -c "rm -rf '/data/${DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
+else
+  log "sin backup previo: se conserva el estado actual de los datos"
+fi
 docker tag "${IMAGE}:previous" "${IMAGE}:${CHANNEL}"
 docker compose up -d "${SERVICE}"
 
