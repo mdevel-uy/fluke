@@ -36,6 +36,38 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/metrics", get(get_metrics))
         .route("/plan-limits", get(get_plan_limits))
+        .route("/license", get(get_license))
+}
+
+/// Estado de licenciamiento para la UI (banner). Read-only: refleja la última
+/// evaluación del servicio. `enforced=false` en builds sin clave embebida
+/// (desarrollo, flota actual) — ahí el estado es siempre `valid`.
+#[derive(Debug, Serialize, TS)]
+pub struct LicenseStatusResponse {
+    /// "valid" | "grace" | "suspended".
+    pub status: String,
+    /// Días hasta el vencimiento; negativo si ya venció. null sin licencia.
+    pub days_remaining: Option<i64>,
+    /// Motivo legible para el banner. null cuando está todo bien.
+    pub reason: Option<String>,
+    /// true solo si el binario embebe una clave pública de licenciamiento.
+    pub enforced: bool,
+}
+
+async fn get_license() -> ResponseJson<ApiResponse<LicenseStatusResponse>> {
+    let svc = services::services::licensing::global();
+    let eval = svc.refresh();
+    let status = match eval.status {
+        licensing::LicenseStatus::Valid => "valid",
+        licensing::LicenseStatus::Grace => "grace",
+        licensing::LicenseStatus::Suspended => "suspended",
+    };
+    ResponseJson(ApiResponse::success(LicenseStatusResponse {
+        status: status.to_string(),
+        days_remaining: eval.days_remaining,
+        reason: eval.reason,
+        enforced: svc.is_enforced(),
+    }))
 }
 
 /// Upsell CTA surfaced by the frontend when a task is queued because the
@@ -172,6 +204,34 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     body.push_str("# HELP plan_concurrent_agents_limit Current concurrent-agents cap (WORKER_MAX_IN_REVIEW).\n");
     body.push_str("# TYPE plan_concurrent_agents_limit gauge\n");
     body.push_str(&format!("plan_concurrent_agents_limit {}\n", cap));
+
+    // Estado de licenciamiento. Permite alertar en la flota propia antes de que
+    // un cliente se entere (una instancia entrando en gracia = falta cobrar o
+    // falta renovar). `enforced=0` en la flota actual sin clave embebida.
+    let lic = services::services::licensing::global().current();
+    let lic_state = match lic.status {
+        licensing::LicenseStatus::Valid => "valid",
+        licensing::LicenseStatus::Grace => "grace",
+        licensing::LicenseStatus::Suspended => "suspended",
+    };
+    body.push_str(
+        "# HELP mkanban_license_state Estado de la licencia; el valor 1 marca el estado activo en la etiqueta.\n",
+    );
+    body.push_str("# TYPE mkanban_license_state gauge\n");
+    for s in ["valid", "grace", "suspended"] {
+        body.push_str(&format!(
+            "mkanban_license_state{{state=\"{}\"}} {}\n",
+            s,
+            if s == lic_state { 1 } else { 0 },
+        ));
+    }
+    if let Some(days) = lic.days_remaining {
+        body.push_str(
+            "# HELP mkanban_license_days_remaining Días hasta el vencimiento de la licencia (negativo si venció).\n",
+        );
+        body.push_str("# TYPE mkanban_license_days_remaining gauge\n");
+        body.push_str(&format!("mkanban_license_days_remaining {}\n", days));
+    }
 
     Ok((
         StatusCode::OK,

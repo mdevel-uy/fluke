@@ -61,6 +61,20 @@ pub fn credentials_path() -> std::path::PathBuf {
     asset_dir().join("credentials.json")
 }
 
+/// Archivo de licencia firmada que el operador coloca en el data dir del
+/// cliente (o que el heartbeat renueva). Ausente = instancia sin licenciar.
+pub fn license_path() -> std::path::PathBuf {
+    asset_dir().join("license.json")
+}
+
+/// Estado persistido del licenciamiento (último instante observado, para
+/// detectar reloj retrocedido; y desde cuándo está degradada, para contar la
+/// gracia de un archivo ausente). Separado de `license.json`: este lo escribe
+/// la app, aquel lo entrega el operador.
+pub fn license_state_path() -> std::path::PathBuf {
+    asset_dir().join("license_state.json")
+}
+
 pub fn trusted_keys_path() -> std::path::PathBuf {
     asset_dir().join("trusted_ed25519_public_keys.json")
 }
