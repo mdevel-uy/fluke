@@ -20,6 +20,7 @@ base64 = "0.22"
 git-host = { path = "../git-host" }
 executors = { path = "../executors" }
 db = { path = "../db" }
+heartbeat-protocol = { path = "../heartbeat-protocol" }
 worktree-manager = { path = "../worktree-manager" }
 workspace-manager = { path = "../workspace-manager" }
 tokio = { workspace = true }

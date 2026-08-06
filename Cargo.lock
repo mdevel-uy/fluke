@@ -9022,6 +9022,7 @@ dependencies = [
  "futures",
  "git",
  "git-host",
+ "heartbeat-protocol",
  "ignore",
  "indicatif",
  "json-patch 2.0.0",
