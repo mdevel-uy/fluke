@@ -13,6 +13,7 @@ pub mod file_ranker;
 pub mod file_search;
 pub mod filesystem;
 pub mod filesystem_watcher;
+pub mod heartbeat;
 pub mod licensing;
 pub mod usage;
 pub mod notification;
