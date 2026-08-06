@@ -600,7 +600,10 @@
     "slots": "{{used}}/{{limit}} slots",
     "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} en attente",
-    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre."
+    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre.",
+    "issuesRefreshNew_one": "{{count}} nouveau ticket",
+    "issuesRefreshNew_other": "{{count}} nouveaux tickets",
+    "issuesRefreshNone": "Aucun nouveau ticket"
   },
   "adhocPanel": {
     "title": "Claude ad hoc",

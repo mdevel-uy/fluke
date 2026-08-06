@@ -605,7 +605,10 @@
     "slots": "{{used}}/{{limit}} slots",
     "slotsTooltip": "Agent slots in use — set by AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} queued",
-    "slotsQueuedTooltip": "Concurrency limit reached. {{count}} execution(s) waiting for a free slot."
+    "slotsQueuedTooltip": "Concurrency limit reached. {{count}} execution(s) waiting for a free slot.",
+    "issuesRefreshNew_one": "{{count}} new issue",
+    "issuesRefreshNew_other": "{{count}} new issues",
+    "issuesRefreshNone": "No new issues"
   },
   "adhocPanel": {
     "title": "Ad-hoc Claude",

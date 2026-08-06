@@ -600,7 +600,9 @@
     "slots": "{{used}}/{{limit}} 槽位",
     "slotsTooltip": "使用中的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 設定。",
     "slotsQueued": "{{count}} 個排隊中",
-    "slotsQueuedTooltip": "已達到並發上限。{{count}} 個執行正在等待可用槽位。"
+    "slotsQueuedTooltip": "已達到並發上限。{{count}} 個執行正在等待可用槽位。",
+    "issuesRefreshNew_other": "{{count}} 個新 issue",
+    "issuesRefreshNone": "沒有新 issue"
   },
   "adhocPanel": {
     "title": "臨時 Claude",

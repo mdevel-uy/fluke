@@ -31,6 +31,7 @@ import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
+import { useIssuesRefreshFeedbackStore } from '@/shared/stores/useIssuesRefreshFeedbackStore';
 import { useHostId } from '@/shared/providers/HostIdProvider';
 import { useRemoteCloudHostsState } from '@/shared/hooks/useRemoteCloudHosts';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
@@ -140,6 +141,12 @@ export function StatusBarContainer({
     setRightSidebarVisible(true);
     appNavigation.goToWorkspaces();
   }, [setRightSidebarVisible, appNavigation]);
+
+  // Issue #427 · transient feedback after an issues refresh (polling or
+  // manual sync). Auto-clears via the store's TTL.
+  const issuesRefreshFeedback = useIssuesRefreshFeedbackStore(
+    (s) => s.feedback
+  );
 
   // Issue #346 · concurrency semaphore signal. Only shown when a
   // non-zero limit is configured — `limit === 0` means "unlimited" and
@@ -288,6 +295,22 @@ export function StatusBarContainer({
         <StatusBarItem readOnly>
           <Check size={12} strokeWidth={1.75} aria-hidden />
           sync
+        </StatusBarItem>
+      )}
+      {issuesRefreshFeedback && (
+        <StatusBarItem
+          key={issuesRefreshFeedback.id}
+          readOnly
+          variant={issuesRefreshFeedback.kind === 'new' ? 'brand' : 'default'}
+        >
+          {issuesRefreshFeedback.kind === 'new'
+            ? t('statusBar.issuesRefreshNew', {
+                defaultValue: '{{count}} new issues',
+                count: issuesRefreshFeedback.count,
+              })
+            : t('statusBar.issuesRefreshNone', {
+                defaultValue: 'No new issues',
+              })}
         </StatusBarItem>
       )}
       {/* R26 · base branch of the active project */}

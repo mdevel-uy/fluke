@@ -600,7 +600,9 @@
     "slots": "{{used}}/{{limit}} スロット",
     "slotsTooltip": "使用中のエージェントスロット — AGENT_CONCURRENCY_LIMIT / config で設定します。",
     "slotsQueued": "{{count}} 件待機中",
-    "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。"
+    "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。",
+    "issuesRefreshNew_other": "{{count}} 件の新しいイシュー",
+    "issuesRefreshNone": "新しいイシューはありません"
   },
   "adhocPanel": {
     "title": "アドホック Claude",
