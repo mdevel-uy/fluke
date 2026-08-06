@@ -1085,6 +1085,11 @@
       "errorLabel": "Échec de l'envoi",
       "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
       "tooLarge": "Le fichier dépasse la taille maximale autorisée."
+    },
+    "labelsInput": {
+      "title": "Labels d'issues",
+      "placeholder": "Ex. : design, bug",
+      "removeAria": "Retirer le label {{label}}"
     }
   },
   "ciPipelines": {

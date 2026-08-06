@@ -30,6 +30,12 @@ export interface CreateDeskRequestInput {
    * `Usá el skill /<name>...` instruction per skill to the stored prompt.
    */
   skills?: string[];
+  /**
+   * GitHub labels the analyst should apply to any issues it creates for this
+   * request. Sent as `issue_labels` in the payload; older backends without
+   * awareness of this field silently ignore the extra JSON property.
+   */
+  issueLabels?: string[];
 }
 
 export interface CreateDeskRequestResult {
@@ -46,10 +52,12 @@ export function useCreateDeskRequest() {
       prompt,
       attachmentIds,
       skills,
+      issueLabels,
     }: CreateDeskRequestInput): Promise<CreateDeskRequestResult> => {
       // Backend contract (issue #161): `attachment_ids` is optional; the
       // shared `CreateWorkerTaskRequest` type has not been regenerated yet,
-      // so we widen the payload locally to include it.
+      // so we widen the payload locally to include it. `issue_labels` is on
+      // the same regeneration boat (issue #425).
       const payload = {
         repo_id: repoId,
         title: deriveRequestTitle(prompt),
@@ -58,6 +66,9 @@ export function useCreateDeskRequest() {
         ...(skills && skills.length > 0 ? { skills } : {}),
         ...(attachmentIds && attachmentIds.length > 0
           ? { attachment_ids: attachmentIds }
+          : {}),
+        ...(issueLabels && issueLabels.length > 0
+          ? { issue_labels: issueLabels }
           : {}),
       } as Parameters<typeof workersApi.createTask>[1];
       const task = await workersApi.createTask(workerId, payload);

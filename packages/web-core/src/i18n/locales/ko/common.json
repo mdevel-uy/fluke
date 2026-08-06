@@ -1085,6 +1085,11 @@
       "errorLabel": "업로드 실패",
       "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
       "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
+    },
+    "labelsInput": {
+      "title": "이슈 라벨",
+      "placeholder": "예: design, bug",
+      "removeAria": "라벨 {{label}} 제거"
     }
   },
   "ciPipelines": {

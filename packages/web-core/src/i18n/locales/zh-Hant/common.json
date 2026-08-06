@@ -1085,6 +1085,11 @@
       "errorLabel": "上傳失敗",
       "uploadError": "無法上傳 '{{name}}'：{{message}}",
       "tooLarge": "檔案超過允許的最大大小。"
+    },
+    "labelsInput": {
+      "title": "Issue 標籤",
+      "placeholder": "例如：design, bug",
+      "removeAria": "移除標籤 {{label}}"
     }
   },
   "ciPipelines": {

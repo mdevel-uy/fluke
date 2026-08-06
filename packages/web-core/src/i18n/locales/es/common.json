@@ -1086,6 +1086,11 @@
       "errorLabel": "Falló la carga",
       "uploadError": "No se pudo subir '{{name}}': {{message}}",
       "tooLarge": "El archivo supera el tamaño máximo permitido."
+    },
+    "labelsInput": {
+      "title": "Labels de issues",
+      "placeholder": "Ej: design, bug",
+      "removeAria": "Quitar label {{label}}"
     }
   },
   "ciPipelines": {

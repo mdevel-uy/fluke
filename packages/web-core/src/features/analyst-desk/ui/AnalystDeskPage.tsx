@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ClipboardEvent,
+  type KeyboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
@@ -16,12 +17,14 @@ import {
   RotateCcw,
   Send,
   StopCircle,
+  Tag,
   Trash2,
   Users,
   X,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@vibe/ui/components/Button';
+import { Input } from '@vibe/ui/components/Input';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { Textarea } from '@vibe/ui/components/Textarea';
 import { ApiError, attachmentsApi, skillsApi } from '@/shared/lib/api';
@@ -265,6 +268,8 @@ export function AnalystDeskPage() {
 
   const [prompt, setPrompt] = useAnalystDeskDraft(selectedRepoId);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [labelDraft, setLabelDraft] = useState('');
   const { data: installedSkills = [] } = useQuery({
     queryKey: ['skills'],
     queryFn: () => skillsApi.list(),
@@ -457,9 +462,12 @@ export function AnalystDeskPage() {
         prompt: prompt.trim(),
         attachmentIds,
         skills: selectedSkills,
+        issueLabels: selectedLabels,
       });
       setPrompt('');
       setSelectedSkills([]);
+      setSelectedLabels([]);
+      setLabelDraft('');
       clearImages();
       showNotice({
         variant: startedNow ? 'success' : 'info',
@@ -521,6 +529,45 @@ export function AnalystDeskPage() {
 
   const isConfirmingTask = (task: WorkerTask) => confirming?.taskId === task.id;
   const isActionPending = cancelRequest.isPending || removeRequest.isPending;
+
+  // Adds a label from the draft input, splitting on commas so pasting
+  // "design, bug" produces two chips. Trims whitespace and ignores empty or
+  // duplicate values so the user can hammer Enter without polluting state.
+  const commitLabelDraft = (raw: string) => {
+    const parts = raw
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    if (parts.length === 0) return;
+    setSelectedLabels((prev) => {
+      const next = [...prev];
+      for (const part of parts) {
+        if (!next.includes(part)) next.push(part);
+      }
+      return next;
+    });
+    setLabelDraft('');
+  };
+
+  const removeLabel = (label: string) => {
+    setSelectedLabels((prev) => prev.filter((l) => l !== label));
+  };
+
+  const handleLabelKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      commitLabelDraft(labelDraft);
+    } else if (
+      event.key === 'Backspace' &&
+      labelDraft.length === 0 &&
+      selectedLabels.length > 0
+    ) {
+      // Convenience: peel the last chip off with backspace when the draft is
+      // empty, matching the tag-input UX users expect from GitHub / Linear.
+      event.preventDefault();
+      setSelectedLabels((prev) => prev.slice(0, -1));
+    }
+  };
 
   return (
     <div className="flex h-full w-full flex-col bg-primary">
@@ -666,6 +713,50 @@ export function AnalystDeskPage() {
                 triggerLabel={t('analystDesk.skillsPicker')}
                 emptyHint={t('analystDesk.skillsEmpty')}
               />
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-xs text-low">
+                  <Tag className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <span>{t('analystDesk.labelsInput.title')}</span>
+                </div>
+                <Input
+                  type="text"
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.target.value)}
+                  onKeyDown={handleLabelKeyDown}
+                  onBlur={() => {
+                    if (labelDraft.trim().length > 0) {
+                      commitLabelDraft(labelDraft);
+                    }
+                  }}
+                  disabled={createRequest.isPending}
+                  placeholder={t('analystDesk.labelsInput.placeholder')}
+                  aria-label={t('analystDesk.labelsInput.title')}
+                />
+                {selectedLabels.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedLabels.map((label) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary px-2 py-0.5 text-xs text-normal"
+                      >
+                        {label}
+                        <button
+                          type="button"
+                          onClick={() => removeLabel(label)}
+                          disabled={createRequest.isPending}
+                          aria-label={t('analystDesk.labelsInput.removeAria', {
+                            label,
+                          })}
+                          className="rounded-full p-0.5 text-low hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                        >
+                          <X className="h-3 w-3" strokeWidth={2.5} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-low">{t('analystDesk.hint')}</p>
