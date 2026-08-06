@@ -875,7 +875,10 @@
       "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
       "checkingConflicts": "Vérification des assignations existantes...",
       "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
-      "assignAnyway": "Assigner quand même"
+      "assignAnyway": "Assigner quand même",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Skills",
+      "skillsEmpty": "Aucune skill installée."
     },
     "reassignDialog": {
       "title": "Réaffecter l'issue #{{number}} à un autre worker",

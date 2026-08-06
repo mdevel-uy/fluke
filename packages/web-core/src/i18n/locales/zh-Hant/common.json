@@ -875,7 +875,10 @@
       "enqueuedError": "加入佇列失敗。",
       "checkingConflicts": "正在檢查現有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配給 {{worker}}（狀態：{{status}}）。再次分配將建立重複任務。",
-      "assignAnyway": "仍然分配"
+      "assignAnyway": "仍然分配",
+      "skillsLabel": "技能",
+      "skillsPicker": "技能",
+      "skillsEmpty": "沒有已安裝的技能。"
     },
     "reassignDialog": {
       "title": "將 Issue #{{number}} 重新指派給其他工作者",
