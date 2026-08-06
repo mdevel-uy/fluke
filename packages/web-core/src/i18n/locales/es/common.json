@@ -876,7 +876,10 @@
       "enqueuedError": "No se pudo encolar la tarea.",
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
-      "assignAnyway": "Asignar igual"
+      "assignAnyway": "Asignar igual",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Skills",
+      "skillsEmpty": "No hay skills instaladas."
     },
     "reassignDialog": {
       "title": "Reasignar issue #{{number}} a otro worker",

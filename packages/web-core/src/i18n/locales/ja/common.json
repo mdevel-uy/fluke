@@ -875,7 +875,10 @@
       "enqueuedError": "タスクのキュー追加に失敗しました。",
       "checkingConflicts": "既存の割り当てを確認中...",
       "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
-      "assignAnyway": "それでも割り当てる"
+      "assignAnyway": "それでも割り当てる",
+      "skillsLabel": "スキル",
+      "skillsPicker": "スキル",
+      "skillsEmpty": "インストール済みのスキルはありません。"
     },
     "reassignDialog": {
       "title": "Issue #{{number}} を別のワーカーに再割り当て",
