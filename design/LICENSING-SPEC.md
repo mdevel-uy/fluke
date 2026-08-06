@@ -102,6 +102,43 @@ mkanban-license inspect license.json     # verifica y muestra el payload
 aceptable: fuera del repo, en un gestor de contraseñas con backup. Si se pierde,
 ninguna instancia puede renovar; si se filtra, cualquiera puede auto-licenciarse.
 
+## Modelo de amenaza y límites (honesto)
+
+El estado `suspended` **no se persiste** en ningún lado: se recalcula siempre a
+partir de la licencia firmada. No existe un flag `is_suspended` en disco ni en
+la DB que se pueda flipear — ese ataque no aplica. Persistido solo hay:
+`license.json` (firmado ed25519) y `license_state.json` (`last_seen`,
+`degraded_since`). La verificación usa las claves públicas embebidas en el
+binario en tiempo de compilación (`MKANBAN_LICENSE_PUBKEYS`).
+
+Es un check **del lado del cliente**, que corre con root en el servidor del
+cliente. Ningún esquema offline sobrevive a eso. Por capas:
+
+- **Manipulación casual → fuerte.** Editar `license.json` (fechas, cliente)
+  rompe la firma ed25519; sin la clave privada no se forja una válida.
+- **Ingeniero reverso con root → débil, e inevitablemente.** Como se entrega el
+  binario (no la fuente), un atacante decidido puede: (1) parchear los 32 bytes
+  de la clave pública embebida y firmar las suyas; (2) NOP-ear el gate para que
+  siempre devuelva `Valid`; (3) **borrar `license_state.json` + atrasar el reloj**
+  — hueco real: el `last_seen` que impide revivir una licencia vieja vive en un
+  archivo que el cliente puede borrar, así que borrarlo y poner el reloj antes
+  del vencimiento la revive (le rompe TLS/GitHub/agentes de paso, pero funciona).
+
+**Por qué es aceptable**: en B2B on-prem la defensa real es contractual +
+operativa, no criptográfica. El contrato (T&C cl. 9) hace del tampering un
+incumplimiento — un cliente corporativo no le hace binary-patching a un producto
+que licenció. La cripto para al oportunista; el contrato para al cliente serio,
+que es el único que importa. No sobre-invertir en obfuscación: agrega velocidad,
+no seguridad.
+
+> **Requisito para 5b (cierra el hueco del reloj):** el vencimiento debe ser
+> **server-authoritative** — el control plane es la autoridad de la fecha, no el
+> reloj local. Con `last_seen` server-side, atrasar el reloj del cliente no
+> ayuda, y una instancia que deja de reportar o reporta con reloj/uso anómalo
+> queda **visible** en la flota. Además la licencia pasa a ser de vida corta, así
+> que un gate NOP-eado igual necesita renovarse. El heartbeat no es solo
+> comodidad de renovación: es lo que sube la vara del enforcement.
+
 ## Qué NO incluye esta fase
 
 - Heartbeat y renovación automática (5b).
