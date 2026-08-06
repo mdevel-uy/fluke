@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UX Proposal — New Worker Dialog · Issue #422</title>
+<style>
+/* ─── Design tokens (Slate & Signal) ─────────────────────────────────────── */
+:root {
+  --bg-primary:   #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-panel:     #e4e4e7;
+  --border:       rgba(113,113,122,0.35);
+  --border-strong: rgba(113,113,122,0.6);
+
+  --text-high:    #18181b;
+  --text-normal:  #3f3f46;
+  --text-low:     #71717a;
+
+  --brand:        #4F46E5;
+  --brand-hover:  #4338CA;
+  --brand-tint:   #eef2ff;
+
+  --error:        #dc2626;
+  --error-tint:   #fef2f2;
+  --success:      #16a34a;
+
+  --radius-sm:    6px;
+  --radius-md:    8px;
+  --radius-lg:    10px;
+  --radius-xl:    14px;
+  --radius-2xl:   16px;
+
+  --shadow-soft:    0 1px 2px rgba(0,0,0,0.05);
+  --shadow-card:    0 2px 8px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.06);
+  --shadow-overlay: 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+
+  --font-sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:  'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ─── Reset & base ───────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: var(--font-sans); font-size: 14px; color: var(--text-normal); background: var(--bg-secondary); }
+body { min-height: 100vh; }
+
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
+.page { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
+
+.page-header {
+  margin-bottom: 48px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--brand-tint); color: var(--brand);
+  margin-bottom: 10px;
+}
+.page-header h1 { font-size: 24px; font-weight: 700; color: var(--text-high); margin-bottom: 6px; }
+.page-header p  { color: var(--text-low); font-size: 13px; max-width: 640px; line-height: 1.6; }
+
+/* sections */
+.section { margin-bottom: 56px; }
+.section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-low); margin-bottom: 16px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* cards */
+.card {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-2xl); padding: 24px; box-shadow: var(--shadow-card);
+}
+.card-sm { padding: 16px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+/* ─── Problem diagram ─────────────────────────────────────────────────────── */
+.problem-diagram {
+  display: flex; gap: 40px; align-items: flex-start;
+  flex-wrap: wrap;
+}
+.viewport-sim {
+  flex: 0 0 auto;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+}
+.viewport-sim .vp-label {
+  position: absolute; top: 6px; left: 0; right: 0;
+  text-align: center; font-size: 10px; font-weight: 600;
+  color: var(--text-low); letter-spacing: 0.04em; text-transform: uppercase;
+  pointer-events: none; z-index: 10;
+}
+.viewport-current {
+  width: 320px; height: 320px;
+  background: var(--bg-secondary);
+}
+.viewport-current .dialog-stub {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 20px auto 0;
+  width: 260px;
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+}
+.dialog-stub-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.dialog-stub-header .title { font-size: 12px; font-weight: 700; color: var(--text-high); }
+.dialog-stub-header .sub   { font-size: 9px; color: var(--text-low); margin-top: 2px; }
+
+.field-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 14px;
+  font-size: 9px;
+}
+.field-row label { color: var(--text-low); width: 52px; flex-shrink: 0; }
+.field-mock {
+  flex: 1; height: 20px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-secondary);
+}
+.field-row.is-select .field-mock { background: var(--bg-secondary); }
+
+.field-tall { height: 60px !important; }
+
+.overflow-zone {
+  background: rgba(220,38,38,0.08); border-top: 2px dashed var(--error);
+  position: relative;
+}
+.overflow-zone::before {
+  content: "⚠ OVERFLOW — inaccesible";
+  position: absolute; top: 4px; left: 0; right: 0; text-align: center;
+  font-size: 8px; font-weight: 700; color: var(--error); letter-spacing: 0.04em;
+}
+
+.problem-notes { flex: 1; min-width: 240px; }
+.problem-notes h3 { font-size: 15px; font-weight: 700; color: var(--text-high); margin-bottom: 12px; }
+.problem-notes ul { list-style: none; }
+.problem-notes ul li {
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--text-normal); line-height: 1.5;
+  display: flex; gap: 8px;
+}
+.problem-notes ul li:last-child { border-bottom: none; }
+.problem-notes ul li::before { content: "→"; color: var(--error); flex-shrink: 0; }
+
+/* ─── Field inventory table ──────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; padding: 8px 12px;
+  background: var(--bg-secondary); color: var(--text-low);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border);
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg-secondary); }
+.tag {
+  display: inline-block; padding: 2px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+}
+.tag-req    { background: rgba(220,38,38,0.1);  color: var(--error); }
+.tag-opt    { background: rgba(113,113,122,0.1); color: var(--text-low); }
+.tag-create { background: rgba(79,70,229,0.1);  color: var(--brand); }
+.tag-cond   { background: rgba(22,163,74,0.1);  color: var(--success); }
+.h-cur  { color: var(--error);   font-weight: 700; }
+.h-new  { color: var(--success); font-weight: 700; }
+.savings { color: var(--success); font-size: 11px; }
+
+/* ─── Approaches comparison ──────────────────────────────────────────────── */
+.approach {
+  border: 1px solid var(--border); border-radius: var(--radius-xl);
+  overflow: hidden; background: var(--bg-primary);
+}
+.approach-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.approach-header h3 { font-size: 14px; font-weight: 700; color: var(--text-high); margin-bottom: 4px; }
+.approach-header p  { font-size: 11px; color: var(--text-low); max-width: 280px; line-height: 1.5; }
+.verdict {
+  flex-shrink: 0; padding: 4px 10px; border-radius: 100px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.verdict-yes  { background: rgba(22,163,74,0.12);  color: var(--success); }
+.verdict-no   { background: rgba(220,38,38,0.1);   color: var(--error); }
+.verdict-meh  { background: rgba(113,113,122,0.1); color: var(--text-low); }
+
+.approach-body { padding: 16px 20px; }
+.pro-con { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pros, .cons { }
+.pros h4, .cons h4 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.pros h4 { color: var(--success); }
+.cons h4 { color: var(--error); }
+.pros li, .cons li { font-size: 11px; line-height: 1.6; color: var(--text-normal); margin-bottom: 3px; list-style: none; padding-left: 12px; position: relative; }
+.pros li::before { content: "✓"; position: absolute; left: 0; color: var(--success); font-weight: 700; }
+.cons li::before { content: "✗"; position: absolute; left: 0; color: var(--error); font-weight: 700; }
+
+/* ─── Interactive mockup ─────────────────────────────────────────────────── */
+.mockup-section {
+  background: var(--bg-secondary);
+  border: 2px solid var(--brand);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+}
+.mockup-section-header {
+  background: var(--brand); color: white;
+  padding: 10px 20px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.04em; display: flex; justify-content: space-between; align-items: center;
+}
+
+.viewport-container {
+  display: flex; gap: 32px; align-items: flex-start;
+  padding: 24px; flex-wrap: wrap;
+}
+
+.viewport-frame {
+  flex: 0 0 auto;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: #f0f0f0;
+  position: relative; overflow: hidden;
+}
+.viewport-frame .label {
+  text-align: center; padding: 6px; font-size: 10px; font-weight: 600;
+  color: var(--text-low); text-transform: uppercase; letter-spacing: 0.04em;
+  background: #e8e8e8; border-bottom: 1px solid var(--border);
+}
+.viewport-frame .screen {
+  overflow: hidden; position: relative;
+  background: var(--bg-secondary);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 8px;
+}
+
+/* ─── Dialog component (proposed) ────────────────────────────────────────── */
+.dlg {
+  width: 300px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-overlay);
+  display: flex; flex-direction: column;
+  /* KEY SPEC: max-height constraint */
+  max-height: var(--dialog-max-h, 540px);
+}
+.dlg-header {
+  flex-shrink: 0;
+  padding: 16px 16px 10px;
+}
+.dlg-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 20px; height: 20px; border: none; background: none;
+  cursor: pointer; color: var(--text-low); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); line-height: 1;
+}
+.dlg-close:hover { background: var(--bg-secondary); color: var(--text-high); }
+.dlg-title { font-size: 14px; font-weight: 700; color: var(--text-high); }
+.dlg-desc  { font-size: 11px; color: var(--text-low); margin-top: 3px; line-height: 1.4; }
+
+.dlg-body {
+  /* KEY SPEC: flex-1 overflow-y-auto min-h-0 */
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 0 16px 10px;
+}
+.dlg-body::-webkit-scrollbar { width: 4px; }
+.dlg-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+.dlg-footer {
+  flex-shrink: 0;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+  background: var(--bg-primary);
+}
+
+/* dialog form fields */
+.f-group { margin-bottom: 12px; }
+.f-group:last-child { margin-bottom: 0; }
+.f-label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text-normal);
+  margin-bottom: 4px;
+}
+.f-label .req { color: var(--error); margin-left: 2px; }
+.f-input, .f-select, .f-textarea {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); font-size: 12px; color: var(--text-high);
+  background: var(--bg-primary); font-family: var(--font-sans);
+  transition: border-color 0.15s;
+}
+.f-input:focus, .f-select:focus, .f-textarea:focus {
+  outline: none; border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+}
+.f-textarea {
+  resize: vertical; min-height: 80px; font-family: var(--font-mono); font-size: 11px;
+  line-height: 1.5;
+}
+.f-help { font-size: 10px; color: var(--text-low); margin-top: 4px; line-height: 1.4; }
+
+.f-row { display: flex; gap: 8px; align-items: flex-start; }
+.f-row .f-input { flex: 1; }
+
+/* template buttons */
+.tpl-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.tpl-btn {
+  padding: 3px 8px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); font-size: 10px; font-weight: 600;
+  color: var(--text-normal); background: var(--bg-primary); cursor: pointer;
+  transition: all 0.1s;
+}
+.tpl-btn:hover { background: var(--brand-tint); border-color: var(--brand); color: var(--brand); }
+
+/* accordion (System Instructions) */
+.accordion {
+  border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+  margin-bottom: 12px;
+}
+.accordion-trigger {
+  width: 100%; padding: 7px 10px; background: none; border: none; cursor: pointer;
+  text-align: left; font-size: 10px; font-weight: 600; color: var(--text-low);
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.1s;
+}
+.accordion-trigger:hover { color: var(--text-normal); }
+.accordion-trigger svg { transition: transform 0.2s; flex-shrink: 0; }
+.accordion.open .accordion-trigger svg { transform: rotate(90deg); }
+.accordion-body {
+  display: none; padding: 8px 10px; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 9px; color: var(--text-low);
+  line-height: 1.5; max-height: 100px; overflow-y: auto;
+  white-space: pre-wrap;
+}
+.accordion.open .accordion-body { display: block; }
+
+/* divider */
+.f-divider {
+  border: none; border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+
+/* section label */
+.f-section {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-low); margin: 14px 0 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.f-section::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+/* buttons */
+.btn {
+  padding: 7px 14px; border-radius: var(--radius-md); font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: var(--brand); color: white; border-color: var(--brand);
+}
+.btn-primary:hover { background: var(--brand-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline {
+  background: transparent; color: var(--text-normal); border-color: var(--border-strong);
+}
+.btn-outline:hover { background: var(--bg-secondary); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* PAT validation indicator */
+.pat-ok    { font-size: 10px; color: var(--success); margin-top: 3px; }
+.pat-error { font-size: 10px; color: var(--error);   margin-top: 3px; }
+
+/* scroll indicator */
+.scroll-hint {
+  text-align: center; padding: 8px; font-size: 10px; color: var(--text-low);
+  letter-spacing: 0.03em; display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.scroll-arrow { animation: bounce 1.2s infinite; }
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(3px); }
+}
+
+/* ─── Implementation spec ────────────────────────────────────────────────── */
+.spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.spec-item {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); overflow: hidden;
+}
+.spec-item-header {
+  padding: 12px 16px; background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.spec-file { font-size: 10px; font-family: var(--font-mono); color: var(--brand); font-weight: 600; }
+.spec-label { font-size: 11px; font-weight: 700; color: var(--text-high); }
+.spec-body { padding: 14px 16px; }
+code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--bg-secondary); padding: 2px 5px;
+  border-radius: 4px; color: var(--text-high);
+}
+pre {
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.7;
+  background: #1e1e2e; color: #cdd6f4; padding: 14px;
+  border-radius: var(--radius-md); overflow-x: auto;
+  white-space: pre;
+}
+pre .kw   { color: #cba6f7; } /* keyword */
+pre .str  { color: #a6e3a1; } /* string */
+pre .prop { color: #89b4fa; } /* property */
+pre .val  { color: #fab387; } /* value */
+pre .cm   { color: #6c7086; } /* comment */
+
+.spec-body p { font-size: 12px; color: var(--text-normal); line-height: 1.6; margin-bottom: 8px; }
+.spec-body p:last-child { margin-bottom: 0; }
+.spec-body ul { padding-left: 16px; }
+.spec-body ul li { font-size: 12px; color: var(--text-normal); line-height: 1.6; }
+
+/* highlight diff */
+.diff-add { background: rgba(22,163,74,0.12); color: #166534; padding: 2px 0; display: block; }
+.diff-rem { background: rgba(220,38,38,0.1);  color: #991b1b; padding: 2px 0; display: block; text-decoration: line-through; opacity: 0.7; }
+
+/* ─── Open questions ─────────────────────────────────────────────────────── */
+.questions { display: flex; flex-direction: column; gap: 12px; }
+.q {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 16px 20px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start;
+}
+.q-num {
+  width: 24px; height: 24px; background: var(--brand); color: white;
+  border-radius: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.q-body h4 { font-size: 13px; font-weight: 700; color: var(--text-high); margin-bottom: 4px; }
+.q-body p  { font-size: 12px; color: var(--text-low); line-height: 1.5; }
+.q-rec {
+  flex-shrink: 0; font-size: 11px; font-weight: 700;
+  background: rgba(79,70,229,0.08); color: var(--brand);
+  padding: 4px 10px; border-radius: 100px; white-space: nowrap; align-self: flex-start;
+}
+
+/* ─── Sticky TOC ─────────────────────────────────────────────────────────── */
+.toc {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 12px 16px;
+  box-shadow: var(--shadow-overlay); z-index: 1000;
+  min-width: 180px;
+}
+.toc h5 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-low); margin-bottom: 8px; }
+.toc a {
+  display: block; font-size: 11px; color: var(--text-normal); text-decoration: none;
+  padding: 3px 0; border-left: 2px solid transparent; padding-left: 8px; margin-left: -8px;
+  transition: all 0.1s;
+}
+.toc a:hover { color: var(--brand); border-left-color: var(--brand); }
+
+/* ─── Viewport toggle ─────────────────────────────────────────────────────── */
+.vp-toggle {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.vp-btn {
+  padding: 6px 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong); background: var(--bg-primary);
+  font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-normal);
+  transition: all 0.1s;
+}
+.vp-btn.active { background: var(--brand); color: white; border-color: var(--brand); }
+
+/* ─── Height ruler ───────────────────────────────────────────────────────── */
+.ruler-wrap { position: relative; }
+.ruler {
+  position: absolute; right: -32px; top: 0;
+  display: flex; flex-direction: column;
+  font-size: 9px; color: var(--text-low); font-family: var(--font-mono);
+}
+.ruler-mark {
+  border-top: 1px dashed var(--border-strong);
+  padding-left: 4px; white-space: nowrap;
+}
+
+/* ─── Annotation callouts ────────────────────────────────────────────────── */
+.ann {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--brand-tint); border: 1px solid rgba(79,70,229,0.3);
+  border-radius: var(--radius-sm); padding: 2px 7px;
+  font-size: 10px; font-weight: 700; color: var(--brand);
+}
+
+/* ─── Info boxes ─────────────────────────────────────────────────────────── */
+.info-box {
+  border-radius: var(--radius-xl); padding: 14px 16px;
+  font-size: 12px; line-height: 1.6;
+}
+.info-box.brand  { background: var(--brand-tint); border: 1px solid rgba(79,70,229,0.2); color: var(--brand); }
+.info-box.warn   { background: #fffbeb; border: 1px solid #fbbf24; color: #92400e; }
+.info-box.ok     { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+.info-box strong { font-weight: 700; }
+
+@media (max-width: 700px) {
+  .grid-2, .grid-3, .spec-grid { grid-template-columns: 1fr; }
+  .pro-con { grid-template-columns: 1fr; }
+  .q { grid-template-columns: auto 1fr; }
+  .q-rec { grid-column: 2; }
+  .toc { display: none; }
+  .viewport-container { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ── PAGE HEADER ─────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="badge">Issue #422 · Diseño UX</div>
+    <h1>New Worker Dialog — Propuesta de Rediseño</h1>
+    <p>
+      Diagnóstico y propuesta para que el formulario New/Edit Worker entre en pantallas
+      con ≥ 600 px de alto. El artefacto incluye análisis del problema, comparación de
+      enfoques, mockup interactivo de la solución recomendada y especificación de
+      implementación lista para desarrollo.
+    </p>
+  </div>
+
+  <!-- ── 1. DIAGNÓSTICO ──────────────────────────────────────────────────── -->
+  <section class="section" id="s-diagnostico">
+    <div class="section-title">1 · Diagnóstico</div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="problem-diagram">
+        <!-- Left: broken viewport -->
+        <div>
+          <p style="font-size:11px;font-weight:700;color:var(--text-low);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Estado actual — viewport 640×600</p>
+          <div class="viewport-sim viewport-current" style="width:300px;height:300px;display:flex;flex-direction:column;align-items:stretch;">
+            <div class="vp-label" style="position:relative;top:auto;left:auto;right:auto;padding:4px;background:#e8e8e8;border-bottom:1px solid var(--border);">⛔ 600 px de alto disponible</div>
+            <div style="flex:1;background:var(--bg-secondary);position:relative;display:flex;justify-content:center;overflow:hidden;">
+              <!-- dialog sim -->
+              <div style="
+                width:240px; background:var(--bg-primary);
+                border:1px solid var(--border); border-radius:10px;
+                box-shadow:var(--shadow-overlay); margin-top:8px;
+                position:absolute; top:8px;
+              ">
+                <!-- header -->
+                <div style="padding:10px 12px 7px; border-bottom:1px solid var(--border);">
+                  <div style="font-size:11px;font-weight:700;color:var(--text-high);">New Worker</div>
+                  <div style="font-size:9px;color:var(--text-low);margin-top:1px;">Configure your new worker</div>
+                </div>
+                <!-- fields visible -->
+                <div style="padding:6px 12px;">
+                  <div class="field-row"><label>Name</label><div class="field-mock"></div></div>
+                  <div class="field-row"><label>Role</label><div class="field-mock is-select"></div></div>
+                  <div class="field-row"><label style="font-size:8px">Model</label><div class="field-mock is-select"></div></div>
+                  <div class="field-row"><label style="font-size:8px">Plan mode</label><div class="field-mock is-select"></div></div>
+                  <div class="field-row"><label style="font-size:7px">GitHub PAT</label><div class="field-mock"></div></div>
+                </div>
+                <!-- cut zone -->
+                <div class="overflow-zone" style="padding:18px 12px 8px;">
+                  <div class="field-row" style="opacity:.4"><label style="font-size:7px">Templates</label><div class="field-mock" style="height:14px"></div></div>
+                  <div class="field-row" style="opacity:.25"><label style="font-size:7px">Sys Instr</label><div class="field-mock" style="height:10px"></div></div>
+                  <div class="field-row" style="opacity:.1"><label>Soul</label><div class="field-mock" style="height:32px"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: explanation -->
+        <div class="problem-notes">
+          <h3>Causa raíz</h3>
+          <ul>
+            <li>El wrapper <code>Dialog</code> en <code>KeyboardDialog.tsx</code> no tiene <code>max-height</code>. El browser no activa scroll cuando el contenido desborda un contenedor sin altura límite.</li>
+            <li>El contenedor externo usa <code>overflow-y-auto</code> pero como es <code>fixed inset-0</code>, lo que hace es scrollear el overlay completo, no el dialog.</li>
+            <li>El textarea Soul tiene <code>rows=14</code> ≈ 240 px — el campo más alto del formulario y el primero en quedar cortado.</li>
+            <li>En pantallas de 600 px la zona visible del dialog termina en la fila de GitHub PAT. Soul nunca es accesible.</li>
+          </ul>
+          <div class="info-box warn" style="margin-top:12px;">
+            <strong>El problema NO es el diseño visual</strong> — es estructural. Dos líneas de CSS en <code>KeyboardDialog.tsx</code> + reducir <code>rows</code> del textarea resuelven el 90% del caso.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Height inventory -->
+    <div class="card">
+      <p style="font-size:12px;font-weight:700;color:var(--text-high);margin-bottom:14px;">Inventario de altura de campos (medición aproximada)</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Campo</th>
+            <th>Tipo</th>
+            <th>Modo</th>
+            <th>Altura actual</th>
+            <th>Altura propuesta</th>
+            <th>Ahorro</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Header (título + subtítulo)</td>
+            <td>—</td>
+            <td><span class="tag tag-req">siempre</span></td>
+            <td class="h-cur">60 px</td>
+            <td class="h-new">60 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Name</td>
+            <td>Input</td>
+            <td><span class="tag tag-req">requerido</span></td>
+            <td class="h-cur">52 px</td>
+            <td class="h-new">52 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Role + descripción</td>
+            <td>Select</td>
+            <td><span class="tag tag-req">requerido</span></td>
+            <td class="h-cur">68 px</td>
+            <td class="h-new">48 px</td>
+            <td class="savings">↓ 20 px <span style="font-size:10px;color:var(--text-low)">(help → tooltip)</span></td>
+          </tr>
+          <tr>
+            <td>Model</td>
+            <td>Select</td>
+            <td><span class="tag tag-cond">si hay modelos</span></td>
+            <td class="h-cur">48 px</td>
+            <td class="h-new">48 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Plan Mode + help</td>
+            <td>Select</td>
+            <td><span class="tag tag-req">siempre</span></td>
+            <td class="h-cur">68 px</td>
+            <td class="h-new">48 px</td>
+            <td class="savings">↓ 20 px <span style="font-size:10px;color:var(--text-low)">(help → tooltip)</span></td>
+          </tr>
+          <tr>
+            <td>GitHub PAT + botón + help</td>
+            <td>Input</td>
+            <td><span class="tag tag-opt">opcional</span></td>
+            <td class="h-cur">96 px</td>
+            <td class="h-new">96 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Templates</td>
+            <td>Buttons</td>
+            <td><span class="tag tag-create">solo create</span></td>
+            <td class="h-cur">42 px</td>
+            <td class="h-new">42 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>System Instructions (colapsado)</td>
+            <td>Accordion</td>
+            <td><span class="tag tag-opt">siempre</span></td>
+            <td class="h-cur">38 px</td>
+            <td class="h-new">38 px</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>Soul textarea</strong></td>
+            <td>Textarea</td>
+            <td><span class="tag tag-req">requerido</span></td>
+            <td class="h-cur">244 px <span style="font-size:10px;color:var(--text-low)">(rows=14)</span></td>
+            <td class="h-new">104 px <span style="font-size:10px;color:var(--text-low)">(rows=6)</span></td>
+            <td class="savings">↓ <strong>140 px</strong></td>
+          </tr>
+          <tr>
+            <td>Footer (botones)</td>
+            <td>—</td>
+            <td><span class="tag tag-req">siempre</span></td>
+            <td class="h-cur">54 px</td>
+            <td class="h-new">54 px</td>
+            <td>—</td>
+          </tr>
+          <tr style="background:var(--bg-secondary);">
+            <td colspan="3"><strong>Subtotal contenido + padding + gaps</strong></td>
+            <td class="h-cur"><strong>~860 px</strong></td>
+            <td class="h-new"><strong>~640 px</strong></td>
+            <td class="savings"><strong>↓ ~220 px</strong></td>
+          </tr>
+          <tr style="background:rgba(79,70,229,0.05);">
+            <td colspan="3" style="color:var(--brand);font-weight:700;">Con max-height + scroll body: visible en 600 px</td>
+            <td colspan="3" style="color:var(--brand);font-weight:700;">✓ Todo accesible via scroll. Arriba del fold: Name → Role → Model → Plan Mode</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 2. ENFOQUES ─────────────────────────────────────────────────────── -->
+  <section class="section" id="s-enfoques">
+    <div class="section-title">2 · Enfoques evaluados</div>
+
+    <div class="grid-3" style="margin-bottom:20px;">
+      <!-- A -->
+      <div class="approach">
+        <div class="approach-header">
+          <div>
+            <h3>A · Scroll body + Soul reducido</h3>
+            <p>Fijar max-height en el dialog. Hacer el body scrolleable. Reducir Soul de rows=14 a rows=6. Mínimo código, máximo impacto.</p>
+          </div>
+          <div class="verdict verdict-yes">RECOMENDADO</div>
+        </div>
+        <div class="approach-body">
+          <div class="pro-con">
+            <ul class="pros">
+              <h4>Pros</h4>
+              <li>2 archivos, ~8 líneas de cambio</li>
+              <li>Mantiene UX familiar exacta</li>
+              <li>Soul sigue siendo editable (scroll interno)</li>
+              <li>Funciona en 600 px y crece bien a 900 px+</li>
+              <li>Zero riesgo de regresión</li>
+            </ul>
+            <ul class="cons">
+              <h4>Contras</h4>
+              <li>Soul "pequeño" por defecto — el usuario tiene que scrollear para ver instrucciones largas</li>
+              <li>No mejora la jerarquía visual (misma lista plana)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- B -->
+      <div class="approach">
+        <div class="approach-header">
+          <div>
+            <h3>B · Campos avanzados colapsables</h3>
+            <p>Soul + GitHub PAT + Plan Mode van dentro de un acordeón "Advanced". Solo Name, Role y Soul siempre visibles.</p>
+          </div>
+          <div class="verdict verdict-meh">ALTERNATIVA</div>
+        </div>
+        <div class="approach-body">
+          <div class="pro-con">
+            <ul class="pros">
+              <h4>Pros</h4>
+              <li>Flujo básico es muy simple</li>
+              <li>Cabe en 400 px colapsado</li>
+              <li>Buena progresividad para nuevos usuarios</li>
+            </ul>
+            <ul class="cons">
+              <h4>Contras</h4>
+              <li>Soul es REQUERIDO — no tiene sentido ocultarlo</li>
+              <li>GitHub PAT oculto = menos descubribilidad</li>
+              <li>Más código: nuevo componente Accordion</li>
+              <li>No encaja con el diseño actual de la app</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- C -->
+      <div class="approach">
+        <div class="approach-header">
+          <div>
+            <h3>C · Wizard multi-paso</h3>
+            <p>Paso 1: Name + Role + Model. Paso 2: Soul + Templates. Paso 3: Config + PAT.</p>
+          </div>
+          <div class="verdict verdict-no">DESCARTADO</div>
+        </div>
+        <div class="approach-body">
+          <div class="pro-con">
+            <ul class="pros">
+              <h4>Pros</h4>
+              <li>Máxima claridad por paso</li>
+              <li>Buen fit para onboarding de usuario nuevo</li>
+            </ul>
+            <ul class="cons">
+              <h4>Contras</h4>
+              <li>Usuarios avanzados editan muchos campos en una pasada — los pasos los frena</li>
+              <li>Complejidad de implementación alta (estado de pasos, validación por paso)</li>
+              <li>No hay precedente en la app de wizard en dialog</li>
+              <li>El issue dice "pantalla única preferible" salvo razón fuerte</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box brand">
+      <strong>Decisión:</strong> Enfoque A con mejoras opcionales de presentación. El problema es estructural (falta max-height + scroll), no de cantidad de campos. La solución mínima viable resuelve el 100% del issue sin riesgo de regresión.
+      Las mejoras opcionales (tooltips en vez de help text, resize-y en Soul) son independientes y se pueden hacer en la misma corrida del developer.
+    </div>
+  </section>
+
+  <!-- ── 3. MOCKUP INTERACTIVO ───────────────────────────────────────────── -->
+  <section class="section" id="s-mockup">
+    <div class="section-title">3 · Mockup interactivo — solución propuesta</div>
+
+    <div class="mockup-section" style="margin-bottom:20px;">
+      <div class="mockup-section-header">
+        <span>Dialog propuesto · Enfoque A · Interactivo</span>
+        <span style="font-size:11px;opacity:.8;">Scroll dentro del dialog — probá hacer scroll en el body</span>
+      </div>
+      <div class="viewport-container">
+
+        <!-- Viewport toggle buttons -->
+        <div style="width:100%;">
+          <div class="vp-toggle">
+            <span style="font-size:11px;color:var(--text-low);align-self:center;margin-right:4px;">Viewport alto:</span>
+            <button class="vp-btn active" onclick="setVp(480)" id="vp480">480 px</button>
+            <button class="vp-btn" onclick="setVp(600)" id="vp600">600 px</button>
+            <button class="vp-btn" onclick="setVp(700)" id="vp700">700 px</button>
+            <button class="vp-btn" onclick="setVp(900)" id="vp900">900 px (sin restricción)</button>
+          </div>
+        </div>
+
+        <!-- Viewport frame -->
+        <div class="viewport-frame" id="vpFrame">
+          <div class="label" id="vpLabel">Viewport 480 px de alto</div>
+          <div class="screen" id="vpScreen" style="height:400px;width:420px;">
+            <!-- Dialog: modo CREAR -->
+            <div class="dlg" id="dlgCreate" style="--dialog-max-h: 400px; width:340px; position:relative;">
+              <button class="dlg-close" onclick="return false" title="Cerrar">×</button>
+              <div class="dlg-header">
+                <div class="dlg-title">New Worker</div>
+                <div class="dlg-desc">Configurá un nuevo worker para la flota</div>
+              </div>
+
+              <!-- SCROLLABLE BODY -->
+              <div class="dlg-body" id="dlgBody">
+
+                <!-- Name (requerido) -->
+                <div class="f-group">
+                  <label class="f-label">Name <span class="req">*</span></label>
+                  <input class="f-input" type="text" placeholder="e.g. Frontend Specialist" id="inp-name" oninput="checkSubmit()" />
+                </div>
+
+                <!-- Section: Config -->
+                <div class="f-section">Config</div>
+
+                <!-- Role -->
+                <div class="f-group">
+                  <label class="f-label">
+                    Role
+                    <span class="ann" style="margin-left:6px;cursor:help;" title="developer: implementa features. analyst: escribe specs. reviewer: revisa PRs. designer: crea mockups.">? ayuda</span>
+                  </label>
+                  <select class="f-select" id="sel-role">
+                    <option value="developer">Developer</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="reviewer">Reviewer</option>
+                    <option value="designer">Designer</option>
+                  </select>
+                </div>
+
+                <!-- Model (conditional, shown when models available) -->
+                <div class="f-group">
+                  <label class="f-label">Model</label>
+                  <select class="f-select">
+                    <option value="">System default</option>
+                    <option value="claude-opus-4-7">Claude Opus 4.7</option>
+                    <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                    <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+                  </select>
+                </div>
+
+                <!-- Plan Mode -->
+                <div class="f-group">
+                  <label class="f-label">
+                    Plan Mode
+                    <span class="ann" style="margin-left:6px;cursor:help;" title="Follow global: respeta la config global. On: siempre plan mode. Off: nunca plan mode.">? ayuda</span>
+                  </label>
+                  <select class="f-select">
+                    <option value="global">Follow global setting</option>
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+
+                <!-- Section: Integration -->
+                <div class="f-section">Integration</div>
+
+                <!-- GitHub PAT -->
+                <div class="f-group">
+                  <label class="f-label">GitHub PAT <span style="font-size:10px;color:var(--text-low);font-weight:400;">(optional)</span></label>
+                  <div class="f-row">
+                    <input class="f-input" type="password" placeholder="ghp_..." id="inp-pat" />
+                    <button class="btn btn-outline btn-sm" type="button" onclick="simulateValidate()">Validate</button>
+                  </div>
+                  <div id="pat-status" class="f-help">Personal Access Token para operaciones GitHub en nombre de este worker.</div>
+                </div>
+
+                <!-- Section: Soul -->
+                <div class="f-section">Soul</div>
+
+                <!-- Templates (create-only) -->
+                <div>
+                  <div style="font-size:10px;color:var(--text-low);margin-bottom:6px;">Partir de una plantilla:</div>
+                  <div class="tpl-row">
+                    <button class="tpl-btn" onclick="applyTpl('backend')">Backend</button>
+                    <button class="tpl-btn" onclick="applyTpl('frontend')">Frontend</button>
+                    <button class="tpl-btn" onclick="applyTpl('generalist')">Generalist</button>
+                    <button class="tpl-btn" onclick="applyTpl('analyst')">Analyst</button>
+                    <button class="tpl-btn" onclick="applyTpl('reviewer')">Reviewer</button>
+                    <button class="tpl-btn" onclick="applyTpl('designer')">Designer</button>
+                  </div>
+                </div>
+
+                <!-- System Instructions (read-only, collapsed) -->
+                <div class="accordion" id="sysAccordion">
+                  <button class="accordion-trigger" type="button" onclick="toggleAccordion('sysAccordion')">
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="2,1 7,4.5 2,8"/>
+                    </svg>
+                    System Instructions
+                    <span style="font-size:9px;color:var(--text-low);margin-left:2px;">(read-only)</span>
+                  </button>
+                  <div class="accordion-body">
+# Lineamientos para agentes de la fábrica
+
+Sos un agente de la flota de vibe-kanban en la VPS de mdevel...
+
+[Sección colapsable — solo lectura]
+                  </div>
+                </div>
+
+                <!-- Soul textarea (KEY CHANGE: rows=6 not 14) -->
+                <div class="f-group">
+                  <label class="f-label">Soul <span class="req">*</span></label>
+                  <textarea
+                    class="f-textarea"
+                    id="inp-soul"
+                    rows="6"
+                    placeholder="Describí el rol, las responsabilidades y las convenciones de este worker..."
+                    oninput="checkSubmit()"
+                  ></textarea>
+                  <p class="f-help">Las instrucciones se concatenan con System Instructions antes de enviarse al modelo. Soporta markdown.</p>
+                </div>
+
+              </div><!-- /dlg-body -->
+
+              <!-- STICKY FOOTER -->
+              <div class="dlg-footer">
+                <button class="btn btn-outline btn-sm" type="button">Cancel</button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-submit" disabled>Create Worker</button>
+              </div>
+            </div><!-- /dlg -->
+
+          </div><!-- /screen -->
+        </div><!-- /viewport-frame -->
+
+        <!-- Annotations -->
+        <div style="flex:1;min-width:220px;">
+          <p style="font-size:12px;font-weight:700;color:var(--text-high);margin-bottom:14px;">Especificaciones del mockup</p>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:8px;">Dialog container</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                <code>max-h-[min(85vh,680px)]</code><br/>
+                <code>flex flex-col</code> (ya existente)<br/>
+                <code>overflow: hidden</code> en el dialog box
+              </div>
+            </div>
+
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:8px;">Body scrolleable</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                <code>flex-1 overflow-y-auto min-h-0</code><br/>
+                El <code>min-h-0</code> es crítico: sin él flexbox no activa el scroll aunque haya overflow.
+              </div>
+            </div>
+
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:8px;">Footer sticky</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                <code>flex-shrink-0</code> — siempre visible, nunca scrollea fuera del viewport.
+              </div>
+            </div>
+
+            <div style="background:var(--bg-primary);border:1px solid rgba(22,163,74,0.4);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--success);margin-bottom:8px;">Soul textarea</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                <code>rows={6}</code> (de 14) — 140 px de ahorro.<br/>
+                Agregar <code>resize-y</code> para que el usuario pueda expandir si quiere.<br/>
+                El textarea mantiene scroll propio para contenido largo.
+              </div>
+            </div>
+
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:8px;">Help texts → tooltips (opcional)</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                Los textos de ayuda de Role y Plan Mode se pueden mover a un tooltip <code>(? ayuda)</code> para ahorrar ≈ 40 px adicionales. Ver mockup arriba.
+              </div>
+            </div>
+
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:8px;">Secciones visuales (opcional)</div>
+              <div style="font-size:11px;line-height:1.7;color:var(--text-normal);">
+                Separadores "Config / Integration / Soul" mejoran la legibilidad sin agregar altura. Son <code>&lt;div&gt;</code> con texto + línea horizontal.
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Field visibility -->
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-xl);padding:14px;margin-top:10px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-low);margin-bottom:10px;">Campos arriba del fold (600 px)</div>
+            <div style="font-size:11px;color:var(--text-normal);line-height:1.8;">
+              ✅ Name<br/>
+              ✅ Role<br/>
+              ✅ Model<br/>
+              ✅ Plan Mode<br/>
+              ━━ scroll ━━<br/>
+              <span style="color:var(--text-low);">↓ GitHub PAT<br/>
+              ↓ Templates<br/>
+              ↓ System Instr.<br/>
+              ↓ Soul</span>
+            </div>
+            <div class="info-box ok" style="margin-top:10px;font-size:11px;">
+              Name y Soul son los únicos campos requeridos. Name está al top; Soul requiere scroll pero es accesible.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Edit mode note -->
+    <div class="card card-sm">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="font-size:20px;flex-shrink:0;">✏️</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-high);margin-bottom:4px;">Modo edición</div>
+          <div style="font-size:12px;color:var(--text-normal);line-height:1.6;">
+            El modo edición es idéntico al de creación excepto que no muestra la fila de plantillas de templates (~42 px menos de contenido).
+            El mismo fix aplica sin cambios adicionales. El titulo cambia a "Edit Worker" y el botón a "Save changes".
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. SPEC DE IMPLEMENTACIÓN ──────────────────────────────────────── -->
+  <section class="section" id="s-spec">
+    <div class="section-title">4 · Especificación de implementación</div>
+
+    <div class="spec-grid">
+
+      <!-- File 1: KeyboardDialog.tsx -->
+      <div class="spec-item">
+        <div class="spec-item-header">
+          <div>
+            <div class="spec-file">packages/ui/src/components/KeyboardDialog.tsx</div>
+            <div class="spec-label">Cambio 1 — Dialog box max-height</div>
+          </div>
+        </div>
+        <div class="spec-body">
+          <p>El <code>&lt;div&gt;</code> del dialog box (el que tiene la clase <code>relative z-[10000] flex flex-col</code>) necesita recibir <code>max-h-[min(85vh,680px)]</code>.</p>
+          <pre><span class="cm">// Línea ~145 en KeyboardDialog.tsx</span>
+<span class="cm">// ANTES:</span>
+<span class="str">'relative z-[10000] flex flex-col w-full
+  max-w-xl gap-4 bg-primary p-6 shadow-lg
+  duration-200 sm:rounded-lg my-8'</span>
+
+<span class="cm">// DESPUÉS — agregar max-h y overflow:</span>
+<span class="str">'relative z-[10000] flex flex-col w-full
+  max-w-xl gap-4 bg-primary p-6 shadow-lg
+  duration-200 sm:rounded-lg my-8
+  max-h-[min(85vh,680px)] overflow-hidden'</span></pre>
+          <p style="margin-top:10px;">El <code>gap-4</code> existente entre header/body/footer se mantiene. El <code>overflow-hidden</code> en el dialog evita que el shadow del blur del backdrop afecte el scroll.</p>
+        </div>
+      </div>
+
+      <!-- File 1b: DialogContent scroll -->
+      <div class="spec-item">
+        <div class="spec-item-header">
+          <div>
+            <div class="spec-file">packages/ui/src/components/KeyboardDialog.tsx</div>
+            <div class="spec-label">Cambio 2 — DialogContent scrolleable</div>
+          </div>
+        </div>
+        <div class="spec-body">
+          <p>El componente <code>DialogContent</code> (línea ~209) es el wrapper del body. Necesita <code>flex-1 overflow-y-auto min-h-0</code>.</p>
+          <pre><span class="cm">// ANTES (~línea 213):</span>
+<span class="kw">const</span> <span class="prop">DialogContent</span> = forwardRef(
+  ({ className, ...props }, ref) =&gt; (
+    &lt;div
+      ref={ref}
+      className={cn(
+        <span class="str">'flex flex-col gap-4'</span>,
+        className
+      )}
+      {...props}
+    /&gt;
+  )
+);
+
+<span class="cm">// DESPUÉS — scroll body:</span>
+<span class="kw">const</span> <span class="prop">DialogContent</span> = forwardRef(
+  ({ className, ...props }, ref) =&gt; (
+    &lt;div
+      ref={ref}
+      className={cn(
+        <span class="str">'flex-1 overflow-y-auto min-h-0</span>
+<span class="str">         flex flex-col gap-4'</span>,
+        className
+      )}
+      {...props}
+    /&gt;
+  )
+);</pre>
+          <p style="margin-top:10px;"><strong>Crítico:</strong> <code>min-h-0</code> es imprescindible. En flex containers, los hijos tienen <code>min-height: auto</code> por defecto, lo que impide que flexbox los comprima aunque el padre tenga <code>overflow-y-auto</code>.</p>
+        </div>
+      </div>
+
+      <!-- File 2: DialogFooter sticky -->
+      <div class="spec-item">
+        <div class="spec-item-header">
+          <div>
+            <div class="spec-file">packages/ui/src/components/KeyboardDialog.tsx</div>
+            <div class="spec-label">Cambio 3 — DialogFooter siempre visible</div>
+          </div>
+        </div>
+        <div class="spec-body">
+          <p>El <code>DialogFooter</code> necesita <code>flex-shrink-0</code> para que no sea absorbido por el flex container y siempre permanezca visible.</p>
+          <pre><span class="cm">// ANTES (~línea 217):</span>
+<span class="kw">const</span> <span class="prop">DialogFooter</span> = ({ className, ...props }) =&gt; (
+  &lt;div
+    className={cn(
+      <span class="str">'flex flex-col-reverse gap-2
+       sm:flex-row sm:justify-end
+       sm:space-x-2'</span>,
+      className
+    )}
+    {...props}
+  /&gt;
+);
+
+<span class="cm">// DESPUÉS — sticky footer:</span>
+<span class="kw">const</span> <span class="prop">DialogFooter</span> = ({ className, ...props }) =&gt; (
+  &lt;div
+    className={cn(
+      <span class="str">'flex-shrink-0 flex flex-col-reverse
+       gap-2 sm:flex-row sm:justify-end
+       sm:space-x-2 pt-2 border-t
+       border-border/60'</span>,
+      className
+    )}
+    {...props}
+  /&gt;
+);</pre>
+          <p style="margin-top:10px;">El <code>border-t border-border/60</code> da una separación visual clara entre el contenido scrolleable y los botones de acción.</p>
+        </div>
+      </div>
+
+      <!-- File 3: WorkerFormDialog -->
+      <div class="spec-item">
+        <div class="spec-item-header">
+          <div>
+            <div class="spec-file">packages/web-core/src/features/workers/ui/WorkerFormDialog.tsx</div>
+            <div class="spec-label">Cambio 4 — Soul textarea rows</div>
+          </div>
+        </div>
+        <div class="spec-body">
+          <p>El textarea Soul pasa de <code>rows={14}</code> a <code>rows={6}</code>. Adicionalmente se puede agregar <code>resize-y</code> y <code>min-h-[96px]</code> para que el usuario lo pueda agrandar si lo necesita.</p>
+          <pre><span class="cm">// ANTES (~línea 485):</span>
+&lt;<span class="prop">Textarea</span>
+  id=<span class="str">"worker-soul"</span>
+  value={soul}
+  onChange={...}
+  <span class="prop">rows</span>={<span class="val">14</span>}
+  className=<span class="str">"mt-1 font-mono text-sm"</span>
+  placeholder={...}
+/&gt;
+
+<span class="cm">// DESPUÉS:</span>
+&lt;<span class="prop">Textarea</span>
+  id=<span class="str">"worker-soul"</span>
+  value={soul}
+  onChange={...}
+  <span class="prop">rows</span>={<span class="val">6</span>}
+  className=<span class="str">"mt-1 font-mono text-sm</span>
+<span class="str">             resize-y min-h-[96px]"</span>
+  placeholder={...}
+/&gt;</pre>
+          <p style="margin-top:10px;">El <code>resize-y</code> permite que usuarios con pantallas grandes puedan expandir el textarea arrastrando el handle inferior. El <code>min-h-[96px]</code> previene que quede demasiado chico si el usuario lo encoje.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Opcional -->
+    <div class="card" style="margin-top:20px;">
+      <p style="font-size:12px;font-weight:700;color:var(--text-high);margin-bottom:14px;">Mejoras opcionales (misma corrida, si el developer lo ve fácil)</p>
+      <div class="grid-3">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-normal);margin-bottom:6px;">Help texts → tooltip</div>
+          <div style="font-size:11px;color:var(--text-low);line-height:1.6;">
+            Los <code>&lt;p className="mt-1 text-xs text-low"&gt;</code> de Role y Plan Mode se pueden reemplazar por un icono <code>HelpCircle</code> de lucide con tooltip. Ahorra ≈ 40 px adicionales.
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-normal);margin-bottom:6px;">Separadores de sección</div>
+          <div style="font-size:11px;color:var(--text-low);line-height:1.6;">
+            Dividir los campos con etiquetas "Config / Integration / Soul" mejora la legibilidad. Un <code>&lt;div&gt;</code> con texto + <code>border-b</code> es suficiente. El mockup lo muestra.
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-normal);margin-bottom:6px;">Scroll personalizado</div>
+          <div style="font-size:11px;color:var(--text-low);line-height:1.6;">
+            Opcional: aplicar <code>scrollbar-thin scrollbar-thumb-border</code> (si el proyecto tiene el plugin) o CSS nativo <code>::-webkit-scrollbar</code> para que el scrollbar del body sea más sutil.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary of changes -->
+    <div class="info-box ok" style="margin-top:20px;">
+      <strong>Resumen de cambios requeridos:</strong>
+      <ul style="margin-top:8px;padding-left:16px;">
+        <li><strong>KeyboardDialog.tsx</strong>: 3 cambios de clases Tailwind (~6 tokens agregados)</li>
+        <li><strong>WorkerFormDialog.tsx</strong>: cambiar <code>rows={14}</code> → <code>rows={6}</code> y agregar <code>resize-y min-h-[96px]</code></li>
+        <li>Total: ~4 líneas modificadas, 0 lógica nueva, 0 dependencias nuevas</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 5. PREGUNTAS ABIERTAS ───────────────────────────────────────────── -->
+  <section class="section" id="s-preguntas">
+    <div class="section-title">5 · Preguntas abiertas para el PM</div>
+
+    <div class="questions">
+
+      <div class="q">
+        <div class="q-num">1</div>
+        <div class="q-body">
+          <h4>¿Viewport mínimo objetivo: 600 px o 480 px?</h4>
+          <p>El mockup muestra que con max-height calculado al 85 vh, en 480 px el dialog queda con ~408 px de alto y el body scrolleable tiene ~300 px. Es funcional pero apretado. Si hay requerimiento de 480 px (móvil landscape), se puede bajar el max-height a <code>min(90vh,640px)</code> y forzar que al menos Name + Soul sean visibles fijando un <code>min-height</code> en el body scroll.</p>
+        </div>
+        <div class="q-rec">Recomendación: 600 px</div>
+      </div>
+
+      <div class="q">
+        <div class="q-num">2</div>
+        <div class="q-body">
+          <h4>¿Soul colapsado por defecto en modo creación?</h4>
+          <p>Soul es requerido. Colocarlo en un acordeón cerrado implica que el usuario tiene que abrirlo antes de escribir, lo que genera fricción. La propuesta lo deja abierto siempre. Si hay razón fuerte para ocultarlo (e.g. los templates prefill y el usuario raramente edita el soul de cero), se puede plantear como mejora futura.</p>
+        </div>
+        <div class="q-rec">Recomendación: siempre abierto</div>
+      </div>
+
+      <div class="q">
+        <div class="q-num">3</div>
+        <div class="q-body">
+          <h4>¿El border-t en el footer es aceptable?</h4>
+          <p>El DialogFooter propuesto agrega un <code>border-t border-border/60</code> como separador visual entre el contenido scrolleable y los botones. Esto cambia levemente la apariencia de TODOS los dialogs de la app que usen <code>DialogFooter</code> (el componente es compartido en <code>KeyboardDialog.tsx</code>). Si no se quiere afectar otros dialogs, el border puede ir en la clase del footer de <code>WorkerFormDialog</code> en lugar del componente base.</p>
+        </div>
+        <div class="q-rec">Recomendación: en el componente base</div>
+      </div>
+
+      <div class="q">
+        <div class="q-num">4</div>
+        <div class="q-body">
+          <h4>¿Los separadores de sección son parte del scope o mejora futura?</h4>
+          <p>Las etiquetas "Config / Integration / Soul" que aparecen en el mockup mejoran la legibilidad pero son puramente estéticas y opcionales. La corrección del bug no las requiere. ¿Las incluye el developer en la misma corrida o van a un issue separado?</p>
+        </div>
+        <div class="q-rec">Recomendación: misma corrida si es fácil</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── FOOTER ──────────────────────────────────────────────────────────── -->
+  <div style="border-top:1px solid var(--border);padding-top:24px;color:var(--text-low);font-size:11px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <span>Issue #422 · Diagnóstico y propuesta de rediseño UX · Dialog New Worker</span>
+    <span>Closes #422 — artefacto de diseño completo, listo para implementación</span>
+  </div>
+
+</div><!-- /page -->
+
+<!-- TOC -->
+<div class="toc">
+  <h5>Índice</h5>
+  <a href="#s-diagnostico">1 · Diagnóstico</a>
+  <a href="#s-enfoques">2 · Enfoques</a>
+  <a href="#s-mockup">3 · Mockup</a>
+  <a href="#s-spec">4 · Spec</a>
+  <a href="#s-preguntas">5 · Preguntas</a>
+</div>
+
+<script>
+/* Viewport toggle */
+const VPS = {
+  480: { screen: 400, label: 'Viewport 480 px de alto', dlgH: '400px' },
+  600: { screen: 512, label: 'Viewport 600 px de alto', dlgH: '512px' },
+  700: { screen: 612, label: 'Viewport 700 px de alto', dlgH: '612px' },
+  900: { screen: 800, label: 'Sin restricción (900 px+)', dlgH: '800px' },
+};
+let currentVp = 480;
+
+function setVp(h) {
+  currentVp = h;
+  const vp = VPS[h];
+  document.getElementById('vpScreen').style.height = vp.screen + 'px';
+  document.getElementById('vpLabel').textContent = vp.label;
+  document.getElementById('dlgCreate').style.setProperty('--dialog-max-h', vp.dlgH);
+
+  ['vp480','vp600','vp700','vp900'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById('vp' + h).classList.add('active');
+}
+
+/* Accordion */
+function toggleAccordion(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+/* Template apply simulation */
+const SOULS = {
+  backend: 'Backend Specialist.\n\nTerritorio: crates/*\n\nEstándares:\n- Migraciones SQLx siguiendo el patrón existente.\n- Regenerar shared/types.ts con `pnpm run generate-types`.\n- Antes de terminar: `pnpm run backend:check` y `pnpm run format`.\n\nDefinition of Done:\n- Todos los cambios commiteados.\n- Build/typecheck pasando.',
+  frontend: 'Frontend Specialist.\n\nTerritorio: packages/*\n\nEstándares:\n- Reutilizar el design system de packages/ui.\n- Textos visibles pasan por i18n en todos los locales.\n- Antes de terminar: `pnpm run check` y `pnpm run format`.\n\nDefinition of Done:\n- Todos los cambios commiteados.\n- Build/typecheck pasando.',
+  generalist: 'Generalist.\n\nTerritorio: sin territorio fijo — podés tocar tanto crates/* como packages/*.\n\nSi la tarea cruza dominios, dejá constancia en la descripción del PR.\n\nDefinition of Done:\n- Todos los cambios commiteados.\n- Build/typecheck pasando.',
+  analyst: 'Sos Business Analyst senior de esta fábrica de software.\n\nRol: convertís épicas del PM en planes de ejecución accionables: milestone + issues.\nNUNCA escribís código, NUNCA creás PRs.\n\nExplorá el repo antes de planificar. Issues verticales, no por capa.',
+  reviewer: 'Sos Team Lead y revisor técnico.\n\nRol: revisás PRs de forma adversarial y decidís: approve o request changes.\nNUNCA escribís código.\n\nChecklist: CI verde, base correcta, cobertura completa, territorio respetado.',
+  designer: 'Sos diseñadora/o UI/UX senior.\n\nRol: producís propuestas de diseño como archivos HTML bajo design/.\nNUNCA escribís código de producción, NUNCA creás PRs.\n\nExplorá el design system antes de diseñar.',
+};
+
+const ROLES = { analyst: 'analyst', reviewer: 'reviewer', designer: 'designer' };
+
+function applyTpl(id) {
+  const soul = document.getElementById('inp-soul');
+  soul.value = SOULS[id] || '';
+  if (ROLES[id]) {
+    document.getElementById('sel-role').value = ROLES[id];
+  }
+  checkSubmit();
+  soul.focus();
+}
+
+/* Submit button state */
+function checkSubmit() {
+  const name = document.getElementById('inp-name').value.trim();
+  const soul = document.getElementById('inp-soul').value.trim();
+  document.getElementById('btn-submit').disabled = !(name && soul);
+}
+
+/* PAT validation simulation */
+function simulateValidate() {
+  const pat = document.getElementById('inp-pat').value.trim();
+  const status = document.getElementById('pat-status');
+  if (!pat) return;
+  status.textContent = 'Validando...';
+  status.style.color = 'var(--text-low)';
+  setTimeout(() => {
+    if (pat.startsWith('ghp_')) {
+      status.textContent = '✓ Token válido — @usuario-demo';
+      status.style.color = 'var(--success)';
+    } else {
+      status.textContent = '✗ Token inválido o sin permisos';
+      status.style.color = 'var(--error)';
+    }
+  }, 800);
+}
+</script>
+
+</body>
+</html>
