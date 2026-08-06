@@ -1,11 +1,3 @@
-<p align="center">
-  <picture>
-    <source srcset="packages/public/vibe-kanban-logo-dark.svg" media="(prefers-color-scheme: dark)">
-    <source srcset="packages/public/vibe-kanban-logo.svg" media="(prefers-color-scheme: light)">
-    <img src="packages/public/vibe-kanban-logo.svg" alt="Vibe Kanban Logo">
-  </picture>
-</p>
-
 <p align="center"><strong>Vibe Kanban — Local Edition</strong></p>
 <p align="center">A lean, self-hosted fork of Vibe Kanban maintained by <a href="https://github.com/mdevel-uy">mdevel-uy</a>.</p>
 
