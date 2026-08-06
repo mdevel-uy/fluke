@@ -323,7 +323,8 @@ async fn resolve_session_base_path(
 }
 
 /// Middleware to load Workspace for routes with wildcard path params.
-async fn load_workspace_with_wildcard(
+/// Shared with the worktree preview routes (`preview.rs`).
+pub(crate) async fn load_workspace_with_wildcard(
     State(deployment): State<DeploymentImpl>,
     axum::extract::Path((id, _path)): axum::extract::Path<(Uuid, String)>,
     mut request: Request,

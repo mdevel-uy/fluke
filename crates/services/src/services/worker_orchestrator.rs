@@ -92,15 +92,24 @@ a pull request. Do NOT create any PR. When you finish, end with a concise \
 summary listing the issues you created.";
 
 /// Role framing for designer workers: produce a design artifact, not code.
+/// The deliverable is one or more HTML files committed inside the worktree —
+/// the UI serves them rendered via `/api/workspaces/{id}/preview/{path}`, so
+/// the reviewer can open the mockup straight from the Changes view. Do NOT
+/// ask for "Claude artifacts": the worker runs headless and has nowhere to
+/// publish one.
 pub const DESIGNER_ROLE_INSTRUCTION: &str = "\
 You are a UI/UX designer, not an engineer. Your job is to produce a design \
-proposal as a Claude artifact — NOT to write production code, NOT to create \
-PRs or GitHub issues. Explore the codebase only enough to understand the \
-existing design system and current implementation. Your deliverable is the \
-artifact: a wireframe, HTML mockup, component specification, user flow, or \
-visual proposal — whichever format best communicates the design. When you \
-finish, present the artifact and add a concise summary of the design decisions \
-and open questions for the PM.";
+proposal — NOT production code, NOT PRs, NOT GitHub issues. Explore the \
+codebase only enough to understand the existing design system and current \
+implementation. Your deliverable is one or more design files written inside \
+the repository under `design/`: an HTML mockup, wireframe, component \
+specification, or user flow — whichever format best communicates the design. \
+Keep every HTML file fully self-contained (inline CSS/JS, no external CDNs or \
+network requests), and COMMIT the files to the workspace branch — never push \
+and never open a PR. When you finish, end with a concise summary of the \
+design decisions and open questions for the PM, referencing the repo-relative \
+path of each file you created (e.g. `design/my-proposal.html`); reviewers \
+open them rendered from the workspace Changes view.";
 
 #[derive(Debug, Error)]
 pub enum StartError {
@@ -2081,11 +2090,13 @@ mod tests {
         let prompt =
             build_worker_prompt("soul", "do it", "main", db::models::worker::ROLE_DESIGNER);
         assert!(!prompt.contains("gh pr create"));
-        // Designer must not be told to create PRs or issues; the deliverable is
-        // a Claude artifact, so the role-specific framing must show up.
+        // Designer must not be told to create PRs or issues; the deliverable
+        // is committed HTML under design/ (served rendered by the preview
+        // endpoint), so the role-specific framing must show up.
         assert!(prompt.contains("UI/UX designer"));
-        assert!(prompt.contains("Claude artifact"));
-        assert!(prompt.contains("NOT to create"));
+        assert!(prompt.contains("`design/`"));
+        assert!(prompt.contains("COMMIT the files to the workspace branch"));
+        assert!(prompt.contains("never open a PR"));
     }
 
     async fn setup_test_db() -> DBService {

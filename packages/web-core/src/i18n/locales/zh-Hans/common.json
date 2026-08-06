@@ -6,6 +6,9 @@
     "openInVSCodeWeb": "在 VS Code Web (github.dev) 中打开",
     "branchNotPushed": "分支尚未推送到 GitHub"
   },
+  "htmlPreview": {
+    "open": "打开渲染预览"
+  },
   "buttons": {
     "save": "保存",
     "cancel": "取消",

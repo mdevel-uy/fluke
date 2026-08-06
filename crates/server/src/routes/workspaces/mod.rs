@@ -9,6 +9,7 @@ pub mod git;
 pub mod integration;
 pub mod links;
 pub mod pr;
+pub mod preview;
 pub mod repos;
 pub mod scratch;
 pub mod streams;
@@ -57,6 +58,7 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
         .merge(scratch::router())
         .nest("/{id}", workspace_id_router)
         .nest("/{id}/attachments", attachments::router(deployment))
+        .nest("/{id}/preview", preview::router(deployment))
         .nest("/{id}/links", links::router(deployment));
 
     Router::new().nest("/workspaces", workspaces_router)
