@@ -104,5 +104,5 @@ jobs:
           shared-key: ci-mdev-tests
           cache-on-failure: 'true'
 
-      - name: cargo test -p licensing -p mkanban-license
-        run: cargo test --locked -p licensing -p mkanban-license
+      - name: cargo test (crates propios)
+        run: cargo test --locked -p licensing -p mkanban-license -p heartbeat-protocol
