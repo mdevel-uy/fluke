@@ -14,6 +14,7 @@ pub mod file_search;
 pub mod filesystem;
 pub mod filesystem_watcher;
 pub mod licensing;
+pub mod usage;
 pub mod notification;
 pub mod oauth_credentials;
 pub mod pr_monitor;
