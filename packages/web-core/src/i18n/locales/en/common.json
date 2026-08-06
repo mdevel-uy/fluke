@@ -951,6 +951,15 @@
     "emptyTitle": "No workers yet",
     "emptyDescription": "Create a worker to start assigning tasks.",
     "confirmDelete": "Delete worker \"{{worker}}\"? This cannot be undone.",
+    "archive": "Archive",
+    "unarchive": "Restore",
+    "purge": "Delete permanently",
+    "purge_confirm": "Permanently delete \"{{worker}}\"? This cannot be undone.",
+    "archived_section_title": "Archived workers",
+    "sidebar": {
+      "active": "Active",
+      "archived": "Archived"
+    },
     "stats": {
       "working": "Working",
       "queued": "Queued",
@@ -1042,6 +1051,12 @@
       "deleteSuccess": "{{worker}} deleted.",
       "duplicateSuccess": "{{worker}} duplicated as \"{{clone}}\".",
       "duplicateError": "Failed to duplicate {{worker}}: {{message}}",
+      "archiveSuccess": "{{worker}} archived.",
+      "archiveError": "Failed to archive {{worker}}: {{message}}",
+      "unarchiveSuccess": "{{worker}} restored.",
+      "unarchiveError": "Failed to restore {{worker}}: {{message}}",
+      "purgeSuccess": "{{worker}} permanently deleted.",
+      "purgeError": "Failed to delete {{worker}}: {{message}}",
       "dismiss": "Dismiss"
     }
   },

@@ -950,6 +950,15 @@
     "emptyTitle": "아직 워커가 없습니다",
     "emptyDescription": "워커를 만들어 작업을 할당해 보세요.",
     "confirmDelete": "워커 \"{{worker}}\"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "archive": "보관",
+    "unarchive": "복원",
+    "purge": "영구 삭제",
+    "purge_confirm": "워커 \"{{worker}}\"를 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "archived_section_title": "보관된 워커",
+    "sidebar": {
+      "active": "활성",
+      "archived": "보관됨"
+    },
     "stats": {
       "working": "작업 중",
       "queued": "대기 중",
@@ -1041,6 +1050,12 @@
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
       "duplicateSuccess": "{{worker}}를 \"{{clone}}\"(으)로 복제했습니다.",
       "duplicateError": "{{worker}} 복제 실패: {{message}}",
+      "archiveSuccess": "{{worker}}를 보관했습니다.",
+      "archiveError": "{{worker}} 보관 실패: {{message}}",
+      "unarchiveSuccess": "{{worker}}를 복원했습니다.",
+      "unarchiveError": "{{worker}} 복원 실패: {{message}}",
+      "purgeSuccess": "{{worker}}를 영구 삭제했습니다.",
+      "purgeError": "{{worker}} 삭제 실패: {{message}}",
       "dismiss": "닫기"
     }
   },
