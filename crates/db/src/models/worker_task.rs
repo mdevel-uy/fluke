@@ -29,6 +29,11 @@ pub const FAILURE_KIND_INFRA: &str = "infra";
 /// to drain in_review debt, so holding them back deadlocks the worker.
 pub const KIND_REVIEW_FIX: &str = "review_fix";
 
+/// `kind` value for orchestrator-composed handoff tasks that turn a
+/// designer's deliverable into an analyst's input. Carries `source_task_id`
+/// pointing at the designer task.
+pub const KIND_DESIGN_HANDOFF: &str = "design_handoff";
+
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
 /// Ad-hoc request submitted from the Analyst Desk screen.
@@ -65,6 +70,42 @@ pub struct WorkerTask {
     /// value takes precedence over the default in the value-generated
     /// aggregation.
     pub hours_saved_override: Option<f64>,
+    /// The agent's final message, captured by the orchestrator when a
+    /// non-developer task finishes OK. Human-readable abstract of the
+    /// deliverable; NULL for developer tasks and legacy rows.
+    pub result_summary: Option<String>,
+    /// Remote branch (`design/<n>-<slug>`) the designer's workspace branch
+    /// was pushed to before the worktree was archived. NULL when the run
+    /// produced no commits or for non-designer tasks.
+    pub deliverable_ref: Option<String>,
+    /// On a `kind = 'design_handoff'` task: the designer task whose
+    /// deliverable this task consumes. Its existence is the "already handed
+    /// off" guard for the source task.
+    pub source_task_id: Option<Uuid>,
+}
+
+/// A finished designer deliverable that no analyst has taken yet. Feeds the
+/// Analyst Desk picker and the sprint-board handoff dialog.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct PendingDesignHandoff {
+    pub task_id: Uuid,
+    pub repo_id: Uuid,
+    pub title: String,
+    pub issue_number: Option<i64>,
+    pub worker_name: String,
+    pub worker_emoji: String,
+    pub deliverable_ref: Option<String>,
+    pub result_summary: Option<String>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+/// Where a designer deliverable went: the handoff task consuming it.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct HandoffInfo {
+    pub task_id: Uuid,
+    pub worker_id: Uuid,
+    pub worker_name: String,
+    pub status: String,
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +127,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -101,7 +143,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -251,7 +294,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -268,7 +312,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -288,7 +333,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -390,7 +436,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -407,7 +454,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -609,7 +657,8 @@ impl WorkerTask {
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
                     wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
                     wt.created_at, wt.review_result, wt.failure_reason,
-                    wt.hours_saved_override
+                    wt.hours_saved_override, wt.result_summary, wt.deliverable_ref,
+                    wt.source_task_id
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -682,7 +731,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
@@ -810,7 +860,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE issue_number = ?1
                  AND repo_id = ?2
@@ -985,7 +1036,8 @@ impl WorkerTask {
             "SELECT id, worker_id, repo_id, position, title, prompt,
                     issue_number, status, workspace_id, skills, source,
                     created_at, review_result, failure_reason,
-                    hours_saved_override
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -995,6 +1047,119 @@ impl WorkerTask {
 
         tx.commit().await?;
         Ok(updated)
+    }
+
+    /// Persist what a finished non-developer run left behind: the agent's
+    /// final message and (for designers with commits) the pushed remote ref.
+    /// Either side may be NULL; calling with both NULL is a no-op by value.
+    pub async fn record_deliverable(
+        pool: &SqlitePool,
+        id: Uuid,
+        result_summary: Option<&str>,
+        deliverable_ref: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET result_summary = ?2, deliverable_ref = ?3
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(result_summary)
+        .bind(deliverable_ref)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Finished designer deliverables that no handoff task consumes yet,
+    /// newest first. A deliverable exists when the run left a summary or a
+    /// pushed ref; the NOT EXISTS clause is the "already taken" guard.
+    pub async fn find_pending_design_handoffs(
+        pool: &SqlitePool,
+    ) -> Result<Vec<PendingDesignHandoff>, sqlx::Error> {
+        sqlx::query_as::<_, PendingDesignHandoff>(
+            "SELECT wt.id AS task_id, wt.repo_id, wt.title, wt.issue_number,
+                    w.name AS worker_name, w.emoji AS worker_emoji,
+                    wt.deliverable_ref, wt.result_summary, wt.completed_at
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+              WHERE w.role = 'designer'
+                AND wt.status = 'done'
+                AND (wt.deliverable_ref IS NOT NULL
+                     OR wt.result_summary IS NOT NULL)
+                AND NOT EXISTS (SELECT 1 FROM worker_tasks h
+                                 WHERE h.source_task_id = wt.id)
+              ORDER BY COALESCE(wt.completed_at, wt.created_at) DESC",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
+    /// The handoff task consuming a given designer task's deliverable, if
+    /// any. Powers both the double-handoff guard and the "sent to X" state
+    /// on the designer's done card.
+    pub async fn find_handoff_for_source(
+        pool: &SqlitePool,
+        source_task_id: Uuid,
+    ) -> Result<Option<HandoffInfo>, sqlx::Error> {
+        sqlx::query_as::<_, HandoffInfo>(
+            "SELECT wt.id AS task_id, wt.worker_id, w.name AS worker_name,
+                    wt.status
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+              WHERE wt.source_task_id = ?1
+              ORDER BY wt.created_at ASC
+              LIMIT 1",
+        )
+        .bind(source_task_id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Append a design-handoff task at the end of the worker's queue:
+    /// like [`Self::append`] but tagged `kind = 'design_handoff'` and linked
+    /// to the designer task it consumes.
+    pub async fn append_design_handoff(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+        data: &CreateWorkerTask,
+        source_task_id: Uuid,
+    ) -> Result<Self, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let next_position: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COALESCE(MAX(position), -1) + 1
+               FROM worker_tasks
+               WHERE worker_id = ?1",
+        )
+        .bind(worker_id)
+        .fetch_one(pool)
+        .await?;
+
+        let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+
+        sqlx::query(
+            "INSERT INTO worker_tasks
+                 (id, worker_id, repo_id, position, title, prompt,
+                  issue_number, status, skills, source, kind, source_task_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11)",
+        )
+        .bind(id)
+        .bind(worker_id)
+        .bind(data.repo_id)
+        .bind(next_position)
+        .bind(&data.title)
+        .bind(&data.prompt)
+        .bind(data.issue_number)
+        .bind(&skills_json)
+        .bind(&data.source)
+        .bind(KIND_DESIGN_HANDOFF)
+        .bind(source_task_id)
+        .execute(pool)
+        .await?;
+
+        Self::find_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
     }
 
     /// Reset a task to `queued` at the front of its worker's queue (lowest

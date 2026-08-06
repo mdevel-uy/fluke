@@ -8,6 +8,7 @@ export const ROLE_CHIP_CLASS: Record<string, string> = {
   developer: 'bg-info/10 text-info',
   analyst: 'bg-success/10 text-success',
   reviewer: 'bg-warning/10 text-warning',
+  designer: 'bg-pink/10 text-pink',
 };
 
 export const ROLE_CHIP_FALLBACK = 'bg-secondary text-normal';

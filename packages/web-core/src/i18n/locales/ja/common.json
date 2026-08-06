@@ -1060,6 +1060,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "デザインを添付",
+      "pendingCount": "未着手 {{n}} 件",
+      "searchPlaceholder": "タイトルまたはデザイナーで検索…",
+      "empty": "未着手のデザインはありません",
+      "attachedHint": "オーケストレーターが参照・要約・fetch手順をプロンプトに追加します。",
+      "remove": "デザインを外す",
+      "notePlaceholder": "PM指示(任意):優先度、制約…"
+    },
     "title": "アナリストデスク",
     "repoLabel": "リポジトリ",
     "analystsLabel": "アナリスト",
@@ -1260,6 +1269,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "アナリストに送る",
+      "sentTo": "{{name}} に送信済み",
+      "dialogTitle": "デザインをアナリストに送る",
+      "dialogTarget": "送信先アナリスト",
+      "composeHint": "オーケストレーターが最終プロンプトを組み立てます:デザインの参照、要約、fetch手順。メモはPM指示として追加されます。",
+      "noteLabel": "指示(任意)",
+      "notePlaceholder": "システムが知らない優先度や制約…",
+      "confirm": "タスクをキューに追加",
+      "noAnalysts": "アクティブなアナリストがいません。",
+      "provenance": "デザイン",
+      "provenanceIssue": "デザイン #{{number}}"
+    },
     "title": "カンバン",
     "repoSelectorPlaceholder": "リポジトリを選択",
     "loadingRepos": "リポジトリを読み込み中...",

@@ -1184,6 +1184,7 @@ export function SprintPage() {
                         {worker && <WorkerChip worker={worker} />}
                         <DoneTaskCard
                           task={task}
+                          worker={worker ?? undefined}
                           isBusy={busyTaskId === task.id}
                           onRemove={() => handleRemoveTask(task)}
                         />

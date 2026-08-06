@@ -1061,6 +1061,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "Attach design",
+      "pendingCount": "{{n}} untaken",
+      "searchPlaceholder": "Search by title or designer…",
+      "empty": "No untaken designs",
+      "attachedHint": "The orchestrator adds the reference, summary and fetch recipe to the prompt.",
+      "remove": "Remove design",
+      "notePlaceholder": "PM guidance (optional): priorities, constraints…"
+    },
     "title": "Analyst Desk",
     "repoLabel": "Repository",
     "analystsLabel": "Analyst",
@@ -1263,6 +1272,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "Send to analyst",
+      "sentTo": "Sent to {{name}}",
+      "dialogTitle": "Send design to analyst",
+      "dialogTarget": "Target analyst",
+      "composeHint": "The orchestrator composes the final prompt: design reference, summary and fetch recipe. Your note is added as PM guidance.",
+      "noteLabel": "Guidance (optional)",
+      "notePlaceholder": "Priorities or constraints the system doesn't know…",
+      "confirm": "Queue task",
+      "noAnalysts": "No active analyst workers.",
+      "provenance": "design",
+      "provenanceIssue": "design #{{number}}"
+    },
     "title": "Kanban",
     "repoSelectorPlaceholder": "Select repository",
     "loadingRepos": "Loading repositories...",
