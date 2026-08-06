@@ -1274,6 +1274,63 @@ async fn agent_result_text(pool: &sqlx::SqlitePool, execution_id: Option<Uuid>) 
     None
 }
 
+/// Best-effort push after a follow-up run on a developer task already
+/// `in_review`: the PR exists, the agent just added commits (CI fixes,
+/// conflict resolution) that must reach the PR head like they would in the
+/// normal flow. Never mutates task state — a push failure must not fail a
+/// task whose work is already on the PR, and the head may have moved
+/// (reviewer edits), which would reject this safety-net push.
+async fn push_follow_up_commits(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    worker: &Worker,
+    task: &WorkerTask,
+) {
+    let pool = &db.pool;
+    let Ok(Some(workspace)) = Workspace::find_by_id(pool, workspace_id).await else {
+        return;
+    };
+    let Some(container_ref) = workspace.container_ref.as_ref() else {
+        return;
+    };
+    let Ok(workspace_repos) = WorkspaceRepo::find_by_workspace_id(pool, workspace_id).await else {
+        return;
+    };
+    let Some(workspace_repo) = workspace_repos.into_iter().next() else {
+        return;
+    };
+    let Ok(Some(repo)) = Repo::find_by_id(pool, workspace_repo.repo_id).await else {
+        return;
+    };
+
+    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
+        .await
+        .unwrap_or_else(|_| workspace.branch.clone());
+
+    match container.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        false,
+        worker.github_pat.as_deref(),
+    ) {
+        Ok(()) => info!(
+            workspace_id = %workspace_id,
+            task_id = %task.id,
+            branch = %workspace.branch,
+            "Follow-up commits pushed to PR head"
+        ),
+        Err(e) => warn!(
+            workspace_id = %workspace_id,
+            task_id = %task.id,
+            "Best-effort follow-up push failed: {}",
+            e
+        ),
+    }
+}
+
 /// Handle a developer worker's agent run completing: push the branch, adopt
 /// or create a PR, and transition the task to `in_review`. Any failure
 /// (dirty tree, no commits, push error, PR creation error) marks the task
@@ -1296,6 +1353,14 @@ async fn on_developer_agent_finished(
         return Ok(());
     }
     if task.status != worker_task::STATUS_IN_PROGRESS {
+        // A run finishing on a task that is no longer in_progress is a manual
+        // follow-up (red CI, merge conflicts) on a task already in_review:
+        // the orchestrator opened the PR on the first run, so mirror only the
+        // plumbing step — push the new commits to the PR head, best-effort,
+        // without touching task state or archiving the workspace.
+        if succeeded && task.status == worker_task::STATUS_IN_REVIEW {
+            push_follow_up_commits(db, container, workspace_id, worker, &task).await;
+        }
         return Ok(());
     }
 
