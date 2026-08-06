@@ -9,6 +9,7 @@ import { useMachineRepoBranches } from '@/shared/hooks/useRepoBranches';
 import { useScriptPlaceholders } from '@/shared/hooks/useScriptPlaceholders';
 import { useAllOrganizationProjects } from '@/shared/hooks/useAllOrganizationProjects';
 import { getProjectRepoDefaults } from '@/shared/hooks/useProjectRepoDefaults';
+import { reposQueryKey as globalReposQueryKey } from '@/shared/hooks/useRepos';
 import { ApiError } from '@/shared/lib/api';
 import { defineModal } from '@/shared/lib/modals';
 import type { Repo, UpdateRepo } from 'shared/types';
@@ -269,7 +270,7 @@ export function ReposSettingsSection({
       }
 
       await machineClient.deleteRepo(selectedRepo.id);
-      await queryClient.invalidateQueries({ queryKey: reposQueryKey });
+      await queryClient.invalidateQueries({ queryKey: globalReposQueryKey });
       setSelectedRepoId('');
       setSelectedRepo(null);
       setDraft(null);
@@ -284,7 +285,7 @@ export function ReposSettingsSection({
     } finally {
       setRemoving(false);
     }
-  }, [machineClient, queryClient, reposQueryKey, selectedRepo]);
+  }, [machineClient, queryClient, selectedRepo]);
 
   // Handle adding a new repo (local folder path or GitHub clone)
   const handleAddRepo = useCallback(async () => {
@@ -297,14 +298,14 @@ export function ReposSettingsSection({
       }
 
       const repo = await machineClient.registerRepo({ path: result.path });
-      await queryClient.invalidateQueries({ queryKey: reposQueryKey });
+      await queryClient.invalidateQueries({ queryKey: globalReposQueryKey });
       setSelectedRepoId(repo.id);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('settings.repos.addRepo.error')
       );
     }
-  }, [machineClient, queryClient, reposQueryKey, t]);
+  }, [machineClient, queryClient, t]);
 
   // Populate draft from server data
   useEffect(() => {
