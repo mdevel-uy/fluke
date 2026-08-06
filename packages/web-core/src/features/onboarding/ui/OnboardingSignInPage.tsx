@@ -119,8 +119,8 @@ export function OnboardingSignInPage() {
 
   const logoSrc =
     resolveTheme(theme) === 'dark'
-      ? '/vibe-kanban-logo-dark.svg'
-      : '/vibe-kanban-logo.svg';
+      ? '/mkanban-logo-dark.svg'
+      : '/mkanban-logo.svg';
 
   const isLoggedIn = loginStatus?.status === 'loggedin';
 

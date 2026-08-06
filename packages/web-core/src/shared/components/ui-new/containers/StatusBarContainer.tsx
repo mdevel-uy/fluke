@@ -10,6 +10,7 @@ import {
   HardDrive,
   Hourglass,
   Plus,
+  RefreshCw,
   SquareKanban,
   TriangleAlert,
 } from 'lucide-react';
@@ -26,8 +27,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@vibe/ui/components/DropdownMenu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@vibe/ui/components/Popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@vibe/ui/components/RadixTooltip';
 import { cn } from '@/shared/lib/utils';
-import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
+import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
+import {
+  useSyncErrorContext,
+  type StreamError,
+} from '@/shared/hooks/useSyncErrorContext';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
@@ -63,8 +79,23 @@ export function StatusBarContainer({
   // degraded remote auth count as "not in sync".
   const syncErrorContext = useSyncErrorContext();
   const { remoteAuthDegraded } = useUserSystem();
-  const syncErrorCount =
-    (syncErrorContext?.errors?.length ?? 0) + (remoteAuthDegraded ? 1 : 0);
+  const syncErrors = useMemo<StreamError[]>(() => {
+    const errors: StreamError[] = syncErrorContext?.errors
+      ? [...syncErrorContext.errors]
+      : [];
+    if (remoteAuthDegraded) {
+      errors.push({
+        streamId: 'remote-auth-degraded',
+        tableName: 'Remote authentication',
+        error: {
+          message: getRemoteAuthDegradedMessage(remoteAuthDegraded, t),
+        },
+        retry: () => window.location.reload(),
+      });
+    }
+    return errors;
+  }, [remoteAuthDegraded, syncErrorContext?.errors, t]);
+  const syncErrorCount = syncErrors.length;
 
   // R25 · project = repo + environment (local | remote host)
   const hostId = useHostId();
@@ -162,7 +193,7 @@ export function StatusBarContainer({
     <StatusBar className={className}>
       <StatusBarItem variant="brand" readOnly>
         <SquareKanban size={12} strokeWidth={1.75} aria-hidden />
-        Vibe
+        mkanban
       </StatusBarItem>
 
       {/* R25 · project/environment selector (menu opens upward) */}
@@ -280,46 +311,140 @@ export function StatusBarContainer({
       </DropdownMenu>
 
       {appVersion && <StatusBarItem readOnly>v{appVersion}</StatusBarItem>}
-      {syncErrorCount > 0 ? (
-        <StatusBarItem
-          variant="error"
-          readOnly
-          title={t('navbar.syncErrors.tooltip', {
-            defaultValue: 'Sync errors',
-          })}
-        >
-          <TriangleAlert size={12} strokeWidth={1.75} aria-hidden />
-          {syncErrorCount} sync
-        </StatusBarItem>
-      ) : (
-        <StatusBarItem readOnly>
-          <Check size={12} strokeWidth={1.75} aria-hidden />
-          sync
-        </StatusBarItem>
-      )}
-      {issuesRefreshFeedback && (
-        <StatusBarItem
-          key={issuesRefreshFeedback.id}
-          readOnly
-          variant={issuesRefreshFeedback.kind === 'new' ? 'brand' : 'default'}
-        >
-          {issuesRefreshFeedback.kind === 'new'
-            ? t('statusBar.issuesRefreshNew', {
-                defaultValue: '{{count}} new issues',
-                count: issuesRefreshFeedback.count,
-              })
-            : t('statusBar.issuesRefreshNone', {
-                defaultValue: 'No new issues',
+      <TooltipProvider delayDuration={300}>
+        {syncErrorCount > 0 ? (
+          <Popover>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <StatusBarItem
+                    variant="error"
+                    aria-label={t('statusBar.syncErrorsTooltip', {
+                      defaultValue:
+                        syncErrorCount === 1
+                          ? '{{count}} sync error'
+                          : '{{count}} sync errors',
+                      count: syncErrorCount,
+                    })}
+                  >
+                    <TriangleAlert size={12} strokeWidth={1.75} aria-hidden />
+                    {syncErrorCount} sync
+                  </StatusBarItem>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {t('statusBar.syncErrorsTooltip', {
+                  defaultValue:
+                    syncErrorCount === 1
+                      ? '{{count}} sync error'
+                      : '{{count}} sync errors',
+                  count: syncErrorCount,
+                })}
+              </TooltipContent>
+            </Tooltip>
+            <PopoverContent side="top" align="start" className="w-80">
+              <div className="space-y-base">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-normal">
+                    {t('syncError.networkErrors')}
+                  </h4>
+                  <span className="text-xs text-low">
+                    {t('syncError.streamsAffected', {
+                      count: syncErrorCount,
+                    })}
+                  </span>
+                </div>
+                <div className="space-y-half max-h-48 overflow-y-auto">
+                  {syncErrors.map((streamError) => (
+                    <div
+                      key={streamError.streamId}
+                      className="rounded-sm bg-error/10 p-half text-xs"
+                    >
+                      <div className="font-medium text-error">
+                        {streamError.tableName}
+                      </div>
+                      <div className="text-low mt-quarter truncate">
+                        {streamError.error.message}
+                        {streamError.error.status && (
+                          <span className="ml-1 text-error/70">
+                            {t('syncError.status', {
+                              status: streamError.error.status,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="flex w-full items-center justify-center gap-half rounded-sm bg-primary px-base py-half text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <RefreshCw size={12} strokeWidth={1.75} aria-hidden />
+                  {t('syncError.refreshPage')}
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <StatusBarItem readOnly>
+                <Check size={12} strokeWidth={1.75} aria-hidden />
+                sync
+              </StatusBarItem>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {t('statusBar.syncOk', {
+                defaultValue: 'Synchronized — no sync errors',
               })}
-        </StatusBarItem>
-      )}
-      {/* R26 · base branch of the active project */}
-      {activeRepo?.default_target_branch && (
-        <StatusBarItem readOnly className="font-mono text-[11px]">
-          <GitBranch size={12} strokeWidth={1.75} aria-hidden />
-          {activeRepo.default_target_branch}
-        </StatusBarItem>
-      )}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {issuesRefreshFeedback && (
+          <StatusBarItem
+            key={issuesRefreshFeedback.id}
+            readOnly
+            variant={issuesRefreshFeedback.kind === 'new' ? 'brand' : 'default'}
+          >
+            {issuesRefreshFeedback.kind === 'new'
+              ? t('statusBar.issuesRefreshNew', {
+                  defaultValue: '{{count}} new issues',
+                  count: issuesRefreshFeedback.count,
+                })
+              : t('statusBar.issuesRefreshNone', {
+                  defaultValue: 'No new issues',
+                })}
+          </StatusBarItem>
+        )}
+        {/* R26 · base branch of the active project */}
+        {activeRepo?.default_target_branch && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <StatusBarItem
+                onClick={() =>
+                  void SettingsDialog.show({ initialSection: 'repos' })
+                }
+                aria-label={t('statusBar.branchTooltip', {
+                  defaultValue: 'Base branch of active project: {{branch}}',
+                  branch: activeRepo.default_target_branch,
+                })}
+                className="font-mono text-[11px]"
+              >
+                <GitBranch size={12} strokeWidth={1.75} aria-hidden />
+                {activeRepo.default_target_branch}
+              </StatusBarItem>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {t('statusBar.branchTooltip', {
+                defaultValue: 'Base branch of active project: {{branch}}',
+                branch: activeRepo.default_target_branch,
+              })}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </TooltipProvider>
       {updateVersion && (
         <StatusBarItem
           onClick={onUpdateClick}

@@ -14,7 +14,7 @@ use db::models::{
         CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
         Worker,
     },
-    worker_task::{self, CreateWorkerTask, WorkerTask},
+    worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
     workspace::Workspace,
 };
 use deployment::Deployment;
@@ -22,6 +22,7 @@ use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     container::ContainerService,
+    quick_action_prompts,
     worker_orchestrator::{self, StartError},
 };
 use tokio::task;
@@ -87,6 +88,9 @@ pub struct WorkerTaskResponse {
     pub workspace_id: Option<Uuid>,
     /// Skills selected for this task (stored as JSON array, exposed as array).
     pub skills: Vec<String>,
+    /// GitHub labels to apply to every issue the analyst creates as part of
+    /// this task (stored as JSON array, exposed as array).
+    pub issue_labels: Vec<String>,
     /// URL of the most recent pull request tracked for this task's workspace,
     /// or `null` when no PR has been created yet.
     pub pr_url: Option<String>,
@@ -116,8 +120,42 @@ pub struct WorkerTaskResponse {
     /// (see `value_generated_summary`).
     #[ts(type = "number | null")]
     pub hours_saved_override: Option<f64>,
+    /// The agent's final message, captured when a non-developer task
+    /// finished OK. Abstract of the deliverable; null otherwise.
+    pub result_summary: Option<String>,
+    /// Remote ref (`design/<n>-<slug>`) holding a designer deliverable, or
+    /// null when the run produced no commits / for non-designer tasks.
+    pub deliverable_ref: Option<String>,
+    /// On a design-handoff task: the designer task whose deliverable this
+    /// task consumes.
+    pub source_task_id: Option<Uuid>,
+    /// On a designer task whose deliverable was handed off: where it went.
+    /// Powers the "sent to X" state and the double-handoff guard client-side.
+    #[ts(optional, type = "HandoffTaskInfo | null")]
+    pub handoff: Option<HandoffTaskInfo>,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
+}
+
+/// The handoff task consuming a designer deliverable, as exposed on the
+/// source task's response.
+#[derive(Debug, Serialize, TS)]
+pub struct HandoffTaskInfo {
+    pub task_id: Uuid,
+    pub worker_id: Uuid,
+    pub worker_name: String,
+    pub status: String,
+}
+
+impl From<HandoffInfo> for HandoffTaskInfo {
+    fn from(info: HandoffInfo) -> Self {
+        Self {
+            task_id: info.task_id,
+            worker_id: info.worker_id,
+            worker_name: info.worker_name,
+            status: info.status,
+        }
+    }
 }
 
 async fn worker_task_to_response(
@@ -156,6 +194,19 @@ async fn worker_task_to_response(
     };
 
     let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
+    let issue_labels: Vec<String> =
+        serde_json::from_str(&task.issue_labels).unwrap_or_default();
+
+    // Handoff state only exists for tasks that hold a deliverable (designer
+    // tasks by construction), so the extra query never runs for the rest of
+    // the board.
+    let handoff = if task.result_summary.is_some() || task.deliverable_ref.is_some() {
+        WorkerTask::find_handoff_for_source(pool, task.id)
+            .await?
+            .map(HandoffTaskInfo::from)
+    } else {
+        None
+    };
 
     Ok(WorkerTaskResponse {
         id: task.id,
@@ -168,6 +219,7 @@ async fn worker_task_to_response(
         status: task.status,
         workspace_id: task.workspace_id,
         skills,
+        issue_labels,
         pr_url,
         pr_state,
         pr_mergeable,
@@ -176,6 +228,10 @@ async fn worker_task_to_response(
         loop_state,
         failure_reason: task.failure_reason,
         hours_saved_override: task.hours_saved_override,
+        result_summary: task.result_summary,
+        deliverable_ref: task.deliverable_ref,
+        source_task_id: task.source_task_id,
+        handoff,
         created_at: task.created_at,
     })
 }
@@ -291,6 +347,13 @@ pub struct CreateWorkerTaskRequest {
     /// to the stored prompt so the agent receives them automatically.
     #[ts(optional)]
     pub skills: Option<Vec<String>>,
+    /// GitHub labels that the analyst must apply to every issue created as
+    /// part of this request. Empty / whitespace-only entries are dropped
+    /// server-side; the surviving list is both persisted and appended to the
+    /// prompt as an instruction so the agent uses `add_label` after creating
+    /// each issue.
+    #[ts(optional)]
+    pub issue_labels: Option<Vec<String>>,
     /// When true, skip the duplicate-assignment guard and create the task anyway.
     #[serde(default)]
     #[ts(optional)]
@@ -342,6 +405,159 @@ pub struct UpdateWorkerTaskRequest {
 #[derive(Debug, Deserialize, TS)]
 pub struct ReassignWorkerTaskRequest {
     pub target_worker_id: Uuid,
+}
+
+/// Hand a finished designer deliverable to an analyst. The prompt is
+/// composed server-side from the handoff template — the caller only picks
+/// the destination and optionally adds human guidance on top.
+#[derive(Debug, Deserialize, TS)]
+pub struct CreateDesignHandoffRequest {
+    /// The designer task whose deliverable is being handed off.
+    pub source_task_id: Uuid,
+    /// Target analyst worker.
+    pub worker_id: Uuid,
+    /// Optional PM guidance appended to the orchestrator's template
+    /// (priorities, business constraints). Never replaces the template.
+    #[ts(optional)]
+    pub note: Option<String>,
+    /// Origin of the handoff: `"kanban"` (designer card) or `"desk"`
+    /// (Analyst Desk picker). Defaults to kanban.
+    #[serde(default)]
+    #[ts(optional)]
+    pub source: Option<String>,
+}
+
+/// POST /api/workers/design-handoffs — turn a designer deliverable into a
+/// queued analyst task. Both UI entry points (designer done card, Analyst
+/// Desk picker) converge here so there is exactly one handoff mechanic.
+pub async fn create_design_handoff(
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<CreateDesignHandoffRequest>,
+) -> Result<ResponseJson<ApiResponse<WorkerTaskResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+
+    let source_task = WorkerTask::find_by_id(pool, payload.source_task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Source task not found".into()))?;
+    let source_worker = Worker::find_by_id(pool, source_task.worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Source worker not found".into()))?;
+
+    if source_worker.role != ROLE_DESIGNER {
+        return Err(ApiError::BadRequest(
+            "Only designer tasks can be handed off".into(),
+        ));
+    }
+    if source_task.status != worker_task::STATUS_DONE {
+        return Err(ApiError::BadRequest(
+            "Only finished designer tasks can be handed off".into(),
+        ));
+    }
+    if source_task.result_summary.is_none() && source_task.deliverable_ref.is_none() {
+        return Err(ApiError::UnprocessableEntity(
+            "This designer task has no recorded deliverable to hand off".into(),
+        ));
+    }
+    if let Some(existing) = WorkerTask::find_handoff_for_source(pool, source_task.id).await? {
+        return Err(ApiError::Conflict(format!(
+            "This design was already handed off to {} (status: {})",
+            existing.worker_name, existing.status
+        )));
+    }
+
+    let target = Worker::find_by_id(pool, payload.worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Target worker not found".into()))?;
+    if target.role != ROLE_ANALYST {
+        return Err(ApiError::BadRequest(
+            "Design handoffs can only target analyst workers".into(),
+        ));
+    }
+    if target.archived {
+        return Err(ApiError::BadRequest(
+            "Target analyst is archived".into(),
+        ));
+    }
+
+    let source = match payload.source.as_deref() {
+        None => worker_task::SOURCE_KANBAN.to_string(),
+        Some(s) if worker_task::is_valid_source(s) => s.to_string(),
+        Some(s) => {
+            return Err(ApiError::BadRequest(format!("Invalid source: {s}")));
+        }
+    };
+
+    let prompt = quick_action_prompts::format_design_handoff_prompt(
+        &source_task.title,
+        source_task.issue_number,
+        source_task.deliverable_ref.as_deref(),
+        source_task.result_summary.as_deref(),
+        payload.note.as_deref(),
+    );
+    let title = format!("Despiezar diseño: {}", source_task.title);
+
+    let task = WorkerTask::append_design_handoff(
+        pool,
+        target.id,
+        &CreateWorkerTask {
+            repo_id: source_task.repo_id,
+            title,
+            prompt,
+            issue_number: source_task.issue_number,
+            skills: Vec::new(),
+            source,
+        },
+        source_task.id,
+    )
+    .await?;
+
+    let response = worker_task_to_response(pool, task).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+/// A finished designer deliverable no analyst has taken yet, as served to
+/// the Analyst Desk picker and the sprint board.
+#[derive(Debug, Serialize, TS)]
+pub struct PendingDesignHandoffResponse {
+    pub task_id: Uuid,
+    pub repo_id: Uuid,
+    pub title: String,
+    #[ts(type = "number | null")]
+    pub issue_number: Option<i64>,
+    pub worker_name: String,
+    pub worker_emoji: String,
+    pub deliverable_ref: Option<String>,
+    pub result_summary: Option<String>,
+    #[ts(type = "Date | null")]
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+impl From<PendingDesignHandoff> for PendingDesignHandoffResponse {
+    fn from(p: PendingDesignHandoff) -> Self {
+        Self {
+            task_id: p.task_id,
+            repo_id: p.repo_id,
+            title: p.title,
+            issue_number: p.issue_number,
+            worker_name: p.worker_name,
+            worker_emoji: p.worker_emoji,
+            deliverable_ref: p.deliverable_ref,
+            result_summary: p.result_summary,
+            completed_at: p.completed_at,
+        }
+    }
+}
+
+/// GET /api/workers/design-handoffs/pending — finished designer deliverables
+/// no analyst has taken yet. Feeds the Analyst Desk picker.
+pub async fn list_pending_design_handoffs(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<Vec<PendingDesignHandoffResponse>>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let pending = WorkerTask::find_pending_design_handoffs(pool).await?;
+    let response: Vec<PendingDesignHandoffResponse> =
+        pending.into_iter().map(Into::into).collect();
+    Ok(ResponseJson(ApiResponse::success(response)))
 }
 
 fn is_valid_role(role: &str) -> bool {
@@ -744,6 +960,15 @@ pub async fn create_worker_task(
     }
 
     let skills = payload.skills.unwrap_or_default();
+    // Sanitize the incoming labels: trim whitespace and drop empty entries so
+    // a stray "  " or "" from the UI does not survive as a bogus label.
+    let issue_labels: Vec<String> = payload
+        .issue_labels
+        .unwrap_or_default()
+        .into_iter()
+        .map(|label| label.trim().to_string())
+        .filter(|label| !label.is_empty())
+        .collect();
 
     let source = match payload.source.as_deref() {
         None => worker_task::SOURCE_KANBAN.to_string(),
@@ -781,6 +1006,12 @@ pub async fn create_worker_task(
     for skill in &skills {
         final_prompt.push_str(&format!("\n\nUsá el skill /{skill} para esta tarea."));
     }
+    if !issue_labels.is_empty() {
+        let labels_list = issue_labels.join(", ");
+        final_prompt.push_str(&format!(
+            "\n\nAl crear los issues resultantes de esta solicitud, aplicales las siguientes etiquetas de GitHub: {labels_list}. Usá la herramienta add_label para agregarlas tras crear cada issue."
+        ));
+    }
 
     // Guard against duplicate assignments of the same GitHub issue.
     // Skip the check when the caller explicitly opts in with force_duplicate.
@@ -810,6 +1041,7 @@ pub async fn create_worker_task(
             prompt: final_prompt,
             issue_number: payload.issue_number,
             skills,
+            issue_labels,
             source,
         },
     )
@@ -1370,6 +1602,11 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/workers", get(list_workers).post(create_worker))
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
+        .route("/workers/design-handoffs", post(create_design_handoff))
+        .route(
+            "/workers/design-handoffs/pending",
+            get(list_pending_design_handoffs),
+        )
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
         .route("/workers/archived", get(list_archived_workers))
         .route(

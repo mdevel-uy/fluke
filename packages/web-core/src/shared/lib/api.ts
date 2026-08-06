@@ -117,6 +117,8 @@ import {
   WorkerTaskResponse,
   CreateWorkerTaskRequest,
   UpdateWorkerTaskRequest,
+  CreateDesignHandoffRequest,
+  PendingDesignHandoffResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -2479,6 +2481,32 @@ export const workersApi = {
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`);
     return handleApiResponse<WorkerTaskResponse[]>(response);
+  },
+
+  /**
+   * Finished designer deliverables no analyst has taken yet. Feeds the
+   * Analyst Desk picker and the sprint-board handoff dialog.
+   */
+  listPendingDesignHandoffs: async (): Promise<
+    PendingDesignHandoffResponse[]
+  > => {
+    const response = await makeRequest('/api/workers/design-handoffs/pending');
+    return handleApiResponse<PendingDesignHandoffResponse[]>(response);
+  },
+
+  /**
+   * Hand a finished designer deliverable to an analyst. The prompt is
+   * composed server-side; the caller only picks the destination and may add
+   * a PM note on top. 409 = the design was already handed off.
+   */
+  createDesignHandoff: async (
+    data: CreateDesignHandoffRequest
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest('/api/workers/design-handoffs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 
   checkActiveIssueTask: async (

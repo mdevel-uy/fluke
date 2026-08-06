@@ -601,6 +601,9 @@
     "slotsTooltip": "사용 중인 에이전트 슬롯 — AGENT_CONCURRENCY_LIMIT / config로 설정합니다.",
     "slotsQueued": "{{count}}개 대기 중",
     "slotsQueuedTooltip": "동시 실행 한도에 도달했습니다. {{count}}개의 실행이 사용 가능한 슬롯을 기다리는 중입니다.",
+    "syncOk": "동기화됨 — 동기화 오류 없음",
+    "syncErrorsTooltip": "동기화 오류 {{count}}개",
+    "branchTooltip": "활성 프로젝트의 기본 브랜치: {{branch}}",
     "issuesRefreshNew_other": "새 이슈 {{count}}개",
     "issuesRefreshNone": "새 이슈 없음"
   },
@@ -877,7 +880,10 @@
       "enqueuedError": "작업 대기열 추가에 실패했습니다.",
       "checkingConflicts": "기존 할당 확인 중...",
       "duplicateWarning": "이슈 #{{number}}은(는) 이미 {{worker}}에게 할당되어 있습니다(상태: {{status}}). 다시 할당하면 중복 작업이 생성됩니다.",
-      "assignAnyway": "그래도 할당"
+      "assignAnyway": "그래도 할당",
+      "skillsLabel": "스킬",
+      "skillsPicker": "스킬",
+      "skillsEmpty": "설치된 스킬이 없습니다."
     },
     "reassignDialog": {
       "title": "이슈 #{{number}}을(를) 다른 워커에게 재할당",
@@ -949,6 +955,15 @@
     "emptyTitle": "아직 워커가 없습니다",
     "emptyDescription": "워커를 만들어 작업을 할당해 보세요.",
     "confirmDelete": "워커 \"{{worker}}\"를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "archive": "보관",
+    "unarchive": "복원",
+    "purge": "영구 삭제",
+    "purge_confirm": "워커 \"{{worker}}\"를 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "archived_section_title": "보관된 워커",
+    "sidebar": {
+      "active": "활성",
+      "archived": "보관됨"
+    },
     "stats": {
       "working": "작업 중",
       "queued": "대기 중",
@@ -1040,10 +1055,25 @@
       "deleteSuccess": "{{worker}}를 삭제했습니다.",
       "duplicateSuccess": "{{worker}}를 \"{{clone}}\"(으)로 복제했습니다.",
       "duplicateError": "{{worker}} 복제 실패: {{message}}",
+      "archiveSuccess": "{{worker}}를 보관했습니다.",
+      "archiveError": "{{worker}} 보관 실패: {{message}}",
+      "unarchiveSuccess": "{{worker}}를 복원했습니다.",
+      "unarchiveError": "{{worker}} 복원 실패: {{message}}",
+      "purgeSuccess": "{{worker}}를 영구 삭제했습니다.",
+      "purgeError": "{{worker}} 삭제 실패: {{message}}",
       "dismiss": "닫기"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "디자인 첨부",
+      "pendingCount": "미할당 {{n}}건",
+      "searchPlaceholder": "제목 또는 디자이너로 검색…",
+      "empty": "미할당 디자인이 없습니다",
+      "attachedHint": "오케스트레이터가 참조, 요약, fetch 방법을 프롬프트에 추가합니다.",
+      "remove": "디자인 제거",
+      "notePlaceholder": "PM 지침 (선택): 우선순위, 제약…"
+    },
     "title": "분석가 데스크",
     "repoLabel": "저장소",
     "analystsLabel": "분석가",
@@ -1244,6 +1274,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "분석가에게 보내기",
+      "sentTo": "{{name}}에게 전송됨",
+      "dialogTitle": "디자인을 분석가에게 보내기",
+      "dialogTarget": "대상 분석가",
+      "composeHint": "오케스트레이터가 최종 프롬프트를 구성합니다: 디자인 참조, 요약, fetch 방법. 메모는 PM 지침으로 추가됩니다.",
+      "noteLabel": "지침 (선택)",
+      "notePlaceholder": "시스템이 모르는 우선순위나 제약…",
+      "confirm": "작업 큐에 추가",
+      "noAnalysts": "활성 분석가가 없습니다.",
+      "provenance": "디자인",
+      "provenanceIssue": "디자인 #{{number}}"
+    },
     "title": "칸반",
     "repoSelectorPlaceholder": "저장소 선택",
     "loadingRepos": "저장소를 불러오는 중...",

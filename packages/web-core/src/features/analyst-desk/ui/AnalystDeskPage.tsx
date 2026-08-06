@@ -41,6 +41,12 @@ import {
   useWorkers,
   useWorkerTasks,
 } from '@/features/workers/model/useWorkers';
+import {
+  useCreateDesignHandoff,
+  usePendingDesignHandoffs,
+} from '@/features/workers/model/useDesignHandoffs';
+import { SearchableDropdownContainer } from '@/shared/components/ui-new/containers/SearchableDropdownContainer';
+import type { PendingDesignHandoffResponse } from 'shared/types';
 import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import {
@@ -306,6 +312,14 @@ export function AnalystDeskPage() {
   const cancelRequest = useCancelDeskRequest();
   const removeRequest = useRemoveDeskRequest();
 
+  // Designer deliverables waiting to be taken. The inventory is NEVER listed
+  // inline — a one-line trigger opens a searchable picker, and only the
+  // chosen design occupies composer space (that is what scales).
+  const { data: pendingDesigns = [] } = usePendingDesignHandoffs();
+  const createHandoff = useCreateDesignHandoff();
+  const [attachedDesign, setAttachedDesign] =
+    useState<PendingDesignHandoffResponse | null>(null);
+
   const isUploadingImages = images.some((img) => img.status === 'uploading');
 
   const addImageFiles = (files: File[]) => {
@@ -442,15 +456,49 @@ export function AnalystDeskPage() {
     intent: 'cancel' | 'remove';
   } | null>(null);
 
+  // With a design attached the free text is optional PM guidance — the
+  // server-side template alone is already a complete request.
   const canSubmit =
     !createRequest.isPending &&
+    !createHandoff.isPending &&
     !isUploadingImages &&
-    prompt.trim().length > 0 &&
     selectedAnalyst !== null &&
-    selectedRepoId !== null;
+    (attachedDesign !== null
+      ? true
+      : prompt.trim().length > 0 && selectedRepoId !== null);
 
   const handleSubmit = async () => {
-    if (!canSubmit || !selectedAnalyst || !selectedRepoId) return;
+    if (!canSubmit || !selectedAnalyst) return;
+
+    // Design handoff path: the orchestrator composes the prompt (reference +
+    // summary + fetch recipe); the textarea rides along as the PM note.
+    if (attachedDesign) {
+      try {
+        const { startedNow } = await createHandoff.mutateAsync({
+          sourceTaskId: attachedDesign.task_id,
+          workerId: selectedAnalyst.id,
+          note: prompt.trim() || undefined,
+          source: 'desk',
+        });
+        setPrompt('');
+        setAttachedDesign(null);
+        showNotice({
+          variant: startedNow ? 'success' : 'info',
+          message: startedNow
+            ? t('analystDesk.toast.started', { worker: selectedAnalyst.name })
+            : t('analystDesk.toast.queued', { worker: selectedAnalyst.name }),
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        showNotice({
+          variant: 'error',
+          message: t('analystDesk.toast.error', { message }),
+        });
+      }
+      return;
+    }
+
+    if (!selectedRepoId) return;
     try {
       const attachmentIds = await ensureAttachmentsUploaded();
       // A null return means an upload failed and the notice was already shown;
@@ -640,79 +688,163 @@ export function AnalystDeskPage() {
               <h2 className="text-label font-semibold uppercase tracking-wide text-low">
                 {t('analystDesk.requestLabel')}
               </h2>
+
+              {!attachedDesign && pendingDesigns.length > 0 && (
+                <SearchableDropdownContainer
+                  items={pendingDesigns}
+                  selectedValue={null}
+                  getItemKey={(d) => d.task_id}
+                  getItemLabel={(d) =>
+                    `${d.issue_number != null ? `#${d.issue_number} ` : ''}${d.title}`
+                  }
+                  filterItem={(d, query) =>
+                    `${d.title} ${d.worker_name}`.toLowerCase().includes(query)
+                  }
+                  onSelect={(d) => setAttachedDesign(d)}
+                  trigger={
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border bg-md-surface-container-lowest px-3 py-2 text-xs font-medium text-normal transition-colors hover:border-pink/60 hover:text-high"
+                    >
+                      <span className="text-pink" aria-hidden>
+                        ◈
+                      </span>
+                      <span>{t('analystDesk.designs.trigger')}</span>
+                      <span className="ml-auto rounded-full border border-pink/40 bg-pink/10 px-2 py-px text-[11px] font-semibold tabular-nums text-pink">
+                        {t('analystDesk.designs.pendingCount', {
+                          n: pendingDesigns.length,
+                        })}
+                      </span>
+                    </button>
+                  }
+                  contentClassName="w-[340px]"
+                  placeholder={t('analystDesk.designs.searchPlaceholder')}
+                  emptyMessage={t('analystDesk.designs.empty')}
+                  getItemBadge={(d) => `${d.worker_emoji} ${d.worker_name}`}
+                  getItemIcon={null}
+                />
+              )}
+
+              {attachedDesign && (
+                <div className="flex items-start gap-2 rounded-lg border border-dashed border-pink/60 bg-pink/5 px-3 py-2">
+                  <span className="mt-px text-pink" aria-hidden>
+                    ◈
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-high">
+                      {attachedDesign.issue_number != null
+                        ? `#${attachedDesign.issue_number} `
+                        : ''}
+                      {attachedDesign.title}
+                    </p>
+                    <p className="text-[11px] leading-snug text-low">
+                      {t('analystDesk.designs.attachedHint')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedDesign(null)}
+                    aria-label={t('analystDesk.designs.remove')}
+                    className="shrink-0 rounded-sm p-0.5 text-normal transition-colors hover:bg-secondary hover:text-high"
+                  >
+                    <X className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                </div>
+              )}
+
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onPaste={handlePaste}
-                placeholder={t('analystDesk.promptPlaceholder')}
+                placeholder={
+                  attachedDesign
+                    ? t('analystDesk.designs.notePlaceholder')
+                    : t('analystDesk.promptPlaceholder')
+                }
                 rows={6}
                 className="resize-y"
               />
 
-              <div
-                {...dropzone.getRootProps({
-                  className: cn(
-                    'flex flex-col gap-2 rounded-lg border border-dashed border-border bg-md-surface-container-lowest px-3 py-2 transition-colors',
-                    dropzone.isDragActive &&
-                      'border-brand-on-surface bg-brand/10',
-                    (createRequest.isPending || isUploadingImages) &&
-                      'opacity-60'
-                  ),
-                })}
-              >
-                <input {...dropzone.getInputProps()} />
-                {images.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={openFilePicker}
-                    disabled={createRequest.isPending || isUploadingImages}
-                    className="flex items-center gap-2 text-xs text-low transition-colors hover:text-high disabled:cursor-not-allowed disabled:opacity-60"
+              {!attachedDesign && (
+                <>
+                  <div
+                    {...dropzone.getRootProps({
+                      className: cn(
+                        'flex flex-col gap-2 rounded-lg border border-dashed border-border bg-md-surface-container-lowest px-3 py-2 transition-colors',
+                        dropzone.isDragActive &&
+                          'border-brand-on-surface bg-brand/10',
+                        (createRequest.isPending || isUploadingImages) &&
+                          'opacity-60'
+                      ),
+                    })}
                   >
-                    <ImagePlus className="h-4 w-4" strokeWidth={1.75} />
-                    <span>{t('analystDesk.attachments.dropzoneLabel')}</span>
-                  </button>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      {images.map((img) => (
-                        <ImagePreview
-                          key={img.key}
-                          image={img}
-                          onRemove={() => removeImage(img.key)}
-                          removeLabel={t('analystDesk.attachments.removeAria', {
-                            name: img.file.name,
-                          })}
-                          uploadingLabel={t(
-                            'analystDesk.attachments.uploading'
-                          )}
-                          errorLabel={t('analystDesk.attachments.errorLabel')}
+                    <input {...dropzone.getInputProps()} />
+                    {images.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={openFilePicker}
+                        disabled={createRequest.isPending || isUploadingImages}
+                        className="flex items-center gap-2 text-xs text-low transition-colors hover:text-high disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <ImagePlus className="h-4 w-4" strokeWidth={1.75} />
+                        <span>
+                          {t('analystDesk.attachments.dropzoneLabel')}
+                        </span>
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {images.map((img) => (
+                            <ImagePreview
+                              key={img.key}
+                              image={img}
+                              onRemove={() => removeImage(img.key)}
+                              removeLabel={t(
+                                'analystDesk.attachments.removeAria',
+                                {
+                                  name: img.file.name,
+                                }
+                              )}
+                              uploadingLabel={t(
+                                'analystDesk.attachments.uploading'
+                              )}
+                              errorLabel={t(
+                                'analystDesk.attachments.errorLabel'
+                              )}
+                              disabled={
+                                createRequest.isPending || isUploadingImages
+                              }
+                            />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={openFilePicker}
                           disabled={
                             createRequest.isPending || isUploadingImages
                           }
-                        />
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={openFilePicker}
-                      disabled={createRequest.isPending || isUploadingImages}
-                      className="flex items-center gap-1.5 self-start text-xs text-low transition-colors hover:text-high disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      <span>{t('analystDesk.attachments.addMore')}</span>
-                    </button>
-                  </>
-                )}
-              </div>
+                          className="flex items-center gap-1.5 self-start text-xs text-low transition-colors hover:text-high disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <ImagePlus
+                            className="h-3.5 w-3.5"
+                            strokeWidth={1.75}
+                          />
+                          <span>{t('analystDesk.attachments.addMore')}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
 
-              <SkillsPicker
-                installed={installedSkills}
-                selected={selectedSkills}
-                onChange={setSelectedSkills}
-                disabled={createRequest.isPending}
-                triggerLabel={t('analystDesk.skillsPicker')}
-                emptyHint={t('analystDesk.skillsEmpty')}
-              />
+                  <SkillsPicker
+                    installed={installedSkills}
+                    selected={selectedSkills}
+                    onChange={setSelectedSkills}
+                    disabled={createRequest.isPending}
+                    triggerLabel={t('analystDesk.skillsPicker')}
+                    emptyHint={t('analystDesk.skillsEmpty')}
+                  />
+                </>
+              )}
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-xs text-low">

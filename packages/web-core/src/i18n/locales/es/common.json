@@ -602,6 +602,10 @@
     "slotsTooltip": "Slots de agente en uso — configurado por AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} en cola",
     "slotsQueuedTooltip": "Límite de concurrencia alcanzado. {{count}} ejecución(es) esperando un slot libre.",
+    "syncOk": "Sincronizado — sin errores de sincronización",
+    "syncErrorsTooltip": "{{count}} error de sincronización",
+    "syncErrorsTooltip_other": "{{count}} errores de sincronización",
+    "branchTooltip": "Rama base del proyecto activo: {{branch}}",
     "issuesRefreshNew_one": "{{count}} issue nuevo",
     "issuesRefreshNew_other": "{{count}} issues nuevos",
     "issuesRefreshNone": "Sin issues nuevos"
@@ -879,7 +883,10 @@
       "enqueuedError": "No se pudo encolar la tarea.",
       "checkingConflicts": "Verificando asignaciones existentes...",
       "duplicateWarning": "El issue #{{number}} ya está asignado a {{worker}} (estado: {{status}}). Asignar de nuevo creará una tarea duplicada.",
-      "assignAnyway": "Asignar igual"
+      "assignAnyway": "Asignar igual",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Skills",
+      "skillsEmpty": "No hay skills instaladas."
     },
     "reassignDialog": {
       "title": "Reasignar issue #{{number}} a otro worker",
@@ -951,6 +958,15 @@
     "emptyTitle": "Todavía no hay workers",
     "emptyDescription": "Creá un worker para empezar a asignarle tareas.",
     "confirmDelete": "¿Eliminar el worker \"{{worker}}\"? Esta acción no se puede deshacer.",
+    "archive": "Archivar",
+    "unarchive": "Restaurar",
+    "purge": "Eliminar definitivamente",
+    "purge_confirm": "¿Eliminar definitivamente a \"{{worker}}\"? Esta acción no se puede deshacer.",
+    "archived_section_title": "Workers archivados",
+    "sidebar": {
+      "active": "Activos",
+      "archived": "Archivados"
+    },
     "stats": {
       "working": "Trabajando",
       "queued": "En cola",
@@ -1042,10 +1058,25 @@
       "deleteSuccess": "{{worker}} eliminado.",
       "duplicateSuccess": "{{worker}} duplicado como \"{{clone}}\".",
       "duplicateError": "No se pudo duplicar {{worker}}: {{message}}",
+      "archiveSuccess": "{{worker}} archivado.",
+      "archiveError": "No se pudo archivar {{worker}}: {{message}}",
+      "unarchiveSuccess": "{{worker}} restaurado.",
+      "unarchiveError": "No se pudo restaurar {{worker}}: {{message}}",
+      "purgeSuccess": "{{worker}} eliminado definitivamente.",
+      "purgeError": "No se pudo eliminar {{worker}}: {{message}}",
       "dismiss": "Cerrar"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "Adjuntar diseño",
+      "pendingCount": "{{n}} sin tomar",
+      "searchPlaceholder": "Buscar por título o diseñador…",
+      "empty": "No hay diseños sin tomar",
+      "attachedHint": "El orquestador agrega la referencia, el resumen y la receta de fetch al prompt.",
+      "remove": "Quitar diseño",
+      "notePlaceholder": "Indicaciones del PM (opcional): prioridades, restricciones…"
+    },
     "title": "Mesa de analistas",
     "repoLabel": "Repositorio",
     "analystsLabel": "Analista",
@@ -1248,6 +1279,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "Enviar a analista",
+      "sentTo": "Enviado a {{name}}",
+      "dialogTitle": "Enviar diseño a analista",
+      "dialogTarget": "Analista destino",
+      "composeHint": "El orquestador compone el prompt final: referencia del diseño, resumen y receta de fetch. Tu nota se agrega como indicaciones del PM.",
+      "noteLabel": "Indicaciones (opcional)",
+      "notePlaceholder": "Prioridades o restricciones que el sistema no conoce…",
+      "confirm": "Encolar tarea",
+      "noAnalysts": "No hay analistas activos.",
+      "provenance": "diseño",
+      "provenanceIssue": "diseño #{{number}}"
+    },
     "title": "Kanban",
     "repoSelectorPlaceholder": "Seleccionar repositorio",
     "loadingRepos": "Cargando repositorios...",

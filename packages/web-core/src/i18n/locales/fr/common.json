@@ -601,6 +601,10 @@
     "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} en attente",
     "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre.",
+    "syncOk": "Synchronisé — aucune erreur de synchronisation",
+    "syncErrorsTooltip": "{{count}} erreur de synchronisation",
+    "syncErrorsTooltip_other": "{{count}} erreurs de synchronisation",
+    "branchTooltip": "Branche de base du projet actif : {{branch}}",
     "issuesRefreshNew_one": "{{count}} nouveau ticket",
     "issuesRefreshNew_other": "{{count}} nouveaux tickets",
     "issuesRefreshNone": "Aucun nouveau ticket"
@@ -878,7 +882,10 @@
       "enqueuedError": "Impossible de mettre la tâche en file d'attente.",
       "checkingConflicts": "Vérification des assignations existantes...",
       "duplicateWarning": "L'issue #{{number}} est déjà assignée à {{worker}} (statut : {{status}}). Assigner à nouveau créera une tâche en double.",
-      "assignAnyway": "Assigner quand même"
+      "assignAnyway": "Assigner quand même",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Skills",
+      "skillsEmpty": "Aucune skill installée."
     },
     "reassignDialog": {
       "title": "Réaffecter l'issue #{{number}} à un autre worker",
@@ -950,6 +957,15 @@
     "emptyTitle": "Aucun worker pour l'instant",
     "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
     "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "archive": "Archiver",
+    "unarchive": "Restaurer",
+    "purge": "Supprimer définitivement",
+    "purge_confirm": "Supprimer définitivement « {{worker}} » ? Cette action est irréversible.",
+    "archived_section_title": "Workers archivés",
+    "sidebar": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
     "stats": {
       "working": "En cours",
       "queued": "En file d'attente",
@@ -1041,10 +1057,25 @@
       "deleteSuccess": "{{worker}} supprimé.",
       "duplicateSuccess": "{{worker}} dupliqué en « {{clone}} ».",
       "duplicateError": "Échec de la duplication de {{worker}} : {{message}}",
+      "archiveSuccess": "{{worker}} archivé.",
+      "archiveError": "Échec de l'archivage de {{worker}} : {{message}}",
+      "unarchiveSuccess": "{{worker}} restauré.",
+      "unarchiveError": "Échec de la restauration de {{worker}} : {{message}}",
+      "purgeSuccess": "{{worker}} supprimé définitivement.",
+      "purgeError": "Échec de la suppression de {{worker}} : {{message}}",
       "dismiss": "Fermer"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "Joindre un design",
+      "pendingCount": "{{n}} non pris",
+      "searchPlaceholder": "Rechercher par titre ou designer…",
+      "empty": "Aucun design non pris",
+      "attachedHint": "L'orchestrateur ajoute la référence, le résumé et la recette de fetch au prompt.",
+      "remove": "Retirer le design",
+      "notePlaceholder": "Consignes du PM (optionnel) : priorités, contraintes…"
+    },
     "title": "Bureau des analystes",
     "repoLabel": "Dépôt",
     "analystsLabel": "Analyste",
@@ -1247,6 +1278,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "Envoyer à l'analyste",
+      "sentTo": "Envoyé à {{name}}",
+      "dialogTitle": "Envoyer le design à un analyste",
+      "dialogTarget": "Analyste cible",
+      "composeHint": "L'orchestrateur compose le prompt final : référence du design, résumé et recette de fetch. Votre note est ajoutée comme consignes du PM.",
+      "noteLabel": "Consignes (optionnel)",
+      "notePlaceholder": "Priorités ou contraintes que le système ignore…",
+      "confirm": "Mettre en file",
+      "noAnalysts": "Aucun analyste actif.",
+      "provenance": "design",
+      "provenanceIssue": "design #{{number}}"
+    },
     "title": "Kanban",
     "repoSelectorPlaceholder": "Sélectionner un dépôt",
     "loadingRepos": "Chargement des dépôts...",

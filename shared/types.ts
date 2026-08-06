@@ -467,7 +467,13 @@ has_github_pat: boolean,
  * or `null` when no PAT is stored. Lets the UI show which identity the
  * worker acts as, and surface identity clashes (reviewer == PR author).
  */
-github_login?: string | null, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+github_login?: string | null, plan_mode?: boolean | null,
+/**
+ * Soft-delete state. `false` = active (shown in the main listing);
+ * `true` = archived (moved to the "archived" section, skipped by
+ * orchestrator lookups, can be restored or purged from there).
+ */
+archived: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
 
 export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
 /**
@@ -517,7 +523,64 @@ failure_reason: string | null,
  * installation default; a number replaces the default for aggregation
  * (see `value_generated_summary`).
  */
-hours_saved_override: number | null, created_at: Date, };
+hours_saved_override: number | null,
+/**
+ * The agent's final message, captured when a non-developer task
+ * finished OK. Abstract of the deliverable; null otherwise.
+ */
+result_summary: string | null,
+/**
+ * Remote ref (`design/<n>-<slug>`) holding a designer deliverable, or
+ * null when the run produced no commits / for non-designer tasks.
+ */
+deliverable_ref: string | null,
+/**
+ * On a design-handoff task: the designer task whose deliverable this
+ * task consumes.
+ */
+source_task_id: string | null,
+/**
+ * On a designer task whose deliverable was handed off: where it went.
+ * Powers the "sent to X" state and the double-handoff guard client-side.
+ */
+handoff?: HandoffTaskInfo | null, created_at: Date, };
+
+/**
+ * The handoff task consuming a designer deliverable, as exposed on the
+ * source task's response.
+ */
+export type HandoffTaskInfo = { task_id: string, worker_id: string, worker_name: string, status: string, };
+
+/**
+ * Hand a finished designer deliverable to an analyst. The prompt is
+ * composed server-side from the handoff template — the caller only picks
+ * the destination and optionally adds human guidance on top.
+ */
+export type CreateDesignHandoffRequest = {
+/**
+ * The designer task whose deliverable is being handed off.
+ */
+source_task_id: string,
+/**
+ * Target analyst worker.
+ */
+worker_id: string,
+/**
+ * Optional PM guidance appended to the orchestrator's template
+ * (priorities, business constraints). Never replaces the template.
+ */
+note?: string,
+/**
+ * Origin of the handoff: `"kanban"` (designer card) or `"desk"`
+ * (Analyst Desk picker). Defaults to kanban.
+ */
+source?: string, };
+
+/**
+ * A finished designer deliverable no analyst has taken yet, as served to
+ * the Analyst Desk picker and the sprint board.
+ */
+export type PendingDesignHandoffResponse = { task_id: string, repo_id: string, title: string, issue_number: number | null, worker_name: string, worker_emoji: string, deliverable_ref: string | null, result_summary: string | null, completed_at: Date | null, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
 /**
@@ -1200,6 +1263,6 @@ sdp: string,
  */
 session_id: string, };
 
-export const DEFAULT_PR_DESCRIPTION_PROMPT = "Update the PR that was just created with a better title and description.\nThe PR number is #{pr_number} and the URL is {pr_url}.\n\nAnalyze the changes in this branch and write:\n1. A concise, descriptive title that summarizes the changes, postfixed with \"(Vibe Kanban)\"\n2. A detailed description that explains:\n   - What changes were made\n   - Why they were made (based on the task context)\n   - Any important implementation details\n   - At the end, include a note: \"This PR was written using [Vibe Kanban](https://vibekanban.com)\"\n\nUse the appropriate CLI tool to update the PR (gh pr edit for GitHub, az repos pr update for Azure DevOps).";
+export const DEFAULT_PR_DESCRIPTION_PROMPT = "Update the PR that was just created with a better title and description.\nThe PR number is #{pr_number} and the URL is {pr_url}.\n\nAnalyze the changes in this branch and write:\n1. A concise, descriptive title that summarizes the changes, postfixed with \"(mkanban)\"\n2. A detailed description that explains:\n   - What changes were made\n   - Why they were made (based on the task context)\n   - Any important implementation details\n   - At the end, include a note: \"This PR was written using [mkanban](https://mkanban.dev)\"\n\nUse the appropriate CLI tool to update the PR (gh pr edit for GitHub, az repos pr update for Azure DevOps).";
 
 export const DEFAULT_COMMIT_REMINDER_PROMPT = "There are uncommitted changes. Please stage and commit them now with a descriptive commit message.";

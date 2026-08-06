@@ -601,6 +601,9 @@
     "slotsTooltip": "使用中のエージェントスロット — AGENT_CONCURRENCY_LIMIT / config で設定します。",
     "slotsQueued": "{{count}} 件待機中",
     "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。",
+    "syncOk": "同期済み — 同期エラーはありません",
+    "syncErrorsTooltip": "同期エラー {{count}} 件",
+    "branchTooltip": "アクティブなプロジェクトのベースブランチ: {{branch}}",
     "issuesRefreshNew_other": "{{count}} 件の新しいイシュー",
     "issuesRefreshNone": "新しいイシューはありません"
   },
@@ -877,7 +880,10 @@
       "enqueuedError": "タスクのキュー追加に失敗しました。",
       "checkingConflicts": "既存の割り当てを確認中...",
       "duplicateWarning": "Issue #{{number}} はすでに {{worker}} に割り当てられています（ステータス: {{status}}）。再度割り当てると重複タスクが作成されます。",
-      "assignAnyway": "それでも割り当てる"
+      "assignAnyway": "それでも割り当てる",
+      "skillsLabel": "スキル",
+      "skillsPicker": "スキル",
+      "skillsEmpty": "インストール済みのスキルはありません。"
     },
     "reassignDialog": {
       "title": "Issue #{{number}} を別のワーカーに再割り当て",
@@ -949,6 +955,15 @@
     "emptyTitle": "まだワーカーはいません",
     "emptyDescription": "ワーカーを作成してタスクを割り当てましょう。",
     "confirmDelete": "ワーカー「{{worker}}」を削除しますか？この操作は元に戻せません。",
+    "archive": "アーカイブ",
+    "unarchive": "復元",
+    "purge": "完全に削除",
+    "purge_confirm": "「{{worker}}」を完全に削除しますか？この操作は元に戻せません。",
+    "archived_section_title": "アーカイブ済みのワーカー",
+    "sidebar": {
+      "active": "アクティブ",
+      "archived": "アーカイブ済み"
+    },
     "stats": {
       "working": "作業中",
       "queued": "待機中",
@@ -1040,10 +1055,25 @@
       "deleteSuccess": "{{worker}} を削除しました。",
       "duplicateSuccess": "{{worker}} を「{{clone}}」として複製しました。",
       "duplicateError": "{{worker}} の複製に失敗しました：{{message}}",
+      "archiveSuccess": "{{worker}} をアーカイブしました。",
+      "archiveError": "{{worker}} のアーカイブに失敗しました：{{message}}",
+      "unarchiveSuccess": "{{worker}} を復元しました。",
+      "unarchiveError": "{{worker}} の復元に失敗しました：{{message}}",
+      "purgeSuccess": "{{worker}} を完全に削除しました。",
+      "purgeError": "{{worker}} の削除に失敗しました：{{message}}",
       "dismiss": "閉じる"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "デザインを添付",
+      "pendingCount": "未着手 {{n}} 件",
+      "searchPlaceholder": "タイトルまたはデザイナーで検索…",
+      "empty": "未着手のデザインはありません",
+      "attachedHint": "オーケストレーターが参照・要約・fetch手順をプロンプトに追加します。",
+      "remove": "デザインを外す",
+      "notePlaceholder": "PM指示(任意):優先度、制約…"
+    },
     "title": "アナリストデスク",
     "repoLabel": "リポジトリ",
     "analystsLabel": "アナリスト",
@@ -1244,6 +1274,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "アナリストに送る",
+      "sentTo": "{{name}} に送信済み",
+      "dialogTitle": "デザインをアナリストに送る",
+      "dialogTarget": "送信先アナリスト",
+      "composeHint": "オーケストレーターが最終プロンプトを組み立てます:デザインの参照、要約、fetch手順。メモはPM指示として追加されます。",
+      "noteLabel": "指示(任意)",
+      "notePlaceholder": "システムが知らない優先度や制約…",
+      "confirm": "タスクをキューに追加",
+      "noAnalysts": "アクティブなアナリストがいません。",
+      "provenance": "デザイン",
+      "provenanceIssue": "デザイン #{{number}}"
+    },
     "title": "カンバン",
     "repoSelectorPlaceholder": "リポジトリを選択",
     "loadingRepos": "リポジトリを読み込み中...",

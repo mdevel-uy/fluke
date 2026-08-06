@@ -40,6 +40,16 @@ export function QueuedTaskCard({
         </p>
       </div>
       <SkillChips skills={task.skills ?? []} />
+      {task.source_task_id != null && (
+        <span className="inline-flex items-center gap-1 self-start rounded-full border border-pink/40 bg-pink/10 px-2 py-px text-[11px] font-medium text-pink">
+          <span aria-hidden>◈</span>
+          {task.issue_number != null
+            ? t('sprint.designHandoff.provenanceIssue', {
+                number: task.issue_number,
+              })
+            : t('sprint.designHandoff.provenance')}
+        </span>
+      )}
       <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
         <Button
           variant="icon"

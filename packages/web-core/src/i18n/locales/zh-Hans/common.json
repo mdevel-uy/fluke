@@ -601,6 +601,9 @@
     "slotsTooltip": "正在使用的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 设置。",
     "slotsQueued": "{{count}} 个排队中",
     "slotsQueuedTooltip": "已达到并发上限。{{count}} 个执行正在等待可用槽位。",
+    "syncOk": "已同步 — 无同步错误",
+    "syncErrorsTooltip": "{{count}} 个同步错误",
+    "branchTooltip": "当前项目的基础分支：{{branch}}",
     "issuesRefreshNew_other": "{{count}} 个新 issue",
     "issuesRefreshNone": "没有新 issue"
   },
@@ -877,7 +880,10 @@
       "enqueuedError": "加入队列失败。",
       "checkingConflicts": "正在检查现有分配...",
       "duplicateWarning": "Issue #{{number}} 已分配给 {{worker}}（状态：{{status}}）。再次分配将创建重复任务。",
-      "assignAnyway": "仍然分配"
+      "assignAnyway": "仍然分配",
+      "skillsLabel": "技能",
+      "skillsPicker": "技能",
+      "skillsEmpty": "没有已安装的技能。"
     },
     "reassignDialog": {
       "title": "将 Issue #{{number}} 重新分配给其他工作者",
@@ -949,6 +955,15 @@
     "emptyTitle": "尚无工作者",
     "emptyDescription": "创建一个工作者以开始分配任务。",
     "confirmDelete": "删除工作者 \"{{worker}}\"？此操作不可撤销。",
+    "archive": "归档",
+    "unarchive": "恢复",
+    "purge": "永久删除",
+    "purge_confirm": "永久删除工作者 \"{{worker}}\"？此操作不可撤销。",
+    "archived_section_title": "已归档的工作者",
+    "sidebar": {
+      "active": "活跃",
+      "archived": "已归档"
+    },
     "stats": {
       "working": "工作中",
       "queued": "排队中",
@@ -1040,10 +1055,25 @@
       "deleteSuccess": "{{worker}} 已删除。",
       "duplicateSuccess": "{{worker}} 已复制为“{{clone}}”。",
       "duplicateError": "复制 {{worker}} 失败：{{message}}",
+      "archiveSuccess": "{{worker}} 已归档。",
+      "archiveError": "归档 {{worker}} 失败：{{message}}",
+      "unarchiveSuccess": "{{worker}} 已恢复。",
+      "unarchiveError": "恢复 {{worker}} 失败：{{message}}",
+      "purgeSuccess": "{{worker}} 已永久删除。",
+      "purgeError": "删除 {{worker}} 失败：{{message}}",
       "dismiss": "关闭"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "附加设计",
+      "pendingCount": "{{n}} 个未认领",
+      "searchPlaceholder": "按标题或设计师搜索…",
+      "empty": "没有未认领的设计",
+      "attachedHint": "编排器会把引用、摘要和 fetch 步骤加入提示词。",
+      "remove": "移除设计",
+      "notePlaceholder": "PM 指示(可选):优先级、约束…"
+    },
     "title": "分析师工作台",
     "repoLabel": "仓库",
     "analystsLabel": "分析师",
@@ -1244,6 +1274,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "发送给分析师",
+      "sentTo": "已发送给 {{name}}",
+      "dialogTitle": "将设计发送给分析师",
+      "dialogTarget": "目标分析师",
+      "composeHint": "编排器负责组合最终提示词:设计引用、摘要和 fetch 步骤。你的备注将作为 PM 指示附加。",
+      "noteLabel": "指示(可选)",
+      "notePlaceholder": "系统不知道的优先级或约束…",
+      "confirm": "加入队列",
+      "noAnalysts": "没有活跃的分析师。",
+      "provenance": "设计",
+      "provenanceIssue": "设计 #{{number}}"
+    },
     "title": "看板",
     "repoSelectorPlaceholder": "选择仓库",
     "loadingRepos": "正在加载仓库...",

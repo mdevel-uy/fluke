@@ -5,6 +5,7 @@ const ROLE_DOT_CLASS: Record<string, string> = {
   developer: 'bg-info',
   analyst: 'bg-brand',
   reviewer: 'bg-warning',
+  designer: 'bg-pink',
 };
 
 interface WorkerChipProps {

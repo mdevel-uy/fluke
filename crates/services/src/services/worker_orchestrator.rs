@@ -1078,6 +1078,13 @@ pub async fn on_agent_finished(
     let mut infra_failure = false;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
+        // Persist what the run left behind BEFORE archiving the worktree:
+        // the agent's final message for every non-developer role, plus — for
+        // designers that committed work — the branch pushed as a durable
+        // `design/*` ref. This is the non-dev analog of the developer's
+        // push+PR step: the agent only produces; the system does the plumbing.
+        persist_non_developer_deliverable(db, container, workspace_id, &task, &worker, execution_id)
+            .await;
     } else {
         let details = agent_failure_details(pool, execution_id).await;
         infra_failure = details.infra;
@@ -1129,6 +1136,142 @@ pub async fn on_agent_finished(
     }
 
     Ok(())
+}
+
+/// Capture a finished non-developer run's deliverable before its worktree is
+/// archived: the agent's final message always; for designers that committed
+/// work, additionally push the workspace branch to a durable
+/// `design/<n>-<slug>` remote ref. Best-effort by design — a failure here
+/// must not fail a task whose work is already done.
+async fn persist_non_developer_deliverable(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    task: &WorkerTask,
+    worker: &Worker,
+    execution_id: Option<Uuid>,
+) {
+    let pool = &db.pool;
+    let summary = agent_result_text(pool, execution_id).await;
+
+    let deliverable_ref = if worker.role == ROLE_DESIGNER {
+        push_design_ref(db, container, workspace_id, task, worker).await
+    } else {
+        None
+    };
+
+    if summary.is_none() && deliverable_ref.is_none() {
+        return;
+    }
+    if let Err(e) =
+        WorkerTask::record_deliverable(pool, task.id, summary.as_deref(), deliverable_ref.as_deref())
+            .await
+    {
+        warn!(task_id = %task.id, "Failed to record deliverable: {}", e);
+    }
+}
+
+/// Push the designer's workspace branch to `design/<n>-<slug>` so the
+/// deliverable outlives the archived worktree. Returns the pushed ref name;
+/// `None` when there is nothing to push (no commits) or the push failed —
+/// the summary alone is still a valid deliverable.
+async fn push_design_ref(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    task: &WorkerTask,
+    worker: &Worker,
+) -> Option<String> {
+    let pool = &db.pool;
+    let workspace = Workspace::find_by_id(pool, workspace_id).await.ok().flatten()?;
+    let container_ref = workspace.container_ref.clone()?;
+    let workspace_repo = WorkspaceRepo::find_by_workspace_id(pool, workspace_id)
+        .await
+        .ok()?
+        .into_iter()
+        .next()?;
+    let repo = Repo::find_by_id(pool, workspace_repo.repo_id)
+        .await
+        .ok()
+        .flatten()?;
+    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let git = container.git();
+
+    if check_no_new_commits(db, git, workspace_id, &worktree_path).await {
+        info!(
+            workspace_id = %workspace_id,
+            task_id = %task.id,
+            "Designer run left no commits — deliverable is the summary only"
+        );
+        return None;
+    }
+
+    let prefix = match task.issue_number {
+        Some(n) => n.to_string(),
+        None => utils::text::short_uuid(&task.id),
+    };
+    let ref_name = format!("design/{}-{}", prefix, utils::text::git_branch_id(&task.title));
+
+    match git.push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &ref_name,
+        false,
+        worker.github_pat.as_deref(),
+    ) {
+        Ok(()) => {
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                ref_name = %ref_name,
+                "Design deliverable pushed"
+            );
+            Some(ref_name)
+        }
+        Err(e) => {
+            warn!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "Failed to push design ref '{}': {}",
+                ref_name,
+                e
+            );
+            None
+        }
+    }
+}
+
+/// The CLI's own final `result` line for a run that ended OK: the agent's
+/// closing message, which non-developer role instructions require to be a
+/// concise summary of the deliverable. `None` when the logs are missing or
+/// hold no recognizable result (e.g. non-Claude executors).
+async fn agent_result_text(pool: &sqlx::SqlitePool, execution_id: Option<Uuid>) -> Option<String> {
+    let execution_id = execution_id?;
+    let messages =
+        crate::services::execution_process::load_raw_log_messages(pool, execution_id).await?;
+    for msg in messages.iter().rev() {
+        let utils::log_msg::LogMsg::Stdout(chunk) = msg else {
+            continue;
+        };
+        for line in chunk.lines().rev() {
+            let Ok(parsed) = serde_json::from_str::<CliResultLine>(line.trim()) else {
+                continue;
+            };
+            if parsed.kind != "result" || parsed.is_error.unwrap_or(false) {
+                continue;
+            }
+            let text = parsed
+                .result
+                .as_ref()
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())?;
+            // Cap the stored summary: it is an abstract for cards and prompts,
+            // not a transcript.
+            return Some(text.chars().take(4000).collect());
+        }
+    }
+    None
 }
 
 /// Handle a developer worker's agent run completing: push the branch, adopt
@@ -1784,6 +1927,7 @@ pub async fn dispatch_review_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
@@ -1926,6 +2070,7 @@ pub async fn dispatch_author_fix_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
@@ -2214,6 +2359,7 @@ mod tests {
                 prompt: "investigar".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_DESK.to_string(),
             },
         )
@@ -2239,6 +2385,7 @@ mod tests {
                 prompt: "do the thing".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2289,6 +2436,7 @@ mod tests {
                 prompt: "clean".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2346,6 +2494,7 @@ mod tests {
             prompt: "do it".to_string(),
             issue_number: None,
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         };
         let task_a = WorkerTask::append(&db.pool, worker.id, &make_task("a"))
@@ -2400,6 +2549,7 @@ mod tests {
                 prompt: "do it".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2496,6 +2646,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(1),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2547,6 +2698,7 @@ mod tests {
                     prompt: "review".to_string(),
                     issue_number: Some(pr_number),
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -2673,6 +2825,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(1),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2722,6 +2875,7 @@ mod tests {
                     prompt: "review".to_string(),
                     issue_number: None,
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -2765,6 +2919,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2854,6 +3009,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(pr_number),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3010,6 +3166,7 @@ mod tests {
                     prompt: "build".to_string(),
                     issue_number: None,
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -3026,6 +3183,7 @@ mod tests {
                 prompt: "fix".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3064,6 +3222,7 @@ mod tests {
                 prompt: "build".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3085,6 +3244,7 @@ mod tests {
                 prompt: "fix".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3128,6 +3288,7 @@ mod tests {
             prompt: "fix".to_string(),
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         };
 

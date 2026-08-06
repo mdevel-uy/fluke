@@ -606,6 +606,10 @@
     "slotsTooltip": "Agent slots in use — set by AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} queued",
     "slotsQueuedTooltip": "Concurrency limit reached. {{count}} execution(s) waiting for a free slot.",
+    "syncOk": "Synchronized — no sync errors",
+    "syncErrorsTooltip": "{{count}} sync error",
+    "syncErrorsTooltip_other": "{{count}} sync errors",
+    "branchTooltip": "Base branch of active project: {{branch}}",
     "issuesRefreshNew_one": "{{count}} new issue",
     "issuesRefreshNew_other": "{{count}} new issues",
     "issuesRefreshNone": "No new issues"
@@ -879,7 +883,10 @@
       "enqueuedError": "Failed to enqueue task.",
       "checkingConflicts": "Checking for existing assignments...",
       "duplicateWarning": "Issue #{{number}} is already assigned to {{worker}} (status: {{status}}). Assigning again will create a duplicate task.",
-      "assignAnyway": "Assign anyway"
+      "assignAnyway": "Assign anyway",
+      "skillsLabel": "Skills",
+      "skillsPicker": "Skills",
+      "skillsEmpty": "No skills installed."
     },
     "reassignDialog": {
       "title": "Reassign issue #{{number}} to another worker",
@@ -951,6 +958,15 @@
     "emptyTitle": "No workers yet",
     "emptyDescription": "Create a worker to start assigning tasks.",
     "confirmDelete": "Delete worker \"{{worker}}\"? This cannot be undone.",
+    "archive": "Archive",
+    "unarchive": "Restore",
+    "purge": "Delete permanently",
+    "purge_confirm": "Permanently delete \"{{worker}}\"? This cannot be undone.",
+    "archived_section_title": "Archived workers",
+    "sidebar": {
+      "active": "Active",
+      "archived": "Archived"
+    },
     "stats": {
       "working": "Working",
       "queued": "Queued",
@@ -1042,10 +1058,25 @@
       "deleteSuccess": "{{worker}} deleted.",
       "duplicateSuccess": "{{worker}} duplicated as \"{{clone}}\".",
       "duplicateError": "Failed to duplicate {{worker}}: {{message}}",
+      "archiveSuccess": "{{worker}} archived.",
+      "archiveError": "Failed to archive {{worker}}: {{message}}",
+      "unarchiveSuccess": "{{worker}} restored.",
+      "unarchiveError": "Failed to restore {{worker}}: {{message}}",
+      "purgeSuccess": "{{worker}} permanently deleted.",
+      "purgeError": "Failed to delete {{worker}}: {{message}}",
       "dismiss": "Dismiss"
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "Attach design",
+      "pendingCount": "{{n}} untaken",
+      "searchPlaceholder": "Search by title or designer…",
+      "empty": "No untaken designs",
+      "attachedHint": "The orchestrator adds the reference, summary and fetch recipe to the prompt.",
+      "remove": "Remove design",
+      "notePlaceholder": "PM guidance (optional): priorities, constraints…"
+    },
     "title": "Analyst Desk",
     "repoLabel": "Repository",
     "analystsLabel": "Analyst",
@@ -1248,6 +1279,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "Send to analyst",
+      "sentTo": "Sent to {{name}}",
+      "dialogTitle": "Send design to analyst",
+      "dialogTarget": "Target analyst",
+      "composeHint": "The orchestrator composes the final prompt: design reference, summary and fetch recipe. Your note is added as PM guidance.",
+      "noteLabel": "Guidance (optional)",
+      "notePlaceholder": "Priorities or constraints the system doesn't know…",
+      "confirm": "Queue task",
+      "noAnalysts": "No active analyst workers.",
+      "provenance": "design",
+      "provenanceIssue": "design #{{number}}"
+    },
     "title": "Kanban",
     "repoSelectorPlaceholder": "Select repository",
     "loadingRepos": "Loading repositories...",
