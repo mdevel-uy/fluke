@@ -1088,6 +1088,11 @@
       "errorLabel": "アップロードに失敗しました",
       "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
       "tooLarge": "ファイルサイズが上限を超えています。"
+    },
+    "labelsInput": {
+      "title": "Issue ラベル",
+      "placeholder": "例: design, bug",
+      "removeAria": "ラベル {{label}} を削除"
     }
   },
   "ciPipelines": {

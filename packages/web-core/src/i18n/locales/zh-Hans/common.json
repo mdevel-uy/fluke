@@ -1088,6 +1088,11 @@
       "errorLabel": "上传失败",
       "uploadError": "无法上传 '{{name}}'：{{message}}",
       "tooLarge": "文件超过允许的最大大小。"
+    },
+    "labelsInput": {
+      "title": "Issue 标签",
+      "placeholder": "例如：design, bug",
+      "removeAria": "移除标签 {{label}}"
     }
   },
   "ciPipelines": {

@@ -1089,6 +1089,11 @@
       "errorLabel": "Upload failed",
       "uploadError": "Couldn't upload '{{name}}': {{message}}",
       "tooLarge": "The file exceeds the maximum allowed size."
+    },
+    "labelsInput": {
+      "title": "Issue labels",
+      "placeholder": "e.g. design, bug",
+      "removeAria": "Remove label {{label}}"
     }
   },
   "ciPipelines": {
