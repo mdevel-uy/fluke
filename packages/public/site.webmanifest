@@ -1,15 +1,15 @@
 {
   "name": "mkanban",
-  "short_name": "VK",
+  "short_name": "mkanban",
   "icons": [
     {
-      "src": "/favicon-vk-light.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "purpose": "any",
       "type": "image/svg+xml"
     },
     {
-      "src": "/favicon-vk-light-maskable.svg",
+      "src": "/favicon-maskable.svg",
       "sizes": "any",
       "purpose": "maskable",
       "type": "image/svg+xml"
