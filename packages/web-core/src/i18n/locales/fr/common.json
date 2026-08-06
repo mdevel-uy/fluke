@@ -604,7 +604,10 @@
     "syncOk": "Synchronisé — aucune erreur de synchronisation",
     "syncErrorsTooltip": "{{count}} erreur de synchronisation",
     "syncErrorsTooltip_other": "{{count}} erreurs de synchronisation",
-    "branchTooltip": "Branche de base du projet actif : {{branch}}"
+    "branchTooltip": "Branche de base du projet actif : {{branch}}",
+    "issuesRefreshNew_one": "{{count}} nouveau ticket",
+    "issuesRefreshNew_other": "{{count}} nouveaux tickets",
+    "issuesRefreshNone": "Aucun nouveau ticket"
   },
   "adhocPanel": {
     "title": "Claude ad hoc",

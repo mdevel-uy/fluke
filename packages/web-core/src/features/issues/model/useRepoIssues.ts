@@ -1,10 +1,12 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { repoIssuesApi } from '@/shared/lib/api';
 import type { RepoIssue } from '@/features/issues/types';
+import { useIssuesRefreshFeedbackStore } from '@/shared/stores/useIssuesRefreshFeedbackStore';
 import { repoIssuesKeys } from './repoIssuesKeys';
 
 export function useRepoIssues(repoId: string | undefined) {
-  return useQuery({
+  const query = useQuery({
     queryKey: repoId ? repoIssuesKeys.byRepo(repoId) : repoIssuesKeys.all,
     queryFn: () => repoIssuesApi.list(repoId!),
     enabled: !!repoId,
@@ -14,6 +16,37 @@ export function useRepoIssues(repoId: string | undefined) {
     // mounts so navigating in never shows stale data.
     refetchOnMount: 'always',
   });
+
+  // Issue #427 · after every successful refresh (polling, focus refetch, or
+  // manual sync via setQueryData) publish a transient feedback message to the
+  // status bar with how many issue IDs are new vs. the previous snapshot. The
+  // initial load and repo switches seed the baseline without emitting so users
+  // don't get a message on first mount.
+  const previousIdsRef = useRef<Set<string> | null>(null);
+  const trackedRepoRef = useRef<string | undefined>(undefined);
+  const { data, isError, dataUpdatedAt } = query;
+
+  useEffect(() => {
+    if (trackedRepoRef.current !== repoId) {
+      trackedRepoRef.current = repoId;
+      previousIdsRef.current = null;
+    }
+    if (!data || isError) return;
+    const currentIds = new Set(data.map((i) => i.id));
+    const previousIds = previousIdsRef.current;
+    if (previousIds !== null) {
+      let newCount = 0;
+      for (const id of currentIds) {
+        if (!previousIds.has(id)) newCount += 1;
+      }
+      useIssuesRefreshFeedbackStore
+        .getState()
+        .setFeedback(newCount > 0 ? 'new' : 'none', newCount);
+    }
+    previousIdsRef.current = currentIds;
+  }, [repoId, data, isError, dataUpdatedAt]);
+
+  return query;
 }
 
 export function useSyncRepoIssues(repoId: string | undefined) {

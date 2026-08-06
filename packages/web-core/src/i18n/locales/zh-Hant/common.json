@@ -603,7 +603,9 @@
     "slotsQueuedTooltip": "已達到並發上限。{{count}} 個執行正在等待可用槽位。",
     "syncOk": "已同步 — 沒有同步錯誤",
     "syncErrorsTooltip": "{{count}} 個同步錯誤",
-    "branchTooltip": "目前專案的基礎分支：{{branch}}"
+    "branchTooltip": "目前專案的基礎分支：{{branch}}",
+    "issuesRefreshNew_other": "{{count}} 個新 issue",
+    "issuesRefreshNone": "沒有新 issue"
   },
   "adhocPanel": {
     "title": "臨時 Claude",

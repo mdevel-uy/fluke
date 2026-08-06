@@ -603,7 +603,9 @@
     "slotsQueuedTooltip": "동시 실행 한도에 도달했습니다. {{count}}개의 실행이 사용 가능한 슬롯을 기다리는 중입니다.",
     "syncOk": "동기화됨 — 동기화 오류 없음",
     "syncErrorsTooltip": "동기화 오류 {{count}}개",
-    "branchTooltip": "활성 프로젝트의 기본 브랜치: {{branch}}"
+    "branchTooltip": "활성 프로젝트의 기본 브랜치: {{branch}}",
+    "issuesRefreshNew_other": "새 이슈 {{count}}개",
+    "issuesRefreshNone": "새 이슈 없음"
   },
   "adhocPanel": {
     "title": "임시 Claude",

@@ -609,7 +609,10 @@
     "syncOk": "Synchronized — no sync errors",
     "syncErrorsTooltip": "{{count}} sync error",
     "syncErrorsTooltip_other": "{{count}} sync errors",
-    "branchTooltip": "Base branch of active project: {{branch}}"
+    "branchTooltip": "Base branch of active project: {{branch}}",
+    "issuesRefreshNew_one": "{{count}} new issue",
+    "issuesRefreshNew_other": "{{count}} new issues",
+    "issuesRefreshNone": "No new issues"
   },
   "adhocPanel": {
     "title": "Ad-hoc Claude",

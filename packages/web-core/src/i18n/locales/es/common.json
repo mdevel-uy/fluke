@@ -605,7 +605,10 @@
     "syncOk": "Sincronizado — sin errores de sincronización",
     "syncErrorsTooltip": "{{count}} error de sincronización",
     "syncErrorsTooltip_other": "{{count}} errores de sincronización",
-    "branchTooltip": "Rama base del proyecto activo: {{branch}}"
+    "branchTooltip": "Rama base del proyecto activo: {{branch}}",
+    "issuesRefreshNew_one": "{{count}} issue nuevo",
+    "issuesRefreshNew_other": "{{count}} issues nuevos",
+    "issuesRefreshNone": "Sin issues nuevos"
   },
   "adhocPanel": {
     "title": "Claude ad-hoc",

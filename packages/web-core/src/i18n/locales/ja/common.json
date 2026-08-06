@@ -603,7 +603,9 @@
     "slotsQueuedTooltip": "同時実行数の上限に達しました。{{count}} 件の実行が空きスロットを待機中です。",
     "syncOk": "同期済み — 同期エラーはありません",
     "syncErrorsTooltip": "同期エラー {{count}} 件",
-    "branchTooltip": "アクティブなプロジェクトのベースブランチ: {{branch}}"
+    "branchTooltip": "アクティブなプロジェクトのベースブランチ: {{branch}}",
+    "issuesRefreshNew_other": "{{count}} 件の新しいイシュー",
+    "issuesRefreshNone": "新しいイシューはありません"
   },
   "adhocPanel": {
     "title": "アドホック Claude",
