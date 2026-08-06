@@ -1043,6 +1043,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "Adjuntar diseño",
+      "pendingCount": "{{n}} sin tomar",
+      "searchPlaceholder": "Buscar por título o diseñador…",
+      "empty": "No hay diseños sin tomar",
+      "attachedHint": "El orquestador agrega la referencia, el resumen y la receta de fetch al prompt.",
+      "remove": "Quitar diseño",
+      "notePlaceholder": "Indicaciones del PM (opcional): prioridades, restricciones…"
+    },
     "title": "Mesa de analistas",
     "repoLabel": "Repositorio",
     "analystsLabel": "Analista",
@@ -1245,6 +1254,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "Enviar a analista",
+      "sentTo": "Enviado a {{name}}",
+      "dialogTitle": "Enviar diseño a analista",
+      "dialogTarget": "Analista destino",
+      "composeHint": "El orquestador compone el prompt final: referencia del diseño, resumen y receta de fetch. Tu nota se agrega como indicaciones del PM.",
+      "noteLabel": "Indicaciones (opcional)",
+      "notePlaceholder": "Prioridades o restricciones que el sistema no conoce…",
+      "confirm": "Encolar tarea",
+      "noAnalysts": "No hay analistas activos.",
+      "provenance": "diseño",
+      "provenanceIssue": "diseño #{{number}}"
+    },
     "title": "Kanban",
     "repoSelectorPlaceholder": "Seleccionar repositorio",
     "loadingRepos": "Cargando repositorios...",

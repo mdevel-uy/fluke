@@ -88,6 +88,56 @@ pub fn format_review_pr_prompt(pr_number: i64) -> String {
     )
 }
 
+/// Composed by the design-handoff endpoint when a designer's deliverable is
+/// handed to an analyst. The contract is reference + fetch recipe — the
+/// design content is NEVER embedded (prompts freeze at enqueue time and can
+/// wait in queue; the agent fetches fresh content when it starts).
+pub fn format_design_handoff_prompt(
+    origin_title: &str,
+    issue_number: Option<i64>,
+    deliverable_ref: Option<&str>,
+    summary: Option<&str>,
+    note: Option<&str>,
+) -> String {
+    let mut prompt = match issue_number {
+        Some(n) => format!(
+            "Un designer produjo un diseño para el pedido #{n}: {origin_title}."
+        ),
+        None => format!("Un designer produjo un diseño para: {origin_title}."),
+    };
+
+    if let Some(summary) = summary.map(str::trim).filter(|s| !s.is_empty()) {
+        prompt.push_str(&format!("\n\nResumen del designer:\n«{summary}»"));
+    }
+
+    if let Some(ref_name) = deliverable_ref {
+        prompt.push_str(&format!(
+            "\n\nEl diseño está en la ref remota `{ref_name}`:\n\
+             1. Traelo con `git fetch origin {ref_name}`.\n\
+             2. Mirá qué contiene con `git diff --stat $(git merge-base HEAD FETCH_HEAD) FETCH_HEAD` \
+             y revisá los archivos que agregó (los diseños suelen vivir en `design/`); \
+             traé lo que necesites a tu worktree con `git checkout FETCH_HEAD -- <ruta>`."
+        ));
+    }
+
+    prompt.push_str(
+        "\n\nConvertí el diseño en issues de GitHub implementables y bien \
+         delimitados, siguiendo tu criterio habitual de tickets asignables.",
+    );
+    if let Some(ref_name) = deliverable_ref {
+        prompt.push_str(&format!(
+            " Cada issue debe referenciar la ref `{ref_name}` y la parte del \
+             diseño que cubre."
+        ));
+    }
+
+    if let Some(note) = note.map(str::trim).filter(|s| !s.is_empty()) {
+        prompt.push_str(&format!("\n\nIndicaciones del PM:\n{note}"));
+    }
+
+    prompt
+}
+
 /// Substitute `{target_branch}` into [`RESOLVE_MERGE_CONFLICTS_PROMPT`].
 pub fn format_resolve_merge_conflicts_prompt(target_branch: &str) -> String {
     RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", target_branch)

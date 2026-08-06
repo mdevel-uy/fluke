@@ -1042,6 +1042,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "附加設計",
+      "pendingCount": "{{n}} 個未認領",
+      "searchPlaceholder": "依標題或設計師搜尋…",
+      "empty": "沒有未認領的設計",
+      "attachedHint": "編排器會把引用、摘要與 fetch 步驟加入提示詞。",
+      "remove": "移除設計",
+      "notePlaceholder": "PM 指示(選填):優先順序、限制…"
+    },
     "title": "分析師工作台",
     "repoLabel": "儲存庫",
     "analystsLabel": "分析師",
@@ -1242,6 +1251,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "傳送給分析師",
+      "sentTo": "已傳送給 {{name}}",
+      "dialogTitle": "將設計傳送給分析師",
+      "dialogTarget": "目標分析師",
+      "composeHint": "編排器負責組合最終提示詞:設計引用、摘要與 fetch 步驟。你的備註將作為 PM 指示附加。",
+      "noteLabel": "指示(選填)",
+      "notePlaceholder": "系統不知道的優先順序或限制…",
+      "confirm": "加入佇列",
+      "noAnalysts": "沒有活躍的分析師。",
+      "provenance": "設計",
+      "provenanceIssue": "設計 #{{number}}"
+    },
     "title": "看板",
     "repoSelectorPlaceholder": "選擇儲存庫",
     "loadingRepos": "正在載入儲存庫...",

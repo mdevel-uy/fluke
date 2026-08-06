@@ -1042,6 +1042,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "디자인 첨부",
+      "pendingCount": "미할당 {{n}}건",
+      "searchPlaceholder": "제목 또는 디자이너로 검색…",
+      "empty": "미할당 디자인이 없습니다",
+      "attachedHint": "오케스트레이터가 참조, 요약, fetch 방법을 프롬프트에 추가합니다.",
+      "remove": "디자인 제거",
+      "notePlaceholder": "PM 지침 (선택): 우선순위, 제약…"
+    },
     "title": "분석가 데스크",
     "repoLabel": "저장소",
     "analystsLabel": "분석가",
@@ -1242,6 +1251,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "분석가에게 보내기",
+      "sentTo": "{{name}}에게 전송됨",
+      "dialogTitle": "디자인을 분석가에게 보내기",
+      "dialogTarget": "대상 분석가",
+      "composeHint": "오케스트레이터가 최종 프롬프트를 구성합니다: 디자인 참조, 요약, fetch 방법. 메모는 PM 지침으로 추가됩니다.",
+      "noteLabel": "지침 (선택)",
+      "notePlaceholder": "시스템이 모르는 우선순위나 제약…",
+      "confirm": "작업 큐에 추가",
+      "noAnalysts": "활성 분석가가 없습니다.",
+      "provenance": "디자인",
+      "provenanceIssue": "디자인 #{{number}}"
+    },
     "title": "칸반",
     "repoSelectorPlaceholder": "저장소 선택",
     "loadingRepos": "저장소를 불러오는 중...",

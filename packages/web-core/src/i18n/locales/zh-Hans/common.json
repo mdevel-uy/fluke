@@ -1042,6 +1042,15 @@
     }
   },
   "analystDesk": {
+    "designs": {
+      "trigger": "附加设计",
+      "pendingCount": "{{n}} 个未认领",
+      "searchPlaceholder": "按标题或设计师搜索…",
+      "empty": "没有未认领的设计",
+      "attachedHint": "编排器会把引用、摘要和 fetch 步骤加入提示词。",
+      "remove": "移除设计",
+      "notePlaceholder": "PM 指示(可选):优先级、约束…"
+    },
     "title": "分析师工作台",
     "repoLabel": "仓库",
     "analystsLabel": "分析师",
@@ -1242,6 +1251,19 @@
     }
   },
   "sprint": {
+    "designHandoff": {
+      "sendToAnalyst": "发送给分析师",
+      "sentTo": "已发送给 {{name}}",
+      "dialogTitle": "将设计发送给分析师",
+      "dialogTarget": "目标分析师",
+      "composeHint": "编排器负责组合最终提示词:设计引用、摘要和 fetch 步骤。你的备注将作为 PM 指示附加。",
+      "noteLabel": "指示(可选)",
+      "notePlaceholder": "系统不知道的优先级或约束…",
+      "confirm": "加入队列",
+      "noAnalysts": "没有活跃的分析师。",
+      "provenance": "设计",
+      "provenanceIssue": "设计 #{{number}}"
+    },
     "title": "看板",
     "repoSelectorPlaceholder": "选择仓库",
     "loadingRepos": "正在加载仓库...",

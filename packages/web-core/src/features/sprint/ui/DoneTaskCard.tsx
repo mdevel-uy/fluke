@@ -2,19 +2,34 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { Button } from '@vibe/ui/components/Button';
-import type { WorkerTask } from '@/features/sprint/types';
+import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 import { SkillChips } from './SkillChips';
+import { DesignHandoffDialog } from './DesignHandoffDialog';
 
 interface DoneTaskCardProps {
   task: WorkerTask;
+  /** Owning worker; unlocks the designer handoff block when role=designer. */
+  worker?: Worker;
   isBusy: boolean;
   onRemove: () => void;
 }
 
-export function DoneTaskCard({ task, isBusy, onRemove }: DoneTaskCardProps) {
+export function DoneTaskCard({
+  task,
+  worker,
+  isBusy,
+  onRemove,
+}: DoneTaskCardProps) {
   const { t } = useTranslation('common');
   const [isConfirming, setIsConfirming] = useState(false);
+
+  // A designer deliverable exists when the orchestrator persisted a summary
+  // or a pushed ref for this task; only then does the handoff block render.
+  const hasDeliverable =
+    worker?.role === 'designer' &&
+    (task.deliverable_ref != null || task.result_summary != null);
+  const handoff = task.handoff ?? null;
 
   const handleRemoveClick = () => {
     setIsConfirming(true);
@@ -62,6 +77,46 @@ export function DoneTaskCard({ task, isBusy, onRemove }: DoneTaskCardProps) {
         )}
       </div>
       <SkillChips skills={task.skills ?? []} />
+      {hasDeliverable && (
+        <div className="flex flex-col gap-2">
+          {task.deliverable_ref && (
+            <span
+              className="inline-flex items-center gap-1.5 self-start rounded-md border border-md-outline-variant bg-md-surface-container-low px-2 py-1 font-mono text-[11px] text-pink"
+              title={task.deliverable_ref}
+            >
+              <span aria-hidden>◈</span>
+              <span className="truncate max-w-[13rem]">
+                {task.deliverable_ref}
+              </span>
+            </span>
+          )}
+          {task.result_summary && (
+            <p className="line-clamp-3 border-l-2 border-md-outline-variant pl-2 text-xs leading-relaxed text-low">
+              {task.result_summary}
+            </p>
+          )}
+          {handoff ? (
+            <p className="flex items-center gap-1.5 text-xs text-low">
+              <span className="text-success" aria-hidden>
+                ✓
+              </span>
+              {t('sprint.designHandoff.sentTo', {
+                name: handoff.worker_name,
+              })}
+            </p>
+          ) : (
+            <Button
+              variant="primary"
+              size="xs"
+              className="self-start"
+              disabled={isBusy}
+              onClick={() => void DesignHandoffDialog.show({ task })}
+            >
+              {t('sprint.designHandoff.sendToAnalyst')}
+            </Button>
+          )}
+        </div>
+      )}
       {isConfirming && (
         <div className="flex flex-col gap-2 rounded-md border border-md-error/30 bg-md-error/5 px-3 py-2">
           <p className="text-body-sm text-md-on-surface">
