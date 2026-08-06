@@ -947,6 +947,15 @@
     "emptyTitle": "Aucun worker pour l'instant",
     "emptyDescription": "Créez un worker pour commencer à lui assigner des tâches.",
     "confirmDelete": "Supprimer le worker « {{worker}} » ? Cette action est irréversible.",
+    "archive": "Archiver",
+    "unarchive": "Restaurer",
+    "purge": "Supprimer définitivement",
+    "purge_confirm": "Supprimer définitivement « {{worker}} » ? Cette action est irréversible.",
+    "archived_section_title": "Workers archivés",
+    "sidebar": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
     "stats": {
       "working": "En cours",
       "queued": "En file d'attente",
@@ -1038,6 +1047,12 @@
       "deleteSuccess": "{{worker}} supprimé.",
       "duplicateSuccess": "{{worker}} dupliqué en « {{clone}} ».",
       "duplicateError": "Échec de la duplication de {{worker}} : {{message}}",
+      "archiveSuccess": "{{worker}} archivé.",
+      "archiveError": "Échec de l'archivage de {{worker}} : {{message}}",
+      "unarchiveSuccess": "{{worker}} restauré.",
+      "unarchiveError": "Échec de la restauration de {{worker}} : {{message}}",
+      "purgeSuccess": "{{worker}} supprimé définitivement.",
+      "purgeError": "Échec de la suppression de {{worker}} : {{message}}",
       "dismiss": "Fermer"
     }
   },
