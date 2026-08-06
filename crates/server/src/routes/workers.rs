@@ -505,6 +505,7 @@ pub async fn create_design_handoff(
             prompt,
             issue_number: source_task.issue_number,
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source,
         },
         source_task.id,
