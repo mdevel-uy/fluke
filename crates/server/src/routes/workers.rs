@@ -932,6 +932,7 @@ fn start_error_reason(err: &StartError) -> String {
         StartError::NothingQueued => "nothing_queued".to_string(),
         StartError::AlreadyInProgress => "already_in_progress".to_string(),
         StartError::InReviewCapReached(_) => "in_review_cap_reached".to_string(),
+        StartError::LicenseSuspended => "license_suspended".to_string(),
         _ => "error".to_string(),
     }
 }
@@ -1033,6 +1034,11 @@ fn map_start_error(err: StartError) -> ApiError {
                 "Concurrent-agents limit reached ({cap}). Task remains queued."
             ))
         }
+        StartError::LicenseSuspended => ApiError::Conflict(
+            "La licencia está suspendida; no se arrancan agentes nuevos. \
+             Los datos y el historial siguen disponibles. Contactá a mkanban."
+                .into(),
+        ),
         StartError::Sqlx(e) => e.into(),
         StartError::Container(e) => e.into(),
         StartError::Workspace(e) => ApiError::Conflict(e.to_string()),

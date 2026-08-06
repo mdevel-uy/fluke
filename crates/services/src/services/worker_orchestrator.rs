@@ -112,6 +112,8 @@ pub enum StartError {
     AlreadyInProgress,
     #[error("worker has reached the in-review cap ({0})")]
     InReviewCapReached(i64),
+    #[error("licencia suspendida: no se arrancan agentes nuevos")]
+    LicenseSuspended,
     #[error("repo not found")]
     RepoNotFound,
     #[error("repo '{0}' has no default_target_branch configured")]
@@ -137,6 +139,7 @@ impl StartError {
             StartError::NothingQueued
                 | StartError::AlreadyInProgress
                 | StartError::InReviewCapReached(_)
+                | StartError::LicenseSuspended
         )
     }
 }
@@ -350,6 +353,17 @@ pub async fn try_take_next(
     // the capacity guard, so a previous failed start does not block the
     // worker forever (see issue #32).
     reconcile_worker_workspaces(db, worker_id).await?;
+
+    // Gate de licenciamiento: una licencia suspendida no arranca agentes nuevos.
+    // Las tareas en curso NO se tocan (se dejan terminar), y el acceso a datos,
+    // tablero e historial sigue intacto — esto solo bloquea el spawn. Con
+    // licenciamiento desactivado (sin clave embebida, flota actual) el estado es
+    // siempre Valid y este check no hace nada.
+    if crate::services::licensing::global().evaluation_for_gate().status
+        == licensing::LicenseStatus::Suspended
+    {
+        return Err(StartError::LicenseSuspended);
+    }
 
     if WorkerTask::find_in_progress(pool, worker_id)
         .await?
