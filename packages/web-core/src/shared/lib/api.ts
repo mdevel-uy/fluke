@@ -2617,6 +2617,24 @@ export const planLimitsApi = {
   },
 };
 
+// License status — drives the licensing banner. Mirrors `LicenseStatusResponse`
+// in `crates/server/src/routes/metrics.rs`. `enforced` is false on builds with
+// no embedded public key (dev, current fleet); there the status is always
+// "valid" and the banner never shows.
+export interface LicenseStatusResponse {
+  status: 'valid' | 'grace' | 'suspended';
+  days_remaining: number | null;
+  reason: string | null;
+  enforced: boolean;
+}
+
+export const licenseApi = {
+  get: async (): Promise<LicenseStatusResponse> => {
+    const response = await makeRequest('/api/license');
+    return handleApiResponse<LicenseStatusResponse>(response);
+  },
+};
+
 // Skills API — manages ~/.claude/skills on the container
 export interface SkillInfo {
   name: string;
