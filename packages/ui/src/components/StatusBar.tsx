@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { cn } from '../lib/cn';
 
 /**
@@ -33,34 +39,47 @@ export interface StatusBarItemProps
   readOnly?: boolean;
 }
 
-export function StatusBarItem({
-  variant = 'default',
-  readOnly = false,
-  className,
-  children,
-  ...props
-}: StatusBarItemProps) {
-  const classes = cn(
-    'flex items-center gap-1 px-2 whitespace-nowrap text-xs',
-    variant === 'default' && !readOnly && 'hover:bg-secondary',
-    variant === 'brand' &&
-      'bg-brand text-on-brand font-semibold hover:bg-brand-hover',
-    variant === 'error' && cn('text-error', !readOnly && 'hover:bg-secondary'),
-    variant === 'warning' &&
-      cn('text-warning', !readOnly && 'hover:bg-secondary'),
-    readOnly && 'cursor-default',
-    className
-  );
+export const StatusBarItem = forwardRef<HTMLElement, StatusBarItemProps>(
+  function StatusBarItem(
+    { variant = 'default', readOnly = false, className, children, ...props },
+    ref
+  ) {
+    const classes = cn(
+      'flex items-center gap-1 px-2 whitespace-nowrap text-xs',
+      variant === 'default' && !readOnly && 'hover:bg-secondary',
+      variant === 'brand' &&
+        'bg-brand text-on-brand font-semibold hover:bg-brand-hover',
+      variant === 'error' &&
+        cn('text-error', !readOnly && 'hover:bg-secondary'),
+      variant === 'warning' &&
+        cn('text-warning', !readOnly && 'hover:bg-secondary'),
+      readOnly && 'cursor-default',
+      className
+    );
 
-  if (readOnly) {
-    return <span className={classes}>{children}</span>;
+    if (readOnly) {
+      return (
+        <span
+          ref={ref as Ref<HTMLSpanElement>}
+          className={classes}
+          {...(props as HTMLAttributes<HTMLSpanElement>)}
+        >
+          {children}
+        </span>
+      );
+    }
+    return (
+      <button
+        ref={ref as Ref<HTMLButtonElement>}
+        type="button"
+        className={classes}
+        {...props}
+      >
+        {children}
+      </button>
+    );
   }
-  return (
-    <button type="button" className={classes} {...props}>
-      {children}
-    </button>
-  );
-}
+);
 
 export function StatusBarSpacer() {
   return <span className="flex-1" aria-hidden="true" />;
