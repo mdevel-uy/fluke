@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 licensing = { path = "../licensing" }
+license-keystore = { path = "../license-keystore" }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
@@ -20,7 +21,5 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
-aes-gcm = "0.10"
-scrypt = { version = "0.11", default-features = false }
 rpassword = "7"
 anyhow = { workspace = true }

@@ -105,4 +105,4 @@ jobs:
           cache-on-failure: 'true'
 
       - name: cargo test (crates propios)
-        run: cargo test --locked -p licensing -p mkanban-license -p heartbeat-protocol
+        run: cargo test --locked -p licensing -p mkanban-license -p heartbeat-protocol -p control-plane
