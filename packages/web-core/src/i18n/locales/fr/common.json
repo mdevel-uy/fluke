@@ -600,7 +600,11 @@
     "slots": "{{used}}/{{limit}} slots",
     "slotsTooltip": "Slots d'agent utilisés — défini par AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} en attente",
-    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre."
+    "slotsQueuedTooltip": "Limite de concurrence atteinte. {{count}} exécution(s) en attente d'un slot libre.",
+    "syncOk": "Synchronisé — aucune erreur de synchronisation",
+    "syncErrorsTooltip": "{{count}} erreur de synchronisation",
+    "syncErrorsTooltip_other": "{{count}} erreurs de synchronisation",
+    "branchTooltip": "Branche de base du projet actif : {{branch}}"
   },
   "adhocPanel": {
     "title": "Claude ad hoc",

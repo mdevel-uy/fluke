@@ -600,7 +600,10 @@
     "slots": "{{used}}/{{limit}} 槽位",
     "slotsTooltip": "正在使用的代理槽位 — 由 AGENT_CONCURRENCY_LIMIT / config 设置。",
     "slotsQueued": "{{count}} 个排队中",
-    "slotsQueuedTooltip": "已达到并发上限。{{count}} 个执行正在等待可用槽位。"
+    "slotsQueuedTooltip": "已达到并发上限。{{count}} 个执行正在等待可用槽位。",
+    "syncOk": "已同步 — 无同步错误",
+    "syncErrorsTooltip": "{{count}} 个同步错误",
+    "branchTooltip": "当前项目的基础分支：{{branch}}"
   },
   "adhocPanel": {
     "title": "临时 Claude",

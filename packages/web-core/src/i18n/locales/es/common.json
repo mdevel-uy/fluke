@@ -601,7 +601,11 @@
     "slots": "{{used}}/{{limit}} slots",
     "slotsTooltip": "Slots de agente en uso — configurado por AGENT_CONCURRENCY_LIMIT / config.",
     "slotsQueued": "{{count}} en cola",
-    "slotsQueuedTooltip": "Límite de concurrencia alcanzado. {{count}} ejecución(es) esperando un slot libre."
+    "slotsQueuedTooltip": "Límite de concurrencia alcanzado. {{count}} ejecución(es) esperando un slot libre.",
+    "syncOk": "Sincronizado — sin errores de sincronización",
+    "syncErrorsTooltip": "{{count}} error de sincronización",
+    "syncErrorsTooltip_other": "{{count}} errores de sincronización",
+    "branchTooltip": "Rama base del proyecto activo: {{branch}}"
   },
   "adhocPanel": {
     "title": "Claude ad-hoc",
