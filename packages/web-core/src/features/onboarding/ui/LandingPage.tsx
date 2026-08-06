@@ -177,8 +177,8 @@ export function LandingPage() {
 
   const logoSrc =
     resolveTheme(theme) === 'dark'
-      ? '/vibe-kanban-logo-dark.svg'
-      : '/vibe-kanban-logo.svg';
+      ? '/mkanban-logo-dark.svg'
+      : '/mkanban-logo.svg';
 
   useEffect(() => {
     if (!config || initialized) return;

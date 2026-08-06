@@ -10,10 +10,10 @@ export function BrandLogo({
   return (
     <picture>
       <source
-        srcSet="/vibe-kanban-logo-dark.svg"
+        srcSet="/mkanban-logo-dark.svg"
         media="(prefers-color-scheme: dark)"
       />
-      <img src="/vibe-kanban-logo.svg" alt={alt} className={className} />
+      <img src="/mkanban-logo.svg" alt={alt} className={className} />
     </picture>
   );
 }
