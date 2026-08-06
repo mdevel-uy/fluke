@@ -88,6 +88,15 @@ function resolveScopedPath(
   return scopeLocalApiPath(pathOrUrl, getCurrentHostId());
 }
 
+/**
+ * Resolve an API path against the current host scope, for URLs the browser
+ * navigates to directly (window.open, <a href>) and therefore bypass
+ * makeLocalApiRequest — e.g. rendered worktree previews.
+ */
+export function resolveLocalApiHref(path: string): string {
+  return scopeLocalApiPath(path, getCurrentHostId());
+}
+
 const defaultTransport: LocalApiTransport = {
   request: (pathOrUrl, init = {}) => {
     const {

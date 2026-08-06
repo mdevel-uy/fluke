@@ -4,6 +4,7 @@ import {
   CaretDownIcon,
   CopyIcon,
   GithubLogoIcon,
+  GlobeIcon,
   PlusIcon,
 } from '@phosphor-icons/react';
 import {
@@ -42,6 +43,7 @@ import {
 import { DiffSide } from '@/shared/types/diff';
 import { isRealMobileDevice } from '@/shared/hooks/useIsMobile';
 import { useGithubDevUrl } from '@/shared/hooks/useGithubDevUrl';
+import { resolveLocalApiHref } from '@/shared/lib/localApiTransport';
 import { OpenInIdeButton } from '@/shared/components/OpenInIdeButton';
 import { CopyButton } from '@/shared/components/CopyButton';
 import { writeClipboardViaBridge } from '@/shared/lib/clipboard';
@@ -323,7 +325,7 @@ interface DiffFileItemProps {
 const DiffFileItem = memo(function DiffFileItem({
   diff,
   initialExpanded,
-  workspaceId: _workspaceId,
+  workspaceId,
   githubDevUrl,
   isBranchPushed,
 }: DiffFileItemProps) {
@@ -435,6 +437,22 @@ const DiffFileItem = memo(function DiffFileItem({
     }
   }, [githubDevUrl]);
 
+  // HTML deliverables (e.g. a designer worker's mockup) can be opened
+  // rendered in a new tab, served straight from the workspace worktree.
+  const isPreviewableHtml =
+    diff.change !== 'deleted' && /\.html?$/i.test(filePath);
+
+  const handleOpenHtmlPreview = useCallback(() => {
+    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+    window.open(
+      resolveLocalApiHref(
+        `/api/workspaces/${workspaceId}/preview/${encodedPath}`
+      ),
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }, [workspaceId, filePath]);
+
   const githubCommentCount = githubCommentsForFile.length;
 
   const additions = diff.additions ?? 0;
@@ -466,6 +484,17 @@ const DiffFileItem = memo(function DiffFileItem({
             {githubCommentCount}
           </span>
         )}
+        {isPreviewableHtml && (
+          <button
+            type="button"
+            onClick={handleOpenHtmlPreview}
+            title={t('htmlPreview.open')}
+            aria-label={t('htmlPreview.open')}
+            className="flex items-center justify-center text-low hover:text-normal cursor-pointer"
+          >
+            <GlobeIcon className="size-icon-xs" />
+          </button>
+        )}
         {!IS_MOBILE && (
           <OpenInIdeButton
             onClick={handleOpenInIde}
@@ -482,6 +511,9 @@ const DiffFileItem = memo(function DiffFileItem({
     [
       handleCopyFilePath,
       handleOpenInIde,
+      isPreviewableHtml,
+      handleOpenHtmlPreview,
+      t,
       expanded,
       handleToggle,
       githubCommentCount,

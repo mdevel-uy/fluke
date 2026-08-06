@@ -6,6 +6,9 @@
     "openInVSCodeWeb": "Open in VS Code web (github.dev)",
     "branchNotPushed": "Branch not on GitHub yet"
   },
+  "htmlPreview": {
+    "open": "Open rendered preview"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
