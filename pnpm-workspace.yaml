@@ -8,3 +8,76 @@ onlyBuiltDependencies:
 
 patchedDependencies:
   '@pierre/diffs@1.1.4': patches/@pierre__diffs@1.1.4.patch
+
+# Security overrides for transitive dependencies.
+# Rationale and triage table live in docs/security/dependency-triage.md.
+#
+# Every range MUST have an upper bound so a future `pnpm install` cannot
+# silently escalate to a new major and break `--frozen-lockfile` in CI
+# (e.g. a major that raises the required Node engine, drops APIs, etc.).
+# When bumping a bound intentionally, verify the target major is compatible
+# with the engines pinned in `package.json` and the CI Node version.
+overrides:
+  # === CRITICAL (npm) ===
+  # GHSA-mv8w-475r-vwqw — seroval.fromJSON() type confusion.
+  # Transitive via @tanstack/router-core; ships to frontend bundle.
+  seroval: '>=1.5.3 <2'
+  # GHSA-w7jw-789q-3m8p / GHSA-395f-4hp3-45gv — shell-quote missing newline escape.
+  # Transitive via `concurrently` (dev-only script runner). Bumped anyway to
+  # clear the Dependabot alert.
+  shell-quote: '>=1.9.0 <2'
+
+  # === HIGH — ships to frontend bundle ===
+  # GHSA-36hm-qxxp-pg3m — preact JSON VNode injection (via posthog-js).
+  preact: '>=10.27.3 <11'
+  # GHSA-g2pg-6438-jwpf / GHSA-vw5p-8cq8-m7mv / GHSA-mwv9-gp5h-frr4 — devalue DoS + prototype pollution (via @tanstack/react-form).
+  devalue: '>=5.6.4 <6'
+  # GHSA-4c8g-83qw-93j6 / GHSA-v39h-62p7-jpjc / GHSA-q3j6-qgpj-74h6 / GHSA-v2hh-gcrm-f6hx — fast-uri host confusion / path traversal (via @rjsf/utils).
+  fast-uri: '>=3.1.5 <5'
+  # GHSA-r5fr-rjxr-66jc / GHSA-f23m-r3pf-42rh — lodash prototype pollution / code injection.
+  lodash: '>=4.18.0 <5'
+  lodash-es: '>=4.18.0 <5'
+
+  # === MODERATE — ships to frontend bundle ===
+  # GHSA-cmwh-pvxp-8882 + others — dompurify XSS bypasses (transitive via mermaid).
+  dompurify: '>=3.4.12 <4'
+  # GHSA-87f9-hvmw-gh4p / GHSA-6m6c-36f7-fhxh / GHSA-ghcm-xqfw-q4vr / GHSA-xcj9-5m2h-648r — mermaid CSS injection etc.
+  mermaid: '>=11.15.0 <12'
+  # GHSA-w5hq-g745-h8pq — uuid missing buffer bounds check on v3/v5/v6.
+  # We only use uuid.v4() (transitively; no direct import in our packages),
+  # so upper bound at <14 to avoid silently pulling a new major that could
+  # drop Node 20 support or rename APIs used by our transitive consumers.
+  uuid: '>=13.0.1 <14'
+  # GHSA-h67p-54hq-rp68 / GHSA-mh29-5h37-fv8m / GHSA-52cp-r559-cp3m — js-yaml.
+  js-yaml: '>=4.2.0 <6'
+  # GHSA-2g4f-4pwh-qvx6 — ajv schema pollution.
+  ajv: '>=8.18.0 <9'
+  # GHSA-rf6f-7fwh-wjgh / GHSA-25h7-pfq9-p65f — flatted.
+  flatted: '>=3.4.2 <4'
+  # GHSA-48c2-rrv3-qjmp — yaml stack overflow.
+  yaml: '>=2.8.3 <3'
+  # GHSA-73rr-hh4g-fpgx — jsdiff DoS in parsePatch.
+  diff: '>=8.0.3 <9'
+
+  # === Build/dev tooling — no client exposure, bumped to close alerts ===
+  # PostCSS: multiple info-disclosure / path-traversal advisories.
+  postcss: '>=8.5.23 <9'
+  # brace-expansion / minimatch / glob / picomatch — build-time globbing.
+  minimatch: '>=10.2.3 <11'
+  glob: '>=11.1.0 <14'
+  picomatch: '>=4.0.4 <5'
+  # Vite / rollup / esbuild — bundler internals only shipped as build output.
+  # GHSA-mw96-cpmx-2vgc + rollup 4.x path traversal.
+  rollup: '>=4.59.0 <5'
+  # GHSA-g7r4-m6w7-qqqr esbuild dev-server info leak. esbuild is still 0.x,
+  # so bound at <1 to allow patch/minor bumps but block the eventual 1.0.
+  esbuild: '>=0.28.1 <1'
+  # Vite dev-server file-read / fs.deny bypass advisories.
+  vite: '>=7.3.5 <9'
+  # adm-zip — used by npx-cli (shipped) and dev tooling. Still 0.x.
+  adm-zip: '>=0.6.0 <1'
+  # GHSA-4x5r-pxfx-6jf8 — @babel/core sourceMappingURL arbitrary file read.
+  # Dev-only (used by @tanstack/router-plugin); bumped to close the alert.
+  # Upper bound at <8: @babel/core 8.x requires Node >=22.18 || >=24.11
+  # and this repo's CI + package.json engines still pin Node 20.
+  '@babel/core': '>=7.29.6 <8'
