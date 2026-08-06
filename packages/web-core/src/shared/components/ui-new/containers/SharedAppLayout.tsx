@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import {
   Group,
@@ -77,7 +84,13 @@ const SHELL_RAIL_SHADOW_CLASS =
   'pointer-events-none absolute inset-y-0 left-0 z-30 w-1.5 ' +
   'bg-[linear-gradient(to_right,rgba(0,0,0,0.05),rgba(0,0,0,0.02)_45%,transparent)]';
 
-export function SharedAppLayout() {
+/**
+ * Optional full-width banner rendered as the first row above the navbar.
+ * Opt-in: callers that pass nothing keep the original 3-row layout. Used by the
+ * on-prem app for the licensing banner; when null the grid template is unchanged.
+ */
+export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
+  const hasBanner = topBanner != null;
   const appNavigation = useAppNavigation();
   const currentDestination = useCurrentAppDestination();
   const { t } = useTranslation('common');
@@ -384,11 +397,15 @@ export function SharedAppLayout() {
             'bg-primary',
             isMobile
               ? 'flex fixed inset-0 pb-[env(safe-area-inset-bottom)]'
-              : 'grid grid-rows-[auto_1fr_auto] h-screen'
+              : hasBanner
+                ? 'grid grid-rows-[auto_auto_1fr_auto] h-screen'
+                : 'grid grid-rows-[auto_1fr_auto] h-screen'
           )}
         >
           {!isMobile && (
             <>
+              {/* Optional banner as the first row above the navbar (desktop). */}
+              {topBanner}
               {/* Desktop navbar — full-width top row (macOS traffic lights get left clearance). */}
               <NavbarContainer
                 className={isTauriMac() ? 'pl-[64px]' : undefined}

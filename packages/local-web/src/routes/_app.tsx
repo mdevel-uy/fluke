@@ -21,6 +21,8 @@ import { ActionsProvider } from '@/shared/providers/ActionsProvider';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { SharedAppLayout } from '@/shared/components/ui-new/containers/SharedAppLayout';
+import { LicenseBanner } from '@/shared/components/LicenseBanner';
+import { useLicenseStatus } from '@/shared/hooks/useLicenseStatus';
 
 function KeyboardShortcutsHandler() {
   useKeyShowHelp(
@@ -103,6 +105,14 @@ function AppRouteProviders({ children }: { children: ReactNode }) {
 
 function AppLayoutRouteComponent() {
   const { hostId } = useParams({ strict: false });
+  const { data: license } = useLicenseStatus();
+
+  // Only reserve the banner row when there is actually something to show, so
+  // the common (valid / not enforced) case keeps the original layout.
+  const banner =
+    license && license.enforced && license.status !== 'valid' ? (
+      <LicenseBanner license={license} />
+    ) : undefined;
 
   return (
     <AppRouteProviders key={hostId ?? 'local'}>
@@ -111,7 +121,7 @@ function AppLayoutRouteComponent() {
         <SequenceIndicator />
         <KeyboardShortcutsHandler />
         <TerminalProvider>
-          <SharedAppLayout />
+          <SharedAppLayout topBanner={banner} />
         </TerminalProvider>
       </SequenceTrackerProvider>
     </AppRouteProviders>
