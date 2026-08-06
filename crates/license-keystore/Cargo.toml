@@ -4,7 +4,7 @@ version = "1.0.0"
 edition = "2024"
 
 # Cifrado en reposo de la clave PRIVADA de firma (scrypt + AES-256-GCM).
-# Compartido por `mkanban-license` (emisión manual) y `control-plane`
+# Compartido por `mkanban-license` (emisión manual) y el control plane
 # (renovación online). NO lo usa el crate `licensing`, que va embebido en el
 # cliente y solo verifica — el cliente no debe cargar cripto de cifrado.
 
