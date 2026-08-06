@@ -51,6 +51,9 @@ pub struct WorkerTask {
     pub workspace_id: Option<Uuid>,
     /// JSON-encoded array of skill names selected for this task.
     pub skills: String,
+    /// JSON-encoded array of GitHub label names the analyst should apply to
+    /// every issue created as part of this task.
+    pub issue_labels: String,
     /// Origin of the task: `kanban` or `desk`.
     pub source: String,
     pub created_at: DateTime<Utc>,
@@ -74,6 +77,7 @@ pub struct CreateWorkerTask {
     pub prompt: String,
     pub issue_number: Option<i64>,
     pub skills: Vec<String>,
+    pub issue_labels: Vec<String>,
     pub source: String,
 }
 
@@ -84,7 +88,7 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -99,7 +103,7 @@ impl WorkerTask {
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -127,12 +131,14 @@ impl WorkerTask {
         .await?;
 
         let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+        let issue_labels_json =
+            serde_json::to_string(&data.issue_labels).unwrap_or_else(|_| "[]".to_string());
 
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status, skills, source)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9)",
+                  issue_number, status, skills, issue_labels, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10)",
         )
         .bind(id)
         .bind(worker_id)
@@ -142,6 +148,7 @@ impl WorkerTask {
         .bind(&data.prompt)
         .bind(data.issue_number)
         .bind(&skills_json)
+        .bind(&issue_labels_json)
         .bind(&data.source)
         .execute(pool)
         .await?;
@@ -171,12 +178,14 @@ impl WorkerTask {
         .await?;
 
         let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
+        let issue_labels_json =
+            serde_json::to_string(&data.issue_labels).unwrap_or_else(|_| "[]".to_string());
 
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status, skills, source, kind)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10)",
+                  issue_number, status, skills, issue_labels, source, kind)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11)",
         )
         .bind(id)
         .bind(worker_id)
@@ -186,6 +195,7 @@ impl WorkerTask {
         .bind(&data.prompt)
         .bind(data.issue_number)
         .bind(&skills_json)
+        .bind(&issue_labels_json)
         .bind(&data.source)
         .bind(KIND_REVIEW_FIX)
         .execute(pool)
@@ -249,7 +259,7 @@ impl WorkerTask {
     pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -266,7 +276,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -286,7 +296,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -388,7 +398,7 @@ impl WorkerTask {
     ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -405,7 +415,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -607,7 +617,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT wt.id, wt.worker_id, wt.repo_id, wt.position, wt.title, wt.prompt,
-                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.source,
+                    wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.issue_labels, wt.source,
                     wt.created_at, wt.review_result, wt.failure_reason,
                     wt.hours_saved_override
                FROM worker_tasks wt
@@ -680,7 +690,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -808,7 +818,7 @@ impl WorkerTask {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks
@@ -983,7 +993,7 @@ impl WorkerTask {
 
         let updated = sqlx::query_as::<_, WorkerTask>(
             "SELECT id, worker_id, repo_id, position, title, prompt,
-                    issue_number, status, workspace_id, skills, source,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override
                FROM worker_tasks

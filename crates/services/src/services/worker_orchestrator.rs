@@ -1784,6 +1784,7 @@ pub async fn dispatch_review_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
@@ -1926,6 +1927,7 @@ pub async fn dispatch_author_fix_task(
             prompt: task_prompt,
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         },
     )
@@ -2214,6 +2216,7 @@ mod tests {
                 prompt: "investigar".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_DESK.to_string(),
             },
         )
@@ -2239,6 +2242,7 @@ mod tests {
                 prompt: "do the thing".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2289,6 +2293,7 @@ mod tests {
                 prompt: "clean".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2346,6 +2351,7 @@ mod tests {
             prompt: "do it".to_string(),
             issue_number: None,
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         };
         let task_a = WorkerTask::append(&db.pool, worker.id, &make_task("a"))
@@ -2400,6 +2406,7 @@ mod tests {
                 prompt: "do it".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2496,6 +2503,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(1),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2547,6 +2555,7 @@ mod tests {
                     prompt: "review".to_string(),
                     issue_number: Some(pr_number),
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -2673,6 +2682,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(1),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2722,6 +2732,7 @@ mod tests {
                     prompt: "review".to_string(),
                     issue_number: None,
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -2765,6 +2776,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: None,
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -2854,6 +2866,7 @@ mod tests {
                 prompt: "review".to_string(),
                 issue_number: Some(pr_number),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3010,6 +3023,7 @@ mod tests {
                     prompt: "build".to_string(),
                     issue_number: None,
                     skills: Vec::new(),
+                    issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
                 },
             )
@@ -3026,6 +3040,7 @@ mod tests {
                 prompt: "fix".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3064,6 +3079,7 @@ mod tests {
                 prompt: "build".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3085,6 +3101,7 @@ mod tests {
                 prompt: "fix".to_string(),
                 issue_number: Some(373),
                 skills: Vec::new(),
+                issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
             },
         )
@@ -3128,6 +3145,7 @@ mod tests {
             prompt: "fix".to_string(),
             issue_number: Some(pr_number),
             skills: Vec::new(),
+            issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
         };
 
