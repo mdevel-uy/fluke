@@ -272,6 +272,11 @@ impl Deployment for LocalDeployment {
                 .await;
         }
 
+        // Heartbeat al control plane (fase 5b). Opt-in: no hace nada sin
+        // MKANBAN_CONTROL_PLANE_URL, así que la flota actual no reporta a ningún
+        // lado hasta que se configure.
+        services::services::heartbeat::spawn(db.clone());
+
         let deployment = Self {
             config,
             user_id,

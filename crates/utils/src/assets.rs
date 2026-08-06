@@ -75,6 +75,26 @@ pub fn license_state_path() -> std::path::PathBuf {
     asset_dir().join("license_state.json")
 }
 
+/// Identificador estable de la instalación (UUID). Generado en el primer
+/// arranque y persistido; ata el heartbeat y las licencias a una instancia.
+pub fn instance_id_path() -> std::path::PathBuf {
+    asset_dir().join("instance_id")
+}
+
+/// Devuelve el `instance_id`, generándolo y persistiéndolo la primera vez.
+pub fn instance_id() -> std::io::Result<String> {
+    let path = instance_id_path();
+    if let Ok(existing) = std::fs::read_to_string(&path) {
+        let trimmed = existing.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_string());
+        }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    std::fs::write(&path, &id)?;
+    Ok(id)
+}
+
 pub fn trusted_keys_path() -> std::path::PathBuf {
     asset_dir().join("trusted_ed25519_public_keys.json")
 }
