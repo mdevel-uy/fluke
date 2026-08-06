@@ -18,7 +18,13 @@ async fn main() -> anyhow::Result<()> {
         std::env::var("CONTROL_PLANE_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
 
     let pool = init_pool(&format!("sqlite://{db_path}")).await?;
-    let app = router(AppState { pool });
+    let signer = control_plane::signing::LicenseSigner::from_env()?.map(std::sync::Arc::new);
+    if signer.is_some() {
+        tracing::info!("clave de firma online cargada: la renovación está activa");
+    } else {
+        tracing::warn!("sin clave de firma online: se registran heartbeats pero no se renueva");
+    }
+    let app = router(AppState { pool, signer });
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("control plane escuchando en {addr}");

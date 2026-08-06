@@ -14,25 +14,14 @@
 
 use std::{fs, path::PathBuf};
 
-use aes_gcm::{
-    Aes256Gcm, Nonce,
-    aead::{Aead, KeyInit},
-};
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use chrono::{Duration, Utc};
 use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use license_keystore::{encrypt_seed, load_signing_key as keystore_load, to_json};
 use licensing::{LicenseFile, LicensePayload, SUPPORTED_VERSION, signing_message, verify};
-use rand::{RngCore, rngs::OsRng};
-use serde::{Deserialize, Serialize};
-
-/// Parámetros de scrypt. log_n=15 (N=32768) es un balance razonable para una
-/// herramienta interactiva; sube el costo de un ataque por diccionario sin
-/// hacer la firma perceptiblemente lenta.
-const SCRYPT_LOG_N: u8 = 15;
-const SCRYPT_R: u32 = 8;
-const SCRYPT_P: u32 = 1;
+use rand::rngs::OsRng;
 
 /// Variable de entorno con la passphrase, para uso no interactivo: el control
 /// plane que firma renovaciones solo (fase 5b) y la automatización/CI. Cuando
@@ -100,82 +89,11 @@ enum Cmd {
     },
 }
 
-/// Envoltorio en disco de la clave privada cifrada.
-#[derive(Serialize, Deserialize)]
-struct EncryptedKey {
-    kdf: String,
-    scrypt_log_n: u8,
-    scrypt_r: u32,
-    scrypt_p: u32,
-    salt: String,
-    nonce: String,
-    ciphertext: String,
-}
-
-fn derive_key(passphrase: &str, salt: &[u8]) -> Result<[u8; 32]> {
-    let params = scrypt::Params::new(SCRYPT_LOG_N, SCRYPT_R, SCRYPT_P, 32)
-        .map_err(|_| anyhow::anyhow!("parámetros de scrypt inválidos"))?;
-    let mut out = [0u8; 32];
-    scrypt::scrypt(passphrase.as_bytes(), salt, &params, &mut out)
-        .map_err(|_| anyhow::anyhow!("fallo derivando la clave desde la passphrase"))?;
-    Ok(out)
-}
-
-/// Cifra el seed ed25519 (32 bytes) con la passphrase.
-fn encrypt_seed(seed: &[u8; 32], passphrase: &str) -> Result<EncryptedKey> {
-    let mut salt = [0u8; 16];
-    let mut nonce = [0u8; 12];
-    OsRng.fill_bytes(&mut salt);
-    OsRng.fill_bytes(&mut nonce);
-
-    let dk = derive_key(passphrase, &salt)?;
-    let cipher = Aes256Gcm::new(dk.as_slice().into());
-    let ct = cipher
-        .encrypt(Nonce::from_slice(&nonce), seed.as_slice())
-        .map_err(|_| anyhow::anyhow!("fallo cifrando la clave"))?;
-
-    Ok(EncryptedKey {
-        kdf: "scrypt".into(),
-        scrypt_log_n: SCRYPT_LOG_N,
-        scrypt_r: SCRYPT_R,
-        scrypt_p: SCRYPT_P,
-        salt: B64.encode(salt),
-        nonce: B64.encode(nonce),
-        ciphertext: B64.encode(ct),
-    })
-}
-
-fn decrypt_seed(enc: &EncryptedKey, passphrase: &str) -> Result<[u8; 32]> {
-    let salt = B64.decode(&enc.salt).context("salt inválido")?;
-    let nonce = B64.decode(&enc.nonce).context("nonce inválido")?;
-    let ct = B64.decode(&enc.ciphertext).context("ciphertext inválido")?;
-
-    let params = scrypt::Params::new(enc.scrypt_log_n, enc.scrypt_r, enc.scrypt_p, 32)
-        .map_err(|_| anyhow::anyhow!("parámetros de scrypt del archivo inválidos"))?;
-    let mut dk = [0u8; 32];
-    scrypt::scrypt(passphrase.as_bytes(), &salt, &params, &mut dk)
-        .map_err(|_| anyhow::anyhow!("fallo derivando la clave"))?;
-
-    let cipher = Aes256Gcm::new(dk.as_slice().into());
-    let pt = cipher
-        .decrypt(Nonce::from_slice(&nonce), ct.as_slice())
-        // GCM autentica: una passphrase equivocada falla acá, no produce basura.
-        .map_err(|_| anyhow::anyhow!("passphrase incorrecta o archivo corrupto"))?;
-
-    let seed: [u8; 32] = pt
-        .as_slice()
-        .try_into()
-        .context("la clave descifrada no tiene el largo esperado")?;
-    Ok(seed)
-}
-
+/// Carga la clave de firma: pide la passphrase y delega el descifrado en
+/// `license-keystore` (compartido con el control plane).
 fn load_signing_key(path: &PathBuf) -> Result<SigningKey> {
-    let raw = fs::read_to_string(path)
-        .with_context(|| format!("no se pudo leer {}", path.display()))?;
-    let enc: EncryptedKey = serde_json::from_str(&raw).context("el archivo de clave no es válido")?;
     let pass = read_passphrase("passphrase: ")?;
-    let seed = decrypt_seed(&enc, &pass)?;
-    Ok(SigningKey::from_bytes(&seed))
+    keystore_load(&path.to_string_lossy(), &pass)
 }
 
 fn main() -> Result<()> {
@@ -198,7 +116,7 @@ fn main() -> Result<()> {
 
             let signing = SigningKey::generate(&mut OsRng);
             let enc = encrypt_seed(&signing.to_bytes(), &pass)?;
-            fs::write(&out, serde_json::to_string_pretty(&enc)?)
+            fs::write(&out, to_json(&enc)?)
                 .with_context(|| format!("no se pudo escribir {}", out.display()))?;
 
             let pubkey = B64.encode(signing.verifying_key().to_bytes());
@@ -294,28 +212,12 @@ fn main() -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn cifrado_ida_y_vuelta_recupera_el_seed() {
-        let seed = SigningKey::generate(&mut OsRng).to_bytes();
-        let enc = encrypt_seed(&seed, "una-passphrase-larga").unwrap();
-        let back = decrypt_seed(&enc, "una-passphrase-larga").unwrap();
-        assert_eq!(seed, back);
-    }
-
-    #[test]
-    fn una_passphrase_equivocada_no_descifra() {
-        // GCM autentica: descifrar con la passphrase equivocada falla en lugar
-        // de devolver bytes basura que se tomarían por una clave válida.
-        let seed = SigningKey::generate(&mut OsRng).to_bytes();
-        let enc = encrypt_seed(&seed, "la-correcta").unwrap();
-        assert!(decrypt_seed(&enc, "la-incorrecta").is_err());
-    }
-
+    // El roundtrip de cifrado/descifrado vive en el crate license-keystore.
+    // Acá se prueba que una licencia firmada por la herramienta verifica —
+    // el ciclo firma→verifica de punta a punta.
     #[test]
     fn el_ciclo_completo_produce_una_licencia_que_verifica() {
-        let seed = SigningKey::generate(&mut OsRng).to_bytes();
-        let enc = encrypt_seed(&seed, "passphrase-de-prueba").unwrap();
-        let signing = SigningKey::from_bytes(&decrypt_seed(&enc, "passphrase-de-prueba").unwrap());
+        let signing = SigningKey::generate(&mut OsRng);
 
         let now = Utc::now();
         let payload = LicensePayload {

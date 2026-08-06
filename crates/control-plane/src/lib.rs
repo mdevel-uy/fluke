@@ -11,7 +11,7 @@
 //! * `/admin/*` — fase 2, gestión humana de la flota. Va detrás de Auth0 con
 //!   RBAC (viewer / operator). Todavía no implementada.
 
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -26,10 +26,17 @@ use sqlx::{
 };
 
 pub mod db;
+pub mod signing;
+
+use signing::LicenseSigner;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SqlitePool,
+    /// Firmador de la clave online. `None` cuando no está configurada: el
+    /// control plane registra heartbeats pero no renueva (no deja sin servicio
+    /// a nadie — la licencia offline vigente corre hasta vencer).
+    pub signer: Option<Arc<LicenseSigner>>,
 }
 
 /// Abre (creando si hace falta) la base del control plane y corre migraciones.
@@ -53,12 +60,13 @@ pub fn router(state: AppState) -> Router {
 }
 
 /// Ingesta de un heartbeat. Persiste el estado de la instancia y su snapshot, y
-/// devuelve la respuesta del control plane.
+/// —si la clave online está configurada y la instancia está al día— devuelve una
+/// licencia renovada y firmada.
 ///
-/// La renovación de licencia (firmar y devolver `license`) se conecta cuando
-/// exista la clave de firma online; por ahora la respuesta es vacía: el control
-/// plane registra el heartbeat pero no renueva todavía. Eso NO deja sin servicio
-/// a nadie — la licencia offline vigente corre hasta su vencimiento.
+/// La renovación es **server-authoritative**: el vencimiento lo fija el control
+/// plane. Dejar de renovar (flag `paid = 0`, o clave no configurada) es el
+/// kill-switch pasivo: no deja sin servicio de golpe, la licencia vigente corre
+/// hasta vencer.
 async fn heartbeat(
     State(state): State<AppState>,
     Json(req): Json<HeartbeatRequest>,
@@ -72,7 +80,33 @@ async fn heartbeat(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok(Json(HeartbeatResponse::empty()))
+    let mut resp = HeartbeatResponse::empty();
+
+    // Renovación: solo si hay clave online configurada y la instancia figura al
+    // día. `paid` lo gobierna un operador desde la superficie admin (fase 2).
+    if let Some(signer) = &state.signer {
+        let paid = db::get_instance(&state.pool, &req.instance_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("no se pudo leer la instancia: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .map(|i| i.paid != 0)
+            .unwrap_or(false);
+
+        if paid {
+            // modalidad es informativa en la licencia; onprem por defecto hasta
+            // que el aprovisionamiento (fase 2) la registre por instancia.
+            resp.license = Some(signer.sign_renewal(
+                &req.cliente,
+                &req.instance_id,
+                "onprem",
+                chrono::Utc::now(),
+            ));
+        }
+    }
+
+    Ok(Json(resp))
 }
 
 /// Helper para tests: pool en memoria migrado.
@@ -132,10 +166,34 @@ mod tests {
         response.status()
     }
 
+    async fn post_heartbeat_full(
+        app: Router,
+        req: &HeartbeatRequest,
+    ) -> (StatusCode, HeartbeatResponse) {
+        let body = serde_json::to_string(req).unwrap();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/heartbeat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let parsed: HeartbeatResponse = serde_json::from_slice(&bytes).unwrap();
+        (status, parsed)
+    }
+
     #[tokio::test]
     async fn heartbeat_valido_devuelve_200_y_persiste() {
         let pool = test_pool().await;
-        let app = router(AppState { pool: pool.clone() });
+        let app = router(AppState { pool: pool.clone(), signer: None });
 
         let status = post_heartbeat(app, &sample(PROTOCOL_VERSION)).await;
         assert_eq!(status, StatusCode::OK);
@@ -145,11 +203,42 @@ mod tests {
     #[tokio::test]
     async fn version_de_protocolo_desconocida_es_400() {
         let pool = test_pool().await;
-        let app = router(AppState { pool: pool.clone() });
+        let app = router(AppState { pool: pool.clone(), signer: None });
 
         let status = post_heartbeat(app, &sample(999)).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         // No debe haberse persistido nada.
         assert_eq!(db::count_heartbeats(&pool, "01ABC").await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn sin_clave_configurada_no_renueva() {
+        let pool = test_pool().await;
+        let app = router(AppState { pool, signer: None });
+        let (status, resp) = post_heartbeat_full(app, &sample(PROTOCOL_VERSION)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(resp.license.is_none());
+    }
+
+    #[tokio::test]
+    async fn instancia_al_dia_recibe_licencia_renovada_que_verifica() {
+        use ed25519_dalek::SigningKey;
+        use licensing::verify;
+        use rand::rngs::OsRng;
+
+        let pool = test_pool().await;
+        let key = SigningKey::generate(&mut OsRng);
+        let pubkey = key.verifying_key();
+        let signer = std::sync::Arc::new(signing::LicenseSigner::with_key(key, 35));
+        let app = router(AppState { pool, signer: Some(signer) });
+
+        let (status, resp) = post_heartbeat_full(app, &sample(PROTOCOL_VERSION)).await;
+        assert_eq!(status, StatusCode::OK);
+
+        // La instancia es nueva → paid default 1 → debe venir una licencia, y
+        // debe verificar contra la clave online (como haría el cliente).
+        let license = resp.license.expect("debe renovar");
+        let payload = verify(&license, &[pubkey]).expect("la renovación verifica");
+        assert_eq!(payload.instance_id, "01ABC");
     }
 }

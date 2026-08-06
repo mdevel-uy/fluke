@@ -23,6 +23,7 @@ members = [
     "crates/licensing",
     "crates/mkanban-license",
     "crates/heartbeat-protocol",
+    "crates/license-keystore",
     "crates/control-plane",
     "crates/git",
     "crates/git-host",
