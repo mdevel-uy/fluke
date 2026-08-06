@@ -101,6 +101,14 @@ COPY --from=node:24-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/nod
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
   && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
+# MCP servers stdio ofrecidos como destacados (crates/executors/default_mcp.json).
+# Se hornean pinneados en la imagen para que el agente no descargue paquetes en
+# runtime: los templates los referencian por nombre de binario, no vía `npx -y`.
+# hostinger-api-mcp exige Node >= 24 (el que se copia arriba).
+RUN npm install -g hostinger-api-mcp@1.29.0 \
+  && wget -qO- https://github.com/grafana/mcp-grafana/releases/download/v1.0.0/mcp-grafana_Linux_x86_64.tar.gz \
+     | tar -xz -C /usr/local/bin mcp-grafana
+
 COPY --from=builder /usr/local/bin/server /usr/local/bin/server
 
 RUN mkdir -p /repos \
