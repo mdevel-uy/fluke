@@ -192,10 +192,18 @@
     "stalledTask": "タスクが停滞 — エージェントは停止しましたがタスクが進んでいません",
     "scopes": {
       "attention": "対応が必要",
+      "review": "レビュー中",
       "running": "実行中",
       "idle": "待機中",
       "all": "すべてのワークスペース",
       "archive": "アーカイブ"
+    },
+    "rowMeta": {
+      "review": "レビュー",
+      "failed": "失敗",
+      "stalled": "停滞",
+      "activity": "活動",
+      "inReview": "レビュー中"
     },
     "scopeRailLabel": "ワークスペースの範囲",
     "draftWorkspace": "Draft workspace",

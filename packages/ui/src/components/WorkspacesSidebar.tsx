@@ -27,6 +27,7 @@ const CHROME_THRESHOLD = 8;
 
 const SCOPE_LABEL_KEYS: Record<WorkspaceScope, string> = {
   attention: 'common:workspaces.scopes.attention',
+  review: 'common:workspaces.scopes.review',
   running: 'common:workspaces.scopes.running',
   idle: 'common:workspaces.scopes.idle',
   all: 'common:workspaces.scopes.all',
@@ -77,6 +78,8 @@ export interface WorkspacesSidebarWorkspace {
   hasStalledTask?: boolean;
   /** Backing worker task ended in failed status */
   hasFailedTask?: boolean;
+  /** Backing worker task is in review status (PR open, awaiting reviewer) */
+  hasTaskInReview?: boolean;
   /** When the latest coding-agent process started (for elapsed time) */
   latestProcessStartedAt?: string;
   /** Name of the worker that owns this workspace, if any */
@@ -167,11 +170,13 @@ export function WorkspacesSidebarReopenTag({
 }
 
 function needsAttention(ws: WorkspacesSidebarWorkspace) {
-  return (
-    !!ws.hasPendingApproval ||
-    !!ws.hasStalledTask ||
-    (!!ws.hasUnseenActivity && !ws.isRunning)
-  );
+  // Precedence: pending approval > stalled > in review > idle. A task waiting
+  // for reviewer feedback does not "need you" — a reviewer will unblock it —
+  // but an explicit approval request from the agent still trumps that.
+  if (ws.hasPendingApproval) return true;
+  if (ws.hasStalledTask) return true;
+  if (ws.hasTaskInReview) return false;
+  return !!ws.hasUnseenActivity && !ws.isRunning;
 }
 
 function WorkspaceList({
@@ -285,22 +290,27 @@ export function WorkspacesSidebar({
   }, [persistKeys.statusTab, scope]);
 
   // Categorize workspaces per scope, preserving the incoming sort order.
-  // Attention wins over running/idle so a workspace is only listed once.
+  // Attention wins over review, which wins over running/idle, so a workspace
+  // is only listed once in the grouped "all" view.
   const scopeWorkspaces = useMemo(() => {
     const attention = workspaces.filter(needsAttention);
     const rest = workspaces.filter((ws) => !needsAttention(ws));
+    const review = rest.filter((ws) => ws.hasTaskInReview);
+    const restNoReview = rest.filter((ws) => !ws.hasTaskInReview);
     return {
       attention,
+      review,
       running: workspaces.filter((ws) => ws.isRunning),
       idle: workspaces.filter((ws) => !ws.isRunning),
       all: workspaces,
-      restRunning: rest.filter((ws) => ws.isRunning),
-      restIdle: rest.filter((ws) => !ws.isRunning),
+      restRunning: restNoReview.filter((ws) => ws.isRunning),
+      restIdle: restNoReview.filter((ws) => !ws.isRunning),
     };
   }, [workspaces]);
 
   const counts: WorkspaceScopeCounts = {
     attention: scopeWorkspaces.attention.length,
+    review: scopeWorkspaces.review.length,
     running: scopeWorkspaces.running.length,
     idle: scopeWorkspaces.idle.length,
     all: workspaces.length,
@@ -351,6 +361,7 @@ export function WorkspacesSidebar({
     () =>
       [
         { id: 'attention' as const, items: scopeWorkspaces.attention },
+        { id: 'review' as const, items: scopeWorkspaces.review },
         { id: 'running' as const, items: scopeWorkspaces.restRunning },
         { id: 'idle' as const, items: scopeWorkspaces.restIdle },
       ].filter((group) => group.items.length > 0),
