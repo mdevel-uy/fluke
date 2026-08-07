@@ -267,8 +267,7 @@ impl WorkerTask {
 
         let new_position = position.unwrap_or(existing.position);
         let new_status = status.unwrap_or(&existing.status);
-        let new_hours_override =
-            hours_saved_override.unwrap_or(existing.hours_saved_override);
+        let new_hours_override = hours_saved_override.unwrap_or(existing.hours_saved_override);
 
         sqlx::query(
             "UPDATE worker_tasks
@@ -909,10 +908,12 @@ impl WorkerTask {
         .await?;
 
         for (task_id, _) in &stale {
-            sqlx::query("UPDATE worker_tasks SET status = 'done' WHERE id = ?1 AND status = 'in_review'")
-                .bind(task_id)
-                .execute(pool)
-                .await?;
+            sqlx::query(
+                "UPDATE worker_tasks SET status = 'done' WHERE id = ?1 AND status = 'in_review'",
+            )
+            .bind(task_id)
+            .execute(pool)
+            .await?;
         }
         Ok(stale)
     }
@@ -1170,6 +1171,89 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Add LLM usage from a just-closed execution process to whichever task
+    /// currently owns the workspace that hosted it. Additive so retries and
+    /// follow-ups on the same workspace accumulate into a single running
+    /// total. No-op when no task points at the workspace (the process ran
+    /// under an orphaned or shared workspace) or when every field is zero.
+    ///
+    /// The `session_id` is resolved to a `workspace_id` in the same
+    /// statement so callers don't have to preload it.
+    pub async fn add_usage_delta_by_session(
+        pool: &SqlitePool,
+        session_id: Uuid,
+        input_tokens: Option<i64>,
+        output_tokens: Option<i64>,
+        cache_creation_tokens: Option<i64>,
+        cache_read_tokens: Option<i64>,
+        cost_usd: Option<f64>,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks
+                SET input_tokens_total          = COALESCE(input_tokens_total, 0)
+                                                    + COALESCE(?2, 0),
+                    output_tokens_total         = COALESCE(output_tokens_total, 0)
+                                                    + COALESCE(?3, 0),
+                    cache_creation_tokens_total = COALESCE(cache_creation_tokens_total, 0)
+                                                    + COALESCE(?4, 0),
+                    cache_read_tokens_total     = COALESCE(cache_read_tokens_total, 0)
+                                                    + COALESCE(?5, 0),
+                    cost_usd_total              = COALESCE(cost_usd_total, 0)
+                                                    + COALESCE(?6, 0)
+              WHERE workspace_id = (
+                  SELECT workspace_id FROM sessions WHERE id = ?1
+              )",
+        )
+        .bind(session_id)
+        .bind(input_tokens)
+        .bind(output_tokens)
+        .bind(cache_creation_tokens)
+        .bind(cache_read_tokens)
+        .bind(cost_usd)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Read the rolled-up token totals and USD for a task. Returned as an
+    /// `(input, output, cache_creation, cache_read, cost_usd)` tuple; all
+    /// slots are `None` when the task never had any usage recorded.
+    pub async fn usage_totals(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<
+        (
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+            Option<f64>,
+        ),
+        sqlx::Error,
+    > {
+        let row = sqlx::query_as::<
+            _,
+            (
+                Option<i64>,
+                Option<i64>,
+                Option<i64>,
+                Option<i64>,
+                Option<f64>,
+            ),
+        >(
+            "SELECT input_tokens_total, output_tokens_total,
+                    cache_creation_tokens_total, cache_read_tokens_total,
+                    cost_usd_total
+               FROM worker_tasks
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or((None, None, None, None, None));
+        Ok(row)
     }
 
     /// Reset a task to `queued` at the front of its worker's queue (lowest
