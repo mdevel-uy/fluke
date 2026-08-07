@@ -1181,6 +1181,20 @@ impl WorkerTask {
     ///
     /// The `session_id` is resolved to a `workspace_id` in the same
     /// statement so callers don't have to preload it.
+    ///
+    /// Invariants the caller must uphold:
+    /// - **At most one task per workspace.** `worker_tasks.workspace_id` has
+    ///   no `UNIQUE` constraint at the DB level, so if two rows ever pointed
+    ///   at the same workspace the delta would be applied to both. Today the
+    ///   task→workspace mapping is 1:1 by construction; if that ever changes,
+    ///   this rollup must be revisited.
+    /// - **Called at most once per `execution_process.id`.** The write is
+    ///   additive (not idempotent), so a second call for the same process
+    ///   would double-count. The caller is the exit monitor in
+    ///   `local-deployment::container::persist_execution_process_usage`,
+    ///   which runs exactly once per process; any new caller must preserve
+    ///   that guarantee (e.g. by gating on `execution_processes.cost_usd IS
+    ///   NULL` via `set_usage`).
     pub async fn add_usage_delta_by_session(
         pool: &SqlitePool,
         session_id: Uuid,
