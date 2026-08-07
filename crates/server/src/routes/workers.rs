@@ -17,6 +17,7 @@ use db::models::{
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
     workspace::Workspace,
+    workspace_repo::WorkspaceRepo,
 };
 use deployment::Deployment;
 use git_host::{GitHostProvider, GitHostService, github::GhCli};
@@ -1434,6 +1435,28 @@ async fn design_candidate_refs(
     Ok(refs)
 }
 
+/// Branch the designer's workspace forked from, used as the diff base that
+/// separates the task's own artifacts from `design/` files inherited with
+/// the branch history. The workspace's recorded target branch when available,
+/// else the repo default.
+async fn design_base_branch(
+    pool: &sqlx::SqlitePool,
+    task: &WorkerTask,
+    repo: &Repo,
+) -> Result<Option<String>, ApiError> {
+    if let Some(workspace_id) = task.workspace_id {
+        let target = WorkspaceRepo::find_by_workspace_id(pool, workspace_id)
+            .await?
+            .into_iter()
+            .find(|wr| wr.repo_id == repo.id)
+            .map(|wr| wr.target_branch);
+        if target.is_some() {
+            return Ok(target);
+        }
+    }
+    Ok(repo.default_target_branch.clone())
+}
+
 /// GET /api/workers/{worker_id}/tasks/{task_id}/design-artifacts — list the
 /// HTML files of a designer deliverable. Read from git refs, NOT the
 /// worktree, so it works for archived workspaces too.
@@ -1456,25 +1479,47 @@ pub async fn list_design_artifacts(
 
     let candidate_refs = design_candidate_refs(pool, &existing).await?;
     let git = deployment.container().git();
+    // The repo's own `design/` history (approved specs, old mocks) is part of
+    // every branch the designer forks, so listing the whole tree would show
+    // deliverables from past tasks. Diffing against the merge base with the
+    // target branch keeps only what this task actually added or touched.
+    let base_oid = match design_base_branch(pool, &existing, &repo).await? {
+        Some(branch) => git.get_branch_oid(&repo.path, &branch).ok(),
+        None => None,
+    };
     let mut files: Vec<String> = Vec::new();
     for candidate in &candidate_refs {
         let Ok(oid) = git.get_branch_oid(&repo.path, candidate) else {
             continue;
         };
-        // `design/` missing from the tree is a normal miss, not an error.
-        let Ok(entries) = git.get_commit_tree(&repo.path, &oid, "design") else {
-            continue;
+        let scoped = base_oid
+            .as_deref()
+            .and_then(|base| git.get_files_changed_from_base(&repo.path, base, &oid).ok());
+        files = match scoped {
+            Some(changed) => changed
+                .into_iter()
+                .filter(|p| is_design_artifact_path(p))
+                .collect(),
+            // No usable base (missing branch, unrelated histories): fall back
+            // to the full `design/` listing rather than showing nothing.
+            None => {
+                // `design/` missing from the tree is a normal miss, not an error.
+                let Ok(entries) = git.get_commit_tree(&repo.path, &oid, "design") else {
+                    continue;
+                };
+                entries
+                    .into_iter()
+                    .filter(|e| !e.is_directory)
+                    .map(|e| format!("design/{}", e.name))
+                    .filter(|p| is_design_artifact_path(p))
+                    .collect()
+            }
         };
-        files = entries
-            .into_iter()
-            .filter(|e| !e.is_directory)
-            .map(|e| format!("design/{}", e.name))
-            .filter(|p| is_design_artifact_path(p))
-            .collect();
         if !files.is_empty() {
             break;
         }
     }
+    files.sort();
 
     Ok(ResponseJson(ApiResponse::success(DesignArtifactsResponse {
         files,
