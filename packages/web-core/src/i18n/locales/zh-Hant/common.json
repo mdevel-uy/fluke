@@ -192,10 +192,18 @@
     "stalledTask": "任務停滯 — 代理已停止但任務未推進",
     "scopes": {
       "attention": "需要你處理",
+      "review": "審閱中",
       "running": "執行中",
       "idle": "閒置",
       "all": "全部工作區",
       "archive": "封存"
+    },
+    "rowMeta": {
+      "review": "審閱",
+      "failed": "失敗",
+      "stalled": "停滯",
+      "activity": "活動",
+      "inReview": "審閱中"
     },
     "scopeRailLabel": "工作區範圍",
     "draftWorkspace": "Draft workspace",

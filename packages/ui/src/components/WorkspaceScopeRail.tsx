@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Archive,
   Bell,
+  GitPullRequest,
   Moon,
   Play,
   Rows3,
@@ -10,13 +11,19 @@ import {
 import { cn } from '../lib/cn';
 
 /** Slices of the workspace list, excluding the archive. */
-export type WorkspaceScope = 'attention' | 'running' | 'idle' | 'all';
+export type WorkspaceScope =
+  | 'attention'
+  | 'review'
+  | 'running'
+  | 'idle'
+  | 'all';
 
 /** Everything the rail can select, archive included. */
 export type WorkspaceRailScope = WorkspaceScope | 'archive';
 
 export const WORKSPACE_SCOPES: WorkspaceScope[] = [
   'attention',
+  'review',
   'running',
   'idle',
   'all',
@@ -26,6 +33,7 @@ export type WorkspaceScopeCounts = Record<WorkspaceRailScope, number>;
 
 const SCOPE_ICON: Record<WorkspaceRailScope, LucideIcon> = {
   attention: Bell,
+  review: GitPullRequest,
   running: Play,
   idle: Moon,
   all: Rows3,
@@ -34,6 +42,7 @@ const SCOPE_ICON: Record<WorkspaceRailScope, LucideIcon> = {
 
 const SCOPE_LABEL_KEY: Record<WorkspaceRailScope, string> = {
   attention: 'common:workspaces.scopes.attention',
+  review: 'common:workspaces.scopes.review',
   running: 'common:workspaces.scopes.running',
   idle: 'common:workspaces.scopes.idle',
   all: 'common:workspaces.scopes.all',

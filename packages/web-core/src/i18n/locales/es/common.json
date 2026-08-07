@@ -192,11 +192,19 @@
     "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó",
     "scopes": {
       "attention": "Te necesita",
+      "review": "En revisión",
       "running": "En ejecución",
       "idle": "Inactivos",
       "failed": "Fallidos",
       "all": "Todos los espacios",
       "archive": "Archivo"
+    },
+    "rowMeta": {
+      "review": "revisión",
+      "failed": "fallida",
+      "stalled": "trancada",
+      "activity": "actividad",
+      "inReview": "en revisión"
     },
     "scopeRailLabel": "Ámbitos de espacios de trabajo",
     "draftWorkspace": "Borrador de espacio de trabajo",

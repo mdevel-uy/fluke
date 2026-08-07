@@ -206,11 +206,19 @@
     "stalledTask": "Task stalled — the agent stopped but the task did not move on",
     "scopes": {
       "attention": "Needs you",
+      "review": "In review",
       "running": "Running",
       "idle": "Idle",
       "failed": "Failed",
       "all": "All workspaces",
       "archive": "Archive"
+    },
+    "rowMeta": {
+      "review": "review",
+      "failed": "failed",
+      "stalled": "stalled",
+      "activity": "activity",
+      "inReview": "in review"
     },
     "scopeRailLabel": "Workspace scopes",
     "draftWorkspace": "Draft workspace",

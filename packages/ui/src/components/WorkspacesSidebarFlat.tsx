@@ -6,10 +6,7 @@ import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
 import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
 import { ResizableSidebarSection } from './ResizableSidebarSection';
-import {
-  SidebarSectionsMenu,
-  useHiddenSections,
-} from './SidebarSectionsMenu';
+import { SidebarSectionsMenu, useHiddenSections } from './SidebarSectionsMenu';
 import type { AppBarHostStatus } from './AppBar';
 import type {
   WorkspacesSidebarWorkspace,
@@ -40,11 +37,13 @@ export interface WorkspacesSidebarFlatProps {
 }
 
 function needsAttention(ws: WorkspacesSidebarWorkspace) {
-  return (
-    !!ws.hasPendingApproval ||
-    !!ws.hasStalledTask ||
-    (!!ws.hasUnseenActivity && !ws.isRunning)
-  );
+  // Precedence: pending approval > stalled > in review > idle. A task waiting
+  // for reviewer feedback does not "need you" — a reviewer will unblock it —
+  // but an explicit approval request from the agent still trumps that.
+  if (ws.hasPendingApproval) return true;
+  if (ws.hasStalledTask) return true;
+  if (ws.hasTaskInReview) return false;
+  return !!ws.hasUnseenActivity && !ws.isRunning;
 }
 
 function timeAgo(iso?: string): string {
@@ -74,13 +73,20 @@ function attentionReason(
   return t('common:workspaces.rowMeta.activity', { defaultValue: 'activity' });
 }
 
-type RowVariant = 'attention' | 'running' | 'idle' | 'failed' | 'archived';
+type RowVariant =
+  | 'attention'
+  | 'review'
+  | 'running'
+  | 'idle'
+  | 'failed'
+  | 'archived';
 
 function rowDotClass(variant: RowVariant, ws: WorkspacesSidebarWorkspace) {
   if (variant === 'running') return 'bg-brand-on-surface animate-pulse';
   if (variant === 'failed') return 'bg-error';
   if (variant === 'attention')
     return ws.latestProcessStatus === 'failed' ? 'bg-error' : 'bg-warning';
+  if (variant === 'review') return 'bg-info';
   if (variant === 'archived') return 'bg-border-strong opacity-50';
   return 'bg-border-strong';
 }
@@ -91,6 +97,11 @@ function rowMeta(
   t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   if (variant === 'attention') return attentionReason(ws, t);
+  if (variant === 'review') {
+    return t('common:workspaces.rowMeta.inReview', {
+      defaultValue: 'in review',
+    });
+  }
   if (variant === 'running') {
     const elapsed = timeAgo(ws.latestProcessStartedAt);
     return [ws.workerName, elapsed].filter(Boolean).join(' · ');
@@ -245,10 +256,15 @@ export function WorkspacesSidebarFlat({
     const live = workspaces.filter((ws) => !ws.hasFailedTask);
     const attention = live.filter(needsAttention);
     const rest = live.filter((ws) => !needsAttention(ws));
+    // "En revisión" only claims workspaces that didn't already qualify for
+    // attention; pending approval / stalled still win.
+    const review = rest.filter((ws) => ws.hasTaskInReview);
+    const remaining = rest.filter((ws) => !ws.hasTaskInReview);
     return {
       attention,
-      running: rest.filter((ws) => ws.isRunning),
-      idle: rest.filter((ws) => !ws.isRunning),
+      review,
+      running: remaining.filter((ws) => ws.isRunning),
+      idle: remaining.filter((ws) => !ws.isRunning),
       failed,
       archived: archivedWorkspaces.filter((ws) => !ws.hasFailedTask),
     };
@@ -259,6 +275,9 @@ export function WorkspacesSidebarFlat({
   const sectionLabels = {
     attention: t('common:workspaces.scopes.attention', {
       defaultValue: 'Needs attention',
+    }),
+    review: t('common:workspaces.scopes.review', {
+      defaultValue: 'In review',
     }),
     running: t('common:workspaces.scopes.running', { defaultValue: 'Running' }),
     idle: t('common:workspaces.scopes.idle', { defaultValue: 'Idle' }),
@@ -324,72 +343,85 @@ export function WorkspacesSidebarFlat({
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         {!hiddenSections.attention && (
-        <Section
-          persistKey="ws-flat-attention"
-          alwaysShow
-          title={t('common:workspaces.scopes.attention', {
-            defaultValue: 'Needs attention',
-          })}
-          items={groups.attention}
-          variant="attention"
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-          onOpenWorkspaceActions={onOpenWorkspaceActions}
-        />
+          <Section
+            persistKey="ws-flat-attention"
+            alwaysShow
+            title={t('common:workspaces.scopes.attention', {
+              defaultValue: 'Needs attention',
+            })}
+            items={groups.attention}
+            variant="attention"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
+        )}
+        {!hiddenSections.review && (
+          <Section
+            persistKey="ws-flat-review"
+            title={t('common:workspaces.scopes.review', {
+              defaultValue: 'In review',
+            })}
+            items={groups.review}
+            variant="review"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
         )}
         {!hiddenSections.running && (
-        <Section
-          persistKey="ws-flat-running"
-          alwaysShow
-          title={t('common:workspaces.scopes.running', {
-            defaultValue: 'Running',
-          })}
-          items={groups.running}
-          variant="running"
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-          onOpenWorkspaceActions={onOpenWorkspaceActions}
-        />
+          <Section
+            persistKey="ws-flat-running"
+            alwaysShow
+            title={t('common:workspaces.scopes.running', {
+              defaultValue: 'Running',
+            })}
+            items={groups.running}
+            variant="running"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
         )}
         {!hiddenSections.idle && (
-        <Section
-          persistKey="ws-flat-idle"
-          alwaysShow
-          title={t('common:workspaces.scopes.idle', { defaultValue: 'Idle' })}
-          items={groups.idle}
-          variant="idle"
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-          onOpenWorkspaceActions={onOpenWorkspaceActions}
-        />
+          <Section
+            persistKey="ws-flat-idle"
+            alwaysShow
+            title={t('common:workspaces.scopes.idle', { defaultValue: 'Idle' })}
+            items={groups.idle}
+            variant="idle"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
         )}
         {!hiddenSections.failed && (
-        <Section
-          persistKey="ws-flat-failed"
-          title={t('common:workspaces.scopes.failed', {
-            defaultValue: 'Failed',
-          })}
-          items={groups.failed}
-          variant="failed"
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-          onOpenWorkspaceActions={onOpenWorkspaceActions}
-        />
+          <Section
+            persistKey="ws-flat-failed"
+            title={t('common:workspaces.scopes.failed', {
+              defaultValue: 'Failed',
+            })}
+            items={groups.failed}
+            variant="failed"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
         )}
         {!hiddenSections.archived && (
-        <Section
-          persistKey="ws-flat-archived"
-          title={t('common:workspaces.archivedTitle', {
-            defaultValue: 'Archived',
-          })}
-          items={groups.archived}
-          variant="archived"
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-          onOpenWorkspaceActions={onOpenWorkspaceActions}
-          defaultOpen={false}
-          alwaysShow
-        />
+          <Section
+            persistKey="ws-flat-archived"
+            title={t('common:workspaces.archivedTitle', {
+              defaultValue: 'Archived',
+            })}
+            items={groups.archived}
+            variant="archived"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+            defaultOpen={false}
+            alwaysShow
+          />
         )}
 
         {isLoading && (

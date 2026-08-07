@@ -192,10 +192,18 @@
     "stalledTask": "Tâche bloquée — l'agent s'est arrêté mais la tâche n'a pas avancé",
     "scopes": {
       "attention": "Requiert votre attention",
+      "review": "En revue",
       "running": "En cours",
       "idle": "Inactifs",
       "all": "Tous les espaces",
       "archive": "Archives"
+    },
+    "rowMeta": {
+      "review": "revue",
+      "failed": "échec",
+      "stalled": "bloquée",
+      "activity": "activité",
+      "inReview": "en revue"
     },
     "scopeRailLabel": "Portées des espaces de travail",
     "draftWorkspace": "Draft workspace",
