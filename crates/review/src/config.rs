@@ -9,20 +9,27 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    /// Get the path to the config file (~/.config/vibe-kanban/review.toml)
+    /// Get the path to the config file (~/.config/mkanban/review.toml)
     fn config_path() -> Option<PathBuf> {
+        dirs::config_dir().map(|p| p.join("mkanban").join("review.toml"))
+    }
+
+    /// Legacy path del rebrand (~/.config/vibe-kanban/review.toml). Se lee
+    /// como fallback si el path nuevo todavía no existe; el próximo `save()`
+    /// lo materializa en el path nuevo.
+    fn legacy_config_path() -> Option<PathBuf> {
         dirs::config_dir().map(|p| p.join("vibe-kanban").join("review.toml"))
     }
 
     /// Load config from disk, returning default if file doesn't exist
     pub(crate) fn load() -> Self {
-        let Some(path) = Self::config_path() else {
+        let read_path = Self::config_path()
+            .filter(|p| p.exists())
+            .or_else(|| Self::legacy_config_path().filter(|p| p.exists()));
+
+        let Some(path) = read_path else {
             return Self::default();
         };
-
-        if !path.exists() {
-            return Self::default();
-        }
 
         match std::fs::read_to_string(&path) {
             Ok(contents) => toml::from_str(&contents).unwrap_or_default(),
