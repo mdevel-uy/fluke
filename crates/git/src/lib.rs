@@ -2221,6 +2221,34 @@ impl GitService {
         Ok(entries)
     }
 
+    /// Repo-relative paths present at `head` that differ from its merge base
+    /// with `base` (added/modified/renamed; deletions excluded). Computed
+    /// purely from trees — needs no worktree, so it works for refs whose
+    /// workspace was archived long ago.
+    pub fn get_files_changed_from_base(
+        &self,
+        repo_path: &Path,
+        base_oid_str: &str,
+        head_oid_str: &str,
+    ) -> Result<Vec<String>, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let base_oid = git2::Oid::from_str(base_oid_str)?;
+        let head_oid = git2::Oid::from_str(head_oid_str)?;
+        let merge_base = repo.merge_base(base_oid, head_oid)?;
+        let base_tree = repo.find_commit(merge_base)?.tree()?;
+        let head_tree = repo.find_commit(head_oid)?.tree()?;
+        let diff = repo.diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?;
+        Ok(diff
+            .deltas()
+            .filter(|d| d.status() != git2::Delta::Deleted)
+            .filter_map(|d| {
+                d.new_file()
+                    .path()
+                    .map(|p| p.to_string_lossy().replace('\\', "/"))
+            })
+            .collect())
+    }
+
     /// Unified diff of a single file in a commit (vs its first parent), as
     /// a plain patch string for the editor's diff tabs.
     pub fn get_commit_file_diff(
