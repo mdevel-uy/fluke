@@ -1040,7 +1040,10 @@
       "githubPatStored": "저장된 PAT가 있습니다.",
       "githubPatWillClear": "저장 시 PAT가 삭제됩니다.",
       "githubPatClear": "지우기",
-      "githubPatUndoClear": "실행 취소"
+      "githubPatUndoClear": "실행 취소",
+      "sectionConfig": "설정",
+      "sectionIntegration": "연동",
+      "sectionSoul": "소울"
     },
     "roles": {
       "developer": "개발자",

@@ -1043,7 +1043,10 @@
       "githubPatStored": "A PAT is stored.",
       "githubPatWillClear": "The PAT will be cleared on save.",
       "githubPatClear": "Clear",
-      "githubPatUndoClear": "Undo"
+      "githubPatUndoClear": "Undo",
+      "sectionConfig": "Config",
+      "sectionIntegration": "Integration",
+      "sectionSoul": "Soul"
     },
     "roles": {
       "developer": "Developer",

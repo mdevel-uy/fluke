@@ -1040,7 +1040,10 @@
       "githubPatStored": "PAT が保存されています。",
       "githubPatWillClear": "保存時に PAT を削除します。",
       "githubPatClear": "削除",
-      "githubPatUndoClear": "取り消し"
+      "githubPatUndoClear": "取り消し",
+      "sectionConfig": "設定",
+      "sectionIntegration": "連携",
+      "sectionSoul": "ソウル"
     },
     "roles": {
       "developer": "開発者",
