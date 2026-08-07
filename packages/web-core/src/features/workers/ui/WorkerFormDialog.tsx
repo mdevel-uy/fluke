@@ -1,12 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  HelpCircle,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { Input } from '@vibe/ui/components/Input';
 import { Textarea } from '@vibe/ui/components/Textarea';
 import { Label } from '@vibe/ui/components/Label';
 import { Alert } from '@vibe/ui/components/Alert';
+import { Tooltip } from '@vibe/ui/components/Tooltip';
 import {
   Dialog,
   DialogContent,
@@ -87,6 +94,39 @@ const choiceToPlanMode = (choice: PlanModeChoice): boolean | null => {
   if (choice === PLAN_MODE_OFF) return false;
   return null;
 };
+
+function LabelWithHelp({
+  htmlFor,
+  label,
+  help,
+}: {
+  htmlFor: string;
+  label: string;
+  help: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <Tooltip content={help} side="right">
+        <button
+          type="button"
+          aria-label={help}
+          className="inline-flex items-center justify-center rounded text-low hover:text-normal focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <HelpCircle className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
+
+function SectionHeader({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-2 border-b border-border pb-1 text-label font-semibold uppercase tracking-wider text-low">
+      {children}
+    </div>
+  );
+}
 
 export interface WorkerFormDialogProps {
   worker?: WorkerResponse;
@@ -258,6 +298,8 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
         </DialogHeader>
 
         <div className="space-y-3 py-2">
+          <SectionHeader>{t('workers.form.sectionConfig')}</SectionHeader>
+
           <div>
             <Label htmlFor="worker-name">{t('workers.form.nameLabel')}</Label>
             <Input
@@ -271,7 +313,11 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
           </div>
 
           <div>
-            <Label htmlFor="worker-role">{t('workers.form.roleLabel')}</Label>
+            <LabelWithHelp
+              htmlFor="worker-role"
+              label={t('workers.form.roleLabel')}
+              help={t(`workers.roles.${role}Description`)}
+            />
             <Select
               value={role}
               onValueChange={(v) => setRole(v as WorkerRole)}
@@ -287,9 +333,6 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-low">
-              {t(`workers.roles.${role}Description`)}
-            </p>
           </div>
 
           {hasModels && (
@@ -321,9 +364,11 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
           )}
 
           <div>
-            <Label htmlFor="worker-plan-mode">
-              {t('workers.form.planModeLabel')}
-            </Label>
+            <LabelWithHelp
+              htmlFor="worker-plan-mode"
+              label={t('workers.form.planModeLabel')}
+              help={t('workers.form.planModeHelp')}
+            />
             <Select
               value={planMode}
               onValueChange={(v) => setPlanMode(v as PlanModeChoice)}
@@ -343,10 +388,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-low">
-              {t('workers.form.planModeHelp')}
-            </p>
           </div>
+
+          <SectionHeader>{t('workers.form.sectionIntegration')}</SectionHeader>
 
           <div>
             <Label htmlFor="worker-github-pat">
@@ -433,6 +477,8 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               </div>
             )}
           </div>
+
+          <SectionHeader>{t('workers.form.sectionSoul')}</SectionHeader>
 
           {!isEdit && (
             <div>

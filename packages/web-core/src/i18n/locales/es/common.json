@@ -1043,7 +1043,10 @@
       "githubPatStored": "Hay un PAT guardado.",
       "githubPatWillClear": "El PAT se limpiará al guardar.",
       "githubPatClear": "Quitar",
-      "githubPatUndoClear": "Deshacer"
+      "githubPatUndoClear": "Deshacer",
+      "sectionConfig": "Configuración",
+      "sectionIntegration": "Integración",
+      "sectionSoul": "Alma"
     },
     "roles": {
       "developer": "Desarrollador",

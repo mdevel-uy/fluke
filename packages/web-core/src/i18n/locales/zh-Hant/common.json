@@ -1040,7 +1040,10 @@
       "githubPatStored": "已儲存 PAT。",
       "githubPatWillClear": "儲存時將清除 PAT。",
       "githubPatClear": "清除",
-      "githubPatUndoClear": "還原"
+      "githubPatUndoClear": "還原",
+      "sectionConfig": "設定",
+      "sectionIntegration": "整合",
+      "sectionSoul": "靈魂"
     },
     "roles": {
       "developer": "開發者",
