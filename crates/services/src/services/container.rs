@@ -573,30 +573,28 @@ pub trait ContainerService {
         Ok(())
     }
 
-    /// Archive a workspace: set archived flag, stop running dev servers, and run archive script.
+    /// Archive a workspace: set archived flag, stop every running/queued
+    /// execution (dev servers, coding agents, setup/cleanup scripts), and
+    /// run the archive script.
+    ///
+    /// Historically only dev servers were stopped here, which turned any
+    /// coding-agent/setup/cleanup process still in flight into a zombie —
+    /// the row stayed `running` forever, blocking worktree cleanup
+    /// (see `Workspace::find_expired_for_cleanup`) and polluting the
+    /// running-agent metric.
     async fn archive_workspace(&self, workspace_id: Uuid) -> Result<(), ContainerError> {
         let pool = &self.db().pool;
 
+        let workspace = Workspace::find_by_id(pool, workspace_id)
+            .await?
+            .ok_or_else(|| ContainerError::Other(anyhow!("Workspace not found")))?;
+
         Workspace::set_archived(pool, workspace_id, true).await?;
 
-        // Stop running dev servers
-        if let Ok(dev_servers) =
-            ExecutionProcess::find_running_dev_servers_by_workspace(pool, workspace_id).await
-        {
-            for dev_server in dev_servers {
-                if let Err(e) = self
-                    .stop_execution(&dev_server, ExecutionProcessStatus::Killed)
-                    .await
-                {
-                    tracing::error!(
-                        "Failed to stop dev server {} for workspace {}: {}",
-                        dev_server.id,
-                        workspace_id,
-                        e
-                    );
-                }
-            }
-        }
+        // Kill running + queued executions across every session (include dev
+        // servers). Runs before try_run_archive_script so the archive script
+        // itself, spawned right after, is not swept away by this cleanup.
+        self.try_stop(&workspace, true).await;
 
         // Run archive script (silently skips if not configured)
         if let Err(e) = self.try_run_archive_script(workspace_id).await {
@@ -1252,6 +1250,22 @@ pub trait ContainerService {
                 .write()
                 .await
                 .remove(&execution_process.id);
+            // Row was just born `running`; without this the failed start
+            // leaves a permanent zombie in the sidebar.
+            if let Err(update_err) = ExecutionProcess::update_completion(
+                &self.db().pool,
+                execution_process.id,
+                ExecutionProcessStatus::Failed,
+                None,
+            )
+            .await
+            {
+                tracing::error!(
+                    "Failed to mark execution process {} as failed after set_archived error: {}",
+                    execution_process.id,
+                    update_err
+                );
+            }
             return Err(e.into());
         }
 
@@ -1285,6 +1299,20 @@ pub trait ContainerService {
                     .write()
                     .await
                     .remove(&execution_process.id);
+                if let Err(update_err) = ExecutionProcess::update_completion(
+                    &self.db().pool,
+                    execution_process.id,
+                    ExecutionProcessStatus::Failed,
+                    None,
+                )
+                .await
+                {
+                    tracing::error!(
+                        "Failed to mark execution process {} as failed after CodingAgentTurn::create error: {}",
+                        execution_process.id,
+                        update_err
+                    );
+                }
                 return Err(e.into());
             }
         }
