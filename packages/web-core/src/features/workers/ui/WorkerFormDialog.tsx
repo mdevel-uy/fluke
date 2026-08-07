@@ -532,8 +532,8 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               id="worker-soul"
               value={soul}
               onChange={(e) => setSoul(e.target.value)}
-              rows={14}
-              className="mt-1 font-mono text-sm"
+              rows={6}
+              className="mt-1 font-mono text-sm resize-y min-h-[96px]"
               placeholder={t('workers.form.soulPlaceholder')}
             />
           </div>
@@ -541,7 +541,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
           {errorMessage && <Alert variant="destructive">{errorMessage}</Alert>}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border/60 pt-4">
           <Button variant="outline" onClick={handleCancel}>
             {t('workers.form.cancel')}
           </Button>

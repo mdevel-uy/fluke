@@ -143,7 +143,7 @@ const Dialog = React.forwardRef<
       <div
         ref={setDialogRef}
         className={cn(
-          'relative z-[10000] flex flex-col w-full max-w-xl gap-4 bg-primary p-6 shadow-lg duration-200 sm:rounded-lg my-8',
+          'relative z-[10000] flex flex-col w-full max-w-xl gap-4 bg-primary p-6 shadow-lg duration-200 sm:rounded-lg my-8 max-h-[min(85vh,680px)] overflow-hidden',
           className
         )}
         {...props}
@@ -210,7 +210,14 @@ const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('flex flex-col gap-4', className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(
+      'flex-1 overflow-y-auto min-h-0 flex flex-col gap-4',
+      className
+    )}
+    {...props}
+  />
 ));
 DialogContent.displayName = 'DialogContent';
 
@@ -220,7 +227,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2',
+      'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 flex-shrink-0',
       className
     )}
     {...props}
