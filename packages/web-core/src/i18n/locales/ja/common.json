@@ -1274,6 +1274,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "承認待ち",
+      "approve": "承認",
+      "approveConfirm": "承認",
+      "approveConfirmMessage": "このデザインを承認してタスクを完了にしますか？ワークスペースはアーカイブされます。",
+      "viewDesign": "デザインを見る"
+    },
     "designHandoff": {
       "sendToAnalyst": "アナリストに送る",
       "sentTo": "{{name}} に送信済み",
@@ -1376,6 +1383,8 @@
       "reviewChangesRequested": "変更要求: {{title}}",
       "cancelError": "タスクの停止に失敗しました: {{message}}",
       "reRequestReviewSuccess": "新しいレビューラウンドをリクエストしました。",
+      "designApproved": "デザインを承認しました: {{title}}",
+      "designApproveError": "デザインの承認に失敗しました: {{message}}",
       "reRequestReviewMaxRounds": "このPRはすでに最大レビューラウンド数に達しています。",
       "reRequestReviewNoOpenPr": "このタスクにはオープンなプルリクエストがありません。",
       "reRequestReviewNoReviewer": "レビューを担当できるレビュワーワーカーがいません。",

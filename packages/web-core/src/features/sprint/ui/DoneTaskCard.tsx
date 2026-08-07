@@ -6,6 +6,7 @@ import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 import { SkillChips } from './SkillChips';
 import { DesignHandoffDialog } from './DesignHandoffDialog';
+import { DesignArtifactLinks } from './DesignArtifactLinks';
 
 interface DoneTaskCardProps {
   task: WorkerTask;
@@ -95,6 +96,7 @@ export function DoneTaskCard({
               {task.result_summary}
             </p>
           )}
+          <DesignArtifactLinks task={task} />
           {handoff ? (
             <p className="flex items-center gap-1.5 text-xs text-low">
               <span className="text-success" aria-hidden>

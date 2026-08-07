@@ -45,6 +45,7 @@ import { BacklogIssueCard } from './BacklogIssueCard';
 import { QueuedTaskCard } from './QueuedTaskCard';
 import { InProgressTaskCard } from './InProgressTaskCard';
 import { InReviewTaskCard } from './InReviewTaskCard';
+import { DesignReviewTaskCard } from './DesignReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
 import { FailedTaskCard } from './FailedTaskCard';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
@@ -432,6 +433,18 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const approveDesignMutation = useMutation({
+    mutationFn: async (params: { workerId: string; taskId: string }) => {
+      await workersApi.approveDesign(params.workerId, params.taskId);
+    },
+    onSuccess: () => {
+      invalidateWorkerData();
+      // Approval may auto-start the worker's next queued task moments later;
+      // refresh again shortly so the board reflects it without the 30s poll.
+      setTimeout(invalidateWorkerData, 2500);
+    },
+  });
+
   const setPriorityMutation = useMutation({
     mutationFn: async (params: {
       issueNumber: number;
@@ -687,6 +700,31 @@ export function SprintPage() {
       );
     },
     [reRequestReviewMutation, pushToast, t]
+  );
+
+  const handleApproveDesign = useCallback(
+    (task: WorkerTask) => {
+      setBusyTaskId(task.id);
+      approveDesignMutation.mutate(
+        { workerId: task.worker_id, taskId: task.id },
+        {
+          onSettled: () => setBusyTaskId(null),
+          onSuccess: () =>
+            pushToast(
+              'success',
+              t('sprint.toast.designApproved', { title: task.title })
+            ),
+          onError: (err) =>
+            pushToast(
+              'error',
+              t('sprint.toast.designApproveError', {
+                message: err instanceof Error ? err.message : String(err),
+              })
+            ),
+        }
+      );
+    },
+    [approveDesignMutation, pushToast, t]
   );
 
   const repoTasks = useMemo(
@@ -1131,13 +1169,26 @@ export function SprintPage() {
                     return (
                       <div key={task.id} className="flex flex-col gap-2">
                         {worker && <WorkerChip worker={worker} />}
-                        <InReviewTaskCard
-                          task={task}
-                          isBusy={busyTaskId === task.id}
-                          onUnassign={() => handleCancelTask(task)}
-                          onReRequestReview={() => handleReRequestReview(task)}
-                          isReRequestingReview={reRequestingTaskId === task.id}
-                        />
+                        {worker?.role === 'designer' ? (
+                          <DesignReviewTaskCard
+                            task={task}
+                            isBusy={busyTaskId === task.id}
+                            onApprove={() => handleApproveDesign(task)}
+                            onUnassign={() => handleCancelTask(task)}
+                          />
+                        ) : (
+                          <InReviewTaskCard
+                            task={task}
+                            isBusy={busyTaskId === task.id}
+                            onUnassign={() => handleCancelTask(task)}
+                            onReRequestReview={() =>
+                              handleReRequestReview(task)
+                            }
+                            isReRequestingReview={
+                              reRequestingTaskId === task.id
+                            }
+                          />
+                        )}
                       </div>
                     );
                   })

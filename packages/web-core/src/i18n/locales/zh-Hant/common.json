@@ -1274,6 +1274,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "等待您的核准",
+      "approve": "核准",
+      "approveConfirm": "核准",
+      "approveConfirmMessage": "核准此設計並將任務標記為完成？其工作區將被封存。",
+      "viewDesign": "檢視設計"
+    },
     "designHandoff": {
       "sendToAnalyst": "傳送給分析師",
       "sentTo": "已傳送給 {{name}}",
@@ -1376,6 +1383,8 @@
       "reviewChangesRequested": "要求更改：{{title}}",
       "cancelError": "停止任務失敗：{{message}}",
       "reRequestReviewSuccess": "已請求新的審查回合。",
+      "designApproved": "設計已核准：{{title}}",
+      "designApproveError": "核准設計失敗：{{message}}",
       "reRequestReviewMaxRounds": "此 PR 已達到最大審查回合數。",
       "reRequestReviewNoOpenPr": "此任務已沒有開啟的拉取請求。",
       "reRequestReviewNoReviewer": "沒有可用的審查者工作者來接手審查。",

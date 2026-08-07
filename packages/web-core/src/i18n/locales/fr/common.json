@@ -1278,6 +1278,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "En attente de votre approbation",
+      "approve": "Approuver",
+      "approveConfirm": "Approuver",
+      "approveConfirmMessage": "Approuver ce design et marquer la tâche comme terminée ? Son espace de travail sera archivé.",
+      "viewDesign": "Voir le design"
+    },
     "designHandoff": {
       "sendToAnalyst": "Envoyer à l'analyste",
       "sentTo": "Envoyé à {{name}}",
@@ -1380,6 +1387,8 @@
       "reviewChangesRequested": "Modifications demandées : {{title}}",
       "cancelError": "Échec de l'arrêt de la tâche : {{message}}",
       "reRequestReviewSuccess": "Nouvelle ronde de revue demandée.",
+      "designApproved": "Design approuvé : {{title}}",
+      "designApproveError": "Échec de l'approbation du design : {{message}}",
       "reRequestReviewMaxRounds": "Cette PR a déjà atteint le nombre maximum de rondes de revue.",
       "reRequestReviewNoOpenPr": "Cette tâche n'a plus de pull request ouverte.",
       "reRequestReviewNoReviewer": "Aucun worker reviewer n'est disponible pour effectuer la revue.",

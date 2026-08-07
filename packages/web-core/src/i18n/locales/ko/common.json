@@ -1274,6 +1274,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "승인 대기 중",
+      "approve": "승인",
+      "approveConfirm": "승인",
+      "approveConfirmMessage": "이 디자인을 승인하고 태스크를 완료로 표시할까요? 워크스페이스는 보관 처리됩니다.",
+      "viewDesign": "디자인 보기"
+    },
     "designHandoff": {
       "sendToAnalyst": "분석가에게 보내기",
       "sentTo": "{{name}}에게 전송됨",
@@ -1376,6 +1383,8 @@
       "reviewChangesRequested": "변경 요청: {{title}}",
       "cancelError": "태스크 중지 실패: {{message}}",
       "reRequestReviewSuccess": "새 리뷰 라운드를 요청했습니다.",
+      "designApproved": "디자인이 승인되었습니다: {{title}}",
+      "designApproveError": "디자인 승인 실패: {{message}}",
       "reRequestReviewMaxRounds": "이 PR은 이미 최대 리뷰 라운드 수에 도달했습니다.",
       "reRequestReviewNoOpenPr": "이 태스크에 열린 풀 리퀘스트가 없습니다.",
       "reRequestReviewNoReviewer": "리뷰를 담당할 리뷰어 워커가 없습니다.",
