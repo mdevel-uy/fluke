@@ -16,7 +16,14 @@ impl Config {
 
     /// Legacy path del rebrand (~/.config/vibe-kanban/review.toml). Se lee
     /// como fallback si el path nuevo todavía no existe; el próximo `save()`
-    /// lo materializa en el path nuevo.
+    /// materializa el path nuevo y el legacy queda huérfano en disco (nunca
+    /// se renombra ni se borra).
+    ///
+    /// A diferencia de la migración del data dir (`utils::assets`), que hace
+    /// un `rename()` atómico del directorio legacy al nuevo, acá se elige
+    /// read-then-cohabit por ser un archivo suelto con contenido no crítico
+    /// (email cacheado): evita fallos por permisos/cross-device y el costo
+    /// del archivo huérfano es despreciable.
     fn legacy_config_path() -> Option<PathBuf> {
         dirs::config_dir().map(|p| p.join("vibe-kanban").join("review.toml"))
     }
