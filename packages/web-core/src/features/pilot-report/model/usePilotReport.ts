@@ -15,6 +15,8 @@ export interface PilotReportTask {
   status: 'done' | 'failed' | string;
   /** SQLite UTC datetime: "YYYY-MM-DD HH:MM:SS.SSS" */
   completed_at: string;
+  /** Per-task hours-saved override; `null` means "use installation default". */
+  hours_saved_override: number | null;
 }
 
 export interface PilotReportMergedPr {

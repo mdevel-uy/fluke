@@ -27,15 +27,27 @@ export function computePilotReportMetrics(
   windowStart: Date,
   windowEnd: Date
 ): PilotReportMetrics {
-  const ticketsResolved = data.completed_tasks.filter(
-    (t) => t.status === 'done'
-  ).length;
+  const resolvedTasks = data.completed_tasks.filter((t) => t.status === 'done');
+  const ticketsResolved = resolvedTasks.length;
   const ticketsFailed = data.completed_tasks.filter(
     (t) => t.status === 'failed'
   ).length;
   const prsMerged = data.merged_prs.length;
 
-  const hoursSaved = ticketsResolved * assumptions.hoursPerTicket;
+  // Same formula the value-generated panel uses: per-task overrides
+  // contribute their stored hours verbatim, tasks without one get the
+  // installation default. Keeping the math aligned means both surfaces
+  // tell the same story for the same window.
+  const overrideSum = resolvedTasks.reduce(
+    (sum, t) => sum + (t.hours_saved_override ?? 0),
+    0
+  );
+  const tasksWithOverride = resolvedTasks.filter(
+    (t) => t.hours_saved_override !== null
+  ).length;
+  const tasksWithoutOverride = Math.max(0, ticketsResolved - tasksWithOverride);
+  const hoursSaved =
+    overrideSum + tasksWithoutOverride * assumptions.hoursPerTicket;
 
   // Guard against a zero-hours FTE assumption to avoid NaN in the KPI.
   const fteEquivalent =

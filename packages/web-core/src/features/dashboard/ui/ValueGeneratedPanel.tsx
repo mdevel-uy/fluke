@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
+import {
+  DEFAULT_CURRENCY,
+  DEFAULT_HOURLY_RATE,
+  normalizeCurrency,
+} from '@/features/dashboard/model/valueDefaults';
 import { formatManHours } from '@/features/dashboard/model/dashboardMetrics';
 import {
   VALUE_HISTORY_WINDOWS,
@@ -70,13 +75,29 @@ export function ValueGeneratedPanel() {
   const { summary, isLoading } = useValueGenerated(historyMonths);
 
   // Defaults live server-side (`Config.default_hours_saved_per_task`,
-  // `Config.default_hours_per_fte_month`) so the pricing figure does not
-  // diverge across viewers. Fall back to the client defaults only while
-  // the config is still loading.
+  // `Config.default_hours_per_fte_month`, `Config.default_hourly_rate`,
+  // `Config.default_currency`) so the pricing figure does not diverge
+  // across viewers. Fall back to the client defaults only while the
+  // config is still loading.
   const hoursPerTask =
     config?.default_hours_saved_per_task ?? DEFAULT_HOURS_PER_TASK;
   const hoursPerFteMonth =
     config?.default_hours_per_fte_month ?? DEFAULT_HOURS_PER_FTE_MONTH;
+  const hourlyRate = config?.default_hourly_rate ?? DEFAULT_HOURLY_RATE;
+  const currency = normalizeCurrency(
+    config?.default_currency,
+    DEFAULT_CURRENCY
+  );
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.language, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+      }),
+    [i18n.language, currency]
+  );
 
   const [hoursDraft, setHoursDraft] = useState(() => String(hoursPerTask));
   const [fteDraft, setFteDraft] = useState(() => String(hoursPerFteMonth));
@@ -133,11 +154,12 @@ export function ValueGeneratedPanel() {
         acc.tickets += month.done_count;
         acc.hours += metrics.hours;
         acc.fte += metrics.fte;
+        acc.value += metrics.hours * hourlyRate;
         return acc;
       },
-      { tickets: 0, hours: 0, fte: 0 }
+      { tickets: 0, hours: 0, fte: 0, value: 0 }
     );
-  }, [summary.months, hoursPerTask, hoursPerFteMonth]);
+  }, [summary.months, hoursPerTask, hoursPerFteMonth, hourlyRate]);
 
   const commitHoursPerTask = (raw: string) => {
     setHoursDraft(raw);
@@ -243,6 +265,8 @@ export function ValueGeneratedPanel() {
           month={currentMonth}
           hours={currentMetrics.hours}
           fte={currentMetrics.fte}
+          value={currentMetrics.hours * hourlyRate}
+          currencyFormatter={currencyFormatter}
           monthFormatter={monthFormatter}
         />
 
@@ -266,6 +290,11 @@ export function ValueGeneratedPanel() {
             <span className="tabular-nums text-normal">
               {t('dashboard.valueGenerated.totalsFte', {
                 fte: formatManHours(totals.fte),
+              })}
+            </span>
+            <span className="tabular-nums text-normal">
+              {t('dashboard.valueGenerated.totalsValue', {
+                value: currencyFormatter.format(totals.value),
               })}
             </span>
           </div>
@@ -300,6 +329,8 @@ export function ValueGeneratedPanel() {
             rows={historyMonthsRows}
             hoursPerTask={hoursPerTask}
             hoursPerFteMonth={hoursPerFteMonth}
+            hourlyRate={hourlyRate}
+            currencyFormatter={currencyFormatter}
             monthFormatter={monthFormatter}
           />
         )}
@@ -312,11 +343,15 @@ function CurrentMonthCard({
   month,
   hours,
   fte,
+  value,
+  currencyFormatter,
   monthFormatter,
 }: {
   month: ValueGeneratedMonth;
   hours: number;
   fte: number;
+  value: number;
+  currencyFormatter: Intl.NumberFormat;
   monthFormatter: Intl.DateTimeFormat;
 }) {
   const { t } = useTranslation('common');
@@ -345,6 +380,13 @@ function CurrentMonthCard({
             fte: formatManHours(fte),
           })}
         </span>
+        {value > 0 && (
+          <span className="text-sm text-normal tabular-nums">
+            {t('dashboard.valueGenerated.summaryValue', {
+              value: currencyFormatter.format(value),
+            })}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -354,11 +396,15 @@ function HistoryTable({
   rows,
   hoursPerTask,
   hoursPerFteMonth,
+  hourlyRate,
+  currencyFormatter,
   monthFormatter,
 }: {
   rows: ValueGeneratedMonth[];
   hoursPerTask: number;
   hoursPerFteMonth: number;
+  hourlyRate: number;
+  currencyFormatter: Intl.NumberFormat;
   monthFormatter: Intl.DateTimeFormat;
 }) {
   const { t } = useTranslation('common');
@@ -376,8 +422,11 @@ function HistoryTable({
             <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableHours')}
             </th>
-            <th className="py-1 text-right font-semibold">
+            <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableFte')}
+            </th>
+            <th className="py-1 text-right font-semibold">
+              {t('dashboard.valueGenerated.tableValue')}
             </th>
           </tr>
         </thead>
@@ -402,8 +451,11 @@ function HistoryTable({
                 <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
                   {formatManHours(metrics.hours)}
                 </td>
-                <td className="border-t border-border py-1 text-right tabular-nums">
+                <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
                   {formatManHours(metrics.fte)}
+                </td>
+                <td className="border-t border-border py-1 text-right tabular-nums">
+                  {currencyFormatter.format(metrics.hours * hourlyRate)}
                 </td>
               </tr>
             );

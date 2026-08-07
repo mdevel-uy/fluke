@@ -750,6 +750,9 @@
       "summaryTickets_other": "{{count}} tickets resueltos",
       "summaryHours": "~{{hours}} h ahorradas",
       "summaryFte": "≈ {{fte}} FTE",
+      "summaryValue": "≈ {{value}}",
+      "tableValue": "Valor",
+      "totalsValue": "{{value}}",
       "totalsLabel": "Últimos {{months}} meses",
       "totalsTickets": "{{count}} tickets",
       "totalsHours": "{{hours}} h",
@@ -795,7 +798,12 @@
       "hoursPerTicket": "Horas / ticket",
       "hoursPerFteMonth": "Horas / FTE·mes",
       "hourlyRate": "Tarifa por hora",
-      "currency": "Moneda"
+      "currency": "Moneda",
+      "modifiedBadge": "Modificado",
+      "modifiedHint": "Distinto al de la configuración",
+      "resetAll": "Restaurar del config",
+      "resetField": "Restaurar valor del config ({{value}})",
+      "sourceHint": "Los valores por defecto vienen de la configuración de la instalación para que todos los visores vean los mismos números."
     },
     "tasksSection": {
       "title": "Tareas del período",

@@ -747,6 +747,9 @@
       "summaryTickets_other": "{{count}} 件のチケットを解決",
       "summaryHours": "約 {{hours}} 時間の削減",
       "summaryFte": "≈ {{fte}} FTE",
+      "summaryValue": "≈ {{value}}",
+      "tableValue": "価値",
+      "totalsValue": "{{value}}",
       "totalsLabel": "直近 {{months}} か月",
       "totalsTickets": "{{count}} 件",
       "totalsHours": "{{hours}} 時間",
@@ -792,7 +795,12 @@
       "hoursPerTicket": "1 チケットあたりの時間",
       "hoursPerFteMonth": "1 FTE·月の時間",
       "hourlyRate": "時間単価",
-      "currency": "通貨"
+      "currency": "通貨",
+      "modifiedBadge": "変更済み",
+      "modifiedHint": "インストール設定と異なります",
+      "resetAll": "設定にリセット",
+      "resetField": "設定値にリセット ({{value}})",
+      "sourceHint": "既定値はインストール設定から取得されるため、すべての閲覧者が同じ数値を見ます。"
     },
     "tasksSection": {
       "title": "期間内のタスク",

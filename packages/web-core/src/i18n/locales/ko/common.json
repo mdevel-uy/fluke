@@ -747,6 +747,9 @@
       "summaryTickets_other": "티켓 {{count}}건 해결",
       "summaryHours": "약 {{hours}}시간 절감",
       "summaryFte": "≈ {{fte}} FTE",
+      "summaryValue": "≈ {{value}}",
+      "tableValue": "가치",
+      "totalsValue": "{{value}}",
       "totalsLabel": "최근 {{months}}개월",
       "totalsTickets": "티켓 {{count}}건",
       "totalsHours": "{{hours}}시간",
@@ -792,7 +795,12 @@
       "hoursPerTicket": "티켓당 시간",
       "hoursPerFteMonth": "FTE·월당 시간",
       "hourlyRate": "시간당 요금",
-      "currency": "통화"
+      "currency": "통화",
+      "modifiedBadge": "수정됨",
+      "modifiedHint": "설치 설정과 다릅니다",
+      "resetAll": "설정으로 재설정",
+      "resetField": "설정값으로 재설정 ({{value}})",
+      "sourceHint": "기본값은 설치 설정에서 가져오므로 모든 사용자가 동일한 수치를 확인합니다."
     },
     "tasksSection": {
       "title": "기간 내 작업",

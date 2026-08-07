@@ -41,6 +41,13 @@ pub struct PilotReportTask {
     pub status: String,
     /// SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
     pub completed_at: String,
+    /// Per-task hours-saved override, when the viewer pinned an explicit
+    /// figure on the value-generated panel. `None` means "use the
+    /// installation default" (`Config.default_hours_saved_per_task`).
+    /// Kept aligned with the value-generated panel formula so both surfaces
+    /// tell the same story for the same month.
+    #[ts(type = "number | null")]
+    pub hours_saved_override: Option<f64>,
 }
 
 /// A pull request merged inside the window.
@@ -108,7 +115,8 @@ pub async fn get_pilot_report(
     let to_sql = to.format("%Y-%m-%d %H:%M:%S%.3f").to_string();
 
     let completed_tasks: Vec<PilotReportTask> = sqlx::query_as(
-        "SELECT worker_id, title, issue_number, status, completed_at
+        "SELECT worker_id, title, issue_number, status, completed_at,
+                hours_saved_override
          FROM worker_tasks
          WHERE completed_at IS NOT NULL
            AND completed_at >= datetime($1)

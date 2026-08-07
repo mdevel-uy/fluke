@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
+import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import {
   bucketClosedIssuesByDay,
   formatManHours,
@@ -64,10 +65,23 @@ function useElementWidth(ref: React.RefObject<HTMLElement>): number {
 export function ImpactPanel() {
   const { t, i18n } = useTranslation('common');
 
+  const { config } = useUserSystem();
   const windowDays = useImpactSettingsStore((s) => s.windowDays);
   const setWindowDays = useImpactSettingsStore((s) => s.setWindowDays);
-  const hoursPerIssue = useImpactSettingsStore((s) => s.hoursPerIssue);
-  const setHoursPerIssue = useImpactSettingsStore((s) => s.setHoursPerIssue);
+  const hoursPerIssueOverride = useImpactSettingsStore(
+    (s) => s.hoursPerIssueOverride
+  );
+  const setHoursPerIssueOverride = useImpactSettingsStore(
+    (s) => s.setHoursPerIssueOverride
+  );
+
+  // Same source of truth as the value-generated panel and pilot report:
+  // `Config.default_hours_saved_per_task`. A local override still wins
+  // because this panel is a viewer scratchpad, but the resting default
+  // now matches the pricing figure the rest of the app uses.
+  const configHoursPerIssue =
+    config?.default_hours_saved_per_task ?? DEFAULT_HOURS_PER_ISSUE;
+  const hoursPerIssue = hoursPerIssueOverride ?? configHoursPerIssue;
 
   const { issues, isLoading } = useClosedIssues(windowDays);
 
@@ -101,6 +115,15 @@ export function ImpactPanel() {
     [i18n.language]
   );
 
+  // Re-hydrate the draft whenever the effective value changes underneath us
+  // (config load, user hit "reset", or another tab wrote to localStorage).
+  // Skipped while the user is mid-edit so their typing wins.
+  useEffect(() => {
+    setFactorDraft((draft) =>
+      Number.parseFloat(draft) === hoursPerIssue ? draft : String(hoursPerIssue)
+    );
+  }, [hoursPerIssue]);
+
   const commitFactor = (raw: string) => {
     setFactorDraft(raw);
     const parsed = Number.parseFloat(raw);
@@ -109,7 +132,9 @@ export function ImpactPanel() {
       parsed >= MIN_HOURS_PER_ISSUE &&
       parsed <= MAX_HOURS_PER_ISSUE
     ) {
-      setHoursPerIssue(parsed);
+      // Store `null` when the viewer types the exact config value back —
+      // that keeps the "modified from config" story honest across surfaces.
+      setHoursPerIssueOverride(parsed === configHoursPerIssue ? null : parsed);
     }
   };
 
@@ -117,8 +142,8 @@ export function ImpactPanel() {
     const parsed = Number.parseFloat(factorDraft);
     const next = Number.isFinite(parsed)
       ? Math.min(MAX_HOURS_PER_ISSUE, Math.max(MIN_HOURS_PER_ISSUE, parsed))
-      : DEFAULT_HOURS_PER_ISSUE;
-    setHoursPerIssue(next);
+      : configHoursPerIssue;
+    setHoursPerIssueOverride(next === configHoursPerIssue ? null : next);
     setFactorDraft(String(next));
   };
 

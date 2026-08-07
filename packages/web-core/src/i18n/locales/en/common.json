@@ -754,6 +754,9 @@
       "summaryTickets_other": "{{count}} tickets resolved",
       "summaryHours": "~{{hours}} h saved",
       "summaryFte": "≈ {{fte}} FTE",
+      "summaryValue": "≈ {{value}}",
+      "tableValue": "Value",
+      "totalsValue": "{{value}}",
       "totalsLabel": "Last {{months}} months",
       "totalsTickets": "{{count}} tickets",
       "totalsHours": "{{hours}} h",
@@ -799,7 +802,12 @@
       "hoursPerTicket": "Hours / ticket",
       "hoursPerFteMonth": "Hours / FTE·month",
       "hourlyRate": "Hourly rate",
-      "currency": "Currency"
+      "currency": "Currency",
+      "modifiedBadge": "Modified",
+      "modifiedHint": "Different from installation config",
+      "resetAll": "Reset to config",
+      "resetField": "Reset to config default ({{value}})",
+      "sourceHint": "Defaults come from the installation config so every viewer sees the same figures."
     },
     "tasksSection": {
       "title": "Tasks in the period",

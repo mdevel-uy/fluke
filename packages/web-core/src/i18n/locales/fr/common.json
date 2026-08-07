@@ -749,6 +749,9 @@
       "summaryTickets_other": "{{count}} tickets résolus",
       "summaryHours": "~{{hours}} h économisées",
       "summaryFte": "≈ {{fte}} ETP",
+      "summaryValue": "≈ {{value}}",
+      "tableValue": "Valeur",
+      "totalsValue": "{{value}}",
       "totalsLabel": "{{months}} derniers mois",
       "totalsTickets": "{{count}} tickets",
       "totalsHours": "{{hours}} h",
@@ -794,7 +797,12 @@
       "hoursPerTicket": "Heures / ticket",
       "hoursPerFteMonth": "Heures / ETP·mois",
       "hourlyRate": "Taux horaire",
-      "currency": "Devise"
+      "currency": "Devise",
+      "modifiedBadge": "Modifié",
+      "modifiedHint": "Différent de la configuration",
+      "resetAll": "Rétablir la config",
+      "resetField": "Rétablir la valeur de config ({{value}})",
+      "sourceHint": "Les valeurs par défaut proviennent de la configuration afin que chaque lecteur voie les mêmes chiffres."
     },
     "tasksSection": {
       "title": "Tâches de la période",
