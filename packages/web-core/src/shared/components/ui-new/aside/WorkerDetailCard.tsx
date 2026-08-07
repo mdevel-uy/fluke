@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
-import { StatusDot, type DotTone } from '@/shared/components/ui-new/aside/primitives';
+import {
+  StatusDot,
+  type DotTone,
+} from '@/shared/components/ui-new/aside/primitives';
 
 // SHELL-SPEC R19: worker card — identity first (name + role chip), the model
 // is an attribute line (R31), context bar with % used, and Stop / Start task.
@@ -11,7 +14,7 @@ const ROLE_CHIP_CLASS: Record<string, string> = {
   reviewer: 'bg-warning/10 text-warning',
 };
 
-export type WorkerCardState = 'running' | 'attention' | 'idle';
+export type WorkerCardState = 'running' | 'review' | 'attention' | 'idle';
 
 export interface WorkerDetailCardProps {
   /** No agent has ever run here — renders the compact idle variant */
@@ -32,6 +35,7 @@ export interface WorkerDetailCardProps {
 
 function cardDotTone(state: WorkerCardState): DotTone {
   if (state === 'running') return 'run';
+  if (state === 'review') return 'review';
   if (state === 'attention') return 'warn';
   return 'idle';
 }
@@ -65,7 +69,9 @@ export function WorkerDetailCard({
         <div className="mb-1.5 flex items-center gap-1.5">
           <StatusDot tone="idle" />
           <span className="flex-1 text-sm font-semibold text-high">
-            {t('workspaces.aside.noAgent', { defaultValue: 'No agent running' })}
+            {t('workspaces.aside.noAgent', {
+              defaultValue: 'No agent running',
+            })}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -94,20 +100,28 @@ export function WorkerDetailCard({
         t('workspaces.aside.needsAttention', {
           defaultValue: 'Needs attention',
         }))
-      : state === 'running'
-        ? [
-            t('workspaces.aside.working', { defaultValue: 'Working…' }),
-            elapsed,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-        : t('workspaces.aside.workspaceIdle', { defaultValue: 'Workspace idle' });
+      : state === 'review'
+        ? t('workspaces.aside.inReview', { defaultValue: 'In review' })
+        : state === 'running'
+          ? [
+              t('workspaces.aside.working', { defaultValue: 'Working…' }),
+              elapsed,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : t('workspaces.aside.workspaceIdle', {
+              defaultValue: 'Workspace idle',
+            });
 
   return (
     <div
       className={cn(
         'mx-2.5 mt-2 mb-2 rounded-lg border bg-panel px-2.5 py-2',
-        state === 'attention' ? 'border-warning/45' : 'border-border'
+        state === 'attention'
+          ? 'border-warning/45'
+          : state === 'review'
+            ? 'border-info/45'
+            : 'border-border'
       )}
     >
       <div className="mb-1.5 flex items-center gap-1.5">
