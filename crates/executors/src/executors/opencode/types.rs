@@ -23,6 +23,20 @@ pub(super) enum OpencodeExecutorEvent {
     TokenUsage {
         total_tokens: u32,
         model_context_window: u32,
+        // Breakdown fields default to their previous absence so older
+        // sidecar log files (already checked in) still deserialize.
+        #[serde(default)]
+        input_tokens: Option<u64>,
+        #[serde(default)]
+        output_tokens: Option<u64>,
+        #[serde(default)]
+        cache_read_tokens: Option<u64>,
+        #[serde(default)]
+        cache_creation_tokens: Option<u64>,
+        /// `provider/model` identifier so the persistence layer can look up
+        /// pricing without re-deriving it from the executor action.
+        #[serde(default)]
+        model: Option<String>,
     },
     ApprovalRequested {
         tool_call_id: String,

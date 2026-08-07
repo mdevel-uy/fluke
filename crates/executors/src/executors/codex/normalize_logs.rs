@@ -742,6 +742,11 @@ fn add_thread_token_usage(
     msg_store: &Arc<MsgStore>,
     entry_index: &EntryIndexProvider,
 ) {
+    // Persist the cumulative `.total` breakdown so the last-emitted entry is
+    // additive across the whole run — the exit monitor reads only the last
+    // one from msg_store history. `.last` on the other hand is per-turn and
+    // would understate the run when the process closes.
+    let total = &notification.token_usage.total;
     add_normalized_entry(
         msg_store,
         entry_index,
@@ -753,6 +758,12 @@ fn add_thread_token_usage(
                     .token_usage
                     .model_context_window
                     .unwrap_or_default() as u32,
+                input_tokens: Some(total.input_tokens.max(0) as u64),
+                output_tokens: Some(
+                    (total.output_tokens.max(0) + total.reasoning_output_tokens.max(0)) as u64,
+                ),
+                cache_read_input_tokens: Some(total.cached_input_tokens.max(0) as u64)
+                    .filter(|&n| n > 0),
                 ..Default::default()
             }),
             content: format!(
@@ -2241,6 +2252,7 @@ pub fn normalize_logs(
                 }
                 EventMsg::TokenCount(payload) => {
                     if let Some(info) = payload.info {
+                        let total = &info.total_token_usage;
                         add_normalized_entry(
                             &msg_store,
                             &entry_index,
@@ -2253,6 +2265,16 @@ pub fn normalize_logs(
                                             .model_context_window
                                             .unwrap_or_default()
                                             as u32,
+                                        input_tokens: Some(total.input_tokens.max(0) as u64),
+                                        output_tokens: Some(
+                                            (total.output_tokens.max(0)
+                                                + total.reasoning_output_tokens.max(0))
+                                                as u64,
+                                        ),
+                                        cache_read_input_tokens: Some(
+                                            total.cached_input_tokens.max(0) as u64,
+                                        )
+                                        .filter(|&n| n > 0),
                                         ..Default::default()
                                     },
                                 ),
