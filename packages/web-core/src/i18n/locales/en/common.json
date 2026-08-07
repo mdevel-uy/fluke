@@ -224,7 +224,8 @@
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
-      "reviewerWorking": "Reviewer working..."
+      "reviewerWorking": "Reviewer working...",
+      "inReview": "In review"
     }
   },
   "fileTree": {

@@ -209,7 +209,8 @@
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
-      "reviewerWorking": "审阅者工作中..."
+      "reviewerWorking": "审阅者工作中...",
+      "inReview": "审核中"
     }
   },
   "fileTree": {
