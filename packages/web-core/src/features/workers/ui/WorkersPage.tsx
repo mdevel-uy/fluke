@@ -162,9 +162,11 @@ export function WorkersPage() {
       const ws = workspaceById.get(worker.active_workspace_id);
       if (
         task &&
+        task.status === 'in_progress' &&
         ws &&
         !ws.isRunning &&
         !ws.hasPendingApproval &&
+        !ws.hasTaskInReview &&
         ws.latestProcessStatus !== 'running'
       ) {
         stalled.add(worker.id);
@@ -172,6 +174,19 @@ export function WorkersPage() {
     }
     return stalled;
   }, [workers, workspaces, activeTaskByWorkerId]);
+
+  const inReviewWorkerIds = useMemo(() => {
+    const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
+    const inReview = new Set<string>();
+    for (const worker of workers) {
+      if (!worker.active_workspace_id) continue;
+      const ws = workspaceById.get(worker.active_workspace_id);
+      if (ws?.hasTaskInReview && !ws.hasPendingApproval) {
+        inReview.add(worker.id);
+      }
+    }
+    return inReview;
+  }, [workers, workspaces]);
 
   const workingWorkerIds = useMemo(
     () => new Set(activeTaskByWorkerId.keys()),
@@ -491,6 +506,7 @@ export function WorkersPage() {
                   queuedCount={queuedCountByWorkerId.get(worker.id) ?? 0}
                   activeTask={activeTaskByWorkerId.get(worker.id)}
                   needsAttention={stalledWorkerIds.has(worker.id)}
+                  inReview={inReviewWorkerIds.has(worker.id)}
                   activeWorkspace={
                     worker.active_workspace_id
                       ? workspaceSummaryById.get(worker.active_workspace_id)

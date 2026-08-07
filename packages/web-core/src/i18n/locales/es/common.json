@@ -210,7 +210,8 @@
     "draftWorkspace": "Borrador de espacio de trabajo",
     "openForIssue": "Abrir un espacio de trabajo para este issue",
     "aside": {
-      "reviewerWorking": "Reviewer trabajando..."
+      "reviewerWorking": "Reviewer trabajando...",
+      "inReview": "En revisión"
     }
   },
   "fileTree": {

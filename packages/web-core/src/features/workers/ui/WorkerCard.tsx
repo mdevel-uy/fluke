@@ -6,6 +6,7 @@ import {
   ChevronUp,
   File,
   GitBranch,
+  GitPullRequest,
   Hand,
   ListTodo,
   Loader2,
@@ -63,6 +64,7 @@ interface WorkerCardProps {
   /** Sidebar summary of the worker's active workspace, if any */
   activeWorkspace?: SidebarWorkspace;
   needsAttention?: boolean;
+  inReview?: boolean;
   isStarting: boolean;
   isDuplicating?: boolean;
   onStartNext: () => void;
@@ -77,6 +79,7 @@ export function WorkerCard({
   activeTask,
   activeWorkspace,
   needsAttention = false,
+  inReview = false,
   isStarting,
   isDuplicating = false,
   onStartNext,
@@ -122,9 +125,11 @@ export function WorkerCard({
               ? 'bg-error'
               : isWaitingApproval
                 ? 'bg-warning'
-                : isWorking
-                  ? 'animate-pulse bg-brand-on-surface'
-                  : 'bg-success'
+                : inReview
+                  ? 'bg-info'
+                  : isWorking
+                    ? 'animate-pulse bg-brand-on-surface'
+                    : 'bg-success'
           )}
           aria-hidden
         />
@@ -266,7 +271,7 @@ export function WorkerCard({
         )}
 
         {/* Attention row: approval chip / stalled notice + diff stats */}
-        {(isWaitingApproval || needsAttention || hasChanges) && (
+        {(isWaitingApproval || needsAttention || inReview || hasChanges) && (
           <div className="flex min-w-0 items-center justify-between gap-2">
             {needsAttention ? (
               <span className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-error">
@@ -284,6 +289,15 @@ export function WorkerCard({
               <span className="flex shrink-0 items-center gap-1.5 rounded bg-warning/10 px-2 py-0.5 text-sm font-medium text-warning">
                 <Hand className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 {t('workspaces.activityWaitingApproval')}
+              </span>
+            ) : inReview ? (
+              <span className="flex shrink-0 items-center gap-1.5 rounded bg-info/10 px-2 py-0.5 text-sm font-medium text-info">
+                <GitPullRequest
+                  className="h-3.5 w-3.5"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                {t('workspaces.aside.inReview', { defaultValue: 'In review' })}
               </span>
             ) : (
               <span />

@@ -209,7 +209,8 @@
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
-      "reviewerWorking": "レビュアー作業中..."
+      "reviewerWorking": "レビュアー作業中...",
+      "inReview": "レビュー中"
     }
   },
   "fileTree": {
