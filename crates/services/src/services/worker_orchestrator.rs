@@ -15,6 +15,16 @@
 //!                     │
 //!                     └──────────────────────▶  failed  (agent crashed)
 //!
+//!   designer role:
+//!     queued  ─▶  in_progress  ─▶  in_review  ─▶  done  (user approved the
+//!                     │                                  artifact — never
+//!                     │                                  automatic)
+//!                     └──────────────────────▶  failed  (agent crashed)
+//!
+//!   A designer's `in_review` keeps the workspace alive so the user can open
+//!   the artifact preview and request follow-ups; the workspace is archived
+//!   only on approval.
+//!
 //! A start attempt that fails *before* the agent begins running (missing
 //! `default_target_branch`, unreachable target branch, workspace creation
 //! error) is transactional: any workspace it created is archived and
@@ -1064,15 +1074,38 @@ pub async fn on_agent_finished(
         return Ok(());
     }
 
-    // Only transition tasks that are still in_progress.
+    // Only transition tasks that are still in_progress. One exception: a
+    // designer task awaiting the user's approval (`in_review`) whose
+    // workspace just finished a follow-up run — the artifact changed, so
+    // refresh the deliverable (summary + design/* ref) without touching the
+    // task state. Approval stays a user-only transition.
     if task.status != worker_task::STATUS_IN_PROGRESS {
+        if worker.role == ROLE_DESIGNER
+            && task.status == worker_task::STATUS_IN_REVIEW
+            && succeeded
+        {
+            persist_non_developer_deliverable(
+                db,
+                container,
+                workspace_id,
+                &task,
+                &worker,
+                execution_id,
+            )
+            .await;
+        }
         return Ok(());
     }
 
-    let new_status = if succeeded {
-        worker_task::STATUS_DONE
-    } else {
+    // Designers stop at `in_review`: the user must see the artifact (and
+    // possibly request follow-ups) before the task may count as done — the
+    // final OK is always the user's, via approve_designer_task.
+    let new_status = if !succeeded {
         worker_task::STATUS_FAILED
+    } else if worker.role == ROLE_DESIGNER {
+        worker_task::STATUS_IN_REVIEW
+    } else {
+        worker_task::STATUS_DONE
     };
 
     let mut infra_failure = false;
@@ -1098,7 +1131,7 @@ pub async fn on_agent_finished(
         role = %worker.role,
         succeeded,
         infra_failure,
-        "Analyst/reviewer worker task finished — status set to {}",
+        "Non-developer worker task finished — status set to {}",
         new_status
     );
     if infra_failure {
@@ -1110,8 +1143,13 @@ pub async fn on_agent_finished(
         );
     }
 
-    // Archive the workspace now that the task is complete.
-    archive_and_detach(db, container, workspace_id).await;
+    // Archive the workspace now that the task is complete. A designer task
+    // that ended in `in_review` is NOT complete: its workspace stays alive so
+    // the user can open the artifact preview and request follow-ups; it is
+    // archived on approval instead (approve_designer_task).
+    if new_status != worker_task::STATUS_IN_REVIEW {
+        archive_and_detach(db, container, workspace_id).await;
+    }
 
     // Auto-start the next queued task for this worker.
     if succeeded {
@@ -1136,6 +1174,44 @@ pub async fn on_agent_finished(
     }
 
     Ok(())
+}
+
+/// The user reviewed a designer's artifact and approved it: flip the task
+/// `in_review → done`, archive its workspace (the durable `design/*` ref and
+/// the recorded summary outlive it) and offer the worker its next queued
+/// task. This is the ONLY path that completes a designer task — the
+/// orchestrator never does it on its own. Role/status validation lives at
+/// the route.
+pub async fn approve_designer_task(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    task_id: Uuid,
+) -> Result<WorkerTask, sqlx::Error> {
+    let pool = &db.pool;
+    let task = WorkerTask::set_status(pool, task_id, worker_task::STATUS_DONE).await?;
+    info!(
+        task_id = %task.id,
+        worker_id = %task.worker_id,
+        "Designer deliverable approved by user — task moved to done"
+    );
+
+    if let Some(workspace_id) = task.workspace_id {
+        archive_and_detach(db, container, workspace_id).await;
+    }
+
+    match try_take_next(config, db, container, task.worker_id).await {
+        Ok(_) => {}
+        Err(e) if e.is_conflict() => {}
+        Err(e) => {
+            warn!(
+                worker_id = %task.worker_id,
+                "Failed to auto-take next task after design approval: {}",
+                e
+            );
+        }
+    }
+    Ok(task)
 }
 
 /// Capture a finished non-developer run's deliverable before its worktree is

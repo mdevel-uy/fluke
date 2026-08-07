@@ -119,6 +119,7 @@ import {
   UpdateWorkerTaskRequest,
   CreateDesignHandoffRequest,
   PendingDesignHandoffResponse,
+  DesignArtifactsResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -2569,6 +2570,29 @@ export const workersApi = {
       }
     );
     return handleApiResponse<void>(response);
+  },
+
+  listDesignArtifacts: async (
+    workerId: string,
+    taskId: string
+  ): Promise<DesignArtifactsResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/design-artifacts`
+    );
+    return handleApiResponse<DesignArtifactsResponse>(response);
+  },
+
+  approveDesign: async (
+    workerId: string,
+    taskId: string
+  ): Promise<WorkerTaskResponse> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/approve-design`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<WorkerTaskResponse>(response);
   },
 
   reRequestReview: async (workerId: string, taskId: string): Promise<void> => {

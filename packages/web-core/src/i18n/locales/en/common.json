@@ -1287,6 +1287,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "Awaiting your approval",
+      "approve": "Approve",
+      "approveConfirm": "Approve",
+      "approveConfirmMessage": "Approve this design and mark the task as done? Its workspace will be archived.",
+      "viewDesign": "View design"
+    },
     "designHandoff": {
       "sendToAnalyst": "Send to analyst",
       "sentTo": "Sent to {{name}}",
@@ -1389,6 +1396,8 @@
       "reviewChangesRequested": "Changes requested: {{title}}",
       "cancelError": "Failed to stop task: {{message}}",
       "reRequestReviewSuccess": "New review round requested.",
+      "designApproved": "Design approved: {{title}}",
+      "designApproveError": "Failed to approve design: {{message}}",
       "reRequestReviewMaxRounds": "This PR has already reached the maximum number of review rounds.",
       "reRequestReviewNoOpenPr": "This task no longer has an open pull request.",
       "reRequestReviewNoReviewer": "No reviewer worker is available to take the review.",

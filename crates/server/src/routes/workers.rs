@@ -10,6 +10,7 @@ use db::models::{
     file::File,
     merge::MergeStatus,
     pull_request::PullRequest,
+    repo::Repo,
     worker::{
         CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
         Worker,
@@ -1398,6 +1399,185 @@ pub async fn cancel_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+/// HTML artifacts a designer task committed under `design/`, as repo-relative
+/// paths the client turns into
+/// `/api/workers/{w}/tasks/{t}/design-artifacts/{path}` links.
+#[derive(Debug, Serialize, TS)]
+pub struct DesignArtifactsResponse {
+    pub files: Vec<String>,
+}
+
+fn is_design_artifact_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    path.starts_with("design/")
+        && !path.split('/').any(|part| part == ".." || part.is_empty())
+        && (lower.ends_with(".html") || lower.ends_with(".htm"))
+}
+
+/// Refs that may hold a designer task's deliverable, freshest first: the
+/// workspace branch (includes follow-up commits), then the durable pushed
+/// `origin/design/*` ref — which survives workspace archiving and even local
+/// branch deletion.
+async fn design_candidate_refs(
+    pool: &sqlx::SqlitePool,
+    task: &WorkerTask,
+) -> Result<Vec<String>, ApiError> {
+    let mut refs: Vec<String> = Vec::new();
+    if let Some(workspace_id) = task.workspace_id
+        && let Some(workspace) = Workspace::find_by_id(pool, workspace_id).await?
+    {
+        refs.push(workspace.branch);
+    }
+    if let Some(deliverable_ref) = &task.deliverable_ref {
+        refs.push(format!("origin/{deliverable_ref}"));
+    }
+    Ok(refs)
+}
+
+/// GET /api/workers/{worker_id}/tasks/{task_id}/design-artifacts — list the
+/// HTML files of a designer deliverable. Read from git refs, NOT the
+/// worktree, so it works for archived workspaces too.
+pub async fn list_design_artifacts(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<DesignArtifactsResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+    let repo = Repo::find_by_id(pool, existing.repo_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Repo not found".into()))?;
+
+    let candidate_refs = design_candidate_refs(pool, &existing).await?;
+    let git = deployment.container().git();
+    let mut files: Vec<String> = Vec::new();
+    for candidate in &candidate_refs {
+        let Ok(oid) = git.get_branch_oid(&repo.path, candidate) else {
+            continue;
+        };
+        // `design/` missing from the tree is a normal miss, not an error.
+        let Ok(entries) = git.get_commit_tree(&repo.path, &oid, "design") else {
+            continue;
+        };
+        files = entries
+            .into_iter()
+            .filter(|e| !e.is_directory)
+            .map(|e| format!("design/{}", e.name))
+            .filter(|p| is_design_artifact_path(p))
+            .collect();
+        if !files.is_empty() {
+            break;
+        }
+    }
+
+    Ok(ResponseJson(ApiResponse::success(DesignArtifactsResponse {
+        files,
+    })))
+}
+
+/// Same browser sandbox as the workspace preview: inline scripts may run,
+/// but the document gets an opaque origin — it cannot call the API or read
+/// app storage.
+const DESIGN_ARTIFACT_CSP: &str = "sandbox allow-scripts allow-forms allow-popups allow-modals";
+
+/// GET /api/workers/{worker_id}/tasks/{task_id}/design-artifacts/{*path} —
+/// serve one design artifact rendered, read straight from the git blob
+/// (workspace branch → pushed `origin/design/*` ref). Unlike the workspace
+/// preview this needs no worktree at all, so it works long after the
+/// workspace is archived.
+pub async fn serve_design_artifact(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id, path)): Path<(Uuid, Uuid, String)>,
+) -> Result<Response, ApiError> {
+    if !is_design_artifact_path(&path) {
+        return Err(ApiError::BadRequest("Not a design artifact path".into()));
+    }
+    let pool = &deployment.db().pool;
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+    let repo = Repo::find_by_id(pool, existing.repo_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Repo not found".into()))?;
+
+    let candidate_refs = design_candidate_refs(pool, &existing).await?;
+    let git = deployment.container().git();
+    for candidate in &candidate_refs {
+        let Ok(oid) = git.get_branch_oid(&repo.path, candidate) else {
+            continue;
+        };
+        let Ok(content) = git.get_commit_file(&repo.path, &oid, &path) else {
+            continue;
+        };
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", "text/html; charset=utf-8")
+            .header("cache-control", "no-store")
+            .header("x-content-type-options", "nosniff")
+            .header("content-security-policy", DESIGN_ARTIFACT_CSP)
+            .body(content.into())
+            .map_err(|e| ApiError::BadRequest(format!("Response build error: {e}")));
+    }
+    Err(ApiError::BadRequest("Design artifact not found".into()))
+}
+
+/// POST /api/workers/{worker_id}/tasks/{task_id}/approve-design — the manual
+/// gate that moves a designer task from `in_review` to `done`. Designer
+/// deliverables never auto-complete: the user must see the artifact (and
+/// possibly request follow-ups in the still-alive workspace) before giving
+/// the final OK here.
+pub async fn approve_design_task(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<WorkerTaskResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let existing = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+
+    if existing.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+
+    let worker = Worker::find_by_id(pool, worker_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+    if worker.role != ROLE_DESIGNER {
+        return Err(ApiError::BadRequest(
+            "Only designer tasks can be approved".into(),
+        ));
+    }
+    if existing.status != worker_task::STATUS_IN_REVIEW {
+        return Err(ApiError::Conflict(
+            "Only designs awaiting review can be approved".into(),
+        ));
+    }
+
+    let task = worker_orchestrator::approve_designer_task(
+        deployment.config(),
+        deployment.db(),
+        deployment.container(),
+        task_id,
+    )
+    .await?;
+
+    let response = worker_task_to_response(pool, task).await?;
+    Ok(ResponseJson(ApiResponse::success(response)))
+}
+
 /// Manually dispatch a new reviewer round for a developer task that is stuck
 /// in `in_review` with `review_result = 'changes_requested'`. Rescue path for
 /// when the automatic `pr_monitor` loop failed to detect the author's fix push
@@ -1633,6 +1813,18 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/cancel",
             post(cancel_worker_task),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/approve-design",
+            post(approve_design_task),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/design-artifacts",
+            get(list_design_artifacts),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/design-artifacts/{*path}",
+            get(serve_design_artifact),
         )
         .route(
             "/workers/{worker_id}/tasks/{task_id}/reassign",

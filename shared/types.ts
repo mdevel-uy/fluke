@@ -582,6 +582,12 @@ source?: string, };
  */
 export type PendingDesignHandoffResponse = { task_id: string, repo_id: string, title: string, issue_number: number | null, worker_name: string, worker_emoji: string, deliverable_ref: string | null, result_summary: string | null, completed_at: Date | null, };
 
+/**
+ * HTML artifacts a designer task committed under `design/`, as repo-relative
+ * paths the client turns into `/api/workspaces/{id}/preview/{path}` links.
+ */
+export type DesignArtifactsResponse = { files: Array<string>, };
+
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
 /**
  * Optional GitHub PAT to authenticate this worker's push/PR/review

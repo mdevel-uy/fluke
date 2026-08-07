@@ -1282,6 +1282,13 @@
     }
   },
   "sprint": {
+    "designReview": {
+      "awaitingApproval": "等待您的批准",
+      "approve": "批准",
+      "approveConfirm": "批准",
+      "approveConfirmMessage": "批准此设计并将任务标记为完成？其工作区将被归档。",
+      "viewDesign": "查看设计"
+    },
     "designHandoff": {
       "sendToAnalyst": "发送给分析师",
       "sentTo": "已发送给 {{name}}",
@@ -1384,6 +1391,8 @@
       "reviewChangesRequested": "要求更改：{{title}}",
       "cancelError": "停止任务失败：{{message}}",
       "reRequestReviewSuccess": "已请求新的审查回合。",
+      "designApproved": "设计已批准：{{title}}",
+      "designApproveError": "批准设计失败：{{message}}",
       "reRequestReviewMaxRounds": "此 PR 已达到最大审查回合数。",
       "reRequestReviewNoOpenPr": "此任务已没有打开的拉取请求。",
       "reRequestReviewNoReviewer": "没有可用的审查者工作者来接手审查。",
