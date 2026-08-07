@@ -74,17 +74,58 @@ pub const FIX_CI_PROMPT: &str = r#"El CI del PR #{pr_number} ({pr_url}) está fa
    que los checks queden en verde."#;
 
 /// Dispatched by `worker_orchestrator::dispatch_review_task` when handing a
-/// PR to a reviewer worker. Needs `{pr_number}`.
-pub fn format_review_pr_prompt(pr_number: i64) -> String {
+/// PR to a reviewer worker. Needs `{pr_number}` and `{head_sha}` — the SHA
+/// pinned at dispatch time, which is the commit the eventual server-side
+/// submission will tie its verdict to.
+///
+/// Reviewer contract (REVIEW-LOOP-SPEC §A1/A2):
+/// - The agent must NOT run `gh pr review`, `gh pr checkout`, `gh pr diff`
+///   or any other GitHub-network command; the server owns those.
+/// - The agent inspects the local worktree with plain git (`git fetch
+///   origin pull/N/head` + `git checkout FETCH_HEAD`, or reads the diff via
+///   `git diff <base>...HEAD`) and writes its verdict to `.vk/review.json`
+///   at the worktree root. The orchestrator parses, validates, and submits
+///   the review via the GitHub API using the reviewer worker's PAT.
+/// - Invalid or missing JSON → task fails, ronda no cuenta.
+pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
     format!(
-        "Revisá el PR #{pr_number} según tu checklist. \
-         Usá `gh pr view {pr_number}`, `gh pr diff {pr_number}` y \
-         `gh pr checkout {pr_number} --branch review-pr-{pr_number}` para \
-         examinar los cambios (el nombre local propio evita bloquear la \
-         rama del autor, que puede estar checked out en otro worktree). \
-         Cuando termines: si aprobás, ejecutá \
-         `gh pr review {pr_number} --approve`; si pedís cambios, ejecutá \
-         `gh pr review {pr_number} --request-changes -b '<razón>'`."
+        "Revisá el PR #{pr_number} (commit `{head_sha}`) según tu checklist.\n\
+         \n\
+         1. Traé los cambios a tu worktree con git local: \
+            `git fetch origin pull/{pr_number}/head && git checkout FETCH_HEAD`. \
+            NO uses `gh pr checkout`, `gh pr view`, `gh pr diff` ni `gh pr review`: \
+            todo va por git local; el sistema somete la review por vos.\n\
+         2. Mirá el diff contra la rama base con \
+            `git diff $(git merge-base HEAD FETCH_HEAD~0) HEAD` \
+            (o directamente `git log --stat FETCH_HEAD` para el resumen).\n\
+         3. Escribí tu veredicto en `.vk/review.json` con este esquema exacto:\n\
+         \n\
+         ```json\n\
+         {{\n\
+           \"verdict\": \"approve\" | \"request_changes\",\n\
+           \"summary\": \"resumen del veredicto (2-5 líneas, va al body de la review)\",\n\
+           \"items\": [\n\
+             {{\n\
+               \"path\": \"crates/services/src/foo.rs\",  // opcional; sin path/line va al body\n\
+               \"line\": 42,                              // opcional; requiere path\n\
+               \"severity\": \"blocker|major|minor|nit\", // opcional\n\
+               \"comment\": \"texto del comentario\"\n\
+             }}\n\
+           ]\n\
+         }}\n\
+         ```\n\
+         \n\
+         Reglas del schema:\n\
+         - `items` es opcional con `approve` y obligatorio (≥1) con `request_changes`.\n\
+         - Cada item que apunte a una línea debe traer `path`; sin `path` el comentario \
+           va al body de la review (no inline).\n\
+         - JSON inválido o `.vk/review.json` ausente = task fallada, la ronda no cuenta.\n\
+         \n\
+         Terminá dejando SOLO ese archivo escrito — nada de commits, pushes ni PRs. \
+         El sistema toma el archivo, valida el schema, arma la review y la somete a \
+         GitHub con tu identidad. Si aprobás, la última actividad del PR queda tu \
+         APPROVED; si pedís cambios, el sistema despacha la remediación al autor \
+         automáticamente."
     )
 }
 
@@ -100,9 +141,7 @@ pub fn format_design_handoff_prompt(
     note: Option<&str>,
 ) -> String {
     let mut prompt = match issue_number {
-        Some(n) => format!(
-            "Un designer produjo un diseño para el pedido #{n}: {origin_title}."
-        ),
+        Some(n) => format!("Un designer produjo un diseño para el pedido #{n}: {origin_title}."),
         None => format!("Un designer produjo un diseño para: {origin_title}."),
     };
 

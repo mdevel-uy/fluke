@@ -20,7 +20,7 @@ use utils::{command_ext::NoWindowExt, shell::resolve_executable_path_blocking};
 
 use crate::types::{
     CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
-    PullRequestDetail, ReviewCommentUser,
+    PullRequestDetail, ReviewCommentUser, SubmitPrReviewRequest, SubmitPrReviewResponse,
 };
 
 #[derive(Debug, Clone)]
@@ -534,12 +534,9 @@ impl GhCli {
     /// because the CLI's reviews fragment does not expose `commit.oid`. The REST
     /// endpoint always includes `commit_id` (the SHA the review was submitted
     /// against), which is the key piece for SHA-based re-review detection.
-    pub fn get_pr_latest_review(
-        &self,
-        pr_url: &str,
-    ) -> Result<Option<LatestPrReview>, GhCliError> {
-        let (owner, repo, pr_number, hostname) =
-            Self::parse_github_pr_url_parts(pr_url).ok_or_else(|| {
+    pub fn get_pr_latest_review(&self, pr_url: &str) -> Result<Option<LatestPrReview>, GhCliError> {
+        let (owner, repo, pr_number, hostname) = Self::parse_github_pr_url_parts(pr_url)
+            .ok_or_else(|| {
                 GhCliError::UnexpectedOutput(format!(
                     "Cannot parse GitHub PR URL to fetch reviews: {pr_url}"
                 ))
@@ -548,8 +545,7 @@ impl GhCli {
         // REST endpoint always includes `commit_id` (the git SHA the review
         // was submitted against). Request up to 100 reviews — in practice
         // any PR has far fewer than that.
-        let api_path =
-            format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews?per_page=100");
+        let api_path = format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews?per_page=100");
         let mut review_args: Vec<String> = vec!["api".to_string(), api_path];
         if let Some(ref host) = hostname {
             review_args.extend(["--hostname".to_string(), host.clone()]);
@@ -558,8 +554,7 @@ impl GhCli {
 
         // Head SHA via gh pr view — `headRefOid` is non-nullable in GitHub's
         // schema, so this is reliable.
-        let head_raw =
-            self.run(["pr", "view", pr_url, "--json", "headRefOid"], None)?;
+        let head_raw = self.run(["pr", "view", pr_url, "--json", "headRefOid"], None)?;
 
         #[derive(serde::Deserialize)]
         struct RestReview {
@@ -573,19 +568,17 @@ impl GhCli {
             head_ref_oid: Option<String>,
         }
 
-        let reviews: Vec<RestReview> =
-            serde_json::from_str(reviews_raw.trim()).map_err(|e| {
-                GhCliError::UnexpectedOutput(format!(
-                    "Failed to parse reviews REST response: {e}; raw: {reviews_raw}"
-                ))
-            })?;
+        let reviews: Vec<RestReview> = serde_json::from_str(reviews_raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse reviews REST response: {e}; raw: {reviews_raw}"
+            ))
+        })?;
 
-        let head_info: HeadInfo =
-            serde_json::from_str(head_raw.trim()).map_err(|e| {
-                GhCliError::UnexpectedOutput(format!(
-                    "Failed to parse headRefOid response: {e}; raw: {head_raw}"
-                ))
-            })?;
+        let head_info: HeadInfo = serde_json::from_str(head_raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse headRefOid response: {e}; raw: {head_raw}"
+            ))
+        })?;
 
         let latest = reviews.iter().rev().find(|r| {
             let s = r.state.to_ascii_lowercase();
@@ -605,9 +598,7 @@ impl GhCli {
     /// Enterprise instances, matching what `gh api --hostname` expects.
     /// Returns `None` when the URL doesn't match the expected
     /// `https://{host}/{owner}/{repo}/pull/{number}` pattern.
-    fn parse_github_pr_url_parts(
-        pr_url: &str,
-    ) -> Option<(String, String, i64, Option<String>)> {
+    fn parse_github_pr_url_parts(pr_url: &str) -> Option<(String, String, i64, Option<String>)> {
         let url = Url::parse(pr_url).ok()?;
         let host = url.host_str()?.to_string();
         let mut segments = url.path_segments()?;
@@ -647,6 +638,111 @@ impl GhCli {
         Ok(login.to_string())
     }
 
+    /// Fetch the current head SHA of a PR. Used to pin the commit a review
+    /// round is dispatched against so the eventual server-side review
+    /// submission ties its verdict to that specific commit (even if the
+    /// author pushes further work while the reviewer is running).
+    ///
+    /// Returns `None` only when the PR URL cannot be parsed; missing
+    /// `headRefOid` propagates as an `UnexpectedOutput` error because that
+    /// field is non-nullable in GitHub's GraphQL schema.
+    pub fn get_pr_head_sha(&self, pr_url: &str) -> Result<Option<String>, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "headRefOid"], None)?;
+
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct HeadInfo {
+            head_ref_oid: Option<String>,
+        }
+
+        let info: HeadInfo = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse headRefOid response: {e}; raw: {raw}"
+            ))
+        })?;
+        Ok(info.head_ref_oid)
+    }
+
+    /// Submit a PR review via the GitHub REST API using the token this
+    /// `GhCli` was constructed with. Runs
+    /// `gh api -X POST repos/{owner}/{repo}/pulls/{n}/reviews --input <tmp>`
+    /// with the request body written to a temp file (JSON with arrays is
+    /// painful to pass through `-F key=value`; a body file is unambiguous
+    /// and keeps escaping out of the equation).
+    ///
+    /// Returns the review id GitHub assigns; the caller persists it on the
+    /// round row as the external idempotency key.
+    pub fn submit_pr_review(
+        &self,
+        request: &SubmitPrReviewRequest,
+    ) -> Result<SubmitPrReviewResponse, GhCliError> {
+        let (owner, repo, pr_number, hostname) = Self::parse_github_pr_url_parts(&request.pr_url)
+            .ok_or_else(|| {
+            GhCliError::UnexpectedOutput(format!(
+                "Cannot parse GitHub PR URL to submit review: {}",
+                request.pr_url
+            ))
+        })?;
+
+        let comments: Vec<serde_json::Value> = request
+            .comments
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "path": c.path,
+                    "line": c.line,
+                    "side": "RIGHT",
+                    "body": c.body,
+                })
+            })
+            .collect();
+        let body = serde_json::json!({
+            "commit_id": request.commit_id,
+            "event": request.event,
+            "body": request.body,
+            "comments": comments,
+        });
+        let payload = serde_json::to_vec_pretty(&body).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!("Failed to serialize review payload: {e}"))
+        })?;
+
+        let mut input = NamedTempFile::new().map_err(|e| {
+            GhCliError::CommandFailed(format!("Failed to create review payload tempfile: {e}"))
+        })?;
+        input.write_all(&payload).map_err(|e| {
+            GhCliError::CommandFailed(format!("Failed to write review payload: {e}"))
+        })?;
+        let input_path = input.path().to_string_lossy().to_string();
+
+        let api_path = format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews");
+        let mut args: Vec<String> = Vec::with_capacity(8);
+        args.push("api".to_string());
+        args.push("--method".to_string());
+        args.push("POST".to_string());
+        if let Some(host) = hostname {
+            args.push("--hostname".to_string());
+            args.push(host);
+        }
+        args.push("--input".to_string());
+        args.push(input_path);
+        args.push(api_path);
+
+        let raw = self.run(args, None)?;
+
+        #[derive(serde::Deserialize)]
+        struct ReviewIdOnly {
+            id: i64,
+        }
+        let parsed: ReviewIdOnly = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse review submission response: {e}; raw: {raw}"
+            ))
+        })?;
+        Ok(SubmitPrReviewResponse {
+            review_id: parsed.id,
+        })
+    }
+
     /// Check out a PR in `repo_path`. When `local_branch` is given, the PR
     /// head is checked out under that local name (`gh pr checkout --branch`);
     /// gh still writes the upstream config pointing at the PR's real head
@@ -662,12 +758,7 @@ impl GhCli {
         let pr_number = pr_number.to_string();
         let repo_slug = format!("{owner}/{repo}");
         let mut args = vec![
-            "pr",
-            "checkout",
-            &pr_number,
-            "--repo",
-            &repo_slug,
-            "--force",
+            "pr", "checkout", &pr_number, "--repo", &repo_slug, "--force",
         ];
         if let Some(branch) = local_branch {
             args.push("--branch");
@@ -829,8 +920,7 @@ mod tests {
 
     #[test]
     fn parse_github_pr_url_parts_github_com() {
-        let result =
-            GhCli::parse_github_pr_url_parts("https://github.com/myorg/myrepo/pull/42");
+        let result = GhCli::parse_github_pr_url_parts("https://github.com/myorg/myrepo/pull/42");
         let (owner, repo, number, hostname) = result.expect("should parse");
         assert_eq!(owner, "myorg");
         assert_eq!(repo, "myrepo");
@@ -840,9 +930,8 @@ mod tests {
 
     #[test]
     fn parse_github_pr_url_parts_enterprise() {
-        let result = GhCli::parse_github_pr_url_parts(
-            "https://github.mycompany.com/org/project/pull/7",
-        );
+        let result =
+            GhCli::parse_github_pr_url_parts("https://github.mycompany.com/org/project/pull/7");
         let (owner, repo, number, hostname) = result.expect("should parse");
         assert_eq!(owner, "org");
         assert_eq!(repo, "project");
@@ -853,23 +942,19 @@ mod tests {
     #[test]
     fn parse_github_pr_url_parts_rejects_non_pr_urls() {
         // Issue URL — not a pull request
-        assert!(GhCli::parse_github_pr_url_parts(
-            "https://github.com/owner/repo/issues/42"
-        )
-        .is_none());
+        assert!(
+            GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/issues/42").is_none()
+        );
 
         // Malformed / not a URL
         assert!(GhCli::parse_github_pr_url_parts("not-a-url").is_none());
 
         // Missing number segment
-        assert!(
-            GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/pull/").is_none()
-        );
+        assert!(GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/pull/").is_none());
 
         // Non-integer number
-        assert!(GhCli::parse_github_pr_url_parts(
-            "https://github.com/owner/repo/pull/abc"
-        )
-        .is_none());
+        assert!(
+            GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/pull/abc").is_none()
+        );
     }
 }

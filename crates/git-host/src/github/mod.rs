@@ -15,7 +15,7 @@ use crate::{
     GitHostProvider,
     types::{
         CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrReviewComment, ProviderKind,
-        PullRequestDetail, UnifiedPrComment,
+        PullRequestDetail, SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
     },
 };
 
@@ -455,6 +455,35 @@ impl GitHostProvider for GitHubProvider {
             .map_err(|err| {
                 GitHostError::PullRequest(format!(
                     "Failed to execute GitHub CLI for PR review check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_head_sha(&self, pr_url: &str) -> Result<Option<String>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_head_sha(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR head SHA lookup: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn submit_pr_review(
+        &self,
+        request: &SubmitPrReviewRequest,
+    ) -> Result<SubmitPrReviewResponse, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let request = request.clone();
+        task::spawn_blocking(move || cli.submit_pr_review(&request))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR review submission: {err}"
                 ))
             })?
             .map_err(GitHostError::from)

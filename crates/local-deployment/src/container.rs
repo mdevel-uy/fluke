@@ -20,7 +20,7 @@ use db::{
         repo::Repo,
         scratch::{DraftFollowUpData, Scratch, ScratchType},
         session::{Session, SessionError},
-        worker::Worker,
+        worker::{ROLE_REVIEWER, Worker},
         workspace::Workspace,
         workspace_repo::WorkspaceRepo,
     },
@@ -1286,7 +1286,10 @@ impl LocalContainerService {
                 }
             }
             Err(e) => {
-                tracing::warn!("Failed to load queued execution processes at startup: {}", e);
+                tracing::warn!(
+                    "Failed to load queued execution processes at startup: {}",
+                    e
+                );
             }
         }
     }
@@ -1515,8 +1518,7 @@ impl ContainerService for LocalContainerService {
             ExecutionProcessRunReason::CodingAgent
         ) && !self.concurrency.try_acquire(execution_process.id).await
         {
-            if let Err(e) =
-                ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
+            if let Err(e) = ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
             {
                 tracing::error!(
                     "Failed to mark execution process {} as queued: {}",
@@ -1582,18 +1584,21 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
         // Per-worker GitHub PAT: expose it to the agent process as
-        // GH_TOKEN/GITHUB_TOKEN so any `gh` / `git` operation the agent
-        // performs (notably reviewer workers running `gh pr review` and
-        // authors pushing commits) authenticates as the worker's identity
-        // instead of falling back to the machine's stored gh credentials.
-        // Fetched via a scalar query so the token itself is only read when
-        // we're about to hand it to the child process.
-        match Worker::find_github_pat_by_workspace_id(&self.db.pool, workspace.id).await {
-            Ok(Some(token)) => {
+        // GH_TOKEN/GITHUB_TOKEN so any `git` operation the agent performs
+        // (developer push, `git fetch pull/N/head` on a reviewer) uses the
+        // worker's identity instead of the machine's stored gh credentials.
+        //
+        // Reviewers are the exception (REVIEW-LOOP-SPEC §A3): the server
+        // submits the review via the GitHub API using the reviewer's PAT
+        // directly, so the reviewer agent never needs to run `gh pr review`.
+        // We keep GH_TOKEN out of its env so the agent can't accidentally
+        // reintroduce the old prompt-driven submission path.
+        match Worker::find_github_pat_and_role_by_workspace_id(&self.db.pool, workspace.id).await {
+            Ok(Some((Some(token), role))) if role != ROLE_REVIEWER => {
                 env.insert("GH_TOKEN", &token);
                 env.insert("GITHUB_TOKEN", &token);
             }
-            Ok(None) => {}
+            Ok(Some(_)) | Ok(None) => {}
             Err(e) => tracing::warn!(
                 workspace_id = %workspace.id,
                 "Failed to load worker GitHub PAT for env injection: {}",

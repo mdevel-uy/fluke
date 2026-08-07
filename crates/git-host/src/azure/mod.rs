@@ -15,7 +15,7 @@ use crate::{
     GitHostProvider,
     types::{
         CreatePrRequest, GitHostError, LatestPrReview, ProviderKind, PullRequestDetail,
-        UnifiedPrComment,
+        SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
     },
 };
 
@@ -279,6 +279,17 @@ impl GitHostProvider for AzureDevOpsProvider {
         _pr_url: &str,
     ) -> Result<Option<LatestPrReview>, GitHostError> {
         Ok(None)
+    }
+
+    async fn get_pr_head_sha(&self, _pr_url: &str) -> Result<Option<String>, GitHostError> {
+        Ok(None)
+    }
+
+    async fn submit_pr_review(
+        &self,
+        _request: &SubmitPrReviewRequest,
+    ) -> Result<SubmitPrReviewResponse, GitHostError> {
+        Err(GitHostError::UnsupportedProvider)
     }
 
     fn provider_kind(&self) -> ProviderKind {

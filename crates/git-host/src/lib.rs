@@ -11,7 +11,8 @@ use detection::detect_provider_from_url;
 use enum_dispatch::enum_dispatch;
 pub use types::{
     CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
-    ProviderKind, PullRequestDetail, ReviewCommentUser, UnifiedPrComment,
+    PrReviewCommentInput, ProviderKind, PullRequestDetail, ReviewCommentUser,
+    SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
 };
 
 use self::{azure::AzureDevOpsProvider, github::GitHubProvider};
@@ -73,6 +74,22 @@ pub trait GitHostProvider: Send + Sync {
         pr_url: &str,
     ) -> Result<Option<LatestPrReview>, GitHostError>;
 
+    /// Current head SHA of a PR. Pinned at review dispatch so the eventual
+    /// review submission ties its verdict to a specific commit even when the
+    /// author pushes further work while the reviewer is running.
+    async fn get_pr_head_sha(&self, pr_url: &str) -> Result<Option<String>, GitHostError>;
+
+    /// Submit a PR review server-side using the calling provider's
+    /// credentials (for GitHub, the PAT the provider was constructed with).
+    /// The full verdict travels in one atomic API call — body, event
+    /// (`APPROVE` / `REQUEST_CHANGES`), and inline comments — pinned to the
+    /// commit_id captured at dispatch. Returns the review id assigned by the
+    /// host.
+    async fn submit_pr_review(
+        &self,
+        request: &SubmitPrReviewRequest,
+    ) -> Result<SubmitPrReviewResponse, GitHostError>;
+
     fn provider_kind(&self) -> ProviderKind;
 }
 
@@ -92,10 +109,7 @@ impl GitHostService {
     /// (via `GH_TOKEN`); Azure DevOps ignores it and falls back to the
     /// machine's `az` credentials — this keeps the trait signatures uniform
     /// without pretending to support something we don't.
-    pub fn from_url_with_token(
-        url: &str,
-        token: Option<String>,
-    ) -> Result<Self, GitHostError> {
+    pub fn from_url_with_token(url: &str, token: Option<String>) -> Result<Self, GitHostError> {
         match detect_provider_from_url(url) {
             ProviderKind::GitHub => Ok(Self::GitHub(GitHubProvider::with_token(token)?)),
             ProviderKind::AzureDevOps => Ok(Self::AzureDevOps(AzureDevOpsProvider::new()?)),

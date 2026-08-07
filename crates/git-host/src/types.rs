@@ -164,6 +164,39 @@ pub struct LatestPrReview {
     pub head_sha: Option<String>,
 }
 
+/// Server-side review submission: the reviewer's verdict, submitted to the
+/// host by the orchestrator (using the reviewer worker's PAT) instead of
+/// asking the agent to run `gh pr review` from its prompt.
+///
+/// `commit_id` is the SHA pinned at dispatch time. Submitting the review
+/// against a specific commit is what makes the verdict *cover* that commit
+/// even if the head moved by the time the reviewer finished writing.
+#[derive(Debug, Clone)]
+pub struct SubmitPrReviewRequest {
+    pub pr_url: String,
+    pub commit_id: String,
+    /// `"APPROVE"` or `"REQUEST_CHANGES"` — the GitHub `event` string.
+    pub event: String,
+    pub body: String,
+    pub comments: Vec<PrReviewCommentInput>,
+}
+
+/// One inline comment on the submitted review. Comments without `path`/`line`
+/// go to the review body instead (the reviewer verdict schema allows both).
+#[derive(Debug, Clone)]
+pub struct PrReviewCommentInput {
+    pub path: String,
+    pub line: i64,
+    pub body: String,
+}
+
+/// Return value of a successful server-side review submission: the review id
+/// GitHub assigned, used as the external idempotency key on the round row.
+#[derive(Debug, Clone)]
+pub struct SubmitPrReviewResponse {
+    pub review_id: i64,
+}
+
 impl From<PullRequestDetail> for PullRequestInfo {
     fn from(d: PullRequestDetail) -> Self {
         PullRequestInfo {
