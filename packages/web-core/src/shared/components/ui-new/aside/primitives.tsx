@@ -10,13 +10,16 @@ import type { PersistKey } from '@/shared/stores/useUiPreferencesStore';
 // (design/workbench-shell-mock.html): kv rows, semantic dots, ghost buttons
 // and collapsible sections.
 
-export type DotTone = 'ok' | 'err' | 'warn' | 'run' | 'idle';
+export type DotTone = 'ok' | 'err' | 'warn' | 'run' | 'review' | 'idle';
 
 const DOT_CLASS: Record<DotTone, string> = {
   ok: 'bg-success',
   err: 'bg-error',
   warn: 'bg-warning',
   run: 'bg-brand-on-surface animate-pulse',
+  // PR waiting for code review — informational, no pulse (task is not blocked
+  // on the agent, just on a human reviewer).
+  review: 'bg-info',
   idle: 'bg-border-strong',
 };
 

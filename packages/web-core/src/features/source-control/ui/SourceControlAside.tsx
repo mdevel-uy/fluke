@@ -17,7 +17,10 @@ import {
   WorkerDetailCard,
   type WorkerCardState,
 } from '@/shared/components/ui-new/aside/WorkerDetailCard';
-import { PERSIST_KEYS, useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import {
+  PERSIST_KEYS,
+  useUiPreferencesStore,
+} from '@/shared/stores/useUiPreferencesStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useWorkspaceConflicts } from '@/shared/hooks/useWorkspaceConflicts';
 import { useComposerPrefillStore } from '@/features/workspace-chat/model/store/useComposerPrefillStore';
@@ -34,7 +37,13 @@ const OP_LABEL: Record<string, string> = {
 };
 
 function workerCardState(branch: FleetBranch): WorkerCardState {
-  if (branch.group === 'attention') return 'attention';
+  // Real attention (conflict/approval/stalled/activity) trumps review — a
+  // pending approval blocks progress, whereas 'review' just means the PR is
+  // waiting on a human reviewer.
+  if (branch.group === 'attention' && branch.attentionReason !== 'review')
+    return 'attention';
+  if (branch.workspace.hasTaskInReview || branch.attentionReason === 'review')
+    return 'review';
   if (branch.workspace.isRunning) return 'running';
   return 'idle';
 }

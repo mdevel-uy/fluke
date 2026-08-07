@@ -122,6 +122,7 @@ export const RightSidebar = memo(function RightSidebar({
     task?.status === 'in_progress' &&
     !isRunning &&
     !sidebarWs?.hasPendingApproval &&
+    !sidebarWs?.hasTaskInReview &&
     sidebarWs?.latestProcessStatus !== 'running';
   const needsAttention =
     !!sidebarWs?.hasPendingApproval ||
@@ -142,7 +143,9 @@ export const RightSidebar = memo(function RightSidebar({
     ? 'running'
     : needsAttention
       ? 'attention'
-      : 'idle';
+      : sidebarWs?.hasTaskInReview
+        ? 'review'
+        : 'idle';
 
   const contextPct = useMemo(() => {
     const usage = sidebarWs?.contextUsage;
