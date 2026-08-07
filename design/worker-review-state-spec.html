@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Worker "In Review" State — Design Spec #442</title>
+<style>
+  /* ─── Design tokens (Slate & Signal) ───────────────────────────────────── */
+  :root {
+    --bg-primary:   #ffffff;
+    --bg-secondary: #f4f4f5;
+    --bg-panel:     #fafafa;
+    --bg-card:      #ffffff;
+
+    --text-high:    #18181b;
+    --text-normal:  #52525b;
+    --text-low:     #a1a1aa;
+
+    --border:        rgba(113, 113, 122, 0.25);
+    --border-strong: rgba(113, 113, 122, 0.45);
+
+    /* Semantic */
+    --brand:         #4F46E5;  /* indigo */
+    --brand-on-surface: #4F46E5;
+    --success:       #16A34A;  /* green  */
+    --warning:       #D97706;  /* amber  */
+    --error:         #DC2626;  /* red    */
+    --info:          #0284C7;  /* sky    */
+
+    /* Derived */
+    --info-10:       rgba(2, 132, 199, 0.10);
+    --warning-10:    rgba(217, 119, 6, 0.10);
+    --error-10:      rgba(220, 38, 38, 0.10);
+    --brand-10:      rgba(79, 70, 229, 0.10);
+    --info-45:       rgba(2, 132, 199, 0.45);
+    --warning-45:    rgba(217, 119, 6, 0.45);
+    --success-10:    rgba(22, 163, 74, 0.10);
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
+    --radius-full: 9999px;
+    --shadow-soft: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.03);
+    --shadow-card: 0 2px 8px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+  }
+
+  /* ─── Reset & base ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.5;
+    background: var(--bg-secondary);
+    color: var(--text-high);
+    padding: 40px 24px 80px;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -.4px; }
+  h2 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-high); letter-spacing: -.2px; }
+  h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-low); margin-bottom: 10px; }
+  p  { color: var(--text-normal); font-size: 13px; line-height: 1.65; }
+
+  .page-header { max-width: 1080px; margin: 0 auto 40px; }
+  .page-header h1 { margin-bottom: 6px; }
+  .page-header p  { margin-top: 8px; font-size: 14px; color: var(--text-normal); }
+  .meta { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--brand-10); color: var(--brand);
+    border-radius: var(--radius-full); padding: 2px 10px; font-size: 11px; font-weight: 600;
+  }
+  .meta-issue {
+    font-size: 12px; color: var(--text-low); font-family: 'SFMono-Regular', Menlo, monospace;
+  }
+
+  section { max-width: 1080px; margin: 0 auto 48px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ─── Cards grid ────────────────────────────────────────────────────────── */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .cards-row  { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .state-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-low); margin-bottom: 6px; }
+
+  /* ─── WorkerCard mockup ─────────────────────────────────────────────────── */
+  .worker-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+  }
+  .worker-card--highlight { box-shadow: 0 0 0 2px var(--info), var(--shadow-card); }
+
+  .card-header {
+    display: flex; align-items: center; gap: 8px;
+    height: 36px; padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dot--run     { background: var(--brand-on-surface); animation: pulse 1.5s ease-in-out infinite; }
+  .dot--review  { background: var(--info); }               /* static, no pulse */
+  .dot--attn    { background: var(--error); }
+  .dot--approve { background: var(--warning); }
+  .dot--idle    { background: var(--success); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  .worker-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .role-chip {
+    flex-shrink: 0; border-radius: var(--radius-full); padding: 1px 8px;
+    font-size: 11px; font-weight: 500;
+    background: var(--info-10); color: var(--info);
+  }
+  .model-chip {
+    flex-shrink: 0; border-radius: var(--radius-full); padding: 1px 8px;
+    font-size: 10px; font-family: 'SFMono-Regular', Menlo, monospace;
+    background: var(--bg-secondary); color: var(--text-low);
+  }
+  .menu-icon { margin-left: auto; color: var(--text-low); font-size: 16px; cursor: pointer; line-height: 1; }
+
+  .card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .card-row  { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .card-row .icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-normal); opacity: .7; }
+  .card-row .text-normal { color: var(--text-normal); }
+  .card-row .text-high   { color: var(--text-high); }
+  .card-row .text-low    { color: var(--text-low); font-family: 'SFMono-Regular', Menlo, monospace; font-size: 11px; }
+
+  .ctx-bar { width: 100%; height: 4px; background: var(--bg-secondary); border-radius: 99px; overflow: hidden; }
+  .ctx-fill { height: 100%; border-radius: 99px; background: var(--brand); width: 42%; }
+
+  /* status badge inline */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: var(--radius-sm); padding: 2px 7px;
+    font-size: 11px; font-weight: 500;
+  }
+  .badge--info    { background: var(--info-10);    color: var(--info); }
+  .badge--warning { background: var(--warning-10); color: var(--warning); }
+  .badge--error   { background: var(--error-10);   color: var(--error); font-weight: 600; }
+
+  .card-footer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: var(--radius-md); padding: 4px 10px;
+    font-size: 12px; font-weight: 500; cursor: pointer; border: none;
+  }
+  .btn-primary   { background: var(--brand); color: #fff; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border-strong); color: var(--text-normal); }
+  .btn-ghost     { background: transparent; color: var(--text-normal); margin-left: auto; }
+
+  /* ─── WorkerDetailCard mockup ───────────────────────────────────────────── */
+  .detail-card {
+    margin: 0;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 10px;
+    width: 220px;
+  }
+  .detail-card--review  { border-color: var(--info-45); }
+  .detail-card--attn    { border-color: var(--warning-45); }
+
+  .detail-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .detail-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .detail-dot--run    { background: var(--brand-on-surface); animation: pulse 1.5s ease-in-out infinite; }
+  .detail-dot--review { background: var(--info); }
+  .detail-dot--attn   { background: var(--warning); }
+  .detail-dot--idle   { background: #71717a; }  /* border-strong grey */
+
+  .detail-name  { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .detail-role  {
+    flex-shrink: 0; border-radius: 4px; padding: 1px 5px;
+    font-size: 10px; font-weight: 500; text-transform: capitalize;
+    background: var(--info-10); color: var(--info);
+  }
+  .detail-kv {
+    display: flex; gap: 5px; padding: 2px 0;
+    font-size: 11px;
+  }
+  .detail-k {
+    flex-shrink: 0; width: 40px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--text-low); line-height: 18px;
+  }
+  .detail-v { color: var(--text-high); font-family: 'SFMono-Regular', Menlo, monospace; font-size: 11px; }
+
+  .ctx-bar-sm { margin-top: 8px; height: 4px; border-radius: 4px; background: var(--bg-secondary); overflow: hidden; }
+  .ctx-fill-sm { height: 100%; border-radius: 4px; }
+  .ctx-fill-sm--brand { background: var(--brand-on-surface); }
+  .ctx-pct { margin-top: 2px; font-size: 10px; color: var(--text-low); }
+
+  .detail-footer { margin-top: 7px; display: flex; align-items: center; gap: 8px; }
+  .detail-status { flex: 1; min-width: 0; font-size: 11px; color: var(--text-low); }
+  .detail-status--review { color: var(--info); font-weight: 500; }
+  .detail-status--attn   { color: var(--warning); font-weight: 500; }
+  .detail-btn {
+    flex-shrink: 0; height: 22px; border-radius: 5px; border: 1px solid var(--border-strong);
+    padding: 0 9px; font-size: 11px; color: var(--text-normal);
+    background: transparent; cursor: pointer;
+  }
+
+  /* ─── Dot swatch ────────────────────────────────────────────────────────── */
+  .dot-swatch { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+  .dot-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .dot-large { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-item span { font-size: 11px; color: var(--text-low); text-align: center; }
+
+  /* ─── Code block ────────────────────────────────────────────────────────── */
+  pre {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    font-size: 12px;
+    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+    line-height: 1.65;
+    color: var(--text-high);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  pre .k { color: #7c3aed; }  /* keyword/type */
+  pre .s { color: #0369a1; }  /* string */
+  pre .c { color: var(--text-low); font-style: italic; } /* comment */
+  pre .h { background: rgba(2, 132, 199, 0.08); border-radius: 3px; padding: 0 3px; } /* highlight */
+
+  /* ─── Table ─────────────────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-low); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text-normal); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-secondary); }
+  td code { font-family: 'SFMono-Regular', Menlo, monospace; font-size: 11px; color: var(--text-high); background: var(--bg-secondary); padding: 1px 5px; border-radius: 4px; }
+
+  /* ─── Alert boxes ───────────────────────────────────────────────────────── */
+  .alert {
+    border-radius: var(--radius-lg); padding: 12px 16px; font-size: 13px; line-height: 1.6;
+    border: 1px solid;
+  }
+  .alert--info  { background: var(--info-10);    border-color: var(--info-45);    color: #075985; }
+  .alert--warn  { background: var(--warning-10); border-color: var(--warning-45); color: #92400e; }
+  .alert strong { font-weight: 600; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ─── Priority diagram ──────────────────────────────────────────────────── */
+  .priority-chain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .prio-item {
+    display: flex; align-items: center; gap: 6px;
+    border-radius: var(--radius-sm); padding: 5px 10px; font-size: 12px; font-weight: 500;
+    border: 1px solid;
+  }
+  .prio-item--error   { background: var(--error-10);   border-color: rgba(220,38,38,.3);  color: var(--error);   }
+  .prio-item--warning { background: var(--warning-10); border-color: rgba(217,119,6,.3);  color: var(--warning); }
+  .prio-item--info    { background: var(--info-10);    border-color: rgba(2,132,199,.3);  color: var(--info);    }
+  .prio-item--brand   { background: var(--brand-10);   border-color: rgba(79,70,229,.3);  color: var(--brand);   }
+  .prio-item--success { background: var(--success-10); border-color: rgba(22,163,74,.3);  color: var(--success); }
+  .prio-arrow { color: var(--text-low); font-size: 14px; }
+
+  .dot-inline { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+  .dot-inline--error   { background: var(--error); }
+  .dot-inline--warning { background: var(--warning); }
+  .dot-inline--info    { background: var(--info); }
+  .dot-inline--brand   { background: var(--brand-on-surface); }
+  .dot-inline--success { background: var(--success); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  .tag-new {
+    display: inline-block; background: var(--info-10); color: var(--info);
+    border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; vertical-align: middle; margin-left: 6px;
+  }
+
+  .section-intro { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE HEADER -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="meta">
+    <span class="meta-chip">UI/UX Design Spec</span>
+    <span class="meta-issue">#442 · Worker "In Review" visual state</span>
+  </div>
+  <h1>Estado visual "En revisión" — WorkerCard, WorkerDetailCard, WorkersPage</h1>
+  <p>
+    Propuesta de diseño para el estado <strong>review</strong> en los tres componentes.
+    Depende de #441 (campo <code>hasTaskInReview</code> en <code>SidebarWorkspace</code>).
+    Los workers cuya tarea está en <code>in_review</code> deben mostrar un indicador
+    diferenciado — azul estático — reservando el rojo para bloqueos reales.
+  </p>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 1. DOT LANGUAGE — color palette -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>1. Sistema de colores del dot — estado actual vs propuesto</h2>
+  <p class="section-intro">
+    El dot de 8 px en el header de <code>WorkerCard</code> y el dot de 7 px en
+    <code>WorkerDetailCard</code> representan el estado operativo del worker.
+    Hoy el sistema tiene 4 tonos; proponemos añadir <code>review</code> como quinto tono.
+  </p>
+
+  <div class="dot-swatch" style="margin-bottom:24px">
+    <div class="dot-item">
+      <div class="dot-large" style="background:var(--error)"></div>
+      <span>attention<br/><code style="font-size:10px">bg-error</code></span>
+    </div>
+    <div class="dot-item">
+      <div class="dot-large" style="background:var(--warning)"></div>
+      <span>approval<br/><code style="font-size:10px">bg-warning</code></span>
+    </div>
+    <!-- NEW -->
+    <div class="dot-item">
+      <div class="dot-large" style="background:var(--info); outline: 2px solid var(--info); outline-offset:2px"></div>
+      <span style="color:var(--info);font-weight:600">review ✦ NUEVO<br/><code style="font-size:10px">bg-info</code></span>
+    </div>
+    <div class="dot-item">
+      <div class="dot-large" style="background:var(--brand-on-surface); animation:pulse 1.5s infinite"></div>
+      <span>running<br/><code style="font-size:10px">bg-brand-on-surface<br/>animate-pulse</code></span>
+    </div>
+    <div class="dot-item">
+      <div class="dot-large" style="background:var(--success)"></div>
+      <span>idle<br/><code style="font-size:10px">bg-success</code></span>
+    </div>
+  </div>
+
+  <div class="alert alert--info">
+    <strong>Decisión de color:</strong> <code>bg-info</code> (<code>#0284C7</code> light / <code>#38BDF8</code> dark) en lugar de
+    <code>bg-brand-on-surface opacity-70</code> sugerido en el brief. Razones:
+    (a) <code>info</code> ya es un token semántico en el design system para estados informativos/en curso sin urgencia;
+    (b) usar <code>opacity-70</code> sobre <code>brand-on-surface</code> crea ambigüedad visual con el dot "running" pulsante;
+    (c) azul cielo vs azul índigo son fácilmente distinguibles entre sí y con el resto de tonos.
+    El dot review es <strong>estático</strong> (sin <code>animate-pulse</code>) para indicar que no hay proceso corriendo.
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 2. PRIORITY CHAIN -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>2. Jerarquía de estados — orden de precedencia</h2>
+  <p class="section-intro" style="margin-bottom:14px">
+    El dot y el badge del worker se determinan evaluando las condiciones en este orden.
+    La primera que aplique gana.
+  </p>
+
+  <div class="priority-chain" style="margin-bottom:16px">
+    <div class="prio-item prio-item--error">
+      <span class="dot-inline dot-inline--error"></span>
+      <div>
+        <div style="font-weight:700">attention / stalled</div>
+        <div style="font-size:10px;opacity:.8">task.status=in_progress<br/>+!ws.isRunning + !hasPendingApproval<br/>+ !hasTaskInReview</div>
+      </div>
+    </div>
+    <span class="prio-arrow">›</span>
+    <div class="prio-item prio-item--warning">
+      <span class="dot-inline dot-inline--warning"></span>
+      <div>
+        <div style="font-weight:700">approval</div>
+        <div style="font-size:10px;opacity:.8">ws.hasPendingApproval</div>
+      </div>
+    </div>
+    <span class="prio-arrow">›</span>
+    <div class="prio-item prio-item--info">
+      <span class="dot-inline dot-inline--info"></span>
+      <div>
+        <div style="font-weight:700">review ✦</div>
+        <div style="font-size:10px;opacity:.8">ws.hasTaskInReview<br/>(de #441)</div>
+      </div>
+    </div>
+    <span class="prio-arrow">›</span>
+    <div class="prio-item prio-item--brand">
+      <span class="dot-inline dot-inline--brand" style="animation:pulse 1.5s infinite"></span>
+      <div>
+        <div style="font-weight:700">running</div>
+        <div style="font-size:10px;opacity:.8">ws.isRunning o<br/>worker.active_workspace_id</div>
+      </div>
+    </div>
+    <span class="prio-arrow">›</span>
+    <div class="prio-item prio-item--success">
+      <span class="dot-inline dot-inline--success"></span>
+      <div>
+        <div style="font-weight:700">idle</div>
+        <div style="font-size:10px;opacity:.8">sin workspace activo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert--warn">
+    <strong>Sad path:</strong> Si <code>hasPendingApproval = true</code> Y <code>hasTaskInReview = true</code> simultáneamente,
+    se renderiza como <strong>attention</strong> (error rojo). La aprobación pendiente requiere acción humana inmediata
+    y tiene precedencia sobre el estado de revisión en curso.
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 3. WORKER CARD — all 5 states -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>3. WorkerCard — los 5 estados visuales</h2>
+  <p class="section-intro">
+    La fila de header (dot + nombre + chips) y la "attention row" (badge de estado) son las
+    únicas áreas que cambian. El footer muestra "Open workspace" cuando hay workspace activo;
+    el estado review tiene workspace activo pero sin proceso corriendo.
+  </p>
+
+  <div class="cards-grid">
+
+    <!-- STATE: running -->
+    <div>
+      <div class="state-label">running — trabajando</div>
+      <div class="worker-card">
+        <div class="card-header">
+          <span class="dot dot--run"></span>
+          <span class="worker-name">Morpheus</span>
+          <span class="role-chip">developer</span>
+          <span class="model-chip">sonnet-4-6</span>
+          <span class="menu-icon">⋯</span>
+        </div>
+        <div class="card-body">
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="9" x2="10" y2="9"/></svg>
+            <span class="text-high">#133 Refactor auth middleware</span>
+          </div>
+          <div class="ctx-bar"><div class="ctx-fill"></div></div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3,12 6,9 9,11 13,5"/></svg>
+            <span class="text-low">vk/auth-refactor</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+            <span class="text-normal">3 queued · 12 completed</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-secondary">Open workspace</button>
+          <button class="btn btn-ghost">Queue ▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE: review (NEW) -->
+    <div>
+      <div class="state-label" style="color:var(--info);font-weight:700">review ✦ NUEVO — esperando code review</div>
+      <div class="worker-card worker-card--highlight">
+        <div class="card-header">
+          <span class="dot dot--review"></span>
+          <span class="worker-name">Morpheus</span>
+          <span class="role-chip">developer</span>
+          <span class="model-chip">sonnet-4-6</span>
+          <span class="menu-icon">⋯</span>
+        </div>
+        <div class="card-body">
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="9" x2="10" y2="9"/></svg>
+            <span class="text-high">#133 Refactor auth middleware</span>
+          </div>
+          <!-- attention row: review badge -->
+          <div class="card-row" style="justify-content:space-between">
+            <span class="badge badge--info">
+              <!-- GitPullRequest icon -->
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M4 6v4M12 4v4a4 4 0 0 1-4 4H9"/></svg>
+              In review
+            </span>
+            <span class="card-row" style="font-size:11px;color:var(--text-normal)">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 13h2l1-4 2 6 2-8 2 4 1-2h2"/></svg>
+              5 &nbsp;<span style="color:var(--success)">+82</span>&nbsp;<span style="color:var(--error)">-14</span>
+            </span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3,12 6,9 9,11 13,5"/></svg>
+            <span class="text-low">vk/auth-refactor</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+            <span class="text-normal">3 queued · 12 completed</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-secondary">Open workspace</button>
+          <button class="btn btn-ghost">Queue ▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE: attention / stalled -->
+    <div>
+      <div class="state-label">attention — stalled (needs you)</div>
+      <div class="worker-card">
+        <div class="card-header">
+          <span class="dot dot--attn"></span>
+          <span class="worker-name">Morpheus</span>
+          <span class="role-chip">developer</span>
+          <span class="model-chip">sonnet-4-6</span>
+          <span class="menu-icon">⋯</span>
+        </div>
+        <div class="card-body">
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="9" x2="10" y2="9"/></svg>
+            <span class="text-high">#133 Refactor auth middleware</span>
+          </div>
+          <div class="card-row">
+            <span class="badge badge--error">⚠ Stalled · 23m</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3,12 6,9 9,11 13,5"/></svg>
+            <span class="text-low">vk/auth-refactor</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+            <span class="text-normal">3 queued · 12 completed</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-secondary">Open workspace</button>
+          <button class="btn btn-ghost">Queue ▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE: approval -->
+    <div>
+      <div class="state-label">approval — waiting human approval</div>
+      <div class="worker-card">
+        <div class="card-header">
+          <span class="dot dot--approve"></span>
+          <span class="worker-name">Morpheus</span>
+          <span class="role-chip">developer</span>
+          <span class="model-chip">sonnet-4-6</span>
+          <span class="menu-icon">⋯</span>
+        </div>
+        <div class="card-body">
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="9" x2="10" y2="9"/></svg>
+            <span class="text-high">#133 Refactor auth middleware</span>
+          </div>
+          <div class="card-row">
+            <span class="badge badge--warning">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 4v6l3-2 3 2V4a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1z"/></svg>
+              Waiting approval
+            </span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3,12 6,9 9,11 13,5"/></svg>
+            <span class="text-low">vk/auth-refactor</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+            <span class="text-normal">3 queued · 12 completed</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-secondary">Open workspace</button>
+          <button class="btn btn-ghost">Queue ▾</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATE: idle -->
+    <div>
+      <div class="state-label">idle — sin tarea activa</div>
+      <div class="worker-card">
+        <div class="card-header">
+          <span class="dot dot--idle"></span>
+          <span class="worker-name">Morpheus</span>
+          <span class="role-chip">developer</span>
+          <span class="model-chip">sonnet-4-6</span>
+          <span class="menu-icon">⋯</span>
+        </div>
+        <div class="card-body">
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="4,8 7,11 12,5"/></svg>
+            <span class="text-normal">No current task</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3,12 6,9 9,11 13,5"/></svg>
+            <span class="text-low">–</span>
+          </div>
+          <div class="card-row">
+            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+            <span class="text-normal">3 queued · 12 completed</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-primary">▶ Start next</button>
+          <button class="btn btn-ghost">Queue ▾</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /cards-grid -->
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 4. WORKER DETAIL CARD — all 4 states -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>4. WorkerDetailCard — los 4 estados (sidebar aside)</h2>
+  <p class="section-intro">
+    Componente compacto del aside. El estado <code>review</code> usa
+    borde <code>border-info/45</code> (mismo patrón que <code>attention</code> con <code>border-warning/45</code>),
+    dot <code>bg-info</code> estático, y footer con el label "In review".
+    No muestra botón Stop (no hay proceso corriendo). Sí puede mostrar "Start task" si se provee <code>onStart</code>.
+  </p>
+
+  <div class="cards-row">
+
+    <!-- running -->
+    <div>
+      <div class="state-label">running</div>
+      <div class="detail-card">
+        <div class="detail-header">
+          <span class="detail-dot detail-dot--run"></span>
+          <span class="detail-name">Morpheus</span>
+          <span class="detail-role">developer</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Model</span>
+          <span class="detail-v">sonnet-4-6</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Last</span>
+          <span class="detail-v" style="font-family:inherit;font-size:11px">Edit: src/auth.rs</span>
+        </div>
+        <div class="ctx-bar-sm"><div class="ctx-fill-sm ctx-fill-sm--brand" style="width:42%"></div></div>
+        <div class="ctx-pct">context 42%</div>
+        <div class="detail-footer">
+          <span class="detail-status">Working… 12m</span>
+          <button class="detail-btn">Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- review (NEW) -->
+    <div>
+      <div class="state-label" style="color:var(--info);font-weight:700">review ✦ NUEVO</div>
+      <div class="detail-card detail-card--review">
+        <div class="detail-header">
+          <span class="detail-dot detail-dot--review"></span>
+          <span class="detail-name">Morpheus</span>
+          <span class="detail-role">developer</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Model</span>
+          <span class="detail-v">sonnet-4-6</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Last</span>
+          <span class="detail-v" style="font-family:inherit;font-size:11px">3h ago</span>
+        </div>
+        <div class="detail-footer">
+          <span class="detail-status detail-status--review">In review</span>
+          <!-- No Stop button. "Start task" si hay onStart -->
+        </div>
+      </div>
+    </div>
+
+    <!-- attention -->
+    <div>
+      <div class="state-label">attention</div>
+      <div class="detail-card detail-card--attn">
+        <div class="detail-header">
+          <span class="detail-dot detail-dot--attn"></span>
+          <span class="detail-name">Morpheus</span>
+          <span class="detail-role">developer</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Model</span>
+          <span class="detail-v">sonnet-4-6</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Last</span>
+          <span class="detail-v" style="font-family:inherit;font-size:11px">23m ago</span>
+        </div>
+        <div class="detail-footer">
+          <span class="detail-status detail-status--attn">Needs attention</span>
+          <button class="detail-btn">Start task</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- idle -->
+    <div>
+      <div class="state-label">idle</div>
+      <div class="detail-card">
+        <div class="detail-header">
+          <span class="detail-dot detail-dot--idle"></span>
+          <span class="detail-name">Morpheus</span>
+          <span class="detail-role">developer</span>
+        </div>
+        <div class="detail-kv">
+          <span class="detail-k">Model</span>
+          <span class="detail-v">sonnet-4-6</span>
+        </div>
+        <div class="detail-footer">
+          <span class="detail-status">Workspace idle</span>
+          <button class="detail-btn">Start task</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /cards-row -->
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 5. IMPLEMENTATION SPEC -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>5. Especificación de implementación</h2>
+
+  <div class="stack">
+
+    <!-- 5.1 primitives.tsx -->
+    <div>
+      <h3>5.1 primitives.tsx — nuevo DotTone</h3>
+      <pre><span class="c">// Añadir 'review' al tipo DotTone</span>
+<span class="k">export type</span> DotTone = <span class="s">'ok'</span> | <span class="s">'err'</span> | <span class="s">'warn'</span> | <span class="s">'run'</span> | <span class="h">'review'</span> | <span class="s">'idle'</span>;
+
+<span class="k">const</span> DOT_CLASS: <span class="k">Record</span>&lt;DotTone, <span class="k">string</span>&gt; = {
+  ok:     <span class="s">'bg-success'</span>,
+  err:    <span class="s">'bg-error'</span>,
+  warn:   <span class="s">'bg-warning'</span>,
+  run:    <span class="s">'bg-brand-on-surface animate-pulse'</span>,
+  <span class="h">review: 'bg-info',</span>               <span class="c">// estático, sin animate-pulse</span>
+  idle:   <span class="s">'bg-border-strong'</span>,
+};</pre>
+    </div>
+
+    <!-- 5.2 WorkerDetailCard.tsx -->
+    <div>
+      <h3>5.2 WorkerDetailCard.tsx — nuevo estado 'review'</h3>
+      <pre><span class="c">// 1. Tipo ampliado</span>
+<span class="k">export type</span> WorkerCardState = <span class="s">'running'</span> | <span class="h">'review'</span> | <span class="s">'attention'</span> | <span class="s">'idle'</span>;
+
+<span class="c">// 2. Mapeo dot tone</span>
+<span class="k">function</span> cardDotTone(state: WorkerCardState): DotTone {
+  <span class="k">if</span> (state === <span class="s">'running'</span>)   <span class="k">return</span> <span class="s">'run'</span>;
+  <span class="k">if</span> (state === <span class="h">'review'</span>)    <span class="k">return</span> <span class="h">'review'</span>;
+  <span class="k">if</span> (state === <span class="s">'attention'</span>) <span class="k">return</span> <span class="s">'warn'</span>;
+  <span class="k">return</span> <span class="s">'idle'</span>;
+}
+
+<span class="c">// 3. Borde del card</span>
+className={cn(
+  <span class="s">'mx-2.5 mt-2 mb-2 rounded-lg border bg-panel px-2.5 py-2'</span>,
+  state === <span class="s">'attention'</span> ? <span class="s">'border-warning/45'</span>
+  : <span class="h">state === 'review'    ? 'border-info/45'</span>
+  : <span class="s">'border-border'</span>
+)}
+
+<span class="c">// 4. Footer label</span>
+<span class="k">const</span> footer =
+  state === <span class="s">'attention'</span>
+    ? (attentionLabel ?? t(<span class="s">'workspaces.aside.needsAttention'</span>, ...))
+  : <span class="h">state === 'review'</span>
+    <span class="h">? t('workspaces.aside.inReview', { defaultValue: 'In review' })</span>
+  : state === <span class="s">'running'</span>
+    ? [t(<span class="s">'workspaces.aside.working'</span>, ...), elapsed].filter(Boolean).join(<span class="s">' · '</span>)
+  : t(<span class="s">'workspaces.aside.workspaceIdle'</span>, ...);
+
+<span class="c">// 5. Botón de acción (footer)</span>
+<span class="c">// review: sin Stop. Mostrar "Start task" solo si onStart disponible.</span>
+{state === <span class="s">'running'</span> && onStop ? (
+  &lt;button onClick={onStop}&gt;Stop&lt;/button&gt;
+) : <span class="h">state !== 'running' && onStart ? (</span>
+  &lt;button onClick={onStart}&gt;Start task&lt;/button&gt;
+) : null}
+<span class="c">// (el state !== 'running' ya cubre 'review', 'attention', 'idle')</span></pre>
+    </div>
+
+    <!-- 5.3 WorkerCard.tsx -->
+    <div>
+      <h3>5.3 WorkerCard.tsx — prop inReview + dot + badge</h3>
+      <pre><span class="c">// 1. Props</span>
+<span class="k">interface</span> WorkerCardProps {
+  <span class="c">// ... props existentes ...</span>
+  needsAttention?: <span class="k">boolean</span>;
+  <span class="h">inReview?: boolean;</span>        <span class="c">// nuevo</span>
+}
+
+<span class="c">// 2. Dot (card header) — insertar 'inReview' antes de 'isWorking'</span>
+className={cn(
+  <span class="s">'h-2 w-2 shrink-0 rounded-full'</span>,
+  needsAttention
+    ? <span class="s">'bg-error'</span>
+    : isWaitingApproval
+      ? <span class="s">'bg-warning'</span>
+      : <span class="h">inReview</span>
+        <span class="h">? 'bg-info'</span>                   <span class="c">// estático, sin animate-pulse</span>
+        : isWorking
+          ? <span class="s">'animate-pulse bg-brand-on-surface'</span>
+          : <span class="s">'bg-success'</span>
+)}
+
+<span class="c">// 3. Badge en "attention row" — agregar condición para review</span>
+{needsAttention ? (
+  &lt;span className=<span class="s">"... text-error"</span>&gt;Stalled · {time}&lt;/span&gt;
+) : isWaitingApproval ? (
+  &lt;span className=<span class="s">"... bg-warning/10 text-warning"</span>&gt;&lt;Hand/&gt; Waiting approval&lt;/span&gt;
+) : <span class="h">inReview ? (</span>
+  <span class="h">&lt;span className="flex shrink-0 items-center gap-1.5 rounded bg-info/10 px-2 py-0.5 text-sm font-medium text-info"&gt;</span>
+    <span class="h">&lt;GitPullRequest className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden /&gt;</span>
+    <span class="h">{t('workspaces.aside.inReview', { defaultValue: 'In review' })}</span>
+  <span class="h">&lt;/span&gt;</span>
+<span class="h">) : (</span>
+  &lt;span /&gt;
+)}</pre>
+    </div>
+
+    <!-- 5.4 WorkersPage.tsx -->
+    <div>
+      <h3>5.4 WorkersPage.tsx — stalled fix + inReviewWorkerIds</h3>
+      <pre><span class="c">// stalledWorkerIds: añadir guard task.status === 'in_progress'</span>
+<span class="k">const</span> stalledWorkerIds = useMemo(() =&gt; {
+  <span class="k">const</span> workspaceById = <span class="k">new</span> Map(workspaces.map((ws) =&gt; [ws.id, ws]));
+  <span class="k">const</span> stalled = <span class="k">new</span> Set&lt;<span class="k">string</span>&gt;();
+  <span class="k">for</span> (<span class="k">const</span> worker <span class="k">of</span> workers) {
+    <span class="k">if</span> (!worker.active_workspace_id) <span class="k">continue</span>;
+    <span class="k">const</span> task = activeTaskByWorkerId.get(worker.id);
+    <span class="k">const</span> ws   = workspaceById.get(worker.active_workspace_id);
+    <span class="k">if</span> (
+      task &&
+      <span class="h">task.status === 'in_progress' &&</span>   <span class="c">// ← FIX: excluye in_review</span>
+      ws &&
+      !ws.isRunning &&
+      !ws.hasPendingApproval &&
+      <span class="h">!ws.hasTaskInReview &&</span>             <span class="c">// ← FIX: excluye tasks en review</span>
+      ws.latestProcessStatus !== <span class="s">'running'</span>
+    ) {
+      stalled.add(worker.id);
+    }
+  }
+  <span class="k">return</span> stalled;
+}, [workers, workspaces, activeTaskByWorkerId]);
+
+<span class="c">// inReviewWorkerIds: nuevo conjunto basado en hasTaskInReview (de #441)</span>
+<span class="h">const inReviewWorkerIds = useMemo(() => {</span>
+  <span class="h">const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));</span>
+  <span class="h">const inReview = new Set&lt;string&gt;();</span>
+  <span class="h">for (const worker of workers) {</span>
+    <span class="h">if (!worker.active_workspace_id) continue;</span>
+    <span class="h">const ws = workspaceById.get(worker.active_workspace_id);</span>
+    <span class="h">if (ws?.hasTaskInReview && !ws.hasPendingApproval) {</span>
+      <span class="h">inReview.add(worker.id);</span>
+    <span class="h">}</span>
+  <span class="h">}</span>
+  <span class="h">return inReview;</span>
+<span class="h">}, [workers, workspaces]);</span>
+
+<span class="c">// Pasar la prop a WorkerCard</span>
+&lt;WorkerCard
+  worker={worker}
+  needsAttention={stalledWorkerIds.has(worker.id)}
+  <span class="h">inReview={inReviewWorkerIds.has(worker.id)}</span>
+  ...
+/&gt;</pre>
+    </div>
+
+    <!-- 5.5 Derivar WorkerCardState para WorkerDetailCard -->
+    <div>
+      <h3>5.5 Derivar WorkerCardState desde WorkersPage → WorkerDetailCard</h3>
+      <pre><span class="c">// En el contexto que llama WorkerDetailCard, derivar el state:</span>
+<span class="k">function</span> deriveWorkerState(
+  ws: SidebarWorkspace | undefined,
+  isStalled: <span class="k">boolean</span>
+): WorkerCardState {
+  <span class="k">if</span> (isStalled)                  <span class="k">return</span> <span class="s">'attention'</span>;
+  <span class="k">if</span> (ws?.hasPendingApproval)     <span class="k">return</span> <span class="s">'attention'</span>;  <span class="c">// sad path: approval > review</span>
+  <span class="h">if (ws?.hasTaskInReview)         return 'review';</span>
+  <span class="k">if</span> (ws?.isRunning)              <span class="k">return</span> <span class="s">'running'</span>;
+  <span class="k">if</span> (ws)                         <span class="k">return</span> <span class="s">'running'</span>;   <span class="c">// workspace exists pero sin proceso</span>
+  <span class="k">return</span> <span class="s">'idle'</span>;
+}</pre>
+    </div>
+
+  </div><!-- /stack -->
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 6. i18n -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>6. Claves i18n — <code>workspaces.aside.inReview</code></h2>
+  <p class="section-intro">
+    La clave no existe en el namespace <code>workspaces.aside</code> en ningún locale (hoy solo tiene <code>reviewerWorking</code>).
+    Debe agregarse en los 7 locales. El path es <code>packages/web-core/src/i18n/locales/{locale}/common.json</code>.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Locale</th>
+        <th>Path JSON</th>
+        <th>Valor propuesto</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>en</td><td><code>workspaces.aside.inReview</code></td><td>"In review"</td><td>⚠ falta</td></tr>
+      <tr><td>es</td><td><code>workspaces.aside.inReview</code></td><td>"En revisión"</td><td>⚠ falta</td></tr>
+      <tr><td>fr</td><td><code>workspaces.aside.inReview</code></td><td>"En révision"</td><td>⚠ falta</td></tr>
+      <tr><td>ja</td><td><code>workspaces.aside.inReview</code></td><td>"レビュー中"</td><td>⚠ falta</td></tr>
+      <tr><td>ko</td><td><code>workspaces.aside.inReview</code></td><td>"검토 중"</td><td>⚠ falta</td></tr>
+      <tr><td>zh-Hans</td><td><code>workspaces.aside.inReview</code></td><td>"审核中"</td><td>⚠ falta</td></tr>
+      <tr><td>zh-Hant</td><td><code>workspaces.aside.inReview</code></td><td>"審核中"</td><td>⚠ falta</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px">
+    Nota: ya existe <code>dashboard.inReview</code> en todos los locales con el mismo texto —
+    se puede usar como referencia de traducción.
+    Se deben agregar bajo <code>workspaces.aside</code> (sección separada) para mantener la
+    separación de contextos de traducción.
+  </p>
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 7. FILES TO TOUCH -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>7. Archivos a modificar</h2>
+  <table>
+    <thead>
+      <tr><th>Archivo</th><th>Cambios</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>packages/web-core/src/shared/components/ui-new/aside/primitives.tsx</code></td>
+        <td>Añadir <code>'review'</code> a <code>DotTone</code> y <code>DOT_CLASS</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/shared/components/ui-new/aside/WorkerDetailCard.tsx</code></td>
+        <td>Ampliar <code>WorkerCardState</code>, <code>cardDotTone()</code>, borde, footer, lógica de botones</td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/features/workers/ui/WorkerCard.tsx</code></td>
+        <td>Nueva prop <code>inReview</code>, dot, badge en attention row; import <code>GitPullRequest</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/features/workers/ui/WorkersPage.tsx</code></td>
+        <td>Fix <code>stalledWorkerIds</code> + nuevo <code>inReviewWorkerIds</code> + prop a <code>WorkerCard</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/en/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/es/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/fr/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/ja/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/ko/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/zh-Hans/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+      <tr>
+        <td><code>packages/web-core/src/i18n/locales/zh-Hant/common.json</code></td>
+        <td>Añadir <code>workspaces.aside.inReview</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider"/>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- 8. OPEN QUESTIONS -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>8. Preguntas abiertas para el PM / dev</h2>
+  <div class="stack">
+
+    <div class="alert alert--warn">
+      <strong>Q1 — ¿Dónde se deriva el estado para WorkerDetailCard?</strong><br/>
+      <code>WorkerDetailCard</code> vive en el aside del shell y recibe <code>state: WorkerCardState</code> como prop.
+      El issue no especifica qué componente llama a <code>WorkerDetailCard</code> ni cómo obtiene
+      <code>ws.hasTaskInReview</code>. El spec de <code>deriveWorkerState()</code> en §5.5 es una propuesta —
+      confirmar si el componente llamador ya tiene acceso al workspace via hook o si hay que propagarlo.
+    </div>
+
+    <div class="alert alert--warn">
+      <strong>Q2 — WorkersSidebar también usa needsAttention / inReview?</strong><br/>
+      <code>WorkersPage.tsx</code> pasa <code>attentionWorkerIds={stalledWorkerIds}</code> a <code>WorkersSidebar</code>.
+      ¿Debe <code>WorkersSidebar</code> recibir también <code>inReviewWorkerIds</code> para mostrar
+      el dot de review en la lista lateral? No está en el territorio del issue #442 pero es
+      una inconsistencia visual potencial.
+    </div>
+
+    <div class="alert alert--info">
+      <strong>Q3 — ¿El badge "In review" en WorkerCard debe mostrar el número de PR?</strong><br/>
+      Si <code>ws.prNumber</code> está disponible en el mismo workspace, podría mostrarse como
+      "In review · PR #123" para contexto adicional. ¿Conviene? ¿O mantenerlo minimal?
+    </div>
+
+    <div class="alert alert--info">
+      <strong>Q4 — ¿Qué pasa si #441 no fue mergeado cuando se implementa #442?</strong><br/>
+      <code>hasTaskInReview</code> no existe en <code>SidebarWorkspace</code> todavía (verificado en el
+      hook actual). La implementación debe usar la misma técnica de "extended type cast" que ya
+      se usa para <code>plan_mode</code> y <code>pr_mergeable</code> en el codebase — o bloquear
+      este issue hasta que #441 esté merged.
+    </div>
+
+  </div>
+</section>
+
+<footer style="max-width:1080px;margin:0 auto;padding-top:20px;font-size:11px;color:var(--text-low)">
+  Spec generado: 2026-08-06 · Issue #442 · Diseño UI/UX
+</footer>
+
+</body>
+</html>
