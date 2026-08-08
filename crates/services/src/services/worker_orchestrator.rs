@@ -48,6 +48,7 @@ use std::{path::PathBuf, sync::Arc};
 use db::{
     DBService,
     models::{
+        coding_agent_turn::CodingAgentTurn,
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
         execution_process_repo_state::ExecutionProcessRepoState,
         plan_cap_hit::PlanCapHit,
@@ -55,13 +56,20 @@ use db::{
         repo::Repo,
         requests::WorkspaceRepoInput,
         review_round::{self, CreateReviewRound, ReviewRound},
+        session::Session,
         worker::{ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
     },
 };
-use executors::{model_selector::PermissionPolicy, profile::ExecutorConfig};
+use executors::{
+    actions::{
+        ExecutorAction, ExecutorActionType, coding_agent_follow_up::CodingAgentFollowUpRequest,
+    },
+    model_selector::PermissionPolicy,
+    profile::ExecutorConfig,
+};
 use git_host::{
     CreatePrRequest, GitHostError, GitHostProvider, GitHostService, PrReviewCommentInput,
     SubmitPrReviewRequest,
@@ -2965,11 +2973,217 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
     Ok(())
 }
 
+/// Text of the remediation prompt sent to the author when a reviewer
+/// requests changes on their PR. Shared between the primary follow-up path
+/// (dispatched on the original task's live workspace, issue #473) and the
+/// fallback review_fix task path (used only when the original workspace is
+/// gone). The instructions are self-contained: fetch the PR head into the
+/// current branch, address the review comments, push back to the PR head via
+/// explicit refspec — even if the workspace is fresh.
+fn build_remediation_prompt(pr_number: i64) -> String {
+    format!(
+        "El reviewer solicitó cambios en el PR #{pr_number}. \
+         Revisá los comentarios con `gh pr view {pr_number} --comments`. \
+         Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
+         (la rama del PR puede estar checked out en el worktree del autor y \
+         git lo rechaza): traé el contenido a TU rama actual con \
+         `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
+         Corregí los issues señalados por el reviewer y commiteá. \
+         Después pusheá a la rama del PR con refspec explícito: \
+         `git push origin HEAD:$(gh pr view {pr_number} --json headRefName -q .headRefName)`. \
+         El PR ya existe — NO crees uno nuevo."
+    )
+}
+
+/// Try to dispatch the remediation prompt as a CodingAgent follow-up on the
+/// author's original `in_review` task workspace. This is the primary path per
+/// issue #473: one ticket = one card that transitions states, driven by
+/// activity in the developer task's own workspace — no separate `review_fix`
+/// task, no duplicate sidebar entry.
+///
+/// Returns `Ok(true)` when the follow-up was dispatched (or is already in
+/// flight, per idempotency). Returns `Ok(false)` when the workspace can't
+/// receive a follow-up (missing, archived, worktree gone, no resumable
+/// session, mismatched executor) — the caller falls back to the legacy
+/// `review_fix` task path so remediation still lands.
+///
+/// The developer task's status stays `in_review` throughout: the
+/// `on_developer_agent_finished` handler already treats a run that ends while
+/// the task is `in_review` as a follow-up (push commits, do not archive, do
+/// not touch state) — the review re-dispatch then flows through the normal
+/// `pr_monitor` head-moved check.
+async fn dispatch_remediation_follow_up(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    pr_number: i64,
+    repo_id: Uuid,
+    author_worker_id: Uuid,
+    prompt: &str,
+) -> Result<bool, sqlx::Error> {
+    let pool = &db.pool;
+
+    // The PR's primary workspace is the developer's original workspace (the
+    // PR was created from it). Note that a developer task's `issue_number`
+    // usually references the GitHub issue being addressed, not the PR number,
+    // so looking up the dev task by `issue_number == pr_number` would miss
+    // the common case — we resolve via the PR ↔ workspace linkage instead.
+    let Some(workspace_id) =
+        PullRequest::find_latest_workspace_for_pr(pool, repo_id, pr_number).await?
+    else {
+        return Ok(false);
+    };
+
+    let Some(workspace) = Workspace::find_by_id(pool, workspace_id).await? else {
+        return Ok(false);
+    };
+    if workspace.archived || workspace.worktree_deleted {
+        return Ok(false);
+    }
+
+    let Some(dev_task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
+        return Ok(false);
+    };
+    // Skip if the workspace's task isn't the developer's in_review task: it
+    // may be a legacy review_fix task's workspace still linked to the PR (on
+    // a fleet that hasn't drained pre-#473 fix tasks), or the dev task may be
+    // in_progress / terminal. In every case, fall back to the caller's
+    // legacy path.
+    if dev_task.worker_id != author_worker_id
+        || dev_task.status != worker_task::STATUS_IN_REVIEW
+        || WorkerTask::kind(pool, dev_task.id).await?.as_deref()
+            == Some(worker_task::KIND_REVIEW_FIX)
+    {
+        return Ok(false);
+    }
+
+    // Idempotency: if a coding-agent run is already live on this workspace,
+    // remediation is already in flight (or a manual follow-up is running) —
+    // nothing more to dispatch. Report success so the caller does not fall
+    // back to creating a duplicate review_fix task.
+    if ExecutionProcess::has_running_non_dev_server_processes_for_workspace(pool, workspace_id)
+        .await
+        .unwrap_or(false)
+    {
+        debug!(
+            pr_number,
+            workspace_id = %workspace_id,
+            "A coding-agent run is already live on the workspace — remediation is already in flight"
+        );
+        return Ok(true);
+    }
+
+    let Some(session) = Session::find_latest_by_workspace_id(pool, workspace_id).await? else {
+        return Ok(false);
+    };
+
+    // Take the executor config from the most recent CodingAgent process on
+    // this session. The follow-up's `session_id` is opaque to the executor
+    // CLI, so it has to match the executor that originally issued it; reusing
+    // the same config is the simplest way to guarantee that.
+    let Some(latest_process) = ExecutionProcess::find_latest_by_workspace_and_run_reason(
+        pool,
+        workspace_id,
+        &ExecutionProcessRunReason::CodingAgent,
+    )
+    .await?
+    else {
+        return Ok(false);
+    };
+    let executor_config = match latest_process.executor_action() {
+        Ok(action) => match &action.typ {
+            ExecutorActionType::CodingAgentInitialRequest(req) => req.executor_config.clone(),
+            ExecutorActionType::CodingAgentFollowUpRequest(req) => req.executor_config.clone(),
+            _ => return Ok(false),
+        },
+        Err(_) => return Ok(false),
+    };
+
+    let Some(session_info) = CodingAgentTurn::find_latest_session_info_for_executor(
+        pool,
+        session.id,
+        &executor_config.executor.to_string(),
+    )
+    .await?
+    else {
+        return Ok(false);
+    };
+
+    let working_dir = session
+        .agent_working_dir
+        .as_ref()
+        .filter(|dir| !dir.is_empty())
+        .cloned();
+
+    let action = ExecutorAction::new(
+        ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
+            prompt: prompt.to_string(),
+            session_id: session_info.session_id,
+            reset_to_message_id: None,
+            executor_config,
+            working_dir,
+        }),
+        None,
+    );
+
+    // Deliberately do NOT clear `review_result` here: while the follow-up
+    // runs, `compute_loop_state` uses "review_result=changes_requested AND
+    // developer_agent_running" as its signal for the `fixing` badge (the
+    // remediation now runs on the developer's workspace, not on a separate
+    // `review_fix` task, so the old fix-task activity signal is absent).
+    // The next reviewer round overwrites `review_result` with the fresh
+    // verdict via `pr_monitor` when the new head is reviewed.
+
+    match container
+        .start_execution(
+            &workspace,
+            &session,
+            &action,
+            &ExecutionProcessRunReason::CodingAgent,
+        )
+        .await
+    {
+        Ok(process) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                author_task_id = %dev_task.id,
+                workspace_id = %workspace_id,
+                session_id = %session.id,
+                execution_process_id = %process.id,
+                pr_number,
+                "Remediation dispatched as follow-up on the author's original task"
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            warn!(
+                pr_number,
+                workspace_id = %workspace_id,
+                "Failed to start remediation follow-up on original workspace: {}",
+                e
+            );
+            Ok(false)
+        }
+    }
+}
+
 /// Dispatch a fix task to the PR author worker when a reviewer requests changes.
+///
+/// Primary path (issue #473): dispatch the remediation prompt as a
+/// CodingAgent follow-up on the author's ORIGINAL `in_review` task workspace,
+/// so a single card transitions its own review state — no duplicate "Atendé
+/// el review" sidebar entry per round.
+///
+/// Fallback: when the original workspace is gone (archived, worktree lost,
+/// missing session), fall back to the legacy `review_fix` task path. The
+/// prompt itself is self-contained (fetches `pull/N/head` into the fresh
+/// branch, pushes back via explicit refspec) so the fallback still lands the
+/// fix on the correct PR.
 ///
 /// No-op when:
 /// - `WORKER_LEAD_ENABLED=false`
-/// - The author already has an active fix task for this PR (idempotent guard)
+/// - No review round has actually completed yet
+/// - A remediation is already in flight for this PR (idempotent guard on
+///   both the follow-up path and the fallback task path)
 pub async fn dispatch_author_fix_task(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -2996,10 +3210,11 @@ pub async fn dispatch_author_fix_task(
         return Ok(());
     }
 
-    // Idempotency guard: while one remediation for this PR is still pending
-    // (queued or running, on any worker), never dispatch a second one — no
-    // matter how many review rounds completed in between. Redundant rounds on
-    // an unchanged head must not multiply into redundant fix tasks.
+    // Idempotency guard for the legacy path: while a queued/in_progress
+    // `review_fix` task exists (from a prior dispatch that took the fallback
+    // path, or from a fleet still draining old fix-tasks), do not queue a
+    // second one. The follow-up path has its own idempotency via
+    // `has_running_non_dev_server_processes_for_workspace`.
     if let Some(pending) =
         WorkerTask::find_pending_review_fix_for_pr(pool, pr_number, repo_id).await?
     {
@@ -3011,28 +3226,55 @@ pub async fn dispatch_author_fix_task(
         return Ok(());
     }
 
-    // Number the round in the title so two remediation runs for the same PR
-    // never look like duplicates on the board. `completed_reviews` is the
-    // round this fix answers (round N verdict → fix N).
+    let task_prompt = build_remediation_prompt(pr_number);
+
+    // Primary path (#473): dispatch as a system follow-up on the author's
+    // ORIGINAL in_review task workspace. One card = one PR, transitioning
+    // states in place — no duplicate "Atendé el review" entry.
+    match dispatch_remediation_follow_up(
+        db,
+        container,
+        pr_number,
+        repo_id,
+        author_worker_id,
+        &task_prompt,
+    )
+    .await
+    {
+        Ok(true) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                completed_reviews,
+                "Author fix dispatched as follow-up on the original task workspace"
+            );
+            return Ok(());
+        }
+        Ok(false) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                "Original workspace unavailable for follow-up — falling back to review_fix task"
+            );
+        }
+        Err(e) => {
+            warn!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                "Follow-up remediation dispatch failed — falling back to review_fix task: {}",
+                e
+            );
+        }
+    }
+
+    // Fallback: original workspace is gone. Create a `review_fix` task the
+    // legacy way — its self-contained prompt recreates the PR head via
+    // `git fetch pull/N/head` and pushes back via explicit refspec.
     let task_title = format!(
         "Atendé el review del PR #{} — ronda {}",
         pr_number, completed_reviews
     );
-    let task_prompt = format!(
-        "El reviewer solicitó cambios en el PR #{pr_number}. \
-         Revisá los comentarios con `gh pr view {pr_number} --comments`. \
-         Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
-         (la rama del PR puede estar checked out en el worktree del autor y \
-         git lo rechaza): traé el contenido a TU rama actual con \
-         `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
-         Corregí los issues señalados por el reviewer y commiteá. \
-         Después pusheá a la rama del PR con refspec explícito: \
-         `git push origin HEAD:$(gh pr view {pr_number} --json headRefName -q .headRefName)`. \
-         El PR ya existe — NO crees uno nuevo."
-    );
 
-    // The fix goes to the FRONT of the author's queue: its PR is already
-    // burning an in_review slot, so remediation outranks queued feature work.
     let task = WorkerTask::prepend_review_fix(
         pool,
         author_worker_id,
@@ -3052,7 +3294,7 @@ pub async fn dispatch_author_fix_task(
         author_worker_id = %author_worker_id,
         pr_number,
         task_id = %task.id,
-        "Dispatched author fix task for PR #{}",
+        "Dispatched author fix task (fallback) for PR #{}",
         pr_number,
     );
 
