@@ -1834,8 +1834,28 @@ impl ContainerService for LocalContainerService {
         let repo_names: Vec<String> = repos.iter().map(|r| r.name.clone()).collect();
         let repo_context = RepoContext::new(current_dir.clone(), repo_names);
 
+        let worker_pat_role =
+            match Worker::find_github_pat_and_role_by_workspace_id(&self.db.pool, workspace.id)
+                .await
+            {
+                Ok(pat_role) => pat_role,
+                Err(e) => {
+                    tracing::warn!(
+                        workspace_id = %workspace.id,
+                        "Failed to load worker GitHub PAT/role: {}",
+                        e
+                    );
+                    None
+                }
+            };
+        let is_reviewer = matches!(&worker_pat_role, Some((_, role)) if role == ROLE_REVIEWER);
+
         let config = self.config.read().await;
-        let commit_reminder_enabled = config.commit_reminder_enabled;
+        // Reviewers never commit — their contract is to leave `.vk/review.json`
+        // uncommitted for the orchestrator to consume. With the reminder on,
+        // every review ended in the stop hook blocking the agent's stop and
+        // the agent arguing back that it must not commit.
+        let commit_reminder_enabled = config.commit_reminder_enabled && !is_reviewer;
         let commit_reminder_prompt = config
             .commit_reminder_prompt
             .clone()
@@ -1861,17 +1881,11 @@ impl ContainerService for LocalContainerService {
         // directly, so the reviewer agent never needs to run `gh pr review`.
         // We keep GH_TOKEN out of its env so the agent can't accidentally
         // reintroduce the old prompt-driven submission path.
-        match Worker::find_github_pat_and_role_by_workspace_id(&self.db.pool, workspace.id).await {
-            Ok(Some((Some(token), role))) if role != ROLE_REVIEWER => {
-                env.insert("GH_TOKEN", &token);
-                env.insert("GITHUB_TOKEN", &token);
+        if let Some((Some(token), role)) = &worker_pat_role {
+            if role != ROLE_REVIEWER {
+                env.insert("GH_TOKEN", token);
+                env.insert("GITHUB_TOKEN", token);
             }
-            Ok(Some(_)) | Ok(None) => {}
-            Err(e) => tracing::warn!(
-                workspace_id = %workspace.id,
-                "Failed to load worker GitHub PAT for env injection: {}",
-                e
-            ),
         }
 
         // Create the child and stream, add to execution tracker with timeout

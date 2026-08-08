@@ -4,6 +4,7 @@
 //! the REST client does not cover well.
 
 use std::{
+    collections::{HashMap, HashSet},
     ffi::{OsStr, OsString},
     io::Write,
     path::Path,
@@ -743,6 +744,86 @@ impl GhCli {
         })
     }
 
+    /// New-side ("RIGHT") line coverage of a PR's diff, per file, from
+    /// `GET /pulls/{n}/files`. This is the exact diff GitHub validates
+    /// inline review comments against: a comment whose `(path, line)` is
+    /// not covered here makes the whole review submission fail with 422.
+    ///
+    /// A file mapped to `None` had its `patch` omitted by GitHub (huge
+    /// diffs) — line coverage unknown, callers should not demote those.
+    pub fn get_pr_diff_line_map(
+        &self,
+        pr_url: &str,
+    ) -> Result<HashMap<String, Option<HashSet<i64>>>, GhCliError> {
+        let (owner, repo, pr_number, hostname) = Self::parse_github_pr_url_parts(pr_url)
+            .ok_or_else(|| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Cannot parse GitHub PR URL to fetch diff files: {pr_url}"
+                ))
+            })?;
+
+        let api_path = format!("repos/{owner}/{repo}/pulls/{pr_number}/files?per_page=100");
+        let mut args: Vec<String> = vec!["api".to_string(), "--paginate".to_string()];
+        if let Some(host) = hostname {
+            args.push("--hostname".to_string());
+            args.push(host);
+        }
+        args.push(api_path);
+
+        let raw = self.run(args, None)?;
+
+        #[derive(serde::Deserialize)]
+        struct PrFile {
+            filename: String,
+            #[serde(default)]
+            patch: Option<String>,
+        }
+
+        // `--paginate` concatenates one JSON array per page back-to-back
+        // (`[..][..]`), so parse as a stream of arrays instead of one value.
+        let mut map: HashMap<String, Option<HashSet<i64>>> = HashMap::new();
+        for page in serde_json::Deserializer::from_str(&raw).into_iter::<Vec<PrFile>>() {
+            let page = page.map_err(|e| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Failed to parse PR files response: {e}; raw: {raw}"
+                ))
+            })?;
+            for file in page {
+                map.insert(
+                    file.filename,
+                    file.patch.as_deref().map(Self::patch_new_side_lines),
+                );
+            }
+        }
+        Ok(map)
+    }
+
+    /// Parse a unified-diff `patch` into the set of new-side line numbers
+    /// its hunks cover (added and context lines both count — GitHub accepts
+    /// inline comments on either).
+    fn patch_new_side_lines(patch: &str) -> HashSet<i64> {
+        let mut lines = HashSet::new();
+        for l in patch.lines() {
+            let Some(rest) = l.strip_prefix("@@") else {
+                continue;
+            };
+            // Hunk header: `@@ -old_start[,old_count] +new_start[,new_count] @@`
+            let Some(plus) = rest.find('+') else { continue };
+            let seg = &rest[plus + 1..];
+            let end = seg
+                .find(|c: char| !c.is_ascii_digit() && c != ',')
+                .unwrap_or(seg.len());
+            let (start, count) = match seg[..end].split_once(',') {
+                Some((s, c)) => (s.parse::<i64>(), c.parse::<i64>()),
+                None => (seg[..end].parse::<i64>(), Ok(1)),
+            };
+            if let (Ok(start), Ok(count)) = (start, count) {
+                lines.extend(start..start + count);
+            }
+        }
+        lines
+    }
+
     /// Check out a PR in `repo_path`. When `local_branch` is given, the PR
     /// head is checked out under that local name (`gh pr checkout --branch`);
     /// gh still writes the upstream config pointing at the PR's real head
@@ -917,6 +998,30 @@ impl GhCli {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn patch_new_side_lines_covers_added_and_context() {
+        // One hunk: new side starts at line 10 and spans 4 lines
+        // (context + additions both count for inline comment placement).
+        let patch = "@@ -8,3 +10,4 @@ fn foo() {\n context\n+added one\n+added two\n context";
+        let lines = GhCli::patch_new_side_lines(patch);
+        assert_eq!(lines, HashSet::from([10, 11, 12, 13]));
+    }
+
+    #[test]
+    fn patch_new_side_lines_multiple_hunks_and_count_default() {
+        // `+7` without a count means one line; a second hunk adds its range.
+        let patch = "@@ -1 +7 @@\n+solo\n@@ -20,2 +30,2 @@\n context\n+x";
+        let lines = GhCli::patch_new_side_lines(patch);
+        assert_eq!(lines, HashSet::from([7, 30, 31]));
+    }
+
+    #[test]
+    fn patch_new_side_lines_zero_count_hunk_is_empty() {
+        // Pure deletion: `+5,0` covers no new-side lines.
+        let lines = GhCli::patch_new_side_lines("@@ -5,2 +5,0 @@\n-gone\n-gone too");
+        assert!(lines.is_empty());
+    }
 
     #[test]
     fn parse_github_pr_url_parts_github_com() {

@@ -2,7 +2,11 @@
 
 mod cli;
 
-use std::{path::Path, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use backon::{ExponentialBuilder, Retryable};
@@ -290,6 +294,13 @@ impl GitHostProvider for AzureDevOpsProvider {
         _request: &SubmitPrReviewRequest,
     ) -> Result<SubmitPrReviewResponse, GitHostError> {
         Err(GitHostError::UnsupportedProvider)
+    }
+
+    async fn get_pr_diff_line_map(
+        &self,
+        _pr_url: &str,
+    ) -> Result<Option<HashMap<String, Option<HashSet<i64>>>>, GitHostError> {
+        Ok(None)
     }
 
     fn provider_kind(&self) -> ProviderKind {
