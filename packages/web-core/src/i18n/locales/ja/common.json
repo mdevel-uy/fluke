@@ -193,6 +193,7 @@
     "scopes": {
       "attention": "対応が必要",
       "review": "レビュー中",
+      "approved": "承認済み",
       "running": "実行中",
       "idle": "待機中",
       "all": "すべてのワークスペース",
@@ -203,14 +204,16 @@
       "failed": "失敗",
       "stalled": "停滞",
       "activity": "活動",
-      "inReview": "レビュー中"
+      "inReview": "レビュー中",
+      "approved": "承認済み"
     },
     "scopeRailLabel": "ワークスペースの範囲",
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
       "reviewerWorking": "レビュアー作業中...",
-      "inReview": "レビュー中"
+      "inReview": "レビュー中",
+      "approved": "承認済み"
     }
   },
   "fileTree": {
@@ -654,6 +657,7 @@
     "inProgress": "進行中",
     "queued": "待機中",
     "inReview": "レビュー中",
+    "approved": "承認済み",
     "openPrs": "オープンPR",
     "approvals": "承認待ち",
     "done": "完了",

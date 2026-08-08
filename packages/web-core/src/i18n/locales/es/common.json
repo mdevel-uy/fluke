@@ -193,6 +193,7 @@
     "scopes": {
       "attention": "Te necesita",
       "review": "En revisión",
+      "approved": "Aprobados",
       "running": "En ejecución",
       "idle": "Inactivos",
       "failed": "Fallidos",
@@ -204,14 +205,16 @@
       "failed": "fallida",
       "stalled": "trancada",
       "activity": "actividad",
-      "inReview": "en revisión"
+      "inReview": "en revisión",
+      "approved": "aprobado"
     },
     "scopeRailLabel": "Ámbitos de espacios de trabajo",
     "draftWorkspace": "Borrador de espacio de trabajo",
     "openForIssue": "Abrir un espacio de trabajo para este issue",
     "aside": {
       "reviewerWorking": "Reviewer trabajando...",
-      "inReview": "En revisión"
+      "inReview": "En revisión",
+      "approved": "Aprobado"
     }
   },
   "fileTree": {
@@ -657,6 +660,7 @@
     "inProgress": "En curso",
     "queued": "En cola",
     "inReview": "En revisión",
+    "approved": "Aprobado",
     "openPrs": "PRs abiertos",
     "approvals": "Aprobaciones",
     "done": "Hechas",

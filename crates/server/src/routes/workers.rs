@@ -190,10 +190,15 @@ async fn worker_task_to_response(
         None => (None, None, None, None),
     };
 
-    // Live loop state, only where it means something: an in_review task whose
-    // PR is still open. Everything else renders from status + review_result.
+    // Live loop state, only where it means something: an in_review or approved
+    // task whose PR is still open. Everything else renders from status +
+    // review_result. Approved is included because a manual follow-up on an
+    // already-approved task still surfaces "developer_running".
     let loop_state = match open_pr_number {
-        Some(pr_number) if task.status == worker_task::STATUS_IN_REVIEW => {
+        Some(pr_number)
+            if task.status == worker_task::STATUS_IN_REVIEW
+                || task.status == worker_task::STATUS_APPROVED =>
+        {
             let (reviewer, fix, last_activity) =
                 WorkerTask::loop_activity_for_pr(pool, pr_number, task.repo_id).await?;
             // A manual follow-up on an already-approved task (see #471) keeps
@@ -1416,9 +1421,10 @@ pub async fn cancel_worker_task(
 
     if existing.status != worker_task::STATUS_IN_PROGRESS
         && existing.status != worker_task::STATUS_IN_REVIEW
+        && existing.status != worker_task::STATUS_APPROVED
     {
         return Err(ApiError::Conflict(
-            "Only in_progress or in_review tasks can be cancelled".into(),
+            "Only in_progress, in_review or approved tasks can be cancelled".into(),
         ));
     }
 
@@ -1714,7 +1720,11 @@ pub async fn re_request_review(
         ));
     }
 
-    if existing.status != worker_task::STATUS_IN_REVIEW
+    // Both in_review and approved statuses accept a manual re-review: a
+    // changes_requested task sits on in_review, while an approved task with
+    // the auto-transition lands on approved — same PR-still-open shape.
+    if (existing.status != worker_task::STATUS_IN_REVIEW
+        && existing.status != worker_task::STATUS_APPROVED)
         || !matches!(
             existing.review_result.as_deref(),
             Some("changes_requested") | Some("approved")
@@ -1803,6 +1813,14 @@ pub async fn re_request_review(
     // Clear the stale verdict on the developer task so the card flips back to
     // the "awaiting review" pulse until the new reviewer round posts a verdict.
     WorkerTask::set_review_result(pool, task_id, None).await?;
+
+    // If the task had already transitioned to `approved` (issue #464), a
+    // manual re-review has to bring it back to `in_review` — otherwise the
+    // loop badges and the "approved" chip would keep showing while a fresh
+    // reviewer round is in flight. Skipped when the task is still in_review.
+    if existing.status == worker_task::STATUS_APPROVED {
+        WorkerTask::set_status(pool, task_id, worker_task::STATUS_IN_REVIEW).await?;
+    }
 
     Ok(ResponseJson(ApiResponse::success(())))
 }

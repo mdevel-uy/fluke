@@ -51,6 +51,11 @@ export function PullRequestsPanel({
               </span>
               {ws.prMergeable === 'conflicting' ? (
                 <StatusPill tone="error" label={t('dashboard.conflicting')} />
+              ) : task?.status === 'approved' ? (
+                <StatusPill
+                  tone="success"
+                  label={t('dashboard.approved', { defaultValue: 'Approved' })}
+                />
               ) : ws.prMergeable === 'mergeable' ? (
                 <StatusPill tone="success" label={t('dashboard.mergeable')} />
               ) : task?.status === 'in_review' ? (

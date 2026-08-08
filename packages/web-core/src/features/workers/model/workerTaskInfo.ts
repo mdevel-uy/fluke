@@ -59,6 +59,7 @@ export function withWorkerTaskInfo<T extends SidebarWorkspace>(
         ws.latestProcessStatus !== 'running',
       hasFailedTask: task.status === 'failed',
       hasTaskInReview: task.status === 'in_review',
+      hasTaskApproved: task.status === 'approved',
     };
   });
 }

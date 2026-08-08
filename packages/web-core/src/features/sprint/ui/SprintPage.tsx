@@ -55,7 +55,12 @@ import { extractSkillLabelNames } from '../lib/skillLabels';
 import { IssueDetailPanel } from './IssueDetailPanel';
 import { SprintFilterBar, type SprintFilters } from './SprintFilterBar';
 
-const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
+const ACTIVE_STATUSES = new Set([
+  'queued',
+  'in_progress',
+  'in_review',
+  'approved',
+]);
 const DONE_LIMIT = 20;
 
 type Toast = {
@@ -826,8 +831,13 @@ export function SprintPage() {
     [repoTasks]
   );
 
+  // "In review" column also surfaces approved tasks: same PR-still-open shape,
+  // and the card differentiates the approved state visually (issue #464).
   const inReviewTasks = useMemo(
-    () => repoTasks.filter((task) => task.status === 'in_review'),
+    () =>
+      repoTasks.filter(
+        (task) => task.status === 'in_review' || task.status === 'approved'
+      ),
     [repoTasks]
   );
 

@@ -85,8 +85,12 @@ export function useDashboardData() {
   const pipeline = useMemo(() => {
     const counts = { queued: 0, in_progress: 0, in_review: 0 };
     for (const task of tasks) {
-      if (task.status in counts) {
-        counts[task.status as keyof typeof counts] += 1;
+      // `approved` is a substate of "PR still open" (#464). The pipeline
+      // widget stays a 3-bucket view — fold approved into in_review so the
+      // total for "still on the board" stays stable.
+      const bucket = task.status === 'approved' ? 'in_review' : task.status;
+      if (bucket in counts) {
+        counts[bucket as keyof typeof counts] += 1;
       }
     }
     return counts;

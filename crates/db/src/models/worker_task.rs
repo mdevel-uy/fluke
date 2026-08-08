@@ -8,13 +8,23 @@ use uuid::Uuid;
 pub const STATUS_QUEUED: &str = "queued";
 pub const STATUS_IN_PROGRESS: &str = "in_progress";
 pub const STATUS_IN_REVIEW: &str = "in_review";
+/// The developer's PR received an approving verdict from the reviewer. The
+/// task is done with review-loop work but the PR is still open (waiting for
+/// merge). Follow-up commits fixing CI on top of the approved head are still
+/// possible; `on_pr_merged` handles the final transition to `done`.
+pub const STATUS_APPROVED: &str = "approved";
 pub const STATUS_DONE: &str = "done";
 pub const STATUS_FAILED: &str = "failed";
 
 pub fn is_valid_status(value: &str) -> bool {
     matches!(
         value,
-        STATUS_QUEUED | STATUS_IN_PROGRESS | STATUS_IN_REVIEW | STATUS_DONE | STATUS_FAILED
+        STATUS_QUEUED
+            | STATUS_IN_PROGRESS
+            | STATUS_IN_REVIEW
+            | STATUS_APPROVED
+            | STATUS_DONE
+            | STATUS_FAILED
     )
 }
 
@@ -398,11 +408,15 @@ impl WorkerTask {
         Ok(())
     }
 
+    /// Count worker tasks that hold an open PR slot: `in_review` (waiting for
+    /// reviewer) and `approved` (approved but not yet merged). Both consume
+    /// the worker's cap — a worker becomes idle only when its PR merges (#472),
+    /// so leaving approved out would silently relax the serial-per-worker rule.
     pub async fn count_in_review(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
                FROM worker_tasks
-               WHERE worker_id = ?1 AND status = 'in_review'",
+               WHERE worker_id = ?1 AND status IN ('in_review', 'approved')",
         )
         .bind(worker_id)
         .fetch_one(pool)
@@ -427,6 +441,7 @@ impl WorkerTask {
             STATUS_QUEUED,
             STATUS_IN_PROGRESS,
             STATUS_IN_REVIEW,
+            STATUS_APPROVED,
             STATUS_DONE,
             STATUS_FAILED,
         ];
@@ -487,10 +502,10 @@ impl WorkerTask {
         Ok(())
     }
 
-    /// Delete all active (queued / in_progress / in_review) tasks linked to
-    /// the given workspace. Called when a workspace is hard-deleted so orphaned
-    /// tasks do not leave cards stuck on the kanban board. Idempotent: returns
-    /// 0 if no matching tasks exist.
+    /// Delete all active (queued / in_progress / in_review / approved) tasks
+    /// linked to the given workspace. Called when a workspace is hard-deleted
+    /// so orphaned tasks do not leave cards stuck on the kanban board.
+    /// Idempotent: returns 0 if no matching tasks exist.
     pub async fn delete_active_by_workspace_id(
         pool: &SqlitePool,
         workspace_id: Uuid,
@@ -498,7 +513,7 @@ impl WorkerTask {
         let result = sqlx::query(
             "DELETE FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('queued', 'in_progress', 'in_review')",
+                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .execute(pool)
@@ -521,8 +536,8 @@ impl WorkerTask {
     }
 
     /// True when the given workspace has a task with status in
-    /// (`in_progress`, `in_review`). Used to distinguish healthy workspaces
-    /// from orphans left behind by a failed start.
+    /// (`in_progress`, `in_review`, `approved`). Used to distinguish healthy
+    /// workspaces from orphans left behind by a failed start.
     pub async fn workspace_has_active_task(
         pool: &SqlitePool,
         workspace_id: Uuid,
@@ -531,7 +546,7 @@ impl WorkerTask {
             "SELECT COUNT(*)
                FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('in_progress', 'in_review')",
+                 AND status IN ('in_progress', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .fetch_one(pool)
@@ -728,9 +743,9 @@ impl WorkerTask {
         Ok(result.rows_affected())
     }
 
-    /// Find the first active task (queued, in_progress, or in_review) for the
-    /// given repo and issue number, across all workers. Used to detect duplicate
-    /// issue assignments before creating a new task.
+    /// Find the first active task (queued, in_progress, in_review, or
+    /// approved) for the given repo and issue number, across all workers.
+    /// Used to detect duplicate issue assignments before creating a new task.
     pub async fn find_active_by_issue(
         pool: &SqlitePool,
         repo_id: Uuid,
@@ -745,7 +760,7 @@ impl WorkerTask {
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
-                 AND status IN ('queued', 'in_progress', 'in_review')
+                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')
                ORDER BY created_at ASC
                LIMIT 1",
         )

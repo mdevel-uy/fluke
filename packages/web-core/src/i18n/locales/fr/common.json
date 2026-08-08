@@ -193,6 +193,7 @@
     "scopes": {
       "attention": "Requiert votre attention",
       "review": "En revue",
+      "approved": "Approuvés",
       "running": "En cours",
       "idle": "Inactifs",
       "all": "Tous les espaces",
@@ -203,14 +204,16 @@
       "failed": "échec",
       "stalled": "bloquée",
       "activity": "activité",
-      "inReview": "en revue"
+      "inReview": "en revue",
+      "approved": "approuvée"
     },
     "scopeRailLabel": "Portées des espaces de travail",
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
       "reviewerWorking": "Réviseur en cours...",
-      "inReview": "En révision"
+      "inReview": "En révision",
+      "approved": "Approuvée"
     }
   },
   "fileTree": {
@@ -656,6 +659,7 @@
     "inProgress": "En cours",
     "queued": "En attente",
     "inReview": "En relecture",
+    "approved": "Approuvée",
     "openPrs": "PRs ouvertes",
     "approvals": "Approbations",
     "done": "Terminées",

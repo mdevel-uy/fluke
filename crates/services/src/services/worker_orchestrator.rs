@@ -1590,6 +1590,20 @@ async fn on_reviewer_agent_finished(
                     );
                 }
             }
+            // Auto-transition in_review → approved on the developer's task
+            // as soon as the verdict is on file. Same idempotent guard as
+            // pr_monitor: only flip while status is still in_review.
+            if state == "approved" && dev_task.status == worker_task::STATUS_IN_REVIEW {
+                if let Err(e) =
+                    WorkerTask::set_status(pool, dev_task.id, worker_task::STATUS_APPROVED).await
+                {
+                    warn!(
+                        dev_task_id = %dev_task.id,
+                        "Failed to transition dev task to approved: {}",
+                        e
+                    );
+                }
+            }
         }
     }
     info!(
@@ -1922,11 +1936,16 @@ async fn on_developer_agent_finished(
     }
     if task.status != worker_task::STATUS_IN_PROGRESS {
         // A run finishing on a task that is no longer in_progress is a manual
-        // follow-up (red CI, merge conflicts) on a task already in_review:
-        // the orchestrator opened the PR on the first run, so mirror only the
-        // plumbing step — push the new commits to the PR head, best-effort,
-        // without touching task state or archiving the workspace.
-        if succeeded && task.status == worker_task::STATUS_IN_REVIEW {
+        // follow-up (red CI, merge conflicts) on a task already in_review or
+        // approved: the orchestrator opened the PR on the first run, so mirror
+        // only the plumbing step — push the new commits to the PR head,
+        // best-effort, without touching task state or archiving the workspace.
+        // Approved is included because a CI failure on an already-approved PR
+        // still gets fixed by a follow-up run before merge.
+        if succeeded
+            && (task.status == worker_task::STATUS_IN_REVIEW
+                || task.status == worker_task::STATUS_APPROVED)
+        {
             push_follow_up_commits(db, container, workspace_id, worker, &task).await;
         }
         return Ok(());

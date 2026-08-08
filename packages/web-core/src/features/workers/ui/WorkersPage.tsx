@@ -188,6 +188,19 @@ export function WorkersPage() {
     return inReview;
   }, [workers, workspaces]);
 
+  const approvedWorkerIds = useMemo(() => {
+    const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
+    const approved = new Set<string>();
+    for (const worker of workers) {
+      if (!worker.active_workspace_id) continue;
+      const ws = workspaceById.get(worker.active_workspace_id);
+      if (ws?.hasTaskApproved && !ws.hasPendingApproval) {
+        approved.add(worker.id);
+      }
+    }
+    return approved;
+  }, [workers, workspaces]);
+
   const workingWorkerIds = useMemo(
     () => new Set(activeTaskByWorkerId.keys()),
     [activeTaskByWorkerId]
@@ -507,6 +520,7 @@ export function WorkersPage() {
                   activeTask={activeTaskByWorkerId.get(worker.id)}
                   needsAttention={stalledWorkerIds.has(worker.id)}
                   inReview={inReviewWorkerIds.has(worker.id)}
+                  approved={approvedWorkerIds.has(worker.id)}
                   activeWorkspace={
                     worker.active_workspace_id
                       ? workspaceSummaryById.get(worker.active_workspace_id)

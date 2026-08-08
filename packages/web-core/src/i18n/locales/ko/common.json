@@ -193,6 +193,7 @@
     "scopes": {
       "attention": "확인 필요",
       "review": "리뷰 중",
+      "approved": "승인됨",
       "running": "실행 중",
       "idle": "대기 중",
       "all": "전체 워크스페이스",
@@ -203,14 +204,16 @@
       "failed": "실패",
       "stalled": "정체",
       "activity": "활동",
-      "inReview": "리뷰 중"
+      "inReview": "리뷰 중",
+      "approved": "승인됨"
     },
     "scopeRailLabel": "워크스페이스 범위",
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
       "reviewerWorking": "리뷰어 작업 중...",
-      "inReview": "검토 중"
+      "inReview": "검토 중",
+      "approved": "승인됨"
     }
   },
   "fileTree": {
@@ -654,6 +657,7 @@
     "inProgress": "진행 중",
     "queued": "대기 중",
     "inReview": "리뷰 중",
+    "approved": "승인됨",
     "openPrs": "열린 PR",
     "approvals": "승인 대기",
     "done": "완료",

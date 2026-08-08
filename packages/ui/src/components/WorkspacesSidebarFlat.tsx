@@ -37,12 +37,14 @@ export interface WorkspacesSidebarFlatProps {
 }
 
 function needsAttention(ws: WorkspacesSidebarWorkspace) {
-  // Precedence: pending approval > stalled > in review > idle. A task waiting
-  // for reviewer feedback does not "need you" — a reviewer will unblock it —
-  // but an explicit approval request from the agent still trumps that.
+  // Precedence: pending approval > stalled > in review / approved > idle. A
+  // task waiting for reviewer feedback or already approved does not "need
+  // you" — a reviewer will unblock it, or the merge is imminent — but an
+  // explicit approval request from the agent still trumps that.
   if (ws.hasPendingApproval) return true;
   if (ws.hasStalledTask) return true;
   if (ws.hasTaskInReview) return false;
+  if (ws.hasTaskApproved) return false;
   return !!ws.hasUnseenActivity && !ws.isRunning;
 }
 
@@ -76,6 +78,7 @@ function attentionReason(
 type RowVariant =
   | 'attention'
   | 'review'
+  | 'approved'
   | 'running'
   | 'idle'
   | 'failed'
@@ -87,6 +90,7 @@ function rowDotClass(variant: RowVariant, ws: WorkspacesSidebarWorkspace) {
   if (variant === 'attention')
     return ws.latestProcessStatus === 'failed' ? 'bg-error' : 'bg-warning';
   if (variant === 'review') return 'bg-info';
+  if (variant === 'approved') return 'bg-success';
   if (variant === 'archived') return 'bg-border-strong opacity-50';
   return 'bg-border-strong';
 }
@@ -100,6 +104,11 @@ function rowMeta(
   if (variant === 'review') {
     return t('common:workspaces.rowMeta.inReview', {
       defaultValue: 'in review',
+    });
+  }
+  if (variant === 'approved') {
+    return t('common:workspaces.rowMeta.approved', {
+      defaultValue: 'approved',
     });
   }
   if (variant === 'running') {
@@ -256,12 +265,19 @@ export function WorkspacesSidebarFlat({
     const live = workspaces.filter((ws) => !ws.hasFailedTask);
     const attention = live.filter(needsAttention);
     const rest = live.filter((ws) => !needsAttention(ws));
-    // "En revisión" only claims workspaces that didn't already qualify for
-    // attention; pending approval / stalled still win.
-    const review = rest.filter((ws) => ws.hasTaskInReview);
-    const remaining = rest.filter((ws) => !ws.hasTaskInReview);
+    // "Approved" and "En revisión" only claim workspaces that didn't already
+    // qualify for attention; pending approval / stalled still win. Approved
+    // is its own bucket so the "PR ready to merge" state is visible without
+    // being lumped in with "still waiting for the reviewer".
+    const approved = rest.filter((ws) => ws.hasTaskApproved);
+    const remainingAfterApproved = rest.filter((ws) => !ws.hasTaskApproved);
+    const review = remainingAfterApproved.filter((ws) => ws.hasTaskInReview);
+    const remaining = remainingAfterApproved.filter(
+      (ws) => !ws.hasTaskInReview
+    );
     return {
       attention,
+      approved,
       review,
       running: remaining.filter((ws) => ws.isRunning),
       idle: remaining.filter((ws) => !ws.isRunning),
@@ -275,6 +291,9 @@ export function WorkspacesSidebarFlat({
   const sectionLabels = {
     attention: t('common:workspaces.scopes.attention', {
       defaultValue: 'Needs attention',
+    }),
+    approved: t('common:workspaces.scopes.approved', {
+      defaultValue: 'Approved',
     }),
     review: t('common:workspaces.scopes.review', {
       defaultValue: 'In review',
@@ -351,6 +370,19 @@ export function WorkspacesSidebarFlat({
             })}
             items={groups.attention}
             variant="attention"
+            selectedWorkspaceId={selectedWorkspaceId}
+            onSelectWorkspace={onSelectWorkspace}
+            onOpenWorkspaceActions={onOpenWorkspaceActions}
+          />
+        )}
+        {!hiddenSections.approved && (
+          <Section
+            persistKey="ws-flat-approved"
+            title={t('common:workspaces.scopes.approved', {
+              defaultValue: 'Approved',
+            })}
+            items={groups.approved}
+            variant="approved"
             selectedWorkspaceId={selectedWorkspaceId}
             onSelectWorkspace={onSelectWorkspace}
             onOpenWorkspaceActions={onOpenWorkspaceActions}

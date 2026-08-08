@@ -80,6 +80,8 @@ export interface WorkspacesSidebarWorkspace {
   hasFailedTask?: boolean;
   /** Backing worker task is in review status (PR open, awaiting reviewer) */
   hasTaskInReview?: boolean;
+  /** Backing worker task was approved by the reviewer, PR still open pending merge */
+  hasTaskApproved?: boolean;
   /** When the latest coding-agent process started (for elapsed time) */
   latestProcessStartedAt?: string;
   /** Name of the worker that owns this workspace, if any */
@@ -170,12 +172,14 @@ export function WorkspacesSidebarReopenTag({
 }
 
 function needsAttention(ws: WorkspacesSidebarWorkspace) {
-  // Precedence: pending approval > stalled > in review > idle. A task waiting
-  // for reviewer feedback does not "need you" — a reviewer will unblock it —
-  // but an explicit approval request from the agent still trumps that.
+  // Precedence: pending approval > stalled > in review / approved > idle. A
+  // task waiting for reviewer feedback or already approved does not "need
+  // you" — a reviewer will unblock it, or the merge is imminent — but an
+  // explicit approval request from the agent still trumps that.
   if (ws.hasPendingApproval) return true;
   if (ws.hasStalledTask) return true;
   if (ws.hasTaskInReview) return false;
+  if (ws.hasTaskApproved) return false;
   return !!ws.hasUnseenActivity && !ws.isRunning;
 }
 
