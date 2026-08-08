@@ -33,8 +33,15 @@
 //!
 //! Worker capacity check for taking a new task:
 //!   * no `in_progress` task, AND
-//!   * strictly less than `WORKER_MAX_IN_REVIEW` (default 2) `in_review` tasks,
+//!   * strictly less than `WORKER_MAX_IN_REVIEW` (default 1) `in_review` tasks,
 //!   * at least one `queued` task.
+//!
+//! The default enforces "one worker, one open ticket": a worker only becomes
+//! idle when its PR merges (or the task otherwise reaches a terminal state).
+//! `review_fix` tasks are exempt because they drain the same PR that occupies
+//! the in_review slot — enforcing the cap on them would deadlock the worker
+//! (incident 03-ago-2025, PR #386). Ops can raise the cap per instance via
+//! `WORKER_MAX_IN_REVIEW` when higher WIP per worker is acceptable.
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -71,7 +78,7 @@ use crate::services::{
     quick_action_prompts, review_verdict,
 };
 
-pub const DEFAULT_MAX_IN_REVIEW: i64 = 2;
+pub const DEFAULT_MAX_IN_REVIEW: i64 = 1;
 pub const WORKER_MAX_IN_REVIEW_ENV: &str = "WORKER_MAX_IN_REVIEW";
 
 /// Final instruction for developer workers: commit and verify; the system
@@ -173,6 +180,61 @@ pub fn max_in_review_from_env() -> i64 {
         .and_then(|v| v.parse::<i64>().ok())
         .filter(|v| *v >= 0)
         .unwrap_or(DEFAULT_MAX_IN_REVIEW)
+}
+
+/// Decide whether the worker can take its next queued task now and return it.
+///
+/// Enforces the state-machine rule from #472: a worker is idle only when it
+/// has neither an `in_progress` task nor `cap` `in_review` tasks. `review_fix`
+/// tasks are exempt from the in-review cap — they exist to drain the same PR
+/// that occupies the slot, so blocking them would deadlock the worker
+/// (in_review waits for the fix, the fix waits for a slot — 03-ago-2025
+/// incident, PR #386).
+///
+/// The cap is passed in (rather than read from env inside) so tests remain
+/// isolated from process-global env state, mirroring [`select_lru_reviewer`].
+/// Production callers pass [`max_in_review_from_env`].
+///
+/// Side effect: when the cap turns away a real queued task, records today's
+/// `plan_cap_hit` so `/api/metrics` can surface the upsell signal. Cap checks
+/// with an empty queue are silent — the worker had nothing to run anyway.
+pub(crate) async fn resolve_next_takeable_task(
+    pool: &sqlx::SqlitePool,
+    worker_id: Uuid,
+    cap: i64,
+) -> Result<WorkerTask, StartError> {
+    if WorkerTask::find_in_progress(pool, worker_id)
+        .await?
+        .is_some()
+    {
+        return Err(StartError::AlreadyInProgress);
+    }
+
+    let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
+    let next_queued = WorkerTask::find_next_queued(pool, worker_id).await?;
+    if in_review >= cap {
+        let next_is_review_fix = match &next_queued {
+            Some(task) => {
+                WorkerTask::kind(pool, task.id).await?.as_deref()
+                    == Some(worker_task::KIND_REVIEW_FIX)
+            }
+            None => false,
+        };
+        if !next_is_review_fix {
+            if next_queued.is_some()
+                && let Err(e) = PlanCapHit::record_hit_today(pool).await
+            {
+                warn!(
+                    worker_id = %worker_id,
+                    "Failed to record plan cap hit: {}",
+                    e
+                );
+            }
+            return Err(StartError::InReviewCapReached(cap));
+        }
+    }
+
+    next_queued.ok_or(StartError::NothingQueued)
 }
 
 pub const WORKER_LEAD_ENABLED_ENV: &str = "WORKER_LEAD_ENABLED";
@@ -390,46 +452,7 @@ pub async fn try_take_next(
         return Err(StartError::LicenseSuspended);
     }
 
-    if WorkerTask::find_in_progress(pool, worker_id)
-        .await?
-        .is_some()
-    {
-        return Err(StartError::AlreadyInProgress);
-    }
-
-    let cap = max_in_review_from_env();
-    let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
-    let next_queued = WorkerTask::find_next_queued(pool, worker_id).await?;
-    if in_review >= cap {
-        // Review-fix tasks are exempt from the cap: they exist to drain
-        // in_review debt (the changes-requested PR occupying a slot can only
-        // leave in_review once its fix runs). Holding them back deadlocks
-        // the worker — in_review waits for the fix, the fix waits for a slot.
-        let next_is_review_fix = match &next_queued {
-            Some(task) => {
-                WorkerTask::kind(pool, task.id).await?.as_deref()
-                    == Some(worker_task::KIND_REVIEW_FIX)
-            }
-            None => false,
-        };
-        if !next_is_review_fix {
-            // Only count as a "plan cap hit" when a queued task was actually
-            // held back by the cap. A cap check with no queue is a no-op — the
-            // worker had nothing to run anyway, so this is not an upsell signal.
-            if next_queued.is_some()
-                && let Err(e) = PlanCapHit::record_hit_today(pool).await
-            {
-                warn!(
-                    worker_id = %worker_id,
-                    "Failed to record plan cap hit: {}",
-                    e
-                );
-            }
-            return Err(StartError::InReviewCapReached(cap));
-        }
-    }
-
-    let task = next_queued.ok_or(StartError::NothingQueued)?;
+    let task = resolve_next_takeable_task(pool, worker_id, max_in_review_from_env()).await?;
 
     let repo = Repo::find_by_id(pool, task.repo_id)
         .await?
@@ -4366,5 +4389,194 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn default_max_in_review_serializes_worker_to_one_ticket() {
+        // #472: a worker becomes idle only when its PR merges. If this ever
+        // goes above 1, the state-machine rule is silently relaxed and workers
+        // start piling up open tickets while their earlier PRs still wait for
+        // review — the exact regression this test guards against.
+        assert_eq!(
+            DEFAULT_MAX_IN_REVIEW, 1,
+            "raising the default reopens the serial-per-worker contract from #472"
+        );
+    }
+
+    #[tokio::test]
+    async fn cap_blocks_new_ticket_when_worker_has_in_review_task() {
+        // Serial-per-worker (issue #472): with the default cap of 1, a worker
+        // that already has an in_review task cannot take a fresh queued ticket
+        // — the helper must return InReviewCapReached and record the hit.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "serial-block-repo").await;
+        let worker = insert_worker(&db, "serial-worker").await;
+
+        let occupying = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "already merged-ish".to_string(),
+                prompt: "occupy the slot".to_string(),
+                issue_number: Some(500),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        force_in_review(&db.pool, occupying.id).await;
+
+        // Fresh feature ticket queued behind the in_review one.
+        WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "next feature".to_string(),
+                prompt: "build".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let result = resolve_next_takeable_task(&db.pool, worker.id, 1).await;
+        assert!(
+            matches!(result, Err(StartError::InReviewCapReached(1))),
+            "expected InReviewCapReached(1), got {result:?}"
+        );
+
+        // The blocked queued task is a real upsell signal — hit is recorded.
+        assert_eq!(
+            PlanCapHit::count_today(&db.pool).await.unwrap(),
+            1,
+            "blocked queued task must record a plan-cap-hit for the day"
+        );
+    }
+
+    #[tokio::test]
+    async fn cap_allows_review_fix_even_when_worker_is_at_cap() {
+        // Review-fix exemption (#386): a worker whose PR came back with
+        // changes-requested keeps the slot occupied, but its drain task
+        // (the review_fix) must still run — otherwise the fix waits for a
+        // slot that only opens by merging the PR the fix is supposed to fix.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "serial-fix-repo").await;
+        let worker = insert_worker(&db, "fix-worker").await;
+
+        let occupying = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "PR #501 awaiting review".to_string(),
+                prompt: "the original ticket".to_string(),
+                issue_number: Some(501),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        force_in_review(&db.pool, occupying.id).await;
+
+        let fix = WorkerTask::prepend_review_fix(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Atendé el review del PR #501".to_string(),
+                prompt: "fix the review comments".to_string(),
+                issue_number: Some(501),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
+            .await
+            .expect("review_fix must be exempt from the in-review cap");
+        assert_eq!(
+            taken.id, fix.id,
+            "the exempt review_fix must be the task offered next"
+        );
+
+        // Exempt take must NOT bump the plan-cap-hit counter — the worker
+        // was not turned away, and this is not an upsell signal.
+        assert_eq!(
+            PlanCapHit::count_today(&db.pool).await.unwrap(),
+            0,
+            "review_fix exemption is not a cap hit"
+        );
+    }
+
+    #[tokio::test]
+    async fn cap_frees_the_worker_once_in_review_task_completes() {
+        // Merging (or otherwise moving the in_review task to a terminal state)
+        // frees the slot so the worker picks up the next queued ticket. This
+        // is the "PR mergea → worker toma el próximo" leg of the state
+        // machine.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "serial-free-repo").await;
+        let worker = insert_worker(&db, "free-worker").await;
+
+        let occupying = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "will merge".to_string(),
+                prompt: "occupy".to_string(),
+                issue_number: Some(502),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        force_in_review(&db.pool, occupying.id).await;
+
+        let next = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "next up".to_string(),
+                prompt: "build the next thing".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        // Sanity: still blocked while the earlier task sits in_review.
+        assert!(matches!(
+            resolve_next_takeable_task(&db.pool, worker.id, 1).await,
+            Err(StartError::InReviewCapReached(1))
+        ));
+
+        // PR merges → occupying task moves to `done` → slot frees up.
+        WorkerTask::set_status(&db.pool, occupying.id, worker_task::STATUS_DONE)
+            .await
+            .unwrap();
+
+        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
+            .await
+            .expect("freed slot must allow taking the next queued task");
+        assert_eq!(taken.id, next.id, "the worker must pick the queued ticket");
     }
 }
