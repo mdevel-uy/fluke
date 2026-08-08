@@ -60,10 +60,17 @@ const LOOP_BADGES: Record<
     className:
       'bg-md-surface-container text-md-on-surface-variant border border-md-outline-variant',
   },
+  developer_running: {
+    key: 'review.loop.developerRunning',
+    icon: 'play_arrow',
+    className: 'bg-md-primary/10 text-md-primary border border-md-primary/20',
+    pulse: true,
+  },
   stalled: {
     key: 'review.loop.stalled',
     icon: 'warning',
-    className: 'bg-destructive/10 text-destructive border border-destructive/20',
+    className:
+      'bg-destructive/10 text-destructive border border-destructive/20',
   },
 };
 
@@ -82,7 +89,13 @@ export function InReviewTaskCard({
   const reviewResult = task.review_result ?? null;
   const loopBadge = task.loop_state ? LOOP_BADGES[task.loop_state] : undefined;
   const [isConfirming, setIsConfirming] = useState(false);
-  const canReRequestReview = reviewResult === 'changes_requested';
+  // Re-request review is available whenever a verdict is on file:
+  // - `changes_requested`: rescue path when the loop didn't pick up the fix push.
+  // - `approved` (#471): human override after a follow-up on an approved task —
+  //   the automatic loop stops re-reviewing once approved, so this button is
+  //   the only way to trigger a fresh verdict on the new commits.
+  const canReRequestReview =
+    reviewResult === 'changes_requested' || reviewResult === 'approved';
 
   const handleUnassignClick = () => {
     setIsConfirming(true);

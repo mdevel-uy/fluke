@@ -7,6 +7,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use db::models::{
+    execution_process::ExecutionProcess,
     file::File,
     merge::MergeStatus,
     pull_request::PullRequest,
@@ -109,11 +110,15 @@ pub struct WorkerTaskResponse {
     pub review_result: Option<String>,
     /// Live state of the review loop for an `in_review` task with an open PR:
     /// "review_queued" | "reviewing" | "fix_queued" | "fixing" |
-    /// "awaiting_review" | "stalled", or null when the loop has nothing
-    /// pending (e.g. approved and waiting for a human merge, or the task is
-    /// not in review). "stalled" means no round is active, no fix is pending,
-    /// there is no approval, and nothing has moved for over five minutes —
-    /// the board's way of saying "nothing visible" must never hide "broken".
+    /// "awaiting_review" | "stalled" | "developer_running", or null when the
+    /// loop has nothing pending (e.g. approved and waiting for a human merge,
+    /// or the task is not in review). "stalled" means no round is active, no
+    /// fix is pending, there is no approval, and nothing has moved for over
+    /// five minutes — the board's way of saying "nothing visible" must never
+    /// hide "broken". "developer_running" means the task was approved and the
+    /// developer's own coding agent is running a manual follow-up on the
+    /// workspace (issue #471): the "approved" badge stays, this state adds
+    /// the "in-flight" signal next to it.
     pub loop_state: Option<String>,
     /// Why the task failed, when status == "failed". Recorded by the
     /// orchestrator at the moment of failure; null otherwise.
@@ -191,7 +196,24 @@ async fn worker_task_to_response(
         Some(pr_number) if task.status == worker_task::STATUS_IN_REVIEW => {
             let (reviewer, fix, last_activity) =
                 WorkerTask::loop_activity_for_pr(pool, pr_number, task.repo_id).await?;
-            compute_loop_state(&task, reviewer, fix, last_activity)
+            // A manual follow-up on an already-approved task (see #471) keeps
+            // the developer's WorkerTask on `in_review` — so the reviewer/fix
+            // ledger says "quiet" while the developer's coding agent is
+            // actually running on the workspace. Peek at the workspace's
+            // execution processes to surface that activity as its own loop
+            // state, without dropping the "approved" verdict badge.
+            let developer_agent_running = match task.workspace_id {
+                Some(workspace_id) => {
+                    ExecutionProcess::has_running_non_dev_server_processes_for_workspace(
+                        pool,
+                        workspace_id,
+                    )
+                    .await
+                    .unwrap_or(false)
+                }
+                None => false,
+            };
+            compute_loop_state(&task, reviewer, fix, last_activity, developer_agent_running)
         }
         _ => None,
     };
@@ -243,15 +265,22 @@ async fn worker_task_to_response(
 const LOOP_STALL_THRESHOLD_SECS: i64 = 300;
 
 /// Derive the loop badge for an in_review task with an open PR from the PR's
-/// reviewer/fix activity. Precedence: a running/queued fix beats the reviewer
-/// (remediation is the actionable half), an approval means the loop is done
-/// (no badge — the verdict badge already says it), and silence beyond the
-/// threshold is a stall, never a blank.
+/// reviewer/fix activity plus whether the developer's own coding agent is
+/// currently running on the workspace. Precedence: a running/queued fix beats
+/// the reviewer (remediation is the actionable half), an approval means the
+/// review loop is done (no verdict-side badge — the "approved" chip already
+/// says it), and silence beyond the threshold is a stall, never a blank.
+///
+/// Exception on top of "approved → no badge": if the developer is running a
+/// manual follow-up (issue #471), the card still needs to reflect activity.
+/// Emit `"developer_running"` — the verdict chip stays as-is next to it, so
+/// the human sees "approved AND working" instead of a mute card.
 fn compute_loop_state(
     task: &WorkerTask,
     reviewer: Option<String>,
     fix: Option<String>,
     last_activity: Option<DateTime<Utc>>,
+    developer_agent_running: bool,
 ) -> Option<String> {
     match fix.as_deref() {
         Some("running") => return Some("fixing".to_string()),
@@ -264,6 +293,9 @@ fn compute_loop_state(
         _ => {}
     }
     if task.review_result.as_deref() == Some("approved") {
+        if developer_agent_running {
+            return Some("developer_running".to_string());
+        }
         return None;
     }
     let reference = last_activity.unwrap_or(task.created_at);
@@ -1655,12 +1687,18 @@ pub async fn approve_design_task(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
-/// Manually dispatch a new reviewer round for a developer task that is stuck
-/// in `in_review` with `review_result = 'changes_requested'`. Rescue path for
-/// when the automatic `pr_monitor` loop failed to detect the author's fix push
-/// (or when the PM simply wants to re-run the review sooner). Returns an
-/// error code as the message so the UI can localize; the underlying dispatch
-/// re-checks the same guards for safety.
+/// Manually dispatch a new reviewer round for a developer task in `in_review`
+/// with a verdict already on file. Two flavours:
+/// - `changes_requested`: rescue path for when the automatic `pr_monitor` loop
+///   failed to detect the author's fix push (or when the PM simply wants to
+///   re-run the review sooner).
+/// - `approved`: explicit human override after a follow-up on an approved task
+///   (issue #471). The automatic loop stops re-reviewing once approved, so
+///   this endpoint is the only way to ask for a fresh verdict on the new
+///   commits without waiting for the reviewer to notice.
+///
+/// Returns an error code as the message so the UI can localize; the underlying
+/// dispatch re-checks the same guards for safety.
 pub async fn re_request_review(
     State(deployment): State<DeploymentImpl>,
     Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
@@ -1677,9 +1715,12 @@ pub async fn re_request_review(
     }
 
     if existing.status != worker_task::STATUS_IN_REVIEW
-        || existing.review_result.as_deref() != Some("changes_requested")
+        || !matches!(
+            existing.review_result.as_deref(),
+            Some("changes_requested") | Some("approved")
+        )
     {
-        return Err(ApiError::Conflict("no_changes_requested".into()));
+        return Err(ApiError::Conflict("no_verdict_to_rerun".into()));
     }
 
     // A review task must be tied to a PR (issue_number stores the PR number).

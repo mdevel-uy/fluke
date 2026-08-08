@@ -14,7 +14,7 @@ use db::{
         workspace_repo::WorkspaceRepo,
     },
 };
-use git_host::{GitHostError, GitHostProvider, GitHostService};
+use git_host::{GitHostError, GitHostProvider, GitHostService, LatestPrReview};
 use serde_json::json;
 use sqlx::error::Error as SqlxError;
 use thiserror::Error;
@@ -500,13 +500,44 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         Ok(())
     }
 
-    /// Decide whether a (re-)review should be dispatched for an open PR:
+    /// Decide whether a (re-)review should be dispatched for an open PR from
+    /// the latest actionable review snapshot:
     /// - no actionable review yet → yes (first round);
-    /// - a review exists → only when the PR head moved past the reviewed
-    ///   commit (someone pushed fixes after the verdict). An approval or a
-    ///   pending changes-request with no new commits stands as-is.
-    ///
-    /// Conservative on errors or missing data: no dispatch this cycle — the
+    /// - last verdict is APPROVED → no, even if the head moved. A follow-up
+    ///   push after approval is a human-driven intervention (issue #471); the
+    ///   automatic loop must not re-open a case the reviewer already closed.
+    ///   The manual re-request-review path (`dispatch_review_task` with
+    ///   `manual: true`) is still available as an explicit override.
+    /// - CHANGES_REQUESTED and the head moved → yes (the author pushed fixes,
+    ///   the reviewer needs to look again);
+    /// - anything else (verdict still covers head, or missing SHAs) → no.
+    fn review_due_from_latest(pr_number: i64, latest: Option<&LatestPrReview>) -> bool {
+        let Some(review) = latest else {
+            return true;
+        };
+        if review.state == "approved" {
+            return false;
+        }
+        match (&review.reviewed_sha, &review.head_sha) {
+            (Some(reviewed), Some(head)) => {
+                let has_new_commits = reviewed != head;
+                if has_new_commits {
+                    info!(
+                        pr_number,
+                        reviewed_sha = %reviewed,
+                        head_sha = %head,
+                        state = %review.state,
+                        "New commits since last review — re-review warranted",
+                    );
+                }
+                has_new_commits
+            }
+            _ => false,
+        }
+    }
+
+    /// Same decision as [`review_due_from_latest`], with a fresh fetch of the
+    /// latest review. Conservative on errors: no dispatch this cycle — the
     /// next poll retries.
     async fn should_dispatch_review(
         git_host: &GitHostService,
@@ -514,22 +545,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         pr_number: i64,
     ) -> bool {
         match git_host.get_pr_latest_review(pr_url).await {
-            Ok(None) => true,
-            Ok(Some(review)) => match (&review.reviewed_sha, &review.head_sha) {
-                (Some(reviewed), Some(head)) => {
-                    let has_new_commits = reviewed != head;
-                    if has_new_commits {
-                        info!(
-                            pr_number,
-                            reviewed_sha = %reviewed,
-                            head_sha = %head,
-                            "New commits since last review — re-review warranted",
-                        );
-                    }
-                    has_new_commits
-                }
-                _ => false,
-            },
+            Ok(latest) => Self::review_due_from_latest(pr_number, latest.as_ref()),
             Err(e) => {
                 warn!(
                     pr_number,
@@ -581,15 +597,8 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                     // Conservative on errors: neither dispatch runs this cycle.
                     match git_host.get_pr_latest_review(&pr.pr_url).await {
                         Ok(latest_review) => {
-                            let review_due = match &latest_review {
-                                None => true,
-                                Some(review) => {
-                                    match (&review.reviewed_sha, &review.head_sha) {
-                                        (Some(reviewed), Some(head)) => reviewed != head,
-                                        _ => false,
-                                    }
-                                }
-                            };
+                            let review_due =
+                                Self::review_due_from_latest(pr.pr_number, latest_review.as_ref());
                             if review_due {
                                 if let Err(e) = worker_orchestrator::dispatch_review_task(
                                     &self.config,
