@@ -715,6 +715,12 @@ impl LocalContainerService {
                 tracing::error!("Failed to update execution process completion: {}", e);
             }
 
+            // Persist the LLM usage captured by the executor before we tear
+            // down the msg_store — the store may live longer than this scope,
+            // but keeping the extraction adjacent to `update_completion`
+            // keeps the "cost recorded" invariant tied to "process closed".
+            persist_execution_process_usage(&db, &msg_stores, exec_id).await;
+
             if let Ok(ctx) = ExecutionProcess::load_context(&db.pool, exec_id).await {
                 // Update executor session summary if available
                 if let Err(e) = container.update_executor_session_summary(&exec_id).await {
@@ -1428,7 +1434,10 @@ impl LocalContainerService {
                 }
             }
             Err(e) => {
-                tracing::warn!("Failed to load queued execution processes at startup: {}", e);
+                tracing::warn!(
+                    "Failed to load queued execution processes at startup: {}",
+                    e
+                );
             }
         }
     }
@@ -1444,6 +1453,126 @@ fn failure_exit_status() -> std::process::ExitStatus {
     {
         use std::os::windows::process::ExitStatusExt;
         ExitStatusExt::from_raw(1)
+    }
+}
+
+/// After a process exits, scan its msg_store history newest-first for the
+/// last emitted `TokenUsageInfo`, use the executor's own USD figure when
+/// present (Claude Code), otherwise estimate it from the token counts +
+/// the model's entry in the Rust-side pricing table. Persist the result
+/// on the `execution_processes` row and add the delta to the owning task.
+/// Best-effort: any failure is logged and swallowed so a broken run still
+/// finalizes cleanly.
+async fn persist_execution_process_usage(
+    db: &DBService,
+    msg_stores: &Arc<RwLock<HashMap<Uuid, Arc<MsgStore>>>>,
+    exec_id: Uuid,
+) {
+    let Some(msg_store) = msg_stores.read().await.get(&exec_id).cloned() else {
+        return;
+    };
+
+    // Newest first — the last emitted TokenUsageInfo carries the cumulative
+    // breakdown (for Claude also the vendor-reported USD).
+    let Some(usage_info) = msg_store.find_map_history_rev(|msg| {
+        let LogMsg::JsonPatch(patch) = msg else {
+            return None;
+        };
+        let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+        match entry.entry_type {
+            NormalizedEntryType::TokenUsageInfo(info) => Some(info),
+            _ => None,
+        }
+    }) else {
+        return;
+    };
+
+    // Fall back to reading the executor's model from the persisted
+    // executor_action when the executor did not put it on the usage entry.
+    let model_from_action = ExecutionProcess::find_by_id(&db.pool, exec_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|ep| model_from_executor_action(&ep));
+    let model = usage_info.model.clone().or(model_from_action);
+
+    let tokens = executors::pricing::UsageTokens {
+        input_tokens: usage_info.input_tokens.unwrap_or(0),
+        output_tokens: usage_info.output_tokens.unwrap_or(0),
+        cache_creation_tokens: usage_info.cache_creation_input_tokens.unwrap_or(0),
+        cache_read_tokens: usage_info.cache_read_input_tokens.unwrap_or(0),
+    };
+
+    // Prefer the executor's own USD figure (Claude); otherwise estimate.
+    let cost_usd = usage_info.total_cost_usd.or_else(|| {
+        model
+            .as_deref()
+            .and_then(|m| executors::pricing::estimate_cost_usd(m, &tokens))
+    });
+
+    let usage = db::models::execution_process::ExecutionProcessUsage {
+        input_tokens: usage_info.input_tokens.map(|n| n as i64),
+        output_tokens: usage_info.output_tokens.map(|n| n as i64),
+        cache_creation_tokens: usage_info.cache_creation_input_tokens.map(|n| n as i64),
+        cache_read_tokens: usage_info.cache_read_input_tokens.map(|n| n as i64),
+        cost_usd,
+        model,
+    };
+
+    if usage.is_empty() {
+        return;
+    }
+
+    if let Err(e) = ExecutionProcess::set_usage(&db.pool, exec_id, &usage).await {
+        tracing::warn!(
+            "Failed to persist LLM usage for execution process {}: {}",
+            exec_id,
+            e
+        );
+        return;
+    }
+
+    // Roll the just-persisted delta up to the owning task, if any.
+    let session_id = match ExecutionProcess::find_by_id(&db.pool, exec_id).await {
+        Ok(Some(ep)) => ep.session_id,
+        _ => return,
+    };
+
+    if let Err(e) = db::models::worker_task::WorkerTask::add_usage_delta_by_session(
+        &db.pool,
+        session_id,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_creation_tokens,
+        usage.cache_read_tokens,
+        usage.cost_usd,
+    )
+    .await
+    {
+        tracing::warn!(
+            "Failed to roll up LLM usage to worker_tasks for session {}: {}",
+            session_id,
+            e
+        );
+    }
+}
+
+/// Best-effort model extraction from the persisted `executor_action` blob,
+/// used as a fallback when the executor did not stamp the model on its
+/// `TokenUsageInfo` (e.g. Codex, which only surfaces token counts).
+fn model_from_executor_action(ep: &ExecutionProcess) -> Option<String> {
+    let action = ep.executor_action().ok()?;
+    match &action.typ {
+        executors::actions::ExecutorActionType::CodingAgentInitialRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::CodingAgentFollowUpRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::ReviewRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::ScriptRequest(_) => None,
     }
 }
 
@@ -1657,8 +1786,7 @@ impl ContainerService for LocalContainerService {
             ExecutionProcessRunReason::CodingAgent
         ) && !self.concurrency.try_acquire(execution_process.id).await
         {
-            if let Err(e) =
-                ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
+            if let Err(e) = ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
             {
                 tracing::error!(
                     "Failed to mark execution process {} as queued: {}",

@@ -117,8 +117,8 @@ pub(super) async fn maybe_emit_token_usage(context: &EventStreamContext<'_>, eve
         return;
     };
 
-    let total_tokens =
-        tokens.input + tokens.output + tokens.cache.as_ref().map(|c| c.read).unwrap_or(0);
+    let cache_read = tokens.cache.as_ref().map(|c| c.read).unwrap_or(0);
+    let total_tokens = tokens.input + tokens.output + cache_read;
 
     if total_tokens == 0 {
         return;
@@ -146,11 +146,21 @@ pub(super) async fn maybe_emit_token_usage(context: &EventStreamContext<'_>, eve
         return;
     }
 
+    let model = match (provider_id, model_id) {
+        (Some(provider), Some(model)) => Some(format!("{provider}/{model}")),
+        _ => None,
+    };
+
     let _ = context
         .log_writer
         .log_event(&OpencodeExecutorEvent::TokenUsage {
             total_tokens,
             model_context_window,
+            input_tokens: Some(tokens.input as u64),
+            output_tokens: Some(tokens.output as u64),
+            cache_read_tokens: Some(cache_read as u64).filter(|&n| n > 0),
+            cache_creation_tokens: None,
+            model,
         })
         .await;
 }

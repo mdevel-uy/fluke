@@ -779,6 +779,10 @@ pub struct ClaudeLogProcessor {
     /// (e.g. after the `result` message updates the context window) still
     /// carry the breakdown of the most recent assistant turn.
     last_usage_breakdown: Option<ClaudeUsage>,
+    /// Cumulative USD reported by Claude in its `result` message. Attached
+    /// to the last-emitted `TokenUsageInfo` so the exit monitor can read it
+    /// back from msg_store without re-parsing raw stdout.
+    last_total_cost_usd: Option<f64>,
 }
 
 impl ClaudeLogProcessor {
@@ -799,6 +803,7 @@ impl ClaudeLogProcessor {
             main_model_context_window: DEFAULT_CLAUDE_CONTEXT_WINDOW,
             context_tokens_used: 0,
             last_usage_breakdown: None,
+            last_total_cost_usd: None,
         }
     }
 
@@ -1841,8 +1846,17 @@ impl ClaudeLogProcessor {
                 model_usage,
                 subtype,
                 result,
+                total_cost_usd,
                 ..
             } => {
+                // Capture Claude's own USD figure before re-emitting the
+                // token entry, so the last TokenUsageInfo carries the cost.
+                let mut token_entry_needed = false;
+                if let Some(cost) = total_cost_usd {
+                    self.last_total_cost_usd = Some(*cost);
+                    token_entry_needed = true;
+                }
+
                 // get the real model context window and correct the context usage entry
                 if let Some(context_window) = model_usage.as_ref().and_then(|model_usage| {
                     self.main_model_name
@@ -1851,6 +1865,10 @@ impl ClaudeLogProcessor {
                         .and_then(|usage| usage.context_window)
                 }) {
                     self.main_model_context_window = context_window;
+                    token_entry_needed = true;
+                }
+
+                if token_entry_needed {
                     patches.push(self.add_token_usage_entry(entry_index_provider));
                 }
 
@@ -2119,6 +2137,8 @@ impl ClaudeLogProcessor {
                 cache_read_input_tokens: breakdown
                     .and_then(|u| u.cache_read_input_tokens)
                     .filter(|&n| n > 0),
+                total_cost_usd: self.last_total_cost_usd,
+                model: self.main_model_name.clone(),
             }),
             content: format!(
                 "Tokens used: {} / Context window: {}",
@@ -2397,6 +2417,11 @@ pub enum ClaudeJson {
         model_usage: Option<HashMap<String, ClaudeModelUsage>>,
         #[serde(default)]
         usage: Option<ClaudeUsage>,
+        /// Cumulative USD cost of the whole run as reported by Claude Code
+        /// itself. Persisted verbatim on process close so we don't rely on
+        /// our own pricing table for Anthropic runs.
+        #[serde(default, alias = "totalCostUsd")]
+        total_cost_usd: Option<f64>,
     },
     ApprovalRequested {
         tool_call_id: String,
@@ -2887,6 +2912,57 @@ mod tests {
             NormalizedEntryType::AssistantMessage
         ));
         assert_eq!(entries[0].content, "Final result");
+    }
+
+    #[test]
+    fn test_result_total_cost_usd_deserializes_both_cases() {
+        // snake_case is the canonical shape emitted by Claude Code today.
+        let snake = r#"{"type":"result","subtype":"success","total_cost_usd":0.1234}"#;
+        let parsed_snake: ClaudeJson = serde_json::from_str(snake).unwrap();
+        // Camel is the historical alias used by some Anthropic tooling.
+        let camel = r#"{"type":"result","subtype":"success","totalCostUsd":0.5678}"#;
+        let parsed_camel: ClaudeJson = serde_json::from_str(camel).unwrap();
+
+        for (parsed, expected) in [(&parsed_snake, 0.1234f64), (&parsed_camel, 0.5678f64)]
+            .iter()
+            .copied()
+        {
+            match parsed {
+                ClaudeJson::Result { total_cost_usd, .. } => {
+                    assert!(
+                        total_cost_usd
+                            .map(|v| (v - expected).abs() < 1e-9)
+                            .unwrap_or(false),
+                        "expected cost {expected} but got {total_cost_usd:?}"
+                    );
+                }
+                _ => panic!("expected Result variant"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_result_message_emits_token_usage_with_cost() {
+        // After the executor sees Claude's `result` message with
+        // `total_cost_usd`, it must re-emit a TokenUsageInfo entry so the
+        // exit monitor can pick the USD figure straight out of msg_store.
+        let result_json =
+            r#"{"type":"result","subtype":"success","is_error":false,"total_cost_usd":1.23}"#;
+        let parsed: ClaudeJson = serde_json::from_str(result_json).unwrap();
+        let entries = normalize(&parsed, "");
+        let usage_entry = entries.iter().find_map(|e| match &e.entry_type {
+            NormalizedEntryType::TokenUsageInfo(info) => Some(info),
+            _ => None,
+        });
+        let usage_entry = usage_entry.expect("expected a TokenUsageInfo entry");
+        assert!(
+            usage_entry
+                .total_cost_usd
+                .map(|v| (v - 1.23).abs() < 1e-9)
+                .unwrap_or(false),
+            "cost missing from TokenUsageInfo: {:?}",
+            usage_entry.total_cost_usd
+        );
     }
 
     #[test]
