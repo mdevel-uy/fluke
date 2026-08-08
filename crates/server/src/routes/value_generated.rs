@@ -48,6 +48,27 @@ pub struct ValueGeneratedMonth {
     /// Sum of `hours_saved_override` across the tasks in `tasks_with_override`.
     /// Zero when none of the month's tasks carry an override.
     pub override_hours_sum: f64,
+    /// Worker tasks in `done_count` that have any recorded LLM usage. Used by
+    /// the panel to flag partial coverage — when `tasks_with_cost < done_count`
+    /// the cost figure is a lower bound (agents like Codex/OpenCode may not
+    /// report USD until pricing tables are wired up).
+    #[ts(type = "number")]
+    pub tasks_with_cost: i64,
+    /// Sum of `cost_usd_total` across the tasks in `tasks_with_cost`. Zero when
+    /// no task in the bucket recorded API cost.
+    pub cost_usd_sum: f64,
+    /// Sum of `input_tokens_total`. Zero when no task recorded tokens.
+    #[ts(type = "number")]
+    pub input_tokens_sum: i64,
+    /// Sum of `output_tokens_total`. Zero when no task recorded tokens.
+    #[ts(type = "number")]
+    pub output_tokens_sum: i64,
+    /// Sum of `cache_creation_tokens_total`. Zero when unrecorded.
+    #[ts(type = "number")]
+    pub cache_creation_tokens_sum: i64,
+    /// Sum of `cache_read_tokens_total`. Zero when unrecorded.
+    #[ts(type = "number")]
+    pub cache_read_tokens_sum: i64,
 }
 
 #[derive(Debug, Serialize, TS)]
@@ -91,7 +112,19 @@ pub async fn value_generated_summary(
                 SUM(CASE WHEN hours_saved_override IS NOT NULL THEN 1 ELSE 0 END)
                                                 AS tasks_with_override,
                 COALESCE(SUM(hours_saved_override), 0.0)
-                                                AS override_hours_sum
+                                                AS override_hours_sum,
+                SUM(CASE WHEN cost_usd_total IS NOT NULL THEN 1 ELSE 0 END)
+                                                AS tasks_with_cost,
+                COALESCE(SUM(cost_usd_total), 0.0)
+                                                AS cost_usd_sum,
+                COALESCE(SUM(input_tokens_total), 0)
+                                                AS input_tokens_sum,
+                COALESCE(SUM(output_tokens_total), 0)
+                                                AS output_tokens_sum,
+                COALESCE(SUM(cache_creation_tokens_total), 0)
+                                                AS cache_creation_tokens_sum,
+                COALESCE(SUM(cache_read_tokens_total), 0)
+                                                AS cache_read_tokens_sum
          FROM worker_tasks
          WHERE status = 'done'
            AND completed_at IS NOT NULL
@@ -125,6 +158,12 @@ fn fill_current_month(mut months: Vec<ValueGeneratedMonth>) -> Vec<ValueGenerate
                 done_count: 0,
                 tasks_with_override: 0,
                 override_hours_sum: 0.0,
+                tasks_with_cost: 0,
+                cost_usd_sum: 0.0,
+                input_tokens_sum: 0,
+                output_tokens_sum: 0,
+                cache_creation_tokens_sum: 0,
+                cache_read_tokens_sum: 0,
             },
         );
     }
