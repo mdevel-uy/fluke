@@ -1397,6 +1397,38 @@ pub async fn cancel_worker_task(
     }
 
     WorkerTask::delete(pool, task_id).await?;
+
+    // Free the worker's slot and offer it the next queued task. Without this
+    // trigger a cancellation leaves the queue stalled: the other finish paths
+    // (`on_pr_merged`, `on_agent_finished`, `dispatch_review_task`) all call
+    // `try_take_next` themselves, but cancel is the only exit that used to
+    // skip it — a queued reviewer/dev task behind the cancelled one would
+    // then sit forever with the worker idle. Conflicts (nothing queued, cap
+    // reached) are expected and swallowed just like the other call sites.
+    let deployment_bg = deployment.clone();
+    task::spawn(async move {
+        match worker_orchestrator::try_take_next(
+            deployment_bg.config(),
+            deployment_bg.db(),
+            deployment_bg.container(),
+            worker_id,
+        )
+        .await
+        {
+            Ok(started) => tracing::info!(
+                worker_id = %worker_id,
+                task_id = %started.task.id,
+                "Next task started after cancellation"
+            ),
+            Err(e) if e.is_conflict() => {}
+            Err(e) => tracing::warn!(
+                worker_id = %worker_id,
+                "Failed to auto-start next task after cancellation: {}",
+                e
+            ),
+        }
+    });
+
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
