@@ -446,6 +446,21 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             Err(e) => warn!("Review-fix merged-PR sweep failed: {}", e),
         }
 
+        // Symmetric sweep for reviewer tasks stranded on merged/closed PRs.
+        // GitHub rejects reviews on non-open PRs, so a reviewer that hits the
+        // merge race keeps retrying forever and blocks the rest of its queue
+        // — exactly the incident from issue #468. Runs every poll: idempotent
+        // once the first pass has caught the orphans.
+        if let Err(e) = worker_orchestrator::cancel_orphan_reviewer_tasks_for_finished_prs(
+            &self.config,
+            &self.db,
+            &self.container,
+        )
+        .await
+        {
+            warn!("Reviewer-orphan merged-PR sweep failed: {}", e);
+        }
+
         let open_prs = PullRequest::get_open(&self.db.pool).await?;
 
         if open_prs.is_empty() {

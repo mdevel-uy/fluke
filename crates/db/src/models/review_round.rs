@@ -189,6 +189,32 @@ impl ReviewRound {
         .await
     }
 
+    /// Sibling pending rounds on the exact same PR head — two reviewer
+    /// workers racing on the same commit. When one submits a verdict, the
+    /// others are redundant: the verdict on GitHub already covers this head
+    /// SHA, so they should be superseded and their tasks cancelled. In
+    /// steady state the dispatch guard prevents this from happening at all;
+    /// this query is the safety net for the rare race past the guard.
+    pub async fn find_other_pending_for_head(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+        head_sha: &str,
+        exclude_id: Uuid,
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        sqlx::query_as::<_, ReviewRound>(&format!(
+            "SELECT {COLS} FROM review_rounds
+              WHERE repo_id = ?1 AND pr_number = ?2 AND head_sha = ?3
+                AND status = 'pending' AND id != ?4"
+        ))
+        .bind(repo_id)
+        .bind(pr_number)
+        .bind(head_sha)
+        .bind(exclude_id)
+        .fetch_all(pool)
+        .await
+    }
+
     /// Mark a review round submitted with its verdict and GitHub review id.
     pub async fn set_submitted(
         pool: &SqlitePool,
