@@ -997,6 +997,8 @@
     "unarchive": "Restaurar",
     "purge": "Eliminar definitivamente",
     "purge_confirm": "¿Eliminar definitivamente a \"{{worker}}\"? Esta acción no se puede deshacer.",
+    "purge_all": "Eliminar todos definitivamente",
+    "purge_all_confirm": "¿Eliminar definitivamente los {{count}} workers archivados? Esta acción no se puede deshacer.",
     "archived_section_title": "Workers archivados",
     "sidebar": {
       "active": "Activos",
@@ -1102,6 +1104,8 @@
       "unarchiveError": "No se pudo restaurar {{worker}}: {{message}}",
       "purgeSuccess": "{{worker}} eliminado definitivamente.",
       "purgeError": "No se pudo eliminar {{worker}}: {{message}}",
+      "purgeAllSuccess": "{{count}} workers archivados eliminados definitivamente.",
+      "purgeAllError": "No se pudieron eliminar los workers archivados: {{message}}",
       "dismiss": "Cerrar"
     }
   },

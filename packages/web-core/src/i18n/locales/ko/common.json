@@ -994,6 +994,8 @@
     "unarchive": "복원",
     "purge": "영구 삭제",
     "purge_confirm": "워커 \"{{worker}}\"를 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "purge_all": "모두 영구 삭제",
+    "purge_all_confirm": "보관된 워커 {{count}}개를 모두 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
     "archived_section_title": "보관된 워커",
     "sidebar": {
       "active": "활성",
@@ -1099,6 +1101,8 @@
       "unarchiveError": "{{worker}} 복원 실패: {{message}}",
       "purgeSuccess": "{{worker}}를 영구 삭제했습니다.",
       "purgeError": "{{worker}} 삭제 실패: {{message}}",
+      "purgeAllSuccess": "보관된 워커 {{count}}개를 영구 삭제했습니다.",
+      "purgeAllError": "보관된 워커 삭제 실패: {{message}}",
       "dismiss": "닫기"
     }
   },

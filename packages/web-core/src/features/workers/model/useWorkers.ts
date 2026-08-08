@@ -71,6 +71,16 @@ export function useDeleteWorker() {
   });
 }
 
+export function useDeleteAllArchivedWorkers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => workersApi.deleteAllArchived(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
 export function useArchiveWorker() {
   const queryClient = useQueryClient();
   return useMutation({
