@@ -56,6 +56,7 @@ import { useWorkspaceDiffStore } from '@/shared/stores/useWorkspaceDiffStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 
 import { workspacesApi, repoApi, repoIssuesApi } from '@/shared/lib/api';
+import { CLEANUP_SCRIPT_UI } from '@/shared/constants/features';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { bulkUpdateIssues } from '@/shared/lib/remoteApi';
@@ -1083,7 +1084,7 @@ export const Actions = {
     icon: TerminalIcon,
     shortcut: 'R C',
     requiresTarget: ActionTargetType.WORKSPACE,
-    isVisible: (ctx) => ctx.hasWorkspace,
+    isVisible: (ctx) => CLEANUP_SCRIPT_UI && ctx.hasWorkspace,
     isEnabled: (ctx) => !ctx.isAttemptRunning,
     execute: async (_ctx, workspaceId) => {
       const result = await workspacesApi.runCleanupScript(workspaceId);

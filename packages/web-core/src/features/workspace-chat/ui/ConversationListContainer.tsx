@@ -44,6 +44,7 @@ import type { RepoWithTargetBranch } from 'shared/types';
 import { ChatEmptyState } from '@vibe/ui/components/ChatEmptyState';
 import { ChatScriptPlaceholder } from '@vibe/ui/components/ChatScriptPlaceholder';
 import { ScriptFixerDialog } from '@/shared/dialogs/scripts/ScriptFixerDialog';
+import { CLEANUP_SCRIPT_UI } from '@/shared/constants/features';
 
 interface ConversationListProps {
   attempt: WorkspaceWithSession;
@@ -556,6 +557,7 @@ export const ConversationList = forwardRef<
   const showSetupPlaceholder =
     !hasSetupScript && !hasSetupScriptRun && hasEntries;
   const showCleanupPlaceholder =
+    CLEANUP_SCRIPT_UI &&
     !hasCleanupScript &&
     !hasCleanupScriptRun &&
     !hasRunningProcess &&

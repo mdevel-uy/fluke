@@ -12,6 +12,7 @@ import { getProjectRepoDefaults } from '@/shared/hooks/useProjectRepoDefaults';
 import { reposQueryKey as globalReposQueryKey } from '@/shared/hooks/useRepos';
 import { ApiError } from '@/shared/lib/api';
 import { defineModal } from '@/shared/lib/modals';
+import { CLEANUP_SCRIPT_UI } from '@/shared/constants/features';
 import type { Repo, UpdateRepo } from 'shared/types';
 import { SearchableDropdownContainer } from '@/shared/components/ui-new/containers/SearchableDropdownContainer';
 import { AddRepoDialog } from '@/shared/dialogs/settings/AddRepoDialog';
@@ -661,17 +662,19 @@ export function ReposSettingsSection({
               disabled={!draft.setup_script.trim()}
             />
 
-            <SettingsField
-              label={t('settings.repos.scripts.cleanup.label')}
-              description={t('settings.repos.scripts.cleanup.helper')}
-            >
-              <SettingsTextarea
-                value={draft.cleanup_script}
-                onChange={(value) => updateDraft({ cleanup_script: value })}
-                placeholder={placeholders.cleanup}
-                monospace
-              />
-            </SettingsField>
+            {CLEANUP_SCRIPT_UI && (
+              <SettingsField
+                label={t('settings.repos.scripts.cleanup.label')}
+                description={t('settings.repos.scripts.cleanup.helper')}
+              >
+                <SettingsTextarea
+                  value={draft.cleanup_script}
+                  onChange={(value) => updateDraft({ cleanup_script: value })}
+                  placeholder={placeholders.cleanup}
+                  monospace
+                />
+              </SettingsField>
+            )}
 
             <SettingsField
               label={t('settings.repos.scripts.archive.label')}

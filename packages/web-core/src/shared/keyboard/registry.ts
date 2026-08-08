@@ -1,3 +1,5 @@
+import { CLEANUP_SCRIPT_UI } from '@/shared/constants/features';
+
 export enum Scope {
   GLOBAL = 'global',
   DIALOG = 'dialog',
@@ -234,14 +236,18 @@ export const sequentialBindings: SequentialBinding[] = [
     group: 'Run',
     actionId: 'run-setup-script',
   },
-  {
-    id: 'seq-run-cleanup',
-    keys: ['r', 'c'],
-    scopes: [Scope.WORKSPACE],
-    description: 'Run cleanup script',
-    group: 'Run',
-    actionId: 'run-cleanup-script',
-  },
+  ...(CLEANUP_SCRIPT_UI
+    ? [
+        {
+          id: 'seq-run-cleanup',
+          keys: ['r', 'c'],
+          scopes: [Scope.WORKSPACE],
+          description: 'Run cleanup script',
+          group: 'Run',
+          actionId: 'run-cleanup-script',
+        },
+      ]
+    : []),
   {
     id: 'seq-run-archive',
     keys: ['r', 'a'],

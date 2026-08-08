@@ -10,6 +10,7 @@ import {
 import { Scope } from '@/shared/keyboard/registry';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { isMac } from '@/shared/lib/platform';
+import { CLEANUP_SCRIPT_UI } from '@/shared/constants/features';
 
 const SEQUENCE_TIMEOUT_MS = 1500;
 
@@ -80,7 +81,13 @@ export function useWorkspaceShortcuts() {
   useHotkeys('t>w', () => execute(Actions.ToggleWrapLines), OPTIONS);
 
   useHotkeys('r>s', () => execute(Actions.RunSetupScript), OPTIONS);
-  useHotkeys('r>c', () => execute(Actions.RunCleanupScript), OPTIONS);
+  useHotkeys(
+    'r>c',
+    () => {
+      if (CLEANUP_SCRIPT_UI) execute(Actions.RunCleanupScript);
+    },
+    OPTIONS
+  );
 
   // Cmd+J (Mac) / Ctrl+J (Windows/Linux) toggles the terminal bottom panel.
   // Registered as a native listener on the capture phase so xterm can't
