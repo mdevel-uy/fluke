@@ -11,6 +11,7 @@ use db::models::{
     merge::MergeStatus,
     pull_request::PullRequest,
     repo::Repo,
+    review_round::ReviewRound,
     worker::{
         CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
         Worker,
@@ -196,8 +197,7 @@ async fn worker_task_to_response(
     };
 
     let skills: Vec<String> = serde_json::from_str(&task.skills).unwrap_or_default();
-    let issue_labels: Vec<String> =
-        serde_json::from_str(&task.issue_labels).unwrap_or_default();
+    let issue_labels: Vec<String> = serde_json::from_str(&task.issue_labels).unwrap_or_default();
 
     // Handoff state only exists for tasks that hold a deliverable (designer
     // tasks by construction), so the extra query never runs for the rest of
@@ -476,9 +476,7 @@ pub async fn create_design_handoff(
         ));
     }
     if target.archived {
-        return Err(ApiError::BadRequest(
-            "Target analyst is archived".into(),
-        ));
+        return Err(ApiError::BadRequest("Target analyst is archived".into()));
     }
 
     let source = match payload.source.as_deref() {
@@ -558,8 +556,7 @@ pub async fn list_pending_design_handoffs(
 ) -> Result<ResponseJson<ApiResponse<Vec<PendingDesignHandoffResponse>>>, ApiError> {
     let pool = &deployment.db().pool;
     let pending = WorkerTask::find_pending_design_handoffs(pool).await?;
-    let response: Vec<PendingDesignHandoffResponse> =
-        pending.into_iter().map(Into::into).collect();
+    let response: Vec<PendingDesignHandoffResponse> = pending.into_iter().map(Into::into).collect();
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
@@ -796,9 +793,13 @@ pub async fn archive_worker(
     // Refuse to archive if the worker has an active workspace: the workspace
     // still points to this worker and the running agent would end up attached
     // to a hidden identity.
-    if Worker::active_workspace_id(pool, worker_id).await?.is_some() {
+    if Worker::active_workspace_id(pool, worker_id)
+        .await?
+        .is_some()
+    {
         return Err(ApiError::BadRequest(
-            "Cannot archive a worker with an active workspace. Cancel or finish the task first.".into(),
+            "Cannot archive a worker with an active workspace. Cancel or finish the task first."
+                .into(),
         ));
     }
 
@@ -1110,8 +1111,7 @@ pub async fn update_worker_task(
     // external poke (auto-advance, reconciler poll, manual Start) to run
     // again. Kick the worker in the background; conflicts (already busy,
     // in-review cap) are expected and simply leave the task queued.
-    if existing.status == worker_task::STATUS_FAILED
-        && updated.status == worker_task::STATUS_QUEUED
+    if existing.status == worker_task::STATUS_FAILED && updated.status == worker_task::STATUS_QUEUED
     {
         let deployment = deployment.clone();
         task::spawn(async move {
@@ -1521,9 +1521,9 @@ pub async fn list_design_artifacts(
     }
     files.sort();
 
-    Ok(ResponseJson(ApiResponse::success(DesignArtifactsResponse {
-        files,
-    })))
+    Ok(ResponseJson(ApiResponse::success(
+        DesignArtifactsResponse { files },
+    )))
 }
 
 /// Same browser sandbox as the workspace preview: inline scripts may run,
@@ -1702,13 +1702,14 @@ pub async fn re_request_review(
 
     // Enforce max_review_rounds ourselves so we can return 409 with a clear
     // reason. dispatch_review_task's own cap check is a no-op logger, which
-    // would otherwise let the user think the dispatch worked.
+    // would otherwise let the user think the dispatch worked. Cap is
+    // measured against the review_rounds ledger (spec §A5): only rounds
+    // whose verdict was actually submitted to GitHub burn budget.
     let max_rounds = {
         let cfg = deployment.config().read().await;
         worker_orchestrator::resolve_max_review_rounds(&cfg)
     };
-    let rounds =
-        WorkerTask::count_reviewer_tasks_for_pr(pool, pr_number, existing.repo_id).await?;
+    let rounds = ReviewRound::count_submitted_for_pr(pool, existing.repo_id, pr_number).await?;
     if rounds >= max_rounds {
         return Err(ApiError::Conflict("max_review_rounds_reached".into()));
     }
@@ -1912,8 +1913,7 @@ mod tests {
         let missing: UpdateWorkerRequest = serde_json::from_str("{}").unwrap();
         assert_eq!(missing.github_pat, None);
 
-        let null: UpdateWorkerRequest =
-            serde_json::from_str(r#"{"github_pat": null}"#).unwrap();
+        let null: UpdateWorkerRequest = serde_json::from_str(r#"{"github_pat": null}"#).unwrap();
         assert_eq!(null.github_pat, Some(None));
 
         let set: UpdateWorkerRequest =
@@ -1947,16 +1947,13 @@ mod tests {
         let missing: UpdateWorkerRequest = serde_json::from_str("{}").unwrap();
         assert_eq!(missing.plan_mode, None);
 
-        let null: UpdateWorkerRequest =
-            serde_json::from_str(r#"{"plan_mode": null}"#).unwrap();
+        let null: UpdateWorkerRequest = serde_json::from_str(r#"{"plan_mode": null}"#).unwrap();
         assert_eq!(null.plan_mode, Some(None));
 
-        let on: UpdateWorkerRequest =
-            serde_json::from_str(r#"{"plan_mode": true}"#).unwrap();
+        let on: UpdateWorkerRequest = serde_json::from_str(r#"{"plan_mode": true}"#).unwrap();
         assert_eq!(on.plan_mode, Some(Some(true)));
 
-        let off: UpdateWorkerRequest =
-            serde_json::from_str(r#"{"plan_mode": false}"#).unwrap();
+        let off: UpdateWorkerRequest = serde_json::from_str(r#"{"plan_mode": false}"#).unwrap();
         assert_eq!(off.plan_mode, Some(Some(false)));
     }
 }

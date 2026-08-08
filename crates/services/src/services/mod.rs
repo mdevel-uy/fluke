@@ -15,11 +15,12 @@ pub mod filesystem;
 pub mod filesystem_watcher;
 pub mod heartbeat;
 pub mod licensing;
-pub mod usage;
 pub mod notification;
 pub mod oauth_credentials;
 pub mod pr_monitor;
 pub mod quick_action_prompts;
+pub mod review_verdict;
+pub mod usage;
 
 #[cfg(feature = "qa-mode")]
 pub mod qa_repos;

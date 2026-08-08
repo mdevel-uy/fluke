@@ -426,4 +426,22 @@ impl Worker {
         .await
         .map(|opt| opt.flatten())
     }
+
+    /// Like [`find_github_pat_by_workspace_id`] but also returns the worker's
+    /// role, so callers that only want to inject the token for some roles
+    /// don't need a second lookup.
+    pub async fn find_github_pat_and_role_by_workspace_id(
+        pool: &SqlitePool,
+        workspace_id: Uuid,
+    ) -> Result<Option<(Option<String>, String)>, sqlx::Error> {
+        sqlx::query_as::<_, (Option<String>, String)>(
+            "SELECT w.github_pat, w.role
+               FROM workspaces ws
+               JOIN workers w ON w.id = ws.worker_id
+               WHERE ws.id = ?1",
+        )
+        .bind(workspace_id)
+        .fetch_optional(pool)
+        .await
+    }
 }
