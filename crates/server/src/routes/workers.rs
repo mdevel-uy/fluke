@@ -271,6 +271,13 @@ const LOOP_STALL_THRESHOLD_SECS: i64 = 300;
 /// review loop is done (no verdict-side badge — the "approved" chip already
 /// says it), and silence beyond the threshold is a stall, never a blank.
 ///
+/// The `fix` slot has two sources today: a legacy separate `review_fix` task
+/// (drained via `loop_activity_for_pr`), and — post issue #473 — the primary
+/// path where remediation is dispatched as a system follow-up on the
+/// developer task's own workspace. In the latter case `fix` is `None` because
+/// there is no separate task, so we infer `"fixing"` from
+/// `developer_agent_running` when the last verdict was `changes_requested`.
+///
 /// Exception on top of "approved → no badge": if the developer is running a
 /// manual follow-up (issue #471), the card still needs to reflect activity.
 /// Emit `"developer_running"` — the verdict chip stays as-is next to it, so
@@ -286,6 +293,15 @@ fn compute_loop_state(
         Some("running") => return Some("fixing".to_string()),
         Some("queued") => return Some("fix_queued".to_string()),
         _ => {}
+    }
+    // Primary #473 path: remediation runs as a system follow-up on the
+    // developer's own workspace, so no separate `fix` task exists. When the
+    // last verdict was changes_requested and the developer's agent is live,
+    // that IS the remediation — surface it as `"fixing"`. The verdict badge
+    // stays "changes_requested" until pr_monitor writes the fresh verdict
+    // from the next reviewer round.
+    if developer_agent_running && task.review_result.as_deref() == Some("changes_requested") {
+        return Some("fixing".to_string());
     }
     match reviewer.as_deref() {
         Some("running") => return Some("reviewing".to_string()),
