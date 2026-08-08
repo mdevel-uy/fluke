@@ -2457,6 +2457,13 @@ export const workersApi = {
     return handleApiResponse<WorkerResponse[]>(response);
   },
 
+  deleteAllArchived: async (): Promise<{ deleted: number }> => {
+    const response = await makeRequest('/api/workers/archived', {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ deleted: number }>(response);
+  },
+
   duplicate: async (workerId: string): Promise<WorkerResponse> => {
     const response = await makeRequest(`/api/workers/${workerId}/duplicate`, {
       method: 'POST',

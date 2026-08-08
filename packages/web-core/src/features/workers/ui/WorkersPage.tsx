@@ -20,6 +20,7 @@ import { cn } from '@/shared/lib/utils';
 import {
   useArchivedWorkers,
   useArchiveWorker,
+  useDeleteAllArchivedWorkers,
   useDeleteWorker,
   useDuplicateWorker,
   useStartNextWorkerTask,
@@ -128,6 +129,7 @@ export function WorkersPage() {
   } = useArchivedWorkers();
   const startMutation = useStartNextWorkerTask();
   const deleteMutation = useDeleteWorker();
+  const deleteAllArchivedMutation = useDeleteAllArchivedWorkers();
   const duplicateMutation = useDuplicateWorker();
   const archiveMutation = useArchiveWorker();
   const unarchiveMutation = useUnarchiveWorker();
@@ -217,6 +219,7 @@ export function WorkersPage() {
     null
   );
   const [purgingWorkerId, setPurgingWorkerId] = useState<string | null>(null);
+  const [isPurgingAllArchived, setIsPurgingAllArchived] = useState(false);
 
   const handleStartNext = async (worker: WorkerResponse) => {
     setStartingWorkerId(worker.id);
@@ -362,6 +365,32 @@ export function WorkersPage() {
       );
     } finally {
       setPurgingWorkerId(null);
+    }
+  };
+
+  const handlePurgeAllArchived = async () => {
+    const count = archivedWorkers.length;
+    if (count === 0) return;
+    const result = await ConfirmDialog.show({
+      title: t('workers.purge_all'),
+      message: t('workers.purge_all_confirm', { count }),
+      confirmText: t('workers.purge_all'),
+      variant: 'destructive',
+    });
+    if (result !== 'confirmed') return;
+
+    setIsPurgingAllArchived(true);
+    try {
+      const { deleted } = await deleteAllArchivedMutation.mutateAsync();
+      pushToast(
+        'success',
+        t('workers.toast.purgeAllSuccess', { count: deleted })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pushToast('error', t('workers.toast.purgeAllError', { message }));
+    } finally {
+      setIsPurgingAllArchived(false);
     }
   };
 
@@ -529,8 +558,10 @@ export function WorkersPage() {
           isError={isArchivedError}
           restoringWorkerId={restoringWorkerId}
           purgingWorkerId={purgingWorkerId}
+          isPurgingAll={isPurgingAllArchived}
           onRestore={handleUnarchive}
           onPurge={handlePurge}
+          onPurgeAll={handlePurgeAllArchived}
         />
       </div>
     </div>

@@ -997,6 +997,8 @@
     "unarchive": "Restore",
     "purge": "Delete permanently",
     "purge_confirm": "Permanently delete \"{{worker}}\"? This cannot be undone.",
+    "purge_all": "Delete all permanently",
+    "purge_all_confirm": "Permanently delete all {{count}} archived workers? This cannot be undone.",
     "archived_section_title": "Archived workers",
     "sidebar": {
       "active": "Active",
@@ -1102,6 +1104,8 @@
       "unarchiveError": "Failed to restore {{worker}}: {{message}}",
       "purgeSuccess": "{{worker}} permanently deleted.",
       "purgeError": "Failed to delete {{worker}}: {{message}}",
+      "purgeAllSuccess": "{{count}} archived workers permanently deleted.",
+      "purgeAllError": "Failed to delete archived workers: {{message}}",
       "dismiss": "Dismiss"
     }
   },

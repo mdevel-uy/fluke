@@ -21,6 +21,7 @@ interface ArchivedWorkerRowProps {
   worker: WorkerResponse;
   isRestoring: boolean;
   isPurging: boolean;
+  isSectionBusy: boolean;
   onRestore: () => void;
   onPurge: () => void;
 }
@@ -29,11 +30,12 @@ function ArchivedWorkerRow({
   worker,
   isRestoring,
   isPurging,
+  isSectionBusy,
   onRestore,
   onPurge,
 }: ArchivedWorkerRowProps) {
   const { t } = useTranslation('common');
-  const busy = isRestoring || isPurging;
+  const busy = isRestoring || isPurging || isSectionBusy;
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border bg-md-surface-container-lowest px-3 py-2">
@@ -100,8 +102,10 @@ interface ArchivedWorkersSectionProps {
   isError: boolean;
   restoringWorkerId: string | null;
   purgingWorkerId: string | null;
+  isPurgingAll: boolean;
   onRestore: (worker: WorkerResponse) => void;
   onPurge: (worker: WorkerResponse) => void;
+  onPurgeAll: () => void;
 }
 
 export function ArchivedWorkersSection({
@@ -110,8 +114,10 @@ export function ArchivedWorkersSection({
   isError,
   restoringWorkerId,
   purgingWorkerId,
+  isPurgingAll,
   onRestore,
   onPurge,
+  onPurgeAll,
 }: ArchivedWorkersSectionProps) {
   const { t } = useTranslation('common');
   // Collapsed by default: the section is a low-frequency admin surface and
@@ -124,35 +130,66 @@ export function ArchivedWorkersSection({
     return null;
   }
 
+  const toggleExpanded = () => setIsExpanded((v) => !v);
+  // Purge-all only offered when expanded with at least one worker. The button
+  // is disabled while any individual purge is running so we never race the
+  // bulk delete against a per-row delete on the same rows.
+  const showPurgeAll = isExpanded && workers.length > 0;
+  const purgeAllDisabled = isPurgingAll || purgingWorkerId !== null;
+
   return (
     <section className="mt-4 border-t border-border px-container-padding py-4">
-      <button
-        type="button"
-        onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-normal hover:text-high"
-        aria-expanded={isExpanded}
-      >
-        <Archive className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-        <span className="font-sans text-title text-high">
-          {t('workers.archived_section_title')}
-        </span>
-        <span className="text-sm text-low tabular-nums">
-          ({workers.length})
-        </span>
-        {isExpanded ? (
-          <ChevronUp
-            className="ml-auto h-4 w-4"
+      <div className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-normal">
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-high"
+          aria-expanded={isExpanded}
+        >
+          <Archive
+            className="h-4 w-4 shrink-0"
             strokeWidth={1.75}
             aria-hidden
           />
-        ) : (
-          <ChevronDown
-            className="ml-auto h-4 w-4"
-            strokeWidth={1.75}
-            aria-hidden
-          />
+          <span className="font-sans text-title text-high">
+            {t('workers.archived_section_title')}
+          </span>
+          <span className="text-sm text-low tabular-nums">
+            ({workers.length})
+          </span>
+        </button>
+        {showPurgeAll && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onPurgeAll}
+            disabled={purgeAllDisabled}
+          >
+            {isPurgingAll ? (
+              <Loader2
+                className="h-3.5 w-3.5 animate-spin"
+                strokeWidth={1.75}
+              />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            {t('workers.purge_all')}
+          </Button>
         )}
-      </button>
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          className="shrink-0 rounded-md p-1 hover:text-high"
+          aria-label={t('workers.archived_section_title')}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          ) : (
+            <ChevronDown className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          )}
+        </button>
+      </div>
 
       {isExpanded && (
         <div className="mt-3 flex flex-col gap-2">
@@ -175,6 +212,7 @@ export function ArchivedWorkersSection({
                 worker={worker}
                 isRestoring={restoringWorkerId === worker.id}
                 isPurging={purgingWorkerId === worker.id}
+                isSectionBusy={isPurgingAll}
                 onRestore={() => onRestore(worker)}
                 onPurge={() => onPurge(worker)}
               />

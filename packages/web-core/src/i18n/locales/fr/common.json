@@ -996,6 +996,8 @@
     "unarchive": "Restaurer",
     "purge": "Supprimer définitivement",
     "purge_confirm": "Supprimer définitivement « {{worker}} » ? Cette action est irréversible.",
+    "purge_all": "Tout supprimer définitivement",
+    "purge_all_confirm": "Supprimer définitivement les {{count}} workers archivés ? Cette action est irréversible.",
     "archived_section_title": "Workers archivés",
     "sidebar": {
       "active": "Actifs",
@@ -1101,6 +1103,8 @@
       "unarchiveError": "Échec de la restauration de {{worker}} : {{message}}",
       "purgeSuccess": "{{worker}} supprimé définitivement.",
       "purgeError": "Échec de la suppression de {{worker}} : {{message}}",
+      "purgeAllSuccess": "{{count}} workers archivés supprimés définitivement.",
+      "purgeAllError": "Échec de la suppression des workers archivés : {{message}}",
       "dismiss": "Fermer"
     }
   },

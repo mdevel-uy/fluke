@@ -230,6 +230,26 @@ impl Worker {
         Ok(result.rows_affected())
     }
 
+    /// Bulk-purge every archived worker in a single transaction. Detaches any
+    /// workspace still pointing to one of the archived workers before running
+    /// the delete so the FK constraint on `workspaces.worker_id` cannot fire.
+    /// Returns the number of worker rows removed (0 when there is nothing to
+    /// purge — no error).
+    pub async fn delete_all_archived(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+        let mut tx = pool.begin().await?;
+        sqlx::query(
+            "UPDATE workspaces SET worker_id = NULL
+               WHERE worker_id IN (SELECT id FROM workers WHERE archived = 1)",
+        )
+        .execute(&mut *tx)
+        .await?;
+        let result = sqlx::query("DELETE FROM workers WHERE archived = 1")
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(result.rows_affected())
+    }
+
     /// Returns true when the worker has at least one task in a state that
     /// would be broken by a role change (in_progress or in_review).
     pub async fn has_in_flight_tasks(

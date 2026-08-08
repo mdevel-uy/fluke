@@ -994,6 +994,8 @@
     "unarchive": "復元",
     "purge": "完全に削除",
     "purge_confirm": "「{{worker}}」を完全に削除しますか？この操作は元に戻せません。",
+    "purge_all": "すべて完全に削除",
+    "purge_all_confirm": "アーカイブ済みのワーカー {{count}} 件をすべて完全に削除しますか？この操作は元に戻せません。",
     "archived_section_title": "アーカイブ済みのワーカー",
     "sidebar": {
       "active": "アクティブ",
@@ -1099,6 +1101,8 @@
       "unarchiveError": "{{worker}} の復元に失敗しました：{{message}}",
       "purgeSuccess": "{{worker}} を完全に削除しました。",
       "purgeError": "{{worker}} の削除に失敗しました：{{message}}",
+      "purgeAllSuccess": "アーカイブ済みのワーカー {{count}} 件を完全に削除しました。",
+      "purgeAllError": "アーカイブ済みワーカーの削除に失敗しました：{{message}}",
       "dismiss": "閉じる"
     }
   },

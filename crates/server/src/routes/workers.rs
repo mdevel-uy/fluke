@@ -883,6 +883,28 @@ pub async fn list_archived_workers(
     Ok(ResponseJson(ApiResponse::success(out)))
 }
 
+#[derive(Debug, Serialize)]
+pub struct DeleteAllArchivedResponse {
+    pub deleted: i64,
+}
+
+/// Bulk-purge every archived worker in one shot. Runs a single SQLite
+/// transaction that detaches any workspace still pointing at an archived
+/// worker and then deletes the archived rows. Returns `{ deleted: N }` with
+/// the number of workers that were removed; `0` is a valid, non-error result
+/// when there was nothing to purge.
+pub async fn delete_all_archived_workers(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<DeleteAllArchivedResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let deleted = Worker::delete_all_archived(pool).await?;
+    Ok(ResponseJson(ApiResponse::success(
+        DeleteAllArchivedResponse {
+            deleted: deleted as i64,
+        },
+    )))
+}
+
 /// Clone an existing worker's identity (emoji, soul, role, model) into a new
 /// worker. The duplicate is named `"Copia de {name}"` and starts empty — no
 /// tasks or workspaces are copied. Returns 201 with the new worker, or 404
@@ -1908,7 +1930,10 @@ pub fn router() -> Router<DeploymentImpl> {
             get(list_pending_design_handoffs),
         )
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
-        .route("/workers/archived", get(list_archived_workers))
+        .route(
+            "/workers/archived",
+            get(list_archived_workers).delete(delete_all_archived_workers),
+        )
         .route(
             "/workers/validate-github-pat",
             post(validate_github_pat_endpoint),
