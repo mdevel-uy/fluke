@@ -461,6 +461,21 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             warn!("Reviewer-orphan merged-PR sweep failed: {}", e);
         }
 
+        // Safety net for queues stranded by a missing `try_take_next` trigger
+        // — e.g. the cancellation deadlock from #470, or any future finish
+        // path that regresses. Any active worker with queued tasks and no
+        // in_progress task gets nudged; `try_take_next` swallows the "nothing
+        // to do" case, so this is a no-op in steady state.
+        if let Err(e) = worker_orchestrator::kickstart_stuck_worker_queues(
+            &self.config,
+            &self.db,
+            &self.container,
+        )
+        .await
+        {
+            warn!("Stuck-queue kickstart sweep failed: {}", e);
+        }
+
         let open_prs = PullRequest::get_open(&self.db.pool).await?;
 
         if open_prs.is_empty() {

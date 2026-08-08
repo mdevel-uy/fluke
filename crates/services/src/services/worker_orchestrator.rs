@@ -2794,6 +2794,61 @@ pub async fn cancel_orphan_reviewer_tasks_for_finished_prs(
     Ok(())
 }
 
+/// Safety net for stuck queues: any active worker with queued tasks and
+/// nothing in progress gets nudged into `try_take_next`.
+///
+/// Every finish path (`on_pr_merged`, `on_agent_finished`, post-dispatch,
+/// `cancel_worker_task`, the review-fix and reviewer-orphan sweeps) is
+/// supposed to call `try_take_next` on the freed worker. If any of them
+/// regresses — or a new code path forgets to — the queue would drain only
+/// when a lucky external event (a new PR, a manual Start) happens to fire
+/// the trigger. This sweep reconciles that on every poll instead of
+/// trusting event-driven triggers, same principle as the review-fix sweep
+/// added in #387.
+///
+/// `try_take_next` is idempotent and already enforces the in-review cap,
+/// license gate, and workspace auto-repair, so a worker that is legitimately
+/// idle (nothing queued, cap reached, license suspended) just returns a
+/// conflict, which is swallowed.
+pub async fn kickstart_stuck_worker_queues(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let workers = Worker::list_all(pool).await?;
+
+    for worker in workers {
+        if WorkerTask::find_in_progress(pool, worker.id)
+            .await?
+            .is_some()
+        {
+            continue;
+        }
+        if WorkerTask::find_next_queued(pool, worker.id)
+            .await?
+            .is_none()
+        {
+            continue;
+        }
+
+        match try_take_next(config, db, container, worker.id).await {
+            Ok(started) => info!(
+                worker_id = %worker.id,
+                task_id = %started.task.id,
+                "Kickstarted stuck worker queue: took next queued task"
+            ),
+            Err(e) if e.is_conflict() => {}
+            Err(e) => warn!(
+                worker_id = %worker.id,
+                "Failed to kickstart stuck worker queue: {}", e
+            ),
+        }
+    }
+
+    Ok(())
+}
+
 /// Cancel any other pending reviewer rounds pinned to the same PR head as
 /// the one that just submitted. In steady state the dispatch guard
 /// (`find_active_reviewer_task_for_pr`) prevents two active reviewer tasks
