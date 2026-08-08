@@ -43,6 +43,25 @@ export const clampHoursPerFteMonth = (hours: number): number => {
 };
 
 /**
+ * Fully-loaded hourly rate used to translate saved hours into a monetary
+ * figure. Kept in the store (not in `Config` yet) so the panel can present
+ * net-savings today; when #459 lands a server-side default, migrate to
+ * reading it from `Config.default_hourly_rate` here.
+ */
+export const DEFAULT_HOURLY_RATE = 75;
+export const MIN_HOURLY_RATE = 0;
+export const MAX_HOURLY_RATE = 1000;
+
+export const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'ARS', 'UYU'] as const;
+export type ReportCurrency = (typeof CURRENCY_OPTIONS)[number];
+export const DEFAULT_CURRENCY: ReportCurrency = 'USD';
+
+export const clampHourlyRate = (rate: number): number => {
+  if (!Number.isFinite(rate)) return DEFAULT_HOURLY_RATE;
+  return Math.min(MAX_HOURLY_RATE, Math.max(MIN_HOURLY_RATE, rate));
+};
+
+/**
  * View-only state for the value-generated panel: the trailing history
  * window each viewer prefers. Kept in localStorage because it's a UI
  * preference (not authoritative business data), so per-browser is the
@@ -57,19 +76,31 @@ export const clampHoursPerFteMonth = (hours: number): number => {
 type State = {
   /** Trailing history depth rendered by the panel. */
   historyMonths: ValueHistoryWindow;
+  /** Fully-loaded hourly rate used to compute monetary savings. */
+  hourlyRate: number;
+  /** Currency the monetary figures are displayed in. */
+  currency: ReportCurrency;
   setHistoryMonths: (months: ValueHistoryWindow) => void;
+  setHourlyRate: (rate: number) => void;
+  setCurrency: (currency: ReportCurrency) => void;
 };
 
 export const useValueGeneratedSettingsStore = create<State>()(
   persist(
     (set) => ({
       historyMonths: 12,
+      hourlyRate: DEFAULT_HOURLY_RATE,
+      currency: DEFAULT_CURRENCY,
       setHistoryMonths: (months) => set({ historyMonths: months }),
+      setHourlyRate: (rate) => set({ hourlyRate: clampHourlyRate(rate) }),
+      setCurrency: (currency) => set({ currency }),
     }),
     {
       name: 'kanban-value-generated-settings',
       partialize: (state) => ({
         historyMonths: state.historyMonths,
+        hourlyRate: state.hourlyRate,
+        currency: state.currency,
       }),
       merge: (persisted, current) => {
         // A hand-edited or stale localStorage entry must not brick the panel.
@@ -81,6 +112,10 @@ export const useValueGeneratedSettingsStore = create<State>()(
           )
             ? (saved.historyMonths as ValueHistoryWindow)
             : 12,
+          hourlyRate: clampHourlyRate(saved.hourlyRate ?? DEFAULT_HOURLY_RATE),
+          currency: CURRENCY_OPTIONS.includes(saved.currency as ReportCurrency)
+            ? (saved.currency as ReportCurrency)
+            : DEFAULT_CURRENCY,
         };
       },
     }

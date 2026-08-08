@@ -10,12 +10,17 @@ import {
 } from '@/features/dashboard/model/useValueGenerated';
 import { useCompletedTasksSince } from '@/features/dashboard/model/useCompletedTasks';
 import {
+  CURRENCY_OPTIONS,
   DEFAULT_HOURS_PER_FTE_MONTH,
   DEFAULT_HOURS_PER_TASK,
+  MAX_HOURLY_RATE,
   MAX_HOURS_PER_FTE_MONTH,
   MAX_HOURS_PER_TASK,
+  MIN_HOURLY_RATE,
   MIN_HOURS_PER_FTE_MONTH,
   MIN_HOURS_PER_TASK,
+  type ReportCurrency,
+  clampHourlyRate,
   clampHoursPerFteMonth,
   clampHoursPerTask,
   useValueGeneratedSettingsStore,
@@ -35,19 +40,52 @@ import { Panel, PanelEmpty } from './parts/primitives';
  * Tasks with an override contribute their stored hours verbatim; tasks
  * without one get the installation default. Kept as a plain function so
  * "this month" and each history row use identical math.
+ *
+ * `costUsd` is the API cost rolled up from the executors — a lower bound
+ * when `tasks_with_cost < done_count` (`partialCostCoverage`), since some
+ * agents don't report USD yet. `grossValue` is `hours × hourlyRate`;
+ * `netValue` is that minus `costUsd` (never below zero — a negative net
+ * means our assumptions are off, not that the pilot lost money, so we
+ * clamp to zero and let the coverage flag do the talking).
  */
 function computeMonthMetrics(
   month: ValueGeneratedMonth,
   hoursPerTask: number,
-  hoursPerFteMonth: number
-): { hours: number; fte: number } {
+  hoursPerFteMonth: number,
+  hourlyRate: number
+): {
+  hours: number;
+  fte: number;
+  costUsd: number;
+  grossValue: number;
+  netValue: number;
+  partialCostCoverage: boolean;
+  costMissingCount: number;
+} {
   const withoutOverride = Math.max(
     0,
     month.done_count - month.tasks_with_override
   );
   const hours = month.override_hours_sum + withoutOverride * hoursPerTask;
   const fte = hoursPerFteMonth > 0 ? hours / hoursPerFteMonth : 0;
-  return { hours, fte };
+  const costUsd = month.cost_usd_sum;
+  const grossValue = hours * hourlyRate;
+  const netValue = Math.max(0, grossValue - costUsd);
+  const costMissingCount = Math.max(
+    0,
+    month.done_count - month.tasks_with_cost
+  );
+  const partialCostCoverage =
+    month.done_count > 0 && month.tasks_with_cost < month.done_count;
+  return {
+    hours,
+    fte,
+    costUsd,
+    grossValue,
+    netValue,
+    partialCostCoverage,
+    costMissingCount,
+  };
 }
 
 /**
@@ -66,6 +104,10 @@ export function ValueGeneratedPanel() {
   const setHistoryMonths = useValueGeneratedSettingsStore(
     (s) => s.setHistoryMonths
   );
+  const hourlyRate = useValueGeneratedSettingsStore((s) => s.hourlyRate);
+  const setHourlyRate = useValueGeneratedSettingsStore((s) => s.setHourlyRate);
+  const currency = useValueGeneratedSettingsStore((s) => s.currency);
+  const setCurrency = useValueGeneratedSettingsStore((s) => s.setCurrency);
 
   const { summary, isLoading } = useValueGenerated(historyMonths);
 
@@ -80,6 +122,7 @@ export function ValueGeneratedPanel() {
 
   const [hoursDraft, setHoursDraft] = useState(() => String(hoursPerTask));
   const [fteDraft, setFteDraft] = useState(() => String(hoursPerFteMonth));
+  const [rateDraft, setRateDraft] = useState(() => String(hourlyRate));
   const [editingTasks, setEditingTasks] = useState(false);
 
   // Re-hydrate the input drafts when the server figure changes (initial
@@ -97,6 +140,11 @@ export function ValueGeneratedPanel() {
         : String(hoursPerFteMonth)
     );
   }, [hoursPerFteMonth]);
+  useEffect(() => {
+    setRateDraft((draft) =>
+      Number.parseFloat(draft) === hourlyRate ? draft : String(hourlyRate)
+    );
+  }, [hourlyRate]);
 
   const monthFormatter = useMemo(
     () =>
@@ -108,18 +156,35 @@ export function ValueGeneratedPanel() {
     [i18n.language]
   );
 
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.language, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+      }),
+    [i18n.language, currency]
+  );
+
   const currentMonth: ValueGeneratedMonth = summary.months[0] ?? {
     year_month: currentUtcMonthKey(),
     done_count: 0,
     tasks_with_override: 0,
     override_hours_sum: 0,
+    tasks_with_cost: 0,
+    cost_usd_sum: 0,
+    input_tokens_sum: 0,
+    output_tokens_sum: 0,
+    cache_creation_tokens_sum: 0,
+    cache_read_tokens_sum: 0,
   };
   const historyMonthsRows = summary.months.slice(1);
 
   const currentMetrics = computeMonthMetrics(
     currentMonth,
     hoursPerTask,
-    hoursPerFteMonth
+    hoursPerFteMonth,
+    hourlyRate
   );
 
   const totals = useMemo(() => {
@@ -128,16 +193,29 @@ export function ValueGeneratedPanel() {
         const metrics = computeMonthMetrics(
           month,
           hoursPerTask,
-          hoursPerFteMonth
+          hoursPerFteMonth,
+          hourlyRate
         );
         acc.tickets += month.done_count;
         acc.hours += metrics.hours;
         acc.fte += metrics.fte;
+        acc.cost += metrics.costUsd;
+        acc.net += metrics.netValue;
+        acc.gross += metrics.grossValue;
+        if (metrics.partialCostCoverage) acc.partialCostMonths += 1;
         return acc;
       },
-      { tickets: 0, hours: 0, fte: 0 }
+      {
+        tickets: 0,
+        hours: 0,
+        fte: 0,
+        cost: 0,
+        net: 0,
+        gross: 0,
+        partialCostMonths: 0,
+      }
     );
-  }, [summary.months, hoursPerTask, hoursPerFteMonth]);
+  }, [summary.months, hoursPerTask, hoursPerFteMonth, hourlyRate]);
 
   const commitHoursPerTask = (raw: string) => {
     setHoursDraft(raw);
@@ -179,6 +257,23 @@ export function ValueGeneratedPanel() {
       void updateAndSaveConfig({ default_hours_per_fte_month: next });
     }
     setFteDraft(String(next));
+  };
+
+  const commitHourlyRate = (raw: string) => {
+    setRateDraft(raw);
+    const parsed = Number.parseFloat(raw);
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= MIN_HOURLY_RATE &&
+      parsed <= MAX_HOURLY_RATE
+    ) {
+      setHourlyRate(parsed);
+    }
+  };
+  const normaliseHourlyRate = () => {
+    const next = clampHourlyRate(Number.parseFloat(rateDraft));
+    setHourlyRate(next);
+    setRateDraft(String(next));
   };
 
   const head = (
@@ -233,6 +328,36 @@ export function ValueGeneratedPanel() {
         />
         {t('dashboard.valueGenerated.hoursPerFte')}
       </label>
+      <label className="flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-low">
+        <input
+          type="number"
+          min={MIN_HOURLY_RATE}
+          max={MAX_HOURLY_RATE}
+          step={5}
+          value={rateDraft}
+          aria-label={t('dashboard.valueGenerated.hourlyRateLabel')}
+          onChange={(event) => commitHourlyRate(event.target.value)}
+          onBlur={normaliseHourlyRate}
+          className="w-14 rounded border border-border bg-md-background px-1.5 py-px text-right text-xs text-high tabular-nums"
+        />
+        {t('dashboard.valueGenerated.hourlyRate')}
+      </label>
+      <label className="flex items-center gap-1 text-xs font-normal normal-case tracking-normal text-low">
+        <select
+          value={currency}
+          onChange={(event) =>
+            setCurrency(event.target.value as ReportCurrency)
+          }
+          aria-label={t('dashboard.valueGenerated.currencyLabel')}
+          className="rounded border border-border bg-md-background px-1.5 py-px text-xs text-high"
+        >
+          {CURRENCY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
     </span>
   );
 
@@ -241,9 +366,9 @@ export function ValueGeneratedPanel() {
       <div className="flex flex-col gap-3 p-3">
         <CurrentMonthCard
           month={currentMonth}
-          hours={currentMetrics.hours}
-          fte={currentMetrics.fte}
+          metrics={currentMetrics}
           monthFormatter={monthFormatter}
+          currencyFormatter={currencyFormatter}
         />
 
         {totals.tickets > 0 && historyMonths > 1 && (
@@ -268,6 +393,22 @@ export function ValueGeneratedPanel() {
                 fte: formatManHours(totals.fte),
               })}
             </span>
+            {totals.cost > 0 && (
+              <span className="tabular-nums text-normal">
+                {t('dashboard.valueGenerated.totalsCost', {
+                  prefix: totals.partialCostMonths > 0 ? '≥ ' : '',
+                  cost: currencyFormatter.format(totals.cost),
+                })}
+              </span>
+            )}
+            {totals.net > 0 && (
+              <span className="tabular-nums text-normal">
+                {t('dashboard.valueGenerated.totalsNet', {
+                  prefix: totals.partialCostMonths > 0 ? '≤ ' : '',
+                  net: currencyFormatter.format(totals.net),
+                })}
+              </span>
+            )}
           </div>
         )}
 
@@ -300,7 +441,9 @@ export function ValueGeneratedPanel() {
             rows={historyMonthsRows}
             hoursPerTask={hoursPerTask}
             hoursPerFteMonth={hoursPerFteMonth}
+            hourlyRate={hourlyRate}
             monthFormatter={monthFormatter}
+            currencyFormatter={currencyFormatter}
           />
         )}
       </div>
@@ -310,17 +453,19 @@ export function ValueGeneratedPanel() {
 
 function CurrentMonthCard({
   month,
-  hours,
-  fte,
+  metrics,
   monthFormatter,
+  currencyFormatter,
 }: {
   month: ValueGeneratedMonth;
-  hours: number;
-  fte: number;
+  metrics: ReturnType<typeof computeMonthMetrics>;
   monthFormatter: Intl.DateTimeFormat;
+  currencyFormatter: Intl.NumberFormat;
 }) {
   const { t } = useTranslation('common');
   const monthLabel = monthFormatter.format(parseMonthKey(month.year_month));
+  const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
+  const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
 
   return (
     <div className="rounded-md border border-border bg-md-background/60 p-3">
@@ -337,15 +482,45 @@ function CurrentMonthCard({
         </span>
         <span className="text-sm text-normal tabular-nums">
           {t('dashboard.valueGenerated.summaryHours', {
-            hours: formatManHours(hours),
+            hours: formatManHours(metrics.hours),
           })}
         </span>
         <span className="text-sm text-normal tabular-nums">
           {t('dashboard.valueGenerated.summaryFte', {
-            fte: formatManHours(fte),
+            fte: formatManHours(metrics.fte),
           })}
         </span>
       </div>
+      {month.done_count > 0 && (
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-sm">
+          <span className="tabular-nums text-normal">
+            {t('dashboard.valueGenerated.summaryCost', {
+              prefix: costPrefix,
+              cost: currencyFormatter.format(metrics.costUsd),
+            })}
+          </span>
+          <span className="tabular-nums font-semibold text-high">
+            {t('dashboard.valueGenerated.summaryNet', {
+              prefix: netPrefix,
+              net: currencyFormatter.format(metrics.netValue),
+            })}
+          </span>
+          {metrics.partialCostCoverage && (
+            <span
+              className="text-xs italic text-low"
+              title={t('dashboard.valueGenerated.partialCoverageTooltip', {
+                missing: metrics.costMissingCount,
+                total: month.done_count,
+              })}
+            >
+              {t('dashboard.valueGenerated.partialCoverageLabel', {
+                missing: metrics.costMissingCount,
+                total: month.done_count,
+              })}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -354,12 +529,16 @@ function HistoryTable({
   rows,
   hoursPerTask,
   hoursPerFteMonth,
+  hourlyRate,
   monthFormatter,
+  currencyFormatter,
 }: {
   rows: ValueGeneratedMonth[];
   hoursPerTask: number;
   hoursPerFteMonth: number;
+  hourlyRate: number;
   monthFormatter: Intl.DateTimeFormat;
+  currencyFormatter: Intl.NumberFormat;
 }) {
   const { t } = useTranslation('common');
   return (
@@ -376,8 +555,14 @@ function HistoryTable({
             <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableHours')}
             </th>
-            <th className="py-1 text-right font-semibold">
+            <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableFte')}
+            </th>
+            <th className="py-1 pr-2 text-right font-semibold">
+              {t('dashboard.valueGenerated.tableCost')}
+            </th>
+            <th className="py-1 text-right font-semibold">
+              {t('dashboard.valueGenerated.tableNet')}
             </th>
           </tr>
         </thead>
@@ -386,8 +571,17 @@ function HistoryTable({
             const metrics = computeMonthMetrics(
               month,
               hoursPerTask,
-              hoursPerFteMonth
+              hoursPerFteMonth,
+              hourlyRate
             );
+            const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
+            const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
+            const coverageTitle = metrics.partialCostCoverage
+              ? t('dashboard.valueGenerated.partialCoverageTooltip', {
+                  missing: metrics.costMissingCount,
+                  total: month.done_count,
+                })
+              : undefined;
             return (
               <tr
                 key={month.year_month}
@@ -402,8 +596,24 @@ function HistoryTable({
                 <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
                   {formatManHours(metrics.hours)}
                 </td>
-                <td className="border-t border-border py-1 text-right tabular-nums">
+                <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
                   {formatManHours(metrics.fte)}
+                </td>
+                <td
+                  className="border-t border-border py-1 pr-2 text-right tabular-nums"
+                  title={coverageTitle}
+                >
+                  {metrics.costUsd > 0
+                    ? `${costPrefix}${currencyFormatter.format(metrics.costUsd)}`
+                    : '—'}
+                </td>
+                <td
+                  className="border-t border-border py-1 text-right tabular-nums"
+                  title={coverageTitle}
+                >
+                  {metrics.netValue > 0
+                    ? `${netPrefix}${currencyFormatter.format(metrics.netValue)}`
+                    : '—'}
                 </td>
               </tr>
             );

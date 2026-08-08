@@ -70,6 +70,12 @@ function normaliseMonth(raw: unknown): ValueGeneratedMonth {
     done_count: toNumber(source.done_count),
     tasks_with_override: toNumber(source.tasks_with_override),
     override_hours_sum: toNumber(source.override_hours_sum),
+    tasks_with_cost: toNumber(source.tasks_with_cost),
+    cost_usd_sum: toNumber(source.cost_usd_sum),
+    input_tokens_sum: toNumber(source.input_tokens_sum),
+    output_tokens_sum: toNumber(source.output_tokens_sum),
+    cache_creation_tokens_sum: toNumber(source.cache_creation_tokens_sum),
+    cache_read_tokens_sum: toNumber(source.cache_read_tokens_sum),
   };
 }
 
