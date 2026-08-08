@@ -3412,6 +3412,52 @@ mod tests {
         assert_eq!(task.status, worker_task::STATUS_QUEUED);
     }
 
+    /// Regression for the `approved` state: `WorkerTask::set_status` must be
+    /// able to move a task from `in_review` to `approved` against the real
+    /// schema. If the CHECK constraint on `worker_tasks.status` is missing
+    /// the value, sqlx bubbles a `SQLITE_CONSTRAINT_CHECK` error, the
+    /// auto-transition in `pr_monitor`/`worker_orchestrator` silently warns,
+    /// and the task stays stuck in `in_review` forever.
+    #[tokio::test]
+    async fn set_status_accepts_approved_against_check_constraint() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dev").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "approved-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "feature".to_string(),
+                prompt: "ship it".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_REVIEW)
+            .await
+            .expect("in_review is a valid status");
+        let approved =
+            WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_APPROVED)
+                .await
+                .expect("approved must be accepted by the status CHECK");
+        assert_eq!(approved.status, worker_task::STATUS_APPROVED);
+
+        // count_in_review folds `approved` into the same slot bucket as
+        // `in_review` — verify the DB read agrees after the transition.
+        assert_eq!(
+            WorkerTask::count_in_review(&db.pool, worker.id)
+                .await
+                .unwrap(),
+            1
+        );
+    }
+
     #[tokio::test]
     async fn reconcile_leaves_workspace_with_active_task_alone() {
         let db = setup_test_db().await;
