@@ -1376,27 +1376,33 @@ async fn on_reviewer_agent_finished(
             .await;
         }
     };
-    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let workspace_root = PathBuf::from(container_ref);
+    let worktree_path = workspace_root.join(&repo.name);
 
     // Parse + validate `.vk/review.json`. Any error here means the reviewer
     // did not produce a valid verdict → task failed, round failed (spec §A1).
-    let verdict = match review_verdict::read_and_validate(&worktree_path) {
-        Ok(v) => v,
-        Err(e) => {
-            return fail(
-                config,
-                db,
-                container,
-                worker,
-                task,
-                round.as_ref(),
-                workspace_id,
-                format!("Veredicto inválido: {e}"),
-                false,
-            )
-            .await;
-        }
-    };
+    // The agent's cwd starts at the workspace root (one level above the
+    // repo), so a verdict written there instead of at the repo root is
+    // accepted too — losing a valid verdict over the cwd ambiguity burned a
+    // full re-review (incidente PR #477).
+    let mut verdict =
+        match review_verdict::read_and_validate_with_fallback(&worktree_path, &workspace_root) {
+            Ok(v) => v,
+            Err(e) => {
+                return fail(
+                    config,
+                    db,
+                    container,
+                    worker,
+                    task,
+                    round.as_ref(),
+                    workspace_id,
+                    format!("Veredicto inválido: {e}"),
+                    false,
+                )
+                .await;
+            }
+        };
 
     // Round row is required to submit: it holds the pinned head SHA the
     // API submission uses as `commit_id`. If it's missing (dispatcher
@@ -1485,6 +1491,30 @@ async fn on_reviewer_agent_finished(
         )
         .await;
     };
+    // GitHub validates every inline comment against the PR diff and rejects
+    // the WHOLE review with 422 when a single one falls outside it (incidente
+    // PR #481: un blocker anclado en un archivo que el PR no tocaba tiró la
+    // review entera y el re-review terminó aprobando). Sanitize inline
+    // placement against the host's own diff before submitting; items that
+    // don't qualify travel in the body instead of killing the round.
+    match git_host.get_pr_diff_line_map(&pr_record.pr_url).await {
+        Ok(Some(diff)) => {
+            let demoted = review_verdict::demote_items_outside_diff(&mut verdict, &diff);
+            if demoted > 0 {
+                info!(
+                    pr_number = round.pr_number,
+                    demoted, "Items inline fuera del diff del PR — degradados al body"
+                );
+            }
+        }
+        Ok(None) => {}
+        Err(e) => warn!(
+            pr_number = round.pr_number,
+            "No pude traer el diff del PR para validar los comments inline; \
+             submiteo sin sanitizar: {e}"
+        ),
+    }
+
     let body = review_verdict::compose_body(&verdict);
     let inline: Vec<PrReviewCommentInput> = review_verdict::inline_items(&verdict)
         .into_iter()
@@ -1498,14 +1528,31 @@ async fn on_reviewer_agent_finished(
             })
         })
         .collect();
-    let submit = SubmitPrReviewRequest {
+    let mut submit = SubmitPrReviewRequest {
         pr_url: pr_record.pr_url.clone(),
         commit_id: round.head_sha.clone(),
         event: event.to_string(),
         body,
         comments: inline,
     };
-    let submit_result = git_host.submit_pr_review(&submit).await;
+    let submit_result = match git_host.submit_pr_review(&submit).await {
+        // Belt-and-braces: if GitHub still 422s an inline placement (e.g.
+        // the head moved and the diff we sanitized against is stale), the
+        // verdict itself is sound — resubmit once with everything folded
+        // into the body instead of burning the round on a re-review.
+        Err(e) if !submit.comments.is_empty() && is_unprocessable_entity(&e) => {
+            warn!(
+                pr_number = round.pr_number,
+                "GitHub rechazó la review con comments inline (422); \
+                 reintento con todo el veredicto en el body: {e}"
+            );
+            review_verdict::demote_all_items(&mut verdict);
+            submit.comments = Vec::new();
+            submit.body = review_verdict::compose_body(&verdict);
+            git_host.submit_pr_review(&submit).await
+        }
+        result => result,
+    };
     let response = match submit_result {
         Ok(r) => r,
         Err(e) => {
@@ -2324,6 +2371,15 @@ async fn check_no_new_commits(
         Ok(head) => head.oid == before_oid,
         Err(_) => false,
     }
+}
+
+/// Is this host error a 422 (Unprocessable Entity)? GitHub answers that
+/// when an inline review comment doesn't land on the PR diff; the verdict
+/// itself is fine, so the caller retries with the comments folded into the
+/// review body instead of failing the round.
+fn is_unprocessable_entity(e: &GitHostError) -> bool {
+    let msg = e.to_string().to_ascii_lowercase();
+    msg.contains("422") || msg.contains("unprocessable")
 }
 
 /// Build a PR body from a worker task: includes the task prompt and, when

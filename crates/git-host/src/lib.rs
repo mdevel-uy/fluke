@@ -4,7 +4,10 @@ mod types;
 pub mod azure;
 pub mod github;
 
-use std::path::Path;
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use async_trait::async_trait;
 use detection::detect_provider_from_url;
@@ -78,6 +81,21 @@ pub trait GitHostProvider: Send + Sync {
     /// review submission ties its verdict to a specific commit even when the
     /// author pushes further work while the reviewer is running.
     async fn get_pr_head_sha(&self, pr_url: &str) -> Result<Option<String>, GitHostError>;
+
+    /// New-side line coverage of the PR diff, per file, straight from the
+    /// host. GitHub validates every inline review comment against this exact
+    /// diff and rejects the whole submission with HTTP 422 when a single
+    /// comment falls outside it, so callers use this to sanitize inline
+    /// placement *before* submitting.
+    ///
+    /// `Ok(None)`: the provider can't supply the map (treat as "don't
+    /// validate"). A file mapped to `None` is in the diff but its line
+    /// coverage is unknown (the host omits the patch for very large files);
+    /// keep inline comments on those.
+    async fn get_pr_diff_line_map(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<HashMap<String, Option<HashSet<i64>>>>, GitHostError>;
 
     /// Submit a PR review server-side using the calling provider's
     /// credentials (for GitHub, the PAT the provider was constructed with).

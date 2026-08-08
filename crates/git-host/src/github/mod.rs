@@ -2,7 +2,11 @@
 
 mod cli;
 
-use std::{path::Path, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use backon::{ExponentialBuilder, Retryable};
@@ -486,6 +490,23 @@ impl GitHostProvider for GitHubProvider {
                     "Failed to execute GitHub CLI for PR review submission: {err}"
                 ))
             })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_diff_line_map(
+        &self,
+        pr_url: &str,
+    ) -> Result<Option<HashMap<String, Option<HashSet<i64>>>>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_diff_line_map(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR diff files lookup: {err}"
+                ))
+            })?
+            .map(Some)
             .map_err(GitHostError::from)
     }
 

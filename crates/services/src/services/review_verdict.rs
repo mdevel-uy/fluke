@@ -20,9 +20,18 @@
 //!   `severity` (`blocker` | `major` | `minor` | `nit`) recorded for UI
 //!   consumption, and a required non-empty `comment`.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+};
 
 use serde::Deserialize;
+
+/// Line coverage of a PR diff: file path → new-side line numbers its hunks
+/// cover. A file mapped to `None` is in the diff but with unknown coverage
+/// (the host omitted the patch for a very large file) — treat as "anything
+/// goes". A file absent from the map is not in the diff at all.
+pub type DiffLineMap = HashMap<String, Option<HashSet<i64>>>;
 
 /// Path (relative to the worktree root) where the reviewer agent writes its
 /// verdict. Kept as a constant so the prompt template and the parser agree.
@@ -109,6 +118,31 @@ impl std::fmt::Display for VerdictError {
                 "`items[{index}]` trae `line` sin `path`: la línea inline necesita el archivo."
             ),
         }
+    }
+}
+
+/// Like [`read_and_validate`], but when the file is missing at `primary`
+/// (the repo root inside the workspace) it is also looked up at `fallback`
+/// (the workspace root, one level up). The reviewer agent's process starts
+/// with its cwd at the workspace root, and an agent that writes
+/// `.vk/review.json` relative to that cwd — without first entering the repo
+/// directory — would otherwise lose a perfectly good verdict.
+pub fn read_and_validate_with_fallback(
+    primary: &Path,
+    fallback: &Path,
+) -> Result<ReviewVerdict, VerdictError> {
+    match read_and_validate(primary) {
+        Err(VerdictError::Missing { .. }) if fallback != primary => {
+            match read_and_validate(fallback) {
+                // Report the canonical (primary) path when both are missing:
+                // that's where the contract says the file belongs.
+                Err(VerdictError::Missing { .. }) => Err(VerdictError::Missing {
+                    path: primary.join(REVIEW_JSON_RELATIVE_PATH),
+                }),
+                other => other,
+            }
+        }
+        other => other,
     }
 }
 
@@ -235,6 +269,56 @@ pub fn inline_items(verdict: &ReviewVerdict) -> Vec<&ReviewItem> {
         .iter()
         .filter(|item| is_inline(*item))
         .collect()
+}
+
+/// Demote every inline item whose `(path, line)` falls outside the PR diff.
+/// GitHub rejects the **whole** review with HTTP 422 when a single inline
+/// comment lands outside the diff, so these items lose their `line` (the
+/// original line is preserved in the comment text) and get folded into the
+/// review body by [`compose_body`], keeping the `path` as context. Returns
+/// how many items were demoted.
+pub fn demote_items_outside_diff(verdict: &mut ReviewVerdict, diff: &DiffLineMap) -> usize {
+    let mut demoted = 0;
+    for item in &mut verdict.items {
+        if !is_inline(item) {
+            continue;
+        }
+        let path = item.path.as_deref().map(str::trim).unwrap_or("");
+        let in_diff = match diff.get(path) {
+            Some(Some(lines)) => item.line.is_some_and(|l| lines.contains(&l)),
+            // File is in the diff but coverage is unknown — keep inline.
+            Some(None) => true,
+            // File not touched by the PR — inline placement is impossible.
+            None => false,
+        };
+        if !in_diff {
+            demote(item);
+            demoted += 1;
+        }
+    }
+    demoted
+}
+
+/// Strip inline placement from every item, forcing the entire verdict into
+/// the review body. Last-resort fallback when GitHub still rejects the
+/// submission with the sanitized inline set.
+pub fn demote_all_items(verdict: &mut ReviewVerdict) -> usize {
+    let mut demoted = 0;
+    for item in &mut verdict.items {
+        if is_inline(item) {
+            demote(item);
+            demoted += 1;
+        }
+    }
+    demoted
+}
+
+/// Clear an item's inline placement, folding the line number into the
+/// comment text so the reviewer's pointer survives the trip to the body.
+fn demote(item: &mut ReviewItem) {
+    if let Some(line) = item.line.take() {
+        item.comment = format!("(línea {line}) {}", item.comment.trim());
+    }
 }
 
 #[cfg(test)]
@@ -380,6 +464,102 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let err = read_and_validate(tmp.path()).unwrap_err();
         assert!(matches!(err, VerdictError::Missing { .. }));
+    }
+
+    /// Incidente PR #481: el reviewer ancló un blocker en un archivo que el
+    /// PR no tocaba y GitHub rechazó la review entera con 422. Los items
+    /// fuera del diff deben bajar al body (line → comment) y los que caen
+    /// dentro deben quedar inline.
+    #[test]
+    fn demote_items_outside_diff_folds_only_offenders() {
+        let mut verdict = v(
+            r#"{"verdict":"request_changes","summary":"...","items":[
+                {"path":"in_diff.rs","line":10,"comment":"stays inline"},
+                {"path":"in_diff.rs","line":99,"comment":"line outside hunks"},
+                {"path":"untouched.sql","line":15,"comment":"file not in PR","severity":"blocker"},
+                {"path":"huge.rs","line":500,"comment":"patch omitted, benefit of the doubt"},
+                {"comment":"body-only, untouched by demotion"}
+            ]}"#,
+        )
+        .unwrap();
+        let mut diff = DiffLineMap::new();
+        diff.insert("in_diff.rs".to_string(), Some(HashSet::from([9, 10, 11])));
+        diff.insert("huge.rs".to_string(), None);
+
+        let demoted = demote_items_outside_diff(&mut verdict, &diff);
+        assert_eq!(demoted, 2);
+        assert_eq!(inline_items(&verdict).len(), 2, "in-diff + unknown-coverage stay inline");
+
+        let body = compose_body(&verdict);
+        assert!(body.contains("(línea 99) line outside hunks"));
+        assert!(body.contains("(línea 15) file not in PR"));
+        assert!(body.contains("`untouched.sql`"), "demoted item keeps its path as context");
+        assert!(!body.contains("stays inline"));
+    }
+
+    #[test]
+    fn demote_all_items_forces_everything_to_body() {
+        let mut verdict = v(
+            r#"{"verdict":"request_changes","summary":"...","items":[
+                {"path":"a.rs","line":1,"comment":"one"},
+                {"path":"b.rs","line":2,"comment":"two"}
+            ]}"#,
+        )
+        .unwrap();
+        assert_eq!(demote_all_items(&mut verdict), 2);
+        assert!(inline_items(&verdict).is_empty());
+        let body = compose_body(&verdict);
+        assert!(body.contains("(línea 1) one"));
+        assert!(body.contains("(línea 2) two"));
+    }
+
+    /// El cwd del agente reviewer arranca en la raíz del workspace, un nivel
+    /// arriba del repo. Si escribió el veredicto ahí, no puede perderse.
+    #[test]
+    fn read_and_validate_falls_back_to_workspace_root() {
+        let workspace = tempfile::tempdir().unwrap();
+        let repo = workspace.path().join("repo");
+        std::fs::create_dir_all(repo.join(".vk")).unwrap();
+        std::fs::create_dir_all(workspace.path().join(".vk")).unwrap();
+        std::fs::write(
+            workspace.path().join(REVIEW_JSON_RELATIVE_PATH),
+            r#"{"verdict":"approve","summary":"written at workspace root"}"#,
+        )
+        .unwrap();
+
+        let verdict = read_and_validate_with_fallback(&repo, workspace.path()).unwrap();
+        assert_eq!(verdict.summary, "written at workspace root");
+    }
+
+    #[test]
+    fn read_and_validate_fallback_prefers_primary_and_reports_primary_path() {
+        let workspace = tempfile::tempdir().unwrap();
+        let repo = workspace.path().join("repo");
+        std::fs::create_dir_all(repo.join(".vk")).unwrap();
+        std::fs::write(
+            repo.join(REVIEW_JSON_RELATIVE_PATH),
+            r#"{"verdict":"approve","summary":"repo root wins"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            workspace.path().join(".vk"),
+            // A stray FILE named .vk at the root must not interfere.
+            "not a dir",
+        )
+        .ok();
+
+        let verdict = read_and_validate_with_fallback(&repo, workspace.path()).unwrap();
+        assert_eq!(verdict.summary, "repo root wins");
+
+        // Both missing → error points at the canonical (repo) path.
+        let empty = tempfile::tempdir().unwrap();
+        let repo2 = empty.path().join("repo");
+        std::fs::create_dir_all(&repo2).unwrap();
+        let err = read_and_validate_with_fallback(&repo2, empty.path()).unwrap_err();
+        match err {
+            VerdictError::Missing { path } => assert!(path.starts_with(&repo2)),
+            other => panic!("expected Missing, got {other:?}"),
+        }
     }
 
     #[test]

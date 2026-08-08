@@ -134,6 +134,13 @@ pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
          - `items` es opcional con `approve` y obligatorio (≥1) con `request_changes`.\n\
          - Cada item que apunte a una línea debe traer `path`; sin `path` el comentario \
            va al body de la review (no inline).\n\
+         - `line` sólo sirve si esa línea aparece en el diff del PR (líneas nuevas o \
+           de contexto de los hunks). GitHub rechaza comments inline fuera del diff, \
+           así que si tu comentario refiere a código que el PR no toca (otro archivo, \
+           una línea vieja), omití `line` — o directamente `path` — y explicá la \
+           ubicación en el texto del comentario: irá al body de la review.\n\
+         - Escribí el archivo en la raíz del repo — el mismo directorio donde \
+           corriste los comandos git del paso 1, no un nivel arriba.\n\
          - JSON inválido o `.vk/review.json` ausente = task fallada, la ronda no cuenta.\n\
          \n\
          Terminá dejando SOLO ese archivo escrito — nada de commits, pushes ni PRs. \
