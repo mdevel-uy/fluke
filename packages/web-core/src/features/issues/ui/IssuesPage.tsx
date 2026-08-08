@@ -86,7 +86,12 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
 // Worker-task overlay
 // ---------------------------------------------------------------------------
 
-const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'in_review']);
+const ACTIVE_STATUSES = new Set([
+  'queued',
+  'in_progress',
+  'in_review',
+  'approved',
+]);
 const EMPTY_TASK_MAP = new Map<number, WorkerTask>();
 
 // ---------------------------------------------------------------------------

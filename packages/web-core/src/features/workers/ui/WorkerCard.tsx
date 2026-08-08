@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   File,
@@ -65,6 +66,8 @@ interface WorkerCardProps {
   activeWorkspace?: SidebarWorkspace;
   needsAttention?: boolean;
   inReview?: boolean;
+  /** Reviewer already approved the PR; still waiting for merge */
+  approved?: boolean;
   isStarting: boolean;
   isDuplicating?: boolean;
   onStartNext: () => void;
@@ -80,6 +83,7 @@ export function WorkerCard({
   activeWorkspace,
   needsAttention = false,
   inReview = false,
+  approved = false,
   isStarting,
   isDuplicating = false,
   onStartNext,
@@ -125,11 +129,13 @@ export function WorkerCard({
               ? 'bg-error'
               : isWaitingApproval
                 ? 'bg-warning'
-                : inReview
-                  ? 'bg-info'
-                  : isWorking
-                    ? 'animate-pulse bg-brand-on-surface'
-                    : 'bg-success'
+                : approved
+                  ? 'bg-success'
+                  : inReview
+                    ? 'bg-info'
+                    : isWorking
+                      ? 'animate-pulse bg-brand-on-surface'
+                      : 'bg-success'
           )}
           aria-hidden
         />
@@ -271,7 +277,11 @@ export function WorkerCard({
         )}
 
         {/* Attention row: approval chip / stalled notice + diff stats */}
-        {(isWaitingApproval || needsAttention || inReview || hasChanges) && (
+        {(isWaitingApproval ||
+          needsAttention ||
+          approved ||
+          inReview ||
+          hasChanges) && (
           <div className="flex min-w-0 items-center justify-between gap-2">
             {needsAttention ? (
               <span className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-error">
@@ -289,6 +299,15 @@ export function WorkerCard({
               <span className="flex shrink-0 items-center gap-1.5 rounded bg-warning/10 px-2 py-0.5 text-sm font-medium text-warning">
                 <Hand className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 {t('workspaces.activityWaitingApproval')}
+              </span>
+            ) : approved ? (
+              <span className="flex shrink-0 items-center gap-1.5 rounded bg-success/10 px-2 py-0.5 text-sm font-medium text-success">
+                <CheckCircle2
+                  className="h-3.5 w-3.5"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                {t('workspaces.aside.approved', { defaultValue: 'Approved' })}
               </span>
             ) : inReview ? (
               <span className="flex shrink-0 items-center gap-1.5 rounded bg-info/10 px-2 py-0.5 text-sm font-medium text-info">

@@ -207,6 +207,7 @@
     "scopes": {
       "attention": "Needs you",
       "review": "In review",
+      "approved": "Approved",
       "running": "Running",
       "idle": "Idle",
       "failed": "Failed",
@@ -218,14 +219,16 @@
       "failed": "failed",
       "stalled": "stalled",
       "activity": "activity",
-      "inReview": "in review"
+      "inReview": "in review",
+      "approved": "approved"
     },
     "scopeRailLabel": "Workspace scopes",
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
       "reviewerWorking": "Reviewer working...",
-      "inReview": "In review"
+      "inReview": "In review",
+      "approved": "Approved"
     }
   },
   "fileTree": {
@@ -661,6 +664,7 @@
     "inProgress": "In progress",
     "queued": "Queued",
     "inReview": "In review",
+    "approved": "Approved",
     "openPrs": "Open PRs",
     "approvals": "Approvals",
     "done": "Done",

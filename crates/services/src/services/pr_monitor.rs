@@ -9,7 +9,7 @@ use db::{
         pull_request::PullRequest,
         repo::Repo,
         worker::Worker,
-        worker_task::WorkerTask,
+        worker_task::{self, WorkerTask},
         workspace::{Workspace, WorkspaceError},
         workspace_repo::WorkspaceRepo,
     },
@@ -639,6 +639,31 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                                                 warn!(
                                                     pr_number = pr.pr_number,
                                                     "Failed to persist review_result: {}", e
+                                                );
+                                            }
+                                        }
+
+                                        // Auto-transition in_review → approved once the
+                                        // verdict is on file. Guarded on the current status
+                                        // so a follow-up commit (already back to in_review
+                                        // by the human via re_request_review) is not silently
+                                        // flipped back to approved. Idempotent: if the DB
+                                        // write fails, the next poll retries — the task
+                                        // stays in in_review with review_result='approved'.
+                                        if state == "approved"
+                                            && dev_task.status == worker_task::STATUS_IN_REVIEW
+                                        {
+                                            if let Err(e) = WorkerTask::set_status(
+                                                &self.db.pool,
+                                                dev_task.id,
+                                                worker_task::STATUS_APPROVED,
+                                            )
+                                            .await
+                                            {
+                                                warn!(
+                                                    pr_number = pr.pr_number,
+                                                    task_id = %dev_task.id,
+                                                    "Failed to transition task to approved: {}", e
                                                 );
                                             }
                                         }

@@ -193,6 +193,7 @@
     "scopes": {
       "attention": "需要你处理",
       "review": "审阅中",
+      "approved": "已批准",
       "running": "运行中",
       "idle": "空闲",
       "all": "全部工作区",
@@ -203,14 +204,16 @@
       "failed": "失败",
       "stalled": "停滞",
       "activity": "活动",
-      "inReview": "审阅中"
+      "inReview": "审阅中",
+      "approved": "已批准"
     },
     "scopeRailLabel": "工作区范围",
     "draftWorkspace": "Draft workspace",
     "openForIssue": "Open a workspace for this issue",
     "aside": {
       "reviewerWorking": "审阅者工作中...",
-      "inReview": "审核中"
+      "inReview": "审核中",
+      "approved": "已批准"
     }
   },
   "fileTree": {
@@ -654,6 +657,7 @@
     "inProgress": "进行中",
     "queued": "排队中",
     "inReview": "审查中",
+    "approved": "已批准",
     "openPrs": "开放的 PR",
     "approvals": "待审批",
     "done": "已完成",

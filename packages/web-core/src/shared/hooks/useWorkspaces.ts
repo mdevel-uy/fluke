@@ -61,6 +61,8 @@ export interface SidebarWorkspace {
   hasFailedTask?: boolean;
   /** Backing worker task is in review status (PR open, awaiting reviewer) */
   hasTaskInReview?: boolean;
+  /** Backing worker task was approved by the reviewer, PR still open pending merge */
+  hasTaskApproved?: boolean;
   /** When the latest coding-agent process started (for elapsed time) */
   latestProcessStartedAt?: string;
   /** Name of the worker that owns this workspace, if any */

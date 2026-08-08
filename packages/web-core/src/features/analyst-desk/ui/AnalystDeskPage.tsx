@@ -932,7 +932,9 @@ export function AnalystDeskPage() {
             ) : (
               deskTasks.map((task) => {
                 const canCancel =
-                  task.status === 'in_progress' || task.status === 'in_review';
+                  task.status === 'in_progress' ||
+                  task.status === 'in_review' ||
+                  task.status === 'approved';
                 const canRemove = task.status === 'queued';
                 const confirmingThis = isConfirmingTask(task);
                 const confirmIntent = confirmingThis

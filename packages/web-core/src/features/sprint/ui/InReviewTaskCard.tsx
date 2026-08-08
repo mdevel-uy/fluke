@@ -87,6 +87,7 @@ export function InReviewTaskCard({
   const prState = task.pr_state ?? null;
   const isConflicting = task.pr_mergeable === 'conflicting';
   const reviewResult = task.review_result ?? null;
+  const isApproved = task.status === 'approved';
   const loopBadge = task.loop_state ? LOOP_BADGES[task.loop_state] : undefined;
   const [isConfirming, setIsConfirming] = useState(false);
   // Re-request review is available whenever a verdict is on file:
@@ -111,9 +112,17 @@ export function InReviewTaskCard({
   };
 
   return (
-    <article className="group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest border border-md-outline-variant rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px">
+    <article
+      className={cn(
+        'group flex flex-col gap-2.5 p-3.5 bg-md-surface-container-lowest rounded-lg shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px border',
+        // Approved tasks read as "done with review, waiting merge" — an
+        // accent border in the success color makes the state legible at a
+        // glance without changing the card structure.
+        isApproved ? 'border-success/40' : 'border-md-outline-variant'
+      )}
+    >
       <div className="flex items-start gap-2">
-        {!reviewResult && (
+        {!reviewResult && !isApproved && (
           <span
             className="mt-1 h-2 w-2 rounded-full bg-md-primary animate-pulse shrink-0"
             aria-hidden

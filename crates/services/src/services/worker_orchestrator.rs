@@ -1645,6 +1645,20 @@ async fn on_reviewer_agent_finished(
                     );
                 }
             }
+            // Auto-transition in_review → approved on the developer's task
+            // as soon as the verdict is on file. Same idempotent guard as
+            // pr_monitor: only flip while status is still in_review.
+            if state == "approved" && dev_task.status == worker_task::STATUS_IN_REVIEW {
+                if let Err(e) =
+                    WorkerTask::set_status(pool, dev_task.id, worker_task::STATUS_APPROVED).await
+                {
+                    warn!(
+                        dev_task_id = %dev_task.id,
+                        "Failed to transition dev task to approved: {}",
+                        e
+                    );
+                }
+            }
         }
     }
     info!(
@@ -1977,11 +1991,16 @@ async fn on_developer_agent_finished(
     }
     if task.status != worker_task::STATUS_IN_PROGRESS {
         // A run finishing on a task that is no longer in_progress is a manual
-        // follow-up (red CI, merge conflicts) on a task already in_review:
-        // the orchestrator opened the PR on the first run, so mirror only the
-        // plumbing step — push the new commits to the PR head, best-effort,
-        // without touching task state or archiving the workspace.
-        if succeeded && task.status == worker_task::STATUS_IN_REVIEW {
+        // follow-up (red CI, merge conflicts) on a task already in_review or
+        // approved: the orchestrator opened the PR on the first run, so mirror
+        // only the plumbing step — push the new commits to the PR head,
+        // best-effort, without touching task state or archiving the workspace.
+        // Approved is included because a CI failure on an already-approved PR
+        // still gets fixed by a follow-up run before merge.
+        if succeeded
+            && (task.status == worker_task::STATUS_IN_REVIEW
+                || task.status == worker_task::STATUS_APPROVED)
+        {
             push_follow_up_commits(db, container, workspace_id, worker, &task).await;
         }
         return Ok(());
@@ -3689,6 +3708,52 @@ mod tests {
 
         assert_eq!(task.source, worker_task::SOURCE_DESK);
         assert_eq!(task.status, worker_task::STATUS_QUEUED);
+    }
+
+    /// Regression for the `approved` state: `WorkerTask::set_status` must be
+    /// able to move a task from `in_review` to `approved` against the real
+    /// schema. If the CHECK constraint on `worker_tasks.status` is missing
+    /// the value, sqlx bubbles a `SQLITE_CONSTRAINT_CHECK` error, the
+    /// auto-transition in `pr_monitor`/`worker_orchestrator` silently warns,
+    /// and the task stays stuck in `in_review` forever.
+    #[tokio::test]
+    async fn set_status_accepts_approved_against_check_constraint() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dev").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "approved-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "feature".to_string(),
+                prompt: "ship it".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_REVIEW)
+            .await
+            .expect("in_review is a valid status");
+        let approved =
+            WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_APPROVED)
+                .await
+                .expect("approved must be accepted by the status CHECK");
+        assert_eq!(approved.status, worker_task::STATUS_APPROVED);
+
+        // count_in_review folds `approved` into the same slot bucket as
+        // `in_review` — verify the DB read agrees after the transition.
+        assert_eq!(
+            WorkerTask::count_in_review(&db.pool, worker.id)
+                .await
+                .unwrap(),
+            1
+        );
     }
 
     #[tokio::test]
