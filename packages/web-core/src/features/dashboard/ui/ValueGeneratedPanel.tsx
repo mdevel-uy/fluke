@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
+import {
+  DEFAULT_CURRENCY,
+  DEFAULT_HOURLY_RATE,
+  normalizeCurrency,
+} from '@/features/dashboard/model/valueDefaults';
 import { formatManHours } from '@/features/dashboard/model/dashboardMetrics';
 import {
   VALUE_HISTORY_WINDOWS,
@@ -10,17 +15,12 @@ import {
 } from '@/features/dashboard/model/useValueGenerated';
 import { useCompletedTasksSince } from '@/features/dashboard/model/useCompletedTasks';
 import {
-  CURRENCY_OPTIONS,
   DEFAULT_HOURS_PER_FTE_MONTH,
   DEFAULT_HOURS_PER_TASK,
-  MAX_HOURLY_RATE,
   MAX_HOURS_PER_FTE_MONTH,
   MAX_HOURS_PER_TASK,
-  MIN_HOURLY_RATE,
   MIN_HOURS_PER_FTE_MONTH,
   MIN_HOURS_PER_TASK,
-  type ReportCurrency,
-  clampHourlyRate,
   clampHoursPerFteMonth,
   clampHoursPerTask,
   useValueGeneratedSettingsStore,
@@ -94,7 +94,9 @@ function computeMonthMetrics(
  *
  * Self-contained: owns its query and reads the installation-wide defaults
  * from the server config so every viewer sees the same authoritative
- * pricing figure.
+ * pricing figure — hourly rate and currency now live in
+ * `Config.default_hourly_rate` / `Config.default_currency` (issue #459)
+ * rather than each viewer's localStorage.
  */
 export function ValueGeneratedPanel() {
   const { t, i18n } = useTranslation('common');
@@ -104,25 +106,23 @@ export function ValueGeneratedPanel() {
   const setHistoryMonths = useValueGeneratedSettingsStore(
     (s) => s.setHistoryMonths
   );
-  const hourlyRate = useValueGeneratedSettingsStore((s) => s.hourlyRate);
-  const setHourlyRate = useValueGeneratedSettingsStore((s) => s.setHourlyRate);
-  const currency = useValueGeneratedSettingsStore((s) => s.currency);
-  const setCurrency = useValueGeneratedSettingsStore((s) => s.setCurrency);
 
   const { summary, isLoading } = useValueGenerated(historyMonths);
 
   // Defaults live server-side (`Config.default_hours_saved_per_task`,
-  // `Config.default_hours_per_fte_month`) so the pricing figure does not
-  // diverge across viewers. Fall back to the client defaults only while
-  // the config is still loading.
+  // `Config.default_hours_per_fte_month`, `Config.default_hourly_rate`,
+  // `Config.default_currency`) so the pricing figure does not diverge
+  // across viewers. Fall back to the client defaults only while the
+  // config is still loading.
   const hoursPerTask =
     config?.default_hours_saved_per_task ?? DEFAULT_HOURS_PER_TASK;
   const hoursPerFteMonth =
     config?.default_hours_per_fte_month ?? DEFAULT_HOURS_PER_FTE_MONTH;
+  const hourlyRate = config?.default_hourly_rate ?? DEFAULT_HOURLY_RATE;
+  const currency = normalizeCurrency(config?.default_currency, DEFAULT_CURRENCY);
 
   const [hoursDraft, setHoursDraft] = useState(() => String(hoursPerTask));
   const [fteDraft, setFteDraft] = useState(() => String(hoursPerFteMonth));
-  const [rateDraft, setRateDraft] = useState(() => String(hourlyRate));
   const [editingTasks, setEditingTasks] = useState(false);
 
   // Re-hydrate the input drafts when the server figure changes (initial
@@ -140,11 +140,6 @@ export function ValueGeneratedPanel() {
         : String(hoursPerFteMonth)
     );
   }, [hoursPerFteMonth]);
-  useEffect(() => {
-    setRateDraft((draft) =>
-      Number.parseFloat(draft) === hourlyRate ? draft : String(hourlyRate)
-    );
-  }, [hourlyRate]);
 
   const monthFormatter = useMemo(
     () =>
@@ -259,23 +254,6 @@ export function ValueGeneratedPanel() {
     setFteDraft(String(next));
   };
 
-  const commitHourlyRate = (raw: string) => {
-    setRateDraft(raw);
-    const parsed = Number.parseFloat(raw);
-    if (
-      Number.isFinite(parsed) &&
-      parsed >= MIN_HOURLY_RATE &&
-      parsed <= MAX_HOURLY_RATE
-    ) {
-      setHourlyRate(parsed);
-    }
-  };
-  const normaliseHourlyRate = () => {
-    const next = clampHourlyRate(Number.parseFloat(rateDraft));
-    setHourlyRate(next);
-    setRateDraft(String(next));
-  };
-
   const head = (
     <span className="flex flex-wrap items-center gap-2.5">
       <span
@@ -328,36 +306,14 @@ export function ValueGeneratedPanel() {
         />
         {t('dashboard.valueGenerated.hoursPerFte')}
       </label>
-      <label className="flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-low">
-        <input
-          type="number"
-          min={MIN_HOURLY_RATE}
-          max={MAX_HOURLY_RATE}
-          step={5}
-          value={rateDraft}
-          aria-label={t('dashboard.valueGenerated.hourlyRateLabel')}
-          onChange={(event) => commitHourlyRate(event.target.value)}
-          onBlur={normaliseHourlyRate}
-          className="w-14 rounded border border-border bg-md-background px-1.5 py-px text-right text-xs text-high tabular-nums"
-        />
-        {t('dashboard.valueGenerated.hourlyRate')}
-      </label>
-      <label className="flex items-center gap-1 text-xs font-normal normal-case tracking-normal text-low">
-        <select
-          value={currency}
-          onChange={(event) =>
-            setCurrency(event.target.value as ReportCurrency)
-          }
-          aria-label={t('dashboard.valueGenerated.currencyLabel')}
-          className="rounded border border-border bg-md-background px-1.5 py-px text-xs text-high"
-        >
-          {CURRENCY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </label>
+      <span
+        className="text-xs font-normal normal-case tracking-normal text-low"
+        title={t('dashboard.valueGenerated.rateFromConfigHint')}
+      >
+        {t('dashboard.valueGenerated.rateFromConfig', {
+          rate: currencyFormatter.format(hourlyRate),
+        })}
+      </span>
     </span>
   );
 
@@ -393,6 +349,13 @@ export function ValueGeneratedPanel() {
                 fte: formatManHours(totals.fte),
               })}
             </span>
+            {totals.gross > 0 && (
+              <span className="tabular-nums text-normal">
+                {t('dashboard.valueGenerated.totalsValue', {
+                  value: currencyFormatter.format(totals.gross),
+                })}
+              </span>
+            )}
             {totals.cost > 0 && (
               <span className="tabular-nums text-normal">
                 {t('dashboard.valueGenerated.totalsCost', {
@@ -490,6 +453,13 @@ function CurrentMonthCard({
             fte: formatManHours(metrics.fte),
           })}
         </span>
+        {metrics.grossValue > 0 && (
+          <span className="text-sm text-normal tabular-nums">
+            {t('dashboard.valueGenerated.summaryValue', {
+              value: currencyFormatter.format(metrics.grossValue),
+            })}
+          </span>
+        )}
       </div>
       {month.done_count > 0 && (
         <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-sm">
@@ -559,6 +529,9 @@ function HistoryTable({
               {t('dashboard.valueGenerated.tableFte')}
             </th>
             <th className="py-1 pr-2 text-right font-semibold">
+              {t('dashboard.valueGenerated.tableValue')}
+            </th>
+            <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableCost')}
             </th>
             <th className="py-1 text-right font-semibold">
@@ -598,6 +571,11 @@ function HistoryTable({
                 </td>
                 <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
                   {formatManHours(metrics.fte)}
+                </td>
+                <td className="border-t border-border py-1 pr-2 text-right tabular-nums">
+                  {metrics.grossValue > 0
+                    ? currencyFormatter.format(metrics.grossValue)
+                    : '—'}
                 </td>
                 <td
                   className="border-t border-border py-1 pr-2 text-right tabular-nums"

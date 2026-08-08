@@ -44,14 +44,27 @@ export function computePilotReportMetrics(
   windowStart: Date,
   windowEnd: Date
 ): PilotReportMetrics {
-  const doneTasks = data.completed_tasks.filter((t) => t.status === 'done');
-  const ticketsResolved = doneTasks.length;
+  const resolvedTasks = data.completed_tasks.filter((t) => t.status === 'done');
+  const ticketsResolved = resolvedTasks.length;
   const ticketsFailed = data.completed_tasks.filter(
     (t) => t.status === 'failed'
   ).length;
   const prsMerged = data.merged_prs.length;
 
-  const hoursSaved = ticketsResolved * assumptions.hoursPerTicket;
+  // Same formula the value-generated panel uses: per-task overrides
+  // contribute their stored hours verbatim, tasks without one get the
+  // installation default. Keeping the math aligned means both surfaces
+  // tell the same story for the same window.
+  const overrideSum = resolvedTasks.reduce(
+    (sum, t) => sum + (t.hours_saved_override ?? 0),
+    0
+  );
+  const tasksWithOverride = resolvedTasks.filter(
+    (t) => t.hours_saved_override !== null
+  ).length;
+  const tasksWithoutOverride = Math.max(0, ticketsResolved - tasksWithOverride);
+  const hoursSaved =
+    overrideSum + tasksWithoutOverride * assumptions.hoursPerTicket;
 
   // Guard against a zero-hours FTE assumption to avoid NaN in the KPI.
   const fteEquivalent =
@@ -65,7 +78,7 @@ export function computePilotReportMetrics(
   // silently understate what the client actually paid for API tokens.
   let apiCostUsd = 0;
   let ticketsWithCost = 0;
-  for (const task of doneTasks) {
+  for (const task of resolvedTasks) {
     if (task.cost_usd !== null && task.cost_usd !== undefined) {
       apiCostUsd += task.cost_usd;
       ticketsWithCost += 1;

@@ -41,6 +41,13 @@ pub struct PilotReportTask {
     pub status: String,
     /// SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
     pub completed_at: String,
+    /// Per-task hours-saved override, when the viewer pinned an explicit
+    /// figure on the value-generated panel. `None` means "use the
+    /// installation default" (`Config.default_hours_saved_per_task`).
+    /// Kept aligned with the value-generated panel formula so both surfaces
+    /// tell the same story for the same month.
+    #[ts(type = "number | null")]
+    pub hours_saved_override: Option<f64>,
     /// Rolled-up LLM cost across every execution that ran under this task.
     /// `None` when the task never had any usage recorded (older tasks,
     /// executors that don't emit `total_cost_usd` yet). Kept nullable so the
@@ -122,6 +129,7 @@ pub async fn get_pilot_report(
 
     let completed_tasks: Vec<PilotReportTask> = sqlx::query_as(
         "SELECT worker_id, title, issue_number, status, completed_at,
+                hours_saved_override,
                 cost_usd_total              AS cost_usd,
                 input_tokens_total          AS input_tokens,
                 output_tokens_total         AS output_tokens,

@@ -15,6 +15,8 @@ export interface PilotReportTask {
   status: 'done' | 'failed' | string;
   /** SQLite UTC datetime: "YYYY-MM-DD HH:MM:SS.SSS" */
   completed_at: string;
+  /** Per-task hours-saved override; `null` means "use installation default". */
+  hours_saved_override: number | null;
   /** Rolled-up LLM cost across every execution under this task, in USD.
    *  `null` when the task never had any usage recorded (older tasks or
    *  agents that don't emit `total_cost_usd` yet). */

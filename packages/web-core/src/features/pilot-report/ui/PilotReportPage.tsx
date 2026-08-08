@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, RotateCcw } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
+import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { cn } from '@/shared/lib/utils';
 import {
   usePilotReport,
@@ -22,9 +23,10 @@ import {
 } from '../model/pilotReportCsv';
 import {
   CURRENCY_OPTIONS,
-  DEFAULT_HOURLY_RATE,
-  DEFAULT_HOURS_PER_FTE_MONTH,
-  DEFAULT_HOURS_PER_TICKET,
+  FALLBACK_CURRENCY,
+  FALLBACK_HOURLY_RATE,
+  FALLBACK_HOURS_PER_FTE_MONTH,
+  FALLBACK_HOURS_PER_TICKET,
   MAX_HOURLY_RATE,
   MAX_HOURS_PER_FTE_MONTH,
   MAX_HOURS_PER_TICKET,
@@ -39,7 +41,6 @@ import './pilot-report-print.css';
 const PRESET_DAYS = [7, 30, 60, 90] as const;
 type PresetWindow = (typeof PRESET_DAYS)[number];
 
-/** ISO YYYY-MM-DD, in the viewer's local calendar. */
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -47,7 +48,6 @@ function toDateInputValue(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Parse a YYYY-MM-DD `<input type=date>` value into a local-midnight Date. */
 function fromDateInputValue(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split('-').map(Number);
@@ -55,7 +55,6 @@ function fromDateInputValue(value: string): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
-/** Half-open window `[start-of-from, end-of-to)`, in the local calendar. */
 function normalizeWindow(from: Date, to: Date): { start: Date; end: Date } {
   const start = new Date(from);
   start.setHours(0, 0, 0, 0);
@@ -69,9 +68,44 @@ export function PilotReportPage() {
   const { t, i18n } = useTranslation('common');
   usePageTitle(t('pilotReport.title'));
 
-  const settings = usePilotReportSettingsStore();
+  const { config } = useUserSystem();
 
-  // Default range: last 30 days ending today, in the viewer's calendar.
+  // Server config is the source of truth for pricing assumptions. Fall back
+  // to the constants only while it's still loading — those must not sneak
+  // into a report a CTO will see.
+  const configHoursPerTicket =
+    config?.default_hours_saved_per_task ?? FALLBACK_HOURS_PER_TICKET;
+  const configHoursPerFteMonth =
+    config?.default_hours_per_fte_month ?? FALLBACK_HOURS_PER_FTE_MONTH;
+  const configHourlyRate = config?.default_hourly_rate ?? FALLBACK_HOURLY_RATE;
+  const configCurrency = normalizeCurrency(
+    config?.default_currency,
+    FALLBACK_CURRENCY
+  );
+
+  const {
+    hoursPerTicketOverride,
+    hoursPerFteMonthOverride,
+    hourlyRateOverride,
+    currencyOverride,
+    setHoursPerTicketOverride,
+    setHoursPerFteMonthOverride,
+    setHourlyRateOverride,
+    setCurrencyOverride,
+    resetAll,
+  } = usePilotReportSettingsStore();
+
+  const hoursPerTicket = hoursPerTicketOverride ?? configHoursPerTicket;
+  const hoursPerFteMonth = hoursPerFteMonthOverride ?? configHoursPerFteMonth;
+  const hourlyRate = hourlyRateOverride ?? configHourlyRate;
+  const currency: ReportCurrency = currencyOverride ?? configCurrency;
+
+  const hasAnyOverride =
+    hoursPerTicketOverride !== null ||
+    hoursPerFteMonthOverride !== null ||
+    hourlyRateOverride !== null ||
+    currencyOverride !== null;
+
   const [fromInput, setFromInput] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 29);
@@ -82,7 +116,6 @@ export function PilotReportPage() {
   const parsedFrom = useMemo(() => fromDateInputValue(fromInput), [fromInput]);
   const parsedTo = useMemo(() => fromDateInputValue(toInput), [toInput]);
 
-  // Clamp to a valid half-open range even if the user typed something odd.
   const { windowStart, windowEnd } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -90,7 +123,6 @@ export function PilotReportPage() {
     fallbackFrom.setDate(fallbackFrom.getDate() - 29);
     const from = parsedFrom ?? fallbackFrom;
     const to = parsedTo ?? today;
-    // A single-day window is valid: keep `to` as-is, don't reject.
     const [lo, hi] = from > to ? [to, from] : [from, to];
     const norm = normalizeWindow(lo, hi);
     return { windowStart: norm.start, windowEnd: norm.end };
@@ -108,7 +140,6 @@ export function PilotReportPage() {
     (days: PresetWindow) => {
       const ms = windowEnd.getTime() - windowStart.getTime();
       const daysDiff = Math.round(ms / (24 * 60 * 60 * 1000));
-      // `to` is exclusive → windowDays is `to - from + 1` if inclusive.
       if (daysDiff !== days) return false;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -125,24 +156,16 @@ export function PilotReportPage() {
       computePilotReportMetrics(
         data,
         {
-          hoursPerTicket: settings.hoursPerTicket,
-          hoursPerFteMonth: settings.hoursPerFteMonth,
-          hourlyRate: settings.hourlyRate,
+          hoursPerTicket,
+          hoursPerFteMonth,
+          hourlyRate,
         },
         windowStart,
         windowEnd
       ),
-    [
-      data,
-      settings.hoursPerTicket,
-      settings.hoursPerFteMonth,
-      settings.hourlyRate,
-      windowStart,
-      windowEnd,
-    ]
+    [data, hoursPerTicket, hoursPerFteMonth, hourlyRate, windowStart, windowEnd]
   );
 
-  // `to` displayed to the user is inclusive: subtract 1 day for the label.
   const inclusiveEnd = useMemo(() => {
     const d = new Date(windowEnd);
     d.setDate(d.getDate() - 1);
@@ -163,10 +186,10 @@ export function PilotReportPage() {
     () =>
       new Intl.NumberFormat(i18n.language, {
         style: 'currency',
-        currency: settings.currency,
+        currency,
         maximumFractionDigits: 0,
       }),
-    [i18n.language, settings.currency]
+    [i18n.language, currency]
   );
 
   const numberFormatter = useMemo(
@@ -251,7 +274,22 @@ export function PilotReportPage() {
             isLoading={isLoading}
           />
 
-          <AssumptionsRow />
+          <AssumptionsRow
+            hoursPerTicket={hoursPerTicket}
+            hoursPerFteMonth={hoursPerFteMonth}
+            hourlyRate={hourlyRate}
+            currency={currency}
+            configHoursPerTicket={configHoursPerTicket}
+            configHoursPerFteMonth={configHoursPerFteMonth}
+            configHourlyRate={configHourlyRate}
+            configCurrency={configCurrency}
+            hasAnyOverride={hasAnyOverride}
+            onHoursPerTicketChange={setHoursPerTicketOverride}
+            onHoursPerFteMonthChange={setHoursPerFteMonthOverride}
+            onHourlyRateChange={setHourlyRateOverride}
+            onCurrencyChange={setCurrencyOverride}
+            onResetAll={resetAll}
+          />
 
           <TasksTable
             tasks={data.completed_tasks}
@@ -439,92 +477,122 @@ function KpiGrid({
   );
 }
 
-function AssumptionsRow() {
+function AssumptionsRow({
+  hoursPerTicket,
+  hoursPerFteMonth,
+  hourlyRate,
+  currency,
+  configHoursPerTicket,
+  configHoursPerFteMonth,
+  configHourlyRate,
+  configCurrency,
+  hasAnyOverride,
+  onHoursPerTicketChange,
+  onHoursPerFteMonthChange,
+  onHourlyRateChange,
+  onCurrencyChange,
+  onResetAll,
+}: {
+  hoursPerTicket: number;
+  hoursPerFteMonth: number;
+  hourlyRate: number;
+  currency: ReportCurrency;
+  configHoursPerTicket: number;
+  configHoursPerFteMonth: number;
+  configHourlyRate: number;
+  configCurrency: ReportCurrency;
+  hasAnyOverride: boolean;
+  onHoursPerTicketChange: (value: number | null) => void;
+  onHoursPerFteMonthChange: (value: number | null) => void;
+  onHourlyRateChange: (value: number | null) => void;
+  onCurrencyChange: (value: ReportCurrency | null) => void;
+  onResetAll: () => void;
+}) {
   const { t } = useTranslation('common');
-  const {
-    hoursPerTicket,
-    hoursPerFteMonth,
-    hourlyRate,
-    currency,
-    setHoursPerTicket,
-    setHoursPerFteMonth,
-    setHourlyRate,
-    setCurrency,
-  } = usePilotReportSettingsStore();
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border bg-card/50 p-3 print:hidden">
-      <span className="text-xs font-semibold uppercase tracking-wide text-low">
-        {t('pilotReport.assumptions.title')}
-      </span>
-      <NumberField
-        label={t('pilotReport.assumptions.hoursPerTicket')}
-        value={hoursPerTicket}
-        min={MIN_HOURS_PER_TICKET}
-        max={MAX_HOURS_PER_TICKET}
-        step={0.5}
-        fallback={DEFAULT_HOURS_PER_TICKET}
-        onCommit={setHoursPerTicket}
-      />
-      <NumberField
-        label={t('pilotReport.assumptions.hoursPerFteMonth')}
-        value={hoursPerFteMonth}
-        min={MIN_HOURS_PER_FTE_MONTH}
-        max={MAX_HOURS_PER_FTE_MONTH}
-        step={1}
-        fallback={DEFAULT_HOURS_PER_FTE_MONTH}
-        onCommit={setHoursPerFteMonth}
-      />
-      <NumberField
-        label={t('pilotReport.assumptions.hourlyRate')}
-        value={hourlyRate}
-        min={MIN_HOURLY_RATE}
-        max={MAX_HOURLY_RATE}
-        step={1}
-        fallback={DEFAULT_HOURLY_RATE}
-        onCommit={setHourlyRate}
-      />
-      <label className="flex flex-col gap-1 text-xs text-low">
-        {t('pilotReport.assumptions.currency')}
-        <select
+    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-card/50 p-3 print:hidden">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-low">
+          {t('pilotReport.assumptions.title')}
+        </span>
+        <span className="text-xs text-low">
+          {t('pilotReport.assumptions.sourceHint')}
+        </span>
+        {hasAnyOverride && (
+          <button
+            type="button"
+            onClick={onResetAll}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-md-background px-2 py-1 text-xs font-medium text-normal hover:text-high"
+          >
+            <RotateCcw size={12} strokeWidth={2} />
+            {t('pilotReport.assumptions.resetAll')}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <NumberAssumptionField
+          label={t('pilotReport.assumptions.hoursPerTicket')}
+          value={hoursPerTicket}
+          configValue={configHoursPerTicket}
+          min={MIN_HOURS_PER_TICKET}
+          max={MAX_HOURS_PER_TICKET}
+          step={0.5}
+          onCommit={onHoursPerTicketChange}
+        />
+        <NumberAssumptionField
+          label={t('pilotReport.assumptions.hoursPerFteMonth')}
+          value={hoursPerFteMonth}
+          configValue={configHoursPerFteMonth}
+          min={MIN_HOURS_PER_FTE_MONTH}
+          max={MAX_HOURS_PER_FTE_MONTH}
+          step={1}
+          onCommit={onHoursPerFteMonthChange}
+        />
+        <NumberAssumptionField
+          label={t('pilotReport.assumptions.hourlyRate')}
+          value={hourlyRate}
+          configValue={configHourlyRate}
+          min={MIN_HOURLY_RATE}
+          max={MAX_HOURLY_RATE}
+          step={1}
+          onCommit={onHourlyRateChange}
+        />
+        <CurrencyAssumptionField
+          label={t('pilotReport.assumptions.currency')}
           value={currency}
-          onChange={(event) =>
-            setCurrency(event.target.value as ReportCurrency)
-          }
-          className="h-8 rounded border border-border bg-md-background px-2 text-sm text-high"
-        >
-          {CURRENCY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </label>
+          configValue={configCurrency}
+          onCommit={onCurrencyChange}
+        />
+      </div>
     </div>
   );
 }
 
-function NumberField({
+function NumberAssumptionField({
   label,
   value,
+  configValue,
   min,
   max,
   step,
-  fallback,
   onCommit,
 }: {
   label: string;
   value: number;
+  configValue: number;
   min: number;
   max: number;
   step: number;
-  fallback: number;
-  onCommit: (value: number) => void;
+  onCommit: (value: number | null) => void;
 }) {
+  const { t } = useTranslation('common');
   const [draft, setDraft] = useState(String(value));
+  // Track whether the store treats this field as modified — a reset from the
+  // "Reset all" button, or the config changing under us, must snap the input
+  // back to the config value.
+  const isModified = value !== configValue;
 
-  // Reset the local draft when the store value changes underneath us
-  // (currency swap, storage merge, another component write).
   useEffect(() => {
     setDraft(String(value));
   }, [value]);
@@ -532,27 +600,142 @@ function NumberField({
   const commit = (raw: string) => {
     const parsed = Number.parseFloat(raw);
     if (Number.isFinite(parsed)) {
+      // Storing "the same as config" as `null` keeps the "modified" indicator
+      // honest — a viewer who types back the exact config value stops looking
+      // like they've overridden anything.
+      if (parsed === configValue) {
+        onCommit(null);
+        setDraft(String(configValue));
+        return;
+      }
       onCommit(parsed);
     } else {
-      onCommit(fallback);
+      onCommit(null);
+      setDraft(String(configValue));
     }
   };
 
   return (
     <label className="flex flex-col gap-1 text-xs text-low">
-      {label}
-      <input
-        type="number"
-        value={draft}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => commit(draft)}
-        className="h-8 w-24 rounded border border-border bg-md-background px-2 text-right text-sm text-high tabular-nums"
-      />
+      <span className="flex items-center gap-1.5">
+        {label}
+        {isModified && (
+          <span
+            title={t('pilotReport.assumptions.modifiedHint')}
+            className="rounded-full bg-brand-container/50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-brand-on-surface"
+          >
+            {t('pilotReport.assumptions.modifiedBadge')}
+          </span>
+        )}
+      </span>
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          value={draft}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => commit(draft)}
+          className={cn(
+            'h-8 w-24 rounded border bg-md-background px-2 text-right text-sm text-high tabular-nums',
+            isModified ? 'border-brand-on-surface' : 'border-border'
+          )}
+        />
+        {isModified && (
+          <button
+            type="button"
+            onClick={() => onCommit(null)}
+            title={t('pilotReport.assumptions.resetField', {
+              value: configValue,
+            })}
+            aria-label={t('pilotReport.assumptions.resetField', {
+              value: configValue,
+            })}
+            className="inline-flex h-8 w-6 items-center justify-center rounded text-low hover:text-normal"
+          >
+            <RotateCcw size={12} strokeWidth={2} />
+          </button>
+        )}
+      </div>
     </label>
   );
+}
+
+function CurrencyAssumptionField({
+  label,
+  value,
+  configValue,
+  onCommit,
+}: {
+  label: string;
+  value: ReportCurrency;
+  configValue: ReportCurrency;
+  onCommit: (value: ReportCurrency | null) => void;
+}) {
+  const { t } = useTranslation('common');
+  const isModified = value !== configValue;
+  return (
+    <label className="flex flex-col gap-1 text-xs text-low">
+      <span className="flex items-center gap-1.5">
+        {label}
+        {isModified && (
+          <span
+            title={t('pilotReport.assumptions.modifiedHint')}
+            className="rounded-full bg-brand-container/50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-brand-on-surface"
+          >
+            {t('pilotReport.assumptions.modifiedBadge')}
+          </span>
+        )}
+      </span>
+      <div className="flex items-center gap-1">
+        <select
+          value={value}
+          onChange={(event) => {
+            const next = event.target.value as ReportCurrency;
+            // Same rule as the numeric fields: matching the config value
+            // stores `null` so the "modified" badge stays accurate.
+            onCommit(next === configValue ? null : next);
+          }}
+          className={cn(
+            'h-8 rounded border bg-md-background px-2 text-sm text-high',
+            isModified ? 'border-brand-on-surface' : 'border-border'
+          )}
+        >
+          {CURRENCY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        {isModified && (
+          <button
+            type="button"
+            onClick={() => onCommit(null)}
+            title={t('pilotReport.assumptions.resetField', {
+              value: configValue,
+            })}
+            aria-label={t('pilotReport.assumptions.resetField', {
+              value: configValue,
+            })}
+            className="inline-flex h-8 w-6 items-center justify-center rounded text-low hover:text-normal"
+          >
+            <RotateCcw size={12} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function normalizeCurrency(
+  raw: string | undefined | null,
+  fallback: ReportCurrency
+): ReportCurrency {
+  if (raw && (CURRENCY_OPTIONS as readonly string[]).includes(raw)) {
+    return raw as ReportCurrency;
+  }
+  return fallback;
 }
 
 function TasksTable({
@@ -749,11 +932,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/**
- * SQLite emits UTC datetimes as "YYYY-MM-DD HH:MM:SS.SSS" — the "T"
- * separator is missing, so a bare `new Date()` treats them as local
- * time in some browsers. Normalize before formatting.
- */
 function formatSqliteDate(raw: string, formatter: Intl.DateTimeFormat): string {
   const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
   const date = new Date(normalized);
