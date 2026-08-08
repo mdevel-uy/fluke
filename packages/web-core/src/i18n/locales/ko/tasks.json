@@ -569,6 +569,7 @@
       "fixing": "수정 진행 중…",
       "fixQueued": "수정 대기열",
       "awaitingReview": "리뷰 대기 중",
+      "developerRunning": "후속 작업 진행 중…",
       "stalled": "루프 정체"
     }
   }

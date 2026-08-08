@@ -569,6 +569,7 @@
       "fixing": "Fix in progress…",
       "fixQueued": "Fix queued",
       "awaitingReview": "Awaiting review",
+      "developerRunning": "Follow-up running…",
       "stalled": "Loop stalled"
     }
   }

@@ -684,7 +684,8 @@ export function SprintPage() {
                     ? 'sprint.toast.reRequestReviewNoReviewer'
                     : code === 'review_already_in_progress'
                       ? 'sprint.toast.reRequestReviewInProgress'
-                      : code === 'no_changes_requested'
+                      : code === 'no_changes_requested' ||
+                          code === 'no_verdict_to_rerun'
                         ? 'sprint.toast.reRequestReviewNoChangesRequested'
                         : code === 'pr_head_unchanged'
                           ? 'sprint.toast.reRequestReviewHeadUnchanged'

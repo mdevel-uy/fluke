@@ -569,6 +569,7 @@
       "fixing": "Correctif en cours…",
       "fixQueued": "Correctif en file",
       "awaitingReview": "En attente de revue",
+      "developerRunning": "Follow-up en cours…",
       "stalled": "Boucle bloquée"
     }
   }

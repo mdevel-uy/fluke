@@ -569,6 +569,7 @@
       "fixing": "修復進行中…",
       "fixQueued": "修復排隊中",
       "awaitingReview": "等待審查",
+      "developerRunning": "後續執行中…",
       "stalled": "循環停滯"
     }
   }
