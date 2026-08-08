@@ -124,6 +124,34 @@ pub enum ExecutorActionField {
     Other(Value),
 }
 
+/// LLM usage recorded for a single execution process. Persisted as extra
+/// columns on `execution_processes` (see the 20260807130000 migration) but
+/// kept out of the `ExecutionProcess` struct so the sqlx offline metadata
+/// stays untouched. `input_tokens`/`output_tokens` etc. are `i64` for
+/// SQLite-native storage; `None` means "unknown", not zero.
+#[derive(Debug, Clone, Default, FromRow, Serialize, Deserialize)]
+pub struct ExecutionProcessUsage {
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub cache_creation_tokens: Option<i64>,
+    pub cache_read_tokens: Option<i64>,
+    pub cost_usd: Option<f64>,
+    pub model: Option<String>,
+}
+
+impl ExecutionProcessUsage {
+    /// True when nothing but zeros/NULLs got persisted — used to skip the
+    /// rollup UPDATE and avoid touching worker_tasks for setup/cleanup
+    /// scripts that ran no LLM calls.
+    pub fn is_empty(&self) -> bool {
+        self.input_tokens.unwrap_or(0) == 0
+            && self.output_tokens.unwrap_or(0) == 0
+            && self.cache_creation_tokens.unwrap_or(0) == 0
+            && self.cache_read_tokens.unwrap_or(0) == 0
+            && self.cost_usd.unwrap_or(0.0) == 0.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MissingBeforeContext {
     pub id: Uuid,
@@ -828,6 +856,55 @@ impl ExecutionProcess {
         .fetch_one(pool)
         .await?;
         Ok(count > 0)
+    }
+
+    /// Persist per-process LLM usage (tokens + USD + model). Kept outside
+    /// the `ExecutionProcess` struct on purpose — runtime-checked so the
+    /// committed sqlx offline cache doesn't need regeneration when a column
+    /// is added to `execution_processes`. Called from the exit monitor on
+    /// process close. Idempotent: passing the same values twice is a no-op.
+    pub async fn set_usage(
+        pool: &SqlitePool,
+        id: Uuid,
+        usage: &ExecutionProcessUsage,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE execution_processes
+                SET input_tokens          = ?2,
+                    output_tokens         = ?3,
+                    cache_creation_tokens = ?4,
+                    cache_read_tokens     = ?5,
+                    cost_usd              = ?6,
+                    model                 = ?7
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(usage.input_tokens)
+        .bind(usage.output_tokens)
+        .bind(usage.cache_creation_tokens)
+        .bind(usage.cache_read_tokens)
+        .bind(usage.cost_usd)
+        .bind(usage.model.as_deref())
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Read the persisted per-process usage row, or `None` if this process
+    /// never had usage recorded (e.g. a setup script that ran no LLM calls).
+    pub async fn find_usage(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<Option<ExecutionProcessUsage>, sqlx::Error> {
+        sqlx::query_as::<_, ExecutionProcessUsage>(
+            "SELECT input_tokens, output_tokens, cache_creation_tokens,
+                    cache_read_tokens, cost_usd, model
+               FROM execution_processes
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await
     }
 
     /// Find all workspaces with running dev servers, filtered by archived status.

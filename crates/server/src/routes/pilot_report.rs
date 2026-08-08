@@ -48,6 +48,19 @@ pub struct PilotReportTask {
     /// tell the same story for the same month.
     #[ts(type = "number | null")]
     pub hours_saved_override: Option<f64>,
+    /// Rolled-up LLM cost across every execution that ran under this task.
+    /// `None` when the task never had any usage recorded (older tasks,
+    /// executors that don't emit `total_cost_usd` yet). Kept nullable so the
+    /// frontend can flag partial coverage ("≥") instead of inventing zeros.
+    pub cost_usd: Option<f64>,
+    #[ts(type = "number | null")]
+    pub input_tokens: Option<i64>,
+    #[ts(type = "number | null")]
+    pub output_tokens: Option<i64>,
+    #[ts(type = "number | null")]
+    pub cache_creation_tokens: Option<i64>,
+    #[ts(type = "number | null")]
+    pub cache_read_tokens: Option<i64>,
 }
 
 /// A pull request merged inside the window.
@@ -116,7 +129,12 @@ pub async fn get_pilot_report(
 
     let completed_tasks: Vec<PilotReportTask> = sqlx::query_as(
         "SELECT worker_id, title, issue_number, status, completed_at,
-                hours_saved_override
+                hours_saved_override,
+                cost_usd_total              AS cost_usd,
+                input_tokens_total          AS input_tokens,
+                output_tokens_total         AS output_tokens,
+                cache_creation_tokens_total AS cache_creation_tokens,
+                cache_read_tokens_total     AS cache_read_tokens
          FROM worker_tasks
          WHERE completed_at IS NOT NULL
            AND completed_at >= datetime($1)

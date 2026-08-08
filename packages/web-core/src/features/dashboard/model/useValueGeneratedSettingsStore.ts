@@ -48,11 +48,9 @@ export const clampHoursPerFteMonth = (hours: number): number => {
  * preference (not authoritative business data), so per-browser is the
  * right scope.
  *
- * The `hoursPerTask` and `hoursPerFteMonth` defaults live on the server
- * (`Config.default_hours_saved_per_task`,
- * `Config.default_hours_per_fte_month`) so every viewer sees the same
- * authoritative figure — the number that anchors pricing must not
- * diverge per browser.
+ * All pricing assumptions (`hoursPerTask`, `hoursPerFteMonth`,
+ * `hourlyRate`, `currency`) live on the server in Config — the number
+ * that anchors pricing must not diverge per browser. See #459.
  */
 type State = {
   /** Trailing history depth rendered by the panel. */
@@ -73,6 +71,8 @@ export const useValueGeneratedSettingsStore = create<State>()(
       }),
       merge: (persisted, current) => {
         // A hand-edited or stale localStorage entry must not brick the panel.
+        // Older versions of this store persisted `hourlyRate` / `currency`;
+        // those keys are ignored here — the values now come from Config.
         const saved = (persisted ?? {}) as Partial<State>;
         return {
           ...current,
@@ -83,6 +83,7 @@ export const useValueGeneratedSettingsStore = create<State>()(
             : 12,
         };
       },
+      version: 2,
     }
   )
 );

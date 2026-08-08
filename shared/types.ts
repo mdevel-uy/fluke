@@ -752,7 +752,35 @@ tasks_with_override: number,
  * Sum of `hours_saved_override` across the tasks in `tasks_with_override`.
  * Zero when none of the month's tasks carry an override.
  */
-override_hours_sum: number, };
+override_hours_sum: number,
+/**
+ * Worker tasks in `done_count` that have any recorded LLM usage. Used by
+ * the panel to flag partial coverage — when `tasks_with_cost < done_count`
+ * the cost figure is a lower bound (agents like Codex/OpenCode may not
+ * report USD until pricing tables are wired up).
+ */
+tasks_with_cost: number,
+/**
+ * Sum of `cost_usd_total` across the tasks in `tasks_with_cost`. Zero when
+ * no task in the bucket recorded API cost.
+ */
+cost_usd_sum: number,
+/**
+ * Sum of `input_tokens_total`. Zero when no task recorded tokens.
+ */
+input_tokens_sum: number,
+/**
+ * Sum of `output_tokens_total`. Zero when no task recorded tokens.
+ */
+output_tokens_sum: number,
+/**
+ * Sum of `cache_creation_tokens_total`. Zero when unrecorded.
+ */
+cache_creation_tokens_sum: number,
+/**
+ * Sum of `cache_read_tokens_total`. Zero when unrecorded.
+ */
+cache_read_tokens_sum: number, };
 
 export type ValueGeneratedSummaryResponse = {
 /**

@@ -39,6 +39,11 @@ const CSV_HEADER = [
   'Extra',
   'Completed/Merged at (UTC)',
   'URL',
+  'API cost (USD)',
+  'Input tokens',
+  'Output tokens',
+  'Cache creation tokens',
+  'Cache read tokens',
 ];
 
 function taskRow(t: PilotReportTask): (string | number | null)[] {
@@ -50,6 +55,11 @@ function taskRow(t: PilotReportTask): (string | number | null)[] {
     t.worker_id,
     t.completed_at,
     '',
+    t.cost_usd,
+    t.input_tokens,
+    t.output_tokens,
+    t.cache_creation_tokens,
+    t.cache_read_tokens,
   ];
 }
 
@@ -62,6 +72,13 @@ function prRow(p: PilotReportMergedPr): (string | number | null)[] {
     p.target_branch_name,
     p.merged_at,
     p.pr_url,
+    // PRs don't carry executor usage — leave the cost/token columns
+    // blank so the row aligns with the task rows in the same table.
+    null,
+    null,
+    null,
+    null,
+    null,
   ];
 }
 

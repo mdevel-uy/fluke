@@ -117,6 +117,18 @@ pub struct TokenUsageInfo {
     pub cache_creation_input_tokens: Option<u64>,
     #[serde(default)]
     pub cache_read_input_tokens: Option<u64>,
+    /// Vendor-reported dollar cost for the run so far. Only Claude Code
+    /// populates it today, via its `result` message's `total_cost_usd`; for
+    /// other executors this is `None` and the persistence layer estimates
+    /// cost from the token counts and a Rust-side pricing table.
+    #[serde(default)]
+    pub total_cost_usd: Option<f64>,
+    /// Best-known model identifier for this run. Included so the exit
+    /// monitor can look up pricing without having to re-derive the model
+    /// from the executor action. `None` means the executor did not surface
+    /// the model with the usage report.
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

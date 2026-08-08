@@ -17,6 +17,14 @@ export interface PilotReportTask {
   completed_at: string;
   /** Per-task hours-saved override; `null` means "use installation default". */
   hours_saved_override: number | null;
+  /** Rolled-up LLM cost across every execution under this task, in USD.
+   *  `null` when the task never had any usage recorded (older tasks or
+   *  agents that don't emit `total_cost_usd` yet). */
+  cost_usd: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_creation_tokens: number | null;
+  cache_read_tokens: number | null;
 }
 
 export interface PilotReportMergedPr {

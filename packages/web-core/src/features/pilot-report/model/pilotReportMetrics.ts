@@ -11,7 +11,24 @@ export interface PilotReportMetrics {
   prsMerged: number;
   hoursSaved: number;
   fteEquivalent: number;
+  /** Gross monetary value: hours × hourly rate. */
   monetaryValue: number;
+  /** LLM/API cost rolled up from every completed task in the window,
+   *  in USD. Reported here (not converted to `currency`) because the LLM
+   *  APIs bill in USD — the pilot report presents it in the viewer's
+   *  chosen currency assuming 1:1 as a simplification. */
+  apiCostUsd: number;
+  /** Net monetary value: gross − API cost, floored at 0. */
+  netMonetaryValue: number;
+  /** Effective hourly rate on net savings: `netMonetaryValue / hoursSaved`.
+   *  Zero when hours are zero. */
+  effectiveHourlyRate: number;
+  /** Tickets that have any recorded cost (i.e. an executor reported usage).
+   *  Used to flag partial coverage in the UI. */
+  ticketsWithCost: number;
+  /** True when at least one resolved ticket has no cost data — the cost /
+   *  net figures are then lower / upper bounds, not exact. */
+  partialCostCoverage: boolean;
   windowDays: number;
 }
 
@@ -57,6 +74,23 @@ export function computePilotReportMetrics(
 
   const monetaryValue = hoursSaved * assumptions.hourlyRate;
 
+  // Sum only tasks with a non-null cost — treating null as zero would
+  // silently understate what the client actually paid for API tokens.
+  let apiCostUsd = 0;
+  let ticketsWithCost = 0;
+  for (const task of resolvedTasks) {
+    if (task.cost_usd !== null && task.cost_usd !== undefined) {
+      apiCostUsd += task.cost_usd;
+      ticketsWithCost += 1;
+    }
+  }
+  const partialCostCoverage =
+    ticketsResolved > 0 && ticketsWithCost < ticketsResolved;
+
+  const netMonetaryValue = Math.max(0, monetaryValue - apiCostUsd);
+  const effectiveHourlyRate =
+    hoursSaved > 0 ? netMonetaryValue / hoursSaved : 0;
+
   const msPerDay = 24 * 60 * 60 * 1000;
   const windowDays = Math.max(
     1,
@@ -70,6 +104,11 @@ export function computePilotReportMetrics(
     hoursSaved,
     fteEquivalent,
     monetaryValue,
+    apiCostUsd,
+    netMonetaryValue,
+    effectiveHourlyRate,
+    ticketsWithCost,
+    partialCostCoverage,
     windowDays,
   };
 }

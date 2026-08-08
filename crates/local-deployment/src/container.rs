@@ -137,6 +137,7 @@ impl LocalContainerService {
         };
 
         container.spawn_workspace_cleanup();
+        container.spawn_zombie_sweep();
 
         // If the server previously died with rows still in `queued` status,
         // hydrate the in-memory semaphore queue and try to drain it so no
@@ -344,6 +345,147 @@ impl LocalContainerService {
                     });
             }
         });
+    }
+
+    /// Grace window before the sweep considers a `running` row with no
+    /// child in the in-memory store to be a zombie. This must comfortably
+    /// exceed the executor spawn timeout (30s) so the small window between
+    /// `ExecutionProcess::create` and `add_child_to_store` is never treated
+    /// as a leak.
+    const ZOMBIE_GRACE_SECS: i64 = 120;
+    const ZOMBIE_SWEEP_INTERVAL_SECS: u64 = 300; // 5 minutes
+
+    /// Periodically finalise rows that are marked `running` but whose child
+    /// process no longer lives in memory. Complements startup reconciliation
+    /// (`cleanup_orphan_executions`) which only runs once at boot: this sweep
+    /// catches leaks that happen while the server stays up — a `stop_execution`
+    /// that raced with the exit monitor, a failed `update_completion` on the
+    /// exit path, or any future path that fails to finalise the row.
+    ///
+    /// Without a sweep, a single stuck row blocks worktree cleanup forever
+    /// (`Workspace::find_expired_for_cleanup` excludes workspaces with running
+    /// execution processes), pollutes the reconciliation of in-progress tasks,
+    /// and inflates the running-agents metric.
+    fn spawn_zombie_sweep(&self) {
+        let container = self.clone();
+        tokio::spawn(async move {
+            // Give startup reconciliation a head start so we do not double-work
+            // on rows it is already handling.
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(
+                Self::ZOMBIE_SWEEP_INTERVAL_SECS,
+            ));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                container.sweep_zombie_execution_processes().await;
+            }
+        });
+    }
+
+    async fn sweep_zombie_execution_processes(&self) {
+        let running = match ExecutionProcess::find_running(&self.db.pool).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::warn!("Zombie sweep: failed to list running processes: {}", e);
+                return;
+            }
+        };
+        if running.is_empty() {
+            return;
+        }
+
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        for process in running {
+            // Grace window guards the transient state where a row is
+            // `running` in the DB but the child has not yet been inserted
+            // into the store (spawn in progress, up to a 30s timeout).
+            let age_secs = now_secs - process.started_at.timestamp();
+            if age_secs < Self::ZOMBIE_GRACE_SECS {
+                continue;
+            }
+
+            if self.get_child_from_store(&process.id).await.is_some() {
+                continue;
+            }
+
+            // No child in memory → this row is a zombie. Decide the terminal
+            // status based on whether the workspace still exists / is archived.
+            let workspace_archived = match Session::find_by_id(&self.db.pool, process.session_id)
+                .await
+            {
+                Ok(Some(session)) => {
+                    match Workspace::find_by_id(&self.db.pool, session.workspace_id).await {
+                        Ok(Some(ws)) => Some(ws.archived),
+                        Ok(None) => None,
+                        Err(e) => {
+                            tracing::warn!(
+                                "Zombie sweep: failed to load workspace for process {}: {}",
+                                process.id,
+                                e
+                            );
+                            continue;
+                        }
+                    }
+                }
+                Ok(None) => None,
+                Err(e) => {
+                    tracing::warn!(
+                        "Zombie sweep: failed to load session for process {}: {}",
+                        process.id,
+                        e
+                    );
+                    continue;
+                }
+            };
+
+            let terminal_status = if matches!(workspace_archived, Some(true)) {
+                // Row belongs to an archived workspace: the operator wanted
+                // it stopped. Treat this as an explicit kill so downstream
+                // metrics do not count it as an executor failure.
+                ExecutionProcessStatus::Killed
+            } else {
+                ExecutionProcessStatus::Failed
+            };
+
+            tracing::warn!(
+                "Zombie sweep: finalising running process {} (age {}s, workspace_archived={:?}) as {:?}",
+                process.id,
+                age_secs,
+                workspace_archived,
+                terminal_status
+            );
+
+            // Reuse stop_execution: after the idempotent fix it handles the
+            // "no child" case and takes care of msg_store / semaphore /
+            // queue draining so the sweep does not need to duplicate that.
+            if let Err(e) = self.stop_execution(&process, terminal_status.clone()).await {
+                tracing::warn!(
+                    "Zombie sweep: stop_execution failed for {}: {}. Falling back to direct completion update.",
+                    process.id,
+                    e
+                );
+                if let Err(e2) = ExecutionProcess::update_completion(
+                    &self.db.pool,
+                    process.id,
+                    terminal_status,
+                    None,
+                )
+                .await
+                {
+                    tracing::error!(
+                        "Zombie sweep: failed to finalise process {} even via fallback: {}",
+                        process.id,
+                        e2
+                    );
+                }
+            }
+        }
     }
 
     /// Record the current HEAD commit for each repository as the "after" state.
@@ -572,6 +714,12 @@ impl LocalContainerService {
             {
                 tracing::error!("Failed to update execution process completion: {}", e);
             }
+
+            // Persist the LLM usage captured by the executor before we tear
+            // down the msg_store — the store may live longer than this scope,
+            // but keeping the extraction adjacent to `update_completion`
+            // keeps the "cost recorded" invariant tied to "process closed".
+            persist_execution_process_usage(&db, &msg_stores, exec_id).await;
 
             if let Ok(ctx) = ExecutionProcess::load_context(&db.pool, exec_id).await {
                 // Update executor session summary if available
@@ -1286,7 +1434,10 @@ impl LocalContainerService {
                 }
             }
             Err(e) => {
-                tracing::warn!("Failed to load queued execution processes at startup: {}", e);
+                tracing::warn!(
+                    "Failed to load queued execution processes at startup: {}",
+                    e
+                );
             }
         }
     }
@@ -1302,6 +1453,126 @@ fn failure_exit_status() -> std::process::ExitStatus {
     {
         use std::os::windows::process::ExitStatusExt;
         ExitStatusExt::from_raw(1)
+    }
+}
+
+/// After a process exits, scan its msg_store history newest-first for the
+/// last emitted `TokenUsageInfo`, use the executor's own USD figure when
+/// present (Claude Code), otherwise estimate it from the token counts +
+/// the model's entry in the Rust-side pricing table. Persist the result
+/// on the `execution_processes` row and add the delta to the owning task.
+/// Best-effort: any failure is logged and swallowed so a broken run still
+/// finalizes cleanly.
+async fn persist_execution_process_usage(
+    db: &DBService,
+    msg_stores: &Arc<RwLock<HashMap<Uuid, Arc<MsgStore>>>>,
+    exec_id: Uuid,
+) {
+    let Some(msg_store) = msg_stores.read().await.get(&exec_id).cloned() else {
+        return;
+    };
+
+    // Newest first — the last emitted TokenUsageInfo carries the cumulative
+    // breakdown (for Claude also the vendor-reported USD).
+    let Some(usage_info) = msg_store.find_map_history_rev(|msg| {
+        let LogMsg::JsonPatch(patch) = msg else {
+            return None;
+        };
+        let (_, entry) = extract_normalized_entry_from_patch(patch)?;
+        match entry.entry_type {
+            NormalizedEntryType::TokenUsageInfo(info) => Some(info),
+            _ => None,
+        }
+    }) else {
+        return;
+    };
+
+    // Fall back to reading the executor's model from the persisted
+    // executor_action when the executor did not put it on the usage entry.
+    let model_from_action = ExecutionProcess::find_by_id(&db.pool, exec_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|ep| model_from_executor_action(&ep));
+    let model = usage_info.model.clone().or(model_from_action);
+
+    let tokens = executors::pricing::UsageTokens {
+        input_tokens: usage_info.input_tokens.unwrap_or(0),
+        output_tokens: usage_info.output_tokens.unwrap_or(0),
+        cache_creation_tokens: usage_info.cache_creation_input_tokens.unwrap_or(0),
+        cache_read_tokens: usage_info.cache_read_input_tokens.unwrap_or(0),
+    };
+
+    // Prefer the executor's own USD figure (Claude); otherwise estimate.
+    let cost_usd = usage_info.total_cost_usd.or_else(|| {
+        model
+            .as_deref()
+            .and_then(|m| executors::pricing::estimate_cost_usd(m, &tokens))
+    });
+
+    let usage = db::models::execution_process::ExecutionProcessUsage {
+        input_tokens: usage_info.input_tokens.map(|n| n as i64),
+        output_tokens: usage_info.output_tokens.map(|n| n as i64),
+        cache_creation_tokens: usage_info.cache_creation_input_tokens.map(|n| n as i64),
+        cache_read_tokens: usage_info.cache_read_input_tokens.map(|n| n as i64),
+        cost_usd,
+        model,
+    };
+
+    if usage.is_empty() {
+        return;
+    }
+
+    if let Err(e) = ExecutionProcess::set_usage(&db.pool, exec_id, &usage).await {
+        tracing::warn!(
+            "Failed to persist LLM usage for execution process {}: {}",
+            exec_id,
+            e
+        );
+        return;
+    }
+
+    // Roll the just-persisted delta up to the owning task, if any.
+    let session_id = match ExecutionProcess::find_by_id(&db.pool, exec_id).await {
+        Ok(Some(ep)) => ep.session_id,
+        _ => return,
+    };
+
+    if let Err(e) = db::models::worker_task::WorkerTask::add_usage_delta_by_session(
+        &db.pool,
+        session_id,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_creation_tokens,
+        usage.cache_read_tokens,
+        usage.cost_usd,
+    )
+    .await
+    {
+        tracing::warn!(
+            "Failed to roll up LLM usage to worker_tasks for session {}: {}",
+            session_id,
+            e
+        );
+    }
+}
+
+/// Best-effort model extraction from the persisted `executor_action` blob,
+/// used as a fallback when the executor did not stamp the model on its
+/// `TokenUsageInfo` (e.g. Codex, which only surfaces token counts).
+fn model_from_executor_action(ep: &ExecutionProcess) -> Option<String> {
+    let action = ep.executor_action().ok()?;
+    match &action.typ {
+        executors::actions::ExecutorActionType::CodingAgentInitialRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::CodingAgentFollowUpRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::ReviewRequest(req) => {
+            req.executor_config.model_id.clone()
+        }
+        executors::actions::ExecutorActionType::ScriptRequest(_) => None,
     }
 }
 
@@ -1515,8 +1786,7 @@ impl ContainerService for LocalContainerService {
             ExecutionProcessRunReason::CodingAgent
         ) && !self.concurrency.try_acquire(execution_process.id).await
         {
-            if let Err(e) =
-                ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
+            if let Err(e) = ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
             {
                 tracing::error!(
                     "Failed to mark execution process {} as queued: {}",
@@ -1669,16 +1939,48 @@ impl ContainerService for LocalContainerService {
             return Ok(());
         }
 
-        let child = self
-            .get_child_from_store(&execution_process.id)
-            .await
-            .ok_or_else(|| {
-                ContainerError::Other(anyhow!("Child process not found for execution"))
-            })?;
         let exit_code = if status == ExecutionProcessStatus::Completed {
             Some(0)
         } else {
             None
+        };
+
+        // Missing child = row is a zombie: the OS process is gone (or was
+        // never here — e.g. after a partial spawn or restart) but nobody
+        // ever finalised the DB row. Historically we errored out here and
+        // every caller swallowed the error, leaving the row stuck as
+        // `running` forever. Instead, close it out idempotently: update the
+        // DB, release the semaphore slot, drain the queue, and finalise the
+        // MsgStore so any subscriber sees the terminal signal.
+        let Some(child) = self.get_child_from_store(&execution_process.id).await else {
+            tracing::warn!(
+                "stop_execution: child for {} not in store; finalising zombie row as {:?}",
+                execution_process.id,
+                status
+            );
+            ExecutionProcess::update_completion(
+                &self.db.pool,
+                execution_process.id,
+                status,
+                exit_code,
+            )
+            .await?;
+            self.concurrency.release(&execution_process.id).await;
+            self.drain_concurrency_queue().await;
+            // Drop any lingering in-memory handles: cancellation token,
+            // exit monitor, db stream. They should already be gone if the
+            // child exited normally, but during a partial spawn or after a
+            // sweep detects a stale row they may still be around.
+            let _ = self.take_cancellation_token(&execution_process.id).await;
+            let _ = self.take_exit_monitor_handle(&execution_process.id).await;
+            let db_stream_handle = self.take_db_stream_handle(&execution_process.id).await;
+            if let Some(msg) = self.msg_stores.write().await.remove(&execution_process.id) {
+                msg.push_finished();
+            }
+            if let Some(handle) = db_stream_handle {
+                let _ = tokio::time::timeout(Duration::from_secs(5), handle).await;
+            }
+            return Ok(());
         };
 
         ExecutionProcess::update_completion(&self.db.pool, execution_process.id, status, exit_code)

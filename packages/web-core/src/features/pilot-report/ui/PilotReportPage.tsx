@@ -388,6 +388,17 @@ function KpiGrid({
   isLoading: boolean;
 }) {
   const { t } = useTranslation('common');
+  // "≥"/"≤" bounds when at least one done task has no cost recorded — the
+  // client's actual API bill is at least this much, and the net savings at
+  // most this much. Never invent a zero for the missing tasks.
+  const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
+  const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
+  const coverageHint = metrics.partialCostCoverage
+    ? t('pilotReport.kpi.partialCoverageHint', {
+        withCost: metrics.ticketsWithCost,
+        total: metrics.ticketsResolved,
+      })
+    : undefined;
   const items = [
     {
       label: t('pilotReport.kpi.ticketsResolved'),
@@ -417,10 +428,26 @@ function KpiGrid({
       label: t('pilotReport.kpi.monetaryValue'),
       value: currencyFormatter.format(metrics.monetaryValue),
     },
+    {
+      label: t('pilotReport.kpi.apiCost'),
+      value: `${costPrefix}${currencyFormatter.format(metrics.apiCostUsd)}`,
+      hint: coverageHint,
+    },
+    {
+      label: t('pilotReport.kpi.netMonetaryValue'),
+      value: `${netPrefix}${currencyFormatter.format(metrics.netMonetaryValue)}`,
+      hint: coverageHint,
+    },
+    {
+      label: t('pilotReport.kpi.effectiveRate'),
+      value: currencyFormatter.format(metrics.effectiveHourlyRate),
+      unit: t('pilotReport.kpi.effectiveRateUnit'),
+      hint: coverageHint,
+    },
   ];
   return (
     <div
-      className="grid grid-cols-2 gap-3 md:grid-cols-5 print:grid-cols-5 print:gap-2"
+      className="grid grid-cols-2 gap-3 md:grid-cols-4 print:grid-cols-4 print:gap-2"
       aria-busy={isLoading}
     >
       {items.map((item) => (
