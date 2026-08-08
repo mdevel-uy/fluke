@@ -1526,6 +1526,29 @@ async fn on_reviewer_agent_finished(
             e
         );
     }
+    // Safety net for the rare race where two reviewer rounds ended up
+    // pending on the exact same PR head: this verdict already covers the
+    // commit, so any sibling in-flight round is redundant. Normally the
+    // dispatch guard prevents this from ever happening; when it does, the
+    // sibling would otherwise burn budget re-submitting against a commit
+    // that already has a verdict.
+    if let Err(e) = cancel_sibling_reviewer_rounds_for_head(
+        config,
+        db,
+        container,
+        round.repo_id,
+        round.pr_number,
+        &round.head_sha,
+        round.id,
+    )
+    .await
+    {
+        warn!(
+            round_id = %round.id,
+            "Failed to cancel sibling reviewer rounds after verdict submitted: {}",
+            e
+        );
+    }
     WorkerTask::set_status(pool, task.id, worker_task::STATUS_DONE).await?;
     let review_result = match verdict.verdict.as_str() {
         review_verdict::VERDICT_APPROVE => Some("approved"),
@@ -2664,6 +2687,204 @@ pub async fn cancel_stale_pr_tasks(
         );
     }
     Ok(removed)
+}
+
+/// Cancel reviewer tasks stranded on PRs that already merged or closed.
+///
+/// Symmetric to `WorkerTask::complete_review_fix_tasks_for_merged_prs`, but
+/// for the reviewer role: a reviewer's workspace is not the PR's primary
+/// workspace, so `on_pr_merged` never touches it. Without this sweep the
+/// reviewer keeps polling GitHub for a PR that will never accept its review
+/// (GitHub rejects reviews on merged/closed PRs), and its whole queue sits
+/// behind the doomed run for as long as the agent keeps retrying.
+///
+/// Per-task handling mirrors `cancel_worker_task`:
+/// - `queued` → deleted (it never ran; nothing to preserve).
+/// - `in_progress` / `in_review` → workspace stopped and archived, task
+///   marked `done` (keeps the audit trail like the review-fix sweep does),
+///   any pending `review_rounds` row marked `superseded`.
+///
+/// Freed workers are offered their next queued task via `try_take_next`.
+/// Runs on every pr_monitor poll: idempotent — after the first pass there
+/// is nothing left to find.
+pub async fn cancel_orphan_reviewer_tasks_for_finished_prs(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let rows = WorkerTask::find_reviewer_tasks_for_finished_prs(pool).await?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    let mut freed: Vec<Uuid> = Vec::new();
+    for (task_id, worker_id, workspace_id, status) in rows {
+        info!(
+            task_id = %task_id,
+            worker_id = %worker_id,
+            status = %status,
+            "Cancelling reviewer task: its PR is already merged/closed",
+        );
+
+        if status == worker_task::STATUS_QUEUED {
+            if let Err(e) = WorkerTask::delete(pool, task_id).await {
+                warn!(
+                    task_id = %task_id,
+                    "Failed to delete queued reviewer task: {}", e
+                );
+                continue;
+            }
+        } else {
+            if let Some(ws_id) = workspace_id {
+                if let Ok(Some(workspace)) = Workspace::find_by_id(pool, ws_id).await {
+                    container.try_stop(&workspace, false).await;
+                }
+                archive_and_detach(db, container, ws_id).await;
+            }
+            if let Err(e) = WorkerTask::set_status(pool, task_id, worker_task::STATUS_DONE).await {
+                warn!(
+                    task_id = %task_id,
+                    "Failed to mark cancelled reviewer task done: {}", e
+                );
+                continue;
+            }
+            // The round will never produce a verdict — mark it superseded
+            // so accounting stays honest (superseded rounds don't burn the
+            // per-PR budget, unlike submitted ones).
+            match ReviewRound::find_by_task_id(pool, task_id).await {
+                Ok(Some(round)) if round.status == review_round::STATUS_PENDING => {
+                    if let Err(e) =
+                        ReviewRound::set_status(pool, round.id, review_round::STATUS_SUPERSEDED)
+                            .await
+                    {
+                        warn!(
+                            round_id = %round.id,
+                            "Failed to mark orphan review round superseded: {}", e
+                        );
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => warn!(
+                    task_id = %task_id,
+                    "Failed to look up review round for cancelled reviewer task: {}", e
+                ),
+            }
+        }
+
+        if !freed.contains(&worker_id) {
+            freed.push(worker_id);
+        }
+    }
+
+    for worker_id in freed {
+        match try_take_next(config, db, container, worker_id).await {
+            Ok(_) => info!(
+                worker_id = %worker_id,
+                "Worker took next task after reviewer-orphan cleanup",
+            ),
+            Err(e) if e.is_conflict() => {}
+            Err(e) => warn!(
+                worker_id = %worker_id,
+                "Failed to start next task after reviewer-orphan cleanup: {}", e
+            ),
+        }
+    }
+
+    Ok(())
+}
+
+/// Cancel any other pending reviewer rounds pinned to the same PR head as
+/// the one that just submitted. In steady state the dispatch guard
+/// (`find_active_reviewer_task_for_pr`) prevents two active reviewer tasks
+/// on the same PR, so this normally finds nothing — it's a safety net for
+/// the rare race where two dispatches slip past the guard (or a manual
+/// dispatch collides with the automatic one). Same per-task handling as
+/// the merged-PR sweep: queued deleted, in-flight stopped + task closed +
+/// worker offered its next task; the redundant round row is marked
+/// `superseded` (its verdict is redundant because GitHub already has one
+/// for this exact commit).
+pub async fn cancel_sibling_reviewer_rounds_for_head(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    repo_id: Uuid,
+    pr_number: i64,
+    head_sha: &str,
+    exclude_round_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let pool = &db.pool;
+    let siblings = ReviewRound::find_other_pending_for_head(
+        pool,
+        repo_id,
+        pr_number,
+        head_sha,
+        exclude_round_id,
+    )
+    .await?;
+    if siblings.is_empty() {
+        return Ok(());
+    }
+
+    for sibling in siblings {
+        warn!(
+            round_id = %sibling.id,
+            pr_number,
+            head_sha,
+            "Superseding sibling reviewer round: another verdict already submitted for this head",
+        );
+
+        if let Some(task_id) = sibling.task_id
+            && let Some(task) = WorkerTask::find_by_id(pool, task_id).await?
+        {
+            match task.status.as_str() {
+                worker_task::STATUS_QUEUED => {
+                    if let Err(e) = WorkerTask::delete(pool, task_id).await {
+                        warn!(
+                            task_id = %task_id,
+                            "Failed to delete sibling reviewer task: {}", e
+                        );
+                    }
+                }
+                worker_task::STATUS_IN_PROGRESS | worker_task::STATUS_IN_REVIEW => {
+                    if let Some(ws_id) = task.workspace_id {
+                        if let Ok(Some(workspace)) = Workspace::find_by_id(pool, ws_id).await {
+                            container.try_stop(&workspace, false).await;
+                        }
+                        archive_and_detach(db, container, ws_id).await;
+                    }
+                    if let Err(e) =
+                        WorkerTask::set_status(pool, task_id, worker_task::STATUS_DONE).await
+                    {
+                        warn!(
+                            task_id = %task_id,
+                            "Failed to mark sibling reviewer task done: {}", e
+                        );
+                    }
+                    match try_take_next(config, db, container, task.worker_id).await {
+                        Ok(_) => {}
+                        Err(e) if e.is_conflict() => {}
+                        Err(e) => warn!(
+                            worker_id = %task.worker_id,
+                            "Failed to start next task after sibling cancellation: {}", e
+                        ),
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Err(e) =
+            ReviewRound::set_status(pool, sibling.id, review_round::STATUS_SUPERSEDED).await
+        {
+            warn!(
+                round_id = %sibling.id,
+                "Failed to mark sibling review round superseded: {}", e
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// Dispatch a fix task to the PR author worker when a reviewer requests changes.

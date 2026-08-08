@@ -885,6 +885,32 @@ impl WorkerTask {
         .await
     }
 
+    /// Reviewer tasks (queued / in_progress / in_review) attached to a PR
+    /// that is already merged or closed. Their workspace is not the PR's
+    /// primary one, so `on_pr_merged` never reaches them — without a sweep
+    /// the reviewer keeps polling GitHub for a PR that will never accept its
+    /// review, hanging for hours and blocking its queue behind the doomed
+    /// run. Returns `(task_id, worker_id, workspace_id, status)` rows so the
+    /// caller can stop the workspace, close the task, mark the round
+    /// superseded, and offer the freed worker its next queued task.
+    pub async fn find_reviewer_tasks_for_finished_prs(
+        pool: &SqlitePool,
+    ) -> Result<Vec<(Uuid, Uuid, Option<Uuid>, String)>, sqlx::Error> {
+        sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>, String)>(
+            "SELECT wt.id, wt.worker_id, wt.workspace_id, wt.status
+               FROM worker_tasks wt
+               JOIN workers w ON wt.worker_id = w.id
+               JOIN pull_requests pr
+                 ON pr.repo_id = wt.repo_id
+                AND pr.pr_number = wt.issue_number
+              WHERE w.role = 'reviewer'
+                AND wt.status IN ('queued', 'in_progress', 'in_review')
+                AND pr.pr_status IN ('merged', 'closed')",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /// Close review-fix tasks whose PR is already merged or closed: the
     /// remediation's reason to exist is gone. Only `in_review` tasks are
     /// touched — the primary merge path (`on_pr_merged`) never sees them
