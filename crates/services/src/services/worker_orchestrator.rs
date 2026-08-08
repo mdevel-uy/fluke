@@ -2911,7 +2911,11 @@ mod tests {
     /// (that path is what PR 2 removes — see incidents in the review-loop spec).
     /// The prompt is free to *forbid* those commands by name; it must not
     /// instruct execution. The head SHA travels in-prompt so the agent knows
-    /// which commit its verdict will be pinned to.
+    /// which commit its verdict will be pinned to, AND the checkout must
+    /// anchor to the SHA — checking out `FETCH_HEAD` would silently pick up
+    /// any commit the author pushed between dispatch and reviewer runtime,
+    /// desyncing the reviewed code from the pinned commit the server submits
+    /// against.
     #[test]
     fn reviewer_prompt_targets_review_json_and_pins_sha() {
         let prompt = quick_action_prompts::format_review_pr_prompt(304, "deadbeef1234567890");
@@ -2922,6 +2926,15 @@ mod tests {
         assert!(
             prompt.contains("deadbeef1234567890"),
             "reviewer prompt must include the pinned head SHA"
+        );
+        // Checkout must anchor to the SHA, not the moving PR ref.
+        assert!(
+            prompt.contains("git checkout deadbeef1234567890"),
+            "reviewer prompt must checkout the pinned SHA explicitly, not FETCH_HEAD"
+        );
+        assert!(
+            !prompt.contains("git checkout FETCH_HEAD"),
+            "reviewer prompt must not checkout FETCH_HEAD (race with author pushes)"
         );
         // Forbid the invocation forms — the prompt should never tell the
         // agent to *execute* these.

@@ -173,30 +173,55 @@ pub fn github_event_for(verdict: &str) -> Option<&'static str> {
     }
 }
 
+/// Does this item have a usable `path` (non-empty after trim)?
+fn has_path(item: &ReviewItem) -> bool {
+    !item.path.as_deref().map(str::trim).unwrap_or("").is_empty()
+}
+
+/// True if the item can be posted as a GitHub inline review comment
+/// (needs both a path AND a line — GitHub inline comments are always
+/// tied to a specific line).
+fn is_inline(item: &ReviewItem) -> bool {
+    item.line.is_some() && has_path(item)
+}
+
 /// Compose the review body posted to GitHub: the reviewer's summary plus,
-/// when present, a trailer listing items that had no `path`+`line` (those
-/// can't be inline comments, so they belong in the body — mixed inline +
-/// body is how a real reviewer works).
+/// when present, a trailer listing every item that can't be posted inline.
+/// An item goes to the body when it has no `line` — either because the
+/// reviewer wanted a general comment (no path/line) or because they wanted
+/// to point at a whole file (`path` only). Anything not eligible for inline
+/// **must** end up in the body; a silent drop would lose reviewer intent.
 pub fn compose_body(verdict: &ReviewVerdict) -> String {
     let summary = verdict.summary.trim();
-    let unpositioned: Vec<&ReviewItem> = verdict
+    let body_items: Vec<&ReviewItem> = verdict
         .items
         .iter()
-        .filter(|item| item.path.as_deref().map(str::trim).unwrap_or("").is_empty())
+        .filter(|item| !is_inline(*item))
         .collect();
-    if unpositioned.is_empty() {
+    if body_items.is_empty() {
         return summary.to_string();
     }
-    let mut body = String::with_capacity(summary.len() + 64 + unpositioned.len() * 96);
+    let mut body = String::with_capacity(summary.len() + 64 + body_items.len() * 96);
     body.push_str(summary);
     body.push_str("\n\n---\n\n");
     body.push_str("**Otros comentarios:**\n");
-    for (n, item) in unpositioned.iter().enumerate() {
+    for (n, item) in body_items.iter().enumerate() {
         let severity = match item.severity.as_deref() {
-            Some(s) => format!(" _(_{s}_)_"),
+            Some(s) => format!(" _({s})_"),
             None => String::new(),
         };
-        body.push_str(&format!("\n{}. {}{}", n + 1, item.comment.trim(), severity));
+        let location = if has_path(item) {
+            format!("`{}` — ", item.path.as_deref().unwrap_or("").trim())
+        } else {
+            String::new()
+        };
+        body.push_str(&format!(
+            "\n{}. {}{}{}",
+            n + 1,
+            location,
+            item.comment.trim(),
+            severity
+        ));
     }
     body
 }
@@ -208,9 +233,7 @@ pub fn inline_items(verdict: &ReviewVerdict) -> Vec<&ReviewItem> {
     verdict
         .items
         .iter()
-        .filter(|item| {
-            item.line.is_some() && !item.path.as_deref().map(str::trim).unwrap_or("").is_empty()
-        })
+        .filter(|item| is_inline(*item))
         .collect()
 }
 
@@ -302,6 +325,54 @@ mod tests {
         assert!(body.contains("Otros comentarios"));
         assert!(body.contains("body-only"));
         assert!(!body.contains("inline"));
+    }
+
+    /// Regression: `path` without `line` used to be dropped silently — the
+    /// item was excluded from inline (needs `line`) AND from the body
+    /// (filter treated any `path` as positioned). Now it must land in the
+    /// body with the file mentioned as context.
+    #[test]
+    fn compose_body_includes_path_only_items() {
+        let verdict = v(
+            r#"{"verdict":"request_changes","summary":"file-level nits","items":[
+                {"path":"a.rs","line":1,"comment":"real inline"},
+                {"path":"b.rs","comment":"whole-file nit","severity":"minor"}
+            ]}"#,
+        )
+        .unwrap();
+        let body = compose_body(&verdict);
+        assert!(
+            body.contains("whole-file nit"),
+            "path-only item must appear in the body, not vanish"
+        );
+        assert!(
+            body.contains("`b.rs`"),
+            "path-only item should surface the file it points at"
+        );
+        assert!(
+            !body.contains("real inline"),
+            "true inline items still stay out of the body"
+        );
+        assert_eq!(inline_items(&verdict).len(), 1);
+    }
+
+    /// Regression: severity markdown used to be `_(_{s}_)_` which renders
+    /// as literal underscores around asterisked text. It should be a clean
+    /// italicised `_(severity)_`.
+    #[test]
+    fn compose_body_severity_uses_clean_markdown() {
+        let verdict = v(
+            r#"{"verdict":"request_changes","summary":"...","items":[
+                {"comment":"c","severity":"blocker"}
+            ]}"#,
+        )
+        .unwrap();
+        let body = compose_body(&verdict);
+        assert!(
+            body.contains("_(blocker)_"),
+            "severity should render as _(blocker)_, got: {body}"
+        );
+        assert!(!body.contains("_(_"), "leftover extra underscores");
     }
 
     #[test]

@@ -81,23 +81,38 @@ pub const FIX_CI_PROMPT: &str = r#"El CI del PR #{pr_number} ({pr_url}) está fa
 /// Reviewer contract (REVIEW-LOOP-SPEC §A1/A2):
 /// - The agent must NOT run `gh pr review`, `gh pr checkout`, `gh pr diff`
 ///   or any other GitHub-network command; the server owns those.
-/// - The agent inspects the local worktree with plain git (`git fetch
-///   origin pull/N/head` + `git checkout FETCH_HEAD`, or reads the diff via
-///   `git diff <base>...HEAD`) and writes its verdict to `.vk/review.json`
-///   at the worktree root. The orchestrator parses, validates, and submits
-///   the review via the GitHub API using the reviewer worker's PAT.
+/// - The agent inspects the local worktree with plain git — the fetch pulls
+///   the PR ref (`pull/N/head`) and the checkout **anchors to the pinned
+///   `head_sha`**, not to the moving `pull/N/head` tip. This closes the
+///   race where the author pushes between dispatch and the reviewer
+///   actually running: the server submits the verdict against the pinned
+///   SHA, so the agent must review that exact commit.
+/// - Verdict goes to `.vk/review.json` at the worktree root; the
+///   orchestrator parses, validates, and submits the review via the GitHub
+///   API using the reviewer worker's PAT.
 /// - Invalid or missing JSON → task fails, ronda no cuenta.
+///
+/// TODO (spec §A2 canonical form): move the checkout server-side in
+/// `dispatch_review_task` (analogous to `set_remote_branch` for the
+/// author-fix path) so the agent no longer needs `git fetch` at all. The
+/// pinned checkout in the prompt is the minimum fix that keeps PR 2
+/// correct; the pre-checkout is the follow-up for PR 3/4.
 pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
     format!(
         "Revisá el PR #{pr_number} (commit `{head_sha}`) según tu checklist.\n\
          \n\
-         1. Traé los cambios a tu worktree con git local: \
-            `git fetch origin pull/{pr_number}/head && git checkout FETCH_HEAD`. \
+         1. Traé el commit exacto a tu worktree con git local: \
+            `git fetch origin pull/{pr_number}/head && git checkout {head_sha}`. \
+            El fetch trae la ref del PR y el checkout ancla al SHA pinneado — \
+            NO uses `FETCH_HEAD` acá: si el autor pushea entre el despacho y \
+            este momento, `pull/{pr_number}/head` apunta al commit nuevo y tu \
+            review quedaría desalineada (el sistema somete el veredicto \
+            contra `{head_sha}`, así que ese es el commit que tenés que mirar). \
             NO uses `gh pr checkout`, `gh pr view`, `gh pr diff` ni `gh pr review`: \
             todo va por git local; el sistema somete la review por vos.\n\
          2. Mirá el diff contra la rama base con \
-            `git diff $(git merge-base HEAD FETCH_HEAD~0) HEAD` \
-            (o directamente `git log --stat FETCH_HEAD` para el resumen).\n\
+            `git diff $(git merge-base HEAD {head_sha}) {head_sha}` \
+            (o directamente `git log --stat {head_sha}` para el resumen).\n\
          3. Escribí tu veredicto en `.vk/review.json` con este esquema exacto:\n\
          \n\
          ```json\n\
