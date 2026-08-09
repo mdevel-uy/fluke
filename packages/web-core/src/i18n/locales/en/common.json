@@ -204,6 +204,18 @@
       "unlinkFromIssueLabel": "Also unlink from issue"
     },
     "stalledTask": "Task stalled — the agent stopped but the task did not move on",
+    "purgeArchived": {
+      "title": "Purge archived workspaces",
+      "confirm": "Permanently delete {{count}} archived workspaces? Their worktrees are removed; branches are kept. Workspaces still running are skipped. This cannot be undone.",
+      "action": "Purge all",
+      "errorTitle": "Failed to purge archived workspaces"
+    },
+    "purgeFailed": {
+      "title": "Prune failed tasks",
+      "confirm": "Permanently delete {{count}} failed tasks? Their archived workspaces are kept under Archived. This cannot be undone.",
+      "action": "Prune all",
+      "errorTitle": "Failed to prune failed tasks"
+    },
     "scopes": {
       "attention": "Needs you",
       "review": "In review",

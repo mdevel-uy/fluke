@@ -6,7 +6,10 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '../lib/cn';
-import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
+import {
+  CollapsibleSectionHeader,
+  type SectionAction,
+} from './CollapsibleSectionHeader';
 
 // VSCode-style sidebar section: the hairline under an expanded section is
 // also a drag handle that resizes the section vertically; its content then
@@ -47,6 +50,7 @@ export interface ResizableSidebarSectionProps {
   title: string;
   count?: number;
   defaultOpen?: boolean;
+  actions?: SectionAction[];
   children: ReactNode;
 }
 
@@ -55,6 +59,7 @@ export function ResizableSidebarSection({
   title,
   count,
   defaultOpen = true,
+  actions,
   children,
 }: ResizableSidebarSectionProps) {
   const [expanded, setExpanded] = useState(defaultOpen);
@@ -107,6 +112,7 @@ export function ResizableSidebarSection({
         title={title}
         count={count}
         defaultExpanded={defaultOpen}
+        actions={actions}
         onExpandedChange={setExpanded}
       >
         <div

@@ -11,7 +11,7 @@ use db::models::{
     worker_task::WorkerTask,
 };
 use deployment::Deployment;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use services::services::{container::ContainerService, diff_stream, remote_sync};
 use sqlx::Error as SqlxError;
 use utils::response::ApiResponse;
@@ -183,6 +183,128 @@ pub async fn delete_workspace(
     WorkspaceManager::spawn_workspace_deletion_cleanup(deletion_context, query.delete_branches);
 
     Ok((StatusCode::ACCEPTED, ResponseJson(ApiResponse::success(()))))
+}
+
+#[derive(Debug, Serialize)]
+pub struct PurgeArchivedResponse {
+    pub deleted: i64,
+    pub skipped: i64,
+}
+
+/// Bulk-purge every archived workspace in one shot. Mirrors the per-workspace
+/// delete flow (stop dev servers, drop active worker tasks, delete the record,
+/// spawn worktree cleanup) but never aborts the sweep on a single failure: a
+/// workspace that still has non-dev-server processes running — or errors along
+/// the way — is counted in `skipped` and left untouched. `deleted: 0` is a
+/// valid, non-error result when there was nothing to purge.
+pub async fn delete_archived_workspaces(
+    State(deployment): State<DeploymentImpl>,
+    Query(query): Query<DeleteWorkspaceQuery>,
+) -> Result<ResponseJson<ApiResponse<PurgeArchivedResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let workspace_manager = deployment.workspace_manager();
+
+    let archived: Vec<Workspace> = Workspace::fetch_all(pool)
+        .await?
+        .into_iter()
+        .filter(|w| w.archived)
+        .collect();
+
+    let mut deleted: i64 = 0;
+    let mut skipped: i64 = 0;
+
+    for workspace in archived {
+        let workspace_id = workspace.id;
+
+        match ExecutionProcess::has_running_non_dev_server_processes_for_workspace(
+            pool,
+            workspace_id,
+        )
+        .await
+        {
+            Ok(false) => {}
+            Ok(true) => {
+                tracing::info!(
+                    "Skipping purge of workspace {}: processes still running",
+                    workspace_id
+                );
+                skipped += 1;
+                continue;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Skipping purge of workspace {}: failed to check running processes: {}",
+                    workspace_id,
+                    e
+                );
+                skipped += 1;
+                continue;
+            }
+        }
+
+        let purge_result: Result<(), sqlx::Error> = async {
+            let dev_servers =
+                ExecutionProcess::find_running_dev_servers_by_workspace(pool, workspace_id).await?;
+            for dev_server in dev_servers {
+                tracing::info!(
+                    "Stopping dev server {} before purging workspace {}",
+                    dev_server.id,
+                    workspace_id
+                );
+                if let Err(e) = deployment
+                    .container()
+                    .stop_execution(&dev_server, ExecutionProcessStatus::Killed)
+                    .await
+                {
+                    tracing::error!(
+                        "Failed to stop dev server {} for workspace {}: {}",
+                        dev_server.id,
+                        workspace_id,
+                        e
+                    );
+                }
+            }
+
+            WorkerTask::delete_active_by_workspace_id(pool, workspace_id).await?;
+
+            let managed_workspace = workspace_manager.load_managed_workspace(workspace).await?;
+            let deletion_context = managed_workspace.prepare_deletion_context().await?;
+            let rows_affected = managed_workspace.delete_record().await?;
+            if rows_affected == 0 {
+                return Err(SqlxError::RowNotFound);
+            }
+
+            WorkspaceManager::spawn_workspace_deletion_cleanup(
+                deletion_context,
+                query.delete_branches,
+            );
+            Ok(())
+        }
+        .await;
+
+        match purge_result {
+            Ok(()) => deleted += 1,
+            Err(e) => {
+                tracing::warn!("Failed to purge archived workspace {}: {}", workspace_id, e);
+                skipped += 1;
+            }
+        }
+    }
+
+    deployment
+        .track_if_analytics_allowed(
+            "archived_workspaces_purged",
+            serde_json::json!({
+                "deleted": deleted,
+                "skipped": skipped,
+            }),
+        )
+        .await;
+
+    Ok(ResponseJson(ApiResponse::success(PurgeArchivedResponse {
+        deleted,
+        skipped,
+    })))
 }
 
 #[axum::debug_handler]

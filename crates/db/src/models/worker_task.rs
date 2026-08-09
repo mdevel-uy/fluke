@@ -347,6 +347,20 @@ impl WorkerTask {
         Ok(result.rows_affected())
     }
 
+    /// Bulk-delete every failed task across all workers. `failed` is a
+    /// terminal state (retries always spawn a fresh task), so these rows are
+    /// pure history — an incident burst leaves dozens of them cluttering the
+    /// Failed section. Their archived workspaces are untouched, same as the
+    /// per-task delete route. `review_rounds.task_id` clears via its
+    /// ON DELETE SET NULL FK, keeping the per-PR round ledger intact.
+    pub async fn delete_all_failed(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM worker_tasks WHERE status = ?1")
+            .bind(STATUS_FAILED)
+            .execute(pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
     /// All in_progress tasks across all workers. Used at startup to detect
     /// tasks whose agent was killed by a server restart.
     pub async fn find_all_in_progress(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {

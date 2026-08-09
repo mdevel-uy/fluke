@@ -48,6 +48,12 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
             "/",
             get(core::get_workspaces).post(create::create_workspace),
         )
+        // Static route: must not be shadowed by the `/{id}` nest below (matchit
+        // gives static segments priority over params, same as /workers/archived).
+        .route(
+            "/archived",
+            axum::routing::delete(core::delete_archived_workspaces),
+        )
         .route("/start", post(create::create_and_start_workspace))
         .route("/from-pr", post(pr::create_workspace_from_pr))
         .route("/streams/ws", get(streams::stream_workspaces_ws))

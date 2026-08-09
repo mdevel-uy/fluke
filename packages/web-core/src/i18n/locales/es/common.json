@@ -190,6 +190,18 @@
     },
     "linkError": "Failed to link workspace",
     "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó",
+    "purgeArchived": {
+      "title": "Purgar workspaces archivados",
+      "confirm": "¿Eliminar definitivamente {{count}} workspaces archivados? Se eliminan sus worktrees; las ramas se conservan. Los workspaces aún en ejecución se omiten. Esta acción no se puede deshacer.",
+      "action": "Purgar todos",
+      "errorTitle": "No se pudieron purgar los workspaces archivados"
+    },
+    "purgeFailed": {
+      "title": "Purgar tareas fallidas",
+      "confirm": "¿Eliminar definitivamente {{count}} tareas fallidas? Sus workspaces archivados se conservan en Archivados. Esta acción no se puede deshacer.",
+      "action": "Purgar todas",
+      "errorTitle": "No se pudieron purgar las tareas fallidas"
+    },
     "scopes": {
       "attention": "Te necesita",
       "review": "En revisión",
