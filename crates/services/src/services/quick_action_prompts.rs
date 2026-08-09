@@ -24,9 +24,14 @@ pub const FAILED_CHECKS_BLOCK_MAX_BYTES: usize = 4 * 1024;
 /// Truncation marker appended when an inline block exceeds its size cap.
 const TRUNCATION_MARKER: &str = "\n… [contenido truncado por límite de tamaño; usá `gh` para ver el resto] …";
 
-/// Dispatched by the "Fix merge conflicts" quick action / when `pr_monitor`
-/// detects a PR whose mergeable state flipped to `conflicting`. Needs
+/// Fallback prompt for the "Fix merge conflicts" flow when the orchestrator
+/// could NOT pre-merge server-side (sad path: dirty worktree, another op in
+/// progress, git error). The agent runs the merge itself. Needs
 /// `{target_branch}`.
+///
+/// The happy paths (clean pre-merge → push; conflicts → dispatch with file
+/// list) use [`format_resolve_merge_conflicts_prompt_with_conflicts`] on top
+/// of a merge already in progress in the worktree.
 pub const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de merge con {target_branch}. Resolvelos ahora:
 
 1. git fetch origin && git merge origin/{target_branch}
@@ -47,8 +52,66 @@ pub const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de me
 5. Mirá el CI del PR con gh pr checks --watch y arreglá lo que falle."#;
 
 /// Substitute `{target_branch}` into [`RESOLVE_MERGE_CONFLICTS_PROMPT`].
+/// Reserved for the sad path (see the const's doc-comment): every regular
+/// dispatch should go through
+/// [`format_resolve_merge_conflicts_prompt_with_conflicts`].
 pub fn format_resolve_merge_conflicts_prompt(target_branch: &str) -> String {
     RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", target_branch)
+}
+
+/// Soft cap on the size of the conflicted-files listing dropped into the
+/// resolve-merge-conflicts prompt. A pathological merge could touch hundreds
+/// of files; 4 KiB fits a very generous tail and the marker tells the agent
+/// to inspect the rest with git directly.
+pub const CONFLICTED_FILES_BLOCK_MAX_BYTES: usize = 4 * 1024;
+
+/// Build the resolve-merge-conflicts prompt when the orchestrator has already
+/// merged `origin/{target_branch}` into the worktree and left the merge in
+/// progress with real conflicts. `conflicted_files` is the list git produced
+/// (never empty — the caller uses the fallback prompt when there is nothing
+/// to resolve).
+pub fn format_resolve_merge_conflicts_prompt_with_conflicts(
+    target_branch: &str,
+    conflicted_files: &[String],
+) -> String {
+    let block = render_conflicted_files_block(conflicted_files, CONFLICTED_FILES_BLOCK_MAX_BYTES);
+    format!(
+        "Tu PR tiene conflictos de merge con {target_branch}. El sistema ya ejecutó \
+         `git merge origin/{target_branch}` en tu worktree y el merge quedó en \
+         progreso con hunks en conflicto listos para resolver.\n\
+         \n\
+         {block}\
+         \n\
+         1. Resolvé cada archivo listado arriba. Criterio: {target_branch} manda para \
+            todo lo que otros mergearon (design system, features ajenas); tu rama manda \
+            para TU feature. Ante solapamiento directo, combiná ambos lados — no pierdas \
+            ninguno. En los locales de i18n conservá los dos grupos de keys y validá que \
+            el JSON quede bien formado.\n\
+         2. Cuando quede limpio, `git add` los archivos resueltos y `git commit` para \
+            cerrar el merge (NO uses squash — el commit de merge tiene que preservar \
+            la ancestría). Podés revisar el estado con `git status` y confirmar que \
+            no quedan entradas `Unmerged paths`.\n\
+         3. Verificá el build/typecheck que corresponda (`pnpm run check`) antes de \
+            pushear.\n\
+         4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR \
+            nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR, \
+            usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream \
+            de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.\n\
+         5. Mirá el CI del PR con `gh pr checks --watch` y arreglá lo que falle."
+    )
+}
+
+/// Render the list of conflicted files as a Markdown-style bullet block.
+/// Truncates to `max_bytes` with an explicit marker so the agent knows there
+/// is more to inspect via `git`.
+fn render_conflicted_files_block(files: &[String], max_bytes: usize) -> String {
+    let mut out = format!("Archivos con conflictos ({}):\n", files.len());
+    for path in files {
+        out.push_str("- ");
+        out.push_str(path);
+        out.push('\n');
+    }
+    truncate_with_marker(out, max_bytes)
 }
 
 /// Build the "Address PR comments" prompt.
@@ -302,10 +365,7 @@ pub fn format_design_handoff_prompt(
 ///
 /// Returns `None` when there are no comments to render — the caller then
 /// omits the block entirely and treats the run as "nothing to address".
-pub fn render_comments_block(
-    comments: &[UnifiedPrComment],
-    max_bytes: usize,
-) -> Option<String> {
+pub fn render_comments_block(comments: &[UnifiedPrComment], max_bytes: usize) -> Option<String> {
     if comments.is_empty() {
         return None;
     }
@@ -348,7 +408,11 @@ pub fn render_comments_block(
                 if let Some(url) = url {
                     out.push_str(&format!("URL: {url}\n"));
                 }
-                if let Some(hunk) = diff_hunk.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                if let Some(hunk) = diff_hunk
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
                     out.push_str("Contexto (diff hunk):\n");
                     for hunk_line in hunk.lines() {
                         out.push_str("  ");
@@ -371,10 +435,7 @@ pub fn render_comments_block(
 /// Returns `None` when there are no failing checks — the caller then omits
 /// the block entirely (rare: normally we only hit "Fix CI" when something is
 /// red, but a race between rollup and job list can produce an empty vec).
-pub fn render_failed_checks_block(
-    checks: &[PrFailedCheck],
-    max_bytes: usize,
-) -> Option<String> {
+pub fn render_failed_checks_block(checks: &[PrFailedCheck], max_bytes: usize) -> Option<String> {
     if checks.is_empty() {
         return None;
     }
@@ -603,15 +664,61 @@ mod tests {
     }
 
     #[test]
+    fn resolve_merge_conflicts_prompt_with_conflicts_lists_files_and_omits_fetch() {
+        let files = vec![
+            "crates/services/src/foo.rs".to_string(),
+            "packages/local-web/src/App.tsx".to_string(),
+        ];
+        let prompt = format_resolve_merge_conflicts_prompt_with_conflicts("mdev", &files);
+        // The file list is embedded verbatim.
+        assert!(prompt.contains("crates/services/src/foo.rs"));
+        assert!(prompt.contains("packages/local-web/src/App.tsx"));
+        assert!(prompt.contains("Archivos con conflictos (2)"));
+        // The pre-merge already ran — no fetch step is imposed on the agent.
+        // (The prompt mentions `git merge origin/mdev` once in the past-tense
+        // notice "El sistema ya ejecutó ..." — that's a description of what
+        // the orchestrator did, not an instruction to the agent.)
+        assert!(
+            !prompt.contains("git fetch origin"),
+            "prompt must not tell the agent to run the fetch itself"
+        );
+        assert!(
+            prompt.contains("El sistema ya ejecutó"),
+            "prompt must announce that the pre-merge already ran"
+        );
+        // The resolution criteria are preserved.
+        assert!(prompt.contains("i18n"));
+        assert!(prompt.contains("`git add`"));
+    }
+
+    #[test]
+    fn resolve_merge_conflicts_prompt_with_conflicts_truncates_large_lists() {
+        let files: Vec<String> = (0..500)
+            .map(|i| format!("path/to/file_{i:03}_with_some_length.rs"))
+            .collect();
+        let prompt = format_resolve_merge_conflicts_prompt_with_conflicts("mdev", &files);
+        assert!(prompt.contains("Archivos con conflictos (500)"));
+        assert!(prompt.contains("contenido truncado"));
+    }
+
+    /// The legacy fallback prompt keeps its historical shape so agents that
+    /// hit the sad path (pre-merge itself failed) still get working
+    /// instructions.
+    #[test]
+    fn resolve_merge_conflicts_prompt_fallback_still_carries_fetch_merge_step() {
+        let prompt = format_resolve_merge_conflicts_prompt("mdev");
+        assert!(prompt.contains("git fetch origin"));
+        assert!(prompt.contains("git merge origin/mdev"));
+    }
+
+    #[test]
     fn parse_owner_repo_from_pr_url_happy_path() {
         assert_eq!(
             parse_owner_repo_from_pr_url("https://github.com/mdevel-uy/vibe-kanban/pull/42"),
             Some("mdevel-uy/vibe-kanban".into())
         );
         assert_eq!(
-            parse_owner_repo_from_pr_url(
-                "https://github.enterprise.com/team/repo/pull/1"
-            ),
+            parse_owner_repo_from_pr_url("https://github.enterprise.com/team/repo/pull/1"),
             Some("team/repo".into())
         );
     }

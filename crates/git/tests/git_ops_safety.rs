@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use git::{GitCli, GitCliError, GitService};
+use git::{GitCli, GitCliError, GitService, PreMergeOutcome};
 use git2::{PushOptions, Repository, build::CheckoutBuilder};
 use tempfile::TempDir;
 // Avoid direct git CLI usage in tests; exercise GitService instead.
@@ -1292,6 +1292,201 @@ fn merge_into_orphaned_branch_uses_libgit2_fallback() {
         !worktree_has_staged,
         "Source worktree should remain clean after libgit2 merge"
     );
+}
+
+// ============================================================================
+// pre_merge_target_branch (issue #370 / PR #516)
+// ============================================================================
+
+/// Bootstrap a bare remote seeded with a `main` branch and a single commit,
+/// plus a `feature` branch cloned from it (in a local worktree, checked out
+/// on `feature`). Returns `(remote_url, feature_worktree_path)`. Every test
+/// below uses the same shape so the assertions can focus on what
+/// `pre_merge_target_branch` does with it.
+fn setup_pre_merge_scenario(
+    td: &TempDir,
+    common_file: &str,
+    main_content: &str,
+    feature_content: &str,
+) -> (String, PathBuf) {
+    let remote_path = td.path().join("remote.git");
+    Repository::init_bare(&remote_path).expect("init bare remote");
+    let remote_url = remote_path.to_str().expect("remote path str").to_string();
+
+    // Seed: create `main` with the shared file, push to the bare remote.
+    let seed_path = td.path().join("seed");
+    let service = GitService::new();
+    service
+        .initialize_repo_with_main_branch(&seed_path)
+        .expect("init seed repo");
+    let seed_repo = Repository::open(&seed_path).expect("open seed repo");
+    configure_user(&seed_repo);
+    write_file(&seed_path, common_file, main_content);
+    commit_all(&seed_repo, "seed main");
+    seed_repo.remote("origin", &remote_url).expect("add remote");
+    push_ref(&seed_repo, "refs/heads/main", "refs/heads/main");
+    Repository::open_bare(&remote_path)
+        .expect("open bare remote")
+        .set_head("refs/heads/main")
+        .expect("set remote HEAD");
+
+    // The "workspace" clone: on `feature`, with its own take on the file
+    // (may or may not overlap with what main will do later).
+    let feature_path = td.path().join("feature");
+    let feature_repo = Repository::clone(&remote_url, &feature_path).expect("clone feature");
+    configure_user(&feature_repo);
+    // Create `feature` from main, add a divergent commit, and stay on it.
+    feature_repo
+        .branch(
+            "feature",
+            &feature_repo
+                .head()
+                .unwrap()
+                .peel_to_commit()
+                .expect("main tip"),
+            false,
+        )
+        .expect("create feature branch");
+    checkout_branch(&feature_repo, "feature");
+    write_file(&feature_path, common_file, feature_content);
+    commit_all(&feature_repo, "feature diverge");
+
+    (remote_url, feature_path)
+}
+
+/// Push a new commit to the bare remote's `main` branch, simulating another
+/// worker landing changes while `feature` was diverging locally.
+fn advance_remote_main(
+    td: &TempDir,
+    remote_url: &str,
+    common_file: &str,
+    new_content: &str,
+    commit_msg: &str,
+) {
+    let updater_path = td.path().join("updater");
+    let updater_repo = Repository::clone(remote_url, &updater_path).expect("clone updater");
+    configure_user(&updater_repo);
+    checkout_branch(&updater_repo, "main");
+    write_file(&updater_path, common_file, new_content);
+    commit_all(&updater_repo, commit_msg);
+    push_ref(&updater_repo, "refs/heads/main", "refs/heads/main");
+}
+
+#[test]
+fn pre_merge_returns_clean_when_target_ancestor_of_feature() {
+    // main tip == feature's base (no new commits on main since feature branched),
+    // so the merge is a no-op ("Already up to date."). Even with `--no-ff`, git
+    // treats "nothing to merge" as clean and leaves HEAD as-is.
+    let td = TempDir::new().unwrap();
+    let (remote_url, worktree) =
+        setup_pre_merge_scenario(&td, "shared.txt", "main base\n", "feature only\n");
+
+    let svc = GitService::new();
+    let head_before = GitCli::new()
+        .git(&worktree, ["rev-parse", "HEAD"])
+        .unwrap()
+        .trim()
+        .to_string();
+
+    let outcome = svc
+        .pre_merge_target_branch(&worktree, &remote_url, "origin", "main")
+        .expect("pre_merge succeeds");
+
+    match outcome {
+        PreMergeOutcome::Clean { merge_commit_sha } => {
+            assert_eq!(
+                merge_commit_sha, head_before,
+                "no new commits on main → HEAD unchanged"
+            );
+        }
+        other => panic!("expected Clean, got {other:?}"),
+    }
+    assert!(
+        !GitCli::new().is_merge_in_progress(&worktree).unwrap(),
+        "clean merge must not leave MERGE_HEAD"
+    );
+}
+
+#[test]
+fn pre_merge_returns_conflicts_and_leaves_merge_in_progress() {
+    let td = TempDir::new().unwrap();
+    let (remote_url, worktree) =
+        setup_pre_merge_scenario(&td, "shared.txt", "main base\n", "feature version\n");
+    // Advance main so it conflicts with feature's version of the file.
+    advance_remote_main(
+        &td,
+        &remote_url,
+        "shared.txt",
+        "main new version\n",
+        "main advances (conflicting with feature)",
+    );
+
+    let svc = GitService::new();
+    let outcome = svc
+        .pre_merge_target_branch(&worktree, &remote_url, "origin", "main")
+        .expect("pre_merge succeeds even when conflicts appear");
+
+    match outcome {
+        PreMergeOutcome::Conflicts { conflicted_files } => {
+            assert_eq!(conflicted_files, vec!["shared.txt".to_string()]);
+        }
+        other => panic!("expected Conflicts, got {other:?}"),
+    }
+    let cli = GitCli::new();
+    assert!(
+        cli.is_merge_in_progress(&worktree).unwrap(),
+        "conflict case must leave MERGE_HEAD so the agent can resolve"
+    );
+    assert_eq!(
+        cli.get_conflicted_files(&worktree).unwrap(),
+        vec!["shared.txt".to_string()],
+    );
+}
+
+#[test]
+fn pre_merge_second_call_returns_already_primed_without_refetch_or_re_merge() {
+    // Regression for PR #516 review: after the monitor primes the worktree
+    // with a merge-in-progress, the UI's follow-up call must NOT try to fetch
+    // + merge again (that would fail with "MERGE_HEAD exists" and drop us
+    // into the classic prompt on top of a broken worktree). It must reuse
+    // the primed state and return the same conflicted file list.
+    let td = TempDir::new().unwrap();
+    let (remote_url, worktree) =
+        setup_pre_merge_scenario(&td, "shared.txt", "main base\n", "feature version\n");
+    advance_remote_main(
+        &td,
+        &remote_url,
+        "shared.txt",
+        "main new version\n",
+        "main advances (conflicting with feature)",
+    );
+
+    let svc = GitService::new();
+    match svc
+        .pre_merge_target_branch(&worktree, &remote_url, "origin", "main")
+        .expect("first call succeeds")
+    {
+        PreMergeOutcome::Conflicts { .. } => {}
+        other => panic!("first call: expected Conflicts, got {other:?}"),
+    }
+
+    // Break the remote URL so a second fetch would fail — proves the second
+    // call short-circuits before touching the network.
+    let outcome = svc
+        .pre_merge_target_branch(
+            &worktree,
+            "/nonexistent/remote-that-must-not-be-fetched",
+            "origin",
+            "main",
+        )
+        .expect("second call reuses primed state, no fetch performed");
+
+    match outcome {
+        PreMergeOutcome::AlreadyPrimed { conflicted_files } => {
+            assert_eq!(conflicted_files, vec!["shared.txt".to_string()]);
+        }
+        other => panic!("expected AlreadyPrimed, got {other:?}"),
+    }
 }
 
 #[test]

@@ -23,7 +23,7 @@ use executors::actions::{
     ExecutorAction, ExecutorActionType, coding_agent_follow_up::CodingAgentFollowUpRequest,
     coding_agent_initial::CodingAgentInitialRequest,
 };
-use git::{GitCliError, GitRemote, GitServiceError};
+use git::{GitCliError, GitRemote, GitServiceError, PreMergeOutcome};
 use git_host::{
     CreatePrRequest, GitHostError, GitHostProvider, GitHostService, PrFailedCheck, ProviderKind,
     UnifiedPrComment, github::GhCli,
@@ -1065,6 +1065,199 @@ async fn dispatch_quick_action_follow_up(
     Ok(QuickActionDispatchOutcome::Dispatched)
 }
 
+/// Result of the pre-merge stage that runs before the resolve-merge-conflicts
+/// quick action decides whether to dispatch an agent (issue #370).
+enum PreMergeAttempt {
+    /// Merge came out clean and the merge commit was pushed to the PR's
+    /// remote — no agent needed.
+    CleanAndPushed,
+    /// Merge stopped with real conflicts; the worktree is left with the merge
+    /// in progress. `files` is passed inline to the agent prompt.
+    Conflicts { files: Vec<String> },
+    /// Something in the pre-merge pipeline exploded before we could reach a
+    /// definitive verdict (missing worktree, PR not linked to a repo, git
+    /// error). The worktree is guaranteed to be back to its pre-call state.
+    /// The caller falls back to the classic full prompt so the agent can
+    /// re-do the merge itself.
+    Fallback,
+}
+
+/// Run the pre-merge attempt for the "Fix merge conflicts" quick action.
+///
+/// Best-effort: any environmental failure (missing container, non-existent
+/// repo, unrecognised remote, dirty worktree, etc.) is logged as a warn and
+/// returns `PreMergeAttempt::Fallback` so the caller dispatches the classic
+/// prompt. The worktree is only mutated when we have every piece we need,
+/// and any partial state is aborted before we bubble up (see
+/// [`git::GitService::pre_merge_target_branch`]).
+async fn attempt_pre_merge_for_pr(
+    deployment: &DeploymentImpl,
+    workspace: &Workspace,
+    open_pr: &PullRequest,
+) -> PreMergeAttempt {
+    let pool = &deployment.db().pool;
+
+    let Some(repo_id) = open_pr.repo_id else {
+        tracing::warn!(
+            workspace_id = %workspace.id,
+            pr_url = %open_pr.pr_url,
+            "Open PR has no repo_id — skipping pre-merge and falling back",
+        );
+        return PreMergeAttempt::Fallback;
+    };
+
+    let repo = match Repo::find_by_id(pool, repo_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            tracing::warn!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                "Repo for open PR not found — skipping pre-merge and falling back",
+            );
+            return PreMergeAttempt::Fallback;
+        }
+        Err(e) => {
+            tracing::warn!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                "Failed to load repo for pre-merge: {e}",
+            );
+            return PreMergeAttempt::Fallback;
+        }
+    };
+
+    let container_ref = match deployment
+        .container()
+        .ensure_container_exists(workspace)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                "Failed to materialize workspace for pre-merge: {e}",
+            );
+            return PreMergeAttempt::Fallback;
+        }
+    };
+    let worktree_path = PathBuf::from(&container_ref).join(&repo.name);
+
+    let git = deployment.git();
+    let remote = match git.resolve_remote_for_branch(&repo.path, &open_pr.target_branch_name) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                "Failed to resolve remote for pre-merge: {e}",
+            );
+            return PreMergeAttempt::Fallback;
+        }
+    };
+
+    let outcome = match git.pre_merge_target_branch(
+        &worktree_path,
+        &remote.url,
+        &remote.name,
+        &open_pr.target_branch_name,
+    ) {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            tracing::warn!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                "Pre-merge attempt failed — falling back to agent-driven merge: {e}",
+            );
+            return PreMergeAttempt::Fallback;
+        }
+    };
+
+    match outcome {
+        PreMergeOutcome::Clean { merge_commit_sha } => {
+            // Push the merge commit through the standard push path so the PR
+            // updates immediately and the mergeable state can flip back to
+            // `mergeable` on the next monitor cycle. Uses the author worker's
+            // PAT (when present) so the push is attributed to their identity,
+            // matching the create-PR path.
+            let worker_pat = match Worker::find_github_pat_by_workspace_id(pool, workspace.id).await
+            {
+                Ok(pat) => pat,
+                Err(e) => {
+                    tracing::warn!(
+                        workspace_id = %workspace.id,
+                        pr_url = %open_pr.pr_url,
+                        "Failed to load worker PAT for pre-merge push: {e}",
+                    );
+                    None
+                }
+            };
+
+            let remote_branch = match Workspace::remote_branch_name(pool, workspace.id).await {
+                Ok(name) => name,
+                Err(e) => {
+                    tracing::warn!(
+                        workspace_id = %workspace.id,
+                        pr_url = %open_pr.pr_url,
+                        "Failed to resolve remote branch for pre-merge push: {e}",
+                    );
+                    return PreMergeAttempt::Fallback;
+                }
+            };
+
+            if let Err(e) = git.push_to_remote_with_token(
+                &worktree_path,
+                &workspace.branch,
+                &remote_branch,
+                false,
+                worker_pat.as_deref(),
+            ) {
+                tracing::warn!(
+                    workspace_id = %workspace.id,
+                    pr_url = %open_pr.pr_url,
+                    "Pre-merge push failed after clean merge: {e}",
+                );
+                return PreMergeAttempt::Fallback;
+            }
+
+            tracing::info!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                merge_commit_sha = %merge_commit_sha,
+                "Pre-merge produced a clean merge; pushed without dispatching agent",
+            );
+            PreMergeAttempt::CleanAndPushed
+        }
+        PreMergeOutcome::Conflicts { conflicted_files } => {
+            tracing::info!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                conflicted_files = conflicted_files.len(),
+                "Pre-merge stopped with conflicts; dispatching agent with file list",
+            );
+            PreMergeAttempt::Conflicts {
+                files: conflicted_files,
+            }
+        }
+        PreMergeOutcome::AlreadyPrimed { conflicted_files } => {
+            // The monitor's earlier transition-into-`conflicting` run already
+            // primed the worktree with the same merge; reuse that state so
+            // we don't re-fetch and don't drop into the classic "agent runs
+            // fetch/merge" prompt on top of an existing `MERGE_HEAD` (PR #516
+            // review).
+            tracing::info!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                conflicted_files = conflicted_files.len(),
+                "Pre-merge reusing already-primed merge from a prior run; dispatching agent with file list",
+            );
+            PreMergeAttempt::Conflicts {
+                files: conflicted_files,
+            }
+        }
+    }
+}
+
 pub async fn resolve_merge_conflicts_follow_up(
     Extension(workspace): Extension<Workspace>,
     State(deployment): State<DeploymentImpl>,
@@ -1076,16 +1269,31 @@ pub async fn resolve_merge_conflicts_follow_up(
         .into_iter()
         .find(|pr| matches!(pr.pr_status, MergeStatus::Open));
 
-    let target_branch = match &open_pr {
-        Some(pr) => pr.target_branch_name.clone(),
-        None => {
-            return Ok(ResponseJson(ApiResponse::error_with_data(
-                ResolveMergeConflictsError::NoPrAttached,
-            )));
-        }
+    let Some(open_pr) = open_pr else {
+        return Ok(ResponseJson(ApiResponse::error_with_data(
+            ResolveMergeConflictsError::NoPrAttached,
+        )));
     };
 
-    let prompt = quick_action_prompts::format_resolve_merge_conflicts_prompt(&target_branch);
+    // Issue #370: attempt the merge server-side first. A clean merge skips the
+    // agent entirely (stale GitHub mergeability rollup); real conflicts hand
+    // the agent a merge-in-progress worktree + the file list; anything else
+    // falls back to the classic prompt so the agent re-runs the merge itself.
+    let target_branch = open_pr.target_branch_name.clone();
+    let prompt = match attempt_pre_merge_for_pr(&deployment, &workspace, &open_pr).await {
+        PreMergeAttempt::CleanAndPushed => {
+            return Ok(ResponseJson(ApiResponse::success(())));
+        }
+        PreMergeAttempt::Conflicts { files } => {
+            quick_action_prompts::format_resolve_merge_conflicts_prompt_with_conflicts(
+                &target_branch,
+                &files,
+            )
+        }
+        PreMergeAttempt::Fallback => {
+            quick_action_prompts::format_resolve_merge_conflicts_prompt(&target_branch)
+        }
+    };
 
     match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
         QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
@@ -1215,7 +1423,10 @@ pub async fn address_pr_comments_follow_up(
     // prompt (which still tells the agent to fetch with `gh`).
     let comments = fetch_pr_comments_for_prompt(&deployment, &open_pr).await;
     let comments_block = comments.as_ref().and_then(|c| {
-        quick_action_prompts::render_comments_block(c, quick_action_prompts::COMMENTS_BLOCK_MAX_BYTES)
+        quick_action_prompts::render_comments_block(
+            c,
+            quick_action_prompts::COMMENTS_BLOCK_MAX_BYTES,
+        )
     });
 
     let prompt = quick_action_prompts::format_address_pr_comments_prompt(
@@ -1287,9 +1498,6 @@ pub fn router() -> Router<DeploymentImpl> {
             "/resolve-merge-conflicts",
             post(resolve_merge_conflicts_follow_up),
         )
-        .route(
-            "/address-pr-comments",
-            post(address_pr_comments_follow_up),
-        )
+        .route("/address-pr-comments", post(address_pr_comments_follow_up))
         .route("/fix-ci", post(fix_ci_follow_up))
 }
