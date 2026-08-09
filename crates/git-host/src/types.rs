@@ -197,6 +197,22 @@ pub struct SubmitPrReviewResponse {
     pub review_id: i64,
 }
 
+/// A single CI check whose current state is not passing. Backend-internal:
+/// used to enrich the "Fix CI" prompt with the exact failing job list up front
+/// so the agent does not have to shell out to `gh pr checks` from its prompt.
+#[derive(Debug, Clone)]
+pub struct PrFailedCheck {
+    /// Job / context name (e.g. "backend", "lint / eslint").
+    pub name: String,
+    /// Conclusion or state, lowercase (e.g. `"failure"`, `"cancelled"`,
+    /// `"timed_out"`, `"action_required"`, `"error"`). For pending checks the
+    /// value is `"pending"` — those never make it into this list because we
+    /// filter to failing states only.
+    pub conclusion: String,
+    /// URL to the run / details page for the check, when the host reports it.
+    pub details_url: Option<String>,
+}
+
 impl From<PullRequestDetail> for PullRequestInfo {
     fn from(d: PullRequestDetail) -> Self {
         PullRequestInfo {

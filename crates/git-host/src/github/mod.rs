@@ -18,8 +18,9 @@ use tracing::info;
 use crate::{
     GitHostProvider,
     types::{
-        CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrReviewComment, ProviderKind,
-        PullRequestDetail, SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
+        CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrFailedCheck, PrReviewComment,
+        ProviderKind, PullRequestDetail, SubmitPrReviewRequest, SubmitPrReviewResponse,
+        UnifiedPrComment,
     },
 };
 
@@ -427,6 +428,22 @@ impl GitHostProvider for GitHubProvider {
             .map_err(|err| {
                 GitHostError::PullRequest(format!(
                     "Failed to execute GitHub CLI for PR CI status check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn get_pr_failed_checks(
+        &self,
+        pr_url: &str,
+    ) -> Result<Vec<PrFailedCheck>, GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        task::spawn_blocking(move || cli.get_pr_failed_checks(&url))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR failed checks lookup: {err}"
                 ))
             })?
             .map_err(GitHostError::from)

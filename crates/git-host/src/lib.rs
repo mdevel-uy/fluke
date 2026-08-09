@@ -13,8 +13,8 @@ use async_trait::async_trait;
 use detection::detect_provider_from_url;
 use enum_dispatch::enum_dispatch;
 pub use types::{
-    CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
-    PrReviewCommentInput, ProviderKind, PullRequestDetail, ReviewCommentUser,
+    CreatePrRequest, GitHostError, LatestPrReview, PrComment, PrCommentAuthor, PrFailedCheck,
+    PrReviewComment, PrReviewCommentInput, ProviderKind, PullRequestDetail, ReviewCommentUser,
     SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
 };
 
@@ -58,6 +58,16 @@ pub trait GitHostProvider: Send + Sync {
     /// Roll up the CI checks of a PR into one state: "passing", "failing",
     /// "pending", "none" (no checks), or "unknown" (host can't tell).
     async fn get_pr_ci_status(&self, pr_url: &str) -> Result<String, GitHostError>;
+
+    /// List CI checks currently in a failing state (failure, error, cancelled,
+    /// timed_out, action_required). Used to enrich the "Fix CI" prompt inline
+    /// so the agent doesn't have to reach for `gh pr checks` from its prompt.
+    /// Returns an empty vec when the host reports no failing checks or does
+    /// not implement check introspection (Azure DevOps).
+    async fn get_pr_failed_checks(
+        &self,
+        pr_url: &str,
+    ) -> Result<Vec<PrFailedCheck>, GitHostError>;
 
     /// Return the latest actionable review state for a PR, if any.
     /// Possible values: `"approved"`, `"changes_requested"`. Returns `None`
