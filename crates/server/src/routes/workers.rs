@@ -1652,11 +1652,13 @@ pub async fn retry_worker_task_actions(
         WorkerTask::set_failed(pool, task_id, &reason).await?;
     }
 
-    Ok(ResponseJson(ApiResponse::success(RetryActionsResponse {
-        done: drain_result.done,
-        failed: drain_result.failed,
-        pending_remaining: drain_result.pending_remaining,
-    }))
+    Ok(ResponseJson(ApiResponse::<RetryActionsResponse>::success(
+        RetryActionsResponse {
+            done: drain_result.done,
+            failed: drain_result.failed,
+            pending_remaining: drain_result.pending_remaining,
+        },
+    ))
     .into_response())
 }
 
