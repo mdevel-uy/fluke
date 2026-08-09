@@ -7,6 +7,23 @@
 //! Placeholders are plain `{name}` tokens replaced with `.replace(...)` — no
 //! templating engine.
 
+use git_host::{PrFailedCheck, UnifiedPrComment};
+
+/// Soft cap on the size of an inline comments block dropped into the "Address
+/// PR comments" / remediation prompts. Beyond this the block is truncated and
+/// tagged with an explicit marker so the agent knows the tail is missing.
+/// 16 KiB fits real reviews (hundreds of comments) without blowing the
+/// executor's context; larger reviews are truncated and the marker tells the
+/// agent to fetch the rest with `gh`.
+pub const COMMENTS_BLOCK_MAX_BYTES: usize = 16 * 1024;
+
+/// Soft cap on the size of an inline failed-checks block. Kept modest because
+/// each entry is one line — a real CI pipeline has at most a handful of jobs.
+pub const FAILED_CHECKS_BLOCK_MAX_BYTES: usize = 4 * 1024;
+
+/// Truncation marker appended when an inline block exceeds its size cap.
+const TRUNCATION_MARKER: &str = "\n… [contenido truncado por límite de tamaño; usá `gh` para ver el resto] …";
+
 /// Dispatched by the "Fix merge conflicts" quick action / when `pr_monitor`
 /// detects a PR whose mergeable state flipped to `conflicting`. Needs
 /// `{target_branch}`.
@@ -29,49 +46,106 @@ pub const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de me
    git log origin/<rama-del-PR>.
 5. Mirá el CI del PR con gh pr checks --watch y arreglá lo que falle."#;
 
-/// Dispatched by the "Address PR comments" quick action. Needs `{pr_number}`
-/// and `{pr_url}`.
-pub const ADDRESS_PR_COMMENTS_PROMPT: &str = r#"Tu PR #{pr_number} ({pr_url}) tiene comentarios de review pendientes. Encaralos ahora:
+/// Substitute `{target_branch}` into [`RESOLVE_MERGE_CONFLICTS_PROMPT`].
+pub fn format_resolve_merge_conflicts_prompt(target_branch: &str) -> String {
+    RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", target_branch)
+}
 
-1. Leé la conversación completa con `gh pr view {pr_number} --comments` y los
-   comentarios inline con `gh api repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments`
-   (reemplazá owner/repo por los reales o usá el URL directo).
-2. Agrupá los comentarios por archivo/tema. Diferenciá pedidos accionables
-   de simples preguntas: los accionables se implementan; a las preguntas
-   respondelas en el PR (`gh pr comment {pr_number} -b '<respuesta>'`) sin
-   tocar código si no hace falta.
-3. Aplicá los cambios en tu rama, corré el build/typecheck (`pnpm run check`
-   o `cargo check` según corresponda) y ejecutá los tests que toquen las
-   zonas modificadas.
-4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
-   usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream
-   de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.
-5. Cuando termines, dejá un comentario resumen en el PR listando qué
-   pedidos atendiste y cuáles quedaron abiertos con su razón, para que el
-   reviewer pueda re-revisar rápido."#;
+/// Build the "Address PR comments" prompt. `owner_repo` is the pre-resolved
+/// `owner/name` slug — the server takes it from the remote, so it never
+/// leaves placeholders for the agent to fill in. `comments_block` is the
+/// pre-rendered inline text (see [`render_comments_block`]); pass `None`
+/// when the enrichment fetch failed and the agent should fall back to `gh`.
+pub fn format_address_pr_comments_prompt(
+    pr_number: i64,
+    pr_url: &str,
+    owner_repo: &str,
+    comments_block: Option<&str>,
+) -> String {
+    let step1 = match comments_block {
+        Some(block) => format!(
+            "Los comentarios pendientes de review están abajo (comentarios generales del PR + \
+             comentarios inline con archivo/línea). Leélos tal como vienen — no hace falta \
+             volver a consultarlos con `gh`.\n\n{block}"
+        ),
+        None => format!(
+            "No pude adjuntar los comentarios en este prompt (el enriquecimiento falló). \
+             Traélos vos: los generales con `gh pr view {pr_number} -R {owner_repo} --comments` \
+             y los inline con `gh api repos/{owner_repo}/pulls/{pr_number}/comments`."
+        ),
+    };
+    format!(
+        "Tu PR #{pr_number} ({pr_url}) tiene comentarios de review pendientes. Encaralos ahora:\n\
+         \n\
+         1. {step1}\n\
+         2. Agrupá los comentarios por archivo/tema. Diferenciá pedidos accionables\n\
+            de simples preguntas: los accionables se implementan; a las preguntas\n\
+            respondelas en el PR (`gh pr comment {pr_number} -R {owner_repo} -b '<respuesta>'`)\n\
+            sin tocar código si no hace falta.\n\
+         3. Aplicá los cambios en tu rama, corré el build/typecheck (`pnpm run check`\n\
+            o `cargo check` según corresponda) y ejecutá los tests que toquen las\n\
+            zonas modificadas.\n\
+         4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR\n\
+            nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,\n\
+            usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream\n\
+            de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.\n\
+         5. Cuando termines, dejá un comentario resumen en el PR listando qué\n\
+            pedidos atendiste y cuáles quedaron abiertos con su razón, para que el\n\
+            reviewer pueda re-revisar rápido."
+    )
+}
 
-/// Dispatched by the "Fix CI" quick action. Needs `{pr_number}` and
-/// `{pr_url}`.
-pub const FIX_CI_PROMPT: &str = r#"El CI del PR #{pr_number} ({pr_url}) está fallando. Arreglá los checks:
-
-1. Mirá el estado con `gh pr checks {pr_number}`. Para cada check que
-   falle, abrí el log completo con `gh run view --log-failed --job <job_id>`
-   (o `gh run view <run_id> --log-failed` si venís del run) e identificá
-   el error real — no adivines por el nombre del step.
-2. Diagnosticá la causa raíz antes de tocar código: ¿es un test flaky, un
-   error de tipos, lint, build, migración de DB, formato? Fijá la
-   hipótesis y solo después editá archivos.
-3. Reproducí localmente lo que corre el CI cuando sea posible
-   (`pnpm run check`, `pnpm run lint`, `cargo check`, `cargo test`, etc.)
-   para validar el fix antes de pushear.
-4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
-   nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
-   usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream
-   de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.
-5. Después del push, seguí el CI con `gh pr checks {pr_number} --watch`.
-   Si vuelve a fallar, iterá — no reportes la tarea como terminada hasta
-   que los checks queden en verde."#;
+/// Build the "Fix CI" prompt. `failed_checks_block` is the pre-rendered
+/// inline list of failing jobs (see [`render_failed_checks_block`]); pass
+/// `None` when the enrichment fetch failed and the agent should fall back to
+/// `gh pr checks`. `owner_repo` is the pre-resolved `owner/name` slug so
+/// every `gh` invocation in the prompt targets the right repo explicitly.
+///
+/// Deliberately does NOT include `gh pr checks --watch` nor an "iterá hasta
+/// verde" instruction: polling the CI is the monitor's job and re-dispatch on
+/// red is a system decision, not the agent's. The agent fixes what it can
+/// verify locally, pushes, and ends the run.
+pub fn format_fix_ci_prompt(
+    pr_number: i64,
+    pr_url: &str,
+    owner_repo: &str,
+    failed_checks_block: Option<&str>,
+) -> String {
+    let step1 = match failed_checks_block {
+        Some(block) => format!(
+            "Estos son los checks que están en rojo. Para cada uno, abrí el log completo\n\
+            con `gh run view --log-failed --job <job_id>` (o desde su details URL) e\n\
+            identificá el error real — no adivines por el nombre del step.\n\
+            \n\
+            {block}"
+        ),
+        None => format!(
+            "No pude adjuntar el listado de checks fallados (el enriquecimiento falló).\n\
+            Traelo con `gh pr checks {pr_number} -R {owner_repo}`; para cada check en\n\
+            rojo abrí el log completo con `gh run view --log-failed --job <job_id>` e\n\
+            identificá el error real — no adivines por el nombre del step."
+        ),
+    };
+    format!(
+        "El CI del PR #{pr_number} ({pr_url}) está fallando. Arreglá los checks:\n\
+         \n\
+         1. {step1}\n\
+         2. Diagnosticá la causa raíz antes de tocar código: ¿es un test flaky, un\n\
+            error de tipos, lint, build, migración de DB, formato? Fijá la\n\
+            hipótesis y solo después editá archivos.\n\
+         3. Reproducí localmente lo que corre el CI cuando sea posible\n\
+            (`pnpm run check`, `pnpm run lint`, `cargo check`, `cargo test`, etc.)\n\
+            para validar el fix antes de pushear.\n\
+         4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR\n\
+            nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,\n\
+            usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream\n\
+            de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.\n\
+         5. Terminá la tarea después del push. NO te quedes mirando el CI: el\n\
+            sistema lo pollea gratis y, si vuelve a caer en rojo, re-despacha un\n\
+            fix por su cuenta. Tu trabajo termina cuando arreglaste lo que\n\
+            identificaste y validaste localmente lo que pudiste."
+    )
+}
 
 /// Dispatched by `worker_orchestrator::dispatch_review_task` when handing a
 /// PR to a reviewer worker. Needs `{pr_number}` and `{head_sha}` — the SHA
@@ -199,21 +273,301 @@ pub fn format_design_handoff_prompt(
     prompt
 }
 
-/// Substitute `{target_branch}` into [`RESOLVE_MERGE_CONFLICTS_PROMPT`].
-pub fn format_resolve_merge_conflicts_prompt(target_branch: &str) -> String {
-    RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", target_branch)
+/// Render a batch of PR comments (general + inline) into a plain-text block
+/// suitable for injection into a prompt. Comments are grouped by kind, kept
+/// in chronological order (as supplied), and the whole block is truncated to
+/// [`COMMENTS_BLOCK_MAX_BYTES`] with an explicit marker when it exceeds the
+/// cap so the agent knows the tail is missing.
+///
+/// Returns `None` when there are no comments to render — the caller then
+/// omits the block entirely and treats the run as "nothing to address".
+pub fn render_comments_block(
+    comments: &[UnifiedPrComment],
+    max_bytes: usize,
+) -> Option<String> {
+    if comments.is_empty() {
+        return None;
+    }
+    let mut out = String::new();
+    out.push_str(&format!("Comentarios del PR ({} total):\n", comments.len()));
+    for c in comments {
+        match c {
+            UnifiedPrComment::General {
+                author,
+                body,
+                created_at,
+                url,
+                ..
+            } => {
+                out.push_str(&format!(
+                    "\n--- Comentario general de @{author} ({created_at}) ---\n"
+                ));
+                if let Some(url) = url {
+                    out.push_str(&format!("URL: {url}\n"));
+                }
+                out.push_str(body.trim());
+                out.push('\n');
+            }
+            UnifiedPrComment::Review {
+                author,
+                body,
+                created_at,
+                url,
+                path,
+                line,
+                side,
+                diff_hunk,
+                ..
+            } => {
+                let line_str = line.map(|l| l.to_string()).unwrap_or_else(|| "?".into());
+                let side_str = side.as_deref().unwrap_or("RIGHT");
+                out.push_str(&format!(
+                    "\n--- Comentario inline de @{author} en {path}:{line_str} ({side_str}) — {created_at} ---\n"
+                ));
+                if let Some(url) = url {
+                    out.push_str(&format!("URL: {url}\n"));
+                }
+                if let Some(hunk) = diff_hunk.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                    out.push_str("Contexto (diff hunk):\n");
+                    for hunk_line in hunk.lines() {
+                        out.push_str("  ");
+                        out.push_str(hunk_line);
+                        out.push('\n');
+                    }
+                }
+                out.push_str(body.trim());
+                out.push('\n');
+            }
+        }
+    }
+    Some(truncate_with_marker(out, max_bytes))
 }
 
-/// Substitute `{pr_number}` and `{pr_url}` into [`ADDRESS_PR_COMMENTS_PROMPT`].
-pub fn format_address_pr_comments_prompt(pr_number: i64, pr_url: &str) -> String {
-    ADDRESS_PR_COMMENTS_PROMPT
-        .replace("{pr_number}", &pr_number.to_string())
-        .replace("{pr_url}", pr_url)
+/// Render a batch of failing CI checks into a plain-text block suitable for
+/// injection into a prompt. Truncated to [`FAILED_CHECKS_BLOCK_MAX_BYTES`]
+/// with an explicit marker when it exceeds the cap.
+///
+/// Returns `None` when there are no failing checks — the caller then omits
+/// the block entirely (rare: normally we only hit "Fix CI" when something is
+/// red, but a race between rollup and job list can produce an empty vec).
+pub fn render_failed_checks_block(
+    checks: &[PrFailedCheck],
+    max_bytes: usize,
+) -> Option<String> {
+    if checks.is_empty() {
+        return None;
+    }
+    let mut out = String::new();
+    out.push_str(&format!("Checks fallados ({}):\n", checks.len()));
+    for c in checks {
+        match c.details_url.as_deref() {
+            Some(url) => out.push_str(&format!("- {} ({}) — {url}\n", c.name, c.conclusion)),
+            None => out.push_str(&format!("- {} ({})\n", c.name, c.conclusion)),
+        }
+    }
+    Some(truncate_with_marker(out, max_bytes))
 }
 
-/// Substitute `{pr_number}` and `{pr_url}` into [`FIX_CI_PROMPT`].
-pub fn format_fix_ci_prompt(pr_number: i64, pr_url: &str) -> String {
-    FIX_CI_PROMPT
-        .replace("{pr_number}", &pr_number.to_string())
-        .replace("{pr_url}", pr_url)
+/// Truncate `input` to at most `max_bytes`, always yielding valid UTF-8 by
+/// stepping back to the nearest char boundary and appending an explicit
+/// marker. Zero-size caps are treated as "no cap" (used only in tests).
+fn truncate_with_marker(mut input: String, max_bytes: usize) -> String {
+    if max_bytes == 0 || input.len() <= max_bytes {
+        return input;
+    }
+    let mut cut = max_bytes;
+    while cut > 0 && !input.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    input.truncate(cut);
+    input.push_str(TRUNCATION_MARKER);
+    input
+}
+
+/// Parse the `owner/repo` slug out of a GitHub PR URL of the shape
+/// `https://{host}/{owner}/{repo}/pull/{n}`. Returns `None` for URLs that do
+/// not match this pattern (non-GitHub, malformed, or non-PR paths). Used to
+/// resolve the slug once at prompt-build time so every `gh` invocation the
+/// prompt suggests targets the right repo explicitly.
+pub fn parse_owner_repo_from_pr_url(pr_url: &str) -> Option<String> {
+    let url = url::Url::parse(pr_url).ok()?;
+    let mut segments = url.path_segments()?;
+    let owner = segments.next()?;
+    let repo = segments.next()?;
+    let kind = segments.next()?;
+    segments.next()?;
+    if kind != "pull" || owner.is_empty() || repo.is_empty() {
+        return None;
+    }
+    Some(format!("{owner}/{repo}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+
+    use super::*;
+
+    fn general_comment(author: &str, body: &str) -> UnifiedPrComment {
+        UnifiedPrComment::General {
+            id: "1".into(),
+            author: author.into(),
+            author_association: None,
+            body: body.into(),
+            created_at: Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap(),
+            url: Some("https://example.com/c/1".into()),
+        }
+    }
+
+    fn review_comment(path: &str, line: i64, body: &str) -> UnifiedPrComment {
+        UnifiedPrComment::Review {
+            id: 42,
+            author: "reviewer".into(),
+            author_association: None,
+            body: body.into(),
+            created_at: Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap(),
+            url: Some("https://example.com/c/2".into()),
+            path: path.into(),
+            line: Some(line),
+            side: Some("RIGHT".into()),
+            diff_hunk: Some("@@ -1 +1 @@\n-old\n+new".into()),
+        }
+    }
+
+    #[test]
+    fn address_pr_comments_prompt_inlines_comments_and_no_placeholders() {
+        let comments = vec![
+            general_comment("alice", "please fix the nit"),
+            review_comment("src/foo.rs", 10, "bug here"),
+        ];
+        let block = render_comments_block(&comments, COMMENTS_BLOCK_MAX_BYTES).unwrap();
+        let prompt = format_address_pr_comments_prompt(
+            42,
+            "https://github.com/mdevel-uy/vibe-kanban/pull/42",
+            "mdevel-uy/vibe-kanban",
+            Some(&block),
+        );
+        // Body contains the comments verbatim
+        assert!(prompt.contains("please fix the nit"));
+        assert!(prompt.contains("bug here"));
+        assert!(prompt.contains("src/foo.rs:10"));
+        // No unresolved placeholders remain
+        assert!(
+            !prompt.contains("{{owner}}") && !prompt.contains("{{repo}}"),
+            "prompt must not leak owner/repo placeholders"
+        );
+        assert!(
+            !prompt.contains("reemplazá owner/repo"),
+            "prompt must not tell the agent to substitute owner/repo"
+        );
+        // Owner/repo is resolved for any remaining gh invocations
+        assert!(prompt.contains("mdevel-uy/vibe-kanban"));
+    }
+
+    #[test]
+    fn address_pr_comments_prompt_falls_back_when_enrichment_missing() {
+        let prompt = format_address_pr_comments_prompt(
+            7,
+            "https://github.com/mdevel-uy/vibe-kanban/pull/7",
+            "mdevel-uy/vibe-kanban",
+            None,
+        );
+        // Fallback tells the agent to fetch, but owner/repo is already resolved
+        assert!(prompt.contains("gh pr view 7 -R mdevel-uy/vibe-kanban --comments"));
+        assert!(prompt.contains("gh api repos/mdevel-uy/vibe-kanban/pulls/7/comments"));
+        assert!(!prompt.contains("{{owner}}") && !prompt.contains("{{repo}}"));
+    }
+
+    #[test]
+    fn fix_ci_prompt_inlines_failed_checks_and_drops_watch() {
+        let checks = vec![
+            PrFailedCheck {
+                name: "backend".into(),
+                conclusion: "failure".into(),
+                details_url: Some("https://example.com/runs/1".into()),
+            },
+            PrFailedCheck {
+                name: "lint / eslint".into(),
+                conclusion: "failure".into(),
+                details_url: None,
+            },
+        ];
+        let block = render_failed_checks_block(&checks, FAILED_CHECKS_BLOCK_MAX_BYTES).unwrap();
+        let prompt = format_fix_ci_prompt(
+            99,
+            "https://github.com/mdevel-uy/vibe-kanban/pull/99",
+            "mdevel-uy/vibe-kanban",
+            Some(&block),
+        );
+        assert!(prompt.contains("backend (failure)"));
+        assert!(prompt.contains("lint / eslint (failure)"));
+        assert!(
+            !prompt.contains("--watch"),
+            "fix-ci prompt must not ask the agent to poll CI"
+        );
+        assert!(
+            !prompt.contains("iterá"),
+            "fix-ci prompt must not tell the agent to loop until green"
+        );
+    }
+
+    #[test]
+    fn fix_ci_prompt_fallback_still_resolves_owner_repo() {
+        let prompt = format_fix_ci_prompt(
+            12,
+            "https://github.com/mdevel-uy/vibe-kanban/pull/12",
+            "mdevel-uy/vibe-kanban",
+            None,
+        );
+        assert!(prompt.contains("gh pr checks 12 -R mdevel-uy/vibe-kanban"));
+        assert!(!prompt.contains("--watch"));
+    }
+
+    #[test]
+    fn render_comments_block_truncates_with_marker() {
+        // Build enough comments to exceed a tiny cap
+        let comments: Vec<UnifiedPrComment> = (0..50)
+            .map(|i| general_comment(&format!("user{i}"), &"x".repeat(200)))
+            .collect();
+        let block = render_comments_block(&comments, 512).unwrap();
+        assert!(block.len() <= 512 + TRUNCATION_MARKER.len() + 4);
+        assert!(block.contains("contenido truncado"));
+    }
+
+    #[test]
+    fn render_comments_block_none_when_empty() {
+        assert!(render_comments_block(&[], COMMENTS_BLOCK_MAX_BYTES).is_none());
+    }
+
+    #[test]
+    fn render_failed_checks_block_none_when_empty() {
+        assert!(render_failed_checks_block(&[], FAILED_CHECKS_BLOCK_MAX_BYTES).is_none());
+    }
+
+    #[test]
+    fn parse_owner_repo_from_pr_url_happy_path() {
+        assert_eq!(
+            parse_owner_repo_from_pr_url("https://github.com/mdevel-uy/vibe-kanban/pull/42"),
+            Some("mdevel-uy/vibe-kanban".into())
+        );
+        assert_eq!(
+            parse_owner_repo_from_pr_url(
+                "https://github.enterprise.com/team/repo/pull/1"
+            ),
+            Some("team/repo".into())
+        );
+    }
+
+    #[test]
+    fn parse_owner_repo_from_pr_url_rejects_bad_urls() {
+        assert_eq!(
+            parse_owner_repo_from_pr_url("https://github.com/team/repo/issues/1"),
+            None
+        );
+        assert_eq!(parse_owner_repo_from_pr_url("not-a-url"), None);
+        assert_eq!(
+            parse_owner_repo_from_pr_url("https://github.com/team/repo/pull/"),
+            None
+        );
+    }
 }

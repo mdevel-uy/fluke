@@ -25,8 +25,8 @@ use executors::actions::{
 };
 use git::{GitCliError, GitRemote, GitServiceError};
 use git_host::{
-    CreatePrRequest, GitHostError, GitHostProvider, GitHostService, ProviderKind, UnifiedPrComment,
-    github::GhCli,
+    CreatePrRequest, GitHostError, GitHostProvider, GitHostService, PrFailedCheck, ProviderKind,
+    UnifiedPrComment, github::GhCli,
 };
 use serde::{Deserialize, Serialize};
 use services::services::{
@@ -1095,6 +1095,98 @@ pub async fn resolve_merge_conflicts_follow_up(
     }
 }
 
+/// Best-effort fetch of a PR's comment list for prompt enrichment. Returns
+/// `None` on any failure (missing repo linkage, non-GitHub host, network
+/// error) with a warn — enrichment is optional and callers must degrade to
+/// the fallback prompt instead of blocking dispatch.
+async fn fetch_pr_comments_for_prompt(
+    deployment: &DeploymentImpl,
+    open_pr: &PullRequest,
+) -> Option<Vec<UnifiedPrComment>> {
+    let pool = &deployment.db().pool;
+    let repo_id = open_pr.repo_id?;
+    let repo = match Repo::find_by_id(pool, repo_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "PR repo not found — dispatching without inline comments");
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to load repo for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    let git = deployment.git();
+    let remote = match git.resolve_remote_for_branch(&repo.path, &open_pr.target_branch_name) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to resolve remote for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    let git_host = match GitHostService::from_url(&remote.url) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Unsupported host for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    match git_host
+        .get_pr_comments(&repo.path, &remote.url, open_pr.pr_number)
+        .await
+    {
+        Ok(comments) => Some(comments),
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to fetch PR comments for prompt enrichment: {e}");
+            None
+        }
+    }
+}
+
+/// Best-effort fetch of a PR's failing CI checks for prompt enrichment.
+/// Returns `None` on any failure with a warn — same fallback contract as
+/// [`fetch_pr_comments_for_prompt`].
+async fn fetch_pr_failed_checks_for_prompt(
+    deployment: &DeploymentImpl,
+    open_pr: &PullRequest,
+) -> Option<Vec<PrFailedCheck>> {
+    let pool = &deployment.db().pool;
+    let repo_id = open_pr.repo_id?;
+    let repo = match Repo::find_by_id(pool, repo_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "PR repo not found — dispatching without inline checks");
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to load repo for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    let git = deployment.git();
+    let remote = match git.resolve_remote_for_branch(&repo.path, &open_pr.target_branch_name) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to resolve remote for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    let git_host = match GitHostService::from_url(&remote.url) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Unsupported host for prompt enrichment: {e}");
+            return None;
+        }
+    };
+    match git_host.get_pr_failed_checks(&open_pr.pr_url).await {
+        Ok(checks) => Some(checks),
+        Err(e) => {
+            tracing::warn!(pr_url = %open_pr.pr_url, "Failed to fetch failed checks for prompt enrichment: {e}");
+            None
+        }
+    }
+}
+
 pub async fn address_pr_comments_follow_up(
     Extension(workspace): Extension<Workspace>,
     State(deployment): State<DeploymentImpl>,
@@ -1112,8 +1204,26 @@ pub async fn address_pr_comments_follow_up(
         )));
     };
 
-    let prompt =
-        quick_action_prompts::format_address_pr_comments_prompt(open_pr.pr_number, &open_pr.pr_url);
+    // Owner/repo is always present in the prompt (resolved server-side, never
+    // a placeholder the agent has to fill in). If the PR URL is not the
+    // expected GitHub shape we still dispatch, using the URL alone for `gh`.
+    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url)
+        .unwrap_or_else(|| open_pr.pr_url.clone());
+
+    // Best-effort enrichment: fetch inline comments so the agent doesn't have
+    // to shell out. Any failure logs a warn and drops us into the fallback
+    // prompt (which still tells the agent to fetch with `gh`).
+    let comments = fetch_pr_comments_for_prompt(&deployment, &open_pr).await;
+    let comments_block = comments.as_ref().and_then(|c| {
+        quick_action_prompts::render_comments_block(c, quick_action_prompts::COMMENTS_BLOCK_MAX_BYTES)
+    });
+
+    let prompt = quick_action_prompts::format_address_pr_comments_prompt(
+        open_pr.pr_number,
+        &open_pr.pr_url,
+        &owner_repo,
+        comments_block.as_deref(),
+    );
 
     match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
         QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),
@@ -1140,7 +1250,23 @@ pub async fn fix_ci_follow_up(
         )));
     };
 
-    let prompt = quick_action_prompts::format_fix_ci_prompt(open_pr.pr_number, &open_pr.pr_url);
+    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url)
+        .unwrap_or_else(|| open_pr.pr_url.clone());
+
+    let failed_checks = fetch_pr_failed_checks_for_prompt(&deployment, &open_pr).await;
+    let failed_checks_block = failed_checks.as_ref().and_then(|c| {
+        quick_action_prompts::render_failed_checks_block(
+            c,
+            quick_action_prompts::FAILED_CHECKS_BLOCK_MAX_BYTES,
+        )
+    });
+
+    let prompt = quick_action_prompts::format_fix_ci_prompt(
+        open_pr.pr_number,
+        &open_pr.pr_url,
+        &owner_repo,
+        failed_checks_block.as_deref(),
+    );
 
     match dispatch_quick_action_follow_up(&deployment, &workspace, prompt).await? {
         QuickActionDispatchOutcome::Dispatched => Ok(ResponseJson(ApiResponse::success(()))),

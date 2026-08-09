@@ -20,7 +20,7 @@ use url::Url;
 use utils::{command_ext::NoWindowExt, shell::resolve_executable_path_blocking};
 
 use crate::types::{
-    CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrReviewComment,
+    CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrFailedCheck, PrReviewComment,
     PullRequestDetail, ReviewCommentUser, SubmitPrReviewRequest, SubmitPrReviewResponse,
 };
 
@@ -455,6 +455,76 @@ impl GhCli {
             .cloned()
             .unwrap_or_default();
         Ok(Self::rollup_ci_checks(&checks))
+    }
+
+    /// List CI checks of a PR that are currently in a failing state
+    /// (`failure`, `error`, `cancelled`, `timed_out`, `action_required`).
+    /// Pending / passing checks are filtered out. Used to enrich the "Fix CI"
+    /// prompt without asking the agent to shell out to `gh pr checks`.
+    pub fn get_pr_failed_checks(&self, pr_url: &str) -> Result<Vec<PrFailedCheck>, GhCliError> {
+        let raw = self.run(["pr", "view", pr_url, "--json", "statusCheckRollup"], None)?;
+        let value: serde_json::Value = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!(
+                "Failed to parse gh pr view --json statusCheckRollup: {e}; raw: {raw}"
+            ))
+        })?;
+        let checks = value
+            .get("statusCheckRollup")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        Ok(Self::extract_failed_checks(&checks))
+    }
+
+    /// Extract the failing entries from a `statusCheckRollup` array. Mirrors
+    /// [`rollup_ci_checks`] on which states count as failing; here we surface
+    /// the individual jobs instead of collapsing them to a single word.
+    fn extract_failed_checks(checks: &[serde_json::Value]) -> Vec<PrFailedCheck> {
+        let mut out = Vec::new();
+        for check in checks {
+            // CheckRun uses status COMPLETED + conclusion; StatusContext uses state.
+            let status = check
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_ascii_uppercase();
+            if !status.is_empty() && status != "COMPLETED" {
+                // Still running / queued — not a failure.
+                continue;
+            }
+            let state = check
+                .get("conclusion")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .or_else(|| check.get("state").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_ascii_uppercase();
+            let is_failing = !matches!(
+                state.as_str(),
+                "SUCCESS" | "NEUTRAL" | "SKIPPED" | "PENDING" | "EXPECTED" | ""
+            );
+            if !is_failing {
+                continue;
+            }
+            let name = check
+                .get("name")
+                .and_then(|v| v.as_str())
+                .or_else(|| check.get("context").and_then(|v| v.as_str()))
+                .unwrap_or("unknown check")
+                .to_string();
+            let details_url = check
+                .get("detailsUrl")
+                .and_then(|v| v.as_str())
+                .or_else(|| check.get("targetUrl").and_then(|v| v.as_str()))
+                .filter(|s| !s.is_empty())
+                .map(String::from);
+            out.push(PrFailedCheck {
+                name,
+                conclusion: state.to_ascii_lowercase(),
+                details_url,
+            });
+        }
+        out
     }
 
     /// Reduce `statusCheckRollup` entries (CheckRun or StatusContext objects)

@@ -18,8 +18,8 @@ use tracing::info;
 use crate::{
     GitHostProvider,
     types::{
-        CreatePrRequest, GitHostError, LatestPrReview, ProviderKind, PullRequestDetail,
-        SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
+        CreatePrRequest, GitHostError, LatestPrReview, PrFailedCheck, ProviderKind,
+        PullRequestDetail, SubmitPrReviewRequest, SubmitPrReviewResponse, UnifiedPrComment,
     },
 };
 
@@ -269,6 +269,13 @@ impl GitHostProvider for AzureDevOpsProvider {
 
     async fn get_pr_ci_status(&self, _pr_url: &str) -> Result<String, GitHostError> {
         Ok("unknown".to_string())
+    }
+
+    async fn get_pr_failed_checks(
+        &self,
+        _pr_url: &str,
+    ) -> Result<Vec<PrFailedCheck>, GitHostError> {
+        Ok(Vec::new())
     }
 
     async fn get_pr_latest_review_state(
