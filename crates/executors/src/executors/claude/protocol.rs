@@ -11,13 +11,32 @@ use super::types::{CLIMessage, ControlRequestType, ControlResponseMessage, Contr
 use crate::{
     approvals::ExecutorApprovalError,
     executors::{
-        ExecutorError,
+        ExecutorError, ExecutorExitResult,
         claude::{
             client::ClaudeAgentClient,
             types::{Message, PermissionMode, SDKControlRequest, SDKControlRequestType},
         },
     },
 };
+
+/// How long the CLI gets to exit on its own after emitting its `result`
+/// message before the exit signal fires and the container kills the process
+/// group. Normally the CLI exits within a second or two of the result;
+/// the grace period only matters for the hung-after-result case (incidente
+/// PR #499: end_turn + result emitidos, stdin cerrado, y el proceso siguió
+/// vivo 7 horas — la task quedó in_progress y el veredicto sin someter).
+const EXIT_AFTER_RESULT_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Map a raw `{"type":"result", ...}` payload to the exit result the
+/// container should record if the CLI has to be reaped. `is_error: true`
+/// (or an unreadable flag) marks the run failed; absent defaults to success
+/// because every healthy result carries `is_error: false`.
+fn exit_result_from_payload(payload: &serde_json::Value) -> ExecutorExitResult {
+    match payload.get("is_error").and_then(|v| v.as_bool()) {
+        Some(true) => ExecutorExitResult::Failure,
+        _ => ExecutorExitResult::Success,
+    }
+}
 
 /// Handles bidirectional control protocol communication
 #[derive(Clone)]
@@ -31,6 +50,7 @@ impl ProtocolPeer {
         stdout: ChildStdout,
         client: Arc<ClaudeAgentClient>,
         cancel: CancellationToken,
+        exit_tx: tokio::sync::oneshot::Sender<ExecutorExitResult>,
     ) -> Self {
         let peer = Self {
             stdin: Arc::new(Mutex::new(stdin)),
@@ -38,7 +58,7 @@ impl ProtocolPeer {
 
         let reader_peer = peer.clone();
         tokio::spawn(async move {
-            if let Err(e) = reader_peer.read_loop(stdout, client, cancel).await {
+            if let Err(e) = reader_peer.read_loop(stdout, client, cancel, exit_tx).await {
                 tracing::error!("Protocol reader loop error: {}", e);
             }
         });
@@ -51,10 +71,12 @@ impl ProtocolPeer {
         stdout: ChildStdout,
         client: Arc<ClaudeAgentClient>,
         cancel: CancellationToken,
+        exit_tx: tokio::sync::oneshot::Sender<ExecutorExitResult>,
     ) -> Result<(), ExecutorError> {
         let mut reader = BufReader::new(stdout);
         let mut buffer = String::new();
         let mut interrupt_sent = false;
+        let mut exit_tx = Some(exit_tx);
 
         loop {
             buffer.clear();
@@ -87,7 +109,32 @@ impl ProtocolPeer {
                                     self.handle_control_request(&client, request_id, request)
                                         .await;
                                 }
-                                Ok(CLIMessage::Result(_)) => {
+                                Ok(CLIMessage::Result(payload)) => {
+                                    // The run is over: the CLI is expected to
+                                    // exit by itself now that the result is
+                                    // out and stdin closes when this loop
+                                    // drops the peer. It doesn't always (a
+                                    // hung CLI leaves the task in_progress
+                                    // forever), so arm a delayed exit signal:
+                                    // if the process is still alive after the
+                                    // grace period, the container kills the
+                                    // group and records the result-derived
+                                    // status. If the CLI exited normally the
+                                    // receiver is already gone and the send
+                                    // is a no-op.
+                                    if let Some(tx) = exit_tx.take() {
+                                        let result = exit_result_from_payload(&payload);
+                                        tokio::spawn(async move {
+                                            tokio::time::sleep(EXIT_AFTER_RESULT_GRACE).await;
+                                            if tx.send(result).is_ok() {
+                                                tracing::warn!(
+                                                    "Claude CLI still alive {}s after its result \
+                                                     message — signaling the container to reap it",
+                                                    EXIT_AFTER_RESULT_GRACE.as_secs()
+                                                );
+                                            }
+                                        });
+                                    }
                                     break;
                                 }
                                 _ => {}
@@ -216,5 +263,51 @@ impl ProtocolPeer {
             SDKControlRequestType::SetPermissionMode { mode },
         ))
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Real-shaped success line: the reaped status must be Completed, same
+    /// as a clean self-exit with code 0.
+    #[test]
+    fn exit_result_success_when_is_error_false() {
+        let payload: serde_json::Value = serde_json::from_str(
+            r#"{"type":"result","subtype":"success","is_error":false,"duration_ms":6059,"result":"done"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            exit_result_from_payload(&payload),
+            ExecutorExitResult::Success
+        ));
+    }
+
+    /// An errored run (e.g. the fable-404 incident line) must be reaped as
+    /// Failure so the orchestrator's failure classification still runs.
+    #[test]
+    fn exit_result_failure_when_is_error_true() {
+        let payload: serde_json::Value = serde_json::from_str(
+            r#"{"type":"result","subtype":"success","is_error":true,"api_error_status":404,"result":"model error"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            exit_result_from_payload(&payload),
+            ExecutorExitResult::Failure
+        ));
+    }
+
+    /// A result without the flag (or with a non-bool value) defaults to
+    /// Success — every healthy result carries is_error, so absence means an
+    /// old/odd payload, not a failure.
+    #[test]
+    fn exit_result_defaults_to_success_without_flag() {
+        let payload: serde_json::Value =
+            serde_json::from_str(r#"{"type":"result","subtype":"success"}"#).unwrap();
+        assert!(matches!(
+            exit_result_from_payload(&payload),
+            ExecutorExitResult::Success
+        ));
     }
 }
