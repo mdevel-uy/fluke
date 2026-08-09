@@ -3748,6 +3748,268 @@ pub async fn dispatch_author_fix_task(
     Ok(())
 }
 
+/// Text of the CI-fix prompt sent to the author when the PR head has a failing
+/// CI rollup. Sibling of [`build_remediation_prompt`]: shares its plumbing-free
+/// contract (worktree already on the PR head, system pushes and does not
+/// create a new PR) but is dispatched by the pr_monitor CI gate (issue #367)
+/// instead of a reviewer verdict.
+fn build_ci_fix_prompt(pr_number: i64) -> String {
+    format!(
+        "El CI del PR #{pr_number} está fallando. \
+         Tu worktree ya está posicionado sobre el head del PR — no hace \
+         falta hacer fetch, checkout, ni reset. \
+         Revisá los checks con `gh pr checks {pr_number}` (usá \
+         `--watch=false` para no bloquearte), inspeccioná los logs de las \
+         corridas fallidas, arreglá lo que las rompe y commiteá. \
+         El sistema pushea tus commits a la rama del PR al finalizar la \
+         corrida: no pushees a mano ni crees un PR nuevo — el PR ya existe."
+    )
+}
+
+/// Dispatch a CI-fix task to the PR author worker when the PR head has a
+/// failing CI rollup (issue #367). The pr_monitor is the sole caller: it
+/// makes this call INSTEAD of `dispatch_review_task` when the CI gate is
+/// red, so the reviewer never burns a round on a PR whose checks are broken.
+///
+/// Reuses the shared `dispatch_remediation_follow_up` primary path and the
+/// `prepend_review_fix` fallback used by `dispatch_author_fix_task`. Unlike
+/// `dispatch_author_fix_task`, it does NOT gate on "at least one review round
+/// completed": CI can break on the very first push, before any reviewer has
+/// looked at the PR.
+///
+/// Idempotency:
+/// - Per-head SHA: a `review_rounds` row with `kind='remediation'`,
+///   `head_sha`=current head, `reasons={"ci_failing":true}` is inserted after
+///   a successful dispatch. Subsequent polls on the same head see that row
+///   via `ReviewRound::exists_for_head` and skip. Once the author pushes a
+///   fix, the head SHA changes and a fresh dispatch is allowed.
+/// - Per-PR "in flight": while a queued/in_progress `review_fix` task exists
+///   OR a coding-agent process is live on the workspace, no second CI-fix is
+///   dispatched (same defense-in-depth as the review-changes remediation).
+///
+/// No-op when:
+/// - `WORKER_LEAD_ENABLED=false`
+/// - No local PullRequest record yet — pr_monitor's next cycle records it
+/// - GitHub returns no head SHA (transient — retried next cycle)
+pub async fn dispatch_ci_fix_task(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    pr_number: i64,
+    repo_id: Uuid,
+    author_worker_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    if !lead_enabled_from_env() {
+        return Ok(());
+    }
+
+    let pool = &db.pool;
+
+    // Same in-flight guard as `dispatch_author_fix_task`: while one fix task
+    // is queued or in progress for this PR, do not queue a second one. Covers
+    // both the legacy `review_fix` task path and interlocks CI fixes with
+    // reviewer-requested fixes on the same PR.
+    if let Some(pending) =
+        WorkerTask::find_pending_review_fix_for_pr(pool, pr_number, repo_id).await?
+    {
+        debug!(
+            pr_number,
+            pending_task_id = %pending.id,
+            "A fix task for this PR is already pending — skipping duplicate CI-fix dispatch"
+        );
+        return Ok(());
+    }
+
+    // Resolve the PR record + head SHA for the per-head idempotency guard.
+    // Bail conservatively on any resolve failure: dispatching against an
+    // unknown head would either double-fire on the same head (if we later
+    // learn the SHA) or race with a subsequent push.
+    let Some(pr_record) = PullRequest::find_by_repo_and_number(pool, repo_id, pr_number).await?
+    else {
+        debug!(
+            pr_number,
+            repo_id = %repo_id,
+            "No local PullRequest record yet — skipping CI-fix dispatch this cycle"
+        );
+        return Ok(());
+    };
+
+    // Try to use the author's PAT so the head-SHA fetch is attributed to the
+    // author's identity — but tolerate PAT-less workers (the fetch itself is
+    // a read-only view API and works with the machine's gh account).
+    let author = Worker::find_by_id(pool, author_worker_id).await?;
+    let author_pat = author.and_then(|w| w.github_pat);
+    let git_host = match GitHostService::from_url_with_token(&pr_record.pr_url, author_pat) {
+        Ok(gh) => gh,
+        Err(e) => {
+            debug!(
+                pr_number,
+                "Cannot construct git host for CI-fix dispatch — skipping this cycle: {}", e
+            );
+            return Ok(());
+        }
+    };
+    let head_sha = match git_host.get_pr_head_sha(&pr_record.pr_url).await {
+        Ok(Some(sha)) if !sha.is_empty() => sha,
+        Ok(_) => {
+            debug!(
+                pr_number,
+                "GitHub returned no head SHA for PR — skipping CI-fix dispatch this cycle"
+            );
+            return Ok(());
+        }
+        Err(e) => {
+            warn!(
+                pr_number,
+                "Failed to resolve head SHA for CI-fix dispatch — retrying next cycle: {}", e
+            );
+            return Ok(());
+        }
+    };
+
+    // Per-head idempotency: one CI-fix per failing head SHA. `exists_for_head`
+    // returns true for any remediation row (kind='remediation') on this exact
+    // head that is not `failed`, which covers both a still-pending in-flight
+    // fix and a fix that already completed on this head.
+    if ReviewRound::exists_for_head(
+        pool,
+        repo_id,
+        pr_number,
+        review_round::KIND_REMEDIATION,
+        &head_sha,
+    )
+    .await?
+    {
+        debug!(
+            pr_number,
+            head_sha = %head_sha,
+            "CI-fix already dispatched for this head SHA — skipping"
+        );
+        return Ok(());
+    }
+
+    let task_prompt = build_ci_fix_prompt(pr_number);
+
+    // Primary path: dispatch the CI-fix as a system follow-up on the author's
+    // ORIGINAL in_review workspace, same as the reviewer-changes remediation.
+    let dispatched = match dispatch_remediation_follow_up(
+        db,
+        container,
+        pr_number,
+        repo_id,
+        author_worker_id,
+        &task_prompt,
+    )
+    .await
+    {
+        Ok(true) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                head_sha = %head_sha,
+                "CI-fix dispatched as follow-up on the original task workspace"
+            );
+            true
+        }
+        Ok(false) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                "Original workspace unavailable for CI-fix follow-up — falling back to review_fix task"
+            );
+            false
+        }
+        Err(e) => {
+            warn!(
+                author_worker_id = %author_worker_id,
+                pr_number,
+                "Follow-up CI-fix dispatch failed — falling back to review_fix task: {}",
+                e
+            );
+            false
+        }
+    };
+
+    let mut fallback_task_id: Option<Uuid> = None;
+    if !dispatched {
+        // Fallback: create a `review_fix` task. Shares the kind so it flows
+        // through the same scheduler exemption (front-of-queue, exempt from
+        // WORKER_MAX_IN_REVIEW) as the reviewer-changes fix.
+        let task_title = format!("Arreglá el CI del PR #{}", pr_number);
+
+        let task = WorkerTask::prepend_review_fix(
+            pool,
+            author_worker_id,
+            &CreateWorkerTask {
+                repo_id,
+                title: task_title,
+                prompt: task_prompt,
+                issue_number: Some(pr_number),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await?;
+
+        info!(
+            author_worker_id = %author_worker_id,
+            pr_number,
+            task_id = %task.id,
+            head_sha = %head_sha,
+            "Dispatched CI-fix task (fallback) for PR #{}",
+            pr_number,
+        );
+
+        fallback_task_id = Some(task.id);
+
+        match try_take_next(config, db, container, author_worker_id).await {
+            Ok(started) => info!(
+                author_worker_id = %author_worker_id,
+                started_task_id = %started.task.id,
+                "Author worker started its next queued task after CI-fix dispatch"
+            ),
+            Err(e) if e.is_conflict() => {}
+            Err(StartError::Sqlx(e)) => return Err(e),
+            Err(e) => warn!(
+                author_worker_id = %author_worker_id,
+                "Failed to auto-start author after CI-fix dispatch: {}",
+                e
+            ),
+        }
+    }
+
+    // Record the remediation round so the head-SHA idempotency guard fires
+    // on the next poll. `reasons` distinguishes CI-fix from reviewer-changes
+    // fix for anyone querying the ledger later. Best-effort: if the insert
+    // fails we log and continue — a duplicate dispatch on the next cycle is
+    // the pathological worst case, and the in-flight WorkerTask guard above
+    // will still catch it while the current fix is running.
+    if let Err(e) = ReviewRound::create(
+        pool,
+        &CreateReviewRound {
+            repo_id,
+            pr_number,
+            kind: review_round::KIND_REMEDIATION.to_string(),
+            head_sha: head_sha.clone(),
+            base_sha: None,
+            task_id: fallback_task_id,
+            reasons: Some(r#"{"ci_failing":true}"#.to_string()),
+        },
+    )
+    .await
+    {
+        warn!(
+            pr_number,
+            head_sha = %head_sha,
+            "Failed to insert review_rounds row for CI-fix dispatch: {}",
+            e
+        );
+    }
+
+    Ok(())
+}
+
 fn worker_workspace_name(worker: &Worker, task: &WorkerTask) -> String {
     let title = task.title.trim();
     if title.is_empty() {
@@ -4001,6 +4263,117 @@ mod tests {
                 "remediation prompt must not emit `-R <full-url>`"
             );
         }
+    }
+
+    /// Issue #367: the CI-fix prompt is a sibling of the reviewer-changes
+    /// remediation prompt and shares its plumbing-free contract. The worktree
+    /// arrives at the PR head, the system pushes on finish, and the PR
+    /// already exists — none of that git bookkeeping belongs in the prompt.
+    #[test]
+    fn ci_fix_prompt_has_no_git_plumbing_and_names_the_pr() {
+        let prompt = build_ci_fix_prompt(507);
+        assert!(
+            prompt.contains("PR #507"),
+            "CI-fix prompt must reference the PR number"
+        );
+        assert!(
+            prompt.contains("gh pr checks 507"),
+            "CI-fix prompt must point the author at `gh pr checks` for diagnosis"
+        );
+        assert!(
+            !prompt.contains("reset --hard"),
+            "CI-fix prompt must not tell the agent to run reset --hard"
+        );
+        assert!(
+            !prompt.contains("git push"),
+            "CI-fix prompt must not tell the agent to run git push"
+        );
+        assert!(
+            !prompt.contains("pull/507/head") && !prompt.contains("FETCH_HEAD"),
+            "CI-fix prompt must not tell the agent to fetch pull/N/head"
+        );
+        assert!(
+            !prompt.contains("gh pr checkout"),
+            "CI-fix prompt must not tell the agent to run gh pr checkout"
+        );
+        assert!(
+            !prompt.contains("gh pr create"),
+            "CI-fix prompt must not tell the agent to open a new PR"
+        );
+    }
+
+    /// Idempotency contract for the CI-fix dispatch (issue #367): once a
+    /// remediation round is recorded for a given (repo, PR, head SHA), the
+    /// `exists_for_head` guard fires so a redispatch on the same failing head
+    /// is a no-op. This is the mechanism `dispatch_ci_fix_task` relies on to
+    /// avoid burning a fresh agent run every poll while CI is still red on the
+    /// same commit.
+    #[tokio::test]
+    async fn ci_fix_head_sha_guard_blocks_second_dispatch_on_same_head() {
+        let db = setup_test_db().await;
+        let (repo, _temp) = insert_repo(&db, "ci-fix-guard-repo").await;
+        let pr_number: i64 = 4242;
+        let head_sha = "deadbeefcafefeed1234567890abcdef00000000";
+
+        // No round yet — the guard should let the first dispatch through.
+        assert!(
+            !ReviewRound::exists_for_head(
+                &db.pool,
+                repo.id,
+                pr_number,
+                review_round::KIND_REMEDIATION,
+                head_sha,
+            )
+            .await
+            .unwrap()
+        );
+
+        // Simulate what dispatch_ci_fix_task writes after a successful
+        // dispatch: a remediation round pinned to this head SHA, marked as
+        // CI-driven for anyone querying the ledger later.
+        ReviewRound::create(
+            &db.pool,
+            &CreateReviewRound {
+                repo_id: repo.id,
+                pr_number,
+                kind: review_round::KIND_REMEDIATION.to_string(),
+                head_sha: head_sha.to_string(),
+                base_sha: None,
+                task_id: None,
+                reasons: Some(r#"{"ci_failing":true}"#.to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        // Same head: guard trips — no duplicate CI-fix.
+        assert!(
+            ReviewRound::exists_for_head(
+                &db.pool,
+                repo.id,
+                pr_number,
+                review_round::KIND_REMEDIATION,
+                head_sha,
+            )
+            .await
+            .unwrap()
+        );
+
+        // A new head (author pushed a fix that still didn't clear CI) should
+        // NOT be blocked by the previous head's row — a fresh dispatch on the
+        // new failing head is exactly what the CI gate wants.
+        let new_head = "beadfeedcafedead1111111111111111ffffffff";
+        assert!(
+            !ReviewRound::exists_for_head(
+                &db.pool,
+                repo.id,
+                pr_number,
+                review_round::KIND_REMEDIATION,
+                new_head,
+            )
+            .await
+            .unwrap()
+        );
     }
 
     #[test]

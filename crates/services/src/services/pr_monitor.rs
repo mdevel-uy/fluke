@@ -54,6 +54,41 @@ impl PrMonitorError {
     }
 }
 
+/// Interpretation of the PR's `statusCheckRollup` from the review-dispatch
+/// perspective. Introduced with issue #367: the reviewer no longer burns a
+/// round on a PR whose CI is red; the pr_monitor routes to a CI-fix task
+/// instead. Any unknown / stale / unfetchable state is folded into `Pending`
+/// so the loop always waits for CI to resolve rather than dispatching with
+/// uncertain information.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CiGate {
+    /// Every configured check passed, or no checks are configured — safe to
+    /// dispatch the reviewer.
+    Green,
+    /// At least one check is still running (or the state is unknown / the
+    /// fetch failed). Skip both review and CI-fix dispatch this cycle.
+    Pending,
+    /// A check has failed on this head. Dispatch a CI-fix task to the author
+    /// instead of a review.
+    Failing,
+}
+
+impl CiGate {
+    fn from_status(status: &str) -> Self {
+        match status {
+            // "passing" — every check succeeded.
+            // "none" — the repository has no checks configured, which the
+            // reviewer checklist treats as "no CI to fail".
+            "passing" | "none" => CiGate::Green,
+            "failing" => CiGate::Failing,
+            // "pending", "unknown", and any future value default to Pending
+            // per the sad-path spec of issue #367: never dispatch on
+            // uncertain information.
+            _ => CiGate::Pending,
+        }
+    }
+}
+
 /// Service to monitor PRs and update task status when they are merged
 pub struct PrMonitorService<C: ContainerService> {
     db: DBService,
@@ -331,23 +366,69 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                         Worker::find_by_workspace_id(&self.db.pool, workspace_id)
                             .await
                             .unwrap_or(None);
-                    if Self::should_dispatch_review(&git_host, &pr_info.url, pr_info.number).await {
-                        if let Err(e) = worker_orchestrator::dispatch_review_task(
-                            &self.config,
-                            &self.db,
-                            &self.container,
-                            pr_info.number,
-                            &pr_info.title,
-                            workspace_repo.repo_id,
-                            author_worker_id,
-                            false,
-                        )
-                        .await
-                        {
-                            warn!(
+                    // CI gate (issue #367): the review dispatch path applies
+                    // even on the adoption sweep, so a PR adopted with red
+                    // (or unresolved) CI does not spend a review round on
+                    // something the orchestrator can decide alone. Failing CI
+                    // dispatches a fix task to the author; pending/unknown CI
+                    // skips both and the next monitor cycle retries.
+                    let ci_gate =
+                        Self::evaluate_ci_gate(&git_host, &self.db, &pr_info.url, pr_info.number)
+                            .await;
+                    match ci_gate {
+                        CiGate::Pending => {
+                            debug!(
                                 pr_number = pr_info.number,
-                                "Failed to dispatch review task after PR adoption: {}", e
+                                "CI is pending or unknown at adoption — skipping review/fix dispatch"
                             );
+                        }
+                        CiGate::Failing => match author_worker_id {
+                            Some(author_id) => {
+                                if let Err(e) = worker_orchestrator::dispatch_ci_fix_task(
+                                    &self.config,
+                                    &self.db,
+                                    &self.container,
+                                    pr_info.number,
+                                    workspace_repo.repo_id,
+                                    author_id,
+                                )
+                                .await
+                                {
+                                    warn!(
+                                        pr_number = pr_info.number,
+                                        "Failed to dispatch CI-fix task after PR adoption: {}", e
+                                    );
+                                }
+                            }
+                            None => {
+                                debug!(
+                                    pr_number = pr_info.number,
+                                    "CI is failing at adoption but no author worker is registered — skipping CI-fix dispatch"
+                                );
+                            }
+                        },
+                        CiGate::Green => {
+                            if Self::should_dispatch_review(&git_host, &pr_info.url, pr_info.number)
+                                .await
+                            {
+                                if let Err(e) = worker_orchestrator::dispatch_review_task(
+                                    &self.config,
+                                    &self.db,
+                                    &self.container,
+                                    pr_info.number,
+                                    &pr_info.title,
+                                    workspace_repo.repo_id,
+                                    author_worker_id,
+                                    false,
+                                )
+                                .await
+                                {
+                                    warn!(
+                                        pr_number = pr_info.number,
+                                        "Failed to dispatch review task after PR adoption: {}", e
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -556,6 +637,39 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         }
     }
 
+    /// Fetch the PR's current CI rollup, persist it (for the Kanban card), and
+    /// return the gate value that drives review/fix dispatch (issue #367). The
+    /// reviewer's checklist starts with "CI verde — si algún check está rojo,
+    /// request changes sin leer más": the pr_monitor short-circuits that
+    /// deterministically so no reviewer round is spent on a broken PR.
+    ///
+    /// Conservative on error: any failure returns `Pending`, which makes the
+    /// caller skip both review and fix dispatch this cycle and retry on the
+    /// next poll — never blocks the monitor loop, never dispatches with
+    /// uncertain information.
+    async fn evaluate_ci_gate(
+        git_host: &GitHostService,
+        db: &DBService,
+        pr_url: &str,
+        pr_number: i64,
+    ) -> CiGate {
+        match git_host.get_pr_ci_status(pr_url).await {
+            Ok(ci_status) => {
+                if let Err(e) = PullRequest::update_ci_status(&db.pool, pr_url, &ci_status).await {
+                    warn!("Failed to persist CI status for PR #{}: {}", pr_number, e);
+                }
+                CiGate::from_status(&ci_status)
+            }
+            Err(e) => {
+                warn!(
+                    pr_number,
+                    "Failed to check CI status — treating as pending: {}", e
+                );
+                CiGate::Pending
+            }
+        }
+    }
+
     /// Check the status of a single open PR and handle state changes.
     async fn check_open_pr(&self, pr: &PullRequest) -> Result<(), PrMonitorError> {
         let git_host = GitHostService::from_url(&pr.pr_url)?;
@@ -567,6 +681,14 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         );
 
         if matches!(&status.status, MergeStatus::Open) {
+            // Fetch and persist the CI rollup first so the gate value drives
+            // both branches below. Issue #367: the reviewer's own checklist
+            // starts with "CI verde — si algún check está rojo, request
+            // changes sin leer más", so we short-circuit that deterministically
+            // instead of paying a review round for it.
+            let ci_gate =
+                Self::evaluate_ci_gate(&git_host, &self.db, &pr.pr_url, pr.pr_number).await;
+
             // PR is still open — reconcile the worker-task state machine.
             // This is idempotent: it only transitions in_progress → in_review
             // for a worker-owned workspace, and no-ops otherwise.
@@ -589,106 +711,158 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                             .await
                             .unwrap_or(None);
 
-                    // One review snapshot per poll: the latest actionable
-                    // verdict, the SHA it was submitted against, and the PR's
-                    // current head. Drives BOTH dispatch decisions below —
-                    // re-review only when the head moved past the verdict, and
-                    // author fix only when the verdict still covers the head.
-                    // Conservative on errors: neither dispatch runs this cycle.
-                    match git_host.get_pr_latest_review(&pr.pr_url).await {
-                        Ok(latest_review) => {
-                            let review_due =
-                                Self::review_due_from_latest(pr.pr_number, latest_review.as_ref());
-                            if review_due {
-                                if let Err(e) = worker_orchestrator::dispatch_review_task(
-                                    &self.config,
-                                    &self.db,
-                                    &self.container,
-                                    pr.pr_number,
-                                    &status.title,
-                                    repo_id,
-                                    author_worker_id,
-                                    false,
-                                )
-                                .await
-                                {
-                                    warn!(
+                    match ci_gate {
+                        CiGate::Pending => {
+                            debug!(
+                                pr_number = pr.pr_number,
+                                "CI is pending or unknown — skipping review/fix dispatch this cycle"
+                            );
+                        }
+                        CiGate::Failing => {
+                            // Red CI: dispatch a CI-fix task instead of a
+                            // review. `dispatch_ci_fix_task` is idempotent per
+                            // head SHA and interlocks with any pending
+                            // remediation, so a single failing head yields at
+                            // most one fix.
+                            match author_worker_id {
+                                Some(author_id) => {
+                                    if let Err(e) = worker_orchestrator::dispatch_ci_fix_task(
+                                        &self.config,
+                                        &self.db,
+                                        &self.container,
+                                        pr.pr_number,
+                                        repo_id,
+                                        author_id,
+                                    )
+                                    .await
+                                    {
+                                        warn!(
+                                            pr_number = pr.pr_number,
+                                            "Failed to dispatch CI-fix task: {}", e
+                                        );
+                                    }
+                                }
+                                None => {
+                                    debug!(
                                         pr_number = pr.pr_number,
-                                        "Failed to dispatch review task: {}", e
+                                        "CI is failing but no author worker is registered for the workspace — skipping CI-fix dispatch"
                                     );
                                 }
                             }
-
-                            if let Some(review) = &latest_review {
-                                let state = review.state.as_str();
-
-                                // Persist verdict on the developer's worker task so
-                                // the Kanban card can show it without polling GitHub.
-                                match WorkerTask::find_by_workspace(&self.db.pool, workspace_id)
-                                    .await
-                                {
-                                    Ok(Some(dev_task)) => {
-                                        if dev_task.review_result.as_deref() != Some(state) {
-                                            if let Err(e) = WorkerTask::set_review_result(
-                                                &self.db.pool,
-                                                dev_task.id,
-                                                Some(state),
-                                            )
-                                            .await
-                                            {
-                                                warn!(
-                                                    pr_number = pr.pr_number,
-                                                    "Failed to persist review_result: {}", e
-                                                );
-                                            }
-                                        }
-
-                                        // Auto-transition in_review → approved once the
-                                        // verdict is on file. Guarded on the current status
-                                        // so a follow-up commit (already back to in_review
-                                        // by the human via re_request_review) is not silently
-                                        // flipped back to approved. Idempotent: if the DB
-                                        // write fails, the next poll retries — the task
-                                        // stays in in_review with review_result='approved'.
-                                        if state == "approved"
-                                            && dev_task.status == worker_task::STATUS_IN_REVIEW
+                        }
+                        CiGate::Green => {
+                            // One review snapshot per poll: the latest actionable
+                            // verdict, the SHA it was submitted against, and the PR's
+                            // current head. Drives BOTH dispatch decisions below —
+                            // re-review only when the head moved past the verdict, and
+                            // author fix only when the verdict still covers the head.
+                            // Conservative on errors: neither dispatch runs this cycle.
+                            match git_host.get_pr_latest_review(&pr.pr_url).await {
+                                Ok(latest_review) => {
+                                    let review_due = Self::review_due_from_latest(
+                                        pr.pr_number,
+                                        latest_review.as_ref(),
+                                    );
+                                    if review_due {
+                                        if let Err(e) = worker_orchestrator::dispatch_review_task(
+                                            &self.config,
+                                            &self.db,
+                                            &self.container,
+                                            pr.pr_number,
+                                            &status.title,
+                                            repo_id,
+                                            author_worker_id,
+                                            false,
+                                        )
+                                        .await
                                         {
-                                            if let Err(e) = WorkerTask::set_status(
-                                                &self.db.pool,
-                                                dev_task.id,
-                                                worker_task::STATUS_APPROVED,
-                                            )
-                                            .await
-                                            {
-                                                warn!(
-                                                    pr_number = pr.pr_number,
-                                                    task_id = %dev_task.id,
-                                                    "Failed to transition task to approved: {}", e
-                                                );
-                                            }
+                                            warn!(
+                                                pr_number = pr.pr_number,
+                                                "Failed to dispatch review task: {}", e
+                                            );
                                         }
                                     }
-                                    Ok(None) => {}
-                                    Err(e) => warn!(
-                                        pr_number = pr.pr_number,
-                                        "Failed to look up dev task for review_result: {}", e
-                                    ),
-                                }
 
-                                // Dispatch remediation only while the verdict covers
-                                // the CURRENT head. Once the author pushes, the
-                                // changes-request is stale — the next step is a
-                                // re-review, not another fix on top of the fix.
-                                let verdict_covers_head = matches!(
-                                    (&review.reviewed_sha, &review.head_sha),
-                                    (Some(reviewed), Some(head)) if reviewed == head
-                                );
-                                if state == "changes_requested" && verdict_covers_head {
-                                    match Worker::find_by_workspace_id(&self.db.pool, workspace_id)
+                                    if let Some(review) = &latest_review {
+                                        let state = review.state.as_str();
+
+                                        // Persist verdict on the developer's worker task so
+                                        // the Kanban card can show it without polling GitHub.
+                                        match WorkerTask::find_by_workspace(
+                                            &self.db.pool,
+                                            workspace_id,
+                                        )
                                         .await
-                                    {
-                                        Ok(Some(author_id)) => {
-                                            if let Err(e) =
+                                        {
+                                            Ok(Some(dev_task)) => {
+                                                if dev_task.review_result.as_deref() != Some(state)
+                                                {
+                                                    if let Err(e) = WorkerTask::set_review_result(
+                                                        &self.db.pool,
+                                                        dev_task.id,
+                                                        Some(state),
+                                                    )
+                                                    .await
+                                                    {
+                                                        warn!(
+                                                            pr_number = pr.pr_number,
+                                                            "Failed to persist review_result: {}",
+                                                            e
+                                                        );
+                                                    }
+                                                }
+
+                                                // Auto-transition in_review → approved once the
+                                                // verdict is on file. Guarded on the current status
+                                                // so a follow-up commit (already back to in_review
+                                                // by the human via re_request_review) is not silently
+                                                // flipped back to approved. Idempotent: if the DB
+                                                // write fails, the next poll retries — the task
+                                                // stays in in_review with review_result='approved'.
+                                                if state == "approved"
+                                                    && dev_task.status
+                                                        == worker_task::STATUS_IN_REVIEW
+                                                {
+                                                    if let Err(e) = WorkerTask::set_status(
+                                                        &self.db.pool,
+                                                        dev_task.id,
+                                                        worker_task::STATUS_APPROVED,
+                                                    )
+                                                    .await
+                                                    {
+                                                        warn!(
+                                                            pr_number = pr.pr_number,
+                                                            task_id = %dev_task.id,
+                                                            "Failed to transition task to approved: {}", e
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                            Ok(None) => {}
+                                            Err(e) => warn!(
+                                                pr_number = pr.pr_number,
+                                                "Failed to look up dev task for review_result: {}",
+                                                e
+                                            ),
+                                        }
+
+                                        // Dispatch remediation only while the verdict covers
+                                        // the CURRENT head. Once the author pushes, the
+                                        // changes-request is stale — the next step is a
+                                        // re-review, not another fix on top of the fix.
+                                        let verdict_covers_head = matches!(
+                                            (&review.reviewed_sha, &review.head_sha),
+                                            (Some(reviewed), Some(head)) if reviewed == head
+                                        );
+                                        if state == "changes_requested" && verdict_covers_head {
+                                            match Worker::find_by_workspace_id(
+                                                &self.db.pool,
+                                                workspace_id,
+                                            )
+                                            .await
+                                            {
+                                                Ok(Some(author_id)) => {
+                                                    if let Err(e) =
                                                 worker_orchestrator::dispatch_author_fix_task(
                                                     &self.config,
                                                     &self.db,
@@ -704,27 +878,29 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                                                     "Failed to dispatch author fix task: {}", e
                                                 );
                                             }
+                                                }
+                                                Ok(None) => {}
+                                                Err(e) => warn!(
+                                                    pr_number = pr.pr_number,
+                                                    "Failed to look up author worker for fix dispatch: {}",
+                                                    e
+                                                ),
+                                            }
                                         }
-                                        Ok(None) => {}
-                                        Err(e) => warn!(
-                                            pr_number = pr.pr_number,
-                                            "Failed to look up author worker for fix dispatch: {}",
-                                            e
-                                        ),
                                     }
                                 }
-                            }
-                        }
-                        Err(e) => {
-                            if !matches!(
-                                e,
-                                GitHostError::CliNotInstalled { .. }
-                                    | GitHostError::NotAGitRepository(_)
-                            ) {
-                                warn!(
-                                    pr_number = pr.pr_number,
-                                    "Failed to check PR review state: {}", e
-                                );
+                                Err(e) => {
+                                    if !matches!(
+                                        e,
+                                        GitHostError::CliNotInstalled { .. }
+                                            | GitHostError::NotAGitRepository(_)
+                                    ) {
+                                        warn!(
+                                            pr_number = pr.pr_number,
+                                            "Failed to check PR review state: {}", e
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -758,22 +934,8 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 }
             }
 
-            // Poll the CI rollup state non-fatally, same as mergeable above.
-            match git_host.get_pr_ci_status(&pr.pr_url).await {
-                Ok(ci_status) => {
-                    if let Err(e) =
-                        PullRequest::update_ci_status(&self.db.pool, &pr.pr_url, &ci_status).await
-                    {
-                        warn!(
-                            "Failed to persist CI status for PR #{}: {}",
-                            pr.pr_number, e
-                        );
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to check CI status for PR #{}: {}", pr.pr_number, e);
-                }
-            }
+            // CI status was already fetched, persisted, and gated on above
+            // (see `evaluate_ci_gate`) — deliberately not re-polled here.
 
             return Ok(());
         }
@@ -965,5 +1127,34 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The gate values are the contract between the CI-status strings emitted
+    // by `git_host::get_pr_ci_status` and the pr_monitor dispatch routing.
+    // "passing" and "none" MUST be `Green` so a PR with no configured checks
+    // (or all-green checks) advances to review; "failing" MUST be `Failing`
+    // so the CI-fix path fires; everything else — including "pending",
+    // "unknown", or any future value not yet in the enum — MUST fall through
+    // to `Pending` (issue #367 sad path: never dispatch on uncertain info).
+    #[test]
+    fn ci_gate_maps_known_states_to_expected_verdicts() {
+        assert_eq!(CiGate::from_status("passing"), CiGate::Green);
+        assert_eq!(CiGate::from_status("none"), CiGate::Green);
+        assert_eq!(CiGate::from_status("failing"), CiGate::Failing);
+    }
+
+    #[test]
+    fn ci_gate_conservative_defaults_treat_uncertain_as_pending() {
+        assert_eq!(CiGate::from_status("pending"), CiGate::Pending);
+        assert_eq!(CiGate::from_status("unknown"), CiGate::Pending);
+        // Any future/unrecognised value must also fold into Pending so the
+        // monitor loop skips this cycle rather than dispatching on stale info.
+        assert_eq!(CiGate::from_status("weird_new_state"), CiGate::Pending);
+        assert_eq!(CiGate::from_status(""), CiGate::Pending);
     }
 }
