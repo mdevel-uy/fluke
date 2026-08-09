@@ -24,6 +24,16 @@ La UI queda en `http://<host>:3000` (o `MK_PORT`). Los datos persisten en los
 volúmenes docker `mk-repos` (checkouts) y `mk-home` (DB sqlite, config,
 credenciales de GitHub/agentes).
 
+## Red — bind por defecto en loopback
+
+`docker-compose.yml` publica los puertos en `127.0.0.1` (`MK_BIND_ADDR`).
+El patrón esperado es un reverse proxy del host (Traefik, Caddy, Nginx)
+que termina TLS y hace forward a estos puertos. Para exponer directo en
+la interfaz pública, sobreescribir `MK_BIND_ADDR=0.0.0.0` en el `.env`
+— pensarlo dos veces: Docker publica por iptables y bypassea ufw. Ver
+`../hardening/README.md` para cerrar los puertos crudos que no deban ser
+públicos.
+
 ## Updates OTA
 
 `update.sh` es idempotente: si no hay versión nueva en el canal, no hace nada.

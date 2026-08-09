@@ -31,9 +31,14 @@ services:
       # instancia al cliente en el panel de control.
       MKANBAN_CONTROL_PLANE_URL: ${MKANBAN_CONTROL_PLANE_URL:-}
       MKANBAN_INGEST_TOKEN: ${MKANBAN_INGEST_TOKEN:-}
+    # Bind por defecto a loopback: el patrón esperado es un reverse proxy
+    # (Traefik/Caddy/Nginx) del host que termina TLS y hace forward acá.
+    # Para exponer directo en la interfaz pública (sin proxy), sobreescribir
+    # `MK_BIND_ADDR=0.0.0.0` en el `.env` — decisión consciente porque Docker
+    # publica por iptables y bypassea ufw.
     ports:
-      - "${MK_PORT:-3000}:3000"
-      - "${MK_PREVIEW_PORT:-3009}:3009"
+      - "${MK_BIND_ADDR:-127.0.0.1}:${MK_PORT:-3000}:3000"
+      - "${MK_BIND_ADDR:-127.0.0.1}:${MK_PREVIEW_PORT:-3009}:3009"
     volumes:
       - mk-repos:/repos
       - mk-home:/home/appuser

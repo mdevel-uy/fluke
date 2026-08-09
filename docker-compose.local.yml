@@ -11,9 +11,13 @@ services:
       # Fixed port so the preview/editor iframes can reach the proxy from the
       # host browser ({port}--{hostId}.localhost:3009).
       PREVIEW_PROXY_PORT: 3009
+    # Bind por defecto a loopback: los flujos normales (dev local, factory
+    # detrás de VPN con reverse proxy) llegan por localhost/Tailscale. Para
+    # exponer en la interfaz pública (raro y desaconsejado sin reverse proxy),
+    # setear `MK_BIND_ADDR=0.0.0.0` en el ambiente.
     ports:
-      - "3000:3000"
-      - "3009:3009"
+      - "${MK_BIND_ADDR:-127.0.0.1}:3000:3000"
+      - "${MK_BIND_ADDR:-127.0.0.1}:3009:3009"
     volumes:
       - vk-repos:/repos
       - vk-home:/home/appuser

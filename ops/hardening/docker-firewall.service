@@ -1,0 +1,21 @@
+[Unit]
+Description=mkanban Docker firewall (DOCKER-USER allowlist)
+Documentation=file:///opt/mkanban/hardening/README.md
+# Docker crea la chain DOCKER-USER al arrancar; hay que correr después.
+After=docker.service
+Wants=docker.service
+# Si Docker se reinicia, systemd re-ejecuta este servicio para reaplicar
+# reglas: Docker suele restaurar sus propias reglas y podría dejar la chain
+# limpia entre restarts.
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/docker-firewall.sh
+# ExecReload permite `systemctl reload docker-firewall` tras editar la
+# config sin tener que hacer restart del target Docker.
+ExecReload=/usr/local/sbin/docker-firewall.sh
+
+[Install]
+WantedBy=multi-user.target
