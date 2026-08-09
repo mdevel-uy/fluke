@@ -26,7 +26,6 @@ use super::{
 };
 use crate::{
     approvals::{ExecutorApprovalError, ExecutorApprovalService},
-    env::RepoContext,
     executors::{ExecutorError, opencode::models::maybe_emit_token_usage},
 };
 
@@ -91,9 +90,6 @@ pub(super) struct RunConfig {
     /// Cache key for model context windows. Should be derived from configuration
     /// that affects available models (e.g., env vars, base command).
     pub models_cache_key: String,
-    pub commit_reminder: bool,
-    pub commit_reminder_prompt: String,
-    pub repo_context: RepoContext,
 }
 
 /// Generate a cryptographically secure random password for OpenCode server auth.
@@ -342,46 +338,6 @@ async fn run_session_inner(
         let _ = pending_approvals.wait(cancel.clone()).await;
         event_handle.abort();
         return Err(err);
-    }
-
-    // Handle commit reminder if enabled
-    if config.commit_reminder
-        && !cancel.is_cancelled()
-        && let status = config.repo_context.check_uncommitted_changes().await
-        && !status.is_empty()
-    {
-        let reminder_prompt = format!("{}\n{}", config.commit_reminder_prompt, status);
-        tracing::debug!("Sending commit reminder prompt to OpenCode session");
-
-        // Log as system message so it's visible in the UI (user_message gets filtered out)
-        let _ = log_writer
-            .log_event(&OpencodeExecutorEvent::SystemMessage {
-                content: reminder_prompt.clone(),
-            })
-            .await;
-
-        let reminder_fut = Box::pin(prompt(
-            &client,
-            &config.base_url,
-            &config.directory,
-            &session_id,
-            &reminder_prompt,
-            model,
-            config.model_variant.clone(),
-            config.agent.clone(),
-        ));
-        let reminder_result = run_request_with_control(
-            reminder_fut,
-            &mut control_rx,
-            &pending_approvals,
-            cancel.clone(),
-        )
-        .await;
-
-        if let Err(e) = reminder_result {
-            // Log but don't fail the session on commit reminder errors
-            tracing::warn!("Commit reminder prompt failed: {e}");
-        }
     }
 
     let _ = pending_approvals.wait(cancel.clone()).await;

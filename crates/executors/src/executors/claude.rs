@@ -30,7 +30,7 @@ use workspace_utils::{
 };
 
 use self::{
-    client::{AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient, STOP_GIT_CHECK_CALLBACK_ID},
+    client::{AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient},
     protocol::ProtocolPeer,
     types::{ControlRequestType, ControlResponseType, PermissionMode},
 };
@@ -207,17 +207,8 @@ impl ClaudeCode {
         }
     }
 
-    pub fn get_hooks(&self, commit_reminder: bool) -> Option<serde_json::Value> {
+    pub fn get_hooks(&self) -> Option<serde_json::Value> {
         let mut hooks = serde_json::Map::new();
-
-        if commit_reminder {
-            hooks.insert(
-                "Stop".to_string(),
-                serde_json::json!([{
-                    "hookCallbackIds": [STOP_GIT_CHECK_CALLBACK_ID]
-                }]),
-            );
-        }
 
         // Add PreToolUse hooks based on plan/approvals settings
         if self.plan.unwrap_or(false) {
@@ -696,7 +687,7 @@ impl ClaudeCode {
 
         let new_stdout = create_stdout_pipe_writer(&mut child)?;
         let permission_mode = self.permission_mode();
-        let hooks = self.get_hooks(env.commit_reminder);
+        let hooks = self.get_hooks();
 
         // Create cancellation token for graceful shutdown
         let cancel = CancellationToken::new();
@@ -704,16 +695,12 @@ impl ClaudeCode {
         // Spawn task to handle the SDK client with control protocol
         let prompt_clone = combined_prompt.clone();
         let approvals_clone = self.approvals_service.clone();
-        let repo_context = env.repo_context.clone();
-        let commit_reminder_prompt = env.commit_reminder_prompt.clone();
         let cancel_for_task = cancel.clone();
         tokio::spawn(async move {
             let log_writer = LogWriter::new(new_stdout);
             let client = ClaudeAgentClient::new(
                 log_writer.clone(),
                 approvals_clone,
-                repo_context,
-                commit_reminder_prompt,
                 cancel_for_task.clone(),
             );
             let protocol_peer =

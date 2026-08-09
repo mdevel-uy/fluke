@@ -17,10 +17,6 @@ fn default_pr_auto_description_enabled() -> bool {
     true
 }
 
-fn default_commit_reminder_enabled() -> bool {
-    true
-}
-
 fn default_relay_enabled() -> bool {
     true
 }
@@ -86,10 +82,6 @@ pub struct Config {
     pub pr_auto_description_enabled: bool,
     #[serde(default)]
     pub pr_auto_description_prompt: Option<String>,
-    #[serde(default = "default_commit_reminder_enabled")]
-    pub commit_reminder_enabled: bool,
-    #[serde(default)]
-    pub commit_reminder_prompt: Option<String>,
     #[serde(default)]
     pub send_message_shortcut: SendMessageShortcut,
     #[serde(default = "default_relay_enabled")]
@@ -145,8 +137,6 @@ impl Config {
             showcases: old_config.showcases,
             pr_auto_description_enabled: old_config.pr_auto_description_enabled,
             pr_auto_description_prompt: old_config.pr_auto_description_prompt,
-            commit_reminder_enabled: old_config.commit_reminder_enabled,
-            commit_reminder_prompt: old_config.commit_reminder_prompt,
             send_message_shortcut: old_config.send_message_shortcut,
             relay_enabled: old_config.relay_enabled,
             host_nickname: old_config.host_nickname,
@@ -207,8 +197,6 @@ impl Default for Config {
             showcases: ShowcaseState::default(),
             pr_auto_description_enabled: true,
             pr_auto_description_prompt: None,
-            commit_reminder_enabled: true,
-            commit_reminder_prompt: None,
             send_message_shortcut: SendMessageShortcut::default(),
             relay_enabled: true,
             host_nickname: None,
