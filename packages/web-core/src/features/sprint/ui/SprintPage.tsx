@@ -48,6 +48,7 @@ import { InReviewTaskCard } from './InReviewTaskCard';
 import { DesignReviewTaskCard } from './DesignReviewTaskCard';
 import { DoneTaskCard } from './DoneTaskCard';
 import { FailedTaskCard } from './FailedTaskCard';
+import { ClearColumnButton } from './ClearColumnButton';
 import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
 import { SprintSidebar } from './SprintSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
@@ -414,6 +415,24 @@ export function SprintPage() {
     onSuccess: () => invalidateWorkerData(),
   });
 
+  const clearTasksMutation = useMutation({
+    mutationFn: async (tasks: WorkerTask[]) => {
+      const results = await Promise.allSettled(
+        tasks.map((task) => workersApi.deleteTask(task.worker_id, task.id))
+      );
+      return results.filter((r) => r.status === 'rejected').length;
+    },
+    onSuccess: (failedCount) => {
+      if (failedCount > 0) {
+        pushToast(
+          'error',
+          t('sprint.toast.clearColumnError', { count: failedCount })
+        );
+      }
+      invalidateWorkerData();
+    },
+  });
+
   const cancelTaskMutation = useMutation({
     mutationFn: async (params: { workerId: string; taskId: string }) => {
       await workersApi.cancelTask(params.workerId, params.taskId);
@@ -624,10 +643,17 @@ export function SprintPage() {
         queued.length > 0 ? Math.min(...queued.map((t) => t.position)) : 0;
       retryTaskMutation.mutate(
         { task, minQueuedPosition: minPosition },
-        { onSettled: () => setBusyTaskId(null) }
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : String(err)
+            ),
+        }
       );
     },
-    [retryTaskMutation, allTasks]
+    [retryTaskMutation, allTasks, pushToast]
   );
 
   const handleDiscardTask = useCallback(
@@ -635,10 +661,17 @@ export function SprintPage() {
       setBusyTaskId(task.id);
       discardTaskMutation.mutate(
         { workerId: task.worker_id, taskId: task.id },
-        { onSettled: () => setBusyTaskId(null) }
+        {
+          onSettled: () => setBusyTaskId(null),
+          onError: (err) =>
+            pushToast(
+              'error',
+              err instanceof Error ? err.message : String(err)
+            ),
+        }
       );
     },
-    [discardTaskMutation]
+    [discardTaskMutation, pushToast]
   );
 
   const handleCancelTask = useCallback(
@@ -859,6 +892,17 @@ export function SprintPage() {
       ),
     [repoTasks, workers]
   );
+
+  const handleClearFailed = useCallback(() => {
+    const tasks = failedGroups.flatMap((g) => g.tasks);
+    if (tasks.length > 0) clearTasksMutation.mutate(tasks);
+  }, [failedGroups, clearTasksMutation]);
+
+  // Clears every done task, not just the DONE_LIMIT most recent ones shown.
+  const handleClearDone = useCallback(() => {
+    const tasks = repoTasks.filter((task) => task.status === 'done');
+    if (tasks.length > 0) clearTasksMutation.mutate(tasks);
+  }, [repoTasks, clearTasksMutation]);
 
   // Enabling auto-ingest immediately kicks every idle worker with a queue.
   const handleAutoIngestChange = async (enabled: boolean) => {
@@ -1210,6 +1254,15 @@ export function SprintPage() {
                 title={t('sprint.columns.failed')}
                 count={failedGroups.reduce((sum, g) => sum + g.tasks.length, 0)}
                 className="min-w-[280px]"
+                headerAction={
+                  failedGroups.length > 0 ? (
+                    <ClearColumnButton
+                      label={t('sprint.failed.discardAll')}
+                      disabled={clearTasksMutation.isPending}
+                      onConfirm={handleClearFailed}
+                    />
+                  ) : undefined
+                }
               >
                 {failedGroups.length === 0 ? (
                   <ColumnEmpty message={t('sprint.failed.empty')} />
@@ -1235,6 +1288,15 @@ export function SprintPage() {
                 title={t('sprint.columns.done')}
                 count={doneTasks.length}
                 className="min-w-[280px]"
+                headerAction={
+                  doneTasks.length > 0 ? (
+                    <ClearColumnButton
+                      label={t('sprint.done.removeAll')}
+                      disabled={clearTasksMutation.isPending}
+                      onConfirm={handleClearDone}
+                    />
+                  ) : undefined
+                }
               >
                 {doneTasks.length === 0 ? (
                   <ColumnEmpty message={t('sprint.done.empty')} />

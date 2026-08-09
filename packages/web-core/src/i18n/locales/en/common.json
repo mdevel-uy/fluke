@@ -1393,6 +1393,7 @@
     "done": {
       "empty": "No completed tasks yet.",
       "remove": "Remove",
+      "removeAll": "Clear all",
       "removeConfirmMessage": "Remove this completed task from the board?",
       "removeConfirm": "Remove"
     },
@@ -1442,13 +1443,19 @@
       "reRequestReviewInProgress": "A review round is already in progress for this PR.",
       "reRequestReviewHeadUnchanged": "The PR has no new commits since the last review — a re-review would repeat the same verdict. Push a fix first.",
       "reRequestReviewNoChangesRequested": "The task is not waiting for a re-review right now.",
-      "reRequestReviewError": "Could not request re-review: {{message}}"
+      "reRequestReviewError": "Could not request re-review: {{message}}",
+      "clearColumnError": "Could not delete {{count}} task.",
+      "clearColumnError_other": "Could not delete {{count}} tasks."
     },
     "failed": {
       "retry": "Retry",
       "discard": "Discard",
+      "discardAll": "Discard all",
       "viewPr": "View PR",
       "empty": "No failed tasks."
+    },
+    "clearColumn": {
+      "confirm": "Confirm?"
     },
     "autoIngest": {
       "label": "Auto-ingest",

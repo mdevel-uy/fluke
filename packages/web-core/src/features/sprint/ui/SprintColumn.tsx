@@ -6,11 +6,13 @@ export function SprintColumn({
   count,
   children,
   className,
+  headerAction,
 }: {
   title: string;
   count: number | null;
   children: ReactNode;
   className?: string;
+  headerAction?: ReactNode;
 }) {
   return (
     <section
@@ -29,6 +31,7 @@ export function SprintColumn({
             {count}
           </span>
         )}
+        {headerAction}
       </header>
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5">
         {children}
