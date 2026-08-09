@@ -26,7 +26,7 @@ use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     container::ContainerService,
-    quick_action_prompts,
+    quick_action_prompts, territory,
     worker_orchestrator::{self, StartError},
 };
 use tokio::task;
@@ -560,6 +560,7 @@ pub async fn create_design_handoff(
             skills: Vec::new(),
             issue_labels: Vec::new(),
             source,
+            territory_globs: Vec::new(),
         },
         source_task.id,
     )
@@ -1111,6 +1112,13 @@ pub async fn create_worker_task(
         }
     }
 
+    // Parse the file territory declared in the issue body (issue #95). The
+    // prompt at this point already carries the raw issue body plus the
+    // per-request appendices (skills / labels / attachments), which live
+    // OUTSIDE any `## Territorio` section — so the parser only ever sees the
+    // analyst-authored territory.
+    let territory_globs = territory::parse_territory_globs(prompt);
+
     let task = WorkerTask::append(
         pool,
         worker_id,
@@ -1122,6 +1130,7 @@ pub async fn create_worker_task(
             skills,
             issue_labels,
             source,
+            territory_globs,
         },
     )
     .await?;

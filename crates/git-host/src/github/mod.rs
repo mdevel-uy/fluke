@@ -527,6 +527,20 @@ impl GitHostProvider for GitHubProvider {
             .map_err(GitHostError::from)
     }
 
+    async fn post_pr_comment(&self, pr_url: &str, body: &str) -> Result<(), GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        let body = body.to_string();
+        task::spawn_blocking(move || cli.post_pr_comment(&url, &body))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI for PR comment: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
     fn provider_kind(&self) -> ProviderKind {
         ProviderKind::GitHub
     }

@@ -310,6 +310,13 @@ impl GitHostProvider for AzureDevOpsProvider {
         Ok(None)
     }
 
+    async fn post_pr_comment(&self, _pr_url: &str, _body: &str) -> Result<(), GitHostError> {
+        // Azure DevOps posts comments as threads via a different API surface
+        // and is not on any advisory-check code path today. Left explicit as
+        // Unsupported so callers get a clear error instead of silent no-op.
+        Err(GitHostError::UnsupportedProvider)
+    }
+
     fn provider_kind(&self) -> ProviderKind {
         ProviderKind::AzureDevOps
     }

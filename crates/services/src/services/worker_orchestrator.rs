@@ -87,7 +87,7 @@ use workspace_manager::WorkspaceManager;
 use crate::services::{
     config::Config,
     container::{ContainerError, ContainerService},
-    quick_action_prompts, review_verdict,
+    quick_action_prompts, review_verdict, territory,
 };
 
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 1;
@@ -2372,6 +2372,10 @@ async fn on_developer_agent_finished(
                 pr_number = pr_info.number,
                 "PR created — triggering on_pr_open"
             );
+            // Territory lint (issue #95): best-effort, never fails the task.
+            // Runs after the PR record is persisted so the comment lands on a
+            // PR the reviewer already sees.
+            audit_territory_and_comment(&git_host, &task, &pr_info.url).await;
             on_pr_open(db, workspace_id).await
         }
         Err(e) => {
@@ -2477,6 +2481,95 @@ fn build_pr_body(task: &WorkerTask) -> String {
         body.push_str(&format!("\n\nCloses #{issue}"));
     }
     body
+}
+
+/// Territory lint (issue #95).
+///
+/// If the developer's task declared a file territory in its issue body, fetch
+/// the PR's changed files and post a warning comment listing anything that
+/// falls outside the declared globs. Purely advisory — a lint failure never
+/// blocks the workflow (the task is already in `in_review` by the time this
+/// runs) and any error along the way is logged and swallowed.
+///
+/// Kept as a free function (not a method) so both PR-creation paths in
+/// `on_developer_agent_finished` can call it without threading extra state.
+async fn audit_territory_and_comment(git_host: &GitHostService, task: &WorkerTask, pr_url: &str) {
+    let globs = task.territory_globs_parsed();
+    if globs.is_empty() {
+        return;
+    }
+
+    // Prefer the host's diff map — it's the source of truth for what GitHub
+    // shows in the PR view. Missing (None) means the provider can't tell,
+    // treat as "nothing to lint".
+    let file_map = match git_host.get_pr_diff_line_map(pr_url).await {
+        Ok(Some(map)) => map,
+        Ok(None) => return,
+        Err(e) => {
+            warn!(
+                task_id = %task.id,
+                pr_url,
+                "Territory lint: failed to fetch PR diff: {}",
+                e
+            );
+            return;
+        }
+    };
+
+    let mut files: Vec<String> = file_map.into_keys().collect();
+    files.sort();
+    let out_of_scope = territory::out_of_territory(&globs, &files);
+    if out_of_scope.is_empty() {
+        return;
+    }
+
+    let body = territory::territory_warning_body(&globs, &out_of_scope);
+    match git_host.post_pr_comment(pr_url, &body).await {
+        Ok(()) => info!(
+            task_id = %task.id,
+            pr_url,
+            out_of_scope = out_of_scope.len(),
+            "Territory lint: warning comment posted"
+        ),
+        Err(e) => warn!(
+            task_id = %task.id,
+            pr_url,
+            "Territory lint: failed to post warning comment: {}",
+            e
+        ),
+    }
+}
+
+/// Territory-lint text ready to append to a reviewer prompt. Looks up the
+/// developer task for the PR via [`find_dev_task_for_pr`], re-computes
+/// out-of-territory files against the current PR diff, and returns the same
+/// body posted on the PR. `None` when the developer declared no territory,
+/// the diff is unavailable, nothing is out of scope, or any lookup fails —
+/// the injection is advisory, not a gate.
+async fn territory_note_for_reviewer(
+    git_host: &GitHostService,
+    pool: &sqlx::SqlitePool,
+    repo_id: Uuid,
+    pr_number: i64,
+    pr_url: &str,
+) -> Option<String> {
+    let dev_task = find_dev_task_for_pr(pool, repo_id, pr_number).await?;
+    let globs = dev_task.territory_globs_parsed();
+    if globs.is_empty() {
+        return None;
+    }
+
+    let file_map = match git_host.get_pr_diff_line_map(pr_url).await {
+        Ok(Some(map)) => map,
+        _ => return None,
+    };
+    let mut files: Vec<String> = file_map.into_keys().collect();
+    files.sort();
+    let out_of_scope = territory::out_of_territory(&globs, &files);
+    if out_of_scope.is_empty() {
+        return None;
+    }
+    Some(territory::territory_warning_body(&globs, &out_of_scope))
 }
 
 /// Walk an LRU-ordered reviewer candidate list and pick the first one that
@@ -2751,7 +2844,20 @@ pub async fn dispatch_review_task(
     };
 
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
-    let task_prompt = quick_action_prompts::format_review_pr_prompt(pr_number, &head_sha);
+    let mut task_prompt = quick_action_prompts::format_review_pr_prompt(pr_number, &head_sha);
+
+    // Territory lint injection (issue #95, filosofía #368). If the developer
+    // task declared a `## Territorio` and the current PR diff strays outside
+    // it, append the same warning that lands as a PR comment to the reviewer
+    // prompt so the checklist doesn't require the reviewer to re-derive
+    // territory from the issue by hand. Best-effort: any failure is logged
+    // and the reviewer prompt goes out unchanged.
+    if let Some(territory_note) =
+        territory_note_for_reviewer(&git_host, pool, repo_id, pr_number, &pr_record.pr_url).await
+    {
+        task_prompt.push_str("\n\n");
+        task_prompt.push_str(&territory_note);
+    }
 
     let task = WorkerTask::append(
         pool,
@@ -2764,6 +2870,7 @@ pub async fn dispatch_review_task(
             skills: Vec::new(),
             issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
         },
     )
     .await?;
@@ -3586,6 +3693,7 @@ pub async fn dispatch_author_fix_task(
             skills: Vec::new(),
             issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
         },
     )
     .await?;
@@ -4002,6 +4110,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_DESK.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4009,6 +4118,66 @@ mod tests {
 
         assert_eq!(task.source, worker_task::SOURCE_DESK);
         assert_eq!(task.status, worker_task::STATUS_QUEUED);
+    }
+
+    /// Territory globs (issue #95) survive a persistence round-trip and read
+    /// back through the model accessor. An empty vector must be persisted as
+    /// SQL `NULL` so the "no territory declared" state stays visible to
+    /// humans auditing the row.
+    #[tokio::test]
+    async fn append_persists_territory_globs_and_reads_back() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dev").await;
+        let (repo, _repo_tmp) = insert_repo(&db, "territory-repo").await;
+
+        let with_territory = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "with territory".to_string(),
+                prompt: "prompt".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: vec![
+                    "crates/services/**".to_string(),
+                    "crates/db/models/worker_task.rs".to_string(),
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            with_territory.territory_globs_parsed(),
+            vec![
+                "crates/services/**".to_string(),
+                "crates/db/models/worker_task.rs".to_string()
+            ]
+        );
+        assert!(with_territory.territory_globs.is_some());
+
+        let without_territory = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "no territory".to_string(),
+                prompt: "prompt".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(without_territory.territory_globs.is_none());
+        assert!(without_territory.territory_globs_parsed().is_empty());
     }
 
     /// Regression for the `approved` state: `WorkerTask::set_status` must be
@@ -4033,6 +4202,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4041,10 +4211,9 @@ mod tests {
         WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_REVIEW)
             .await
             .expect("in_review is a valid status");
-        let approved =
-            WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_APPROVED)
-                .await
-                .expect("approved must be accepted by the status CHECK");
+        let approved = WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_APPROVED)
+            .await
+            .expect("approved must be accepted by the status CHECK");
         assert_eq!(approved.status, worker_task::STATUS_APPROVED);
 
         // count_in_review folds `approved` into the same slot bucket as
@@ -4074,6 +4243,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4125,6 +4295,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4183,6 +4354,7 @@ mod tests {
             skills: Vec::new(),
             issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
         };
         let task_a = WorkerTask::append(&db.pool, worker.id, &make_task("a"))
             .await
@@ -4248,6 +4420,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4347,6 +4520,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4397,6 +4571,7 @@ mod tests {
                     skills: Vec::new(),
                     issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
+                    territory_globs: Vec::new(),
                 },
             )
             .await
@@ -4524,6 +4699,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4579,6 +4755,7 @@ mod tests {
                     skills: Vec::new(),
                     issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
+                    territory_globs: Vec::new(),
                 },
             )
             .await
@@ -4618,6 +4795,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4709,6 +4887,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4866,6 +5045,7 @@ mod tests {
                     skills: Vec::new(),
                     issue_labels: Vec::new(),
                     source: worker_task::SOURCE_KANBAN.to_string(),
+                    territory_globs: Vec::new(),
                 },
             )
             .await
@@ -4883,6 +5063,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4922,6 +5103,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4944,6 +5126,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -4988,6 +5171,7 @@ mod tests {
             skills: Vec::new(),
             issue_labels: Vec::new(),
             source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
         };
 
         let merged_fix = WorkerTask::prepend_review_fix(&db.pool, author.id, &mk_fix(402))
@@ -5087,6 +5271,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -5105,6 +5290,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -5145,6 +5331,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -5162,6 +5349,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -5205,6 +5393,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -5222,6 +5411,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await

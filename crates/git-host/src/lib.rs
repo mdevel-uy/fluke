@@ -118,6 +118,13 @@ pub trait GitHostProvider: Send + Sync {
         request: &SubmitPrReviewRequest,
     ) -> Result<SubmitPrReviewResponse, GitHostError>;
 
+    /// Post a plain (non-review) comment on the PR conversation timeline.
+    /// Used by the orchestrator for advisory checks that are not verdicts —
+    /// e.g. the territory lint (issue #95). Best-effort at the caller: an
+    /// error here must never abort the workflow that requested the comment,
+    /// because none of the checks that use it are gates.
+    async fn post_pr_comment(&self, pr_url: &str, body: &str) -> Result<(), GitHostError>;
+
     fn provider_kind(&self) -> ProviderKind;
 }
 
