@@ -2497,24 +2497,45 @@ pub(crate) async fn select_lru_reviewer(
     author_worker_id: Option<Uuid>,
     cap: i64,
 ) -> Result<Option<Worker>, sqlx::Error> {
-    for candidate in candidates {
-        if let Some(author_id) = author_worker_id {
-            if candidate.id == author_id {
+    // Two passes. LRU orders by last *assigned* task, which says nothing
+    // about availability: a reviewer can be LRU-first while its agent is
+    // mid-review, and the in_review cap below can't see that — reviewer
+    // tasks go queued → in_progress → done without ever holding an
+    // `in_review` slot. First pass takes only reviewers that are free right
+    // now; second pass (everyone busy) falls back to queueing on the
+    // LRU-first eligible reviewer so the task still lands somewhere.
+    for busy_allowed in [false, true] {
+        for candidate in &candidates {
+            if let Some(author_id) = author_worker_id {
+                if candidate.id == author_id {
+                    continue;
+                }
+            }
+            let in_review = WorkerTask::count_in_review(pool, candidate.id).await?;
+            if in_review >= cap {
+                debug!(
+                    reviewer_id = %candidate.id,
+                    in_review,
+                    cap,
+                    "Skipping LRU-first reviewer at WORKER_MAX_IN_REVIEW cap; \
+                     trying next candidate"
+                );
                 continue;
             }
+            if !busy_allowed {
+                let active = WorkerTask::count_active(pool, candidate.id).await?;
+                if active > 0 {
+                    debug!(
+                        reviewer_id = %candidate.id,
+                        active,
+                        "Skipping busy reviewer (queued/in_progress task); \
+                         trying next candidate"
+                    );
+                    continue;
+                }
+            }
+            return Ok(Some(candidate.clone()));
         }
-        let in_review = WorkerTask::count_in_review(pool, candidate.id).await?;
-        if in_review >= cap {
-            debug!(
-                reviewer_id = %candidate.id,
-                in_review,
-                cap,
-                "Skipping LRU-first reviewer at WORKER_MAX_IN_REVIEW cap; \
-                 trying next candidate"
-            );
-            continue;
-        }
-        return Ok(Some(candidate));
     }
     Ok(None)
 }
@@ -2533,7 +2554,10 @@ pub(crate) async fn select_lru_reviewer(
 /// The LRU walk (see [`select_lru_reviewer`]) skips candidates that are the
 /// PR author or already at the `WORKER_MAX_IN_REVIEW` cap, so a saturated
 /// reviewer never gets a fresh task enqueued while another reviewer has
-/// capacity — the exact starvation issue #302 asks us to eliminate.
+/// capacity — the exact starvation issue #302 asks us to eliminate. It also
+/// prefers reviewers with no queued/in-progress task over ones whose agent
+/// is running right now, falling back to the busy LRU-first reviewer's
+/// queue only when every candidate is occupied.
 ///
 /// No-op (with debug/warn logging) when:
 /// - `WORKER_LEAD_ENABLED=false`
@@ -4282,6 +4306,37 @@ mod tests {
             .expect("force task into in_review");
     }
 
+    async fn force_in_progress(pool: &sqlx::SqlitePool, task_id: Uuid) {
+        sqlx::query("UPDATE worker_tasks SET status = 'in_progress' WHERE id = ?1")
+            .bind(task_id)
+            .execute(pool)
+            .await
+            .expect("force task into in_progress");
+    }
+
+    async fn append_review_task(
+        db: &DBService,
+        worker_id: Uuid,
+        repo_id: Uuid,
+        title: &str,
+    ) -> WorkerTask {
+        WorkerTask::append(
+            &db.pool,
+            worker_id,
+            &CreateWorkerTask {
+                repo_id,
+                title: title.to_string(),
+                prompt: "review".to_string(),
+                issue_number: None,
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+            },
+        )
+        .await
+        .expect("append task")
+    }
+
     #[tokio::test]
     async fn select_lru_reviewer_skips_candidate_at_capacity_cap() {
         // Sad path #1 from issue #302: the LRU-first candidate is at the
@@ -4423,6 +4478,79 @@ mod tests {
             Some(free.id),
             "walk must skip author (self-review) and saturated (capacity), \
              then land on the free reviewer",
+        );
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_prefers_idle_over_busy_lru_first() {
+        // Incidente PR #490 (08-ago-2026): the LRU-first reviewer was
+        // mid-review (task in_progress) while another reviewer sat idle.
+        // Reviewer tasks never hold an `in_review` slot, so the capacity
+        // cap can't catch this — the busy-skip pass must.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "busy-skip-repo").await;
+        let busy = insert_reviewer(&db, "busy").await;
+        let idle = insert_reviewer(&db, "idle").await;
+
+        let busy_task = append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
+        force_in_progress(&db.pool, busy_task.id).await;
+
+        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
+            .await
+            .unwrap();
+        assert_eq!(
+            picked.map(|w| w.id),
+            Some(idle.id),
+            "walk must skip the reviewer with a running task and pick the idle one",
+        );
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_queued_task_also_counts_as_busy() {
+        // A task sitting in the reviewer's queue occupies the slot just
+        // like a running one — the next dispatch must go to the idle
+        // reviewer, not deepen the busy reviewer's queue.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "queued-busy-repo").await;
+        let busy = insert_reviewer(&db, "busy").await;
+        let idle = insert_reviewer(&db, "idle").await;
+
+        // append leaves the task in `queued` — no status change needed.
+        append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
+
+        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
+            .await
+            .unwrap();
+        assert_eq!(
+            picked.map(|w| w.id),
+            Some(idle.id),
+            "a queued task must mark the reviewer as busy for the first pass",
+        );
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_falls_back_to_busy_when_all_busy() {
+        // When every reviewer is occupied the walk must still enqueue on
+        // the LRU-first eligible one instead of returning None — a review
+        // waiting in a queue beats a review not dispatched at all.
+        let db = setup_test_db().await;
+        let (repo, _repo_tmp) = insert_repo(&db, "all-busy-repo").await;
+        let alpha = insert_reviewer(&db, "alpha").await;
+        let bravo = insert_reviewer(&db, "bravo").await;
+
+        for (worker_id, title) in [(alpha.id, "Review PR #1"), (bravo.id, "Review PR #2")] {
+            let t = append_review_task(&db, worker_id, repo.id, title).await;
+            force_in_progress(&db.pool, t.id).await;
+        }
+
+        let picked = select_lru_reviewer(&db.pool, vec![alpha.clone(), bravo.clone()], None, 1)
+            .await
+            .unwrap();
+        assert_eq!(
+            picked.map(|w| w.id),
+            Some(alpha.id),
+            "with every reviewer busy the walk must fall back to the \
+             LRU-first candidate, not skip dispatch",
         );
     }
 
