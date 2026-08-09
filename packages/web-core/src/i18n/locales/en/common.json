@@ -498,7 +498,8 @@
       "prFilterNoPr": "No PR",
       "noProject": "No project",
       "sortButtonTitle": "Sort workspaces",
-      "filterButtonTitle": "Filter workspaces"
+      "filterButtonTitle": "Filter workspaces",
+      "refreshButtonTitle": "Refresh PR status now"
     },
     "sortAscending": "Ascending",
     "sortDescending": "Descending",

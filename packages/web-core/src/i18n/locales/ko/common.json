@@ -483,7 +483,8 @@
       "prFilterNoPr": "No PR",
       "noProject": "No project",
       "sortButtonTitle": "Sort workspaces",
-      "filterButtonTitle": "Filter workspaces"
+      "filterButtonTitle": "Filter workspaces",
+      "refreshButtonTitle": "PR 상태 지금 새로고침"
     },
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
