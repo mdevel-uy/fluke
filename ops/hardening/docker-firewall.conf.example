@@ -1,0 +1,14 @@
+# Overrides opcionales para docker-firewall.sh.
+# Copiar a /etc/mkanban/docker-firewall.conf y editar. Sin este archivo
+# el script usa los defaults hardcoded (ver ops/hardening/README.md).
+
+# Interfaces de administración (allowlist total sin filtrar por puerto).
+# Sólo se aplican las presentes en /sys/class/net al momento de correr.
+# ADMIN_IFACES=tailscale0
+
+# Puertos TCP publicados por contenedores que deben ser públicos. Por
+# defecto los del reverse proxy del stack: HTTP y HTTPS.
+# PUBLIC_TCP_PORTS=80,443
+
+# Puertos UDP públicos (vacío por defecto). Ejemplo: Wireguard en 51820.
+# PUBLIC_UDP_PORTS=

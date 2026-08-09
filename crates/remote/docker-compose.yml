@@ -17,14 +17,18 @@ services:
       retries: 5
       start_period: 5s
     ports:
-      - "5433:5432"
+      # Loopback-only: Postgres nunca debe exponerse a la interfaz pública.
+      - "127.0.0.1:5433:5432"
 
   azurite:
     profiles: ["attachments"]
     image: mcr.microsoft.com/azure-storage/azurite:latest
     command: "azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --loose --skipApiVersionCheck"
+    # `--blobHost 0.0.0.0` es para bindear DENTRO del contenedor (necesario para
+    # que otros contenedores lo alcancen por la red compose). La publicación al
+    # host queda en loopback: dev-only, no debe salir a la interfaz pública.
     ports:
-      - "10000:10000"
+      - "127.0.0.1:10000:10000"
     volumes:
       - azurite-data:/data
     healthcheck:

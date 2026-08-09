@@ -43,9 +43,15 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 - ▸ Copiar el bundle (`docker-compose.yml`, `.env.example`, `update.sh`) a `/opt/mkanban`.
 - ▸ `cp .env.example .env && chmod 600 .env`; completar `GHCR_USER` y `GHCR_TOKEN`.
+- ▸ Decidir el bind de la UI. El default `MK_BIND_ADDR=127.0.0.1` asume
+  reverse proxy del host (Traefik/Caddy/Nginx) que termina TLS y forwardea
+  a `127.0.0.1:3000`. Sin reverse proxy, cambiar a `MK_BIND_ADDR=0.0.0.0`
+  y aplicar el hardening de `../hardening/README.md` para no dejar puertos
+  crudos abiertos.
 - ▸ `chmod +x update.sh && ./update.sh`
 - ✓ `docker inspect mkanban --format '{{.State.Health.Status}}'` → `healthy`.
-- ✓ La UI responde en `http://<servidor>:3000`.
+- ✓ Desde el servidor: `curl -sSf http://127.0.0.1:3000/ >/dev/null && echo OK`
+  (con reverse proxy, verificar además el dominio público con `curl -sSfI https://<dominio>` → `200`).
 - ▸ Programar el cron de updates (ver README).
 
 **D. Configuración con el cliente**
