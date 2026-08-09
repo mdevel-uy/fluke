@@ -3948,6 +3948,7 @@ pub async fn dispatch_ci_fix_task(
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await?;
