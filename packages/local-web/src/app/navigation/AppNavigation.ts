@@ -96,73 +96,6 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
         ? { kind: 'workspace-vscode', hostId, workspaceId }
         : null;
     }
-    case '/_app/projects/$projectId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      return projectId ? { kind: 'project', projectId } : null;
-    }
-    case '/_app/projects/$projectId_/issues/$issueId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const issueId = getPathParam(routeParams, 'issueId');
-      return projectId && issueId
-        ? { kind: 'project-issue', projectId, issueId }
-        : null;
-    }
-    case '/_app/projects/$projectId_/issues/$issueId_/workspaces/$workspaceId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const issueId = getPathParam(routeParams, 'issueId');
-      const workspaceId = getPathParam(routeParams, 'workspaceId');
-      return projectId && issueId && workspaceId
-        ? {
-            kind: 'project-issue-workspace',
-            projectId,
-            issueId,
-            workspaceId,
-          }
-        : null;
-    }
-    case '/_app/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/$workspaceId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const issueId = getPathParam(routeParams, 'issueId');
-      const hostId = getPathParam(routeParams, 'hostId');
-      const workspaceId = getPathParam(routeParams, 'workspaceId');
-      return projectId && issueId && hostId && workspaceId
-        ? {
-            kind: 'project-issue-workspace',
-            projectId,
-            issueId,
-            hostId,
-            workspaceId,
-          }
-        : null;
-    }
-    case '/_app/projects/$projectId_/issues/$issueId_/workspaces/create/$draftId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const issueId = getPathParam(routeParams, 'issueId');
-      const draftId = getPathParam(routeParams, 'draftId');
-      return projectId && issueId && draftId
-        ? {
-            kind: 'project-issue-workspace-create',
-            projectId,
-            issueId,
-            draftId,
-          }
-        : null;
-    }
-    case '/_app/projects/$projectId_/issues/$issueId_/hosts/$hostId/workspaces/create/$draftId': {
-      const projectId = getPathParam(routeParams, 'projectId');
-      const issueId = getPathParam(routeParams, 'issueId');
-      const hostId = getPathParam(routeParams, 'hostId');
-      const draftId = getPathParam(routeParams, 'draftId');
-      return projectId && issueId && hostId && draftId
-        ? {
-            kind: 'project-issue-workspace-create',
-            projectId,
-            issueId,
-            hostId,
-            draftId,
-          }
-        : null;
-    }
     default:
       return null;
   }
@@ -243,59 +176,14 @@ function destinationToLocalTarget(
         to: '/sprint',
         search: destination.repoId ? { repo: destination.repoId } : {},
       } as const;
+    // No project routes on local: kanban/issue destinations are cloud-only and
+    // don't exist in this shell. Any accidental call is redirected to
+    // /workspaces so the app stays consistent instead of navigating nowhere.
     case 'project':
-      return {
-        to: '/projects/$projectId',
-        params: { projectId: destination.projectId },
-      } as const;
     case 'project-issue':
-      return {
-        to: '/projects/$projectId/issues/$issueId',
-        params: {
-          projectId: destination.projectId,
-          issueId: destination.issueId,
-        },
-      } as const;
     case 'project-issue-workspace':
-      if (effectiveHostId) {
-        return {
-          to: '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/$workspaceId',
-          params: {
-            projectId: destination.projectId,
-            issueId: destination.issueId,
-            hostId: effectiveHostId,
-            workspaceId: destination.workspaceId,
-          },
-        } as const;
-      }
-      return {
-        to: '/projects/$projectId/issues/$issueId/workspaces/$workspaceId',
-        params: {
-          projectId: destination.projectId,
-          issueId: destination.issueId,
-          workspaceId: destination.workspaceId,
-        },
-      } as const;
     case 'project-issue-workspace-create':
-      if (effectiveHostId) {
-        return {
-          to: '/projects/$projectId/issues/$issueId/hosts/$hostId/workspaces/create/$draftId',
-          params: {
-            projectId: destination.projectId,
-            issueId: destination.issueId,
-            hostId: effectiveHostId,
-            draftId: destination.draftId,
-          },
-        } as const;
-      }
-      return {
-        to: '/projects/$projectId/issues/$issueId/workspaces/create/$draftId',
-        params: {
-          projectId: destination.projectId,
-          issueId: destination.issueId,
-          draftId: destination.draftId,
-        },
-      } as const;
+      return { to: '/workspaces' } as const;
   }
 }
 
@@ -346,25 +234,25 @@ export function createLocalAppNavigation(): AppNavigation {
       navigateTo({ kind: 'ci-pipelines' }, transition),
     goToSprint: (repoId, transition) =>
       navigateTo({ kind: 'sprint', ...(repoId ? { repoId } : {}) }, transition),
-    goToProject: (projectId, transition) =>
-      navigateTo({ kind: 'project', projectId }, transition),
-    goToProjectIssue: (projectId, issueId, transition) =>
-      navigateTo({ kind: 'project-issue', projectId, issueId }, transition),
-    goToProjectIssueWorkspace: (projectId, issueId, workspaceId, transition) =>
-      navigateTo(
-        { kind: 'project-issue-workspace', projectId, issueId, workspaceId },
-        transition
-      ),
-    goToProjectIssueWorkspaceCreate: (
-      projectId,
-      issueId,
-      draftId,
+    // Project navigation kinds have no local route (cloud-only feature).
+    // Kept as no-ops routed to workspaces to satisfy the shared interface
+    // (remote-web still uses them).
+    goToProject: (_projectId, transition) =>
+      navigateTo({ kind: 'workspaces' }, transition),
+    goToProjectIssue: (_projectId, _issueId, transition) =>
+      navigateTo({ kind: 'workspaces' }, transition),
+    goToProjectIssueWorkspace: (
+      _projectId,
+      _issueId,
+      workspaceId,
       transition
-    ) =>
-      navigateTo(
-        { kind: 'project-issue-workspace-create', projectId, issueId, draftId },
-        transition
-      ),
+    ) => navigateTo({ kind: 'workspace', workspaceId }, transition),
+    goToProjectIssueWorkspaceCreate: (
+      _projectId,
+      _issueId,
+      _draftId,
+      transition
+    ) => navigateTo({ kind: 'workspaces' }, transition),
   };
 
   return navigation;
