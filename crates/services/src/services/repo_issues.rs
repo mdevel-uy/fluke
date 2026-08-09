@@ -360,6 +360,52 @@ impl RepoIssuesService {
 
         Ok(())
     }
+
+    /// Post a comment on an issue via `gh issue comment`. The body goes
+    /// through a temp file (`--body-file`) so its size never hits argv
+    /// limits and its content is never shell-interpreted.
+    pub async fn comment_issue(
+        &self,
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+        body: &str,
+    ) -> Result<(), RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+
+        // Verify the issue exists locally.
+        RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
+            .await?
+            .ok_or(RepoIssuesError::IssueNotFound)?;
+
+        let gh = resolve_executable_path("gh")
+            .await
+            .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+
+        let body_file = std::env::temp_dir().join(format!("mk-issue-comment-{}.md", Uuid::new_v4()));
+        tokio::fs::write(&body_file, body).await?;
+
+        let mut cmd = Command::new(&gh);
+        cmd.current_dir(&repo.path).args([
+            "issue",
+            "comment",
+            &issue_number.to_string(),
+            "--body-file",
+        ]);
+        cmd.arg(&body_file);
+        cmd.no_window();
+        let out = cmd.output().await;
+        let _ = tokio::fs::remove_file(&body_file).await;
+        let out = out?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------

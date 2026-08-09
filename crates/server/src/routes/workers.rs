@@ -20,7 +20,6 @@ use db::models::{
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
     workspace::Workspace,
-    workspace_repo::WorkspaceRepo,
 };
 use deployment::Deployment;
 use git_host::{GitHostProvider, GitHostService, github::GhCli};
@@ -28,7 +27,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     agent_actions_drain,
     container::ContainerService,
-    quick_action_prompts, territory,
+    design_artifacts, quick_action_prompts, territory,
     worker_orchestrator::{self, StartError},
 };
 use tokio::task;
@@ -1670,55 +1669,6 @@ pub struct DesignArtifactsResponse {
     pub files: Vec<String>,
 }
 
-fn is_design_artifact_path(path: &str) -> bool {
-    let lower = path.to_ascii_lowercase();
-    path.starts_with("design/")
-        && !path.split('/').any(|part| part == ".." || part.is_empty())
-        && (lower.ends_with(".html") || lower.ends_with(".htm"))
-}
-
-/// Refs that may hold a designer task's deliverable, freshest first: the
-/// workspace branch (includes follow-up commits), then the durable pushed
-/// `origin/design/*` ref — which survives workspace archiving and even local
-/// branch deletion.
-async fn design_candidate_refs(
-    pool: &sqlx::SqlitePool,
-    task: &WorkerTask,
-) -> Result<Vec<String>, ApiError> {
-    let mut refs: Vec<String> = Vec::new();
-    if let Some(workspace_id) = task.workspace_id
-        && let Some(workspace) = Workspace::find_by_id(pool, workspace_id).await?
-    {
-        refs.push(workspace.branch);
-    }
-    if let Some(deliverable_ref) = &task.deliverable_ref {
-        refs.push(format!("origin/{deliverable_ref}"));
-    }
-    Ok(refs)
-}
-
-/// Branch the designer's workspace forked from, used as the diff base that
-/// separates the task's own artifacts from `design/` files inherited with
-/// the branch history. The workspace's recorded target branch when available,
-/// else the repo default.
-async fn design_base_branch(
-    pool: &sqlx::SqlitePool,
-    task: &WorkerTask,
-    repo: &Repo,
-) -> Result<Option<String>, ApiError> {
-    if let Some(workspace_id) = task.workspace_id {
-        let target = WorkspaceRepo::find_by_workspace_id(pool, workspace_id)
-            .await?
-            .into_iter()
-            .find(|wr| wr.repo_id == repo.id)
-            .map(|wr| wr.target_branch);
-        if target.is_some() {
-            return Ok(target);
-        }
-    }
-    Ok(repo.default_target_branch.clone())
-}
-
 /// GET /api/workers/{worker_id}/tasks/{task_id}/design-artifacts — list the
 /// HTML files of a designer deliverable. Read from git refs, NOT the
 /// worktree, so it works for archived workspaces too.
@@ -1739,49 +1689,11 @@ pub async fn list_design_artifacts(
         .await?
         .ok_or_else(|| ApiError::BadRequest("Repo not found".into()))?;
 
-    let candidate_refs = design_candidate_refs(pool, &existing).await?;
     let git = deployment.container().git();
-    // The repo's own `design/` history (approved specs, old mocks) is part of
-    // every branch the designer forks, so listing the whole tree would show
-    // deliverables from past tasks. Diffing against the merge base with the
-    // target branch keeps only what this task actually added or touched.
-    let base_oid = match design_base_branch(pool, &existing, &repo).await? {
-        Some(branch) => git.get_branch_oid(&repo.path, &branch).ok(),
-        None => None,
-    };
-    let mut files: Vec<String> = Vec::new();
-    for candidate in &candidate_refs {
-        let Ok(oid) = git.get_branch_oid(&repo.path, candidate) else {
-            continue;
-        };
-        let scoped = base_oid
-            .as_deref()
-            .and_then(|base| git.get_files_changed_from_base(&repo.path, base, &oid).ok());
-        files = match scoped {
-            Some(changed) => changed
-                .into_iter()
-                .filter(|p| is_design_artifact_path(p))
-                .collect(),
-            // No usable base (missing branch, unrelated histories): fall back
-            // to the full `design/` listing rather than showing nothing.
-            None => {
-                // `design/` missing from the tree is a normal miss, not an error.
-                let Ok(entries) = git.get_commit_tree(&repo.path, &oid, "design") else {
-                    continue;
-                };
-                entries
-                    .into_iter()
-                    .filter(|e| !e.is_directory)
-                    .map(|e| format!("design/{}", e.name))
-                    .filter(|p| is_design_artifact_path(p))
-                    .collect()
-            }
-        };
-        if !files.is_empty() {
-            break;
-        }
-    }
-    files.sort();
+    let files = design_artifacts::list_artifacts(pool, git, &repo, &existing)
+        .await?
+        .map(|(_oid, files)| files)
+        .unwrap_or_default();
 
     Ok(ResponseJson(ApiResponse::success(
         DesignArtifactsResponse { files },
@@ -1802,7 +1714,7 @@ pub async fn serve_design_artifact(
     State(deployment): State<DeploymentImpl>,
     Path((worker_id, task_id, path)): Path<(Uuid, Uuid, String)>,
 ) -> Result<Response, ApiError> {
-    if !is_design_artifact_path(&path) {
+    if !design_artifacts::is_design_artifact_path(&path) {
         return Err(ApiError::BadRequest("Not a design artifact path".into()));
     }
     let pool = &deployment.db().pool;
@@ -1818,15 +1730,9 @@ pub async fn serve_design_artifact(
         .await?
         .ok_or_else(|| ApiError::BadRequest("Repo not found".into()))?;
 
-    let candidate_refs = design_candidate_refs(pool, &existing).await?;
     let git = deployment.container().git();
-    for candidate in &candidate_refs {
-        let Ok(oid) = git.get_branch_oid(&repo.path, candidate) else {
-            continue;
-        };
-        let Ok(content) = git.get_commit_file(&repo.path, &oid, &path) else {
-            continue;
-        };
+    if let Some(content) = design_artifacts::read_artifact(pool, git, &repo, &existing, &path).await?
+    {
         return Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "text/html; charset=utf-8")
