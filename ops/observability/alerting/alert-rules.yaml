@@ -23,7 +23,7 @@ groups:
       #
       # Alloy scrapea /api/metrics cada 30s y hace remote_write al Prometheus
       # central; 5 minutos sin muestras es indicativo de:
-      #   - contenedor vibe-kanban caído
+      #   - contenedor mkanban caído
       #   - Alloy caído
       #   - red de la instancia rota (VPN del cliente)
       #
@@ -100,8 +100,8 @@ groups:
           runbook: |
             1. Mirar el estado del contenedor en la VPN del cliente:
                  docker compose -f docker-compose.local.yml ps
-               Si `vibe-kanban` o `alloy` no están `Up`, ver logs con `docker compose logs --tail=200 <servicio>`.
-            2. Si los contenedores están arriba, probar `curl -sf http://vibe-kanban:3000/api/metrics | head` dentro del contenedor `alloy` — un 5xx apunta a un stall del backend.
+               Si `mkanban` o `alloy` no están `Up`, ver logs con `docker compose logs --tail=200 <servicio>`.
+            2. Si los contenedores están arriba, probar `curl -sf http://mkanban:3000/api/metrics | head` dentro del contenedor `alloy` — un 5xx apunta a un stall del backend.
             3. Si la app responde pero Alloy no pushea, revisar logs de `alloy` buscando `401 Unauthorized`, `context deadline exceeded` o errores TLS contra `PROM_PUSH_URL`.
             4. Si la instancia está sana pero el Prometheus central no ve muestras: verificar en Grafana el datasource `prometheus` y consultar directamente {{`{proyecto="mkanban", instancia="X"}`}}.
 

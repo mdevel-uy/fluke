@@ -1,6 +1,6 @@
 services:
-  vibe-kanban:
-    image: vibe-kanban:local-dev
+  mkanban:
+    image: mkanban:local-dev
     build:
       context: .
       dockerfile: Dockerfile
@@ -46,7 +46,7 @@ services:
       # App scrape target on the compose network. Override VK_METRICS_HOST
       # only for non-standard binds (e.g. custom PORT). Metrics path is
       # hardcoded to `/api/metrics` in ops/alloy/config.alloy.
-      VK_METRICS_HOST: ${VK_METRICS_HOST:-vibe-kanban:3000}
+      VK_METRICS_HOST: ${VK_METRICS_HOST:-mkanban:3000}
     volumes:
       - ./ops/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

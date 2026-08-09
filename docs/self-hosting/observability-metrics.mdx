@@ -11,7 +11,7 @@ Fleet instances live behind customer VPNs and are not reachable from the central
 
 | Job              | Target                    | What it exposes                                          |
 |------------------|---------------------------|----------------------------------------------------------|
-| `vibe-kanban`    | `vibe-kanban:3000/api/metrics` | Product/health metrics from the app (see table below). |
+| `mkanban`        | `mkanban:3000/api/metrics` | Product/health metrics from the app (see table below). |
 | `node-exporter`  | `node-exporter:9100/metrics`   | Host CPU, memory, disk (all mounts, including the volume that backs `/repos`). |
 | `cadvisor`       | `cadvisor:8080/metrics`        | Per-container CPU, memory, network, filesystem.        |
 
@@ -63,7 +63,7 @@ When the `observability` profile is active, all variables below are required. Al
 | `VK_CLIENTE`        | Customer slug — becomes the `cliente` label.                 |
 | `VK_INSTANCIA`      | Instance slug — becomes the `instancia` label.               |
 | `VK_VERSION`        | Image or deployment version — becomes the `version` label.   |
-| `VK_METRICS_HOST`   | Optional. App scrape address; defaults to `vibe-kanban:3000`. Override only when the app binds to a non-default host or port. |
+| `VK_METRICS_HOST`   | Optional. App scrape address; defaults to `mkanban:3000`. Override only when the app binds to a non-default host or port. |
 
 ## Enabling on an instance
 
@@ -97,7 +97,7 @@ docker compose \
 This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All three sit behind the same profile because Alloy assumes the other two are reachable by name.
 
 <Check>
-`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://vibe-kanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP mkanban_build_info …`.
+`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://mkanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP mkanban_build_info …`.
 </Check>
 </Step>
 
@@ -128,9 +128,9 @@ docker compose --profile observability -f docker-compose.local.yml logs -f alloy
 
 Common causes:
 
-- `dial tcp: lookup vibe-kanban on ... no such host` — the app container is not running under the compose file that started Alloy. Verify with `docker compose ps`.
+- `dial tcp: lookup mkanban on ... no such host` — the app container is not running under the compose file that started Alloy. Verify with `docker compose ps`.
 - `401 Unauthorized` from Prometheus — wrong `LOKI_PUSH_USER` / `LOKI_PUSH_PASSWORD` (the same credential is reused for Prometheus push).
-- `context deadline exceeded` on the `vibe-kanban` job — the app is up but `/api/metrics` is slow. Check the server logs for a DB stall.
+- `context deadline exceeded` on the `mkanban` job — the app is up but `/api/metrics` is slow. Check the server logs for a DB stall.
 </Accordion>
 
 <Accordion title="`node-exporter` or `cadvisor` container restarts in a loop">
