@@ -262,6 +262,26 @@ impl PullRequest {
         Ok(())
     }
 
+    /// Rewrite the stored PR URL after the host reports the repo was
+    /// renamed/transferred (the submit path resolves the canonical name by
+    /// following the redirect). Keyed by row id — `pr_url` is UNIQUE, so
+    /// this is the one column that can't key its own rewrite. Runtime query
+    /// so the sqlx offline metadata stays valid.
+    pub async fn update_pr_url(
+        pool: &SqlitePool,
+        id: &str,
+        pr_url: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE pull_requests SET pr_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
+        .bind(pr_url)
+        .bind(id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn find_by_url(
         pool: &SqlitePool,
         pr_url: &str,

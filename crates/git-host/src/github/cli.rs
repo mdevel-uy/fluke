@@ -806,20 +806,50 @@ impl GhCli {
         })?;
         let input_path = input.path().to_string_lossy().to_string();
 
-        let api_path = format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews");
-        let mut args: Vec<String> = Vec::with_capacity(8);
-        args.push("api".to_string());
-        args.push("--method".to_string());
-        args.push("POST".to_string());
-        if let Some(host) = hostname {
-            args.push("--hostname".to_string());
-            args.push(host);
-        }
-        args.push("--input".to_string());
-        args.push(input_path);
-        args.push(api_path);
+        let post = |owner: &str, repo: &str| -> Result<String, GhCliError> {
+            let api_path = format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews");
+            let mut args: Vec<String> = Vec::with_capacity(8);
+            args.push("api".to_string());
+            args.push("--method".to_string());
+            args.push("POST".to_string());
+            if let Some(host) = hostname.as_deref() {
+                args.push("--hostname".to_string());
+                args.push(host.to_string());
+            }
+            args.push("--input".to_string());
+            args.push(input_path.clone());
+            args.push(api_path);
+            self.run(args, None)
+        };
 
-        let raw = self.run(args, None)?;
+        // `gh api` follows redirects on GET but not on POST: after a repo
+        // rename/transfer the reviews endpoint answers 3xx and the submit
+        // dies with `gh: HTTP 307` even though the verdict is perfectly
+        // valid (incidente 09-ago: rename vibe-kanban → mkanban dejó los
+        // PRs pre-rename en loop infinito de retries). Resolve the
+        // canonical repo name via GET and retry the POST once against it;
+        // the rebuilt PR URL travels back so the caller can heal its DB.
+        let (raw, canonical_pr_url) = match post(&owner, &repo) {
+            Ok(raw) => (raw, None),
+            Err(err) if Self::is_redirect_error(&err) => {
+                let canonical = self.resolve_canonical_repo(&owner, &repo, hostname.as_deref())?;
+                match canonical {
+                    Some((new_owner, new_repo))
+                        if new_owner != owner || new_repo != repo =>
+                    {
+                        let raw = post(&new_owner, &new_repo)?;
+                        let host = hostname.as_deref().unwrap_or("github.com");
+                        let url =
+                            format!("https://{host}/{new_owner}/{new_repo}/pull/{pr_number}");
+                        (raw, Some(url))
+                    }
+                    // Same name or unresolvable: the redirect came from
+                    // something we can't fix by renaming — surface it.
+                    _ => return Err(err),
+                }
+            }
+            Err(err) => return Err(err),
+        };
 
         #[derive(serde::Deserialize)]
         struct ReviewIdOnly {
@@ -832,7 +862,48 @@ impl GhCli {
         })?;
         Ok(SubmitPrReviewResponse {
             review_id: parsed.id,
+            canonical_pr_url,
         })
+    }
+
+    /// Did `gh` fail because the API answered a redirect it refuses to
+    /// follow (it only auto-follows on GET)? GitHub answers 301/307/308 on
+    /// endpoints of a renamed or transferred repository; `gh` reports it as
+    /// `gh: HTTP 307` on stderr.
+    fn is_redirect_error(err: &GhCliError) -> bool {
+        let GhCliError::CommandFailed(msg) = err else {
+            return false;
+        };
+        let lower = msg.to_ascii_lowercase();
+        ["http 301", "http 302", "http 307", "http 308"]
+            .iter()
+            .any(|code| lower.contains(code))
+    }
+
+    /// Ask the host for the canonical `owner/repo` of a repository. A GET
+    /// on `repos/{owner}/{repo}` follows rename/transfer redirects, so the
+    /// returned `full_name` is the name POSTs must target. Returns `None`
+    /// when the response has no parseable `full_name`.
+    fn resolve_canonical_repo(
+        &self,
+        owner: &str,
+        repo: &str,
+        hostname: Option<&str>,
+    ) -> Result<Option<(String, String)>, GhCliError> {
+        let mut args: Vec<String> = Vec::with_capacity(6);
+        args.push("api".to_string());
+        if let Some(host) = hostname {
+            args.push("--hostname".to_string());
+            args.push(host.to_string());
+        }
+        args.push("--jq".to_string());
+        args.push(".full_name".to_string());
+        args.push(format!("repos/{owner}/{repo}"));
+        let raw = self.run(args, None)?;
+        Ok(raw
+            .trim()
+            .split_once('/')
+            .map(|(o, r)| (o.to_string(), r.to_string())))
     }
 
     /// New-side ("RIGHT") line coverage of a PR's diff, per file, from
@@ -1133,6 +1204,35 @@ mod tests {
         assert_eq!(repo, "project");
         assert_eq!(number, 7);
         assert_eq!(hostname, Some("github.mycompany.com".to_string()));
+    }
+
+    /// Incidente 09-ago: rename del repo (vibe-kanban → mkanban) dejó los
+    /// PRs pre-rename con la URL vieja; el POST del submit recibía
+    /// `gh: HTTP 307` y cada retry volvía a fallar igual. El error de
+    /// redirect tiene que reconocerse para disparar el retry canónico.
+    #[test]
+    fn redirect_errors_are_recognized() {
+        for code in ["301", "302", "307", "308"] {
+            let err = GhCliError::CommandFailed(format!("gh: HTTP {code}"));
+            assert!(
+                GhCli::is_redirect_error(&err),
+                "HTTP {code} debe tratarse como redirect"
+            );
+        }
+    }
+
+    #[test]
+    fn non_redirect_errors_are_not_recognized() {
+        for err in [
+            GhCliError::CommandFailed("gh: Unprocessable Entity (HTTP 422)".to_string()),
+            GhCliError::CommandFailed("gh: Not Found (HTTP 404)".to_string()),
+            // A redirect-looking message in the wrong variant must not match:
+            // only a failed command carries gh's HTTP status line.
+            GhCliError::UnexpectedOutput("gh: HTTP 307".to_string()),
+            GhCliError::AuthFailed("bad credentials".to_string()),
+        ] {
+            assert!(!GhCli::is_redirect_error(&err), "no debe matchear: {err}");
+        }
     }
 
     #[test]
