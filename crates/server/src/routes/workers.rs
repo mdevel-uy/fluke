@@ -27,7 +27,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
     agent_actions_drain,
     container::ContainerService,
-    design_artifacts, quick_action_prompts, territory,
+    design_artifacts, quick_action_prompts,
+    repo_issues::RepoIssuesService,
+    territory,
     worker_orchestrator::{self, StartError},
 };
 use tokio::task;
@@ -1041,13 +1043,55 @@ pub async fn get_active_issue_task(
     }
 }
 
+/// Fire-and-forget mirror of a worker-task assignment change onto the
+/// upstream GitHub issue. The local worker-task operation is canonical:
+/// any `gh` failure (missing PAT scope, non-GitHub remote, closed issue,
+/// unknown login) is logged as a warning and swallowed so an infra
+/// hiccup never leaves an HTTP call hanging or the DB inconsistent with
+/// the response we already returned. A no-op when both logins are
+/// `None` — callers hand that combination in whenever a worker has no
+/// `github_login` configured.
+fn spawn_sync_issue_assignee(
+    deployment: DeploymentImpl,
+    repo_id: Uuid,
+    issue_number: i64,
+    add_login: Option<String>,
+    remove_login: Option<String>,
+) {
+    if add_login.is_none() && remove_login.is_none() {
+        return;
+    }
+    task::spawn(async move {
+        let pool = &deployment.db().pool;
+        if let Err(err) = RepoIssuesService::new()
+            .edit_assignees(
+                pool,
+                repo_id,
+                issue_number,
+                add_login.as_deref(),
+                remove_login.as_deref(),
+            )
+            .await
+        {
+            tracing::warn!(
+                repo_id = %repo_id,
+                issue_number,
+                add_login = ?add_login,
+                remove_login = ?remove_login,
+                "GitHub assignee sync failed (best-effort): {}",
+                err
+            );
+        }
+    });
+}
+
 pub async fn create_worker_task(
     State(deployment): State<DeploymentImpl>,
     Path(worker_id): Path<Uuid>,
     Json(payload): Json<CreateWorkerTaskRequest>,
 ) -> Result<ResponseJson<ApiResponse<WorkerTaskResponse>>, ApiError> {
     let pool = &deployment.db().pool;
-    Worker::find_by_id(pool, worker_id)
+    let worker = Worker::find_by_id(pool, worker_id)
         .await?
         .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
 
@@ -1159,6 +1203,18 @@ pub async fn create_worker_task(
         },
     )
     .await?;
+
+    // Mirror the assignment onto GitHub best-effort. Guarded here (not inside
+    // the helper) so the spawn cost is skipped when there's nothing to sync.
+    if let (Some(issue_number), Some(login)) = (task.issue_number, worker.github_login.clone()) {
+        spawn_sync_issue_assignee(
+            deployment.clone(),
+            task.repo_id,
+            issue_number,
+            Some(login),
+            None,
+        );
+    }
 
     let response = worker_task_to_response(pool, task).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
@@ -1413,7 +1469,27 @@ pub async fn delete_worker_task(
         ));
     }
 
+    // Snapshot the fields we need for the GitHub assignee sync BEFORE the
+    // delete: after `WorkerTask::delete` the row is gone and we can no longer
+    // recover the repo_id / issue_number. The worker lookup is best-effort —
+    // if it fails we just skip the sync.
+    let sync_target = if existing.issue_number.is_some() {
+        Worker::find_by_id(pool, worker_id)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|w| w.github_login)
+            .map(|login| (existing.repo_id, existing.issue_number.unwrap(), login))
+    } else {
+        None
+    };
+
     WorkerTask::delete(pool, task_id).await?;
+
+    if let Some((repo_id, issue_number, login)) = sync_target {
+        spawn_sync_issue_assignee(deployment.clone(), repo_id, issue_number, None, Some(login));
+    }
+
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
@@ -1445,7 +1521,7 @@ pub async fn reassign_worker_task(
     }
 
     // Validate target worker exists (surfaced as 400 rather than a FK violation).
-    Worker::find_by_id(pool, payload.target_worker_id)
+    let target_worker = Worker::find_by_id(pool, payload.target_worker_id)
         .await?
         .ok_or_else(|| ApiError::BadRequest("Target worker not found".into()))?;
 
@@ -1459,6 +1535,10 @@ pub async fn reassign_worker_task(
         )));
     }
 
+    // Look up the source worker's login for the assignee swap. Fetched after
+    // the status guard so we don't hit the DB for a request that will error.
+    let source_worker = Worker::find_by_id(pool, worker_id).await?;
+
     // The atomic move: guarded by `status = 'queued'` inside the same
     // transaction so a concurrent claim cannot slip the task into
     // in_progress under our feet.
@@ -1471,6 +1551,20 @@ pub async fn reassign_worker_task(
                     .into(),
             )
         })?;
+
+    // Mirror the assignment swap onto GitHub best-effort. Either login may be
+    // `None` (worker without PAT) and the helper collapses to a no-op when
+    // both are — a `--remove-assignee` without target still updates GitHub to
+    // an unassigned issue.
+    if let Some(issue_number) = updated.issue_number {
+        spawn_sync_issue_assignee(
+            deployment.clone(),
+            updated.repo_id,
+            issue_number,
+            target_worker.github_login.clone(),
+            source_worker.and_then(|w| w.github_login),
+        );
+    }
 
     let response = worker_task_to_response(pool, updated).await?;
     Ok(ResponseJson(ApiResponse::success(response)))

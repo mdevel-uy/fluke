@@ -326,6 +326,60 @@ impl RepoIssuesService {
         Ok(())
     }
 
+    /// Add and/or remove GitHub assignees on an issue in a single
+    /// `gh issue edit` invocation. Unlike the label/priority helpers this
+    /// does NOT require the issue to exist in the local `repo_issues` table
+    /// and does not mutate any local row — assignees are not part of the
+    /// schema we mirror; the source of truth is GitHub. Callers use this to
+    /// reflect worker-task ownership back to GitHub.
+    ///
+    /// Passing `None` for both arguments is a no-op that returns without
+    /// invoking `gh` — this lets callers skip pre-checks when the worker has
+    /// no `github_login` configured.
+    pub async fn edit_assignees(
+        &self,
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+        add_login: Option<&str>,
+        remove_login: Option<&str>,
+    ) -> Result<(), RepoIssuesError> {
+        if add_login.is_none() && remove_login.is_none() {
+            return Ok(());
+        }
+
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+
+        let gh = resolve_executable_path("gh")
+            .await
+            .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+
+        let mut edit_cmd = Command::new(&gh);
+        edit_cmd
+            .current_dir(&repo.path)
+            .arg("issue")
+            .arg("edit")
+            .arg(issue_number.to_string());
+
+        if let Some(login) = add_login {
+            edit_cmd.arg("--add-assignee").arg(login);
+        }
+        if let Some(login) = remove_login {
+            edit_cmd.arg("--remove-assignee").arg(login);
+        }
+
+        edit_cmd.no_window();
+        let out = edit_cmd.output().await?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(RepoIssuesError::GhCommandFailed(stderr));
+        }
+
+        Ok(())
+    }
+
     /// Close an issue via `gh issue close` and update the local DB state.
     pub async fn close_issue(
         &self,
@@ -664,6 +718,22 @@ mod tests {
             extract_github_nwo("https://github.com/owner/repo/extra"),
             None
         );
+    }
+
+    /// `edit_assignees` must short-circuit before touching the DB or the `gh`
+    /// CLI when both login arguments are `None`. This is the contract callers
+    /// rely on to safely invoke it for workers without a `github_login`
+    /// without having to guard the call site.
+    #[tokio::test]
+    async fn test_edit_assignees_noop_when_both_logins_none() {
+        // In-memory pool with no schema: if the helper's early-return breaks
+        // and it reaches `Repo::find_by_id`, the query fails with "no such
+        // table: repos" and the assertion below catches the regression.
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        let result = RepoIssuesService::new()
+            .edit_assignees(&pool, Uuid::new_v4(), 1, None, None)
+            .await;
+        assert!(result.is_ok(), "expected no-op Ok, got {:?}", result);
     }
 }
 
