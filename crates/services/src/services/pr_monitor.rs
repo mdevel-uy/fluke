@@ -97,6 +97,7 @@ pub struct PrMonitorService<C: ContainerService> {
     container: C,
     remote_client: Option<RemoteClient>,
     sync_notify: Arc<Notify>,
+    poll_notify: Arc<Notify>,
     config: Arc<RwLock<Config>>,
 }
 
@@ -107,6 +108,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         container: C,
         remote_client: Option<RemoteClient>,
         sync_notify: Arc<Notify>,
+        poll_notify: Arc<Notify>,
         config: Arc<RwLock<Config>>,
     ) -> tokio::task::JoinHandle<()> {
         let service = Self {
@@ -116,6 +118,7 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             container,
             remote_client,
             sync_notify,
+            poll_notify,
             config,
         };
         tokio::spawn(async move {
@@ -134,6 +137,15 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
+                    if let Err(e) = self.check_all_open_prs().await {
+                        error!("Error checking open PRs: {}", e);
+                    }
+                    self.check_in_progress_workspaces_for_prs().await;
+                }
+                // User-requested "refresh now": same full cycle as the tick,
+                // without resetting the fixed interval cadence.
+                _ = self.poll_notify.notified() => {
+                    info!("PR poll triggered externally — running full cycle now");
                     if let Err(e) = self.check_all_open_prs().await {
                         error!("Error checking open PRs: {}", e);
                     }

@@ -2650,6 +2650,15 @@ export const systemApi = {
     const data = await handleApiResponse<{ content: string }>(response);
     return data.content;
   },
+
+  // Fire-and-forget: wakes the pr_monitor for an immediate full cycle
+  // instead of waiting out its 60s interval.
+  triggerPrPoll: async (): Promise<void> => {
+    const response = await makeRequest('/api/system/pr-poll', {
+      method: 'POST',
+    });
+    return handleApiResponse<void>(response);
+  },
 };
 
 // Plan limits API — concurrent-agents cap, upsell CTA, cap-hit counters.

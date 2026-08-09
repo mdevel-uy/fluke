@@ -46,6 +46,7 @@ import {
   DialogTitle,
 } from '@vibe/ui/components/Dialog';
 import {
+  ArrowsClockwiseIcon,
   FunnelIcon,
   FolderIcon,
   GitPullRequestIcon,
@@ -53,6 +54,10 @@ import {
   SortDescendingIcon,
   XIcon,
 } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { systemApi } from '@/shared/lib/api';
+import { workspaceSummaryKeys } from '@/shared/hooks/workspaceSummaryKeys';
+import { workersKeys } from '@/features/workers/model/workersKeys';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
 
 const PAGE_SIZE = 50;
@@ -272,6 +277,26 @@ export function WorkspacesSidebarContainer({
   const { t } = useTranslation('common');
   const sortDialogTitle = t('kanban.workspaceSidebar.sortButtonTitle');
   const filterDialogTitle = t('kanban.workspaceSidebar.filterButtonTitle');
+  const refreshButtonTitle = t('kanban.workspaceSidebar.refreshButtonTitle');
+
+  // Force an immediate pr_monitor cycle server-side, then refetch the
+  // sidebar's data sources once the cycle had time to hit GitHub and
+  // persist results (CI rollup, review verdicts, task transitions).
+  const queryClient = useQueryClient();
+  const [isRefreshingPrs, setIsRefreshingPrs] = useState(false);
+  const handleRefreshPrs = useCallback(async () => {
+    setIsRefreshingPrs(true);
+    try {
+      await systemApi.triggerPrPoll();
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: workspaceSummaryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: workersKeys.all }),
+      ]);
+    } finally {
+      setIsRefreshingPrs(false);
+    }
+  }, [queryClient]);
 
   // Workspace sidebar filters + sort
   const workspaceFilters = useUiPreferencesStore((s) => s.workspaceFilters);
@@ -582,6 +607,18 @@ export function WorkspacesSidebarContainer({
     <>
       <div className="shrink-0">
         <div className="flex items-stretch">
+          <IconButton
+            icon={ArrowsClockwiseIcon}
+            onClick={() => void handleRefreshPrs()}
+            disabled={isRefreshingPrs}
+            aria-label={refreshButtonTitle}
+            title={refreshButtonTitle}
+            className="!h-cta !px-half !py-0"
+            iconClassName={cn(
+              'size-icon-lg',
+              isRefreshingPrs && 'animate-spin'
+            )}
+          />
           <IconButton
             icon={
               workspaceSort.sortOrder === 'asc'

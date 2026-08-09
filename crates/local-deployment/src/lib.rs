@@ -86,6 +86,7 @@ pub struct LocalDeployment {
     ssh_config: Arc<russh::server::Config>,
     pty: PtyService,
     pr_sync_notify: Arc<Notify>,
+    pr_poll_notify: Arc<Notify>,
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +260,7 @@ impl Deployment for LocalDeployment {
             None => None,
         };
         let pr_sync_notify = Arc::new(Notify::new());
+        let pr_poll_notify = Arc::new(Notify::new());
         {
             let db = db.clone();
             let analytics = analytics.as_ref().map(|s| AnalyticsContext {
@@ -268,8 +270,16 @@ impl Deployment for LocalDeployment {
             let container = container.clone();
             let rc = remote_client.clone().ok();
             let config = config.clone();
-            PrMonitorService::spawn(db, analytics, container, rc, pr_sync_notify.clone(), config)
-                .await;
+            PrMonitorService::spawn(
+                db,
+                analytics,
+                container,
+                rc,
+                pr_sync_notify.clone(),
+                pr_poll_notify.clone(),
+                config,
+            )
+            .await;
         }
 
         // Heartbeat al control plane (fase 5b). Opt-in: no hace nada sin
@@ -307,6 +317,7 @@ impl Deployment for LocalDeployment {
             ssh_config,
             pty,
             pr_sync_notify,
+            pr_poll_notify,
         };
 
         Ok(deployment)
@@ -498,5 +509,11 @@ impl LocalDeployment {
 
     pub fn trigger_pr_sync(&self) {
         self.pr_sync_notify.notify_one();
+    }
+
+    /// Wake the pr_monitor for an immediate full poll cycle (CI gate, review
+    /// dispatch, PR adoption) instead of waiting out the 60s interval.
+    pub fn trigger_pr_poll(&self) {
+        self.pr_poll_notify.notify_one();
     }
 }

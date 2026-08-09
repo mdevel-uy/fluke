@@ -483,7 +483,8 @@
       "prFilterNoPr": "No PR",
       "noProject": "No project",
       "sortButtonTitle": "Sort workspaces",
-      "filterButtonTitle": "Filter workspaces"
+      "filterButtonTitle": "Filter workspaces",
+      "refreshButtonTitle": "立即重新整理 PR 狀態"
     },
     "sortAscending": "Ascending",
     "sortDescending": "Descending",

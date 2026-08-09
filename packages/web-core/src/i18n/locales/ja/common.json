@@ -483,7 +483,8 @@
       "prFilterNoPr": "No PR",
       "noProject": "No project",
       "sortButtonTitle": "Sort workspaces",
-      "filterButtonTitle": "Filter workspaces"
+      "filterButtonTitle": "Filter workspaces",
+      "refreshButtonTitle": "PRの状態を今すぐ更新"
     },
     "sortAscending": "Ascending",
     "sortDescending": "Descending",
