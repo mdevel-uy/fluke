@@ -82,9 +82,14 @@ pub const FIX_CI_PROMPT: &str = r#"El CI del PR #{pr_number} ({pr_url}) está fa
 /// - The agent must NOT run `gh pr review`, `gh pr checkout`, `gh pr diff`
 ///   or any other GitHub-network command; the server owns those.
 /// - The system already materialized the worktree anchored on the pinned
-///   `head_sha` (issue #366, via `LocalContainerService::create` →
-///   `WorkspaceManager::create_workspace` with a pinned `starting_point`).
-///   The agent inspects the code with plain git; no fetch/checkout needed.
+///   `head_sha` — NOT the current tip of `pull/N/head` — via
+///   `LocalContainerService::with_pr_head_starting_points`, which pulls the
+///   pinned SHA out of the `ReviewRound` bound to this task and passes it to
+///   `GitService::fetch_pr_head`. The invariant is enforced at the git
+///   layer (`fetch_pr_head` errors if the pinned SHA is unreachable after
+///   the fetch) so an author push between dispatch and materialization
+///   cannot silently desync the reviewed commit from the commit the
+///   verdict is submitted against.
 /// - Verdict goes to `.vk/review.json` at the worktree root; the
 ///   orchestrator parses, validates, and submits the review via the GitHub
 ///   API using the reviewer worker's PAT.
