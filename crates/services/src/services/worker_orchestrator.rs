@@ -2147,14 +2147,165 @@ async fn agent_result_text(pool: &sqlx::SqlitePool, execution_id: Option<Uuid>) 
 /// normal flow. Never mutates task state — a push failure must not fail a
 /// task whose work is already on the PR, and the head may have moved
 /// (reviewer edits), which would reject this safety-net push.
+///
+/// Returns `true` when the push succeeded (so downstream steps like the
+/// remediation summary comment can gate on real progress hitting the PR
+/// head), `false` otherwise. The task is never marked failed either way.
 async fn push_follow_up_commits(
     db: &DBService,
     container: &(impl ContainerService + Send + Sync),
     workspace_id: Uuid,
     worker: &Worker,
     task: &WorkerTask,
+) -> bool {
+    let pool = &db.pool;
+    let Ok(Some(workspace)) = Workspace::find_by_id(pool, workspace_id).await else {
+        return false;
+    };
+    let Some(container_ref) = workspace.container_ref.as_ref() else {
+        return false;
+    };
+    let Ok(workspace_repos) = WorkspaceRepo::find_by_workspace_id(pool, workspace_id).await else {
+        return false;
+    };
+    let Some(workspace_repo) = workspace_repos.into_iter().next() else {
+        return false;
+    };
+    let Ok(Some(repo)) = Repo::find_by_id(pool, workspace_repo.repo_id).await else {
+        return false;
+    };
+
+    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
+        .await
+        .unwrap_or_else(|_| workspace.branch.clone());
+
+    match container.git().push_to_remote_with_token(
+        &worktree_path,
+        &workspace.branch,
+        &remote_branch,
+        false,
+        worker.github_pat.as_deref(),
+    ) {
+        Ok(()) => {
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                branch = %workspace.branch,
+                "Follow-up commits pushed to PR head"
+            );
+            true
+        }
+        Err(e) => {
+            warn!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "Best-effort follow-up push failed: {}",
+                e
+            );
+            false
+        }
+    }
+}
+
+/// Body of the post-remediation summary comment (REVIEW-LOOP-SPEC bloque B).
+///
+/// F1 form (degraded per la sad-path del issue #510): sólo el commit SHA corto.
+/// Los items del reviewer no están persistidos en la ronda; extenderlos con la
+/// enumeración de items es F2, cuando el ledger de agent_actions crezca para
+/// llevarlos consigo.
+fn build_remediation_summary_body(head_sha: &str) -> String {
+    let short_sha: String = head_sha.chars().take(7).collect();
+    format!("Remediación completada en {short_sha}.")
+}
+
+/// Insert a `comment_pr` outbox row (AGENT-ACTIONS-SPEC.md, F1) resuming the
+/// remediation, choosing a `seq` that does not collide with any
+/// agent-declared actions already ingested for this task.
+async fn enqueue_remediation_summary_action(
+    pool: &sqlx::SqlitePool,
+    task_id: Uuid,
+    repo_id: Uuid,
+    pr_number: i64,
+    body: &str,
+) -> Result<AgentAction, sqlx::Error> {
+    let existing = AgentAction::find_by_task_id(pool, task_id).await?;
+    let seq = existing.iter().map(|r| r.seq).max().unwrap_or(-1) + 1;
+
+    let payload = serde_json::to_string(&serde_json::json!({
+        "kind": "comment_pr",
+        "pr": pr_number,
+        "body": body,
+    }))
+    .expect("comment_pr payload always serialises");
+
+    AgentAction::create(
+        pool,
+        &db::models::agent_action::CreateAgentAction {
+            task_id,
+            repo_id,
+            seq,
+            kind: "comment_pr".to_string(),
+            payload,
+        },
+    )
+    .await
+}
+
+/// Drain a summary-comment action best-effort: pending/failed rows and drain
+/// errors log a warn but never touch task state — the push already landed and
+/// the comment is cosmético (issue #510, sad-path allowance).
+async fn drain_remediation_summary_best_effort<E: agent_actions_drain::ActionExecutor + ?Sized>(
+    config: &Arc<RwLock<Config>>,
+    pool: &sqlx::SqlitePool,
+    task_id: Uuid,
+    pr_number: i64,
+    executor: &E,
+) {
+    match agent_actions_drain::drain_with_executor(config, pool, task_id, executor).await {
+        Ok(result) if result.failed > 0 || result.pending_remaining > 0 => warn!(
+            task_id = %task_id,
+            pr_number,
+            done = result.done,
+            failed = result.failed,
+            pending = result.pending_remaining,
+            "Remediation summary comment drain finished with pending/failed rows — task NOT failed"
+        ),
+        Ok(_) => info!(
+            task_id = %task_id,
+            pr_number,
+            "Remediation summary comment posted"
+        ),
+        Err(e) => warn!(
+            task_id = %task_id,
+            pr_number,
+            "Remediation summary drain error (best-effort, task NOT failed): {}",
+            e
+        ),
+    }
+}
+
+/// Post-remediation summary comment (REVIEW-LOOP-SPEC bloque B, issue #510).
+///
+/// Fires after a successful follow-up push on a dev task already `in_review`
+/// when the PR carries a submitted `request_changes` verdict — i.e. this push
+/// is closing a reviewer-driven remediation. The system leaves a resumen
+/// pointing at the commit that addresses the review, so the last activity on
+/// the PR is not just a silent push.
+///
+/// Best-effort end-to-end: any missing plumbing (no workspace, no PR, no
+/// review round with request_changes, unreadable HEAD, DB error, drain
+/// failure) logs a warn and returns — the push already landed and the
+/// comment is cosmético.
+async fn enqueue_remediation_summary_comment(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+    task_id: Uuid,
 ) {
     let pool = &db.pool;
+
     let Ok(Some(workspace)) = Workspace::find_by_id(pool, workspace_id).await else {
         return;
     };
@@ -2171,31 +2322,74 @@ async fn push_follow_up_commits(
         return;
     };
 
-    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
-    let remote_branch = Workspace::remote_branch_name(pool, workspace_id)
-        .await
-        .unwrap_or_else(|_| workspace.branch.clone());
+    let prs = match PullRequest::find_by_workspace_id(pool, workspace_id).await {
+        Ok(prs) => prs,
+        Err(e) => {
+            warn!(
+                task_id = %task_id,
+                "Remediation summary: could not load PRs for workspace: {}",
+                e
+            );
+            return;
+        }
+    };
+    let Some(pr) = prs.into_iter().next() else {
+        return;
+    };
 
-    match container.git().push_to_remote_with_token(
-        &worktree_path,
-        &workspace.branch,
-        &remote_branch,
-        false,
-        worker.github_pat.as_deref(),
-    ) {
-        Ok(()) => info!(
-            workspace_id = %workspace_id,
-            task_id = %task.id,
-            branch = %workspace.branch,
-            "Follow-up commits pushed to PR head"
-        ),
-        Err(e) => warn!(
-            workspace_id = %workspace_id,
-            task_id = %task.id,
-            "Best-effort follow-up push failed: {}",
-            e
-        ),
+    // Signal: only fire when the latest submitted review round on this PR was
+    // a request_changes verdict. Approvals or a PR that never had a verdict
+    // don't get a summary — nothing to resumir.
+    match ReviewRound::latest_submitted_review(pool, repo.id, pr.pr_number).await {
+        Ok(Some(round))
+            if round.verdict.as_deref() == Some(review_round::VERDICT_REQUEST_CHANGES) => {}
+        Ok(_) => return,
+        Err(e) => {
+            warn!(
+                task_id = %task_id,
+                pr_number = pr.pr_number,
+                "Remediation summary: could not load review round: {}",
+                e
+            );
+            return;
+        }
     }
+
+    let worktree_path = PathBuf::from(container_ref).join(&repo.name);
+    let head_sha = match container.git().get_head_info(&worktree_path) {
+        Ok(info) => info.oid,
+        Err(e) => {
+            warn!(
+                task_id = %task_id,
+                pr_number = pr.pr_number,
+                "Remediation summary: could not read HEAD after push: {}",
+                e
+            );
+            return;
+        }
+    };
+
+    let body = build_remediation_summary_body(&head_sha);
+    if let Err(e) =
+        enqueue_remediation_summary_action(pool, task_id, repo.id, pr.pr_number, &body).await
+    {
+        warn!(
+            task_id = %task_id,
+            pr_number = pr.pr_number,
+            "Remediation summary: could not enqueue comment_pr action: {}",
+            e
+        );
+        return;
+    }
+
+    drain_remediation_summary_best_effort(
+        config,
+        pool,
+        task_id,
+        pr.pr_number,
+        &agent_actions_drain::GhCliExecutor,
+    )
+    .await;
 }
 
 /// Handle a developer worker's agent run completing: push the branch, adopt
@@ -2231,11 +2425,20 @@ async fn on_developer_agent_finished(
             && (task.status == worker_task::STATUS_IN_REVIEW
                 || task.status == worker_task::STATUS_APPROVED)
         {
-            push_follow_up_commits(db, container, workspace_id, worker, &task).await;
+            let pushed = push_follow_up_commits(db, container, workspace_id, worker, &task).await;
             // Follow-up runs may still declare new agent actions; drain them
             // too (AGENT-ACTIONS-SPEC.md, F1). Workspace stays alive — the PR
             // is still open and the reviewer/user path is unaffected.
             hook_agent_actions(config, db, workspace_id, task.id).await?;
+            // Bloque B del review loop (issue #510): al cerrar una remediación
+            // exitosa el sistema deja un comentario resumen en el PR. Se
+            // implementa sobre el outbox de agent_actions (primer consumidor
+            // sistémico real del F1). Best-effort: cualquier fallo se loguea
+            // pero NO falla la task — el push ya está en el PR.
+            if pushed {
+                enqueue_remediation_summary_comment(config, db, container, workspace_id, task.id)
+                    .await;
+            }
         }
         return Ok(());
     }
@@ -6125,5 +6328,249 @@ mod tests {
             .await
             .expect("freed slot must allow taking the next queued task");
         assert_eq!(taken.id, next.id, "the worker must pick the queued ticket");
+    }
+
+    // -------- Issue #510: remediation summary comment --------
+
+    /// Seed a repo backed by a real on-disk git repo with a GitHub `origin`,
+    /// so `agent_actions_drain` can resolve `owner/repo` cleanly. Mirrors the
+    /// helper in the `agent_actions_drain` tests: FKs are off in the pool so
+    /// we only need the rows the code under test actually reads.
+    async fn seed_repo_with_github_origin(db: &DBService, name: &str) -> (Repo, tempfile::TempDir) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().to_path_buf();
+        std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&path)
+            .output()
+            .expect("git init");
+        std::process::Command::new("git")
+            .args([
+                "remote",
+                "add",
+                "origin",
+                "https://github.com/octo/repo.git",
+            ])
+            .current_dir(&path)
+            .output()
+            .expect("git remote add");
+        let repo = Repo::find_or_create(&db.pool, &path, name)
+            .await
+            .expect("insert repo");
+        (repo, tmp)
+    }
+
+    #[test]
+    fn remediation_summary_body_uses_short_sha() {
+        let body = build_remediation_summary_body("abc1234deadbeef567890");
+        assert!(body.contains("abc1234"), "must include short SHA");
+        assert!(
+            !body.contains("abc1234deadbeef"),
+            "must NOT leak the full SHA"
+        );
+        assert!(body.starts_with("Remediación completada en "));
+    }
+
+    /// Acceptance criterion (issue #510): al cerrar una remediación exitosa se
+    /// crea exactamente una fila `agent_action` con `kind = "comment_pr"` para
+    /// esa task, con el pr y el body correctos.
+    #[tokio::test]
+    async fn enqueue_remediation_summary_action_creates_one_comment_pr_row() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dani").await;
+        let (repo, _tmp) = insert_repo(&db, "sum-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "feature".to_string(),
+                prompt: "ship".to_string(),
+                issue_number: Some(510),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let body = build_remediation_summary_body("cafef00ddeadbeef");
+        enqueue_remediation_summary_action(&db.pool, task.id, repo.id, 42, &body)
+            .await
+            .expect("enqueue must succeed");
+
+        let rows = AgentAction::find_by_task_id(&db.pool, task.id)
+            .await
+            .unwrap();
+        let comment_rows: Vec<_> = rows.iter().filter(|r| r.kind == "comment_pr").collect();
+        assert_eq!(
+            comment_rows.len(),
+            1,
+            "exactly one comment_pr row must be created for the task"
+        );
+        let row = comment_rows[0];
+        assert_eq!(row.status, agent_action::STATUS_PENDING);
+
+        let payload: serde_json::Value = serde_json::from_str(&row.payload).unwrap();
+        assert_eq!(payload["kind"], "comment_pr");
+        assert_eq!(payload["pr"], 42);
+        assert_eq!(payload["body"], body);
+    }
+
+    /// When agent-declared actions were already ingested (seq 0..N), the
+    /// summary comment must take the NEXT free seq — never collide with an
+    /// existing row (INSERT OR IGNORE would silently drop it).
+    #[tokio::test]
+    async fn enqueue_remediation_summary_action_picks_next_free_seq() {
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dani").await;
+        let (repo, _tmp) = insert_repo(&db, "seq-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "t".to_string(),
+                prompt: "p".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        // Pretend the agent already declared two actions (seq 0 and 1).
+        for seq in [0i64, 1] {
+            AgentAction::create(
+                &db.pool,
+                &db::models::agent_action::CreateAgentAction {
+                    task_id: task.id,
+                    repo_id: repo.id,
+                    seq,
+                    kind: "comment_issue".to_string(),
+                    payload: format!(r#"{{"kind":"comment_issue","issue":{seq},"body":"x"}}"#),
+                },
+            )
+            .await
+            .unwrap();
+        }
+
+        let row = enqueue_remediation_summary_action(
+            &db.pool,
+            task.id,
+            repo.id,
+            9,
+            &build_remediation_summary_body("deadbee"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(row.seq, 2, "summary must land on the next free seq");
+    }
+
+    /// Acceptance criterion (issue #510): si el drenaje del comment devuelve
+    /// `failed > 0`, la task NO transiciona a `failed` — el push ya está en
+    /// el PR y el comentario resumen es cosmético.
+    #[tokio::test]
+    async fn drain_remediation_summary_never_fails_task_on_definitive_failure() {
+        use async_trait::async_trait;
+
+        let db = setup_test_db().await;
+        let worker = insert_worker(&db, "dani").await;
+        let (repo, _tmp) = seed_repo_with_github_origin(&db, "drain-repo").await;
+        let task = WorkerTask::append(
+            &db.pool,
+            worker.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "t".to_string(),
+                prompt: "p".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        // Get the task to in_review, the state a follow-up run finishes in.
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_REVIEW)
+            .await
+            .unwrap();
+
+        // Enqueue the summary action.
+        enqueue_remediation_summary_action(
+            &db.pool,
+            task.id,
+            repo.id,
+            99,
+            &build_remediation_summary_body("cafedad"),
+        )
+        .await
+        .unwrap();
+
+        // Fake executor that always fails definitively (simulates a closed PR
+        // returning 404 — the sad path the issue calls out).
+        struct AlwaysFail;
+        #[async_trait]
+        impl agent_actions_drain::ActionExecutor for AlwaysFail {
+            async fn post_pr_comment(
+                &self,
+                _owner_repo: &str,
+                _pr: i64,
+                _body: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                Err(agent_actions_drain::ExecutorFailure {
+                    kind: agent_actions_drain::FailureKind::Definitive,
+                    message: "HTTP 404: not found".into(),
+                })
+            }
+            async fn post_issue_comment(
+                &self,
+                _owner_repo: &str,
+                _issue: i64,
+                _body: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+        }
+
+        let cfg = Arc::new(RwLock::new(Config::default()));
+        drain_remediation_summary_best_effort(&cfg, &db.pool, task.id, 99, &AlwaysFail).await;
+
+        // Task must still be in_review — the summary comment is best-effort.
+        let refreshed = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .expect("task still exists");
+        assert_eq!(
+            refreshed.status,
+            worker_task::STATUS_IN_REVIEW,
+            "drain failure must NOT flip the task to `failed`"
+        );
+        assert!(
+            refreshed.failure_reason.is_none(),
+            "no failure_reason must be recorded when the drain fails"
+        );
+
+        // The row itself should be marked `failed` in the ledger — the caller
+        // just doesn't propagate that up to the task.
+        let rows = AgentAction::find_by_task_id(&db.pool, task.id)
+            .await
+            .unwrap();
+        let summary = rows
+            .iter()
+            .find(|r| r.kind == "comment_pr")
+            .expect("summary row exists");
+        assert_eq!(summary.status, agent_action::STATUS_FAILED);
     }
 }
