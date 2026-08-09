@@ -22,7 +22,12 @@ const OPTIONS = {
 
 export function useIssueShortcuts() {
   const { executeAction } = useActions();
-  const { projectId, issueId } = useParams({ strict: false });
+  // Project/issue params live only on remote-web routes; cast so shared code
+  // typechecks against local-web's project-less route tree too.
+  const { projectId, issueId } = useParams({ strict: false }) as {
+    projectId?: string;
+    issueId?: string;
+  };
   const destination = useCurrentAppDestination();
   const { isCreateMode: isCreatingIssue } = useCurrentKanbanRouteState();
 

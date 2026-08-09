@@ -11,7 +11,7 @@ The stack does not run Alertmanager. Grafana Alerting is used end-to-end: rules,
 
 ## What is alerted
 
-Three rules live in the `mkanban-fleet` group (folder `vibe-kanban`), each evaluated every minute and labelled `proyecto=mkanban` so the notification policy can route them to the fleet's contact points without touching alerts from other projects that share the stack.
+Three rules live in the `mkanban-fleet` group (folder `mkanban`), each evaluated every minute and labelled `proyecto=mkanban` so the notification policy can route them to the fleet's contact points without touching alerts from other projects that share the stack.
 
 | Rule UID                     | Fires when                                                                          | `for`  | Severity   |
 |------------------------------|-------------------------------------------------------------------------------------|--------|------------|
@@ -96,7 +96,7 @@ In the Grafana UI, **Alerting → Alert rules** should list the `mkanban-fleet` 
 Stop a test instance:
 
 ```bash
-docker compose -f docker-compose.local.yml stop vibe-kanban alloy
+docker compose -f docker-compose.local.yml stop mkanban alloy
 ```
 
 Within roughly 5 minutes plus one evaluation interval (~6 min total), a Telegram message should arrive:

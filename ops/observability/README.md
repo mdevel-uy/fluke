@@ -11,8 +11,8 @@ stack central de observabilidad de mdevel (Grafana + Prometheus + Loki).
 
 | Archivo                          | UID                    | Título                    | Para qué sirve                                                                                                    |
 |----------------------------------|------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
-| `dashboards/mkanban-flota.json`   | `mkanban-flota`    | vibe-kanban — Flota       | Vista de una pantalla de toda la flota. Un socio ve si todas las instancias están sanas y qué instancia mirar.    |
-| `dashboards/mkanban-cliente.json` | `mkanban-cliente`  | vibe-kanban — Cliente     | Drill-down por instancia: semáforo, métricas de producto, recursos del contenedor y logs. Variables `cliente`, `instancia`. |
+| `dashboards/mkanban-flota.json`   | `mkanban-flota`    | mkanban — Flota           | Vista de una pantalla de toda la flota. Un socio ve si todas las instancias están sanas y qué instancia mirar.    |
+| `dashboards/mkanban-cliente.json` | `mkanban-cliente`  | mkanban — Cliente         | Drill-down por instancia: semáforo, métricas de producto, recursos del contenedor y logs. Variables `cliente`, `instancia`. |
 
 El dashboard de flota linkea a `mkanban-cliente` en la columna Cliente y
 Instancia de la tabla "Salud por instancia" — un click abre el detalle con las

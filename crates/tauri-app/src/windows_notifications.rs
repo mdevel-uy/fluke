@@ -21,7 +21,7 @@ fn app_id() -> &'static str {
     if cfg!(debug_assertions) {
         Toast::POWERSHELL_APP_ID
     } else {
-        "uy.mdevel.vibe-kanban"
+        "uy.mdevel.mkanban"
     }
 }
 

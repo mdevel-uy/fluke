@@ -43,7 +43,11 @@
 //! (incident 03-ago-2025, PR #386). Ops can raise the cap per instance via
 //! `WORKER_MAX_IN_REVIEW` when higher WIP per worker is acceptable.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use db::{
     DBService,
@@ -88,6 +92,54 @@ use crate::services::{
 
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 1;
 pub const WORKER_MAX_IN_REVIEW_ENV: &str = "WORKER_MAX_IN_REVIEW";
+
+/// Workspaces whose developer agent just finished and whose PR is being
+/// published (push + adopt/create + on_pr_open). Held only while the
+/// reconciliation window is open — cleared automatically via
+/// [`FinalizingGuard`] on every exit path. In-memory on purpose: a server
+/// restart wipes it, so a crash during finalization can't leave a stuck flag
+/// (issue #494).
+static FINALIZING_WORKSPACES: LazyLock<Mutex<HashSet<Uuid>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+/// Is this workspace inside the post-agent PR-publishing window?
+///
+/// The workspace_summary endpoint calls this so the frontend can distinguish
+/// "the agent stopped and the task is stuck" (real stalled state) from "the
+/// agent finished and the orchestrator is publishing the PR right now" (a
+/// transient step, not a user-actionable stall).
+pub fn is_workspace_finalizing(workspace_id: Uuid) -> bool {
+    FINALIZING_WORKSPACES
+        .lock()
+        .map(|set| set.contains(&workspace_id))
+        .unwrap_or(false)
+}
+
+/// RAII marker for the finalization window opened in
+/// [`on_developer_agent_finished`]. Inserting on construction and removing on
+/// drop means every early-return branch (success, failure, best-effort exits)
+/// releases the flag without explicit bookkeeping — same shape as `defer` in
+/// other languages.
+struct FinalizingGuard {
+    workspace_id: Uuid,
+}
+
+impl FinalizingGuard {
+    fn new(workspace_id: Uuid) -> Self {
+        if let Ok(mut set) = FINALIZING_WORKSPACES.lock() {
+            set.insert(workspace_id);
+        }
+        Self { workspace_id }
+    }
+}
+
+impl Drop for FinalizingGuard {
+    fn drop(&mut self) {
+        if let Ok(mut set) = FINALIZING_WORKSPACES.lock() {
+            set.remove(&self.workspace_id);
+        }
+    }
+}
 
 /// Final instruction for developer workers: commit and verify; the system
 /// handles push and PR creation automatically on run completion.
@@ -2006,6 +2058,14 @@ async fn on_developer_agent_finished(
         return Ok(());
     }
 
+    // Open the finalization window: from here on the task is still `in_progress`
+    // in the DB but the orchestrator is about to publish the PR (push +
+    // adopt/create + `on_pr_open`). The frontend uses `is_workspace_finalizing`
+    // to suppress the "stalled — task in progress, agent stopped" badge during
+    // this transient window (issue #494). The guard clears on drop, so every
+    // early-return branch below releases it automatically.
+    let _finalizing = FinalizingGuard::new(workspace_id);
+
     if !succeeded {
         let details = agent_failure_details(pool, execution_id).await;
         let kind = details.infra.then_some(worker_task::FAILURE_KIND_INFRA);
@@ -3165,18 +3225,26 @@ async fn collect_pr_comments_context(
 /// requests changes on their PR. Shared between the primary follow-up path
 /// (dispatched on the original task's live workspace, issue #473) and the
 /// fallback review_fix task path (used only when the original workspace is
-/// gone). The instructions are self-contained: fetch the PR head into the
-/// current branch, address the review comments, push back to the PR head via
-/// explicit refspec — even if the workspace is fresh.
+/// gone).
+///
+/// The prompt is intentionally free of git plumbing (no fetch, no
+/// reset --hard, no explicit push refspec): the system already positions
+/// the worktree on the PR head at start time (issue #366, via
+/// `LocalContainerService::create` → `WorkspaceManager::create_workspace`
+/// with a pinned `starting_point`), and the finish handler pushes the local
+/// branch back to the PR's `remote_branch` (`on_developer_agent_finished`
+/// in this module). The agent just needs to read the review, fix the
+/// issues, and commit.
 ///
 /// `owner_repo` is the pre-resolved `owner/name` slug when the PR URL is a
 /// recognizable GitHub URL. When `None` (Azure DevOps, malformed URL, etc.)
 /// the prompt falls back to invoking `gh` positionally with the PR URL so we
 /// never emit a broken `-R <full-url>` flag (see PR #490 review). `pr_url`
 /// is always passed through — it's the stable identifier the fallback uses.
-/// `comments_block` is the pre-rendered inline text of the review comments;
-/// pass `None` when the enrichment fetch failed and the agent should fall
-/// back to `gh` (comportamiento previo).
+/// `comments_block` is the pre-rendered inline text of the review comments
+/// (issue #368); when `Some`, the agent reads them directly from the prompt
+/// with no `gh` call at all. Pass `None` when the enrichment fetch failed
+/// and the agent should fall back to `gh` to fetch them itself.
 fn build_remediation_prompt(
     pr_number: i64,
     pr_url: &str,
@@ -3190,37 +3258,28 @@ fn build_remediation_prompt(
         ),
         None => match owner_repo {
             Some(slug) => format!(
-                "No pude adjuntar los comentarios del reviewer (el enriquecimiento falló). \
-                 Traelos con `gh pr view {pr_number} -R {slug} --comments` y los inline \
-                 con `gh api repos/{slug}/pulls/{pr_number}/comments`.\n\n"
+                "Revisá los comentarios del reviewer con \
+                 `gh pr view {pr_number} -R {slug} --comments` y los inline con \
+                 `gh api repos/{slug}/pulls/{pr_number}/comments`.\n\n"
             ),
             None => format!(
-                "No pude adjuntar los comentarios del reviewer (el enriquecimiento falló) \
-                 y tampoco pude resolver el `owner/repo` desde la URL del PR ({pr_url}). \
-                 Traelos con `gh pr view {pr_url} --comments`; para los inline, resolvé \
-                 el path de la API a partir del URL del PR.\n\n"
+                "Revisá los comentarios del reviewer con `gh pr view {pr_url} --comments`; \
+                 para los inline, resolvé el path de la API a partir del URL del PR.\n\n"
             ),
         },
-    };
-    let head_branch_lookup = match owner_repo {
-        Some(slug) => format!("gh pr view {pr_number} -R {slug} --json headRefName -q .headRefName"),
-        None => format!("gh pr view {pr_url} --json headRefName -q .headRefName"),
     };
     let pr_header = match owner_repo {
         Some(slug) => format!("PR #{pr_number} ({slug})"),
         None => format!("PR #{pr_number} ({pr_url})"),
     };
     format!(
-        "El reviewer solicitó cambios en el {pr_header}.\n\n\
+        "El reviewer solicitó cambios en el {pr_header}. \
+         Tu worktree ya está posicionado sobre el head del PR — no hace \
+         falta hacer fetch, checkout, ni reset.\n\n\
          {comments_section}\
-         Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
-         (la rama del PR puede estar checked out en el worktree del autor y \
-         git lo rechaza): traé el contenido a TU rama actual con \
-         `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
-         Corregí los issues señalados por el reviewer y commiteá. \
-         Después pusheá a la rama del PR con refspec explícito: \
-         `git push origin HEAD:$({head_branch_lookup})`. \
-         El PR ya existe — NO crees uno nuevo."
+         Corregí los issues señalados y commiteá. \
+         El sistema pushea tus commits a la rama del PR al finalizar la \
+         corrida: no pushees a mano ni crees un PR nuevo — el PR ya existe."
     )
 }
 
@@ -3404,9 +3463,9 @@ async fn dispatch_remediation_follow_up(
 ///
 /// Fallback: when the original workspace is gone (archived, worktree lost,
 /// missing session), fall back to the legacy `review_fix` task path. The
-/// prompt itself is self-contained (fetches `pull/N/head` into the fresh
-/// branch, pushes back via explicit refspec) so the fallback still lands the
-/// fix on the correct PR.
+/// fresh workspace is materialized already on the PR head (issue #366) and
+/// the finish handler pushes back to the PR's `remote_branch`, so the
+/// prompt itself carries no git plumbing.
 ///
 /// No-op when:
 /// - `WORKER_LEAD_ENABLED=false`
@@ -3508,9 +3567,9 @@ pub async fn dispatch_author_fix_task(
         }
     }
 
-    // Fallback: original workspace is gone. Create a `review_fix` task the
-    // legacy way — its self-contained prompt recreates the PR head via
-    // `git fetch pull/N/head` and pushes back via explicit refspec.
+    // Fallback: original workspace is gone. Create a `review_fix` task; the
+    // orchestrator materializes its fresh workspace on the PR head (issue
+    // #366) and pushes back via the finish handler.
     let task_title = format!(
         "Atendé el review del PR #{} — ronda {}",
         pr_number, completed_reviews
@@ -3603,6 +3662,33 @@ mod tests {
 
     use super::*;
 
+    /// The finalizing-guard is the entire mechanism that hides the "stalled"
+    /// flash while the orchestrator publishes the PR (issue #494): if it stops
+    /// clearing on drop, cards get stuck showing `is_finalizing=true` forever.
+    #[test]
+    fn finalizing_guard_sets_and_clears_flag() {
+        let workspace_id = Uuid::new_v4();
+        assert!(!is_workspace_finalizing(workspace_id));
+        {
+            let _guard = FinalizingGuard::new(workspace_id);
+            assert!(is_workspace_finalizing(workspace_id));
+        }
+        assert!(!is_workspace_finalizing(workspace_id));
+    }
+
+    /// The guard must clear on drop even when the enclosing function panics —
+    /// the acceptance criterion is "no stuck flag on failure of any kind".
+    #[test]
+    fn finalizing_guard_clears_on_panic() {
+        let workspace_id = Uuid::new_v4();
+        let result = std::panic::catch_unwind(|| {
+            let _guard = FinalizingGuard::new(workspace_id);
+            panic!("simulated push failure");
+        });
+        assert!(result.is_err());
+        assert!(!is_workspace_finalizing(workspace_id));
+    }
+
     #[test]
     fn builds_prompt_with_base_instructions_soul_task_and_final_instruction() {
         let prompt = build_worker_prompt("  soul  ", "  do it  ", "main", ROLE_DEVELOPER);
@@ -3688,16 +3774,14 @@ mod tests {
         assert!(prompt.contains("Do NOT create any PR"));
     }
 
-    /// Spec §A1/A2: the reviewer prompt must direct the agent to `.vk/review.json`
-    /// and MUST NOT ask it to run `gh pr review --approve` / `--request-changes`
-    /// (that path is what PR 2 removes — see incidents in the review-loop spec).
-    /// The prompt is free to *forbid* those commands by name; it must not
-    /// instruct execution. The head SHA travels in-prompt so the agent knows
-    /// which commit its verdict will be pinned to, AND the checkout must
-    /// anchor to the SHA — checking out `FETCH_HEAD` would silently pick up
-    /// any commit the author pushed between dispatch and reviewer runtime,
-    /// desyncing the reviewed code from the pinned commit the server submits
-    /// against.
+    /// Spec §A1/A2 + issue #366: the reviewer prompt must direct the agent
+    /// to `.vk/review.json` and MUST NOT ask it to run `gh pr review …`,
+    /// `gh pr checkout`, `git fetch pull/N/head`, or any other network-side
+    /// positioning — the system materializes the worktree already anchored
+    /// on the pinned SHA (`LocalContainerService::create` →
+    /// `WorkspaceManager::create_workspace` with a pinned `starting_point`).
+    /// The head SHA still travels in-prompt so the agent knows which commit
+    /// its verdict will be pinned to.
     #[test]
     fn reviewer_prompt_targets_review_json_and_pins_sha() {
         let prompt = quick_action_prompts::format_review_pr_prompt(304, "deadbeef1234567890");
@@ -3709,15 +3793,6 @@ mod tests {
             prompt.contains("deadbeef1234567890"),
             "reviewer prompt must include the pinned head SHA"
         );
-        // Checkout must anchor to the SHA, not the moving PR ref.
-        assert!(
-            prompt.contains("git checkout deadbeef1234567890"),
-            "reviewer prompt must checkout the pinned SHA explicitly, not FETCH_HEAD"
-        );
-        assert!(
-            !prompt.contains("git checkout FETCH_HEAD"),
-            "reviewer prompt must not checkout FETCH_HEAD (race with author pushes)"
-        );
         // Forbid the invocation forms — the prompt should never tell the
         // agent to *execute* these.
         assert!(
@@ -3726,14 +3801,74 @@ mod tests {
             "reviewer prompt must not execute gh pr review flags"
         );
         assert!(
-            !prompt.contains("gh pr checkout {pr_number}")
-                && !prompt.contains(&format!("gh pr checkout 304")),
-            "reviewer prompt must not execute gh pr checkout"
+            !prompt.contains("gh pr checkout"),
+            "reviewer prompt must not execute gh pr checkout — the system pre-positions the worktree"
+        );
+        // Issue #366: the fetch/checkout is now handled server-side at
+        // workspace materialization. The prompt must not ask the agent to
+        // redo it.
+        assert!(
+            !prompt.contains("git fetch") && !prompt.contains("git checkout"),
+            "reviewer prompt must not ask the agent to fetch/checkout — the worktree is already at the head SHA"
+        );
+        assert!(
+            !prompt.contains("FETCH_HEAD"),
+            "reviewer prompt must not reference FETCH_HEAD"
         );
         assert!(
             prompt.contains("request_changes"),
             "reviewer prompt must describe the verdict values"
         );
+    }
+
+    /// Issue #366: the fix-task remediation prompt must be free of git
+    /// plumbing — the system positions the worktree on the PR head at
+    /// materialization and pushes on finish. Any `reset --hard` /
+    /// `git push` / `pull/N/head` in the prompt would either race the
+    /// server-managed state or force the agent to duplicate work.
+    ///
+    /// Covered against both the inline-comments and the `gh` fallback
+    /// variants of the prompt (issue #368): the "no plumbing" contract must
+    /// hold regardless of whether enrichment succeeded.
+    #[test]
+    fn remediation_prompt_has_no_git_plumbing() {
+        for (owner_repo, comments_block) in [
+            (Some("mdevel-uy/vibe-kanban"), Some("Comentario del reviewer")),
+            (Some("mdevel-uy/vibe-kanban"), None),
+            (None, None),
+        ] {
+            let prompt = build_remediation_prompt(
+                507,
+                "https://github.com/mdevel-uy/vibe-kanban/pull/507",
+                owner_repo,
+                comments_block,
+            );
+            assert!(
+                prompt.contains("PR #507"),
+                "remediation prompt must reference the PR number"
+            );
+            assert!(
+                !prompt.contains("reset --hard"),
+                "remediation prompt must not tell the agent to run reset --hard"
+            );
+            assert!(
+                !prompt.contains("git push"),
+                "remediation prompt must not tell the agent to run git push"
+            );
+            assert!(
+                !prompt.contains("pull/507/head") && !prompt.contains("FETCH_HEAD"),
+                "remediation prompt must not tell the agent to fetch pull/N/head"
+            );
+            assert!(
+                !prompt.contains("gh pr checkout"),
+                "remediation prompt must not tell the agent to run gh pr checkout"
+            );
+            // Regression cover for PR #490: never emit `gh -R <full-url>`.
+            assert!(
+                !prompt.contains("-R https://"),
+                "remediation prompt must not emit `-R <full-url>`"
+            );
+        }
     }
 
     #[test]

@@ -381,7 +381,11 @@ export function GeneralSettingsSection() {
           draft?.editor.editor_type === EditorType.GOOGLE_ANTIGRAVITY ||
           draft?.editor.editor_type === EditorType.ZED) && (
           <>
-            <SettingsField
+            {/* 🚧 TEMPORALMENTE OCULTO — Remote SSH Host
+                Para restaurar: descomentar el bloque hasta el cierre </SettingsField>
+                correspondiente a 'settings.general.editor.remoteSsh.host.label'.
+                Contexto: ocultado por decisión del PM (agosto 2026). */}
+            {/* <SettingsField
               label={t('settings.general.editor.remoteSsh.host.label')}
               description={t('settings.general.editor.remoteSsh.host.helper')}
             >
@@ -399,7 +403,7 @@ export function GeneralSettingsSection() {
                   'settings.general.editor.remoteSsh.host.placeholder'
                 )}
               />
-            </SettingsField>
+            </SettingsField> */}
 
             {draft?.editor.remote_ssh_host && (
               <SettingsField
@@ -425,7 +429,11 @@ export function GeneralSettingsSection() {
           </>
         )}
 
-        {(draft?.editor.editor_type === EditorType.VS_CODE ||
+        {/* 🚧 TEMPORALMENTE OCULTO — Auto-install VS Code Extension
+            Para restaurar: descomentar el bloque condicional completo hasta el cierre )}.
+            Solo se muestra si editor_type es VS_CODE, VS_CODE_INSIDERS o CURSOR.
+            Contexto: ocultado por decisión del PM (agosto 2026). */}
+        {/* {(draft?.editor.editor_type === EditorType.VS_CODE ||
           draft?.editor.editor_type === EditorType.VS_CODE_INSIDERS ||
           draft?.editor.editor_type === EditorType.CURSOR) && (
           <SettingsCheckbox
@@ -444,7 +452,7 @@ export function GeneralSettingsSection() {
               })
             }
           />
-        )}
+        )} */}
       </SettingsCard>
 
       {/* Default Coding Agent */}

@@ -118,11 +118,16 @@ export const RightSidebar = memo(function RightSidebar({
   }, [tasks, task, taskIndex]);
 
   const isRunning = !!sidebarWs?.isRunning;
+  // `isFinalizing` covers the orchestrator's PR-publishing window
+  // (push + adopt/create + on_pr_open) that briefly follows the agent stopping
+  // while the DB task is still `in_progress` — without it the aside flashes
+  // "stalled" between agent-done and task→in_review (issue #494).
   const hasStalledTask =
     task?.status === 'in_progress' &&
     !isRunning &&
     !sidebarWs?.hasPendingApproval &&
     !sidebarWs?.hasTaskInReview &&
+    !sidebarWs?.isFinalizing &&
     sidebarWs?.latestProcessStatus !== 'running';
   const needsAttention =
     !!sidebarWs?.hasPendingApproval ||
