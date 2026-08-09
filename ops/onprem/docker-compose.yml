@@ -26,6 +26,11 @@ services:
       PLAN_UPGRADE_CTA_URL: ${PLAN_UPGRADE_CTA_URL:-}
       PLAN_UPGRADE_CTA_LABEL: ${PLAN_UPGRADE_CTA_LABEL:-}
       MK_ALLOWED_ORIGINS: ${MK_ALLOWED_ORIGINS:-}
+      # Heartbeat al control plane de mdevel (licencia + métricas de
+      # facturación). Vacío = no reporta (opt-in). El token auto-vincula la
+      # instancia al cliente en el panel de control.
+      MKANBAN_CONTROL_PLANE_URL: ${MKANBAN_CONTROL_PLANE_URL:-}
+      MKANBAN_INGEST_TOKEN: ${MKANBAN_INGEST_TOKEN:-}
     ports:
       - "${MK_PORT:-3000}:3000"
       - "${MK_PREVIEW_PORT:-3009}:3009"
