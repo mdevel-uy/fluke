@@ -464,6 +464,22 @@ impl WorkerTask {
         .await
     }
 
+    /// Count worker tasks currently occupying the worker's execution slot:
+    /// `queued` (waiting to start) and `in_progress` (agent running).
+    /// Reviewer tasks never pass through `in_review`/`approved`, so for
+    /// reviewers this — not [`Self::count_in_review`] — is the signal for
+    /// "busy right now".
+    pub async fn count_active(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+               FROM worker_tasks
+               WHERE worker_id = ?1 AND status IN ('queued', 'in_progress')",
+        )
+        .bind(worker_id)
+        .fetch_one(pool)
+        .await
+    }
+
     /// Count of worker tasks grouped by status, across all workers. Feeds
     /// `/api/metrics` (Prometheus) so the fleet stack can graph per-instance
     /// task throughput and queue depth. Returns every valid status even when
