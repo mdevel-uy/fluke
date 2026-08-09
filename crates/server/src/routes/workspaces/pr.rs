@@ -1204,11 +1204,11 @@ pub async fn address_pr_comments_follow_up(
         )));
     };
 
-    // Owner/repo is always present in the prompt (resolved server-side, never
-    // a placeholder the agent has to fill in). If the PR URL is not the
-    // expected GitHub shape we still dispatch, using the URL alone for `gh`.
-    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url)
-        .unwrap_or_else(|| open_pr.pr_url.clone());
+    // Owner/repo is `Some` only when the PR URL is a recognizable GitHub PR
+    // URL (parseable). For anything else (Azure DevOps, malformed URL) we
+    // pass `None`: the formatter falls back to positional `gh` invocations
+    // with `pr_url` instead of a broken `-R <full-url>` (PR #490 review).
+    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url);
 
     // Best-effort enrichment: fetch inline comments so the agent doesn't have
     // to shell out. Any failure logs a warn and drops us into the fallback
@@ -1221,7 +1221,7 @@ pub async fn address_pr_comments_follow_up(
     let prompt = quick_action_prompts::format_address_pr_comments_prompt(
         open_pr.pr_number,
         &open_pr.pr_url,
-        &owner_repo,
+        owner_repo.as_deref(),
         comments_block.as_deref(),
     );
 
@@ -1250,8 +1250,10 @@ pub async fn fix_ci_follow_up(
         )));
     };
 
-    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url)
-        .unwrap_or_else(|| open_pr.pr_url.clone());
+    // See the twin comment in `address_pr_comments_follow_up`: `None` means
+    // the URL was not a parseable GitHub PR URL, and the formatter falls
+    // back to positional-URL `gh` invocations instead of a broken `-R`.
+    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&open_pr.pr_url);
 
     let failed_checks = fetch_pr_failed_checks_for_prompt(&deployment, &open_pr).await;
     let failed_checks_block = failed_checks.as_ref().and_then(|c| {
@@ -1264,7 +1266,7 @@ pub async fn fix_ci_follow_up(
     let prompt = quick_action_prompts::format_fix_ci_prompt(
         open_pr.pr_number,
         &open_pr.pr_url,
-        &owner_repo,
+        owner_repo.as_deref(),
         failed_checks_block.as_deref(),
     );
 

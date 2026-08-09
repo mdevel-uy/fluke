@@ -51,15 +51,20 @@ pub fn format_resolve_merge_conflicts_prompt(target_branch: &str) -> String {
     RESOLVE_MERGE_CONFLICTS_PROMPT.replace("{target_branch}", target_branch)
 }
 
-/// Build the "Address PR comments" prompt. `owner_repo` is the pre-resolved
-/// `owner/name` slug — the server takes it from the remote, so it never
-/// leaves placeholders for the agent to fill in. `comments_block` is the
+/// Build the "Address PR comments" prompt.
+///
+/// `owner_repo` is the pre-resolved `owner/name` slug. When `Some`, every
+/// `gh` invocation in the prompt is targeted with `-R owner/repo` — no
+/// placeholders for the agent to fill in. When `None` (typically because
+/// the PR URL is not a recognizable GitHub URL), the prompt falls back to
+/// invoking `gh` with the PR URL as a positional arg so we don't emit
+/// syntactically bogus `-R <full-url>` commands. `comments_block` is the
 /// pre-rendered inline text (see [`render_comments_block`]); pass `None`
 /// when the enrichment fetch failed and the agent should fall back to `gh`.
 pub fn format_address_pr_comments_prompt(
     pr_number: i64,
     pr_url: &str,
-    owner_repo: &str,
+    owner_repo: Option<&str>,
     comments_block: Option<&str>,
 ) -> String {
     let step1 = match comments_block {
@@ -68,11 +73,23 @@ pub fn format_address_pr_comments_prompt(
              comentarios inline con archivo/línea). Leélos tal como vienen — no hace falta \
              volver a consultarlos con `gh`.\n\n{block}"
         ),
-        None => format!(
-            "No pude adjuntar los comentarios en este prompt (el enriquecimiento falló). \
-             Traélos vos: los generales con `gh pr view {pr_number} -R {owner_repo} --comments` \
-             y los inline con `gh api repos/{owner_repo}/pulls/{pr_number}/comments`."
-        ),
+        None => match owner_repo {
+            Some(slug) => format!(
+                "No pude adjuntar los comentarios en este prompt (el enriquecimiento falló). \
+                 Traélos vos: los generales con `gh pr view {pr_number} -R {slug} --comments` \
+                 y los inline con `gh api repos/{slug}/pulls/{pr_number}/comments`."
+            ),
+            None => format!(
+                "No pude adjuntar los comentarios en este prompt (el enriquecimiento falló) \
+                 y tampoco pude resolver el `owner/repo` desde la URL del PR ({pr_url}). \
+                 Traélos con `gh pr view {pr_url} --comments`; para los inline, resolvé \
+                 el path de la API a partir del URL del PR."
+            ),
+        },
+    };
+    let reply_command = match owner_repo {
+        Some(slug) => format!("gh pr comment {pr_number} -R {slug} -b '<respuesta>'"),
+        None => format!("gh pr comment {pr_url} -b '<respuesta>'"),
     };
     format!(
         "Tu PR #{pr_number} ({pr_url}) tiene comentarios de review pendientes. Encaralos ahora:\n\
@@ -80,7 +97,7 @@ pub fn format_address_pr_comments_prompt(
          1. {step1}\n\
          2. Agrupá los comentarios por archivo/tema. Diferenciá pedidos accionables\n\
             de simples preguntas: los accionables se implementan; a las preguntas\n\
-            respondelas en el PR (`gh pr comment {pr_number} -R {owner_repo} -b '<respuesta>'`)\n\
+            respondelas en el PR (`{reply_command}`)\n\
             sin tocar código si no hace falta.\n\
          3. Aplicá los cambios en tu rama, corré el build/typecheck (`pnpm run check`\n\
             o `cargo check` según corresponda) y ejecutá los tests que toquen las\n\
@@ -95,11 +112,15 @@ pub fn format_address_pr_comments_prompt(
     )
 }
 
-/// Build the "Fix CI" prompt. `failed_checks_block` is the pre-rendered
-/// inline list of failing jobs (see [`render_failed_checks_block`]); pass
-/// `None` when the enrichment fetch failed and the agent should fall back to
-/// `gh pr checks`. `owner_repo` is the pre-resolved `owner/name` slug so
-/// every `gh` invocation in the prompt targets the right repo explicitly.
+/// Build the "Fix CI" prompt.
+///
+/// `owner_repo` is the pre-resolved `owner/name` slug. When `Some`, `gh pr
+/// checks -R owner/repo` is emitted with the clean slug; when `None`
+/// (unrecognized PR URL), the prompt uses `gh pr checks <pr_url>` positional
+/// so we don't emit a broken `-R <full-url>`. `failed_checks_block` is the
+/// pre-rendered inline list of failing jobs (see
+/// [`render_failed_checks_block`]); pass `None` when the enrichment fetch
+/// failed and the agent should fall back to `gh pr checks`.
 ///
 /// Deliberately does NOT include `gh pr checks --watch` nor an "iterá hasta
 /// verde" instruction: polling the CI is the monitor's job and re-dispatch on
@@ -108,7 +129,7 @@ pub fn format_address_pr_comments_prompt(
 pub fn format_fix_ci_prompt(
     pr_number: i64,
     pr_url: &str,
-    owner_repo: &str,
+    owner_repo: Option<&str>,
     failed_checks_block: Option<&str>,
 ) -> String {
     let step1 = match failed_checks_block {
@@ -119,12 +140,18 @@ pub fn format_fix_ci_prompt(
             \n\
             {block}"
         ),
-        None => format!(
-            "No pude adjuntar el listado de checks fallados (el enriquecimiento falló).\n\
-            Traelo con `gh pr checks {pr_number} -R {owner_repo}`; para cada check en\n\
-            rojo abrí el log completo con `gh run view --log-failed --job <job_id>` e\n\
-            identificá el error real — no adivines por el nombre del step."
-        ),
+        None => {
+            let checks_command = match owner_repo {
+                Some(slug) => format!("gh pr checks {pr_number} -R {slug}"),
+                None => format!("gh pr checks {pr_url}"),
+            };
+            format!(
+                "No pude adjuntar el listado de checks fallados (el enriquecimiento falló).\n\
+                Traelo con `{checks_command}`; para cada check en\n\
+                rojo abrí el log completo con `gh run view --log-failed --job <job_id>` e\n\
+                identificá el error real — no adivines por el nombre del step."
+            )
+        }
     };
     format!(
         "El CI del PR #{pr_number} ({pr_url}) está fallando. Arreglá los checks:\n\
@@ -444,7 +471,7 @@ mod tests {
         let prompt = format_address_pr_comments_prompt(
             42,
             "https://github.com/mdevel-uy/vibe-kanban/pull/42",
-            "mdevel-uy/vibe-kanban",
+            Some("mdevel-uy/vibe-kanban"),
             Some(&block),
         );
         // Body contains the comments verbatim
@@ -462,6 +489,9 @@ mod tests {
         );
         // Owner/repo is resolved for any remaining gh invocations
         assert!(prompt.contains("mdevel-uy/vibe-kanban"));
+        // No stray full-URL substitution as owner/repo (root cause of the
+        // reviewer note on PR #490): `-R https://...` would be nonsense.
+        assert!(!prompt.contains("-R https://"));
     }
 
     #[test]
@@ -469,13 +499,35 @@ mod tests {
         let prompt = format_address_pr_comments_prompt(
             7,
             "https://github.com/mdevel-uy/vibe-kanban/pull/7",
-            "mdevel-uy/vibe-kanban",
+            Some("mdevel-uy/vibe-kanban"),
             None,
         );
         // Fallback tells the agent to fetch, but owner/repo is already resolved
         assert!(prompt.contains("gh pr view 7 -R mdevel-uy/vibe-kanban --comments"));
         assert!(prompt.contains("gh api repos/mdevel-uy/vibe-kanban/pulls/7/comments"));
         assert!(!prompt.contains("{{owner}}") && !prompt.contains("{{repo}}"));
+        assert!(!prompt.contains("-R https://"));
+    }
+
+    /// When the PR URL isn't a recognizable GitHub URL (Azure DevOps, mocks),
+    /// we must NOT emit `gh -R <full-url>` — that's what the reviewer flagged
+    /// on PR #490. The fallback uses the URL positionally instead.
+    #[test]
+    fn address_pr_comments_prompt_uses_url_when_owner_repo_unknown() {
+        let pr_url = "https://dev.azure.com/org/proj/_git/repo/pullrequest/42";
+        let prompt = format_address_pr_comments_prompt(42, pr_url, None, None);
+        assert!(
+            !prompt.contains("-R https://"),
+            "prompt must never emit `-R <full-url>` — that's an invalid gh flag"
+        );
+        assert!(
+            prompt.contains(&format!("gh pr view {pr_url} --comments")),
+            "fallback must fall back to positional URL for gh pr view"
+        );
+        assert!(
+            prompt.contains(&format!("gh pr comment {pr_url} -b")),
+            "fallback must fall back to positional URL for gh pr comment"
+        );
     }
 
     #[test]
@@ -496,7 +548,7 @@ mod tests {
         let prompt = format_fix_ci_prompt(
             99,
             "https://github.com/mdevel-uy/vibe-kanban/pull/99",
-            "mdevel-uy/vibe-kanban",
+            Some("mdevel-uy/vibe-kanban"),
             Some(&block),
         );
         assert!(prompt.contains("backend (failure)"));
@@ -509,6 +561,7 @@ mod tests {
             !prompt.contains("iterá"),
             "fix-ci prompt must not tell the agent to loop until green"
         );
+        assert!(!prompt.contains("-R https://"));
     }
 
     #[test]
@@ -516,11 +569,22 @@ mod tests {
         let prompt = format_fix_ci_prompt(
             12,
             "https://github.com/mdevel-uy/vibe-kanban/pull/12",
-            "mdevel-uy/vibe-kanban",
+            Some("mdevel-uy/vibe-kanban"),
             None,
         );
         assert!(prompt.contains("gh pr checks 12 -R mdevel-uy/vibe-kanban"));
         assert!(!prompt.contains("--watch"));
+    }
+
+    /// Same regression coverage as
+    /// [`address_pr_comments_prompt_uses_url_when_owner_repo_unknown`], for
+    /// the Fix CI prompt: no `gh -R <full-url>` when the slug is unknown.
+    #[test]
+    fn fix_ci_prompt_uses_url_when_owner_repo_unknown() {
+        let pr_url = "https://dev.azure.com/org/proj/_git/repo/pullrequest/12";
+        let prompt = format_fix_ci_prompt(12, pr_url, None, None);
+        assert!(!prompt.contains("-R https://"));
+        assert!(prompt.contains(&format!("gh pr checks {pr_url}")));
     }
 
     #[test]

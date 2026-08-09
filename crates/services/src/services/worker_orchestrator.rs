@@ -3048,21 +3048,43 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
     Ok(())
 }
 
-/// Best-effort enrichment for the remediation prompt: resolve the
+/// Resolved context for the remediation prompt.
+///
+/// `pr_url` is always populated (falls back to the empty string only when the
+/// PR record itself is missing, so the prompt still renders). `owner_repo`
+/// is `Some(slug)` only when the URL is a recognizable GitHub PR URL — the
+/// prompt uses that to switch between `-R owner/repo` and positional-URL
+/// `gh` invocations so we never emit `-R <full-url>` (see PR #490 review).
+struct RemediationContext {
+    pr_url: String,
+    owner_repo: Option<String>,
+    comments_block: Option<String>,
+}
+
+impl RemediationContext {
+    fn empty(pr_number: i64) -> Self {
+        // Last-resort fallback when even the PR record is gone. We synthesize
+        // a `PR #<n>` string so the prompt still identifies the PR to the
+        // agent; owner_repo stays None so `-R` is skipped.
+        Self {
+            pr_url: format!("PR #{pr_number}"),
+            owner_repo: None,
+            comments_block: None,
+        }
+    }
+}
+
+/// Best-effort enrichment for the remediation prompt: resolve the PR URL and
 /// `owner/repo` slug from the PR record and pull the reviewer's comments
 /// (general + inline) so they can be dropped inline instead of asking the
 /// agent to shell out. Never blocks dispatch: any lookup/network failure
 /// logs a warn and the caller falls back to the pre-issue-368 behaviour
 /// (agent runs `gh pr view --comments`).
-///
-/// Returns the resolved slug (falls back to the PR URL when parsing fails,
-/// so the prompt still has *something* to show) and the rendered comments
-/// block, if any could be fetched.
 async fn collect_pr_comments_context(
     db: &DBService,
     pr_number: i64,
     repo_id: Uuid,
-) -> (String, Option<String>) {
+) -> RemediationContext {
     let pool = &db.pool;
 
     // Resolve the PR record so we get the URL for owner/repo parsing.
@@ -3070,27 +3092,31 @@ async fn collect_pr_comments_context(
         Ok(Some(p)) => p,
         Ok(None) => {
             warn!(pr_number, "PR record missing — remediation prompt will use fallback");
-            return (format!("PR #{pr_number}"), None);
+            return RemediationContext::empty(pr_number);
         }
         Err(e) => {
             warn!(pr_number, "Failed to load PR for remediation enrichment: {e}");
-            return (format!("PR #{pr_number}"), None);
+            return RemediationContext::empty(pr_number);
         }
     };
 
-    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&pr.pr_url)
-        .unwrap_or_else(|| pr.pr_url.clone());
+    let owner_repo = quick_action_prompts::parse_owner_repo_from_pr_url(&pr.pr_url);
+    let mut ctx = RemediationContext {
+        pr_url: pr.pr_url.clone(),
+        owner_repo,
+        comments_block: None,
+    };
 
     // Resolve the repo path + remote so `GitHostService` can fetch comments.
     let repo = match Repo::find_by_id(pool, repo_id).await {
         Ok(Some(r)) => r,
         Ok(None) => {
             warn!(pr_number, "Repo missing for remediation enrichment");
-            return (owner_repo, None);
+            return ctx;
         }
         Err(e) => {
             warn!(pr_number, "Failed to load repo for remediation enrichment: {e}");
-            return (owner_repo, None);
+            return ctx;
         }
     };
 
@@ -3110,29 +3136,29 @@ async fn collect_pr_comments_context(
         Ok(r) => r,
         Err(e) => {
             warn!(pr_number, "Failed to resolve remote for remediation enrichment: {e}");
-            return (owner_repo, None);
+            return ctx;
         }
     };
     let host = match GitHostService::from_url(&remote.url) {
         Ok(h) => h,
         Err(e) => {
             warn!(pr_number, "Unsupported host for remediation enrichment: {e}");
-            return (owner_repo, None);
+            return ctx;
         }
     };
     let comments = match host.get_pr_comments(&repo_path, &remote.url, pr_number).await {
         Ok(c) => c,
         Err(e) => {
             warn!(pr_number, "Failed to fetch PR comments for remediation enrichment: {e}");
-            return (owner_repo, None);
+            return ctx;
         }
     };
 
-    let block = quick_action_prompts::render_comments_block(
+    ctx.comments_block = quick_action_prompts::render_comments_block(
         &comments,
         quick_action_prompts::COMMENTS_BLOCK_MAX_BYTES,
     );
-    (owner_repo, block)
+    ctx
 }
 
 /// Text of the remediation prompt sent to the author when a reviewer
@@ -3143,15 +3169,18 @@ async fn collect_pr_comments_context(
 /// current branch, address the review comments, push back to the PR head via
 /// explicit refspec — even if the workspace is fresh.
 ///
-/// `owner_repo` is the pre-resolved `owner/name` slug so every `gh`
-/// invocation in the prompt targets the right repo explicitly, without
-/// leaving `{{owner}}/{{repo}}` placeholders for the LLM to substitute.
+/// `owner_repo` is the pre-resolved `owner/name` slug when the PR URL is a
+/// recognizable GitHub URL. When `None` (Azure DevOps, malformed URL, etc.)
+/// the prompt falls back to invoking `gh` positionally with the PR URL so we
+/// never emit a broken `-R <full-url>` flag (see PR #490 review). `pr_url`
+/// is always passed through — it's the stable identifier the fallback uses.
 /// `comments_block` is the pre-rendered inline text of the review comments;
 /// pass `None` when the enrichment fetch failed and the agent should fall
 /// back to `gh` (comportamiento previo).
 fn build_remediation_prompt(
     pr_number: i64,
-    owner_repo: &str,
+    pr_url: &str,
+    owner_repo: Option<&str>,
     comments_block: Option<&str>,
 ) -> String {
     let comments_section = match comments_block {
@@ -3159,14 +3188,30 @@ fn build_remediation_prompt(
             "Los comentarios del reviewer están abajo (generales + inline con archivo/línea). \
              Leélos tal como vienen — no hace falta volver a consultarlos con `gh`.\n\n{block}\n\n"
         ),
-        None => format!(
-            "No pude adjuntar los comentarios del reviewer (el enriquecimiento falló). \
-             Traelos con `gh pr view {pr_number} -R {owner_repo} --comments` y los inline \
-             con `gh api repos/{owner_repo}/pulls/{pr_number}/comments`.\n\n"
-        ),
+        None => match owner_repo {
+            Some(slug) => format!(
+                "No pude adjuntar los comentarios del reviewer (el enriquecimiento falló). \
+                 Traelos con `gh pr view {pr_number} -R {slug} --comments` y los inline \
+                 con `gh api repos/{slug}/pulls/{pr_number}/comments`.\n\n"
+            ),
+            None => format!(
+                "No pude adjuntar los comentarios del reviewer (el enriquecimiento falló) \
+                 y tampoco pude resolver el `owner/repo` desde la URL del PR ({pr_url}). \
+                 Traelos con `gh pr view {pr_url} --comments`; para los inline, resolvé \
+                 el path de la API a partir del URL del PR.\n\n"
+            ),
+        },
+    };
+    let head_branch_lookup = match owner_repo {
+        Some(slug) => format!("gh pr view {pr_number} -R {slug} --json headRefName -q .headRefName"),
+        None => format!("gh pr view {pr_url} --json headRefName -q .headRefName"),
+    };
+    let pr_header = match owner_repo {
+        Some(slug) => format!("PR #{pr_number} ({slug})"),
+        None => format!("PR #{pr_number} ({pr_url})"),
     };
     format!(
-        "El reviewer solicitó cambios en el PR #{pr_number} ({owner_repo}).\n\n\
+        "El reviewer solicitó cambios en el {pr_header}.\n\n\
          {comments_section}\
          Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
          (la rama del PR puede estar checked out en el worktree del autor y \
@@ -3174,7 +3219,7 @@ fn build_remediation_prompt(
          `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
          Corregí los issues señalados por el reviewer y commiteá. \
          Después pusheá a la rama del PR con refspec explícito: \
-         `git push origin HEAD:$(gh pr view {pr_number} -R {owner_repo} --json headRefName -q .headRefName)`. \
+         `git push origin HEAD:$({head_branch_lookup})`. \
          El PR ya existe — NO crees uno nuevo."
     )
 }
@@ -3415,11 +3460,14 @@ pub async fn dispatch_author_fix_task(
     // (and never sees a `{{owner}}/{{repo}}` placeholder). Any failure logs
     // a warn and drops us into the fallback prompt — enrichment is optional,
     // never a dispatch blocker.
-    let (owner_repo, comments_block) =
-        collect_pr_comments_context(db, pr_number, repo_id).await;
+    let ctx = collect_pr_comments_context(db, pr_number, repo_id).await;
 
-    let task_prompt =
-        build_remediation_prompt(pr_number, &owner_repo, comments_block.as_deref());
+    let task_prompt = build_remediation_prompt(
+        pr_number,
+        &ctx.pr_url,
+        ctx.owner_repo.as_deref(),
+        ctx.comments_block.as_deref(),
+    );
 
     // Primary path (#473): dispatch as a system follow-up on the author's
     // ORIGINAL in_review task workspace. One card = one PR, transitioning
