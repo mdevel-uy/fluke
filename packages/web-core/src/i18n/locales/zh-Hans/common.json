@@ -1388,6 +1388,7 @@
     "done": {
       "empty": "尚未完成任何任务。",
       "remove": "移除",
+      "removeAll": "全部清除",
       "removeConfirmMessage": "从看板中移除这个已完成的任务？",
       "removeConfirm": "移除"
     },
@@ -1437,13 +1438,19 @@
       "reRequestReviewInProgress": "此 PR 已有一个审查回合正在进行中。",
       "reRequestReviewHeadUnchanged": "自上次审查以来该 PR 没有新提交——重新审查只会得到相同的结论。请先推送修复。",
       "reRequestReviewNoChangesRequested": "该任务当前不在等待重新审查。",
-      "reRequestReviewError": "无法请求重新审查：{{message}}"
+      "reRequestReviewError": "无法请求重新审查：{{message}}",
+      "clearColumnError": "有 {{count}} 个任务无法删除。",
+      "clearColumnError_other": "有 {{count}} 个任务无法删除。"
     },
     "failed": {
       "retry": "重试",
       "discard": "丢弃",
+      "discardAll": "全部丢弃",
       "viewPr": "查看 PR",
       "empty": "没有失败的任务。"
+    },
+    "clearColumn": {
+      "confirm": "确认？"
     },
     "autoIngest": {
       "label": "自动开始",

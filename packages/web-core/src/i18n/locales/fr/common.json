@@ -1392,6 +1392,7 @@
     "done": {
       "empty": "Aucune tâche terminée pour l'instant.",
       "remove": "Retirer",
+      "removeAll": "Tout effacer",
       "removeConfirmMessage": "Retirer cette tâche terminée du tableau ?",
       "removeConfirm": "Retirer"
     },
@@ -1441,13 +1442,19 @@
       "reRequestReviewInProgress": "Une ronde de revue est déjà en cours pour cette PR.",
       "reRequestReviewHeadUnchanged": "La PR n'a aucun nouveau commit depuis la dernière revue — une nouvelle revue répéterait le même verdict. Poussez d'abord un correctif.",
       "reRequestReviewNoChangesRequested": "La tâche n'est pas en attente d'une nouvelle revue pour le moment.",
-      "reRequestReviewError": "Impossible de demander la nouvelle revue : {{message}}"
+      "reRequestReviewError": "Impossible de demander la nouvelle revue : {{message}}",
+      "clearColumnError": "Impossible de supprimer {{count}} tâche.",
+      "clearColumnError_other": "Impossible de supprimer {{count}} tâches."
     },
     "failed": {
       "retry": "Réessayer",
       "discard": "Ignorer",
+      "discardAll": "Tout ignorer",
       "viewPr": "Voir la PR",
       "empty": "Aucune tâche échouée."
+    },
+    "clearColumn": {
+      "confirm": "Confirmer ?"
     },
     "autoIngest": {
       "label": "Ingestion automatique",
