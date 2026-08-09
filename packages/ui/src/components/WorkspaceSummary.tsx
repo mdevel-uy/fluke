@@ -14,6 +14,7 @@ import {
 } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
+import { ROLE_CHIP_CLASS, ROLE_CHIP_FALLBACK } from '../lib/roleChipClass';
 
 const formatRelativeElapsed = (dateString: string): string => {
   const date = new Date(dateString);
@@ -42,12 +43,6 @@ const formatDurationSince = (dateString: string): string => {
   if (diffMins < 60) return `${diffMins}m`;
   if (diffHours < 24) return `${diffHours}h`;
   return `${diffDays}d`;
-};
-
-const ROLE_CHIP_CLASS: Record<string, string> = {
-  developer: 'bg-info/10 text-info',
-  analyst: 'bg-brand/10 text-brand-on-surface',
-  reviewer: 'bg-warning/10 text-warning',
 };
 
 export interface WorkspaceContextUsage {
@@ -321,7 +316,7 @@ export function WorkspaceSummary({
               <span
                 className={cn(
                   'shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold leading-4',
-                  ROLE_CHIP_CLASS[workerRole] ?? 'bg-secondary text-normal'
+                  ROLE_CHIP_CLASS[workerRole] ?? ROLE_CHIP_FALLBACK
                 )}
               >
                 {t(`workers.roles.${workerRole}`)}
