@@ -910,10 +910,11 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             // Poll mergeable state non-fatally — a failure here must not break pr_monitor.
             match git_host.get_pr_mergeable(&pr.pr_url).await {
                 Ok(mergeable) => {
-                    if pr.pr_mergeable.as_deref() != Some(mergeable.as_str()) {
+                    let previous = pr.pr_mergeable.clone();
+                    if previous.as_deref() != Some(mergeable.as_str()) {
                         debug!(
                             "PR #{} mergeable state: {} (was {:?})",
-                            pr.pr_number, mergeable, pr.pr_mergeable
+                            pr.pr_number, mergeable, previous
                         );
                         if let Err(e) =
                             PullRequest::update_mergeable(&self.db.pool, &pr.pr_url, &mergeable)
@@ -924,6 +925,19 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                                 pr.pr_number, e
                             );
                         }
+                    }
+
+                    // Issue #370: on the transition INTO `conflicting`, attempt
+                    // the merge server-side. If it comes out clean (stale
+                    // GitHub rollup — common) we push and the next poll flips
+                    // mergeable back to `mergeable` without ever dispatching
+                    // an agent. Real conflicts are left as-is; the "Fix merge
+                    // conflicts" quick action handles the agent hand-off
+                    // (with the pre-merge already primed, per the UI path).
+                    let transitioned_into_conflicting =
+                        mergeable == "conflicting" && previous.as_deref() != Some("conflicting");
+                    if transitioned_into_conflicting {
+                        self.try_pre_merge_conflicting_pr(pr).await;
                     }
                 }
                 Err(e) => {
@@ -1004,6 +1018,175 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         info!("PR #{} status changed to {:?}", pr.pr_number, status.status);
 
         Ok(())
+    }
+
+    /// Attempt to merge `<remote>/<target_branch>` into the PR's workspace
+    /// worktree when the mergeable rollup first flips to `conflicting`.
+    ///
+    /// On a clean merge (GitHub's rollup was stale) the merge commit is
+    /// pushed via the standard push path so the next monitor cycle sees
+    /// `mergeable` and no agent is ever dispatched. On real conflicts the
+    /// worktree is left with the merge in progress; the UI "Fix merge
+    /// conflicts" quick action picks that up and dispatches the agent with
+    /// the file list already inline. On any environmental failure the state
+    /// is left untouched (the git service guarantees the worktree is not
+    /// corrupted) and the classic dispatch path stays available as a
+    /// fallback.
+    ///
+    /// Any error is logged and swallowed — this is a best-effort optimization
+    /// on top of the mergeable poll, never a source of pr_monitor breakage.
+    async fn try_pre_merge_conflicting_pr(&self, pr: &PullRequest) {
+        let Some(workspace_id) = pr.workspace_id else {
+            return;
+        };
+        let Some(repo_id) = pr.repo_id else {
+            return;
+        };
+
+        let workspace = match Workspace::find_by_id(&self.db.pool, workspace_id).await {
+            Ok(Some(ws)) => ws,
+            Ok(None) => return,
+            Err(e) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    "Pre-merge skipped: failed to load workspace: {}", e
+                );
+                return;
+            }
+        };
+
+        // Only attempt pre-merge when the workspace is materialized. Archived
+        // workspaces (no container_ref) go straight to the fallback path when
+        // the user later clicks "Fix merge conflicts".
+        let Some(container_ref) = workspace.container_ref.clone() else {
+            debug!(
+                workspace_id = %workspace_id,
+                pr_number = pr.pr_number,
+                "Pre-merge skipped: workspace has no container_ref"
+            );
+            return;
+        };
+
+        let repo = match Repo::find_by_id(&self.db.pool, repo_id).await {
+            Ok(Some(r)) => r,
+            Ok(None) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    "Pre-merge skipped: repo {} not found", repo_id
+                );
+                return;
+            }
+            Err(e) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    "Pre-merge skipped: failed to load repo: {}", e
+                );
+                return;
+            }
+        };
+
+        let worktree_path = std::path::PathBuf::from(&container_ref).join(&repo.name);
+        let git = self.container.git();
+        let remote = match git.resolve_remote_for_branch(&repo.path, &pr.target_branch_name) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    "Pre-merge skipped: failed to resolve remote for target branch: {}", e
+                );
+                return;
+            }
+        };
+
+        let outcome = match git.pre_merge_target_branch(
+            &worktree_path,
+            &remote.url,
+            &remote.name,
+            &pr.target_branch_name,
+        ) {
+            Ok(o) => o,
+            Err(e) => {
+                warn!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    "Pre-merge attempt failed — leaving PR in conflicting state for the fallback path: {}",
+                    e
+                );
+                return;
+            }
+        };
+
+        match outcome {
+            git::PreMergeOutcome::Clean { merge_commit_sha } => {
+                let worker_pat = match Worker::find_github_pat_by_workspace_id(
+                    &self.db.pool,
+                    workspace_id,
+                )
+                .await
+                {
+                    Ok(pat) => pat,
+                    Err(e) => {
+                        warn!(
+                            workspace_id = %workspace_id,
+                            pr_number = pr.pr_number,
+                            "Pre-merge clean: failed to load worker PAT — trying anyway: {}", e
+                        );
+                        None
+                    }
+                };
+
+                let remote_branch = match Workspace::remote_branch_name(&self.db.pool, workspace_id)
+                    .await
+                {
+                    Ok(name) => name,
+                    Err(e) => {
+                        warn!(
+                            workspace_id = %workspace_id,
+                            pr_number = pr.pr_number,
+                            "Pre-merge clean: failed to resolve remote branch — leaving unpushed: {}",
+                            e
+                        );
+                        return;
+                    }
+                };
+
+                match git.push_to_remote_with_token(
+                    &worktree_path,
+                    &workspace.branch,
+                    &remote_branch,
+                    false,
+                    worker_pat.as_deref(),
+                ) {
+                    Ok(()) => {
+                        info!(
+                            workspace_id = %workspace_id,
+                            pr_number = pr.pr_number,
+                            merge_commit_sha = %merge_commit_sha,
+                            "Pre-merge produced a clean merge; pushed without dispatching agent"
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            workspace_id = %workspace_id,
+                            pr_number = pr.pr_number,
+                            "Pre-merge clean but push failed: {}", e
+                        );
+                    }
+                }
+            }
+            git::PreMergeOutcome::Conflicts { conflicted_files } => {
+                info!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    conflicted_files = conflicted_files.len(),
+                    "Pre-merge stopped with conflicts; worktree primed for agent dispatch via UI"
+                );
+            }
+        }
     }
 
     /// Archive workspace if all its PRs are merged/closed
