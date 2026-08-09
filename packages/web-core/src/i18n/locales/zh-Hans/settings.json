@@ -698,41 +698,6 @@
         "cancelFailed": "无法取消连接。",
         "submitCodeFailed": "无法提交兑换码。"
       }
-    }
-  },
-  "integrations": {
-    "github": {
-      "cliSetup": {
-        "title": "GitHub CLI 设置",
-        "description": "需要 GitHub CLI 身份验证才能创建拉取请求并与 GitHub 仓库交互。",
-        "setupWillTitle": "此设置将：",
-        "steps": {
-          "checkInstalled": "检查是否安装了 GitHub CLI (gh)",
-          "installHomebrew": "如果需要，通过 Homebrew 安装它（macOS）",
-          "authenticate": "使用 OAuth 进行 GitHub 身份验证"
-        },
-        "setupNote": "设置将在聊天窗口中运行。您需要在浏览器中完成身份验证。",
-        "runSetup": "运行设置",
-        "running": "运行中...",
-        "errors": {
-          "brewMissing": "未安装 Homebrew。安装它以启用自动设置。",
-          "notSupported": "此平台不支持自动设置。请手动安装 GitHub CLI。",
-          "setupFailed": "运行 GitHub CLI 设置失败。"
-        },
-        "help": {
-          "homebrew": {
-            "description": "自动安装需要 Homebrew。从",
-            "brewSh": "brew.sh",
-            "manualInstall": "安装 Homebrew，然后重新运行设置。或者，使用以下命令手动安装 GitHub CLI：",
-            "afterInstall": "安装后，使用以下命令进行身份验证："
-          },
-          "manual": {
-            "description": "从",
-            "officialDocs": "官方文档",
-            "andAuthenticate": "安装 GitHub CLI，然后使用您的 GitHub 账户进行身份验证。"
-          }
-        }
-      }
     },
     "data": {
       "export": {
@@ -771,6 +736,41 @@
           "copyAssets": "将 asset_dir/ 的内容复制到新实例的数据目录中。",
           "copyRepos": "将 repos/ 下的每个文件夹移动到您选择的路径。",
           "startAndReattach": "启动 mkanban，如果仓库路径已更改，请从设置 → 仓库中更新它。"
+        }
+      }
+    }
+  },
+  "integrations": {
+    "github": {
+      "cliSetup": {
+        "title": "GitHub CLI 设置",
+        "description": "需要 GitHub CLI 身份验证才能创建拉取请求并与 GitHub 仓库交互。",
+        "setupWillTitle": "此设置将：",
+        "steps": {
+          "checkInstalled": "检查是否安装了 GitHub CLI (gh)",
+          "installHomebrew": "如果需要，通过 Homebrew 安装它（macOS）",
+          "authenticate": "使用 OAuth 进行 GitHub 身份验证"
+        },
+        "setupNote": "设置将在聊天窗口中运行。您需要在浏览器中完成身份验证。",
+        "runSetup": "运行设置",
+        "running": "运行中...",
+        "errors": {
+          "brewMissing": "未安装 Homebrew。安装它以启用自动设置。",
+          "notSupported": "此平台不支持自动设置。请手动安装 GitHub CLI。",
+          "setupFailed": "运行 GitHub CLI 设置失败。"
+        },
+        "help": {
+          "homebrew": {
+            "description": "自动安装需要 Homebrew。从",
+            "brewSh": "brew.sh",
+            "manualInstall": "安装 Homebrew，然后重新运行设置。或者，使用以下命令手动安装 GitHub CLI：",
+            "afterInstall": "安装后，使用以下命令进行身份验证："
+          },
+          "manual": {
+            "description": "从",
+            "officialDocs": "官方文档",
+            "andAuthenticate": "安装 GitHub CLI，然后使用您的 GitHub 账户进行身份验证。"
+          }
         }
       }
     }

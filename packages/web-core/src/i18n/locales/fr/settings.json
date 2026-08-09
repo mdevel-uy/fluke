@@ -698,41 +698,6 @@
         "cancelFailed": "Impossible d'annuler la connexion.",
         "submitCodeFailed": "Impossible d'envoyer le code d'échange."
       }
-    }
-  },
-  "integrations": {
-    "github": {
-      "cliSetup": {
-        "title": "Configuration de GitHub CLI",
-        "description": "L'authentification GitHub CLI est requise pour créer des pull requests et interagir avec les dépôts GitHub.",
-        "setupWillTitle": "Cette configuration va :",
-        "steps": {
-          "checkInstalled": "Vérifier si GitHub CLI (gh) est installé",
-          "installHomebrew": "L'installer via Homebrew si nécessaire (macOS)",
-          "authenticate": "S'authentifier avec GitHub en utilisant OAuth"
-        },
-        "setupNote": "La configuration s'exécutera dans la fenêtre de chat. Vous devrez compléter l'authentification dans votre navigateur.",
-        "runSetup": "Lancer la configuration",
-        "running": "Exécution en cours...",
-        "errors": {
-          "brewMissing": "Homebrew n'est pas installé. Installez-le pour activer la configuration automatique.",
-          "notSupported": "La configuration automatique n'est pas prise en charge sur cette plateforme. Installez GitHub CLI manuellement.",
-          "setupFailed": "Échec de l'exécution de la configuration GitHub CLI."
-        },
-        "help": {
-          "homebrew": {
-            "description": "L'installation automatique nécessite Homebrew. Installez Homebrew depuis",
-            "brewSh": "brew.sh",
-            "manualInstall": "puis relancez la configuration. Alternativement, installez GitHub CLI manuellement avec :",
-            "afterInstall": "Après l'installation, authentifiez-vous avec :"
-          },
-          "manual": {
-            "description": "Installez GitHub CLI depuis la",
-            "officialDocs": "documentation officielle",
-            "andAuthenticate": "puis authentifiez-vous avec votre compte GitHub."
-          }
-        }
-      }
     },
     "data": {
       "export": {
@@ -771,6 +736,41 @@
           "copyAssets": "Copiez le contenu de asset_dir/ dans le répertoire de données de la nouvelle instance.",
           "copyRepos": "Déplacez chaque dossier de repos/ vers le chemin de votre choix.",
           "startAndReattach": "Démarrez mkanban et, si le chemin d'un dépôt a changé, mettez-le à jour depuis Paramètres → Dépôts."
+        }
+      }
+    }
+  },
+  "integrations": {
+    "github": {
+      "cliSetup": {
+        "title": "Configuration de GitHub CLI",
+        "description": "L'authentification GitHub CLI est requise pour créer des pull requests et interagir avec les dépôts GitHub.",
+        "setupWillTitle": "Cette configuration va :",
+        "steps": {
+          "checkInstalled": "Vérifier si GitHub CLI (gh) est installé",
+          "installHomebrew": "L'installer via Homebrew si nécessaire (macOS)",
+          "authenticate": "S'authentifier avec GitHub en utilisant OAuth"
+        },
+        "setupNote": "La configuration s'exécutera dans la fenêtre de chat. Vous devrez compléter l'authentification dans votre navigateur.",
+        "runSetup": "Lancer la configuration",
+        "running": "Exécution en cours...",
+        "errors": {
+          "brewMissing": "Homebrew n'est pas installé. Installez-le pour activer la configuration automatique.",
+          "notSupported": "La configuration automatique n'est pas prise en charge sur cette plateforme. Installez GitHub CLI manuellement.",
+          "setupFailed": "Échec de l'exécution de la configuration GitHub CLI."
+        },
+        "help": {
+          "homebrew": {
+            "description": "L'installation automatique nécessite Homebrew. Installez Homebrew depuis",
+            "brewSh": "brew.sh",
+            "manualInstall": "puis relancez la configuration. Alternativement, installez GitHub CLI manuellement avec :",
+            "afterInstall": "Après l'installation, authentifiez-vous avec :"
+          },
+          "manual": {
+            "description": "Installez GitHub CLI depuis la",
+            "officialDocs": "documentation officielle",
+            "andAuthenticate": "puis authentifiez-vous avec votre compte GitHub."
+          }
         }
       }
     }
