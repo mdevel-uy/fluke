@@ -56,25 +56,35 @@ impl WorktreeManager {
         let _ = WORKSPACE_DIR_OVERRIDE.set(path);
     }
 
-    /// Create a worktree with a new branch
+    /// Create a worktree with a new branch.
+    ///
+    /// `starting_point`, when `Some`, is a commit SHA the new branch will be
+    /// anchored to (via `create_branch_at`). When `None`, the branch tip of
+    /// `base_branch` is used — the historical default. The caller is
+    /// responsible for having fetched the commit into the source repo (e.g.
+    /// via `GitService::fetch_pr_head`).
     pub async fn create_worktree(
         repo_path: &Path,
         branch_name: &str,
         worktree_path: &Path,
         base_branch: &str,
         create_branch: bool,
+        starting_point: Option<&str>,
     ) -> Result<(), WorktreeError> {
         if create_branch {
             let repo_path_owned = repo_path.to_path_buf();
             let branch_name_owned = branch_name.to_string();
             let base_branch_owned = base_branch.to_string();
+            let starting_point_owned = starting_point.map(str::to_string);
 
             let created = tokio::task::spawn_blocking(move || {
-                GitService::new().create_branch(
-                    &repo_path_owned,
-                    &branch_name_owned,
-                    &base_branch_owned,
-                )
+                let git = GitService::new();
+                match starting_point_owned {
+                    Some(sha) => git.create_branch_at(&repo_path_owned, &branch_name_owned, &sha),
+                    None => {
+                        git.create_branch(&repo_path_owned, &branch_name_owned, &base_branch_owned)
+                    }
+                }
             })
             .await
             .map_err(|e| WorktreeError::TaskJoin(format!("Task join error: {e}")))?;
@@ -569,6 +579,7 @@ async fn create_worktree_when_repo_path_is_a_worktree() {
         &base_worktree_path,
         "main",
         true,
+        None,
     )
     .await
     .unwrap();
@@ -581,6 +592,7 @@ async fn create_worktree_when_repo_path_is_a_worktree() {
         &child_worktree_path,
         "main",
         true,
+        None,
     )
     .await
     .unwrap();

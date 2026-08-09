@@ -17,10 +17,12 @@ use db::{
             ExecutionContext, ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus,
         },
         execution_process_repo_state::ExecutionProcessRepoState,
+        pull_request::PullRequest,
         repo::Repo,
         scratch::{DraftFollowUpData, Scratch, ScratchType},
         session::{Session, SessionError},
         worker::{ROLE_REVIEWER, Worker},
+        worker_task::WorkerTask,
         workspace::Workspace,
         workspace_repo::WorkspaceRepo,
     },
@@ -219,6 +221,75 @@ impl LocalContainerService {
             .collect::<Result<_, ContainerError>>()?;
 
         Ok((repositories, workspace_inputs))
+    }
+
+    /// Populate `starting_point` on any repo input whose linked worker task
+    /// targets an existing PR (fix-task on the author's PR, or a reviewer
+    /// task). Fetches `pull/N/head` and pins the resolved SHA so
+    /// `create_workspace` anchors the new workspace branch on the PR head
+    /// instead of the target branch — the agent then finds a worktree
+    /// already positioned on the code it needs to work on, with no
+    /// `git fetch`/`reset --hard` in the prompt.
+    ///
+    /// Runs only inside `create()` (not `ensure_container_exists`) so
+    /// re-creation of an existing workspace preserves whatever state its
+    /// branch happens to have.
+    ///
+    /// Any failure — task lookup, PR not found, fetch failure — bubbles up as
+    /// `ContainerError`. The caller rolls the workspace back through the
+    /// existing sad-path (`worker_orchestrator::rollback_workspace` +
+    /// `release_task_claim`) so no partially-materialized worktree survives.
+    async fn with_pr_head_starting_points(
+        &self,
+        workspace_id: Uuid,
+        mut inputs: Vec<RepoWorkspaceInput>,
+    ) -> Result<Vec<RepoWorkspaceInput>, ContainerError> {
+        let Some(task) = WorkerTask::find_by_workspace(&self.db.pool, workspace_id).await? else {
+            return Ok(inputs);
+        };
+        let Some(pr_number) = task.issue_number else {
+            return Ok(inputs);
+        };
+
+        for input in inputs.iter_mut() {
+            let pr =
+                match PullRequest::find_by_repo_and_number(&self.db.pool, input.repo.id, pr_number)
+                    .await?
+                {
+                    Some(pr) => pr,
+                    // `issue_number` may point at a plain GitHub issue in this
+                    // repo — there's no PR to anchor to, so leave the input alone.
+                    None => continue,
+                };
+
+            let repo_path = input.repo.path.clone();
+            let repo_name = input.repo.name.clone();
+            let git = self.git.clone();
+            let sha = tokio::task::spawn_blocking(move || git.fetch_pr_head(&repo_path, pr_number))
+                .await
+                .map_err(|e| {
+                    ContainerError::Other(anyhow!(
+                        "fetch_pr_head join error for PR #{pr_number} in repo {repo_name}: {e}",
+                    ))
+                })?
+                .map_err(|e| {
+                    ContainerError::Other(anyhow!(
+                        "No pude traer pull/{pr_number}/head del PR {} (repo {repo_name}): {e}",
+                        pr.pr_url,
+                    ))
+                })?;
+
+            tracing::info!(
+                workspace_id = %workspace_id,
+                pr_number,
+                repo = %repo_name,
+                sha = %sha,
+                "Anchoring workspace branch on PR head"
+            );
+            input.starting_point = Some(sha);
+        }
+
+        Ok(inputs)
     }
 
     async fn get_child_from_store(&self, id: &Uuid) -> Option<Arc<RwLock<AsyncGroupChild>>> {
@@ -1662,6 +1733,15 @@ impl ContainerService for LocalContainerService {
         let workspace_dir = WorkspaceManager::get_workspace_base_dir().join(&workspace_dir_name);
 
         let (repositories, workspace_inputs) = self.workspace_repo_inputs(workspace.id).await?;
+
+        // For workspaces bound to an existing PR (fix-tasks and reviewer
+        // tasks), materialize the worktree directly on the PR head instead of
+        // on the target branch. Failure here propagates and the caller
+        // (`worker_orchestrator::try_take_next`) rolls back the workspace and
+        // releases the task claim — no half-materialized state left behind.
+        let workspace_inputs = self
+            .with_pr_head_starting_points(workspace.id, workspace_inputs)
+            .await?;
 
         let created_workspace = WorkspaceManager::create_workspace(
             &workspace_dir,

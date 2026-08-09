@@ -21,6 +21,13 @@ use worktree_manager::{WorktreeCleanup, WorktreeError, WorktreeManager};
 pub struct RepoWorkspaceInput {
     pub repo: Repo,
     pub target_branch: String,
+    /// Commit SHA the workspace branch must be anchored to at creation time.
+    /// When `Some`, `create_workspace` skips the target-branch fetch and
+    /// creates the new branch pointing at this commit (used to materialize
+    /// fix-task and review workspaces already on the PR head — see
+    /// `LocalContainerService::create`). Caller is responsible for fetching
+    /// the commit into the source repo before calling.
+    pub starting_point: Option<String>,
 }
 
 impl RepoWorkspaceInput {
@@ -28,6 +35,7 @@ impl RepoWorkspaceInput {
         Self {
             repo,
             target_branch,
+            starting_point: None,
         }
     }
 }
@@ -315,12 +323,15 @@ impl WorkspaceManager {
         for input in repos {
             let worktree_path = workspace_dir.join(&input.repo.name);
 
-            // Fetch and fast-forward the target branch before creating the worktree
-            // so the new workspace branch starts from the latest remote tip, not a
-            // potentially stale local ref. Best-effort: if the fetch fails (no
-            // network, auth error, etc.) we fall through to whatever is locally
-            // available and log a warning.
-            let effective_target = {
+            // A pinned `starting_point` (PR head SHA fetched upstream) skips
+            // the target-branch fetch: the caller has already brought the
+            // commit local and we anchor the new branch straight at it.
+            // Without a pinned starting point we fall back to fetching /
+            // fast-forwarding the target branch so the workspace begins from
+            // the latest remote tip instead of a potentially stale local ref.
+            let effective_target = if input.starting_point.is_some() {
+                input.target_branch.clone()
+            } else {
                 let repo_path = input.repo.path.clone();
                 let target = input.target_branch.clone();
                 let fallback = input.target_branch.clone();
@@ -338,10 +349,11 @@ impl WorkspaceManager {
             };
 
             debug!(
-                "Creating worktree for repo '{}' at {} (base: '{}')",
+                "Creating worktree for repo '{}' at {} (base: '{}', starting_point: {:?})",
                 input.repo.name,
                 worktree_path.display(),
-                effective_target
+                effective_target,
+                input.starting_point,
             );
 
             match WorktreeManager::create_worktree(
@@ -350,6 +362,7 @@ impl WorkspaceManager {
                 &worktree_path,
                 &effective_target,
                 true,
+                input.starting_point.as_deref(),
             )
             .await
             {

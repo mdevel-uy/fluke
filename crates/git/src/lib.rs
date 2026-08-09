@@ -2018,6 +2018,38 @@ impl GitService {
         }
     }
 
+    /// Fetch `pull/{pr_number}/head` from the default remote and return the
+    /// resolved commit SHA. Used to position a workspace at a PR head at
+    /// materialization time (see `LocalContainerService::create` →
+    /// `WorkspaceManager::create_workspace` with a pinned `starting_point`).
+    ///
+    /// The refspec follows GitHub's convention for exposing PR heads. The
+    /// fetched commit lands on `FETCH_HEAD` and, as a stable local ref, on
+    /// `refs/remotes/{remote}/pr/{pr_number}` so subsequent lookups can find
+    /// it without re-fetching.
+    pub fn fetch_pr_head(
+        &self,
+        repo_path: &Path,
+        pr_number: i64,
+    ) -> Result<String, GitServiceError> {
+        let remote = self.get_default_remote(repo_path)?;
+        let refspec = format!(
+            "+refs/pull/{pr_number}/head:refs/remotes/{}/pr/{pr_number}",
+            remote.name
+        );
+        let cli = GitCli::new();
+        cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
+
+        let repo = self.open_repo(repo_path)?;
+        let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|e| {
+            GitServiceError::InvalidRepository(format!(
+                "FETCH_HEAD missing after fetching pull/{pr_number}/head: {e}"
+            ))
+        })?;
+        let commit = fetch_head.peel_to_commit()?;
+        Ok(commit.id().to_string())
+    }
+
     /// Clone a repository to the specified directory
     #[cfg(feature = "cloud")]
     pub fn clone_repository(

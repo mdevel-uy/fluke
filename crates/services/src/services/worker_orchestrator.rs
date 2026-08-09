@@ -3052,21 +3052,25 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
 /// requests changes on their PR. Shared between the primary follow-up path
 /// (dispatched on the original task's live workspace, issue #473) and the
 /// fallback review_fix task path (used only when the original workspace is
-/// gone). The instructions are self-contained: fetch the PR head into the
-/// current branch, address the review comments, push back to the PR head via
-/// explicit refspec — even if the workspace is fresh.
+/// gone).
+///
+/// The prompt is intentionally free of git plumbing (no fetch, no
+/// reset --hard, no explicit push refspec): the system already positions
+/// the worktree on the PR head at start time (issue #366, via
+/// `LocalContainerService::create` → `WorkspaceManager::create_workspace`
+/// with a pinned `starting_point`), and the finish handler pushes the local
+/// branch back to the PR's `remote_branch` (`on_developer_agent_finished`
+/// in this module). The agent just needs to read the review, fix the
+/// issues, and commit.
 fn build_remediation_prompt(pr_number: i64) -> String {
     format!(
         "El reviewer solicitó cambios en el PR #{pr_number}. \
-         Revisá los comentarios con `gh pr view {pr_number} --comments`. \
-         Para posicionarte sobre el contenido del PR, NO uses `gh pr checkout` \
-         (la rama del PR puede estar checked out en el worktree del autor y \
-         git lo rechaza): traé el contenido a TU rama actual con \
-         `git fetch origin pull/{pr_number}/head && git reset --hard FETCH_HEAD`. \
-         Corregí los issues señalados por el reviewer y commiteá. \
-         Después pusheá a la rama del PR con refspec explícito: \
-         `git push origin HEAD:$(gh pr view {pr_number} --json headRefName -q .headRefName)`. \
-         El PR ya existe — NO crees uno nuevo."
+         Tu worktree ya está posicionado sobre el head del PR — no hace \
+         falta hacer fetch, checkout, ni reset. \
+         Revisá los comentarios con `gh pr view {pr_number} --comments`, \
+         corregí los issues señalados y commiteá. \
+         El sistema pushea tus commits a la rama del PR al finalizar la \
+         corrida: no pushees a mano ni crees un PR nuevo — el PR ya existe."
     )
 }
 
@@ -3250,9 +3254,9 @@ async fn dispatch_remediation_follow_up(
 ///
 /// Fallback: when the original workspace is gone (archived, worktree lost,
 /// missing session), fall back to the legacy `review_fix` task path. The
-/// prompt itself is self-contained (fetches `pull/N/head` into the fresh
-/// branch, pushes back via explicit refspec) so the fallback still lands the
-/// fix on the correct PR.
+/// fresh workspace is materialized already on the PR head (issue #366) and
+/// the finish handler pushes back to the PR's `remote_branch`, so the
+/// prompt itself carries no git plumbing.
 ///
 /// No-op when:
 /// - `WORKER_LEAD_ENABLED=false`
@@ -3342,9 +3346,9 @@ pub async fn dispatch_author_fix_task(
         }
     }
 
-    // Fallback: original workspace is gone. Create a `review_fix` task the
-    // legacy way — its self-contained prompt recreates the PR head via
-    // `git fetch pull/N/head` and pushes back via explicit refspec.
+    // Fallback: original workspace is gone. Create a `review_fix` task; the
+    // orchestrator materializes its fresh workspace on the PR head (issue
+    // #366) and pushes back via the finish handler.
     let task_title = format!(
         "Atendé el review del PR #{} — ronda {}",
         pr_number, completed_reviews
@@ -3522,16 +3526,14 @@ mod tests {
         assert!(prompt.contains("Do NOT create any PR"));
     }
 
-    /// Spec §A1/A2: the reviewer prompt must direct the agent to `.vk/review.json`
-    /// and MUST NOT ask it to run `gh pr review --approve` / `--request-changes`
-    /// (that path is what PR 2 removes — see incidents in the review-loop spec).
-    /// The prompt is free to *forbid* those commands by name; it must not
-    /// instruct execution. The head SHA travels in-prompt so the agent knows
-    /// which commit its verdict will be pinned to, AND the checkout must
-    /// anchor to the SHA — checking out `FETCH_HEAD` would silently pick up
-    /// any commit the author pushed between dispatch and reviewer runtime,
-    /// desyncing the reviewed code from the pinned commit the server submits
-    /// against.
+    /// Spec §A1/A2 + issue #366: the reviewer prompt must direct the agent
+    /// to `.vk/review.json` and MUST NOT ask it to run `gh pr review …`,
+    /// `gh pr checkout`, `git fetch pull/N/head`, or any other network-side
+    /// positioning — the system materializes the worktree already anchored
+    /// on the pinned SHA (`LocalContainerService::create` →
+    /// `WorkspaceManager::create_workspace` with a pinned `starting_point`).
+    /// The head SHA still travels in-prompt so the agent knows which commit
+    /// its verdict will be pinned to.
     #[test]
     fn reviewer_prompt_targets_review_json_and_pins_sha() {
         let prompt = quick_action_prompts::format_review_pr_prompt(304, "deadbeef1234567890");
@@ -3543,15 +3545,6 @@ mod tests {
             prompt.contains("deadbeef1234567890"),
             "reviewer prompt must include the pinned head SHA"
         );
-        // Checkout must anchor to the SHA, not the moving PR ref.
-        assert!(
-            prompt.contains("git checkout deadbeef1234567890"),
-            "reviewer prompt must checkout the pinned SHA explicitly, not FETCH_HEAD"
-        );
-        assert!(
-            !prompt.contains("git checkout FETCH_HEAD"),
-            "reviewer prompt must not checkout FETCH_HEAD (race with author pushes)"
-        );
         // Forbid the invocation forms — the prompt should never tell the
         // agent to *execute* these.
         assert!(
@@ -3560,13 +3553,53 @@ mod tests {
             "reviewer prompt must not execute gh pr review flags"
         );
         assert!(
-            !prompt.contains("gh pr checkout {pr_number}")
-                && !prompt.contains(&format!("gh pr checkout 304")),
-            "reviewer prompt must not execute gh pr checkout"
+            !prompt.contains("gh pr checkout"),
+            "reviewer prompt must not execute gh pr checkout — the system pre-positions the worktree"
+        );
+        // Issue #366: the fetch/checkout is now handled server-side at
+        // workspace materialization. The prompt must not ask the agent to
+        // redo it.
+        assert!(
+            !prompt.contains("git fetch") && !prompt.contains("git checkout"),
+            "reviewer prompt must not ask the agent to fetch/checkout — the worktree is already at the head SHA"
+        );
+        assert!(
+            !prompt.contains("FETCH_HEAD"),
+            "reviewer prompt must not reference FETCH_HEAD"
         );
         assert!(
             prompt.contains("request_changes"),
             "reviewer prompt must describe the verdict values"
+        );
+    }
+
+    /// Issue #366: the fix-task remediation prompt must be free of git
+    /// plumbing — the system positions the worktree on the PR head at
+    /// materialization and pushes on finish. Any `reset --hard` /
+    /// `git push` / `pull/N/head` in the prompt would either race the
+    /// server-managed state or force the agent to duplicate work.
+    #[test]
+    fn remediation_prompt_has_no_git_plumbing() {
+        let prompt = build_remediation_prompt(507);
+        assert!(
+            prompt.contains("PR #507"),
+            "remediation prompt must reference the PR number"
+        );
+        assert!(
+            !prompt.contains("reset --hard"),
+            "remediation prompt must not tell the agent to run reset --hard"
+        );
+        assert!(
+            !prompt.contains("git push"),
+            "remediation prompt must not tell the agent to run git push"
+        );
+        assert!(
+            !prompt.contains("pull/507/head") && !prompt.contains("FETCH_HEAD"),
+            "remediation prompt must not tell the agent to fetch pull/N/head"
+        );
+        assert!(
+            !prompt.contains("gh pr checkout"),
+            "remediation prompt must not tell the agent to run gh pr checkout"
         );
     }
 
