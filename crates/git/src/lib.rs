@@ -82,8 +82,11 @@ pub enum ConflictOp {
 
 /// Outcome of [`GitService::pre_merge_target_branch`]: whether merging
 /// `<remote>/<target_branch>` into the worktree's current HEAD produced a
-/// clean commit or stopped with real conflicts. Any hard failure surfaces as
-/// `Err` and is expected to be handled by the caller as a fallback path.
+/// clean commit, stopped with real conflicts, or found the worktree already
+/// carrying a prior merge with conflicts (from an earlier pre-merge attempt
+/// — typically the monitor's, before the UI quick action fires). Any hard
+/// failure surfaces as `Err` and is expected to be handled by the caller as
+/// a fallback path.
 #[derive(Debug, Clone)]
 pub enum PreMergeOutcome {
     /// The merge finished cleanly. The merge commit (or an unchanged HEAD, if
@@ -95,6 +98,15 @@ pub enum PreMergeOutcome {
     /// tree) so an agent picking it up can resolve without re-running the
     /// merge.
     Conflicts { conflicted_files: Vec<String> },
+    /// A merge was ALREADY in progress in the worktree before this call —
+    /// the callee did not fetch, did not merge, and did not touch the working
+    /// tree. Data-wise this is the same as `Conflicts` (file list of the
+    /// unresolved paths); the distinct variant lets callers log the reuse
+    /// and lets the type system prove that the two dispatch paths (monitor
+    /// pre-primes → UI quick action reuses) share the same primed state
+    /// instead of re-fetching or falling back to the "agent runs merge"
+    /// prompt (issue #370, review of PR #516).
+    AlreadyPrimed { conflicted_files: Vec<String> },
 }
 
 #[derive(Debug, Serialize, TS)]
@@ -1672,9 +1684,14 @@ impl GitService {
     /// conflict case dispatch with the file list already known.
     ///
     /// Preconditions checked BEFORE any mutation:
-    /// - No rebase/merge/cherry-pick/revert already in progress in the
-    ///   worktree.
-    /// - Worktree is clean (no uncommitted tracked changes).
+    /// - No rebase/cherry-pick/revert already in progress in the worktree
+    ///   (those aren't ours to touch).
+    /// - Worktree is clean (no uncommitted tracked changes) unless the
+    ///   worktree already has a merge with conflicts from a previous run
+    ///   — in that case, the method returns [`PreMergeOutcome::AlreadyPrimed`]
+    ///   without fetching, without merging, and without aborting; the
+    ///   downstream dispatch path reuses that primed state (issue #370, PR
+    ///   #516 review).
     ///
     /// On any failure (precondition, fetch, merge error that is NOT a
     /// conflict), the method aborts any half-started merge and bubbles up an
@@ -1690,10 +1707,35 @@ impl GitService {
     ) -> Result<PreMergeOutcome, GitServiceError> {
         let cli = GitCli::new();
 
-        if let Some(op) = self.detect_conflict_op(worktree_path)? {
-            return Err(GitServiceError::InvalidRepository(format!(
-                "cannot pre-merge {remote_name}/{target_branch}: {op:?} already in progress"
-            )));
+        match self.detect_conflict_op(worktree_path)? {
+            None => {}
+            Some(ConflictOp::Merge) => {
+                // A prior pre-merge attempt (typically the monitor's) left a
+                // merge in progress. Return its conflict list as `AlreadyPrimed`
+                // so the caller reuses the primed worktree instead of falling
+                // back to the "agent runs merge" prompt, which would try to
+                // `git merge` on top of an existing `MERGE_HEAD` and fail.
+                let conflicted =
+                    self.get_conflicted_files(worktree_path)
+                        .unwrap_or_default();
+                if conflicted.is_empty() {
+                    // Merge in progress but nothing conflicted → the worktree is
+                    // in an unusual mid-merge state we did not create; safer to
+                    // bail so the caller decides. Do NOT abort — abandoning
+                    // someone else's merge would destroy their work.
+                    return Err(GitServiceError::InvalidRepository(format!(
+                        "cannot pre-merge {remote_name}/{target_branch}: merge in progress with no unresolved paths"
+                    )));
+                }
+                return Ok(PreMergeOutcome::AlreadyPrimed {
+                    conflicted_files: conflicted,
+                });
+            }
+            Some(op) => {
+                return Err(GitServiceError::InvalidRepository(format!(
+                    "cannot pre-merge {remote_name}/{target_branch}: {op:?} already in progress"
+                )));
+            }
         }
         {
             let repo = self.open_repo(worktree_path)?;

@@ -1239,6 +1239,22 @@ async fn attempt_pre_merge_for_pr(
                 files: conflicted_files,
             }
         }
+        PreMergeOutcome::AlreadyPrimed { conflicted_files } => {
+            // The monitor's earlier transition-into-`conflicting` run already
+            // primed the worktree with the same merge; reuse that state so
+            // we don't re-fetch and don't drop into the classic "agent runs
+            // fetch/merge" prompt on top of an existing `MERGE_HEAD` (PR #516
+            // review).
+            tracing::info!(
+                workspace_id = %workspace.id,
+                pr_url = %open_pr.pr_url,
+                conflicted_files = conflicted_files.len(),
+                "Pre-merge reusing already-primed merge from a prior run; dispatching agent with file list",
+            );
+            PreMergeAttempt::Conflicts {
+                files: conflicted_files,
+            }
+        }
     }
 }
 

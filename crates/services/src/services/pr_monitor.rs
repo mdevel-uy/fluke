@@ -1186,6 +1186,18 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                     "Pre-merge stopped with conflicts; worktree primed for agent dispatch via UI"
                 );
             }
+            git::PreMergeOutcome::AlreadyPrimed { conflicted_files } => {
+                // A previous transition already primed this worktree and no
+                // one has resolved it yet; nothing to do here. The UI quick
+                // action will detect the primed state and dispatch with the
+                // same file list.
+                info!(
+                    workspace_id = %workspace_id,
+                    pr_number = pr.pr_number,
+                    conflicted_files = conflicted_files.len(),
+                    "Pre-merge found merge already primed from a prior run; leaving worktree untouched"
+                );
+            }
         }
     }
 
