@@ -87,7 +87,9 @@ use workspace_manager::WorkspaceManager;
 use crate::services::{
     config::Config,
     container::{ContainerError, ContainerService},
-    quick_action_prompts, review_verdict, territory,
+    design_artifacts, quick_action_prompts,
+    repo_issues::RepoIssuesService,
+    review_verdict, territory,
 };
 
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 1;
@@ -1798,8 +1800,9 @@ async fn find_dev_task_for_pr(
 }
 
 /// The user reviewed a designer's artifact and approved it: flip the task
-/// `in_review → done`, archive its workspace (the durable `design/*` ref and
-/// the recorded summary outlive it) and offer the worker its next queued
+/// `in_review → done`, close the linked issue (if any), archive its
+/// workspace (the durable `design/*` ref and the recorded summary outlive
+/// it) and offer the worker its next queued
 /// task. This is the ONLY path that completes a designer task — the
 /// orchestrator never does it on its own. Role/status validation lives at
 /// the route.
@@ -1817,6 +1820,46 @@ pub async fn approve_designer_task(
         "Designer deliverable approved by user — task moved to done"
     );
 
+    // Designers never open a PR, so there is no "Closes #N" to auto-close the
+    // linked issue on merge — the approval gate is the designer's "merge".
+    // Document the deliverable on the issue (summary + embedded artifacts)
+    // and then close it. Both steps are best-effort: a gh failure must not
+    // undo an approval already recorded. This runs BEFORE the workspace is
+    // archived so the workspace branch is still resolvable as a ref.
+    if let Some(issue_number) = task.issue_number {
+        if let Some(body) = build_design_issue_comment(db, container, &task).await {
+            if let Err(e) = RepoIssuesService::new()
+                .comment_issue(pool, task.repo_id, issue_number, &body)
+                .await
+            {
+                warn!(
+                    task_id = %task.id,
+                    issue_number,
+                    "Design approved but the deliverable could not be documented \
+                     on the linked issue: {}",
+                    e
+                );
+            }
+        }
+        if let Err(e) = RepoIssuesService::new()
+            .close_issue(pool, task.repo_id, issue_number)
+            .await
+        {
+            warn!(
+                task_id = %task.id,
+                issue_number,
+                "Design approved but the linked issue could not be closed: {}",
+                e
+            );
+        } else {
+            info!(
+                task_id = %task.id,
+                issue_number,
+                "Closed linked issue after design approval"
+            );
+        }
+    }
+
     if let Some(workspace_id) = task.workspace_id {
         archive_and_detach(db, container, workspace_id).await;
     }
@@ -1833,6 +1876,114 @@ pub async fn approve_designer_task(
         }
     }
     Ok(task)
+}
+
+/// GitHub caps issue comments at 65 536 chars; stop embedding artifacts with
+/// enough headroom for the closing fence and footers.
+const MAX_DESIGN_COMMENT_LEN: usize = 55_000;
+/// Per-artifact embed cap so a single giant mock can't crowd out the rest.
+const MAX_ARTIFACT_EMBED_LEN: usize = 20_000;
+
+/// Shortest backtick fence that can safely wrap `content` (a fence must be
+/// longer than any backtick run inside the block), never shorter than 4.
+fn html_fence(content: &str) -> String {
+    let mut max_run = 0usize;
+    let mut run = 0usize;
+    for c in content.chars() {
+        if c == '`' {
+            run += 1;
+            max_run = max_run.max(run);
+        } else {
+            run = 0;
+        }
+    }
+    "`".repeat((max_run + 1).max(4))
+}
+
+/// Truncate to at most `max_bytes` without splitting a UTF-8 char. Returns
+/// the slice and whether anything was cut.
+fn truncate_on_char_boundary(s: &str, max_bytes: usize) -> (&str, bool) {
+    if s.len() <= max_bytes {
+        return (s, false);
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    (&s[..end], true)
+}
+
+/// Cuerpo del comentario que deja registrado el deliverable aprobado en el
+/// issue: resumen del designer, ref durable y los artefactos HTML embebidos
+/// como fuente (recortados para respetar el límite de tamaño del comentario
+/// de GitHub). `None` sólo si el repo ya no existe.
+async fn build_design_issue_comment(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    task: &WorkerTask,
+) -> Option<String> {
+    let pool = &db.pool;
+    let repo = Repo::find_by_id(pool, task.repo_id).await.ok().flatten()?;
+    let git = container.git();
+
+    let mut body = match Worker::find_by_id(pool, task.worker_id).await {
+        Ok(Some(worker)) => format!("**Diseño aprobado** — {}\n\n", worker.name),
+        _ => String::from("**Diseño aprobado**\n\n"),
+    };
+    if let Some(summary) = task.result_summary.as_deref() {
+        let (summary, truncated) = truncate_on_char_boundary(summary.trim(), 10_000);
+        body.push_str(summary);
+        if truncated {
+            body.push_str("\n\n_(resumen truncado)_");
+        }
+        body.push_str("\n\n");
+    }
+    if let Some(deliverable_ref) = &task.deliverable_ref {
+        body.push_str(&format!("Deliverable pusheado en `{deliverable_ref}`.\n\n"));
+    }
+
+    match design_artifacts::list_artifacts(pool, git, &repo, task).await {
+        Ok(Some((oid, files))) => {
+            body.push_str("**Artefactos:**\n");
+            for file in &files {
+                body.push_str(&format!("- `{file}`\n"));
+            }
+            body.push('\n');
+            for file in &files {
+                if body.len() >= MAX_DESIGN_COMMENT_LEN {
+                    body.push_str(
+                        "_(artefactos restantes no embebidos por el límite de \
+                         tamaño del comentario — ver el ref del deliverable)_\n",
+                    );
+                    break;
+                }
+                let Ok(content) = git.get_commit_file(&repo.path, &oid, file) else {
+                    continue;
+                };
+                let per_file_cap = MAX_ARTIFACT_EMBED_LEN.min(MAX_DESIGN_COMMENT_LEN - body.len());
+                let (snippet, truncated) = truncate_on_char_boundary(&content, per_file_cap);
+                let fence = html_fence(snippet);
+                let footer = if truncated {
+                    "_(fuente truncada — el archivo completo está en el ref del deliverable)_\n\n"
+                } else {
+                    ""
+                };
+                body.push_str(&format!(
+                    "<details>\n<summary><code>{file}</code></summary>\n\n\
+                     {fence}html\n{snippet}\n{fence}\n\n{footer}</details>\n\n"
+                ));
+            }
+        }
+        Ok(None) => {}
+        Err(e) => {
+            warn!(
+                task_id = %task.id,
+                "Failed to enumerate design artifacts for the issue comment: {}",
+                e
+            );
+        }
+    }
+    Some(body)
 }
 
 /// Capture a finished non-developer run's deliverable before its worktree is

@@ -5,6 +5,7 @@ pub mod base_instructions;
 pub mod concurrency;
 pub mod config;
 pub mod container;
+pub mod design_artifacts;
 pub mod diff_stream;
 pub mod events;
 pub mod execution_process;
