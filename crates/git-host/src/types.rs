@@ -195,6 +195,11 @@ pub struct PrReviewCommentInput {
 #[derive(Debug, Clone)]
 pub struct SubmitPrReviewResponse {
     pub review_id: i64,
+    /// `Some` when the initial POST bounced with a redirect (the repo was
+    /// renamed or transferred) and the submission succeeded against the
+    /// host's canonical repo name: the PR URL rebuilt with that name, so
+    /// the caller can heal its stored `pr_url` and stop hitting redirects.
+    pub canonical_pr_url: Option<String>,
 }
 
 /// A single CI check whose current state is not passing. Backend-internal:

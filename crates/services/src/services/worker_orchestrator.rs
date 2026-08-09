@@ -1640,6 +1640,25 @@ async fn on_reviewer_agent_finished(
         }
     };
 
+    // The submit had to chase a rename redirect: persist the canonical URL
+    // so every later consumer (retries, pr_monitor, fix dispatch) stops
+    // hitting 3xx on the stale name (incidente 09-ago: rename del repo dejó
+    // los PRs pre-rename fallando el submit con HTTP 307 en loop).
+    if let Some(url) = &response.canonical_pr_url {
+        info!(
+            pr_number = round.pr_number,
+            canonical_url = %url,
+            "El repo del PR fue renombrado — persisto la URL canónica"
+        );
+        if let Err(e) = PullRequest::update_pr_url(pool, &pr_record.id, url).await {
+            warn!(
+                pr_id = %pr_record.id,
+                "Failed to persist canonical pr_url after rename redirect: {}",
+                e
+            );
+        }
+    }
+
     // Success. Persist the verdict on the round + the developer task in the
     // same beat so the UI can flip badges without waiting on pr_monitor.
     if let Err(e) = ReviewRound::set_submitted(
