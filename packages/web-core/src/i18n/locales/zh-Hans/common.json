@@ -1023,6 +1023,31 @@
       "queued": "排队中",
       "completed": "已完成"
     },
+    "filters": {
+      "aria": "筛选工作者",
+      "searchPlaceholder": "搜索工作者…",
+      "searchAria": "按名称搜索工作者",
+      "roleLabel": "角色",
+      "modelLabel": "模型",
+      "statusLabel": "状态",
+      "roleGroupAria": "按角色筛选",
+      "modelGroupAria": "按模型筛选",
+      "statusGroupAria": "按状态筛选",
+      "resultCount": "/ 共 {{total}} 位工作者",
+      "clear": "清除筛选",
+      "clearAria": "清除所有筛选",
+      "emptyTitle": "没有工作者匹配当前筛选",
+      "emptyDescription": "尝试调整搜索或移除部分筛选条件以查看更多工作者。",
+      "emptyAction": "清除筛选",
+      "status": {
+        "working": "工作中",
+        "idle": "空闲",
+        "stalled": "停滞",
+        "in_review": "审核中",
+        "waiting": "等待批准",
+        "approved": "已批准"
+      }
+    },
     "templates": {
       "backend": "后端专家",
       "frontend": "前端专家",

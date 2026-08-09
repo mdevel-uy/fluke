@@ -1025,6 +1025,31 @@
       "queued": "En file d'attente",
       "completed": "Complétés"
     },
+    "filters": {
+      "aria": "Filtrer les workers",
+      "searchPlaceholder": "Rechercher un worker…",
+      "searchAria": "Rechercher les workers par nom",
+      "roleLabel": "Rôle",
+      "modelLabel": "Modèle",
+      "statusLabel": "Statut",
+      "roleGroupAria": "Filtrer par rôle",
+      "modelGroupAria": "Filtrer par modèle",
+      "statusGroupAria": "Filtrer par statut",
+      "resultCount": "sur {{total}} workers",
+      "clear": "Effacer les filtres",
+      "clearAria": "Effacer tous les filtres",
+      "emptyTitle": "Aucun worker ne correspond aux filtres",
+      "emptyDescription": "Essayez d'ajuster la recherche ou de supprimer certains filtres pour voir plus de workers.",
+      "emptyAction": "Effacer les filtres",
+      "status": {
+        "working": "En cours",
+        "idle": "Inactif",
+        "stalled": "Bloqué",
+        "in_review": "En revue",
+        "waiting": "En attente",
+        "approved": "Approuvé"
+      }
+    },
     "templates": {
       "backend": "Spécialiste Backend",
       "frontend": "Spécialiste Frontend",

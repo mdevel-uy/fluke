@@ -38,6 +38,14 @@ import { WorkersSidebar, workerCardDomId } from './WorkersSidebar';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { WorkersEmptyState } from './WorkersEmptyState';
 import { WorkerFormDialog } from './WorkerFormDialog';
+import {
+  WorkersFilterBar,
+  emptyFilterState,
+  isFilterActive,
+  type WorkersFilterState,
+} from './WorkersFilterBar';
+import { WorkersFilterEmptyState } from './WorkersFilterEmptyState';
+import { bucketForModel, deriveWorkerStatus } from '../model/workerStatus';
 
 function StatCard({
   label,
@@ -213,6 +221,17 @@ export function WorkersPage() {
     [activeTaskByWorkerId]
   );
 
+  const waitingApprovalWorkerIds = useMemo(() => {
+    const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
+    const waiting = new Set<string>();
+    for (const worker of workers) {
+      if (!worker.active_workspace_id) continue;
+      const ws = workspaceById.get(worker.active_workspace_id);
+      if (ws?.hasPendingApproval) waiting.add(worker.id);
+    }
+    return waiting;
+  }, [workers, workspaces]);
+
   const stats = useMemo(() => {
     const working = workers.filter(
       (w) => w.active_workspace_id !== null
@@ -227,6 +246,51 @@ export function WorkersPage() {
     );
     return { working, totalQueued, totalCompleted };
   }, [workers, queuedCountByWorkerId]);
+
+  const [filters, setFilters] = useState<WorkersFilterState>(() =>
+    emptyFilterState()
+  );
+
+  const filtersActive = isFilterActive(filters);
+
+  const visibleWorkers = useMemo(() => {
+    if (!filtersActive) return workers;
+    const query = filters.search.trim().toLowerCase();
+    return workers.filter((worker) => {
+      if (query && !worker.name.toLowerCase().includes(query)) return false;
+      if (filters.role.size > 0) {
+        const role = worker.role ?? 'developer';
+        if (!filters.role.has(role)) return false;
+      }
+      if (filters.model.size > 0) {
+        const bucket = bucketForModel(worker.model);
+        if (!bucket || !filters.model.has(bucket)) return false;
+      }
+      if (filters.status.size > 0) {
+        const status = deriveWorkerStatus(worker, {
+          needsAttention: stalledWorkerIds.has(worker.id),
+          inReview: inReviewWorkerIds.has(worker.id),
+          approved: approvedWorkerIds.has(worker.id),
+          isWaitingApproval: waitingApprovalWorkerIds.has(worker.id),
+        });
+        if (!filters.status.has(status)) return false;
+      }
+      return true;
+    });
+  }, [
+    filtersActive,
+    workers,
+    filters,
+    stalledWorkerIds,
+    inReviewWorkerIds,
+    approvedWorkerIds,
+    waitingApprovalWorkerIds,
+  ]);
+
+  const visibleWorkerIds = useMemo(
+    () => (filtersActive ? new Set(visibleWorkers.map((w) => w.id)) : null),
+    [filtersActive, visibleWorkers]
+  );
 
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [startingWorkerId, setStartingWorkerId] = useState<string | null>(null);
@@ -439,6 +503,7 @@ export function WorkersPage() {
           archivedWorkers={archivedWorkers}
           workingWorkerIds={workingWorkerIds}
           attentionWorkerIds={stalledWorkerIds}
+          visibleWorkerIds={visibleWorkerIds}
         />
       </ShellSidebarPortal>
       <PageHeader
@@ -508,7 +573,7 @@ export function WorkersPage() {
 
       {/* Bento stats */}
       {workers.length > 0 && !isLoading && !isError && (
-        <div className="grid grid-cols-3 gap-4 px-container-padding pt-4">
+        <div className="grid grid-cols-3 gap-4 px-container-padding pt-4 pb-4">
           <StatCard
             label={t('workers.stats.working')}
             value={stats.working}
@@ -525,6 +590,16 @@ export function WorkersPage() {
             icon={CheckCircle2}
           />
         </div>
+      )}
+
+      {/* Filter bar — only meaningful once at least one worker exists */}
+      {workers.length > 0 && !isLoading && !isError && (
+        <WorkersFilterBar
+          filters={filters}
+          onChange={setFilters}
+          visibleCount={visibleWorkers.length}
+          totalCount={workers.length}
+        />
       )}
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -544,9 +619,13 @@ export function WorkersPage() {
           <div className="flex h-full">
             <WorkersEmptyState onCreateWorker={handleNewWorker} />
           </div>
+        ) : visibleWorkers.length === 0 ? (
+          <WorkersFilterEmptyState
+            onClearFilters={() => setFilters(emptyFilterState())}
+          />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,380px))] gap-4 p-container-padding">
-            {workers.map((worker) => (
+            {visibleWorkers.map((worker) => (
               <div key={worker.id} id={workerCardDomId(worker.id)}>
                 <WorkerCard
                   worker={worker}
