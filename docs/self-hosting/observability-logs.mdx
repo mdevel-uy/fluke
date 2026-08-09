@@ -17,12 +17,12 @@ Every log line is pushed to `LOKI_PUSH_URL` with these labels:
 
 | Label       | Source                  | Example         |
 |-------------|-------------------------|-----------------|
-| `proyecto`  | Static in config        | `vibekanban`    |
+| `proyecto`  | Static in config        | `mkanban`       |
 | `cliente`   | `VK_CLIENTE` env var    | `acme`          |
 | `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
 | `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
-| `contenedor`| Docker container name   | `vibe-kanban`   |
-| `service`   | Compose service name    | `vibe-kanban`   |
+| `contenedor`| Docker container name   | `mkanban`       |
+| `service`   | Compose service name    | `mkanban`       |
 
 The `proyecto` label keeps the fleet's data isolated from anything else sharing the same Loki tenant.
 

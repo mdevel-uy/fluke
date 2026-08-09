@@ -34,9 +34,9 @@ verdad: [`alert-rules.yaml`](./alert-rules.yaml).
 **Qué mirar primero**
 
 1. Estado del contenedor en la VPN del cliente:
-   `docker compose -f docker-compose.local.yml ps`. Si `vibe-kanban` o `alloy`
+   `docker compose -f docker-compose.local.yml ps`. Si `mkanban` o `alloy`
    no están `Up`, ver logs con `docker compose logs --tail=200 <servicio>`.
-2. Si los contenedores están arriba, `curl -sf http://vibe-kanban:3000/api/metrics | head`
+2. Si los contenedores están arriba, `curl -sf http://mkanban:3000/api/metrics | head`
    desde el contenedor `alloy` — un 5xx apunta a stall del backend.
 3. Si la app responde pero Alloy no pushea: logs de `alloy` buscando
    `401 Unauthorized`, `context deadline exceeded` o errores TLS contra
@@ -177,7 +177,7 @@ policy sin reiniciar.
 
 ### 5. Probar el criterio de aceptación
 
-Apagar una instancia de prueba (parar `vibe-kanban` y `alloy` con
+Apagar una instancia de prueba (parar `mkanban` y `alloy` con
 `docker compose stop`) y esperar hasta 5 minutos + eval_interval (~6 min en
 total). En Telegram tiene que llegar la notificación
 `[FIRING · critical] instancia mkanban sin reportar métricas` con el

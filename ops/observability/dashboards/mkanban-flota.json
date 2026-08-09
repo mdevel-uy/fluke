@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Salud operativa de todas las instancias vibe-kanban de la flota. Filtrado por proyecto=mkanban para no mezclar con otros proyectos del stack. Un click en cualquier fila lleva al detalle de la instancia (dashboard vibe-kanban-cliente).",
+  "description": "Salud operativa de todas las instancias mkanban de la flota. Filtrado por proyecto=mkanban para no mezclar con otros proyectos del stack. Un click en cualquier fila lleva al detalle de la instancia (dashboard mkanban-cliente).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -31,7 +31,7 @@
       "title": "Drill-down por cliente",
       "tooltip": "Abrir el dashboard de detalle por cliente",
       "type": "link",
-      "url": "/d/vibe-kanban-cliente/vibe-kanban-cliente"
+      "url": "/d/mkanban-cliente/mkanban-cliente"
     }
   ],
   "liveNow": false,
@@ -385,7 +385,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "Una fila por instancia. Click en la fila abre el dashboard de detalle (vibe-kanban-cliente) con las variables ya cargadas. La columna \"Última señal (s)\" se colorea en rojo si supera los 120s (dos ciclos de scrape).",
+      "description": "Una fila por instancia. Click en la fila abre el dashboard de detalle (mkanban-cliente) con las variables ya cargadas. La columna \"Última señal (s)\" se colorea en rojo si supera los 120s (dos ciclos de scrape).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -483,7 +483,7 @@
                 "value": [
                   {
                     "title": "Abrir detalle del cliente",
-                    "url": "/d/vibe-kanban-cliente/vibe-kanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
+                    "url": "/d/mkanban-cliente/mkanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
                   }
                 ]
               }
@@ -497,7 +497,7 @@
                 "value": [
                   {
                     "title": "Abrir detalle de la instancia",
-                    "url": "/d/vibe-kanban-cliente/vibe-kanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
+                    "url": "/d/mkanban-cliente/mkanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
                   }
                 ]
               }

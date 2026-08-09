@@ -572,7 +572,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "Memoria usada por el contenedor `vibe-kanban` (cadvisor). Si sube y se estabiliza cerca del límite del host, revisar leaks del server.",
+      "description": "Memoria usada por el contenedor `mkanban` (cadvisor). Si sube y se estabiliza cerca del límite del host, revisar leaks del server.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -641,7 +641,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "CPU consumida por el contenedor `vibe-kanban` (cadvisor), como fracción de un core.",
+      "description": "CPU consumida por el contenedor `mkanban` (cadvisor), como fracción de un core.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },

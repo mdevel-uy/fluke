@@ -1,4 +1,4 @@
-// Grafana Alloy configuration for a vibe-kanban instance.
+// Grafana Alloy configuration for a mkanban instance.
 //
 // Two data planes, one process:
 //
@@ -6,7 +6,7 @@
 //               (server + executors + Alloy itself + anything else in the
 //               compose stack) → central Loki via `loki.write`.
 //   2. Metrics → three local exporters scraped every 30s:
-//               - vibe-kanban  /api/metrics  (product + plan health, see
+//               - mkanban      /api/metrics  (product + plan health, see
 //                                             crates/server/src/routes/metrics.rs)
 //               - node-exporter :9100/metrics (host CPU/mem/disk)
 //               - cadvisor      :8080/metrics (per-container CPU/mem/net)
@@ -84,9 +84,9 @@ loki.write "central" {
 // scrape failure in Prometheus instead of silently dropping off the target
 // list.
 //
-// VK_METRICS_HOST defaults to `vibe-kanban:3000` in docker-compose.local.yml
+// VK_METRICS_HOST defaults to `mkanban:3000` in docker-compose.local.yml
 // — override only when the app is exposed on a non-default host:port.
-prometheus.scrape "vibe_kanban" {
+prometheus.scrape "mkanban" {
 	targets = [{
 		__address__      = sys.env("VK_METRICS_HOST"),
 		__metrics_path__ = "/api/metrics",
