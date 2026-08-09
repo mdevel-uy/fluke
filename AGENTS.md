@@ -25,6 +25,16 @@ Do not manually edit shared/types.ts, instead edit crates/server/src/bin/generat
 For remote/cloud types, regenerate using `pnpm run remote:generate-types`
 Do not manually edit shared/remote-types.ts, instead edit crates/remote/src/bin/remote-generate-types.rs (see crates/remote/AGENTS.md for details).
 
+## CI: Factory guards y marcadores en el PR
+
+El workflow `.github/workflows/factory-guards.yml` corre en cada PR contra `mdev` y falla si:
+- El diff toca `shared/types.ts` y el body del PR no contiene `[types-regen]`.
+- El diff toca `Cargo.lock` y el body del PR no contiene `[lockfile]`.
+- Se agrega una migración bajo `crates/db/migrations/` cuyo nombre no empieza con timestamp de 14 dígitos (`YYYYMMDDHHMMSS_`).
+- Dos migraciones comparten el mismo timestamp.
+
+Los marcadores son literales y case-sensitive; incluilos tal cual en el body del PR cuando la regeneración sea intencional. La lógica vive en `scripts/factory-guards.sh` y se puede correr localmente pasando `BASE_SHA`, `HEAD_SHA` y `PR_BODY` por ambiente.
+
 ## Build, Test, and Development Commands
 - Install: `pnpm i`
 - Run dev (web app + backend with ports auto-assigned): `pnpm run dev`
