@@ -52,6 +52,7 @@ use std::{
 use db::{
     DBService,
     models::{
+        agent_action::{self, AgentAction},
         coding_agent_turn::CodingAgentTurn,
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
         execution_process_repo_state::ExecutionProcessRepoState,
@@ -85,6 +86,7 @@ use uuid::Uuid;
 use workspace_manager::WorkspaceManager;
 
 use crate::services::{
+    agent_actions_drain, agent_actions_ingest,
     config::Config,
     container::{ContainerError, ContainerService},
     quick_action_prompts, review_verdict, territory,
@@ -1118,6 +1120,142 @@ pub async fn on_pr_merged(
     }
 }
 
+/// Read `.vk/actions.json` from the workspace, insert every declared row into
+/// the outbox, and drain them against GitHub — the F1 hook that turns declared
+/// agent actions into real GitHub side effects (AGENT-ACTIONS-SPEC.md).
+///
+/// Returns `Ok(true)` when the caller should keep going along the happy path,
+/// or `Ok(false)` when the hook marked the task `failed` (invalid file, DB
+/// error, or a definitive action failure). On `false` the caller must not
+/// overwrite the task status back to done/in_review; archiving and next-task
+/// dispatch still run as usual.
+///
+/// Best-effort on missing plumbing: if the workspace/worktree can no longer be
+/// resolved we log a warning and return `Ok(true)` so a lost worktree doesn't
+/// mistakenly fail a task whose GitHub side effects it can't check anyway.
+async fn hook_agent_actions(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    workspace_id: Uuid,
+    task_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let pool = &db.pool;
+
+    let Some(workspace) = Workspace::find_by_id(pool, workspace_id).await? else {
+        warn!(
+            workspace_id = %workspace_id,
+            task_id = %task_id,
+            "hook_agent_actions: workspace not found — skipping"
+        );
+        return Ok(true);
+    };
+    let Some(container_ref) = workspace.container_ref.clone() else {
+        warn!(
+            workspace_id = %workspace_id,
+            task_id = %task_id,
+            "hook_agent_actions: workspace has no container_ref — skipping"
+        );
+        return Ok(true);
+    };
+    let Some(workspace_repo) = WorkspaceRepo::find_by_workspace_id(pool, workspace_id)
+        .await?
+        .into_iter()
+        .next()
+    else {
+        warn!(
+            workspace_id = %workspace_id,
+            task_id = %task_id,
+            "hook_agent_actions: workspace has no repo — skipping"
+        );
+        return Ok(true);
+    };
+    let Some(repo) = Repo::find_by_id(pool, workspace_repo.repo_id).await? else {
+        warn!(
+            workspace_id = %workspace_id,
+            task_id = %task_id,
+            "hook_agent_actions: repo record missing — skipping"
+        );
+        return Ok(true);
+    };
+
+    let workspace_root = PathBuf::from(container_ref);
+    let worktree_path = workspace_root.join(&repo.name);
+
+    // 1. Read + parse `.vk/actions.json` with the same dual-fallback the
+    //    review verdict uses. Missing at both paths is a legitimate empty run.
+    let actions = match agent_actions_ingest::read_actions(&worktree_path, &workspace_root) {
+        Ok(v) => v,
+        Err(e) => {
+            let reason = format!("Ingest de agent_actions falló: {e}");
+            WorkerTask::set_failed(pool, task_id, &reason).await?;
+            warn!(task_id = %task_id, "{}", reason);
+            return Ok(false);
+        }
+    };
+    if actions.is_empty() {
+        return Ok(true);
+    }
+
+    // 2. Persist every declared row (INSERT OR IGNORE keeps re-ingest a no-op).
+    if let Err(e) = agent_actions_ingest::insert_all(pool, task_id, repo.id, &actions).await {
+        let reason = format!("No pude persistir agent_actions: {e}");
+        WorkerTask::set_failed(pool, task_id, &reason).await?;
+        warn!(task_id = %task_id, "{}", reason);
+        return Ok(false);
+    }
+
+    // 3. Drain immediately: this is what turns declarations into GitHub effects.
+    let drain_result = match agent_actions_drain::drain_pending(config, pool, task_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            let reason = format!("Drenaje de agent_actions falló: {e}");
+            WorkerTask::set_failed(pool, task_id, &reason).await?;
+            warn!(task_id = %task_id, "{}", reason);
+            return Ok(false);
+        }
+    };
+
+    if drain_result.failed > 0 {
+        // Build the failure reason from the first `failed` row (per spec).
+        let rows = AgentAction::find_by_task_id(pool, task_id).await?;
+        let first_failed = rows
+            .iter()
+            .find(|r| r.status == agent_action::STATUS_FAILED);
+        let reason = match first_failed {
+            Some(f) => format!(
+                "agent action seq={} kind={} failed: {}",
+                f.seq,
+                f.kind,
+                f.last_error.as_deref().unwrap_or("<sin detalle>")
+            ),
+            None => "agent action falló durante el drenaje".to_string(),
+        };
+        WorkerTask::set_failed(pool, task_id, &reason).await?;
+        warn!(task_id = %task_id, "{}", reason);
+        return Ok(false);
+    }
+
+    if drain_result.pending_remaining > 0 {
+        // Infra hiccup halted the drain. The rows survive as `pending`; the
+        // surgical retry endpoint (siguiente issue) can re-drive them without
+        // re-running the agent.
+        warn!(
+            task_id = %task_id,
+            pending = drain_result.pending_remaining,
+            done = drain_result.done,
+            "Agent actions drain finished with pending rows after infra hiccup"
+        );
+    } else {
+        info!(
+            task_id = %task_id,
+            done = drain_result.done,
+            "Agent actions drained OK"
+        );
+    }
+
+    Ok(true)
+}
+
 /// Reconcile a workspace whose coding-agent run just finished.
 ///
 /// - **Developer workers**: push the branch, adopt or create the PR, then
@@ -1194,6 +1332,10 @@ pub async fn on_agent_finished(
                 execution_id,
             )
             .await;
+            // A follow-up run may still have declared new agent actions; drain
+            // them before returning. Workspace stays alive on failure — the
+            // user is the terminal approver of designer artifacts.
+            hook_agent_actions(config, db, workspace_id, task.id).await?;
         }
         return Ok(());
     }
@@ -1210,6 +1352,7 @@ pub async fn on_agent_finished(
     };
 
     let mut infra_failure = false;
+    let mut actions_failed_task = false;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
         // Persist what the run left behind BEFORE archiving the worktree:
@@ -1226,6 +1369,13 @@ pub async fn on_agent_finished(
             execution_id,
         )
         .await;
+        // Drain any declared agent actions (AGENT-ACTIONS-SPEC.md, F1). On
+        // definitive failure this overrides the task status to `failed` — a
+        // designer that declared an unsatisfiable comment is a failure, not
+        // an in_review awaiting approval.
+        if !hook_agent_actions(config, db, workspace_id, task.id).await? {
+            actions_failed_task = true;
+        }
     } else {
         let details = agent_failure_details(pool, execution_id).await;
         infra_failure = details.infra;
@@ -1239,6 +1389,7 @@ pub async fn on_agent_finished(
         role = %worker.role,
         succeeded,
         infra_failure,
+        actions_failed_task,
         "Non-developer worker task finished — status set to {}",
         new_status
     );
@@ -1254,8 +1405,10 @@ pub async fn on_agent_finished(
     // Archive the workspace now that the task is complete. A designer task
     // that ended in `in_review` is NOT complete: its workspace stays alive so
     // the user can open the artifact preview and request follow-ups; it is
-    // archived on approval instead (approve_designer_task).
-    if new_status != worker_task::STATUS_IN_REVIEW {
+    // archived on approval instead (approve_designer_task). A designer whose
+    // agent actions failed drained is no longer `in_review`, so archive too.
+    let keep_alive = new_status == worker_task::STATUS_IN_REVIEW && !actions_failed_task;
+    if !keep_alive {
         archive_and_detach(db, container, workspace_id).await;
     }
 
@@ -1742,6 +1895,12 @@ async fn on_reviewer_agent_finished(
         "Review submitted server-side"
     );
 
+    // Drain any declared agent actions (AGENT-ACTIONS-SPEC.md, F1) before
+    // archiving the worktree — the file lives there. Definitive failures
+    // override the task's `done` back to `failed`, so the human sees the
+    // half-run for what it was.
+    hook_agent_actions(config, db, workspace_id, task.id).await?;
+
     archive_and_detach(db, container, workspace_id).await;
 
     // On request_changes, dispatch the fix task immediately (spec §A3.5):
@@ -2044,7 +2203,7 @@ async fn push_follow_up_commits(
 /// (dirty tree, no commits, push error, PR creation error) marks the task
 /// `failed` so the human can see the cause and retry.
 async fn on_developer_agent_finished(
-    _config: &Arc<RwLock<Config>>,
+    config: &Arc<RwLock<Config>>,
     db: &DBService,
     container: &(impl ContainerService + Send + Sync),
     workspace_id: Uuid,
@@ -2073,6 +2232,10 @@ async fn on_developer_agent_finished(
                 || task.status == worker_task::STATUS_APPROVED)
         {
             push_follow_up_commits(db, container, workspace_id, worker, &task).await;
+            // Follow-up runs may still declare new agent actions; drain them
+            // too (AGENT-ACTIONS-SPEC.md, F1). Workspace stays alive — the PR
+            // is still open and the reviewer/user path is unaffected.
+            hook_agent_actions(config, db, workspace_id, task.id).await?;
         }
         return Ok(());
     }
@@ -2173,6 +2336,15 @@ async fn on_developer_agent_finished(
             "Developer task ended with no new commits — marking failed"
         );
         WorkerTask::set_failed(pool, task.id, "El agente terminó sin crear commits nuevos").await?;
+        archive_and_detach(db, container, workspace_id).await;
+        return Ok(());
+    }
+
+    // Drain any declared agent actions (AGENT-ACTIONS-SPEC.md, F1) BEFORE
+    // publishing the PR: a definitive failure here fails the task without ever
+    // pushing a branch or opening a PR, so the human isn't left staring at a
+    // PR whose side effects the agent could not produce.
+    if !hook_agent_actions(config, db, workspace_id, task.id).await? {
         archive_and_detach(db, container, workspace_id).await;
         return Ok(());
     }
