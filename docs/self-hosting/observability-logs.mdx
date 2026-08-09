@@ -84,7 +84,7 @@ docker compose \
 Trigger some activity (any HTTP request against the server is enough) and query Loki for the instance:
 
 ```logql
-{proyecto="vibekanban", cliente="acme"}
+{proyecto="mkanban", cliente="acme"}
 ```
 
 Lines should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).
