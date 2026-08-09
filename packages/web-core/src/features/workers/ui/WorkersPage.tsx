@@ -155,6 +155,10 @@ export function WorkersPage() {
 
   // A worker is stalled when its task is in progress but the workspace agent
   // is no longer running (e.g. a pending push kept the task from advancing).
+  // `isFinalizing` covers the orchestrator's PR-publishing window (push +
+  // adopt/create + on_pr_open) that briefly follows the agent stopping while
+  // the DB task is still `in_progress` — without it the WorkerCard flashes
+  // "stalled" between agent-done and task→in_review (issue #493).
   const stalledWorkerIds = useMemo(() => {
     const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
     const stalled = new Set<string>();
@@ -169,6 +173,7 @@ export function WorkersPage() {
         !ws.isRunning &&
         !ws.hasPendingApproval &&
         !ws.hasTaskInReview &&
+        !ws.isFinalizing &&
         ws.latestProcessStatus !== 'running'
       ) {
         stalled.add(worker.id);
