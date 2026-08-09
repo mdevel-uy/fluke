@@ -54,10 +54,12 @@ function CommandBarContent({
   const { executeAction, getLabel } = useActions();
   const { workspaceId: contextWorkspaceId, repos } = useWorkspaceContext();
 
-  // Get issue context from props, multi-selection store, or route params
+  // Get issue context from props, multi-selection store, or route params.
+  // Project/issue params live only on remote-web routes; cast so shared code
+  // typechecks against local-web's project-less route tree too.
   const { projectId: routeProjectId, issueId: routeIssueId } = useParams({
     strict: false,
-  });
+  }) as { projectId?: string; issueId?: string };
   const multiSelectedIssueIds = useIssueSelectionStore(
     (s) => s.selectedIssueIds
   );

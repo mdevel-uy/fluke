@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -41,7 +40,6 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
-  getProjectDestination,
   isAnalystDeskDestination,
   isCiPipelinesDestination,
   isDashboardDestination,
@@ -55,9 +53,6 @@ import { useTranslation } from 'react-i18next';
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
-import { useShape } from '@/shared/integrations/electric/hooks';
-import { sortProjectsByOrder } from '@/shared/lib/projectOrder';
-import { PROJECTS_SHAPE } from 'shared/remote-types';
 import { ShellSidebarProvider, ShellSidebarSlot } from '../shell/ShellSidebar';
 import { ShellAsideSlot, useShellAsideHasContent } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
@@ -124,7 +119,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     };
   }, [isMobile, mobileFontScale]);
 
-  // AppBar state - organizations and projects
+  // AppBar state - organizations
   const { data: orgsData } = useUserOrganizations();
   const organizations = useMemo(
     () => orgsData?.organizations ?? [],
@@ -133,7 +128,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
 
   const selectedOrgId = useOrganizationStore((s) => s.selectedOrgId);
   const setSelectedOrgId = useOrganizationStore((s) => s.setSelectedOrgId);
-  const prevOrgIdRef = useRef<string | null>(null);
 
   // Auto-select first org if none selected or selection is invalid
   useEffect(() => {
@@ -149,44 +143,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     }
   }, [organizations, selectedOrgId, setSelectedOrgId]);
 
-  const projectParams = useMemo(
-    () => ({ organization_id: selectedOrgId || '' }),
-    [selectedOrgId]
-  );
-  const { data: orgProjects = [], isLoading } = useShape(
-    PROJECTS_SHAPE,
-    projectParams,
-    { enabled: false }
-  );
-  const sortedProjects = useMemo(
-    () => sortProjectsByOrder(orgProjects),
-    [orgProjects]
-  );
-
-  // Navigate to the first ordered project when org changes
-  useEffect(() => {
-    if (
-      prevOrgIdRef.current !== null &&
-      prevOrgIdRef.current !== selectedOrgId &&
-      selectedOrgId &&
-      !isLoading
-    ) {
-      if (sortedProjects.length > 0) {
-        appNavigation.goToProject(sortedProjects[0].id);
-      } else {
-        appNavigation.goToWorkspaces();
-      }
-      prevOrgIdRef.current = selectedOrgId;
-    } else if (prevOrgIdRef.current === null && selectedOrgId) {
-      prevOrgIdRef.current = selectedOrgId;
-    }
-  }, [selectedOrgId, sortedProjects, isLoading, appNavigation]);
-
   // Navigation state for AppBar active indicators
-  const projectDestination = useMemo(
-    () => getProjectDestination(currentDestination),
-    [currentDestination]
-  );
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isDashboardActive = isDashboardDestination(currentDestination);
   const isSourceControlActive = isSourceControlDestination(currentDestination);
@@ -195,17 +152,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   const isWorkersActive = isWorkersDestination(currentDestination);
   const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
   const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
-  const activeProjectId = projectDestination?.projectId ?? null;
-
-  // Persist last selected project to scratch store
-  const setSelectedProjectId = useUiPreferencesStore(
-    (s) => s.setSelectedProjectId
-  );
-  useEffect(() => {
-    if (activeProjectId) {
-      setSelectedProjectId(activeProjectId);
-    }
-  }, [activeProjectId, setSelectedProjectId]);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
   // clicking any other item navigates to that section. Workspaces and Editor

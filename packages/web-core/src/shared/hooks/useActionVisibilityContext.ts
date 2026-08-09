@@ -49,10 +49,12 @@ export function useActionVisibilityContext(
   const diffViewMode = useDiffViewMode();
   const expanded = useUiPreferencesStore((s) => s.expanded);
 
-  // Derive kanban state from URL (URL is single source of truth)
+  // Derive kanban state from URL (URL is single source of truth).
+  // Project/issue params live only on remote-web routes; cast so shared code
+  // typechecks against local-web's project-less route tree too.
   const { projectId: routeProjectId, issueId: routeIssueId } = useParams({
     strict: false,
-  });
+  }) as { projectId?: string; issueId?: string };
   const destination = useCurrentAppDestination();
   const { isCreateMode: kanbanCreateMode } = useCurrentKanbanRouteState();
   const effectiveProjectId = options?.projectId ?? routeProjectId;

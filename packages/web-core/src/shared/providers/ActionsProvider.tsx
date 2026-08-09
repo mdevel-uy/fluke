@@ -42,7 +42,11 @@ interface ActionsProviderProps {
 export function ActionsProvider({ children }: ActionsProviderProps) {
   const appRuntime = useAppRuntime();
   const appNavigation = useAppNavigation();
-  const { projectId } = useParams({ strict: false });
+  // Project param lives only on remote-web routes; cast so shared code
+  // typechecks against local-web's project-less route tree too.
+  const { projectId } = useParams({ strict: false }) as {
+    projectId?: string;
+  };
   const hostId = useHostId();
   const queryClient = useQueryClient();
   // Get selected organization ID from store (for kanban context)
