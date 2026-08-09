@@ -68,6 +68,8 @@ spake2 = { version = "0.5.0-pre.0", features = ["getrandom"] }
 sha2 = "0.10"
 ed25519-dalek = "2.2.0"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
+walkdir = "2"
 
 [build-dependencies]
 dotenv = "0.15"

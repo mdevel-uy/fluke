@@ -36,7 +36,9 @@
         "github": "GitHub",
         "githubDesc": "使用 gh CLI 登入 GitHub",
         "agent-auth": "代理連線",
-        "agent-authDesc": "在設定中連線和中斷每個已安裝的代理"
+        "agent-authDesc": "在設定中連線和中斷每個已安裝的代理",
+        "data": "資料",
+        "dataDesc": "匯出或還原您實例的所有資料"
       }
     },
     "general": {
@@ -729,6 +731,37 @@
             "officialDocs": "官方文件",
             "andAuthenticate": "安裝 GitHub CLI，並使用您的 GitHub 帳號進行驗證。"
           }
+        }
+      }
+    },
+    "data": {
+      "export": {
+        "title": "匯出所有資料",
+        "description": "下載 mkanban 資料的完整備份。在遷移到新主機時非常有用。",
+        "contentsLabel": "包含內容",
+        "contents": {
+          "database": "包含所有專案、工作區和任務歷史的 SQLite 資料庫",
+          "config": "組態檔案（設定、設定檔、指引、MCP）",
+          "repos": "每個已註冊儲存庫的副本（不含建置目錄）",
+          "manifest": "描述封存版面配置和還原說明的資訊清單"
+        },
+        "button": "匯出所有資料",
+        "generating": "正在產生封存…",
+        "regenerate": "重新產生匯出",
+        "generatingHint": "伺服器正在打包您的資料。大型儲存庫可能需要較長時間。",
+        "success": "匯出已就緒，下載將自動開始。",
+        "downloadAgain": "重新下載 {{filename}}",
+        "error": "匯出失敗：{{message}}"
+      },
+      "restore": {
+        "title": "如何還原",
+        "description": "在新的 mkanban 實例上還原資料的步驟。",
+        "steps": {
+          "install": "在新主機上安裝新的 mkanban 實例。",
+          "stop": "還原前停止 mkanban 程序。",
+          "copyAssets": "將 asset_dir/ 的內容複製到新實例的資料目錄中。",
+          "copyRepos": "將 repos/ 下的每個資料夾移動到您選擇的路徑。",
+          "startAndReattach": "啟動 mkanban，如果儲存庫路徑已變更，請從設定 → 儲存庫中更新它。"
         }
       }
     }

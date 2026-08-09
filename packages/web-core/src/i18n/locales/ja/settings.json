@@ -36,7 +36,9 @@
         "github": "GitHub",
         "githubDesc": "gh CLI で GitHub にサインイン",
         "agent-auth": "エージェント接続",
-        "agent-authDesc": "設定画面から各エージェントの接続・切断を行います"
+        "agent-authDesc": "設定画面から各エージェントの接続・切断を行います",
+        "data": "データ",
+        "dataDesc": "インスタンスのすべてのデータをエクスポートまたは復元します"
       }
     },
     "general": {
@@ -729,6 +731,37 @@
             "officialDocs": "公式ドキュメント",
             "andAuthenticate": "その後、GitHubアカウントで認証してください。"
           }
+        }
+      }
+    },
+    "data": {
+      "export": {
+        "title": "すべてのデータをエクスポート",
+        "description": "mkanban のデータの完全なバックアップをダウンロードします。新しいホストへのオフボーディング時に便利です。",
+        "contentsLabel": "アーカイブの内容",
+        "contents": {
+          "database": "すべてのプロジェクト、ワークスペース、タスク履歴を含む SQLite データベース",
+          "config": "設定ファイル（settings、プロファイル、ガイドライン、MCP）",
+          "repos": "登録された各リポジトリのコピー（ビルドディレクトリは除外）",
+          "manifest": "アーカイブ構成と復元手順を説明するマニフェスト"
+        },
+        "button": "すべてのデータをエクスポート",
+        "generating": "アーカイブを生成中…",
+        "regenerate": "エクスポートを再生成",
+        "generatingHint": "サーバーがデータをパッケージ化しています。大きなリポジトリの場合は時間がかかります。",
+        "success": "エクスポートが完了しました。ダウンロードが自動的に開始されます。",
+        "downloadAgain": "{{filename}} を再ダウンロード",
+        "error": "エクスポートに失敗しました: {{message}}"
+      },
+      "restore": {
+        "title": "復元方法",
+        "description": "新しい mkanban インスタンスでデータを復元する手順。",
+        "steps": {
+          "install": "新しいホストに新規の mkanban インスタンスをインストールします。",
+          "stop": "復元前に mkanban プロセスを停止します。",
+          "copyAssets": "asset_dir/ の内容を新しいインスタンスのデータディレクトリにコピーします。",
+          "copyRepos": "repos/ 配下の各フォルダを任意のパスに移動します。",
+          "startAndReattach": "mkanban を起動し、リポジトリのパスが変わった場合は 設定 → リポジトリ から更新します。"
         }
       }
     }

@@ -36,7 +36,9 @@
         "github": "GitHub",
         "githubDesc": "Connectez-vous à GitHub avec la CLI gh",
         "agent-auth": "Connexions des agents",
-        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres"
+        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres",
+        "data": "Données",
+        "dataDesc": "Exporter ou restaurer toutes les données de votre instance"
       }
     },
     "general": {
@@ -729,6 +731,37 @@
             "officialDocs": "documentation officielle",
             "andAuthenticate": "puis authentifiez-vous avec votre compte GitHub."
           }
+        }
+      }
+    },
+    "data": {
+      "export": {
+        "title": "Exporter toutes les données",
+        "description": "Téléchargez une sauvegarde complète de vos données mkanban. Utile lors d'un offboarding vers un nouvel hôte.",
+        "contentsLabel": "Contenu de l'archive",
+        "contents": {
+          "database": "Base de données SQLite avec tous les projets, workspaces et l'historique des tâches",
+          "config": "Fichiers de configuration (paramètres, profils, guidelines, MCP)",
+          "repos": "Une copie de chaque dépôt enregistré (les répertoires de build sont exclus)",
+          "manifest": "Un manifeste décrivant la structure de l'archive et les instructions de restauration"
+        },
+        "button": "Exporter toutes les données",
+        "generating": "Génération de l'archive…",
+        "regenerate": "Régénérer l'export",
+        "generatingHint": "Le serveur empaquette vos données. Cela peut prendre du temps pour les grands dépôts.",
+        "success": "Export prêt. Le téléchargement démarre automatiquement.",
+        "downloadAgain": "Retélécharger {{filename}}",
+        "error": "Échec de l'export : {{message}}"
+      },
+      "restore": {
+        "title": "Comment restaurer",
+        "description": "Étapes pour récupérer vos données sur une nouvelle instance mkanban.",
+        "steps": {
+          "install": "Installez une nouvelle instance mkanban sur le nouvel hôte.",
+          "stop": "Arrêtez le processus mkanban avant de restaurer.",
+          "copyAssets": "Copiez le contenu de asset_dir/ dans le répertoire de données de la nouvelle instance.",
+          "copyRepos": "Déplacez chaque dossier de repos/ vers le chemin de votre choix.",
+          "startAndReattach": "Démarrez mkanban et, si le chemin d'un dépôt a changé, mettez-le à jour depuis Paramètres → Dépôts."
         }
       }
     }
