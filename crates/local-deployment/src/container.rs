@@ -47,7 +47,7 @@ use services::services::{
     analytics::AnalyticsContext,
     approvals::{Approvals, executor_approvals::ExecutorApprovalBridge},
     concurrency::ConcurrencySemaphore,
-    config::{Config, DEFAULT_COMMIT_REMINDER_PROMPT},
+    config::Config,
     container::{ContainerError, ContainerRef, ContainerService},
     diff_stream::{self, DiffStreamHandle},
     file::FileService,
@@ -1952,24 +1952,7 @@ impl ContainerService for LocalContainerService {
                     None
                 }
             };
-        let is_reviewer = matches!(&worker_pat_role, Some((_, role)) if role == ROLE_REVIEWER);
-
-        let config = self.config.read().await;
-        // Reviewers never commit — their contract is to leave `.vk/review.json`
-        // uncommitted for the orchestrator to consume. With the reminder on,
-        // every review ended in the stop hook blocking the agent's stop and
-        // the agent arguing back that it must not commit.
-        let commit_reminder_enabled = config.commit_reminder_enabled && !is_reviewer;
-        let commit_reminder_prompt = config
-            .commit_reminder_prompt
-            .clone()
-            .unwrap_or_else(|| DEFAULT_COMMIT_REMINDER_PROMPT.to_string());
-        drop(config);
-        let mut env = ExecutionEnv::new(
-            repo_context,
-            commit_reminder_enabled,
-            commit_reminder_prompt,
-        );
+        let mut env = ExecutionEnv::new(repo_context);
 
         // Always inject workspace/session context
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());

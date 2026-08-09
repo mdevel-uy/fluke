@@ -190,9 +190,6 @@ impl Opencode {
         let resume_session_id = resume_session.map(|s| s.to_string());
         let models_cache_key = self.compute_models_cache_key();
         let cancel_for_task = cancel.clone();
-        let commit_reminder = env.commit_reminder;
-        let commit_reminder_prompt = env.commit_reminder_prompt.clone();
-        let repo_context = env.repo_context.clone();
 
         tokio::spawn(async move {
             // Wait for server to print listening URL
@@ -220,9 +217,6 @@ impl Opencode {
                 auto_approve,
                 server_password,
                 models_cache_key,
-                commit_reminder,
-                commit_reminder_prompt,
-                repo_context,
             };
 
             let result = match slash_command {
@@ -600,7 +594,7 @@ impl StandardCodingAgentExecutor for Opencode {
             let discovery_path = target_path.as_deref().unwrap_or(Path::new(".")).to_path_buf();
             let mut final_options = default_discovered_options();
 
-            let env = ExecutionEnv::new(RepoContext::default(), false, String::new());
+            let env = ExecutionEnv::new(RepoContext::default());
             let env = setup_permissions_env(this.auto_approve, &env);
 
             let server = match this.spawn_server(&discovery_path, &env).await {

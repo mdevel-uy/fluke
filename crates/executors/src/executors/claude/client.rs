@@ -6,7 +6,6 @@ use workspace_utils::approvals::{ApprovalStatus, QuestionStatus};
 use super::types::PermissionMode;
 use crate::{
     approvals::{ExecutorApprovalError, ExecutorApprovalService},
-    env::RepoContext,
     executors::{
         ExecutorError,
         claude::{
@@ -23,7 +22,6 @@ use crate::{
 const EXIT_PLAN_MODE_NAME: &str = "ExitPlanMode";
 const ASK_USER_QUESTION_NAME: &str = "AskUserQuestion";
 pub const AUTO_APPROVE_CALLBACK_ID: &str = "AUTO_APPROVE_CALLBACK_ID";
-pub const STOP_GIT_CHECK_CALLBACK_ID: &str = "STOP_GIT_CHECK_CALLBACK_ID";
 // Prefix for denial messages from the user, mirrors claude code CLI behavior
 const TOOL_DENY_PREFIX: &str = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said: ";
 
@@ -32,8 +30,6 @@ pub struct ClaudeAgentClient {
     log_writer: LogWriter,
     approvals: Option<Arc<dyn ExecutorApprovalService>>,
     auto_approve: bool, // true when approvals is None
-    repo_context: RepoContext,
-    commit_reminder_prompt: String,
     cancel: CancellationToken,
 }
 
@@ -42,8 +38,6 @@ impl ClaudeAgentClient {
     pub fn new(
         log_writer: LogWriter,
         approvals: Option<Arc<dyn ExecutorApprovalService>>,
-        repo_context: RepoContext,
-        commit_reminder_prompt: String,
         cancel: CancellationToken,
     ) -> Arc<Self> {
         let auto_approve = approvals.is_none();
@@ -51,8 +45,6 @@ impl ClaudeAgentClient {
             log_writer,
             approvals,
             auto_approve,
-            repo_context,
-            commit_reminder_prompt,
             cancel,
         })
     }
@@ -323,29 +315,9 @@ impl ClaudeAgentClient {
     pub async fn on_hook_callback(
         &self,
         callback_id: String,
-        input: serde_json::Value,
+        _input: serde_json::Value,
         _tool_use_id: Option<String>,
     ) -> Result<serde_json::Value, ExecutorError> {
-        // Stop hook git check - uses `decision` (approve/block) and `reason` fields
-        if callback_id == STOP_GIT_CHECK_CALLBACK_ID {
-            if input
-                .get("stop_hook_active")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                return Ok(serde_json::json!({"decision": "approve"}));
-            }
-            let status = self.repo_context.check_uncommitted_changes().await;
-            return Ok(if status.is_empty() {
-                serde_json::json!({"decision": "approve"})
-            } else {
-                serde_json::json!({
-                    "decision": "block",
-                    "reason": format!("{}\n{}", self.commit_reminder_prompt, status)
-                })
-            });
-        }
-
         if self.auto_approve {
             Ok(serde_json::json!({
                 "hookSpecificOutput": {

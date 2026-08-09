@@ -196,18 +196,6 @@
           }
         }
       },
-      "commits": {
-        "title": "커밋",
-        "description": "작업 시도의 커밋 동작 구성",
-        "reminder": {
-          "label": "커밋 알림",
-          "helper": "지원되는 에이전트에게 중지 전 변경사항 커밋을 요청합니다."
-        },
-        "customPrompt": {
-          "useCustom": "사용자 정의 프롬프트 사용",
-          "helper": "커밋 알림용 사용자 정의 프롬프트. git 상태가 자동으로 추가됩니다."
-        }
-      },
       "notifications": {
         "title": "알림",
         "description": "알림을 받는 시기와 방법을 제어하세요.",

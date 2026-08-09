@@ -196,18 +196,6 @@
           }
         }
       },
-      "commits": {
-        "title": "コミット",
-        "description": "タスク試行のコミット動作を設定",
-        "reminder": {
-          "label": "コミットリマインダー",
-          "helper": "対応エージェントに停止前の変更コミットを促します。"
-        },
-        "customPrompt": {
-          "useCustom": "カスタムプロンプトを使用",
-          "helper": "コミットリマインダー用のカスタムプロンプト。gitステータスは自動的に追加されます。"
-        }
-      },
       "notifications": {
         "title": "通知",
         "description": "通知を受け取るタイミングと方法を制御します。",

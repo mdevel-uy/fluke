@@ -196,18 +196,6 @@
           }
         }
       },
-      "commits": {
-        "title": "Commits",
-        "description": "Configurez le comportement de commit pour les tentatives de tâches",
-        "reminder": {
-          "label": "Rappel de commit",
-          "helper": "Demander aux agents compatibles de commiter les modifications avant de s'arrêter."
-        },
-        "customPrompt": {
-          "useCustom": "Utiliser un prompt personnalisé",
-          "helper": "Prompt personnalisé pour le rappel de commit. Le statut git sera ajouté automatiquement."
-        }
-      },
       "notifications": {
         "title": "Notifications",
         "description": "Contrôlez quand et comment vous recevez des notifications.",

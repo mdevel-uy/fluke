@@ -1,10 +1,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     io,
-    sync::{
-        Arc, OnceLock,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, OnceLock},
 };
 
 use async_trait::async_trait;
@@ -37,7 +34,6 @@ use workspace_utils::approvals::{ApprovalStatus, QuestionStatus};
 use super::jsonrpc::{JsonRpcCallbacks, JsonRpcPeer};
 use crate::{
     approvals::{ExecutorApprovalError, ExecutorApprovalService},
-    env::RepoContext,
     executors::{ExecutorError, codex::normalize_logs::Approval},
 };
 
@@ -55,23 +51,15 @@ pub struct AppServerClient {
     plan_mode: bool,
     resolved_model: OnceLock<String>,
     pending_plan: Mutex<Option<PendingPlan>>,
-    repo_context: RepoContext,
-    commit_reminder: bool,
-    commit_reminder_prompt: String,
-    commit_reminder_sent: AtomicBool,
     cancel: CancellationToken,
 }
 
 impl AppServerClient {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         log_writer: LogWriter,
         approvals: Option<Arc<dyn ExecutorApprovalService>>,
         auto_approve: bool,
         plan_mode: bool,
-        repo_context: RepoContext,
-        commit_reminder: bool,
-        commit_reminder_prompt: String,
         cancel: CancellationToken,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -84,10 +72,6 @@ impl AppServerClient {
             pending_plan: Mutex::new(None),
             thread_id: Mutex::new(None),
             pending_feedback: Mutex::new(VecDeque::new()),
-            repo_context,
-            commit_reminder,
-            commit_reminder_prompt,
-            commit_reminder_sent: AtomicBool::new(false),
             cancel,
         })
     }
@@ -892,19 +876,6 @@ impl JsonRpcCallbacks for AppServerClient {
             };
             if let Some(plan) = pending {
                 return self.handle_plan_completed(plan).await;
-            }
-
-            // Handle commit reminder on turn completion
-            if !keep_alive
-                && self.commit_reminder
-                && !self.commit_reminder_sent.swap(true, Ordering::SeqCst)
-                && let status = self.repo_context.check_uncommitted_changes().await
-                && !status.is_empty()
-                && let Some(thread_id) = self.thread_id.lock().await.clone()
-            {
-                let prompt = format!("{}\n{}", self.commit_reminder_prompt, status);
-                self.spawn_user_message(thread_id, prompt);
-                return Ok(false);
             }
 
             return Ok(!keep_alive);
