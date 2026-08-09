@@ -1,84 +1,73 @@
-<p align="center"><strong>Vibe Kanban — Local Edition</strong></p>
-<p align="center">A lean, self-hosted fork of Vibe Kanban maintained by <a href="https://github.com/mdevel-uy">mdevel-uy</a>.</p>
+<p align="center"><strong>mkanban</strong></p>
+<p align="center">Orquestación de agentes de código sobre un tablero kanban, 100% self-hosted.</p>
+<p align="center"><a href="https://mkanban.dev">mkanban.dev</a></p>
 
-## About this fork
+## Qué es
 
-Bloop AI [sunset the original Vibe Kanban](https://www.vibekanban.com/blog/shutdown) in April 2026. This fork continues the project as a **local-first, self-hosted edition**: no cloud backend, no login gate, no telemetry surface. Everything runs on your machine, against repositories and coding agents you already control.
+mkanban corre una flota de **workers** — agentes de IA persistentes, con identidad, rol y memoria propia — que toman issues de GitHub, trabajan en workspaces aislados sobre git worktrees, abren pull requests y pasan por un loop de revisión automática antes de que una persona apruebe el merge. Todo corre en infraestructura propia: sin backend en la nube, sin login externo, sin telemetría hacia terceros.
 
-The upstream product was a hybrid of a local desktop app and a hosted cloud service. The Local Edition drops the cloud half and doubles down on the parts that work offline: a kanban to plan work, workspaces where coding agents run, diffs to review, and PRs to merge.
+El flujo completo:
 
-- **What it is:** the parts of Vibe Kanban you can run yourself, kept alive and moving.
-- **What it is not:** a drop-in replacement for the hosted Vibe Kanban Cloud.
+1. Los issues del repositorio se sincronizan al **backlog** del sprint board.
+2. Se asigna un issue a un worker; el worker abre un workspace (worktree + contenedor) y trabaja con su CLI de agente (Claude Code, Codex, Gemini CLI, etc.).
+3. El worker abre un PR. Un **reviewer** automático lo revisa por rondas, con gate de CI: el pipeline del repo es el único punto de verdad para validar el código generado.
+4. Con veredicto aprobado y CI verde, una persona hace el merge. El tablero refleja cada estado: backlog → queued → in progress → in review → done / failed.
 
-Tracked as branch `mdev` on top of [`BloopAI/vibe-kanban`](https://github.com/BloopAI/vibe-kanban) `main`. Upstream fixes are merged in periodically; fork-specific work lives on top.
+## Características
 
-## What this fork adds on top of upstream
+- **Sprint board** — kanban por repositorio con asignación de issues a workers, prioridades, épicas, reintento y descarte de tareas fallidas.
+- **Workers con roles** — developer, reviewer, analyst y designer; cada uno con memoria persistente entre tareas y habilidades (skills) configurables.
+- **Review loop** — rondas de revisión por PR con veredicto (approve / request changes), re-review automático cuando llegan commits nuevos, backoff ante fallas de infraestructura y tope de rondas por PR.
+- **Integración GitHub** — sincronización de issues por repo, PRs vinculados a workspaces, autenticación del CLI `gh` por device flow desde Settings.
+- **Workspaces** — diffs, logs del agente, editor embebido y terminal, sobre worktrees que se limpian solos al archivar.
+- **Panel de analyst** — pedidos ad-hoc a un worker sin pasar por el tablero.
+- **Observabilidad** — métricas Prometheus (`mkanban_*`), dashboards y reglas de alerta listos en [`ops/observability/`](ops/observability/).
 
-- **PR CI.** GitHub Actions workflow runs frontend and backend checks on every pull request against this fork.
-- **GitHub connection from Settings.** Authenticate the container's `gh` CLI via device flow directly from the UI — no manual token juggling.
-- **Add repositories from GitHub.** The "Add Repository" dialog can list your GitHub repos and clone one into the container in a single step.
-- **Per-repo Issues view.** GitHub issues are synced and persisted per repository, browsable inside the app.
-- **Assign to agent.** From the Issues view, hand an open issue to a coding agent as a new workspace, prefilled with the issue context.
-- **Cloud/login UI removed.** Sign-in gate, account menu, Discord link, and star badge are gone from the local build.
+## Instalación on-premises
 
-### Roadmap (in progress)
+El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`), configuración por variables `MK_*` en `.env`, y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
 
-- **Persistent workers with "soul."** Long-lived agent workers that keep context and preferences across tasks.
-- **Sprint board.** A kanban view scoped to a sprint, not just a backlog.
-- **Team-lead reviewer.** An automated reviewer agent that inspects agent-authored PRs before a human sees them.
+Los datos persisten en los volúmenes `mk-repos` (checkouts) y `mk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/mkanban`.
 
-## Running it
+### Variables de entorno principales
 
-The supported deployment for this fork is **Docker**, built from the `Dockerfile` at the root of `vibe-kanban/`.
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `HOST` | `0.0.0.0` | Dirección de bind del servidor. |
+| `PORT` | `3000` | Puerto del servidor. |
+| `MK_ALLOWED_ORIGINS` | sin setear | Orígenes permitidos (separados por coma) al servir detrás de un reverse proxy o dominio propio; necesario para evitar 403. |
+| `DISABLE_WORKTREE_CLEANUP` | sin setear | Desactiva la limpieza de worktrees, para debugging. |
 
-### Prerequisites inside the container
+## Estructura del repositorio
 
-The image ships the server binary and the frontend, but the coding-agent runtime and GitHub CLI have to be available and authenticated at runtime:
+| Ruta | Contenido |
+|------|-----------|
+| `crates/` | Backend en Rust: `server` (API axum), `services` (orquestador de workers, review loop), `db` (SQLite + migraciones), `executors` (CLIs de agentes), `review`, licensing y heartbeat, entre otros. |
+| `packages/` | Frontend (workspace pnpm): `local-web` (app), `web-core` (features compartidas), `ui` (componentes), `remote-web`. |
+| `ops/` | Bundle on-premises, observabilidad (dashboards, alerting, alloy). |
+| `docs/` | Documentación de producto (Mintlify). |
+| `design/` | Especificaciones y mocks de diseño. |
+| `.github/workflows/` | CI de PRs, publicación de imagen a GHCR, deploy, releases de desktop. |
 
-- A **coding agent CLI** you want to drive (e.g. Claude Code, Codex, Gemini CLI). It must be installed and logged in inside the container.
-- The **`gh` CLI**, authenticated — either interactively via the in-app device flow, or by mounting a pre-authenticated `~/.config/gh` from the host.
+## Desarrollo
 
-The simplest pattern is to extend the base image, install your agent CLI, and mount host credentials into the container.
-
-### Build and run
+Requisitos: Rust (versión fijada en `rust-toolchain.toml`), Node.js y pnpm.
 
 ```bash
-# From the vibe-kanban/ directory
-docker build -t vibe-kanban-local .
-
-docker run --rm -it \
-  -p 3000:3000 \
-  -v "$PWD/repos:/repos" \
-  vibe-kanban-local
+pnpm install
+pnpm run dev      # backend con watch + frontend Vite
+pnpm run check    # typecheck de todos los packages + cargo check
+pnpm run lint     # lints de frontend y backend
 ```
 
-Then open <http://localhost:3000>.
+También se puede levantar todo en Docker con el `Dockerfile` de la raíz y `docker-compose.local.yml`. El CI de GitHub Actions corre los checks de frontend y backend en cada PR contra `mdev`, y es el gate obligatorio para mergear.
 
-`/repos` is where cloned repositories land. Mount it as a volume so clones survive container restarts.
+Las convenciones del repositorio — para colaboradores humanos y agentes — están en [`AGENTS.md`](AGENTS.md).
 
-### Environment
+## Soporte
 
-Runtime environment variables inherited from upstream still apply. The ones most relevant to a local self-hosted deployment:
+Issues y discusiones en este repositorio. Los clientes on-premises tienen su canal de soporte directo con [mdevel](https://github.com/mdevel-uy).
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Bind address for the server. |
-| `PORT` | `3000` | Server port. |
-| `VK_ALLOWED_ORIGINS` | unset | Comma-separated list of allowed origins when running behind a reverse proxy or on a custom domain. Required to avoid 403 responses. |
-| `DISABLE_WORKTREE_CLEANUP` | unset | Disable git worktree cleanup for debugging. |
+## Licencia
 
-Cloud-oriented variables (`VK_SHARED_API_BASE`, `VK_SHARED_RELAY_API_BASE`, `VK_TUNNEL`, `POSTHOG_*`) are intentionally not needed. Leave them unset.
-
-## Relation to upstream
-
-- Upstream: [`BloopAI/vibe-kanban`](https://github.com/BloopAI/vibe-kanban), sunset in April 2026.
-- Fork: [`mdevel-uy/vibe-kanban`](https://github.com/mdevel-uy/vibe-kanban), branch `mdev`.
-- Merges from upstream `main` are still welcome for fixes that predate the shutdown. New product direction — persistent workers, sprint board, team-lead reviewer — is fork-only.
-
-## Development
-
-Development instructions from upstream still apply for anyone hacking on the code directly (Rust + Node/pnpm workspace, `pnpm run dev`, etc.). See [`AGENTS.md`](AGENTS.md) for the repository guidelines used by contributors and coding agents.
-
-## Support
-
-Open issues and discussions on the [fork's repository](https://github.com/mdevel-uy/vibe-kanban). Upstream issue trackers and Discord are no longer monitored.
+Apache 2.0 — ver [`LICENSE`](LICENSE). Incluye código derivado de un proyecto open-source discontinuado, bajo la misma licencia.
