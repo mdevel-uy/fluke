@@ -692,6 +692,13 @@ impl ClaudeCode {
         // Create cancellation token for graceful shutdown
         let cancel = CancellationToken::new();
 
+        // Exit signal armed by the protocol reader when the CLI's `result`
+        // message arrives: if the process is still alive after a grace
+        // period, the container's exit monitor kills the group and records
+        // the result-derived status instead of waiting forever on a hung
+        // CLI (incidente PR #499).
+        let (exit_tx, exit_rx) = tokio::sync::oneshot::channel();
+
         // Spawn task to handle the SDK client with control protocol
         let prompt_clone = combined_prompt.clone();
         let approvals_clone = self.approvals_service.clone();
@@ -703,8 +710,13 @@ impl ClaudeCode {
                 approvals_clone,
                 cancel_for_task.clone(),
             );
-            let protocol_peer =
-                ProtocolPeer::spawn(child_stdin, child_stdout, client.clone(), cancel_for_task);
+            let protocol_peer = ProtocolPeer::spawn(
+                child_stdin,
+                child_stdout,
+                client.clone(),
+                cancel_for_task,
+                exit_tx,
+            );
 
             // Initialize control protocol
             if let Err(e) = protocol_peer.initialize(hooks).await {
@@ -730,7 +742,7 @@ impl ClaudeCode {
 
         Ok(SpawnedChild {
             child,
-            exit_signal: None,
+            exit_signal: Some(exit_rx),
             cancel: Some(cancel),
         })
     }
