@@ -7,6 +7,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use db::models::{
+    agent_action::{self, AgentAction},
     execution_process::ExecutionProcess,
     file::File,
     merge::MergeStatus,
@@ -25,6 +26,7 @@ use deployment::Deployment;
 use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
+    agent_actions_drain,
     container::ContainerService,
     quick_action_prompts, territory,
     worker_orchestrator::{self, StartError},
@@ -1541,6 +1543,125 @@ pub async fn cancel_worker_task(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+/// Roll-up returned by the surgical retry endpoint. Mirrors
+/// [`agent_actions_drain::DrainResult`] as JSON.
+#[derive(Debug, Serialize)]
+pub struct RetryActionsResponse {
+    pub done: usize,
+    pub failed: usize,
+    pub pending_remaining: usize,
+}
+
+/// Re-drive the outbox of a task: run `pending` / `failed` agent actions
+/// against GitHub without re-running the coding agent. This is the surgical
+/// retry that makes an infra hiccup on GitHub cheap to recover from — a single
+/// POST here replays only the outstanding side effects and, on a definitive
+/// failure, updates the task to `failed` with the same shape the finish hook
+/// uses so the board tells one story.
+pub async fn retry_worker_task_actions(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<Response, ApiError> {
+    let pool = &deployment.db().pool;
+
+    // 1. Worker must exist.
+    if Worker::find_by_id(pool, worker_id).await?.is_none() {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<RetryActionsResponse>::error(
+                "Worker not found",
+            )),
+        )
+            .into_response());
+    }
+
+    // 2. Task must exist and belong to this worker. Cross-worker requests are
+    //    surfaced as 404 (not 400) so URL guessing never leaks that the task
+    //    exists under a different worker.
+    let task = match WorkerTask::find_by_id(pool, task_id).await? {
+        Some(t) if t.worker_id == worker_id => t,
+        _ => {
+            return Ok((
+                StatusCode::NOT_FOUND,
+                ResponseJson(ApiResponse::<RetryActionsResponse>::error(
+                    "Worker task not found",
+                )),
+            )
+                .into_response());
+        }
+    };
+
+    // 3. Refuse to interfere with an in-progress run: the finish hook is
+    //    already responsible for draining and touching agent_actions from two
+    //    places at once could corrupt attempt counters and row status.
+    if task.status == worker_task::STATUS_IN_PROGRESS {
+        return Err(ApiError::Conflict(
+            "la task está en progreso, no se puede re-drenar".into(),
+        ));
+    }
+
+    // 4. Nothing to retry means we surface a precise 409 instead of a 200
+    //    with `done=0`, so the caller sees the state as intentional.
+    let pending = AgentAction::find_pending_or_failed_for_task(pool, task_id).await?;
+    if pending.is_empty() {
+        return Err(ApiError::Conflict(
+            "no hay acciones pendientes o fallidas para esta task".into(),
+        ));
+    }
+
+    // 5. Actually drain. Drain errors are internal (DB, repo remote lookup,
+    //    payload schema drift) — log with detail, respond with a generic 500.
+    let drain_result =
+        match agent_actions_drain::drain_pending(deployment.config(), pool, task_id).await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(
+                    task_id = %task_id,
+                    worker_id = %worker_id,
+                    "retry-actions drain failed: {}",
+                    e
+                );
+                return Ok((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ResponseJson(ApiResponse::<RetryActionsResponse>::error(
+                        "agent actions drain failed",
+                    )),
+                )
+                    .into_response());
+            }
+        };
+
+    // 6. Definitive failures during the drain must flip the task to `failed`
+    //    with the same shape `on_agent_finished` uses (first failed row →
+    //    failure_reason) so the board tells one story regardless of whether
+    //    the drain ran from the finish hook or from here.
+    if drain_result.failed > 0 {
+        let rows = AgentAction::find_by_task_id(pool, task_id).await?;
+        let first_failed = rows
+            .iter()
+            .find(|r| r.status == agent_action::STATUS_FAILED);
+        let reason = match first_failed {
+            Some(f) => format!(
+                "agent action seq={} kind={} failed: {}",
+                f.seq,
+                f.kind,
+                f.last_error.as_deref().unwrap_or("<sin detalle>")
+            ),
+            None => "agent action falló durante el drenaje".to_string(),
+        };
+        WorkerTask::set_failed(pool, task_id, &reason).await?;
+    }
+
+    Ok(ResponseJson(ApiResponse::<RetryActionsResponse>::success(
+        RetryActionsResponse {
+            done: drain_result.done,
+            failed: drain_result.failed,
+            pending_remaining: drain_result.pending_remaining,
+        },
+    ))
+    .into_response())
+}
+
 /// HTML artifacts a designer task committed under `design/`, as repo-relative
 /// paths the client turns into
 /// `/api/workers/{w}/tasks/{t}/design-artifacts/{path}` links.
@@ -2045,6 +2166,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/re-request-review",
             post(re_request_review),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/retry-actions",
+            post(retry_worker_task_actions),
         )
 }
 
