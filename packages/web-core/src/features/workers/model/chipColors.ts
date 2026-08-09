@@ -2,16 +2,19 @@
  * Chip tints for worker role and model badges. Roles draw from
  * blue/green/amber and models from purple/teal/pink so the two chip
  * groups never share a hue on the same card.
+ *
+ * The role palette (`ROLE_CHIP_CLASS`, `ROLE_CHIP_FALLBACK`) is defined in
+ * `@vibe/ui/lib/roleChipClass` so `WorkspaceSummary` (which lives in the UI
+ * kit) can share the exact same source. We re-export from here to avoid
+ * touching the existing web-core consumers.
  */
 
-export const ROLE_CHIP_CLASS: Record<string, string> = {
-  developer: 'bg-info/10 text-info',
-  analyst: 'bg-success/10 text-success',
-  reviewer: 'bg-warning/10 text-warning',
-  designer: 'bg-pink/10 text-pink',
-};
+import { ROLE_CHIP_FALLBACK } from '@vibe/ui/lib/roleChipClass';
 
-export const ROLE_CHIP_FALLBACK = 'bg-secondary text-normal';
+export {
+  ROLE_CHIP_CLASS,
+  ROLE_CHIP_FALLBACK,
+} from '@vibe/ui/lib/roleChipClass';
 
 const MODEL_CHIP_CLASS: [match: string, className: string][] = [
   ['opus', 'bg-merged/10 text-merged'],
