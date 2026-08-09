@@ -740,10 +740,19 @@
         "description": "下載 mkanban 資料的完整備份。在遷移到新主機時非常有用。",
         "contentsLabel": "包含內容",
         "contents": {
-          "database": "包含所有專案、工作區和任務歷史的 SQLite 資料庫",
-          "config": "組態檔案（設定、設定檔、指引、MCP）",
-          "repos": "每個已註冊儲存庫的副本（不含建置目錄）",
+          "database": "包含所有專案、工作區和任務歷史的 SQLite 資料庫（透過 VACUUM INTO 產生一致性快照）",
+          "config": "組態檔案（設定、設定檔、指引、MCP、憑證、授權狀態）",
+          "repos": "每個已註冊儲存庫的副本（不含建置目錄，超過 100 MiB 的檔案會被略過）",
           "manifest": "描述封存版面配置和還原說明的資訊清單"
+        },
+        "sensitiveWarning": {
+          "title": "包含敏感憑證",
+          "message": "此封存包含 credentials.json、私鑰和授權狀態。請將其視為機密 — 請勿透過電子郵件傳送、上傳至公開服務，或在未加密的情況下附加至支援工單。"
+        },
+        "warningsBanner": "匯出完成，共有 {{count}} 個問題。部分檔案已被略過 — 請開啟封存內的 manifest.json 查看完整清單。",
+        "remoteHostOnly": {
+          "title": "僅限本機主機",
+          "message": "匯出會封裝您目前連線的機器的資料。若要執行，請在上方選擇器中切換至本機主機。"
         },
         "button": "匯出所有資料",
         "generating": "正在產生封存…",

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DownloadIcon } from '@phosphor-icons/react';
+import { DownloadIcon, WarningIcon } from '@phosphor-icons/react';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 import { SettingsCard, SettingsField } from './SettingsComponents';
+import { useSettingsHost } from './SettingsHostContext';
 
 type ExportStatus = 'idle' | 'generating' | 'ready' | 'error';
 
@@ -11,6 +12,7 @@ interface ExportState {
   status: ExportStatus;
   downloadUrl: string | null;
   filename: string | null;
+  warningsCount: number;
   errorMessage: string | null;
 }
 
@@ -18,10 +20,14 @@ const INITIAL_STATE: ExportState = {
   status: 'idle',
   downloadUrl: null,
   filename: null,
+  warningsCount: 0,
   errorMessage: null,
 };
 
 const CONTENT_DISPOSITION_FILENAME = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i;
+// Kept in sync with EXPORT_WARNINGS_HEADER in
+// crates/server/src/routes/data_export.rs.
+const WARNINGS_HEADER = 'x-mkanban-export-warnings';
 
 function extractFilename(header: string | null, fallback: string): string {
   if (!header) return fallback;
@@ -34,9 +40,18 @@ function extractFilename(header: string | null, fallback: string): string {
   }
 }
 
+function parseWarningsCount(header: string | null): number {
+  if (!header) return 0;
+  const n = Number.parseInt(header, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 export function DataSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
+  const { selectedHost } = useSettingsHost();
   const [state, setState] = useState<ExportState>(INITIAL_STATE);
+
+  const isRemoteHost = selectedHost?.kind === 'remote';
 
   // Revoke the previous object URL when it changes or the component unmounts,
   // so we do not leak the archive blob in memory.
@@ -54,13 +69,18 @@ export function DataSettingsSection() {
         status: 'generating',
         downloadUrl: null,
         filename: null,
+        warningsCount: 0,
         errorMessage: null,
       };
     });
 
     try {
+      // hostScope 'none' keeps the request on the local mkanban instance
+      // regardless of the selected settings host: the export endpoint is
+      // local-only by design (see is_relay_request check on the backend).
       const response = await makeLocalApiRequest('/api/system/data-export', {
         method: 'GET',
+        hostScope: 'none',
       });
       if (!response.ok) {
         let message = `HTTP ${response.status}`;
@@ -76,6 +96,7 @@ export function DataSettingsSection() {
           status: 'error',
           downloadUrl: null,
           filename: null,
+          warningsCount: 0,
           errorMessage: message,
         });
         return;
@@ -85,11 +106,15 @@ export function DataSettingsSection() {
         response.headers.get('content-disposition'),
         'mkanban-export.zip'
       );
+      const warningsCount = parseWarningsCount(
+        response.headers.get(WARNINGS_HEADER)
+      );
       const downloadUrl = URL.createObjectURL(blob);
       setState({
         status: 'ready',
         downloadUrl,
         filename,
+        warningsCount,
         errorMessage: null,
       });
       // Kick off the download automatically once the archive is ready.
@@ -105,10 +130,27 @@ export function DataSettingsSection() {
         status: 'error',
         downloadUrl: null,
         filename: null,
+        warningsCount: 0,
         errorMessage: err instanceof Error ? err.message : String(err),
       });
     }
   }, []);
+
+  if (isRemoteHost) {
+    return (
+      <SettingsCard
+        title={t('settings.data.export.title')}
+        description={t('settings.data.export.description')}
+      >
+        <div className="bg-warning/10 border border-warning/50 rounded-sm p-3 text-normal text-sm space-y-1">
+          <p className="font-medium text-high">
+            {t('settings.data.export.remoteHostOnly.title')}
+          </p>
+          <p>{t('settings.data.export.remoteHostOnly.message')}</p>
+        </div>
+      </SettingsCard>
+    );
+  }
 
   const isBusy = state.status === 'generating';
   const buttonLabel =
@@ -124,6 +166,20 @@ export function DataSettingsSection() {
         title={t('settings.data.export.title')}
         description={t('settings.data.export.description')}
       >
+        <div className="bg-error/10 border border-error/50 rounded-sm p-3 text-sm space-y-1">
+          <div className="flex items-center gap-2 font-medium text-error">
+            <WarningIcon
+              className="size-icon-sm shrink-0"
+              weight="fill"
+              aria-hidden="true"
+            />
+            <span>{t('settings.data.export.sensitiveWarning.title')}</span>
+          </div>
+          <p className="text-normal">
+            {t('settings.data.export.sensitiveWarning.message')}
+          </p>
+        </div>
+
         <SettingsField
           label={t('settings.data.export.contentsLabel')}
           description={
@@ -164,7 +220,15 @@ export function DataSettingsSection() {
           </p>
         )}
 
-        {state.status === 'ready' && (
+        {state.status === 'ready' && state.warningsCount > 0 && (
+          <div className="bg-warning/10 border border-warning/50 rounded-sm p-3 text-sm text-normal">
+            {t('settings.data.export.warningsBanner', {
+              count: state.warningsCount,
+            })}
+          </div>
+        )}
+
+        {state.status === 'ready' && state.warningsCount === 0 && (
           <div className="bg-success/10 border border-success/50 rounded-sm p-3 text-success text-sm">
             {t('settings.data.export.success')}
           </div>

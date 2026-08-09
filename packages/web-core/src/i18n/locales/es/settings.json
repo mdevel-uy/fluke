@@ -740,10 +740,19 @@
         "description": "Descargá un backup completo de tu instancia de mkanban. Útil para el offboarding a un nuevo host.",
         "contentsLabel": "Qué incluye",
         "contents": {
-          "database": "Base de datos SQLite con todos los proyectos, workspaces e historial de tareas",
-          "config": "Archivos de configuración (settings, perfiles, guidelines, MCP)",
-          "repos": "Una copia de cada repositorio registrado (se excluyen directorios de build)",
+          "database": "Base de datos SQLite con todos los proyectos, workspaces e historial de tareas (snapshot consistente vía VACUUM INTO)",
+          "config": "Archivos de configuración (settings, perfiles, guidelines, MCP, credenciales, estado de licencia)",
+          "repos": "Una copia de cada repositorio registrado (se excluyen directorios de build, se saltean archivos mayores a 100 MiB)",
           "manifest": "Un manifiesto que describe el contenido del archivo y las instrucciones de restauración"
+        },
+        "sensitiveWarning": {
+          "title": "Contiene credenciales sensibles",
+          "message": "El archivo incluye credentials.json, claves privadas y estado de licencia. Tratalo como secreto — no lo mandes por mail, no lo subas a servicios públicos ni lo adjuntes a un ticket de soporte sin cifrar."
+        },
+        "warningsBanner": "El export terminó con {{count}} incidencia(s). Se saltearon archivos — abrí manifest.json dentro del zip para ver el detalle completo.",
+        "remoteHostOnly": {
+          "title": "Solo host local",
+          "message": "El export empaqueta los datos de la máquina a la que estás conectado ahora. Cambiá al host local en el selector de arriba para ejecutarlo."
         },
         "button": "Exportar todos los datos",
         "generating": "Generando archivo…",

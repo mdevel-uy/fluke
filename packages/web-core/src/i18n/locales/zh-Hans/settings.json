@@ -740,10 +740,19 @@
         "description": "下载 mkanban 数据的完整备份。在迁移到新主机时非常有用。",
         "contentsLabel": "包含内容",
         "contents": {
-          "database": "包含所有项目、工作区和任务历史的 SQLite 数据库",
-          "config": "配置文件（设置、配置文件、指南、MCP）",
-          "repos": "每个已注册仓库的副本（不包含构建目录）",
+          "database": "包含所有项目、工作区和任务历史的 SQLite 数据库（通过 VACUUM INTO 生成一致性快照）",
+          "config": "配置文件（设置、配置文件、指南、MCP、凭据、许可证状态）",
+          "repos": "每个已注册仓库的副本（不包含构建目录，超过 100 MiB 的文件将被跳过）",
           "manifest": "描述归档布局和恢复说明的清单"
+        },
+        "sensitiveWarning": {
+          "title": "包含敏感凭据",
+          "message": "该归档包含 credentials.json、私钥和许可证状态。请将其视为机密 — 不要通过电子邮件发送、上传到公共服务，或在未加密的情况下附加到支持工单。"
+        },
+        "warningsBanner": "导出完成，共有 {{count}} 个问题。部分文件已被跳过 — 请打开归档内的 manifest.json 查看完整列表。",
+        "remoteHostOnly": {
+          "title": "仅限本地主机",
+          "message": "导出会打包您当前连接的机器的数据。要运行它，请在上方选择器中切换到本地主机。"
         },
         "button": "导出所有数据",
         "generating": "正在生成归档…",

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::{Cursor, Write},
     path::{Path, PathBuf},
 };
@@ -7,14 +8,16 @@ use axum::{
     Router,
     body::Body,
     extract::State,
-    http::{StatusCode, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::Response,
     routing::get,
 };
 use chrono::Utc;
 use db::models::repo::Repo;
 use deployment::Deployment;
+use relay_client::RELAY_HEADER;
 use serde::Serialize;
+use sqlx::SqlitePool;
 use tokio::task;
 use utils::assets::asset_dir;
 use zip::{ZipWriter, write::SimpleFileOptions};
@@ -46,6 +49,26 @@ const REPO_EXCLUDED_DIRS: &[&str] = &[
 /// skipped and recorded in the manifest instead of ballooning the archive.
 const MAX_REPO_FILE_BYTES: u64 = 100 * 1024 * 1024;
 
+/// Live SQLite files skipped when walking `asset_dir`. The consistent
+/// snapshot produced by `VACUUM INTO` is added to the archive in their place,
+/// so restore does not need to reconcile a partial rollback journal.
+const LIVE_DB_FILES: &[&str] = &[
+    "db.v2.sqlite",
+    "db.v2.sqlite-journal",
+    "db.v2.sqlite-wal",
+    "db.v2.sqlite-shm",
+];
+
+/// Path (inside the archive) where the consistent database snapshot is
+/// stored. Matches the on-disk name so restore is a straight copy back into
+/// `asset_dir/`.
+const DB_ARCHIVE_ENTRY: &str = "asset_dir/db.v2.sqlite";
+
+/// Response header exposing how many items had issues during the export.
+/// The frontend reads this to render a "N items had issues" banner without
+/// having to open manifest.json.
+const EXPORT_WARNINGS_HEADER: &str = "x-mkanban-export-warnings";
+
 pub fn router() -> Router<DeploymentImpl> {
     Router::new().route("/system/data-export", get(download_data_export))
 }
@@ -59,6 +82,11 @@ struct ExportManifest {
     repositories: Vec<ManifestRepo>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     warnings: Vec<String>,
+    /// Manifest text is intentionally English-only technical documentation
+    /// bundled inside the archive. The equivalent user-facing strings live
+    /// in `packages/web-core/src/i18n/locales/*/settings.json` under
+    /// `settings.data.restore.*` and must be kept in sync manually when the
+    /// restore procedure changes.
     restore_instructions: RestoreInstructions,
 }
 
@@ -80,7 +108,12 @@ struct RestoreInstructions {
 }
 
 impl RestoreInstructions {
-    fn default_english() -> Self {
+    /// Hardcoded English defaults for the manifest. Duplicates the wording
+    /// of `settings.data.restore.*` in the i18n bundle on purpose: the
+    /// manifest travels inside the zip and must remain readable without any
+    /// runtime i18n context. Keep both in sync when the restore flow
+    /// changes.
+    fn english_manifest_defaults() -> Self {
         Self {
             summary: "Full mkanban instance backup for offboarding.".to_string(),
             steps: vec![
@@ -100,17 +133,51 @@ impl RestoreInstructions {
     }
 }
 
+/// RAII wrapper so a failed export path never leaves the SQLite snapshot
+/// behind in `TMPDIR`.
+struct TempSnapshot(PathBuf);
+
+impl TempSnapshot {
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempSnapshot {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 async fn download_data_export(
     State(deployment): State<DeploymentImpl>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    // The archive is buffered in memory and would blow past the 50 MiB cap
+    // of `sign_relay_response` for any non-trivial instance. Restrict the
+    // endpoint to direct/local requests; the frontend hides the UI when the
+    // selected host is remote so this is defence-in-depth rather than the
+    // main gate.
+    if is_relay_request(&headers) {
+        return Err(ApiError::BadRequest(
+            "Data export can only run on the local host; open the app on the \
+             machine that hosts mkanban and try again."
+                .to_string(),
+        ));
+    }
+
     let repos = Repo::list_all(&deployment.db().pool).await?;
+    let snapshot = snapshot_database(&deployment.db().pool).await?;
 
     let asset_dir_path = asset_dir();
     let instance_id = utils::assets::instance_id().ok();
     let app_version = env!("CARGO_PKG_VERSION").to_string();
 
-    let bytes = task::spawn_blocking(move || {
-        build_export_archive(asset_dir_path, repos, app_version, instance_id)
+    let (bytes, warnings_count) = task::spawn_blocking(move || {
+        // `snapshot` is moved into the blocking task and dropped there so
+        // its Drop impl cleans up the temp file even if the archive build
+        // itself fails halfway through.
+        build_export_archive(asset_dir_path, repos, app_version, instance_id, &snapshot)
     })
     .await
     .map_err(|e| {
@@ -121,9 +188,9 @@ async fn download_data_export(
     })??;
 
     let filename = format!("mkanban-export-{}.zip", Utc::now().format("%Y%m%d-%H%M%S"));
-
     let content_length = bytes.len();
-    Response::builder()
+
+    let mut response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/zip")
         .header(header::CONTENT_LENGTH, content_length)
@@ -132,23 +199,59 @@ async fn download_data_export(
             format!("attachment; filename=\"{filename}\""),
         )
         .header(header::CACHE_CONTROL, "no-store")
+        .header(EXPORT_WARNINGS_HEADER, warnings_count)
         .body(Body::from(bytes))
         .map_err(|e| {
             ApiError::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("failed to build export response: {e}"),
             ))
-        })
+        })?;
+
+    // Some CORS/proxy layers strip custom response headers unless they are
+    // whitelisted. Advertise the header explicitly so the browser exposes it
+    // to the fetch caller.
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        HeaderValue::from_static(EXPORT_WARNINGS_HEADER),
+    );
+    Ok(response)
+}
+
+/// Produce a consistent SQLite snapshot via `VACUUM INTO`. Copying the live
+/// `db.v2.sqlite` while mkanban is running would risk capturing pages
+/// written mid-commit; VACUUM INTO writes a fully-quiesced copy that is
+/// safe to open standalone.
+async fn snapshot_database(pool: &SqlitePool) -> Result<TempSnapshot, ApiError> {
+    let snapshot_path =
+        std::env::temp_dir().join(format!("mkanban-export-{}.sqlite", uuid::Uuid::new_v4()));
+    // VACUUM INTO does not accept bind parameters; splice the path directly
+    // and double any single quotes defensively. The path is UUID-based, so
+    // it never contains quotes in practice.
+    let escaped = snapshot_path.display().to_string().replace('\'', "''");
+    let sql = format!("VACUUM INTO '{escaped}'");
+    sqlx::query(&sql).execute(pool).await?;
+    Ok(TempSnapshot(snapshot_path))
+}
+
+fn is_relay_request(headers: &HeaderMap) -> bool {
+    headers
+        .get(RELAY_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.trim() == "1")
 }
 
 /// Build the full export zip in memory. Runs on a blocking thread; safe to
-/// perform synchronous IO here.
+/// perform synchronous IO here. Returns the archive bytes and the number of
+/// warnings collected while packaging, so the caller can expose that count
+/// to the UI.
 fn build_export_archive(
     asset_dir_path: PathBuf,
     repos: Vec<Repo>,
     app_version: String,
     instance_id: Option<String>,
-) -> Result<Vec<u8>, ApiError> {
+    snapshot: &TempSnapshot,
+) -> Result<(Vec<u8>, usize), ApiError> {
     let buffer = Cursor::new(Vec::<u8>::new());
     let mut zip = ZipWriter::new(buffer);
     let file_opts =
@@ -158,7 +261,10 @@ fn build_export_archive(
     let mut warnings = Vec::new();
     let mut manifest_repos = Vec::with_capacity(repos.len());
 
-    // 1) The asset directory — mkanban's own data (SQLite DB, config, profiles, ...).
+    // 1) The asset directory — mkanban's own data (config, profiles,
+    //    guidelines, credentials, attachments, ...). The live SQLite files
+    //    are skipped here; the VACUUM INTO snapshot is added separately
+    //    below so restore always gets a consistent database copy.
     if asset_dir_path.exists() {
         add_directory_to_zip(
             &mut zip,
@@ -167,6 +273,7 @@ fn build_export_archive(
             file_opts,
             dir_opts,
             &[],
+            LIVE_DB_FILES,
             None,
             &mut warnings,
         )?;
@@ -177,8 +284,23 @@ fn build_export_archive(
         ));
     }
 
-    // 2) Each registered repo.
-    let mut used_slugs = std::collections::HashSet::new();
+    // 2) The consistent SQLite snapshot, written under the same relative
+    //    name so a restore is a plain copy into the new instance.
+    match std::fs::read(snapshot.path()) {
+        Ok(bytes) => {
+            zip.start_file(DB_ARCHIVE_ENTRY, file_opts)
+                .map_err(zip_io)?;
+            zip.write_all(&bytes).map_err(ApiError::Io)?;
+        }
+        Err(e) => warnings.push(format!(
+            "failed to read database snapshot at {}: {}",
+            snapshot.path().display(),
+            e
+        )),
+    }
+
+    // 3) Each registered repo.
+    let mut used_slugs = HashSet::new();
     for repo in &repos {
         let source_path = repo.path.clone();
         let slug = unique_slug(&repo.name, &mut used_slugs);
@@ -193,6 +315,7 @@ fn build_export_archive(
                 file_opts,
                 dir_opts,
                 REPO_EXCLUDED_DIRS,
+                &[],
                 Some(MAX_REPO_FILE_BYTES),
                 &mut warnings,
             ) {
@@ -221,7 +344,8 @@ fn build_export_archive(
         });
     }
 
-    // 3) manifest.json describing what's inside and how to restore.
+    // 4) manifest.json describing what's inside and how to restore.
+    let warnings_count = warnings.len();
     let manifest = ExportManifest {
         generated_at: Utc::now(),
         app_version,
@@ -229,7 +353,7 @@ fn build_export_archive(
         asset_dir: asset_dir_path.display().to_string(),
         repositories: manifest_repos,
         warnings,
-        restore_instructions: RestoreInstructions::default_english(),
+        restore_instructions: RestoreInstructions::english_manifest_defaults(),
     };
     let manifest_json = serde_json::to_vec_pretty(&manifest).map_err(|e| {
         ApiError::Io(std::io::Error::new(
@@ -241,13 +365,16 @@ fn build_export_archive(
     zip.write_all(&manifest_json).map_err(ApiError::Io)?;
 
     let result = zip.finish().map_err(zip_io)?;
-    Ok(result.into_inner())
+    Ok((result.into_inner(), warnings_count))
 }
 
 /// Recursively adds `source_dir` into the zip under `archive_root`.
-/// Skips any directory whose file name matches `skip_dir_names`.
+/// Skips any directory whose file name matches `skip_dir_names`, and any
+/// direct file whose name matches `skip_file_names` (only at the root of
+/// `source_dir`, since that's what all current callers need).
 /// Files larger than `max_file_size` bytes (when Some) are recorded as
 /// warnings and left out.
+#[allow(clippy::too_many_arguments)]
 fn add_directory_to_zip(
     zip: &mut ZipWriter<Cursor<Vec<u8>>>,
     source_dir: &Path,
@@ -255,6 +382,7 @@ fn add_directory_to_zip(
     file_opts: SimpleFileOptions,
     dir_opts: SimpleFileOptions,
     skip_dir_names: &[&str],
+    skip_root_file_names: &[&str],
     max_file_size: Option<u64>,
     warnings: &mut Vec<String>,
 ) -> Result<(), ApiError> {
@@ -309,6 +437,16 @@ fn add_directory_to_zip(
             continue;
         }
 
+        // Skip named files at the root of `source_dir` (used to drop the
+        // live SQLite files in favour of the VACUUM INTO snapshot).
+        if entry.depth() == 1 {
+            if let Some(name) = entry.file_name().to_str() {
+                if skip_root_file_names.contains(&name) {
+                    continue;
+                }
+            }
+        }
+
         let metadata = match entry.metadata() {
             Ok(m) => m,
             Err(e) => {
@@ -341,7 +479,7 @@ fn add_directory_to_zip(
     Ok(())
 }
 
-fn unique_slug(name: &str, used: &mut std::collections::HashSet<String>) -> String {
+fn unique_slug(name: &str, used: &mut HashSet<String>) -> String {
     let base = sanitize_slug(name);
     let base = if base.is_empty() {
         "repo".to_string()
@@ -397,10 +535,20 @@ mod tests {
 
     #[test]
     fn unique_slug_collides_gracefully() {
-        let mut used = std::collections::HashSet::new();
+        let mut used = HashSet::new();
         assert_eq!(unique_slug("Repo", &mut used), "Repo");
         assert_eq!(unique_slug("Repo", &mut used), "Repo-2");
         assert_eq!(unique_slug("Repo", &mut used), "Repo-3");
         assert_eq!(unique_slug("///", &mut used), "repo");
+    }
+
+    #[test]
+    fn is_relay_request_reads_header() {
+        let mut headers = HeaderMap::new();
+        assert!(!is_relay_request(&headers));
+        headers.insert(RELAY_HEADER, HeaderValue::from_static("1"));
+        assert!(is_relay_request(&headers));
+        headers.insert(RELAY_HEADER, HeaderValue::from_static("0"));
+        assert!(!is_relay_request(&headers));
     }
 }
