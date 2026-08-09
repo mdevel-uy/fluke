@@ -1,0 +1,54 @@
+name: Factory guards
+
+# Checks deterministas sobre el diff del PR contra mdev.
+# Corre en < 1 min: solo diff + ls, sin build ni tests.
+#
+# Reglas (ver scripts/factory-guards.sh para el detalle):
+#   1. Diff toca shared/types.ts   => body del PR debe incluir [types-regen]
+#   2. Diff toca Cargo.lock        => body del PR debe incluir [lockfile]
+#   3. Migración nueva bajo crates/db/migrations/ => timestamp de 14 dígitos
+#   4. Sin colisiones de timestamp entre migraciones
+#
+# TODO (fase 2, fuera del ticket #369): lint de strings visibles hardcodeados
+# fuera de i18n.
+
+on:
+  pull_request:
+    branches:
+      - mdev
+
+concurrency:
+  group: factory-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  factory-guards:
+    name: Factory guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth 0 asegura que la base del PR esté presente para el diff.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Ensure base ref is fetched
+        # Red de seguridad: si por algún motivo la base no está en el clon
+        # (fetch-depth cambia en el futuro, force-push a la base, etc.),
+        # traemos el commit explícitamente. Sin esta red el diff podría vaciarse
+        # silenciosamente y el guard reportaría verde por error de setup.
+        run: |
+          set -e
+          if ! git cat-file -e "${{ github.event.pull_request.base.sha }}^{commit}" 2>/dev/null; then
+            echo "Base commit no presente en el checkout, haciendo fetch explícito..."
+            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+          fi
+
+      - name: Run factory guards
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/factory-guards.sh
