@@ -290,32 +290,77 @@ pub trait ContainerService {
             .notify(&title, &message, Some(ctx.workspace.id))
             .await;
 
-        // Analyst and reviewer workers transition to done/failed when their
-        // coding-agent run finishes, rather than waiting for a PR to be merged.
+        // Worker tasks reconcile (push + PR + transition) when their agent
+        // chain ends. That end is either the CodingAgent itself (no cleanup
+        // configured) or the CleanupScript that was chained as its
+        // `next_action`. Cleanup is housekeeping: its own status must not
+        // gate the PR — we always reconcile using the parent CodingAgent's
+        // status and id.
         if matches!(
             ctx.execution_process.run_reason,
-            ExecutionProcessRunReason::CodingAgent
-        ) {
-            let succeeded = matches!(
-                ctx.execution_process.status,
-                ExecutionProcessStatus::Completed
+            ExecutionProcessRunReason::CleanupScript
+        ) && matches!(ctx.execution_process.status, ExecutionProcessStatus::Failed)
+        {
+            tracing::warn!(
+                workspace_id = %ctx.workspace.id,
+                cleanup_process_id = %ctx.execution_process.id,
+                "Cleanup script failed — treating as housekeeping warning, not a task failure"
             );
-            if let Err(e) = worker_orchestrator::on_agent_finished(
+        }
+
+        let reconcile = match ctx.execution_process.run_reason {
+            ExecutionProcessRunReason::CodingAgent => Some((
+                matches!(
+                    ctx.execution_process.status,
+                    ExecutionProcessStatus::Completed
+                ),
+                ctx.execution_process.id,
+            )),
+            ExecutionProcessRunReason::CleanupScript => {
+                // Find the CodingAgent process that spawned this cleanup
+                // (chained via `next_action`). Within a session that chain
+                // is strictly sequential, so the parent is the latest
+                // CodingAgent whose created_at precedes this cleanup's.
+                match ExecutionProcess::find_by_session_id(&self.db().pool, ctx.session.id, false)
+                    .await
+                {
+                    Ok(processes) => processes
+                        .into_iter()
+                        .rev()
+                        .find(|p| {
+                            matches!(p.run_reason, ExecutionProcessRunReason::CodingAgent)
+                                && p.created_at < ctx.execution_process.created_at
+                        })
+                        .map(|p| (matches!(p.status, ExecutionProcessStatus::Completed), p.id)),
+                    Err(e) => {
+                        tracing::warn!(
+                            workspace_id = %ctx.workspace.id,
+                            "Failed to look up CodingAgent for cleanup reconciliation: {}",
+                            e
+                        );
+                        None
+                    }
+                }
+            }
+            _ => None,
+        };
+
+        if let Some((succeeded, coding_execution_id)) = reconcile
+            && let Err(e) = worker_orchestrator::on_agent_finished(
                 self.config(),
                 self.db(),
                 self,
                 ctx.workspace.id,
                 succeeded,
-                Some(ctx.execution_process.id),
+                Some(coding_execution_id),
             )
             .await
-            {
-                tracing::warn!(
-                    workspace_id = %ctx.workspace.id,
-                    "Failed to reconcile analyst/reviewer task on agent finish: {}",
-                    e
-                );
-            }
+        {
+            tracing::warn!(
+                workspace_id = %ctx.workspace.id,
+                "Failed to reconcile analyst/reviewer task on agent finish: {}",
+                e
+            );
         }
     }
 
