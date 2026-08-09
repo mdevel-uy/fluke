@@ -1011,6 +1011,31 @@
       "queued": "排隊中",
       "completed": "已完成"
     },
+    "filters": {
+      "aria": "篩選工作者",
+      "searchPlaceholder": "搜尋工作者…",
+      "searchAria": "依名稱搜尋工作者",
+      "roleLabel": "角色",
+      "modelLabel": "模型",
+      "statusLabel": "狀態",
+      "roleGroupAria": "依角色篩選",
+      "modelGroupAria": "依模型篩選",
+      "statusGroupAria": "依狀態篩選",
+      "resultCount": "/ 共 {{total}} 位工作者",
+      "clear": "清除篩選",
+      "clearAria": "清除所有篩選",
+      "emptyTitle": "沒有工作者符合目前的篩選",
+      "emptyDescription": "試著調整搜尋或移除部分篩選條件以查看更多工作者。",
+      "emptyAction": "清除篩選",
+      "status": {
+        "working": "工作中",
+        "idle": "閒置",
+        "stalled": "停滯",
+        "in_review": "審核中",
+        "waiting": "等待核准",
+        "approved": "已核准"
+      }
+    },
     "templates": {
       "backend": "後端專家",
       "frontend": "前端專家",

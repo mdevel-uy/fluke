@@ -1014,6 +1014,31 @@
       "queued": "Queued",
       "completed": "Completed"
     },
+    "filters": {
+      "aria": "Filter workers",
+      "searchPlaceholder": "Search workers…",
+      "searchAria": "Search workers by name",
+      "roleLabel": "Role",
+      "modelLabel": "Model",
+      "statusLabel": "Status",
+      "roleGroupAria": "Filter by role",
+      "modelGroupAria": "Filter by model",
+      "statusGroupAria": "Filter by status",
+      "resultCount": "of {{total}} workers",
+      "clear": "Clear filters",
+      "clearAria": "Clear all filters",
+      "emptyTitle": "No workers match your filters",
+      "emptyDescription": "Try adjusting the search or removing some filters to see more workers.",
+      "emptyAction": "Clear filters",
+      "status": {
+        "working": "Working",
+        "idle": "Idle",
+        "stalled": "Stalled",
+        "in_review": "In review",
+        "waiting": "Waiting",
+        "approved": "Approved"
+      }
+    },
     "templates": {
       "backend": "Backend Specialist",
       "frontend": "Frontend Specialist",

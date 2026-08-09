@@ -1011,6 +1011,31 @@
       "queued": "待機中",
       "completed": "完了"
     },
+    "filters": {
+      "aria": "ワーカーを絞り込む",
+      "searchPlaceholder": "ワーカーを検索…",
+      "searchAria": "名前でワーカーを検索",
+      "roleLabel": "ロール",
+      "modelLabel": "モデル",
+      "statusLabel": "ステータス",
+      "roleGroupAria": "ロールで絞り込み",
+      "modelGroupAria": "モデルで絞り込み",
+      "statusGroupAria": "ステータスで絞り込み",
+      "resultCount": "/ {{total}} ワーカー",
+      "clear": "フィルターをクリア",
+      "clearAria": "すべてのフィルターをクリア",
+      "emptyTitle": "条件に一致するワーカーがありません",
+      "emptyDescription": "検索を調整するか、フィルターを解除して他のワーカーを表示してください。",
+      "emptyAction": "フィルターをクリア",
+      "status": {
+        "working": "作業中",
+        "idle": "アイドル",
+        "stalled": "停止中",
+        "in_review": "レビュー中",
+        "waiting": "承認待ち",
+        "approved": "承認済み"
+      }
+    },
     "templates": {
       "backend": "バックエンドスペシャリスト",
       "frontend": "フロントエンドスペシャリスト",

@@ -1011,6 +1011,31 @@
       "queued": "대기 중",
       "completed": "완료"
     },
+    "filters": {
+      "aria": "워커 필터링",
+      "searchPlaceholder": "워커 검색…",
+      "searchAria": "이름으로 워커 검색",
+      "roleLabel": "역할",
+      "modelLabel": "모델",
+      "statusLabel": "상태",
+      "roleGroupAria": "역할로 필터링",
+      "modelGroupAria": "모델로 필터링",
+      "statusGroupAria": "상태로 필터링",
+      "resultCount": "/ {{total}}명",
+      "clear": "필터 지우기",
+      "clearAria": "모든 필터 지우기",
+      "emptyTitle": "필터와 일치하는 워커가 없습니다",
+      "emptyDescription": "검색을 조정하거나 일부 필터를 제거하여 더 많은 워커를 확인하세요.",
+      "emptyAction": "필터 지우기",
+      "status": {
+        "working": "작업 중",
+        "idle": "대기",
+        "stalled": "멈춤",
+        "in_review": "리뷰 중",
+        "waiting": "승인 대기",
+        "approved": "승인됨"
+      }
+    },
     "templates": {
       "backend": "백엔드 전문가",
       "frontend": "프론트엔드 전문가",
