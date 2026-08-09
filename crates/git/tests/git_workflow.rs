@@ -429,3 +429,98 @@ fn squash_merge_libgit2_sets_author_without_user() {
         assert_eq!(email.as_deref(), Some("noreply@mkanban.dev"));
     }
 }
+
+/// Set up a "remote" repo with two commits (A ancestor of B) and expose B
+/// under `refs/pull/1/head`, and a fresh "local" repo that has `remote` as
+/// its default remote. Returns `(local_path, sha_a, sha_b)`.
+fn setup_local_with_pr_ref(td: &TempDir) -> (PathBuf, String, String) {
+    let s = GitService::new();
+
+    // "Remote" repo: init, commit A, commit B, then point refs/pull/1/head at B.
+    let remote_path = init_repo_main(td);
+    write_file(&remote_path, "a.txt", "a\n");
+    add_path(&remote_path, "a.txt");
+    s.commit(&remote_path, "commit A").unwrap();
+    let sha_a = s.get_head_info(&remote_path).unwrap().oid;
+
+    write_file(&remote_path, "b.txt", "b\n");
+    add_path(&remote_path, "b.txt");
+    s.commit(&remote_path, "commit B").unwrap();
+    let sha_b = s.get_head_info(&remote_path).unwrap().oid;
+
+    let remote_repo = Repository::open(&remote_path).unwrap();
+    let b_oid = git2::Oid::from_str(&sha_b).unwrap();
+    remote_repo
+        .reference("refs/pull/1/head", b_oid, false, "pr head")
+        .unwrap();
+
+    // "Local" repo: init on main, add origin pointing at the remote path.
+    let local_path = td.path().join("local");
+    s.initialize_repo_with_main_branch(&local_path).unwrap();
+    configure_user(&local_path, "Test User", "test@example.com");
+    let local_repo = Repository::open(&local_path).unwrap();
+    local_repo
+        .remote("origin", remote_path.to_str().unwrap())
+        .unwrap();
+
+    (local_path, sha_a, sha_b)
+}
+
+/// Fix-task path: no pinned SHA → workspace anchors on the current tip of
+/// `pull/N/head` so the finish handler's fast-forward push succeeds.
+#[test]
+fn fetch_pr_head_without_pinned_sha_returns_tip() {
+    let td = TempDir::new().unwrap();
+    let (local_path, _sha_a, sha_b) = setup_local_with_pr_ref(&td);
+
+    let resolved = GitService::new()
+        .fetch_pr_head(&local_path, 1, None)
+        .unwrap();
+    assert_eq!(
+        resolved, sha_b,
+        "without a pinned SHA, fetch_pr_head must return the tip of pull/N/head"
+    );
+}
+
+/// Reviewer path (issue #366 regression guard): the reviewer dispatch pins
+/// a SHA at dispatch time and the server submits the verdict against
+/// exactly that commit. If `fetch_pr_head` returned the current tip when a
+/// pinned SHA is provided, the reviewer would inspect a different commit
+/// than the one the verdict names — silent desync. This test enforces the
+/// coherence SHA-pinneada ↔ SHA-materializada that the container flow
+/// depends on (`LocalContainerService::with_pr_head_starting_points`).
+#[test]
+fn fetch_pr_head_with_pinned_sha_returns_pinned_not_tip() {
+    let td = TempDir::new().unwrap();
+    let (local_path, sha_a, sha_b) = setup_local_with_pr_ref(&td);
+    assert_ne!(sha_a, sha_b, "test setup must have distinct SHAs");
+
+    let resolved = GitService::new()
+        .fetch_pr_head(&local_path, 1, Some(&sha_a))
+        .unwrap();
+    assert_eq!(
+        resolved, sha_a,
+        "with a pinned SHA reachable via pull/N/head, fetch_pr_head must return the pinned SHA, not the tip"
+    );
+}
+
+/// Force-push sad path: the reviewer pinned a SHA at dispatch, but by the
+/// time the workspace is being materialized the PR head no longer contains
+/// that commit (author force-pushed). We must error out loudly so the
+/// caller rolls the workspace back — silently falling through to the tip
+/// would re-introduce the SHA↔worktree desync this fix exists to prevent.
+#[test]
+fn fetch_pr_head_with_unreachable_pinned_sha_errors() {
+    let td = TempDir::new().unwrap();
+    let (local_path, _sha_a, _sha_b) = setup_local_with_pr_ref(&td);
+
+    let bogus = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+    let err = GitService::new()
+        .fetch_pr_head(&local_path, 1, Some(bogus))
+        .unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains(bogus) && msg.contains("pull/1/head"),
+        "error must mention the missing SHA and the PR ref, got: {msg}"
+    );
+}

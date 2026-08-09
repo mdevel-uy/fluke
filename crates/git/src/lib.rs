@@ -2018,6 +2018,74 @@ impl GitService {
         }
     }
 
+    /// Fetch `pull/{pr_number}/head` from the default remote and resolve
+    /// which commit to anchor a workspace branch on. Used at materialization
+    /// time (see `LocalContainerService::create` →
+    /// `WorkspaceManager::create_workspace` with a pinned `starting_point`).
+    ///
+    /// When `pinned_sha` is `Some`, the caller wants to anchor on THAT
+    /// commit — the reviewer flow pins the SHA at dispatch and the server
+    /// submits the verdict against exactly that commit, so anchoring on the
+    /// current tip would silently desync if the author pushes between
+    /// dispatch and materialization. The method returns the pinned SHA
+    /// after verifying it's reachable via the fetch (in the object
+    /// database); if the pinned commit is missing (author force-pushed and
+    /// dropped it from `pull/{pr_number}/head`) the method errors out so
+    /// the caller can rollback instead of silently reviewing the wrong
+    /// commit.
+    ///
+    /// When `pinned_sha` is `None` (fix-task path), returns the tip of
+    /// `pull/{pr_number}/head` (`FETCH_HEAD`) — the author's next push
+    /// must fast-forward the PR head branch, so starting from the current
+    /// tip is what we want.
+    ///
+    /// The refspec follows GitHub's convention for exposing PR heads. The
+    /// fetched commit lands on `FETCH_HEAD` and, as a stable local ref, on
+    /// `refs/remotes/{remote}/pr/{pr_number}` so subsequent lookups can
+    /// find it without re-fetching.
+    pub fn fetch_pr_head(
+        &self,
+        repo_path: &Path,
+        pr_number: i64,
+        pinned_sha: Option<&str>,
+    ) -> Result<String, GitServiceError> {
+        let remote = self.get_default_remote(repo_path)?;
+        let refspec = format!(
+            "+refs/pull/{pr_number}/head:refs/remotes/{}/pr/{pr_number}",
+            remote.name
+        );
+        let cli = GitCli::new();
+        cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
+
+        let repo = self.open_repo(repo_path)?;
+        let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|e| {
+            GitServiceError::InvalidRepository(format!(
+                "FETCH_HEAD missing after fetching pull/{pr_number}/head: {e}"
+            ))
+        })?;
+        let tip = fetch_head.peel_to_commit()?.id().to_string();
+
+        let Some(pinned) = pinned_sha else {
+            return Ok(tip);
+        };
+        // The reviewer's pinned SHA must be reachable from the freshly
+        // fetched PR ref, otherwise we'd be reviewing thin air. A missing
+        // object is the tell-tale of a force-push that dropped the commit
+        // between dispatch and now.
+        let oid = git2::Oid::from_str(pinned).map_err(|e| {
+            GitServiceError::InvalidRepository(format!(
+                "SHA pinneada '{pinned}' inválida para pull/{pr_number}/head: {e}"
+            ))
+        })?;
+        repo.find_commit(oid).map_err(|_| {
+            GitServiceError::InvalidRepository(format!(
+                "SHA pinneada {pinned} no está en pull/{pr_number}/head después del fetch \
+                 (¿force-push desde que se despachó la review?)"
+            ))
+        })?;
+        Ok(pinned.to_string())
+    }
+
     /// Clone a repository to the specified directory
     #[cfg(feature = "cloud")]
     pub fn clone_repository(
