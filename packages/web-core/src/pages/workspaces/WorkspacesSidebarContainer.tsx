@@ -55,7 +55,8 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { systemApi } from '@/shared/lib/api';
+import { systemApi, workersApi, workspacesApi } from '@/shared/lib/api';
+import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { workspaceSummaryKeys } from '@/shared/hooks/workspaceSummaryKeys';
 import { workersKeys } from '@/features/workers/model/workersKeys';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
@@ -298,6 +299,36 @@ export function WorkspacesSidebarContainer({
     }
   }, [queryClient]);
 
+  // Bulk-purge of the Archived section. The confirm names the real total
+  // (context list), not the paginated slice the sidebar happens to render.
+  // No success toast: the section count dropping via the WS stream is the
+  // feedback; skipped-still-busy workspaces simply stay listed.
+  const handlePurgeArchived = useCallback(async () => {
+    const count = archivedWorkspaces.length;
+    if (count === 0) return;
+    const result = await ConfirmDialog.show({
+      title: t('workspaces.purgeArchived.title'),
+      message: t('workspaces.purgeArchived.confirm', { count }),
+      confirmText: t('workspaces.purgeArchived.action'),
+      variant: 'destructive',
+    });
+    if (result !== 'confirmed') return;
+
+    try {
+      await workspacesApi.deleteAllArchived();
+      await queryClient.invalidateQueries({
+        queryKey: workspaceSummaryKeys.all,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ConfirmDialog.show({
+        title: t('workspaces.purgeArchived.errorTitle'),
+        message,
+        variant: 'destructive',
+      });
+    }
+  }, [archivedWorkspaces.length, queryClient, t]);
+
   // Workspace sidebar filters + sort
   const workspaceFilters = useUiPreferencesStore((s) => s.workspaceFilters);
   const setWorkspaceProjectFilter = useUiPreferencesStore(
@@ -536,6 +567,40 @@ export function WorkspacesSidebarContainer({
 
   const workerTaskIndex = useWorkerTaskIndex(sidebarWorkers, workerTasks);
 
+  // Bulk-prune of the Failed section. Counts failed tasks (not workspaces):
+  // that is what the DELETE removes — the auto-archived workspaces stay in
+  // Archived, covered by its own purge. Same feedback contract as archived:
+  // the section count dropping via the refetch is the success signal.
+  const failedTaskCount = useMemo(
+    () => workerTasks.filter((task) => task.status === 'failed').length,
+    [workerTasks]
+  );
+  const handlePurgeFailed = useCallback(async () => {
+    if (failedTaskCount === 0) return;
+    const result = await ConfirmDialog.show({
+      title: t('workspaces.purgeFailed.title'),
+      message: t('workspaces.purgeFailed.confirm', { count: failedTaskCount }),
+      confirmText: t('workspaces.purgeFailed.action'),
+      variant: 'destructive',
+    });
+    if (result !== 'confirmed') return;
+
+    try {
+      await workersApi.deleteAllFailedTasks();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: workersKeys.all }),
+        queryClient.invalidateQueries({ queryKey: workspaceSummaryKeys.all }),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ConfirmDialog.show({
+        title: t('workspaces.purgeFailed.errorTitle'),
+        message,
+        variant: 'destructive',
+      });
+    }
+  }, [failedTaskCount, queryClient, t]);
+
   // Apply pagination (only when not searching)
   const paginatedActiveWorkspaces = useMemo(
     () =>
@@ -694,6 +759,8 @@ export function WorkspacesSidebarContainer({
       isLoading={isWorkspacesListLoading}
       selectedWorkspaceId={selectedWorkspaceId ?? null}
       onSelectWorkspace={handleSelectWorkspace}
+      onPurgeArchived={handlePurgeArchived}
+      onPurgeFailed={handlePurgeFailed}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       showArchive={showArchive}

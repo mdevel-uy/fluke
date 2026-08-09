@@ -190,6 +190,18 @@
     },
     "linkError": "Failed to link workspace",
     "stalledTask": "任务停滞 — 代理已停止但任务未推进",
+    "purgeArchived": {
+      "title": "清除已归档的工作区",
+      "confirm": "永久删除 {{count}} 个已归档的工作区？其 worktree 将被删除，分支将保留。仍在运行的工作区会被跳过。此操作无法撤销。",
+      "action": "全部清除",
+      "errorTitle": "清除已归档的工作区失败"
+    },
+    "purgeFailed": {
+      "title": "清除失败的任务",
+      "confirm": "永久删除 {{count}} 个失败的任务？其已归档的工作区将保留在“已归档”中。此操作无法撤销。",
+      "action": "全部清除",
+      "errorTitle": "清除失败的任务失败"
+    },
     "scopes": {
       "attention": "需要你处理",
       "review": "审阅中",

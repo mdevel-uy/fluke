@@ -540,6 +540,20 @@ export const workspacesApi = {
     return handleApiResponse<void>(response);
   },
 
+  /**
+   * Bulk-purge every archived workspace. Workspaces with processes still
+   * running are skipped, not failed. Branches are kept.
+   */
+  deleteAllArchived: async (): Promise<{
+    deleted: number;
+    skipped: number;
+  }> => {
+    const response = await makeRequest('/api/workspaces/archived', {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ deleted: number; skipped: number }>(response);
+  },
+
   linkToIssue: async (
     workspaceId: string,
     projectId: string,
@@ -2459,6 +2473,18 @@ export const workersApi = {
 
   deleteAllArchived: async (): Promise<{ deleted: number }> => {
     const response = await makeRequest('/api/workers/archived', {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ deleted: number }>(response);
+  },
+
+  /**
+   * Bulk-prune every failed worker task. `failed` is terminal (retries spawn
+   * fresh tasks), so these cards are history; their archived workspaces are
+   * kept, same as the per-card delete.
+   */
+  deleteAllFailedTasks: async (): Promise<{ deleted: number }> => {
+    const response = await makeRequest('/api/workers/failed-tasks', {
       method: 'DELETE',
     });
     return handleApiResponse<{ deleted: number }>(response);

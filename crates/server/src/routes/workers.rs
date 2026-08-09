@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use chrono::{DateTime, Utc};
 use db::models::{
@@ -922,6 +922,30 @@ pub async fn delete_all_archived_workers(
     let deleted = Worker::delete_all_archived(pool).await?;
     Ok(ResponseJson(ApiResponse::success(
         DeleteAllArchivedResponse {
+            deleted: deleted as i64,
+        },
+    )))
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeleteAllFailedTasksResponse {
+    pub deleted: i64,
+}
+
+/// Bulk-prune every failed worker task (header action on the sidebar's
+/// Failed section). `failed` is terminal — retries always create a fresh
+/// task — so these cards are pure history; an incident burst leaves dozens
+/// behind. Mirrors the archived purge: single DELETE, `{ deleted: N }`
+/// response, `0` is a valid result when there was nothing to prune. The
+/// tasks' archived workspaces are kept, same as the per-card delete — they
+/// surface under Archived and its own purge covers them.
+pub async fn delete_all_failed_tasks(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<DeleteAllFailedTasksResponse>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let deleted = WorkerTask::delete_all_failed(pool).await?;
+    Ok(ResponseJson(ApiResponse::success(
+        DeleteAllFailedTasksResponse {
             deleted: deleted as i64,
         },
     )))
@@ -1973,6 +1997,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(list_pending_design_handoffs),
         )
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
+        .route("/workers/failed-tasks", delete(delete_all_failed_tasks))
         .route(
             "/workers/archived",
             get(list_archived_workers).delete(delete_all_archived_workers),

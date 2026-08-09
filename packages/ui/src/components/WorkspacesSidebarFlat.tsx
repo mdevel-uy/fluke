@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
-import { CollapsibleSectionHeader } from './CollapsibleSectionHeader';
+import {
+  CollapsibleSectionHeader,
+  type SectionAction,
+} from './CollapsibleSectionHeader';
 import { ResizableSidebarSection } from './ResizableSidebarSection';
 import { SidebarSectionsMenu, useHiddenSections } from './SidebarSectionsMenu';
 import type { AppBarHostStatus } from './AppBar';
@@ -31,6 +34,10 @@ export interface WorkspacesSidebarFlatProps {
   hasMoreWorkspaces?: boolean;
   searchControls?: ReactNode;
   onOpenWorkspaceActions?: (workspaceId: string) => void;
+  /** Bulk-purge every archived workspace (header action on the Archived section). */
+  onPurgeArchived?: () => void;
+  /** Bulk-prune every failed worker task (header action on the Failed section). */
+  onPurgeFailed?: () => void;
   persistKeys?: WorkspacesSidebarPersistKeys;
   activeRemoteHost?: { name: string; status: AppBarHostStatus } | null;
   onOpenRemoteHostSettings?: () => void;
@@ -198,6 +205,7 @@ function Section({
   onOpenWorkspaceActions,
   defaultOpen = true,
   alwaysShow = false,
+  actions,
 }: {
   persistKey: string;
   title: string;
@@ -209,6 +217,7 @@ function Section({
   defaultOpen?: boolean;
   /** Render the header even with no items (SHELL-SPEC R10: Archived). */
   alwaysShow?: boolean;
+  actions?: SectionAction[];
 }) {
   if (items.length === 0 && !alwaysShow) return null;
   return (
@@ -217,6 +226,7 @@ function Section({
       title={title}
       count={items.length}
       defaultOpen={defaultOpen}
+      actions={actions}
     >
       <div className="flex flex-col">
         {items.map((ws) => (
@@ -250,6 +260,8 @@ export function WorkspacesSidebarFlat({
   hasMoreWorkspaces = false,
   searchControls,
   onOpenWorkspaceActions,
+  onPurgeArchived,
+  onPurgeFailed,
   activeRemoteHost,
   onOpenRemoteHostSettings,
 }: WorkspacesSidebarFlatProps) {
@@ -438,6 +450,11 @@ export function WorkspacesSidebarFlat({
             selectedWorkspaceId={selectedWorkspaceId}
             onSelectWorkspace={onSelectWorkspace}
             onOpenWorkspaceActions={onOpenWorkspaceActions}
+            actions={
+              onPurgeFailed && groups.failed.length > 0
+                ? [{ materialIcon: 'delete_sweep', onClick: onPurgeFailed }]
+                : undefined
+            }
           />
         )}
         {!hiddenSections.archived && (
@@ -453,6 +470,11 @@ export function WorkspacesSidebarFlat({
             onOpenWorkspaceActions={onOpenWorkspaceActions}
             defaultOpen={false}
             alwaysShow
+            actions={
+              onPurgeArchived && groups.archived.length > 0
+                ? [{ materialIcon: 'delete_sweep', onClick: onPurgeArchived }]
+                : undefined
+            }
           />
         )}
 
