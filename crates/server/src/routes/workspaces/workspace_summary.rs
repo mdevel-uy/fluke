@@ -18,7 +18,7 @@ use executors::logs::{
 };
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use services::services::container::ContainerService;
+use services::services::{container::ContainerService, worker_orchestrator};
 use ts_rs::TS;
 use utils::{log_msg::LogMsg, response::ApiResponse};
 use uuid::Uuid;
@@ -83,6 +83,12 @@ pub struct WorkspaceSummary {
     /// from silence before a verdict exists.
     #[ts(optional)]
     pub pr_review_activity: Option<String>,
+    /// True while the orchestrator is publishing this developer worker's PR
+    /// (push + adopt/create + `on_pr_open`). During this window the task is
+    /// still `in_progress` in the DB but the agent has already stopped, so
+    /// the frontend uses this flag to suppress the "stalled" badge that would
+    /// otherwise flash between "agent done" and "in review" (issue #494).
+    pub is_finalizing: bool,
 }
 
 /// Response containing summaries for requested workspaces
@@ -242,6 +248,7 @@ pub async fn get_workspace_summaries(
                     pr.repo_id
                         .and_then(|rid| reviewer_activity.get(&(rid, pr.pr_number)).cloned())
                 }),
+                is_finalizing: worker_orchestrator::is_workspace_finalizing(id),
             }
         })
         .collect();

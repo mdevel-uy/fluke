@@ -51,11 +51,15 @@ export function withWorkerTaskInfo<T extends SidebarWorkspace>(
       workerModel: worker?.model ?? undefined,
       taskTitle: taskDisplayTitle(task),
       // In-progress task whose agent stopped without advancing the task
-      // (e.g. a pending push) — surface it as needing attention.
+      // (e.g. a pending push) — surface it as needing attention. `isFinalizing`
+      // is the orchestrator's own "I'm publishing the PR right now" signal
+      // (issue #494): without this guard, the card flashes "stalled" during
+      // the seconds between agent-finished and task→in_review.
       hasStalledTask:
         task.status === 'in_progress' &&
         !ws.isRunning &&
         !ws.hasPendingApproval &&
+        !ws.isFinalizing &&
         ws.latestProcessStatus !== 'running',
       hasFailedTask: task.status === 'failed',
       hasTaskInReview: task.status === 'in_review',

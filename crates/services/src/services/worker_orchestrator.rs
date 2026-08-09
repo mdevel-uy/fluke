@@ -43,7 +43,11 @@
 //! (incident 03-ago-2025, PR #386). Ops can raise the cap per instance via
 //! `WORKER_MAX_IN_REVIEW` when higher WIP per worker is acceptable.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use db::{
     DBService,
@@ -88,6 +92,54 @@ use crate::services::{
 
 pub const DEFAULT_MAX_IN_REVIEW: i64 = 1;
 pub const WORKER_MAX_IN_REVIEW_ENV: &str = "WORKER_MAX_IN_REVIEW";
+
+/// Workspaces whose developer agent just finished and whose PR is being
+/// published (push + adopt/create + on_pr_open). Held only while the
+/// reconciliation window is open — cleared automatically via
+/// [`FinalizingGuard`] on every exit path. In-memory on purpose: a server
+/// restart wipes it, so a crash during finalization can't leave a stuck flag
+/// (issue #494).
+static FINALIZING_WORKSPACES: LazyLock<Mutex<HashSet<Uuid>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+/// Is this workspace inside the post-agent PR-publishing window?
+///
+/// The workspace_summary endpoint calls this so the frontend can distinguish
+/// "the agent stopped and the task is stuck" (real stalled state) from "the
+/// agent finished and the orchestrator is publishing the PR right now" (a
+/// transient step, not a user-actionable stall).
+pub fn is_workspace_finalizing(workspace_id: Uuid) -> bool {
+    FINALIZING_WORKSPACES
+        .lock()
+        .map(|set| set.contains(&workspace_id))
+        .unwrap_or(false)
+}
+
+/// RAII marker for the finalization window opened in
+/// [`on_developer_agent_finished`]. Inserting on construction and removing on
+/// drop means every early-return branch (success, failure, best-effort exits)
+/// releases the flag without explicit bookkeeping — same shape as `defer` in
+/// other languages.
+struct FinalizingGuard {
+    workspace_id: Uuid,
+}
+
+impl FinalizingGuard {
+    fn new(workspace_id: Uuid) -> Self {
+        if let Ok(mut set) = FINALIZING_WORKSPACES.lock() {
+            set.insert(workspace_id);
+        }
+        Self { workspace_id }
+    }
+}
+
+impl Drop for FinalizingGuard {
+    fn drop(&mut self) {
+        if let Ok(mut set) = FINALIZING_WORKSPACES.lock() {
+            set.remove(&self.workspace_id);
+        }
+    }
+}
 
 /// Final instruction for developer workers: commit and verify; the system
 /// handles push and PR creation automatically on run completion.
@@ -2006,6 +2058,14 @@ async fn on_developer_agent_finished(
         return Ok(());
     }
 
+    // Open the finalization window: from here on the task is still `in_progress`
+    // in the DB but the orchestrator is about to publish the PR (push +
+    // adopt/create + `on_pr_open`). The frontend uses `is_workspace_finalizing`
+    // to suppress the "stalled — task in progress, agent stopped" badge during
+    // this transient window (issue #494). The guard clears on drop, so every
+    // early-return branch below releases it automatically.
+    let _finalizing = FinalizingGuard::new(workspace_id);
+
     if !succeeded {
         let details = agent_failure_details(pool, execution_id).await;
         let kind = details.infra.then_some(worker_task::FAILURE_KIND_INFRA);
@@ -3436,6 +3496,33 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    /// The finalizing-guard is the entire mechanism that hides the "stalled"
+    /// flash while the orchestrator publishes the PR (issue #494): if it stops
+    /// clearing on drop, cards get stuck showing `is_finalizing=true` forever.
+    #[test]
+    fn finalizing_guard_sets_and_clears_flag() {
+        let workspace_id = Uuid::new_v4();
+        assert!(!is_workspace_finalizing(workspace_id));
+        {
+            let _guard = FinalizingGuard::new(workspace_id);
+            assert!(is_workspace_finalizing(workspace_id));
+        }
+        assert!(!is_workspace_finalizing(workspace_id));
+    }
+
+    /// The guard must clear on drop even when the enclosing function panics —
+    /// the acceptance criterion is "no stuck flag on failure of any kind".
+    #[test]
+    fn finalizing_guard_clears_on_panic() {
+        let workspace_id = Uuid::new_v4();
+        let result = std::panic::catch_unwind(|| {
+            let _guard = FinalizingGuard::new(workspace_id);
+            panic!("simulated push failure");
+        });
+        assert!(result.is_err());
+        assert!(!is_workspace_finalizing(workspace_id));
+    }
 
     #[test]
     fn builds_prompt_with_base_instructions_soul_task_and_final_instruction() {
