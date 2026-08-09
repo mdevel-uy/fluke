@@ -1,0 +1,13 @@
+-- Persist the file-territory globs parsed from the issue body when a task is
+-- created. Feeds the "territory lint" comment on the PR (`on_developer_agent_
+-- finished`) and the reviewer prompt injection (`dispatch_review_task`).
+--
+-- Nullable. NULL means "no territory declared" (issue lacked a `## Territorio`
+-- section, or parsing found no path-like tokens) — the lint is a warning, not
+-- a gate, so a NULL column simply skips the check.
+--
+-- Storage: JSON-encoded array of glob strings, e.g.
+--   ["crates/services/**", "crates/db/models/worker_task.rs"]
+-- Kept as TEXT for the same reason `skills` / `issue_labels` are: SQLite has
+-- no native array type and every reader already goes through serde_json.
+ALTER TABLE worker_tasks ADD COLUMN territory_globs TEXT DEFAULT NULL;

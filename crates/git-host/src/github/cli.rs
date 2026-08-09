@@ -424,6 +424,27 @@ impl GhCli {
         Self::parse_pr_review_comments(&raw)
     }
 
+    /// Post a plain comment on the PR conversation. The body is passed via a
+    /// temp file (`--body-file`) so newlines and shell metacharacters travel
+    /// untouched — the same technique `create_pr` uses.
+    pub fn post_pr_comment(&self, pr_url: &str, body: &str) -> Result<(), GhCliError> {
+        let mut body_file = NamedTempFile::new()
+            .map_err(|e| GhCliError::CommandFailed(format!("Failed to create temp file: {e}")))?;
+        body_file
+            .write_all(body.as_bytes())
+            .map_err(|e| GhCliError::CommandFailed(format!("Failed to write body: {e}")))?;
+
+        let mut args: Vec<OsString> = Vec::with_capacity(5);
+        args.push(OsString::from("pr"));
+        args.push(OsString::from("comment"));
+        args.push(OsString::from(pr_url));
+        args.push(OsString::from("--body-file"));
+        args.push(body_file.path().as_os_str().to_os_string());
+
+        self.run(args, None)?;
+        Ok(())
+    }
+
     /// Return the mergeable state of a pull request: "mergeable", "conflicting", or "unknown".
     pub fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GhCliError> {
         let raw = self.run(["pr", "view", pr_url, "--json", "mergeable"], None)?;

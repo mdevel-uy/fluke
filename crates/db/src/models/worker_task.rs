@@ -53,6 +53,20 @@ pub fn is_valid_source(value: &str) -> bool {
     matches!(value, SOURCE_KANBAN | SOURCE_DESK)
 }
 
+/// Encode territory globs for storage: `None` for an empty vector (issue
+/// declared no territory), `Some("[...]")` for anything else. Persisting `[]`
+/// separately from `NULL` is deliberate: it distinguishes "the issue had a
+/// `## Territorio` section but no path-like tokens survived parsing" from
+/// "no territory section at all". The lint treats both the same way, but the
+/// distinction is useful when auditing rows by hand.
+fn encode_territory_globs(globs: &[String]) -> Option<String> {
+    if globs.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(globs).unwrap_or_else(|_| "[]".to_string()))
+    }
+}
+
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct WorkerTask {
     pub id: Uuid,
@@ -95,6 +109,13 @@ pub struct WorkerTask {
     /// deliverable this task consumes. Its existence is the "already handed
     /// off" guard for the source task.
     pub source_task_id: Option<Uuid>,
+    /// JSON-encoded array of file globs parsed from the `## Territorio`
+    /// section of the issue body at task creation. `None` means the issue
+    /// declared no territory; `Some("[]")` means one was present but no
+    /// path-like tokens survived parsing. Feeds the PR territory lint and
+    /// the reviewer prompt injection (issue #95). The value is advisory —
+    /// never a gate.
+    pub territory_globs: Option<String>,
 }
 
 /// A finished designer deliverable that no analyst has taken yet. Feeds the
@@ -121,7 +142,7 @@ pub struct HandoffInfo {
     pub status: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CreateWorkerTask {
     pub repo_id: Uuid,
     pub title: String,
@@ -130,9 +151,23 @@ pub struct CreateWorkerTask {
     pub skills: Vec<String>,
     pub issue_labels: Vec<String>,
     pub source: String,
+    /// File globs parsed from the issue's `## Territorio` section. Empty
+    /// vector = no territory declared, persisted as SQL `NULL` so a later
+    /// `NULL vs [] ` distinction is preserved for humans reading the row.
+    pub territory_globs: Vec<String>,
 }
 
 impl WorkerTask {
+    /// Decode `territory_globs` into a `Vec<String>`. Returns an empty vector
+    /// for `NULL`, malformed JSON, or `[]`. The lint treats "no territory"
+    /// and "empty territory" identically, so callers rarely need to distinguish.
+    pub fn territory_globs_parsed(&self) -> Vec<String> {
+        self.territory_globs
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+            .unwrap_or_default()
+    }
+
     pub async fn list_by_worker(
         pool: &SqlitePool,
         worker_id: Uuid,
@@ -142,7 +177,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE worker_id = ?1
                ORDER BY position ASC, created_at ASC",
@@ -158,7 +193,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE id = ?1",
         )
@@ -186,12 +221,14 @@ impl WorkerTask {
         let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
         let issue_labels_json =
             serde_json::to_string(&data.issue_labels).unwrap_or_else(|_| "[]".to_string());
+        let territory_globs_json = encode_territory_globs(&data.territory_globs);
 
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status, skills, issue_labels, source)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10)",
+                  issue_number, status, skills, issue_labels, source,
+                  territory_globs)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11)",
         )
         .bind(id)
         .bind(worker_id)
@@ -203,6 +240,7 @@ impl WorkerTask {
         .bind(&skills_json)
         .bind(&issue_labels_json)
         .bind(&data.source)
+        .bind(territory_globs_json.as_deref())
         .execute(pool)
         .await?;
 
@@ -233,12 +271,14 @@ impl WorkerTask {
         let skills_json = serde_json::to_string(&data.skills).unwrap_or_else(|_| "[]".to_string());
         let issue_labels_json =
             serde_json::to_string(&data.issue_labels).unwrap_or_else(|_| "[]".to_string());
+        let territory_globs_json = encode_territory_globs(&data.territory_globs);
 
         sqlx::query(
             "INSERT INTO worker_tasks
                  (id, worker_id, repo_id, position, title, prompt,
-                  issue_number, status, skills, issue_labels, source, kind)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11)",
+                  issue_number, status, skills, issue_labels, source, kind,
+                  territory_globs)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?9, ?10, ?11, ?12)",
         )
         .bind(id)
         .bind(worker_id)
@@ -251,6 +291,7 @@ impl WorkerTask {
         .bind(&issue_labels_json)
         .bind(&data.source)
         .bind(KIND_REVIEW_FIX)
+        .bind(territory_globs_json.as_deref())
         .execute(pool)
         .await?;
 
@@ -314,7 +355,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE status = 'in_progress'",
         )
@@ -332,7 +373,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'in_progress'
                ORDER BY position ASC, created_at ASC
@@ -353,7 +394,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE worker_id = ?1 AND status = 'queued'
                ORDER BY position ASC, created_at ASC
@@ -461,7 +502,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE status = 'in_progress' AND workspace_id IS NOT NULL",
         )
@@ -479,7 +520,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE workspace_id = ?1
                LIMIT 1",
@@ -682,7 +723,7 @@ impl WorkerTask {
                     wt.issue_number, wt.status, wt.workspace_id, wt.skills, wt.issue_labels, wt.source,
                     wt.created_at, wt.review_result, wt.failure_reason,
                     wt.hours_saved_override, wt.result_summary, wt.deliverable_ref,
-                    wt.source_task_id
+                    wt.source_task_id, wt.territory_globs
                FROM worker_tasks wt
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
@@ -756,7 +797,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
@@ -885,7 +926,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE issue_number = ?1
                  AND repo_id = ?2
@@ -1089,7 +1130,7 @@ impl WorkerTask {
                     issue_number, status, workspace_id, skills, issue_labels, source,
                     created_at, review_result, failure_reason,
                     hours_saved_override, result_summary, deliverable_ref,
-                    source_task_id
+                    source_task_id, territory_globs
                FROM worker_tasks
                WHERE id = ?1",
         )
