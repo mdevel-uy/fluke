@@ -85,6 +85,14 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 ## 1.4 Emisión y renovación de licencias
 
+> **Vía normal (automática)**: con `MKANBAN_CONTROL_PLANE_URL` y
+> `MKANBAN_INGEST_TOKEN` en el `.env` del bundle, la instancia se auto-vincula
+> al cliente en el panel (control.mkanban.dev/admin) y la licencia se renueva
+> sola en cada heartbeat mientras el cliente esté al día. El alta del cliente
+> en el panel entrega el token y un comando de bootstrap que deja todo
+> configurado. La rutina manual de abajo queda para instalaciones sin salida a
+> internet o como contingencia.
+
 La herramienta es `mkanban-license` (crate `crates/mkanban-license`, interno —
 no se distribuye al cliente). La clave privada se guarda **cifrada con
 passphrase**; el archivo `.enc` en reposo no sirve sin ella.
