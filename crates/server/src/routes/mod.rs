@@ -13,6 +13,7 @@ pub mod attachments;
 pub mod ci_studio;
 pub mod config;
 pub mod containers;
+pub mod data_export;
 pub mod editor_server;
 pub mod events;
 pub mod execution_processes;
@@ -82,6 +83,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(webrtc::router())
         .merge(skills::router())
         .merge(system::router())
+        .merge(data_export::router())
         .merge(workers::router())
         .nest("/attachments", attachments::routes())
         .layer(axum::middleware::from_fn_with_state(

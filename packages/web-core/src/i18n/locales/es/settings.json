@@ -36,7 +36,9 @@
         "github": "GitHub",
         "githubDesc": "Inicia sesión con tu cuenta de GitHub",
         "agent-auth": "Conexiones de agentes",
-        "agent-authDesc": "Conectá y desconectá cada agente instalado desde Ajustes"
+        "agent-authDesc": "Conectá y desconectá cada agente instalado desde Ajustes",
+        "data": "Datos",
+        "dataDesc": "Exportá o restaurá todos los datos de tu instancia"
       }
     },
     "general": {
@@ -695,6 +697,46 @@
         "logoutFailed": "No pudimos desconectar el agente.",
         "cancelFailed": "No pudimos cancelar la conexión.",
         "submitCodeFailed": "No pudimos enviar el código de intercambio."
+      }
+    },
+    "data": {
+      "export": {
+        "title": "Exportar todos los datos",
+        "description": "Descargá un backup completo de tu instancia de mkanban. Útil para el offboarding a un nuevo host.",
+        "contentsLabel": "Qué incluye",
+        "contents": {
+          "database": "Base de datos SQLite con todos los proyectos, workspaces e historial de tareas (snapshot consistente vía VACUUM INTO)",
+          "config": "Archivos de configuración (settings, perfiles, guidelines, MCP, credenciales, estado de licencia)",
+          "repos": "Una copia de cada repositorio registrado (se excluyen directorios de build, se saltean archivos mayores a 100 MiB)",
+          "manifest": "Un manifiesto que describe el contenido del archivo y las instrucciones de restauración"
+        },
+        "sensitiveWarning": {
+          "title": "Contiene credenciales sensibles",
+          "message": "El archivo incluye credentials.json, claves privadas y estado de licencia. Tratalo como secreto — no lo mandes por mail, no lo subas a servicios públicos ni lo adjuntes a un ticket de soporte sin cifrar."
+        },
+        "warningsBanner": "El export terminó con {{count}} incidencia(s). Se saltearon archivos — abrí manifest.json dentro del zip para ver el detalle completo.",
+        "remoteHostOnly": {
+          "title": "Solo host local",
+          "message": "El export empaqueta los datos de la máquina a la que estás conectado ahora. Cambiá al host local en el selector de arriba para ejecutarlo."
+        },
+        "button": "Exportar todos los datos",
+        "generating": "Generando archivo…",
+        "regenerate": "Volver a generar",
+        "generatingHint": "El servidor está empaquetando tus datos. Puede tardar si hay repositorios grandes.",
+        "success": "Export listo. La descarga arranca automáticamente.",
+        "downloadAgain": "Volver a descargar {{filename}}",
+        "error": "Falló el export: {{message}}"
+      },
+      "restore": {
+        "title": "Cómo restaurar",
+        "description": "Pasos para recuperar tus datos en una instancia fresca de mkanban.",
+        "steps": {
+          "install": "Instalá una instancia fresca de mkanban en el nuevo host.",
+          "stop": "Pará el proceso de mkanban antes de restaurar.",
+          "copyAssets": "Copiá el contenido de asset_dir/ al directorio de datos de la nueva instancia.",
+          "copyRepos": "Movete cada carpeta bajo repos/ al path que elijas.",
+          "startAndReattach": "Iniciá mkanban y, si el path de algún repo cambió, actualizalo desde Ajustes → Repositorios."
+        }
       }
     }
   },

@@ -1,4 +1,5 @@
 import {
+  ArchiveIcon,
   GearIcon,
   GitBranchIcon,
   GithubLogoIcon,
@@ -17,6 +18,7 @@ import { GuidelinesSettingsSection } from './GuidelinesSettingsSection';
 import { McpSettingsSection } from './McpSettingsSection';
 import { GitHubSettingsSection } from './GitHubSettingsSection';
 import { SkillsSettingsSection } from './SkillsSettingsSection';
+import { DataSettingsSection } from './DataSettingsSection';
 
 export type SettingsSectionType =
   | 'general'
@@ -29,7 +31,8 @@ export type SettingsSectionType =
   | 'mcp'
   | 'relay'
   | 'github'
-  | 'skills';
+  | 'skills'
+  | 'data';
 
 export type SettingsSectionGroup = 'host' | 'universal';
 
@@ -47,6 +50,7 @@ export type SettingsSectionInitialState = {
   relay: { hostId?: string } | undefined;
   github: undefined;
   skills: undefined;
+  data: undefined;
 };
 
 export interface SettingsSectionDefinition {
@@ -63,6 +67,7 @@ export const SETTINGS_SECTION_DEFINITIONS: SettingsSectionDefinition[] = [
   { id: 'guidelines', icon: ScrollIcon, group: 'host' },
   { id: 'mcp', icon: PlugIcon, group: 'host' },
   { id: 'skills', icon: PuzzlePieceIcon, group: 'host' },
+  { id: 'data', icon: ArchiveIcon, group: 'host' },
   { id: 'github', icon: GithubLogoIcon, group: 'universal' },
 ];
 
@@ -99,6 +104,8 @@ export function renderSettingsSection(
       return <McpSettingsSection />;
     case 'skills':
       return <SkillsSettingsSection />;
+    case 'data':
+      return <DataSettingsSection />;
     case 'github':
       return <GitHubSettingsSection />;
     default:

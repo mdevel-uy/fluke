@@ -36,7 +36,9 @@
         "github": "GitHub",
         "githubDesc": "Connectez-vous à GitHub avec la CLI gh",
         "agent-auth": "Connexions des agents",
-        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres"
+        "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres",
+        "data": "Données",
+        "dataDesc": "Exporter ou restaurer toutes les données de votre instance"
       }
     },
     "general": {
@@ -695,6 +697,46 @@
         "logoutFailed": "Impossible de déconnecter l'agent.",
         "cancelFailed": "Impossible d'annuler la connexion.",
         "submitCodeFailed": "Impossible d'envoyer le code d'échange."
+      }
+    },
+    "data": {
+      "export": {
+        "title": "Exporter toutes les données",
+        "description": "Téléchargez une sauvegarde complète de vos données mkanban. Utile lors d'un offboarding vers un nouvel hôte.",
+        "contentsLabel": "Contenu de l'archive",
+        "contents": {
+          "database": "Base de données SQLite avec tous les projets, workspaces et l'historique des tâches (snapshot cohérent via VACUUM INTO)",
+          "config": "Fichiers de configuration (paramètres, profils, guidelines, MCP, identifiants, état de licence)",
+          "repos": "Une copie de chaque dépôt enregistré (les répertoires de build sont exclus, les fichiers de plus de 100 Mio sont ignorés)",
+          "manifest": "Un manifeste décrivant la structure de l'archive et les instructions de restauration"
+        },
+        "sensitiveWarning": {
+          "title": "Contient des identifiants sensibles",
+          "message": "L'archive inclut credentials.json, des clés privées et l'état de la licence. Traitez-la comme un secret — ne l'envoyez pas par e-mail, ne la téléversez pas sur un service public et ne la joignez pas à un ticket de support sans chiffrement."
+        },
+        "warningsBanner": "L'export s'est terminé avec {{count}} problème(s). Certains fichiers ont été ignorés — ouvrez manifest.json dans l'archive pour la liste complète.",
+        "remoteHostOnly": {
+          "title": "Hôte local uniquement",
+          "message": "L'export empaquette les données de la machine à laquelle vous êtes actuellement connecté. Passez à votre hôte local dans le sélecteur ci-dessus pour l'exécuter."
+        },
+        "button": "Exporter toutes les données",
+        "generating": "Génération de l'archive…",
+        "regenerate": "Régénérer l'export",
+        "generatingHint": "Le serveur empaquette vos données. Cela peut prendre du temps pour les grands dépôts.",
+        "success": "Export prêt. Le téléchargement démarre automatiquement.",
+        "downloadAgain": "Retélécharger {{filename}}",
+        "error": "Échec de l'export : {{message}}"
+      },
+      "restore": {
+        "title": "Comment restaurer",
+        "description": "Étapes pour récupérer vos données sur une nouvelle instance mkanban.",
+        "steps": {
+          "install": "Installez une nouvelle instance mkanban sur le nouvel hôte.",
+          "stop": "Arrêtez le processus mkanban avant de restaurer.",
+          "copyAssets": "Copiez le contenu de asset_dir/ dans le répertoire de données de la nouvelle instance.",
+          "copyRepos": "Déplacez chaque dossier de repos/ vers le chemin de votre choix.",
+          "startAndReattach": "Démarrez mkanban et, si le chemin d'un dépôt a changé, mettez-le à jour depuis Paramètres → Dépôts."
+        }
       }
     }
   },

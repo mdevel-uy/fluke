@@ -36,7 +36,9 @@
         "skills": "Skills",
         "skillsDesc": "Manage agent skills installed in ~/.claude/skills",
         "agent-auth": "Agent connections",
-        "agent-authDesc": "Sign each installed agent in or out from Settings"
+        "agent-authDesc": "Sign each installed agent in or out from Settings",
+        "data": "Data",
+        "dataDesc": "Export or restore all your instance data"
       }
     },
     "hostPicker": {
@@ -695,6 +697,46 @@
         "logoutFailed": "Failed to disconnect the agent.",
         "cancelFailed": "Failed to cancel the connection.",
         "submitCodeFailed": "Failed to submit the exchange code."
+      }
+    },
+    "data": {
+      "export": {
+        "title": "Export all data",
+        "description": "Download a full backup of your mkanban data. Useful when offboarding to a new host.",
+        "contentsLabel": "What's inside",
+        "contents": {
+          "database": "SQLite database with all projects, workspaces and task history (consistent snapshot taken with VACUUM INTO)",
+          "config": "Configuration files (settings, profiles, guidelines, MCP, credentials, license state)",
+          "repos": "A copy of each registered repository (build directories are excluded, files above 100 MiB are skipped)",
+          "manifest": "A manifest describing the archive layout with restore instructions"
+        },
+        "sensitiveWarning": {
+          "title": "Contains sensitive credentials",
+          "message": "The archive includes credentials.json, private keys and license state. Treat it as a secret — do not email it, upload it to a public service, or attach it to a support ticket without encryption."
+        },
+        "warningsBanner": "Export finished with {{count}} issue(s). Some files were skipped — open manifest.json inside the archive for the full list.",
+        "remoteHostOnly": {
+          "title": "Local host only",
+          "message": "Data export packages the data of the machine you're currently connected to. Switch to your local host in the picker above to run it."
+        },
+        "button": "Export all data",
+        "generating": "Generating archive…",
+        "regenerate": "Regenerate export",
+        "generatingHint": "The server is packaging your data. This may take a while for large repositories.",
+        "success": "Export ready. The download should start automatically.",
+        "downloadAgain": "Download {{filename}} again",
+        "error": "Export failed: {{message}}"
+      },
+      "restore": {
+        "title": "How to restore",
+        "description": "Steps to recover your data on a fresh mkanban instance.",
+        "steps": {
+          "install": "Install a fresh mkanban instance on the new host.",
+          "stop": "Stop the mkanban process before restoring.",
+          "copyAssets": "Copy the contents of asset_dir/ into the new instance's data directory.",
+          "copyRepos": "Move each folder under repos/ back to a path of your choice.",
+          "startAndReattach": "Start mkanban and, if a repo's path changed, update it from Settings → Repositories."
+        }
       }
     }
   },
