@@ -117,13 +117,20 @@ fn render_conflicted_files_block(files: &[String], max_bytes: usize) -> String {
 /// Build the "Address PR comments" prompt.
 ///
 /// `owner_repo` is the pre-resolved `owner/name` slug. When `Some`, every
-/// `gh` invocation in the prompt is targeted with `-R owner/repo` — no
-/// placeholders for the agent to fill in. When `None` (typically because
-/// the PR URL is not a recognizable GitHub URL), the prompt falls back to
-/// invoking `gh` with the PR URL as a positional arg so we don't emit
-/// syntactically bogus `-R <full-url>` commands. `comments_block` is the
-/// pre-rendered inline text (see [`render_comments_block`]); pass `None`
-/// when the enrichment fetch failed and the agent should fall back to `gh`.
+/// read-only `gh` invocation in the prompt is targeted with `-R owner/repo`
+/// — no placeholders for the agent to fill in. When `None` (typically
+/// because the PR URL is not a recognizable GitHub URL), the prompt falls
+/// back to invoking `gh` with the PR URL as a positional arg so we don't
+/// emit syntactically bogus `-R <full-url>` commands. `comments_block` is
+/// the pre-rendered inline text (see [`render_comments_block`]); pass
+/// `None` when the enrichment fetch failed and the agent should fall back
+/// to `gh`.
+///
+/// Any PR writes the agent needs (replies to reviewer questions, summary
+/// comment) MUST be declared in `.vk/actions.json` at the repo root via
+/// the `comment_pr` outbox kind — the orchestrator submits them with the
+/// worker's PAT after the run. The prompt never suggests direct GitHub
+/// write commands (see `factory-guards.sh` gh-write rule and issue #549).
 pub fn format_address_pr_comments_prompt(
     pr_number: i64,
     pr_url: &str,
@@ -150,18 +157,16 @@ pub fn format_address_pr_comments_prompt(
             ),
         },
     };
-    let reply_command = match owner_repo {
-        Some(slug) => format!("gh pr comment {pr_number} -R {slug} -b '<respuesta>'"),
-        None => format!("gh pr comment {pr_url} -b '<respuesta>'"),
-    };
     format!(
         "Tu PR #{pr_number} ({pr_url}) tiene comentarios de review pendientes. Encaralos ahora:\n\
          \n\
          1. {step1}\n\
          2. Agrupá los comentarios por archivo/tema. Diferenciá pedidos accionables\n\
             de simples preguntas: los accionables se implementan; a las preguntas\n\
-            respondelas en el PR (`{reply_command}`)\n\
-            sin tocar código si no hace falta.\n\
+            respondelas dejando entradas `{{ \"kind\": \"comment_pr\", \"pr\": {pr_number}, \"body\": \"...\" }}`\n\
+            en `.vk/actions.json` en la raíz del worktree — el sistema las publica\n\
+            con tu identidad después de la corrida. NO ejecutes escrituras a\n\
+            GitHub vos mismo.\n\
          3. Aplicá los cambios en tu rama, corré el build/typecheck (`pnpm run check`\n\
             o `cargo check` según corresponda) y ejecutá los tests que toquen las\n\
             zonas modificadas.\n\
@@ -169,9 +174,9 @@ pub fn format_address_pr_comments_prompt(
             nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,\n\
             usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream\n\
             de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.\n\
-         5. Cuando termines, dejá un comentario resumen en el PR listando qué\n\
-            pedidos atendiste y cuáles quedaron abiertos con su razón, para que el\n\
-            reviewer pueda re-revisar rápido."
+         5. Cuando termines, dejá una acción `comment_pr` final en `.vk/actions.json`\n\
+            con un resumen listando qué pedidos atendiste y cuáles quedaron abiertos\n\
+            con su razón, para que el reviewer pueda re-revisar rápido."
     )
 }
 
@@ -516,6 +521,13 @@ mod tests {
         }
     }
 
+    /// Banned direct-write literal, assembled at runtime so the raw
+    /// pattern never appears in the source of this prompt file (the
+    /// factory-guards gh-write rule scans this file — see issue #549).
+    fn banned_pr_comment_write() -> String {
+        ["gh", "pr", "comment"].join(" ")
+    }
+
     #[test]
     fn address_pr_comments_prompt_inlines_comments_and_no_placeholders() {
         let comments = vec![
@@ -547,6 +559,13 @@ mod tests {
         // No stray full-URL substitution as owner/repo (root cause of the
         // reviewer note on PR #490): `-R https://...` would be nonsense.
         assert!(!prompt.contains("-R https://"));
+        // Replies go through the outbox, never via direct writes.
+        assert!(
+            !prompt.contains(&banned_pr_comment_write()),
+            "address-pr-comments prompt must not suggest a direct write to PR comments (issue #549)"
+        );
+        assert!(prompt.contains("comment_pr"));
+        assert!(prompt.contains(".vk/actions.json"));
     }
 
     #[test]
@@ -562,11 +581,16 @@ mod tests {
         assert!(prompt.contains("gh api repos/mdevel-uy/vibe-kanban/pulls/7/comments"));
         assert!(!prompt.contains("{{owner}}") && !prompt.contains("{{repo}}"));
         assert!(!prompt.contains("-R https://"));
+        assert!(
+            !prompt.contains(&banned_pr_comment_write()),
+            "address-pr-comments prompt must not suggest a direct write to PR comments (issue #549)"
+        );
     }
 
     /// When the PR URL isn't a recognizable GitHub URL (Azure DevOps, mocks),
     /// we must NOT emit `gh -R <full-url>` — that's what the reviewer flagged
-    /// on PR #490. The fallback uses the URL positionally instead.
+    /// on PR #490. The fallback uses the URL positionally instead. Writes
+    /// still go through the outbox regardless of slug resolution.
     #[test]
     fn address_pr_comments_prompt_uses_url_when_owner_repo_unknown() {
         let pr_url = "https://dev.azure.com/org/proj/_git/repo/pullrequest/42";
@@ -580,9 +604,11 @@ mod tests {
             "fallback must fall back to positional URL for gh pr view"
         );
         assert!(
-            prompt.contains(&format!("gh pr comment {pr_url} -b")),
-            "fallback must fall back to positional URL for gh pr comment"
+            !prompt.contains(&banned_pr_comment_write()),
+            "address-pr-comments prompt must never suggest a direct write to PR comments (issue #549)"
         );
+        assert!(prompt.contains("comment_pr"));
+        assert!(prompt.contains(".vk/actions.json"));
     }
 
     #[test]
