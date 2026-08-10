@@ -22,7 +22,6 @@ use db::{
         review_round::ReviewRound,
         scratch::{DraftFollowUpData, Scratch, ScratchType},
         session::{Session, SessionError},
-        worker::{ROLE_REVIEWER, Worker},
         worker_task::WorkerTask,
         workspace::Workspace,
         workspace_repo::WorkspaceRepo,
@@ -1948,42 +1947,24 @@ impl ContainerService for LocalContainerService {
         let repo_names: Vec<String> = repos.iter().map(|r| r.name.clone()).collect();
         let repo_context = RepoContext::new(current_dir.clone(), repo_names);
 
-        let worker_pat_role =
-            match Worker::find_github_pat_and_role_by_workspace_id(&self.db.pool, workspace.id)
-                .await
-            {
-                Ok(pat_role) => pat_role,
-                Err(e) => {
-                    tracing::warn!(
-                        workspace_id = %workspace.id,
-                        "Failed to load worker GitHub PAT/role: {}",
-                        e
-                    );
-                    None
-                }
-            };
         let mut env = ExecutionEnv::new(repo_context);
 
         // Always inject workspace/session context
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
-        // Per-worker GitHub PAT: expose it to the agent process as
-        // GH_TOKEN/GITHUB_TOKEN so any `git` operation the agent performs
-        // (developer push, `git fetch pull/N/head` on a reviewer) uses the
-        // worker's identity instead of the machine's stored gh credentials.
-        //
-        // Reviewers are the exception (REVIEW-LOOP-SPEC §A3): the server
-        // submits the review via the GitHub API using the reviewer's PAT
-        // directly, so the reviewer agent never needs to run `gh pr review`.
-        // We keep GH_TOKEN out of its env so the agent can't accidentally
-        // reintroduce the old prompt-driven submission path.
-        if let Some((Some(token), role)) = &worker_pat_role {
-            if role != ROLE_REVIEWER {
-                env.insert("GH_TOKEN", token);
-                env.insert("GITHUB_TOKEN", token);
-            }
-        }
+        // Deliberately do NOT inject the worker's PAT as GH_TOKEN/GITHUB_TOKEN
+        // into the agent process env. Since agent-actions F1+F2+F3, every
+        // GitHub write is drained server-side by `agent_actions_drain` using
+        // the worker's PAT — the agent produces content; the system produces
+        // effects. Handing the token to the agent process only reopens the
+        // old prompt-driven `gh pr create`/`gh issue comment` path we just
+        // purged. Inherited GH_TOKEN/GITHUB_TOKEN from the server env is
+        // scrubbed centrally in `ExecutionEnv::apply_to_command` so no
+        // executor spawn can leak it back in either. Git operations
+        // (developer push, reviewer `git fetch pull/N/head`) fall back to the
+        // machine's `gh auth setup-git` credentials — the same fallback that
+        // already covered reviewers.
 
         // Create the child and stream, add to execution tracker with timeout
         let mut spawned = tokio::time::timeout(

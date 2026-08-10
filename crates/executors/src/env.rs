@@ -69,8 +69,18 @@ impl ExecutionEnv {
         }
     }
 
-    /// Apply all environment variables to a Command
+    /// Apply all environment variables to a Command.
+    ///
+    /// Before applying the map, GitHub credential envs (`GH_TOKEN` and
+    /// `GITHUB_TOKEN`) are unconditionally removed so the child never inherits
+    /// them from the server process. The agent produces content; the system
+    /// produces effects — GitHub writes are drained by the server using each
+    /// worker's PAT, so an agent process has no reason to hold the token in
+    /// its env. Callers that do put these keys into `self.vars` will still
+    /// win, because `command.env` runs after `env_remove` here.
     pub fn apply_to_command(&self, command: &mut Command) {
+        command.env_remove("GH_TOKEN");
+        command.env_remove("GITHUB_TOKEN");
         for (key, value) in &self.vars {
             command.env(key, value);
         }
@@ -87,6 +97,8 @@ impl ExecutionEnv {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsStr;
+
     use super::*;
 
     #[test]
@@ -104,5 +116,49 @@ mod tests {
         assert_eq!(merged.vars.get("VK_PROJECT_NAME").unwrap(), "runtime");
         assert_eq!(merged.vars.get("FOO").unwrap(), "profile"); // overrides
         assert_eq!(merged.vars.get("BAR").unwrap(), "profile");
+    }
+
+    /// Regression for #548: even if the server was launched with
+    /// `GH_TOKEN`/`GITHUB_TOKEN` set, agent processes must not inherit it.
+    /// `apply_to_command` marks both variables for removal from the child's
+    /// env so no coding-agent spawn path can leak the credential.
+    #[test]
+    fn apply_to_command_scrubs_github_tokens() {
+        let env = ExecutionEnv::new(RepoContext::default());
+        let mut cmd = Command::new("true");
+        env.apply_to_command(&mut cmd);
+
+        let mut removed_gh = false;
+        let mut removed_github = false;
+        for (key, value) in cmd.as_std().get_envs() {
+            if key == OsStr::new("GH_TOKEN") && value.is_none() {
+                removed_gh = true;
+            }
+            if key == OsStr::new("GITHUB_TOKEN") && value.is_none() {
+                removed_github = true;
+            }
+        }
+        assert!(removed_gh, "GH_TOKEN must be marked for removal");
+        assert!(removed_github, "GITHUB_TOKEN must be marked for removal");
+    }
+
+    /// If a caller explicitly puts a GitHub token into the env map, it still
+    /// wins — the scrub happens before applying `self.vars`. This preserves
+    /// the escape hatch for server-side helpers that legitimately need the
+    /// token in a specific subprocess.
+    #[test]
+    fn apply_to_command_scrub_respects_explicit_override() {
+        let mut env = ExecutionEnv::new(RepoContext::default());
+        env.insert("GH_TOKEN", "explicit");
+        let mut cmd = Command::new("true");
+        env.apply_to_command(&mut cmd);
+
+        let value = cmd
+            .as_std()
+            .get_envs()
+            .find(|(k, _)| *k == OsStr::new("GH_TOKEN"))
+            .and_then(|(_, v)| v)
+            .map(|v| v.to_string_lossy().into_owned());
+        assert_eq!(value.as_deref(), Some("explicit"));
     }
 }
