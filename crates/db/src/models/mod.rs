@@ -8,6 +8,7 @@ pub mod merge;
 pub mod plan_cap_hit;
 pub mod project;
 pub mod pull_request;
+pub mod push_subscription;
 pub mod repo;
 pub mod repo_issue;
 pub mod requests;

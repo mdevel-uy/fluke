@@ -39,6 +39,12 @@ import {
   isDesktopNotificationSupported,
   requestDesktopNotificationPermission,
 } from '@/shared/lib/desktopNotifications';
+import {
+  disableBrowserPushSubscription,
+  enableBrowserPushSubscription,
+  getBrowserPushSubscriptionState,
+  isBrowserPushSupported,
+} from '@/shared/lib/webPush';
 import { cn, playSound } from '@/shared/lib/utils';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { IconButton } from '@vibe/ui/components/IconButton';
@@ -125,6 +131,51 @@ export function GeneralSettingsSection() {
       setDesktopAlertsEnabled(result === 'granted');
     },
     [setDesktopAlertsEnabled]
+  );
+
+  // Web Push con navegador cerrado (issue #533). Estado local — la sub
+  // está atada al browser, no al usuario, así que no viaja por Config.
+  const browserPushSupported = isBrowserPushSupported();
+  const [browserPushEnabled, setBrowserPushEnabled] = useState(false);
+  const [browserPushBusy, setBrowserPushBusy] = useState(false);
+  useEffect(() => {
+    if (!browserPushSupported) return;
+    let cancelled = false;
+    void getBrowserPushSubscriptionState().then((active) => {
+      if (!cancelled) setBrowserPushEnabled(active);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [browserPushSupported]);
+
+  const handleBrowserPushToggle = useCallback(
+    async (checked: boolean) => {
+      if (browserPushBusy) return;
+      setBrowserPushBusy(true);
+      try {
+        if (checked) {
+          if (!browserPushSupported) {
+            setBrowserPushEnabled(false);
+            return;
+          }
+          const permission = await requestDesktopNotificationPermission();
+          setDesktopPermission(permission);
+          if (permission !== 'granted') {
+            setBrowserPushEnabled(false);
+            return;
+          }
+          const ok = await enableBrowserPushSubscription();
+          setBrowserPushEnabled(ok);
+        } else {
+          await disableBrowserPushSubscription();
+          setBrowserPushEnabled(false);
+        }
+      } finally {
+        setBrowserPushBusy(false);
+      }
+    },
+    [browserPushBusy, browserPushSupported]
   );
 
   // Executor options for the default coding agent dropdown
@@ -841,6 +892,27 @@ export function GeneralSettingsSection() {
           disabled={desktopAlertsDisabled}
           onChange={(checked) => {
             void handleDesktopAlertsToggle(checked);
+          }}
+        />
+
+        <SettingsCheckbox
+          id="browser-push"
+          label={t('settings.general.notifications.browserPush.label')}
+          description={
+            !browserPushSupported
+              ? t('settings.general.notifications.browserPush.helperUnsupported')
+              : desktopPermission === 'denied'
+                ? t('settings.general.notifications.browserPush.helperDenied')
+                : t('settings.general.notifications.browserPush.helper')
+          }
+          checked={browserPushEnabled && !!browserPushSupported}
+          disabled={
+            !browserPushSupported ||
+            browserPushBusy ||
+            desktopPermission === 'denied'
+          }
+          onChange={(checked) => {
+            void handleBrowserPushToggle(checked);
           }}
         />
       </SettingsCard>

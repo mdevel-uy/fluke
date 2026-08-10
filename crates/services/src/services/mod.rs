@@ -23,7 +23,9 @@ pub mod oauth_credentials;
 pub mod pr_monitor;
 pub mod quick_action_prompts;
 pub mod review_verdict;
+pub mod stuck_task_detector;
 pub mod usage;
+pub mod web_push;
 
 #[cfg(feature = "qa-mode")]
 pub mod qa_repos;

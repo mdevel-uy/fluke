@@ -30,12 +30,17 @@ use services::services::{
     queued_message::QueuedMessageService,
     remote_client::{RemoteClient, RemoteClientError},
     repo::RepoService,
+    stuck_task_detector::StuckTaskDetector,
+    web_push::WebPushService,
 };
 use tokio::sync::{Notify, RwLock};
 use tokio_util::sync::CancellationToken;
 use trusted_key_auth::runtime::TrustedKeyAuthRuntime;
 use utils::{
-    assets::{config_path, credentials_path, server_signing_key_path, trusted_keys_path},
+    assets::{
+        config_path, credentials_path, server_signing_key_path, trusted_keys_path,
+        web_push_vapid_path,
+    },
     msg_store::MsgStore,
 };
 use uuid::Uuid;
@@ -87,6 +92,7 @@ pub struct LocalDeployment {
     pty: PtyService,
     pr_sync_notify: Arc<Notify>,
     pr_poll_notify: Arc<Notify>,
+    web_push: Option<WebPushService>,
 }
 
 #[derive(Debug, Clone)]
@@ -228,6 +234,24 @@ impl Deployment for LocalDeployment {
             analytics_service: s.clone(),
         });
         let workspace_manager = WorkspaceManager::new(db.clone());
+
+        // Web Push (issue #533): carga/gen. de claves VAPID. Se levanta ANTES
+        // del container para que `LocalContainerService::finalize_task` pueda
+        // encolar pushes sin depender del `Deployment` global. Si el bootstrap
+        // falla (disco RO, JSON corrupto), degradamos a `None` — la app
+        // funciona sin Web Push y la fase 1 sigue andando.
+        let web_push = match WebPushService::load_or_generate(db.clone(), &web_push_vapid_path()) {
+            Ok(svc) => Some(svc),
+            Err(e) => {
+                tracing::warn!(
+                    "Web Push disabled: failed to initialize VAPID keys ({}). \
+                     Fase 1 de alertas sigue funcionando.",
+                    e
+                );
+                None
+            }
+        };
+
         let container = LocalContainerService::new(
             db.clone(),
             workspace_manager.clone(),
@@ -239,6 +263,7 @@ impl Deployment for LocalDeployment {
             approvals.clone(),
             queued_message_service.clone(),
             remote_client.clone().ok(),
+            web_push.clone(),
         )
         .await;
 
@@ -287,6 +312,12 @@ impl Deployment for LocalDeployment {
         // lado hasta que se configure.
         services::services::heartbeat::spawn(db.clone());
 
+        // Detector de tareas trancadas (issue #533): sólo tiene sentido con
+        // Web Push arriba — el evento se emite exclusivamente por push.
+        if let Some(svc) = web_push.as_ref() {
+            StuckTaskDetector::spawn(db.clone(), svc.clone());
+        }
+
         let deployment = Self {
             config,
             user_id,
@@ -318,6 +349,7 @@ impl Deployment for LocalDeployment {
             pty,
             pr_sync_notify,
             pr_poll_notify,
+            web_push,
         };
 
         Ok(deployment)
@@ -405,6 +437,10 @@ impl Deployment for LocalDeployment {
 
     fn trusted_key_auth(&self) -> &TrustedKeyAuthRuntime {
         &self.trusted_key_auth
+    }
+
+    fn web_push(&self) -> Option<&WebPushService> {
+        self.web_push.as_ref()
     }
 }
 

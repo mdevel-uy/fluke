@@ -217,6 +217,12 @@
           "helper": "Mostrar notificaciones del navegador cuando una tarea termina, falla o queda esperando aprobación. Requiere permiso de notificaciones.",
           "helperDenied": "Las notificaciones están bloqueadas por el navegador. Actualizá el permiso del sitio para habilitar las alertas de escritorio.",
           "helperInsecure": "Las alertas de escritorio requieren un contexto seguro (HTTPS o localhost)."
+        },
+        "browserPush": {
+          "label": "Alertas con el navegador cerrado",
+          "helper": "Recibir notificaciones push aunque no haya ninguna pestaña de mkanban abierta. Usa el push service del navegador (FCM/Mozilla) y los mismos eventos que Alertas de escritorio.",
+          "helperDenied": "Las notificaciones están bloqueadas por el navegador. Actualizá el permiso del sitio para habilitar push.",
+          "helperUnsupported": "Web Push requiere un contexto seguro (HTTPS o localhost) y un navegador con service workers."
         }
       },
       "messageInput": {

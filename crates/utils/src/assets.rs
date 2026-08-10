@@ -107,6 +107,14 @@ pub fn relay_host_credentials_path() -> std::path::PathBuf {
     asset_dir().join("relay_host_credentials.json")
 }
 
+/// VAPID keypair (P-256, PKCS#8 PEM) for Web Push (RFC 8292). Generado la
+/// primera vez que el servicio de push arranca y persistido en el asset dir
+/// junto al resto de credenciales — la clave pública se emite al frontend en
+/// `GET /api/push/vapid-key` para registrar el push subscription.
+pub fn web_push_vapid_path() -> std::path::PathBuf {
+    asset_dir().join("web_push_vapid.json")
+}
+
 #[derive(RustEmbed)]
 #[folder = "../../assets/sounds"]
 pub struct SoundAssets;

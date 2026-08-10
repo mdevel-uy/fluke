@@ -364,7 +364,13 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             // Advance the worker-task state machine.
             match &pr_info.status {
                 MergeStatus::Open => {
-                    if let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await {
+                    if let Err(e) = worker_orchestrator::on_pr_open_and_push(
+                        &self.db,
+                        &self.container,
+                        workspace_id,
+                    )
+                    .await
+                    {
                         warn!(
                             workspace_id = %workspace_id,
                             "Failed to move task to in_review after PR adoption: {}",
@@ -705,7 +711,13 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             // This is idempotent: it only transitions in_progress → in_review
             // for a worker-owned workspace, and no-ops otherwise.
             if let Some(workspace_id) = pr.workspace_id {
-                if let Err(e) = worker_orchestrator::on_pr_open(&self.db, workspace_id).await {
+                if let Err(e) = worker_orchestrator::on_pr_open_and_push(
+                    &self.db,
+                    &self.container,
+                    workspace_id,
+                )
+                .await
+                {
                     warn!(
                         workspace_id = %workspace_id,
                         "Failed to reconcile worker task on PR open: {}",

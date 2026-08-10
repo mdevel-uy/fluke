@@ -59,7 +59,7 @@ use worktree_manager::WorktreeError;
 
 use crate::services::{
     concurrency::ConcurrencySemaphore, config::Config, execution_process,
-    notification::NotificationService, worker_orchestrator,
+    notification::NotificationService, web_push, web_push::WebPushService, worker_orchestrator,
 };
 pub type ContainerRef = String;
 
@@ -96,6 +96,13 @@ pub trait ContainerService {
     fn git(&self) -> &GitService;
 
     fn notification_service(&self) -> &NotificationService;
+
+    /// Optional Web Push sender (issue #533). Devuelve `None` cuando la
+    /// deploy no configuró VAPID o cuando el bootstrap falló al arrancar —
+    /// las notificaciones push se skippean y la fase 1 sigue funcionando.
+    fn web_push(&self) -> Option<&WebPushService> {
+        None
+    }
 
     fn config(&self) -> &Arc<RwLock<Config>>;
 
@@ -289,6 +296,32 @@ pub trait ContainerService {
         self.notification_service()
             .notify(&title, &message, Some(ctx.workspace.id))
             .await;
+
+        // Web Push (issue #533): notificamos al navegador aunque esté cerrado.
+        // Best-effort — `spawn_notify` es fire-and-forget y no puede afectar
+        // este path crítico. `tag` se alinea con las alertas de la fase 1 en
+        // `LocalTaskNotifications.tsx` para que el service worker deduplique
+        // cuando hay una pestaña visible.
+        if let Some(web_push) = self.web_push() {
+            let label = workspace_name.to_string();
+            let deeplink = Some(format!("/workspaces/{}", ctx.workspace.id));
+            let payload = match ctx.execution_process.status {
+                ExecutionProcessStatus::Completed => Some(web_push::task_completed_payload(
+                    ctx.workspace.id,
+                    &label,
+                    deeplink,
+                )),
+                ExecutionProcessStatus::Failed => Some(web_push::task_failed_payload(
+                    ctx.workspace.id,
+                    &label,
+                    deeplink,
+                )),
+                _ => None,
+            };
+            if let Some(payload) = payload {
+                web_push::spawn_notify(web_push.clone(), payload);
+            }
+        }
 
         // Worker tasks reconcile (push + PR + transition) when their agent
         // chain ends. That end is either the CodingAgent itself (no cleanup

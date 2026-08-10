@@ -24,6 +24,7 @@ import { SharedAppLayout } from '@/shared/components/ui-new/containers/SharedApp
 import { LicenseBanner } from '@/shared/components/LicenseBanner';
 import { useLicenseStatus } from '@/shared/hooks/useLicenseStatus';
 import { LocalTaskNotifications } from '@web/app/notifications/LocalTaskNotifications';
+import { PushNavigationBridge } from '@web/app/notifications/PushNavigationBridge';
 
 function KeyboardShortcutsHandler() {
   useKeyShowHelp(
@@ -119,6 +120,7 @@ function AppLayoutRouteComponent() {
     <AppRouteProviders key={hostId ?? 'local'}>
       <ReleaseNotesHandler />
       <LocalTaskNotifications />
+      <PushNavigationBridge />
       <SequenceTrackerProvider>
         <SequenceIndicator />
         <KeyboardShortcutsHandler />

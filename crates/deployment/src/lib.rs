@@ -27,6 +27,7 @@ use services::services::{
     queued_message::QueuedMessageService,
     remote_client::RemoteClient,
     repo::RepoService,
+    web_push::WebPushService,
 };
 use sqlx::Error as SqlxError;
 use thiserror::Error;
@@ -123,6 +124,13 @@ pub trait Deployment: Clone + Send + Sync + 'static {
     }
 
     fn trusted_key_auth(&self) -> &TrustedKeyAuthRuntime;
+
+    /// Web Push (issue #533). Devuelve `None` cuando el servicio no arrancó
+    /// (ej. clave VAPID corrupta o disco RO); las rutas y hooks degradan
+    /// silenciosamente en ese caso — la fase 1 sigue funcionando.
+    fn web_push(&self) -> Option<&WebPushService> {
+        None
+    }
 
     fn remote_client(&self) -> Result<RemoteClient, RemoteClientNotConfigured> {
         Err(RemoteClientNotConfigured)
