@@ -34,6 +34,43 @@ la interfaz pública, sobreescribir `MK_BIND_ADDR=0.0.0.0` en el `.env`
 `../hardening/README.md` para cerrar los puertos crudos que no deban ser
 públicos.
 
+## HTTPS dentro del tailnet (Tailscale Serve)
+
+El navegador exige contexto seguro (HTTPS o localhost) para habilitar
+`Notification`, instalación como PWA y otras APIs modernas. Con acceso
+por IP de Tailscale sobre HTTP plano, `window.isSecureContext === false`
+y Chrome no ofrece esas features.
+
+`enable-tailscale-serve.sh` habilita HTTPS dentro del tailnet usando
+[Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve): el
+`tailscaled` del host termina TLS en `https://<host>.<tailnet>.ts.net`
+con un certificado válido de Let's Encrypt (provisto por Tailscale) y
+forwardea a `http://127.0.0.1:${MK_PORT}`. Nada se expone a internet —
+solo escucha dentro del tailnet, consistente con el modelo de acceso
+solo-VPN. La renovación del cert la maneja Tailscale (no agregar cron
+propio). El acceso HTTP por IP de tailnet sigue funcionando como fallback.
+
+```bash
+sudo ./enable-tailscale-serve.sh
+# → https://<host>.<tailnet>.ts.net
+```
+
+Requisitos previos (una sola vez, en el admin console del tailnet):
+
+- **MagicDNS** habilitado.
+- **HTTPS Certificates** habilitado (DNS → HTTPS Certificates → Enable).
+
+Sin ambos el script aborta con un mensaje explicando qué falta. Los
+WebSockets (kanban en vivo, logs, terminal) pasan sin config extra:
+Tailscale Serve los proxya nativo y el frontend detecta `wss://` desde
+`window.location.protocol`.
+
+Para desactivar:
+
+```bash
+sudo ./disable-tailscale-serve.sh
+```
+
 ## Updates OTA
 
 `update.sh` es idempotente: si no hay versión nueva en el canal, no hace nada.
