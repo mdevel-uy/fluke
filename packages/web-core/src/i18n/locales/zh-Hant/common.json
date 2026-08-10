@@ -192,8 +192,9 @@
     "stalledTask": "任務停滯 — 代理已停止但任務未推進",
     "purgeArchived": {
       "title": "清除已封存的工作區",
-      "confirm": "永久刪除 {{count}} 個已封存的工作區？其 worktree 將被刪除，分支將保留。仍在執行的工作區會被跳過。此操作無法復原。",
+      "confirm": "永久刪除 {{count}} 個已封存的工作區？其 worktree 將被刪除。仍在執行的工作區會被跳過。此操作無法復原。",
       "action": "全部清除",
+      "deleteBranchesLabel": "同時刪除相關的分支",
       "errorTitle": "清除已封存的工作區失敗"
     },
     "purgeFailed": {

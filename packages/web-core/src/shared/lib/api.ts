@@ -542,13 +542,19 @@ export const workspacesApi = {
 
   /**
    * Bulk-purge every archived workspace. Workspaces with processes still
-   * running are skipped, not failed. Branches are kept.
+   * running are skipped, not failed. Branches are kept unless
+   * `deleteBranches` is true.
    */
-  deleteAllArchived: async (): Promise<{
+  deleteAllArchived: async (
+    deleteBranches?: boolean
+  ): Promise<{
     deleted: number;
     skipped: number;
   }> => {
-    const response = await makeRequest('/api/workspaces/archived', {
+    const url = deleteBranches
+      ? '/api/workspaces/archived?delete_branches=true'
+      : '/api/workspaces/archived';
+    const response = await makeRequest(url, {
       method: 'DELETE',
     });
     return handleApiResponse<{ deleted: number; skipped: number }>(response);

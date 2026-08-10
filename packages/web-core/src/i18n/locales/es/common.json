@@ -206,8 +206,9 @@
     "stalledTask": "Tarea trancada — el agente terminó pero la tarea no avanzó",
     "purgeArchived": {
       "title": "Purgar workspaces archivados",
-      "confirm": "¿Eliminar definitivamente {{count}} workspaces archivados? Se eliminan sus worktrees; las ramas se conservan. Los workspaces aún en ejecución se omiten. Esta acción no se puede deshacer.",
+      "confirm": "¿Eliminar definitivamente {{count}} workspaces archivados? Se eliminan sus worktrees. Los workspaces aún en ejecución se omiten. Esta acción no se puede deshacer.",
       "action": "Purgar todos",
+      "deleteBranchesLabel": "Eliminar también las branches asociadas",
       "errorTitle": "No se pudieron purgar los workspaces archivados"
     },
     "purgeFailed": {

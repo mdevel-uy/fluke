@@ -192,8 +192,9 @@
     "stalledTask": "任务停滞 — 代理已停止但任务未推进",
     "purgeArchived": {
       "title": "清除已归档的工作区",
-      "confirm": "永久删除 {{count}} 个已归档的工作区？其 worktree 将被删除，分支将保留。仍在运行的工作区会被跳过。此操作无法撤销。",
+      "confirm": "永久删除 {{count}} 个已归档的工作区？其 worktree 将被删除。仍在运行的工作区会被跳过。此操作无法撤销。",
       "action": "全部清除",
+      "deleteBranchesLabel": "同时删除关联的分支",
       "errorTitle": "清除已归档的工作区失败"
     },
     "purgeFailed": {
