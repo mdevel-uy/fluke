@@ -14,13 +14,15 @@ api-types = { path = "../api-types" }
 relay-types = { path = "../relay-types" }
 utils = { path = "../utils" }
 git = { path = "../git" }
-licensing = { path = "../licensing" }
+# SDK de tetherpad (ADR 0009/0010 de tetherpad): licencia, gate, contadores y
+# heartbeat viven alla; aca solo el wiring. Path dep provisorio entre repos
+# hermanos hasta publicar el crate en un registry.
+tetherpad-runtime = { path = "../../../canon/crates/runtime" }
 ed25519-dalek = "2.2.0"
 base64 = "0.22"
 git-host = { path = "../git-host" }
 executors = { path = "../executors" }
 db = { path = "../db" }
-heartbeat-protocol = { path = "../heartbeat-protocol" }
 worktree-manager = { path = "../worktree-manager" }
 workspace-manager = { path = "../workspace-manager" }
 tokio = { workspace = true }

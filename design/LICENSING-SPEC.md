@@ -1,5 +1,12 @@
 # LICENSING-SPEC v1 — licencia firmada y kill-switch
 
+> **Nota (2026-08-10)**: la implementación de este spec fue extraída al
+> repo `mdevel-uy/tetherpad` (crates `tetherpad-licensing` /
+> `tetherpad-heartbeat` / `tetherpad-runtime`); mkanban la consume como SDK.
+> Este documento queda como registro de diseño; el contrato vigente es
+> `tetherpad/docs/CONTRATO-HEARTBEAT.md`. La env de claves embebidas es ahora
+> `TETHERPAD_LICENSE_PUBKEYS`.
+
 Estado: **borrador, requiere decisiones de Dani** (marcadas 🔸).
 Contexto: fase 5a del plan comercial on-premises. Convierte mkanban de
 "instalable" en "cobrable": sin esto no hay forma de suspender el servicio a un

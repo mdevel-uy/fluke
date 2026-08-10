@@ -58,9 +58,9 @@ async fn get_license() -> ResponseJson<ApiResponse<LicenseStatusResponse>> {
     let svc = services::services::licensing::global();
     let eval = svc.refresh();
     let status = match eval.status {
-        licensing::LicenseStatus::Valid => "valid",
-        licensing::LicenseStatus::Grace => "grace",
-        licensing::LicenseStatus::Suspended => "suspended",
+        services::services::licensing::LicenseStatus::Valid => "valid",
+        services::services::licensing::LicenseStatus::Grace => "grace",
+        services::services::licensing::LicenseStatus::Suspended => "suspended",
     };
     ResponseJson(ApiResponse::success(LicenseStatusResponse {
         status: status.to_string(),
@@ -210,9 +210,9 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     // falta renovar). `enforced=0` en la flota actual sin clave embebida.
     let lic = services::services::licensing::global().current();
     let lic_state = match lic.status {
-        licensing::LicenseStatus::Valid => "valid",
-        licensing::LicenseStatus::Grace => "grace",
-        licensing::LicenseStatus::Suspended => "suspended",
+        services::services::licensing::LicenseStatus::Valid => "valid",
+        services::services::licensing::LicenseStatus::Grace => "grace",
+        services::services::licensing::LicenseStatus::Suspended => "suspended",
     };
     body.push_str(
         "# HELP mkanban_license_state Estado de la licencia; el valor 1 marca el estado activo en la etiqueta.\n",

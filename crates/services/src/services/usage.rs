@@ -1,44 +1,26 @@
-//! Snapshot de uso para el heartbeat (fase 5b).
+//! Fuente de metering de mkanban: tickets que llegaron a `done`.
 //!
-//! Arma el [`UsageSnapshot`] que la instancia reporta al control plane. La
-//! fuente es la misma que el panel de "valor generado" (`value-generated/
-//! summary`): tickets que llegaron a `done` con `completed_at` seteado —el
-//! registro durable de trabajo entregado— para que la base de facturación sea
-//! una sola y consistente entre lo que ve el cliente y lo que se factura.
+//! Es la implementacion mkanban de las claves declaradas en la definicion del
+//! producto (`x-tetherpad.metering` en ops/onprem/docker-compose.yml). La
+//! fuente es la misma que el panel de "valor generado": tickets con
+//! `completed_at` seteado — el registro durable de trabajo entregado — para
+//! que la base de facturacion sea una sola y consistente.
 //!
-//! Los contadores son **acumulativos**: el control plane calcula el consumo del
-//! período restando snapshots, así un corte de conectividad no pierde nada.
+//! El contador es **acumulativo desde siempre** (contrato de tetherpad v1:
+//! acumulativos estrictos). El corte por mes lo deriva el control plane
+//! restando snapshots; aca no se reporta nada no monotono.
 
-use chrono::Utc;
-use heartbeat_protocol::UsageSnapshot;
 use sqlx::SqlitePool;
 
-/// Cuenta tickets cerrados (acumulado y mes en curso) y arma el snapshot.
-///
-/// Mismo criterio que `value_generated_summary`: `status = 'done'` con
-/// `completed_at` no nulo. El corte del mes usa `start of month` en UTC, igual
-/// que la agregación del panel, para que el número del mes coincida.
-pub async fn build_usage_snapshot(pool: &SqlitePool) -> Result<UsageSnapshot, sqlx::Error> {
-    let tickets_done_total: i64 = sqlx::query_scalar(
+/// Tickets cerrados (`done` con `completed_at`) desde siempre. Mismo criterio
+/// que `value_generated_summary`.
+pub async fn tickets_done_total(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(
         "SELECT COUNT(*) FROM worker_tasks \
          WHERE status = 'done' AND completed_at IS NOT NULL",
     )
     .fetch_one(pool)
-    .await?;
-
-    let tickets_done_current_month: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM worker_tasks \
-         WHERE status = 'done' AND completed_at IS NOT NULL \
-           AND completed_at >= datetime('now', 'start of month')",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(UsageSnapshot {
-        tickets_done_total,
-        tickets_done_current_month,
-        snapshot_at: Utc::now(),
-    })
+    .await
 }
 
 #[cfg(test)]
@@ -55,8 +37,6 @@ mod tests {
     async fn test_pool() -> SqlitePool {
         use sqlx::sqlite::SqlitePoolOptions;
 
-        // Una sola conexión: `:memory:` es por-conexión, y así el PRAGMA de
-        // abajo persiste para todas las queries del test.
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect("sqlite::memory:")
@@ -86,38 +66,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cuenta_done_acumulado_y_del_mes_en_curso() {
+    async fn cuenta_solo_los_done_con_completed_at() {
         let pool = test_pool().await;
 
-        // Dos cerrados este mes, uno cerrado hace dos meses, uno en cola.
         insert_task(&pool, "done", "datetime('now')").await;
-        insert_task(&pool, "done", "datetime('now', '-1 day')").await;
         insert_task(&pool, "done", "datetime('now', '-2 months')").await;
+        insert_task(&pool, "done", "NULL").await; // trigger que no corrió: no cuenta
         insert_task(&pool, "queued", "NULL").await;
 
-        let snap = build_usage_snapshot(&pool).await.expect("snapshot");
-
-        // Acumulado = todos los done con completed_at (3). El de cola no cuenta.
-        assert_eq!(snap.tickets_done_total, 3);
-        // Mes en curso = solo los de este mes (2).
-        assert_eq!(snap.tickets_done_current_month, 2);
+        assert_eq!(tickets_done_total(&pool).await.unwrap(), 2);
     }
 
     #[tokio::test]
     async fn base_vacia_da_cero_sin_fallar() {
         let pool = test_pool().await;
-        let snap = build_usage_snapshot(&pool).await.expect("snapshot");
-        assert_eq!(snap.tickets_done_total, 0);
-        assert_eq!(snap.tickets_done_current_month, 0);
-    }
-
-    #[tokio::test]
-    async fn un_done_sin_completed_at_no_cuenta() {
-        // Guarda contra un ticket marcado done cuyo trigger no corrió: sin
-        // completed_at no debe entrar en la facturación.
-        let pool = test_pool().await;
-        insert_task(&pool, "done", "NULL").await;
-        let snap = build_usage_snapshot(&pool).await.expect("snapshot");
-        assert_eq!(snap.tickets_done_total, 0);
+        assert_eq!(tickets_done_total(&pool).await.unwrap(), 0);
     }
 }

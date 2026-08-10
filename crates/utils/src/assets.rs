@@ -61,22 +61,14 @@ pub fn credentials_path() -> std::path::PathBuf {
     asset_dir().join("credentials.json")
 }
 
-/// Archivo de licencia firmada que el operador coloca en el data dir del
-/// cliente (o que el heartbeat renueva). Ausente = instancia sin licenciar.
-pub fn license_path() -> std::path::PathBuf {
-    asset_dir().join("license.json")
-}
-
-/// Estado persistido del licenciamiento (último instante observado, para
-/// detectar reloj retrocedido; y desde cuándo está degradada, para contar la
-/// gracia de un archivo ausente). Separado de `license.json`: este lo escribe
-/// la app, aquel lo entrega el operador.
-pub fn license_state_path() -> std::path::PathBuf {
-    asset_dir().join("license_state.json")
-}
+// Nota: `license.json`, el estado del licenciamiento y el log de reportes
+// viven ahora en el runtime de tetherpad, que usa este mismo asset dir como
+// data dir (los archivos y su formato son compatibles con los que escribia
+// la app antes de la extraccion).
 
 /// Identificador estable de la instalación (UUID). Generado en el primer
 /// arranque y persistido; ata el heartbeat y las licencias a una instancia.
+/// El runtime de tetherpad lee/escribe este mismo archivo (mismo formato).
 pub fn instance_id_path() -> std::path::PathBuf {
     asset_dir().join("instance_id")
 }

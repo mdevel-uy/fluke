@@ -551,10 +551,8 @@ pub async fn try_take_next(
     // tablero e historial sigue intacto — esto solo bloquea el spawn. Con
     // licenciamiento desactivado (sin clave embebida, flota actual) el estado es
     // siempre Valid y este check no hace nada.
-    if crate::services::licensing::global()
-        .evaluation_for_gate()
-        .status
-        == licensing::LicenseStatus::Suspended
+    if crate::services::licensing::global().status().status
+        == crate::services::licensing::LicenseStatus::Suspended
     {
         return Err(StartError::LicenseSuspended);
     }
@@ -5828,6 +5826,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await

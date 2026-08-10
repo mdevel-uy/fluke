@@ -26,11 +26,11 @@ services:
       PLAN_UPGRADE_CTA_URL: ${PLAN_UPGRADE_CTA_URL:-}
       PLAN_UPGRADE_CTA_LABEL: ${PLAN_UPGRADE_CTA_LABEL:-}
       MK_ALLOWED_ORIGINS: ${MK_ALLOWED_ORIGINS:-}
-      # Heartbeat al control plane de mdevel (licencia + métricas de
-      # facturación). Vacío = no reporta (opt-in). El token auto-vincula la
-      # instancia al cliente en el panel de control.
-      MKANBAN_CONTROL_PLANE_URL: ${MKANBAN_CONTROL_PLANE_URL:-}
-      MKANBAN_INGEST_TOKEN: ${MKANBAN_INGEST_TOKEN:-}
+      # Heartbeat al control plane de tetherpad (licencia + métricas de
+      # facturación). Vacío = no reporta (opt-in). El token de enrolamiento
+      # auto-vincula la instancia al contrato del cliente.
+      TETHERPAD_CONTROL_PLANE_URL: ${TETHERPAD_CONTROL_PLANE_URL:-}
+      TETHERPAD_ENROLL_TOKEN: ${TETHERPAD_ENROLL_TOKEN:-}
     # Bind por defecto a loopback: el patrón esperado es un reverse proxy
     # (Traefik/Caddy/Nginx) del host que termina TLS y hace forward acá.
     # Para exponer directo en la interfaz pública (sin proxy), sobreescribir
@@ -51,3 +51,18 @@ volumes:
     name: mk-repos
   mk-home:
     name: mk-home
+
+# Definición de producto para tetherpad (ADR 0004 de tetherpad: el compose del
+# producto, anotado — sin DSL propio). Declara qué se mide y qué entitlements
+# existen; la implementación de cada contador vive en la app (services::usage).
+x-tetherpad:
+  product: mkanban
+  metering:
+    # Tickets que llegaron a done con completed_at (acumulativo desde siempre;
+    # el corte mensual lo deriva el control plane restando snapshots). Misma
+    # fuente que el panel de "valor generado": una sola base de facturación.
+    - key: tickets_done_total
+  entitlements:
+    # Cap de agentes concurrentes según plan (hoy aplicado vía
+    # WORKER_MAX_IN_REVIEW; pasará a leerse de la licencia).
+    - key: max_workers

@@ -98,26 +98,26 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 ## 1.4 Emisión y renovación de licencias
 
-> **Vía normal (automática)**: con `MKANBAN_CONTROL_PLANE_URL` y
-> `MKANBAN_INGEST_TOKEN` en el `.env` del bundle, la instancia se auto-vincula
-> al cliente en el panel (control.mkanban.dev/admin) y la licencia se renueva
-> sola en cada heartbeat mientras el cliente esté al día. El alta del cliente
-> en el panel entrega el token y un comando de bootstrap que deja todo
-> configurado. La rutina manual de abajo queda para instalaciones sin salida a
-> internet o como contingencia.
+> **Vía normal (automática)**: con `TETHERPAD_CONTROL_PLANE_URL` y
+> `TETHERPAD_ENROLL_TOKEN` en el `.env` del bundle, la instancia se auto-vincula
+> al contrato del cliente en el control plane de tetherpad y la licencia se
+> renueva sola en cada heartbeat mientras el cliente esté al día. El alta del
+> contrato entrega el token (una única vez). La rutina manual de abajo queda
+> para instalaciones sin salida a internet o como contingencia.
 
-La herramienta es `mkanban-license` (crate `crates/mkanban-license`, interno —
+La herramienta es `tetherpad-license` (repo `mdevel-uy/tetherpad`, interna —
 no se distribuye al cliente). La clave privada se guarda **cifrada con
 passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 
 **Setup por única vez (generar el par de claves)**
 
 - ▸ En la máquina del operador (nunca en un servidor):
-  `mkanban-license keygen --out mkanban-signing.key.enc`
+  `tetherpad-license keygen --out tetherpad-signing.key.enc`
   Pide una passphrase y la repite; imprime la **clave pública** por stdout.
-- ▸ 🔴 Guardar la clave pública: se embebe en el binario del producto (es la que
-  usa el cliente para verificar). Va al código, no es secreta.
-- ▸ 🔴 Resguardar `mkanban-signing.key.enc` en la bóveda (ver [LICENSING-SPEC](../../design/LICENSING-SPEC.md)).
+- ▸ 🔴 Guardar la clave pública: se embebe en el binario del producto vía
+  `TETHERPAD_LICENSE_PUBKEYS` en el build (es la que usa el cliente para
+  verificar). Va al código, no es secreta.
+- ▸ 🔴 Resguardar `tetherpad-signing.key.enc` en la bóveda (ver [LICENSING-SPEC](../../design/LICENSING-SPEC.md)).
   La passphrase va **por separado** del archivo. Si se pierde cualquiera de los
   dos, no se puede firmar → ver QRH 2.5.
 - ▸ Registrar quién tiene acceso al archivo y a la passphrase, y desde cuándo.
@@ -128,10 +128,10 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 - ▸ Obtener el `instance_id` de la instancia del cliente (lo expone `GET /api/license`
   o el panel; es estable por instalación).
 - ▸ Firmar:
-  `mkanban-license new --cliente <slug> --instance <instance_id> --dias 45 --out license.json`
+  `tetherpad-license new --vendor mdevel --product mkanban --customer <slug> --instance <instance_id> --dias 45 --out license.json`
   Pide la passphrase. `--dias 45` es el default de la etapa manual (ver spec).
 - ✓ Verificar antes de entregar:
-  `mkanban-license inspect license.json --pubkey <clave_pública>` → firma válida
+  `tetherpad-license inspect license.json --pubkey <clave_pública>` → firma válida
   y fecha de vencimiento correcta. (La herramienta ya verifica al emitir, pero el
   `inspect` explícito confirma que el archivo que vas a mandar es el bueno.)
 - ▸ Entregar el `license.json` al cliente: se coloca en el data dir de la
@@ -140,9 +140,9 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
   `valid` y con la nueva fecha.
 - ▸ Registrar la emisión en el control de flota: cliente, fecha, vencimiento.
 
-> Uso no interactivo (CI, o el control plane de la fase 5b que renueva solo):
-> la passphrase se pasa por la variable `MKANBAN_LICENSE_PASSPHRASE` en vez del
-> prompt. No usarla en un shell interactivo: quedaría en el historial.
+> Uso no interactivo (CI, o el control plane que renueva solo): la passphrase
+> se pasa por la variable `TETHERPAD_LICENSE_PASSPHRASE` en vez del prompt. No
+> usarla en un shell interactivo: quedaría en el historial.
 
 ---
 
