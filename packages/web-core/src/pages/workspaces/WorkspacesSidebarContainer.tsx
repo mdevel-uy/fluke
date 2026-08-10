@@ -57,6 +57,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { systemApi, workersApi, workspacesApi } from '@/shared/lib/api';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
+import { PurgeArchivedDialog } from '@/pages/workspaces/PurgeArchivedDialog';
 import { workspaceSummaryKeys } from '@/shared/hooks/workspaceSummaryKeys';
 import { workersKeys } from '@/features/workers/model/workersKeys';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
@@ -306,16 +307,11 @@ export function WorkspacesSidebarContainer({
   const handlePurgeArchived = useCallback(async () => {
     const count = archivedWorkspaces.length;
     if (count === 0) return;
-    const result = await ConfirmDialog.show({
-      title: t('workspaces.purgeArchived.title'),
-      message: t('workspaces.purgeArchived.confirm', { count }),
-      confirmText: t('workspaces.purgeArchived.action'),
-      variant: 'destructive',
-    });
-    if (result !== 'confirmed') return;
+    const result = await PurgeArchivedDialog.show({ count });
+    if (result.action !== 'confirmed') return;
 
     try {
-      await workspacesApi.deleteAllArchived();
+      await workspacesApi.deleteAllArchived(result.deleteBranches);
       await queryClient.invalidateQueries({
         queryKey: workspaceSummaryKeys.all,
       });

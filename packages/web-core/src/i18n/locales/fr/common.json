@@ -192,8 +192,9 @@
     "stalledTask": "Tâche bloquée — l'agent s'est arrêté mais la tâche n'a pas avancé",
     "purgeArchived": {
       "title": "Purger les espaces de travail archivés",
-      "confirm": "Supprimer définitivement {{count}} espaces de travail archivés ? Leurs worktrees sont supprimés ; les branches sont conservées. Les espaces encore en cours d'exécution sont ignorés. Cette action est irréversible.",
+      "confirm": "Supprimer définitivement {{count}} espaces de travail archivés ? Leurs worktrees sont supprimés. Les espaces encore en cours d'exécution sont ignorés. Cette action est irréversible.",
       "action": "Tout purger",
+      "deleteBranchesLabel": "Supprimer également les branches associées",
       "errorTitle": "Échec de la purge des espaces de travail archivés"
     },
     "purgeFailed": {
