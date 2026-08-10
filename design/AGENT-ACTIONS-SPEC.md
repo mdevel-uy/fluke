@@ -1,9 +1,10 @@
 ---
 scope: Outbox de accionables — los agentes declaran acciones (issues, comentarios, cierres, estados) y el orquestador es el único que las ejecuta contra GitHub y la DB
 slug: agent-actions
-status: draft — pendiente de aprobación por Dani
-approved_by: (pendiente)
+status: implementado (F1+F2+F3 mergeados, GH_TOKEN purgado del env del agente el 2026-08-10)
+approved_by: Dani (chewax) — PR #504 mergeado 2026-08-09
 created: 2026-08-09
+last_updated: 2026-08-10
 version: 1
 depends_on: review_rounds + sumisión server-side del verdict (REVIEW-LOOP-SPEC bloques A/A5, ya implementados)
 complements: REVIEW-LOOP-SPEC.md (generaliza su principio rector a todos los roles)
@@ -94,6 +95,16 @@ repo dentro de su worktree (mismo lugar y mismo fallback de cwd que
 - Catálogo v1 (cada kind con schema cerrado): `create_milestone`,
   `create_issue`, `comment_issue`, `comment_pr`, `close_issue`.
   v2 (F3): `resolve_review_thread`, `add_labels`, `update_issue`.
+- Estado post-F3 (implementado): los ocho kinds están definidos en
+  `AgentActionDeclaration` (`crates/services/src/services/agent_actions_ingest.rs`)
+  con su schema serde cerrado, y `GhCliExecutor`
+  (`crates/services/src/services/agent_actions_drain.rs`) los ejecuta con la
+  identidad del server. `resolve_review_thread.thread_id` es el node ID
+  GraphQL opaco del hilo (la REST no expone endpoint para resolver hilos),
+  y el kind se trata como idempotente: si el hilo ya estaba resuelto la
+  acción cierra `done`. `add_labels` sobre un label inexistente y
+  `update_issue` con `title=None` y `body=None` a la vez son fallos
+  definitivos (nunca infra-retry).
 
 ## Tabla `agent_actions`
 
@@ -134,8 +145,15 @@ CREATE TABLE agent_actions (
    - resuelve placeholders contra `result_number`/`result_url` de las
      anteriores;
    - ejecuta contra GitHub con la **identidad del server** (PAT del worker si
-     tiene; si no, la cuenta global de gh — los agentes dejan de necesitar
-     `GH_TOKEN` en su env, F3);
+     tiene; si no, la cuenta global de gh). Los agentes ya NO reciben
+     `GH_TOKEN`/`GITHUB_TOKEN` en su env: la purga se completó en el commit
+     `8084dcf87` (PR #555, cierre de #548). `crates/local-deployment/src/container.rs`
+     dejó de inyectar el token según rol, y `ExecutionEnv::apply_to_command`
+     (`crates/executors/src/env.rs`) hace `env_remove` explícito de ambas
+     variables antes de aplicar el env del executor — cierra el hueco de
+     herencia si el server se lanzó con el token en su propio env. La
+     escapatoria queda para callers server-side que reinyecten
+     deliberadamente (el mapa `vars` gana sobre el scrub);
    - éxito → `done` + resultado, y si la acción implica estado local (hoy:
      ninguna del catálogo v1; el verdict ya lo hace), se escribe **en la
      misma transacción** — GitHub y la app cambian juntos;
@@ -152,35 +170,49 @@ CREATE TABLE agent_actions (
    diferencia de costo clave contra el modelo actual: un 422 hoy re-corre
    una corrida entera de opus; con el outbox re-ejecuta un POST.
 
-## Qué se poda de los souls/prompts (por rol)
+## Qué se poda de los souls/prompts (por rol) — estado post-F3
 
-| Rol | Sale | Queda |
+| Rol | Sale (ya podado) | Queda |
 |---|---|---|
-| Analyst (Bea/Flor/Cami) | `gh api .../milestones`, `gh issue create`, comentario de plan, "revisá con gh si ya existe" | Explorar el repo (lectura), redactar milestone/issues/plan como actions |
-| Developer | (ya podado: push y PR son del sistema) | `git commit`; gh de lectura |
-| Reviewer | (ya podado: verdict server-side) | gh de lectura para explorar; `.vk/review.json` |
+| Analyst (Bea/Flor/Cami) | `gh api .../milestones`, `gh issue create`, `gh issue close`, comentario de plan por `gh`, "revisá con gh si ya existe" (idempotencia estructural por `UNIQUE(task_id, seq)`) | Explorar el repo (lectura), redactar milestone/issues/plan como `.vk/actions.json` (kinds `create_milestone`, `create_issue`, `comment_issue`, `close_issue`) |
+| Developer | push/PR (del sistema desde antes de este spec); `gh pr comment` para responder review comments (podado en `quick_action_prompts.rs` en PR #552, se emite `comment_pr` en `.vk/actions.json`) | `git commit`; gh de lectura (`gh pr view`, `gh pr checks`, `gh api` GET) |
+| Reviewer | verdict server-side (`.vk/review.json`, ya podado desde REVIEW-LOOP-SPEC bloques A/A5); `gh pr review` prohibido explícitamente | gh de lectura para explorar; `.vk/review.json` |
 | Designer | (nada que podar: no toca GitHub) | — |
 
-El comentario-resumen post-remediación del bloque B del review loop (hoy
-pendiente del PR 3) se implementa DIRECTO sobre este mecanismo: es un
-`comment_pr` que emite el sistema, no el agente.
+El comentario-resumen post-remediación del bloque B del review loop se
+implementa DIRECTO sobre este mecanismo: es un `comment_pr` que emite el
+sistema, no el agente (implementado en commit `79b84d211`,
+`encolar comment_pr resumen al cerrar remediación`).
+
+**Invariante de CI**: `scripts/factory-guards.sh` (agregado en PR #552)
+rechaza cualquier PR que introduzca patrones `gh pr|issue create|close|comment|review`
+o `gh api -X POST|PATCH|DELETE` en archivos de prompt del repo. El guard
+convierte la regla en verdad verificada, no en promesa de código review.
 
 ## Plan de implementación (PRs apilados a mdev)
 
-1. **F1 — Outbox mínimo**: migración `agent_actions`, ingesta + drenaje en
-   `on_agent_finished`, kinds `comment_pr` + `comment_issue`, retry
-   quirúrgico por API. Primer consumidor: el comentario-resumen post-
-   remediación (cierra la deuda del bloque B con el mecanismo nuevo, no con
-   código ad-hoc).
-2. **F2 — Analyst por outbox**: kinds `create_milestone` + `create_issue` +
-   `close_issue`, placeholders, prompts nuevos de los analysts (el soul
-   declara actions, no ejecuta gh), UI mínima: estado de acciones en la card
-   (N pendientes / fallo en acción K) + botón de retry.
-3. **F3 — Purga total**: `resolve_review_thread` y kinds v2, sacar
-   `GH_TOKEN`/instrucciones gh de escritura de TODOS los souls y prompts,
-   lint de factory-guard que rechace souls con `gh pr create|gh issue
-   create|gh api -X POST` (el guard convierte la regla en invariante, como
-   pidió la regla de "gates de calidad = CI").
+1. **F1 — Outbox mínimo** ✅ (mergeado 2026-08-09): migración `agent_actions`
+   (PR #522), ingesta + drenaje en `on_agent_finished` con kinds `comment_pr`
+   + `comment_issue` (PR #525), endpoint POST `/retry-actions` de retry
+   quirúrgico (PR #527). Primer consumidor real: el comentario-resumen
+   post-remediación (PR #528, cierra la deuda del bloque B con el mecanismo
+   nuevo, no con código ad-hoc).
+2. **F2 — Analyst por outbox** ✅ (mergeado 2026-08-10): kinds
+   `create_milestone` + `create_issue` + `close_issue` con resolución de
+   placeholders `{{action[N].number}}`/`{{action[N].url}}` (PR #542,
+   fix follow-up PR #546 para permitir placeholder también en
+   `comment_issue.issue`/`close_issue.issue`), endpoint GET de acciones + UI
+   de estado en la card con botón de retry (PR #545), inyección del
+   contrato de `.vk/actions.json` en el prompt del analyst (PR #544).
+3. **F3 — Purga total** ✅ (mergeado 2026-08-10): kinds v2
+   `resolve_review_thread` + `add_labels` + `update_issue` con sus tests
+   unitarios (PR #553); purga de `gh pr comment` en `quick_action_prompts.rs`
+   (address-pr-comments ahora emite `comment_pr` por outbox) y agregado del
+   factory-guard `gh_writes_in_prompts` que rechaza escrituras `gh` en
+   archivos de prompt (PR #552); eliminación de `GH_TOKEN`/`GITHUB_TOKEN` del
+   env de todos los agentes con `env_remove` explícito en
+   `ExecutionEnv::apply_to_command` (PR #555). Cierre formal de la épica y
+   sincronización de este documento con el estado implementado: issue #551.
 4. **(futuro, si un caso lo exige) — Proxy síncrono**: endpoint HTTP local
    del server para acciones que necesiten respuesta durante la corrida.
    Hoy ningún caso lo requiere: los placeholders cubren al analyst.
@@ -190,3 +222,16 @@ tests de ingesta/validación/placeholders/idempotencia en `services`, smoke
 E2E en la factory: épica → analyst → milestone + issues + plan comment
 creados por el orquestador, con retry quirúrgico probado matando la red a
 mitad del drenaje.
+
+## Seeds y validación in-vivo de los souls
+
+El único artefacto de seed local es `dev_assets_seed/db.sqlite` (274 KB,
+binario), copiado a `dev_assets/` por `scripts/setup-dev-environment.js`
+cuando el destino no existe. No hay script separado ni fixture SQL/JSON
+editable que genere workers/souls: `dev_assets_seed/config.json` es solo la
+config de la app y no menciona `gh`. Los souls productivos viven en la
+columna `soul` de la tabla `workers` en la DB de la VPS; su fuente
+versionada es `docs/souls/*.md` (aplicada con `PATCH /api/workers/:id`,
+ver `docs/souls/README.md`), y su validación in-vivo (que ningún soul
+cargado en DB contenga instrucciones `gh` de escritura) queda cubierta por
+un issue de validación aparte.
