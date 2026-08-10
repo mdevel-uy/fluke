@@ -815,7 +815,22 @@
       "overridePerTaskLoading": "Loading this month's tasks…",
       "overridePerTaskEmpty": "No completed tasks this month.",
       "overridePerTaskInputLabel": "Hours saved for this task",
-      "overridePerTaskClear": "Use default"
+      "overridePerTaskClear": "Use default",
+      "breakdownHuman": "Cost in man-hours",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "Actual LLM spend",
+      "breakdownLlmTokens": "{{input}} in · {{output}} out tokens",
+      "breakdownLlmTooltip": "Tokens this month — input: {{input}}, output: {{output}}, cache write: {{cacheWrite}}, cache read: {{cacheRead}}. Each model's tokens are valued with its own price table; Claude reports its actual USD cost directly.",
+      "breakdownSavings": "Savings",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "Service fee ({{percent}} of savings)",
+      "explainerToggle": "How is this calculated?",
+      "explainerLlm": "Actual LLM spend: every task records the input/output/cache tokens of each model call; they are valued with each model's price table, and Claude reports its real USD cost directly.",
+      "explainerHuman": "Cost in man-hours: each resolved ticket is credited with the configured man-hours (editable per task), multiplied by the hourly rate.",
+      "explainerSavings": "The savings is the difference between the two; the service fee is {{percent}} of that savings.",
+      "explainerConfigure": "Configure these parameters in Settings",
+      "tableFee": "Fee",
+      "totalsFee": "{{prefix}}{{fee}} fee"
     }
   },
   "pilotReport": {
@@ -842,6 +857,7 @@
       "monetaryValue": "Estimated value",
       "apiCost": "API cost",
       "netMonetaryValue": "Net savings",
+      "serviceFee": "Service fee ({{percent}} of savings)",
       "effectiveRate": "Effective rate",
       "effectiveRateUnit": "/h net",
       "partialCoverageHint": "{{withCost}}/{{total}} tasks reported cost"
@@ -852,11 +868,15 @@
       "hoursPerFteMonth": "Hours / FTE·month",
       "hourlyRate": "Hourly rate",
       "currency": "Currency",
+      "feePercent": "Fee (% of savings)",
       "modifiedBadge": "Modified",
       "modifiedHint": "Different from installation config",
       "resetAll": "Reset to config",
       "resetField": "Reset to config default ({{value}})",
       "sourceHint": "Defaults come from the installation config so every viewer sees the same figures."
+    },
+    "breakdown": {
+      "title": "How the savings are calculated"
     },
     "tasksSection": {
       "title": "Tasks in the period",

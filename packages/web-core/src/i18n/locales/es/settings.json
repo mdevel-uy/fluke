@@ -15,6 +15,8 @@
         "title": "Configuración",
         "general": "General",
         "generalDesc": "Tema, notificaciones y preferencias",
+        "billing": "Valor y facturación",
+        "billingDesc": "Modelo de ahorro, tarifa horaria y tarifa de servicio",
         "projects": "Proyectos",
         "projectsDesc": "Repositorios de proyectos y configuración",
         "repos": "Repositorios",
@@ -39,6 +41,57 @@
         "agent-authDesc": "Conectá y desconectá cada agente instalado desde Ajustes",
         "data": "Datos",
         "dataDesc": "Exportá o restaurá todos los datos de tu instancia"
+      }
+    },
+    "billing": {
+      "model": {
+        "title": "Cómo se construye la cifra de valor",
+        "description": "El panel de Valor generado convierte tickets resueltos en dinero en tres pasos:",
+        "stepLlm": "Medir el gasto real en LLM: cada tarea registra los tokens de entrada/salida/caché de cada llamada por modelo, valorizados con la tabla de precios de cada modelo (Claude reporta directamente su costo real en USD).",
+        "stepHuman": "Estimar cuánto habría costado hacer el mismo trabajo a mano: horas hombre acreditadas por ticket × tarifa horaria.",
+        "stepFee": "La diferencia entre ambos es el ahorro; la tarifa de servicio es el porcentaje configurado de ese ahorro."
+      },
+      "humanCost": {
+        "title": "Supuestos de costo humano",
+        "description": "Se usan para estimar cuánto habrían costado los tickets resueltos hechos a mano."
+      },
+      "hourlyRate": {
+        "label": "Tarifa horaria",
+        "helper": "Costo total de una hora de trabajo de ingeniería.",
+        "error": "Ingrese una tarifa mayor que cero."
+      },
+      "currency": {
+        "label": "Moneda",
+        "helper": "Código ISO 4217, p. ej. USD, EUR, UYU.",
+        "error": "Ingrese un código ISO 4217 de tres letras."
+      },
+      "hoursPerTask": {
+        "label": "Horas ahorradas por ticket",
+        "helper": "Horas hombre acreditadas por defecto a cada ticket resuelto. Se puede sobrescribir por tarea desde el dashboard.",
+        "error": "Ingrese un valor entre {{min}} y {{max}}."
+      },
+      "hoursPerFte": {
+        "label": "Horas por FTE por mes",
+        "helper": "Horas de trabajo en un mes, usadas para expresar las horas ahorradas como equivalentes a tiempo completo.",
+        "error": "Ingrese un valor entre {{min}} y {{max}}."
+      },
+      "fee": {
+        "title": "Tarifa de servicio",
+        "description": "La factura es un porcentaje del ahorro neto: se paga por lo que se ahorra."
+      },
+      "feePercent": {
+        "label": "Porcentaje del ahorro",
+        "helper": "Parte del ahorro neto mensual que se factura. Por defecto: 10 %.",
+        "error": "Ingrese un porcentaje entre 0 y 100."
+      },
+      "llmCost": {
+        "title": "Gasto en LLM",
+        "description": "Se mide automáticamente — no hay nada que configurar.",
+        "detail": "Cada tarea acumula los tokens de entrada/salida/caché de cada llamada por modelo. Los modelos conocidos se convierten a USD con su tabla de precios y Claude reporta su costo real; las tareas cuyo agente no reporta costo se marcan en el panel como sin datos de costo."
+      },
+      "save": {
+        "success": "Configuración de facturación guardada.",
+        "error": "No se pudo guardar la configuración de facturación."
       }
     },
     "general": {

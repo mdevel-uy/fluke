@@ -15,6 +15,8 @@
         "title": "设置",
         "general": "常规",
         "generalDesc": "主题、通知和偏好设置",
+        "billing": "价值与计费",
+        "billingDesc": "节省模型、小时费率与服务费",
         "projects": "项目",
         "projectsDesc": "项目仓库和配置",
         "repos": "仓库",
@@ -39,6 +41,57 @@
         "agent-authDesc": "在设置中连接和断开每个已安装的代理",
         "data": "数据",
         "dataDesc": "导出或恢复实例的所有数据"
+      }
+    },
+    "billing": {
+      "model": {
+        "title": "价值数字如何得出",
+        "description": "生成的价值面板通过三个步骤将已解决的工单转换为金额：",
+        "stepLlm": "测量实际 LLM 支出：每个任务记录各模型调用的输入/输出/缓存 token，并按各模型的价格表折算（Claude 直接报告其实际美元成本）。",
+        "stepHuman": "估算同样的工作由人工完成的成本：每个工单的人工工时 × 小时费率。",
+        "stepFee": "两者之差即为节省；服务费为该节省乘以配置的百分比。"
+      },
+      "humanCost": {
+        "title": "人工成本假设",
+        "description": "用于估算已解决的工单若由人工完成的成本。"
+      },
+      "hourlyRate": {
+        "label": "小时费率",
+        "helper": "一小时工程工作的综合成本。",
+        "error": "请输入大于零的费率。"
+      },
+      "currency": {
+        "label": "货币",
+        "helper": "ISO 4217 代码，如 USD、EUR、UYU。",
+        "error": "请输入三个字母的 ISO 4217 代码。"
+      },
+      "hoursPerTask": {
+        "label": "每个工单节省的小时数",
+        "helper": "默认为每个已解决工单计入的人工工时。可在仪表板中按任务覆盖。",
+        "error": "请输入 {{min}} 到 {{max}} 之间的值。"
+      },
+      "hoursPerFte": {
+        "label": "每 FTE 每月小时数",
+        "helper": "一个月的工作小时数，用于将节省的小时数表示为全职当量。",
+        "error": "请输入 {{min}} 到 {{max}} 之间的值。"
+      },
+      "fee": {
+        "title": "服务费",
+        "description": "账单为净节省的一个百分比：省多少，付多少。"
+      },
+      "feePercent": {
+        "label": "节省的百分比",
+        "helper": "每月净节省中被计费的比例。默认：10%。",
+        "error": "请输入 0 到 100 之间的百分比。"
+      },
+      "llmCost": {
+        "title": "LLM 支出",
+        "description": "自动测量 — 无需配置。",
+        "detail": "每个任务累积各模型调用的输入/输出/缓存 token。已知模型按其价格表换算为美元，Claude 直接报告其实际成本；代理未报告成本的任务会在面板中标记为缺少成本数据。"
+      },
+      "save": {
+        "success": "计费设置已保存。",
+        "error": "保存计费设置失败。"
       }
     },
     "general": {

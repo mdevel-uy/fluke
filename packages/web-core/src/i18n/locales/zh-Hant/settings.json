@@ -15,6 +15,8 @@
         "title": "設定",
         "general": "一般",
         "generalDesc": "主題、通知與偏好設定",
+        "billing": "價值與計費",
+        "billingDesc": "節省模型、每小時費率與服務費",
         "projects": "專案",
         "projectsDesc": "專案儲存庫與設定",
         "repos": "儲存庫",
@@ -39,6 +41,57 @@
         "agent-authDesc": "在設定中連線和中斷每個已安裝的代理",
         "data": "資料",
         "dataDesc": "匯出或還原您實例的所有資料"
+      }
+    },
+    "billing": {
+      "model": {
+        "title": "價值數字如何得出",
+        "description": "產生的價值面板透過三個步驟將已解決的工單轉換為金額：",
+        "stepLlm": "測量實際 LLM 支出：每個任務記錄各模型呼叫的輸入/輸出/快取 token，並依各模型的價格表折算（Claude 直接回報其實際美元成本）。",
+        "stepHuman": "估算同樣的工作由人工完成的成本：每個工單的人工工時 × 每小時費率。",
+        "stepFee": "兩者之差即為節省；服務費為該節省乘以設定的百分比。"
+      },
+      "humanCost": {
+        "title": "人工成本假設",
+        "description": "用於估算已解決的工單若由人工完成的成本。"
+      },
+      "hourlyRate": {
+        "label": "每小時費率",
+        "helper": "一小時工程工作的綜合成本。",
+        "error": "請輸入大於零的費率。"
+      },
+      "currency": {
+        "label": "貨幣",
+        "helper": "ISO 4217 代碼，如 USD、EUR、UYU。",
+        "error": "請輸入三個字母的 ISO 4217 代碼。"
+      },
+      "hoursPerTask": {
+        "label": "每個工單節省的小時數",
+        "helper": "預設為每個已解決工單計入的人工工時。可在儀表板中按任務覆寫。",
+        "error": "請輸入 {{min}} 到 {{max}} 之間的值。"
+      },
+      "hoursPerFte": {
+        "label": "每 FTE 每月小時數",
+        "helper": "一個月的工作小時數，用於將節省的小時數表示為全職當量。",
+        "error": "請輸入 {{min}} 到 {{max}} 之間的值。"
+      },
+      "fee": {
+        "title": "服務費",
+        "description": "帳單為淨節省的一個百分比：省多少，付多少。"
+      },
+      "feePercent": {
+        "label": "節省的百分比",
+        "helper": "每月淨節省中被計費的比例。預設：10%。",
+        "error": "請輸入 0 到 100 之間的百分比。"
+      },
+      "llmCost": {
+        "title": "LLM 支出",
+        "description": "自動測量 — 無需設定。",
+        "detail": "每個任務累積各模型呼叫的輸入/輸出/快取 token。已知模型依其價格表換算為美元，Claude 直接回報其實際成本；代理未回報成本的任務會在面板中標記為缺少成本資料。"
+      },
+      "save": {
+        "success": "計費設定已儲存。",
+        "error": "儲存計費設定失敗。"
       }
     },
     "general": {

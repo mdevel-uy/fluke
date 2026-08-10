@@ -794,7 +794,22 @@
       "overridePerTaskLoading": "正在載入本月任務…",
       "overridePerTaskEmpty": "本月尚無已完成任務。",
       "overridePerTaskInputLabel": "此任務節省的小時數",
-      "overridePerTaskClear": "使用預設值"
+      "overridePerTaskClear": "使用預設值",
+      "breakdownHuman": "人工工時成本",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "實際 LLM 支出",
+      "breakdownLlmTokens": "輸入 {{input}} · 輸出 {{output}}",
+      "breakdownLlmTooltip": "本月 token — 輸入：{{input}}，輸出：{{output}}，快取寫入：{{cacheWrite}}，快取讀取：{{cacheRead}}。每個模型的 token 依其價格表折算；Claude 直接回報其實際美元成本。",
+      "breakdownSavings": "節省",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "服務費（節省的 {{percent}}）",
+      "explainerToggle": "如何計算？",
+      "explainerLlm": "實際 LLM 支出：每個任務記錄各模型呼叫的輸入/輸出/快取 token，依各模型的價格表折算；Claude 直接回報其實際美元成本。",
+      "explainerHuman": "人工工時成本：每個已解決的工單依設定的人工工時（可按任務修改）乘以每小時費率計算。",
+      "explainerSavings": "節省為兩者之差；服務費為該節省的 {{percent}}。",
+      "explainerConfigure": "在設定中配置這些參數",
+      "tableFee": "服務費",
+      "totalsFee": "{{prefix}}{{fee}} 服務費"
     }
   },
   "pilotReport": {
@@ -821,6 +836,7 @@
       "monetaryValue": "預估價值",
       "apiCost": "API 成本",
       "netMonetaryValue": "淨節省",
+      "serviceFee": "服務費（節省的 {{percent}}）",
       "effectiveRate": "有效費率",
       "effectiveRateUnit": "/小時 淨",
       "partialCoverageHint": "{{withCost}}/{{total}} 個任務已回報成本"
@@ -831,11 +847,15 @@
       "hoursPerFteMonth": "每 FTE·月小時數",
       "hourlyRate": "時薪",
       "currency": "貨幣",
+      "feePercent": "服務費（節省的 %）",
       "modifiedBadge": "已修改",
       "modifiedHint": "與安裝設定不同",
       "resetAll": "重設為設定值",
       "resetField": "重設為設定預設值 ({{value}})",
       "sourceHint": "預設值來自安裝設定，所有檢視者看到的數字保持一致。"
+    },
+    "breakdown": {
+      "title": "節省如何計算"
     },
     "tasksSection": {
       "title": "期間內任務",
