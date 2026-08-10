@@ -205,7 +205,7 @@ Do NOT execute the `gh` write commands that already have an outbox kind below (`
   "actions": [
     { "kind": "create_milestone", "title": "...", "description": "..." },
     { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
-    { "kind": "comment_issue", "issue": 123, "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
+    { "kind": "comment_issue", "issue": "{{action[1].number}}", "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
     { "kind": "close_issue", "issue": 456, "reason": "completed" },
     { "kind": "comment_pr", "pr": 789, "body": "..." }
   ]
@@ -214,6 +214,7 @@ Do NOT execute the `gh` write commands that already have an outbox kind below (`
 Placeholders — reference the result of an earlier action by its 0-indexed position in the array:
   * `{{action[N].number}}` — number of the resource created by action N (milestone number, issue number).
   * `{{action[N].url}}` — URL of the resource created by action N.
+The `issue` field of `comment_issue` / `close_issue` and the `milestone` field of `create_issue` accept either a literal number (`"issue": 123`) or a `{{action[N].number}}` placeholder — use the placeholder to target an issue you create in the same run (e.g. the plan comment on your first created issue). `pr` is always a literal number.
 Only BACK references are allowed: `N` must be strictly less than the index of the action that uses the placeholder. Forward references and self-references fail the ingest.
 
 `labels` defaults to `[]` and `milestone` is optional (omit it or use `null` when the issue does not belong to a milestone). Emit the file only if you have write operations to declare; a run with no writes should leave `.vk/actions.json` absent."#;
