@@ -1021,21 +1021,59 @@ pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Err
 ///
 /// Analyst and reviewer workspaces are not subject to PR-based lifecycle
 /// transitions; if they open a PR by mistake, a warning is logged.
-pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::Error> {
+/// Reconcile a PR-open transition AND emit the Web Push "esperando aprobación"
+/// (issue #533) when — and only when — the task actually moved to
+/// `in_review`. Wrapper around [`on_pr_open`] usable from paths that don't
+/// need the boolean upstream but still want the push side effect.
+///
+/// The push is best-effort (`spawn_notify` is fire-and-forget); this
+/// function's own return type collapses back to `Result<(), sqlx::Error>`
+/// to keep the caller signature.
+pub async fn on_pr_open_and_push(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let transitioned = on_pr_open(db, workspace_id).await?;
+    if !transitioned {
+        return Ok(());
+    }
+    let Some(service) = container.web_push() else {
+        return Ok(());
+    };
+    let label = match db::models::workspace::Workspace::find_by_id(&db.pool, workspace_id).await {
+        Ok(Some(ws)) => ws
+            .name
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or(&ws.branch)
+            .to_string(),
+        _ => workspace_id.to_string(),
+    };
+    let payload = crate::services::web_push::task_in_review_payload(
+        workspace_id,
+        &label,
+        Some(format!("/workspaces/{}", workspace_id)),
+    );
+    crate::services::web_push::spawn_notify(service.clone(), payload);
+    Ok(())
+}
+
+pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<bool, sqlx::Error> {
     let pool = &db.pool;
     let Some(worker_id) = Worker::find_by_workspace_id(pool, workspace_id).await? else {
-        return Ok(());
+        return Ok(false);
     };
     let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
-        return Ok(());
+        return Ok(false);
     };
     if task.worker_id != worker_id {
-        return Ok(());
+        return Ok(false);
     }
 
     // Check worker role — only developers follow the PR lifecycle.
     let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
-        return Ok(());
+        return Ok(false);
     };
     if worker.role != ROLE_DEVELOPER {
         warn!(
@@ -1044,7 +1082,7 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::
             role = %worker.role,
             "Non-developer worker created a PR — pr_monitor will not adopt it"
         );
-        return Ok(());
+        return Ok(false);
     }
 
     if task.status == worker_task::STATUS_IN_PROGRESS {
@@ -1055,8 +1093,9 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<(), sqlx::
             workspace_id = %workspace_id,
             "Worker task moved to in_review",
         );
+        return Ok(true);
     }
-    Ok(())
+    Ok(false)
 }
 
 /// Reconcile a workspace PR transitioning to *merged*: flip the linked
@@ -2741,7 +2780,7 @@ async fn on_developer_agent_finished(
                 task_id = %task.id,
                 "PR already recorded for workspace — triggering on_pr_open"
             );
-            return on_pr_open(db, workspace_id).await;
+            return on_pr_open_and_push(db, container, workspace_id).await;
         }
         Err(e) => {
             warn!(workspace_id = %workspace_id, "Could not query existing PRs: {}", e);
@@ -2861,7 +2900,7 @@ async fn on_developer_agent_finished(
                 pr_number = pr.number,
                 "Adopted existing PR — triggering on_pr_open"
             );
-            return on_pr_open(db, workspace_id).await;
+            return on_pr_open_and_push(db, container, workspace_id).await;
         }
         Err(e) => {
             warn!(workspace_id = %workspace_id, "PR list check failed (proceeding to create): {}", e);
@@ -2921,7 +2960,7 @@ async fn on_developer_agent_finished(
             // Runs after the PR record is persisted so the comment lands on a
             // PR the reviewer already sees.
             audit_territory_and_comment(&git_host, &task, &pr_info.url).await;
-            on_pr_open(db, workspace_id).await
+            on_pr_open_and_push(db, container, workspace_id).await
         }
         Err(e) => {
             // "already exists" is a recoverable edge-case: adopt instead.
@@ -2948,7 +2987,7 @@ async fn on_developer_agent_finished(
                                 pr_number = pr.number,
                                 "PR already existed; adopted — triggering on_pr_open"
                             );
-                            return on_pr_open(db, workspace_id).await;
+                            return on_pr_open_and_push(db, container, workspace_id).await;
                         }
                     }
                 }

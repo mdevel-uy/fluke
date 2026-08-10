@@ -224,6 +224,12 @@
           "helper": "Show browser notifications when tasks finish, fail, or await approval. Requires notification permission.",
           "helperDenied": "Notifications are blocked by the browser. Update the site permission to enable desktop alerts.",
           "helperInsecure": "Desktop alerts require a secure context (HTTPS or localhost)."
+        },
+        "browserPush": {
+          "label": "Alerts with the browser closed",
+          "helper": "Receive push notifications even when no mkanban tab is open. Uses the vendor push service (FCM/Mozilla) and the same events as Desktop Alerts.",
+          "helperDenied": "Notifications are blocked by the browser. Update the site permission to enable push.",
+          "helperUnsupported": "Web Push requires a secure context (HTTPS or localhost) and a browser that supports service workers."
         }
       },
       "messageInput": {

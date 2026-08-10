@@ -55,6 +55,7 @@ use services::services::{
     queued_message::QueuedMessageService,
     remote_client::RemoteClient,
     remote_sync,
+    web_push::WebPushService,
 };
 use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_util::io::ReaderStream;
@@ -89,6 +90,9 @@ pub struct LocalContainerService {
     approvals: Approvals,
     queued_message_service: QueuedMessageService,
     notification_service: NotificationService,
+    /// Optional Web Push sender (issue #533). `None` cuando el bootstrap de
+    /// VAPID falla (asset dir RO, JSON corrupto) — el resto sigue andando.
+    web_push: Option<WebPushService>,
     remote_client: Option<RemoteClient>,
     /// Gates concurrent coding-agent spawns and holds the FIFO wait
     /// queue. Only `CodingAgent` runs are gated — other run reasons
@@ -110,6 +114,7 @@ impl LocalContainerService {
         approvals: Approvals,
         queued_message_service: QueuedMessageService,
         remote_client: Option<RemoteClient>,
+        web_push: Option<WebPushService>,
     ) -> Self {
         let child_store = Arc::new(RwLock::new(HashMap::new()));
         let cancellation_tokens = Arc::new(RwLock::new(HashMap::new()));
@@ -135,6 +140,7 @@ impl LocalContainerService {
             approvals,
             queued_message_service,
             notification_service,
+            web_push,
             remote_client,
             concurrency,
         };
@@ -1687,6 +1693,10 @@ impl ContainerService for LocalContainerService {
 
     fn notification_service(&self) -> &NotificationService {
         &self.notification_service
+    }
+
+    fn web_push(&self) -> Option<&WebPushService> {
+        self.web_push.as_ref()
     }
 
     fn config(&self) -> &Arc<RwLock<Config>> {
