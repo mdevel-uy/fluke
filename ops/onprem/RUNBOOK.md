@@ -52,6 +52,13 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 - ✓ `docker inspect mkanban --format '{{.State.Health.Status}}'` → `healthy`.
 - ✓ Desde el servidor: `curl -sSf http://127.0.0.1:3000/ >/dev/null && echo OK`
   (con reverse proxy, verificar además el dominio público con `curl -sSfI https://<dominio>` → `200`).
+- ▸ Si el cliente usa Tailscale como VPN de acceso (patrón por defecto en la
+  factory), habilitar HTTPS dentro del tailnet: `sudo ./enable-tailscale-serve.sh`.
+  Es requisito para PWA y notificaciones del browser (contexto seguro).
+  Prerequisito una vez por tailnet: MagicDNS + HTTPS Certificates habilitados
+  en el admin console (DNS → HTTPS Certificates → Enable). Ver README §HTTPS.
+- ✓ Desde otro dispositivo del tailnet: `curl -sSfI https://<host>.<tailnet>.ts.net` → `200`
+  y en el browser `window.isSecureContext === true`.
 - ▸ Programar el cron de updates (ver README).
 
 **D. Configuración con el cliente**
@@ -226,3 +233,23 @@ Base contractual: [Términos](https://mkanban.dev/terms) cl. 9. El esquema es
 - ▸ Para auditoría de "quién hizo qué": el historial de GitHub tiene la
   atribución por worker (cada uno con su propia identidad), más el historial de
   sesiones de agente en la instancia.
+
+## 2.7 La URL HTTPS del tailnet no responde / cert inválido
+
+Síntoma: `https://<host>.<tailnet>.ts.net` no responde, o el browser muestra
+warning de certificado. El acceso por IP + HTTP sigue funcionando (el serve es
+una vía adicional, no reemplaza el bind del contenedor).
+
+- ▸ Confirmar que el nodo esté online: `tailscale status` en el host.
+- ▸ Confirmar que el serve esté configurado: `tailscale serve status`. Debe
+  listar `443 → http://127.0.0.1:${MK_PORT}`. Si está vacío, re-correr
+  `sudo ./enable-tailscale-serve.sh`.
+- ▸ Confirmar que el upstream esté vivo: `curl -sSfI http://127.0.0.1:${MK_PORT}/`
+  desde el host → `200`. Si falla, el problema no es HTTPS: revisar el
+  contenedor con `docker compose ps` y `docker compose logs mkanban --tail=200`.
+- ▸ Cert warning: emitir a mano `tailscale cert <host>.<tailnet>.ts.net`. Si
+  falla, verificar que **HTTPS Certificates** esté habilitado en el admin
+  console del tailnet (DNS → HTTPS Certificates → Enable). Es un prerequisito
+  a nivel tailnet, no del nodo.
+- ▸ Si `tailscale cert` funciona pero el serve sigue caído, `tailscale serve reset`
+  y re-correr el enable — a veces queda un handler stale tras cambiar `MK_PORT`.
