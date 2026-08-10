@@ -1707,7 +1707,7 @@ pub async fn list_worker_task_actions(
         })
         .collect();
 
-    Ok(ResponseJson(ApiResponse::success(response)).into_response())
+    Ok(ResponseJson(ApiResponse::<Vec<AgentActionResponse>>::success(response)).into_response())
 }
 
 /// Re-drive the outbox of a task: run `pending` / `failed` agent actions
