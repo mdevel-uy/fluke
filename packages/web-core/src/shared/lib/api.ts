@@ -2638,6 +2638,29 @@ export const workersApi = {
     return handleApiResponse<void>(response);
   },
 
+  listTaskActions: async <T = unknown>(
+    workerId: string,
+    taskId: string
+  ): Promise<T> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/actions`
+    );
+    return handleApiResponse<T>(response);
+  },
+
+  retryTaskActions: async <T = unknown>(
+    workerId: string,
+    taskId: string
+  ): Promise<T> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/retry-actions`,
+      {
+        method: 'POST',
+      }
+    );
+    return handleApiResponse<T>(response);
+  },
+
   reassignTask: async (
     workerId: string,
     taskId: string,

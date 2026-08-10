@@ -3,4 +3,6 @@ export const workersKeys = {
   list: () => [...workersKeys.all, 'list'] as const,
   archived: () => [...workersKeys.all, 'archived'] as const,
   tasks: (workerId: string) => [...workersKeys.all, 'tasks', workerId] as const,
+  taskActions: (workerId: string, taskId: string) =>
+    [...workersKeys.all, 'task-actions', workerId, taskId] as const,
 };

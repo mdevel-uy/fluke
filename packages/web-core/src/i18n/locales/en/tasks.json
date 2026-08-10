@@ -572,5 +572,23 @@
       "developerRunning": "Follow-up running…",
       "stalled": "Loop stalled"
     }
+  },
+  "agentActions": {
+    "title": "Agent actions",
+    "panelLabel": "Agent actions detail",
+    "close": "Close",
+    "loading": "Loading actions…",
+    "empty": "No agent actions for this task.",
+    "pendingCount_one": "{{count}} pending action",
+    "pendingCount_other": "{{count}} pending actions",
+    "failedAction": "Action {{seq}} failed: {{kind}}",
+    "retryButton": "Retry actions",
+    "resultLink": "View result",
+    "status": {
+      "pending": "pending",
+      "done": "done",
+      "failed": "failed",
+      "skipped": "skipped"
+    }
   }
 }

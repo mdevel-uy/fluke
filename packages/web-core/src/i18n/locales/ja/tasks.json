@@ -572,5 +572,23 @@
       "developerRunning": "フォローアップ実行中…",
       "stalled": "ループ停滞"
     }
+  },
+  "agentActions": {
+    "title": "エージェントアクション",
+    "panelLabel": "エージェントアクションの詳細",
+    "close": "閉じる",
+    "loading": "アクションを読み込み中…",
+    "empty": "このタスクにはエージェントアクションがありません。",
+    "pendingCount_one": "保留中のアクション{{count}}件",
+    "pendingCount_other": "保留中のアクション{{count}}件",
+    "failedAction": "アクション{{seq}}が失敗しました: {{kind}}",
+    "retryButton": "アクションを再試行",
+    "resultLink": "結果を表示",
+    "status": {
+      "pending": "保留中",
+      "done": "完了",
+      "failed": "失敗",
+      "skipped": "スキップ"
+    }
   }
 }

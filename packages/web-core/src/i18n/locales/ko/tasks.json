@@ -572,5 +572,23 @@
       "developerRunning": "후속 작업 진행 중…",
       "stalled": "루프 정체"
     }
+  },
+  "agentActions": {
+    "title": "에이전트 액션",
+    "panelLabel": "에이전트 액션 상세",
+    "close": "닫기",
+    "loading": "액션을 불러오는 중…",
+    "empty": "이 작업에 대한 에이전트 액션이 없습니다.",
+    "pendingCount_one": "대기 중인 액션 {{count}}개",
+    "pendingCount_other": "대기 중인 액션 {{count}}개",
+    "failedAction": "액션 {{seq}} 실패: {{kind}}",
+    "retryButton": "액션 재시도",
+    "resultLink": "결과 보기",
+    "status": {
+      "pending": "대기 중",
+      "done": "완료",
+      "failed": "실패",
+      "skipped": "건너뜀"
+    }
   }
 }

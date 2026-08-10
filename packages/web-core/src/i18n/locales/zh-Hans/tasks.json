@@ -572,5 +572,23 @@
       "developerRunning": "跟进进行中…",
       "stalled": "循环停滞"
     }
+  },
+  "agentActions": {
+    "title": "智能体操作",
+    "panelLabel": "智能体操作详情",
+    "close": "关闭",
+    "loading": "正在加载操作…",
+    "empty": "此任务没有智能体操作。",
+    "pendingCount_one": "{{count}} 个待处理操作",
+    "pendingCount_other": "{{count}} 个待处理操作",
+    "failedAction": "操作 {{seq}} 失败：{{kind}}",
+    "retryButton": "重试操作",
+    "resultLink": "查看结果",
+    "status": {
+      "pending": "待处理",
+      "done": "已完成",
+      "failed": "失败",
+      "skipped": "已跳过"
+    }
   }
 }

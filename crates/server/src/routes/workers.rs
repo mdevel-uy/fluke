@@ -1645,6 +1645,71 @@ pub struct RetryActionsResponse {
     pub pending_remaining: usize,
 }
 
+/// Read-only projection of an `agent_actions` row for the UI. The internal
+/// `payload` / `attempts` / timestamps are intentionally omitted: the UI only
+/// needs to render badges, show which action failed, and offer a link to the
+/// resulting GitHub artifact.
+#[derive(Debug, Serialize)]
+pub struct AgentActionResponse {
+    pub seq: i64,
+    pub kind: String,
+    pub status: String,
+    pub last_error: Option<String>,
+    pub result_number: Option<i64>,
+    pub result_url: Option<String>,
+}
+
+/// GET /api/workers/{worker_id}/tasks/{task_id}/actions — list every
+/// `agent_actions` row for a task, ordered by `seq`. Guardrails match
+/// [`retry_worker_task_actions`]: unknown worker or task (or a task that
+/// belongs to a different worker) returns 404 so URL guessing never leaks
+/// cross-worker existence.
+pub async fn list_worker_task_actions(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<Response, ApiError> {
+    let pool = &deployment.db().pool;
+
+    if Worker::find_by_id(pool, worker_id).await?.is_none() {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<Vec<AgentActionResponse>>::error(
+                "Worker not found",
+            )),
+        )
+            .into_response());
+    }
+
+    let task_belongs = matches!(
+        WorkerTask::find_by_id(pool, task_id).await?,
+        Some(t) if t.worker_id == worker_id
+    );
+    if !task_belongs {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<Vec<AgentActionResponse>>::error(
+                "Worker task not found",
+            )),
+        )
+            .into_response());
+    }
+
+    let rows = AgentAction::find_by_task_id(pool, task_id).await?;
+    let response: Vec<AgentActionResponse> = rows
+        .into_iter()
+        .map(|r| AgentActionResponse {
+            seq: r.seq,
+            kind: r.kind,
+            status: r.status,
+            last_error: r.last_error,
+            result_number: r.result_number,
+            result_url: r.result_url,
+        })
+        .collect();
+
+    Ok(ResponseJson(ApiResponse::<Vec<AgentActionResponse>>::success(response)).into_response())
+}
+
 /// Re-drive the outbox of a task: run `pending` / `failed` agent actions
 /// against GitHub without re-running the coding agent. This is the surgical
 /// retry that makes an infra hiccup on GitHub cheap to recover from — a single
@@ -2170,6 +2235,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/retry-actions",
             post(retry_worker_task_actions),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/actions",
+            get(list_worker_task_actions),
         )
 }
 

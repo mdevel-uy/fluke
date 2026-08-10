@@ -572,5 +572,23 @@
       "developerRunning": "Follow-up en cours…",
       "stalled": "Boucle bloquée"
     }
+  },
+  "agentActions": {
+    "title": "Actions de l'agent",
+    "panelLabel": "Détail des actions de l'agent",
+    "close": "Fermer",
+    "loading": "Chargement des actions…",
+    "empty": "Aucune action de l'agent pour cette tâche.",
+    "pendingCount_one": "{{count}} action en attente",
+    "pendingCount_other": "{{count}} actions en attente",
+    "failedAction": "Échec de l'action {{seq}} : {{kind}}",
+    "retryButton": "Réessayer les actions",
+    "resultLink": "Voir le résultat",
+    "status": {
+      "pending": "en attente",
+      "done": "terminée",
+      "failed": "échec",
+      "skipped": "ignorée"
+    }
   }
 }
