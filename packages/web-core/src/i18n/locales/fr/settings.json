@@ -15,6 +15,8 @@
         "title": "Paramètres",
         "general": "Général",
         "generalDesc": "Thème, notifications et préférences",
+        "billing": "Valeur et facturation",
+        "billingDesc": "Modèle d'économies, taux horaire et frais de service",
         "projects": "Projets",
         "projectsDesc": "Dépôts de projet et configuration",
         "repos": "Dépôts",
@@ -39,6 +41,57 @@
         "agent-authDesc": "Connectez et déconnectez chaque agent installé depuis les paramètres",
         "data": "Données",
         "dataDesc": "Exporter ou restaurer toutes les données de votre instance"
+      }
+    },
+    "billing": {
+      "model": {
+        "title": "Comment le chiffre de valeur est construit",
+        "description": "Le panneau Valeur générée convertit les tickets résolus en argent en trois étapes :",
+        "stepLlm": "Mesurer la dépense LLM réelle : chaque tâche enregistre les tokens d'entrée/sortie/cache de chaque appel par modèle, valorisés avec la grille tarifaire de chaque modèle (Claude rapporte directement son coût réel en USD).",
+        "stepHuman": "Estimer ce que le même travail aurait coûté à la main : heures-homme créditées par ticket × taux horaire.",
+        "stepFee": "La différence entre les deux est l'économie ; les frais de service sont le pourcentage configuré de cette économie."
+      },
+      "humanCost": {
+        "title": "Hypothèses de coût humain",
+        "description": "Utilisées pour estimer ce que les tickets résolus auraient coûté faits à la main."
+      },
+      "hourlyRate": {
+        "label": "Taux horaire",
+        "helper": "Coût complet d'une heure de travail d'ingénierie.",
+        "error": "Saisissez un taux supérieur à zéro."
+      },
+      "currency": {
+        "label": "Devise",
+        "helper": "Code ISO 4217, p. ex. USD, EUR, UYU.",
+        "error": "Saisissez un code ISO 4217 à trois lettres."
+      },
+      "hoursPerTask": {
+        "label": "Heures économisées par ticket",
+        "helper": "Heures-homme créditées par défaut à chaque ticket résolu. Modifiable par tâche depuis le tableau de bord.",
+        "error": "Saisissez une valeur entre {{min}} et {{max}}."
+      },
+      "hoursPerFte": {
+        "label": "Heures par ETP par mois",
+        "helper": "Heures de travail dans un mois, utilisées pour exprimer les heures économisées en équivalents temps plein.",
+        "error": "Saisissez une valeur entre {{min}} et {{max}}."
+      },
+      "fee": {
+        "title": "Frais de service",
+        "description": "La facture est un pourcentage de l'économie nette : vous payez pour ce que vous économisez."
+      },
+      "feePercent": {
+        "label": "Pourcentage de l'économie",
+        "helper": "Part de l'économie nette mensuelle qui est facturée. Par défaut : 10 %.",
+        "error": "Saisissez un pourcentage entre 0 et 100."
+      },
+      "llmCost": {
+        "title": "Dépense LLM",
+        "description": "Mesurée automatiquement — rien à configurer.",
+        "detail": "Chaque tâche accumule les tokens d'entrée/sortie/cache de chaque appel par modèle. Les modèles connus sont convertis en USD avec leur grille tarifaire et Claude rapporte son coût réel ; les tâches dont l'agent ne rapporte aucun coût sont signalées dans le panneau comme sans données de coût."
+      },
+      "save": {
+        "success": "Paramètres de facturation enregistrés.",
+        "error": "Échec de l'enregistrement des paramètres de facturation."
       }
     },
     "general": {

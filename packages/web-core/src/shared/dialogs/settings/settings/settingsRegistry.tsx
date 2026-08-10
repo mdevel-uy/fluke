@@ -1,5 +1,6 @@
 import {
   ArchiveIcon,
+  CurrencyCircleDollarIcon,
   GearIcon,
   GitBranchIcon,
   GithubLogoIcon,
@@ -10,6 +11,7 @@ import {
   ScrollIcon,
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
+import { BillingSettingsSection } from './BillingSettingsSection';
 import { GeneralSettingsSection } from './GeneralSettingsSection';
 import { ReposSettingsSection } from './ReposSettingsSection';
 import { AgentsSettingsSection } from './AgentsSettingsSection';
@@ -22,6 +24,7 @@ import { DataSettingsSection } from './DataSettingsSection';
 
 export type SettingsSectionType =
   | 'general'
+  | 'billing'
   | 'repos'
   | 'organizations'
   | 'remote-projects'
@@ -38,6 +41,7 @@ export type SettingsSectionGroup = 'host' | 'universal';
 
 export type SettingsSectionInitialState = {
   general: undefined;
+  billing: undefined;
   repos: { repoId?: string } | undefined;
   organizations: { organizationId?: string } | undefined;
   'remote-projects':
@@ -61,6 +65,7 @@ export interface SettingsSectionDefinition {
 
 export const SETTINGS_SECTION_DEFINITIONS: SettingsSectionDefinition[] = [
   { id: 'general', icon: GearIcon, group: 'host' },
+  { id: 'billing', icon: CurrencyCircleDollarIcon, group: 'host' },
   { id: 'repos', icon: GitBranchIcon, group: 'host' },
   { id: 'agents', icon: CpuIcon, group: 'host' },
   { id: 'agent-auth', icon: KeyIcon, group: 'host' },
@@ -88,6 +93,8 @@ export function renderSettingsSection(
   switch (type) {
     case 'general':
       return <GeneralSettingsSection />;
+    case 'billing':
+      return <BillingSettingsSection />;
     case 'repos':
       return (
         <ReposSettingsSection

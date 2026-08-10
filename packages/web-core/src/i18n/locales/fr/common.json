@@ -796,7 +796,22 @@
       "overridePerTaskLoading": "Chargement des tâches du mois…",
       "overridePerTaskEmpty": "Aucune tâche terminée ce mois-ci.",
       "overridePerTaskInputLabel": "Heures économisées pour cette tâche",
-      "overridePerTaskClear": "Utiliser la valeur par défaut"
+      "overridePerTaskClear": "Utiliser la valeur par défaut",
+      "breakdownHuman": "Coût en heures-homme",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "Dépense LLM réelle",
+      "breakdownLlmTokens": "{{input}} entrée · {{output}} sortie",
+      "breakdownLlmTooltip": "Tokens du mois — entrée : {{input}}, sortie : {{output}}, écriture cache : {{cacheWrite}}, lecture cache : {{cacheRead}}. Les tokens de chaque modèle sont valorisés avec sa propre grille tarifaire ; Claude rapporte directement son coût réel en USD.",
+      "breakdownSavings": "Économie",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "Frais de service ({{percent}} de l'économie)",
+      "explainerToggle": "Comment est-ce calculé ?",
+      "explainerLlm": "Dépense LLM réelle : chaque tâche enregistre les tokens d'entrée/sortie/cache de chaque appel par modèle ; ils sont valorisés avec la grille tarifaire de chaque modèle, et Claude rapporte directement son coût réel en USD.",
+      "explainerHuman": "Coût en heures-homme : chaque ticket résolu est crédité des heures-homme configurées (modifiables par tâche), multipliées par le taux horaire.",
+      "explainerSavings": "L'économie est la différence entre les deux ; les frais de service représentent {{percent}} de cette économie.",
+      "explainerConfigure": "Ajuster ces valeurs dans les Paramètres",
+      "tableFee": "Frais",
+      "totalsFee": "{{prefix}}{{fee}} de frais"
     }
   },
   "pilotReport": {
@@ -823,6 +838,7 @@
       "monetaryValue": "Valeur estimée",
       "apiCost": "Coût de l'API",
       "netMonetaryValue": "Économies nettes",
+      "serviceFee": "Frais de service ({{percent}} de l'économie)",
       "effectiveRate": "Taux effectif",
       "effectiveRateUnit": "/h net",
       "partialCoverageHint": "{{withCost}}/{{total}} tâches avec coût déclaré"
@@ -833,11 +849,15 @@
       "hoursPerFteMonth": "Heures / ETP·mois",
       "hourlyRate": "Taux horaire",
       "currency": "Devise",
+      "feePercent": "Frais (% de l'économie)",
       "modifiedBadge": "Modifié",
       "modifiedHint": "Différent de la configuration",
       "resetAll": "Rétablir la config",
       "resetField": "Rétablir la valeur de config ({{value}})",
       "sourceHint": "Les valeurs par défaut proviennent de la configuration afin que chaque lecteur voie les mêmes chiffres."
+    },
+    "breakdown": {
+      "title": "Comment l'économie est calculée"
     },
     "tasksSection": {
       "title": "Tâches de la période",

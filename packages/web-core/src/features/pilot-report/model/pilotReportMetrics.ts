@@ -20,6 +20,18 @@ export interface PilotReportMetrics {
   apiCostUsd: number;
   /** Net monetary value: gross − API cost, floored at 0. */
   netMonetaryValue: number;
+  /** Slice of the net savings that gets invoiced: `netMonetaryValue ×
+   *  feeRate` — the "you pay a percentage of what you save" pricing model.
+   *  Same math as the value-generated panel so both surfaces tell the
+   *  same story. */
+  serviceFee: number;
+  /** Token totals across resolved tasks (null usage rows contribute 0).
+   *  Shown next to the API cost so the spend stays traceable to what was
+   *  actually consumed. */
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
   /** Effective hourly rate on net savings: `netMonetaryValue / hoursSaved`.
    *  Zero when hours are zero. */
   effectiveHourlyRate: number;
@@ -36,6 +48,8 @@ export interface PilotReportAssumptions {
   hoursPerTicket: number;
   hoursPerFteMonth: number;
   hourlyRate: number;
+  /** Fraction (0..=1) of the net savings that gets invoiced. */
+  feeRate: number;
 }
 
 export function computePilotReportMetrics(
@@ -78,16 +92,25 @@ export function computePilotReportMetrics(
   // silently understate what the client actually paid for API tokens.
   let apiCostUsd = 0;
   let ticketsWithCost = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cacheCreationTokens = 0;
+  let cacheReadTokens = 0;
   for (const task of resolvedTasks) {
     if (task.cost_usd !== null && task.cost_usd !== undefined) {
       apiCostUsd += task.cost_usd;
       ticketsWithCost += 1;
     }
+    inputTokens += task.input_tokens ?? 0;
+    outputTokens += task.output_tokens ?? 0;
+    cacheCreationTokens += task.cache_creation_tokens ?? 0;
+    cacheReadTokens += task.cache_read_tokens ?? 0;
   }
   const partialCostCoverage =
     ticketsResolved > 0 && ticketsWithCost < ticketsResolved;
 
   const netMonetaryValue = Math.max(0, monetaryValue - apiCostUsd);
+  const serviceFee = netMonetaryValue * assumptions.feeRate;
   const effectiveHourlyRate =
     hoursSaved > 0 ? netMonetaryValue / hoursSaved : 0;
 
@@ -106,6 +129,11 @@ export function computePilotReportMetrics(
     monetaryValue,
     apiCostUsd,
     netMonetaryValue,
+    serviceFee,
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
     effectiveHourlyRate,
     ticketsWithCost,
     partialCostCoverage,

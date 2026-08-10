@@ -7,7 +7,9 @@ import {
   DEFAULT_CURRENCY,
   DEFAULT_HOURLY_RATE,
   normalizeCurrency,
+  normalizeSavingsFeeRate,
 } from '@/features/dashboard/model/valueDefaults';
+import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { formatManHours } from '@/features/dashboard/model/dashboardMetrics';
 import {
   VALUE_HISTORY_WINDOWS,
@@ -46,19 +48,23 @@ import { Panel, PanelEmpty } from './parts/primitives';
  * agents don't report USD yet. `grossValue` is `hours × hourlyRate`;
  * `netValue` is that minus `costUsd` (never below zero — a negative net
  * means our assumptions are off, not that the pilot lost money, so we
- * clamp to zero and let the coverage flag do the talking).
+ * clamp to zero and let the coverage flag do the talking). `feeValue` is
+ * the slice of the net savings we invoice (`netValue × feeRate`) — the
+ * "you pay a percentage of what you save" pricing model.
  */
 function computeMonthMetrics(
   month: ValueGeneratedMonth,
   hoursPerTask: number,
   hoursPerFteMonth: number,
-  hourlyRate: number
+  hourlyRate: number,
+  feeRate: number
 ): {
   hours: number;
   fte: number;
   costUsd: number;
   grossValue: number;
   netValue: number;
+  feeValue: number;
   partialCostCoverage: boolean;
   costMissingCount: number;
 } {
@@ -71,6 +77,7 @@ function computeMonthMetrics(
   const costUsd = month.cost_usd_sum;
   const grossValue = hours * hourlyRate;
   const netValue = Math.max(0, grossValue - costUsd);
+  const feeValue = netValue * feeRate;
   const costMissingCount = Math.max(
     0,
     month.done_count - month.tasks_with_cost
@@ -83,9 +90,21 @@ function computeMonthMetrics(
     costUsd,
     grossValue,
     netValue,
+    feeValue,
     partialCostCoverage,
     costMissingCount,
   };
+}
+
+/**
+ * Compact token count for the LLM-spend line: `1234` -> `1.2k`,
+ * `12_345_678` -> `12.3M`. Exact figures live in the tooltip; the inline
+ * label only needs the order of magnitude.
+ */
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
+  return String(count);
 }
 
 /**
@@ -120,6 +139,7 @@ export function ValueGeneratedPanel() {
     config?.default_hours_per_fte_month ?? DEFAULT_HOURS_PER_FTE_MONTH;
   const hourlyRate = config?.default_hourly_rate ?? DEFAULT_HOURLY_RATE;
   const currency = normalizeCurrency(config?.default_currency, DEFAULT_CURRENCY);
+  const feeRate = normalizeSavingsFeeRate(config?.default_savings_fee_rate);
 
   const [hoursDraft, setHoursDraft] = useState(() => String(hoursPerTask));
   const [fteDraft, setFteDraft] = useState(() => String(hoursPerFteMonth));
@@ -161,6 +181,15 @@ export function ValueGeneratedPanel() {
     [i18n.language, currency]
   );
 
+  const percentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.language, {
+        style: 'percent',
+        maximumFractionDigits: 1,
+      }),
+    [i18n.language]
+  );
+
   const currentMonth: ValueGeneratedMonth = summary.months[0] ?? {
     year_month: currentUtcMonthKey(),
     done_count: 0,
@@ -179,7 +208,8 @@ export function ValueGeneratedPanel() {
     currentMonth,
     hoursPerTask,
     hoursPerFteMonth,
-    hourlyRate
+    hourlyRate,
+    feeRate
   );
 
   const totals = useMemo(() => {
@@ -189,7 +219,8 @@ export function ValueGeneratedPanel() {
           month,
           hoursPerTask,
           hoursPerFteMonth,
-          hourlyRate
+          hourlyRate,
+          feeRate
         );
         acc.tickets += month.done_count;
         acc.hours += metrics.hours;
@@ -197,6 +228,7 @@ export function ValueGeneratedPanel() {
         acc.cost += metrics.costUsd;
         acc.net += metrics.netValue;
         acc.gross += metrics.grossValue;
+        acc.fee += metrics.feeValue;
         if (metrics.partialCostCoverage) acc.partialCostMonths += 1;
         return acc;
       },
@@ -207,10 +239,11 @@ export function ValueGeneratedPanel() {
         cost: 0,
         net: 0,
         gross: 0,
+        fee: 0,
         partialCostMonths: 0,
       }
     );
-  }, [summary.months, hoursPerTask, hoursPerFteMonth, hourlyRate]);
+  }, [summary.months, hoursPerTask, hoursPerFteMonth, hourlyRate, feeRate]);
 
   const commitHoursPerTask = (raw: string) => {
     setHoursDraft(raw);
@@ -323,8 +356,11 @@ export function ValueGeneratedPanel() {
         <CurrentMonthCard
           month={currentMonth}
           metrics={currentMetrics}
+          feeRate={feeRate}
+          hourlyRate={hourlyRate}
           monthFormatter={monthFormatter}
           currencyFormatter={currencyFormatter}
+          percentFormatter={percentFormatter}
         />
 
         {totals.tickets > 0 && historyMonths > 1 && (
@@ -372,6 +408,14 @@ export function ValueGeneratedPanel() {
                 })}
               </span>
             )}
+            {totals.fee > 0 && (
+              <span className="tabular-nums font-semibold text-high">
+                {t('dashboard.valueGenerated.totalsFee', {
+                  prefix: totals.partialCostMonths > 0 ? '≤ ' : '',
+                  fee: currencyFormatter.format(totals.fee),
+                })}
+              </span>
+            )}
           </div>
         )}
 
@@ -405,6 +449,7 @@ export function ValueGeneratedPanel() {
             hoursPerTask={hoursPerTask}
             hoursPerFteMonth={hoursPerFteMonth}
             hourlyRate={hourlyRate}
+            feeRate={feeRate}
             monthFormatter={monthFormatter}
             currencyFormatter={currencyFormatter}
           />
@@ -417,18 +462,31 @@ export function ValueGeneratedPanel() {
 function CurrentMonthCard({
   month,
   metrics,
+  feeRate,
+  hourlyRate,
   monthFormatter,
   currencyFormatter,
+  percentFormatter,
 }: {
   month: ValueGeneratedMonth;
   metrics: ReturnType<typeof computeMonthMetrics>;
+  feeRate: number;
+  hourlyRate: number;
   monthFormatter: Intl.DateTimeFormat;
   currencyFormatter: Intl.NumberFormat;
+  percentFormatter: Intl.NumberFormat;
 }) {
   const { t } = useTranslation('common');
+  const [showExplainer, setShowExplainer] = useState(false);
   const monthLabel = monthFormatter.format(parseMonthKey(month.year_month));
   const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
   const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
+  const feePercent = percentFormatter.format(feeRate);
+  const totalTokens =
+    month.input_tokens_sum +
+    month.output_tokens_sum +
+    month.cache_creation_tokens_sum +
+    month.cache_read_tokens_sum;
 
   return (
     <div className="rounded-md border border-border bg-md-background/60 p-3">
@@ -436,6 +494,15 @@ function CurrentMonthCard({
         <span className="font-sans text-label font-semibold uppercase tracking-wide text-low">
           {t('dashboard.valueGenerated.thisMonthLabel', { month: monthLabel })}
         </span>
+        <button
+          type="button"
+          onClick={() => setShowExplainer((v) => !v)}
+          aria-expanded={showExplainer}
+          className="flex items-center gap-1 text-xs font-normal normal-case tracking-normal text-low hover:text-normal"
+        >
+          <MaterialIcon name="help_outline" size="xs" />
+          {t('dashboard.valueGenerated.explainerToggle')}
+        </button>
       </div>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="font-sans text-2xl font-bold leading-tight tracking-tight text-high tabular-nums">
@@ -453,28 +520,74 @@ function CurrentMonthCard({
             fte: formatManHours(metrics.fte),
           })}
         </span>
-        {metrics.grossValue > 0 && (
-          <span className="text-sm text-normal tabular-nums">
-            {t('dashboard.valueGenerated.summaryValue', {
-              value: currencyFormatter.format(metrics.grossValue),
-            })}
-          </span>
-        )}
       </div>
+
+      {showExplainer && (
+        <div className="mt-2 rounded-md border border-border bg-md-background/40 p-2 text-xs text-normal">
+          <ol className="ml-4 list-decimal space-y-1">
+            <li>{t('dashboard.valueGenerated.explainerLlm')}</li>
+            <li>{t('dashboard.valueGenerated.explainerHuman')}</li>
+            <li>
+              {t('dashboard.valueGenerated.explainerSavings', {
+                percent: feePercent,
+              })}
+            </li>
+          </ol>
+          <button
+            type="button"
+            onClick={() => void SettingsDialog.show({ initialSection: 'billing' })}
+            className="mt-1.5 flex items-center gap-1 font-medium text-low underline underline-offset-2 hover:text-normal"
+          >
+            <MaterialIcon name="settings" size="xs" />
+            {t('dashboard.valueGenerated.explainerConfigure')}
+          </button>
+        </div>
+      )}
+
       {month.done_count > 0 && (
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border pt-2 text-sm">
-          <span className="tabular-nums text-normal">
-            {t('dashboard.valueGenerated.summaryCost', {
-              prefix: costPrefix,
+        <dl className="mt-2 flex flex-col gap-1 border-t border-border pt-2 text-sm">
+          <BreakdownRow
+            label={t('dashboard.valueGenerated.breakdownHuman')}
+            detail={t('dashboard.valueGenerated.breakdownHumanFormula', {
+              hours: formatManHours(metrics.hours),
+              rate: currencyFormatter.format(hourlyRate),
+            })}
+            value={currencyFormatter.format(metrics.grossValue)}
+          />
+          <BreakdownRow
+            label={t('dashboard.valueGenerated.breakdownLlm')}
+            detail={
+              totalTokens > 0
+                ? t('dashboard.valueGenerated.breakdownLlmTokens', {
+                    input: formatTokens(month.input_tokens_sum),
+                    output: formatTokens(month.output_tokens_sum),
+                  })
+                : undefined
+            }
+            detailTitle={t('dashboard.valueGenerated.breakdownLlmTooltip', {
+              input: month.input_tokens_sum.toLocaleString(),
+              output: month.output_tokens_sum.toLocaleString(),
+              cacheWrite: month.cache_creation_tokens_sum.toLocaleString(),
+              cacheRead: month.cache_read_tokens_sum.toLocaleString(),
+            })}
+            value={`− ${costPrefix}${currencyFormatter.format(metrics.costUsd)}`}
+          />
+          <BreakdownRow
+            label={t('dashboard.valueGenerated.breakdownSavings')}
+            detail={t('dashboard.valueGenerated.breakdownSavingsFormula', {
+              gross: currencyFormatter.format(metrics.grossValue),
               cost: currencyFormatter.format(metrics.costUsd),
             })}
-          </span>
-          <span className="tabular-nums font-semibold text-high">
-            {t('dashboard.valueGenerated.summaryNet', {
-              prefix: netPrefix,
-              net: currencyFormatter.format(metrics.netValue),
+            value={`${netPrefix}${currencyFormatter.format(metrics.netValue)}`}
+            divider
+          />
+          <BreakdownRow
+            label={t('dashboard.valueGenerated.breakdownFee', {
+              percent: feePercent,
             })}
-          </span>
+            value={`${netPrefix}${currencyFormatter.format(metrics.feeValue)}`}
+            emphasis
+          />
           {metrics.partialCostCoverage && (
             <span
               className="text-xs italic text-low"
@@ -489,8 +602,65 @@ function CurrentMonthCard({
               })}
             </span>
           )}
-        </div>
+        </dl>
       )}
+    </div>
+  );
+}
+
+/**
+ * One line of the "how the money figure is built" breakdown: label plus an
+ * optional inline formula on the left, amount on the right. `divider` draws
+ * a rule above the row (used before the savings subtotal), `emphasis`
+ * highlights the row (used for the fee — the number the invoice is built
+ * from).
+ */
+function BreakdownRow({
+  label,
+  detail,
+  detailTitle,
+  value,
+  divider,
+  emphasis,
+}: {
+  label: string;
+  detail?: string;
+  detailTitle?: string;
+  value: string;
+  divider?: boolean;
+  emphasis?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5',
+        divider && 'border-t border-border pt-1'
+      )}
+    >
+      <dt
+        className={cn(
+          'flex flex-wrap items-baseline gap-x-2',
+          emphasis ? 'font-semibold text-high' : 'text-normal'
+        )}
+      >
+        {label}
+        {detail && (
+          <span
+            className="text-xs text-low tabular-nums"
+            title={detailTitle}
+          >
+            {detail}
+          </span>
+        )}
+      </dt>
+      <dd
+        className={cn(
+          'tabular-nums',
+          emphasis ? 'font-semibold text-high' : 'text-normal'
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
@@ -500,6 +670,7 @@ function HistoryTable({
   hoursPerTask,
   hoursPerFteMonth,
   hourlyRate,
+  feeRate,
   monthFormatter,
   currencyFormatter,
 }: {
@@ -507,6 +678,7 @@ function HistoryTable({
   hoursPerTask: number;
   hoursPerFteMonth: number;
   hourlyRate: number;
+  feeRate: number;
   monthFormatter: Intl.DateTimeFormat;
   currencyFormatter: Intl.NumberFormat;
 }) {
@@ -534,8 +706,11 @@ function HistoryTable({
             <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableCost')}
             </th>
-            <th className="py-1 text-right font-semibold">
+            <th className="py-1 pr-2 text-right font-semibold">
               {t('dashboard.valueGenerated.tableNet')}
+            </th>
+            <th className="py-1 text-right font-semibold">
+              {t('dashboard.valueGenerated.tableFee')}
             </th>
           </tr>
         </thead>
@@ -545,7 +720,8 @@ function HistoryTable({
               month,
               hoursPerTask,
               hoursPerFteMonth,
-              hourlyRate
+              hourlyRate,
+              feeRate
             );
             const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
             const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
@@ -586,11 +762,19 @@ function HistoryTable({
                     : '—'}
                 </td>
                 <td
-                  className="border-t border-border py-1 text-right tabular-nums"
+                  className="border-t border-border py-1 pr-2 text-right tabular-nums"
                   title={coverageTitle}
                 >
                   {metrics.netValue > 0
                     ? `${netPrefix}${currencyFormatter.format(metrics.netValue)}`
+                    : '—'}
+                </td>
+                <td
+                  className="border-t border-border py-1 text-right tabular-nums font-medium"
+                  title={coverageTitle}
+                >
+                  {metrics.feeValue > 0
+                    ? `${netPrefix}${currencyFormatter.format(metrics.feeValue)}`
                     : '—'}
                 </td>
               </tr>

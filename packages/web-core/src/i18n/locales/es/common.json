@@ -811,7 +811,22 @@
       "overridePerTaskLoading": "Cargando tareas del mes…",
       "overridePerTaskEmpty": "Sin tareas completadas este mes.",
       "overridePerTaskInputLabel": "Horas ahorradas para esta tarea",
-      "overridePerTaskClear": "Usar default"
+      "overridePerTaskClear": "Usar default",
+      "breakdownHuman": "Costo en horas hombre",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "Gasto real en LLM",
+      "breakdownLlmTokens": "{{input}} entrada · {{output}} salida",
+      "breakdownLlmTooltip": "Tokens del mes — entrada: {{input}}, salida: {{output}}, escritura de caché: {{cacheWrite}}, lectura de caché: {{cacheRead}}. Los tokens de cada modelo se valorizan con su propia tabla de precios; Claude reporta directamente su costo real en USD.",
+      "breakdownSavings": "Ahorro",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "Tarifa de servicio ({{percent}} del ahorro)",
+      "explainerToggle": "¿Cómo se calcula?",
+      "explainerLlm": "Gasto real en LLM: cada tarea registra los tokens de entrada/salida/caché de cada llamada por modelo; se valorizan con la tabla de precios de cada modelo, y Claude reporta directamente su costo real en USD.",
+      "explainerHuman": "Costo en horas hombre: cada ticket resuelto se acredita con las horas hombre configuradas (editables por tarea), multiplicadas por la tarifa horaria.",
+      "explainerSavings": "El ahorro es la diferencia entre ambos; la tarifa de servicio es el {{percent}} de ese ahorro.",
+      "explainerConfigure": "Configurar estos parámetros en Configuración",
+      "tableFee": "Tarifa",
+      "totalsFee": "{{prefix}}{{fee}} tarifa"
     }
   },
   "pilotReport": {
@@ -838,6 +853,7 @@
       "monetaryValue": "Valor estimado",
       "apiCost": "Costo de API",
       "netMonetaryValue": "Ahorro neto",
+      "serviceFee": "Tarifa de servicio ({{percent}} del ahorro)",
       "effectiveRate": "Tarifa efectiva",
       "effectiveRateUnit": "/h neto",
       "partialCoverageHint": "{{withCost}}/{{total}} tareas con costo reportado"
@@ -848,11 +864,15 @@
       "hoursPerFteMonth": "Horas / FTE·mes",
       "hourlyRate": "Tarifa por hora",
       "currency": "Moneda",
+      "feePercent": "Tarifa (% del ahorro)",
       "modifiedBadge": "Modificado",
       "modifiedHint": "Distinto al de la configuración",
       "resetAll": "Restaurar del config",
       "resetField": "Restaurar valor del config ({{value}})",
       "sourceHint": "Los valores por defecto vienen de la configuración de la instalación para que todos los visores vean los mismos números."
+    },
+    "breakdown": {
+      "title": "Cómo se calcula el ahorro"
     },
     "tasksSection": {
       "title": "Tareas del período",
