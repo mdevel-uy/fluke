@@ -1,5 +1,5 @@
 //! Drain the `agent_actions` outbox for a task against GitHub
-//! (AGENT-ACTIONS-SPEC.md, F1/F2).
+//! (AGENT-ACTIONS-SPEC.md, F1/F2/F3).
 //!
 //! The ingest step [`agent_actions_ingest`] persists one row per declared
 //! action; this module actually **runs** them, in strict `seq` order, using
@@ -9,8 +9,9 @@
 //! remaining rows stay `pending` so the surgical retry endpoint (next issue in
 //! the series) can re-drive them without re-running the agent.
 //!
-//! Catalogue: F1 shipped `comment_pr` and `comment_issue`; F2 adds
-//! `create_milestone`, `create_issue` and `close_issue`. All five are
+//! Catalogue: F1 shipped `comment_pr` and `comment_issue`; F2 added
+//! `create_milestone`, `create_issue` and `close_issue`; F3 adds
+//! `resolve_review_thread`, `add_labels` and `update_issue`. All are
 //! best-effort side effects on GitHub, not authoritative writes. Infra hiccups
 //! (rate limits, 5xx, transient network) are retried inline with a short
 //! exponential backoff before we give up and leave the row `pending`;
@@ -171,6 +172,31 @@ pub trait ActionExecutor: Send + Sync {
         owner_repo: &str,
         issue_number: i64,
         reason: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn resolve_review_thread(
+        &self,
+        owner_repo: &str,
+        pr_number: i64,
+        thread_id: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn add_labels(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        labels: &[String],
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn update_issue(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        title: Option<&str>,
+        body: Option<&str>,
         pat: Option<&str>,
     ) -> Result<ExecutedAction, ExecutorFailure>;
 }
@@ -422,6 +448,45 @@ async fn execute_one<E: ActionExecutor + ?Sized>(
             let issue = issue_ref_number(issue)?;
             executor.close_issue(owner_repo, issue, reason, pat).await
         }
+        AgentActionDeclaration::ResolveReviewThread { pr, thread_id } => {
+            if thread_id.trim().is_empty() {
+                return Err(ExecutorFailure {
+                    kind: FailureKind::Definitive,
+                    message: "campo `thread_id` está vacío".into(),
+                });
+            }
+            executor
+                .resolve_review_thread(owner_repo, *pr, thread_id, pat)
+                .await
+        }
+        AgentActionDeclaration::AddLabels { issue, labels } => {
+            let issue = issue_ref_number(issue)?;
+            if labels.is_empty() {
+                return Err(ExecutorFailure {
+                    kind: FailureKind::Definitive,
+                    message: "campo `labels` está vacío: `add_labels` requiere al menos una label"
+                        .into(),
+                });
+            }
+            executor.add_labels(owner_repo, issue, labels, pat).await
+        }
+        AgentActionDeclaration::UpdateIssue { issue, title, body } => {
+            let issue = issue_ref_number(issue)?;
+            // The REST endpoint tolerates a body with no fields (it's a no-op)
+            // but that's never what the agent meant — fail definitively so the
+            // human sees the empty declaration on the row.
+            if title.is_none() && body.is_none() {
+                return Err(ExecutorFailure {
+                    kind: FailureKind::Definitive,
+                    message:
+                        "update_issue requiere al menos `title` o `body` (ambos ausentes es no-op)"
+                            .into(),
+                });
+            }
+            executor
+                .update_issue(owner_repo, issue, title.as_deref(), body.as_deref(), pat)
+                .await
+        }
     }
 }
 
@@ -490,6 +555,32 @@ fn resolve_placeholders_in_declaration(
                 *raw = resolve_placeholders_in_str(raw, current_seq, by_seq)?;
             }
             *reason = resolve_placeholders_in_str(reason, current_seq, by_seq)?;
+        }
+        AgentActionDeclaration::ResolveReviewThread { thread_id, .. } => {
+            // `pr` is `i64` (no placeholder support, matching CommentPr); the
+            // thread_id is a GraphQL node ID that no action captures, but we
+            // still run it through the resolver so the fast-path keeps the
+            // catalogue uniform and future thread-producing kinds Just Work.
+            *thread_id = resolve_placeholders_in_str(thread_id, current_seq, by_seq)?;
+        }
+        AgentActionDeclaration::AddLabels { issue, labels } => {
+            if let IssueRef::Ref(raw) = issue {
+                *raw = resolve_placeholders_in_str(raw, current_seq, by_seq)?;
+            }
+            for label in labels.iter_mut() {
+                *label = resolve_placeholders_in_str(label, current_seq, by_seq)?;
+            }
+        }
+        AgentActionDeclaration::UpdateIssue { issue, title, body } => {
+            if let IssueRef::Ref(raw) = issue {
+                *raw = resolve_placeholders_in_str(raw, current_seq, by_seq)?;
+            }
+            if let Some(t) = title {
+                *t = resolve_placeholders_in_str(t, current_seq, by_seq)?;
+            }
+            if let Some(b) = body {
+                *b = resolve_placeholders_in_str(b, current_seq, by_seq)?;
+            }
         }
     }
     Ok(())
@@ -687,6 +778,37 @@ impl ActionExecutor for GhCliExecutor {
         pat: Option<&str>,
     ) -> Result<ExecutedAction, ExecutorFailure> {
         run_gh_close_issue(owner_repo, issue_number, reason, pat).await
+    }
+
+    async fn resolve_review_thread(
+        &self,
+        owner_repo: &str,
+        pr_number: i64,
+        thread_id: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_resolve_review_thread(owner_repo, pr_number, thread_id, pat).await
+    }
+
+    async fn add_labels(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        labels: &[String],
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_add_labels(owner_repo, issue_number, labels, pat).await
+    }
+
+    async fn update_issue(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        title: Option<&str>,
+        body: Option<&str>,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_update_issue(owner_repo, issue_number, title, body, pat).await
     }
 }
 
@@ -1042,6 +1164,189 @@ async fn run_gh_close_issue(
     })
 }
 
+/// GraphQL mutation body for `resolveReviewThread`. Extracted so the
+/// executor and the tests both agree on the exact wire shape; the mutation
+/// carries the thread id as a typed `ID!` variable so no query-side escaping
+/// is needed even for opaque node ids with quotes or braces.
+const RESOLVE_REVIEW_THREAD_MUTATION: &str =
+    "mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}";
+
+/// Resolve a PR review thread via GraphQL. GitHub's REST API has no endpoint
+/// for this; the only path is the `resolveReviewThread` mutation, invoked
+/// through `gh api graphql`. The mutation is idempotent by the API's own
+/// contract — re-running it on an already-resolved thread returns
+/// `isResolved: true` without error — but we also treat any stderr hinting
+/// that the thread is already resolved as `done`, so a variant response
+/// shape never turns an idempotent replay into a false failure.
+///
+/// The captured URL points at the PR (threads don't have standalone URLs
+/// and reconstructing a `#discussion_r*` anchor would require a second
+/// round-trip we don't need).
+async fn run_gh_resolve_review_thread(
+    owner_repo: &str,
+    pr_number: i64,
+    thread_id: &str,
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    let query_arg = format!("query={RESOLVE_REVIEW_THREAD_MUTATION}");
+    let thread_arg = format!("threadId={thread_id}");
+    let output = run_gh_with_stdin(
+        &[
+            "api",
+            "graphql",
+            "-f",
+            query_arg.as_str(),
+            "-f",
+            thread_arg.as_str(),
+        ],
+        None,
+        pat,
+    )
+    .await?;
+
+    if output.status.success() && graphql_thread_marked_resolved(&output.stdout) {
+        return Ok(ExecutedAction {
+            result_number: Some(pr_number),
+            result_url: Some(format!("https://github.com/{owner_repo}/pull/{pr_number}")),
+        });
+    }
+
+    // Idempotency safety-net: if GitHub ever surfaces "already resolved" as a
+    // GraphQL error (rather than a silent no-op), we still count the row as
+    // done. Same policy as `close_issue` on an already-closed issue.
+    let combined = combined_gh_output(&output);
+    if is_thread_already_resolved(&combined) {
+        return Ok(ExecutedAction {
+            result_number: Some(pr_number),
+            result_url: Some(format!("https://github.com/{owner_repo}/pull/{pr_number}")),
+        });
+    }
+
+    if output.status.success() {
+        // Success exit but the mutation didn't report `isResolved: true` — we
+        // won't count that as done; better a legible failure than a false OK.
+        return Err(ExecutorFailure {
+            kind: FailureKind::Definitive,
+            message: format!(
+                "gh api graphql resolveReviewThread devolvió éxito pero sin `isResolved: true`: {}",
+                String::from_utf8_lossy(&output.stdout).trim()
+            ),
+        });
+    }
+
+    Err(gh_output_failure(
+        "gh api graphql resolveReviewThread",
+        &output,
+    ))
+}
+
+/// Return true when GraphQL's response body shows the thread ended up
+/// resolved — the source of truth for a successful mutation.
+fn graphql_thread_marked_resolved(stdout: &[u8]) -> bool {
+    let value: serde_json::Value = match serde_json::from_slice(stdout) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    value
+        .pointer("/data/resolveReviewThread/thread/isResolved")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Cheap "did the API say this thread is already resolved" check. Kept
+/// permissive on purpose: variants across GitHub error messages and edge
+/// cases (older node ids, replayed webhooks) all funnel through the same
+/// idempotent success path.
+fn is_thread_already_resolved(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    lower.contains("already resolved")
+        || lower.contains("thread is resolved")
+        || lower.contains("thread has already been resolved")
+}
+
+/// Join a `gh` invocation's stdout and stderr into a single haystack for
+/// substring checks — GraphQL sometimes surfaces its errors on stdout as
+/// part of the JSON envelope and sometimes on stderr, and we want the
+/// idempotency net to catch both.
+fn combined_gh_output(output: &std::process::Output) -> String {
+    let mut s = String::from_utf8_lossy(&output.stdout).into_owned();
+    s.push('\n');
+    s.push_str(&String::from_utf8_lossy(&output.stderr));
+    s
+}
+
+/// Attach labels to an existing issue via `gh issue edit --add-label`. Labels
+/// are joined comma-separated as `gh` expects. A label that does not exist
+/// in the repo makes `gh` exit with "not found" → [`classify_gh_error`]
+/// tags that as definitive, matching the spec (no on-the-fly label
+/// creation).
+async fn run_gh_add_labels(
+    owner_repo: &str,
+    issue_number: i64,
+    labels: &[String],
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    let joined = labels.join(",");
+    let number_str = issue_number.to_string();
+    let output = run_gh_with_stdin(
+        &[
+            "issue",
+            "edit",
+            number_str.as_str(),
+            "--repo",
+            owner_repo,
+            "--add-label",
+            joined.as_str(),
+        ],
+        None,
+        pat,
+    )
+    .await?;
+    if !output.status.success() {
+        return Err(gh_output_failure("gh issue edit --add-label", &output));
+    }
+    Ok(ExecutedAction {
+        result_number: Some(issue_number),
+        result_url: Some(format!(
+            "https://github.com/{owner_repo}/issues/{issue_number}"
+        )),
+    })
+}
+
+/// Update `title` and/or `body` of an existing issue via `gh issue edit`.
+/// Only the flags for fields present in the payload are passed; the body,
+/// when set, travels over stdin as `--body-file -` so newlines and shell
+/// metacharacters survive untouched (same escaping guarantee as
+/// `create_milestone` / `create_issue`).
+async fn run_gh_update_issue(
+    owner_repo: &str,
+    issue_number: i64,
+    title: Option<&str>,
+    body: Option<&str>,
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    let number_str = issue_number.to_string();
+    let mut args: Vec<&str> = vec!["issue", "edit", number_str.as_str(), "--repo", owner_repo];
+    if let Some(t) = title {
+        args.push("--title");
+        args.push(t);
+    }
+    if body.is_some() {
+        args.push("--body-file");
+        args.push("-");
+    }
+    let output = run_gh_with_stdin(&args, body.map(|b| b.as_bytes()), pat).await?;
+    if !output.status.success() {
+        return Err(gh_output_failure("gh issue edit", &output));
+    }
+    Ok(ExecutedAction {
+        result_number: Some(issue_number),
+        result_url: Some(format!(
+            "https://github.com/{owner_repo}/issues/{issue_number}"
+        )),
+    })
+}
+
 /// Parse a JSON object printed by `gh api`, extracting the top-level `number`
 /// and `html_url` fields when present. `gh api` prints raw JSON on success
 /// for POST/GET endpoints alike; anything unparseable just yields (None, None)
@@ -1340,6 +1645,54 @@ mod tests {
             _pat: Option<&str>,
         ) -> Result<ExecutedAction, ExecutorFailure> {
             match self.record("close_issue", issue_number, Some(reason.to_string())) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn resolve_review_thread(
+            &self,
+            _owner_repo: &str,
+            pr_number: i64,
+            thread_id: &str,
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            match self.record(
+                "resolve_review_thread",
+                pr_number,
+                Some(thread_id.to_string()),
+            ) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn add_labels(
+            &self,
+            _owner_repo: &str,
+            issue_number: i64,
+            labels: &[String],
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            match self.record("add_labels", issue_number, Some(labels.join(","))) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn update_issue(
+            &self,
+            _owner_repo: &str,
+            issue_number: i64,
+            title: Option<&str>,
+            body: Option<&str>,
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            // Encode "which fields the drain passed us" into the payload so
+            // tests can assert on partial-payload semantics without adding a
+            // second recording channel.
+            let payload = format!("title={}|body={}", title.unwrap_or(""), body.unwrap_or(""),);
+            match self.record("update_issue", issue_number, Some(payload)) {
                 FakeResponse::Ok(o) => Ok(o),
                 FakeResponse::Err(e) => Err(e),
             }
@@ -2058,6 +2411,344 @@ mod tests {
         assert_eq!(calls[0].kind, "create_milestone");
         assert_eq!(calls[1].kind, "close_issue");
         assert_eq!(calls[1].number, 99);
+    }
+
+    // ---------------- F3 kinds ---------------
+
+    #[tokio::test]
+    async fn drain_resolve_review_thread_dispatches_and_marks_done() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::ResolveReviewThread {
+                pr: 12,
+                thread_id: "PRRT_kwDOAbc".into(),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![FakeResponse::Ok(ExecutedAction {
+            result_number: Some(12),
+            result_url: Some("https://github.com/octo/repo/pull/12".into()),
+        })]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 1);
+        assert_eq!(result.failed, 0);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].kind, "resolve_review_thread");
+        assert_eq!(calls[0].number, 12);
+        assert_eq!(calls[0].payload.as_deref(), Some("PRRT_kwDOAbc"));
+    }
+
+    #[tokio::test]
+    async fn drain_resolve_review_thread_fails_on_empty_thread_id() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::ResolveReviewThread {
+                pr: 1,
+                thread_id: "   ".into(),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.failed, 1);
+        assert_eq!(result.done, 0);
+        // Executor was never called — validation ran before dispatch.
+        assert!(fake.calls.lock().unwrap().is_empty());
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let msg = rows[0].last_error.as_deref().unwrap_or_default();
+        assert!(msg.contains("thread_id"), "got: {msg}");
+    }
+
+    /// GhCliExecutor treats an "already resolved" GitHub response as done,
+    /// mirroring the `close_issue`-on-already-closed contract. We can't run
+    /// the actual CLI here, but we can pin the substring predicate that
+    /// drives the classification.
+    #[test]
+    fn is_thread_already_resolved_matches_expected_phrasings() {
+        assert!(is_thread_already_resolved("Thread is already resolved"));
+        assert!(is_thread_already_resolved(
+            "Thread has already been resolved"
+        ));
+        assert!(is_thread_already_resolved(
+            "some prefix Thread is resolved suffix"
+        ));
+        assert!(!is_thread_already_resolved("Thread not found"));
+        assert!(!is_thread_already_resolved(""));
+    }
+
+    #[test]
+    fn graphql_thread_marked_resolved_reads_pointer() {
+        let ok = br#"{"data":{"resolveReviewThread":{"thread":{"isResolved":true}}}}"# as &[u8];
+        assert!(graphql_thread_marked_resolved(ok));
+
+        let not_resolved =
+            br#"{"data":{"resolveReviewThread":{"thread":{"isResolved":false}}}}"# as &[u8];
+        assert!(!graphql_thread_marked_resolved(not_resolved));
+
+        let missing = br#"{"data":{"resolveReviewThread":null}}"# as &[u8];
+        assert!(!graphql_thread_marked_resolved(missing));
+
+        assert!(!graphql_thread_marked_resolved(b"not json"));
+    }
+
+    #[tokio::test]
+    async fn drain_add_labels_resolves_issue_ref_and_forwards_labels() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        // Cross-action reference: the label is attached to an issue created
+        // earlier in the same run. Exercises the same placeholder path the
+        // analyst's F2 flow uses for `comment_issue`/`close_issue`.
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateIssue {
+                title: "backend".into(),
+                body: "b".into(),
+                labels: vec![],
+                milestone: None,
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::AddLabels {
+                issue: IssueRef::Ref("{{action[0].number}}".into()),
+                labels: vec!["P1".into(), "backend".into()],
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(99),
+                result_url: Some("https://gh/o/r/issues/99".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(99),
+                result_url: Some("https://gh/o/r/issues/99".into()),
+            }),
+        ]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 2);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls[1].kind, "add_labels");
+        assert_eq!(calls[1].number, 99, "issue ref must resolve to 99");
+        assert_eq!(calls[1].payload.as_deref(), Some("P1,backend"));
+    }
+
+    #[tokio::test]
+    async fn drain_add_labels_fails_definitively_on_empty_labels() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::AddLabels {
+                issue: IssueRef::Number(5),
+                labels: vec![],
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.failed, 1);
+        assert!(fake.calls.lock().unwrap().is_empty());
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let msg = rows[0].last_error.as_deref().unwrap_or_default();
+        assert!(msg.contains("labels"), "got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn drain_update_issue_forwards_only_present_fields() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Number(7),
+                title: Some("nuevo".into()),
+                body: None,
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Number(7),
+                title: None,
+                body: Some("nuevo cuerpo".into()),
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            2,
+            &AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Number(7),
+                title: Some("t".into()),
+                body: Some("b".into()),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(7),
+                result_url: Some("https://gh/o/r/issues/7".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(7),
+                result_url: Some("https://gh/o/r/issues/7".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(7),
+                result_url: Some("https://gh/o/r/issues/7".into()),
+            }),
+        ]);
+
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 3);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls[0].payload.as_deref(), Some("title=nuevo|body="));
+        assert_eq!(
+            calls[1].payload.as_deref(),
+            Some("title=|body=nuevo cuerpo")
+        );
+        assert_eq!(calls[2].payload.as_deref(), Some("title=t|body=b"));
+    }
+
+    #[tokio::test]
+    async fn drain_update_issue_fails_when_both_fields_missing() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Number(7),
+                title: None,
+                body: None,
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.failed, 1);
+        assert!(fake.calls.lock().unwrap().is_empty());
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let msg = rows[0].last_error.as_deref().unwrap_or_default();
+        assert!(msg.contains("title") || msg.contains("body"), "got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn drain_update_issue_resolves_placeholders_in_title_body_and_issue_ref() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateIssue {
+                title: "orig".into(),
+                body: "b".into(),
+                labels: vec![],
+                milestone: None,
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Ref("{{action[0].number}}".into()),
+                title: Some("issue #{{action[0].number}} update".into()),
+                body: Some("ver {{action[0].url}}".into()),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(41),
+                result_url: Some("https://gh/o/r/issues/41".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(41),
+                result_url: Some("https://gh/o/r/issues/41".into()),
+            }),
+        ]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 2);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls[1].kind, "update_issue");
+        assert_eq!(calls[1].number, 41);
+        let payload = calls[1].payload.as_deref().unwrap();
+        assert!(payload.contains("title=issue #41 update"), "got: {payload}");
+        assert!(
+            payload.contains("body=ver https://gh/o/r/issues/41"),
+            "got: {payload}"
+        );
+        assert!(!payload.contains("{{"), "raw placeholder leaked: {payload}");
     }
 
     #[tokio::test]
