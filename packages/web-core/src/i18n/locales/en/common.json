@@ -1151,7 +1151,9 @@
       "githubPatUndoClear": "Undo",
       "sectionConfig": "Config",
       "sectionIntegration": "Integration",
-      "sectionSoul": "Soul"
+      "sectionSoul": "Soul",
+      "ghWriteWarningTitle": "This soul writes to GitHub directly",
+      "ghWriteWarningBody": "Declare those actions in .vk/actions.json so the system executes them with retries and audit trail. Saving is still allowed for gradual migration."
     },
     "roles": {
       "developer": "Developer",

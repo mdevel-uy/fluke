@@ -1134,7 +1134,9 @@
       "githubPatUndoClear": "還原",
       "sectionConfig": "設定",
       "sectionIntegration": "整合",
-      "sectionSoul": "靈魂"
+      "sectionSoul": "靈魂",
+      "ghWriteWarningTitle": "此靈魂會直接寫入 GitHub",
+      "ghWriteWarningBody": "請在 .vk/actions.json 中宣告這些動作，讓系統以重試與稽核記錄執行。仍可儲存以支援漸進式遷移。"
     },
     "roles": {
       "developer": "開發者",

@@ -1134,7 +1134,9 @@
       "githubPatUndoClear": "실행 취소",
       "sectionConfig": "설정",
       "sectionIntegration": "연동",
-      "sectionSoul": "소울"
+      "sectionSoul": "소울",
+      "ghWriteWarningTitle": "이 소울은 GitHub에 직접 씁니다",
+      "ghWriteWarningBody": ".vk/actions.json 에 해당 액션을 선언해 재시도와 감사 로그와 함께 시스템이 실행하도록 하세요. 단계적 이전을 위해 저장은 계속 허용됩니다."
     },
     "roles": {
       "developer": "개발자",
