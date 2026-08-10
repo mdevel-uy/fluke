@@ -176,6 +176,36 @@ Your deliverable is the issues (and plan comment) you created via `gh` — NOT \
 a pull request. Do NOT create any PR. When you finish, end with a concise \
 summary listing the issues you created.";
 
+/// Analyst-only appendix declaring the `.vk/actions.json` outbox contract
+/// (AGENT-ACTIONS-SPEC.md, F2). Appended AFTER [`ANALYST_ROLE_INSTRUCTION`]
+/// by [`build_worker_prompt`] so it wins any conflict with earlier "created
+/// via `gh`" language — writes now flow through the outbox, which the
+/// orchestrator drains with the platform identity.
+///
+/// Kept out of the worker soul on purpose: soul strings can change per
+/// deployment, but the outbox contract is a runtime guarantee the analyst
+/// path depends on to route side effects correctly.
+pub const ANALYST_ACTIONS_JSON_CONTRACT: &str = r#"[AGENT ACTIONS — write operations go through `.vk/actions.json`, NOT `gh`]
+
+Do NOT execute any `gh` write command (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue edit`, etc.). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo.
+
+`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. Supported kinds:
+
+{
+  "actions": [
+    { "kind": "create_milestone", "title": "...", "description": "..." },
+    { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
+    { "kind": "close_issue", "issue": 456, "reason": "completed" }
+  ]
+}
+
+Placeholders — reference the result of an earlier action by its 0-indexed position in the array:
+  * `{{action[N].number}}` — number of the resource created by action N (milestone number, issue number).
+  * `{{action[N].url}}` — URL of the resource created by action N.
+Only BACK references are allowed: `N` must be strictly less than the index of the action that uses the placeholder. Forward references and self-references fail the ingest.
+
+`labels` defaults to `[]` and `milestone` is optional (omit it or use `null` when the issue does not belong to a milestone). Emit the file only if you have write operations to declare; a run with no writes should leave `.vk/actions.json` absent."#;
+
 /// Role framing for designer workers: produce a design artifact, not code.
 /// The deliverable is one or more HTML files committed inside the worktree —
 /// the UI serves them rendered via `/api/workspaces/{id}/preview/{path}`, so
@@ -4638,7 +4668,7 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
     } else {
         NON_DEVELOPER_FINAL_INSTRUCTION.to_string()
     };
-    format!(
+    let mut prompt = format!(
         "[SYSTEM BASE INSTRUCTIONS — these take precedence over the worker soul in any conflict]\n\n\
          {base}\n\n\
          ---\n\n\
@@ -4648,7 +4678,15 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
          {task_prompt}\n\n\
          ---\n\n\
          {final_instruction}"
-    )
+    );
+    // Analyst-only appendix: declared write ops flow through `.vk/actions.json`,
+    // not `gh`. Placed at the very end so the outbox contract wins any conflict
+    // with earlier prompt text (soul / task prompt / role framing).
+    if role == ROLE_ANALYST {
+        prompt.push_str("\n\n---\n\n");
+        prompt.push_str(ANALYST_ACTIONS_JSON_CONTRACT);
+    }
+    prompt
 }
 
 #[cfg(test)]
@@ -4764,6 +4802,65 @@ mod tests {
         // they must not investigate or solve the problem themselves.
         assert!(prompt.contains("business analyst"));
         assert!(prompt.contains("do NOT hunt for root causes"));
+    }
+
+    /// Issue #540: the analyst prompt must carry the `.vk/actions.json`
+    /// outbox contract — path, all three F2 kinds, placeholder syntax, and
+    /// the explicit ban on `gh` writes — appended AFTER the role framing so
+    /// it wins any conflict with older "created via `gh`" language.
+    #[test]
+    fn analyst_prompt_appends_actions_json_contract() {
+        let prompt = build_worker_prompt("soul", "do it", "main", ROLE_ANALYST);
+
+        // Path and every F2 kind must appear so the analyst learns the wire
+        // shape from the prompt alone.
+        assert!(prompt.contains(".vk/actions.json"));
+        assert!(prompt.contains("create_milestone"));
+        assert!(prompt.contains("create_issue"));
+        assert!(prompt.contains("close_issue"));
+
+        // Placeholder syntax stays literal (double curlies), since the drain
+        // parses `{{action[N].number}}` / `{{action[N].url}}` verbatim.
+        assert!(prompt.contains("{{action[0].number}}"));
+        assert!(prompt.contains("{{action[N].number}}"));
+        assert!(prompt.contains("{{action[N].url}}"));
+
+        // Explicit ban on `gh` write commands.
+        assert!(prompt.contains("gh issue create"));
+        assert!(prompt.contains("Do NOT execute any `gh` write"));
+
+        // The contract sits AFTER the role framing so it takes precedence
+        // over the earlier "created via `gh`" phrasing in the role blurb.
+        let role_pos = prompt
+            .find("business analyst")
+            .expect("role framing present");
+        let contract_pos = prompt
+            .find("[AGENT ACTIONS")
+            .expect("actions.json contract present");
+        assert!(
+            role_pos < contract_pos,
+            "actions.json contract must be appended AFTER the analyst role framing"
+        );
+        // And it must be the last thing in the prompt so no later text can
+        // walk it back.
+        assert!(prompt.trim_end().ends_with("absent."));
+    }
+
+    /// The `.vk/actions.json` contract is analyst-only: no other role gets a
+    /// write-outbox to declare into, so leaking it would confuse them.
+    #[test]
+    fn actions_json_contract_is_analyst_only() {
+        for role in [ROLE_DEVELOPER, ROLE_REVIEWER, ROLE_DESIGNER] {
+            let prompt = build_worker_prompt("soul", "do it", "main", role);
+            assert!(
+                !prompt.contains(".vk/actions.json"),
+                "role {role} must not receive the analyst actions.json contract"
+            );
+            assert!(
+                !prompt.contains("[AGENT ACTIONS"),
+                "role {role} must not receive the analyst actions.json contract header"
+            );
+        }
     }
 
     #[test]
