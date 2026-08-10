@@ -1,5 +1,5 @@
 //! Drain the `agent_actions` outbox for a task against GitHub
-//! (AGENT-ACTIONS-SPEC.md, F1).
+//! (AGENT-ACTIONS-SPEC.md, F1/F2).
 //!
 //! The ingest step [`agent_actions_ingest`] persists one row per declared
 //! action; this module actually **runs** them, in strict `seq` order, using
@@ -9,11 +9,20 @@
 //! remaining rows stay `pending` so the surgical retry endpoint (next issue in
 //! the series) can re-drive them without re-running the agent.
 //!
-//! F1 supports `comment_pr` and `comment_issue`; both are best-effort side
-//! effects on GitHub, not authoritative writes. Infra hiccups (rate limits,
-//! 5xx, transient network) are retried inline with a short exponential backoff
-//! before we give up and leave the row `pending`; definitive HTTP failures
-//! (404, 422, permissions) short-circuit the drain immediately.
+//! Catalogue: F1 shipped `comment_pr` and `comment_issue`; F2 adds
+//! `create_milestone`, `create_issue` and `close_issue`. All five are
+//! best-effort side effects on GitHub, not authoritative writes. Infra hiccups
+//! (rate limits, 5xx, transient network) are retried inline with a short
+//! exponential backoff before we give up and leave the row `pending`;
+//! definitive HTTP failures (404, 422, permissions) short-circuit the drain
+//! immediately.
+//!
+//! F2 also introduces cross-action placeholders — a `create_issue` can
+//! reference the milestone number created by an earlier `create_milestone` via
+//! `{{action[N].number}}` / `{{action[N].url}}`. Resolution happens **before**
+//! each action executes: if the referenced action failed, is still pending, is
+//! out-of-range or is a forward reference, the current row is marked `failed`
+//! and the drain halts, so raw `{{...}}` text can never reach GitHub.
 
 use std::{sync::Arc, time::Duration};
 
@@ -135,6 +144,32 @@ pub trait ActionExecutor: Send + Sync {
         body: &str,
         pat: Option<&str>,
     ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn create_milestone(
+        &self,
+        owner_repo: &str,
+        title: &str,
+        description: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn create_issue(
+        &self,
+        owner_repo: &str,
+        title: &str,
+        body: &str,
+        labels: &[String],
+        milestone_number: Option<i64>,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
+
+    async fn close_issue(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        reason: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure>;
 }
 
 /// Max attempts (initial + retries) per action within one drain call. Infra
@@ -179,6 +214,14 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
     let mut failed = 0usize;
     let mut halted = false;
 
+    // Snapshot of every row for the task, keyed by `seq`. Placeholder
+    // resolution walks this map to look up `result_number` / `result_url` from
+    // earlier actions; we refresh a row in-memory each time we mark it done so
+    // later actions in the same drain see the value without re-querying.
+    let all_rows = AgentAction::find_by_task_id(pool, task_id).await?;
+    let mut by_seq: std::collections::HashMap<i64, AgentAction> =
+        all_rows.into_iter().map(|r| (r.seq, r)).collect();
+
     let pending = AgentAction::find_pending_or_failed_for_task(pool, task_id).await?;
     for row in pending {
         // Cache repo lookups per row — cheap and keeps the loop straight.
@@ -191,12 +234,37 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
                 message,
             })?;
 
-        let declaration: AgentActionDeclaration =
+        let mut declaration: AgentActionDeclaration =
             serde_json::from_str(&row.payload).map_err(|e| DrainError::InvalidPayload {
                 action_id: row.id,
                 seq: row.seq,
                 message: e.to_string(),
             })?;
+
+        // Resolve placeholders BEFORE any GitHub call so unresolved `{{...}}`
+        // text can never reach the wire. Any failure here is definitive by
+        // nature — a broken reference does not get better on retry.
+        if let Err(message) =
+            resolve_placeholders_in_declaration(&mut declaration, row.seq, &by_seq)
+        {
+            AgentAction::increment_attempts(pool, row.id).await?;
+            AgentAction::set_failed(pool, row.id, &message, row.attempts + 1).await?;
+            if let Some(entry) = by_seq.get_mut(&row.seq) {
+                entry.status = agent_action::STATUS_FAILED.to_string();
+                entry.last_error = Some(message.clone());
+                entry.attempts = row.attempts + 1;
+            }
+            failed += 1;
+            warn!(
+                task_id = %task_id,
+                action_id = %row.id,
+                seq = row.seq,
+                kind = %row.kind,
+                "Agent action failed on placeholder resolution — halting drain: {message}"
+            );
+            halted = true;
+            break;
+        }
 
         let mut last_failure: Option<ExecutorFailure> = None;
         let mut total_attempts = row.attempts;
@@ -227,6 +295,12 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
             (Some(ok), _) => {
                 AgentAction::set_done(pool, row.id, ok.result_number, ok.result_url.clone())
                     .await?;
+                if let Some(entry) = by_seq.get_mut(&row.seq) {
+                    entry.status = agent_action::STATUS_DONE.to_string();
+                    entry.result_number = ok.result_number;
+                    entry.result_url = ok.result_url.clone();
+                    entry.attempts = total_attempts;
+                }
                 done += 1;
                 info!(
                     task_id = %task_id,
@@ -238,6 +312,11 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
             }
             (None, Some(f)) if matches!(f.kind, FailureKind::Definitive) => {
                 AgentAction::set_failed(pool, row.id, &f.message, total_attempts).await?;
+                if let Some(entry) = by_seq.get_mut(&row.seq) {
+                    entry.status = agent_action::STATUS_FAILED.to_string();
+                    entry.last_error = Some(f.message.clone());
+                    entry.attempts = total_attempts;
+                }
                 failed += 1;
                 warn!(
                     task_id = %task_id,
@@ -306,7 +385,194 @@ async fn execute_one<E: ActionExecutor + ?Sized>(
                 .post_issue_comment(owner_repo, *issue, body, pat)
                 .await
         }
+        AgentActionDeclaration::CreateMilestone { title, description } => {
+            executor
+                .create_milestone(owner_repo, title, description, pat)
+                .await
+        }
+        AgentActionDeclaration::CreateIssue {
+            title,
+            body,
+            labels,
+            milestone,
+        } => {
+            let milestone_number = match milestone {
+                Some(raw) if !raw.trim().is_empty() => match raw.trim().parse::<i64>() {
+                    Ok(n) => Some(n),
+                    Err(_) => {
+                        return Err(ExecutorFailure {
+                            kind: FailureKind::Definitive,
+                            message: format!(
+                                "campo `milestone` inválido: `{raw}` no es un número entero (esperado un número o un placeholder ya resuelto)"
+                            ),
+                        });
+                    }
+                },
+                _ => None,
+            };
+            executor
+                .create_issue(owner_repo, title, body, labels, milestone_number, pat)
+                .await
+        }
+        AgentActionDeclaration::CloseIssue { issue, reason } => {
+            executor.close_issue(owner_repo, *issue, reason, pat).await
+        }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder resolution
+// ---------------------------------------------------------------------------
+
+/// Rewrite every `{{action[N].number}}` / `{{action[N].url}}` occurrence in
+/// the declaration's string fields with the referenced action's captured
+/// result. All string-valued fields are candidates; numeric fields (like
+/// `close_issue.issue`) are typed `i64` and cannot carry a placeholder in the
+/// first place, so we leave them alone.
+///
+/// Any error returned here halts the drain: raw `{{...}}` text must never
+/// reach GitHub, and a broken reference (forward, out-of-range, referenced
+/// action failed) will not get better on retry.
+fn resolve_placeholders_in_declaration(
+    decl: &mut AgentActionDeclaration,
+    current_seq: i64,
+    by_seq: &std::collections::HashMap<i64, AgentAction>,
+) -> Result<(), String> {
+    match decl {
+        AgentActionDeclaration::CommentPr { body, .. } => {
+            *body = resolve_placeholders_in_str(body, current_seq, by_seq)?;
+        }
+        AgentActionDeclaration::CommentIssue { body, .. } => {
+            *body = resolve_placeholders_in_str(body, current_seq, by_seq)?;
+        }
+        AgentActionDeclaration::CreateMilestone { title, description } => {
+            *title = resolve_placeholders_in_str(title, current_seq, by_seq)?;
+            *description = resolve_placeholders_in_str(description, current_seq, by_seq)?;
+        }
+        AgentActionDeclaration::CreateIssue {
+            title,
+            body,
+            labels,
+            milestone,
+        } => {
+            *title = resolve_placeholders_in_str(title, current_seq, by_seq)?;
+            *body = resolve_placeholders_in_str(body, current_seq, by_seq)?;
+            for label in labels.iter_mut() {
+                *label = resolve_placeholders_in_str(label, current_seq, by_seq)?;
+            }
+            if let Some(m) = milestone {
+                *m = resolve_placeholders_in_str(m, current_seq, by_seq)?;
+            }
+        }
+        AgentActionDeclaration::CloseIssue { reason, .. } => {
+            *reason = resolve_placeholders_in_str(reason, current_seq, by_seq)?;
+        }
+    }
+    Ok(())
+}
+
+/// Walk `input` left-to-right, expanding every `{{action[N].number|url}}`
+/// occurrence in place. Any brace pair whose content is not a well-formed
+/// placeholder fails the whole substitution — better a legible failure on the
+/// row than a partial write to GitHub with `{{...}}` left over.
+fn resolve_placeholders_in_str(
+    input: &str,
+    current_seq: i64,
+    by_seq: &std::collections::HashMap<i64, AgentAction>,
+) -> Result<String, String> {
+    // Fast path: nothing to do if the source contains no template markers.
+    if !input.contains("{{") {
+        return Ok(input.to_string());
+    }
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(open) = rest.find("{{") {
+        out.push_str(&rest[..open]);
+        let after_open = &rest[open + 2..];
+        let close = after_open
+            .find("}}")
+            .ok_or_else(|| "placeholder mal formado: `{{` sin `}}` de cierre".to_string())?;
+        let inner = &after_open[..close];
+        let placeholder = format!("{{{{{inner}}}}}");
+        let (referenced_seq, field) = parse_placeholder_body(inner).ok_or_else(|| {
+            format!(
+                "placeholder {placeholder} no reconocido \
+                 (formato esperado: `{{{{action[N].number}}}}` o `{{{{action[N].url}}}}`)"
+            )
+        })?;
+        if referenced_seq < 0 || referenced_seq >= current_seq {
+            return Err(format!(
+                "placeholder {placeholder} no resuelto: \
+                 la acción {referenced_seq} está fuera de rango \
+                 (solo se pueden referenciar acciones anteriores con seq < {current_seq})"
+            ));
+        }
+        let referenced = by_seq.get(&referenced_seq).ok_or_else(|| {
+            format!(
+                "placeholder {placeholder} no resuelto: \
+                 no existe una acción con seq={referenced_seq} en esta tarea"
+            )
+        })?;
+        match referenced.status.as_str() {
+            agent_action::STATUS_DONE => {}
+            agent_action::STATUS_FAILED => {
+                return Err(format!(
+                    "placeholder {placeholder} no resuelto: la acción {referenced_seq} falló"
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "placeholder {placeholder} no resuelto: \
+                     la acción {referenced_seq} está en estado `{other}` (esperado `done`)"
+                ));
+            }
+        }
+        let substitution = match field {
+            PlaceholderField::Number => referenced
+                .result_number
+                .map(|n| n.to_string())
+                .ok_or_else(|| {
+                    format!(
+                        "placeholder {placeholder} no resuelto: \
+                         la acción {referenced_seq} no capturó ningún `number`"
+                    )
+                })?,
+            PlaceholderField::Url => referenced.result_url.clone().ok_or_else(|| {
+                format!(
+                    "placeholder {placeholder} no resuelto: \
+                     la acción {referenced_seq} no capturó ninguna `url`"
+                )
+            })?,
+        };
+        out.push_str(&substitution);
+        rest = &after_open[close + 2..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlaceholderField {
+    Number,
+    Url,
+}
+
+/// Parse the body between `{{` and `}}`. Returns `(seq, field)` when it
+/// matches `action[<n>].(number|url)` (with optional surrounding whitespace);
+/// `None` otherwise so the caller can surface a clear error.
+fn parse_placeholder_body(body: &str) -> Option<(i64, PlaceholderField)> {
+    let trimmed = body.trim();
+    let rest = trimmed.strip_prefix("action[")?;
+    let close_bracket = rest.find(']')?;
+    let seq: i64 = rest[..close_bracket].trim().parse().ok()?;
+    let after_bracket = rest[close_bracket + 1..].trim_start();
+    let after_dot = after_bracket.strip_prefix('.')?;
+    let field = match after_dot.trim() {
+        "number" => PlaceholderField::Number,
+        "url" => PlaceholderField::Url,
+        _ => return None,
+    };
+    Some((seq, field))
 }
 
 /// Read the repo's origin remote and extract the GitHub `owner/repo` slug.
@@ -365,6 +631,38 @@ impl ActionExecutor for GhCliExecutor {
         pat: Option<&str>,
     ) -> Result<ExecutedAction, ExecutorFailure> {
         run_gh_comment("issue", owner_repo, issue_number, body, pat).await
+    }
+
+    async fn create_milestone(
+        &self,
+        owner_repo: &str,
+        title: &str,
+        description: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_create_milestone(owner_repo, title, description, pat).await
+    }
+
+    async fn create_issue(
+        &self,
+        owner_repo: &str,
+        title: &str,
+        body: &str,
+        labels: &[String],
+        milestone_number: Option<i64>,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_create_issue(owner_repo, title, body, labels, milestone_number, pat).await
+    }
+
+    async fn close_issue(
+        &self,
+        owner_repo: &str,
+        issue_number: i64,
+        reason: &str,
+        pat: Option<&str>,
+    ) -> Result<ExecutedAction, ExecutorFailure> {
+        run_gh_close_issue(owner_repo, issue_number, reason, pat).await
     }
 }
 
@@ -474,6 +772,267 @@ async fn run_gh_comment(
             stderr
         },
     })
+}
+
+/// Shared plumbing for `gh` invocations that need to stream a body over stdin
+/// (used by every F2 verb — see `--input -` for `gh api` and `--body-file -`
+/// for `gh issue create/comment`). Keeps stdin/stdout/stderr handling in one
+/// place so each verb can focus on the args and response parsing.
+async fn run_gh_with_stdin(
+    args: &[&str],
+    stdin_body: Option<&[u8]>,
+    pat: Option<&str>,
+) -> Result<std::process::Output, ExecutorFailure> {
+    use std::process::Stdio;
+
+    use tokio::io::AsyncWriteExt;
+
+    let gh = match resolve_executable_path("gh").await {
+        Some(p) => p,
+        None => {
+            return Err(ExecutorFailure {
+                kind: FailureKind::Infra,
+                message: "`gh` CLI not on PATH".to_string(),
+            });
+        }
+    };
+    let mut cmd = Command::new(&gh);
+    cmd.args(args);
+    if let Some(pat) = pat.filter(|s| !s.is_empty()) {
+        cmd.env("GH_TOKEN", pat);
+        cmd.env("GITHUB_TOKEN", pat);
+    }
+    if stdin_body.is_some() {
+        cmd.stdin(Stdio::piped());
+    }
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.no_window();
+
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(ExecutorFailure {
+                kind: FailureKind::Infra,
+                message: format!("failed to spawn `gh`: {e}"),
+            });
+        }
+    };
+
+    if let Some(body) = stdin_body
+        && let Some(mut stdin) = child.stdin.take()
+    {
+        if let Err(e) = stdin.write_all(body).await {
+            return Err(ExecutorFailure {
+                kind: FailureKind::Infra,
+                message: format!("failed to write body to gh stdin: {e}"),
+            });
+        }
+        // Drop closes stdin so `gh` sees EOF and proceeds.
+    }
+
+    match child.wait_with_output().await {
+        Ok(o) => Ok(o),
+        Err(e) => Err(ExecutorFailure {
+            kind: FailureKind::Infra,
+            message: format!("failed to wait on `gh`: {e}"),
+        }),
+    }
+}
+
+/// Turn a failing `gh` output into a classified [`ExecutorFailure`], reusing
+/// the same infra-vs-definitive policy as the comment path.
+fn gh_output_failure(context: &str, output: &std::process::Output) -> ExecutorFailure {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let kind = classify_gh_error(output.status.code(), &stderr);
+    let message = if stderr.is_empty() {
+        format!(
+            "{context} exited with status {}",
+            output
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "signal".into())
+        )
+    } else {
+        stderr
+    };
+    ExecutorFailure { kind, message }
+}
+
+/// POST `/repos/{nwo}/milestones` via `gh api --input -` with a JSON body so
+/// newlines / markdown in `description` survive untouched. Captures the new
+/// milestone's `number` (needed by placeholder resolution) and `html_url`.
+async fn run_gh_create_milestone(
+    owner_repo: &str,
+    title: &str,
+    description: &str,
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    let body =
+        serde_json::to_vec(&serde_json::json!({ "title": title, "description": description }))
+            .expect("serde_json cannot fail on a String map");
+    let api_path = format!("repos/{owner_repo}/milestones");
+    let output = run_gh_with_stdin(
+        &["api", &api_path, "--method", "POST", "--input", "-"],
+        Some(&body),
+        pat,
+    )
+    .await?;
+
+    if !output.status.success() {
+        return Err(gh_output_failure("gh api milestones POST", &output));
+    }
+    let (number, url) = parse_gh_api_number_and_url(&output.stdout);
+    Ok(ExecutedAction {
+        result_number: number,
+        result_url: url,
+    })
+}
+
+/// POST `/repos/{nwo}/issues` via `gh api --input -` with a JSON body.
+///
+/// We deliberately avoid `gh issue create --milestone <n>`: the CLI resolves
+/// `--milestone` strictly by milestone TITLE (via `MilestoneToID`, which does
+/// a case-insensitive string match against each milestone's title), not by
+/// number. When the F2 placeholder `{{action[N].number}}` resolves to a
+/// number like `77`, `gh issue create --milestone 77` looks for a milestone
+/// *titled* `"77"` and fails with `'77' not found`. The REST endpoint accepts
+/// `milestone` as an integer, so we skip the CLI-side lookup entirely. The
+/// response is JSON with `number` and `html_url` at the top level — same
+/// shape [`parse_gh_api_number_and_url`] already handles for milestones.
+async fn run_gh_create_issue(
+    owner_repo: &str,
+    title: &str,
+    body: &str,
+    labels: &[String],
+    milestone_number: Option<i64>,
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    let payload = build_create_issue_payload(title, body, labels, milestone_number);
+    let body_bytes =
+        serde_json::to_vec(&payload).expect("serde_json cannot fail on this fixed shape");
+    let api_path = format!("repos/{owner_repo}/issues");
+    let output = run_gh_with_stdin(
+        &["api", &api_path, "--method", "POST", "--input", "-"],
+        Some(&body_bytes),
+        pat,
+    )
+    .await?;
+    if !output.status.success() {
+        return Err(gh_output_failure("gh api issues POST", &output));
+    }
+    let (number, url) = parse_gh_api_number_and_url(&output.stdout);
+    Ok(ExecutedAction {
+        result_number: number,
+        result_url: url,
+    })
+}
+
+/// Build the JSON body for `POST /repos/{nwo}/issues`. Extracted so a unit
+/// test can pin the wire shape — in particular, `milestone` must be a JSON
+/// integer (the REST endpoint's contract), not a string, otherwise GitHub
+/// answers `422 Unprocessable Entity`. `labels` is omitted entirely when the
+/// caller passes an empty slice, to keep the body minimal.
+fn build_create_issue_payload(
+    title: &str,
+    body: &str,
+    labels: &[String],
+    milestone_number: Option<i64>,
+) -> serde_json::Value {
+    let mut payload = serde_json::json!({
+        "title": title,
+        "body": body,
+    });
+    if !labels.is_empty() {
+        payload["labels"] = serde_json::Value::Array(
+            labels
+                .iter()
+                .map(|l| serde_json::Value::String(l.clone()))
+                .collect(),
+        );
+    }
+    if let Some(n) = milestone_number {
+        payload["milestone"] = serde_json::Value::Number(n.into());
+    }
+    payload
+}
+
+/// Close an issue via `gh issue close`. When `reason` is non-empty, a
+/// human-readable comment is posted first via `gh issue comment` — treated as
+/// best-effort audit trail, not as GitHub's structural `state_reason`. If the
+/// comment fails we still return the failure and skip the close, so the human
+/// sees a legible error instead of a "closed silently" outcome.
+///
+/// Non-idempotency on retry: if the comment succeeds but the close fails,
+/// the row is left `failed` and the surgical retry re-runs the whole action
+/// — meaning the reason comment gets posted again before the second close
+/// attempt. GitHub's issue-comment endpoint is not idempotent, so the issue
+/// ends up with duplicated audit comments. This matches the same structural
+/// gap the F1 `comment_pr` / `comment_issue` verbs already have; if we ever
+/// deduplicate one, deduplicate all three together.
+async fn run_gh_close_issue(
+    owner_repo: &str,
+    issue_number: i64,
+    reason: &str,
+    pat: Option<&str>,
+) -> Result<ExecutedAction, ExecutorFailure> {
+    if !reason.trim().is_empty() {
+        let comment_out = run_gh_with_stdin(
+            &[
+                "issue",
+                "comment",
+                &issue_number.to_string(),
+                "--repo",
+                owner_repo,
+                "--body-file",
+                "-",
+            ],
+            Some(reason.as_bytes()),
+            pat,
+        )
+        .await?;
+        if !comment_out.status.success() {
+            return Err(gh_output_failure("gh issue comment", &comment_out));
+        }
+    }
+    let close_out = run_gh_with_stdin(
+        &[
+            "issue",
+            "close",
+            &issue_number.to_string(),
+            "--repo",
+            owner_repo,
+        ],
+        None,
+        pat,
+    )
+    .await?;
+    if !close_out.status.success() {
+        return Err(gh_output_failure("gh issue close", &close_out));
+    }
+    Ok(ExecutedAction {
+        result_number: Some(issue_number),
+        result_url: Some(format!(
+            "https://github.com/{owner_repo}/issues/{issue_number}"
+        )),
+    })
+}
+
+/// Parse a JSON object printed by `gh api`, extracting the top-level `number`
+/// and `html_url` fields when present. `gh api` prints raw JSON on success
+/// for POST/GET endpoints alike; anything unparseable just yields (None, None)
+/// — the action still counts as done, we just lose the pointer.
+fn parse_gh_api_number_and_url(stdout: &[u8]) -> (Option<i64>, Option<String>) {
+    let value: serde_json::Value = match serde_json::from_slice(stdout) {
+        Ok(v) => v,
+        Err(_) => return (None, None),
+    };
+    let number = value.get("number").and_then(|v| v.as_i64());
+    let url = value
+        .get("html_url")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    (number, url)
 }
 
 /// Best-effort classification of a failed `gh` invocation into infra vs
@@ -654,10 +1213,20 @@ mod tests {
         Err(ExecutorFailure),
     }
 
+    /// One executor call as observed by [`FakeExecutor`]. The optional
+    /// `payload` slot lets placeholder-resolution tests assert that the
+    /// resolved value reached the executor instead of the raw `{{...}}` text.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct FakeCall {
+        kind: String,
+        number: i64,
+        payload: Option<String>,
+    }
+
     #[derive(Default)]
     struct FakeExecutor {
         responses: Mutex<std::collections::VecDeque<FakeResponse>>,
-        calls: Mutex<Vec<(String, i64)>>,
+        calls: Mutex<Vec<FakeCall>>,
     }
 
     impl FakeExecutor {
@@ -668,8 +1237,12 @@ mod tests {
             }
         }
 
-        fn record(&self, kind: &str, number: i64) -> FakeResponse {
-            self.calls.lock().unwrap().push((kind.to_string(), number));
+        fn record(&self, kind: &str, number: i64, payload: Option<String>) -> FakeResponse {
+            self.calls.lock().unwrap().push(FakeCall {
+                kind: kind.to_string(),
+                number,
+                payload,
+            });
             self.responses
                 .lock()
                 .unwrap()
@@ -684,10 +1257,10 @@ mod tests {
             &self,
             _owner_repo: &str,
             pr_number: i64,
-            _body: &str,
+            body: &str,
             _pat: Option<&str>,
         ) -> Result<ExecutedAction, ExecutorFailure> {
-            match self.record("comment_pr", pr_number) {
+            match self.record("comment_pr", pr_number, Some(body.to_string())) {
                 FakeResponse::Ok(o) => Ok(o),
                 FakeResponse::Err(e) => Err(e),
             }
@@ -697,10 +1270,52 @@ mod tests {
             &self,
             _owner_repo: &str,
             issue_number: i64,
-            _body: &str,
+            body: &str,
             _pat: Option<&str>,
         ) -> Result<ExecutedAction, ExecutorFailure> {
-            match self.record("comment_issue", issue_number) {
+            match self.record("comment_issue", issue_number, Some(body.to_string())) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn create_milestone(
+            &self,
+            _owner_repo: &str,
+            title: &str,
+            _description: &str,
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            match self.record("create_milestone", 0, Some(title.to_string())) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn create_issue(
+            &self,
+            _owner_repo: &str,
+            _title: &str,
+            body: &str,
+            _labels: &[String],
+            milestone_number: Option<i64>,
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            let milestone_marker = milestone_number.unwrap_or(-1);
+            match self.record("create_issue", milestone_marker, Some(body.to_string())) {
+                FakeResponse::Ok(o) => Ok(o),
+                FakeResponse::Err(e) => Err(e),
+            }
+        }
+
+        async fn close_issue(
+            &self,
+            _owner_repo: &str,
+            issue_number: i64,
+            reason: &str,
+            _pat: Option<&str>,
+        ) -> Result<ExecutedAction, ExecutorFailure> {
+            match self.record("close_issue", issue_number, Some(reason.to_string())) {
                 FakeResponse::Ok(o) => Ok(o),
                 FakeResponse::Err(e) => Err(e),
             }
@@ -760,8 +1375,10 @@ mod tests {
             }
         );
         let calls = fake.calls.lock().unwrap();
+        let kinds_and_numbers: Vec<(String, i64)> =
+            calls.iter().map(|c| (c.kind.clone(), c.number)).collect();
         assert_eq!(
-            calls[..],
+            kinds_and_numbers[..],
             [("comment_pr".into(), 10), ("comment_issue".into(), 20)]
         );
     }
@@ -992,5 +1609,391 @@ mod tests {
             Some("owner/repo")
         );
         assert_eq!(extract_github_nwo("https://gitlab.com/x/y.git"), None);
+    }
+
+    // ---------------- Placeholder resolution -------------------
+
+    fn done_row(seq: i64, number: Option<i64>, url: Option<&str>) -> AgentAction {
+        AgentAction {
+            id: Uuid::new_v4(),
+            task_id: Some(Uuid::new_v4()),
+            repo_id: Uuid::new_v4(),
+            seq,
+            kind: "create_milestone".into(),
+            payload: "{}".into(),
+            status: agent_action::STATUS_DONE.into(),
+            attempts: 1,
+            last_error: None,
+            result_number: number,
+            result_url: url.map(String::from),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    fn failed_row(seq: i64) -> AgentAction {
+        let mut r = done_row(seq, None, None);
+        r.status = agent_action::STATUS_FAILED.into();
+        r.last_error = Some("boom".into());
+        r
+    }
+
+    fn pending_row(seq: i64) -> AgentAction {
+        let mut r = done_row(seq, None, None);
+        r.status = agent_action::STATUS_PENDING.into();
+        r
+    }
+
+    fn by_seq(rows: Vec<AgentAction>) -> std::collections::HashMap<i64, AgentAction> {
+        rows.into_iter().map(|r| (r.seq, r)).collect()
+    }
+
+    #[test]
+    fn resolve_str_replaces_number_and_url() {
+        let rows = by_seq(vec![done_row(
+            0,
+            Some(42),
+            Some("https://x/y/milestone/42"),
+        )]);
+        let out = resolve_placeholders_in_str(
+            "Milestone #{{action[0].number}} en {{action[0].url}}",
+            1,
+            &rows,
+        )
+        .unwrap();
+        assert_eq!(out, "Milestone #42 en https://x/y/milestone/42");
+    }
+
+    #[test]
+    fn resolve_str_passes_through_when_no_placeholder() {
+        let rows = by_seq(vec![]);
+        assert_eq!(
+            resolve_placeholders_in_str("plain text", 3, &rows).unwrap(),
+            "plain text"
+        );
+    }
+
+    #[test]
+    fn resolve_str_fails_when_referenced_action_failed() {
+        let rows = by_seq(vec![failed_row(0)]);
+        let err = resolve_placeholders_in_str("m={{action[0].number}}", 1, &rows).unwrap_err();
+        assert!(err.contains("acción 0 falló"), "got: {err}");
+        assert!(err.contains("{{action[0].number}}"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_on_forward_reference() {
+        let rows = by_seq(vec![
+            done_row(0, Some(10), None),
+            pending_row(1),
+            pending_row(2),
+        ]);
+        let err = resolve_placeholders_in_str("m={{action[2].number}}", 1, &rows).unwrap_err();
+        assert!(err.contains("fuera de rango"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_on_self_reference() {
+        let rows = by_seq(vec![done_row(0, Some(10), None), pending_row(1)]);
+        let err = resolve_placeholders_in_str("m={{action[1].number}}", 1, &rows).unwrap_err();
+        assert!(err.contains("fuera de rango"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_on_out_of_range_reference() {
+        let rows = by_seq(vec![done_row(0, Some(10), None)]);
+        // seq=5 doesn't exist and > current_seq → out-of-range wins.
+        let err = resolve_placeholders_in_str("m={{action[5].number}}", 1, &rows).unwrap_err();
+        assert!(err.contains("fuera de rango"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_when_referenced_never_captured_number() {
+        let rows = by_seq(vec![done_row(0, None, Some("https://x/y"))]);
+        let err = resolve_placeholders_in_str("m={{action[0].number}}", 1, &rows).unwrap_err();
+        assert!(err.contains("no capturó ningún `number`"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_on_malformed_placeholder() {
+        let rows = by_seq(vec![done_row(0, Some(1), None)]);
+        let err = resolve_placeholders_in_str("hola {{action[0].taste}}", 1, &rows).unwrap_err();
+        assert!(err.contains("no reconocido"), "got: {err}");
+        let err = resolve_placeholders_in_str("hola {{owner}}", 1, &rows).unwrap_err();
+        assert!(err.contains("no reconocido"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_str_fails_on_unclosed_placeholder() {
+        let rows = by_seq(vec![done_row(0, Some(1), None)]);
+        let err = resolve_placeholders_in_str("hola {{action[0].number", 1, &rows).unwrap_err();
+        assert!(err.contains("sin `}}` de cierre"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_placeholder_body_accepts_expected_shapes() {
+        assert_eq!(
+            parse_placeholder_body("action[0].number"),
+            Some((0, PlaceholderField::Number))
+        );
+        assert_eq!(
+            parse_placeholder_body("  action[12].url  "),
+            Some((12, PlaceholderField::Url))
+        );
+        assert_eq!(parse_placeholder_body("action[0].other"), None);
+        assert_eq!(parse_placeholder_body("otro"), None);
+    }
+
+    #[test]
+    fn build_create_issue_payload_sends_milestone_as_integer() {
+        // Reviewer catch: `gh issue create --milestone <n>` matches by title,
+        // so we build a JSON body and hit `gh api` directly. The REST endpoint
+        // requires `milestone` to be an integer — a string would 422.
+        let payload = build_create_issue_payload(
+            "backend",
+            "do it",
+            &["P1".to_string(), "backend".to_string()],
+            Some(77),
+        );
+        assert_eq!(payload["title"], serde_json::json!("backend"));
+        assert_eq!(payload["body"], serde_json::json!("do it"));
+        assert_eq!(payload["labels"], serde_json::json!(["P1", "backend"]));
+        assert_eq!(
+            payload["milestone"],
+            serde_json::json!(77),
+            "milestone must be a JSON integer, not a string"
+        );
+        assert!(payload["milestone"].is_i64());
+    }
+
+    #[test]
+    fn build_create_issue_payload_omits_empty_labels_and_missing_milestone() {
+        let payload = build_create_issue_payload("t", "b", &[], None);
+        assert_eq!(payload["title"], serde_json::json!("t"));
+        assert_eq!(payload["body"], serde_json::json!("b"));
+        assert!(
+            payload.get("labels").is_none(),
+            "empty labels must be omitted, not sent as []"
+        );
+        assert!(
+            payload.get("milestone").is_none(),
+            "missing milestone must be omitted, not null"
+        );
+    }
+
+    #[test]
+    fn parse_gh_api_number_and_url_reads_top_level_fields() {
+        let stdout = br#"{"number": 7, "html_url": "https://gh/x/y/milestone/7", "extra": true}"#;
+        let (n, u) = parse_gh_api_number_and_url(stdout);
+        assert_eq!(n, Some(7));
+        assert_eq!(u.as_deref(), Some("https://gh/x/y/milestone/7"));
+    }
+
+    #[test]
+    fn parse_gh_api_number_and_url_tolerates_bad_json() {
+        let (n, u) = parse_gh_api_number_and_url(b"not json");
+        assert_eq!(n, None);
+        assert_eq!(u, None);
+    }
+
+    // ---------------- Placeholder resolution in the drain loop ---------------
+
+    #[tokio::test]
+    async fn drain_resolves_placeholders_across_seqs_and_creates_downstream_issues() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateMilestone {
+                title: "F2".into(),
+                description: "agent actions".into(),
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::CreateIssue {
+                title: "backend".into(),
+                body: "milestone={{action[0].number}}, ver {{action[0].url}}".into(),
+                labels: vec!["P1".into()],
+                milestone: Some("{{action[0].number}}".into()),
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            2,
+            &AgentActionDeclaration::CreateIssue {
+                title: "ui".into(),
+                body: "sin placeholder".into(),
+                labels: vec![],
+                milestone: Some("{{action[0].number}}".into()),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(77),
+                result_url: Some("https://gh/o/r/milestone/77".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(100),
+                result_url: Some("https://gh/o/r/issues/100".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(101),
+                result_url: Some("https://gh/o/r/issues/101".into()),
+            }),
+        ]);
+
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 3);
+        assert_eq!(result.failed, 0);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 3);
+        assert_eq!(calls[0].kind, "create_milestone");
+        assert_eq!(calls[1].kind, "create_issue");
+        // milestone number came through resolved from action[0].number = 77.
+        assert_eq!(calls[1].number, 77);
+        // FakeExecutor::create_issue records the body — verify placeholders
+        // in it were resolved (no raw `{{...}}` reached the executor).
+        let seq1_body = calls[1].payload.as_deref().unwrap();
+        assert_eq!(seq1_body, "milestone=77, ver https://gh/o/r/milestone/77");
+        assert!(
+            !seq1_body.contains("{{"),
+            "raw placeholder leaked: {seq1_body}"
+        );
+
+        // Persisted payload stays as declared — resolution happens on the
+        // in-memory declaration, not on the row.
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let row1 = rows.iter().find(|r| r.seq == 1).unwrap();
+        assert!(row1.payload.contains("{{action[0].number}}"));
+        assert_eq!(row1.status, agent_action::STATUS_DONE);
+    }
+
+    #[tokio::test]
+    async fn drain_fails_dependent_action_on_forward_reference() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CommentIssue {
+                issue: 5,
+                body: "ref al futuro: {{action[3].number}}".into(),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.failed, 1);
+        assert_eq!(result.done, 0);
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let msg = rows[0].last_error.as_deref().unwrap_or_default();
+        assert!(msg.contains("fuera de rango"), "got: {msg}");
+        assert!(msg.contains("{{action[3].number}}"), "got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn drain_new_kinds_execute_via_executor_trait() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateMilestone {
+                title: "M".into(),
+                description: "d".into(),
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::CloseIssue {
+                issue: 99,
+                reason: "closing per policy".into(),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(1),
+                result_url: Some("https://gh/o/r/milestone/1".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(99),
+                result_url: Some("https://gh/o/r/issues/99".into()),
+            }),
+        ]);
+
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 2);
+        assert_eq!(result.failed, 0);
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls[0].kind, "create_milestone");
+        assert_eq!(calls[1].kind, "close_issue");
+        assert_eq!(calls[1].number, 99);
+    }
+
+    #[tokio::test]
+    async fn drain_create_issue_fails_when_milestone_placeholder_is_not_numeric() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        // Simulate a manually-inserted create_issue whose milestone is a
+        // literal non-numeric string (agent authored badly). Placeholder
+        // resolution is a no-op (no `{{...}}`) but the executor step must
+        // still catch the bad value with a definitive failure.
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateIssue {
+                title: "t".into(),
+                body: "b".into(),
+                labels: vec![],
+                milestone: Some("not-a-number".into()),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![]);
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.failed, 1);
+        let rows = AgentAction::find_by_task_id(&pool, task_id).await.unwrap();
+        let msg = rows[0].last_error.as_deref().unwrap_or_default();
+        assert!(msg.contains("milestone"), "got: {msg}");
     }
 }

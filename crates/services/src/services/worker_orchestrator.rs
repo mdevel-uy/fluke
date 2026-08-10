@@ -3866,11 +3866,17 @@ async fn collect_pr_comments_context(
     let pr = match PullRequest::find_by_repo_and_number(pool, repo_id, pr_number).await {
         Ok(Some(p)) => p,
         Ok(None) => {
-            warn!(pr_number, "PR record missing — remediation prompt will use fallback");
+            warn!(
+                pr_number,
+                "PR record missing — remediation prompt will use fallback"
+            );
             return RemediationContext::empty(pr_number);
         }
         Err(e) => {
-            warn!(pr_number, "Failed to load PR for remediation enrichment: {e}");
+            warn!(
+                pr_number,
+                "Failed to load PR for remediation enrichment: {e}"
+            );
             return RemediationContext::empty(pr_number);
         }
     };
@@ -3890,7 +3896,10 @@ async fn collect_pr_comments_context(
             return ctx;
         }
         Err(e) => {
-            warn!(pr_number, "Failed to load repo for remediation enrichment: {e}");
+            warn!(
+                pr_number,
+                "Failed to load repo for remediation enrichment: {e}"
+            );
             return ctx;
         }
     };
@@ -3910,21 +3919,33 @@ async fn collect_pr_comments_context(
     let remote = match git.resolve_remote_for_branch(&repo_path, &target_branch) {
         Ok(r) => r,
         Err(e) => {
-            warn!(pr_number, "Failed to resolve remote for remediation enrichment: {e}");
+            warn!(
+                pr_number,
+                "Failed to resolve remote for remediation enrichment: {e}"
+            );
             return ctx;
         }
     };
     let host = match GitHostService::from_url(&remote.url) {
         Ok(h) => h,
         Err(e) => {
-            warn!(pr_number, "Unsupported host for remediation enrichment: {e}");
+            warn!(
+                pr_number,
+                "Unsupported host for remediation enrichment: {e}"
+            );
             return ctx;
         }
     };
-    let comments = match host.get_pr_comments(&repo_path, &remote.url, pr_number).await {
+    let comments = match host
+        .get_pr_comments(&repo_path, &remote.url, pr_number)
+        .await
+    {
         Ok(c) => c,
         Err(e) => {
-            warn!(pr_number, "Failed to fetch PR comments for remediation enrichment: {e}");
+            warn!(
+                pr_number,
+                "Failed to fetch PR comments for remediation enrichment: {e}"
+            );
             return ctx;
         }
     };
@@ -4812,7 +4833,10 @@ mod tests {
     #[test]
     fn remediation_prompt_has_no_git_plumbing() {
         for (owner_repo, comments_block) in [
-            (Some("mdevel-uy/vibe-kanban"), Some("Comentario del reviewer")),
+            (
+                Some("mdevel-uy/vibe-kanban"),
+                Some("Comentario del reviewer"),
+            ),
             (Some("mdevel-uy/vibe-kanban"), None),
             (None, None),
         ] {
@@ -6727,6 +6751,38 @@ mod tests {
                 _owner_repo: &str,
                 _issue: i64,
                 _body: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn create_milestone(
+                &self,
+                _owner_repo: &str,
+                _title: &str,
+                _description: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn create_issue(
+                &self,
+                _owner_repo: &str,
+                _title: &str,
+                _body: &str,
+                _labels: &[String],
+                _milestone_number: Option<i64>,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn close_issue(
+                &self,
+                _owner_repo: &str,
+                _issue: i64,
+                _reason: &str,
                 _pat: Option<&str>,
             ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
             {
