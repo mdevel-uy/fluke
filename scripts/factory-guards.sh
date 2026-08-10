@@ -8,6 +8,12 @@
 #   3. Cada migración nueva bajo crates/db/migrations/ debe empezar con un
 #      timestamp de 14 dígitos (YYYYMMDDHHMMSS_).
 #   4. No puede haber dos migraciones con el mismo timestamp.
+#   5. Ningún archivo de prompts del repo puede introducir en el diff
+#      instrucciones de escritura contra GitHub via `gh` (los writes deben
+#      declararse en `.vk/actions.json` — issue #549). Se analiza SOLO
+#      líneas agregadas y solo en los archivos de prompts listados en
+#      PROMPT_FILE_PATTERNS abajo. Las lecturas (`gh pr view`,
+#      `gh pr checks`, `gh api` GET) están permitidas.
 #
 # Sad path: si BASE_SHA/HEAD_SHA no existen en el clon local, el script sale
 # con código 2 (setup error) — nunca reporta verde por falta de historia.
@@ -26,6 +32,26 @@ LOCKFILE_FILE="Cargo.lock"
 LOCKFILE_MARKER="[lockfile]"
 MIGRATIONS_DIR="crates/db/migrations"
 MIGRATION_PATTERN='^[0-9]{14}_'
+
+# Archivos considerados "prompts" para el guard gh-write (regla 5). Match por
+# path glob del `git diff --name-only`. Cualquier `.rs` cuyo nombre termina en
+# `_prompt.rs` o `_prompts.rs`, cualquier `.md` que termina en `_prompt.md` o
+# `base_instructions.md`, bajo `crates/`.
+PROMPT_FILE_PATTERNS=(
+  'crates/**/*_prompt.rs'
+  'crates/**/*_prompts.rs'
+  'crates/**/*_prompt.md'
+  'crates/**/base_instructions.md'
+)
+
+# Patrones que representan writes contra GitHub (issue #549). Estos se buscan
+# SOLO en líneas agregadas por el diff en archivos que matcheen
+# PROMPT_FILE_PATTERNS. Los reads (`gh pr view`, `gh pr checks`, `gh api` GET,
+# `gh search`, `gh run view`, etc.) están fuera del set.
+GH_WRITE_PATTERNS=(
+  'gh[[:space:]]+(pr|issue)[[:space:]]+(create|close|comment|review)'
+  'gh[[:space:]]+api[[:space:]]+-X[[:space:]]+(POST|PATCH|DELETE)'
+)
 
 BASE_SHA="${BASE_SHA:-}"
 HEAD_SHA="${HEAD_SHA:-HEAD}"
@@ -120,6 +146,66 @@ if [[ -d "$MIGRATIONS_DIR" ]]; then
       done <<<"$dupes"
     fi
   fi
+fi
+
+# --- Regla 5: sin gh-writes agregados en archivos de prompts ----------------
+# Solo se auditan las líneas AGREGADAS (líneas `+` en `git diff`, excluyendo
+# los headers `+++ b/...`). Los reads siguen permitidos porque no matchean
+# GH_WRITE_PATTERNS. Detectar y purgar los existentes fue parte de issue #549;
+# esta regla evita regresiones futuras.
+path_matches_any_pattern() {
+  local path="$1"
+  shift
+  local pattern
+  for pattern in "$@"; do
+    # `[[ $path == $pattern ]]` con globstar reproduce el matching de globs.
+    # shellcheck disable=SC2053
+    if [[ "$path" == $pattern ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+shopt -s globstar
+prompt_files=()
+if ((${#changed_files[@]} > 0)); then
+  for f in "${changed_files[@]}"; do
+    if path_matches_any_pattern "$f" "${PROMPT_FILE_PATTERNS[@]}"; then
+      # Solo escaneamos archivos que siguen existiendo tras el diff (los
+      # borrados no pueden introducir instrucciones nuevas).
+      if git cat-file -e "${HEAD_SHA}:${f}" 2>/dev/null; then
+        prompt_files+=("$f")
+      fi
+    fi
+  done
+fi
+shopt -u globstar
+
+if ((${#prompt_files[@]} > 0)); then
+  for f in "${prompt_files[@]}"; do
+    # Extraemos las líneas agregadas del diff para este archivo. `git diff -U0`
+    # elimina líneas de contexto; `grep '^+'` deja adds y `+++ b/...` header;
+    # el `grep -v '^+++'` descarta el header para que no matchee por accidente.
+    added_lines="$(git diff -U0 "$BASE_SHA" "$HEAD_SHA" -- "$f" \
+      | grep '^+' | grep -v '^+++' || true)"
+    [[ -z "$added_lines" ]] && continue
+    for pattern in "${GH_WRITE_PATTERNS[@]}"; do
+      offending="$(printf '%s\n' "$added_lines" | grep -E "$pattern" || true)"
+      if [[ -n "$offending" ]]; then
+        log_error "El diff introduce una instrucción de gh-write en el archivo de prompts '$f':"
+        while IFS= read -r line; do
+          # Cortamos el `+` inicial para leerse más natural en el log.
+          echo "     ${line#+}" >&2
+        done <<<"$offending"
+        echo "   Los writes a GitHub (comentarios, issues, reviews, PRs) deben declararse" >&2
+        echo "   en '.vk/actions.json' — nunca embebidos como comando \`gh\` en un prompt." >&2
+        echo "   Si el hit es una assertion o docstring de test que describe el ban," >&2
+        echo "   armá el literal con \`join(\" \")\` para que la fuente no contenga el patrón." >&2
+        failed=1
+      fi
+    done
+  done
 fi
 
 if ((failed != 0)); then

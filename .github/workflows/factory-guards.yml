@@ -8,6 +8,7 @@ name: Factory guards
 #   2. Diff toca Cargo.lock        => body del PR debe incluir [lockfile]
 #   3. Migración nueva bajo crates/db/migrations/ => timestamp de 14 dígitos
 #   4. Sin colisiones de timestamp entre migraciones
+#   5. Sin nuevas instrucciones de gh-write en archivos de prompts (issue #549)
 #
 # TODO (fase 2, fuera del ticket #369): lint de strings visibles hardcodeados
 # fuera de i18n.
