@@ -2,6 +2,20 @@
   "editorNames": {
     "custom": "Personalizado"
   },
+  "desktopAlerts": {
+    "taskCompleted": {
+      "title": "Tarea terminada",
+      "body": "{{name}}"
+    },
+    "taskFailed": {
+      "title": "Tarea fallada",
+      "body": "{{name}}"
+    },
+    "awaitingApproval": {
+      "title": "Esperando aprobación",
+      "body": "{{name}}"
+    }
+  },
   "githubDev": {
     "openInVSCodeWeb": "Abrir en VS Code web (github.dev)",
     "branchNotPushed": "La rama aún no está en GitHub"

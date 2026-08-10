@@ -218,6 +218,12 @@
         "push": {
           "label": "Push Notifications",
           "helper": "Show system notifications when workspaces finish running."
+        },
+        "desktop": {
+          "label": "Desktop Alerts",
+          "helper": "Show browser notifications when tasks finish, fail, or await approval. Requires notification permission.",
+          "helperDenied": "Notifications are blocked by the browser. Update the site permission to enable desktop alerts.",
+          "helperInsecure": "Desktop alerts require a secure context (HTTPS or localhost)."
         }
       },
       "messageInput": {

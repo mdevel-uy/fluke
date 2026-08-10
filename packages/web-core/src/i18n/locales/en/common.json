@@ -2,6 +2,20 @@
   "editorNames": {
     "custom": "Custom"
   },
+  "desktopAlerts": {
+    "taskCompleted": {
+      "title": "Task finished",
+      "body": "{{name}}"
+    },
+    "taskFailed": {
+      "title": "Task failed",
+      "body": "{{name}}"
+    },
+    "awaitingApproval": {
+      "title": "Awaiting approval",
+      "body": "{{name}}"
+    }
+  },
   "githubDev": {
     "openInVSCodeWeb": "Open in VS Code web (github.dev)",
     "branchNotPushed": "Branch not on GitHub yet"

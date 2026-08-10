@@ -31,8 +31,14 @@ import { TagManager } from '@/shared/components/TagManager';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import {
   type MobileFontScale,
+  useDesktopAlertsEnabled,
   useMobileFontScale,
 } from '@/shared/stores/useUiPreferencesStore';
+import {
+  getDesktopNotificationPermission,
+  isDesktopNotificationSupported,
+  requestDesktopNotificationPermission,
+} from '@/shared/lib/desktopNotifications';
 import { cn, playSound } from '@/shared/lib/utils';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { IconButton } from '@vibe/ui/components/IconButton';
@@ -87,6 +93,39 @@ export function GeneralSettingsSection() {
   >(null);
   const [maxReviewRoundsDraft, setMaxReviewRoundsDraft] = useState<string>('');
   const { setTheme } = useTheme();
+
+  // Per-browser desktop alerts (Notification API). The toggle is stored in
+  // localStorage — the underlying browser permission is per-origin so it
+  // shouldn't sync across devices via the server-side config.
+  const [desktopAlertsEnabled, setDesktopAlertsEnabled] =
+    useDesktopAlertsEnabled();
+  const desktopNotificationsSupported = isDesktopNotificationSupported();
+  const [desktopPermission, setDesktopPermission] =
+    useState<NotificationPermission | null>(() =>
+      getDesktopNotificationPermission()
+    );
+
+  const desktopAlertsChecked =
+    desktopAlertsEnabled && desktopPermission === 'granted';
+  const desktopAlertsDisabled =
+    !desktopNotificationsSupported || desktopPermission === 'denied';
+
+  const handleDesktopAlertsToggle = useCallback(
+    async (checked: boolean) => {
+      if (!checked) {
+        setDesktopAlertsEnabled(false);
+        return;
+      }
+      if (!isDesktopNotificationSupported()) {
+        setDesktopAlertsEnabled(false);
+        return;
+      }
+      const result = await requestDesktopNotificationPermission();
+      setDesktopPermission(result);
+      setDesktopAlertsEnabled(result === 'granted');
+    },
+    [setDesktopAlertsEnabled]
+  );
 
   // Executor options for the default coding agent dropdown
   const executorOptions = profiles
@@ -786,6 +825,23 @@ export function GeneralSettingsSection() {
               },
             })
           }
+        />
+
+        <SettingsCheckbox
+          id="desktop-alerts"
+          label={t('settings.general.notifications.desktop.label')}
+          description={
+            !desktopNotificationsSupported
+              ? t('settings.general.notifications.desktop.helperInsecure')
+              : desktopPermission === 'denied'
+                ? t('settings.general.notifications.desktop.helperDenied')
+                : t('settings.general.notifications.desktop.helper')
+          }
+          checked={desktopAlertsChecked}
+          disabled={desktopAlertsDisabled}
+          onChange={(checked) => {
+            void handleDesktopAlertsToggle(checked);
+          }}
         />
       </SettingsCard>
 

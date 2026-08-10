@@ -23,6 +23,7 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { SharedAppLayout } from '@/shared/components/ui-new/containers/SharedAppLayout';
 import { LicenseBanner } from '@/shared/components/LicenseBanner';
 import { useLicenseStatus } from '@/shared/hooks/useLicenseStatus';
+import { LocalTaskNotifications } from '@web/app/notifications/LocalTaskNotifications';
 
 function KeyboardShortcutsHandler() {
   useKeyShowHelp(
@@ -117,6 +118,7 @@ function AppLayoutRouteComponent() {
   return (
     <AppRouteProviders key={hostId ?? 'local'}>
       <ReleaseNotesHandler />
+      <LocalTaskNotifications />
       <SequenceTrackerProvider>
         <SequenceIndicator />
         <KeyboardShortcutsHandler />
