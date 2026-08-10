@@ -1,13 +1,13 @@
-//! `.vk/actions.json` — declarative agent actions inbox (AGENT-ACTIONS-SPEC.md, F1).
+//! `.vk/actions.json` — declarative agent actions inbox (AGENT-ACTIONS-SPEC.md, F1/F2).
 //!
 //! Same shape as `.vk/review.json`: the agent produces the file, the orchestrator
 //! reads it after the agent finishes, validates strictly, and drops one outbox row
 //! per declared action so [`agent_actions_drain`] can execute them against GitHub.
 //!
-//! F1 supports only two kinds — `comment_pr` and `comment_issue`. Any unknown kind
-//! (including reserved F2/F3 verbs like `create_issue` / `create_milestone`) fails
-//! the ingest as an invalid file, per the contract, so the agent finds out at test
-//! time instead of getting silent partial application.
+//! F1 shipped `comment_pr` and `comment_issue`; F2 adds `create_milestone`,
+//! `create_issue` and `close_issue`. Any kind outside that catalogue still fails
+//! the ingest as an invalid file so the agent finds out at test time instead of
+//! getting silent partial application.
 //!
 //! Missing file is a valid outcome (`Ok(vec![])`) — a run that produced no
 //! declarations has nothing to drain.
@@ -29,8 +29,34 @@ pub const ACTIONS_JSON_RELATIVE_PATH: &str = ".vk/actions.json";
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentActionDeclaration {
-    CommentPr { pr: i64, body: String },
-    CommentIssue { issue: i64, body: String },
+    CommentPr {
+        pr: i64,
+        body: String,
+    },
+    CommentIssue {
+        issue: i64,
+        body: String,
+    },
+    CreateMilestone {
+        title: String,
+        description: String,
+    },
+    CreateIssue {
+        title: String,
+        body: String,
+        #[serde(default)]
+        labels: Vec<String>,
+        /// May be a literal milestone number (as string) or a
+        /// `{{action[N].number}}` placeholder resolved by the drain from an
+        /// earlier `create_milestone`. `None` when the agent doesn't attach
+        /// the issue to any milestone.
+        #[serde(default)]
+        milestone: Option<String>,
+    },
+    CloseIssue {
+        issue: i64,
+        reason: String,
+    },
 }
 
 impl AgentActionDeclaration {
@@ -40,6 +66,9 @@ impl AgentActionDeclaration {
         match self {
             Self::CommentPr { .. } => "comment_pr",
             Self::CommentIssue { .. } => "comment_issue",
+            Self::CreateMilestone { .. } => "create_milestone",
+            Self::CreateIssue { .. } => "create_issue",
+            Self::CloseIssue { .. } => "close_issue",
         }
     }
 }
@@ -218,15 +247,77 @@ mod tests {
     }
 
     #[test]
-    fn unknown_kind_is_invalid() {
+    fn valid_create_milestone_create_issue_close_issue_parse() {
         let tmp = tempfile::tempdir().unwrap();
-        // F2/F3 verbs are still unknown in F1 and must be rejected as invalid.
         write_actions(
             tmp.path(),
-            r#"{"actions":[{"kind":"create_issue","title":"x","body":"y"}]}"#,
+            r#"{"actions":[
+                {"kind":"create_milestone","title":"F2","description":"agent actions"},
+                {"kind":"create_issue","title":"backend","body":"do it","labels":["P1","backend"],"milestone":"{{action[0].number}}"},
+                {"kind":"create_issue","title":"ui","body":"draw it","labels":[]},
+                {"kind":"close_issue","issue":456,"reason":"completed"}
+            ]}"#,
         );
-        let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
-        assert!(matches!(err, IngestError::InvalidActions { .. }));
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 4);
+        match &actions[0] {
+            AgentActionDeclaration::CreateMilestone { title, description } => {
+                assert_eq!(title, "F2");
+                assert_eq!(description, "agent actions");
+            }
+            other => panic!("expected CreateMilestone, got {other:?}"),
+        }
+        match &actions[1] {
+            AgentActionDeclaration::CreateIssue {
+                title,
+                body,
+                labels,
+                milestone,
+            } => {
+                assert_eq!(title, "backend");
+                assert_eq!(body, "do it");
+                assert_eq!(labels, &vec!["P1".to_string(), "backend".to_string()]);
+                assert_eq!(milestone.as_deref(), Some("{{action[0].number}}"));
+            }
+            other => panic!("expected CreateIssue, got {other:?}"),
+        }
+        match &actions[2] {
+            AgentActionDeclaration::CreateIssue {
+                labels, milestone, ..
+            } => {
+                assert!(labels.is_empty());
+                assert!(milestone.is_none());
+            }
+            other => panic!("expected CreateIssue, got {other:?}"),
+        }
+        match &actions[3] {
+            AgentActionDeclaration::CloseIssue { issue, reason } => {
+                assert_eq!(*issue, 456);
+                assert_eq!(reason, "completed");
+            }
+            other => panic!("expected CloseIssue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn create_issue_defaults_labels_and_milestone() {
+        let tmp = tempfile::tempdir().unwrap();
+        // `labels` and `milestone` are optional; omitting them must not fail.
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[{"kind":"create_issue","title":"t","body":"b"}]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 1);
+        match &actions[0] {
+            AgentActionDeclaration::CreateIssue {
+                labels, milestone, ..
+            } => {
+                assert!(labels.is_empty());
+                assert!(milestone.is_none());
+            }
+            other => panic!("expected CreateIssue, got {other:?}"),
+        }
     }
 
     #[test]
@@ -274,6 +365,32 @@ mod tests {
             }
             .kind_str(),
             "comment_issue"
+        );
+        assert_eq!(
+            AgentActionDeclaration::CreateMilestone {
+                title: "t".into(),
+                description: "d".into(),
+            }
+            .kind_str(),
+            "create_milestone"
+        );
+        assert_eq!(
+            AgentActionDeclaration::CreateIssue {
+                title: "t".into(),
+                body: "b".into(),
+                labels: vec![],
+                milestone: None,
+            }
+            .kind_str(),
+            "create_issue"
+        );
+        assert_eq!(
+            AgentActionDeclaration::CloseIssue {
+                issue: 5,
+                reason: "duplicate".into(),
+            }
+            .kind_str(),
+            "close_issue"
         );
     }
 
