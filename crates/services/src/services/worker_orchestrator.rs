@@ -177,25 +177,37 @@ a pull request. Do NOT create any PR. When you finish, end with a concise \
 summary listing the issues you created.";
 
 /// Analyst-only appendix declaring the `.vk/actions.json` outbox contract
-/// (AGENT-ACTIONS-SPEC.md, F2). Appended AFTER [`ANALYST_ROLE_INSTRUCTION`]
-/// by [`build_worker_prompt`] so it wins any conflict with earlier "created
-/// via `gh`" language — writes now flow through the outbox, which the
-/// orchestrator drains with the platform identity.
+/// (AGENT-ACTIONS-SPEC.md, F1+F2 kinds). Appended AFTER
+/// [`ANALYST_ROLE_INSTRUCTION`] by [`build_worker_prompt`] so it wins any
+/// conflict with earlier "created via `gh`" language — writes now flow
+/// through the outbox, which the orchestrator drains with the platform
+/// identity.
 ///
 /// Kept out of the worker soul on purpose: soul strings can change per
 /// deployment, but the outbox contract is a runtime guarantee the analyst
 /// path depends on to route side effects correctly.
+///
+/// The enumerated kinds are the COMPLETE catalog the drain accepts today
+/// (see [`agent_actions_ingest::AgentActionDeclaration`]). Any GitHub write
+/// with no outbox kind yet (e.g. `gh issue edit`, which lands with F3) is
+/// intentionally left off the ban — otherwise the analyst is stuck with
+/// nowhere to route it. In particular `comment_issue` is listed so the
+/// analyst's plan-comment deliverable (promised by
+/// [`ANALYST_ROLE_INSTRUCTION`]) can also flow through the outbox instead
+/// of falling back to `gh issue comment`.
 pub const ANALYST_ACTIONS_JSON_CONTRACT: &str = r#"[AGENT ACTIONS — write operations go through `.vk/actions.json`, NOT `gh`]
 
-Do NOT execute any `gh` write command (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue edit`, etc.). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo.
+Do NOT execute the `gh` write commands that already have an outbox kind below (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue comment`, `gh pr comment`). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo. GitHub writes without an outbox kind yet (e.g. `gh issue edit`) may keep using `gh` transitionally until a kind is added.
 
-`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. Supported kinds:
+`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. The kinds below are the COMPLETE outbox catalog — every kind the drain accepts today, not only the newest:
 
 {
   "actions": [
     { "kind": "create_milestone", "title": "...", "description": "..." },
     { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
-    { "kind": "close_issue", "issue": 456, "reason": "completed" }
+    { "kind": "comment_issue", "issue": 123, "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
+    { "kind": "close_issue", "issue": 456, "reason": "completed" },
+    { "kind": "comment_pr", "pr": 789, "body": "..." }
   ]
 }
 
@@ -4805,19 +4817,28 @@ mod tests {
     }
 
     /// Issue #540: the analyst prompt must carry the `.vk/actions.json`
-    /// outbox contract — path, all three F2 kinds, placeholder syntax, and
-    /// the explicit ban on `gh` writes — appended AFTER the role framing so
-    /// it wins any conflict with older "created via `gh`" language.
+    /// outbox contract — path, the FULL F1+F2 kind catalog, placeholder
+    /// syntax, and the ban on `gh` writes that DO have an outbox kind —
+    /// appended AFTER the role framing so it wins any conflict with older
+    /// "created via `gh`" language.
+    ///
+    /// The kind list must include `comment_issue` because
+    /// `ANALYST_ROLE_INSTRUCTION` still promises a plan-comment deliverable;
+    /// leaking that write back to `gh issue comment` would violate the ban.
     #[test]
     fn analyst_prompt_appends_actions_json_contract() {
         let prompt = build_worker_prompt("soul", "do it", "main", ROLE_ANALYST);
 
-        // Path and every F2 kind must appear so the analyst learns the wire
-        // shape from the prompt alone.
+        // Path and every kind in the full F1+F2 catalog must appear so the
+        // analyst learns the complete wire shape from the prompt alone.
         assert!(prompt.contains(".vk/actions.json"));
         assert!(prompt.contains("create_milestone"));
         assert!(prompt.contains("create_issue"));
         assert!(prompt.contains("close_issue"));
+        // F1 kinds — needed so the plan-comment deliverable routes through
+        // the outbox instead of falling back to `gh issue comment`.
+        assert!(prompt.contains("comment_issue"));
+        assert!(prompt.contains("comment_pr"));
 
         // Placeholder syntax stays literal (double curlies), since the drain
         // parses `{{action[N].number}}` / `{{action[N].url}}` verbatim.
@@ -4825,9 +4846,16 @@ mod tests {
         assert!(prompt.contains("{{action[N].number}}"));
         assert!(prompt.contains("{{action[N].url}}"));
 
-        // Explicit ban on `gh` write commands.
+        // Ban is scoped to `gh` writes that already have an outbox kind;
+        // untouched writes like `gh issue edit` (F3) are explicitly allowed
+        // transitionally so the analyst is never banned without an alternative.
         assert!(prompt.contains("gh issue create"));
-        assert!(prompt.contains("Do NOT execute any `gh` write"));
+        assert!(prompt.contains("gh issue comment"));
+        assert!(prompt.contains("Do NOT execute the `gh` write commands"));
+        assert!(
+            prompt.contains("transitionally"),
+            "contract must leave writes without an outbox kind on `gh` transitionally"
+        );
 
         // The contract sits AFTER the role framing so it takes precedence
         // over the earlier "created via `gh`" phrasing in the role blurb.
