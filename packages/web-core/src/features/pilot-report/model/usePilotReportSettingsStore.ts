@@ -21,6 +21,9 @@ export const MAX_HOURS_PER_FTE_MONTH = 400;
 export const MIN_HOURLY_RATE = 0;
 export const MAX_HOURLY_RATE = 1000;
 
+export const MIN_FEE_PERCENT = 0;
+export const MAX_FEE_PERCENT = 100;
+
 export const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'ARS', 'UYU'] as const;
 export type ReportCurrency = (typeof CURRENCY_OPTIONS)[number];
 
@@ -40,10 +43,13 @@ type State = {
   hoursPerFteMonthOverride: number | null;
   hourlyRateOverride: number | null;
   currencyOverride: ReportCurrency | null;
+  /** Percent (0..100), not a fraction — matches what the input shows. */
+  feePercentOverride: number | null;
   setHoursPerTicketOverride: (value: number | null) => void;
   setHoursPerFteMonthOverride: (value: number | null) => void;
   setHourlyRateOverride: (value: number | null) => void;
   setCurrencyOverride: (value: ReportCurrency | null) => void;
+  setFeePercentOverride: (value: number | null) => void;
   resetAll: () => void;
 };
 
@@ -74,6 +80,7 @@ export const usePilotReportSettingsStore = create<State>()(
       hoursPerFteMonthOverride: null,
       hourlyRateOverride: null,
       currencyOverride: null,
+      feePercentOverride: null,
       setHoursPerTicketOverride: (value) =>
         set({
           hoursPerTicketOverride: clampOverride(
@@ -99,12 +106,21 @@ export const usePilotReportSettingsStore = create<State>()(
           ),
         }),
       setCurrencyOverride: (value) => set({ currencyOverride: value }),
+      setFeePercentOverride: (value) =>
+        set({
+          feePercentOverride: clampOverride(
+            value,
+            MIN_FEE_PERCENT,
+            MAX_FEE_PERCENT
+          ),
+        }),
       resetAll: () =>
         set({
           hoursPerTicketOverride: null,
           hoursPerFteMonthOverride: null,
           hourlyRateOverride: null,
           currencyOverride: null,
+          feePercentOverride: null,
         }),
     }),
     {
@@ -114,6 +130,7 @@ export const usePilotReportSettingsStore = create<State>()(
         hoursPerFteMonthOverride: state.hoursPerFteMonthOverride,
         hourlyRateOverride: state.hourlyRateOverride,
         currencyOverride: state.currencyOverride,
+        feePercentOverride: state.feePercentOverride,
       }),
       merge: (persisted, current) => {
         // A stale localStorage from before this refactor stored raw values
@@ -144,6 +161,13 @@ export const usePilotReportSettingsStore = create<State>()(
             MAX_HOURLY_RATE
           ),
           currencyOverride: validCurrency(saved.currencyOverride ?? null),
+          feePercentOverride: clampOverride(
+            typeof saved.feePercentOverride === 'number'
+              ? saved.feePercentOverride
+              : null,
+            MIN_FEE_PERCENT,
+            MAX_FEE_PERCENT
+          ),
         };
       },
       version: 2,

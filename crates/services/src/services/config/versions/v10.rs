@@ -56,6 +56,13 @@ fn default_currency() -> String {
     "USD".to_string()
 }
 
+/// Fraction of the net savings we invoice (pricing v5: "pagás un porcentaje
+/// de lo que ahorrás"). 0.10 = 10%, the closed pricing model; the rate is the
+/// only negotiable lever, so it is configurable per installation.
+fn default_savings_fee_rate() -> f64 {
+    0.10
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 pub struct Config {
     pub config_version: String,
@@ -114,6 +121,12 @@ pub struct Config {
     /// require a schema migration; frontends render it via `Intl.NumberFormat`.
     #[serde(default = "default_currency")]
     pub default_currency: String,
+    /// Fraction (0..=1) of the net savings billed to the customer — the
+    /// "10% of what you save" figure in the pricing model. Server-side for
+    /// the same reason as the hourly rate: the fee quoted must not depend on
+    /// which browser opened the report.
+    #[serde(default = "default_savings_fee_rate")]
+    pub default_savings_fee_rate: f64,
 }
 
 impl Config {
@@ -146,6 +159,7 @@ impl Config {
             default_hours_per_fte_month: old_config.default_hours_per_fte_month,
             default_hourly_rate: default_hourly_rate(),
             default_currency: default_currency(),
+            default_savings_fee_rate: default_savings_fee_rate(),
         }
     }
 
@@ -206,6 +220,7 @@ impl Default for Config {
             default_hours_per_fte_month: default_hours_per_fte_month(),
             default_hourly_rate: default_hourly_rate(),
             default_currency: default_currency(),
+            default_savings_fee_rate: default_savings_fee_rate(),
         }
     }
 }

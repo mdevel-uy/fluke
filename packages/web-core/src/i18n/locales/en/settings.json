@@ -18,6 +18,8 @@
         "selectHost": "Select host",
         "general": "General",
         "generalDesc": "Theme, notifications, and preferences",
+        "billing": "Value & Billing",
+        "billingDesc": "Savings model, hourly rate, and service fee",
         "projects": "Projects",
         "projectsDesc": "Project repositories and configuration",
         "repos": "Repositories",
@@ -47,6 +49,57 @@
       "remoteHost": "Remote host",
       "noHostAvailable": "No host is available for host-specific settings yet.",
       "selectMachineHint": "Select a machine to open machine settings."
+    },
+    "billing": {
+      "model": {
+        "title": "How the value figure is built",
+        "description": "The Value Generated panel turns resolved tickets into money in three steps:",
+        "stepLlm": "Measure the actual LLM spend: every task records the input/output/cache tokens of each model call, valued with each model's price table (Claude reports its real USD cost directly).",
+        "stepHuman": "Estimate what the same work would have cost by hand: man-hours credited per ticket × hourly rate.",
+        "stepFee": "The difference between the two is the savings; the service fee is the configured percentage of that savings."
+      },
+      "humanCost": {
+        "title": "Human cost assumptions",
+        "description": "Used to estimate what the resolved tickets would have cost done by hand."
+      },
+      "hourlyRate": {
+        "label": "Hourly rate",
+        "helper": "Fully-loaded cost of one hour of engineering work.",
+        "error": "Enter a rate greater than zero."
+      },
+      "currency": {
+        "label": "Currency",
+        "helper": "ISO 4217 code, e.g. USD, EUR, UYU.",
+        "error": "Enter a three-letter ISO 4217 code."
+      },
+      "hoursPerTask": {
+        "label": "Hours saved per ticket",
+        "helper": "Default man-hours credited to each resolved ticket. Can be overridden per task from the dashboard.",
+        "error": "Enter a value between {{min}} and {{max}}."
+      },
+      "hoursPerFte": {
+        "label": "Hours per FTE per month",
+        "helper": "Working hours in a month, used to express saved hours as full-time equivalents.",
+        "error": "Enter a value between {{min}} and {{max}}."
+      },
+      "fee": {
+        "title": "Service fee",
+        "description": "The invoice is a percentage of the net savings: you pay for what you save."
+      },
+      "feePercent": {
+        "label": "Percentage of savings",
+        "helper": "Share of the monthly net savings that is invoiced. Default: 10%.",
+        "error": "Enter a percentage between 0 and 100."
+      },
+      "llmCost": {
+        "title": "LLM spend",
+        "description": "Measured automatically — nothing to configure.",
+        "detail": "Every task accumulates the input/output/cache tokens of each model call. Known models are converted to USD with their price table and Claude reports its actual cost; tasks whose agent reports no cost are flagged in the panel as missing cost data."
+      },
+      "save": {
+        "success": "Billing settings saved.",
+        "error": "Failed to save billing settings."
+      }
     },
     "general": {
       "loading": "Loading settings...",

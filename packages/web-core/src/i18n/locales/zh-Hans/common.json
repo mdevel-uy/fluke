@@ -794,7 +794,22 @@
       "overridePerTaskLoading": "正在加载本月任务…",
       "overridePerTaskEmpty": "本月尚无已完成任务。",
       "overridePerTaskInputLabel": "该任务节省的小时数",
-      "overridePerTaskClear": "使用默认值"
+      "overridePerTaskClear": "使用默认值",
+      "breakdownHuman": "人工工时成本",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "实际 LLM 支出",
+      "breakdownLlmTokens": "输入 {{input}} · 输出 {{output}}",
+      "breakdownLlmTooltip": "本月 token — 输入：{{input}}，输出：{{output}}，缓存写入：{{cacheWrite}}，缓存读取：{{cacheRead}}。每个模型的 token 按其价格表折算；Claude 直接报告其实际美元成本。",
+      "breakdownSavings": "节省",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "服务费（节省的 {{percent}}）",
+      "explainerToggle": "如何计算？",
+      "explainerLlm": "实际 LLM 支出：每个任务记录各模型调用的输入/输出/缓存 token，按各模型的价格表折算；Claude 直接报告其实际美元成本。",
+      "explainerHuman": "人工工时成本：每个已解决的工单按配置的人工工时（可按任务修改）乘以小时费率计算。",
+      "explainerSavings": "节省为两者之差；服务费为该节省的 {{percent}}。",
+      "explainerConfigure": "在设置中配置这些参数",
+      "tableFee": "服务费",
+      "totalsFee": "{{prefix}}{{fee}} 服务费"
     }
   },
   "pilotReport": {
@@ -821,6 +836,7 @@
       "monetaryValue": "预估价值",
       "apiCost": "API 成本",
       "netMonetaryValue": "净节省",
+      "serviceFee": "服务费（节省的 {{percent}}）",
       "effectiveRate": "有效费率",
       "effectiveRateUnit": "/小时 净",
       "partialCoverageHint": "{{withCost}}/{{total}} 个任务已报告成本"
@@ -831,11 +847,15 @@
       "hoursPerFteMonth": "每 FTE·月小时数",
       "hourlyRate": "时薪",
       "currency": "货币",
+      "feePercent": "服务费（节省的 %）",
       "modifiedBadge": "已修改",
       "modifiedHint": "与安装配置不同",
       "resetAll": "重置为配置值",
       "resetField": "重置为配置默认值 ({{value}})",
       "sourceHint": "默认值来自安装配置，所有查看者看到的数字保持一致。"
+    },
+    "breakdown": {
+      "title": "节省如何计算"
     },
     "tasksSection": {
       "title": "期间内任务",

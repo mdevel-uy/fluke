@@ -794,7 +794,22 @@
       "overridePerTaskLoading": "今月のタスクを読み込み中…",
       "overridePerTaskEmpty": "今月完了したタスクはありません。",
       "overridePerTaskInputLabel": "このタスクの節約時間",
-      "overridePerTaskClear": "デフォルトを使用"
+      "overridePerTaskClear": "デフォルトを使用",
+      "breakdownHuman": "人時換算コスト",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "実際のLLM支出",
+      "breakdownLlmTokens": "入力 {{input}} · 出力 {{output}}",
+      "breakdownLlmTooltip": "今月のトークン — 入力: {{input}}、出力: {{output}}、キャッシュ書き込み: {{cacheWrite}}、キャッシュ読み取り: {{cacheRead}}。各モデルのトークンはモデル別の価格表で換算され、Claudeは実際のUSDコストを直接報告します。",
+      "breakdownSavings": "削減額",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "サービス料（削減額の{{percent}}）",
+      "explainerToggle": "計算方法は？",
+      "explainerLlm": "実際のLLM支出: 各タスクはモデルごとの入力/出力/キャッシュのトークンを記録し、モデル別の価格表で換算します。Claudeは実際のUSDコストを直接報告します。",
+      "explainerHuman": "人時換算コスト: 解決した各チケットに設定された人時（タスクごとに編集可能）を割り当て、時間単価を掛けます。",
+      "explainerSavings": "削減額は両者の差額です。サービス料はその削減額の{{percent}}です。",
+      "explainerConfigure": "設定でこれらのパラメータを構成",
+      "tableFee": "料金",
+      "totalsFee": "{{prefix}}{{fee}} 料金"
     }
   },
   "pilotReport": {
@@ -821,6 +836,7 @@
       "monetaryValue": "推定価値",
       "apiCost": "API コスト",
       "netMonetaryValue": "純節約額",
+      "serviceFee": "サービス料（削減額の{{percent}}）",
       "effectiveRate": "実効レート",
       "effectiveRateUnit": "/h 純",
       "partialCoverageHint": "{{withCost}}/{{total}} 件のタスクがコストを報告"
@@ -831,11 +847,15 @@
       "hoursPerFteMonth": "1 FTE·月の時間",
       "hourlyRate": "時間単価",
       "currency": "通貨",
+      "feePercent": "料率（削減額の%）",
       "modifiedBadge": "変更済み",
       "modifiedHint": "インストール設定と異なります",
       "resetAll": "設定にリセット",
       "resetField": "設定値にリセット ({{value}})",
       "sourceHint": "既定値はインストール設定から取得されるため、すべての閲覧者が同じ数値を見ます。"
+    },
+    "breakdown": {
+      "title": "削減額の計算方法"
     },
     "tasksSection": {
       "title": "期間内のタスク",

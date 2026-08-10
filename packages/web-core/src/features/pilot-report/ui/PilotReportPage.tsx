@@ -27,14 +27,17 @@ import {
   FALLBACK_HOURLY_RATE,
   FALLBACK_HOURS_PER_FTE_MONTH,
   FALLBACK_HOURS_PER_TICKET,
+  MAX_FEE_PERCENT,
   MAX_HOURLY_RATE,
   MAX_HOURS_PER_FTE_MONTH,
   MAX_HOURS_PER_TICKET,
+  MIN_FEE_PERCENT,
   MIN_HOURLY_RATE,
   MIN_HOURS_PER_FTE_MONTH,
   MIN_HOURS_PER_TICKET,
   usePilotReportSettingsStore,
 } from '../model/usePilotReportSettingsStore';
+import { normalizeSavingsFeeRate } from '@/features/dashboard/model/valueDefaults';
 import type { ReportCurrency } from '../model/usePilotReportSettingsStore';
 import './pilot-report-print.css';
 
@@ -82,16 +85,20 @@ export function PilotReportPage() {
     config?.default_currency,
     FALLBACK_CURRENCY
   );
+  const configFeePercent =
+    normalizeSavingsFeeRate(config?.default_savings_fee_rate) * 100;
 
   const {
     hoursPerTicketOverride,
     hoursPerFteMonthOverride,
     hourlyRateOverride,
     currencyOverride,
+    feePercentOverride,
     setHoursPerTicketOverride,
     setHoursPerFteMonthOverride,
     setHourlyRateOverride,
     setCurrencyOverride,
+    setFeePercentOverride,
     resetAll,
   } = usePilotReportSettingsStore();
 
@@ -99,12 +106,15 @@ export function PilotReportPage() {
   const hoursPerFteMonth = hoursPerFteMonthOverride ?? configHoursPerFteMonth;
   const hourlyRate = hourlyRateOverride ?? configHourlyRate;
   const currency: ReportCurrency = currencyOverride ?? configCurrency;
+  const feePercent = feePercentOverride ?? configFeePercent;
+  const feeRate = feePercent / 100;
 
   const hasAnyOverride =
     hoursPerTicketOverride !== null ||
     hoursPerFteMonthOverride !== null ||
     hourlyRateOverride !== null ||
-    currencyOverride !== null;
+    currencyOverride !== null ||
+    feePercentOverride !== null;
 
   const [fromInput, setFromInput] = useState(() => {
     const d = new Date();
@@ -159,11 +169,20 @@ export function PilotReportPage() {
           hoursPerTicket,
           hoursPerFteMonth,
           hourlyRate,
+          feeRate,
         },
         windowStart,
         windowEnd
       ),
-    [data, hoursPerTicket, hoursPerFteMonth, hourlyRate, windowStart, windowEnd]
+    [
+      data,
+      hoursPerTicket,
+      hoursPerFteMonth,
+      hourlyRate,
+      feeRate,
+      windowStart,
+      windowEnd,
+    ]
   );
 
   const inclusiveEnd = useMemo(() => {
@@ -194,6 +213,15 @@ export function PilotReportPage() {
 
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(i18n.language),
+    [i18n.language]
+  );
+
+  const percentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.language, {
+        style: 'percent',
+        maximumFractionDigits: 1,
+      }),
     [i18n.language]
   );
 
@@ -269,9 +297,18 @@ export function PilotReportPage() {
 
           <KpiGrid
             metrics={metrics}
+            feePercentLabel={percentFormatter.format(feeRate)}
             currencyFormatter={currencyFormatter}
             numberFormatter={numberFormatter}
             isLoading={isLoading}
+          />
+
+          <SavingsBreakdown
+            metrics={metrics}
+            hourlyRate={hourlyRate}
+            feePercentLabel={percentFormatter.format(feeRate)}
+            currencyFormatter={currencyFormatter}
+            numberFormatter={numberFormatter}
           />
 
           <AssumptionsRow
@@ -279,15 +316,18 @@ export function PilotReportPage() {
             hoursPerFteMonth={hoursPerFteMonth}
             hourlyRate={hourlyRate}
             currency={currency}
+            feePercent={feePercent}
             configHoursPerTicket={configHoursPerTicket}
             configHoursPerFteMonth={configHoursPerFteMonth}
             configHourlyRate={configHourlyRate}
             configCurrency={configCurrency}
+            configFeePercent={configFeePercent}
             hasAnyOverride={hasAnyOverride}
             onHoursPerTicketChange={setHoursPerTicketOverride}
             onHoursPerFteMonthChange={setHoursPerFteMonthOverride}
             onHourlyRateChange={setHourlyRateOverride}
             onCurrencyChange={setCurrencyOverride}
+            onFeePercentChange={setFeePercentOverride}
             onResetAll={resetAll}
           />
 
@@ -378,11 +418,13 @@ function RangeControls({
 
 function KpiGrid({
   metrics,
+  feePercentLabel,
   currencyFormatter,
   numberFormatter,
   isLoading,
 }: {
   metrics: ReturnType<typeof computePilotReportMetrics>;
+  feePercentLabel: string;
   currencyFormatter: Intl.NumberFormat;
   numberFormatter: Intl.NumberFormat;
   isLoading: boolean;
@@ -439,6 +481,11 @@ function KpiGrid({
       hint: coverageHint,
     },
     {
+      label: t('pilotReport.kpi.serviceFee', { percent: feePercentLabel }),
+      value: `${netPrefix}${currencyFormatter.format(metrics.serviceFee)}`,
+      hint: coverageHint,
+    },
+    {
       label: t('pilotReport.kpi.effectiveRate'),
       value: currencyFormatter.format(metrics.effectiveHourlyRate),
       unit: t('pilotReport.kpi.effectiveRateUnit'),
@@ -477,35 +524,182 @@ function KpiGrid({
   );
 }
 
+/**
+ * The pricing story spelled out: what the resolved tickets would have cost
+ * in man-hours, what was actually spent on LLMs, the savings, and the
+ * service fee taken from those savings. Mirrors the value-generated panel
+ * (same i18n keys, same math via `computePilotReportMetrics`) so the report
+ * a CTO prints tells exactly the story the dashboard shows. Print-visible
+ * on purpose — this block is the explanation of the invoice.
+ */
+function SavingsBreakdown({
+  metrics,
+  hourlyRate,
+  feePercentLabel,
+  currencyFormatter,
+  numberFormatter,
+}: {
+  metrics: ReturnType<typeof computePilotReportMetrics>;
+  hourlyRate: number;
+  feePercentLabel: string;
+  currencyFormatter: Intl.NumberFormat;
+  numberFormatter: Intl.NumberFormat;
+}) {
+  const { t } = useTranslation('common');
+  if (metrics.ticketsResolved === 0) return null;
+
+  const costPrefix = metrics.partialCostCoverage ? '≥ ' : '';
+  const netPrefix = metrics.partialCostCoverage ? '≤ ' : '';
+  const totalTokens =
+    metrics.inputTokens +
+    metrics.outputTokens +
+    metrics.cacheCreationTokens +
+    metrics.cacheReadTokens;
+
+  const rows: {
+    label: string;
+    detail?: string;
+    detailTitle?: string;
+    value: string;
+    divider?: boolean;
+    emphasis?: boolean;
+  }[] = [
+    {
+      label: t('dashboard.valueGenerated.breakdownHuman'),
+      detail: t('dashboard.valueGenerated.breakdownHumanFormula', {
+        hours: formatHours(metrics.hoursSaved),
+        rate: currencyFormatter.format(hourlyRate),
+      }),
+      value: currencyFormatter.format(metrics.monetaryValue),
+    },
+    {
+      label: t('dashboard.valueGenerated.breakdownLlm'),
+      detail:
+        totalTokens > 0
+          ? t('dashboard.valueGenerated.breakdownLlmTokens', {
+              input: formatTokenCount(metrics.inputTokens),
+              output: formatTokenCount(metrics.outputTokens),
+            })
+          : undefined,
+      detailTitle: t('dashboard.valueGenerated.breakdownLlmTooltip', {
+        input: numberFormatter.format(metrics.inputTokens),
+        output: numberFormatter.format(metrics.outputTokens),
+        cacheWrite: numberFormatter.format(metrics.cacheCreationTokens),
+        cacheRead: numberFormatter.format(metrics.cacheReadTokens),
+      }),
+      value: `− ${costPrefix}${currencyFormatter.format(metrics.apiCostUsd)}`,
+    },
+    {
+      label: t('dashboard.valueGenerated.breakdownSavings'),
+      detail: t('dashboard.valueGenerated.breakdownSavingsFormula', {
+        gross: currencyFormatter.format(metrics.monetaryValue),
+        cost: currencyFormatter.format(metrics.apiCostUsd),
+      }),
+      value: `${netPrefix}${currencyFormatter.format(metrics.netMonetaryValue)}`,
+      divider: true,
+    },
+    {
+      label: t('dashboard.valueGenerated.breakdownFee', {
+        percent: feePercentLabel,
+      }),
+      value: `${netPrefix}${currencyFormatter.format(metrics.serviceFee)}`,
+      emphasis: true,
+    },
+  ];
+
+  return (
+    <SectionShell title={t('pilotReport.breakdown.title')}>
+      <div className="flex flex-col gap-1 px-3 py-2.5 text-sm">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className={cn(
+              'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5',
+              row.divider && 'border-t border-border pt-1'
+            )}
+          >
+            <span
+              className={cn(
+                'flex flex-wrap items-baseline gap-x-2',
+                row.emphasis ? 'font-semibold text-high' : 'text-normal'
+              )}
+            >
+              {row.label}
+              {row.detail && (
+                <span
+                  className="text-xs text-low tabular-nums"
+                  title={row.detailTitle}
+                >
+                  {row.detail}
+                </span>
+              )}
+            </span>
+            <span
+              className={cn(
+                'tabular-nums',
+                row.emphasis ? 'font-semibold text-high' : 'text-normal'
+              )}
+            >
+              {row.value}
+            </span>
+          </div>
+        ))}
+        <ol className="ml-4 mt-2 list-decimal space-y-0.5 border-t border-border pt-2 text-xs text-low">
+          <li>{t('dashboard.valueGenerated.explainerLlm')}</li>
+          <li>{t('dashboard.valueGenerated.explainerHuman')}</li>
+          <li>
+            {t('dashboard.valueGenerated.explainerSavings', {
+              percent: feePercentLabel,
+            })}
+          </li>
+        </ol>
+      </div>
+    </SectionShell>
+  );
+}
+
+/** Compact token count: `1234` -> `1.2k`, `12_345_678` -> `12.3M`. */
+function formatTokenCount(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
+  return String(count);
+}
+
 function AssumptionsRow({
   hoursPerTicket,
   hoursPerFteMonth,
   hourlyRate,
   currency,
+  feePercent,
   configHoursPerTicket,
   configHoursPerFteMonth,
   configHourlyRate,
   configCurrency,
+  configFeePercent,
   hasAnyOverride,
   onHoursPerTicketChange,
   onHoursPerFteMonthChange,
   onHourlyRateChange,
   onCurrencyChange,
+  onFeePercentChange,
   onResetAll,
 }: {
   hoursPerTicket: number;
   hoursPerFteMonth: number;
   hourlyRate: number;
   currency: ReportCurrency;
+  feePercent: number;
   configHoursPerTicket: number;
   configHoursPerFteMonth: number;
   configHourlyRate: number;
   configCurrency: ReportCurrency;
+  configFeePercent: number;
   hasAnyOverride: boolean;
   onHoursPerTicketChange: (value: number | null) => void;
   onHoursPerFteMonthChange: (value: number | null) => void;
   onHourlyRateChange: (value: number | null) => void;
   onCurrencyChange: (value: ReportCurrency | null) => void;
+  onFeePercentChange: (value: number | null) => void;
   onResetAll: () => void;
 }) {
   const { t } = useTranslation('common');
@@ -563,6 +757,15 @@ function AssumptionsRow({
           value={currency}
           configValue={configCurrency}
           onCommit={onCurrencyChange}
+        />
+        <NumberAssumptionField
+          label={t('pilotReport.assumptions.feePercent')}
+          value={feePercent}
+          configValue={configFeePercent}
+          min={MIN_FEE_PERCENT}
+          max={MAX_FEE_PERCENT}
+          step={0.5}
+          onCommit={onFeePercentChange}
         />
       </div>
     </div>

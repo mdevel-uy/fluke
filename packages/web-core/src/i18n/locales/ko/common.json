@@ -794,7 +794,22 @@
       "overridePerTaskLoading": "이번 달 작업 불러오는 중…",
       "overridePerTaskEmpty": "이번 달 완료된 작업이 없습니다.",
       "overridePerTaskInputLabel": "이 작업의 절약된 시간",
-      "overridePerTaskClear": "기본값 사용"
+      "overridePerTaskClear": "기본값 사용",
+      "breakdownHuman": "인시 환산 비용",
+      "breakdownHumanFormula": "{{hours}} h × {{rate}}/h",
+      "breakdownLlm": "실제 LLM 지출",
+      "breakdownLlmTokens": "입력 {{input}} · 출력 {{output}}",
+      "breakdownLlmTooltip": "이번 달 토큰 — 입력: {{input}}, 출력: {{output}}, 캐시 쓰기: {{cacheWrite}}, 캐시 읽기: {{cacheRead}}. 각 모델의 토큰은 모델별 가격표로 환산되며, Claude는 실제 USD 비용을 직접 보고합니다.",
+      "breakdownSavings": "절감액",
+      "breakdownSavingsFormula": "{{gross}} − {{cost}}",
+      "breakdownFee": "서비스 수수료 (절감액의 {{percent}})",
+      "explainerToggle": "어떻게 계산되나요?",
+      "explainerLlm": "실제 LLM 지출: 각 작업은 모델별 입력/출력/캐시 토큰을 기록하고 모델별 가격표로 환산합니다. Claude는 실제 USD 비용을 직접 보고합니다.",
+      "explainerHuman": "인시 환산 비용: 해결된 각 티켓에 설정된 인시(작업별 수정 가능)를 부여하고 시간당 요금을 곱합니다.",
+      "explainerSavings": "절감액은 두 값의 차이이며, 서비스 수수료는 그 절감액의 {{percent}}입니다.",
+      "explainerConfigure": "설정에서 이 매개변수 구성",
+      "tableFee": "수수료",
+      "totalsFee": "{{prefix}}{{fee}} 수수료"
     }
   },
   "pilotReport": {
@@ -821,6 +836,7 @@
       "monetaryValue": "예상 가치",
       "apiCost": "API 비용",
       "netMonetaryValue": "순 절감액",
+      "serviceFee": "서비스 수수료 (절감액의 {{percent}})",
       "effectiveRate": "유효 요율",
       "effectiveRateUnit": "/시간 순",
       "partialCoverageHint": "{{withCost}}/{{total}}개 태스크가 비용 보고"
@@ -831,11 +847,15 @@
       "hoursPerFteMonth": "FTE·월당 시간",
       "hourlyRate": "시간당 요금",
       "currency": "통화",
+      "feePercent": "수수료 (절감액의 %)",
       "modifiedBadge": "수정됨",
       "modifiedHint": "설치 설정과 다릅니다",
       "resetAll": "설정으로 재설정",
       "resetField": "설정값으로 재설정 ({{value}})",
       "sourceHint": "기본값은 설치 설정에서 가져오므로 모든 사용자가 동일한 수치를 확인합니다."
+    },
+    "breakdown": {
+      "title": "절감액 계산 방식"
     },
     "tasksSection": {
       "title": "기간 내 작업",
