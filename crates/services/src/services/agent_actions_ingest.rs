@@ -1,13 +1,14 @@
-//! `.vk/actions.json` — declarative agent actions inbox (AGENT-ACTIONS-SPEC.md, F1/F2).
+//! `.vk/actions.json` — declarative agent actions inbox (AGENT-ACTIONS-SPEC.md, F1/F2/F3).
 //!
 //! Same shape as `.vk/review.json`: the agent produces the file, the orchestrator
 //! reads it after the agent finishes, validates strictly, and drops one outbox row
 //! per declared action so [`agent_actions_drain`] can execute them against GitHub.
 //!
-//! F1 shipped `comment_pr` and `comment_issue`; F2 adds `create_milestone`,
-//! `create_issue` and `close_issue`. Any kind outside that catalogue still fails
-//! the ingest as an invalid file so the agent finds out at test time instead of
-//! getting silent partial application.
+//! F1 shipped `comment_pr` and `comment_issue`; F2 added `create_milestone`,
+//! `create_issue` and `close_issue`; F3 adds `resolve_review_thread`, `add_labels`
+//! and `update_issue`. Any kind outside that catalogue still fails the ingest as
+//! an invalid file so the agent finds out at test time instead of getting silent
+//! partial application.
 //!
 //! Missing file is a valid outcome (`Ok(vec![])`) — a run that produced no
 //! declarations has nothing to drain.
@@ -97,6 +98,31 @@ pub enum AgentActionDeclaration {
         issue: IssueRef,
         reason: String,
     },
+    /// Resolve a review thread on a PR. `thread_id` is the GraphQL node ID of
+    /// the thread (opaque string like `PRRT_kwDO…`), since GitHub's REST API
+    /// has no endpoint for this — the drain shells out to
+    /// `gh api graphql` with the `resolveReviewThread` mutation.
+    ResolveReviewThread {
+        pr: i64,
+        thread_id: String,
+    },
+    /// Attach labels to an existing issue. A label not defined in the repo is
+    /// a definitive failure (the drain does not create labels on demand).
+    AddLabels {
+        issue: IssueRef,
+        labels: Vec<String>,
+    },
+    /// Update `title` and/or `body` of an existing issue. Both fields are
+    /// optional at ingest so the agent can pass only the ones it wants to
+    /// change; the drain rejects a payload with neither as a definitive
+    /// failure (no-op is never what the agent meant).
+    UpdateIssue {
+        issue: IssueRef,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        body: Option<String>,
+    },
 }
 
 impl AgentActionDeclaration {
@@ -109,6 +135,9 @@ impl AgentActionDeclaration {
             Self::CreateMilestone { .. } => "create_milestone",
             Self::CreateIssue { .. } => "create_issue",
             Self::CloseIssue { .. } => "close_issue",
+            Self::ResolveReviewThread { .. } => "resolve_review_thread",
+            Self::AddLabels { .. } => "add_labels",
+            Self::UpdateIssue { .. } => "update_issue",
         }
     }
 }
@@ -550,6 +579,135 @@ mod tests {
             .kind_str(),
             "close_issue"
         );
+        assert_eq!(
+            AgentActionDeclaration::ResolveReviewThread {
+                pr: 42,
+                thread_id: "PRRT_abc".into(),
+            }
+            .kind_str(),
+            "resolve_review_thread"
+        );
+        assert_eq!(
+            AgentActionDeclaration::AddLabels {
+                issue: IssueRef::Number(7),
+                labels: vec!["bug".into()],
+            }
+            .kind_str(),
+            "add_labels"
+        );
+        assert_eq!(
+            AgentActionDeclaration::UpdateIssue {
+                issue: IssueRef::Number(7),
+                title: Some("nuevo".into()),
+                body: None,
+            }
+            .kind_str(),
+            "update_issue"
+        );
+    }
+
+    #[test]
+    fn valid_resolve_review_thread_parses() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"resolve_review_thread","pr":123,"thread_id":"PRRT_kwDOAbc"}
+            ]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 1);
+        match &actions[0] {
+            AgentActionDeclaration::ResolveReviewThread { pr, thread_id } => {
+                assert_eq!(*pr, 123);
+                assert_eq!(thread_id, "PRRT_kwDOAbc");
+            }
+            other => panic!("expected ResolveReviewThread, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn valid_add_labels_parses_with_placeholder_issue() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"create_issue","title":"t","body":"b"},
+                {"kind":"add_labels","issue":"{{action[0].number}}","labels":["P1","backend"]}
+            ]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 2);
+        match &actions[1] {
+            AgentActionDeclaration::AddLabels { issue, labels } => {
+                assert_eq!(issue, &IssueRef::Ref("{{action[0].number}}".into()));
+                assert_eq!(labels, &vec!["P1".to_string(), "backend".to_string()]);
+            }
+            other => panic!("expected AddLabels, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn valid_update_issue_accepts_partial_fields() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Three variants: title only, body only, both. Missing fields must
+        // default to `None` without failing the parse.
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"update_issue","issue":10,"title":"nuevo título"},
+                {"kind":"update_issue","issue":"{{action[0].number}}","body":"nuevo cuerpo"},
+                {"kind":"update_issue","issue":11,"title":"t","body":"b"}
+            ]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 3);
+        match &actions[0] {
+            AgentActionDeclaration::UpdateIssue { issue, title, body } => {
+                assert_eq!(issue, &IssueRef::Number(10));
+                assert_eq!(title.as_deref(), Some("nuevo título"));
+                assert!(body.is_none());
+            }
+            other => panic!("expected UpdateIssue, got {other:?}"),
+        }
+        match &actions[1] {
+            AgentActionDeclaration::UpdateIssue { issue, title, body } => {
+                assert_eq!(issue, &IssueRef::Ref("{{action[0].number}}".into()));
+                assert!(title.is_none());
+                assert_eq!(body.as_deref(), Some("nuevo cuerpo"));
+            }
+            other => panic!("expected UpdateIssue, got {other:?}"),
+        }
+        match &actions[2] {
+            AgentActionDeclaration::UpdateIssue { title, body, .. } => {
+                assert_eq!(title.as_deref(), Some("t"));
+                assert_eq!(body.as_deref(), Some("b"));
+            }
+            other => panic!("expected UpdateIssue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn resolve_review_thread_missing_field_is_invalid() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Missing `thread_id`.
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[{"kind":"resolve_review_thread","pr":1}]}"#,
+        );
+        let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+        assert!(matches!(err, IngestError::InvalidActions { .. }));
+    }
+
+    #[test]
+    fn add_labels_missing_labels_is_invalid() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[{"kind":"add_labels","issue":1}]}"#,
+        );
+        let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+        assert!(matches!(err, IngestError::InvalidActions { .. }));
     }
 
     // ---------------- DB tests -----------------
