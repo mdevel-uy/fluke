@@ -1151,7 +1151,9 @@
       "githubPatUndoClear": "Deshacer",
       "sectionConfig": "Configuración",
       "sectionIntegration": "Integración",
-      "sectionSoul": "Alma"
+      "sectionSoul": "Alma",
+      "ghWriteWarningTitle": "Este soul escribe en GitHub directamente",
+      "ghWriteWarningBody": "Declará esas acciones en .vk/actions.json para que el sistema las ejecute con retries y registro. Podés seguir guardando el soul: el warning es no bloqueante para migraciones graduales."
     },
     "roles": {
       "developer": "Desarrollador",

@@ -1134,7 +1134,9 @@
       "githubPatUndoClear": "取り消し",
       "sectionConfig": "設定",
       "sectionIntegration": "連携",
-      "sectionSoul": "ソウル"
+      "sectionSoul": "ソウル",
+      "ghWriteWarningTitle": "このソウルは GitHub に直接書き込みます",
+      "ghWriteWarningBody": "これらの操作は .vk/actions.json に宣言し、リトライと監査ログ付きでシステムに実行させてください。段階的な移行のため、保存はブロックされません。"
     },
     "roles": {
       "developer": "開発者",

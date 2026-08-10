@@ -1136,7 +1136,9 @@
       "githubPatUndoClear": "Annuler",
       "sectionConfig": "Configuration",
       "sectionIntegration": "Intégration",
-      "sectionSoul": "Âme"
+      "sectionSoul": "Âme",
+      "ghWriteWarningTitle": "Cette âme écrit directement sur GitHub",
+      "ghWriteWarningBody": "Déclarez ces actions dans .vk/actions.json pour que le système les exécute avec relances et journal. La sauvegarde reste autorisée pour une migration progressive."
     },
     "roles": {
       "developer": "Développeur",

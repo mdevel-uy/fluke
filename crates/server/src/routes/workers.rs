@@ -76,6 +76,12 @@ pub struct WorkerResponse {
     pub queued_count: i64,
     #[ts(type = "number")]
     pub completed_count: i64,
+    /// `true` when the current `soul` contains direct GitHub CLI write
+    /// invocations (`gh pr|issue create|close|comment|review`,
+    /// `gh api -X POST|PATCH|DELETE`). Non-blocking hint for the UI —
+    /// operators are pointed at the agent-actions outbox but the soul is
+    /// persisted anyway to allow a gradual migration.
+    pub gh_write_warning: bool,
     #[ts(type = "Date")]
     pub created_at: DateTime<Utc>,
 }
@@ -628,6 +634,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
     let active_workspace_id = Worker::active_workspace_id(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
+    let gh_write_warning = utils::text::has_gh_write_patterns(&worker.soul);
 
     Ok(WorkerResponse {
         id: worker.id,
@@ -643,6 +650,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         active_workspace_id,
         queued_count,
         completed_count,
+        gh_write_warning,
         created_at: worker.created_at,
     })
 }

@@ -1134,7 +1134,9 @@
       "githubPatUndoClear": "撤销",
       "sectionConfig": "配置",
       "sectionIntegration": "集成",
-      "sectionSoul": "灵魂"
+      "sectionSoul": "灵魂",
+      "ghWriteWarningTitle": "此灵魂会直接写入 GitHub",
+      "ghWriteWarningBody": "请在 .vk/actions.json 中声明这些操作，让系统以重试与审计记录执行。保存仍被允许，以支持渐进式迁移。"
     },
     "roles": {
       "developer": "开发者",
