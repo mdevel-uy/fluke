@@ -59,7 +59,7 @@ export function FailedTaskCard({
           {failureReason}
         </p>
       )}
-      <AgentActionsSection task={task} />
+      <AgentActionsSection task={task} eager />
       <SkillChips skills={task.skills ?? []} />
       <div className="flex items-center justify-end gap-1.5">
         <Button

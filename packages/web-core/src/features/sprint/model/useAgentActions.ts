@@ -6,23 +6,25 @@ import type {
   RetryAgentActionsResponse,
 } from '@/features/sprint/types';
 
-// Cards render this hook conditionally (only for terminal-ish task states where
-// actions actually exist), so the default `enabled` matches that intent — the
-// hook is safe to call with a `false` toggle when the task is queued or
-// in_progress and no actions have been persisted yet.
+// The default is `enabled: false` on purpose: mounting a poller on every card
+// of the kanban board would fan out to N GETs for tasks that never declared a
+// single agent action (which is the majority today). Callers must decide when
+// a task is plausible-enough to have actions before flipping this to `true`
+// — e.g. a task in `failed` state after the finish hook drained the outbox.
+//
+// Refetch cadence is intentionally on-focus-only: actions are terminal once
+// the drain settles, and the retry mutation invalidates this cache directly,
+// so there is no need for a background poll to keep the badge honest.
 export function useAgentActions(
   workerId: string,
   taskId: string,
-  enabled: boolean = true
+  enabled: boolean = false
 ) {
   return useQuery({
     queryKey: workersKeys.taskActions(workerId, taskId),
     queryFn: () =>
       workersApi.listTaskActions<AgentAction[]>(workerId, taskId),
     enabled,
-    // Actions are terminal once the drain settles; a slow poll keeps the badge
-    // in sync with an out-of-band retry without hammering the server.
-    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
 }

@@ -24,21 +24,22 @@ export function AgentActionsBadge({
   const firstFailed = actions.find((a) => a.status === 'failed');
   const pendingCount = actions.filter((a) => a.status === 'pending').length;
 
-  if (!firstFailed && pendingCount === 0) {
+  // Narrow into a discriminated union so TS knows `firstFailed` is defined
+  // inside the failed branch — no non-null assertion needed downstream.
+  let label: string;
+  let styleClasses: string;
+  if (firstFailed) {
+    label = t('agentActions.failedAction', {
+      seq: firstFailed.seq,
+      kind: firstFailed.kind,
+    });
+    styleClasses = 'bg-md-error/10 border-md-error/30 text-md-error';
+  } else if (pendingCount > 0) {
+    label = t('agentActions.pendingCount', { count: pendingCount });
+    styleClasses = 'bg-warning/10 border-warning/30 text-warning';
+  } else {
     return null;
   }
-
-  const isFailed = firstFailed != null;
-  const label = isFailed
-    ? t('agentActions.failedAction', {
-        seq: firstFailed!.seq,
-        kind: firstFailed!.kind,
-      })
-    : t('agentActions.pendingCount', { count: pendingCount });
-
-  const styleClasses = isFailed
-    ? 'bg-md-error/10 border-md-error/30 text-md-error'
-    : 'bg-warning/10 border-warning/30 text-warning';
 
   const baseClasses =
     'inline-flex items-center gap-1 h-6 px-2 rounded-md border text-xs font-medium max-w-full';

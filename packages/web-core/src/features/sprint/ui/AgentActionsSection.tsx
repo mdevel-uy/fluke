@@ -9,6 +9,15 @@ import { AgentActionsPanel } from './AgentActionsPanel';
 
 interface AgentActionsSectionProps {
   task: WorkerTask;
+  /**
+   * When `true`, the query fires on mount so the badge can render without any
+   * user interaction — reserved for card states where actions are plausible
+   * (today: `failed`). When `false` (default) the fetch is lazy: it only fires
+   * on the first panel open, and the card renders no badge. Kept opt-in to
+   * avoid fanning out N pollers across a board full of tasks that never
+   * declared a single agent action.
+   */
+  eager?: boolean;
   className?: string;
 }
 
@@ -18,10 +27,13 @@ interface AgentActionsSectionProps {
 // conflict with the card that mounted it.
 export function AgentActionsSection({
   task,
+  eager = false,
   className,
 }: AgentActionsSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const query = useAgentActions(task.worker_id, task.id, true);
+  // Lazy path: the fetch stays disabled until the user actually opens the
+  // panel. Eager path: fetch on mount so the badge shows without interaction.
+  const query = useAgentActions(task.worker_id, task.id, eager || isOpen);
   const retryMutation = useRetryAgentActions();
   const actions = query.data ?? [];
 
