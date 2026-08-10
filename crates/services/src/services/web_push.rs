@@ -22,7 +22,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use db::{DBService, models::push_subscription::PushSubscription};
 use p256::{
     SecretKey,
-    elliptic_curve::rand_core::OsRng,
+    elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint},
     pkcs8::{EncodePrivateKey, LineEnding},
 };
 use serde::{Deserialize, Serialize};
