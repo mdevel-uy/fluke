@@ -39,7 +39,10 @@ use tracing::{info, warn};
 use utils::{command_ext::NoWindowExt, shell::resolve_executable_path};
 use uuid::Uuid;
 
-use crate::services::{agent_actions_ingest::AgentActionDeclaration, config::Config};
+use crate::services::{
+    agent_actions_ingest::{AgentActionDeclaration, IssueRef},
+    config::Config,
+};
 
 /// Roll-up of what a drain call did. `pending_remaining > 0` with
 /// `failed == 0` means an infra hiccup halted us — the surgical retry endpoint
@@ -381,8 +384,9 @@ async fn execute_one<E: ActionExecutor + ?Sized>(
             executor.post_pr_comment(owner_repo, *pr, body, pat).await
         }
         AgentActionDeclaration::CommentIssue { issue, body } => {
+            let issue = issue_ref_number(issue)?;
             executor
-                .post_issue_comment(owner_repo, *issue, body, pat)
+                .post_issue_comment(owner_repo, issue, body, pat)
                 .await
         }
         AgentActionDeclaration::CreateMilestone { title, description } => {
@@ -415,9 +419,23 @@ async fn execute_one<E: ActionExecutor + ?Sized>(
                 .await
         }
         AgentActionDeclaration::CloseIssue { issue, reason } => {
-            executor.close_issue(owner_repo, *issue, reason, pat).await
+            let issue = issue_ref_number(issue)?;
+            executor.close_issue(owner_repo, issue, reason, pat).await
         }
     }
+}
+
+/// The issue number behind an [`IssueRef`], after placeholder resolution.
+/// A non-numeric leftover is a definitive failure (same contract as the
+/// `milestone` field): a value that isn't a number by this point will not
+/// get better on retry.
+fn issue_ref_number(issue: &IssueRef) -> Result<i64, ExecutorFailure> {
+    issue.as_number().map_err(|raw| ExecutorFailure {
+        kind: FailureKind::Definitive,
+        message: format!(
+            "campo `issue` inválido: `{raw}` no es un número entero (esperado un número o un placeholder ya resuelto)"
+        ),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -426,9 +444,9 @@ async fn execute_one<E: ActionExecutor + ?Sized>(
 
 /// Rewrite every `{{action[N].number}}` / `{{action[N].url}}` occurrence in
 /// the declaration's string fields with the referenced action's captured
-/// result. All string-valued fields are candidates; numeric fields (like
-/// `close_issue.issue`) are typed `i64` and cannot carry a placeholder in the
-/// first place, so we leave them alone.
+/// result. All string-valued fields are candidates — including the
+/// [`IssueRef::Ref`] form of `comment_issue.issue` / `close_issue.issue`,
+/// the analyst's primary cross-reference (incidente 10-ago).
 ///
 /// Any error returned here halts the drain: raw `{{...}}` text must never
 /// reach GitHub, and a broken reference (forward, out-of-range, referenced
@@ -442,7 +460,10 @@ fn resolve_placeholders_in_declaration(
         AgentActionDeclaration::CommentPr { body, .. } => {
             *body = resolve_placeholders_in_str(body, current_seq, by_seq)?;
         }
-        AgentActionDeclaration::CommentIssue { body, .. } => {
+        AgentActionDeclaration::CommentIssue { issue, body } => {
+            if let IssueRef::Ref(raw) = issue {
+                *raw = resolve_placeholders_in_str(raw, current_seq, by_seq)?;
+            }
             *body = resolve_placeholders_in_str(body, current_seq, by_seq)?;
         }
         AgentActionDeclaration::CreateMilestone { title, description } => {
@@ -464,7 +485,10 @@ fn resolve_placeholders_in_declaration(
                 *m = resolve_placeholders_in_str(m, current_seq, by_seq)?;
             }
         }
-        AgentActionDeclaration::CloseIssue { reason, .. } => {
+        AgentActionDeclaration::CloseIssue { issue, reason } => {
+            if let IssueRef::Ref(raw) = issue {
+                *raw = resolve_placeholders_in_str(raw, current_seq, by_seq)?;
+            }
             *reason = resolve_placeholders_in_str(reason, current_seq, by_seq)?;
         }
     }
@@ -1335,7 +1359,7 @@ mod tests {
             repo_id,
             1,
             &AgentActionDeclaration::CommentIssue {
-                issue: 20,
+                issue: IssueRef::Number(20),
                 body: "second".into(),
             },
         )
@@ -1885,6 +1909,78 @@ mod tests {
         assert_eq!(row1.status, agent_action::STATUS_DONE);
     }
 
+    /// Regression: incidente 10-ago (épica F3 de Bea). The analyst's plan
+    /// comment targets the issue created in the same run — `issue` carries a
+    /// placeholder that must resolve to the created number before execution.
+    #[tokio::test]
+    async fn drain_resolves_issue_ref_placeholders_in_comment_and_close() {
+        let pool = test_pool().await;
+        let (repo_id, task_id, _tmp) = seed_env(&pool).await;
+
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            0,
+            &AgentActionDeclaration::CreateIssue {
+                title: "issue 1".into(),
+                body: "b".into(),
+                labels: vec![],
+                milestone: None,
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            1,
+            &AgentActionDeclaration::CommentIssue {
+                issue: IssueRef::Ref("{{action[0].number}}".into()),
+                body: "plan de la épica".into(),
+            },
+        )
+        .await;
+        insert_action(
+            &pool,
+            task_id,
+            repo_id,
+            2,
+            &AgentActionDeclaration::CloseIssue {
+                issue: IssueRef::Ref("{{action[0].number}}".into()),
+                reason: "completed".into(),
+            },
+        )
+        .await;
+
+        let fake = FakeExecutor::new(vec![
+            FakeResponse::Ok(ExecutedAction {
+                result_number: Some(41),
+                result_url: Some("https://gh/o/r/issues/41".into()),
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: None,
+                result_url: None,
+            }),
+            FakeResponse::Ok(ExecutedAction {
+                result_number: None,
+                result_url: None,
+            }),
+        ]);
+
+        let result = drain_with_executor(&config(), &pool, task_id, &fake)
+            .await
+            .unwrap();
+        assert_eq!(result.done, 3);
+        assert_eq!(result.failed, 0);
+
+        let calls = fake.calls.lock().unwrap().clone();
+        assert_eq!(calls[1].kind, "comment_issue");
+        assert_eq!(calls[1].number, 41, "issue ref must resolve to 41");
+        assert_eq!(calls[2].kind, "close_issue");
+        assert_eq!(calls[2].number, 41, "issue ref must resolve to 41");
+    }
+
     #[tokio::test]
     async fn drain_fails_dependent_action_on_forward_reference() {
         let pool = test_pool().await;
@@ -1896,7 +1992,7 @@ mod tests {
             repo_id,
             0,
             &AgentActionDeclaration::CommentIssue {
-                issue: 5,
+                issue: IssueRef::Number(5),
                 body: "ref al futuro: {{action[3].number}}".into(),
             },
         )
@@ -1936,7 +2032,7 @@ mod tests {
             repo_id,
             1,
             &AgentActionDeclaration::CloseIssue {
-                issue: 99,
+                issue: IssueRef::Number(99),
                 reason: "closing per policy".into(),
             },
         )

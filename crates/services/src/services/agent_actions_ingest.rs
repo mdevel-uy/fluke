@@ -23,6 +23,46 @@ use uuid::Uuid;
 /// actions. Kept as a constant so prompt templates and this parser agree.
 pub const ACTIONS_JSON_RELATIVE_PATH: &str = ".vk/actions.json";
 
+/// Reference to a GitHub issue: either a literal number or a
+/// `{{action[N].number}}` placeholder pointing at an earlier action of the
+/// same run (typically a `create_issue`). Untagged so the wire shape stays
+/// natural: `"issue": 456` and `"issue": "{{action[1].number}}"` both parse.
+///
+/// This exists because the analyst's primary flow REQUIRES it: the plan
+/// comment goes on an issue created in the same run, whose number does not
+/// exist at declaration time (incidente 10-ago: Bea's F3 épica failed ingest
+/// because these fields were typed `i64`). F3 kinds (`add_labels`,
+/// `update_issue`, `resolve_review_thread`) should reuse this type.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum IssueRef {
+    Number(i64),
+    /// A placeholder (or, tolerantly, a number written as a string). The
+    /// drain resolves placeholders before execution and fails the row with
+    /// a legible message if the resolved value is not an integer.
+    Ref(String),
+}
+
+impl std::fmt::Display for IssueRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(n) => write!(f, "{n}"),
+            Self::Ref(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+impl IssueRef {
+    /// The issue number, once placeholders were resolved. `Err` carries the
+    /// raw value for the drain's legible definitive-failure message.
+    pub fn as_number(&self) -> Result<i64, String> {
+        match self {
+            Self::Number(n) => Ok(*n),
+            Self::Ref(raw) => raw.trim().parse::<i64>().map_err(|_| raw.clone()),
+        }
+    }
+}
+
 /// One action from `.vk/actions.json`. Serialization keeps the exact wire shape
 /// the agent wrote — the JSON stored in `agent_actions.payload` is the source of
 /// truth for the drain and any later surgical retry.
@@ -34,7 +74,7 @@ pub enum AgentActionDeclaration {
         body: String,
     },
     CommentIssue {
-        issue: i64,
+        issue: IssueRef,
         body: String,
     },
     CreateMilestone {
@@ -54,7 +94,7 @@ pub enum AgentActionDeclaration {
         milestone: Option<String>,
     },
     CloseIssue {
-        issue: i64,
+        issue: IssueRef,
         reason: String,
     },
 }
@@ -73,11 +113,29 @@ impl AgentActionDeclaration {
     }
 }
 
-/// Envelope for `.vk/actions.json`.
+/// Envelope for `.vk/actions.json`. Actions stay as raw JSON here so each
+/// element can be validated individually — a per-element failure then names
+/// the offending action (index + kind) instead of a bare serde message.
 #[derive(Debug, Clone, Deserialize)]
 struct ActionsFile {
     #[serde(default)]
-    actions: Vec<AgentActionDeclaration>,
+    actions: Vec<serde_json::Value>,
+}
+
+/// Cap on how much of the raw file travels into `failure_reason`. Enough to
+/// diagnose without the worktree (which is archived on failure), small enough
+/// to not flood the card/process view.
+const RAW_EXCERPT_MAX_CHARS: usize = 1500;
+
+/// Bounded copy of the raw file for the failure message, so an ingest failure
+/// is diagnosable after the worktree is gone (incidente 10-ago: the analyst's
+/// rejected `.vk/actions.json` was unrecoverable once the workspace archived).
+fn raw_excerpt(raw: &str) -> String {
+    if raw.chars().count() <= RAW_EXCERPT_MAX_CHARS {
+        return raw.to_string();
+    }
+    let cut: String = raw.chars().take(RAW_EXCERPT_MAX_CHARS).collect();
+    format!("{cut}\n… (truncado)")
 }
 
 /// Anything that can go wrong parsing/validating `.vk/actions.json`. Serialized
@@ -85,8 +143,17 @@ struct ActionsFile {
 /// (or didn't).
 #[derive(Debug)]
 pub enum IngestError {
-    ReadError { path: PathBuf, message: String },
-    InvalidActions { reason: String },
+    ReadError {
+        path: PathBuf,
+        message: String,
+    },
+    InvalidActions {
+        reason: String,
+        /// Bounded copy of what the agent actually wrote, surfaced in the
+        /// failure message because the worktree (and with it the file) is
+        /// archived when the task fails.
+        raw_excerpt: String,
+    },
 }
 
 impl std::fmt::Display for IngestError {
@@ -95,8 +162,14 @@ impl std::fmt::Display for IngestError {
             Self::ReadError { path, message } => {
                 write!(f, "No pude leer `{}`: {message}", path.display())
             }
-            Self::InvalidActions { reason } => {
-                write!(f, "`.vk/actions.json` inválido: {reason}")
+            Self::InvalidActions {
+                reason,
+                raw_excerpt,
+            } => {
+                write!(
+                    f,
+                    "`.vk/actions.json` inválido: {reason}\n\nContenido declarado:\n{raw_excerpt}"
+                )
             }
         }
     }
@@ -136,8 +209,30 @@ fn parse_actions_file(path: &Path) -> Result<Vec<AgentActionDeclaration>, Ingest
     let file: ActionsFile =
         serde_json::from_str(&raw).map_err(|e| IngestError::InvalidActions {
             reason: e.to_string(),
+            raw_excerpt: raw_excerpt(&raw),
         })?;
-    Ok(file.actions)
+
+    // Element-wise validation: the error names the offending action by index
+    // and declared kind, instead of a bare serde message that leaves the
+    // human hunting through the whole file.
+    let mut actions = Vec::with_capacity(file.actions.len());
+    for (index, value) in file.actions.into_iter().enumerate() {
+        let kind = value
+            .get("kind")
+            .and_then(|k| k.as_str())
+            .unwrap_or("<sin kind>")
+            .to_string();
+        match serde_json::from_value::<AgentActionDeclaration>(value) {
+            Ok(action) => actions.push(action),
+            Err(e) => {
+                return Err(IngestError::InvalidActions {
+                    reason: format!("acción [{index}] (`{kind}`): {e}"),
+                    raw_excerpt: raw_excerpt(&raw),
+                });
+            }
+        }
+    }
+    Ok(actions)
 }
 
 /// Persist every declared action as a `pending` outbox row in one transaction.
@@ -210,11 +305,74 @@ mod tests {
         }
         match &actions[1] {
             AgentActionDeclaration::CommentIssue { issue, body } => {
-                assert_eq!(*issue, 456);
+                assert_eq!(issue, &IssueRef::Number(456));
                 assert_eq!(body, "chau");
             }
             other => panic!("expected CommentIssue, got {other:?}"),
         }
+    }
+
+    /// Regression: incidente 10-ago — the analyst's plan comment targets an
+    /// issue created in the same run, so `issue` MUST accept a placeholder.
+    #[test]
+    fn issue_ref_fields_accept_placeholders() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"create_issue","title":"t","body":"b"},
+                {"kind":"comment_issue","issue":"{{action[0].number}}","body":"plan"},
+                {"kind":"close_issue","issue":"{{action[0].number}}","reason":"completed"}
+            ]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 3);
+        match &actions[1] {
+            AgentActionDeclaration::CommentIssue { issue, .. } => {
+                assert_eq!(issue, &IssueRef::Ref("{{action[0].number}}".into()));
+            }
+            other => panic!("expected CommentIssue, got {other:?}"),
+        }
+        match &actions[2] {
+            AgentActionDeclaration::CloseIssue { issue, .. } => {
+                assert_eq!(issue, &IssueRef::Ref("{{action[0].number}}".into()));
+            }
+            other => panic!("expected CloseIssue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn invalid_action_error_names_index_and_kind() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Second action is broken: comment_pr with a string pr.
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"comment_issue","issue":1,"body":"ok"},
+                {"kind":"comment_pr","pr":"{{action[0].number}}","body":"x"}
+            ]}"#,
+        );
+        let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("acción [1]") && msg.contains("`comment_pr`"),
+            "error must name the offending action: {msg}"
+        );
+        assert!(
+            msg.contains("Contenido declarado"),
+            "error must carry the raw excerpt: {msg}"
+        );
+    }
+
+    #[test]
+    fn issue_ref_as_number_parses_resolved_strings() {
+        assert_eq!(IssueRef::Number(7).as_number(), Ok(7));
+        assert_eq!(IssueRef::Ref("42".into()).as_number(), Ok(42));
+        assert_eq!(IssueRef::Ref(" 42 ".into()).as_number(), Ok(42));
+        assert_eq!(
+            IssueRef::Ref("{{action[0].number}}".into()).as_number(),
+            Err("{{action[0].number}}".to_string())
+        );
     }
 
     #[test]
@@ -292,7 +450,7 @@ mod tests {
         }
         match &actions[3] {
             AgentActionDeclaration::CloseIssue { issue, reason } => {
-                assert_eq!(*issue, 456);
+                assert_eq!(issue, &IssueRef::Number(456));
                 assert_eq!(reason, "completed");
             }
             other => panic!("expected CloseIssue, got {other:?}"),
@@ -360,7 +518,7 @@ mod tests {
         );
         assert_eq!(
             AgentActionDeclaration::CommentIssue {
-                issue: 2,
+                issue: IssueRef::Number(2),
                 body: "y".into()
             }
             .kind_str(),
@@ -386,7 +544,7 @@ mod tests {
         );
         assert_eq!(
             AgentActionDeclaration::CloseIssue {
-                issue: 5,
+                issue: IssueRef::Number(5),
                 reason: "duplicate".into(),
             }
             .kind_str(),
@@ -452,7 +610,7 @@ mod tests {
                 body: "a".into(),
             },
             AgentActionDeclaration::CommentIssue {
-                issue: 20,
+                issue: IssueRef::Number(20),
                 body: "b".into(),
             },
         ];
