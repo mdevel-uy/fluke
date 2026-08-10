@@ -889,10 +889,17 @@ async fn run_gh_create_milestone(
     })
 }
 
-/// `gh issue create` with the body streamed over stdin (`--body-file -`) and
-/// labels/milestone passed through as CLI flags. `gh` prints the created
-/// issue URL on stdout; we derive the issue number from the URL path so
-/// later placeholders can reference it as `{{action[N].number}}`.
+/// POST `/repos/{nwo}/issues` via `gh api --input -` with a JSON body.
+///
+/// We deliberately avoid `gh issue create --milestone <n>`: the CLI resolves
+/// `--milestone` strictly by milestone TITLE (via `MilestoneToID`, which does
+/// a case-insensitive string match against each milestone's title), not by
+/// number. When the F2 placeholder `{{action[N].number}}` resolves to a
+/// number like `77`, `gh issue create --milestone 77` looks for a milestone
+/// *titled* `"77"` and fails with `'77' not found`. The REST endpoint accepts
+/// `milestone` as an integer, so we skip the CLI-side lookup entirely. The
+/// response is JSON with `number` and `html_url` at the top level — same
+/// shape [`parse_gh_api_number_and_url`] already handles for milestones.
 async fn run_gh_create_issue(
     owner_repo: &str,
     title: &str,
@@ -901,39 +908,53 @@ async fn run_gh_create_issue(
     milestone_number: Option<i64>,
     pat: Option<&str>,
 ) -> Result<ExecutedAction, ExecutorFailure> {
-    let milestone_str = milestone_number.map(|n| n.to_string());
-    let mut args: Vec<&str> = vec![
-        "issue",
-        "create",
-        "--repo",
-        owner_repo,
-        "--title",
-        title,
-        "--body-file",
-        "-",
-    ];
-    for label in labels {
-        args.push("--label");
-        args.push(label);
-    }
-    if let Some(m) = milestone_str.as_deref() {
-        args.push("--milestone");
-        args.push(m);
-    }
-    let output = run_gh_with_stdin(&args, Some(body.as_bytes()), pat).await?;
+    let payload = build_create_issue_payload(title, body, labels, milestone_number);
+    let body_bytes =
+        serde_json::to_vec(&payload).expect("serde_json cannot fail on this fixed shape");
+    let api_path = format!("repos/{owner_repo}/issues");
+    let output = run_gh_with_stdin(
+        &["api", &api_path, "--method", "POST", "--input", "-"],
+        Some(&body_bytes),
+        pat,
+    )
+    .await?;
     if !output.status.success() {
-        return Err(gh_output_failure("gh issue create", &output));
+        return Err(gh_output_failure("gh api issues POST", &output));
     }
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let url = stdout
-        .lines()
-        .find(|l| l.starts_with("http"))
-        .map(String::from);
-    let number = url.as_deref().and_then(parse_issue_number_from_url);
+    let (number, url) = parse_gh_api_number_and_url(&output.stdout);
     Ok(ExecutedAction {
         result_number: number,
         result_url: url,
     })
+}
+
+/// Build the JSON body for `POST /repos/{nwo}/issues`. Extracted so a unit
+/// test can pin the wire shape — in particular, `milestone` must be a JSON
+/// integer (the REST endpoint's contract), not a string, otherwise GitHub
+/// answers `422 Unprocessable Entity`. `labels` is omitted entirely when the
+/// caller passes an empty slice, to keep the body minimal.
+fn build_create_issue_payload(
+    title: &str,
+    body: &str,
+    labels: &[String],
+    milestone_number: Option<i64>,
+) -> serde_json::Value {
+    let mut payload = serde_json::json!({
+        "title": title,
+        "body": body,
+    });
+    if !labels.is_empty() {
+        payload["labels"] = serde_json::Value::Array(
+            labels
+                .iter()
+                .map(|l| serde_json::Value::String(l.clone()))
+                .collect(),
+        );
+    }
+    if let Some(n) = milestone_number {
+        payload["milestone"] = serde_json::Value::Number(n.into());
+    }
+    payload
 }
 
 /// Close an issue via `gh issue close`. When `reason` is non-empty, a
@@ -941,6 +962,14 @@ async fn run_gh_create_issue(
 /// best-effort audit trail, not as GitHub's structural `state_reason`. If the
 /// comment fails we still return the failure and skip the close, so the human
 /// sees a legible error instead of a "closed silently" outcome.
+///
+/// Non-idempotency on retry: if the comment succeeds but the close fails,
+/// the row is left `failed` and the surgical retry re-runs the whole action
+/// — meaning the reason comment gets posted again before the second close
+/// attempt. GitHub's issue-comment endpoint is not idempotent, so the issue
+/// ends up with duplicated audit comments. This matches the same structural
+/// gap the F1 `comment_pr` / `comment_issue` verbs already have; if we ever
+/// deduplicate one, deduplicate all three together.
 async fn run_gh_close_issue(
     owner_repo: &str,
     issue_number: i64,
@@ -1004,17 +1033,6 @@ fn parse_gh_api_number_and_url(stdout: &[u8]) -> (Option<i64>, Option<String>) {
         .and_then(|v| v.as_str())
         .map(String::from);
     (number, url)
-}
-
-/// Extract the trailing `123` from `https://github.com/owner/repo/issues/123`
-/// (or `.../pull/123`, tolerated for symmetry). Anything else returns `None`
-/// so the caller falls back to storing only the URL.
-fn parse_issue_number_from_url(url: &str) -> Option<i64> {
-    let stripped = url.split('#').next().unwrap_or(url);
-    let stripped = stripped.split('?').next().unwrap_or(stripped);
-    let stripped = stripped.trim_end_matches('/');
-    let tail = stripped.rsplit('/').next()?;
-    tail.parse::<i64>().ok()
 }
 
 /// Best-effort classification of a failed `gh` invocation into infra vs
@@ -1727,20 +1745,40 @@ mod tests {
     }
 
     #[test]
-    fn parse_issue_number_from_url_handles_common_shapes() {
-        assert_eq!(
-            parse_issue_number_from_url("https://github.com/o/r/issues/123"),
-            Some(123)
+    fn build_create_issue_payload_sends_milestone_as_integer() {
+        // Reviewer catch: `gh issue create --milestone <n>` matches by title,
+        // so we build a JSON body and hit `gh api` directly. The REST endpoint
+        // requires `milestone` to be an integer — a string would 422.
+        let payload = build_create_issue_payload(
+            "backend",
+            "do it",
+            &["P1".to_string(), "backend".to_string()],
+            Some(77),
         );
+        assert_eq!(payload["title"], serde_json::json!("backend"));
+        assert_eq!(payload["body"], serde_json::json!("do it"));
+        assert_eq!(payload["labels"], serde_json::json!(["P1", "backend"]));
         assert_eq!(
-            parse_issue_number_from_url("https://github.com/o/r/issues/123/"),
-            Some(123)
+            payload["milestone"],
+            serde_json::json!(77),
+            "milestone must be a JSON integer, not a string"
         );
-        assert_eq!(
-            parse_issue_number_from_url("https://github.com/o/r/issues/123#comment"),
-            Some(123)
+        assert!(payload["milestone"].is_i64());
+    }
+
+    #[test]
+    fn build_create_issue_payload_omits_empty_labels_and_missing_milestone() {
+        let payload = build_create_issue_payload("t", "b", &[], None);
+        assert_eq!(payload["title"], serde_json::json!("t"));
+        assert_eq!(payload["body"], serde_json::json!("b"));
+        assert!(
+            payload.get("labels").is_none(),
+            "empty labels must be omitted, not sent as []"
         );
-        assert_eq!(parse_issue_number_from_url("https://github.com/o/r"), None);
+        assert!(
+            payload.get("milestone").is_none(),
+            "missing milestone must be omitted, not null"
+        );
     }
 
     #[test]
