@@ -1,6 +1,9 @@
 {
   "name": "mkanban",
   "short_name": "mkanban",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -13,6 +16,18 @@
       "sizes": "any",
       "purpose": "maskable",
       "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "purpose": "any",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "purpose": "any",
+      "type": "image/png"
     },
     {
       "src": "/apple-touch-icon.png",
