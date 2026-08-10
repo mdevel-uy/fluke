@@ -572,5 +572,23 @@
       "developerRunning": "Follow-up en curso…",
       "stalled": "Loop detenido"
     }
+  },
+  "agentActions": {
+    "title": "Acciones del agente",
+    "panelLabel": "Detalle de acciones del agente",
+    "close": "Cerrar",
+    "loading": "Cargando acciones…",
+    "empty": "No hay acciones del agente para esta task.",
+    "pendingCount_one": "{{count}} acción pendiente",
+    "pendingCount_other": "{{count}} acciones pendientes",
+    "failedAction": "Falló la acción {{seq}}: {{kind}}",
+    "retryButton": "Reintentar acciones",
+    "resultLink": "Ver resultado",
+    "status": {
+      "pending": "pendiente",
+      "done": "completada",
+      "failed": "falló",
+      "skipped": "omitida"
+    }
   }
 }

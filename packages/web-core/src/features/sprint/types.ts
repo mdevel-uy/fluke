@@ -20,3 +20,24 @@ export type SprintColumnStatus =
   | 'in_progress'
   | 'in_review'
   | 'done';
+
+// Read-only projection served by
+// GET /api/workers/{worker_id}/tasks/{task_id}/actions. Kept in sync with
+// `AgentActionResponse` in crates/server/src/routes/workers.rs; not exported
+// via ts-rs to avoid churning shared/types.ts for a small, additive shape.
+export type AgentActionStatus = 'pending' | 'done' | 'failed' | 'skipped';
+
+export type AgentAction = {
+  seq: number;
+  kind: string;
+  status: AgentActionStatus;
+  last_error: string | null;
+  result_number: number | null;
+  result_url: string | null;
+};
+
+export type RetryAgentActionsResponse = {
+  done: number;
+  failed: number;
+  pending_remaining: number;
+};

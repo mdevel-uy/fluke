@@ -572,5 +572,23 @@
       "developerRunning": "後續執行中…",
       "stalled": "循環停滯"
     }
+  },
+  "agentActions": {
+    "title": "代理操作",
+    "panelLabel": "代理操作詳情",
+    "close": "關閉",
+    "loading": "正在載入操作…",
+    "empty": "此任務沒有代理操作。",
+    "pendingCount_one": "{{count}} 個待處理操作",
+    "pendingCount_other": "{{count}} 個待處理操作",
+    "failedAction": "操作 {{seq}} 失敗：{{kind}}",
+    "retryButton": "重試操作",
+    "resultLink": "查看結果",
+    "status": {
+      "pending": "待處理",
+      "done": "已完成",
+      "failed": "失敗",
+      "skipped": "已略過"
+    }
   }
 }
