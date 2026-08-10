@@ -211,6 +211,12 @@
         "push": {
           "label": "Notificaciones Push",
           "helper": "Muestra notificaciones del sistema cuando las tareas terminan de ejecutarse."
+        },
+        "desktop": {
+          "label": "Alertas de escritorio",
+          "helper": "Mostrar notificaciones del navegador cuando una tarea termina, falla o queda esperando aprobación. Requiere permiso de notificaciones.",
+          "helperDenied": "Las notificaciones están bloqueadas por el navegador. Actualizá el permiso del sitio para habilitar las alertas de escritorio.",
+          "helperInsecure": "Las alertas de escritorio requieren un contexto seguro (HTTPS o localhost)."
         }
       },
       "messageInput": {

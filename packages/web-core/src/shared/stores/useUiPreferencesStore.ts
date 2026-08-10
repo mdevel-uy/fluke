@@ -36,6 +36,20 @@ const loadMobileFontScale = (): MobileFontScale => {
   return 'default';
 };
 
+// Per-browser preference: the browser Notification permission is per-origin,
+// so persisting the toggle server-side would make the UX diverge from what
+// the browser actually allows. Kept in localStorage alongside the other
+// device-scoped UI preferences.
+const DESKTOP_ALERTS_ENABLED_KEY = 'vk-desktop-alerts-enabled';
+
+const loadDesktopAlertsEnabled = (): boolean => {
+  try {
+    return localStorage.getItem(DESKTOP_ALERTS_ENABLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 const TAB_GROUPS_KEY = 'vk-workspace-tab-groups';
 
 const loadTabGroups = (): Record<string, WorkspaceTabGroup[]> => {
@@ -389,6 +403,9 @@ type State = {
   // Mobile font scale
   mobileFontScale: MobileFontScale;
 
+  // Per-browser desktop notification opt-in (Notification API)
+  desktopAlertsEnabled: boolean;
+
   // Last selected organization and project (persisted via scratch store)
   selectedOrgId: string | null;
   selectedProjectId: string | null;
@@ -488,6 +505,9 @@ type State = {
   // Mobile font scale actions
   setMobileFontScale: (scale: MobileFontScale) => void;
 
+  // Desktop alerts opt-in actions
+  setDesktopAlertsEnabled: (enabled: boolean) => void;
+
   // Last selected organization and project actions
   setSelectedOrgId: (orgId: string | null) => void;
   clearSelectedOrgId: () => void;
@@ -535,6 +555,9 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
 
   // Mobile font scale
   mobileFontScale: loadMobileFontScale(),
+
+  // Per-browser desktop alerts opt-in
+  desktopAlertsEnabled: loadDesktopAlertsEnabled(),
 
   // Last selected organization and project
   selectedOrgId: null,
@@ -851,6 +874,20 @@ export const useUiPreferencesStore = create<State>()((set, get) => ({
     set({ mobileFontScale: scale });
   },
 
+  // Desktop alerts opt-in actions
+  setDesktopAlertsEnabled: (enabled) => {
+    try {
+      if (enabled) {
+        localStorage.setItem(DESKTOP_ALERTS_ENABLED_KEY, '1');
+      } else {
+        localStorage.removeItem(DESKTOP_ALERTS_ENABLED_KEY);
+      }
+    } catch {
+      // localStorage may be unavailable
+    }
+    set({ desktopAlertsEnabled: enabled });
+  },
+
   // Last selected organization and project actions
   setSelectedOrgId: (orgId) => set({ selectedOrgId: orgId }),
   clearSelectedOrgId: () => set({ selectedOrgId: null }),
@@ -955,10 +992,7 @@ export function useWorkspaceTabGroups(workspaceId: string | undefined) {
   );
   const setGroups = useUiPreferencesStore((s) => s.setWorkspaceTabGroups);
 
-  const resolved = useMemo(
-    () => groups ?? defaultTabGroups(),
-    [groups]
-  );
+  const resolved = useMemo(() => groups ?? defaultTabGroups(), [groups]);
 
   const update = useCallback(
     (next: WorkspaceTabGroup[]) => {
@@ -984,6 +1018,13 @@ export function useMobileFontScale() {
   const scale = useUiPreferencesStore((s) => s.mobileFontScale);
   const set = useUiPreferencesStore((s) => s.setMobileFontScale);
   return [scale, set] as const;
+}
+
+// Hook for per-browser desktop alerts opt-in
+export function useDesktopAlertsEnabled() {
+  const enabled = useUiPreferencesStore((s) => s.desktopAlertsEnabled);
+  const set = useUiPreferencesStore((s) => s.setDesktopAlertsEnabled);
+  return [enabled, set] as const;
 }
 
 // Hook for workspace-specific panel state
