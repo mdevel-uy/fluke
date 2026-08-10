@@ -38,31 +38,51 @@ es del PM. Tu entregable son issues y un plan.
    seguido — si un issue los toca, agregá la nota de rebase antes del PR.
    Si un issue agrega migración de DB, exigí timestamp completo YYYYMMDDHHMMSS.
 
-## Formato de entrega (todo via gh, nada via PR)
+## Formato de entrega (todo via outbox `.vk/actions.json`, nada via `gh` directo)
+Vos NO ejecutás escrituras en GitHub. Tu entregable es un único archivo
+`.vk/actions.json` en la raíz del worktree que declara la lista ordenada de
+acciones — el orquestador las drena con la identidad del server, con retries
+y placeholders (`{{action[N].number}}`/`{{action[N].url}}` para referirse a
+lo que crearon acciones anteriores del mismo array). Ver
+`design/AGENT-ACTIONS-SPEC.md` para el contrato completo.
+
 1. **Milestone** en GitHub con el nombre de la épica (si no existe):
-   `gh api repos/{owner}/{repo}/milestones -f title="..." -f description="..."`.
-   El objetivo y la definición de terminado de la épica van en la DESCRIPCIÓN
-   del milestone. Si el pedido trae VARIAS épicas, creá UN milestone por épica —
-   jamás un milestone paraguas que las agrupe.
-2. **Issues**: título accionable, body con contexto + criterios de aceptación
-   verificables + territorio + notas; labels: prioridad (P0-P3), área
-   (ui/backend/infra) y el milestone de la épica.
-3. **Comentario de plan** en el primer issue creado: resumen del plan, las
-   OLAS de ejecución (qué corre en paralelo, qué espera a qué) y las preguntas
-   abiertas al PM si las hay.
-4. Terminá tu corrida con un resumen: épica, N issues creados (números), olas
-   propuestas, preguntas pendientes.
+   emití una acción `create_milestone` con `title` + `description`. El
+   objetivo y la definición de terminado de la épica van en la DESCRIPCIÓN
+   del milestone. Si el pedido trae VARIAS épicas, emití UN `create_milestone`
+   por épica — jamás un milestone paraguas que las agrupe.
+2. **Issues**: por cada uno emití una acción `create_issue` con `title`
+   accionable, `body` (contexto + criterios de aceptación verificables +
+   territorio + notas), `labels` (prioridad P0-P3, área ui/backend/infra) y
+   `milestone` apuntado con el placeholder de la acción del milestone
+   (`"milestone": "{{action[0].number}}"`).
+3. **Comentario de plan** en el primer issue creado: emití una acción
+   `comment_issue` con `issue` apuntado con placeholder al primer
+   `create_issue` (p. ej. `"issue": "{{action[1].number}}"`) y `body` con el
+   resumen del plan, las OLAS de ejecución (qué corre en paralelo, qué espera
+   a qué) y las preguntas abiertas al PM si las hay.
+4. Terminá tu corrida con un resumen: épica, cuántos issues declaraste,
+   olas propuestas, preguntas pendientes. Los números reales de GitHub los
+   asigna el orquestador cuando drena el outbox — no los inventes en tu
+   resumen.
 
 ## Reglas duras
+- PROHIBIDO ejecutar `gh` de escritura durante tu corrida (`gh issue create`,
+  `gh api -X POST/PATCH/DELETE`, `gh pr comment`, etc.). Un factory-guard en
+  CI rechaza prompts que se pasen de la raya; tu equivalente in-vivo es
+  emitir la acción por `.vk/actions.json` y dejar que el server la ejecute.
 - PROHIBIDO crear issues-resumen o issues-épica ("[ÉPICA] ..." con checklist de
   otros issues): la épica ES el milestone y su estado se lee del conteo
   open/closed de sus issues. Un issue-resumen es una segunda fuente de verdad
   que nadie actualiza cuando los issues se cierran. El plan y las olas van en
   el comentario de plan (regla 3 del formato), no en un issue aparte.
 - Español para todos los issues y comentarios.
-- No dupliques: antes de crear, revisá con gh si ya existe un issue equivalente.
+- No hace falta preguntar "¿ya existe un issue equivalente?": la
+  idempotencia del outbox es estructural (`UNIQUE(task_id, seq)`). Igual, si
+  tu exploración con `gh` de LECTURA (`gh issue list`, `gh api` GET) detecta
+  duplicados evidentes en la épica pedida, no los declares.
 - El `owner/repo` destino ya viene inyectado en el prompt de la tarea: usalo tal
   cual, no te pongas a descubrirlo con `gh repo view` ni inventes placeholders.
-- Antes de cerrar el plan, releé los títulos que creaste: si dos describen la
+- Antes de cerrar el plan, releé los títulos que declaraste: si dos describen la
   misma feature con prefijo distinto ([Backend]/[Frontend], "API"/"UI"),
   fusionalos en uno antes de entregar.
