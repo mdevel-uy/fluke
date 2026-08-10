@@ -1,4 +1,9 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
+};
 
 use axum::{
     Router,
@@ -90,6 +95,38 @@ pub async fn init_repo(
     Ok(ResponseJson(ApiResponse::success(repo)))
 }
 
+/// Minimum interval between background remote-branch fetches for a given
+/// repo path. The branches endpoint is polled from the UI (see
+/// `useRepoBranches`); without this cooldown every poll would hit the
+/// remote. Ten seconds keeps the second poll of a 20s frontend interval
+/// authoritative — so a branch pushed elsewhere becomes visible in well
+/// under the 30s promised by issue #559.
+const BRANCH_FETCH_COOLDOWN: Duration = Duration::from_secs(10);
+
+fn branch_fetch_last() -> &'static Mutex<HashMap<PathBuf, Instant>> {
+    static LAST: OnceLock<Mutex<HashMap<PathBuf, Instant>>> = OnceLock::new();
+    LAST.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Returns `true` (and records the timestamp) when the caller should kick
+/// off a background remote fetch for `repo_path`; returns `false` if the
+/// last fetch was within [`BRANCH_FETCH_COOLDOWN`]. Recording the timestamp
+/// on the *attempt* (not on success) keeps a broken remote from being
+/// hammered on every poll.
+fn should_fetch_branches(repo_path: &std::path::Path) -> bool {
+    let mut guard = branch_fetch_last()
+        .lock()
+        .expect("branch fetch cooldown mutex poisoned");
+    let now = Instant::now();
+    if let Some(last) = guard.get(repo_path)
+        && now.duration_since(*last) < BRANCH_FETCH_COOLDOWN
+    {
+        return false;
+    }
+    guard.insert(repo_path.to_path_buf(), now);
+    true
+}
+
 pub async fn get_repo_branches(
     State(deployment): State<DeploymentImpl>,
     Path(repo_id): Path<Uuid>,
@@ -98,6 +135,25 @@ pub async fn get_repo_branches(
         .repo()
         .get_by_id(&deployment.db().pool, repo_id)
         .await?;
+
+    // Kick off a debounced background fetch so branches created directly on
+    // the remote (or from another clone) show up on the next poll of the
+    // selector. Fetch errors — offline, auth failure, no remote — are
+    // deliberately swallowed so this endpoint never 500s on a bad network
+    // (#559 sad path); the current call still returns the local list.
+    if should_fetch_branches(&repo.path) {
+        let git = deployment.git().clone();
+        let path = repo.path.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Err(err) = git.fetch_default_remote_branches(&path) {
+                tracing::debug!(
+                    repo_path = %path.display(),
+                    "background branch fetch failed: {}",
+                    err
+                );
+            }
+        });
+    }
 
     let branches = deployment.git().get_all_branches(&repo.path)?;
     Ok(ResponseJson(ApiResponse::success(branches)))

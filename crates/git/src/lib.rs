@@ -2032,6 +2032,21 @@ impl GitService {
         self.fetch_from_remote(repo, remote, &refspec)
     }
 
+    /// Fetch every branch head from the default remote so that branches
+    /// created outside the app (GitHub UI, another clone, etc.) show up as
+    /// remote-tracking refs the next time [`Self::get_all_branches`] is
+    /// called. Blocking; callers should run this inside `spawn_blocking`.
+    /// Returns an error if there is no default remote or the fetch itself
+    /// fails; the branch selector endpoint treats any failure as a
+    /// non-fatal miss (see `get_repo_branches` in the server crate).
+    pub fn fetch_default_remote_branches(&self, repo_path: &Path) -> Result<(), GitServiceError> {
+        let remote = self.get_default_remote(repo_path)?;
+        let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote.name);
+        let cli = GitCli::new();
+        cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
+        Ok(())
+    }
+
     /// Fetch the named branch from the default remote and fast-forward the
     /// local branch ref if possible. Returns the ref name to use as the base
     /// for new workspace branches.

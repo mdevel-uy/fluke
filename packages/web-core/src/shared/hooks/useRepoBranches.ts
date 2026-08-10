@@ -26,7 +26,13 @@ export function useRepoBranches(repoId?: string | null, opts?: Options) {
     ],
     queryFn: () => repoApi.getBranches(repoId!, hostId),
     enabled,
-    staleTime: 60_000,
+    // Poll while a consumer is mounted so branches created outside the app
+    // (GitHub UI, another clone) become visible without a page reload. The
+    // backend debounces its own `git fetch` so this poll is cheap when the
+    // remote hasn't changed. See issue #559.
+    staleTime: 15_000,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 }
