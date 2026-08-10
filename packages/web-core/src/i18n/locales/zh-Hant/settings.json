@@ -596,7 +596,12 @@
         "dialogTitle": "移除「{{name}}」？",
         "dialogDescription": "這將從 mkanban 取消關聯此儲存庫。您磁碟上的檔案不受影響。您可以稍後重新加入。",
         "success": "儲存庫移除成功。",
-        "error": "移除儲存庫失敗。"
+        "error": "移除儲存庫失敗。",
+        "conflict": {
+          "title": "無法移除儲存庫",
+          "description": "此儲存庫正被活動工作區使用。移除儲存庫前請先封存或刪除這些工作區。",
+          "workspacesLabel": "封鎖中的工作區："
+        }
       },
       "save": {
         "button": "儲存儲存庫設定",

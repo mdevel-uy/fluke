@@ -615,7 +615,12 @@
         "dialogTitle": "Remove \"{{name}}\"?",
         "dialogDescription": "This will unlink the repository from mkanban. Your files on disk will not be affected. You can re-add it later.",
         "success": "Repository removed successfully.",
-        "error": "Failed to remove repository."
+        "error": "Failed to remove repository.",
+        "conflict": {
+          "title": "Cannot remove repository",
+          "description": "This repository is used by active workspaces. Archive or delete them before removing the repository.",
+          "workspacesLabel": "Blocking workspaces:"
+        }
       },
       "save": {
         "button": "Save Repository Settings",
