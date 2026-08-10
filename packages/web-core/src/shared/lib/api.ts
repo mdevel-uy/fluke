@@ -296,11 +296,18 @@ export const handleApiResponse = async <T, E = T>(
 ): Promise<T> => {
   if (!response.ok) {
     let errorMessage = `Request failed with status ${response.status}`;
+    let structuredError: E | undefined;
 
     try {
       const errorData = await response.json();
       if (errorData.message) {
         errorMessage = errorData.message;
+      }
+      // Backend can pair a non-2xx status with a structured `error_data`
+      // payload (e.g. 409 DeleteRepoConflict). Forward it so callers can
+      // render it — matching the ok-path branch below.
+      if (errorData.error_data != null) {
+        structuredError = errorData.error_data as E;
       }
     } catch {
       // Fallback to status text if JSON parsing fails
@@ -314,7 +321,12 @@ export const handleApiResponse = async <T, E = T>(
       endpoint: response.url,
       timestamp: new Date().toISOString(),
     });
-    throw new ApiError<E>(errorMessage, response.status, response);
+    throw new ApiError<E>(
+      errorMessage,
+      response.status,
+      response,
+      structuredError
+    );
   }
 
   if (response.status === 204) {

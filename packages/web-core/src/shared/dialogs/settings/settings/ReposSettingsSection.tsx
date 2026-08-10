@@ -292,8 +292,21 @@ export function ReposSettingsSection({
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const conflict = err.error_data as DeleteRepoConflict | undefined;
-        setBlockingWorkspaces(conflict?.workspaces ?? []);
-        setError(null);
+        const workspaces = conflict?.workspaces ?? [];
+        if (workspaces.length > 0) {
+          setBlockingWorkspaces(workspaces);
+          setError(null);
+        } else {
+          // Backend guarantees a non-empty list when it returns 409, so an
+          // empty payload here means either an older backend or a regression
+          // — fall back to the plain message and log for visibility.
+          console.warn(
+            'deleteRepo returned 409 without workspaces payload',
+            err
+          );
+          setBlockingWorkspaces(null);
+          setError(err.message);
+        }
       } else if (err instanceof Error) {
         setError(err.message);
       }
@@ -436,7 +449,7 @@ export function ReposSettingsSection({
         </div>
       )}
 
-      {blockingWorkspaces && (
+      {blockingWorkspaces && blockingWorkspaces.length > 0 && (
         <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error space-y-2">
           <p className="font-medium">
             {t('settings.repos.remove.conflict.title')}
@@ -444,18 +457,14 @@ export function ReposSettingsSection({
           <p className="text-sm">
             {t('settings.repos.remove.conflict.description')}
           </p>
-          {blockingWorkspaces.length > 0 && (
-            <>
-              <p className="text-sm font-medium">
-                {t('settings.repos.remove.conflict.workspacesLabel')}
-              </p>
-              <ul className="list-disc pl-5 text-sm">
-                {blockingWorkspaces.map((name) => (
-                  <li key={name}>{name}</li>
-                ))}
-              </ul>
-            </>
-          )}
+          <p className="text-sm font-medium">
+            {t('settings.repos.remove.conflict.workspacesLabel')}
+          </p>
+          <ul className="list-disc pl-5 text-sm">
+            {blockingWorkspaces.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
         </div>
       )}
 
