@@ -736,21 +736,21 @@
       }
     },
     "impact": {
-      "title": "クローズした Issue",
+      "title": "解決したチケット",
       "windowLabel": "期間",
       "windowDays": "{{days}}日",
-      "hoursPerIssue": "時間 / Issue",
-      "hoursPerIssueLabel": "Issue あたりの想定工数（時間）",
+      "hoursPerTask": "時間 / タスク",
+      "hoursPerTaskLabel": "解決タスクあたりの想定工数（時間）",
       "hoursSaved": "約 {{hours}} 時間の削減",
-      "summary": "直近 {{days}} 日間で {{count}} 件クローズ",
-      "summary_other": "直近 {{days}} 日間で {{count}} 件クローズ",
-      "loading": "クローズした Issue を読み込み中…",
-      "empty": "この期間にクローズした Issue はありません。履歴は次回の Issue 同期で埋まります。",
-      "chartLabel": "直近 {{days}} 日間の日別クローズ件数：合計 {{total}} 件、約 {{hours}} 時間分。",
-      "tooltipIssues": "{{count}} 件クローズ",
-      "tooltipIssues_other": "{{count}} 件クローズ",
-      "tooltipHours": "{{issues}} × {{factor}} 時間 = {{hours}} 時間",
-      "moreIssues": "他 {{extra}} 件"
+      "summary": "直近 {{days}} 日間で {{count}} 件解決",
+      "summary_other": "直近 {{days}} 日間で {{count}} 件解決",
+      "loading": "解決したチケットを読み込み中…",
+      "empty": "この期間に解決したチケットはありません。ワーカーがタスクを完了するとグラフに反映されます。",
+      "chartLabel": "直近 {{days}} 日間の日別解決件数：合計 {{total}} 件、約 {{hours}} 時間分。",
+      "tooltipTasks": "{{count}} 件解決",
+      "tooltipTasks_other": "{{count}} 件解決",
+      "tooltipHours": "{{tasks}} × {{factor}} 時間 = {{hours}} 時間",
+      "moreTasks": "他 {{extra}} 件"
     },
     "valueGenerated": {
       "title": "創出された価値",

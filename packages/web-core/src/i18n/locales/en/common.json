@@ -757,21 +757,21 @@
       }
     },
     "impact": {
-      "title": "Issues closed",
+      "title": "Tickets resolved",
       "windowLabel": "Time window",
       "windowDays": "{{days}}d",
-      "hoursPerIssue": "h / issue",
-      "hoursPerIssueLabel": "Man-hours assumed per issue",
+      "hoursPerTask": "h / task",
+      "hoursPerTaskLabel": "Man-hours assumed per resolved task",
       "hoursSaved": "≈ {{hours}} h saved",
-      "summary": "{{count}} issue closed in the last {{days}} days",
-      "summary_other": "{{count}} issues closed in the last {{days}} days",
-      "loading": "Loading closed issues…",
-      "empty": "No closed issues in this window yet — history fills in on the next issue sync.",
-      "chartLabel": "Issues closed per day over the last {{days}} days: {{total}} total, about {{hours}} man-hours.",
-      "tooltipIssues": "{{count}} issue closed",
-      "tooltipIssues_other": "{{count}} issues closed",
-      "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
-      "moreIssues": "+{{extra}} more"
+      "summary": "{{count}} ticket resolved in the last {{days}} days",
+      "summary_other": "{{count}} tickets resolved in the last {{days}} days",
+      "loading": "Loading resolved tickets…",
+      "empty": "No tickets resolved in this window yet — the chart fills in as workers complete tasks.",
+      "chartLabel": "Tickets resolved per day over the last {{days}} days: {{total}} total, about {{hours}} man-hours.",
+      "tooltipTasks": "{{count}} ticket resolved",
+      "tooltipTasks_other": "{{count}} tickets resolved",
+      "tooltipHours": "{{tasks}} × {{factor}} h = {{hours}} h",
+      "moreTasks": "+{{extra}} more"
     },
     "valueGenerated": {
       "title": "Value generated",

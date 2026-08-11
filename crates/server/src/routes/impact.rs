@@ -1,4 +1,10 @@
 //! Aggregate productivity data for the dashboard impact chart.
+//!
+//! The chart counts worker tasks that reached `done` — the same population the
+//! value-generated panel bills against — rather than GitHub issue closures.
+//! Issue closures include administrative events (duplicates, bulk cleanups,
+//! not-planned) that represent no delivered work, so charting them alongside a
+//! "hours saved" figure overstated impact and contradicted the monthly panel.
 
 use axum::{
     Router,
@@ -14,9 +20,10 @@ use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError};
 
-/// Upper bound on rows returned by `closed-issues`. Generous enough that a real
-/// 90-day window is never truncated, low enough to stay a bounded response.
-const CLOSED_ISSUES_LIMIT: i64 = 2000;
+/// Upper bound on rows returned by `resolved-tasks`. Generous enough that a
+/// real 90-day window is never truncated, low enough to stay a bounded
+/// response.
+const RESOLVED_TASKS_LIMIT: i64 = 2000;
 
 /// Widest window the endpoint will serve, in days.
 const MAX_WINDOW_DAYS: i64 = 365;
@@ -24,42 +31,47 @@ const MAX_WINDOW_DAYS: i64 = 365;
 /// Default window when the caller omits `days`.
 const DEFAULT_WINDOW_DAYS: i64 = 30;
 
-/// A single closed issue, across every repo.
+/// A single worker task that reached `done`, across every repo.
 #[derive(Debug, Serialize, TS, sqlx::FromRow)]
-pub struct ClosedIssue {
+pub struct ResolvedTask {
     pub repo_id: Uuid,
-    #[ts(type = "number")]
-    pub number: i64,
+    /// GitHub issue the task was spawned from, when there is one.
+    #[ts(type = "number | null")]
+    pub issue_number: Option<i64>,
     pub title: String,
     /// SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
-    pub closed_at: String,
+    pub completed_at: String,
 }
 
 #[derive(Debug, Serialize, TS)]
-pub struct ClosedIssuesResponse {
-    pub issues: Vec<ClosedIssue>,
+pub struct ResolvedTasksResponse {
+    pub tasks: Vec<ResolvedTask>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ClosedIssuesQuery {
+pub struct ResolvedTasksQuery {
     /// Window size in days, counting back from now. Defaults to 30.
     pub days: Option<i64>,
 }
 
-/// Issues closed within the last `days` days, newest first.
+/// Worker tasks completed within the last `days` days, newest first.
 ///
-/// Deliberately returns the raw rows instead of a `GROUP BY date(closed_at)`
+/// Deliberately returns the raw rows instead of a `GROUP BY date(completed_at)`
 /// rollup: SQL would bucket by UTC day, but the chart's x-axis is the viewer's
-/// local calendar. At UTC-3 an issue closed 21:00 local lands on the next UTC
+/// local calendar. At UTC-3 a task completed 21:00 local lands on the next UTC
 /// day, so the grouping has to happen client-side. Handing back the rows also
-/// lets the tooltip name the issues behind each point.
+/// lets the tooltip name the tasks behind each point.
+///
+/// The `status = 'done' AND completed_at IS NOT NULL` filter matches the
+/// value-generated summary exactly, so the two panels always agree on what
+/// counts as resolved work.
 ///
 /// Uses a runtime-checked query so the committed sqlx offline metadata for the
 /// macro queries stays valid (same reasoning as `list_completed_worker_tasks`).
-pub async fn list_closed_issues(
+pub async fn list_resolved_tasks(
     State(deployment): State<DeploymentImpl>,
-    Query(query): Query<ClosedIssuesQuery>,
-) -> Result<ResponseJson<ApiResponse<ClosedIssuesResponse>>, ApiError> {
+    Query(query): Query<ResolvedTasksQuery>,
+) -> Result<ResponseJson<ApiResponse<ResolvedTasksResponse>>, ApiError> {
     let days = query.days.unwrap_or(DEFAULT_WINDOW_DAYS);
     if !(1..=MAX_WINDOW_DAYS).contains(&days) {
         return Err(ApiError::BadRequest(format!(
@@ -73,23 +85,25 @@ pub async fn list_closed_issues(
     // comparison are in SQLite's own textual datetime format.
     let since_modifier = format!("-{} days", days + 1);
 
-    let issues: Vec<ClosedIssue> = sqlx::query_as(
-        "SELECT repo_id, number, title, closed_at
-         FROM repo_issues
-         WHERE closed_at IS NOT NULL AND closed_at >= datetime('now', $1)
-         ORDER BY closed_at DESC
+    let tasks: Vec<ResolvedTask> = sqlx::query_as(
+        "SELECT repo_id, issue_number, title, completed_at
+         FROM worker_tasks
+         WHERE status = 'done'
+           AND completed_at IS NOT NULL
+           AND completed_at >= datetime('now', $1)
+         ORDER BY completed_at DESC
          LIMIT $2",
     )
     .bind(since_modifier)
-    .bind(CLOSED_ISSUES_LIMIT)
+    .bind(RESOLVED_TASKS_LIMIT)
     .fetch_all(&deployment.db().pool)
     .await?;
 
-    Ok(ResponseJson(ApiResponse::success(ClosedIssuesResponse {
-        issues,
+    Ok(ResponseJson(ApiResponse::success(ResolvedTasksResponse {
+        tasks,
     })))
 }
 
 pub fn router() -> Router<DeploymentImpl> {
-    Router::new().route("/impact/closed-issues", get(list_closed_issues))
+    Router::new().route("/impact/resolved-tasks", get(list_resolved_tasks))
 }

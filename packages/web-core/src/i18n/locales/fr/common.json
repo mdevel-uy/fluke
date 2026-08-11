@@ -738,21 +738,21 @@
       }
     },
     "impact": {
-      "title": "Issues fermées",
+      "title": "Tickets résolus",
       "windowLabel": "Fenêtre temporelle",
       "windowDays": "{{days}} j",
-      "hoursPerIssue": "h / issue",
-      "hoursPerIssueLabel": "Heures-personne estimées par issue",
+      "hoursPerTask": "h / tâche",
+      "hoursPerTaskLabel": "Heures-personne estimées par tâche résolue",
       "hoursSaved": "≈ {{hours}} h économisées",
-      "summary": "{{count}} issue fermée ces {{days}} derniers jours",
-      "summary_other": "{{count}} issues fermées ces {{days}} derniers jours",
-      "loading": "Chargement des issues fermées…",
-      "empty": "Aucune issue fermée sur cette période — l'historique se remplit au prochain sync des issues.",
-      "chartLabel": "Issues fermées par jour sur les {{days}} derniers jours : {{total}} au total, environ {{hours}} heures-personne.",
-      "tooltipIssues": "{{count}} issue fermée",
-      "tooltipIssues_other": "{{count}} issues fermées",
-      "tooltipHours": "{{issues}} × {{factor}} h = {{hours}} h",
-      "moreIssues": "+{{extra}} autres"
+      "summary": "{{count}} ticket résolu ces {{days}} derniers jours",
+      "summary_other": "{{count}} tickets résolus ces {{days}} derniers jours",
+      "loading": "Chargement des tickets résolus…",
+      "empty": "Aucun ticket résolu sur cette période — le graphique se remplit à mesure que les workers terminent des tâches.",
+      "chartLabel": "Tickets résolus par jour sur les {{days}} derniers jours : {{total}} au total, environ {{hours}} heures-personne.",
+      "tooltipTasks": "{{count}} ticket résolu",
+      "tooltipTasks_other": "{{count}} tickets résolus",
+      "tooltipHours": "{{tasks}} × {{factor}} h = {{hours}} h",
+      "moreTasks": "+{{extra}} autres"
     },
     "valueGenerated": {
       "title": "Valeur générée",
