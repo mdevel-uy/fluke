@@ -608,7 +608,12 @@
         "dialogTitle": "¿Eliminar \"{{name}}\"?",
         "dialogDescription": "Esto desvinculará el repositorio de mkanban. Tus archivos en disco no se verán afectados. Puedes volver a agregarlo más tarde.",
         "success": "Repositorio eliminado exitosamente.",
-        "error": "Error al eliminar el repositorio."
+        "error": "Error al eliminar el repositorio.",
+        "conflict": {
+          "title": "No se puede eliminar el repositorio",
+          "description": "Este repositorio está siendo usado por workspaces activos. Archivalos o eliminalos antes de quitar el repositorio.",
+          "workspacesLabel": "Workspaces bloqueantes:"
+        }
       },
       "save": {
         "button": "Guardar Configuración del Repositorio",

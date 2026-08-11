@@ -596,7 +596,12 @@
         "dialogTitle": "Retirer « {{name}} » ?",
         "dialogDescription": "Cela dissociera le dépôt de mkanban. Vos fichiers sur le disque ne seront pas affectés. Vous pourrez le rajouter ultérieurement.",
         "success": "Dépôt retiré avec succès.",
-        "error": "Échec du retrait du dépôt."
+        "error": "Échec du retrait du dépôt.",
+        "conflict": {
+          "title": "Impossible de retirer le dépôt",
+          "description": "Ce dépôt est utilisé par des espaces de travail actifs. Archivez-les ou supprimez-les avant de retirer le dépôt.",
+          "workspacesLabel": "Espaces de travail bloquants :"
+        }
       },
       "save": {
         "button": "Enregistrer les paramètres du dépôt",

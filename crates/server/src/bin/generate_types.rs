@@ -223,6 +223,7 @@ fn generate_types_content() -> String {
         server::routes::value_generated::ValueGeneratedMonth::decl(),
         server::routes::value_generated::ValueGeneratedSummaryResponse::decl(),
         server::routes::repo::ListPrsError::decl(),
+        server::routes::repo::DeleteRepoConflict::decl(),
         server::routes::remote::pull_requests::LinkPrToIssueRequest::decl(),
         server::routes::workspaces::pr::CreateWorkspaceFromPrBody::decl(),
         server::routes::workspaces::pr::CreateWorkspaceFromPrResponse::decl(),

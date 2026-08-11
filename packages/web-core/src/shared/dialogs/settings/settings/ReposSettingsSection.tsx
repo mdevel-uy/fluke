@@ -42,6 +42,14 @@ import {
 } from './SettingsComponents';
 import { useSettingsMachineClient } from './SettingsHostContext';
 
+// Local shim mirroring `DeleteRepoConflict` in
+// crates/server/src/routes/repo.rs. Replaced by the generated type when infra
+// runs `pnpm run generate-types` after this PR merges.
+interface DeleteRepoConflict {
+  message: string;
+  workspaces: string[];
+}
+
 interface RepoScriptsFormState {
   display_name: string;
   default_working_dir: string;
@@ -230,6 +238,11 @@ export function ReposSettingsSection({
     return !isEqual(draft, repoToFormState(selectedRepo));
   }, [draft, selectedRepo]);
 
+  const [removing, setRemoving] = useState(false);
+  const [blockingWorkspaces, setBlockingWorkspaces] = useState<string[] | null>(
+    null
+  );
+
   // Handle repo selection
   const handleRepoSelect = useCallback(
     (id: string) => {
@@ -246,12 +259,11 @@ export function ReposSettingsSection({
         setError(null);
       }
 
+      setBlockingWorkspaces(null);
       setSelectedRepoId(id);
     },
     [hasUnsavedChanges, selectedRepoId, t]
   );
-
-  const [removing, setRemoving] = useState(false);
 
   const handleRemoveRepo = useCallback(async () => {
     if (!selectedRepo) return;
@@ -264,6 +276,7 @@ export function ReposSettingsSection({
 
       setRemoving(true);
       setError(null);
+      setBlockingWorkspaces(null);
 
       if (!machineClient) {
         return;
@@ -278,7 +291,22 @@ export function ReposSettingsSection({
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError(err.message);
+        const conflict = err.error_data as DeleteRepoConflict | undefined;
+        const workspaces = conflict?.workspaces ?? [];
+        if (workspaces.length > 0) {
+          setBlockingWorkspaces(workspaces);
+          setError(null);
+        } else {
+          // Backend guarantees a non-empty list when it returns 409, so an
+          // empty payload here means either an older backend or a regression
+          // — fall back to the plain message and log for visibility.
+          console.warn(
+            'deleteRepo returned 409 without workspaces payload',
+            err
+          );
+          setBlockingWorkspaces(null);
+          setError(err.message);
+        }
       } else if (err instanceof Error) {
         setError(err.message);
       }
@@ -418,6 +446,25 @@ export function ReposSettingsSection({
       {error && (
         <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error">
           {error}
+        </div>
+      )}
+
+      {blockingWorkspaces && blockingWorkspaces.length > 0 && (
+        <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error space-y-2">
+          <p className="font-medium">
+            {t('settings.repos.remove.conflict.title')}
+          </p>
+          <p className="text-sm">
+            {t('settings.repos.remove.conflict.description')}
+          </p>
+          <p className="text-sm font-medium">
+            {t('settings.repos.remove.conflict.workspacesLabel')}
+          </p>
+          <ul className="list-disc pl-5 text-sm">
+            {blockingWorkspaces.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -596,7 +596,12 @@
         "dialogTitle": "移除「{{name}}」？",
         "dialogDescription": "这将从 mkanban 取消关联此仓库。您磁盘上的文件不受影响。您可以稍后重新添加。",
         "success": "仓库移除成功。",
-        "error": "移除仓库失败。"
+        "error": "移除仓库失败。",
+        "conflict": {
+          "title": "无法移除仓库",
+          "description": "该仓库正被活动工作区使用。移除仓库前请先归档或删除这些工作区。",
+          "workspacesLabel": "阻塞的工作区："
+        }
       },
       "save": {
         "button": "保存仓库设置",
