@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { IMPACT_WINDOWS, type ImpactWindow } from './useClosedIssues';
+import { IMPACT_WINDOWS, type ImpactWindow } from './useResolvedTasks';
 
 /**
  * Fallback baseline used only when the server config is still loading. Once

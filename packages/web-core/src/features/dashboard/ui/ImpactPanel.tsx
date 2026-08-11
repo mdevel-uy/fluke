@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import {
-  bucketClosedIssuesByDay,
+  bucketResolvedTasksByDay,
   formatManHours,
-  type ClosedIssueDay,
+  type ResolvedTaskDay,
 } from '@/features/dashboard/model/dashboardMetrics';
 import {
   IMPACT_WINDOWS,
-  useClosedIssues,
-} from '@/features/dashboard/model/useClosedIssues';
+  useResolvedTasks,
+} from '@/features/dashboard/model/useResolvedTasks';
 import {
   DEFAULT_HOURS_PER_ISSUE,
   MAX_HOURS_PER_ISSUE,
@@ -27,8 +27,8 @@ const MIN_CHART_WIDTH = 320;
 const DOTS_MAX_POINTS = 45;
 /** Roughly how many date labels to fit on the x-axis. */
 const X_TICK_TARGET = 6;
-/** Issues named in the tooltip before collapsing into "+N more". */
-const TOOLTIP_ISSUE_LIMIT = 3;
+/** Tasks named in the tooltip before collapsing into "+N more". */
+const TOOLTIP_TASK_LIMIT = 3;
 
 /** Round the y-axis up to something divisible by 4, so gridlines stay integers. */
 function niceMax(max: number): number {
@@ -57,7 +57,9 @@ function useElementWidth(ref: React.RefObject<HTMLElement>): number {
 }
 
 /**
- * Issues closed per day, with the equivalent man-hours behind each point.
+ * Worker tasks resolved per day, with the equivalent man-hours behind each
+ * point. Counts the same `status = 'done'` population as the value-generated
+ * panel, so the two surfaces never disagree on how much work was delivered.
  *
  * Self-contained: owns its query and its settings, so `useDashboardData` stays
  * focused on live worker state.
@@ -83,16 +85,16 @@ export function ImpactPanel() {
     config?.default_hours_saved_per_task ?? DEFAULT_HOURS_PER_ISSUE;
   const hoursPerIssue = hoursPerIssueOverride ?? configHoursPerIssue;
 
-  const { issues, isLoading } = useClosedIssues(windowDays);
+  const { tasks, isLoading } = useResolvedTasks(windowDays);
 
   const [hovered, setHovered] = useState<number | null>(null);
   const [factorDraft, setFactorDraft] = useState(() => String(hoursPerIssue));
 
   const buckets = useMemo(
-    () => bucketClosedIssuesByDay(issues, windowDays),
-    [issues, windowDays]
+    () => bucketResolvedTasksByDay(tasks, windowDays),
+    [tasks, windowDays]
   );
-  const totalIssues = useMemo(
+  const totalTasks = useMemo(
     () => buckets.reduce((sum, bucket) => sum + bucket.count, 0),
     [buckets]
   );
@@ -147,7 +149,7 @@ export function ImpactPanel() {
     setFactorDraft(String(next));
   };
 
-  const totalHours = formatManHours(totalIssues * hoursPerIssue);
+  const totalHours = formatManHours(totalTasks * hoursPerIssue);
 
   // `Panel` already right-aligns whatever it gets as `aside`.
   const head = (
@@ -184,12 +186,12 @@ export function ImpactPanel() {
           max={MAX_HOURS_PER_ISSUE}
           step={0.5}
           value={factorDraft}
-          aria-label={t('dashboard.impact.hoursPerIssueLabel')}
+          aria-label={t('dashboard.impact.hoursPerTaskLabel')}
           onChange={(event) => commitFactor(event.target.value)}
           onBlur={normalizeFactor}
           className="w-12 rounded border border-border bg-md-background px-1.5 py-px text-right text-xs text-high tabular-nums"
         />
-        {t('dashboard.impact.hoursPerIssue')}
+        {t('dashboard.impact.hoursPerTask')}
       </label>
     </span>
   );
@@ -203,13 +205,13 @@ export function ImpactPanel() {
           </span>
           <span className="text-sm text-low">
             {t('dashboard.impact.summary', {
-              count: totalIssues,
+              count: totalTasks,
               days: windowDays,
             })}
           </span>
         </div>
 
-        {totalIssues === 0 ? (
+        {totalTasks === 0 ? (
           <PanelEmpty>
             {isLoading
               ? t('dashboard.impact.loading')
@@ -221,7 +223,7 @@ export function ImpactPanel() {
             hovered={hovered}
             onHover={setHovered}
             hoursPerIssue={hoursPerIssue}
-            totalIssues={totalIssues}
+            totalTasks={totalTasks}
             totalHours={totalHours}
             windowDays={windowDays}
             tickFormatter={tickFormatter}
@@ -238,17 +240,17 @@ function ImpactChart({
   hovered,
   onHover,
   hoursPerIssue,
-  totalIssues,
+  totalTasks,
   totalHours,
   windowDays,
   tickFormatter,
   dayFormatter,
 }: {
-  buckets: ClosedIssueDay[];
+  buckets: ResolvedTaskDay[];
   hovered: number | null;
   onHover: (index: number | null) => void;
   hoursPerIssue: number;
-  totalIssues: number;
+  totalTasks: number;
   totalHours: string;
   windowDays: number;
   tickFormatter: Intl.DateTimeFormat;
@@ -308,7 +310,7 @@ function ImpactChart({
         role="img"
         aria-label={t('dashboard.impact.chartLabel', {
           days: windowDays,
-          total: totalIssues,
+          total: totalTasks,
           hours: totalHours,
         })}
         onMouseMove={handleMove}
@@ -404,30 +406,37 @@ function ImpactChart({
             {dayFormatter.format(active.date)}
           </div>
           <div className="mt-0.5 text-sm font-semibold text-high">
-            {t('dashboard.impact.tooltipIssues', { count: active.count })}
+            {t('dashboard.impact.tooltipTasks', { count: active.count })}
           </div>
           {active.count > 0 && (
             <>
               <div className="mt-1 border-t border-border pt-1 tabular-nums">
                 {t('dashboard.impact.tooltipHours', {
-                  issues: active.count,
+                  tasks: active.count,
                   factor: formatManHours(hoursPerIssue),
                   hours: formatManHours(active.count * hoursPerIssue),
                 })}
               </div>
               <ul className="mt-1 space-y-0.5">
-                {active.issues.slice(0, TOOLTIP_ISSUE_LIMIT).map((issue) => (
-                  <li key={issue.number} className="truncate text-[11px]">
-                    <span className="text-normal tabular-nums">
-                      #{issue.number}
-                    </span>{' '}
-                    <span className="text-low">{issue.title}</span>
+                {active.tasks.slice(0, TOOLTIP_TASK_LIMIT).map((task, index) => (
+                  <li
+                    key={`${task.issueNumber ?? 'task'}-${index}`}
+                    className="truncate text-[11px]"
+                  >
+                    {task.issueNumber !== null && (
+                      <>
+                        <span className="text-normal tabular-nums">
+                          #{task.issueNumber}
+                        </span>{' '}
+                      </>
+                    )}
+                    <span className="text-low">{task.title}</span>
                   </li>
                 ))}
-                {active.issues.length > TOOLTIP_ISSUE_LIMIT && (
+                {active.tasks.length > TOOLTIP_TASK_LIMIT && (
                   <li className="text-[11px] text-low">
-                    {t('dashboard.impact.moreIssues', {
-                      extra: active.issues.length - TOOLTIP_ISSUE_LIMIT,
+                    {t('dashboard.impact.moreTasks', {
+                      extra: active.tasks.length - TOOLTIP_TASK_LIMIT,
                     })}
                   </li>
                 )}
@@ -441,7 +450,7 @@ function ImpactChart({
         {buckets.map((bucket) => (
           <li key={bucket.dayKey}>
             {dayFormatter.format(bucket.date)}:{' '}
-            {t('dashboard.impact.tooltipIssues', { count: bucket.count })}
+            {t('dashboard.impact.tooltipTasks', { count: bucket.count })}
           </li>
         ))}
       </ul>

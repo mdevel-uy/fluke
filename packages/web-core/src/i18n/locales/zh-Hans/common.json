@@ -736,21 +736,21 @@
       }
     },
     "impact": {
-      "title": "已关闭的议题",
+      "title": "已解决工单",
       "windowLabel": "时间范围",
       "windowDays": "{{days}} 天",
-      "hoursPerIssue": "小时 / 议题",
-      "hoursPerIssueLabel": "每个议题预估的人时",
+      "hoursPerTask": "小时 / 任务",
+      "hoursPerTaskLabel": "每个已解决任务预估的人时",
       "hoursSaved": "约节约 {{hours}} 小时",
-      "summary": "过去 {{days}} 天关闭 {{count}} 个议题",
-      "summary_other": "过去 {{days}} 天关闭 {{count}} 个议题",
-      "loading": "正在加载已关闭的议题…",
-      "empty": "此时间范围内暂无已关闭的议题 — 下次议题同步时将补全历史。",
-      "chartLabel": "过去 {{days}} 天每日关闭的议题：共 {{total}} 个，约 {{hours}} 人时。",
-      "tooltipIssues": "关闭 {{count}} 个议题",
-      "tooltipIssues_other": "关闭 {{count}} 个议题",
-      "tooltipHours": "{{issues}} × {{factor}} 小时 = {{hours}} 小时",
-      "moreIssues": "另有 {{extra}} 个"
+      "summary": "过去 {{days}} 天解决 {{count}} 个工单",
+      "summary_other": "过去 {{days}} 天解决 {{count}} 个工单",
+      "loading": "正在加载已解决的工单…",
+      "empty": "此时间范围内暂无已解决的工单 — 工作器完成任务后图表将随之填充。",
+      "chartLabel": "过去 {{days}} 天每日解决的工单：共 {{total}} 个，约 {{hours}} 人时。",
+      "tooltipTasks": "解决 {{count}} 个工单",
+      "tooltipTasks_other": "解决 {{count}} 个工单",
+      "tooltipHours": "{{tasks}} × {{factor}} 小时 = {{hours}} 小时",
+      "moreTasks": "另有 {{extra}} 个"
     },
     "valueGenerated": {
       "title": "生成的价值",

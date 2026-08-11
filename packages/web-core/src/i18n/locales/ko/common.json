@@ -736,21 +736,21 @@
       }
     },
     "impact": {
-      "title": "종료된 이슈",
+      "title": "해결된 티켓",
       "windowLabel": "기간",
       "windowDays": "{{days}}일",
-      "hoursPerIssue": "시간 / 이슈",
-      "hoursPerIssueLabel": "이슈당 가정 공수(시간)",
+      "hoursPerTask": "시간 / 작업",
+      "hoursPerTaskLabel": "해결된 작업당 가정 공수(시간)",
       "hoursSaved": "약 {{hours}}시간 절감",
-      "summary": "지난 {{days}}일간 {{count}}건 종료",
-      "summary_other": "지난 {{days}}일간 {{count}}건 종료",
-      "loading": "종료된 이슈 불러오는 중…",
-      "empty": "이 기간에 종료된 이슈가 없습니다. 다음 이슈 동기화 시 기록이 채워집니다.",
-      "chartLabel": "지난 {{days}}일간 일자별 종료 이슈: 총 {{total}}건, 약 {{hours}}시간 분량.",
-      "tooltipIssues": "{{count}}건 종료",
-      "tooltipIssues_other": "{{count}}건 종료",
-      "tooltipHours": "{{issues}} × {{factor}}시간 = {{hours}}시간",
-      "moreIssues": "+{{extra}}건 더"
+      "summary": "지난 {{days}}일간 {{count}}건 해결",
+      "summary_other": "지난 {{days}}일간 {{count}}건 해결",
+      "loading": "해결된 티켓 불러오는 중…",
+      "empty": "이 기간에 해결된 티켓이 없습니다. 워커가 작업을 완료하면 그래프가 채워집니다.",
+      "chartLabel": "지난 {{days}}일간 일자별 해결 티켓: 총 {{total}}건, 약 {{hours}}시간 분량.",
+      "tooltipTasks": "{{count}}건 해결",
+      "tooltipTasks_other": "{{count}}건 해결",
+      "tooltipHours": "{{tasks}} × {{factor}}시간 = {{hours}}시간",
+      "moreTasks": "+{{extra}}건 더"
     },
     "valueGenerated": {
       "title": "창출된 가치",

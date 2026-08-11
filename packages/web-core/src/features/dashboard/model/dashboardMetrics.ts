@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { SidebarWorkspace } from '@/shared/hooks/useWorkspaces';
-import type { ClosedIssue } from './useClosedIssues';
+import type { ResolvedTask } from './useResolvedTasks';
 
 /** Shared thresholds: context usage and Claude plan meters use the same scale. */
 export const METER_WARN_RATIO = 0.7;
@@ -41,14 +41,14 @@ export function parseSqliteUtc(value: string): Date {
   return new Date(`${value.replace(' ', 'T')}Z`);
 }
 
-export type ClosedIssueDay = {
+export type ResolvedTaskDay = {
   /** Local calendar day, "YYYY-MM-DD". */
   dayKey: string;
   /** Local midnight of that day, for axis formatting. */
   date: Date;
   count: number;
-  /** Issues closed that day, newest first. */
-  issues: { number: number; title: string }[];
+  /** Tasks completed that day, newest first. */
+  tasks: { issueNumber: number | null; title: string }[];
 };
 
 /** Local calendar day of a timestamp -- not `toISOString`, which is UTC. */
@@ -59,41 +59,41 @@ function localDayKey(date: Date): string {
 }
 
 /**
- * Group closed issues into one bucket per local calendar day, oldest first,
+ * Group resolved tasks into one bucket per local calendar day, oldest first,
  * covering exactly `days` days up to and including today.
  *
- * Days with no closures become `count: 0` buckets rather than being omitted, so
- * the chart's x-axis stays a real calendar instead of skipping quiet days. The
- * API deliberately over-fetches by a day, so anything landing outside the window
- * after local-time conversion is dropped here.
+ * Days with no completions become `count: 0` buckets rather than being omitted,
+ * so the chart's x-axis stays a real calendar instead of skipping quiet days.
+ * The API deliberately over-fetches by a day, so anything landing outside the
+ * window after local-time conversion is dropped here.
  */
-export function bucketClosedIssuesByDay(
-  issues: ClosedIssue[],
+export function bucketResolvedTasksByDay(
+  tasks: ResolvedTask[],
   days: number
-): ClosedIssueDay[] {
+): ResolvedTaskDay[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const buckets: ClosedIssueDay[] = [];
-  const byDay = new Map<string, ClosedIssueDay>();
+  const buckets: ResolvedTaskDay[] = [];
+  const byDay = new Map<string, ResolvedTaskDay>();
   for (let offset = days - 1; offset >= 0; offset--) {
     const date = new Date(today);
     date.setDate(date.getDate() - offset);
-    const bucket: ClosedIssueDay = {
+    const bucket: ResolvedTaskDay = {
       dayKey: localDayKey(date),
       date,
       count: 0,
-      issues: [],
+      tasks: [],
     };
     buckets.push(bucket);
     byDay.set(bucket.dayKey, bucket);
   }
 
-  for (const issue of issues) {
-    const bucket = byDay.get(localDayKey(parseSqliteUtc(issue.closed_at)));
+  for (const task of tasks) {
+    const bucket = byDay.get(localDayKey(parseSqliteUtc(task.completed_at)));
     if (!bucket) continue;
     bucket.count += 1;
-    bucket.issues.push({ number: issue.number, title: issue.title });
+    bucket.tasks.push({ issueNumber: task.issue_number, title: task.title });
   }
 
   return buckets;
