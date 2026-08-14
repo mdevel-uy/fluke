@@ -10,6 +10,7 @@ pub mod container;
 pub mod design_artifacts;
 pub mod diff_stream;
 pub mod events;
+pub mod execution_labels;
 pub mod execution_process;
 pub mod file;
 pub mod file_ranker;

@@ -991,7 +991,8 @@
       "groupByOptions": {
         "none": "なし",
         "label": "ラベル",
-        "milestone": "マイルストーン"
+        "milestone": "マイルストーン",
+        "execution": "実行プラン"
       },
       "clear": "フィルターをクリア",
       "noResults": "現在のフィルターに一致する Issue はありません。",
@@ -1018,6 +1019,18 @@
       "archiveTitle": "Issue をアーカイブ",
       "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
       "archiveAction": "Issue をクローズ"
+    },
+    "execution": {
+      "wave": "ウェーブ {{n}}",
+      "parallel": "{{n}} 件のイシューを同時に割り当てられます",
+      "single": "このウェーブのイシューは 1 件のみ",
+      "unwaved": "ウェーブなし",
+      "unwavedHint": "feature はありますが有効な wave: ラベルがありません — 1 件ずつ割り当ててください",
+      "unclassified": "未分類",
+      "unclassifiedHint": "feature: ラベルがありません — 計画できません。1 件ずつ割り当ててください",
+      "contentionTitle": "競合しているシリアライズ済みリソース",
+      "contentionHint": "これらのイシューはリポジトリ全体の同じリソースを要求しています。異なる機能であっても、同時に開ける PR は 1 つだけです。",
+      "empty": "計画対象のオープンなイシューがありません。"
     }
   },
   "workers": {

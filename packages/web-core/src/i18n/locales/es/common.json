@@ -1008,7 +1008,8 @@
       "groupByOptions": {
         "none": "Ninguno",
         "label": "Etiqueta",
-        "milestone": "Hito"
+        "milestone": "Hito",
+        "execution": "Plan de ejecución"
       },
       "clear": "Limpiar filtros",
       "noResults": "Ningún issue coincide con los filtros actuales.",
@@ -1035,6 +1036,18 @@
       "archiveTitle": "Archivar issue",
       "archiveConfirm": "¿Cerrar el issue #{{number}} en GitHub? Se moverá al filtro Cerrados.",
       "archiveAction": "Cerrar issue"
+    },
+    "execution": {
+      "wave": "Ola {{n}}",
+      "parallel": "{{n}} issues se pueden asignar a la vez",
+      "single": "Un solo issue en esta ola",
+      "unwaved": "Sin ola",
+      "unwavedHint": "Tiene feature pero no una etiqueta wave: usable — asignar de a uno",
+      "unclassified": "Sin clasificar",
+      "unclassifiedHint": "Sin etiqueta feature: — no se puede planificar; asignar de a uno",
+      "contentionTitle": "Recursos serializados en disputa",
+      "contentionHint": "Estos issues reclaman el mismo recurso global del repo. Un solo PR abierto a la vez, aunque sean de features distintas.",
+      "empty": "No hay issues abiertos para planificar."
     }
   },
   "workers": {

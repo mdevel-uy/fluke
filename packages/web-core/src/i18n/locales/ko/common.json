@@ -991,7 +991,8 @@
       "groupByOptions": {
         "none": "없음",
         "label": "레이블",
-        "milestone": "마일스톤"
+        "milestone": "마일스톤",
+        "execution": "실행 계획"
       },
       "clear": "필터 초기화",
       "noResults": "현재 필터에 맞는 이슈가 없습니다.",
@@ -1018,6 +1019,18 @@
       "archiveTitle": "이슈 보관",
       "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
       "archiveAction": "이슈 닫기"
+    },
+    "execution": {
+      "wave": "웨이브 {{n}}",
+      "parallel": "이슈 {{n}}건을 동시에 배정할 수 있습니다",
+      "single": "이 웨이브에는 이슈가 1건뿐입니다",
+      "unwaved": "웨이브 없음",
+      "unwavedHint": "feature는 있지만 사용할 수 있는 wave: 라벨이 없습니다 — 하나씩 배정하세요",
+      "unclassified": "미분류",
+      "unclassifiedHint": "feature: 라벨이 없습니다 — 계획할 수 없습니다. 하나씩 배정하세요",
+      "contentionTitle": "충돌 중인 직렬화 리소스",
+      "contentionHint": "이 이슈들은 저장소 전역의 동일한 리소스를 요구합니다. 서로 다른 기능이더라도 한 번에 하나의 PR만 열 수 있습니다.",
+      "empty": "계획할 열린 이슈가 없습니다."
     }
   },
   "workers": {

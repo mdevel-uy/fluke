@@ -43,6 +43,7 @@ use uuid::Uuid;
 use crate::services::{
     agent_actions_ingest::{AgentActionDeclaration, IssueRef},
     config::Config,
+    execution_labels,
 };
 
 /// Roll-up of what a drain call did. `pending_remaining > 0` with
@@ -1054,6 +1055,10 @@ async fn run_gh_create_issue(
     milestone_number: Option<i64>,
     pat: Option<&str>,
 ) -> Result<ExecutedAction, ExecutorFailure> {
+    // The REST create endpoint drops unknown labels without failing, which
+    // would strip the `feature:` / `wave:` grouping off a brand-new issue.
+    ensure_labels_exist(owner_repo, labels, pat).await?;
+
     let payload = build_create_issue_payload(title, body, labels, milestone_number);
     let body_bytes =
         serde_json::to_vec(&payload).expect("serde_json cannot fail on this fixed shape");
@@ -1280,12 +1285,97 @@ fn combined_gh_output(output: &std::process::Output) -> String {
 /// in the repo makes `gh` exit with "not found" → [`classify_gh_error`]
 /// tags that as definitive, matching the spec (no on-the-fly label
 /// creation).
+/// Substring (lowercased) `gh label create` prints when the label is already
+/// there. Not an error for our purposes — the postcondition we want ("the
+/// label exists in the repo") already holds.
+const LABEL_ALREADY_EXISTS: &str = "already exists";
+
+/// Create every label in `labels` that the repo does not have yet, so a
+/// subsequent label add / issue create cannot lose it.
+///
+/// Both call sites need this, for different reasons:
+/// - `gh issue edit --add-label` **fails outright** on a label the repo does
+///   not have ("could not add label: 'X' not found"), so the first
+///   `add_labels` declaring a brand-new label would die.
+/// - `POST /repos/{nwo}/issues` is worse: it accepts the `labels` array and
+///   silently **discards** unknown entries, returning 200. The issue comes
+///   back unlabelled and nothing in the run reports it.
+///
+/// Either way a `feature:` / `wave:` label that never lands leaves the issue
+/// invisible to the execution-plan grouping — the silent rot the convention
+/// exists to prevent.
+///
+/// Deliberately NOT `--force`: that would rewrite the colour and description
+/// of labels the repo already owns (`P1`, `backend`, …) on every issue the
+/// analyst creates. We only ever add what is missing.
+///
+/// Failure policy is asymmetric on purpose. A convention label
+/// (`feature:` / `wave:` / `resource:`) that cannot be created fails the
+/// action: the board depends on it and a dropped one corrupts the grouping
+/// silently. Any other label is logged and skipped, so this guard introduces
+/// no new failure mode for labels that were already fire-and-forget.
+async fn ensure_labels_exist(
+    owner_repo: &str,
+    labels: &[String],
+    pat: Option<&str>,
+) -> Result<(), ExecutorFailure> {
+    for label in labels {
+        let name = label.trim();
+        if name.is_empty() {
+            continue;
+        }
+        let color = execution_labels::color_for_label(name);
+        let is_convention = execution_labels::classify(name).is_some();
+        let output = run_gh_with_stdin(
+            &[
+                "label", "create", name, "--repo", owner_repo, "--color", color,
+            ],
+            None,
+            pat,
+        )
+        .await;
+
+        match output {
+            Ok(out) if out.status.success() => {}
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr).to_ascii_lowercase();
+                if stderr.contains(LABEL_ALREADY_EXISTS) {
+                    continue;
+                }
+                if is_convention {
+                    return Err(gh_output_failure("gh label create", &out));
+                }
+                warn!(
+                    owner_repo,
+                    label = name,
+                    "Could not ensure label exists; GitHub may drop it silently"
+                );
+            }
+            Err(failure) => {
+                if is_convention {
+                    return Err(failure);
+                }
+                warn!(
+                    owner_repo,
+                    label = name,
+                    "Could not ensure label exists: {}",
+                    failure.message
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn run_gh_add_labels(
     owner_repo: &str,
     issue_number: i64,
     labels: &[String],
     pat: Option<&str>,
 ) -> Result<ExecutedAction, ExecutorFailure> {
+    // `gh issue edit --add-label` errors on a label the repo does not have.
+    ensure_labels_exist(owner_repo, labels, pat).await?;
+
     let joined = labels.join(",");
     let number_str = issue_number.to_string();
     let output = run_gh_with_stdin(

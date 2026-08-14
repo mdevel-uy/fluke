@@ -993,7 +993,8 @@
       "groupByOptions": {
         "none": "Aucun",
         "label": "Étiquette",
-        "milestone": "Jalon"
+        "milestone": "Jalon",
+        "execution": "Plan d'exécution"
       },
       "clear": "Effacer les filtres",
       "noResults": "Aucun issue ne correspond aux filtres actuels.",
@@ -1020,6 +1021,18 @@
       "archiveTitle": "Archiver l'issue",
       "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
       "archiveAction": "Fermer l'issue"
+    },
+    "execution": {
+      "wave": "Vague {{n}}",
+      "parallel": "{{n}} tickets peuvent être assignés en même temps",
+      "single": "Un seul ticket dans cette vague",
+      "unwaved": "Sans vague",
+      "unwavedHint": "Possède un feature mais pas d'étiquette wave: exploitable — à assigner un par un",
+      "unclassified": "Non classé",
+      "unclassifiedHint": "Pas d'étiquette feature: — impossible à planifier ; à assigner un par un",
+      "contentionTitle": "Ressources sérialisées en conflit",
+      "contentionHint": "Ces tickets réclament la même ressource globale du dépôt. Une seule PR ouverte à la fois, même entre features différentes.",
+      "empty": "Aucun ticket ouvert à planifier."
     }
   },
   "workers": {
