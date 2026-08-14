@@ -44,6 +44,27 @@ pub enum GitCliError {
 #[derive(Clone, Default)]
 pub struct GitCli;
 
+/// Environment for the commands that talk to a remote.
+///
+/// Beyond suppressing the credential prompt, this bounds a stalled transfer:
+/// git has no wall-clock timeout and `git_impl` waits on the child with no
+/// deadline, so without the low-speed abort a fetch against an unresponsive
+/// remote pins its thread indefinitely. Anything moving less than 1 KiB/s for
+/// a full minute is treated as dead.
+fn network_envs() -> Vec<(OsString, OsString)> {
+    vec![
+        (OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0")),
+        (
+            OsString::from("GIT_HTTP_LOW_SPEED_LIMIT"),
+            OsString::from("1024"),
+        ),
+        (
+            OsString::from("GIT_HTTP_LOW_SPEED_TIME"),
+            OsString::from("60"),
+        ),
+    ]
+}
+
 /// Parsed change type from `git diff --name-status` output
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChangeType {
@@ -377,7 +398,7 @@ impl GitCli {
         remote_url: &str,
         refspec: &str,
     ) -> Result<(), GitCliError> {
-        let envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
+        let envs = network_envs();
 
         let args = [
             OsString::from("fetch"),
@@ -431,7 +452,7 @@ impl GitCli {
         } else {
             format!("refs/heads/{branch}:refs/heads/{remote_branch}")
         };
-        let envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
+        let envs = network_envs();
 
         let mut args: Vec<OsString> = Vec::with_capacity(6);
         if let Some(token) = token.filter(|t| !t.is_empty()) {
@@ -462,7 +483,7 @@ impl GitCli {
         remote_url: &str,
         branch_name: &str,
     ) -> Result<bool, GitCliError> {
-        let envs = vec![(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"))];
+        let envs = network_envs();
 
         let args = [
             OsString::from("ls-remote"),

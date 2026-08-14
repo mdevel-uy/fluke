@@ -307,6 +307,11 @@ impl Deployment for LocalDeployment {
             .await;
         }
 
+        // Refresco de refs remote-tracking. Saca el `git fetch` del handler de
+        // branch-status, que lo corría inline y bloqueaba los worker threads
+        // del runtime en cada poll de la UI.
+        services::services::repo_fetch::spawn(db.clone(), git.clone());
+
         // Heartbeat al control plane (fase 5b). Opt-in: no hace nada sin
         // MKANBAN_CONTROL_PLANE_URL, así que la flota actual no reporta a ningún
         // lado hasta que se configure.

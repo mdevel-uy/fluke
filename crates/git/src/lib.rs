@@ -1020,6 +1020,13 @@ impl GitService {
         Ok(Commit::new(oid))
     }
 
+    /// Ahead/behind after refreshing the remote-tracking refs from the network.
+    ///
+    /// Blocking and network-bound. Never call this from an async request
+    /// handler: it shells out to `git fetch` and holds the calling thread for
+    /// the whole round-trip, which on a small host is enough to stall the
+    /// runtime. Handlers want [`Self::get_remote_branch_status_cached`], kept
+    /// fresh by the `repo_fetch` service.
     pub fn get_remote_branch_status(
         &self,
         repo_path: &Path,
@@ -1038,6 +1045,31 @@ impl GitService {
         .into_reference();
         let remote = self.get_remote_from_branch_ref(&repo, &base_branch_ref)?;
         self.fetch_all_from_remote(&repo, &remote)?;
+        self.get_branch_status_inner(&repo, &branch_ref, &base_branch_ref)
+    }
+
+    /// Ahead/behind against the remote-tracking refs already on disk.
+    ///
+    /// Unlike [`Self::get_remote_branch_status`] this never touches the
+    /// network, which is what makes it safe to call from a request handler:
+    /// the fetch it skips shells out to `git` and blocks the calling thread
+    /// for the whole round-trip. The `repo_fetch` service refreshes those
+    /// refs in the background instead.
+    pub fn get_remote_branch_status_cached(
+        &self,
+        repo_path: &Path,
+        branch_name: &str,
+        base_branch_name: Option<&str>,
+    ) -> Result<(usize, usize), GitServiceError> {
+        let repo = Repository::open(repo_path)?;
+        let branch_ref = Self::find_branch(&repo, branch_name)?.into_reference();
+        let base_branch_ref = if let Some(bn) = base_branch_name {
+            Self::find_branch(&repo, bn)?
+        } else {
+            repo.find_branch(branch_name, BranchType::Local)?
+                .upstream()?
+        }
+        .into_reference();
         self.get_branch_status_inner(&repo, &branch_ref, &base_branch_ref)
     }
 
@@ -2039,6 +2071,10 @@ impl GitService {
     /// Returns an error if there is no default remote or the fetch itself
     /// fails; the branch selector endpoint treats any failure as a
     /// non-fatal miss (see `get_repo_branches` in the server crate).
+    ///
+    /// Also the periodic refresh behind [`Self::get_remote_branch_status_cached`]:
+    /// the `repo_fetch` service calls this on a timer so the status poll can
+    /// read ahead/behind off disk instead of fetching inside the handler.
     pub fn fetch_default_remote_branches(&self, repo_path: &Path) -> Result<(), GitServiceError> {
         let remote = self.get_default_remote(repo_path)?;
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote.name);
