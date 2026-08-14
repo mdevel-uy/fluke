@@ -1008,7 +1008,8 @@
       "groupByOptions": {
         "none": "None",
         "label": "Label",
-        "milestone": "Milestone"
+        "milestone": "Milestone",
+        "execution": "Execution plan"
       },
       "clear": "Clear filters",
       "noResults": "No issues match the current filters.",
@@ -1035,6 +1036,18 @@
       "archiveTitle": "Archive issue",
       "archiveConfirm": "Close issue #{{number}} on GitHub? This will move it to the Closed filter.",
       "archiveAction": "Close issue"
+    },
+    "execution": {
+      "wave": "Wave {{n}}",
+      "parallel": "{{n}} issues can be handed out at the same time",
+      "single": "Single issue in this wave",
+      "unwaved": "No wave",
+      "unwavedHint": "Has a feature but no usable wave: label — hand these out one at a time",
+      "unclassified": "Unclassified",
+      "unclassifiedHint": "No feature: label — cannot be planned; hand these out one at a time",
+      "contentionTitle": "Serialized resources in contention",
+      "contentionHint": "These issues claim the same repo-wide resource. Only one open PR at a time, even across different features.",
+      "empty": "No open issues to plan."
     }
   },
   "workers": {

@@ -10,7 +10,7 @@ export type IssueStateFilter =
   | 'closed'
   | IssueTaskStatusFilter;
 export type IssuePriorityFilter = 'urgent' | 'high' | 'medium' | 'low';
-export type IssueGroupBy = 'none' | 'label' | 'milestone';
+export type IssueGroupBy = 'none' | 'label' | 'milestone' | 'execution';
 
 export interface IssueFilters {
   search: string;
@@ -55,7 +55,12 @@ const TASK_STATUSES: IssueTaskStatusFilter[] = [
   'in_review',
 ];
 const PRIORITIES: IssuePriorityFilter[] = ['urgent', 'high', 'medium', 'low'];
-const GROUP_BY_OPTIONS: IssueGroupBy[] = ['none', 'label', 'milestone'];
+const GROUP_BY_OPTIONS: IssueGroupBy[] = [
+  'none',
+  'execution',
+  'label',
+  'milestone',
+];
 
 /** Maps the issue list's filters onto the shared `FilterBar`. */
 export function IssuesToolbar({

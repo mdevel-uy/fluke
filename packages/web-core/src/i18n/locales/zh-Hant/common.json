@@ -991,7 +991,8 @@
       "groupByOptions": {
         "none": "不分組",
         "label": "標籤",
-        "milestone": "里程碑"
+        "milestone": "里程碑",
+        "execution": "執行計畫"
       },
       "clear": "清除篩選",
       "noResults": "沒有 Issue 符合目前的篩選條件。",
@@ -1018,6 +1019,18 @@
       "archiveTitle": "封存 Issue",
       "archiveConfirm": "在 GitHub 上關閉 Issue #{{number}}？它將移至已關閉篩選器。",
       "archiveAction": "關閉 Issue"
+    },
+    "execution": {
+      "wave": "第 {{n}} 波",
+      "parallel": "{{n}} 個議題可以同時指派",
+      "single": "本波僅有一個議題",
+      "unwaved": "無波次",
+      "unwavedHint": "有 feature 但沒有可用的 wave: 標籤 — 請逐一指派",
+      "unclassified": "未分類",
+      "unclassifiedHint": "沒有 feature: 標籤 — 無法規劃；請逐一指派",
+      "contentionTitle": "存在爭用的序列化資源",
+      "contentionHint": "這些議題占用同一個儲存庫層級的資源。即使屬於不同功能，同一時間也只能有一個開啟的 PR。",
+      "empty": "沒有可規劃的開啟議題。"
     }
   },
   "workers": {

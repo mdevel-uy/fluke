@@ -9,6 +9,14 @@ const TH_CLASS = 'px-3 text-left font-sans text-label uppercase text-low';
 interface IssuesGroupProps {
   title: string;
   count: number;
+  /**
+   * Optional caption under the title. The execution-plan grouping uses it to
+   * state what the group promises ("these run in parallel") or why it does
+   * not promise anything ("unlabelled — hand out one at a time").
+   */
+  subtitle?: string;
+  /** Renders the subtitle in the warning tone. Groups that cannot be planned. */
+  warning?: boolean;
   issues: RepoIssue[];
   repoId: string | undefined;
   taskByIssueNumber: Map<number, WorkerTask>;
@@ -22,6 +30,8 @@ interface IssuesGroupProps {
 export function IssuesGroup({
   title,
   count,
+  subtitle,
+  warning = false,
   issues,
   repoId,
   taskByIssueNumber,
@@ -37,11 +47,25 @@ export function IssuesGroup({
 
   return (
     <section className="mx-6 flex flex-col gap-2">
-      <header className="flex items-center gap-2 px-1">
-        <h3 className="font-sans text-label uppercase text-normal">{title}</h3>
-        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-semibold tabular-nums text-on-brand">
-          {count}
-        </span>
+      <header className="flex flex-col gap-0.5 px-1">
+        <div className="flex items-center gap-2">
+          <h3 className="font-sans text-label uppercase text-normal">
+            {title}
+          </h3>
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-semibold tabular-nums text-on-brand">
+            {count}
+          </span>
+        </div>
+        {subtitle && (
+          <p
+            className={cn(
+              'text-xs',
+              warning ? 'text-md-error' : 'text-md-on-surface-variant'
+            )}
+          >
+            {subtitle}
+          </p>
+        )}
       </header>
       <div className="overflow-hidden rounded-lg border border-border bg-primary">
         <table className="w-full table-fixed border-collapse">

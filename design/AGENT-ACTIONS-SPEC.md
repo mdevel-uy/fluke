@@ -102,9 +102,21 @@ repo dentro de su worktree (mismo lugar y mismo fallback de cwd que
   identidad del server. `resolve_review_thread.thread_id` es el node ID
   GraphQL opaco del hilo (la REST no expone endpoint para resolver hilos),
   y el kind se trata como idempotente: si el hilo ya estaba resuelto la
-  acción cierra `done`. `add_labels` sobre un label inexistente y
-  `update_issue` con `title=None` y `body=None` a la vez son fallos
-  definitivos (nunca infra-retry).
+  acción cierra `done`. `update_issue` con `title=None` y `body=None` a la
+  vez es un fallo definitivo (nunca infra-retry).
+- **Cambio post-F3 — un label inexistente se crea, ya no falla.** F3 definía
+  `add_labels` sobre un label inexistente como fallo definitivo. Eso vuelve
+  imposible arrancar la convención de labels de ejecución
+  (`feature:` / `wave:` / `resource:`), donde cada slug de feature y cada
+  número de wave es una etiqueta nueva: el primer `add_labels` de cada
+  feature moriría. Ahora `ensure_labels_exist` crea en el repo lo que falta
+  antes de aplicar, tanto en `add_labels` como en `create_issue` (que además
+  no fallaba sino que descartaba los labels desconocidos en silencio). Se
+  alinea con `RepoIssuesService::add_label`, el camino de la UI, que ya
+  auto-creaba. Nunca usa `--force`, así que jamás repinta un label existente.
+  Si la creación falla, la acción falla sólo cuando el label es de la
+  convención —el board depende de él—; con cualquier otro se loguea y sigue,
+  que es el comportamiento previo.
 
 ## Tabla `agent_actions`
 

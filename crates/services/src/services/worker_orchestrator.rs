@@ -197,15 +197,17 @@ summary listing the issues you created.";
 /// of falling back to `gh issue comment`.
 pub const ANALYST_ACTIONS_JSON_CONTRACT: &str = r#"[AGENT ACTIONS — write operations go through `.vk/actions.json`, NOT `gh`]
 
-Do NOT execute the `gh` write commands that already have an outbox kind below (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue comment`, `gh pr comment`). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo. GitHub writes without an outbox kind yet (e.g. `gh issue edit`) may keep using `gh` transitionally until a kind is added.
+Do NOT execute the `gh` write commands that already have an outbox kind below (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue comment`, `gh issue edit`, `gh pr comment`). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo. GitHub writes without an outbox kind yet may keep using `gh` transitionally until a kind is added.
 
-`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. The kinds below are the COMPLETE outbox catalog — every kind the drain accepts today, not only the newest:
+`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. Below is every kind available to you — the drain also accepts `resolve_review_thread`, which belongs to the reviewer role and is not yours to declare:
 
 {
   "actions": [
     { "kind": "create_milestone", "title": "...", "description": "..." },
     { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
     { "kind": "comment_issue", "issue": "{{action[1].number}}", "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
+    { "kind": "add_labels", "issue": 456, "labels": ["feature:rss-v1", "wave:2"] },
+    { "kind": "update_issue", "issue": 456, "title": "new title (omit to leave unchanged)", "body": "new body (omit to leave unchanged)" },
     { "kind": "close_issue", "issue": 456, "reason": "completed" },
     { "kind": "comment_pr", "pr": 789, "body": "..." }
   ]
@@ -214,10 +216,58 @@ Do NOT execute the `gh` write commands that already have an outbox kind below (`
 Placeholders — reference the result of an earlier action by its 0-indexed position in the array:
   * `{{action[N].number}}` — number of the resource created by action N (milestone number, issue number).
   * `{{action[N].url}}` — URL of the resource created by action N.
-The `issue` field of `comment_issue` / `close_issue` and the `milestone` field of `create_issue` accept either a literal number (`"issue": 123`) or a `{{action[N].number}}` placeholder — use the placeholder to target an issue you create in the same run (e.g. the plan comment on your first created issue). `pr` is always a literal number.
+The `issue` field of `comment_issue` / `close_issue` / `add_labels` / `update_issue` and the `milestone` field of `create_issue` accept either a literal number (`"issue": 123`) or a `{{action[N].number}}` placeholder — use the placeholder to target an issue you create in the same run (e.g. the plan comment on your first created issue). `pr` is always a literal number.
 Only BACK references are allowed: `N` must be strictly less than the index of the action that uses the placeholder. Forward references and self-references fail the ingest.
 
 `labels` defaults to `[]` and `milestone` is optional (omit it or use `null` when the issue does not belong to a milestone). Emit the file only if you have write operations to declare; a run with no writes should leave `.vk/actions.json` absent."#;
+
+/// Analyst-only appendix: the execution-label convention.
+///
+/// The whole "which issues can run in parallel" feature is this text plus a
+/// grouped view. There is no dependency graph in the database and no inference
+/// engine: the analyst is the only actor that knows the dependency structure
+/// at the moment it writes the issues, so it encodes that knowledge as two
+/// GitHub labels and the board just groups by them.
+///
+/// Deliberately verbose about the four same-wave conditions. An analyst that
+/// only checks "is there a dependency?" reproduces the 14-ago-2026 RAGaaS
+/// finding: two issues that share no file and no dependency still collided at
+/// merge over an undecided enum discriminator. Condition 4 exists for that.
+pub const ANALYST_EXECUTION_LABELS_CONTRACT: &str = r#"[EXECUTION LABELS — every issue you create MUST carry `feature:` and `wave:`]
+
+A human reads the backlog grouped by these labels to decide which issues to hand to workers in parallel. You are the only actor who knows the dependency structure at the moment you write the issues, so you encode it here. An issue missing these labels cannot be planned: the board shows it apart and it gets run alone.
+
+Emit them in the `labels` array of `create_issue`. Labels that do not exist in the repo yet are created automatically — do not call `gh label create`. To tag an issue that already exists (including issues a human wrote), use the `add_labels` action.
+
+`feature:<slug>` — REQUIRED. One kebab-case slug per coherent body of work, stable across your whole run (e.g. `feature:rss-v1`). Every issue of that effort carries the same slug, including pre-existing issues that belong to it — tag those with `add_labels`.
+
+`wave:<n>` — REQUIRED. Execution order WITHIN the feature, starting at `wave:0`. Wave N may start only once every wave lower than N of the same feature is MERGED.
+
+  What a wave means, and it is the only thing that matters: two issues with the same `feature:` AND the same `wave:` will be handed to two different workers AT THE SAME TIME. Put two issues in the same wave only if ALL FOUR of these hold:
+    1. Neither needs the other's code to exist.
+    2. They do not modify the same file.
+    3. They do not both consume the same serialized resource (see `resource:`).
+    4. There is no decision shared between them still open — the shape of a payload, the name of an enum variant, the signature of something both will call. If that decision is unsettled, they are NOT the same wave even when 1-3 hold. Settling it is what the earlier wave is for.
+
+  When unsure about any of the four, give the issue a wave of its own. A wave of one is always correct; a wave of two that was wrong is only discovered at merge, after both workers have already written the code.
+
+  The numbers are relative order, not a count: gaps are fine, and two features number their waves independently. NEVER renumber an issue that already exists — other issues are already labelled relative to those numbers.
+
+`resource:<slug>` — OPTIONAL, and the only label that CROSSES features. Apply it when the issue consumes a repo-global resource that exactly one PR can hold at a time, no matter which feature it belongs to. The canonical case is migration numbering: two issues from two unrelated features that each add a migration will both derive "latest + 1" and collide. Others: a dependency lockfile, a generated types file, a shared enum both extend.
+  REUSE the exact slug already in use elsewhere in the repo — check with `gh issue list --label resource:...` or `gh label list` first. `resource:db-migration` and `resource:migration-number` are two different resources as far as the board is concerned, which defeats the point.
+
+Worked example — a feature whose second wave is gated by a decision the first wave makes:
+{
+  "actions": [
+    { "kind": "create_issue", "title": "Generalise the credit ledger", "body": "...", "labels": ["feature:billing-v2", "wave:0", "resource:db-migration", "P1"] },
+    { "kind": "create_issue", "title": "Minute packs", "body": "...", "labels": ["feature:billing-v2", "wave:1", "resource:db-migration", "P1"] },
+    { "kind": "create_issue", "title": "Retention enforcement", "body": "...", "labels": ["feature:billing-v2", "wave:1", "P2"] },
+    { "kind": "add_labels", "issue": 84, "labels": ["feature:billing-v2", "wave:1"] }
+  ]
+}
+The two `wave:1` issues run together: different files, neither needs the other, and the ledger discriminator they both read was settled by `wave:0`. Only `Minute packs` claims `resource:db-migration` in that wave — had `Retention enforcement` also added a migration, the two could NOT share a wave, by condition 3. The `add_labels` entry pulls issue 84, written by a human weeks earlier, into the same feature so it stops being invisible to the plan.
+
+Parallelism ACROSS features is not your concern — two issues of different features are two developers working side by side. `resource:` is the only thing that crosses that line."#;
 
 /// Role framing for designer workers: produce a design artifact, not code.
 /// The deliverable is one or more HTML files committed inside the worktree —
@@ -4698,6 +4748,11 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
     if role == ROLE_ANALYST {
         prompt.push_str("\n\n---\n\n");
         prompt.push_str(ANALYST_ACTIONS_JSON_CONTRACT);
+        // Follows the outbox contract rather than preceding it: the label
+        // convention is a refinement of `create_issue.labels`, so it must be
+        // read with the outbox mechanics already in hand.
+        prompt.push_str("\n\n---\n\n");
+        prompt.push_str(ANALYST_EXECUTION_LABELS_CONTRACT);
     }
     prompt
 }
@@ -4712,6 +4767,10 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    // Ties the prompt text to the parser's prefixes: if one side renames a
+    // label family, the prompt assertions fail instead of the convention
+    // silently splitting in two.
+    use crate::services::execution_labels;
 
     /// The finalizing-guard is the entire mechanism that hides the "stalled"
     /// flash while the orchestrator publishes the PR (issue #494): if it stops
@@ -4870,9 +4929,74 @@ mod tests {
             role_pos < contract_pos,
             "actions.json contract must be appended AFTER the analyst role framing"
         );
-        // And it must be the last thing in the prompt so no later text can
-        // walk it back.
-        assert!(prompt.trim_end().ends_with("absent."));
+        // Only the execution-label contract may follow it. That one refines
+        // `create_issue.labels` rather than competing with the outbox
+        // mechanics, so it cannot walk the contract back — anything else
+        // appended here would.
+        let labels_pos = prompt
+            .find("[EXECUTION LABELS")
+            .expect("execution labels contract present");
+        assert!(
+            contract_pos < labels_pos,
+            "labels contract must come after the outbox contract it refines"
+        );
+        assert!(prompt.trim_end().ends_with("crosses that line."));
+    }
+
+    /// The label convention IS the execution-graph feature: there is no
+    /// dependency table and no inference, so anything the analyst fails to
+    /// emit here is information the board can never recover. These assertions
+    /// pin the parts that carry meaning, not the prose around them.
+    #[test]
+    fn analyst_prompt_appends_execution_labels_contract() {
+        let prompt = build_worker_prompt("soul", "do it", "main", ROLE_ANALYST);
+
+        // The three label families, with the exact prefixes the parsers use.
+        assert!(prompt.contains(execution_labels::FEATURE_PREFIX));
+        assert!(prompt.contains(execution_labels::WAVE_PREFIX));
+        assert!(prompt.contains(execution_labels::RESOURCE_PREFIX));
+
+        // All four same-wave conditions must be spelled out. An analyst that
+        // checks only "is there a dependency?" reproduces the 14-ago-2026
+        // finding: two issues sharing no file and no dependency still
+        // collided over an undecided enum discriminator.
+        for condition in [
+            "Neither needs the other's code",
+            "do not modify the same file",
+            "same serialized resource",
+            "no decision shared between them still open",
+        ] {
+            assert!(
+                prompt.contains(condition),
+                "same-wave condition missing from the contract: {condition}"
+            );
+        }
+
+        // The conservative default, and the numbering rule that keeps already
+        // labelled issues valid.
+        assert!(prompt.contains("give the issue a wave of its own"));
+        assert!(prompt.contains("NEVER renumber"));
+
+        // `resource:` is the only cross-feature signal; if the prompt stops
+        // saying so, the migration-collision case silently comes back.
+        assert!(prompt.contains("the only label that CROSSES features"));
+
+        // The mechanism: labels ride on `create_issue`, and `add_labels`
+        // covers issues the analyst did not create.
+        assert!(prompt.contains("add_labels"));
+    }
+
+    /// Same rationale as the outbox contract: only analysts create issues, so
+    /// only analysts get the labelling rules.
+    #[test]
+    fn execution_labels_contract_is_analyst_only() {
+        for role in [ROLE_DEVELOPER, ROLE_REVIEWER, ROLE_DESIGNER] {
+            let prompt = build_worker_prompt("soul", "do it", "main", role);
+            assert!(
+                !prompt.contains("[EXECUTION LABELS"),
+                "role {role} must not receive the execution labels contract"
+            );
+        }
     }
 
     /// The `.vk/actions.json` contract is analyst-only: no other role gets a
@@ -5828,6 +5952,7 @@ mod tests {
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
                 source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
             },
         )
         .await
@@ -6909,6 +7034,37 @@ mod tests {
                 _owner_repo: &str,
                 _issue: i64,
                 _reason: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn add_labels(
+                &self,
+                _owner_repo: &str,
+                _issue: i64,
+                _labels: &[String],
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn resolve_review_thread(
+                &self,
+                _owner_repo: &str,
+                _pr_number: i64,
+                _thread_id: &str,
+                _pat: Option<&str>,
+            ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
+            {
+                unreachable!("summary comment only posts comment_pr")
+            }
+            async fn update_issue(
+                &self,
+                _owner_repo: &str,
+                _issue: i64,
+                _title: Option<&str>,
+                _body: Option<&str>,
                 _pat: Option<&str>,
             ) -> Result<agent_actions_drain::ExecutedAction, agent_actions_drain::ExecutorFailure>
             {

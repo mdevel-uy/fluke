@@ -991,7 +991,8 @@
       "groupByOptions": {
         "none": "不分组",
         "label": "标签",
-        "milestone": "里程碑"
+        "milestone": "里程碑",
+        "execution": "执行计划"
       },
       "clear": "清除筛选",
       "noResults": "没有 Issue 符合当前筛选条件。",
@@ -1018,6 +1019,18 @@
       "archiveTitle": "归档 Issue",
       "archiveConfirm": "在 GitHub 上关闭 Issue #{{number}}？它将移至已关闭筛选器。",
       "archiveAction": "关闭 Issue"
+    },
+    "execution": {
+      "wave": "第 {{n}} 波",
+      "parallel": "{{n}} 个问题可以同时分配",
+      "single": "本波仅有一个问题",
+      "unwaved": "无波次",
+      "unwavedHint": "有 feature 但没有可用的 wave: 标签 — 请逐个分配",
+      "unclassified": "未分类",
+      "unclassifiedHint": "没有 feature: 标签 — 无法规划；请逐个分配",
+      "contentionTitle": "存在争用的串行资源",
+      "contentionHint": "这些问题占用同一个仓库级资源。即使属于不同功能，同一时间也只能有一个开启的 PR。",
+      "empty": "没有可规划的开启问题。"
     }
   },
   "workers": {
