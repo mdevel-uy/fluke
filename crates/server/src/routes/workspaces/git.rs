@@ -422,132 +422,145 @@ pub async fn get_workspace_branch_status(
     // the full map once so per-repo lookups below stay in-memory.
     let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
 
-    let mut results = Vec::with_capacity(repositories.len());
+    // Everything below is synchronous libgit2 / git-CLI work, so it runs on
+    // the blocking pool instead of a runtime worker. This handler is polled
+    // every 5s per open workspace and every 15s per active one; on a 2-core
+    // host the runtime has only two workers, and blocking them stalls the
+    // entire server, SSE included.
+    let results = tokio::task::spawn_blocking(
+        move || -> Result<Vec<RepoBranchStatus>, GitServiceError> {
+            let mut results = Vec::with_capacity(repositories.len());
 
-    for repo in repositories {
-        let Some(target_branch) = target_branches.get(&repo.id).cloned() else {
-            continue;
-        };
+            for repo in repositories {
+                let Some(target_branch) = target_branches.get(&repo.id).cloned() else {
+                    continue;
+                };
 
-        let repo_merges = merges_by_repo.get(&repo.id).cloned().unwrap_or_default();
-        let worktree_path = workspace_dir.as_ref().map(|d| d.join(&repo.name));
+                let repo_merges = merges_by_repo.get(&repo.id).cloned().unwrap_or_default();
+                let worktree_path = workspace_dir.as_ref().map(|d| d.join(&repo.name));
 
-        let head_oid = worktree_path
-            .as_ref()
-            .and_then(|p| deployment.git().get_head_info(p).ok().map(|h| h.oid));
+                let head_oid = worktree_path
+                    .as_ref()
+                    .and_then(|p| deployment.git().get_head_info(p).ok().map(|h| h.oid));
 
-        let (is_rebase_in_progress, conflicted_files, conflict_op) =
-            match worktree_path.as_ref() {
-                Some(p) => {
-                    let in_rebase =
-                        deployment.git().is_rebase_in_progress(p).unwrap_or(false);
-                    let conflicts = deployment
-                        .git()
-                        .get_conflicted_files(p)
-                        .unwrap_or_default();
-                    let op = if conflicts.is_empty() {
-                        None
-                    } else {
-                        deployment.git().detect_conflict_op(p).unwrap_or(None)
+                let (is_rebase_in_progress, conflicted_files, conflict_op) =
+                    match worktree_path.as_ref() {
+                        Some(p) => {
+                            let in_rebase =
+                                deployment.git().is_rebase_in_progress(p).unwrap_or(false);
+                            let conflicts = deployment
+                                .git()
+                                .get_conflicted_files(p)
+                                .unwrap_or_default();
+                            let op = if conflicts.is_empty() {
+                                None
+                            } else {
+                                deployment.git().detect_conflict_op(p).unwrap_or(None)
+                            };
+                            (in_rebase, conflicts, op)
+                        }
+                        None => (false, Vec::new(), None),
                     };
-                    (in_rebase, conflicts, op)
-                }
-                None => (false, Vec::new(), None),
-            };
 
-        let (uncommitted_count, untracked_count) = match worktree_path
-            .as_ref()
-            .map(|p| deployment.git().get_worktree_change_counts(p))
-        {
-            Some(Ok((a, b))) => (Some(a), Some(b)),
-            _ => (None, None),
-        };
+                let (uncommitted_count, untracked_count) = match worktree_path
+                    .as_ref()
+                    .map(|p| deployment.git().get_worktree_change_counts(p))
+                {
+                    Some(Ok((a, b))) => (Some(a), Some(b)),
+                    _ => (None, None),
+                };
 
-        let has_uncommitted_changes = uncommitted_count.map(|c| c > 0);
+                let has_uncommitted_changes = uncommitted_count.map(|c| c > 0);
 
-        let is_target_remote = deployment
-            .git()
-            .is_remote_branch(&repo.path, &target_branch)?;
+                let is_target_remote = deployment
+                    .git()
+                    .is_remote_branch(&repo.path, &target_branch)?;
 
-        // The branch itself may not exist yet for a queued workspace —
-        // ahead/behind stays null rather than erroring the whole poll.
-        let (commits_ahead, commits_behind) = if workspace_dir.is_none() {
-            (None, None)
-        } else if is_target_remote {
-            match deployment.git().get_remote_branch_status(
-                &repo.path,
-                &workspace.branch,
-                Some(&target_branch),
-            ) {
-                Ok((ahead, behind)) => (Some(ahead), Some(behind)),
-                Err(_) => (None, None),
-            }
-        } else {
-            match deployment.git().get_branch_status(
-                &repo.path,
-                &workspace.branch,
-                &target_branch,
-            ) {
-                Ok((a, b)) => (Some(a), Some(b)),
-                Err(_) => (None, None),
-            }
-        };
+                // The branch itself may not exist yet for a queued workspace —
+                // ahead/behind stays null rather than erroring the whole poll.
+                let (commits_ahead, commits_behind) = if workspace_dir.is_none() {
+                    (None, None)
+                } else if is_target_remote {
+                    match deployment.git().get_remote_branch_status_cached(
+                        &repo.path,
+                        &workspace.branch,
+                        Some(&target_branch),
+                    ) {
+                        Ok((ahead, behind)) => (Some(ahead), Some(behind)),
+                        Err(_) => (None, None),
+                    }
+                } else {
+                    match deployment.git().get_branch_status(
+                        &repo.path,
+                        &workspace.branch,
+                        &target_branch,
+                    ) {
+                        Ok((a, b)) => (Some(a), Some(b)),
+                        Err(_) => (None, None),
+                    }
+                };
 
-        let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {
-            pr_info:
-                PullRequestInfo {
-                    status: MergeStatus::Open,
+                let (remote_ahead, remote_behind) = if let Some(Merge::Pr(PrMerge {
+                    pr_info:
+                        PullRequestInfo {
+                            status: MergeStatus::Open,
+                            ..
+                        },
                     ..
-                },
-            ..
-        })) = repo_merges.first()
-        {
-            match deployment
-                .git()
-                .get_remote_branch_status(&repo.path, &workspace.branch, None)
-            {
-                Ok((ahead, behind)) => (Some(ahead), Some(behind)),
-                Err(_) => (None, None),
-            }
-        } else {
-            (None, None)
-        };
+                })) = repo_merges.first()
+                {
+                    match deployment
+                        .git()
+                        .get_remote_branch_status_cached(&repo.path, &workspace.branch, None)
+                    {
+                        Ok((ahead, behind)) => (Some(ahead), Some(behind)),
+                        Err(_) => (None, None),
+                    }
+                } else {
+                    (None, None)
+                };
 
-        let pr_ci_status = repo_merges.iter().find_map(|m| match m {
-            Merge::Pr(PrMerge {
-                pr_info:
-                    PullRequestInfo {
-                        status: MergeStatus::Open,
-                        url,
+                let pr_ci_status = repo_merges.iter().find_map(|m| match m {
+                    Merge::Pr(PrMerge {
+                        pr_info:
+                            PullRequestInfo {
+                                status: MergeStatus::Open,
+                                url,
+                                ..
+                            },
                         ..
-                    },
-                ..
-            }) => ci_status_by_url.get(url).cloned(),
-            _ => None,
-        });
+                    }) => ci_status_by_url.get(url).cloned(),
+                    _ => None,
+                });
 
-        results.push(RepoBranchStatus {
-            repo_id: repo.id,
-            repo_name: repo.name,
-            status: BranchStatus {
-                commits_ahead,
-                commits_behind,
-                has_uncommitted_changes,
-                head_oid,
-                uncommitted_count,
-                untracked_count,
-                remote_commits_ahead: remote_ahead,
-                remote_commits_behind: remote_behind,
-                merges: repo_merges,
-                target_branch_name: target_branch,
-                is_rebase_in_progress,
-                conflict_op,
-                conflicted_files,
-                is_target_remote,
-                pr_ci_status,
-            },
-        });
-    }
+                results.push(RepoBranchStatus {
+                    repo_id: repo.id,
+                    repo_name: repo.name,
+                    status: BranchStatus {
+                        commits_ahead,
+                        commits_behind,
+                        has_uncommitted_changes,
+                        head_oid,
+                        uncommitted_count,
+                        untracked_count,
+                        remote_commits_ahead: remote_ahead,
+                        remote_commits_behind: remote_behind,
+                        merges: repo_merges,
+                        target_branch_name: target_branch,
+                        is_rebase_in_progress,
+                        conflict_op,
+                        conflicted_files,
+                        is_target_remote,
+                        pr_ci_status,
+                    },
+                });
+            }
+
+            Ok(results)
+        },
+    )
+    .await
+    .map_err(|e| ApiError::BadRequest(format!("Branch status failed: {e}")))??;
 
     Ok(ResponseJson(ApiResponse::success(results)))
 }

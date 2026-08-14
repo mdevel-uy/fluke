@@ -33,6 +33,7 @@ pub mod queued_message;
 pub mod remote_client;
 pub mod remote_sync;
 pub mod repo;
+pub mod repo_fetch;
 pub mod repo_issues;
 pub mod territory;
 pub mod worker_orchestrator;
