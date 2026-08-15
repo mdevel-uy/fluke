@@ -1,13 +1,43 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use sqlx::{
     ConnectOptions, Error, Pool, Sqlite, SqlitePool,
     migrate::MigrateError,
-    sqlite::{SqliteConnectOptions, SqliteConnection, SqliteJournalMode, SqlitePoolOptions},
+    sqlite::{
+        SqliteConnectOptions, SqliteConnection, SqliteJournalMode, SqlitePoolOptions,
+        SqliteSynchronous,
+    },
 };
 use utils::assets::asset_dir;
 
 pub mod models;
+
+/// Cuánto espera una conexión a que se libere el lock de escritura antes de
+/// devolver `SQLITE_BUSY`.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Opciones de conexión compartidas por todos los pools.
+///
+/// WAL deja que los lectores no bloqueen al escritor ni el escritor a los
+/// lectores. Con `DELETE` cada transacción reescribe el journal y serializa
+/// todo el acceso al archivo, así que bajo presión de I/O los pollers
+/// (pr_monitor, stuck_task_detector, repo_fetch, diff_stream) se apilan sobre
+/// la DB y los acquires pasan de milisegundos a decenas de segundos.
+///
+/// `synchronous = NORMAL` es el acompañante habitual de WAL: sigue siendo
+/// seguro ante una caída del proceso y evita un fsync por commit.
+fn connect_options() -> Result<SqliteConnectOptions, Error> {
+    let database_url = format!(
+        "sqlite://{}",
+        asset_dir().join("db.v2.sqlite").to_string_lossy()
+    );
+
+    Ok(SqliteConnectOptions::from_str(&database_url)?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal)
+        .busy_timeout(BUSY_TIMEOUT))
+}
 
 async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), Error> {
     use std::collections::HashSet;
@@ -74,27 +104,14 @@ pub struct DBService {
 
 impl DBService {
     pub async fn new() -> Result<DBService, Error> {
-        let database_url = format!(
-            "sqlite://{}",
-            asset_dir().join("db.v2.sqlite").to_string_lossy()
-        );
-        let options = SqliteConnectOptions::from_str(&database_url)?
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Delete);
+        let options = connect_options()?;
         let pool = SqlitePool::connect_with(options).await?;
         run_migrations(&pool).await?;
         Ok(DBService { pool })
     }
 
     pub async fn new_migration_pool() -> Result<Pool<Sqlite>, Error> {
-        let database_url = format!(
-            "sqlite://{}",
-            asset_dir().join("db.v2.sqlite").to_string_lossy()
-        );
-        let options = SqliteConnectOptions::from_str(&database_url)?
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Delete)
-            .disable_statement_logging();
+        let options = connect_options()?.disable_statement_logging();
         SqlitePoolOptions::new()
             .max_connections(64)
             .connect_with(options)
@@ -125,13 +142,7 @@ impl DBService {
             + Sync
             + 'static,
     {
-        let database_url = format!(
-            "sqlite://{}",
-            asset_dir().join("db.v2.sqlite").to_string_lossy()
-        );
-        let options = SqliteConnectOptions::from_str(&database_url)?
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Delete);
+        let options = connect_options()?;
 
         let pool = if let Some(hook) = after_connect {
             SqlitePoolOptions::new()
