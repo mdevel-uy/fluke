@@ -1,0 +1,88 @@
+name: publish-factory
+
+# Publica la imagen del servidor para la VPS factory en cada push a mdev.
+#
+# Por qué existe: hasta ahora deploy-vps compilaba el workspace de Rust DENTRO
+# de la VPS. Un cambio en una crate de la base del grafo (por ejemplo crates/db)
+# fuerza un rebuild casi total, y en una máquina de 4 vCPU eso pasó de 9 minutos
+# a más de una hora, excediendo el command_timeout del ssh-action. Peor: cuando
+# el action corta por timeout, mata la sesión SSH pero el `docker build` sigue
+# vivo en la VPS, así que cada reintento apila un build huérfano que compite por
+# el mismo cache mount y por la misma CPU.
+#
+# Construyendo acá, la VPS solo baja una imagen ya hecha.
+#
+# Tags publicados:
+#   - mdev            canal móvil; es el que baja update.sh
+#   - mdev-<sha>      inmutable, para volver atrás a un commit puntual
+#
+# Ojo: este canal es la punta de mdev, sin bump de versión. El canal de clientes
+# on-prem (stable / X.Y.Z) lo sigue manejando publish-ghcr.yml desde main.
+
+on:
+  push:
+    branches:
+      - mdev
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-factory
+  # A diferencia de publish-ghcr, acá sí conviene cancelar: si entraron dos
+  # merges seguidos a mdev, solo interesa la imagen del último.
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/mdevel-uy/mkanban
+
+jobs:
+  publish:
+    name: Build & push imagen de factory
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # El build release de cargo necesita más disco del que el runner tiene
+      # libre por defecto; se tiran los toolchains preinstalados que no usamos.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:mdev
+            ${{ env.IMAGE }}:mdev-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/mdevel-uy/mkanban
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Resumen
+        run: |
+          echo "### Imagen publicada" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE:mdev\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE:mdev-${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Para desplegarla, correr el workflow \`deploy-vps\`." >> "$GITHUB_STEP_SUMMARY"
