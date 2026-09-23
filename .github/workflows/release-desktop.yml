@@ -1,10 +1,12 @@
-# Desktop release for mdevel (DESKTOP-SPEC.md FD2, RD4-RD6).
+# Desktop release for mdevel (DESKTOP-SPEC.md FD2 + FD3, RD4-RD7).
 #
-# Derived from the `build-tauri` job of pre-release.yml (upstream, untouched).
-# Deliberately smaller than upstream:
-#   - Windows x64 only (cargo-xwin + NSIS cross-compile from ubuntu, same as upstream)
-#   - no Azure/Apple signing, no Sentry/PostHog/R2/relay secrets
-#   - artifacts + updater manifest live on GitHub Releases, not R2
+# Targets:
+#   - Windows x64: cargo-xwin + NSIS cross-compile from ubuntu (as upstream did)
+#   - macOS arm64 + x64: native build on macos runners, .dmg + updater .app.tar.gz
+#
+# macOS signing: if the APPLE_* secrets exist the app is signed with the
+# Developer ID and notarized; otherwise it is ad-hoc signed (opens after
+# "Open Anyway" in System Settings > Privacy & Security). Windows is unsigned.
 #
 # Update endpoint: a rolling "desktop-latest" release holds latest.json
 # (clobbered on every release). A fixed tag instead of releases/latest/download
@@ -19,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version, e.g. 0.1.0 (creates tag desktop-v<version>)"
+        description: "Version, e.g. 1.0.0 (creates tag desktop-v<version>)"
         required: true
         type: string
       dry_run:
@@ -40,12 +42,29 @@ env:
   PNPM_VERSION: 10.13.1
   RUST_TOOLCHAIN: nightly-2025-12-04
   CARGO_XWIN_VERSION: 0.20.2
-  TARGET: x86_64-pc-windows-msvc
+  REPO_URL: https://github.com/mdevel-uy/vibe-kanban
   UPDATE_ENDPOINT: https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-latest/latest.json
 
 jobs:
-  build-and-release:
-    runs-on: ubuntu-24.04
+  build:
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            os: ubuntu-24.04
+            target: x86_64-pc-windows-msvc
+            arch: x64
+          - platform: darwin-aarch64
+            os: macos-15
+            target: aarch64-apple-darwin
+            arch: aarch64
+          - platform: darwin-x86_64
+            os: macos-15
+            target: x86_64-apple-darwin
+            arch: x64
     defaults:
       run:
         shell: bash
@@ -68,7 +87,7 @@ jobs:
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          targets: ${{ env.TARGET }}
+          targets: ${{ matrix.target }}
 
       - name: Cache Cargo registry
         uses: actions/cache@v5
@@ -80,26 +99,29 @@ jobs:
             .cargo/bin
             .cargo/.crates.toml
             .cargo/.crates2.json
-          key: cargo-desktop-${{ env.RUST_TOOLCHAIN }}-${{ env.TARGET }}-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-desktop-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            cargo-desktop-${{ env.RUST_TOOLCHAIN }}-${{ env.TARGET }}-
+            cargo-desktop-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ matrix.target }}-
 
       - name: Cache xwin downloads
+        if: runner.os == 'Linux'
         uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/.xwin-cache
-          key: xwin-desktop-${{ env.TARGET }}-cargo-xwin-${{ env.CARGO_XWIN_VERSION }}
+          key: xwin-desktop-${{ matrix.target }}-cargo-xwin-${{ env.CARGO_XWIN_VERSION }}
 
       - name: Setup Node
         uses: ./.github/actions/setup-node
 
       - name: Install Windows cross-compilation dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y \
             clang libclang-dev lld llvm nasm cmake ninja-build nsis
 
       - name: Install cargo-xwin
+        if: runner.os == 'Linux'
         uses: taiki-e/cache-cargo-install-action@34ce5120836e5f9f1508d8713d7fdea0e8facd6f # v3.0.1
         with:
           tool: cargo-xwin
@@ -132,77 +154,151 @@ jobs:
           "
           git diff --stat crates/tauri-app/tauri.conf.json
 
-      - name: Build Tauri app (Windows x64, NSIS)
-        run: cargo tauri build --runner cargo-xwin --target ${{ env.TARGET }} --bundles nsis --ci
+      # Developer ID signing + notarization only when the secrets exist;
+      # otherwise ad-hoc signing ("-") so the bundle signature stays valid.
+      - name: Set up Apple signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "No Apple certificate: ad-hoc signing, no notarization"
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          {
+            echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+          } >> "$GITHUB_ENV"
+          if [ -n "$API_KEY_ID" ]; then
+            mkdir -p ~/.private_keys
+            KEY_PATH="$HOME/.private_keys/AuthKey_${API_KEY_ID}.p8"
+            printf '%s' "$API_PRIVATE_KEY" > "$KEY_PATH"
+            {
+              echo "APPLE_API_KEY=$API_KEY_ID"
+              echo "APPLE_API_ISSUER=$API_ISSUER"
+              echo "APPLE_API_KEY_PATH=$KEY_PATH"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Build Tauri app
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            cargo tauri build --runner cargo-xwin --target ${{ matrix.target }} --bundles nsis --ci
+          else
+            cargo tauri build --target ${{ matrix.target }} --bundles app,dmg --ci
+          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # GitHub release assets are flat and normalize spaces, so rename to a
-      # stable name that the manifest URL can predict.
+      # GitHub release assets are flat and normalize spaces, so rename to
+      # stable names that the manifest URLs can predict.
       - name: Collect artifacts
-        id: collect
         run: |
-          VERSION="${{ inputs.version }}"
+          V="${{ inputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          BUNDLE="target/${{ matrix.target }}/release/bundle"
           OUT="dist-release"
           mkdir -p "$OUT"
-          SETUP=$(find target/${{ env.TARGET }}/release/bundle -name "*-setup.exe" | head -1)
-          if [ -z "$SETUP" ]; then
-            echo "No NSIS installer found"; exit 1
+          pick() { find "$BUNDLE" -name "$1" | head -1; }
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            INSTALLER=$(pick "*-setup.exe"); UPDATER="$INSTALLER"
+            INSTALLER_NAME="mkanban_${V}_${ARCH}-setup.exe"; UPDATER_NAME="$INSTALLER_NAME"
+          else
+            INSTALLER=$(pick "*.dmg"); UPDATER=$(pick "*.app.tar.gz")
+            INSTALLER_NAME="mkanban_${V}_${ARCH}.dmg"; UPDATER_NAME="mkanban_${V}_${ARCH}.app.tar.gz"
           fi
-          if [ ! -f "$SETUP.sig" ]; then
-            echo "Missing updater signature $SETUP.sig (check TAURI_SIGNING_PRIVATE_KEY secrets)"; exit 1
+          if [ -z "$INSTALLER" ] || [ -z "$UPDATER" ]; then
+            echo "Missing bundle output in $BUNDLE"; find "$BUNDLE" -maxdepth 2; exit 1
           fi
-          cp "$SETUP" "$OUT/vibe-kanban_${VERSION}_x64-setup.exe"
-          cp "$SETUP.sig" "$OUT/vibe-kanban_${VERSION}_x64-setup.exe.sig"
+          if [ ! -f "$UPDATER.sig" ]; then
+            echo "Missing updater signature $UPDATER.sig (check TAURI_SIGNING_PRIVATE_KEY secrets)"; exit 1
+          fi
+          cp "$INSTALLER" "$OUT/$INSTALLER_NAME"
+          [ "$UPDATER_NAME" = "$INSTALLER_NAME" ] || cp "$UPDATER" "$OUT/$UPDATER_NAME"
+          cp "$UPDATER.sig" "$OUT/$UPDATER_NAME.sig"
+          # Consumed by the release job to build latest.json.
+          echo "$UPDATER_NAME" > "$OUT/${{ matrix.platform }}.updater"
           ls -la "$OUT"
-
-      - name: Generate updater manifest
-        run: |
-          VERSION="${{ inputs.version }}"
-          node -e "
-            const fs = require('fs');
-            const v = '$VERSION';
-            const file = 'vibe-kanban_' + v + '_x64-setup.exe';
-            fs.writeFileSync('dist-release/latest.json', JSON.stringify({
-              version: v,
-              notes: 'Vibe Kanban desktop-v' + v + ' (mdevel)',
-              pub_date: new Date().toISOString(),
-              platforms: {
-                'windows-x86_64': {
-                  url: 'https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-v' + v + '/' + file,
-                  signature: fs.readFileSync('dist-release/' + file + '.sig', 'utf8').trim(),
-                },
-              },
-            }, null, 2) + '\n');
-          "
-          cat dist-release/latest.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: desktop-windows-x86_64
+          name: desktop-${{ matrix.platform }}
           path: dist-release/
           retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          path: dist-release
+          merge-multiple: true
+
+      - name: Generate updater manifest
+        run: |
+          V="${{ inputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const dir = 'dist-release';
+            const platforms = {};
+            for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.updater'))) {
+              const file = fs.readFileSync(dir + '/' + f, 'utf8').trim();
+              platforms[f.replace(/\.updater$/, '')] = {
+                url: '${{ env.REPO_URL }}/releases/download/desktop-v$V/' + file,
+                signature: fs.readFileSync(dir + '/' + file + '.sig', 'utf8').trim(),
+              };
+              fs.unlinkSync(dir + '/' + f);
+            }
+            fs.writeFileSync(dir + '/latest.json', JSON.stringify({
+              version: '$V',
+              notes: 'mkanban desktop-v$V',
+              pub_date: new Date().toISOString(),
+              platforms,
+            }, null, 2) + '\n');
+          "
+          cat dist-release/latest.json
+          ls -la dist-release
 
       - name: Create release desktop-v${{ inputs.version }}
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ inputs.version }}"
-          gh release create "desktop-v$VERSION" \
+          V="${{ inputs.version }}"
+          cat > notes.md <<'EOF'
+          Instalación:
+          - Windows x64: `mkanban_*_x64-setup.exe` (sin firma: en SmartScreen elegir "Más información" > "Ejecutar de todas formas").
+          - macOS Apple Silicon: `mkanban_*_aarch64.dmg`. macOS Intel: `mkanban_*_x64.dmg`.
+            Si macOS indica que no puede verificar la app: Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".
+
+          La app se actualiza sola desde el release rodante `desktop-latest`.
+          EOF
+          gh release create "desktop-v$V" \
             --target "${{ github.sha }}" \
-            --title "Vibe Kanban Desktop v$VERSION" \
-            --notes "Instalador Windows x64 (NSIS, sin firma — build interno mdevel). El updater se sirve desde el release rodante desktop-latest." \
-            "dist-release/vibe-kanban_${VERSION}_x64-setup.exe" \
-            "dist-release/vibe-kanban_${VERSION}_x64-setup.exe.sig" \
-            "dist-release/latest.json"
+            --title "mkanban Desktop v$V" \
+            --notes-file notes.md \
+            dist-release/*
 
       - name: Publish manifest to rolling desktop-latest release
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           if ! gh release view desktop-latest > /dev/null 2>&1; then
             gh release create desktop-latest \
