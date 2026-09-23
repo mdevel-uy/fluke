@@ -10,9 +10,10 @@
 #
 # No auto-update: the repo is private, so the updater cannot fetch release
 # assets anonymously. Org members download installers from desktop-v* releases.
-# The updater plugin stays wired (UPDATE_ENDPOINT must be a valid URL for it
-# to init); its checks just fail with a logged warning. To enable updates,
-# publish latest.json somewhere public and point UPDATE_ENDPOINT there.
+# The updater plugin stays wired: its endpoint in tauri.conf.json must be a
+# valid URL for the app to start, and its checks just fail with a logged
+# warning. To enable updates, publish latest.json somewhere public and point
+# that endpoint there.
 #
 # Versioning (RD6): manual — the version input is patched into tauri.conf.json
 # at CI time and becomes tag desktop-v<version>. No commit is created.
@@ -44,7 +45,6 @@ env:
   PNPM_VERSION: 10.13.1
   RUST_TOOLCHAIN: nightly-2025-12-04
   CARGO_XWIN_VERSION: 0.20.2
-  UPDATE_ENDPOINT: https://github.com/mdevel-uy/mkanban/releases/download/desktop-latest/latest.json
 
 jobs:
   build:
@@ -142,15 +142,12 @@ jobs:
       - name: Build frontend
         run: cd packages/local-web && npm run build
 
-      - name: Patch tauri.conf.json (version + updater endpoint)
+      - name: Patch tauri.conf.json (version)
         run: |
           node -e "
             const fs = require('fs');
             const conf = JSON.parse(fs.readFileSync('crates/tauri-app/tauri.conf.json', 'utf8'));
             conf.version = '${{ inputs.version }}';
-            conf.plugins.updater.endpoints = conf.plugins.updater.endpoints.map(e =>
-              e === '__TAURI_UPDATE_ENDPOINT__' ? '${{ env.UPDATE_ENDPOINT }}' : e
-            );
             fs.writeFileSync('crates/tauri-app/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
           "
           git diff --stat crates/tauri-app/tauri.conf.json
