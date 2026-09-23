@@ -57,8 +57,13 @@ sha2 = "0.10"
 fst = "0.4"
 moka = { version = "0.12", features = ["future"] }
 mime_guess = "2.0"
-web-push = { version = "0.10", default-features = false, features = ["hyper-client"] }
 p256 = { version = "0.13", features = ["pem", "pkcs8"] }
+
+# web-push → ece requires OpenSSL on every target, which breaks the desktop
+# builds (Windows/macOS cross-compile). Web Push only matters for the Linux
+# server (VPS/docker); the desktop app has native notifications instead.
+[target.'cfg(target_os = "linux")'.dependencies]
+web-push = { version = "0.10", default-features = false, features = ["hyper-client"] }
 
 [dev-dependencies]
 tempfile = "3"
