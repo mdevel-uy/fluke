@@ -2,7 +2,7 @@
 #
 # Targets:
 #   - Windows x64: cargo-xwin + NSIS cross-compile from ubuntu (as upstream did)
-#   - macOS arm64 + x64: native build on macos runners, .dmg + updater .app.tar.gz
+#   - macOS arm64 + x64: native build on macos runners, .dmg
 #
 # macOS signing: if the APPLE_* secrets exist the app is signed with the
 # Developer ID and notarized; otherwise it is ad-hoc signed (opens after
@@ -42,7 +42,6 @@ env:
   PNPM_VERSION: 10.13.1
   RUST_TOOLCHAIN: nightly-2025-12-04
   CARGO_XWIN_VERSION: 0.20.2
-  REPO_URL: https://github.com/mdevel-uy/mkanban
   UPDATE_ENDPOINT: https://github.com/mdevel-uy/mkanban/releases/download/desktop-latest/latest.json
 
 jobs:
@@ -198,35 +197,21 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      # GitHub release assets are flat and normalize spaces, so rename to
-      # stable names that the manifest URLs can predict.
-      - name: Collect artifacts
+      # GitHub release assets are flat and normalize spaces: stable names.
+      - name: Collect installer
         run: |
-          V="${{ inputs.version }}"
-          ARCH="${{ matrix.arch }}"
           BUNDLE="target/${{ matrix.target }}/release/bundle"
-          OUT="dist-release"
-          mkdir -p "$OUT"
-          pick() { find "$BUNDLE" -name "$1" | head -1; }
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            INSTALLER=$(pick "*-setup.exe"); UPDATER="$INSTALLER"
-            INSTALLER_NAME="mkanban_${V}_${ARCH}-setup.exe"; UPDATER_NAME="$INSTALLER_NAME"
+            SRC=$(find "$BUNDLE" -name "*-setup.exe" | head -1); EXT="-setup.exe"
           else
-            INSTALLER=$(pick "*.dmg"); UPDATER=$(pick "*.app.tar.gz")
-            INSTALLER_NAME="mkanban_${V}_${ARCH}.dmg"; UPDATER_NAME="mkanban_${V}_${ARCH}.app.tar.gz"
+            SRC=$(find "$BUNDLE" -name "*.dmg" | head -1); EXT=".dmg"
           fi
-          if [ -z "$INSTALLER" ] || [ -z "$UPDATER" ]; then
-            echo "Missing bundle output in $BUNDLE"; find "$BUNDLE" -maxdepth 2; exit 1
+          if [ -z "$SRC" ]; then
+            echo "No installer in $BUNDLE"; find "$BUNDLE" -maxdepth 2; exit 1
           fi
-          if [ ! -f "$UPDATER.sig" ]; then
-            echo "Missing updater signature $UPDATER.sig (check TAURI_SIGNING_PRIVATE_KEY secrets)"; exit 1
-          fi
-          cp "$INSTALLER" "$OUT/$INSTALLER_NAME"
-          [ "$UPDATER_NAME" = "$INSTALLER_NAME" ] || cp "$UPDATER" "$OUT/$UPDATER_NAME"
-          cp "$UPDATER.sig" "$OUT/$UPDATER_NAME.sig"
-          # Consumed by the release job to build latest.json.
-          echo "$UPDATER_NAME" > "$OUT/${{ matrix.platform }}.updater"
-          ls -la "$OUT"
+          mkdir -p dist-release
+          cp "$SRC" "dist-release/mkanban_${{ inputs.version }}_${{ matrix.arch }}${EXT}"
+          ls -la dist-release
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
@@ -237,6 +222,7 @@ jobs:
 
   release:
     needs: build
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -248,33 +234,7 @@ jobs:
           path: dist-release
           merge-multiple: true
 
-      - name: Generate updater manifest
-        run: |
-          V="${{ inputs.version }}"
-          node -e "
-            const fs = require('fs');
-            const dir = 'dist-release';
-            const platforms = {};
-            for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.updater'))) {
-              const file = fs.readFileSync(dir + '/' + f, 'utf8').trim();
-              platforms[f.replace(/\.updater$/, '')] = {
-                url: '${{ env.REPO_URL }}/releases/download/desktop-v$V/' + file,
-                signature: fs.readFileSync(dir + '/' + file + '.sig', 'utf8').trim(),
-              };
-              fs.unlinkSync(dir + '/' + f);
-            }
-            fs.writeFileSync(dir + '/latest.json', JSON.stringify({
-              version: '$V',
-              notes: 'mkanban desktop-v$V',
-              pub_date: new Date().toISOString(),
-              platforms,
-            }, null, 2) + '\n');
-          "
-          cat dist-release/latest.json
-          ls -la dist-release
-
       - name: Create release desktop-v${{ inputs.version }}
-        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -286,26 +246,10 @@ jobs:
           - macOS Apple Silicon: `mkanban_*_aarch64.dmg`. macOS Intel: `mkanban_*_x64.dmg`.
             Si macOS indica que no puede verificar la app: Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".
 
-          La app se actualiza sola desde el release rodante `desktop-latest`.
+          Sin auto-update: para actualizar, bajar el instalador de la versión nueva e instalar encima.
           EOF
           gh release create "desktop-v$V" \
             --target "${{ github.sha }}" \
             --title "mkanban Desktop v$V" \
             --notes-file notes.md \
             dist-release/*
-
-      - name: Publish manifest to rolling desktop-latest release
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          if ! gh release view desktop-latest > /dev/null 2>&1; then
-            gh release create desktop-latest \
-              --target "${{ github.sha }}" \
-              --prerelease \
-              --title "Desktop updater endpoint" \
-              --notes "Release rodante: solo hostea latest.json para el auto-update de la app de escritorio. Instaladores: releases desktop-v*."
-          fi
-          gh release upload desktop-latest dist-release/latest.json --clobber
-          echo "Updater endpoint now serves desktop-v${{ inputs.version }}"
