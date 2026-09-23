@@ -8,9 +8,11 @@
 # Developer ID and notarized; otherwise it is ad-hoc signed (opens after
 # "Open Anyway" in System Settings > Privacy & Security). Windows is unsigned.
 #
-# Update endpoint: a rolling "desktop-latest" release holds latest.json
-# (clobbered on every release). A fixed tag instead of releases/latest/download
-# so npm-style releases of the fork can never hijack the updater endpoint.
+# No auto-update: the repo is private, so the updater cannot fetch release
+# assets anonymously. Org members download installers from desktop-v* releases.
+# The updater plugin stays wired (UPDATE_ENDPOINT must be a valid URL for it
+# to init); its checks just fail with a logged warning. To enable updates,
+# publish latest.json somewhere public and point UPDATE_ENDPOINT there.
 #
 # Versioning (RD6): manual — the version input is patched into tauri.conf.json
 # at CI time and becomes tag desktop-v<version>. No commit is created.
