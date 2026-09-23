@@ -1,0 +1,3 @@
+# sqlx checksums migration files byte-for-byte: force LF so Windows checkouts
+# (core.autocrlf=true) match the checksums stored by Linux/CI builds.
+crates/db/migrations/*.sql text eol=lf

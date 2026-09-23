@@ -27,6 +27,7 @@ use p256::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+#[cfg(target_os = "linux")]
 use web_push::{
     ContentEncoding, HyperWebPushClient, SubscriptionInfo, VapidSignatureBuilder, WebPushClient,
     WebPushError, WebPushMessageBuilder,
@@ -67,12 +68,14 @@ pub struct WebPushService {
 struct Inner {
     /// PEM del PKCS#8 privado — se serializa como bytes cada vez que el
     /// signer se construye (web-push acepta &[u8], no un handle reusable).
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     vapid_pem: Vec<u8>,
     /// Base64URL uncompressed del public key VAPID — lo que el frontend le
     /// pasa a `pushManager.subscribe({ applicationServerKey })`.
     vapid_public_b64: String,
     /// Cliente HTTP reutilizable. Hyper mantiene el pool de conexiones
     /// internamente — un solo cliente por proceso.
+    #[cfg(target_os = "linux")]
     client: HyperWebPushClient,
 }
 
@@ -108,6 +111,10 @@ impl WebPushService {
         db: DBService,
         vapid_path: &std::path::Path,
     ) -> Result<Self, WebPushInitError> {
+        // El crate web-push solo se compila en Linux (ver services/Cargo.toml).
+        if cfg!(not(target_os = "linux")) {
+            return Err(WebPushInitError::Unsupported);
+        }
         let stored = match std::fs::read_to_string(vapid_path) {
             Ok(contents) => serde_json::from_str::<StoredVapidKeys>(&contents)?,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -127,6 +134,7 @@ impl WebPushService {
             inner: Arc::new(Inner {
                 vapid_pem: stored.private_key_pem.into_bytes(),
                 vapid_public_b64: stored.public_key_b64,
+                #[cfg(target_os = "linux")]
                 client: HyperWebPushClient::new(),
             }),
         })
@@ -138,6 +146,7 @@ impl WebPushService {
         &self.inner.vapid_public_b64
     }
 
+    #[cfg(target_os = "linux")]
     fn client(&self) -> &HyperWebPushClient {
         &self.inner.client
     }
@@ -176,6 +185,10 @@ impl WebPushService {
         }
     }
 
+    #[cfg(not(target_os = "linux"))]
+    async fn send_one(&self, _sub: &PushSubscription, _body: &[u8]) {}
+
+    #[cfg(target_os = "linux")]
     async fn send_one(&self, sub: &PushSubscription, body: &[u8]) {
         // `SubscriptionInfo::new` takes `impl Into<String>` — `&String` isn't
         // `Into<String>`, así que le pasamos las Strings clonadas. El overhead
@@ -333,6 +346,8 @@ pub enum WebPushInitError {
     Pkcs8(String),
     #[error("public key encoding: {0}")]
     Spki(String),
+    #[error("Web Push solo está disponible en Linux")]
+    Unsupported,
 }
 
 fn generate_vapid_keys() -> Result<StoredVapidKeys, WebPushInitError> {
