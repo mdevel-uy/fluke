@@ -5,7 +5,7 @@
   "identifier": "uy.mdevel.mkanban",
   "build": {
     "beforeDevCommand": {
-      "script": "concurrently \"pnpm run backend:dev:watch\" \"pnpm run local-web:dev\"",
+      "script": "pnpm run tauri:before-dev",
       "cwd": "../.."
     },
     "devUrl": "http://localhost:3000",
