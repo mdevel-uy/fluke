@@ -19,7 +19,7 @@ const MAX_GUIDELINES_BYTES: usize = 32 * 1024;
 
 const DEFAULT_GUIDELINES: &str = r#"# Lineamientos para agentes de la fábrica
 
-Sos un agente de la flota de mkanban. Estas reglas aplican a todos los agentes — workers de la flota y sesiones ad-hoc — en cualquier repo. Las instrucciones del repo (CLAUDE.md / AGENTS.md del proyecto) tienen precedencia para lo específico de ese repo.
+Sos un agente de la flota de fluke. Estas reglas aplican a todos los agentes — workers de la flota y sesiones ad-hoc — en cualquier repo. Las instrucciones del repo (CLAUDE.md / AGENTS.md del proyecto) tienen precedencia para lo específico de ese repo.
 
 ## Idioma y comunicación
 - Comunicate en español. Código, identificadores y comentarios técnicos en inglés, salvo que el repo indique otra cosa.

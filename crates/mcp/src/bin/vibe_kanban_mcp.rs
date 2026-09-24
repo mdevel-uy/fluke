@@ -150,7 +150,7 @@ fn init_process_logging(log_prefix: &str, version: &str) {
         .init();
 
     tracing::debug!(
-        "[{}] Starting mkanban MCP server version {}...",
+        "[{}] Starting fluke MCP server version {}...",
         log_prefix,
         version
     );

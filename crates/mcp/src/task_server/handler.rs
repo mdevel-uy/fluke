@@ -19,10 +19,10 @@ impl ServerHandler for McpServer {
 
         let preamble = match self.mode() {
             McpMode::Global => {
-                "A mkanban MCP server for task, issue, repository, workspace, and session management."
+                "A fluke MCP server for task, issue, repository, workspace, and session management."
             }
             McpMode::Orchestrator => {
-                "An orchestrator-scoped mkanban MCP server with tools limited to the configured workspace and orchestrator session context."
+                "An orchestrator-scoped fluke MCP server with tools limited to the configured workspace and orchestrator session context."
             }
         };
         let mut instruction = format!(
