@@ -27,8 +27,8 @@ fn default_relay_enabled() -> bool {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, TS, PartialEq, Eq)]
 pub enum SendMessageShortcut {
-    #[default]
     ModifierEnter,
+    #[default]
     Enter,
 }
 
