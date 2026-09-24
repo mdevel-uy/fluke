@@ -109,7 +109,7 @@ pub async fn create_portal_session(
 pub async fn create_checkout_session() -> Result<StatusCode, ErrorResponse> {
     Err(ErrorResponse::new(
         StatusCode::GONE,
-        "New subscriptions are disabled because mkanban Cloud is shutting down",
+        "New subscriptions are disabled because fluke Cloud is shutting down",
     ))
 }
 

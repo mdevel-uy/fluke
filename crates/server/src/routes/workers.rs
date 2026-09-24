@@ -1444,7 +1444,7 @@ fn map_start_error(err: StartError) -> ApiError {
         }
         StartError::LicenseSuspended => ApiError::Conflict(
             "La licencia está suspendida; no se arrancan agentes nuevos. \
-             Los datos y el historial siguen disponibles. Contactá a mkanban."
+             Los datos y el historial siguen disponibles. Contactá a fluke."
                 .into(),
         ),
         StartError::Sqlx(e) => e.into(),
