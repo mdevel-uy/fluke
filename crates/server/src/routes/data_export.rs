@@ -115,17 +115,17 @@ impl RestoreInstructions {
     /// changes.
     fn english_manifest_defaults() -> Self {
         Self {
-            summary: "Full mkanban instance backup for offboarding.".to_string(),
+            summary: "Full fluke instance backup for offboarding.".to_string(),
             steps: vec![
-                "Install a fresh mkanban instance on the new host.".to_string(),
-                "Stop the mkanban process before restoring.".to_string(),
+                "Install a fresh fluke instance on the new host.".to_string(),
+                "Stop the fluke process before restoring.".to_string(),
                 "Copy the contents of `asset_dir/` into the new instance's data \
                  directory (see docs for the platform-specific location)."
                     .to_string(),
                 "Copy each folder under `repos/` back to a path of your choice; \
                  the manifest lists the original source path for each repo."
                     .to_string(),
-                "Start mkanban and, if a repo's location changed, update the \
+                "Start fluke and, if a repo's location changed, update the \
                  path from Settings → Repositories."
                     .to_string(),
             ],
@@ -161,7 +161,7 @@ async fn download_data_export(
     if is_relay_request(&headers) {
         return Err(ApiError::BadRequest(
             "Data export can only run on the local host; open the app on the \
-             machine that hosts mkanban and try again."
+             machine that hosts fluke and try again."
                 .to_string(),
         ));
     }
