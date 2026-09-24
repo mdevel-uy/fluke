@@ -146,7 +146,7 @@
           "host": {
             "label": "遠端 SSH 主機（選填）",
             "placeholder": "例如：主機名稱或 IP 位址",
-            "helper": "若 mkanban 在遠端伺服器上執行，請設定此項。設定後，點擊在編輯器中開啟將產生 URL 以透過 SSH 開啟編輯器，而非執行本機指令。"
+            "helper": "若 fluke 在遠端伺服器上執行，請設定此項。設定後，點擊在編輯器中開啟將產生 URL 以透過 SSH 開啟編輯器，而非執行本機指令。"
           },
           "user": {
             "label": "遠端 SSH 使用者（選填）",
@@ -156,7 +156,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the fluke extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "檢查可用性...",
@@ -277,7 +277,7 @@
       },
       "privacy": {
         "title": "隱私",
-        "description": "透過分享匿名使用資料來協助改善 mkanban。",
+        "description": "透過分享匿名使用資料來協助改善 fluke。",
         "telemetry": {
           "label": "啟用遙測",
           "helper": "啟用匿名使用事件追蹤以協助改善應用程式。不會收集提示或專案資訊。"
@@ -590,11 +590,11 @@
       },
       "remove": {
         "title": "移除儲存庫",
-        "description": "從 mkanban 取消關聯此儲存庫。磁碟上的檔案不會被刪除。",
+        "description": "從 fluke 取消關聯此儲存庫。磁碟上的檔案不會被刪除。",
         "button": "移除",
         "confirm": "移除儲存庫",
         "dialogTitle": "移除「{{name}}」？",
-        "dialogDescription": "這將從 mkanban 取消關聯此儲存庫。您磁碟上的檔案不受影響。您可以稍後重新加入。",
+        "dialogDescription": "這將從 fluke 取消關聯此儲存庫。您磁碟上的檔案不受影響。您可以稍後重新加入。",
         "success": "儲存庫移除成功。",
         "error": "移除儲存庫失敗。",
         "conflict": {
@@ -760,7 +760,7 @@
     "data": {
       "export": {
         "title": "匯出所有資料",
-        "description": "下載 mkanban 資料的完整備份。在遷移到新主機時非常有用。",
+        "description": "下載 fluke 資料的完整備份。在遷移到新主機時非常有用。",
         "contentsLabel": "包含內容",
         "contents": {
           "database": "包含所有專案、工作區和任務歷史的 SQLite 資料庫（透過 VACUUM INTO 產生一致性快照）",
@@ -787,13 +787,13 @@
       },
       "restore": {
         "title": "如何還原",
-        "description": "在新的 mkanban 實例上還原資料的步驟。",
+        "description": "在新的 fluke 實例上還原資料的步驟。",
         "steps": {
-          "install": "在新主機上安裝新的 mkanban 實例。",
-          "stop": "還原前停止 mkanban 程序。",
+          "install": "在新主機上安裝新的 fluke 實例。",
+          "stop": "還原前停止 fluke 程序。",
           "copyAssets": "將 asset_dir/ 的內容複製到新實例的資料目錄中。",
           "copyRepos": "將 repos/ 下的每個資料夾移動到您選擇的路徑。",
-          "startAndReattach": "啟動 mkanban，如果儲存庫路徑已變更，請從設定 → 儲存庫中更新它。"
+          "startAndReattach": "啟動 fluke，如果儲存庫路徑已變更，請從設定 → 儲存庫中更新它。"
         }
       }
     }

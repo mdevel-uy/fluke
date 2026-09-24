@@ -5,15 +5,15 @@ interface BrandLogoProps {
 
 export function BrandLogo({
   className = "h-8 w-auto",
-  alt = "mkanban",
+  alt = "fluke",
 }: BrandLogoProps) {
   return (
     <picture>
       <source
-        srcSet="/mkanban-logo-dark.svg"
+        srcSet="/fluke-logo-dark.svg"
         media="(prefers-color-scheme: dark)"
       />
-      <img src="/mkanban-logo.svg" alt={alt} className={className} />
+      <img src="/fluke-logo.svg" alt={alt} className={className} />
     </picture>
   );
 }

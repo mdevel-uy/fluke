@@ -177,8 +177,8 @@ export function LandingPage() {
 
   const logoSrc =
     resolveTheme(theme) === 'dark'
-      ? '/mkanban-logo-dark.svg'
-      : '/mkanban-logo.svg';
+      ? '/fluke-logo-dark.svg'
+      : '/fluke-logo.svg';
 
   useEffect(() => {
     if (!config || initialized) return;
@@ -337,7 +337,7 @@ export function LandingPage() {
         {/* Header */}
         <header className="shrink-0 space-y-base p-double pb-base">
           <div className="flex items-center justify-between">
-            <img src={logoSrc} alt="mkanban" className="h-8 w-auto logo" />
+            <img src={logoSrc} alt="fluke" className="h-8 w-auto logo" />
             <div className="flex flex-wrap items-center gap-2">
               {SOCIAL_LINKS.map((link) => (
                 <PrimaryButton
@@ -357,7 +357,7 @@ export function LandingPage() {
                 weight="fill"
               />
               <p className="text-sm text-normal">
-                mkanban runs AI coding agents with{' '}
+                fluke runs AI coding agents with{' '}
                 <code>--dangerously-skip-permissions</code> /{' '}
                 <code>--yolo</code> by default. Always review what agents are
                 doing.{' '}

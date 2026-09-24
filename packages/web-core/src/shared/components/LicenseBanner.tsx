@@ -44,7 +44,7 @@ export function LicenseBanner({ license }: LicenseBannerProps) {
         href="mailto:sales@mdevel.dev"
         className="underline underline-offset-2"
       >
-        Contactar a mkanban
+        Contactar a fluke
       </a>
     </div>
   );

@@ -45,8 +45,8 @@ export function ExportPage({
 
   const logoSrc =
     resolveTheme(theme) === 'dark'
-      ? '/mkanban-logo-dark.svg'
-      : '/mkanban-logo.svg';
+      ? '/fluke-logo-dark.svg'
+      : '/fluke-logo.svg';
 
   return (
     <div className="h-full overflow-auto bg-primary">
@@ -56,7 +56,7 @@ export function ExportPage({
             <div className="flex justify-center">
               <img
                 src={logoSrc}
-                alt="mkanban"
+                alt="fluke"
                 className="h-8 w-auto logo"
               />
             </div>

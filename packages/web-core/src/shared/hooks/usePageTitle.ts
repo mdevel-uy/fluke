@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE_TITLE = 'mkanban';
+const BASE_TITLE = 'fluke';
 
 /**
  * Sets the document title based on the given parts.

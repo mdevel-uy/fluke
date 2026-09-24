@@ -146,7 +146,7 @@
           "host": {
             "label": "远程 SSH 主机（可选）",
             "placeholder": "例如：主机名或 IP 地址",
-            "helper": "如果 mkanban 在远程服务器上运行，请设置此项。设置后，点击在编辑器中打开将生成 URL 以通过 SSH 打开编辑器，而不是执行本地命令。"
+            "helper": "如果 fluke 在远程服务器上运行，请设置此项。设置后，点击在编辑器中打开将生成 URL 以通过 SSH 打开编辑器，而不是执行本地命令。"
           },
           "user": {
             "label": "远程 SSH 用户（可选）",
@@ -156,7 +156,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the fluke extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "检查可用性...",
@@ -277,7 +277,7 @@
       },
       "privacy": {
         "title": "隐私",
-        "description": "通过共享匿名使用数据帮助改进 mkanban。",
+        "description": "通过共享匿名使用数据帮助改进 fluke。",
         "telemetry": {
           "label": "启用遥测",
           "helper": "启用匿名使用事件跟踪以帮助改进应用程序。不会收集提示或项目信息。"
@@ -590,11 +590,11 @@
       },
       "remove": {
         "title": "移除仓库",
-        "description": "从 mkanban 取消关联此仓库。磁盘上的文件不会被删除。",
+        "description": "从 fluke 取消关联此仓库。磁盘上的文件不会被删除。",
         "button": "移除",
         "confirm": "移除仓库",
         "dialogTitle": "移除「{{name}}」？",
-        "dialogDescription": "这将从 mkanban 取消关联此仓库。您磁盘上的文件不受影响。您可以稍后重新添加。",
+        "dialogDescription": "这将从 fluke 取消关联此仓库。您磁盘上的文件不受影响。您可以稍后重新添加。",
         "success": "仓库移除成功。",
         "error": "移除仓库失败。",
         "conflict": {
@@ -760,7 +760,7 @@
     "data": {
       "export": {
         "title": "导出所有数据",
-        "description": "下载 mkanban 数据的完整备份。在迁移到新主机时非常有用。",
+        "description": "下载 fluke 数据的完整备份。在迁移到新主机时非常有用。",
         "contentsLabel": "包含内容",
         "contents": {
           "database": "包含所有项目、工作区和任务历史的 SQLite 数据库（通过 VACUUM INTO 生成一致性快照）",
@@ -787,13 +787,13 @@
       },
       "restore": {
         "title": "如何恢复",
-        "description": "在新的 mkanban 实例上恢复数据的步骤。",
+        "description": "在新的 fluke 实例上恢复数据的步骤。",
         "steps": {
-          "install": "在新主机上安装新的 mkanban 实例。",
-          "stop": "恢复前停止 mkanban 进程。",
+          "install": "在新主机上安装新的 fluke 实例。",
+          "stop": "恢复前停止 fluke 进程。",
           "copyAssets": "将 asset_dir/ 的内容复制到新实例的数据目录中。",
           "copyRepos": "将 repos/ 下的每个文件夹移动到您选择的路径。",
-          "startAndReattach": "启动 mkanban，如果仓库路径已更改，请从设置 → 仓库中更新它。"
+          "startAndReattach": "启动 fluke，如果仓库路径已更改，请从设置 → 仓库中更新它。"
         }
       }
     }

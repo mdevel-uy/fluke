@@ -146,7 +146,7 @@
           "host": {
             "label": "リモートSSHホスト（オプション）",
             "placeholder": "例: ホスト名またはIPアドレス",
-            "helper": "mkanbanがリモートサーバーで実行されている場合に設定してください。設定すると、「エディターで開く」をクリックしたときに、ローカルコマンドを実行する代わりにSSH経由でエディターを開くURLが生成されます。"
+            "helper": "flukeがリモートサーバーで実行されている場合に設定してください。設定すると、「エディターで開く」をクリックしたときに、ローカルコマンドを実行する代わりにSSH経由でエディターを開くURLが生成されます。"
           },
           "user": {
             "label": "リモートSSHユーザー（オプション）",
@@ -156,7 +156,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the fluke extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "利用可能性を確認中...",
@@ -277,7 +277,7 @@
       },
       "privacy": {
         "title": "プライバシー",
-        "description": "匿名の使用データを共有してmkanbanの改善にご協力ください。",
+        "description": "匿名の使用データを共有してflukeの改善にご協力ください。",
         "telemetry": {
           "label": "テレメトリを有効化",
           "helper": "アプリケーションの改善に役立つ匿名の使用イベント追跡を有効にします。プロンプトやプロジェクト情報は収集されません。"
@@ -590,11 +590,11 @@
       },
       "remove": {
         "title": "リポジトリを削除",
-        "description": "このリポジトリをmkanbanからリンク解除します。ディスク上のファイルは削除されません。",
+        "description": "このリポジトリをflukeからリンク解除します。ディスク上のファイルは削除されません。",
         "button": "削除",
         "confirm": "リポジトリを削除",
         "dialogTitle": "「{{name}}」を削除しますか？",
-        "dialogDescription": "リポジトリをmkanbanからリンク解除します。ディスク上のファイルには影響しません。後で再度追加できます。",
+        "dialogDescription": "リポジトリをflukeからリンク解除します。ディスク上のファイルには影響しません。後で再度追加できます。",
         "success": "リポジトリが正常に削除されました。",
         "error": "リポジトリの削除に失敗しました。",
         "conflict": {
@@ -760,7 +760,7 @@
     "data": {
       "export": {
         "title": "すべてのデータをエクスポート",
-        "description": "mkanban のデータの完全なバックアップをダウンロードします。新しいホストへのオフボーディング時に便利です。",
+        "description": "fluke のデータの完全なバックアップをダウンロードします。新しいホストへのオフボーディング時に便利です。",
         "contentsLabel": "アーカイブの内容",
         "contents": {
           "database": "すべてのプロジェクト、ワークスペース、タスク履歴を含む SQLite データベース（VACUUM INTO による整合性スナップショット）",
@@ -787,13 +787,13 @@
       },
       "restore": {
         "title": "復元方法",
-        "description": "新しい mkanban インスタンスでデータを復元する手順。",
+        "description": "新しい fluke インスタンスでデータを復元する手順。",
         "steps": {
-          "install": "新しいホストに新規の mkanban インスタンスをインストールします。",
-          "stop": "復元前に mkanban プロセスを停止します。",
+          "install": "新しいホストに新規の fluke インスタンスをインストールします。",
+          "stop": "復元前に fluke プロセスを停止します。",
           "copyAssets": "asset_dir/ の内容を新しいインスタンスのデータディレクトリにコピーします。",
           "copyRepos": "repos/ 配下の各フォルダを任意のパスに移動します。",
-          "startAndReattach": "mkanban を起動し、リポジトリのパスが変わった場合は 設定 → リポジトリ から更新します。"
+          "startAndReattach": "fluke を起動し、リポジトリのパスが変わった場合は 設定 → リポジトリ から更新します。"
         }
       }
     }
