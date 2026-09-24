@@ -139,9 +139,13 @@ fn default_port(https: bool) -> u16 {
 /// FK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); MK_ y VK_ se mantienen
 /// como fallback para deployments existentes.
 fn allowed_origins_env(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
-    ["FK_ALLOWED_ORIGINS", "MK_ALLOWED_ORIGINS", "VK_ALLOWED_ORIGINS"]
-        .into_iter()
-        .find_map(lookup)
+    [
+        "FK_ALLOWED_ORIGINS",
+        "MK_ALLOWED_ORIGINS",
+        "VK_ALLOWED_ORIGINS",
+    ]
+    .into_iter()
+    .find_map(lookup)
 }
 
 fn allowed_origins() -> &'static Vec<OriginKey> {
