@@ -1,5 +1,5 @@
 # Overrides opcionales para docker-firewall.sh.
-# Copiar a /etc/mkanban/docker-firewall.conf y editar. Sin este archivo
+# Copiar a /etc/fluke/docker-firewall.conf y editar. Sin este archivo
 # el script usa los defaults hardcoded (ver ops/hardening/README.md).
 
 # Interfaces de administración (allowlist total sin filtrar por puerto).

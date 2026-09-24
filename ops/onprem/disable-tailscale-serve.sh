@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Desactiva Tailscale Serve para mkanban.
+# Desactiva Tailscale Serve para Fluke.
 #
 # Uso normal: durante la desinstalación o si querés dejar la app solo por
-# HTTP en el tailnet. La app en `MK_BIND_ADDR:MK_PORT` sigue disponible;
+# HTTP en el tailnet. La app en `FK_BIND_ADDR:FK_PORT` sigue disponible;
 # esto solo saca la vía HTTPS por `<host>.<tailnet>.ts.net`.
 
 set -euo pipefail

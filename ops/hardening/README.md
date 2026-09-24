@@ -65,9 +65,9 @@ actual desde una sesión SSH:
 ```bash
 sudo install -m 0755 docker-firewall.sh /usr/local/sbin/docker-firewall.sh
 sudo install -m 0644 docker-firewall.service /etc/systemd/system/docker-firewall.service
-sudo mkdir -p /etc/mkanban
-sudo install -m 0644 docker-firewall.conf.example /etc/mkanban/docker-firewall.conf
-# editar /etc/mkanban/docker-firewall.conf si hace falta
+sudo mkdir -p /etc/fluke
+sudo install -m 0644 docker-firewall.conf.example /etc/fluke/docker-firewall.conf
+# editar /etc/fluke/docker-firewall.conf si hace falta
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now docker-firewall.service
@@ -87,7 +87,7 @@ final. `journalctl -u docker-firewall.service -n 50` muestra el log de la
 
 ## Reaplicar reglas
 
-Editar `/etc/mkanban/docker-firewall.conf` y:
+Editar `/etc/fluke/docker-firewall.conf` y:
 
 ```bash
 sudo systemctl reload docker-firewall.service
@@ -123,7 +123,7 @@ sudo ss -tlnp
 
 Si algún puerto publicado en `0.0.0.0` legítimamente debe seguir siendo
 público (más allá de 80/443/tailscale), agregarlo a
-`/etc/mkanban/docker-firewall.conf` (`PUBLIC_TCP_PORTS` /
+`/etc/fluke/docker-firewall.conf` (`PUBLIC_TCP_PORTS` /
 `PUBLIC_UDP_PORTS`) antes de correr `systemctl enable --now`. Al revés:
 si un servicio quedó expuesto por error, la fix correcta es rebindearlo
 en el compose (`127.0.0.1:PORT:PORT`) — el firewall es la segunda

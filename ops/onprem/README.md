@@ -1,4 +1,4 @@
-# mkanban on-premises
+# Fluke on-premises
 
 Bundle de instalación para infra del cliente (VPS, EC2, servidor propio).
 Contenido: `docker-compose.yml` (genérico, no se edita), `.env.example`
@@ -13,23 +13,23 @@ Contenido: `docker-compose.yml` (genérico, no se edita), `.env.example`
 ## Instalación
 
 ```bash
-sudo mkdir -p /opt/mkanban && cd /opt/mkanban
+sudo mkdir -p /opt/fluke && cd /opt/fluke
 # copiar docker-compose.yml, .env.example y update.sh a este directorio
 cp .env.example .env && chmod 600 .env && vi .env   # completar GHCR_TOKEN y plan
 chmod +x update.sh
 ./update.sh          # primer pull + arranque (hace de instalador)
 ```
 
-La UI queda en `http://<host>:3000` (o `MK_PORT`). Los datos persisten en los
-volúmenes docker `mk-repos` (checkouts) y `mk-home` (DB sqlite, config,
+La UI queda en `http://<host>:3000` (o `FK_PORT`). Los datos persisten en los
+volúmenes docker `fk-repos` (checkouts) y `fk-home` (DB sqlite, config,
 credenciales de GitHub/agentes).
 
 ## Red — bind por defecto en loopback
 
-`docker-compose.yml` publica los puertos en `127.0.0.1` (`MK_BIND_ADDR`).
+`docker-compose.yml` publica los puertos en `127.0.0.1` (`FK_BIND_ADDR`).
 El patrón esperado es un reverse proxy del host (Traefik, Caddy, Nginx)
 que termina TLS y hace forward a estos puertos. Para exponer directo en
-la interfaz pública, sobreescribir `MK_BIND_ADDR=0.0.0.0` en el `.env`
+la interfaz pública, sobreescribir `FK_BIND_ADDR=0.0.0.0` en el `.env`
 — pensarlo dos veces: Docker publica por iptables y bypassea ufw. Ver
 `../hardening/README.md` para cerrar los puertos crudos que no deban ser
 públicos.
@@ -45,7 +45,7 @@ y Chrome no ofrece esas features.
 [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve): el
 `tailscaled` del host termina TLS en `https://<host>.<tailnet>.ts.net`
 con un certificado válido de Let's Encrypt (provisto por Tailscale) y
-forwardea a `http://127.0.0.1:${MK_PORT}`. Nada se expone a internet —
+forwardea a `http://127.0.0.1:${FK_PORT}`. Nada se expone a internet —
 solo escucha dentro del tailnet, consistente con el modelo de acceso
 solo-VPN. La renovación del cert la maneja Tailscale (no agregar cron
 propio). El acceso HTTP por IP de tailnet sigue funcionando como fallback.
@@ -77,8 +77,8 @@ sudo ./disable-tailscale-serve.sh
 Programarlo diario:
 
 ```bash
-echo '17 4 * * * root /opt/mkanban/update.sh >> /var/log/mkanban-update.log 2>&1' \
-  | sudo tee /etc/cron.d/mkanban-update
+echo '17 4 * * * root /opt/fluke/update.sh >> /var/log/fluke-update.log 2>&1' \
+  | sudo tee /etc/cron.d/fluke-update
 ```
 
 Ante una versión nueva: backup del data dir → restart → espera healthcheck →
@@ -88,12 +88,12 @@ Los backups quedan en `./backups/` (últimos 10).
 ## Rollback manual
 
 ```bash
-cd /opt/mkanban
-docker compose stop mkanban
-docker run --rm -v mk-home:/data -v "$PWD/backups:/backup:ro" alpine \
+cd /opt/fluke
+docker compose stop fluke
+docker run --rm -v fk-home:/data -v "$PWD/backups:/backup:ro" alpine \
   sh -c 'rm -rf /data/.local/share/mkanban && tar xzf /backup/<ARCHIVO>.tgz -C /data'
 docker tag ghcr.io/mdevel-uy/mkanban:previous ghcr.io/mdevel-uy/mkanban:stable
-docker compose up -d mkanban
+docker compose up -d fluke
 ```
 
 Nunca arrancar un binario viejo contra una DB migrada por uno nuevo: las
