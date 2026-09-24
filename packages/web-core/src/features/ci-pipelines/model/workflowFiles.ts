@@ -9,13 +9,13 @@ import { importWorkflowYaml } from './importer';
 
 /**
  * File-level plumbing for the studio: a workflow on disk is the pair
- * `.github/workflows/<name>.yml` (compiled artifact) + `<name>.mkanban.json`
+ * `.github/workflows/<name>.yml` (compiled artifact) + `<name>.fluke.json`
  * (graph, source of truth). Everything goes through the existing editor file
  * API — no dedicated backend.
  */
 
 const WORKFLOWS_SUBDIR = '.github/workflows';
-const SIDECAR_SUFFIX = '.mkanban.json';
+const SIDECAR_SUFFIX = '.fluke.json';
 
 export interface WorkflowFileEntry {
   /** Workflow name = yml file stem, e.g. `deploy` for `deploy.yml`. */
