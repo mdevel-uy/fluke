@@ -31,7 +31,7 @@ export function CloudShutdownExportBanner({
         'text-sm font-medium text-on-brand hover:bg-brand-hover'
       )}
     >
-      mkanban Cloud is shutting down. Export your data within 30 days.{' '}
+      fluke Cloud is shutting down. Export your data within 30 days.{' '}
       <a
         href="https://mkanban.dev/shutdown"
         target="_blank"

@@ -119,8 +119,8 @@ export function OnboardingSignInPage() {
 
   const logoSrc =
     resolveTheme(theme) === 'dark'
-      ? '/mkanban-logo-dark.svg'
-      : '/mkanban-logo.svg';
+      ? '/fluke-logo-dark.svg'
+      : '/fluke-logo.svg';
 
   const isLoggedIn = loginStatus?.status === 'loggedin';
 
@@ -304,7 +304,7 @@ export function OnboardingSignInPage() {
             <div className="flex justify-center">
               <img
                 src={logoSrc}
-                alt="mkanban"
+                alt="fluke"
                 className="h-8 w-auto logo"
               />
             </div>

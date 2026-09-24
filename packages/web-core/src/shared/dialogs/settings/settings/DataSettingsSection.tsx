@@ -75,7 +75,7 @@ export function DataSettingsSection() {
     });
 
     try {
-      // hostScope 'none' keeps the request on the local mkanban instance
+      // hostScope 'none' keeps the request on the local fluke instance
       // regardless of the selected settings host: the export endpoint is
       // local-only by design (see is_relay_request check on the backend).
       const response = await makeLocalApiRequest('/api/system/data-export', {
@@ -104,7 +104,7 @@ export function DataSettingsSection() {
       const blob = await response.blob();
       const filename = extractFilename(
         response.headers.get('content-disposition'),
-        'mkanban-export.zip'
+        'fluke-export.zip'
       );
       const warningsCount = parseWarningsCount(
         response.headers.get(WARNINGS_HEADER)

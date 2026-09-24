@@ -153,7 +153,7 @@
           "host": {
             "label": "Remote SSH Host (Optional)",
             "placeholder": "e.g., hostname or IP address",
-            "helper": "Set this if mkanban is running on a remote server. When set, clicking \"Open in Editor\" will generate a URL to open your editor via SSH instead of spawning a local command."
+            "helper": "Set this if fluke is running on a remote server. When set, clicking \"Open in Editor\" will generate a URL to open your editor via SSH instead of spawning a local command."
           },
           "user": {
             "label": "Remote SSH User (Optional)",
@@ -163,7 +163,7 @@
         },
         "autoInstallExtension": {
           "label": "Auto-install VS Code Extension",
-          "helper": "Automatically install the mkanban extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
+          "helper": "Automatically install the fluke extension when opening a project in VS Code or Cursor. This runs in the background and has no effect if the extension is already installed."
         },
         "availability": {
           "checking": "Checking availability...",
@@ -280,7 +280,7 @@
         },
         "browserPush": {
           "label": "Alerts with the browser closed",
-          "helper": "Receive push notifications even when no mkanban tab is open. Uses the vendor push service (FCM/Mozilla) and the same events as Desktop Alerts.",
+          "helper": "Receive push notifications even when no fluke tab is open. Uses the vendor push service (FCM/Mozilla) and the same events as Desktop Alerts.",
           "helperDenied": "Notifications are blocked by the browser. Update the site permission to enable push.",
           "helperUnsupported": "Web Push requires a secure context (HTTPS or localhost) and a browser that supports service workers."
         }
@@ -296,7 +296,7 @@
       },
       "privacy": {
         "title": "Privacy",
-        "description": "Help improve mkanban by sharing anonymous usage data.",
+        "description": "Help improve fluke by sharing anonymous usage data.",
         "telemetry": {
           "label": "Enable Telemetry",
           "helper": "Enables anonymous usage events tracking to help improve the application. No prompts or project information are collected."
@@ -609,11 +609,11 @@
       },
       "remove": {
         "title": "Remove Repository",
-        "description": "Unlink this repository from mkanban. Files on disk will not be deleted.",
+        "description": "Unlink this repository from fluke. Files on disk will not be deleted.",
         "button": "Remove",
         "confirm": "Remove Repository",
         "dialogTitle": "Remove \"{{name}}\"?",
-        "dialogDescription": "This will unlink the repository from mkanban. Your files on disk will not be affected. You can re-add it later.",
+        "dialogDescription": "This will unlink the repository from fluke. Your files on disk will not be affected. You can re-add it later.",
         "success": "Repository removed successfully.",
         "error": "Failed to remove repository.",
         "conflict": {
@@ -772,7 +772,7 @@
     "data": {
       "export": {
         "title": "Export all data",
-        "description": "Download a full backup of your mkanban data. Useful when offboarding to a new host.",
+        "description": "Download a full backup of your fluke data. Useful when offboarding to a new host.",
         "contentsLabel": "What's inside",
         "contents": {
           "database": "SQLite database with all projects, workspaces and task history (consistent snapshot taken with VACUUM INTO)",
@@ -799,13 +799,13 @@
       },
       "restore": {
         "title": "How to restore",
-        "description": "Steps to recover your data on a fresh mkanban instance.",
+        "description": "Steps to recover your data on a fresh fluke instance.",
         "steps": {
-          "install": "Install a fresh mkanban instance on the new host.",
-          "stop": "Stop the mkanban process before restoring.",
+          "install": "Install a fresh fluke instance on the new host.",
+          "stop": "Stop the fluke process before restoring.",
           "copyAssets": "Copy the contents of asset_dir/ into the new instance's data directory.",
           "copyRepos": "Move each folder under repos/ back to a path of your choice.",
-          "startAndReattach": "Start mkanban and, if a repo's path changed, update it from Settings → Repositories."
+          "startAndReattach": "Start fluke and, if a repo's path changed, update it from Settings → Repositories."
         }
       }
     }

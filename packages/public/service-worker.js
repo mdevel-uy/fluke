@@ -1,4 +1,4 @@
-/* mkanban service worker (issue #533 — Web Push).
+/* fluke service worker (issue #533 — Web Push).
  *
  * Deliberadamente mínimo: solo maneja `push` y `notificationclick`. NO
  * cachea nada — no queremos interferir con la carga normal de la app, y
@@ -25,7 +25,7 @@ self.addEventListener('activate', (event) => {
 });
 
 /**
- * Devuelve `true` si hay al menos una ventana de mkanban abierta y visible
+ * Devuelve `true` si hay al menos una ventana de fluke abierta y visible
  * en este dispositivo. En ese caso la fase 1 ya mostró la alerta.
  */
 async function anyVisibleClient() {
@@ -41,7 +41,7 @@ async function anyVisibleClient() {
 }
 
 self.addEventListener('push', (event) => {
-  // Toda notificación mkanban trae JSON en el body (ver
+  // Toda notificación fluke trae JSON en el body (ver
   // `web_push::PushEventPayload`). Sin body — evento vacío del vendor —
   // no mostramos nada.
   if (!event.data) return;
@@ -55,7 +55,7 @@ self.addEventListener('push', (event) => {
         // Body malformado: sigue siendo mejor mostrar algo genérico que
         // silenciar por completo — el evento del server sí llegó.
         payload = {
-          title: 'mkanban',
+          title: 'fluke',
           body: 'Nueva actualización',
           tag: 'mkanban-generic',
         };
@@ -68,7 +68,7 @@ self.addEventListener('push', (event) => {
         return;
       }
 
-      const title = payload.title || 'mkanban';
+      const title = payload.title || 'fluke';
       const options = {
         body: payload.body || '',
         tag: payload.tag || 'mkanban-generic',

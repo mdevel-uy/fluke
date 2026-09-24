@@ -193,7 +193,7 @@ export function StatusBarContainer({
     <StatusBar className={className}>
       <StatusBarItem variant="brand" readOnly>
         <SquareKanban size={12} strokeWidth={1.75} aria-hidden />
-        mkanban
+        fluke
       </StatusBarItem>
 
       {/* R25 · project/environment selector (menu opens upward) */}

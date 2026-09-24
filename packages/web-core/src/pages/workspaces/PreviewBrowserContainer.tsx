@@ -286,11 +286,11 @@ export function PreviewBrowserContainer({
     // Loopback URLs need the preview proxy for origin isolation
     if (!previewProxyPort) return undefined;
 
-    // Don't proxy to mkanban's own ports (would create infinite loop)
+    // Don't proxy to fluke's own ports (would create infinite loop)
     const vibeKanbanPort = window.location.port || '80';
     if (devServerPort === vibeKanbanPort) {
       console.warn(
-        `[Preview] Ignoring dev server URL with same port as mkanban (${devServerPort}). ` +
+        `[Preview] Ignoring dev server URL with same port as fluke (${devServerPort}). ` +
           'This usually means the dev server failed to start or reported the wrong port.'
       );
       return undefined;
