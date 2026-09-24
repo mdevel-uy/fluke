@@ -1,6 +1,6 @@
 [Unit]
-Description=mkanban Docker firewall (DOCKER-USER allowlist)
-Documentation=file:///opt/mkanban/hardening/README.md
+Description=Fluke Docker firewall (DOCKER-USER allowlist)
+Documentation=file:///opt/fluke/hardening/README.md
 # Docker crea la chain DOCKER-USER al arrancar; hay que correr después.
 After=docker.service
 Wants=docker.service

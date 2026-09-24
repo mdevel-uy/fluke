@@ -1,4 +1,4 @@
-# Runbook de operación — mkanban on-premises
+# Runbook de operación — Fluke on-premises
 
 Procedimientos operativos para la venta y soporte de instancias de cliente.
 Dos partes, con la lógica de un manual de vuelo:
@@ -41,15 +41,15 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 **C. Instalación**
 
-- ▸ Copiar el bundle (`docker-compose.yml`, `.env.example`, `update.sh`) a `/opt/mkanban`.
+- ▸ Copiar el bundle (`docker-compose.yml`, `.env.example`, `update.sh`) a `/opt/fluke`.
 - ▸ `cp .env.example .env && chmod 600 .env`; completar `GHCR_USER` y `GHCR_TOKEN`.
-- ▸ Decidir el bind de la UI. El default `MK_BIND_ADDR=127.0.0.1` asume
+- ▸ Decidir el bind de la UI. El default `FK_BIND_ADDR=127.0.0.1` asume
   reverse proxy del host (Traefik/Caddy/Nginx) que termina TLS y forwardea
-  a `127.0.0.1:3000`. Sin reverse proxy, cambiar a `MK_BIND_ADDR=0.0.0.0`
+  a `127.0.0.1:3000`. Sin reverse proxy, cambiar a `FK_BIND_ADDR=0.0.0.0`
   y aplicar el hardening de `../hardening/README.md` para no dejar puertos
   crudos abiertos.
 - ▸ `chmod +x update.sh && ./update.sh`
-- ✓ `docker inspect mkanban --format '{{.State.Health.Status}}'` → `healthy`.
+- ✓ `docker inspect fluke --format '{{.State.Health.Status}}'` → `healthy`.
 - ✓ Desde el servidor: `curl -sSf http://127.0.0.1:3000/ >/dev/null && echo OK`
   (con reverse proxy, verificar además el dominio público con `curl -sSfI https://<dominio>` → `200`).
 - ▸ Si el cliente usa Tailscale como VPN de acceso (patrón por defecto en la
@@ -80,7 +80,7 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 - ▸ 🔴 Revocar el PAT del machine user y quitarle el acceso al package.
   A partir de acá el cliente **no recibe más updates** (la instancia sigue corriendo).
 - ▸ On-premises: instruir la desinstalación —`docker compose down`, borrar
-  `/opt/mkanban` y los volúmenes— y dejar constancia. Los datos son del cliente y
+  `/opt/fluke` y los volúmenes— y dejar constancia. Los datos son del cliente y
   quedan en su servidor (T&C cl. 13a).
 - ▸ Administrado por mdevel: poner la exportación a disposición del cliente y
   mantenerla **30 días**; recién después 🔴 destruir instancia, volúmenes y respaldos (cl. 13b).
@@ -135,7 +135,7 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
   y fecha de vencimiento correcta. (La herramienta ya verifica al emitir, pero el
   `inspect` explícito confirma que el archivo que vas a mandar es el bueno.)
 - ▸ Entregar el `license.json` al cliente: se coloca en el data dir de la
-  instancia (`~/.local/share/mkanban/license.json`, dentro del volumen `mk-home`).
+  instancia (`~/.local/share/mkanban/license.json`, dentro del volumen `fk-home`).
 - ✓ Confirmar en el panel del cliente (o `GET /api/license`) que el estado quedó
   `valid` y con la nueva fecha.
 - ▸ Registrar la emisión en el control de flota: cliente, fecha, vencimiento.
@@ -143,6 +143,42 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 > Uso no interactivo (CI, o el control plane de la fase 5b que renueva solo):
 > la passphrase se pasa por la variable `MKANBAN_LICENSE_PASSPHRASE` en vez del
 > prompt. No usarla en un shell interactivo: quedaría en el historial.
+
+## 1.5 Migración a Fluke (instancias instaladas como mkanban)
+
+Una sola vez por instancia, al pasarla al bundle renombrado. Cambian: directorio
+(`/opt/mkanban` → `/opt/fluke`), servicio/contenedor (`mkanban` → `fluke`),
+volúmenes (`mk-repos`/`mk-home` → `fk-repos`/`fk-home`) y variables del `.env`
+(`MK_*` → `FK_*`). Docker no renombra volúmenes: hay que copiar el contenido.
+Si se salta este paso, compose crea `fk-*` vacíos y la instancia arranca sin
+datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
+
+- ▸ Parar y borrar el contenedor viejo (libera los puertos; los volúmenes quedan):
+  `cd /opt/mkanban && docker compose down`
+- ▸ Mover el directorio y reemplazar el bundle por la versión nueva
+  (`docker-compose.yml`, `update.sh`, scripts de Tailscale). El `.env` se conserva:
+  `sudo mv /opt/mkanban /opt/fluke && cd /opt/fluke`
+- ▸ Copiar los volúmenes (con la app parada):
+  ```bash
+  for v in repos home; do
+    docker volume create "fk-$v"
+    docker run --rm -v "mk-$v:/from:ro" -v "fk-$v:/to" alpine \
+      sh -c 'cp -a /from/. /to/'
+  done
+  ```
+- ▸ Opcional: renombrar en el `.env` las variables `MK_*` a `FK_*`. No es
+  obligatorio — las `MK_*` siguen valiendo como fallback.
+- ▸ Actualizar el cron: en `/etc/cron.d/mkanban-update` cambiar la ruta a
+  `/opt/fluke/update.sh` y el log a `/var/log/fluke-update.log`; renombrar el
+  archivo a `/etc/cron.d/fluke-update`.
+- ▸ `docker compose up -d fluke`
+- ✓ `docker inspect fluke --format '{{.State.Health.Status}}'` → `healthy`, y en
+  la UI aparecen los proyectos y el historial de antes.
+- ▸ Si usa Tailscale Serve, re-correr `sudo ./enable-tailscale-serve.sh` desde
+  `/opt/fluke` (idempotente; el puerto no cambia).
+- ▸ 🔴 Recién tras unos días de operación normal, borrar los viejos:
+  `docker volume rm mk-repos mk-home`. Los backups previos quedan en
+  `backups/mk-data-*.tgz` y no entran en la rotación nueva (`fk-data-*`).
 
 ---
 
@@ -174,10 +210,10 @@ Estado esperado tras el rollback: el cliente está corriendo la **versión
 anterior**, sana, con sus datos restaurados del backup previo al intento.
 
 - ✓ Confirmar primero que el cliente está operativo:
-  `docker inspect mkanban --format '{{.State.Health.Status}}'` → `healthy`.
+  `docker inspect fluke --format '{{.State.Health.Status}}'` → `healthy`.
 - ▸ Recuperar el diagnóstico **antes** de reintentar:
-  `docker compose logs mkanban --tail=200` y el log del updater
-  (`/var/log/mkanban-update.log`).
+  `docker compose logs fluke --tail=200` y el log del updater
+  (`/var/log/fluke-update.log`).
 - ▸ 🔴 No reintentar el update hasta entender la causa: el cron lo va a volver a
   intentar la madrugada siguiente y va a repetir el ciclo. Si hace falta ganar
   tiempo, comentar la línea del cron.
@@ -189,11 +225,11 @@ anterior**, sana, con sus datos restaurados del backup previo al intento.
 Síntoma: alerta de instancia sin métricas, o el cliente reporta lentitud.
 
 - ▸ Verificar que el contenedor esté arriba y healthy.
-- ▸ Verificar disco: `df -h` — el volumen `mk-repos` es el que más crece
+- ▸ Verificar disco: `df -h` — el volumen `fk-repos` es el que más crece
   (clones y workspaces de los agentes).
 - ▸ Si el disco está lleno: purgar workspaces obsoletos desde la UI antes de
   tocar nada a mano.
-- ▸ Revisar `docker compose logs mkanban --tail=200` en busca de errores de
+- ▸ Revisar `docker compose logs fluke --tail=200` en busca de errores de
   executor o de la API del modelo.
 
 ## 2.4 Falta de pago → suspensión
@@ -228,7 +264,7 @@ Base contractual: [Términos](https://mkanban.dev/terms) cl. 9. El esquema es
 ## 2.6 El cliente pide sus datos / auditoría
 
 - ▸ On-premises: los datos ya están en su servidor; indicar dónde
-  (volúmenes `mk-home` y `mk-repos`) y cómo respaldarlos.
+  (volúmenes `fk-home` y `fk-repos`) y cómo respaldarlos.
 - ▸ Administrado: generar la exportación y entregarla por canal seguro.
 - ▸ Para auditoría de "quién hizo qué": el historial de GitHub tiene la
   atribución por worker (cada uno con su propia identidad), más el historial de
@@ -242,14 +278,14 @@ una vía adicional, no reemplaza el bind del contenedor).
 
 - ▸ Confirmar que el nodo esté online: `tailscale status` en el host.
 - ▸ Confirmar que el serve esté configurado: `tailscale serve status`. Debe
-  listar `443 → http://127.0.0.1:${MK_PORT}`. Si está vacío, re-correr
+  listar `443 → http://127.0.0.1:${FK_PORT}`. Si está vacío, re-correr
   `sudo ./enable-tailscale-serve.sh`.
-- ▸ Confirmar que el upstream esté vivo: `curl -sSfI http://127.0.0.1:${MK_PORT}/`
+- ▸ Confirmar que el upstream esté vivo: `curl -sSfI http://127.0.0.1:${FK_PORT}/`
   desde el host → `200`. Si falla, el problema no es HTTPS: revisar el
-  contenedor con `docker compose ps` y `docker compose logs mkanban --tail=200`.
+  contenedor con `docker compose ps` y `docker compose logs fluke --tail=200`.
 - ▸ Cert warning: emitir a mano `tailscale cert <host>.<tailnet>.ts.net`. Si
   falla, verificar que **HTTPS Certificates** esté habilitado en el admin
   console del tailnet (DNS → HTTPS Certificates → Enable). Es un prerequisito
   a nivel tailnet, no del nodo.
 - ▸ Si `tailscale cert` funciona pero el serve sigue caído, `tailscale serve reset`
-  y re-correr el enable — a veces queda un handler stale tras cambiar `MK_PORT`.
+  y re-correr el enable — a veces queda un handler stale tras cambiar `FK_PORT`.

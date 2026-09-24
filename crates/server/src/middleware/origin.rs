@@ -136,16 +136,23 @@ fn default_port(https: bool) -> u16 {
     if https { 443 } else { 80 }
 }
 
+/// FK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); MK_ y VK_ se mantienen
+/// como fallback para deployments existentes.
+fn allowed_origins_env(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
+    [
+        "FK_ALLOWED_ORIGINS",
+        "MK_ALLOWED_ORIGINS",
+        "VK_ALLOWED_ORIGINS",
+    ]
+    .into_iter()
+    .find_map(lookup)
+}
+
 fn allowed_origins() -> &'static Vec<OriginKey> {
     static ALLOWED: OnceLock<Vec<OriginKey>> = OnceLock::new();
     ALLOWED.get_or_init(|| {
-        // MK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); VK_ALLOWED_ORIGINS
-        // se mantiene como fallback para deployments existentes.
-        let value = match std::env::var("MK_ALLOWED_ORIGINS")
-            .or_else(|_| std::env::var("VK_ALLOWED_ORIGINS"))
-        {
-            Ok(value) => value,
-            Err(_) => return Vec::new(),
+        let Some(value) = allowed_origins_env(|name| std::env::var(name).ok()) else {
+            return Vec::new();
         };
 
         value
@@ -174,6 +181,26 @@ mod tests {
 
     fn is_forbidden(result: Result<(), Response>) -> bool {
         matches!(result, Err(resp) if resp.status() == StatusCode::FORBIDDEN)
+    }
+
+    #[test]
+    fn allowed_origins_env_falls_back_fk_mk_vk() {
+        let all = [
+            ("FK_ALLOWED_ORIGINS", "fk"),
+            ("MK_ALLOWED_ORIGINS", "mk"),
+            ("VK_ALLOWED_ORIGINS", "vk"),
+        ];
+        let resolve = |vars: &[(&str, &str)]| {
+            allowed_origins_env(|name| {
+                vars.iter()
+                    .find(|(k, _)| *k == name)
+                    .map(|(_, v)| v.to_string())
+            })
+        };
+        assert_eq!(resolve(&all).as_deref(), Some("fk"));
+        assert_eq!(resolve(&all[1..]).as_deref(), Some("mk"));
+        assert_eq!(resolve(&all[2..]).as_deref(), Some("vk"));
+        assert_eq!(resolve(&[]), None);
     }
 
     #[test]

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Updater OTA de mkanban on-premises (mkanban.dev).
+# Updater OTA de Fluke on-premises.
 #
 # Flujo: pull del tag de canal → si hay imagen nueva: backup de datos →
 # restart con la imagen nueva → espera healthcheck → si no levanta sano,
 # rollback automático (imagen anterior + restore del backup).
 #
 # Idempotente y seguro de correr por cron/timer, p. ej.:
-#   17 4 * * * /opt/mkanban/update.sh >> /var/log/mkanban-update.log 2>&1
+#   17 4 * * * /opt/fluke/update.sh >> /var/log/fluke-update.log 2>&1
 #
 # Las migraciones de esquema corren dentro del binario al arranque y son
 # forward-only: el rollback restaura el backup de la DB tomado justo antes
@@ -21,11 +21,11 @@ set -a
 source ./.env
 set +a
 
-IMAGE="${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}"
-CHANNEL="${MK_CHANNEL:-stable}"
-SERVICE="mkanban"
-CONTAINER="mkanban"
-DATA_VOLUME="mk-home"
+IMAGE="${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}}"
+CHANNEL="${FK_CHANNEL:-${MK_CHANNEL:-stable}}"
+SERVICE="fluke"
+CONTAINER="fluke"
+DATA_VOLUME="fk-home"
 # Ruta del data dir dentro del volumen: asset_dir() del server en Linux
 # (~/.local/share/mkanban) — contiene db.v2.sqlite, config y credenciales.
 DATA_SUBDIR=".local/share/mkanban"
@@ -33,7 +33,17 @@ BACKUP_DIR="${PWD}/backups"
 KEEP_BACKUPS=10
 HEALTH_TIMEOUT_SECS=180
 
-log() { echo "[mk-update $(date -u +%FT%TZ)] $*"; }
+log() { echo "[fk-update $(date -u +%FT%TZ)] $*"; }
+
+# Rebrand mkanban → Fluke: los volúmenes pasaron de mk-* a fk-*. Si quedan los
+# viejos y no los nuevos, arrancar crearía fk-home vacío y la instancia
+# "perdería" sus datos (siguen en mk-home). Abortar hasta migrar a mano.
+if docker volume inspect mk-home >/dev/null 2>&1 &&
+   ! docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1; then
+  log "ERROR: existe el volumen mk-home pero no ${DATA_VOLUME}."
+  log "migrar los volúmenes antes de actualizar (RUNBOOK → Migración a Fluke)."
+  exit 1
+fi
 
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
   echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER:-token}" --password-stdin >/dev/null
@@ -75,7 +85,7 @@ if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
      test -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
   mkdir -p "${BACKUP_DIR}"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
-  backup_file="mk-data-${stamp}.tgz"
+  backup_file="fk-data-${stamp}.tgz"
   log "backup → backups/${backup_file}"
   docker run --rm \
     -v "${DATA_VOLUME}:/data:ro" \
@@ -83,7 +93,7 @@ if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
     alpine tar czf "/backup/${backup_file}" -C /data "${DATA_SUBDIR}"
 
   # Rotación de backups.
-  ls -1t "${BACKUP_DIR}"/mk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
+  ls -1t "${BACKUP_DIR}"/fk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
 else
   log "sin datos previos que respaldar (instalación nueva)"
 fi

@@ -26,14 +26,18 @@
 # restart de Docker (via PartOf=docker.service), o a mano tras cambiar la
 # config.
 #
-# Overrides opcionales en /etc/mkanban/docker-firewall.conf (KEY=VALUE):
+# Overrides opcionales en /etc/fluke/docker-firewall.conf (KEY=VALUE; se
+# acepta /etc/mkanban/docker-firewall.conf como fallback de hosts previos):
 #   ADMIN_IFACES=tailscale0,wg0
 #   PUBLIC_TCP_PORTS=80,443
 #   PUBLIC_UDP_PORTS=51820
 
 set -euo pipefail
 
-CONF_FILE="${DOCKER_FIREWALL_CONF:-/etc/mkanban/docker-firewall.conf}"
+CONF_FILE="${DOCKER_FIREWALL_CONF:-/etc/fluke/docker-firewall.conf}"
+if [[ -z "${DOCKER_FIREWALL_CONF:-}" && ! -f "$CONF_FILE" ]]; then
+  CONF_FILE=/etc/mkanban/docker-firewall.conf
+fi
 if [[ -f "$CONF_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$CONF_FILE"

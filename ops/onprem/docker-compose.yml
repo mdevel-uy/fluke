@@ -1,4 +1,4 @@
-# Bundle on-premises de mkanban (mkanban.dev).
+# Bundle on-premises de Fluke.
 #
 # Este archivo es GENÉRICO e idéntico en todos los clientes — nunca se edita
 # en el host. Toda la configuración por-cliente vive en el `.env` de al lado
@@ -8,11 +8,14 @@
 # La imagen no contiene código fuente: es el binario `server` (Rust, release)
 # con el frontend embebido. Las migraciones de DB corren solas al arranque.
 
+# Variables `FK_*`: las `MK_*` equivalentes siguen valiendo como fallback
+# (compat con `.env` previos al rebrand; ver RUNBOOK → Migración a Fluke).
+
 services:
-  mkanban:
-    image: ${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}:${MK_CHANNEL:-stable}
+  fluke:
+    image: ${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}}:${FK_CHANNEL:-${MK_CHANNEL:-stable}}
     # Nombre fijo: update.sh lo usa para inspeccionar imagen corriente y health.
-    container_name: mkanban
+    container_name: fluke
     environment:
       RUST_LOG: ${RUST_LOG:-info}
       HOST: 0.0.0.0
@@ -25,7 +28,7 @@ services:
       WORKER_MAX_IN_REVIEW: ${WORKER_MAX_IN_REVIEW:-}
       PLAN_UPGRADE_CTA_URL: ${PLAN_UPGRADE_CTA_URL:-}
       PLAN_UPGRADE_CTA_LABEL: ${PLAN_UPGRADE_CTA_LABEL:-}
-      MK_ALLOWED_ORIGINS: ${MK_ALLOWED_ORIGINS:-}
+      FK_ALLOWED_ORIGINS: ${FK_ALLOWED_ORIGINS:-${MK_ALLOWED_ORIGINS:-}}
       # Heartbeat al control plane de mdevel (licencia + métricas de
       # facturación). Vacío = no reporta (opt-in). El token auto-vincula la
       # instancia al cliente en el panel de control.
@@ -34,20 +37,20 @@ services:
     # Bind por defecto a loopback: el patrón esperado es un reverse proxy
     # (Traefik/Caddy/Nginx) del host que termina TLS y hace forward acá.
     # Para exponer directo en la interfaz pública (sin proxy), sobreescribir
-    # `MK_BIND_ADDR=0.0.0.0` en el `.env` — decisión consciente porque Docker
+    # `FK_BIND_ADDR=0.0.0.0` en el `.env` — decisión consciente porque Docker
     # publica por iptables y bypassea ufw.
     ports:
-      - "${MK_BIND_ADDR:-127.0.0.1}:${MK_PORT:-3000}:3000"
-      - "${MK_BIND_ADDR:-127.0.0.1}:${MK_PREVIEW_PORT:-3009}:3009"
+      - "${FK_BIND_ADDR:-${MK_BIND_ADDR:-127.0.0.1}}:${FK_PORT:-${MK_PORT:-3000}}:3000"
+      - "${FK_BIND_ADDR:-${MK_BIND_ADDR:-127.0.0.1}}:${FK_PREVIEW_PORT:-${MK_PREVIEW_PORT:-3009}}:3009"
     volumes:
-      - mk-repos:/repos
-      - mk-home:/home/appuser
+      - fk-repos:/repos
+      - fk-home:/home/appuser
     restart: unless-stopped
 
 volumes:
   # Nombres explícitos: así update.sh puede montarlos para backup/restore sin
   # depender del nombre del directorio del proyecto compose.
-  mk-repos:
-    name: mk-repos
-  mk-home:
-    name: mk-home
+  fk-repos:
+    name: fk-repos
+  fk-home:
+    name: fk-home

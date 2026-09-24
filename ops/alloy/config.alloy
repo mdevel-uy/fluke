@@ -84,7 +84,7 @@ loki.write "central" {
 // scrape failure in Prometheus instead of silently dropping off the target
 // list.
 //
-// VK_METRICS_HOST defaults to `mkanban:3000` in docker-compose.local.yml
+// VK_METRICS_HOST defaults to `fluke:3000` in docker-compose.local.yml
 // — override only when the app is exposed on a non-default host:port.
 prometheus.scrape "fluke" {
 	targets = [{

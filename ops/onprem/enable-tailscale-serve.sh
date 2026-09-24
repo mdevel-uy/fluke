@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Habilita HTTPS de mkanban dentro del tailnet vía Tailscale Serve.
+# Habilita HTTPS de Fluke dentro del tailnet vía Tailscale Serve.
 #
 # Por qué esto y no un Caddy/Traefik nativo: la API de Notification y la
 # instalación como PWA en Chrome exigen contexto seguro (HTTPS o localhost).
@@ -11,7 +11,7 @@
 # automática — nada expuesto a internet.
 #
 # El acceso HTTP directo por IP de tailnet sigue funcionando como fallback
-# (mkanban queda publicado en `MK_BIND_ADDR:MK_PORT` como antes); esto
+# (Fluke queda publicado en `FK_BIND_ADDR:FK_PORT` como antes); esto
 # solamente agrega una vía HTTPS adicional.
 #
 # Idempotente: correrlo N veces produce el mismo estado. La renovación del
@@ -19,7 +19,7 @@
 #
 # Uso:
 #   sudo ./enable-tailscale-serve.sh          # lee .env de al lado
-#   sudo MK_PORT=3000 ./enable-tailscale-serve.sh
+#   sudo FK_PORT=3000 ./enable-tailscale-serve.sh
 #
 # Requisitos previos (una sola vez por tailnet, en el admin console):
 #   - MagicDNS habilitado.
@@ -37,8 +37,8 @@ if [[ -f ./.env ]]; then
   set +a
 fi
 
-MK_PORT="${MK_PORT:-3000}"
-UPSTREAM="http://127.0.0.1:${MK_PORT}"
+FK_PORT="${FK_PORT:-${MK_PORT:-3000}}"
+UPSTREAM="http://127.0.0.1:${FK_PORT}"
 
 log() { echo "[ts-serve $(date -u +%FT%TZ)] $*"; }
 err() { echo "[ts-serve $(date -u +%FT%TZ)] ERROR: $*" >&2; }
@@ -69,10 +69,10 @@ if [[ -z "$dns_name" ]]; then
 fi
 
 # Backend de la app: verificar que efectivamente esté escuchando en
-# 127.0.0.1:MK_PORT. Si no, `tailscale serve` acepta la config igual pero
+# 127.0.0.1:FK_PORT. Si no, `tailscale serve` acepta la config igual pero
 # el usuario verá 502 al abrir la URL — mejor fallar temprano y claro.
-if ! (exec 3<>"/dev/tcp/127.0.0.1/${MK_PORT}") 2>/dev/null; then
-  err "no hay servicio escuchando en 127.0.0.1:${MK_PORT} — verificar 'docker compose ps' y que mkanban esté healthy"
+if ! (exec 3<>"/dev/tcp/127.0.0.1/${FK_PORT}") 2>/dev/null; then
+  err "no hay servicio escuchando en 127.0.0.1:${FK_PORT} — verificar 'docker compose ps' y que fluke esté healthy"
   exit 1
 fi
 exec 3<&- 2>/dev/null || true
@@ -100,7 +100,7 @@ if tailscale serve status 2>/dev/null | grep -qF "$UPSTREAM"; then
 fi
 
 # Reset limpio antes de configurar — evita quedar con handlers viejos
-# apuntando a puertos que ya no existen (p. ej. tras cambiar MK_PORT).
+# apuntando a puertos que ya no existen (p. ej. tras cambiar FK_PORT).
 tailscale serve reset >/dev/null 2>&1 || true
 
 # `--bg` deja el serve activo entre reinicios (persiste en el state del
@@ -116,4 +116,4 @@ log "  en el browser: window.isSecureContext === true"
 log ""
 log "Tailscale Serve preserva el Host header, así que el chequeo de mismo"
 log "origen del server acepta el request sin config extra. Solo hace falta"
-log "MK_ALLOWED_ORIGINS si además vas a servir bajo un dominio propio."
+log "FK_ALLOWED_ORIGINS si además vas a servir bajo un dominio propio."
