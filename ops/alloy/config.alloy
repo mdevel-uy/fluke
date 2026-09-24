@@ -1,4 +1,4 @@
-// Grafana Alloy configuration for a mkanban instance.
+// Grafana Alloy configuration for a fluke instance.
 //
 // Two data planes, one process:
 //
@@ -6,7 +6,7 @@
 //               (server + executors + Alloy itself + anything else in the
 //               compose stack) → central Loki via `loki.write`.
 //   2. Metrics → three local exporters scraped every 30s:
-//               - mkanban      /api/metrics  (product + plan health, see
+//               - fluke        /api/metrics  (product + plan health, see
 //                                             crates/server/src/routes/metrics.rs)
 //               - node-exporter :9100/metrics (host CPU/mem/disk)
 //               - cadvisor      :8080/metrics (per-container CPU/mem/net)
@@ -16,7 +16,7 @@
 // the Loki push route on the central stack). Every stream and every metric
 // carries the fleet label convention:
 //
-//   proyecto=mkanban, cliente=<X>, instancia=<Y>, version=<Z>
+//   proyecto=fluke, cliente=<X>, instancia=<Y>, version=<Z>
 //
 // Environment (required — Alloy fails fast if any is missing):
 //   LOKI_PUSH_URL, LOKI_PUSH_USER, LOKI_PUSH_PASSWORD
@@ -59,7 +59,7 @@ loki.source.docker "containers" {
 	forward_to = [loki.write.central.receiver]
 
 	labels = {
-		proyecto  = "mkanban",
+		proyecto  = "fluke",
 		cliente   = sys.env("VK_CLIENTE"),
 		instancia = sys.env("VK_INSTANCIA"),
 		version   = sys.env("VK_VERSION"),
@@ -86,11 +86,11 @@ loki.write "central" {
 //
 // VK_METRICS_HOST defaults to `mkanban:3000` in docker-compose.local.yml
 // — override only when the app is exposed on a non-default host:port.
-prometheus.scrape "mkanban" {
+prometheus.scrape "fluke" {
 	targets = [{
 		__address__      = sys.env("VK_METRICS_HOST"),
 		__metrics_path__ = "/api/metrics",
-		job              = "mkanban",
+		job              = "fluke",
 	}]
 	scrape_interval = "30s"
 	scrape_timeout  = "10s"
@@ -122,7 +122,7 @@ prometheus.scrape "cadvisor" {
 // Prometheus (which sees dozens of fleet instances share the same job).
 prometheus.remote_write "central" {
 	external_labels = {
-		proyecto  = "mkanban",
+		proyecto  = "fluke",
 		cliente   = sys.env("VK_CLIENTE"),
 		instancia = sys.env("VK_INSTANCIA"),
 		version   = sys.env("VK_VERSION"),

@@ -11,11 +11,11 @@ The stack does not run Alertmanager. Grafana Alerting is used end-to-end: rules,
 
 ## What is alerted
 
-Three rules live in the `mkanban-fleet` group (folder `mkanban`), each evaluated every minute and labelled `proyecto=mkanban` so the notification policy can route them to the fleet's contact points without touching alerts from other projects that share the stack.
+Three rules live in the `fluke-fleet` group (folder `fluke`), each evaluated every minute and labelled `proyecto=fluke` so the notification policy can route them to the fleet's contact points without touching alerts from other projects that share the stack.
 
 | Rule UID                     | Fires when                                                                          | `for`  | Severity   |
 |------------------------------|-------------------------------------------------------------------------------------|--------|------------|
-| `vk-instance-not-reporting`  | An instance's most recent `mkanban_build_info` sample is older than 5 minutes.  | `0m`   | `critical` |
+| `vk-instance-not-reporting`  | An instance's most recent `fluke_build_info` sample is older than 5 minutes.  | `0m`   | `critical` |
 | `vk-disk-repos-high`         | Any non-transient filesystem on the instance goes above 80% used.                   | `5m`   | `warning`  |
 | `vk-executor-error-rate`     | Sustained rate of failed execution processes above 2/min for 10 minutes.            | `10m`  | `warning`  |
 
@@ -77,9 +77,9 @@ If the stack's Prometheus and Loki datasources do not use `prometheus` and `loki
 Do **not** copy `notification-policy.example.yaml` directly. Grafana replaces the entire notification-policy tree when it finds a policies file, which would break routing for other projects on the shared stack.
 </Warning>
 
-Instead, edit the stack's existing `notification-policies.yaml` and add a nested route under the root that matches `proyecto = mkanban` and routes to `vk-socios-telegram` (with a nested email route). A ready-to-adapt example lives at [`ops/observability/alerting/notification-policy.example.yaml`](https://github.com/mdevel-uy/vibe-kanban/blob/mdev/ops/observability/alerting/notification-policy.example.yaml).
+Instead, edit the stack's existing `notification-policies.yaml` and add a nested route under the root that matches `proyecto = fluke` and routes to `vk-socios-telegram` (with a nested email route). A ready-to-adapt example lives at [`ops/observability/alerting/notification-policy.example.yaml`](https://github.com/mdevel-uy/vibe-kanban/blob/mdev/ops/observability/alerting/notification-policy.example.yaml).
 
-Everything that does not match `proyecto = mkanban` keeps falling through to the stack's default receiver.
+Everything that does not match `proyecto = fluke` keeps falling through to the stack's default receiver.
 </Step>
 
 <Step title="Reload Grafana provisioning">
@@ -88,7 +88,7 @@ docker exec observability-grafana kill -HUP 1
 ```
 
 <Check>
-In the Grafana UI, **Alerting → Alert rules** should list the `mkanban-fleet` group with three rules, and **Alerting → Contact points** should list `vk-socios-telegram` and `vk-socios-email`.
+In the Grafana UI, **Alerting → Alert rules** should list the `fluke-fleet` group with three rules, and **Alerting → Contact points** should list `vk-socios-telegram` and `vk-socios-email`.
 </Check>
 </Step>
 
@@ -102,7 +102,7 @@ docker compose -f docker-compose.local.yml stop mkanban alloy
 Within roughly 5 minutes plus one evaluation interval (~6 min total), a Telegram message should arrive:
 
 ```
-[FIRING · critical] instancia mkanban sin reportar métricas
+[FIRING · critical] instancia fluke sin reportar métricas
 • <cliente>/<instancia> sin métricas hace 6m
 ```
 
@@ -112,13 +112,13 @@ When the instance recovers and Alloy resumes pushing samples, a `[RESOLVED]` mes
 
 ## Changing or adding rules
 
-Edit the YAML in this repo, not the Grafana UI. Choose a stable `uid` for each new rule (convention `vk-<topic>-<detail>`) so re-provisioning stays idempotent, add a short `runbook` annotation, and label the rule `proyecto: mkanban` so it flows through the same notification policy. Then re-apply via the steps above.
+Edit the YAML in this repo, not the Grafana UI. Choose a stable `uid` for each new rule (convention `vk-<topic>-<detail>`) so re-provisioning stays idempotent, add a short `runbook` annotation, and label the rule `proyecto: fluke` so it flows through the same notification policy. Then re-apply via the steps above.
 
 ## Troubleshooting
 
 <AccordionGroup>
 <Accordion title="Grafana loads the rules but no notification arrives when I stop a test instance">
-Check the notification policy tree in **Alerting → Notification policies**. If the `proyecto = mkanban` route is missing (or falls under the wrong parent), the alert fires but the notification never leaves Grafana. Re-apply step 3 above.
+Check the notification policy tree in **Alerting → Notification policies**. If the `proyecto = fluke` route is missing (or falls under the wrong parent), the alert fires but the notification never leaves Grafana. Re-apply step 3 above.
 </Accordion>
 
 <Accordion title="Telegram receiver reports `chat not found` or `bot was blocked`">
@@ -130,7 +130,7 @@ Grafana's SMTP block is not configured or points to an unreachable server. Fix `
 </Accordion>
 
 <Accordion title="`vk-instance-not-reporting` never fires even though the test instance is off">
-Check that `mkanban_build_info{proyecto="mkanban", instancia="<X>"}` is present in Prometheus before stopping the instance. If it is not, Alloy never registered samples in the first place — go back to [Shipping instance metrics](/self-hosting/observability-metrics) and confirm the profile is up.
+Check that `fluke_build_info{proyecto="fluke", instancia="<X>"}` is present in Prometheus before stopping the instance. If it is not, Alloy never registered samples in the first place — go back to [Shipping instance metrics](/self-hosting/observability-metrics) and confirm the profile is up.
 
 Also confirm the alert rule is evaluating: **Alerting → Alert rules → vk-instance-not-reporting → Show state history** displays the transitions. If the rule stays `Normal` even with the instance off, the `datasourceUid: prometheus` in the rule does not match the actual UID of the Prometheus datasource in the stack.
 </Accordion>

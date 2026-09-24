@@ -17,7 +17,7 @@ Every log line is pushed to `LOKI_PUSH_URL` with these labels:
 
 | Label       | Source                  | Example         |
 |-------------|-------------------------|-----------------|
-| `proyecto`  | Static in config        | `mkanban`       |
+| `proyecto`  | Static in config        | `fluke`       |
 | `cliente`   | `VK_CLIENTE` env var    | `acme`          |
 | `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
 | `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
@@ -84,7 +84,7 @@ docker compose \
 Trigger some activity (any HTTP request against the server is enough) and query Loki for the instance:
 
 ```logql
-{proyecto="mkanban", cliente="acme"}
+{proyecto="fluke", cliente="acme"}
 ```
 
 Lines should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).

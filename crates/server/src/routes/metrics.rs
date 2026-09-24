@@ -131,39 +131,39 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     let mut body = String::new();
 
     // Build info — standard Prometheus pattern: gauge = 1 with the version
-    // in a label so PromQL joins (`* on (instance) group_left mkanban_build_info`)
+    // in a label so PromQL joins (`* on (instance) group_left fluke_build_info`)
     // pin queries to a specific release.
     body.push_str(
-        "# HELP mkanban_build_info Build metadata for this instance; \
+        "# HELP fluke_build_info Build metadata for this instance; \
          always 1, version carried in the label.\n",
     );
-    body.push_str("# TYPE mkanban_build_info gauge\n");
+    body.push_str("# TYPE fluke_build_info gauge\n");
     body.push_str(&format!(
-        "mkanban_build_info{{version=\"{}\"}} 1\n",
+        "fluke_build_info{{version=\"{}\"}} 1\n",
         escape_label(APP_VERSION),
     ));
 
     // Worker tasks by status. Emitted for every valid status even at 0 so
     // Grafana panels do not flicker between "no data" and a number.
     body.push_str(
-        "# HELP mkanban_worker_tasks Current count of worker tasks by status.\n",
+        "# HELP fluke_worker_tasks Current count of worker tasks by status.\n",
     );
-    body.push_str("# TYPE mkanban_worker_tasks gauge\n");
+    body.push_str("# TYPE fluke_worker_tasks gauge\n");
     for (status, count) in &task_counts {
         body.push_str(&format!(
-            "mkanban_worker_tasks{{status=\"{}\"}} {}\n",
+            "fluke_worker_tasks{{status=\"{}\"}} {}\n",
             escape_label(status),
             count,
         ));
     }
 
     body.push_str(
-        "# HELP mkanban_agents_running Number of coding-agent processes \
+        "# HELP fluke_agents_running Number of coding-agent processes \
          currently in the `running` state.\n",
     );
-    body.push_str("# TYPE mkanban_agents_running gauge\n");
+    body.push_str("# TYPE fluke_agents_running gauge\n");
     body.push_str(&format!(
-        "mkanban_agents_running {}\n",
+        "fluke_agents_running {}\n",
         running_agents,
     ));
 
@@ -171,17 +171,17 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     // Always emit the metric name so alerts on `rate(...)` don't disappear
     // when no failures have been recorded yet.
     body.push_str(
-        "# HELP mkanban_execution_processes_failed_total Cumulative \
+        "# HELP fluke_execution_processes_failed_total Cumulative \
          count of execution processes that ended in the `failed` state, \
          partitioned by run_reason.\n",
     );
-    body.push_str("# TYPE mkanban_execution_processes_failed_total counter\n");
+    body.push_str("# TYPE fluke_execution_processes_failed_total counter\n");
     if failed_by_reason.is_empty() {
-        body.push_str("mkanban_execution_processes_failed_total 0\n");
+        body.push_str("fluke_execution_processes_failed_total 0\n");
     } else {
         for (reason, count) in &failed_by_reason {
             body.push_str(&format!(
-                "mkanban_execution_processes_failed_total{{run_reason=\"{}\"}} {}\n",
+                "fluke_execution_processes_failed_total{{run_reason=\"{}\"}} {}\n",
                 escape_label(reason),
                 count,
             ));
@@ -215,22 +215,22 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
         licensing::LicenseStatus::Suspended => "suspended",
     };
     body.push_str(
-        "# HELP mkanban_license_state Estado de la licencia; el valor 1 marca el estado activo en la etiqueta.\n",
+        "# HELP fluke_license_state Estado de la licencia; el valor 1 marca el estado activo en la etiqueta.\n",
     );
-    body.push_str("# TYPE mkanban_license_state gauge\n");
+    body.push_str("# TYPE fluke_license_state gauge\n");
     for s in ["valid", "grace", "suspended"] {
         body.push_str(&format!(
-            "mkanban_license_state{{state=\"{}\"}} {}\n",
+            "fluke_license_state{{state=\"{}\"}} {}\n",
             s,
             if s == lic_state { 1 } else { 0 },
         ));
     }
     if let Some(days) = lic.days_remaining {
         body.push_str(
-            "# HELP mkanban_license_days_remaining Días hasta el vencimiento de la licencia (negativo si venció).\n",
+            "# HELP fluke_license_days_remaining Días hasta el vencimiento de la licencia (negativo si venció).\n",
         );
-        body.push_str("# TYPE mkanban_license_days_remaining gauge\n");
-        body.push_str(&format!("mkanban_license_days_remaining {}\n", days));
+        body.push_str("# TYPE fluke_license_days_remaining gauge\n");
+        body.push_str(&format!("fluke_license_days_remaining {}\n", days));
     }
 
     Ok((
