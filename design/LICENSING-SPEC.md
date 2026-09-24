@@ -1,7 +1,7 @@
 # LICENSING-SPEC v1 — licencia firmada y kill-switch
 
 Estado: **borrador, requiere decisiones de Dani** (marcadas 🔸).
-Contexto: fase 5a del plan comercial on-premises. Convierte mkanban de
+Contexto: fase 5a del plan comercial on-premises. Convierte fluke (antes conocido como mkanban) de
 "instalable" en "cobrable": sin esto no hay forma de suspender el servicio a un
 cliente que deja de pagar.
 
@@ -24,7 +24,7 @@ binario no cambia, solo aparece quién le acerca el archivo.
 
 ## Formato de la licencia
 
-Archivo `license.json` en el data dir (`~/.local/share/mkanban/`), montado en el
+Archivo `license.json` en el data dir (`~/.local/share/mkanban/`, path heredado de mkanban), montado en el
 volumen `mk-home` del bundle. Sobrevive updates y restauraciones de backup.
 
 ```json
@@ -83,15 +83,15 @@ puede correr meses sin reiniciar).
   materializa el agente y se registra el motivo.
 - **Endpoint** `GET /api/license`: estado, `expires_at`, días restantes. Lo
   consume el banner de la UI. No expone la firma.
-- **Métrica** `mkanban_license_state{state="valid|grace|suspended"} 1` +
-  `mkanban_license_days_remaining`, para alertar en la flota propia antes de que
+- **Métrica** `fluke_license_state{state="valid|grace|suspended"} 1` +
+  `fluke_license_days_remaining`, para alertar en la flota propia antes de que
   un cliente se entere.
 - **UI**: banner en `grace` (tono warning, con fecha) y en `suspended` (tono
   destructive, explicando que los datos siguen disponibles y a quién escribir).
 
 ## Herramienta de firma
 
-`crates/mkanban-license` (bin, no se distribuye al cliente):
+`crates/mkanban-license` (bin con nombre heredado de mkanban; no se distribuye al cliente):
 
 ```
 mkanban-license new --cliente acme --instance 01J... --dias 45 > license.json
@@ -109,7 +109,7 @@ partir de la licencia firmada. No existe un flag `is_suspended` en disco ni en
 la DB que se pueda flipear — ese ataque no aplica. Persistido solo hay:
 `license.json` (firmado ed25519) y `license_state.json` (`last_seen`,
 `degraded_since`). La verificación usa las claves públicas embebidas en el
-binario en tiempo de compilación (`MKANBAN_LICENSE_PUBKEYS`).
+binario en tiempo de compilación (`MKANBAN_LICENSE_PUBKEYS`, nombre heredado de mkanban).
 
 Es un check **del lado del cliente**, que corre con root en el servidor del
 cliente. Ningún esquema offline sobrevive a eso. Por capas:
