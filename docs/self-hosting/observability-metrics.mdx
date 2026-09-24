@@ -11,7 +11,7 @@ Fleet instances live behind customer VPNs and are not reachable from the central
 
 | Job              | Target                    | What it exposes                                          |
 |------------------|---------------------------|----------------------------------------------------------|
-| `mkanban`        | `mkanban:3000/api/metrics` | Product/health metrics from the app (see table below). |
+| `fluke`        | `mkanban:3000/api/metrics` | Product/health metrics from the app (see table below). |
 | `node-exporter`  | `node-exporter:9100/metrics`   | Host CPU, memory, disk (all mounts, including the volume that backs `/repos`). |
 | `cadvisor`       | `cadvisor:8080/metrics`        | Per-container CPU, memory, network, filesystem.        |
 
@@ -19,7 +19,7 @@ Every sample is tagged with these external labels before being pushed:
 
 | Label       | Source                  | Example         |
 |-------------|-------------------------|-----------------|
-| `proyecto`  | Static in config        | `mkanban`    |
+| `proyecto`  | Static in config        | `fluke`    |
 | `cliente`   | `VK_CLIENTE` env var    | `acme`          |
 | `instancia` | `VK_INSTANCIA` env var  | `acme-prod`     |
 | `version`   | `VK_VERSION` env var    | `2026.08.02-1`  |
@@ -28,20 +28,20 @@ The `proyecto` label keeps the fleet's samples isolated from anything else shari
 
 ## Product metrics exposed by the app
 
-`/api/metrics` returns Prometheus text-format. Metric names carry the `mkanban_` prefix; the legacy `plan_*` series stays as-is for existing dashboards.
+`/api/metrics` returns Prometheus text-format. Metric names carry the `fluke_` prefix; the legacy `plan_*` series stays as-is for existing dashboards.
 
 | Metric                                             | Type    | What it means                                                       |
 |----------------------------------------------------|---------|---------------------------------------------------------------------|
-| `mkanban_build_info{version="X"}`              | gauge   | Always `1`; `version` label carries the running app version.        |
-| `mkanban_worker_tasks{status="..."}`           | gauge   | Current worker tasks per status: `queued`, `in_progress`, `in_review`, `done`, `failed`. |
-| `mkanban_agents_running`                       | gauge   | Coding-agent execution processes currently in the `running` state (i.e. concurrent agents). |
-| `mkanban_execution_processes_failed_total{run_reason="..."}` | counter | Cumulative failed execution processes, split by `run_reason` (`codingagent`, `setupscript`, …). |
+| `fluke_build_info{version="X"}`              | gauge   | Always `1`; `version` label carries the running app version.        |
+| `fluke_worker_tasks{status="..."}`           | gauge   | Current worker tasks per status: `queued`, `in_progress`, `in_review`, `done`, `failed`. |
+| `fluke_agents_running`                       | gauge   | Coding-agent execution processes currently in the `running` state (i.e. concurrent agents). |
+| `fluke_execution_processes_failed_total{run_reason="..."}` | counter | Cumulative failed execution processes, split by `run_reason` (`codingagent`, `setupscript`, …). |
 | `plan_cap_hits_total`                              | counter | Cumulative refusals due to the concurrent-agents cap.               |
 | `plan_cap_hits_by_date{date="YYYY-MM-DD"}`         | gauge   | One series per UTC day the cap was hit.                             |
 | `plan_concurrent_agents_limit`                     | gauge   | Current per-worker in-review cap (`WORKER_MAX_IN_REVIEW`, default `1`). |
 
 <Tip>
-`sum by (cliente, instancia) (mkanban_agents_running)` and `sum by (cliente, instancia) (mkanban_worker_tasks{status="done"})` are the two Grafana panels that satisfy the fleet acceptance criteria: concurrent agents and completed tasks per instance.
+`sum by (cliente, instancia) (fluke_agents_running)` and `sum by (cliente, instancia) (fluke_worker_tasks{status="done"})` are the two Grafana panels that satisfy the fleet acceptance criteria: concurrent agents and completed tasks per instance.
 </Tip>
 
 ## Prerequisites
@@ -97,7 +97,7 @@ docker compose \
 This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All three sit behind the same profile because Alloy assumes the other two are reachable by name.
 
 <Check>
-`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://mkanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP mkanban_build_info …`.
+`docker compose ps` should show all three sidecars `Up`. From another shell, `docker compose exec alloy wget -qO- http://mkanban:3000/api/metrics | head` should return Prometheus text starting with `# HELP fluke_build_info …`.
 </Check>
 </Step>
 
@@ -105,7 +105,7 @@ This brings up three sidecars: `alloy`, `node-exporter`, and `cadvisor`. All thr
 Query Prometheus for the running-agents gauge for this instance:
 
 ```promql
-mkanban_agents_running{proyecto="mkanban", cliente="acme"}
+fluke_agents_running{proyecto="fluke", cliente="acme"}
 ```
 
 Samples should appear within a minute. If nothing shows up, jump to [Troubleshooting](#troubleshooting).
@@ -130,7 +130,7 @@ Common causes:
 
 - `dial tcp: lookup mkanban on ... no such host` — the app container is not running under the compose file that started Alloy. Verify with `docker compose ps`.
 - `401 Unauthorized` from Prometheus — wrong `LOKI_PUSH_USER` / `LOKI_PUSH_PASSWORD` (the same credential is reused for Prometheus push).
-- `context deadline exceeded` on the `mkanban` job — the app is up but `/api/metrics` is slow. Check the server logs for a DB stall.
+- `context deadline exceeded` on the `fluke` job — the app is up but `/api/metrics` is slow. Check the server logs for a DB stall.
 </Accordion>
 
 <Accordion title="`node-exporter` or `cadvisor` container restarts in a loop">

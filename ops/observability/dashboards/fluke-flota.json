@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Salud operativa de todas las instancias mkanban de la flota. Filtrado por proyecto=mkanban para no mezclar con otros proyectos del stack. Un click en cualquier fila lleva al detalle de la instancia (dashboard mkanban-cliente).",
+  "description": "Salud operativa de todas las instancias fluke de la flota. Filtrado por proyecto=fluke para no mezclar con otros proyectos del stack. Un click en cualquier fila lleva al detalle de la instancia (dashboard fluke-cliente).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -31,7 +31,7 @@
       "title": "Drill-down por cliente",
       "tooltip": "Abrir el dashboard de detalle por cliente",
       "type": "link",
-      "url": "/d/mkanban-cliente/mkanban-cliente"
+      "url": "/d/fluke-cliente/fluke-cliente"
     }
   ],
   "liveNow": false,
@@ -88,7 +88,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "count(count by (cliente, instancia) (mkanban_build_info{proyecto=\"mkanban\"}))",
+          "expr": "count(count by (cliente, instancia) (fluke_build_info{proyecto=\"fluke\"}))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -146,7 +146,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "count(max by (cliente, instancia) ((time() - timestamp(mkanban_build_info{proyecto=\"mkanban\"})) > 120))",
+          "expr": "count(max by (cliente, instancia) ((time() - timestamp(fluke_build_info{proyecto=\"fluke\"})) > 120))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -198,7 +198,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(mkanban_agents_running{proyecto=\"mkanban\"})",
+          "expr": "sum(fluke_agents_running{proyecto=\"fluke\"})",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -252,7 +252,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(mkanban_execution_processes_failed_total{proyecto=\"mkanban\"}[24h]))",
+          "expr": "sum(increase(fluke_execution_processes_failed_total{proyecto=\"fluke\"}[24h]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -306,7 +306,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(plan_cap_hits_total{proyecto=\"mkanban\"}[24h]))",
+          "expr": "sum(increase(plan_cap_hits_total{proyecto=\"fluke\"}[24h]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -362,7 +362,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (status) (mkanban_worker_tasks{proyecto=\"mkanban\"})",
+          "expr": "sum by (status) (fluke_worker_tasks{proyecto=\"fluke\"})",
           "instant": true,
           "legendFormat": "{{status}}",
           "range": false,
@@ -385,7 +385,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "Una fila por instancia. Click en la fila abre el dashboard de detalle (mkanban-cliente) con las variables ya cargadas. La columna \"Última señal (s)\" se colorea en rojo si supera los 120s (dos ciclos de scrape).",
+      "description": "Una fila por instancia. Click en la fila abre el dashboard de detalle (fluke-cliente) con las variables ya cargadas. La columna \"Última señal (s)\" se colorea en rojo si supera los 120s (dos ciclos de scrape).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -483,7 +483,7 @@
                 "value": [
                   {
                     "title": "Abrir detalle del cliente",
-                    "url": "/d/mkanban-cliente/mkanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
+                    "url": "/d/fluke-cliente/fluke-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
                   }
                 ]
               }
@@ -497,7 +497,7 @@
                 "value": [
                   {
                     "title": "Abrir detalle de la instancia",
-                    "url": "/d/mkanban-cliente/mkanban-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
+                    "url": "/d/fluke-cliente/fluke-cliente?var-datasource_prom=${datasource_prom}&var-datasource_loki=${datasource_loki}&var-cliente=${__data.fields.Cliente}&var-instancia=${__data.fields.Instancia}"
                   }
                 ]
               }
@@ -529,7 +529,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (cliente, instancia, version) (mkanban_build_info{proyecto=\"mkanban\"})",
+          "expr": "max by (cliente, instancia, version) (fluke_build_info{proyecto=\"fluke\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -544,7 +544,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (cliente, instancia) (time() - timestamp(mkanban_build_info{proyecto=\"mkanban\"}))",
+          "expr": "max by (cliente, instancia) (time() - timestamp(fluke_build_info{proyecto=\"fluke\"}))",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -559,7 +559,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (cliente, instancia) (mkanban_agents_running{proyecto=\"mkanban\"})",
+          "expr": "sum by (cliente, instancia) (fluke_agents_running{proyecto=\"fluke\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -574,7 +574,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "min by (cliente, instancia) (node_filesystem_avail_bytes{proyecto=\"mkanban\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"} / node_filesystem_size_bytes{proyecto=\"mkanban\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"})",
+          "expr": "min by (cliente, instancia) (node_filesystem_avail_bytes{proyecto=\"fluke\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"} / node_filesystem_size_bytes{proyecto=\"fluke\", fstype!~\"tmpfs|overlay|squashfs|devtmpfs\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -589,7 +589,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (cliente, instancia) (increase(mkanban_execution_processes_failed_total{proyecto=\"mkanban\"}[24h]))",
+          "expr": "sum by (cliente, instancia) (increase(fluke_execution_processes_failed_total{proyecto=\"fluke\"}[24h]))",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -721,7 +721,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (cliente, instancia) (mkanban_agents_running{proyecto=\"mkanban\"})",
+          "expr": "sum by (cliente, instancia) (fluke_agents_running{proyecto=\"fluke\"})",
           "legendFormat": "{{cliente}} / {{instancia}}",
           "range": true,
           "refId": "A"
@@ -790,7 +790,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (cliente, instancia, run_reason) (rate(mkanban_execution_processes_failed_total{proyecto=\"mkanban\"}[5m])) * 60",
+          "expr": "sum by (cliente, instancia, run_reason) (rate(fluke_execution_processes_failed_total{proyecto=\"fluke\"}[5m])) * 60",
           "legendFormat": "{{cliente}}/{{instancia}} — {{run_reason}}",
           "range": true,
           "refId": "A"
@@ -859,7 +859,7 @@
             "uid": "${datasource_loki}"
           },
           "editorMode": "code",
-          "expr": "sum by (cliente, instancia) (rate({proyecto=\"mkanban\"} |~ \"(?i)error\" [$__auto]))",
+          "expr": "sum by (cliente, instancia) (rate({proyecto=\"fluke\"} |~ \"(?i)error\" [$__auto]))",
           "legendFormat": "{{cliente}} / {{instancia}}",
           "queryType": "range",
           "refId": "A"
@@ -871,7 +871,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["mkanban", "flota", "proyecto:mkanban"],
+  "tags": ["fluke", "flota", "proyecto:fluke"],
   "templating": {
     "list": [
       {
@@ -917,8 +917,8 @@
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "mkanban — Flota",
-  "uid": "mkanban-flota",
+  "title": "Fluke — Flota",
+  "uid": "fluke-flota",
   "version": 1,
   "weekStart": ""
 }

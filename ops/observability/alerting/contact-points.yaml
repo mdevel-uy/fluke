@@ -1,4 +1,4 @@
-# Grafana Alerting — contact points de la flota mkanban.
+# Grafana Alerting — contact points de la flota fluke.
 #
 # Dos receivers, ambos apuntan al canal de los socios:
 #   - Telegram (primario, para notificación push).
@@ -50,7 +50,7 @@ contactPoints:
         settings:
           addresses: $VK_ALERT_EMAIL_TO
           singleEmail: true
-          subject: '[{{ .Status | toUpper }}] mkanban · {{ .CommonLabels.alertname }}'
+          subject: '[{{ .Status | toUpper }}] fluke · {{ .CommonLabels.alertname }}'
           message: |
             Estado: {{ .Status | toUpper }}
             Alerta: {{ .CommonLabels.alertname }}
