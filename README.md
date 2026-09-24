@@ -1,10 +1,10 @@
-<p align="center"><strong>mkanban</strong></p>
+<p align="center"><strong>fluke</strong></p>
 <p align="center">Orquestación de agentes de código sobre un tablero kanban, 100% self-hosted.</p>
 <p align="center"><a href="https://mkanban.dev">mkanban.dev</a></p>
 
 ## Qué es
 
-mkanban corre una flota de **workers** — agentes de IA persistentes, con identidad, rol y memoria propia — que toman issues de GitHub, trabajan en workspaces aislados sobre git worktrees, abren pull requests y pasan por un loop de revisión automática antes de que una persona apruebe el merge. Todo corre en infraestructura propia: sin backend en la nube, sin login externo, sin telemetría hacia terceros.
+fluke (antes conocido como mkanban) corre una flota de **workers** — agentes de IA persistentes, con identidad, rol y memoria propia — que toman issues de GitHub, trabajan en workspaces aislados sobre git worktrees, abren pull requests y pasan por un loop de revisión automática antes de que una persona apruebe el merge. Todo corre en infraestructura propia: sin backend en la nube, sin login externo, sin telemetría hacia terceros.
 
 El flujo completo:
 
@@ -21,13 +21,13 @@ El flujo completo:
 - **Integración GitHub** — sincronización de issues por repo, PRs vinculados a workspaces, autenticación del CLI `gh` por device flow desde Settings.
 - **Workspaces** — diffs, logs del agente, editor embebido y terminal, sobre worktrees que se limpian solos al archivar.
 - **Panel de analyst** — pedidos ad-hoc a un worker sin pasar por el tablero.
-- **Observabilidad** — métricas Prometheus (`mkanban_*`), dashboards y reglas de alerta listos en [`ops/observability/`](ops/observability/).
+- **Observabilidad** — métricas Prometheus (`fluke_*`), dashboards y reglas de alerta listos en [`ops/observability/`](ops/observability/).
 
 ## Instalación on-premises
 
-El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`), configuración por variables `MK_*` en `.env`, y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
+El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`, nombre heredado de mkanban), configuración por variables `FK_*` en `.env` (las `MK_*` siguen valiendo como fallback), y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
 
-Los datos persisten en los volúmenes `mk-repos` (checkouts) y `mk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/mkanban`.
+Los datos persisten en los volúmenes `fk-repos` (checkouts) y `fk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/mkanban` (path heredado de mkanban, se mantiene por compatibilidad).
 
 ### Variables de entorno principales
 
@@ -35,7 +35,7 @@ Los datos persisten en los volúmenes `mk-repos` (checkouts) y `mk-home` (base S
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Dirección de bind del servidor. |
 | `PORT` | `3000` | Puerto del servidor. |
-| `MK_ALLOWED_ORIGINS` | sin setear | Orígenes permitidos (separados por coma) al servir detrás de un reverse proxy o dominio propio; necesario para evitar 403. |
+| `FK_ALLOWED_ORIGINS` | sin setear | Orígenes permitidos (separados por coma) al servir detrás de un reverse proxy o dominio propio; necesario para evitar 403. `MK_ALLOWED_ORIGINS` (heredado de mkanban) sigue valiendo como fallback. |
 | `DISABLE_WORKTREE_CLEANUP` | sin setear | Desactiva la limpieza de worktrees, para debugging. |
 
 ## Estructura del repositorio
