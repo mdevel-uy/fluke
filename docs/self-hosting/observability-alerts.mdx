@@ -96,7 +96,7 @@ In the Grafana UI, **Alerting → Alert rules** should list the `fluke-fleet` gr
 Stop a test instance:
 
 ```bash
-docker compose -f docker-compose.local.yml stop mkanban alloy
+docker compose -f docker-compose.local.yml stop fluke alloy
 ```
 
 Within roughly 5 minutes plus one evaluation interval (~6 min total), a Telegram message should arrive:
