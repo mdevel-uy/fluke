@@ -76,18 +76,27 @@ fn migrate_data_dir(new: &std::path::Path, legacy: &[std::path::PathBuf]) -> std
             tracing::info!("data dir migrado: {} → {}", old.display(), new.display());
             new.to_path_buf()
         }
+        // Si hasta el rollback de `keep_repos` falló, los datos quedaron en `new`.
+        Err(e) if new.exists() => {
+            tracing::error!(
+                "migración del data dir {} → {} a medias: {e}; se usa {} pero repos/ quedó en {} \
+                 y repos.path apunta a {}: moverlo a mano",
+                old.display(),
+                new.display(),
+                new.display(),
+                new.join("repos").display(),
+                old.join("repos").display()
+            );
+            new.to_path_buf()
+        }
         Err(e) => {
             tracing::warn!(
-                "no se pudo migrar el data dir {} → {}: {e}; se sigue usando el viejo",
+                "no se pudo migrar el data dir {} → {}: {e}; se sigue usando {}",
                 old.display(),
-                new.display()
+                new.display(),
+                old.display()
             );
-            // Si hasta el rollback falló, los datos quedaron en `new`.
-            if new.exists() {
-                new.to_path_buf()
-            } else {
-                old.clone()
-            }
+            old.clone()
         }
     }
 }

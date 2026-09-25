@@ -87,6 +87,11 @@ Los backups quedan en `./backups/` (últimos 10).
 
 ## Rollback manual
 
+El backup de `update.sh` incluye los dos data dirs que existan (`fluke/` y el
+legacy `mkanban/`, donde quedan los repos clonados desde la UI), por eso el
+restore borra ambos antes de extraer. No usar un `.tgz` armado a mano con
+sólo uno de los dos.
+
 ```bash
 cd /opt/fluke
 docker compose stop fluke

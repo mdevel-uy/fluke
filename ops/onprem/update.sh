@@ -31,7 +31,6 @@ DATA_VOLUME="fk-home"
 # Instancias que todavía no arrancaron una versión Fluke lo tienen en
 # ~/.local/share/mkanban (el server lo renombra al arrancar).
 FLUKE_DATA_SUBDIR=".local/share/fluke"
-DATA_SUBDIR="${FLUKE_DATA_SUBDIR}"
 LEGACY_DATA_SUBDIR=".local/share/mkanban"
 BACKUP_DIR="${PWD}/backups"
 KEEP_BACKUPS=10
@@ -84,15 +83,17 @@ docker compose stop "${SERVICE}"
 # vacío y sin las etiquetas de compose, lo que hace que el `up` siguiente emita
 # un warning de "volume already exists but was not created by Docker Compose".
 backup_file=""
-# Un solo `docker run` imprime el data dir que exista (fluke primero, si no el legacy).
-existing_subdir=""
+# Un solo `docker run` lista TODOS los data dirs que existan: tras migrar a
+# Fluke conviven fluke/ (DB, config) y mkanban/repos/ (clones hechos desde la
+# UI, que repos.path referencia por path absoluto). El rollback borra ambos,
+# así que el backup tiene que incluir ambos.
+data_subdirs=()
 if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1; then
-  existing_subdir="$(docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine sh -c \
-    "for d in '${FLUKE_DATA_SUBDIR}' '${LEGACY_DATA_SUBDIR}'; do [ -d \"/data/\$d\" ] && echo \"\$d\" && break; done; true" \
-    2>/dev/null || true)"
+  mapfile -t data_subdirs < <(docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine sh -c \
+    "for d in '${FLUKE_DATA_SUBDIR}' '${LEGACY_DATA_SUBDIR}'; do [ -d \"/data/\$d\" ] && echo \"\$d\"; done; true" \
+    2>/dev/null || true)
 fi
-if [[ -n "${existing_subdir}" ]]; then
-  DATA_SUBDIR="${existing_subdir}"
+if (( ${#data_subdirs[@]} > 0 )); then
   mkdir -p "${BACKUP_DIR}"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
   backup_file="fk-data-${stamp}.tgz"
@@ -100,7 +101,7 @@ if [[ -n "${existing_subdir}" ]]; then
   docker run --rm \
     -v "${DATA_VOLUME}:/data:ro" \
     -v "${BACKUP_DIR}:/backup" \
-    alpine tar czf "/backup/${backup_file}" -C /data "${DATA_SUBDIR}"
+    alpine tar czf "/backup/${backup_file}" -C /data "${data_subdirs[@]}"
 
   # Rotación de backups.
   ls -1t "${BACKUP_DIR}"/fk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
