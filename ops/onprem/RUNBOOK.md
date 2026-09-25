@@ -24,11 +24,8 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 - ▸ Crear cuenta de GitHub `mkanban-<cliente>` (machine user, cuenta gratuita).
 - ▸ En el package `ghcr.io/mdevel-uy/fluke` → Package settings → Manage Actions
-  access → agregar el machine user con rol **Read**.
-  Clientes instalados antes del rename tienen `FK_IMAGE=ghcr.io/mdevel-uy/mkanban`
-  en su `.env`: ese package se sigue publicando durante una release de
-  transición. Cambiarles `FK_IMAGE` a `ghcr.io/mdevel-uy/fluke` (y darle Read al
-  machine user en el package nuevo) antes de que se deje de publicar.
+  access → agregar el machine user con rol **Read**. (Clientes instalados antes
+  del rename: el cambio de imagen está en 1.5.)
 - ▸ Con esa cuenta, generar un PAT clásico con **solo** el scope `read:packages`.
   Sin expiración o a 1 año; anotar la fecha.
 - ▸ Registrar en el gestor de contraseñas: cliente, usuario, fecha de emisión.
@@ -172,6 +169,16 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
   ```
 - ▸ Opcional: renombrar en el `.env` las variables `MK_*` a `FK_*`. No es
   obligatorio — las `MK_*` siguen valiendo como fallback.
+- ▸ 🔴 Imagen (obligatorio, aunque no se renombren las demás): la imagen pasó de
+  `ghcr.io/mdevel-uy/mkanban` a `ghcr.io/mdevel-uy/fluke`. El package viejo se
+  publica solo durante una release de transición; después, una instancia que
+  siga apuntando ahí queda "ya al día" para siempre sin ningún error.
+  - Precondición (lado mdevel): el machine user del cliente tiene Read en el
+    package `ghcr.io/mdevel-uy/fluke` (Package settings → Manage Actions access).
+  - En el `.env`: `FK_IMAGE=ghcr.io/mdevel-uy/fluke` y borrar `MK_IMAGE` si está
+    (`FK_IMAGE` tiene precedencia, pero así no queda un valor viejo engañoso).
+  - ✓ `set -a; . ./.env; set +a; echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin && docker pull "$FK_IMAGE:${FK_CHANNEL:-stable}"`
+    completa.
 - ▸ Actualizar el cron: en `/etc/cron.d/mkanban-update` cambiar la ruta a
   `/opt/fluke/update.sh` y el log a `/var/log/fluke-update.log`; renombrar el
   archivo a `/etc/cron.d/fluke-update`.
