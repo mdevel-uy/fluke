@@ -2,8 +2,8 @@ import { ed25519 } from '@noble/curves/ed25519';
 
 const ENCODER = new TextEncoder();
 
-const SPAKE2_CLIENT_ID = ENCODER.encode('mkanban-browser');
-const SPAKE2_SERVER_ID = ENCODER.encode('mkanban-server');
+const SPAKE2_CLIENT_ID = ENCODER.encode('fluke-browser');
+const SPAKE2_SERVER_ID = ENCODER.encode('fluke-server');
 
 const KEY_CONFIRMATION_INFO = ENCODER.encode('key-confirmation');
 const CLIENT_PROOF_CONTEXT = ENCODER.encode('vk-spake2-client-proof-v2');

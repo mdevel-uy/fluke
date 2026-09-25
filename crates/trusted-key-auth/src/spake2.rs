@@ -4,8 +4,8 @@ use spake2::{Ed25519Group, Identity, Password, Spake2, SysRng, UnwrapErr};
 
 use crate::error::TrustedKeyAuthError;
 
-const SPAKE2_CLIENT_ID: &[u8] = b"mkanban-browser";
-const SPAKE2_SERVER_ID: &[u8] = b"mkanban-server";
+const SPAKE2_CLIENT_ID: &[u8] = b"fluke-browser";
+const SPAKE2_SERVER_ID: &[u8] = b"fluke-server";
 pub const ENROLLMENT_CODE_LENGTH: usize = 6;
 const ENROLLMENT_CODE_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 

@@ -97,7 +97,7 @@ impl AppServerClient {
             request_id: self.next_request_id(),
             params: InitializeParams {
                 client_info: ClientInfo {
-                    name: "mkanban-codex-executor".to_string(),
+                    name: "fluke-codex-executor".to_string(),
                     title: None,
                     version: env!("CARGO_PKG_VERSION").to_string(),
                 },

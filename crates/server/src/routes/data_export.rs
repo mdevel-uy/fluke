@@ -67,7 +67,7 @@ const DB_ARCHIVE_ENTRY: &str = "asset_dir/db.v2.sqlite";
 /// Response header exposing how many items had issues during the export.
 /// The frontend reads this to render a "N items had issues" banner without
 /// having to open manifest.json.
-const EXPORT_WARNINGS_HEADER: &str = "x-mkanban-export-warnings";
+const EXPORT_WARNINGS_HEADER: &str = "x-fluke-export-warnings";
 
 pub fn router() -> Router<DeploymentImpl> {
     Router::new().route("/system/data-export", get(download_data_export))
@@ -187,7 +187,7 @@ async fn download_data_export(
         ))
     })??;
 
-    let filename = format!("mkanban-export-{}.zip", Utc::now().format("%Y%m%d-%H%M%S"));
+    let filename = format!("fluke-export-{}.zip", Utc::now().format("%Y%m%d-%H%M%S"));
     let content_length = bytes.len();
 
     let mut response = Response::builder()
@@ -224,7 +224,7 @@ async fn download_data_export(
 /// safe to open standalone.
 async fn snapshot_database(pool: &SqlitePool) -> Result<TempSnapshot, ApiError> {
     let snapshot_path =
-        std::env::temp_dir().join(format!("mkanban-export-{}.sqlite", uuid::Uuid::new_v4()));
+        std::env::temp_dir().join(format!("fluke-export-{}.sqlite", uuid::Uuid::new_v4()));
     // VACUUM INTO does not accept bind parameters; splice the path directly
     // and double any single quotes defensively. The path is UUID-based, so
     // it never contains quotes in practice.

@@ -21,7 +21,7 @@ static RELEASES_CACHE: OnceLock<ReleasesCache> = OnceLock::new();
 fn client() -> &'static Client {
     HTTP_CLIENT.get_or_init(|| {
         Client::builder()
-            .user_agent("mkanban-server")
+            .user_agent("fluke-server")
             .build()
             .expect("failed to build releases HTTP client")
     })

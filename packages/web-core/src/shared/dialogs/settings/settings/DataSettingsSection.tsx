@@ -27,7 +27,7 @@ const INITIAL_STATE: ExportState = {
 const CONTENT_DISPOSITION_FILENAME = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i;
 // Kept in sync with EXPORT_WARNINGS_HEADER in
 // crates/server/src/routes/data_export.rs.
-const WARNINGS_HEADER = 'x-mkanban-export-warnings';
+const WARNINGS_HEADER = 'x-fluke-export-warnings';
 
 function extractFilename(header: string | null, fallback: string): string {
   if (!header) return fallback;
