@@ -10,7 +10,7 @@ import { usePipelineStore } from './usePipelineStore';
 export const workflowFilesKey = (repoPath: string) =>
   ['ci-pipelines', 'workflows', repoPath] as const;
 
-/** Workflow pairs (`.yml` + optional `.mkanban.json`) of a repo. */
+/** Workflow pairs (`.yml` + optional `.fluke.json`) of a repo. */
 export function useWorkflowFiles(repoPath: string | null) {
   const { data, isLoading } = useQuery({
     queryKey: workflowFilesKey(repoPath ?? ''),
