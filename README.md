@@ -25,7 +25,7 @@ El flujo completo:
 
 ## Instalación on-premises
 
-El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`, nombre heredado de mkanban), configuración por variables `FK_*` en `.env` (las `MK_*` siguen valiendo como fallback), y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
+El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/fluke`; `ghcr.io/mdevel-uy/mkanban` se sigue publicando durante una release de transición), configuración por variables `FK_*` en `.env` (las `MK_*` siguen valiendo como fallback), y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
 
 Los datos persisten en los volúmenes `fk-repos` (checkouts) y `fk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/fluke` (un data dir heredado `~/.local/share/mkanban` se renombra solo al arrancar).
 

@@ -23,13 +23,14 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 **A. Credenciales de registro (lado mdevel)**
 
 - ▸ Crear cuenta de GitHub `mkanban-<cliente>` (machine user, cuenta gratuita).
-- ▸ En el package `ghcr.io/mdevel-uy/mkanban` → Package settings → Manage Actions
-  access → agregar el machine user con rol **Read**.
+- ▸ En el package `ghcr.io/mdevel-uy/fluke` → Package settings → Manage Actions
+  access → agregar el machine user con rol **Read**. (Clientes instalados antes
+  del rename: el cambio de imagen está en 1.5.)
 - ▸ Con esa cuenta, generar un PAT clásico con **solo** el scope `read:packages`.
   Sin expiración o a 1 año; anotar la fecha.
 - ▸ Registrar en el gestor de contraseñas: cliente, usuario, fecha de emisión.
 - ✓ Verificar el token antes de entregarlo:
-  `echo <TOKEN> | docker login ghcr.io -u mkanban-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/mkanban:stable`
+  `echo <TOKEN> | docker login ghcr.io -u mkanban-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/fluke:stable`
 
 **B. Preparación del servidor (lado cliente)**
 
@@ -168,6 +169,17 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
   ```
 - ▸ Opcional: renombrar en el `.env` las variables `MK_*` a `FK_*`. No es
   obligatorio — las `MK_*` siguen valiendo como fallback.
+- ▸ 🔴 Imagen (obligatorio, aunque no se renombren las demás): la imagen pasó de
+  `ghcr.io/mdevel-uy/mkanban` a `ghcr.io/mdevel-uy/fluke`. El package viejo se
+  publica solo durante una release de transición; después, una instancia que
+  siga apuntando ahí no recibiría más updates; el `update.sh` nuevo lo detecta y
+  aborta con ERROR hasta que se cambie.
+  - Precondición (lado mdevel): el machine user del cliente tiene Read en el
+    package `ghcr.io/mdevel-uy/fluke` (Package settings → Manage Actions access).
+  - En el `.env`: `FK_IMAGE=ghcr.io/mdevel-uy/fluke` y borrar `MK_IMAGE` si está
+    (`FK_IMAGE` tiene precedencia, pero así no queda un valor viejo engañoso).
+  - ✓ `set -a; . ./.env; set +a; echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin && docker pull "$FK_IMAGE:${FK_CHANNEL:-${MK_CHANNEL:-stable}}"`
+    completa.
 - ▸ Actualizar el cron: en `/etc/cron.d/mkanban-update` cambiar la ruta a
   `/opt/fluke/update.sh` y el log a `/var/log/fluke-update.log`; renombrar el
   archivo a `/etc/cron.d/fluke-update`.
@@ -177,7 +189,10 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
 - ▸ Si usa Tailscale Serve, re-correr `sudo ./enable-tailscale-serve.sh` desde
   `/opt/fluke` (idempotente; el puerto no cambia).
 - ▸ 🔴 Recién tras unos días de operación normal, borrar los viejos:
-  `docker volume rm mk-repos mk-home`. Los backups previos quedan en
+  `docker volume rm mk-repos mk-home`, y las imágenes con el nombre viejo
+  (`docker image prune` no toca imágenes taggeadas):
+  `docker rmi ghcr.io/mdevel-uy/mkanban:stable ghcr.io/mdevel-uy/mkanban:previous`
+  (si el cliente usa otro canal, ese tag en lugar de `stable`). Los backups previos quedan en
   `backups/mk-data-*.tgz` y no entran en la rotación nueva (`fk-data-*`).
 
 ---
@@ -197,7 +212,7 @@ Síntoma: `unauthorized` o `denied` en `docker pull` / `update.sh`.
   firewalls corporativos y da el mismo error).
 - ▸ Si hay que rotar el token: emitir uno nuevo, actualizar `GHCR_TOKEN` en el
   `.env` del cliente y volver a correr `./update.sh`.
-- ✓ `docker pull ghcr.io/mdevel-uy/mkanban:stable` completa.
+- ✓ `docker pull ghcr.io/mdevel-uy/fluke:stable` completa.
 
 **La instancia sigue funcionando durante todo esto**: sin acceso al registro solo
 se pierden los updates, no el servicio.

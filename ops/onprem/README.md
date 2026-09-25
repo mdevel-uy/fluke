@@ -97,7 +97,7 @@ cd /opt/fluke
 docker compose stop fluke
 docker run --rm -v fk-home:/data -v "$PWD/backups:/backup:ro" alpine \
   sh -c 'rm -rf /data/.local/share/fluke /data/.local/share/mkanban && tar xzf /backup/<ARCHIVO>.tgz -C /data'
-docker tag ghcr.io/mdevel-uy/mkanban:previous ghcr.io/mdevel-uy/mkanban:stable
+docker tag ghcr.io/mdevel-uy/fluke:previous ghcr.io/mdevel-uy/fluke:stable
 docker compose up -d fluke
 ```
 
