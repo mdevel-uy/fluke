@@ -135,7 +135,7 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
   y fecha de vencimiento correcta. (La herramienta ya verifica al emitir, pero el
   `inspect` explícito confirma que el archivo que vas a mandar es el bueno.)
 - ▸ Entregar el `license.json` al cliente: se coloca en el data dir de la
-  instancia (`~/.local/share/mkanban/license.json`, dentro del volumen `fk-home`).
+  instancia (`~/.local/share/fluke/license.json`, dentro del volumen `fk-home`).
 - ✓ Confirmar en el panel del cliente (o `GET /api/license`) que el estado quedó
   `valid` y con la nueva fecha.
 - ▸ Registrar la emisión en el control de flota: cliente, fecha, vencimiento.

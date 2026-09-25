@@ -227,10 +227,10 @@
         "workspaceDir": {
           "label": "Workspace Directory",
           "placeholder": "~/",
-          "helper": "Workspaces will be created in a .mkanban-workspaces subdirectory within this path. Leave empty to use the system default. Changes require an app restart.",
+          "helper": "Workspaces will be created in a .fluke-workspaces subdirectory within this path. Leave empty to use the system default. Changes require an app restart.",
           "browse": "Browse",
           "dialogTitle": "Select Workspace Directory",
-          "dialogDescription": "Choose a directory. Workspaces will be created in a .mkanban-workspaces subdirectory within it."
+          "dialogDescription": "Choose a directory. Workspaces will be created in a .fluke-workspaces subdirectory within it."
         }
       },
       "pullRequests": {

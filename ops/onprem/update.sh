@@ -27,8 +27,11 @@ SERVICE="fluke"
 CONTAINER="fluke"
 DATA_VOLUME="fk-home"
 # Ruta del data dir dentro del volumen: asset_dir() del server en Linux
-# (~/.local/share/mkanban) — contiene db.v2.sqlite, config y credenciales.
-DATA_SUBDIR=".local/share/mkanban"
+# (~/.local/share/fluke) — contiene db.v2.sqlite, config y credenciales.
+# Instancias que todavía no arrancaron una versión Fluke lo tienen en
+# ~/.local/share/mkanban (el server lo renombra al arrancar).
+FLUKE_DATA_SUBDIR=".local/share/fluke"
+LEGACY_DATA_SUBDIR=".local/share/mkanban"
 BACKUP_DIR="${PWD}/backups"
 KEEP_BACKUPS=10
 HEALTH_TIMEOUT_SECS=180
@@ -80,9 +83,17 @@ docker compose stop "${SERVICE}"
 # vacío y sin las etiquetas de compose, lo que hace que el `up` siguiente emita
 # un warning de "volume already exists but was not created by Docker Compose".
 backup_file=""
-if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
-   docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
-     test -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
+# Un solo `docker run` lista TODOS los data dirs que existan: tras migrar a
+# Fluke conviven fluke/ (DB, config) y mkanban/repos/ (clones hechos desde la
+# UI, que repos.path referencia por path absoluto). El rollback borra ambos,
+# así que el backup tiene que incluir ambos.
+data_subdirs=()
+if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1; then
+  mapfile -t data_subdirs < <(docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine sh -c \
+    "for d in '${FLUKE_DATA_SUBDIR}' '${LEGACY_DATA_SUBDIR}'; do [ -d \"/data/\$d\" ] && echo \"\$d\"; done; true" \
+    2>/dev/null || true)
+fi
+if (( ${#data_subdirs[@]} > 0 )); then
   mkdir -p "${BACKUP_DIR}"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
   backup_file="fk-data-${stamp}.tgz"
@@ -90,7 +101,7 @@ if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
   docker run --rm \
     -v "${DATA_VOLUME}:/data:ro" \
     -v "${BACKUP_DIR}:/backup" \
-    alpine tar czf "/backup/${backup_file}" -C /data "${DATA_SUBDIR}"
+    alpine tar czf "/backup/${backup_file}" -C /data "${data_subdirs[@]}"
 
   # Rotación de backups.
   ls -1t "${BACKUP_DIR}"/fk-data-*.tgz 2>/dev/null | tail -n "+$((KEEP_BACKUPS + 1))" | xargs -r rm -f
@@ -128,7 +139,7 @@ if [[ -n "${backup_file}" ]]; then
   docker run --rm \
     -v "${DATA_VOLUME}:/data" \
     -v "${BACKUP_DIR}:/backup:ro" \
-    alpine sh -c "rm -rf '/data/${DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
+    alpine sh -c "rm -rf '/data/${FLUKE_DATA_SUBDIR}' '/data/${LEGACY_DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
 else
   log "sin backup previo: se conserva el estado actual de los datos"
 fi
