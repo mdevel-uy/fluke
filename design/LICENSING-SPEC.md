@@ -24,7 +24,7 @@ binario no cambia, solo aparece quién le acerca el archivo.
 
 ## Formato de la licencia
 
-Archivo `license.json` en el data dir (`~/.local/share/mkanban/`, path heredado de mkanban), montado en el
+Archivo `license.json` en el data dir (`~/.local/share/fluke/`; el heredado `~/.local/share/mkanban/` se renombra al arrancar), montado en el
 volumen `fk-home` del bundle. Sobrevive updates y restauraciones de backup.
 
 ```json

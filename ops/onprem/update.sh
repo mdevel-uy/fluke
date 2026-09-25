@@ -30,7 +30,8 @@ DATA_VOLUME="fk-home"
 # (~/.local/share/fluke) — contiene db.v2.sqlite, config y credenciales.
 # Instancias que todavía no arrancaron una versión Fluke lo tienen en
 # ~/.local/share/mkanban (el server lo renombra al arrancar).
-DATA_SUBDIR=".local/share/fluke"
+FLUKE_DATA_SUBDIR=".local/share/fluke"
+DATA_SUBDIR="${FLUKE_DATA_SUBDIR}"
 LEGACY_DATA_SUBDIR=".local/share/mkanban"
 BACKUP_DIR="${PWD}/backups"
 KEEP_BACKUPS=10
@@ -136,7 +137,7 @@ if [[ -n "${backup_file}" ]]; then
   docker run --rm \
     -v "${DATA_VOLUME}:/data" \
     -v "${BACKUP_DIR}:/backup:ro" \
-    alpine sh -c "rm -rf '/data/.local/share/fluke' '/data/${LEGACY_DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
+    alpine sh -c "rm -rf '/data/${FLUKE_DATA_SUBDIR}' '/data/${LEGACY_DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
 else
   log "sin backup previo: se conserva el estado actual de los datos"
 fi

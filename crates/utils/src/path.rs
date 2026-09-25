@@ -109,7 +109,7 @@ pub fn get_vibe_kanban_temp_dir() -> std::path::PathBuf {
     let dir_name = if cfg!(debug_assertions) {
         "fluke-dev"
     } else {
-        "mkanban"
+        "fluke"
     };
 
     if cfg!(target_os = "macos") {
