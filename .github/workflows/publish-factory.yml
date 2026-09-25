@@ -35,8 +35,11 @@ permissions:
   contents: read
   packages: write
 
+# Rebrand mkanban -> Fluke (#581): se publica también con el nombre viejo
+# mientras el update.sh de la VPS factory siga bajando ghcr.io/mdevel-uy/mkanban.
 env:
-  IMAGE: ghcr.io/mdevel-uy/mkanban
+  IMAGE: ghcr.io/mdevel-uy/fluke
+  IMAGE_LEGACY: ghcr.io/mdevel-uy/mkanban
 
 jobs:
   publish:
@@ -72,9 +75,11 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:mdev
             ${{ env.IMAGE }}:mdev-${{ github.sha }}
+            ${{ env.IMAGE_LEGACY }}:mdev
+            ${{ env.IMAGE_LEGACY }}:mdev-${{ github.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/mdevel-uy/mkanban
+            org.opencontainers.image.source=https://github.com/mdevel-uy/fluke
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

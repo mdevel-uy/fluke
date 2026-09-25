@@ -23,10 +23,13 @@ permissions:
   contents: write # crear el tag de git vX.Y.Z tras publicar
   packages: write
 
-# La imagen se publica bajo la marca comercial (mkanban), no bajo el nombre
-# del repo. Cambiar acá si algún día se renombra el repositorio.
+# Rebrand mkanban -> Fluke (#581): la imagen se publica con los dos nombres
+# durante una release de transición, para que los clientes on-prem con
+# FK_IMAGE=ghcr.io/mdevel-uy/mkanban sigan recibiendo updates mientras migran.
+# Pasada esa release, borrar IMAGE_LEGACY y sus tags.
 env:
-  IMAGE: ghcr.io/mdevel-uy/mkanban
+  IMAGE: ghcr.io/mdevel-uy/fluke
+  IMAGE_LEGACY: ghcr.io/mdevel-uy/mkanban
 
 jobs:
   version:
@@ -95,6 +98,8 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ needs.version.outputs.version }}
             ${{ env.IMAGE }}:stable
+            ${{ env.IMAGE_LEGACY }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE_LEGACY }}:stable
           labels: |
             org.opencontainers.image.version=${{ needs.version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -115,5 +120,5 @@ jobs:
             echo "El tag v${VERSION} ya existe — no se recrea."
             exit 0
           fi
-          git tag -a "v${VERSION}" -m "mkanban ${VERSION}"
+          git tag -a "v${VERSION}" -m "fluke ${VERSION}"
           git push origin "v${VERSION}"

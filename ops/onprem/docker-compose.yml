@@ -13,7 +13,7 @@
 
 services:
   fluke:
-    image: ${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}}:${FK_CHANNEL:-${MK_CHANNEL:-stable}}
+    image: ${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/fluke}}:${FK_CHANNEL:-${MK_CHANNEL:-stable}}
     # Nombre fijo: update.sh lo usa para inspeccionar imagen corriente y health.
     container_name: fluke
     environment:

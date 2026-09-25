@@ -23,13 +23,17 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 **A. Credenciales de registro (lado mdevel)**
 
 - ▸ Crear cuenta de GitHub `mkanban-<cliente>` (machine user, cuenta gratuita).
-- ▸ En el package `ghcr.io/mdevel-uy/mkanban` → Package settings → Manage Actions
+- ▸ En el package `ghcr.io/mdevel-uy/fluke` → Package settings → Manage Actions
   access → agregar el machine user con rol **Read**.
+  Clientes instalados antes del rename tienen `FK_IMAGE=ghcr.io/mdevel-uy/mkanban`
+  en su `.env`: ese package se sigue publicando durante una release de
+  transición. Cambiarles `FK_IMAGE` a `ghcr.io/mdevel-uy/fluke` (y darle Read al
+  machine user en el package nuevo) antes de que se deje de publicar.
 - ▸ Con esa cuenta, generar un PAT clásico con **solo** el scope `read:packages`.
   Sin expiración o a 1 año; anotar la fecha.
 - ▸ Registrar en el gestor de contraseñas: cliente, usuario, fecha de emisión.
 - ✓ Verificar el token antes de entregarlo:
-  `echo <TOKEN> | docker login ghcr.io -u mkanban-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/mkanban:stable`
+  `echo <TOKEN> | docker login ghcr.io -u mkanban-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/fluke:stable`
 
 **B. Preparación del servidor (lado cliente)**
 
@@ -197,7 +201,7 @@ Síntoma: `unauthorized` o `denied` en `docker pull` / `update.sh`.
   firewalls corporativos y da el mismo error).
 - ▸ Si hay que rotar el token: emitir uno nuevo, actualizar `GHCR_TOKEN` en el
   `.env` del cliente y volver a correr `./update.sh`.
-- ✓ `docker pull ghcr.io/mdevel-uy/mkanban:stable` completa.
+- ✓ `docker pull ghcr.io/mdevel-uy/fluke:stable` completa.
 
 **La instancia sigue funcionando durante todo esto**: sin acceso al registro solo
 se pierden los updates, no el servicio.
