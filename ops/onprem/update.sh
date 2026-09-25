@@ -27,8 +27,11 @@ SERVICE="fluke"
 CONTAINER="fluke"
 DATA_VOLUME="fk-home"
 # Ruta del data dir dentro del volumen: asset_dir() del server en Linux
-# (~/.local/share/mkanban) — contiene db.v2.sqlite, config y credenciales.
-DATA_SUBDIR=".local/share/mkanban"
+# (~/.local/share/fluke) — contiene db.v2.sqlite, config y credenciales.
+# Instancias que todavía no arrancaron una versión Fluke lo tienen en
+# ~/.local/share/mkanban (el server lo renombra al arrancar).
+DATA_SUBDIR=".local/share/fluke"
+LEGACY_DATA_SUBDIR=".local/share/mkanban"
 BACKUP_DIR="${PWD}/backups"
 KEEP_BACKUPS=10
 HEALTH_TIMEOUT_SECS=180
@@ -82,6 +85,11 @@ docker compose stop "${SERVICE}"
 backup_file=""
 if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
    docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
+     test -d "/data/${LEGACY_DATA_SUBDIR}" -a ! -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
+  DATA_SUBDIR="${LEGACY_DATA_SUBDIR}"
+fi
+if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
+   docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
      test -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
   mkdir -p "${BACKUP_DIR}"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
@@ -128,7 +136,7 @@ if [[ -n "${backup_file}" ]]; then
   docker run --rm \
     -v "${DATA_VOLUME}:/data" \
     -v "${BACKUP_DIR}:/backup:ro" \
-    alpine sh -c "rm -rf '/data/${DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
+    alpine sh -c "rm -rf '/data/.local/share/fluke' '/data/${LEGACY_DATA_SUBDIR}' && tar xzf '/backup/${backup_file}' -C /data"
 else
   log "sin backup previo: se conserva el estado actual de los datos"
 fi

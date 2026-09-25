@@ -220,10 +220,10 @@
         "workspaceDir": {
           "label": "ワークスペースディレクトリ",
           "placeholder": "~/",
-          "helper": "このパス内の .mkanban-workspaces サブディレクトリにワークスペースが作成されます。システムのデフォルトを使用する場合は空白のままにしてください。変更を反映するにはアプリの再起動が必要です。",
+          "helper": "このパス内の .fluke-workspaces サブディレクトリにワークスペースが作成されます。システムのデフォルトを使用する場合は空白のままにしてください。変更を反映するにはアプリの再起動が必要です。",
           "browse": "参照",
           "dialogTitle": "ワークスペースディレクトリを選択",
-          "dialogDescription": "ディレクトリを選択してください。ワークスペースはその中の .mkanban-workspaces サブディレクトリに作成されます。"
+          "dialogDescription": "ディレクトリを選択してください。ワークスペースはその中の .fluke-workspaces サブディレクトリに作成されます。"
         }
       },
       "pullRequests": {
