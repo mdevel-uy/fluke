@@ -38,8 +38,8 @@ pub enum RelayApiError {
     Other(String),
 }
 
-const SPAKE2_CLIENT_ID: &[u8] = b"mkanban-browser";
-const SPAKE2_SERVER_ID: &[u8] = b"mkanban-server";
+const SPAKE2_CLIENT_ID: &[u8] = b"fluke-browser";
+const SPAKE2_SERVER_ID: &[u8] = b"fluke-server";
 
 #[derive(Clone)]
 pub struct RelayApiClient {

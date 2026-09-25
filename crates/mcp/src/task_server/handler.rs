@@ -38,7 +38,7 @@ impl ServerHandler for McpServer {
         }
 
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("mkanban-mcp", "1.0.0"))
+            .with_server_info(Implementation::new("fluke-mcp", "1.0.0"))
             .with_protocol_version(ProtocolVersion::V_2025_03_26)
             .with_instructions(instruction)
     }

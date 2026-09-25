@@ -98,7 +98,7 @@ fn oauth_client_id() -> String {
 
 fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("mkanban-server")
+        .user_agent("fluke-server")
         .build()
         .map_err(|e| format!("Failed to initialize HTTP client: {e}"))
 }
