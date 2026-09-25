@@ -180,9 +180,8 @@ mod tests {
 
     #[test]
     fn migrate_data_dir_chain_is_idempotent_and_keeps_db() {
-        let tmp = TempRoot(
-            std::env::temp_dir().join(format!("fk-migrate-{}", uuid::Uuid::new_v4())),
-        );
+        let tmp =
+            TempRoot(std::env::temp_dir().join(format!("fk-migrate-{}", uuid::Uuid::new_v4())));
         let root = &tmp.0;
         let fluke = root.join("fluke").join("data");
         let mkanban = root.join("mkanban");
@@ -220,7 +219,7 @@ mod tests {
         let blocker = root.join("blocker");
         std::fs::write(&blocker, "").unwrap();
         assert_eq!(
-            migrate_data_dir(&blocker.join("fluke"), &[vibe.clone()]),
+            migrate_data_dir(&blocker.join("fluke"), std::slice::from_ref(&vibe)),
             vibe
         );
         assert!(vibe.exists());
