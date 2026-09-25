@@ -48,6 +48,16 @@ if docker volume inspect mk-home >/dev/null 2>&1 &&
   exit 1
 fi
 
+# Rebrand mkanban → Fluke: la imagen pasó a ghcr.io/mdevel-uy/fluke. El package
+# viejo solo se publica durante una release de transición; seguir apuntando ahí
+# deja la instancia "ya al día" para siempre sin error. Este update.sh solo
+# llega con la migración manual, así que es una migración a medias: abortar.
+if [[ "${IMAGE}" == "ghcr.io/mdevel-uy/mkanban" ]]; then
+  log "ERROR: la imagen configurada es ${IMAGE} (nombre viejo)."
+  log "cambiar FK_IMAGE a ghcr.io/mdevel-uy/fluke en .env (RUNBOOK → Migración a Fluke)."
+  exit 1
+fi
+
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
   echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER:-token}" --password-stdin >/dev/null
 fi

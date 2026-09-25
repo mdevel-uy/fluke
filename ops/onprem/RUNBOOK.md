@@ -172,12 +172,13 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
 - ▸ 🔴 Imagen (obligatorio, aunque no se renombren las demás): la imagen pasó de
   `ghcr.io/mdevel-uy/mkanban` a `ghcr.io/mdevel-uy/fluke`. El package viejo se
   publica solo durante una release de transición; después, una instancia que
-  siga apuntando ahí queda "ya al día" para siempre sin ningún error.
+  siga apuntando ahí no recibiría más updates; el `update.sh` nuevo lo detecta y
+  aborta con ERROR hasta que se cambie.
   - Precondición (lado mdevel): el machine user del cliente tiene Read en el
     package `ghcr.io/mdevel-uy/fluke` (Package settings → Manage Actions access).
   - En el `.env`: `FK_IMAGE=ghcr.io/mdevel-uy/fluke` y borrar `MK_IMAGE` si está
     (`FK_IMAGE` tiene precedencia, pero así no queda un valor viejo engañoso).
-  - ✓ `set -a; . ./.env; set +a; echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin && docker pull "$FK_IMAGE:${FK_CHANNEL:-stable}"`
+  - ✓ `set -a; . ./.env; set +a; echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin && docker pull "$FK_IMAGE:${FK_CHANNEL:-${MK_CHANNEL:-stable}}"`
     completa.
 - ▸ Actualizar el cron: en `/etc/cron.d/mkanban-update` cambiar la ruta a
   `/opt/fluke/update.sh` y el log a `/var/log/fluke-update.log`; renombrar el
@@ -188,7 +189,10 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
 - ▸ Si usa Tailscale Serve, re-correr `sudo ./enable-tailscale-serve.sh` desde
   `/opt/fluke` (idempotente; el puerto no cambia).
 - ▸ 🔴 Recién tras unos días de operación normal, borrar los viejos:
-  `docker volume rm mk-repos mk-home`. Los backups previos quedan en
+  `docker volume rm mk-repos mk-home`, y las imágenes con el nombre viejo
+  (`docker image prune` no toca imágenes taggeadas):
+  `docker rmi ghcr.io/mdevel-uy/mkanban:stable ghcr.io/mdevel-uy/mkanban:previous`
+  (si el cliente usa otro canal, ese tag en lugar de `stable`). Los backups previos quedan en
   `backups/mk-data-*.tgz` y no entran en la rotación nueva (`fk-data-*`).
 
 ---
