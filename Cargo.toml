@@ -21,7 +21,7 @@ members = [
     "crates/remote-info",
     "crates/utils",
     "crates/licensing",
-    "crates/mkanban-license",
+    "crates/fluke-license",
     "crates/heartbeat-protocol",
     "crates/license-keystore",
     "crates/git",
