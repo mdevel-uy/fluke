@@ -10,7 +10,9 @@ pub use v9::{
 use crate::services::config::versions::v9;
 
 fn default_git_branch_prefix() -> String {
-    "mk".to_string()
+    // Solo aplica a installs nuevas: todo config.json v10 persiste el campo, y
+    // la migración desde v9 copia el valor previo ("mk", "vk", ...).
+    "fk".to_string()
 }
 
 fn default_pr_auto_description_enabled() -> bool {
@@ -222,5 +224,32 @@ impl Default for Config {
             default_currency: default_currency(),
             default_savings_fee_rate: default_savings_fee_rate(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fresh_install_uses_fk_prefix() {
+        assert_eq!(Config::default().git_branch_prefix, "fk");
+    }
+
+    #[test]
+    fn persisted_prefix_is_preserved() {
+        let existing = Config {
+            git_branch_prefix: "mk".to_string(),
+            ..Config::default()
+        };
+        let raw = serde_json::to_string(&existing).unwrap();
+        assert_eq!(Config::from(raw).git_branch_prefix, "mk");
+
+        let v9_config = v9::Config {
+            git_branch_prefix: "mk".to_string(),
+            ..v9::Config::default()
+        };
+        let raw = serde_json::to_string(&v9_config).unwrap();
+        assert_eq!(Config::from(raw).git_branch_prefix, "mk");
     }
 }
