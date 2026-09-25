@@ -1,5 +1,5 @@
 [package]
-name = "mkanban-license"
+name = "fluke-license"
 version = "1.0.0"
 edition = "2024"
 
@@ -8,7 +8,7 @@ edition = "2024"
 # pública embebida).
 
 [[bin]]
-name = "mkanban-license"
+name = "fluke-license"
 path = "src/main.rs"
 
 [dependencies]

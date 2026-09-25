@@ -1,4 +1,4 @@
-//! `mkanban-license` — herramienta interna de emisión y verificación de licencias.
+//! `fluke-license` — herramienta interna de emisión y verificación de licencias.
 //!
 //! No se distribuye al cliente: el binario del producto solo verifica, con la
 //! clave pública embebida. Esta herramienta guarda la clave **privada** cifrada
@@ -40,7 +40,7 @@ fn read_passphrase(prompt: &str) -> Result<String> {
 }
 
 #[derive(Parser)]
-#[command(name = "mkanban-license", about = "Emisión y verificación de licencias de mkanban")]
+#[command(name = "fluke-license", about = "Emisión y verificación de licencias de mkanban")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,

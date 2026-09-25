@@ -91,11 +91,11 @@ puede correr meses sin reiniciar).
 
 ## Herramienta de firma
 
-`crates/mkanban-license` (bin, no se distribuye al cliente; conserva el nombre heredado de mkanban):
+`crates/fluke-license` (bin, no se distribuye al cliente):
 
 ```
-mkanban-license new --cliente acme --instance 01J... --dias 45 > license.json
-mkanban-license inspect license.json     # verifica y muestra el payload
+fluke-license new --cliente acme --instance 01J... --dias 45 > license.json
+fluke-license inspect license.json     # verifica y muestra el payload
 ```
 
 🔸 **Custodia de la clave privada**: hoy no hay un lugar definido. Mínimo

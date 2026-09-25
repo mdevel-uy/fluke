@@ -106,14 +106,14 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 > configurado. La rutina manual de abajo queda para instalaciones sin salida a
 > internet o como contingencia.
 
-La herramienta es `mkanban-license` (crate `crates/mkanban-license`, interno —
+La herramienta es `fluke-license` (crate `crates/fluke-license`, interno —
 no se distribuye al cliente). La clave privada se guarda **cifrada con
 passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 
 **Setup por única vez (generar el par de claves)**
 
 - ▸ En la máquina del operador (nunca en un servidor):
-  `mkanban-license keygen --out mkanban-signing.key.enc`
+  `fluke-license keygen --out mkanban-signing.key.enc`
   Pide una passphrase y la repite; imprime la **clave pública** por stdout.
 - ▸ 🔴 Guardar la clave pública: se embebe en el binario del producto (es la que
   usa el cliente para verificar). Va al código, no es secreta.
@@ -128,10 +128,10 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 - ▸ Obtener el `instance_id` de la instancia del cliente (lo expone `GET /api/license`
   o el panel; es estable por instalación).
 - ▸ Firmar:
-  `mkanban-license new --cliente <slug> --instance <instance_id> --dias 45 --out license.json`
+  `fluke-license new --cliente <slug> --instance <instance_id> --dias 45 --out license.json`
   Pide la passphrase. `--dias 45` es el default de la etapa manual (ver spec).
 - ✓ Verificar antes de entregar:
-  `mkanban-license inspect license.json --pubkey <clave_pública>` → firma válida
+  `fluke-license inspect license.json --pubkey <clave_pública>` → firma válida
   y fecha de vencimiento correcta. (La herramienta ya verifica al emitir, pero el
   `inspect` explícito confirma que el archivo que vas a mandar es el bueno.)
 - ▸ Entregar el `license.json` al cliente: se coloca en el data dir de la
