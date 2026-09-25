@@ -84,14 +84,15 @@ docker compose stop "${SERVICE}"
 # vacío y sin las etiquetas de compose, lo que hace que el `up` siguiente emita
 # un warning de "volume already exists but was not created by Docker Compose".
 backup_file=""
-if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
-   docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
-     test -d "/data/${LEGACY_DATA_SUBDIR}" -a ! -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
-  DATA_SUBDIR="${LEGACY_DATA_SUBDIR}"
+# Un solo `docker run` imprime el data dir que exista (fluke primero, si no el legacy).
+existing_subdir=""
+if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1; then
+  existing_subdir="$(docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine sh -c \
+    "for d in '${FLUKE_DATA_SUBDIR}' '${LEGACY_DATA_SUBDIR}'; do [ -d \"/data/\$d\" ] && echo \"\$d\" && break; done; true" \
+    2>/dev/null || true)"
 fi
-if docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1 &&
-   docker run --rm -v "${DATA_VOLUME}:/data:ro" alpine \
-     test -d "/data/${DATA_SUBDIR}" 2>/dev/null; then
+if [[ -n "${existing_subdir}" ]]; then
+  DATA_SUBDIR="${existing_subdir}"
   mkdir -p "${BACKUP_DIR}"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
   backup_file="fk-data-${stamp}.tgz"

@@ -42,6 +42,11 @@ pub fn prod_asset_dir_path() -> std::path::PathBuf {
 /// lugar el primer path de `legacy` (ordenados del más reciente al más viejo)
 /// que exista. Si el rename falla (permisos, cross-device, dir abierto), se
 /// sigue usando el viejo para no arrancar jamás con una DB vacía.
+///
+/// `repos/` (clones hechos desde la UI) se queda en el path viejo: `repos.path`
+/// en la DB guarda el path absoluto y los `.git` de los worktrees vivos apuntan
+/// ahí. Los clones nuevos van a `<new>/repos`. Si no se puede devolver `repos/`
+/// a su lugar, se deshace el rename entero.
 fn migrate_data_dir(new: &std::path::Path, legacy: &[std::path::PathBuf]) -> std::path::PathBuf {
     if new.exists() {
         return new.to_path_buf();
@@ -49,10 +54,23 @@ fn migrate_data_dir(new: &std::path::Path, legacy: &[std::path::PathBuf]) -> std
     let Some(old) = legacy.iter().find(|p| p.exists()) else {
         return new.to_path_buf();
     };
+    let keep_repos = |()| {
+        let moved = new.join("repos");
+        if !moved.exists() {
+            return Ok(());
+        }
+        std::fs::create_dir_all(old)
+            .and_then(|_| std::fs::rename(&moved, old.join("repos")))
+            .inspect_err(|_| {
+                let _ = std::fs::remove_dir(old);
+                let _ = std::fs::rename(new, old);
+            })
+    };
     let result = new
         .parent()
         .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|_| std::fs::rename(old, new));
+        .and_then(|_| std::fs::rename(old, new))
+        .and_then(keep_repos);
     match result {
         Ok(()) => {
             tracing::info!("data dir migrado: {} → {}", old.display(), new.display());
@@ -64,7 +82,12 @@ fn migrate_data_dir(new: &std::path::Path, legacy: &[std::path::PathBuf]) -> std
                 old.display(),
                 new.display()
             );
-            old.clone()
+            // Si hasta el rollback falló, los datos quedaron en `new`.
+            if new.exists() {
+                new.to_path_buf()
+            } else {
+                old.clone()
+            }
         }
     }
 }
@@ -147,9 +170,20 @@ pub struct ScriptAssets;
 mod tests {
     use super::migrate_data_dir;
 
+    /// Borra el dir temporal aunque falle un assert.
+    struct TempRoot(std::path::PathBuf);
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
     fn migrate_data_dir_chain_is_idempotent_and_keeps_db() {
-        let root = std::env::temp_dir().join(format!("fk-migrate-{}", uuid::Uuid::new_v4()));
+        let tmp = TempRoot(
+            std::env::temp_dir().join(format!("fk-migrate-{}", uuid::Uuid::new_v4())),
+        );
+        let root = &tmp.0;
         let fluke = root.join("fluke").join("data");
         let mkanban = root.join("mkanban");
         let vibe = root.join("vibe-kanban");
@@ -163,12 +197,16 @@ mod tests {
         std::fs::create_dir_all(&mkanban).unwrap();
         std::fs::create_dir_all(&vibe).unwrap();
         std::fs::write(mkanban.join("db.v2.sqlite"), "db").unwrap();
+        std::fs::create_dir_all(mkanban.join("repos").join("acme-app")).unwrap();
         assert_eq!(migrate_data_dir(&fluke, &legacy), fluke);
         assert_eq!(
             std::fs::read_to_string(fluke.join("db.v2.sqlite")).unwrap(),
             "db"
         );
-        assert!(!mkanban.exists());
+        // repos/ se queda en el path viejo: repos.path en la DB lo referencia.
+        assert!(mkanban.join("repos").join("acme-app").exists());
+        assert!(!mkanban.join("db.v2.sqlite").exists());
+        assert!(!fluke.join("repos").exists());
         assert!(vibe.exists());
 
         // Idempotente: el segundo arranque no toca nada.
@@ -186,7 +224,5 @@ mod tests {
             vibe
         );
         assert!(vibe.exists());
-
-        std::fs::remove_dir_all(&root).unwrap();
     }
 }

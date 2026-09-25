@@ -106,3 +106,6 @@ jobs:
 
       - name: cargo test (crates propios)
         run: cargo test --locked -p licensing -p mkanban-license -p heartbeat-protocol
+
+      - name: cargo test (migración del data dir)
+        run: cargo test --locked -p utils assets::
