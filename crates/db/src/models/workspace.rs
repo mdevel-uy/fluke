@@ -369,11 +369,13 @@ impl Workspace {
         workspace_id: Uuid,
         remote_branch: &str,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE workspaces SET remote_branch = ?, updated_at = datetime('now') WHERE id = ?")
-            .bind(remote_branch)
-            .bind(workspace_id)
-            .execute(pool)
-            .await?;
+        sqlx::query(
+            "UPDATE workspaces SET remote_branch = ?, updated_at = datetime('now') WHERE id = ?",
+        )
+        .bind(remote_branch)
+        .bind(workspace_id)
+        .execute(pool)
+        .await?;
         Ok(())
     }
 

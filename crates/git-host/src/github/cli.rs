@@ -502,7 +502,7 @@ impl GhCli {
     /// the individual jobs instead of collapsing them to a single word.
     fn extract_failed_checks(checks: &[serde_json::Value]) -> Vec<PrFailedCheck> {
         let mut out = Vec::new();
-        for check in checks {
+        for check in Self::latest_checks(checks) {
             // CheckRun uses status COMPLETED + conclusion; StatusContext uses state.
             let status = check
                 .get("status")
@@ -548,12 +548,58 @@ impl GhCli {
         out
     }
 
+    /// Keep only the most recent run of each check. `statusCheckRollup` also
+    /// lists runs superseded on the same commit (a re-run, or a workflow run
+    /// cancelled by `concurrency: cancel-in-progress` when a newer push
+    /// started another): their stale `CANCELLED` must not mask the green run
+    /// that replaced them. Keyed by workflow + check name; latest `startedAt`
+    /// wins (ISO-8601 strings order chronologically). Input order is kept.
+    fn latest_checks(checks: &[serde_json::Value]) -> Vec<&serde_json::Value> {
+        let str_of = |check: &serde_json::Value, key: &str| {
+            check
+                .get(key)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        };
+        let key_of = |check: &serde_json::Value| {
+            let name = check
+                .get("name")
+                .or_else(|| check.get("context"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            format!("{}\u{0}{}", str_of(check, "workflowName"), name)
+        };
+        let mut latest: std::collections::HashMap<String, (usize, String)> =
+            std::collections::HashMap::new();
+        for (i, check) in checks.iter().enumerate() {
+            let started = str_of(check, "startedAt");
+            match latest.entry(key_of(check)) {
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    if started >= e.get().1 {
+                        e.insert((i, started));
+                    }
+                }
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert((i, started));
+                }
+            }
+        }
+        let keep: std::collections::HashSet<usize> = latest.values().map(|(i, _)| *i).collect();
+        checks
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| keep.contains(i))
+            .map(|(_, c)| c)
+            .collect()
+    }
+
     /// Reduce `statusCheckRollup` entries (CheckRun or StatusContext objects)
     /// to one state. Any failure wins, then any pending, then passing.
     fn rollup_ci_checks(checks: &[serde_json::Value]) -> String {
         let mut any_pending = false;
         let mut any_passing = false;
-        for check in checks {
+        for check in Self::latest_checks(checks) {
             // CheckRun: status COMPLETED + conclusion; StatusContext: state.
             let state = check
                 .get("conclusion")
@@ -652,6 +698,7 @@ impl GhCli {
         struct RestReview {
             state: String,
             commit_id: Option<String>,
+            body: Option<String>,
         }
 
         #[derive(serde::Deserialize)]
@@ -681,7 +728,126 @@ impl GhCli {
             state: r.state.to_ascii_lowercase(),
             reviewed_sha: r.commit_id.clone(),
             head_sha: head_info.head_ref_oid,
+            body: r.body.clone().filter(|b| !b.trim().is_empty()),
         }))
+    }
+
+    /// Mark a PR's requested changes as addressed: dismiss the
+    /// `CHANGES_REQUESTED` reviews with `message` and resolve the open review
+    /// threads — only those submitted before `submitted_before` (when the
+    /// fixing run started): a review posted while the fix was running asks
+    /// for something the fix never saw (PR #591, 25-sep: round 2 dismissed
+    /// unaddressed). Runs as the CLI's account (the PR author), which needs
+    /// write access. Returns `(reviews_dismissed, threads_resolved)`.
+    pub fn mark_changes_addressed(
+        &self,
+        pr_url: &str,
+        message: &str,
+        submitted_before: DateTime<Utc>,
+    ) -> Result<(usize, usize), GhCliError> {
+        let (owner, repo, pr_number, hostname) = Self::parse_github_pr_url_parts(pr_url)
+            .ok_or_else(|| {
+                GhCliError::UnexpectedOutput(format!(
+                    "Cannot parse GitHub PR URL to mark changes addressed: {pr_url}"
+                ))
+            })?;
+        let with_host = |mut args: Vec<String>| {
+            if let Some(ref host) = hostname {
+                args.extend(["--hostname".to_string(), host.clone()]);
+            }
+            args
+        };
+
+        #[derive(Deserialize)]
+        struct RestReview {
+            id: i64,
+            state: String,
+            submitted_at: Option<DateTime<Utc>>,
+        }
+        let reviews_raw = self.run(
+            with_host(vec![
+                "api".to_string(),
+                format!("repos/{owner}/{repo}/pulls/{pr_number}/reviews?per_page=100"),
+            ]),
+            None,
+        )?;
+        let reviews: Vec<RestReview> = serde_json::from_str(reviews_raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!("Failed to parse reviews response: {e}"))
+        })?;
+        let mut dismissed = 0;
+        for review in reviews.iter().filter(|r| {
+            r.state.eq_ignore_ascii_case("CHANGES_REQUESTED")
+                && r.submitted_at.is_some_and(|at| at < submitted_before)
+        }) {
+            self.run(
+                with_host(vec![
+                    "api".to_string(),
+                    "-X".to_string(),
+                    "PUT".to_string(),
+                    format!(
+                        "repos/{owner}/{repo}/pulls/{pr_number}/reviews/{}/dismissals",
+                        review.id
+                    ),
+                    "-f".to_string(),
+                    format!("message={message}"),
+                    "-f".to_string(),
+                    "event=DISMISS".to_string(),
+                ]),
+                None,
+            )?;
+            dismissed += 1;
+        }
+
+        let threads_raw = self.run(
+            with_host(vec![
+                "api".to_string(),
+                "graphql".to_string(),
+                "-f".to_string(),
+                "query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{createdAt}}}}}}}".to_string(),
+                "-F".to_string(),
+                format!("o={owner}"),
+                "-F".to_string(),
+                format!("r={repo}"),
+                "-F".to_string(),
+                format!("n={pr_number}"),
+            ]),
+            None,
+        )?;
+        let threads: serde_json::Value = serde_json::from_str(threads_raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!("Failed to parse review threads response: {e}"))
+        })?;
+        let open_ids: Vec<String> = threads
+            .pointer("/data/repository/pullRequest/reviewThreads/nodes")
+            .and_then(|v| v.as_array())
+            .map(|nodes| {
+                nodes
+                    .iter()
+                    .filter(|n| n.get("isResolved").and_then(|v| v.as_bool()) == Some(false))
+                    // Thread opened before the fix started (its first comment).
+                    .filter(|n| {
+                        n.pointer("/comments/nodes/0/createdAt")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                            .is_some_and(|at| at.with_timezone(&Utc) < submitted_before)
+                    })
+                    .filter_map(|n| n.get("id").and_then(|v| v.as_str()).map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for id in &open_ids {
+            self.run(
+                with_host(vec![
+                    "api".to_string(),
+                    "graphql".to_string(),
+                    "-f".to_string(),
+                    "query=mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}".to_string(),
+                    "-F".to_string(),
+                    format!("id={id}"),
+                ]),
+                None,
+            )?;
+        }
+        Ok((dismissed, open_ids.len()))
     }
 
     /// Parse a GitHub PR URL into `(owner, repo, pr_number, hostname)`.
@@ -825,7 +991,7 @@ impl GhCli {
         // `gh api` follows redirects on GET but not on POST: after a repo
         // rename/transfer the reviews endpoint answers 3xx and the submit
         // dies with `gh: HTTP 307` even though the verdict is perfectly
-        // valid (incidente 09-ago: rename vibe-kanban → mkanban dejó los
+        // valid (incidente 09-ago: un rename del repo dejó los
         // PRs pre-rename en loop infinito de retries). Resolve the
         // canonical repo name via GET and retry the POST once against it;
         // the rebuilt PR URL travels back so the caller can heal its DB.
@@ -834,13 +1000,10 @@ impl GhCli {
             Err(err) if Self::is_redirect_error(&err) => {
                 let canonical = self.resolve_canonical_repo(&owner, &repo, hostname.as_deref())?;
                 match canonical {
-                    Some((new_owner, new_repo))
-                        if new_owner != owner || new_repo != repo =>
-                    {
+                    Some((new_owner, new_repo)) if new_owner != owner || new_repo != repo => {
                         let raw = post(&new_owner, &new_repo)?;
                         let host = hostname.as_deref().unwrap_or("github.com");
-                        let url =
-                            format!("https://{host}/{new_owner}/{new_repo}/pull/{pr_number}");
+                        let url = format!("https://{host}/{new_owner}/{new_repo}/pull/{pr_number}");
                         (raw, Some(url))
                     }
                     // Same name or unresolvable: the redirect came from
@@ -1161,6 +1324,41 @@ impl GhCli {
 mod tests {
     use super::*;
 
+    fn check_run(name: &str, started: &str, conclusion: &str) -> serde_json::Value {
+        serde_json::json!({
+            "__typename": "CheckRun",
+            "workflowName": "CI (mdev)",
+            "name": name,
+            "startedAt": started,
+            "status": "COMPLETED",
+            "conclusion": conclusion,
+        })
+    }
+
+    #[test]
+    fn rollup_ignores_runs_superseded_on_the_same_commit() {
+        // PR #585: a push cancelled the in-flight run; its CANCELLED entries
+        // stay in the rollup next to the green run that replaced them.
+        let checks = vec![
+            check_run("Backend cargo check", "2026-09-24T17:50:00Z", "CANCELLED"),
+            check_run("Backend tests", "2026-09-24T17:50:00Z", "CANCELLED"),
+            check_run("Backend cargo check", "2026-09-24T17:52:00Z", "SUCCESS"),
+            check_run("Backend tests", "2026-09-24T17:52:00Z", "SUCCESS"),
+        ];
+        assert_eq!(GhCli::rollup_ci_checks(&checks), "passing");
+        assert!(GhCli::extract_failed_checks(&checks).is_empty());
+    }
+
+    #[test]
+    fn rollup_still_fails_when_the_latest_run_fails() {
+        let checks = vec![
+            check_run("Backend tests", "2026-09-24T17:50:00Z", "SUCCESS"),
+            check_run("Backend tests", "2026-09-24T17:52:00Z", "FAILURE"),
+        ];
+        assert_eq!(GhCli::rollup_ci_checks(&checks), "failing");
+        assert_eq!(GhCli::extract_failed_checks(&checks).len(), 1);
+    }
+
     #[test]
     fn patch_new_side_lines_covers_added_and_context() {
         // One hunk: new side starts at line 10 and spans 4 lines
@@ -1206,7 +1404,7 @@ mod tests {
         assert_eq!(hostname, Some("github.mycompany.com".to_string()));
     }
 
-    /// Incidente 09-ago: rename del repo (vibe-kanban → mkanban) dejó los
+    /// Incidente 09-ago: rename del repo dejó los
     /// PRs pre-rename con la URL vieja; el POST del submit recibía
     /// `gh: HTTP 307` y cada retry volvía a fallar igual. El error de
     /// redirect tiene que reconocerse para disparar el retry canónico.

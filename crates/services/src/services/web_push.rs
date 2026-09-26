@@ -40,7 +40,7 @@ const PUSH_TTL_SECONDS: u32 = 60 * 60 * 4;
 
 /// `sub` del JWT VAPID. Los push services piden un contacto del operador —
 /// no tiene que estar validado, solo presente. Usamos un mailto genérico de
-/// mkanban en vez de leerlo de la config: no queremos filtrar el mail del
+/// fluke en vez de leerlo de la config: no queremos filtrar el mail del
 /// usuario al push service del vendor.
 const VAPID_CONTACT: &str = "mailto:noreply@mkanban.dev";
 

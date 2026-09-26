@@ -528,10 +528,9 @@ async fn check_editor_availability(
     // Construct a minimal EditorConfig for checking
     let editor_config = EditorConfig::new(
         query.editor_type,
-        None,  // custom_command
-        None,  // remote_ssh_host
-        None,  // remote_ssh_user
-        false, // auto_install_extension
+        None, // custom_command
+        None, // remote_ssh_host
+        None, // remote_ssh_user
     );
 
     let available = editor_config.check_availability().await;

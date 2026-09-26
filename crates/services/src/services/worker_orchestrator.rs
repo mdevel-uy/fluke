@@ -55,7 +55,6 @@ use db::{
         agent_action::{self, AgentAction},
         coding_agent_turn::CodingAgentTurn,
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
-        execution_process_repo_state::ExecutionProcessRepoState,
         plan_cap_hit::PlanCapHit,
         pull_request::PullRequest,
         repo::Repo,
@@ -149,10 +148,20 @@ impl Drop for FinalizingGuard {
 /// handles push and PR creation automatically on run completion.
 pub const WORKER_FINAL_INSTRUCTION_TEMPLATE: &str = "\
 When you finish the work above, commit your changes with clear messages and \
-verify that `pnpm run check` (frontend) or `cargo check` (backend) passes. \
+verify that `pnpm run check` passes for frontend changes (`cargo check` runs \
+in CI for backend changes). \
 The system will push the branch and open the pull request against \
 `{target_branch}` automatically once your run ends — do NOT create the PR \
-yourself.";
+yourself. \
+If you verify that the task needs no code change at all (the work already \
+landed, or it is not applicable), do not invent changes: end your final \
+message with a line `NO_CHANGES_NEEDED: <one-line reason>`. Do NOT use it \
+when you are blocked (missing input, access, or a decision) — say what \
+blocks you instead.";
+
+/// Line a developer agent ends its final message with when the task needed
+/// no code change; see [`WORKER_FINAL_INSTRUCTION_TEMPLATE`].
+const NO_CHANGES_NEEDED_MARKER: &str = "NO_CHANGES_NEEDED:";
 
 /// Final instruction for analyst and reviewer workers: produce deliverables,
 /// NOT a PR.
@@ -1068,6 +1077,16 @@ pub async fn reconcile_in_progress_tasks(db: &DBService) -> Result<(), sqlx::Err
                     e
                 ),
             }
+            // Detach (not archive): the workspace stays inspectable, but the
+            // worker is free again and the failed task shows up in its queue
+            // with the Retry action (the queue hides the active workspace).
+            if let Err(e) = Worker::detach_workspace(pool, workspace_id).await {
+                warn!(
+                    workspace_id = %workspace_id,
+                    "Failed to detach workspace during startup recovery: {}",
+                    e
+                );
+            }
         } else {
             // No commits: re-queue at the front so the task runs next time
             // the worker is started. Clean up the stale workspace so the
@@ -1408,8 +1427,23 @@ pub async fn on_agent_finished(
 ) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
 
-    let Some(worker_id) = Worker::find_by_workspace_id(pool, workspace_id).await? else {
-        return Ok(());
+    let worker_id = match Worker::find_by_workspace_id(pool, workspace_id).await? {
+        Some(id) => id,
+        // A failed task's workspace was detached (archive_and_detach). A
+        // successful follow-up on it re-attaches the workspace to the task's
+        // worker so the whole finalization (on_pr_open included) sees it.
+        None => match WorkerTask::find_by_workspace(pool, workspace_id).await? {
+            Some(t) if succeeded && t.status == worker_task::STATUS_FAILED => {
+                match Worker::find_by_id(pool, t.worker_id).await? {
+                    Some(w) if w.role == ROLE_DEVELOPER => {
+                        Worker::attach_workspace(pool, w.id, workspace_id).await?;
+                        w.id
+                    }
+                    _ => return Ok(()),
+                }
+            }
+            _ => return Ok(()),
+        },
     };
     let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
         return Ok(());
@@ -1985,6 +2019,16 @@ async fn on_reviewer_agent_finished(
             e
         );
     }
+    if let Err(e) =
+        archive_failed_reviewer_workspaces_for_pr(db, container, round.repo_id, round.pr_number)
+            .await
+    {
+        warn!(
+            round_id = %round.id,
+            "Failed to archive failed reviewer workspaces after verdict submitted: {}",
+            e
+        );
+    }
     WorkerTask::set_status(pool, task.id, worker_task::STATUS_DONE).await?;
     let review_result = match verdict.verdict.as_str() {
         review_verdict::VERDICT_APPROVE => Some("approved"),
@@ -2431,15 +2475,19 @@ async fn agent_result_text(pool: &sqlx::SqlitePool, execution_id: Option<Uuid>) 
 /// task whose work is already on the PR, and the head may have moved
 /// (reviewer edits), which would reject this safety-net push.
 ///
-/// Returns `true` when the push succeeded (so downstream steps like the
-/// remediation summary comment can gate on real progress hitting the PR
-/// head), `false` otherwise. The task is never marked failed either way.
+/// Returns `true` only when this run's own commits reached the PR head (so
+/// downstream steps like the remediation summary comment gate on real
+/// progress), `false` otherwise. A successful push alone is not progress:
+/// with nothing new git answers "Everything up-to-date" and still succeeds
+/// (PR #585, 24-sep: 90 "remediation completed" comments from runs without
+/// commits). The task is never marked failed either way.
 async fn push_follow_up_commits(
     db: &DBService,
     container: &(impl ContainerService + Send + Sync),
     workspace_id: Uuid,
     worker: &Worker,
     task: &WorkerTask,
+    execution_id: Option<Uuid>,
 ) -> bool {
     let pool = &db.pool;
     let Ok(Some(workspace)) = Workspace::find_by_id(pool, workspace_id).await else {
@@ -2471,13 +2519,31 @@ async fn push_follow_up_commits(
         worker.github_pat.as_deref(),
     ) {
         Ok(()) => {
+            // The run's "after" commit is only recorded once finalization
+            // (this hook) is over, so compare the live HEAD with its "before".
+            let before: Option<String> = match execution_id {
+                Some(id) => sqlx::query_scalar(
+                    "SELECT before_head_commit FROM execution_process_repo_states
+                      WHERE execution_process_id = ? AND before_head_commit IS NOT NULL
+                      LIMIT 1",
+                )
+                .bind(id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten(),
+                None => None,
+            };
+            let head = container.git().get_head_info(&worktree_path).ok();
+            let moved = matches!((&before, &head), (Some(b), Some(h)) if *b != h.oid);
             info!(
                 workspace_id = %workspace_id,
                 task_id = %task.id,
                 branch = %workspace.branch,
-                "Follow-up commits pushed to PR head"
+                new_commits = moved,
+                "Follow-up push to PR head done"
             );
-            true
+            moved
         }
         Err(e) => {
             warn!(
@@ -2491,6 +2557,91 @@ async fn push_follow_up_commits(
     }
 }
 
+/// After the author pushed commits on a PR with changes requested, mark them
+/// addressed on the host: dismiss the changes-requested reviews and resolve the
+/// open review threads, then clear the stale verdict on the task. Without it
+/// GitHub keeps "1 requested change" until a reviewer re-reviews — forever once
+/// the review rounds ran out (PR #585, 24-sep). The author certifies its own
+/// fix here by design; a re-review, if rounds remain, still gives the reviewer
+/// the last word. Best-effort: a failure only leaves the old status showing.
+async fn mark_review_addressed(
+    db: &DBService,
+    workspace_id: Uuid,
+    task: &WorkerTask,
+    execution_id: Option<Uuid>,
+) {
+    if task.review_result.as_deref() != Some("changes_requested") {
+        return;
+    }
+    let pool = &db.pool;
+    // Only what existed when this run started can have been addressed by it.
+    let Some(run_started_at) = (match execution_id {
+        Some(id) => ExecutionProcess::find_by_id(pool, id)
+            .await
+            .ok()
+            .flatten()
+            .map(|ep| ep.started_at),
+        None => None,
+    }) else {
+        return;
+    };
+    let open_pr = match PullRequest::find_by_workspace_id(pool, workspace_id).await {
+        Ok(prs) => prs
+            .into_iter()
+            .find(|pr| matches!(pr.pr_status, db::models::merge::MergeStatus::Open)),
+        Err(e) => {
+            warn!(workspace_id = %workspace_id, "Mark addressed: could not load PR: {}", e);
+            return;
+        }
+    };
+    let Some(pr) = open_pr else {
+        return;
+    };
+    let host = match GitHostService::from_url(&pr.pr_url) {
+        Ok(h) => h,
+        Err(e) => {
+            warn!(
+                pr_number = pr.pr_number,
+                "Mark addressed: unsupported host: {}", e
+            );
+            return;
+        }
+    };
+    let short_sha: String = host
+        .get_pr_head_sha(&pr.pr_url)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+        .chars()
+        .take(7)
+        .collect();
+    let message = format!(
+        "Atendido por el autor en {short_sha}. Pendiente de validación: re-review o revisión humana."
+    );
+    match host
+        .mark_changes_addressed(&pr.pr_url, &message, run_started_at)
+        .await
+    {
+        Ok((dismissed, resolved)) => {
+            info!(
+                pr_number = pr.pr_number,
+                dismissed, resolved, "Requested changes marked addressed on the PR"
+            );
+            if dismissed == 0 {
+                return;
+            }
+            if let Err(e) = WorkerTask::set_review_result(pool, task.id, None).await {
+                warn!(task_id = %task.id, "Mark addressed: could not clear verdict: {}", e);
+            }
+        }
+        Err(e) => warn!(
+            pr_number = pr.pr_number,
+            "Mark addressed: host rejected dismiss/resolve: {}", e
+        ),
+    }
+}
+
 /// Body of the post-remediation summary comment (REVIEW-LOOP-SPEC bloque B).
 ///
 /// F1 form (degraded per la sad-path del issue #510): sólo el commit SHA corto.
@@ -2499,8 +2650,12 @@ async fn push_follow_up_commits(
 /// llevarlos consigo.
 fn build_remediation_summary_body(head_sha: &str) -> String {
     let short_sha: String = head_sha.chars().take(7).collect();
-    format!("Remediación completada en {short_sha}.")
+    format!("{REMEDIATION_SUMMARY_PREFIX}{short_sha}.")
 }
+
+/// Start of the system's remediation summary comment; also how the comments
+/// fed back to the author recognise (and drop) the system's own notes.
+const REMEDIATION_SUMMARY_PREFIX: &str = "Remediación completada en ";
 
 /// Insert a `comment_pr` outbox row (AGENT-ACTIONS-SPEC.md, F1) resuming the
 /// remediation, choosing a `seq` that does not collide with any
@@ -2690,11 +2845,17 @@ async fn on_developer_agent_finished(
 ) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
 
-    let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
+    let Some(mut task) = WorkerTask::find_by_workspace(pool, workspace_id).await? else {
         return Ok(());
     };
     if task.worker_id != worker.id {
         return Ok(());
+    }
+    // A successful follow-up on a failed task (e.g. the first run was blocked
+    // on missing input and the user unblocked it from the workspace) resumes
+    // the normal finalization below: no-commit check, push, PR, review.
+    if succeeded && task.status == worker_task::STATUS_FAILED {
+        task = WorkerTask::set_status(pool, task.id, worker_task::STATUS_IN_PROGRESS).await?;
     }
     if task.status != worker_task::STATUS_IN_PROGRESS {
         // A run finishing on a task that is no longer in_progress is a manual
@@ -2708,7 +2869,9 @@ async fn on_developer_agent_finished(
             && (task.status == worker_task::STATUS_IN_REVIEW
                 || task.status == worker_task::STATUS_APPROVED)
         {
-            let pushed = push_follow_up_commits(db, container, workspace_id, worker, &task).await;
+            let pushed =
+                push_follow_up_commits(db, container, workspace_id, worker, &task, execution_id)
+                    .await;
             // Follow-up runs may still declare new agent actions; drain them
             // too (AGENT-ACTIONS-SPEC.md, F1). Workspace stays alive — the PR
             // is still open and the reviewer/user path is unaffected.
@@ -2721,6 +2884,7 @@ async fn on_developer_agent_finished(
             if pushed {
                 enqueue_remediation_summary_comment(config, db, container, workspace_id, task.id)
                     .await;
+                mark_review_addressed(db, workspace_id, &task, execution_id).await;
             }
         }
         return Ok(());
@@ -2815,6 +2979,44 @@ async fn on_developer_agent_finished(
     // Compare current HEAD to the before_head_commit recorded when the
     // execution process started; if identical the agent did nothing useful.
     let no_commits = check_no_new_commits(db, git, workspace_id, &worktree_path).await;
+    // No commits because there was nothing to do (the work already landed,
+    // e.g. #571 done by an earlier PR): the agent declares it and the task is
+    // resolved, not failed. Worth 0 hours saved — a no-op must not inflate
+    // the value metrics. Without the declaration, no commits stays a failure
+    // (a blocked run, like #569 missing its assets, needs a human).
+    if no_commits {
+        let summary = agent_result_text(pool, execution_id).await;
+        if summary
+            .as_deref()
+            .is_some_and(|s| s.contains(NO_CHANGES_NEEDED_MARKER))
+        {
+            info!(
+                workspace_id = %workspace_id,
+                task_id = %task.id,
+                "Developer task needed no changes — resolved as done (0 hours saved)"
+            );
+            if let Err(e) =
+                WorkerTask::record_deliverable(pool, task.id, summary.as_deref(), None).await
+            {
+                warn!(task_id = %task.id, "Failed to record no-op summary: {}", e);
+            }
+            sqlx::query("UPDATE worker_tasks SET hours_saved_override = 0 WHERE id = ?")
+                .bind(task.id)
+                .execute(pool)
+                .await?;
+            WorkerTask::set_status(pool, task.id, worker_task::STATUS_DONE).await?;
+            archive_and_detach(db, container, workspace_id).await;
+            match try_take_next(config, db, container, worker.id).await {
+                Ok(_) => {}
+                Err(e) if e.is_conflict() => {}
+                Err(e) => warn!(
+                    worker_id = %worker.id,
+                    "Failed to auto-take next task after no-op task: {}", e
+                ),
+            }
+            return Ok(());
+        }
+    }
     if no_commits {
         warn!(
             workspace_id = %workspace_id,
@@ -3112,26 +3314,24 @@ async fn check_no_new_commits(
     workspace_id: Uuid,
     worktree_path: &PathBuf,
 ) -> bool {
-    let pool = &db.pool;
-
-    let ep = match ExecutionProcess::find_latest_by_workspace_and_run_reason(
-        pool,
-        workspace_id,
-        &ExecutionProcessRunReason::CodingAgent,
+    // Baseline = HEAD before the FIRST coding-agent run of the workspace, not
+    // the latest: a follow-up that only confirms work committed by an earlier
+    // run (e.g. reviving a failed task) must not count as "no commits".
+    let before_oid: Option<String> = sqlx::query_scalar(
+        "SELECT rs.before_head_commit
+           FROM execution_process_repo_states rs
+           JOIN execution_processes ep ON ep.id = rs.execution_process_id
+           JOIN sessions s ON s.id = ep.session_id
+          WHERE s.workspace_id = ? AND ep.run_reason = 'codingagent'
+            AND ep.dropped = FALSE AND rs.before_head_commit IS NOT NULL
+          ORDER BY ep.created_at ASC LIMIT 1",
     )
+    .bind(workspace_id)
+    .fetch_optional(&db.pool)
     .await
-    {
-        Ok(Some(ep)) => ep,
-        _ => return false,
-    };
-
-    let repo_states =
-        match ExecutionProcessRepoState::find_by_execution_process_id(pool, ep.id).await {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-
-    let Some(before_oid) = repo_states.into_iter().find_map(|s| s.before_head_commit) else {
+    .ok()
+    .flatten();
+    let Some(before_oid) = before_oid else {
         return false;
     };
 
@@ -3916,6 +4116,33 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
     Ok(())
 }
 
+/// Once a verdict lands on a PR, earlier reviewer attempts on it that failed
+/// (API error, server restart mid-run) are obsolete: archive their workspaces
+/// so they leave the sidebar's Failed section. The tasks stay `failed` — they
+/// never produced a review, so they must not count as done work.
+async fn archive_failed_reviewer_workspaces_for_pr(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    repo_id: Uuid,
+    pr_number: i64,
+) -> Result<(), sqlx::Error> {
+    let workspace_ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT DISTINCT t.workspace_id
+           FROM review_rounds r
+           JOIN worker_tasks t ON t.id = r.task_id
+          WHERE r.repo_id = ? AND r.pr_number = ?
+            AND t.status = 'failed' AND t.workspace_id IS NOT NULL",
+    )
+    .bind(repo_id)
+    .bind(pr_number)
+    .fetch_all(&db.pool)
+    .await?;
+    for ws_id in workspace_ids {
+        archive_and_detach(db, container, ws_id).await;
+    }
+    Ok(())
+}
+
 /// Resolved context for the remediation prompt.
 ///
 /// `pr_url` is always populated (falls back to the empty string only when the
@@ -4029,7 +4256,7 @@ async fn collect_pr_comments_context(
             return ctx;
         }
     };
-    let comments = match host
+    let mut comments = match host
         .get_pr_comments(&repo_path, &remote.url, pr_number)
         .await
     {
@@ -4042,11 +4269,42 @@ async fn collect_pr_comments_context(
             return ctx;
         }
     };
+    // The system's own "remediation completed" notes are not review feedback
+    // and would drown the reviewer's comments (PR #585 carried 90 of them).
+    comments.retain(|c| {
+        !matches!(c, git_host::UnifiedPrComment::General { body, .. }
+            if body.starts_with(REMEDIATION_SUMMARY_PREFIX))
+    });
 
-    ctx.comments_block = quick_action_prompts::render_comments_block(
+    let comments_block = quick_action_prompts::render_comments_block(
         &comments,
         quick_action_prompts::COMMENTS_BLOCK_MAX_BYTES,
     );
+
+    // The reviewer writes most of the requested changes in the review's own
+    // body, which is not a comment thread: without it the author only saw the
+    // inline comments (PR #585: 2 inline comments, ~2.9K chars of review body
+    // missing every round). Best-effort like the rest of the enrichment.
+    let review_body = match host.get_pr_latest_review(&pr.pr_url).await {
+        Ok(Some(review)) if review.state == "changes_requested" => review.body,
+        Ok(_) => None,
+        Err(e) => {
+            warn!(
+                pr_number,
+                "Failed to fetch the latest review body for remediation enrichment: {e}"
+            );
+            None
+        }
+    };
+    ctx.comments_block = match review_body {
+        None => comments_block,
+        Some(body) => Some(format!(
+            "Pedido del reviewer (cuerpo del último review, cambios solicitados):\n{body}{}",
+            comments_block
+                .map(|b| format!("\n\n{b}"))
+                .unwrap_or_default()
+        )),
+    };
     ctx
 }
 
@@ -4301,6 +4559,92 @@ async fn dispatch_remediation_follow_up(
 /// - No review round has actually completed yet
 /// - A remediation is already in flight for this PR (idempotent guard on
 ///   both the follow-up path and the fallback task path)
+/// The prompt the author gets for a changes-request: the reviewer's comments
+/// (general + inline) inlined, plus the plumbing contract. Shared by the
+/// automatic remediation and the human "Address requested changes" action, so
+/// a manual fix after the rounds ran out reads exactly like an automatic one.
+pub async fn build_author_fix_prompt(db: &DBService, pr_number: i64, repo_id: Uuid) -> String {
+    let ctx = collect_pr_comments_context(db, pr_number, repo_id).await;
+    build_remediation_prompt(
+        pr_number,
+        &ctx.pr_url,
+        ctx.owner_repo.as_deref(),
+        ctx.comments_block.as_deref(),
+    )
+}
+
+/// Decide whether the PR's latest changes-request still owes the author a fix,
+/// and claim it so later pr_monitor cycles do not dispatch it again. `false`
+/// means: skip. Two guards:
+///
+/// - Round budget: once every review round is spent there is no re-review to
+///   fix for — the PR is escalated to a human (dispatch_review_task stops at
+///   the same cap).
+/// - One fix per verdict: the pr_monitor calls the dispatcher every cycle while
+///   the verdict covers the PR head. If the author's run ends without commits
+///   the head never moves and, unguarded, the fix is re-dispatched once a
+///   minute forever (PR #585, 24-sep: ~85 empty runs). The claim is a
+///   `remediation` row on the reviewed head, marked apart from CI-fix rows
+///   (`ci_failing`) so a CI fix on the same head does not block it.
+///
+/// The claim is recorded before dispatching: a failed dispatch costs one
+/// missed fix (the card still shows "changes requested"), never a loop.
+async fn claim_author_fix(
+    pool: &sqlx::SqlitePool,
+    repo_id: Uuid,
+    pr_number: i64,
+    max_rounds: i64,
+) -> Result<bool, sqlx::Error> {
+    if ReviewRound::count_submitted_for_pr(pool, repo_id, pr_number).await? >= max_rounds {
+        debug!(
+            pr_number,
+            max_rounds, "Review rounds exhausted — escalated to a human, skipping author fix"
+        );
+        return Ok(false);
+    }
+    let Some(verdict) = ReviewRound::latest_submitted_review(pool, repo_id, pr_number).await?
+    else {
+        return Ok(false);
+    };
+    if verdict.verdict.as_deref() != Some(review_round::VERDICT_REQUEST_CHANGES) {
+        return Ok(false);
+    }
+    let already_claimed: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM review_rounds
+            WHERE repo_id = ? AND pr_number = ? AND kind = ? AND head_sha = ?
+              AND status != 'failed' AND reasons LIKE '%changes_requested%')",
+    )
+    .bind(repo_id)
+    .bind(pr_number)
+    .bind(review_round::KIND_REMEDIATION)
+    .bind(&verdict.head_sha)
+    .fetch_one(pool)
+    .await?;
+    if already_claimed {
+        debug!(
+            pr_number,
+            head_sha = %verdict.head_sha,
+            "Author fix already dispatched for this changes-request — skipping"
+        );
+        return Ok(false);
+    }
+    ReviewRound::create(
+        pool,
+        &CreateReviewRound {
+            repo_id,
+            pr_number,
+            kind: review_round::KIND_REMEDIATION.to_string(),
+            head_sha: verdict.head_sha.clone(),
+            base_sha: None,
+            task_id: None,
+            reasons: Some(r#"{"changes_requested":true}"#.to_string()),
+        },
+    )
+    .await?;
+    Ok(true)
+}
+
 pub async fn dispatch_author_fix_task(
     config: &Arc<RwLock<Config>>,
     db: &DBService,
@@ -4327,6 +4671,14 @@ pub async fn dispatch_author_fix_task(
         return Ok(());
     }
 
+    let max_rounds = {
+        let cfg = config.read().await;
+        resolve_max_review_rounds(&cfg)
+    };
+    if !claim_author_fix(pool, repo_id, pr_number, max_rounds).await? {
+        return Ok(());
+    }
+
     // Idempotency guard for the legacy path: while a queued/in_progress
     // `review_fix` task exists (from a prior dispatch that took the fallback
     // path, or from a fleet still draining old fix-tasks), do not queue a
@@ -4348,14 +4700,7 @@ pub async fn dispatch_author_fix_task(
     // (and never sees a `{{owner}}/{{repo}}` placeholder). Any failure logs
     // a warn and drops us into the fallback prompt — enrichment is optional,
     // never a dispatch blocker.
-    let ctx = collect_pr_comments_context(db, pr_number, repo_id).await;
-
-    let task_prompt = build_remediation_prompt(
-        pr_number,
-        &ctx.pr_url,
-        ctx.owner_repo.as_deref(),
-        ctx.comments_block.as_deref(),
-    );
+    let task_prompt = build_author_fix_prompt(db, pr_number, repo_id).await;
 
     // Primary path (#473): dispatch as a system follow-up on the author's
     // ORIGINAL in_review task workspace. One card = one PR, transitioning
@@ -5083,16 +5428,13 @@ mod tests {
     #[test]
     fn remediation_prompt_has_no_git_plumbing() {
         for (owner_repo, comments_block) in [
-            (
-                Some("mdevel-uy/vibe-kanban"),
-                Some("Comentario del reviewer"),
-            ),
-            (Some("mdevel-uy/vibe-kanban"), None),
+            (Some("acme/widgets"), Some("Comentario del reviewer")),
+            (Some("acme/widgets"), None),
             (None, None),
         ] {
             let prompt = build_remediation_prompt(
                 507,
-                "https://github.com/mdevel-uy/vibe-kanban/pull/507",
+                "https://github.com/acme/widgets/pull/507",
                 owner_repo,
                 comments_block,
             );
@@ -6839,6 +7181,62 @@ mod tests {
     /// Acceptance criterion (issue #510): al cerrar una remediación exitosa se
     /// crea exactamente una fila `agent_action` con `kind = "comment_pr"` para
     /// esa task, con el pr y el body correctos.
+    async fn submit_review(db: &DBService, repo_id: Uuid, pr: i64, head: &str, verdict: &str) {
+        let round = ReviewRound::create(
+            &db.pool,
+            &CreateReviewRound {
+                repo_id,
+                pr_number: pr,
+                kind: review_round::KIND_REVIEW.to_string(),
+                head_sha: head.to_string(),
+                base_sha: None,
+                task_id: None,
+                reasons: None,
+            },
+        )
+        .await
+        .unwrap();
+        ReviewRound::set_submitted(&db.pool, round.id, Some(verdict), None)
+            .await
+            .unwrap();
+    }
+
+    /// PR #585, 24-sep: the pr_monitor re-dispatched the author fix every
+    /// cycle while the changes-request covered an unmoved head (~85 empty runs).
+    #[tokio::test]
+    async fn claim_author_fix_once_per_verdict_and_never_past_the_round_cap() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "fix-loop-repo").await;
+        let pool = &db.pool;
+        let changes = review_round::VERDICT_REQUEST_CHANGES;
+
+        // Round 1 requests changes on head A: one fix, then every later
+        // monitor cycle on the same unmoved head is a no-op.
+        submit_review(&db, repo.id, 585, "aaaa", changes).await;
+        assert!(claim_author_fix(pool, repo.id, 585, 3).await.unwrap());
+        for _ in 0..5 {
+            assert!(!claim_author_fix(pool, repo.id, 585, 3).await.unwrap());
+        }
+
+        // The author pushed head B and round 2 requests changes again: that
+        // new verdict owes exactly one new fix.
+        submit_review(&db, repo.id, 585, "bbbb", changes).await;
+        assert!(claim_author_fix(pool, repo.id, 585, 3).await.unwrap());
+        assert!(!claim_author_fix(pool, repo.id, 585, 3).await.unwrap());
+
+        // Round 3 spends the budget: escalated to a human, no fix at all.
+        submit_review(&db, repo.id, 585, "cccc", changes).await;
+        assert!(!claim_author_fix(pool, repo.id, 585, 3).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn claim_author_fix_skips_an_approval() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "fix-approve-repo").await;
+        submit_review(&db, repo.id, 7, "aaaa", review_round::VERDICT_APPROVE).await;
+        assert!(!claim_author_fix(&db.pool, repo.id, 7, 3).await.unwrap());
+    }
+
     #[tokio::test]
     async fn enqueue_remediation_summary_action_creates_one_comment_pr_row() {
         let db = setup_test_db().await;

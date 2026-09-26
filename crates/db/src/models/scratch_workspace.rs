@@ -47,9 +47,7 @@ impl ScratchWorkspace {
             .fetch_all(pool)
             .await?;
 
-        rows.into_iter()
-            .map(|r| r.try_get::<Uuid, _>(0))
-            .collect()
+        rows.into_iter().map(|r| r.try_get::<Uuid, _>(0)).collect()
     }
 
     /// Return true if the given workspace is a scratch workspace.

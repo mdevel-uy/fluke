@@ -64,6 +64,7 @@ export function withWorkerTaskInfo<T extends SidebarWorkspace>(
       hasFailedTask: task.status === 'failed',
       hasTaskInReview: task.status === 'in_review',
       hasTaskApproved: task.status === 'approved',
+      taskReviewResult: task.review_result ?? undefined,
     };
   });
 }

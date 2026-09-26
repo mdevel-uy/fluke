@@ -4,7 +4,7 @@
 
 ## Qué es
 
-fluke (antes conocido como mkanban) corre una flota de **workers** — agentes de IA persistentes, con identidad, rol y memoria propia — que toman issues de GitHub, trabajan en workspaces aislados sobre git worktrees, abren pull requests y pasan por un loop de revisión automática antes de que una persona apruebe el merge. Todo corre en infraestructura propia: sin backend en la nube, sin login externo, sin telemetría hacia terceros.
+fluke corre una flota de **workers** — agentes de IA persistentes, con identidad, rol y memoria propia — que toman issues de GitHub, trabajan en workspaces aislados sobre git worktrees, abren pull requests y pasan por un loop de revisión automática antes de que una persona apruebe el merge. Todo corre en infraestructura propia: sin backend en la nube, sin login externo, sin telemetría hacia terceros.
 
 El flujo completo:
 
@@ -25,9 +25,9 @@ El flujo completo:
 
 ## Instalación on-premises
 
-El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`, nombre heredado de mkanban), configuración por variables `FK_*` en `.env` (las `MK_*` siguen valiendo como fallback), y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
+El deployment soportado para clientes es el bundle de [`ops/onprem/`](ops/onprem/README.md): imagen distribuida por GHCR (`ghcr.io/mdevel-uy/mkanban`), configuración por variables `FK_*` en `.env`, y updates OTA con backup y rollback automático vía `update.sh`. El runbook de operación está en [`ops/onprem/RUNBOOK.md`](ops/onprem/RUNBOOK.md).
 
-Los datos persisten en los volúmenes `fk-repos` (checkouts) y `fk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/fluke` (un data dir heredado `~/.local/share/mkanban` se renombra solo al arrancar).
+Los datos persisten en los volúmenes `fk-repos` (checkouts) y `fk-home` (base SQLite, configuración y credenciales); en una instalación local el data dir es `~/.local/share/fluke`.
 
 ### Variables de entorno principales
 
@@ -35,7 +35,7 @@ Los datos persisten en los volúmenes `fk-repos` (checkouts) y `fk-home` (base S
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Dirección de bind del servidor. |
 | `PORT` | `3000` | Puerto del servidor. |
-| `FK_ALLOWED_ORIGINS` | sin setear | Orígenes permitidos (separados por coma) al servir detrás de un reverse proxy o dominio propio; necesario para evitar 403. `MK_ALLOWED_ORIGINS` (heredado de mkanban) sigue valiendo como fallback. |
+| `FK_ALLOWED_ORIGINS` | sin setear | Orígenes permitidos (separados por coma) al servir detrás de un reverse proxy o dominio propio; necesario para evitar 403. |
 | `DISABLE_WORKTREE_CLEANUP` | sin setear | Desactiva la limpieza de worktrees, para debugging. |
 
 ## Estructura del repositorio

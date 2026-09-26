@@ -259,8 +259,7 @@ pub async fn create_pr(
     // authenticate as that worker's GitHub identity instead of relying on
     // the machine's global gh credentials. Manual PR creation from the UI
     // hits this path — same identity story as agent-driven creation.
-    let worker_pat =
-        Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
+    let worker_pat = Worker::find_github_pat_by_workspace_id(pool, workspace.id).await?;
 
     // Branch name on the remote — differs from the local branch only for
     // workspaces created from an existing PR.

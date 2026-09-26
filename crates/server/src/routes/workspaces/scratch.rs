@@ -17,9 +17,7 @@ use services::services::{container::ContainerService, events::workspace_patch};
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
-use crate::{
-    DeploymentImpl, error::ApiError, routes::workspaces::create::create_workspace_record,
-};
+use crate::{DeploymentImpl, error::ApiError, routes::workspaces::create::create_workspace_record};
 
 #[derive(Debug, Deserialize)]
 pub struct ScratchWorkspaceQuery {
@@ -137,7 +135,10 @@ async fn materialize_scratch_workspace(
         .check_branch_exists(&repo.path, &workspace.branch)?;
 
     if branch_exists {
-        deployment.container().ensure_container_exists(workspace).await?;
+        deployment
+            .container()
+            .ensure_container_exists(workspace)
+            .await?;
     } else {
         deployment.container().create(workspace).await?;
     }

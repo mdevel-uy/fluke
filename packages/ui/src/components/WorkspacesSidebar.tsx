@@ -69,6 +69,12 @@ export interface WorkspacesSidebarWorkspace {
   prMergeable?: string;
   /** CI rollup of the open PR: "passing" | "failing" | "pending" | "none" | "unknown" */
   prCiStatus?: string;
+  /** Review-loop activity on the open PR: "queued" | "running" */
+  prReviewActivity?: string;
+  /** Latest reviewer verdict on the backing worker task: "approved" | "changes_requested" */
+  taskReviewResult?: string;
+  /** Open PR spent every review round: the loop stopped, a human decides */
+  prReviewRoundsExhausted?: boolean;
   contextUsage?: WorkspaceContextUsage | null;
   /** The agent's most recent tool activity (e.g. "Edit: `src/foo.rs`") */
   latestActivity?: string;

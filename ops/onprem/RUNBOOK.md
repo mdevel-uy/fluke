@@ -22,14 +22,14 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 **A. Credenciales de registro (lado mdevel)**
 
-- ▸ Crear cuenta de GitHub `mkanban-<cliente>` (machine user, cuenta gratuita).
+- ▸ Crear cuenta de GitHub `fluke-<cliente>` (machine user, cuenta gratuita).
 - ▸ En el package `ghcr.io/mdevel-uy/mkanban` → Package settings → Manage Actions
   access → agregar el machine user con rol **Read**.
 - ▸ Con esa cuenta, generar un PAT clásico con **solo** el scope `read:packages`.
   Sin expiración o a 1 año; anotar la fecha.
 - ▸ Registrar en el gestor de contraseñas: cliente, usuario, fecha de emisión.
 - ✓ Verificar el token antes de entregarlo:
-  `echo <TOKEN> | docker login ghcr.io -u mkanban-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/mkanban:stable`
+  `echo <TOKEN> | docker login ghcr.io -u fluke-<cliente> --password-stdin && docker pull ghcr.io/mdevel-uy/mkanban:stable`
 
 **B. Preparación del servidor (lado cliente)**
 
@@ -98,8 +98,8 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 ## 1.4 Emisión y renovación de licencias
 
-> **Vía normal (automática)**: con `MKANBAN_CONTROL_PLANE_URL` y
-> `MKANBAN_INGEST_TOKEN` en el `.env` del bundle, la instancia se auto-vincula
+> **Vía normal (automática)**: con `FLUKE_CONTROL_PLANE_URL` y
+> `FLUKE_INGEST_TOKEN` en el `.env` del bundle, la instancia se auto-vincula
 > al cliente en el panel (control.mkanban.dev/admin) y la licencia se renueva
 > sola en cada heartbeat mientras el cliente esté al día. El alta del cliente
 > en el panel entrega el token y un comando de bootstrap que deja todo
@@ -113,11 +113,11 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 **Setup por única vez (generar el par de claves)**
 
 - ▸ En la máquina del operador (nunca en un servidor):
-  `fluke-license keygen --out mkanban-signing.key.enc`
+  `fluke-license keygen --out fluke-signing.key.enc`
   Pide una passphrase y la repite; imprime la **clave pública** por stdout.
 - ▸ 🔴 Guardar la clave pública: se embebe en el binario del producto (es la que
   usa el cliente para verificar). Va al código, no es secreta.
-- ▸ 🔴 Resguardar `mkanban-signing.key.enc` en la bóveda (ver [LICENSING-SPEC](../../design/LICENSING-SPEC.md)).
+- ▸ 🔴 Resguardar `fluke-signing.key.enc` en la bóveda (ver [LICENSING-SPEC](../../design/LICENSING-SPEC.md)).
   La passphrase va **por separado** del archivo. Si se pierde cualquiera de los
   dos, no se puede firmar → ver QRH 2.5.
 - ▸ Registrar quién tiene acceso al archivo y a la passphrase, y desde cuándo.
@@ -141,7 +141,7 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 - ▸ Registrar la emisión en el control de flota: cliente, fecha, vencimiento.
 
 > Uso no interactivo (CI, o el control plane de la fase 5b que renueva solo):
-> la passphrase se pasa por la variable `MKANBAN_LICENSE_PASSPHRASE` en vez del
+> la passphrase se pasa por la variable `FLUKE_LICENSE_PASSPHRASE` en vez del
 > prompt. No usarla en un shell interactivo: quedaría en el historial.
 
 ## 1.5 Migración a Fluke (instancias instaladas como mkanban)
@@ -149,7 +149,7 @@ passphrase**; el archivo `.enc` en reposo no sirve sin ella.
 Una sola vez por instancia, al pasarla al bundle renombrado. Cambian: directorio
 (`/opt/mkanban` → `/opt/fluke`), servicio/contenedor (`mkanban` → `fluke`),
 volúmenes (`mk-repos`/`mk-home` → `fk-repos`/`fk-home`) y variables del `.env`
-(`MK_*` → `FK_*`). Docker no renombra volúmenes: hay que copiar el contenido.
+(`MK_*` → `FK_*`, `MKANBAN_*` → `FLUKE_*`). Docker no renombra volúmenes: hay que copiar el contenido.
 Si se salta este paso, compose crea `fk-*` vacíos y la instancia arranca sin
 datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
 
@@ -166,8 +166,8 @@ datos (siguen intactos en `mk-*`); `update.sh` lo detecta y aborta.
       sh -c 'cp -a /from/. /to/'
   done
   ```
-- ▸ Opcional: renombrar en el `.env` las variables `MK_*` a `FK_*`. No es
-  obligatorio — las `MK_*` siguen valiendo como fallback.
+- ▸ Renombrar en el `.env` las variables `MK_*` a `FK_*` y `MKANBAN_*` a
+  `FLUKE_*`. Es obligatorio: los nombres viejos ya no se leen.
 - ▸ Actualizar el cron: en `/etc/cron.d/mkanban-update` cambiar la ruta a
   `/opt/fluke/update.sh` y el log a `/var/log/fluke-update.log`; renombrar el
   archivo a `/etc/cron.d/fluke-update`.

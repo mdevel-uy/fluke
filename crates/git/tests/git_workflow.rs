@@ -549,11 +549,8 @@ fn remote_branch_status_cached_resolves_without_the_remote() {
     // Clone it so the local repo has a real origin and a populated
     // refs/remotes/origin/main.
     let local_path = td.path().join("local");
-    cli.git(
-        td.path(),
-        ["clone", remote_path.to_str().unwrap(), "local"],
-    )
-    .unwrap();
+    cli.git(td.path(), ["clone", remote_path.to_str().unwrap(), "local"])
+        .unwrap();
     configure_user(&local_path, "Test User", "test@example.com");
 
     // Two commits on a branch off main → 2 ahead of origin/main, 0 behind.

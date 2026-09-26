@@ -42,9 +42,7 @@ use axum::{
     response::Json as ResponseJson,
     routing::{get, post},
 };
-use local_deployment::portable_pty::{
-    self, CommandBuilder, NativePtySystem, PtySize, PtySystem,
-};
+use local_deployment::portable_pty::{self, CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -54,9 +52,7 @@ use tokio::{
     time::sleep,
 };
 use ts_rs::TS;
-use utils::{
-    command_ext::NoWindowExt, response::ApiResponse, shell::resolve_executable_path,
-};
+use utils::{command_ext::NoWindowExt, response::ApiResponse, shell::resolve_executable_path};
 
 use crate::{DeploymentImpl, error::ApiError};
 
@@ -225,11 +221,7 @@ async fn read_progress(provider: AgentAuthProvider) -> Option<AgentLoginProgress
 }
 
 async fn set_progress(provider: AgentAuthProvider, progress: AgentLoginProgress) {
-    runtime()
-        .lock()
-        .await
-        .progress
-        .insert(provider, progress);
+    runtime().lock().await.progress.insert(provider, progress);
 }
 
 async fn update_progress<F>(provider: AgentAuthProvider, mutator: F)
@@ -248,8 +240,7 @@ where
 // ============================================================================
 
 fn home_dir() -> Result<PathBuf, ApiError> {
-    dirs::home_dir()
-        .ok_or_else(|| ApiError::BadGateway("Could not determine $HOME".to_string()))
+    dirs::home_dir().ok_or_else(|| ApiError::BadGateway("Could not determine $HOME".to_string()))
 }
 
 fn codex_home() -> Result<PathBuf, ApiError> {
@@ -315,18 +306,14 @@ fn file_mtime_epoch(path: &std::path::Path) -> Option<i64> {
         .map(|d| d.as_secs() as i64)
 }
 
-async fn provider_connection_state(
-    provider: AgentAuthProvider,
-) -> (bool, Option<i64>) {
+async fn provider_connection_state(provider: AgentAuthProvider) -> (bool, Option<i64>) {
     let candidates: Vec<PathBuf> = match provider {
         AgentAuthProvider::Codex => codex_auth_file().ok().into_iter().collect(),
         AgentAuthProvider::Gemini => [gemini_env_file().ok(), gemini_oauth_file().ok()]
             .into_iter()
             .flatten()
             .collect(),
-        AgentAuthProvider::ClaudeCode => {
-            claude_credentials_file().ok().into_iter().collect()
-        }
+        AgentAuthProvider::ClaudeCode => claude_credentials_file().ok().into_iter().collect(),
     };
 
     let mut best: Option<i64> = None;
@@ -548,8 +535,7 @@ async fn post_logout(
 // Codex login: device flow via the CLI
 // ============================================================================
 
-async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginResponse>>, ApiError>
-{
+async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginResponse>>, ApiError> {
     // Reset any previous run — the caller explicitly asked for a fresh
     // login, so we must not return a stale code from a login that timed out
     // in the browser.
@@ -588,16 +574,18 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
     cmd.stderr(Stdio::piped());
     cmd.no_window();
 
-    let mut child = cmd.spawn().map_err(|e| {
-        ApiError::BadGateway(format!("Failed to spawn codex login: {e}"))
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| ApiError::BadGateway(format!("Failed to spawn codex login: {e}")))?;
 
-    let stdout = child.stdout.take().ok_or_else(|| {
-        ApiError::BadGateway("codex login: no stdout pipe".to_string())
-    })?;
-    let stderr = child.stderr.take().ok_or_else(|| {
-        ApiError::BadGateway("codex login: no stderr pipe".to_string())
-    })?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| ApiError::BadGateway("codex login: no stdout pipe".to_string()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| ApiError::BadGateway("codex login: no stderr pipe".to_string()))?;
 
     let child_slot = Arc::new(Mutex::new(Some(child)));
     {
@@ -626,8 +614,7 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
                 }
                 update_progress(AgentAuthProvider::Codex, |p| {
                     p.state = AgentLoginState::Failed;
-                    p.error =
-                        Some("Login timed out. Please try again.".to_string());
+                    p.error = Some("Login timed out. Please try again.".to_string());
                 })
                 .await;
                 return;
@@ -661,8 +648,7 @@ async fn start_codex_login() -> Result<ResponseJson<ApiResponse<AgentLoginRespon
                         Err(e) => {
                             update_progress(AgentAuthProvider::Codex, |p| {
                                 p.state = AgentLoginState::Failed;
-                                p.error =
-                                    Some(format!("Failed waiting on codex login: {e}"));
+                                p.error = Some(format!("Failed waiting on codex login: {e}"));
                             })
                             .await;
                             guard.take();
@@ -767,9 +753,7 @@ async fn apply_codex_line(line: &str) {
 fn extract_https_url(line: &str) -> Option<String> {
     let start = line.find("https://")?;
     let rest = &line[start..];
-    let end = rest
-        .find(|c: char| c.is_whitespace())
-        .unwrap_or(rest.len());
+    let end = rest.find(|c: char| c.is_whitespace()).unwrap_or(rest.len());
     let candidate = &rest[..end];
     let trimmed = candidate.trim_end_matches(|c: char| matches!(c, '.' | ',' | ')' | ']' | '"'));
     if trimmed.starts_with("https://") && trimmed.len() > "https://".len() {
@@ -859,12 +843,8 @@ async fn complete_gemini_login(
     }
 
     let dir = gemini_home()?;
-    std::fs::create_dir_all(&dir).map_err(|e| {
-        ApiError::BadGateway(format!(
-            "Failed to create {}: {e}",
-            dir.display()
-        ))
-    })?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| ApiError::BadGateway(format!("Failed to create {}: {e}", dir.display())))?;
     let env_path = gemini_env_file()?;
 
     let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
@@ -942,27 +922,17 @@ fn write_secret_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), ApiErro
             .mode(0o600)
             .open(path)
             .map_err(|e| {
-                ApiError::BadGateway(format!(
-                    "Failed to write {}: {e}",
-                    path.display()
-                ))
+                ApiError::BadGateway(format!("Failed to write {}: {e}", path.display()))
             })?;
         f.write_all(bytes).map_err(|e| {
-            ApiError::BadGateway(format!(
-                "Failed to write {}: {e}",
-                path.display()
-            ))
+            ApiError::BadGateway(format!("Failed to write {}: {e}", path.display()))
         })?;
         Ok(())
     }
     #[cfg(not(unix))]
     {
-        std::fs::write(path, bytes).map_err(|e| {
-            ApiError::BadGateway(format!(
-                "Failed to write {}: {e}",
-                path.display()
-            ))
-        })
+        std::fs::write(path, bytes)
+            .map_err(|e| ApiError::BadGateway(format!("Failed to write {}: {e}", path.display())))
     }
 }
 
@@ -975,10 +945,7 @@ async fn gemini_logout() -> Result<(), ApiError> {
         let stripped = remove_env_var(&stripped, "GOOGLE_API_KEY");
         if stripped.trim().is_empty() {
             std::fs::remove_file(&env_path).map_err(|e| {
-                ApiError::BadGateway(format!(
-                    "Failed to remove {}: {e}",
-                    env_path.display()
-                ))
+                ApiError::BadGateway(format!("Failed to remove {}: {e}", env_path.display()))
             })?;
         } else {
             write_secret_file(&env_path, stripped.as_bytes())?;
@@ -988,10 +955,7 @@ async fn gemini_logout() -> Result<(), ApiError> {
         && oauth.exists()
     {
         std::fs::remove_file(&oauth).map_err(|e| {
-            ApiError::BadGateway(format!(
-                "Failed to remove {}: {e}",
-                oauth.display()
-            ))
+            ApiError::BadGateway(format!("Failed to remove {}: {e}", oauth.display()))
         })?;
     }
     Ok(())
@@ -1038,8 +1002,7 @@ const CLAUDE_LOGIN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CLAUDE_PTY_COLS: u16 = 120;
 const CLAUDE_PTY_ROWS: u16 = 40;
 
-async fn start_claude_login()
--> Result<ResponseJson<ApiResponse<AgentLoginResponse>>, ApiError> {
+async fn start_claude_login() -> Result<ResponseJson<ApiResponse<AgentLoginResponse>>, ApiError> {
     // Fresh login means fresh state: abort any prior watcher so the CLI it
     // was polling stops overwriting our progress record.
     stop_in_flight_login(AgentAuthProvider::ClaudeCode).await;
@@ -1056,9 +1019,7 @@ async fn start_claude_login()
     .await;
 
     let claude = resolve_executable_path("claude").await.ok_or_else(|| {
-        ApiError::BadRequest(
-            "The Claude Code CLI is not installed on this machine.".to_string(),
-        )
+        ApiError::BadRequest("The Claude Code CLI is not installed on this machine.".to_string())
     })?;
     let creds_before_mtime = claude_credentials_file()
         .ok()
@@ -1090,9 +1051,7 @@ async fn start_claude_login()
                 update_progress(AgentAuthProvider::ClaudeCode, |p| {
                     if !matches!(p.state, AgentLoginState::Completed) {
                         p.state = AgentLoginState::Failed;
-                        p.error = Some(
-                            "Login timed out. Please try again.".to_string(),
-                        );
+                        p.error = Some("Login timed out. Please try again.".to_string());
                     }
                 })
                 .await;
@@ -1131,10 +1090,8 @@ async fn start_claude_login()
                 if let Some(pty) = guard.as_mut() {
                     match pty.child.try_wait() {
                         Ok(Some(status)) => {
-                            let file_present = creds_path
-                                .as_deref()
-                                .map(|p| p.exists())
-                                .unwrap_or(false);
+                            let file_present =
+                                creds_path.as_deref().map(|p| p.exists()).unwrap_or(false);
                             update_progress(AgentAuthProvider::ClaudeCode, |p| {
                                 if file_present && status.success() {
                                     p.state = AgentLoginState::Completed;
@@ -1157,8 +1114,7 @@ async fn start_claude_login()
                         Err(e) => {
                             update_progress(AgentAuthProvider::ClaudeCode, |p| {
                                 p.state = AgentLoginState::Failed;
-                                p.error =
-                                    Some(format!("Failed waiting on claude: {e}"));
+                                p.error = Some(format!("Failed waiting on claude: {e}"));
                             })
                             .await;
                             guard.take();
@@ -1268,9 +1224,7 @@ async fn spawn_claude_pty(
 
 /// Fold PTY stdout into the shared progress record. Runs until the reader
 /// side closes (child exited or PTY torn down).
-async fn read_claude_pty_output(
-    mut rx: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>,
-) {
+async fn read_claude_pty_output(mut rx: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>) {
     // Accumulate raw bytes across chunks so we can strip escapes over the
     // whole stream (URL segments arrive across multiple reads). Cap the
     // buffer so a chatty CLI cannot balloon our memory.
@@ -1292,14 +1246,11 @@ async fn read_claude_pty_output(
             .await;
         }
         let lower = text.to_ascii_lowercase();
-        if lower.contains("invalid code") || lower.contains("authentication failed")
-        {
+        if lower.contains("invalid code") || lower.contains("authentication failed") {
             update_progress(AgentAuthProvider::ClaudeCode, |p| {
                 if !matches!(p.state, AgentLoginState::Completed) {
-                    p.error = Some(
-                        "The exchange code was rejected. Try connecting again."
-                            .to_string(),
-                    );
+                    p.error =
+                        Some("The exchange code was rejected. Try connecting again.".to_string());
                 }
             })
             .await;
@@ -1342,9 +1293,7 @@ fn extract_claude_authorize_url(text: &str) -> Option<String> {
         url.push(ch);
     }
     // Trim any trailing punctuation the CLI printed on the same line.
-    let trimmed = url.trim_end_matches(|c: char| {
-        matches!(c, '.' | ',' | ')' | ']' | '"' | '>')
-    });
+    let trimmed = url.trim_end_matches(|c: char| matches!(c, '.' | ',' | ')' | ']' | '"' | '>'));
     if trimmed.starts_with("https://claude.com/") && trimmed.len() > 40 {
         Some(trimmed.to_string())
     } else {
@@ -1360,8 +1309,7 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
     };
     let slot = slot.ok_or_else(|| {
         ApiError::BadRequest(
-            "No Claude Code login is in progress. Start the connection first."
-                .to_string(),
+            "No Claude Code login is in progress. Start the connection first.".to_string(),
         )
     })?;
 
@@ -1373,14 +1321,10 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
     let writer = {
         let mut guard = slot.lock().await;
         let pty = guard.as_mut().ok_or_else(|| {
-            ApiError::BadRequest(
-                "The Claude Code login has already finished.".to_string(),
-            )
+            ApiError::BadRequest("The Claude Code login has already finished.".to_string())
         })?;
         pty.writer.take().ok_or_else(|| {
-            ApiError::BadRequest(
-                "A previous exchange code is still being submitted.".to_string(),
-            )
+            ApiError::BadRequest("A previous exchange code is still being submitted.".to_string())
         })?
     };
 
@@ -1541,8 +1485,7 @@ mod tests {
 
     #[test]
     fn does_not_touch_lookalike_env_var() {
-        let stripped =
-            remove_env_var("GEMINI_API_KEY_OLD=x\n", "GEMINI_API_KEY");
+        let stripped = remove_env_var("GEMINI_API_KEY_OLD=x\n", "GEMINI_API_KEY");
         assert!(stripped.contains("GEMINI_API_KEY_OLD=x"));
     }
 

@@ -6,10 +6,6 @@ use strum_macros::{EnumIter, EnumString};
 use thiserror::Error;
 use ts_rs::TS;
 
-fn default_auto_install_extension() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Error)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(tag = "type", rename_all = "snake_case")]
@@ -40,8 +36,6 @@ pub struct EditorConfig {
     remote_ssh_host: Option<String>,
     #[serde(default)]
     remote_ssh_user: Option<String>,
-    #[serde(default = "default_auto_install_extension")]
-    auto_install_extension: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, EnumString, EnumIter)]
@@ -67,7 +61,6 @@ impl Default for EditorConfig {
             custom_command: None,
             remote_ssh_host: None,
             remote_ssh_user: None,
-            auto_install_extension: true,
         }
     }
 }
@@ -79,14 +72,12 @@ impl EditorConfig {
         custom_command: Option<String>,
         remote_ssh_host: Option<String>,
         remote_ssh_user: Option<String>,
-        auto_install_extension: bool,
     ) -> Self {
         Self {
             editor_type,
             custom_command,
             remote_ssh_host,
             remote_ssh_user,
-            auto_install_extension,
         }
     }
 
@@ -140,33 +131,9 @@ impl EditorConfig {
         self.resolve_command().await.is_ok()
     }
 
-    fn should_auto_install_extension(&self) -> bool {
-        self.auto_install_extension
-            && matches!(
-                self.editor_type,
-                EditorType::VsCode | EditorType::VsCodeInsiders | EditorType::Cursor
-            )
-    }
-
-    async fn try_install_extension(&self) {
-        let Ok((executable, args)) = self.resolve_command().await else {
-            return;
-        };
-
-        use utils::command_ext::NoWindowExt;
-        let mut cmd = std::process::Command::new(&executable);
-        cmd.args(&args)
-            .arg("--install-extension")
-            .arg("bloop.vibe-kanban");
-        let _ = cmd.no_window().spawn();
-    }
-
     pub async fn open_file(&self, path: &Path) -> Result<Option<String>, EditorOpenError> {
         if let Some(url) = self.remote_url(path) {
             return Ok(Some(url));
-        }
-        if self.should_auto_install_extension() {
-            self.try_install_extension().await;
         }
         self.spawn_local(path).await?;
         Ok(None)
@@ -225,7 +192,6 @@ impl EditorConfig {
                 custom_command: self.custom_command.clone(),
                 remote_ssh_host: self.remote_ssh_host.clone(),
                 remote_ssh_user: self.remote_ssh_user.clone(),
-                auto_install_extension: self.auto_install_extension,
             }
         } else {
             self.clone()

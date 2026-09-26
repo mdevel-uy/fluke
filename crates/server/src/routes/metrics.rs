@@ -145,9 +145,7 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
 
     // Worker tasks by status. Emitted for every valid status even at 0 so
     // Grafana panels do not flicker between "no data" and a number.
-    body.push_str(
-        "# HELP fluke_worker_tasks Current count of worker tasks by status.\n",
-    );
+    body.push_str("# HELP fluke_worker_tasks Current count of worker tasks by status.\n");
     body.push_str("# TYPE fluke_worker_tasks gauge\n");
     for (status, count) in &task_counts {
         body.push_str(&format!(
@@ -162,10 +160,7 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
          currently in the `running` state.\n",
     );
     body.push_str("# TYPE fluke_agents_running gauge\n");
-    body.push_str(&format!(
-        "fluke_agents_running {}\n",
-        running_agents,
-    ));
+    body.push_str(&format!("fluke_agents_running {}\n", running_agents,));
 
     // Cumulative counter of failed executor processes per run_reason.
     // Always emit the metric name so alerts on `rate(...)` don't disappear
@@ -192,7 +187,9 @@ async fn get_metrics(State(deployment): State<DeploymentImpl>) -> Result<Respons
     body.push_str("# TYPE plan_cap_hits_total counter\n");
     body.push_str(&format!("plan_cap_hits_total {}\n", total));
 
-    body.push_str("# HELP plan_cap_hits_by_date Count of plan cap-hit events per UTC calendar day.\n");
+    body.push_str(
+        "# HELP plan_cap_hits_by_date Count of plan cap-hit events per UTC calendar day.\n",
+    );
     body.push_str("# TYPE plan_cap_hits_by_date gauge\n");
     for row in &rows {
         body.push_str(&format!(

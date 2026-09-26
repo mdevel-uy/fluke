@@ -3,8 +3,8 @@ use std::{str::FromStr, sync::Arc};
 use db::{
     DBService,
     models::{
-        execution_process::ExecutionProcess, scratch::Scratch,
-        scratch_workspace::ScratchWorkspace, session::Session, workspace::Workspace,
+        execution_process::ExecutionProcess, scratch::Scratch, scratch_workspace::ScratchWorkspace,
+        session::Session, workspace::Workspace,
     },
 };
 use serde_json::json;

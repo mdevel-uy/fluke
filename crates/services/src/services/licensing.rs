@@ -8,7 +8,7 @@
 //! **Licenciamiento desactivado por defecto**: si no hay claves públicas
 //! embebidas (build de desarrollo, o la flota actual), el estado es siempre
 //! `Valid` y nada cambia. El enforcement solo existe en builds que embeben una
-//! clave real vía `MKANBAN_LICENSE_PUBKEYS`.
+//! clave real vía `FLUKE_LICENSE_PUBKEYS`.
 
 use std::{
     sync::{OnceLock, RwLock},
@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 /// separada por comas de valores base64. Vacío = licenciamiento desactivado.
 /// Es una lista (no una sola) para poder rotar sin día de bandera; ver
 /// `licensing::verify`.
-const EMBEDDED_PUBKEYS: Option<&str> = option_env!("MKANBAN_LICENSE_PUBKEYS");
+const EMBEDDED_PUBKEYS: Option<&str> = option_env!("FLUKE_LICENSE_PUBKEYS");
 
 /// Estado persistido en `license_state.json`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

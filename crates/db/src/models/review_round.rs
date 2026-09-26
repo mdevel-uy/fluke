@@ -86,12 +86,10 @@ impl ReviewRound {
     }
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!(
-            "SELECT {COLS} FROM review_rounds WHERE id = ?1"
-        ))
-        .bind(id)
-        .fetch_optional(pool)
-        .await
+        sqlx::query_as::<_, ReviewRound>(&format!("SELECT {COLS} FROM review_rounds WHERE id = ?1"))
+            .bind(id)
+            .fetch_optional(pool)
+            .await
     }
 
     pub async fn find_by_task_id(

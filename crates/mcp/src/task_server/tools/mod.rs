@@ -375,6 +375,7 @@ impl McpServer {
 
     fn execution_process_status_label(status: &ExecutionProcessStatus) -> &'static str {
         match status {
+            ExecutionProcessStatus::Queued => "queued",
             ExecutionProcessStatus::Running => "running",
             ExecutionProcessStatus::Completed => "completed",
             ExecutionProcessStatus::Failed => "failed",

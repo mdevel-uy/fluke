@@ -11,7 +11,6 @@ import {
   Hourglass,
   Plus,
   RefreshCw,
-  SquareKanban,
   TriangleAlert,
 } from 'lucide-react';
 import {
@@ -192,7 +191,12 @@ export function StatusBarContainer({
   return (
     <StatusBar className={className}>
       <StatusBarItem variant="brand" readOnly>
-        <SquareKanban size={12} strokeWidth={1.75} aria-hidden />
+        <svg viewBox="0 0 100 100" width={12} height={12} aria-hidden>
+          <path
+            d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"
+            fill="currentColor"
+          />
+        </svg>
         fluke
       </StatusBarItem>
 

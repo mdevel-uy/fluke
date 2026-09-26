@@ -70,7 +70,7 @@ pub enum LicenseError {
 /// licencia legítima.
 fn canonical_message(payload: &LicensePayload) -> String {
     format!(
-        "mkanban-license\nv={}\ncliente={}\ninstance_id={}\nissued_at={}\nexpires_at={}\nmodalidad={}",
+        "fluke-license\nv={}\ncliente={}\ninstance_id={}\nissued_at={}\nexpires_at={}\nmodalidad={}",
         payload.v,
         payload.cliente,
         payload.instance_id,
@@ -102,7 +102,9 @@ pub fn verify(raw: &str, keys: &[VerifyingKey]) -> Result<LicensePayload, Licens
     let file: LicenseFile = serde_json::from_str(raw).map_err(|_| LicenseError::Malformed)?;
 
     if file.payload.v != SUPPORTED_VERSION {
-        return Err(LicenseError::UnsupportedVersion { found: file.payload.v });
+        return Err(LicenseError::UnsupportedVersion {
+            found: file.payload.v,
+        });
     }
 
     let sig_bytes = BASE64_STANDARD
@@ -316,10 +318,16 @@ mod tests {
     #[test]
     fn rechaza_json_invalido_y_firma_corrupta() {
         let key = SigningKey::generate(&mut OsRng);
-        assert_eq!(verify("no soy json", &[key.verifying_key()]), Err(LicenseError::Malformed));
+        assert_eq!(
+            verify("no soy json", &[key.verifying_key()]),
+            Err(LicenseError::Malformed)
+        );
 
         let raw = sign_with(&key, &payload()).replace(
-            &BASE64_STANDARD.encode(key.sign(canonical_message(&payload()).as_bytes()).to_bytes()),
+            &BASE64_STANDARD.encode(
+                key.sign(canonical_message(&payload()).as_bytes())
+                    .to_bytes(),
+            ),
             "no-es-base64!!",
         );
         assert_eq!(

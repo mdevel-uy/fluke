@@ -136,16 +136,12 @@ fn default_port(https: bool) -> u16 {
     if https { 443 } else { 80 }
 }
 
-/// FK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); MK_ y VK_ se mantienen
-/// como fallback para deployments existentes.
+/// FK_ALLOWED_ORIGINS es el nombre público (bundle on-prem); VK_ALLOWED_ORIGINS
+/// es el que exportan los scripts de dev.
 fn allowed_origins_env(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
-    [
-        "FK_ALLOWED_ORIGINS",
-        "MK_ALLOWED_ORIGINS",
-        "VK_ALLOWED_ORIGINS",
-    ]
-    .into_iter()
-    .find_map(lookup)
+    ["FK_ALLOWED_ORIGINS", "VK_ALLOWED_ORIGINS"]
+        .into_iter()
+        .find_map(lookup)
 }
 
 fn allowed_origins() -> &'static Vec<OriginKey> {
@@ -184,12 +180,8 @@ mod tests {
     }
 
     #[test]
-    fn allowed_origins_env_falls_back_fk_mk_vk() {
-        let all = [
-            ("FK_ALLOWED_ORIGINS", "fk"),
-            ("MK_ALLOWED_ORIGINS", "mk"),
-            ("VK_ALLOWED_ORIGINS", "vk"),
-        ];
+    fn allowed_origins_env_falls_back_fk_vk() {
+        let all = [("FK_ALLOWED_ORIGINS", "fk"), ("VK_ALLOWED_ORIGINS", "vk")];
         let resolve = |vars: &[(&str, &str)]| {
             allowed_origins_env(|name| {
                 vars.iter()
@@ -198,8 +190,7 @@ mod tests {
             })
         };
         assert_eq!(resolve(&all).as_deref(), Some("fk"));
-        assert_eq!(resolve(&all[1..]).as_deref(), Some("mk"));
-        assert_eq!(resolve(&all[2..]).as_deref(), Some("vk"));
+        assert_eq!(resolve(&all[1..]).as_deref(), Some("vk"));
         assert_eq!(resolve(&[]), None);
     }
 

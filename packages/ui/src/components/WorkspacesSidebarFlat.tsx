@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
+import { reviewGate, reviewGateLabel, type ReviewGate } from '../lib/reviewGate';
 import { InputField } from './InputField';
 import { MaterialIcon } from './MaterialIcon';
 import {
@@ -50,7 +51,12 @@ function needsAttention(ws: WorkspacesSidebarWorkspace) {
   // explicit approval request from the agent still trumps that.
   if (ws.hasPendingApproval) return true;
   if (ws.hasStalledTask) return true;
-  if (ws.hasTaskInReview) return false;
+  // In review normally waits on the reviewer — unless the loop gave up, or
+  // the author addressed the changes with no review round left to verify.
+  if (ws.hasTaskInReview) {
+    const gate = rowReviewGate(ws);
+    return gate === 'escalated' || gate === 'addressed';
+  }
   if (ws.hasTaskApproved) return false;
   return !!ws.hasUnseenActivity && !ws.isRunning;
 }
@@ -79,6 +85,14 @@ function attentionReason(
     return t('common:workspaces.rowMeta.failed', { defaultValue: 'failed' });
   if (ws.hasStalledTask)
     return t('common:workspaces.rowMeta.stalled', { defaultValue: 'stalled' });
+  if (ws.hasTaskInReview && rowReviewGate(ws) === 'escalated')
+    return t('common:workspaces.rowMeta.roundsExhausted', {
+      defaultValue: 'rounds exhausted',
+    });
+  if (ws.hasTaskInReview && rowReviewGate(ws) === 'addressed')
+    return t('common:workspaces.rowMeta.changesAddressed', {
+      defaultValue: 'changes addressed',
+    });
   return t('common:workspaces.rowMeta.activity', { defaultValue: 'activity' });
 }
 
@@ -96,10 +110,41 @@ function rowDotClass(variant: RowVariant, ws: WorkspacesSidebarWorkspace) {
   if (variant === 'failed') return 'bg-error';
   if (variant === 'attention')
     return ws.latestProcessStatus === 'failed' ? 'bg-error' : 'bg-warning';
-  if (variant === 'review') return 'bg-info';
+  // A review row whose author is running a fix pulses like a running row.
+  if (variant === 'review') {
+    return ws.isRunning ? 'bg-info animate-pulse' : 'bg-info';
+  }
   if (variant === 'approved') return 'bg-success';
   if (variant === 'archived') return 'bg-border-strong opacity-50';
   return 'bg-border-strong';
+}
+
+function rowReviewGate(ws: WorkspacesSidebarWorkspace): ReviewGate {
+  return reviewGate({
+    ciStatus: ws.prCiStatus,
+    reviewActivity: ws.prReviewActivity,
+    reviewResult: ws.taskReviewResult,
+    authorWorking: ws.isRunning,
+    roundsExhausted: ws.prReviewRoundsExhausted,
+  });
+}
+
+// Meta text color for review rows: only the states that explain a wait get
+// a tone; the plain "in review" keeps the row's default low contrast.
+function rowMetaToneClass(
+  variant: RowVariant,
+  ws: WorkspacesSidebarWorkspace
+): string {
+  if (variant !== 'review') return 'text-low';
+  const gate = rowReviewGate(ws);
+  if (gate === 'waiting_ci' || gate === 'changes_requested') {
+    return 'text-warning';
+  }
+  if (gate === 'ci_failing') return 'text-error';
+  if (gate === 'reviewing' || gate === 'queued' || gate === 'author_fixing') {
+    return 'text-info';
+  }
+  return 'text-low';
 }
 
 function rowMeta(
@@ -109,9 +154,13 @@ function rowMeta(
 ): string {
   if (variant === 'attention') return attentionReason(ws, t);
   if (variant === 'review') {
-    return t('common:workspaces.rowMeta.inReview', {
-      defaultValue: 'in review',
-    });
+    const gate = rowReviewGate(ws);
+    if (gate === 'awaiting') {
+      return t('common:workspaces.rowMeta.awaitingReview', {
+        defaultValue: 'awaiting review',
+      });
+    }
+    return reviewGateLabel(gate, t).toLowerCase();
   }
   if (variant === 'approved') {
     return t('common:workspaces.rowMeta.approved', {
@@ -176,7 +225,12 @@ function WorkspaceRow({
         />
         <span className="truncate">{workspace.name}</span>
         {meta && (
-          <span className="ml-auto flex-none font-mono text-[11px] text-low">
+          <span
+            className={cn(
+              'ml-auto flex-none font-mono text-[11px]',
+              rowMetaToneClass(variant, workspace)
+            )}
+          >
             {meta}
           </span>
         )}

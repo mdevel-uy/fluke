@@ -9,12 +9,12 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    /// Get the path to the config file (~/.config/mkanban/review.toml)
+    /// Get the path to the config file (~/.config/fluke/review.toml)
     fn config_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|p| p.join("mkanban").join("review.toml"))
+        dirs::config_dir().map(|p| p.join("fluke").join("review.toml"))
     }
 
-    /// Legacy path del rebrand (~/.config/vibe-kanban/review.toml). Se lee
+    /// Legacy paths de los rebrands, del más reciente al más viejo. Se leen
     /// como fallback si el path nuevo todavía no existe; el próximo `save()`
     /// materializa el path nuevo y el legacy queda huérfano en disco (nunca
     /// se renombra ni se borra).
@@ -24,15 +24,21 @@ impl Config {
     /// read-then-cohabit por ser un archivo suelto con contenido no crítico
     /// (email cacheado): evita fallos por permisos/cross-device y el costo
     /// del archivo huérfano es despreciable.
-    fn legacy_config_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|p| p.join("vibe-kanban").join("review.toml"))
+    fn legacy_config_paths() -> Vec<PathBuf> {
+        let Some(dir) = dirs::config_dir() else {
+            return Vec::new();
+        };
+        ["mkanban", "vibe-kanban"]
+            .iter()
+            .map(|name| dir.join(name).join("review.toml"))
+            .collect()
     }
 
     /// Load config from disk, returning default if file doesn't exist
     pub(crate) fn load() -> Self {
         let read_path = Self::config_path()
             .filter(|p| p.exists())
-            .or_else(|| Self::legacy_config_path().filter(|p| p.exists()));
+            .or_else(|| Self::legacy_config_paths().into_iter().find(|p| p.exists()));
 
         let Some(path) = read_path else {
             return Self::default();

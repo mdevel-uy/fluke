@@ -16,6 +16,9 @@ import { PageHeader } from '@vibe/ui/components/PageHeader';
 import { ApiError, type PlanUpgradeCta } from '@/shared/lib/api';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { usePlanLimits } from '@/shared/hooks/usePlanLimits';
+import { useUserSystem } from '@/shared/hooks/useUserSystem';
+import { reviewGate } from '@vibe/ui/lib/reviewGate';
+import { useModelSelectorConfig } from '@/shared/hooks/useExecutorDiscovery';
 import { cn } from '@/shared/lib/utils';
 import {
   useArchivedWorkers,
@@ -130,6 +133,16 @@ export function WorkersPage() {
 
   const { data: planLimits } = usePlanLimits();
   const { data: workers = [], isLoading, isError } = useWorkers();
+  // One discovery stream for the whole page: maps a worker's model alias
+  // ("opus") to the model it actually resolves to ("Opus 5.5") for the chip.
+  const { config: systemConfig } = useUserSystem();
+  const { config: modelConfig } = useModelSelectorConfig(
+    systemConfig?.executor_profile?.executor ?? null
+  );
+  const modelNameById = useMemo(
+    () => new Map((modelConfig?.models ?? []).map((m) => [m.id, m.name])),
+    [modelConfig]
+  );
   const {
     data: archivedWorkers = [],
     isLoading: isArchivedLoading,
@@ -202,6 +215,28 @@ export function WorkersPage() {
     }
     return inReview;
   }, [workers, workspaces]);
+
+  // In-review PRs whose review has not been dispatched only because CI is
+  // still running — shown on idle reviewer cards so "free" reads as "waiting".
+  const waitingCiPrs = useMemo(
+    () =>
+      workspaces
+        .filter(
+          (ws) =>
+            ws.hasTaskInReview &&
+            ws.prNumber != null &&
+            reviewGate({
+              ciStatus: ws.prCiStatus,
+              reviewActivity: ws.prReviewActivity,
+              authorWorking: ws.isRunning,
+            }) === 'waiting_ci'
+        )
+        .map((ws) => ({
+          prNumber: ws.prNumber as number,
+          title: ws.taskTitle ?? ws.name,
+        })),
+    [workspaces]
+  );
 
   const approvedWorkerIds = useMemo(() => {
     const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
@@ -634,6 +669,12 @@ export function WorkersPage() {
                   needsAttention={stalledWorkerIds.has(worker.id)}
                   inReview={inReviewWorkerIds.has(worker.id)}
                   approved={approvedWorkerIds.has(worker.id)}
+                  modelName={
+                    worker.model ? modelNameById.get(worker.model) : undefined
+                  }
+                  waitingCiPrs={
+                    worker.role === 'reviewer' ? waitingCiPrs : undefined
+                  }
                   activeWorkspace={
                     worker.active_workspace_id
                       ? workspaceSummaryById.get(worker.active_workspace_id)

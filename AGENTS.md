@@ -7,7 +7,6 @@
 - `packages/web-core/`: Shared React + TypeScript frontend library used by local + remote web (`packages/web-core/src`).
 - `shared/`: Generated TypeScript types (`shared/types.ts`, `shared/remote-types.ts`) and agent tool schemas (`shared/schemas/`). Do not edit generated files directly.
 - `assets/`, `dev_assets_seed/`, `dev_assets/`: Packaged and local dev assets.
-- `npx-cli/`: Files published to the npm CLI package.
 - `scripts/`: Dev helpers (ports, DB preparation).
 - `docs/`: Documentation files.
 
@@ -45,7 +44,6 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Generate TS types from Rust: `pnpm run generate-types` (or `generate-types:check` in CI)
 - Prepare SQLx (offline): `pnpm run prepare-db`
 - Prepare SQLx (remote package, postgres): `pnpm run remote:prepare-db`
-- Local NPX build: `pnpm run build:npx` then `pnpm pack` in `npx-cli/`
 - Format code: `pnpm run format` (runs `cargo fmt` for all backend Rust workspaces + web-core/web Prettier)
 - Lint: `pnpm run lint` (runs web/ui ESLint + `cargo clippy` for all backend Rust workspaces)
 

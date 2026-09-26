@@ -219,7 +219,7 @@ async fn download_data_export(
 }
 
 /// Produce a consistent SQLite snapshot via `VACUUM INTO`. Copying the live
-/// `db.v2.sqlite` while mkanban is running would risk capturing pages
+/// `db.v2.sqlite` while fluke is running would risk capturing pages
 /// written mid-commit; VACUUM INTO writes a fully-quiesced copy that is
 /// safe to open standalone.
 async fn snapshot_database(pool: &SqlitePool) -> Result<TempSnapshot, ApiError> {
@@ -261,7 +261,7 @@ fn build_export_archive(
     let mut warnings = Vec::new();
     let mut manifest_repos = Vec::with_capacity(repos.len());
 
-    // 1) The asset directory — mkanban's own data (config, profiles,
+    // 1) The asset directory — fluke's own data (config, profiles,
     //    guidelines, credentials, attachments, ...). The live SQLite files
     //    are skipped here; the VACUUM INTO snapshot is added separately
     //    below so restore always gets a consistent database copy.

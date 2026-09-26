@@ -1,14 +1,7 @@
 {
-  "name": "vibe-kanban",
+  "name": "fluke",
   "version": "1.0.0",
   "private": true,
-  "bin": {
-    "vibe-kanban": "npx-cli/bin/cli.js"
-  },
-  "files": [
-    "npx-cli/bin/cli.js",
-    "npx-cli/dist/**"
-  ],
   "scripts": {
     "lint": "pnpm run local-web:lint && pnpm run ui:lint && pnpm run backend:lint && node scripts/check-unused-i18n-keys.mjs",
     "format": "pnpm run backend:format && pnpm run web-core:format && pnpm run local-web:format && pnpm run remote-web:format",
@@ -39,10 +32,6 @@
     "prepare-db": "node scripts/prepare-db.js",
     "prepare-db:check": "node scripts/prepare-db.js --check",
     "build:bippy-bundle": "node scripts/build-bippy-bundle.mjs",
-    "build:npx": "bash ./local-build.sh",
-    "build:npx-cli": "cd npx-cli && npm ci && npm run build",
-    "check:npx-cli": "tsc --noEmit -p npx-cli/tsconfig.json",
-    "prepack": "pnpm run build:npx && pnpm run build:npx-cli",
     "remote:dev": "cd crates/remote && docker compose --env-file .env.remote up --build ; docker compose --env-file .env.remote down -v",
     "remote:dev:full": "cd crates/remote && docker compose --env-file .env.remote --profile relay --profile attachments up --build ; docker compose --env-file .env.remote down -v",
     "remote:dev:clean": "cd crates/remote && docker compose --env-file .env.remote --profile relay --profile attachments down -v --remove-orphans",

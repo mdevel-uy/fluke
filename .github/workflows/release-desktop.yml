@@ -209,7 +209,7 @@ jobs:
             echo "No installer in $BUNDLE"; find "$BUNDLE" -maxdepth 2; exit 1
           fi
           mkdir -p dist-release
-          cp "$SRC" "dist-release/mkanban_${{ inputs.version }}_${{ matrix.arch }}${EXT}"
+          cp "$SRC" "dist-release/fluke_${{ inputs.version }}_${{ matrix.arch }}${EXT}"
           ls -la dist-release
 
       - name: Upload build artifacts
@@ -241,14 +241,14 @@ jobs:
           V="${{ inputs.version }}"
           cat > notes.md <<'EOF'
           Instalación:
-          - Windows x64: `mkanban_*_x64-setup.exe` (sin firma: en SmartScreen elegir "Más información" > "Ejecutar de todas formas").
-          - macOS Apple Silicon: `mkanban_*_aarch64.dmg`. macOS Intel: `mkanban_*_x64.dmg`.
+          - Windows x64: `fluke_*_x64-setup.exe` (sin firma: en SmartScreen elegir "Más información" > "Ejecutar de todas formas").
+          - macOS Apple Silicon: `fluke_*_aarch64.dmg`. macOS Intel: `fluke_*_x64.dmg`.
             Si macOS indica que no puede verificar la app: Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".
 
           Sin auto-update: para actualizar, bajar el instalador de la versión nueva e instalar encima.
           EOF
           gh release create "desktop-v$V" \
             --target "${{ github.sha }}" \
-            --title "mkanban Desktop v$V" \
+            --title "fluke Desktop v$V" \
             --notes-file notes.md \
             dist-release/*

@@ -27,7 +27,7 @@ use rand::rngs::OsRng;
 /// plane que firma renovaciones solo (fase 5b) y la automatización/CI. Cuando
 /// está definida se usa en lugar del prompt. Para emisión manual conviene el
 /// prompt (no queda en el historial del shell ni en la lista de procesos).
-const PASSPHRASE_ENV: &str = "MKANBAN_LICENSE_PASSPHRASE";
+const PASSPHRASE_ENV: &str = "FLUKE_LICENSE_PASSPHRASE";
 
 /// Pide la passphrase: de la variable de entorno si está, si no del TTY.
 fn read_passphrase(prompt: &str) -> Result<String> {
@@ -40,7 +40,10 @@ fn read_passphrase(prompt: &str) -> Result<String> {
 }
 
 #[derive(Parser)]
-#[command(name = "fluke-license", about = "Emisión y verificación de licencias de mkanban")]
+#[command(
+    name = "fluke-license",
+    about = "Emisión y verificación de licencias de fluke"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -52,17 +55,17 @@ enum Cmd {
     /// privada cifrada; imprime la clave pública para embeber en el binario.
     Keygen {
         /// Ruta del archivo de clave privada cifrada a crear.
-        #[arg(long, default_value = "mkanban-signing.key.enc")]
+        #[arg(long, default_value = "fluke-signing.key.enc")]
         out: PathBuf,
     },
     /// Imprime la clave pública a partir de la privada cifrada.
     Pubkey {
-        #[arg(long, default_value = "mkanban-signing.key.enc")]
+        #[arg(long, default_value = "fluke-signing.key.enc")]
         key: PathBuf,
     },
     /// Firma una licencia nueva y la imprime por stdout.
     New {
-        #[arg(long, default_value = "mkanban-signing.key.enc")]
+        #[arg(long, default_value = "fluke-signing.key.enc")]
         key: PathBuf,
         #[arg(long)]
         cliente: String,
@@ -84,7 +87,7 @@ enum Cmd {
         /// Clave pública en base64. Si se omite, se deriva de --key (pide passphrase).
         #[arg(long)]
         pubkey: Option<String>,
-        #[arg(long, default_value = "mkanban-signing.key.enc")]
+        #[arg(long, default_value = "fluke-signing.key.enc")]
         key: PathBuf,
     },
 }
@@ -109,7 +112,11 @@ fn main() -> Result<()> {
             if pass.len() < 8 {
                 bail!("la passphrase debe tener al menos 8 caracteres");
             }
-            let confirm = if std::env::var(PASSPHRASE_ENV).is_ok() { pass.clone() } else { rpassword::prompt_password("repetir passphrase: ")? };
+            let confirm = if std::env::var(PASSPHRASE_ENV).is_ok() {
+                pass.clone()
+            } else {
+                rpassword::prompt_password("repetir passphrase: ")?
+            };
             if pass != confirm {
                 bail!("las passphrases no coinciden");
             }
@@ -193,13 +200,21 @@ fn main() -> Result<()> {
 
             match verify(&raw, &[vk]) {
                 Ok(p) => {
-                    let estado = if Utc::now() < p.expires_at { "vigente" } else { "VENCIDA" };
+                    let estado = if Utc::now() < p.expires_at {
+                        "vigente"
+                    } else {
+                        "VENCIDA"
+                    };
                     println!("✓ firma válida");
                     println!("  cliente:    {}", p.cliente);
                     println!("  instancia:  {}", p.instance_id);
                     println!("  modalidad:  {}", p.modalidad);
                     println!("  emitida:    {}", p.issued_at.format("%Y-%m-%d"));
-                    println!("  vence:      {} ({})", p.expires_at.format("%Y-%m-%d"), estado);
+                    println!(
+                        "  vence:      {} ({})",
+                        p.expires_at.format("%Y-%m-%d"),
+                        estado
+                    );
                 }
                 Err(e) => bail!("licencia inválida: {e}"),
             }

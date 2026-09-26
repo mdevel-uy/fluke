@@ -34,7 +34,9 @@ fn not_found() -> ApiError {
 fn is_safe_relative_path(path: &str) -> bool {
     let p = Path::new(path);
     p.components().all(|c| match c {
-        Component::Normal(part) => part.to_str().is_some_and(|s| !s.eq_ignore_ascii_case(".git")),
+        Component::Normal(part) => part
+            .to_str()
+            .is_some_and(|s| !s.eq_ignore_ascii_case(".git")),
         _ => false,
     })
 }

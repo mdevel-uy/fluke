@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@vibe/ui/components/DropdownMenu';
 import { cn } from '@/shared/lib/utils';
+import { reviewGate, reviewGateLabel } from '@vibe/ui/lib/reviewGate';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import type { WorkerTask } from '@/features/sprint/types';
 import { IssueBadge, taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
@@ -68,6 +69,10 @@ interface WorkerCardProps {
   inReview?: boolean;
   /** Reviewer already approved the PR; still waiting for merge */
   approved?: boolean;
+  /** Display name of the model `worker.model` resolves to (e.g. "Opus 5.5") */
+  modelName?: string;
+  /** Reviewers only: open PRs whose review waits on CI, for the idle card */
+  waitingCiPrs?: { prNumber: number; title: string }[];
   isStarting: boolean;
   isDuplicating?: boolean;
   onStartNext: () => void;
@@ -84,6 +89,8 @@ export function WorkerCard({
   needsAttention = false,
   inReview = false,
   approved = false,
+  modelName,
+  waitingCiPrs = [],
   isStarting,
   isDuplicating = false,
   onStartNext,
@@ -96,6 +103,13 @@ export function WorkerCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isWorking = worker.active_workspace_id !== null;
+  const gate = reviewGate({
+    ciStatus: activeWorkspace?.prCiStatus,
+    reviewActivity: activeWorkspace?.prReviewActivity,
+    reviewResult: activeWorkspace?.taskReviewResult,
+    authorWorking: activeWorkspace?.isRunning,
+    roundsExhausted: activeWorkspace?.prReviewRoundsExhausted,
+  });
   const activeBranch = activeWorkspace?.branch;
   const isWaitingApproval = activeWorkspace?.hasPendingApproval ?? false;
 
@@ -156,8 +170,9 @@ export function WorkerCard({
               'shrink-0 rounded-full px-2 py-px font-mono text-xs',
               modelChipClass(worker.model)
             )}
+            title={worker.model}
           >
-            {worker.model}
+            {modelName ?? worker.model}
           </span>
         )}
         {(() => {
@@ -254,6 +269,32 @@ export function WorkerCard({
           )}
         </div>
 
+        {/* Idle reviewer: the PRs it will pick up once their CI is green */}
+        {!isWorking && waitingCiPrs.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-warning">
+              {t('workers.card.waitingCiPrs', {
+                count: waitingCiPrs.length,
+                defaultValue: '{{count}} PR waiting for CI to review',
+                defaultValue_other: '{{count}} PRs waiting for CI to review',
+              })}
+            </span>
+            {waitingCiPrs.map((pr) => (
+              <div
+                key={pr.prNumber}
+                className="flex min-w-0 items-center gap-2 text-xs text-normal"
+              >
+                <span className="shrink-0 font-mono text-low">
+                  #{pr.prNumber}
+                </span>
+                <span className="truncate" title={pr.title}>
+                  {pr.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Context usage bar: % of the agent's context window in use */}
         {contextPct !== null && (
           <div className="flex w-full items-center gap-2">
@@ -310,13 +351,26 @@ export function WorkerCard({
                 {t('workspaces.aside.approved', { defaultValue: 'Approved' })}
               </span>
             ) : inReview ? (
-              <span className="flex shrink-0 items-center gap-1.5 rounded bg-info/10 px-2 py-0.5 text-sm font-medium text-info">
+              <span
+                className={cn(
+                  'flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-sm font-medium',
+                  gate === 'waiting_ci' ||
+                    gate === 'changes_requested' ||
+                    gate === 'escalated'
+                    ? 'bg-warning/10 text-warning'
+                    : gate === 'ci_failing'
+                      ? 'bg-error/10 text-error'
+                      : 'bg-info/10 text-info'
+                )}
+              >
                 <GitPullRequest
                   className="h-3.5 w-3.5"
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                {t('workspaces.aside.inReview', { defaultValue: 'In review' })}
+                {gate === 'awaiting'
+                  ? t('workspaces.aside.inReview', { defaultValue: 'In review' })
+                  : reviewGateLabel(gate, t)}
               </span>
             ) : (
               <span />

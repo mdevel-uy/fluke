@@ -111,10 +111,6 @@ serie no dispara nada. Por eso el cambio se aplica en bloque:
 5. Recién con el paso 4 completo, borrar los `mkanban-*.json` del
    provisioning y la carpeta de alertas `mkanban` vacía en Grafana.
 
-El filtro `name=~"vibe-kanban|mkanban|fluke|alloy"` de los paneles de
-memoria/CPU acepta el nombre de contenedor viejo y el nuevo mientras dure el
-rollout.
-
 ## Cambios sobre estos JSON
 
 Los JSON se editan **en este repo** (no en la UI de Grafana). Flujo:

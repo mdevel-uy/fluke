@@ -489,8 +489,17 @@ impl GitService {
         let repo = self.open_repo(repo_path)?;
         let remote = self.default_remote(&repo, repo_path)?;
         let git_cli = GitCli::new();
-        git_cli.push_with_token(repo_path, &remote.url, branch_name, branch_name, force, token)?;
-        if let Err(e) = Self::update_tracking_after_push(&repo, branch_name, &remote.name, branch_name) {
+        git_cli.push_with_token(
+            repo_path,
+            &remote.url,
+            branch_name,
+            branch_name,
+            force,
+            token,
+        )?;
+        if let Err(e) =
+            Self::update_tracking_after_push(&repo, branch_name, &remote.name, branch_name)
+        {
             tracing::warn!(
                 "Pushed '{branch_name}' but could not update tracking ref/upstream: {e}"
             );
@@ -520,8 +529,9 @@ impl GitService {
     ) -> Result<git2::Signature<'a>, GitServiceError> {
         match repo.signature() {
             Ok(sig) => Ok(sig),
-            Err(_) => git2::Signature::now("fluke", "noreply@mkanban.dev")
-                .map_err(GitServiceError::from),
+            Err(_) => {
+                git2::Signature::now("fluke", "noreply@mkanban.dev").map_err(GitServiceError::from)
+            }
         }
     }
 
@@ -1747,9 +1757,7 @@ impl GitService {
                 // so the caller reuses the primed worktree instead of falling
                 // back to the "agent runs merge" prompt, which would try to
                 // `git merge` on top of an existing `MERGE_HEAD` and fail.
-                let conflicted =
-                    self.get_conflicted_files(worktree_path)
-                        .unwrap_or_default();
+                let conflicted = self.get_conflicted_files(worktree_path).unwrap_or_default();
                 if conflicted.is_empty() {
                     // Merge in progress but nothing conflicted → the worktree is
                     // in an unusual mid-merge state we did not create; safer to
@@ -2466,9 +2474,7 @@ impl GitService {
             root.get_path(Path::new(rel_path))?
                 .to_object(&repo)?
                 .into_tree()
-                .map_err(|_| {
-                    GitServiceError::InvalidRepository("Not a directory".to_string())
-                })?
+                .map_err(|_| GitServiceError::InvalidRepository("Not a directory".to_string()))?
         };
         let mut entries: Vec<CommitTreeEntry> = tree
             .iter()
@@ -2533,11 +2539,8 @@ impl GitService {
         };
         let mut opts = DiffOptions::new();
         opts.pathspec(rel_path);
-        let diff = repo.diff_tree_to_tree(
-            parent_tree.as_ref(),
-            Some(&commit.tree()?),
-            Some(&mut opts),
-        )?;
+        let diff =
+            repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit.tree()?), Some(&mut opts))?;
         let patch = match git2::Patch::from_diff(&diff, 0)? {
             Some(mut patch) => patch.to_buf()?.as_str().unwrap_or_default().to_string(),
             None => String::new(),
@@ -2567,9 +2570,8 @@ impl GitService {
                 "File too large for the editor".to_string(),
             ));
         }
-        String::from_utf8(blob.content().to_vec()).map_err(|_| {
-            GitServiceError::InvalidRepository("File is not valid UTF-8".to_string())
-        })
+        String::from_utf8(blob.content().to_vec())
+            .map_err(|_| GitServiceError::InvalidRepository("File is not valid UTF-8".to_string()))
     }
 
     /// Full detail of one commit: message, identity and per-file line stats
@@ -2606,14 +2608,13 @@ impl GitService {
                 _ => "modified",
             }
             .to_string();
-            let (file_add, file_del) =
-                match git2::Patch::from_diff(&diff, index) {
-                    Ok(Some(patch)) => {
-                        let (_, add, del) = patch.line_stats()?;
-                        (add, del)
-                    }
-                    _ => (0, 0),
-                };
+            let (file_add, file_del) = match git2::Patch::from_diff(&diff, index) {
+                Ok(Some(patch)) => {
+                    let (_, add, del) = patch.line_stats()?;
+                    (add, del)
+                }
+                _ => (0, 0),
+            };
             additions += file_add;
             deletions += file_del;
             files.push(CommitFileChange {
@@ -2735,18 +2736,14 @@ impl GitService {
                            branch: Option<String>|
          -> Result<FleetGraphCommit, GitServiceError> {
             let commit = repo.find_commit(oid)?;
-            let committed_at = DateTime::from_timestamp(commit.time().seconds(), 0)
-                .unwrap_or_else(Utc::now);
+            let committed_at =
+                DateTime::from_timestamp(commit.time().seconds(), 0).unwrap_or_else(Utc::now);
             Ok(FleetGraphCommit {
                 oid: oid.to_string(),
                 short_oid: oid.to_string()[..7].to_string(),
                 parent_oids: commit.parent_ids().map(|p| p.to_string()).collect(),
                 summary: commit.summary().unwrap_or_default().to_string(),
-                author: commit
-                    .author()
-                    .name()
-                    .unwrap_or_default()
-                    .to_string(),
+                author: commit.author().name().unwrap_or_default().to_string(),
                 committed_at,
                 branch,
                 tip_of: Vec::new(),
@@ -2828,10 +2825,7 @@ impl GitService {
 
     /// Index-aware staging view (SHELL-SPEC V5): per-file staged/unstaged
     /// hunks from `git diff` / `git diff --cached`, plus untracked files.
-    pub fn get_staging_state(
-        &self,
-        worktree_path: &Path,
-    ) -> Result<StagingState, GitServiceError> {
+    pub fn get_staging_state(&self, worktree_path: &Path) -> Result<StagingState, GitServiceError> {
         let cli = GitCli::new();
         let status = cli.get_worktree_status(worktree_path)?;
         let unstaged_raw = cli.git(worktree_path, ["diff", "--no-color", "--no-ext-diff"])?;
@@ -2843,8 +2837,8 @@ impl GitService {
         let mut files: Vec<StagingFile> = Vec::new();
         let mut index_by_path: HashMap<String, usize> = HashMap::new();
         let entry_for = |files: &mut Vec<StagingFile>,
-                             index_by_path: &mut HashMap<String, usize>,
-                             path: String|
+                         index_by_path: &mut HashMap<String, usize>,
+                         path: String|
          -> usize {
             if let Some(&i) = index_by_path.get(&path) {
                 return i;
@@ -2898,20 +2892,12 @@ impl GitService {
     }
 
     /// Stage a whole path (tracked or untracked).
-    pub fn stage_path(
-        &self,
-        worktree_path: &Path,
-        path: &str,
-    ) -> Result<(), GitServiceError> {
+    pub fn stage_path(&self, worktree_path: &Path, path: &str) -> Result<(), GitServiceError> {
         Ok(GitCli::new().add_path(worktree_path, path)?)
     }
 
     /// Unstage a whole path, keeping worktree content.
-    pub fn unstage_path(
-        &self,
-        worktree_path: &Path,
-        path: &str,
-    ) -> Result<(), GitServiceError> {
+    pub fn unstage_path(&self, worktree_path: &Path, path: &str) -> Result<(), GitServiceError> {
         Ok(GitCli::new().restore_staged(worktree_path, path)?)
     }
 

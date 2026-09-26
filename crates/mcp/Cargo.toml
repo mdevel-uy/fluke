@@ -5,7 +5,7 @@ edition = "2024"
 autobins = false
 
 [[bin]]
-name = "vibe-kanban-mcp"
+name = "fluke-mcp"
 path = "src/bin/fluke_mcp.rs"
 
 [lints.clippy]

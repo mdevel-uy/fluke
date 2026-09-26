@@ -73,7 +73,13 @@ pub fn decrypt_seed(enc: &EncryptedKey, passphrase: &str) -> Result<[u8; 32]> {
     let nonce = B64.decode(&enc.nonce).context("nonce inválido")?;
     let ct = B64.decode(&enc.ciphertext).context("ciphertext inválido")?;
 
-    let dk = derive_key(passphrase, &salt, enc.scrypt_log_n, enc.scrypt_r, enc.scrypt_p)?;
+    let dk = derive_key(
+        passphrase,
+        &salt,
+        enc.scrypt_log_n,
+        enc.scrypt_r,
+        enc.scrypt_p,
+    )?;
     let cipher = Aes256Gcm::new(dk.as_slice().into());
     let pt = cipher
         .decrypt(Nonce::from_slice(&nonce), ct.as_slice())
@@ -88,8 +94,7 @@ pub fn decrypt_seed(enc: &EncryptedKey, passphrase: &str) -> Result<[u8; 32]> {
 
 /// Lee un archivo `.enc`, lo descifra con la passphrase y arma la `SigningKey`.
 pub fn load_signing_key(path: &str, passphrase: &str) -> Result<SigningKey> {
-    let raw = std::fs::read_to_string(path)
-        .with_context(|| format!("no se pudo leer {path}"))?;
+    let raw = std::fs::read_to_string(path).with_context(|| format!("no se pudo leer {path}"))?;
     let enc: EncryptedKey =
         serde_json::from_str(&raw).context("el archivo de clave no es un keystore válido")?;
     let seed = decrypt_seed(&enc, passphrase)?;

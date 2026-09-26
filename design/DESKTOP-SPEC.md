@@ -29,7 +29,7 @@ related: design/SHELL-SPEC.md (la UI que corre adentro), memoria editor-embebido
    instalar — aceptado para uso interno). macOS **con Developer ID +
    notarización** cuando entre su fase, con la cuenta de Dani.
 4. **Hosting de instaladores y updates: GitHub Releases** de
-   `mdevel-uy/vibe-kanban`. Verificado: el repo es **público**, así que el
+   `mdevel-uy/mkanban`. Verificado: el repo es **público**, así que el
    `latest.json` es accesible para el updater sin auth ni infra nueva.
 5. **Identidad propia + telemetría de bloop fuera.** Identifier nuevo y sin
    secrets de Sentry/PostHog. Verificado: la telemetría se inyecta por
@@ -38,9 +38,9 @@ related: design/SHELL-SPEC.md (la UI que corre adentro), memoria editor-embebido
 
 ## Requerimientos
 
-- **RD1 · Identifier propio**: `ai.bloop.vibe-kanban` → `uy.mdevel.vibe-kanban`
-  en `tauri.conf.json` (evita colisión de instalación/datos con el VK oficial
-  si alguien lo tiene). `productName` queda "Vibe Kanban" (uso interno).
+- **RD1 · Identifier propio**: el identifier del upstream → `uy.mdevel.mkanban`
+  en `tauri.conf.json` (evita colisión de instalación/datos con la app
+  original si alguien la tiene). `productName` es "fluke".
 - **RD2 · Llaves de updater propias**: generar par minisign nuevo
   (`cargo tauri signer generate`). La pubkey reemplaza la de bloop en
   `tauri.conf.json`; la privada va SOLO a GitHub Secrets
@@ -49,7 +49,7 @@ related: design/SHELL-SPEC.md (la UI que corre adentro), memoria editor-embebido
   por bloop.
 - **RD3 · Endpoint del updater**: el placeholder `__TAURI_UPDATE_ENDPOINT__`
   se inyecta en CI (mismo mecanismo del upstream) con
-  `https://github.com/mdevel-uy/vibe-kanban/releases/download/desktop-latest/latest.json`
+  `https://github.com/mdevel-uy/mkanban/releases/download/desktop-latest/latest.json`
   — un **release rodante `desktop-latest`** (marcado prerelease para no
   ocupar el slot "Latest" del repo) cuyo único asset es el `latest.json`,
   re-subido con `--clobber` en cada release. Se descartó

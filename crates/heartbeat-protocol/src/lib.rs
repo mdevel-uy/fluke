@@ -1,4 +1,4 @@
-//! Protocolo del heartbeat entre una instancia de mkanban y el control plane
+//! Protocolo del heartbeat entre una instancia de fluke y el control plane
 //! (fase 5b). Tipos de la conexión, compartidos por ambos lados.
 //!
 //! Flujo: la instancia hace `POST /v1/heartbeat` con [`HeartbeatRequest`]

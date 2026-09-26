@@ -39,10 +39,10 @@ use crate::services::web_push::{self, WebPushService};
 const POLL_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Umbral por defecto (minutos) para considerar un proceso trancado.
-/// Configurable con `MKANBAN_STUCK_TASK_THRESHOLD_MINUTES`.
+/// Configurable con `FLUKE_STUCK_TASK_THRESHOLD_MINUTES`.
 const DEFAULT_THRESHOLD_MINUTES: i64 = 30;
 
-const THRESHOLD_ENV: &str = "MKANBAN_STUCK_TASK_THRESHOLD_MINUTES";
+const THRESHOLD_ENV: &str = "FLUKE_STUCK_TASK_THRESHOLD_MINUTES";
 
 pub struct StuckTaskDetector {
     db: DBService,

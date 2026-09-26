@@ -158,10 +158,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/branch", axum::routing::put(rename_branch))
 }
 
-async fn resolve_vibe_kanban_identifier(
-    deployment: &DeploymentImpl,
-    local_workspace_id: Uuid,
-) -> String {
+async fn resolve_issue_identifier(deployment: &DeploymentImpl, local_workspace_id: Uuid) -> String {
     if let Ok(client) = deployment.remote_client()
         && let Ok(remote_ws) = client.get_workspace_by_local_id(local_workspace_id).await
         && let Some(issue_id) = remote_ws.issue_id
@@ -230,7 +227,7 @@ pub async fn merge_workspace(
     let worktree_path = workspace_path.join(repo.name);
 
     let workspace_label = workspace.name.as_deref().unwrap_or(&workspace.branch);
-    let vk_id = resolve_vibe_kanban_identifier(&deployment, workspace.id).await;
+    let vk_id = resolve_issue_identifier(&deployment, workspace.id).await;
     let commit_message = format!("{} (fluke {})", workspace_label, vk_id);
 
     let merge_commit_id = deployment.git().merge_changes(
@@ -402,8 +399,7 @@ pub async fn get_workspace_branch_status(
     // queued workspaces and race the orchestrator's own create ("reference
     // already exists" loop, orphan branches piling up). No container yet →
     // degraded per-repo status with nulls.
-    let workspace_dir: Option<PathBuf> =
-        workspace.container_ref.as_ref().map(PathBuf::from);
+    let workspace_dir: Option<PathBuf> = workspace.container_ref.as_ref().map(PathBuf::from);
 
     let all_merges = Merge::find_by_workspace_id(pool, workspace.id).await?;
     let merges_by_repo: HashMap<Uuid, Vec<Merge>> =
@@ -427,8 +423,8 @@ pub async fn get_workspace_branch_status(
     // every 5s per open workspace and every 15s per active one; on a 2-core
     // host the runtime has only two workers, and blocking them stalls the
     // entire server, SSE included.
-    let results = tokio::task::spawn_blocking(
-        move || -> Result<Vec<RepoBranchStatus>, GitServiceError> {
+    let results =
+        tokio::task::spawn_blocking(move || -> Result<Vec<RepoBranchStatus>, GitServiceError> {
             let mut results = Vec::with_capacity(repositories.len());
 
             for repo in repositories {
@@ -443,24 +439,22 @@ pub async fn get_workspace_branch_status(
                     .as_ref()
                     .and_then(|p| deployment.git().get_head_info(p).ok().map(|h| h.oid));
 
-                let (is_rebase_in_progress, conflicted_files, conflict_op) =
-                    match worktree_path.as_ref() {
-                        Some(p) => {
-                            let in_rebase =
-                                deployment.git().is_rebase_in_progress(p).unwrap_or(false);
-                            let conflicts = deployment
-                                .git()
-                                .get_conflicted_files(p)
-                                .unwrap_or_default();
-                            let op = if conflicts.is_empty() {
-                                None
-                            } else {
-                                deployment.git().detect_conflict_op(p).unwrap_or(None)
-                            };
-                            (in_rebase, conflicts, op)
-                        }
-                        None => (false, Vec::new(), None),
-                    };
+                let (is_rebase_in_progress, conflicted_files, conflict_op) = match worktree_path
+                    .as_ref()
+                {
+                    Some(p) => {
+                        let in_rebase = deployment.git().is_rebase_in_progress(p).unwrap_or(false);
+                        let conflicts =
+                            deployment.git().get_conflicted_files(p).unwrap_or_default();
+                        let op = if conflicts.is_empty() {
+                            None
+                        } else {
+                            deployment.git().detect_conflict_op(p).unwrap_or(None)
+                        };
+                        (in_rebase, conflicts, op)
+                    }
+                    None => (false, Vec::new(), None),
+                };
 
                 let (uncommitted_count, untracked_count) = match worktree_path
                     .as_ref()
@@ -509,10 +503,11 @@ pub async fn get_workspace_branch_status(
                     ..
                 })) = repo_merges.first()
                 {
-                    match deployment
-                        .git()
-                        .get_remote_branch_status_cached(&repo.path, &workspace.branch, None)
-                    {
+                    match deployment.git().get_remote_branch_status_cached(
+                        &repo.path,
+                        &workspace.branch,
+                        None,
+                    ) {
                         Ok((ahead, behind)) => (Some(ahead), Some(behind)),
                         Err(_) => (None, None),
                     }
@@ -557,10 +552,9 @@ pub async fn get_workspace_branch_status(
             }
 
             Ok(results)
-        },
-    )
-    .await
-    .map_err(|e| ApiError::BadRequest(format!("Branch status failed: {e}")))??;
+        })
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Branch status failed: {e}")))??;
 
     Ok(ResponseJson(ApiResponse::success(results)))
 }
@@ -953,8 +947,7 @@ pub async fn get_workspace_staging(
     State(deployment): State<DeploymentImpl>,
     Query(query): Query<StagingQuery>,
 ) -> Result<ResponseJson<ApiResponse<StagingState>>, ApiError> {
-    let (worktree_path, _) =
-        resolve_worktree_path(&deployment, &workspace, query.repo_id).await?;
+    let (worktree_path, _) = resolve_worktree_path(&deployment, &workspace, query.repo_id).await?;
     let git = deployment.git().clone();
     let state = tokio::task::spawn_blocking(move || git.get_staging_state(&worktree_path))
         .await
@@ -1027,9 +1020,7 @@ pub async fn commit_workspace_staged(
         return Err(ApiError::BadRequest("Nothing staged to commit".to_string()));
     }
 
-    let head_oid = deployment
-        .git()
-        .commit_staged(&worktree_path, &message)?;
+    let head_oid = deployment.git().commit_staged(&worktree_path, &message)?;
 
     // Uncommitted counters and ahead/behind change; the client re-polls the
     // branch status, and the remote mirror gets fresh diff stats.

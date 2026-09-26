@@ -58,8 +58,8 @@ host, sólo hace falta ufw allow 80/443 y el tráfico ni siquiera llega a
 
 ## Instalación (una vez, por instancia)
 
-Los tres archivos van al host — típicamente los deja el cloud-init de
-mkanban-control, pero también sirven para aplicar a mano en la factory
+Los tres archivos van al host — típicamente los deja el cloud-init del
+control plane, pero también sirven para aplicar a mano en la factory
 actual desde una sesión SSH:
 
 ```bash

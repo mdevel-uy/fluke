@@ -287,8 +287,8 @@ export function PreviewBrowserContainer({
     if (!previewProxyPort) return undefined;
 
     // Don't proxy to fluke's own ports (would create infinite loop)
-    const vibeKanbanPort = window.location.port || '80';
-    if (devServerPort === vibeKanbanPort) {
+    const appPort = window.location.port || '80';
+    if (devServerPort === appPort) {
       console.warn(
         `[Preview] Ignoring dev server URL with same port as fluke (${devServerPort}). ` +
           'This usually means the dev server failed to start or reported the wrong port.'
@@ -827,7 +827,7 @@ export function PreviewBrowserContainer({
 
     iframe.contentWindow.postMessage(
       {
-        source: 'vibe-kanban',
+        source: 'fluke',
         command: visible ? 'show-eruda' : 'hide-eruda',
       },
       '*'

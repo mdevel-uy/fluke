@@ -77,9 +77,8 @@ pub async fn read_file(
     }
 
     let bytes = tokio::fs::read(path).await?;
-    let content = String::from_utf8(bytes).map_err(|_| {
-        ApiError::BadRequest("File is binary or not valid UTF-8".to_string())
-    })?;
+    let content = String::from_utf8(bytes)
+        .map_err(|_| ApiError::BadRequest("File is binary or not valid UTF-8".to_string()))?;
 
     Ok(ResponseJson(ApiResponse::success(EditorFileContent {
         content,

@@ -53,6 +53,10 @@ export interface SidebarWorkspace {
   prMergedAt?: string;
   /** Review-loop activity on the open PR: "queued" | "running" */
   prReviewActivity?: string;
+  /** Latest reviewer verdict on the backing worker task: "approved" | "changes_requested" */
+  taskReviewResult?: string;
+  /** Open PR spent every review round: the loop stopped, a human decides */
+  prReviewRoundsExhausted?: boolean;
   /** GitHub issue backing this workspace's worker task, if any */
   issueNumber?: number;
   /**
@@ -122,6 +126,7 @@ function toSidebarWorkspace(
         pr_created_at?: string | null;
         pr_merged_at?: string | null;
         pr_review_activity?: string | null;
+        pr_review_rounds_exhausted?: boolean | null;
         is_finalizing?: boolean | null;
       })
     | undefined;
@@ -176,6 +181,8 @@ function toSidebarWorkspace(
     prCreatedAt: extendedSummary?.pr_created_at ?? undefined,
     prMergedAt: extendedSummary?.pr_merged_at ?? undefined,
     prReviewActivity: extendedSummary?.pr_review_activity ?? undefined,
+    prReviewRoundsExhausted:
+      extendedSummary?.pr_review_rounds_exhausted ?? undefined,
     isFinalizing: extendedSummary?.is_finalizing ?? undefined,
   };
 }

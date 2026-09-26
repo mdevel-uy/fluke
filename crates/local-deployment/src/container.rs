@@ -516,33 +516,32 @@ impl LocalContainerService {
 
             // No child in memory → this row is a zombie. Decide the terminal
             // status based on whether the workspace still exists / is archived.
-            let workspace_archived = match Session::find_by_id(&self.db.pool, process.session_id)
-                .await
-            {
-                Ok(Some(session)) => {
-                    match Workspace::find_by_id(&self.db.pool, session.workspace_id).await {
-                        Ok(Some(ws)) => Some(ws.archived),
-                        Ok(None) => None,
-                        Err(e) => {
-                            tracing::warn!(
-                                "Zombie sweep: failed to load workspace for process {}: {}",
-                                process.id,
-                                e
-                            );
-                            continue;
+            let workspace_archived =
+                match Session::find_by_id(&self.db.pool, process.session_id).await {
+                    Ok(Some(session)) => {
+                        match Workspace::find_by_id(&self.db.pool, session.workspace_id).await {
+                            Ok(Some(ws)) => Some(ws.archived),
+                            Ok(None) => None,
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Zombie sweep: failed to load workspace for process {}: {}",
+                                    process.id,
+                                    e
+                                );
+                                continue;
+                            }
                         }
                     }
-                }
-                Ok(None) => None,
-                Err(e) => {
-                    tracing::warn!(
-                        "Zombie sweep: failed to load session for process {}: {}",
-                        process.id,
-                        e
-                    );
-                    continue;
-                }
-            };
+                    Ok(None) => None,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Zombie sweep: failed to load session for process {}: {}",
+                            process.id,
+                            e
+                        );
+                        continue;
+                    }
+                };
 
             let terminal_status = if matches!(workspace_archived, Some(true)) {
                 // Row belongs to an archived workspace: the operator wanted

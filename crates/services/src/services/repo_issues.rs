@@ -438,7 +438,8 @@ impl RepoIssuesService {
             .await
             .ok_or(RepoIssuesError::GhCliNotAvailable)?;
 
-        let body_file = std::env::temp_dir().join(format!("mk-issue-comment-{}.md", Uuid::new_v4()));
+        let body_file =
+            std::env::temp_dir().join(format!("mk-issue-comment-{}.md", Uuid::new_v4()));
         tokio::fs::write(&body_file, body).await?;
 
         let mut cmd = Command::new(&gh);

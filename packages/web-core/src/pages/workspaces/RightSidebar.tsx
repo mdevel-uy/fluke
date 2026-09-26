@@ -34,6 +34,12 @@ import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ForcePushDialog } from '@/shared/dialogs/command-bar/ForcePushDialog';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import {
+  reviewGate,
+  reviewGateHint,
+  reviewGateLabel,
+  reviewGateToneClass,
+} from '@vibe/ui/lib/reviewGate';
 import { FileTreeContainer } from './FileTreeContainer';
 import { WorkerDetailCard } from '@/shared/components/ui-new/aside/WorkerDetailCard';
 import {
@@ -101,21 +107,24 @@ export const RightSidebar = memo(function RightSidebar({
 
   const appNavigation = useAppNavigation();
 
-  // In-progress reviewer worker task pointing at this workspace's PR (matched
-  // by issue number). When present, the REVIEW badge becomes a shortcut to
-  // that reviewer's workspace so you can watch the review as it happens.
+  // In-progress reviewer worker task pointing at this workspace's PR. A
+  // reviewer task's issue_number holds the PR number (#585), while the
+  // developer task's holds the issue it implements (#571) — so match on the
+  // workspace's PR number. When present, the REVIEW badge becomes a shortcut
+  // to that reviewer's workspace so you can watch the review as it happens.
+  const prNumber = sidebarWs?.prNumber;
   const activeReviewerTask = useMemo(() => {
-    if (!task?.issue_number) return undefined;
+    if (prNumber == null) return undefined;
     return tasks.find((t) => {
       const w = taskIndex.workerById.get(t.worker_id);
       return (
         w?.role === 'reviewer' &&
-        t.issue_number === task.issue_number &&
+        t.issue_number === prNumber &&
         t.status === 'in_progress' &&
         t.workspace_id != null
       );
     });
-  }, [tasks, task, taskIndex]);
+  }, [tasks, prNumber, taskIndex]);
 
   const isRunning = !!sidebarWs?.isRunning;
   // `isFinalizing` covers the orchestrator's PR-publishing window
@@ -330,6 +339,28 @@ export const RightSidebar = memo(function RightSidebar({
     },
   });
 
+  // Address requested changes: sends the author the same remediation prompt
+  // the orchestrator uses (reviewer comments inlined). The manual path once
+  // the loop stops fixing on its own — e.g. after the review rounds ran out.
+  const addressChangesMutation = useMutation({
+    mutationFn: () => {
+      if (!task) return Promise.reject(new Error('No worker task'));
+      return workersApi.getRemediationPrompt(task.worker_id, task.id);
+    },
+    onSuccess: (prompt) => handleQuickAction(prompt),
+    onError: (err) => {
+      ConfirmDialog.show({
+        title: t('workspaces.aside.addressChangesFailedTitle', {
+          defaultValue: 'Could not load the requested changes',
+        }),
+        message: err instanceof Error ? err.message : 'Unknown error',
+        confirmText: 'OK',
+        showCancelButton: false,
+        variant: 'destructive',
+      });
+    },
+  });
+
   if (!selectedWorkspace) {
     return (
       <div className="h-full bg-md-surface-container-low">
@@ -355,7 +386,15 @@ export const RightSidebar = memo(function RightSidebar({
           : t('workspaces.aside.ciNone', { defaultValue: 'no checks' });
 
   const reviewResult = task?.review_result;
-  const reviewActivity = sidebarWs?.prReviewActivity;
+  const gate = reviewGate({
+    reviewResult,
+    reviewActivity: sidebarWs?.prReviewActivity,
+    ciStatus,
+    reviewerWorking: !!activeReviewerTask,
+    authorWorking: isRunning,
+    roundsExhausted: sidebarWs?.prReviewRoundsExhausted,
+  });
+  const gateHint = reviewGateHint(gate, t);
 
   const quickActions: { label: string; message: string; icon: ReactIcon }[] = [
     {
@@ -574,7 +613,7 @@ export const RightSidebar = memo(function RightSidebar({
               <span className="w-[46px] flex-none text-[10px] font-semibold uppercase tracking-wider text-low">
                 {t('workspaces.aside.review', { defaultValue: 'Review' })}
               </span>
-              {reviewResult == null && activeReviewerTask?.workspace_id ? (
+              {gate === 'reviewing' && activeReviewerTask?.workspace_id ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -597,37 +636,18 @@ export const RightSidebar = memo(function RightSidebar({
                 <span
                   className={cn(
                     'rounded-full border px-[7px] text-[10px] font-semibold leading-4',
-                    reviewResult === 'approved'
-                      ? 'border-success/45 text-success'
-                      : reviewResult === 'changes_requested'
-                        ? 'border-warning/45 text-warning'
-                        : reviewActivity === 'running'
-                          ? 'animate-pulse border-info/45 text-info'
-                          : 'border-border-strong text-low'
+                    reviewGateToneClass(gate)
                   )}
                 >
-                  {reviewResult === 'approved'
-                    ? t('workspaces.aside.reviewApproved', {
-                        defaultValue: 'Approved',
-                      })
-                    : reviewResult === 'changes_requested'
-                      ? t('workspaces.aside.reviewChangesRequested', {
-                          defaultValue: 'Changes requested',
-                        })
-                      : reviewActivity === 'running'
-                        ? t('workspaces.aside.reviewRunning', {
-                            defaultValue: 'Reviewer working…',
-                          })
-                        : reviewActivity === 'queued'
-                          ? t('workspaces.aside.reviewQueued', {
-                              defaultValue: 'Queued for review',
-                            })
-                          : t('workspaces.aside.reviewWaiting', {
-                              defaultValue: 'Awaiting auto review',
-                            })}
+                  {reviewGateLabel(gate, t)}
                 </span>
               )}
             </div>
+            {gateHint && (
+              <p className="px-3.5 pb-0.5 pl-[70px] text-xs leading-snug text-low">
+                {gateHint}
+              </p>
+            )}
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-1 pt-[7px]">
               {task && (
                 <GhostButton
@@ -666,6 +686,34 @@ export const RightSidebar = memo(function RightSidebar({
               defaultValue: 'Quick actions',
             })}
           >
+            {task &&
+              (gate === 'changes_requested' || gate === 'escalated') && (
+                <button
+                  type="button"
+                  onClick={() => addressChangesMutation.mutate()}
+                  disabled={addressChangesMutation.isPending}
+                  className={cn(
+                    'flex h-6 w-full items-center gap-[7px] px-3.5 text-left text-sm font-medium text-brand-on-surface',
+                    'hover:bg-secondary cursor-pointer whitespace-nowrap disabled:opacity-60',
+                    'focus:outline-none focus-visible:ring-1 focus-visible:ring-brand'
+                  )}
+                >
+                  <GitPullRequest
+                    size={13}
+                    strokeWidth={1.75}
+                    className="flex-none"
+                  />
+                  <span className="truncate">
+                    {addressChangesMutation.isPending
+                      ? t('workspaces.aside.addressChangesLoading', {
+                          defaultValue: 'Loading review…',
+                        })
+                      : t('workspaces.aside.addressChanges', {
+                          defaultValue: 'Address requested changes',
+                        })}
+                  </span>
+                </button>
+              )}
             {quickActions.map(({ label, message, icon: Icon }) => (
               <button
                 key={label}

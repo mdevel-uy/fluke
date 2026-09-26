@@ -397,12 +397,9 @@ async fn validate_pat(pat: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to reach GitHub: {e}"))?;
 
     let status = resp.status();
-    if status == reqwest::StatusCode::UNAUTHORIZED
-        || status == reqwest::StatusCode::FORBIDDEN
-    {
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
         return Err(
-            "Token inválido o sin los scopes necesarios (repo, read:org, workflow)."
-                .to_string(),
+            "Token inválido o sin los scopes necesarios (repo, read:org, workflow).".to_string(),
         );
     }
     if !status.is_success() {

@@ -9,6 +9,7 @@ const ANTHROPIC_MODELS_URL: &str = "https://api.anthropic.com/v1/models";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const PAGE_LIMIT: u32 = 1000;
+const OPUS_1M_NAME: &str = "Opus 5.5 (1M context)";
 
 #[derive(Debug, Error)]
 pub enum ModelsFetchError {
@@ -38,16 +39,18 @@ struct AnthropicModelsResponse {
 
 /// Hardcoded fallback list, used when the Anthropic API is unreachable or the
 /// user has no API key configured. Kept intentionally minimal so it always
-/// matches aliases the Claude Code CLI accepts.
+/// matches aliases the Claude Code CLI accepts. The names state the model
+/// each alias actually resolves to under the CLI pinned in `claude.rs`
+/// (`base_command`) — update both together when bumping the CLI.
 pub fn fallback_models() -> Vec<ModelInfo> {
     let effort_options = effort_reasoning_options();
 
     [
-        ("opus", "Opus"),
-        ("opus[1m]", "Opus (1M context)"),
-        ("sonnet", "Sonnet"),
-        ("haiku", "Haiku"),
-        ("fable", "Fable"),
+        ("opus", "Opus 5.5"),
+        ("opus[1m]", OPUS_1M_NAME),
+        ("sonnet", "Sonnet 5"),
+        ("haiku", "Haiku 4.5"),
+        ("fable", "Fable 5.1"),
     ]
     .into_iter()
     .map(|(id, name)| ModelInfo {
@@ -156,7 +159,7 @@ pub async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, Mod
     if !models.iter().any(|m| m.id == "opus[1m]") {
         models.push(ModelInfo {
             id: "opus[1m]".to_string(),
-            name: "Opus (1M context)".to_string(),
+            name: OPUS_1M_NAME.to_string(),
             provider_id: None,
             reasoning_options: effort_options,
         });

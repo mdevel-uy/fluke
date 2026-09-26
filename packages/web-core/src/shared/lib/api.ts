@@ -2173,26 +2173,6 @@ export const relayApi = {
   },
 };
 
-// Releases API (GitHub releases proxy)
-export interface GitHubRelease {
-  name: string;
-  tag_name: string;
-  published_at: string;
-  body: string;
-}
-
-interface ReleasesResponse {
-  releases: GitHubRelease[];
-}
-
-export const releasesApi = {
-  list: async (): Promise<GitHubRelease[]> => {
-    const response = await makeRequest('/api/releases');
-    const result = await handleApiResponse<ReleasesResponse>(response);
-    return result.releases;
-  },
-};
-
 /**
  * Which credential the current authenticated GitHub session is using.
  * Kept local until `shared/types.ts` is regenerated from the backend.
@@ -2644,6 +2624,16 @@ export const workersApi = {
       }
     );
     return handleApiResponse<WorkerTaskResponse>(response);
+  },
+
+  getRemediationPrompt: async (
+    workerId: string,
+    taskId: string
+  ): Promise<string> => {
+    const response = await makeRequest(
+      `/api/workers/${workerId}/tasks/${taskId}/remediation-prompt`
+    );
+    return handleApiResponse<string>(response);
   },
 
   reRequestReview: async (workerId: string, taskId: string): Promise<void> => {

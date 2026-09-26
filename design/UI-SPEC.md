@@ -11,7 +11,7 @@ supersedes: design/DESIGN-DIRECTION.md ("ProjectFlow") and UI-SPEC v1/v2 (same f
 
 # Workbench — Design Contract (v3)
 
-> Vibe Kanban keeps the **Workbench structure** (dense rows, system typography
+> fluke keeps the **Workbench structure** (dense rows, system typography
 > at 13px, 16px monochrome icons, borders over ornament) with the **palette of
 > the approved dashboard mockup**: zinc grays, one indigo accent, soft
 > elevation. The v2 VSCode palette is gone — see the table below.

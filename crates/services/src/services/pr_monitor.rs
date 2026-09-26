@@ -809,9 +809,21 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
 
                                     if let Some(review) = &latest_review {
                                         let state = review.state.as_str();
+                                        // Whether the verdict was made on the PR's current
+                                        // head. Once the author pushes past it, the verdict
+                                        // is stale: the PR is waiting for a re-review.
+                                        let verdict_covers_head = matches!(
+                                            (&review.reviewed_sha, &review.head_sha),
+                                            (Some(reviewed), Some(head)) if reviewed == head
+                                        );
 
                                         // Persist verdict on the developer's worker task so
                                         // the Kanban card can show it without polling GitHub.
+                                        // Only a verdict that covers the head is shown: a
+                                        // stale "changes requested" between the fix push and
+                                        // the re-review reads as work still owed when the
+                                        // PR is actually waiting for review.
+                                        let shown = verdict_covers_head.then_some(state);
                                         match WorkerTask::find_by_workspace(
                                             &self.db.pool,
                                             workspace_id,
@@ -819,12 +831,11 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                                         .await
                                         {
                                             Ok(Some(dev_task)) => {
-                                                if dev_task.review_result.as_deref() != Some(state)
-                                                {
+                                                if dev_task.review_result.as_deref() != shown {
                                                     if let Err(e) = WorkerTask::set_review_result(
                                                         &self.db.pool,
                                                         dev_task.id,
-                                                        Some(state),
+                                                        shown,
                                                     )
                                                     .await
                                                     {
@@ -874,10 +885,6 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                                         // the CURRENT head. Once the author pushes, the
                                         // changes-request is stale — the next step is a
                                         // re-review, not another fix on top of the fix.
-                                        let verdict_covers_head = matches!(
-                                            (&review.reviewed_sha, &review.head_sha),
-                                            (Some(reviewed), Some(head)) if reviewed == head
-                                        );
                                         if state == "changes_requested" && verdict_covers_head {
                                             match Worker::find_by_workspace_id(
                                                 &self.db.pool,

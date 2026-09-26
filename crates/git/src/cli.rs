@@ -458,8 +458,7 @@ impl GitCli {
         if let Some(token) = token.filter(|t| !t.is_empty()) {
             // `-c` on the command line only lives for the duration of this
             // process; the token never lands in .git/config.
-            let auth =
-                base64_encode_basic_userpass("x-access-token", token);
+            let auth = base64_encode_basic_userpass("x-access-token", token);
             args.push(OsString::from("-c"));
             args.push(OsString::from(format!(
                 "http.extraHeader=Authorization: Basic {auth}"
@@ -1010,16 +1009,14 @@ impl GitCli {
 /// crate) so the `git` crate keeps its current dependency set — the input
 /// is always small (login + PAT) and the algorithm is stable.
 fn base64_encode_basic_userpass(user: &str, pass: &str) -> String {
-    const ALPHA: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHA: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let input = format!("{user}:{pass}");
     let bytes = input.as_bytes();
     let mut out = String::with_capacity((bytes.len().div_ceil(3)) * 4);
     let mut i = 0;
     while i + 3 <= bytes.len() {
-        let n = (u32::from(bytes[i]) << 16)
-            | (u32::from(bytes[i + 1]) << 8)
-            | u32::from(bytes[i + 2]);
+        let n =
+            (u32::from(bytes[i]) << 16) | (u32::from(bytes[i + 1]) << 8) | u32::from(bytes[i + 2]);
         out.push(ALPHA[((n >> 18) & 0x3f) as usize] as char);
         out.push(ALPHA[((n >> 12) & 0x3f) as usize] as char);
         out.push(ALPHA[((n >> 6) & 0x3f) as usize] as char);

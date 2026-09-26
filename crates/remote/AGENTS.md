@@ -1,6 +1,6 @@
 # Remote Crate — Agent Guidelines
 
-The `remote` crate is the hosted Vibe Kanban Cloud server: an Axum HTTP API, a React SPA frontend, and real-time sync via ElectricSQL.
+The `remote` crate is the hosted fluke cloud server: an Axum HTTP API, a React SPA frontend, and real-time sync via ElectricSQL.
 
 > See also: [root AGENTS.md](../../AGENTS.md) for repo-wide conventions.
 
@@ -59,7 +59,7 @@ The billing crate (`vk-billing` feature) is a private dependency stripped at bui
 
 ## ElectricSQL Integration
 
-Vibe Kanban uses [ElectricSQL](https://electric-sql.com) as a read-path sync engine: Postgres → ElectricSQL → clients over HTTP shapes. Writes go through the REST API.
+fluke uses [ElectricSQL](https://electric-sql.com) as a read-path sync engine: Postgres → ElectricSQL → clients over HTTP shapes. Writes go through the REST API.
 
 ### How It Works
 
@@ -111,7 +111,7 @@ This generates both the Axum router and TypeScript type metadata (via `HasJsonPa
 
 ## Authentication & Authorisation
 
-- **JWT** (`auth/jwt.rs`): Signed with `VIBEKANBAN_REMOTE_JWT_SECRET`. All protected routes use `require_session` middleware.
+- **JWT** (`auth/jwt.rs`): Signed with `FLUKE_REMOTE_JWT_SECRET`. All protected routes use `require_session` middleware.
 - **OAuth** (`auth/provider.rs`): GitHub and Google. At least one must be configured. Empty env vars are treated as disabled.
 - **Membership**: All resource routes check organisation/project membership before DB access. Use `RequestContext` from the middleware to get user info.
 

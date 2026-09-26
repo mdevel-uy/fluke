@@ -315,7 +315,7 @@ impl ExecutionProcess {
     }
 
     /// Number of coding-agent processes currently running across every
-    /// workspace. Exposed as `mkanban_agents_running` in `/api/metrics`
+    /// workspace. Exposed as `fluke_agents_running` in `/api/metrics`
     /// so the fleet dashboard can plot concurrent-agents per instance.
     /// Runtime-checked (`sqlx::query_scalar`) to keep the offline sqlx cache
     /// unchanged.
@@ -850,7 +850,8 @@ impl ExecutionProcess {
                JOIN execution_processes ep ON ep.id = eprs.execution_process_id
                JOIN sessions s ON ep.session_id = s.id
                WHERE s.workspace_id = ?1
-                 AND eprs.after_head_commit IS NOT NULL",
+                 AND eprs.after_head_commit IS NOT NULL
+                 AND eprs.after_head_commit IS NOT eprs.before_head_commit",
         )
         .bind(workspace_id)
         .fetch_one(pool)

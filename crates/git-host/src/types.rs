@@ -162,6 +162,9 @@ pub struct LatestPrReview {
     pub reviewed_sha: Option<String>,
     /// Current head commit of the PR, when the host reports it.
     pub head_sha: Option<String>,
+    /// The review's own body — where the reviewer writes the bulk of what it
+    /// wants changed. Not part of the PR's comment threads.
+    pub body: Option<String>,
 }
 
 /// Server-side review submission: the reviewer's verdict, submitted to the

@@ -8,7 +8,7 @@ Create `crates/remote/.env.remote`:
 
 ```env
 # Required
-VIBEKANBAN_REMOTE_JWT_SECRET=replace_with_openssl_rand_base64_48
+FLUKE_REMOTE_JWT_SECRET=replace_with_openssl_rand_base64_48
 ELECTRIC_ROLE_PASSWORD=replace_with_secure_password
 
 # Configure at least one auth option

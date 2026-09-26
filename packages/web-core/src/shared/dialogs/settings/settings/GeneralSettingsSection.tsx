@@ -518,30 +518,6 @@ export function GeneralSettingsSection() {
           </>
         )}
 
-        {/* 🚧 TEMPORALMENTE OCULTO — Auto-install VS Code Extension
-            Para restaurar: descomentar el bloque condicional completo hasta el cierre )}.
-            Solo se muestra si editor_type es VS_CODE, VS_CODE_INSIDERS o CURSOR.
-            Contexto: ocultado por decisión del PM (agosto 2026). */}
-        {/* {(draft?.editor.editor_type === EditorType.VS_CODE ||
-          draft?.editor.editor_type === EditorType.VS_CODE_INSIDERS ||
-          draft?.editor.editor_type === EditorType.CURSOR) && (
-          <SettingsCheckbox
-            id="auto-install-extension"
-            label={t('settings.general.editor.autoInstallExtension.label')}
-            description={t(
-              'settings.general.editor.autoInstallExtension.helper'
-            )}
-            checked={draft?.editor.auto_install_extension ?? true}
-            onChange={(checked) =>
-              updateDraft({
-                editor: {
-                  ...draft!.editor,
-                  auto_install_extension: checked,
-                },
-              })
-            }
-          />
-        )} */}
       </SettingsCard>
 
       {/* Default Coding Agent */}

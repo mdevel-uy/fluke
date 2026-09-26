@@ -57,7 +57,7 @@ self.addEventListener('push', (event) => {
         payload = {
           title: 'fluke',
           body: 'Nueva actualización',
-          tag: 'mkanban-generic',
+          tag: 'fluke-generic',
         };
       }
 
@@ -71,7 +71,7 @@ self.addEventListener('push', (event) => {
       const title = payload.title || 'fluke';
       const options = {
         body: payload.body || '',
-        tag: payload.tag || 'mkanban-generic',
+        tag: payload.tag || 'fluke-generic',
         renotify: false,
         icon: '/icon-192.png',
         badge: '/icon-192.png',
@@ -103,7 +103,7 @@ self.addEventListener('notificationclick', (event) => {
           await client.focus();
           if (deeplink) {
             client.postMessage({
-              type: 'mkanban:push:navigate',
+              type: 'fluke:push:navigate',
               path: deeplink,
             });
           }

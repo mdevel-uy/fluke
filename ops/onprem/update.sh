@@ -21,8 +21,8 @@ set -a
 source ./.env
 set +a
 
-IMAGE="${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/mkanban}}"
-CHANNEL="${FK_CHANNEL:-${MK_CHANNEL:-stable}}"
+IMAGE="${FK_IMAGE:-ghcr.io/mdevel-uy/mkanban}"
+CHANNEL="${FK_CHANNEL:-stable}"
 SERVICE="fluke"
 CONTAINER="fluke"
 DATA_VOLUME="fk-home"

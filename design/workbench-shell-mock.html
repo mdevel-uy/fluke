@@ -1,4 +1,4 @@
-<title>Vibe Kanban — Workbench Shell Mock</title>
+<title>fluke — Workbench Shell Mock</title>
 <style>
   /* ---------- Tokens (Workbench v3 · Slate & Signal) ---------- */
   :root {
@@ -624,11 +624,11 @@
           </div>
         </div>
         <div class="term-body mono">
-          <div class="ln"><span class="p">➜ vibe-kanban (vk/01d6-270)</span> pnpm run check</div>
+          <div class="ln"><span class="p">➜ fluke (vk/01d6-270)</span> pnpm run check</div>
           <div class="ln">✓ typecheck · 0 errors</div>
           <div class="ln">✓ eslint · 0 warnings</div>
           <div class="ln">✓ vitest · 214 passed (3.2s)</div>
-          <div class="ln"><span class="p">➜ vibe-kanban (vk/01d6-270)</span> <span class="cursor"></span></div>
+          <div class="ln"><span class="p">➜ fluke (vk/01d6-270)</span> <span class="cursor"></span></div>
         </div>
       </section>
     </div>
@@ -645,7 +645,7 @@
     </div>
     <button class="sb-item sb-proj" id="sb-proj" aria-haspopup="menu" aria-expanded="false">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-      <span id="sb-proj-label">vibe-kanban <span class="env">· local</span></span>
+      <span id="sb-proj-label">fluke <span class="env">· local</span></span>
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
     </button>
     <div class="sb-item">v0.42.1</div>
@@ -723,8 +723,8 @@
   ];
   const NOTE = { dashboard: 'Dashboard', workspaces: 'Workspaces', sprint: 'Sprint', issues: 'Issues', workers: 'Workers', analyst: 'Analyst Desk' };
   const PROJECTS = [
-    { id: 'vk-local',   name: 'vibe-kanban',       env: 'local' },
-    { id: 'vk-vps',     name: 'vibe-kanban',       env: 'vps-mdevel', remote: true },
+    { id: 'vk-local',   name: 'fluke',       env: 'local' },
+    { id: 'vk-vps',     name: 'fluke',       env: 'vps-mdevel', remote: true },
     { id: 'factory',    name: 'factory-dashboard', env: 'local' },
     { id: 'client-api', name: 'client-api',        env: 'staging', remote: true },
   ];
@@ -794,7 +794,7 @@
       html = sideHeader('Issues')
         + `<div class="filter-input"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Filter…</div>
         <div class="side-scroll">`
-        + section('Repository', 1, `<div class="row sel"><span class="nm mono">mdevel-uy/vibe-kanban</span></div>`)
+        + section('Repository', 1, `<div class="row sel"><span class="nm mono">mdevel-uy/fluke</span></div>`)
         + section('Views', 4, `
             <div class="row sel"><span class="nm">All open</span><span class="meta">6</span></div>
             <div class="row"><span class="nm">Assigned to workers</span><span class="meta">2</span></div>
@@ -840,7 +840,7 @@
   /* ---------- main ---------- */
   function welcome() {
     return `<div class="welcome">
-      <h1>Vibe Kanban</h1>
+      <h1>fluke</h1>
       <p class="sub">Agentic workbench — nothing selected, so here is where you start.</p>
       <div class="welcome-grid">
         <div>

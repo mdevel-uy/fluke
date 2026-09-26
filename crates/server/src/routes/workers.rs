@@ -1898,7 +1898,8 @@ pub async fn serve_design_artifact(
         .ok_or_else(|| ApiError::BadRequest("Repo not found".into()))?;
 
     let git = deployment.container().git();
-    if let Some(content) = design_artifacts::read_artifact(pool, git, &repo, &existing, &path).await?
+    if let Some(content) =
+        design_artifacts::read_artifact(pool, git, &repo, &existing, &path).await?
     {
         return Response::builder()
             .status(StatusCode::OK)
@@ -1958,6 +1959,54 @@ pub async fn approve_design_task(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
+/// The remediation prompt for a developer task whose PR has changes requested
+/// — the same text the orchestrator sends automatically, reviewer comments
+/// inlined. Returned (not dispatched) so the UI drops it in the composer and
+/// the human can edit it before sending: this is the manual path once the
+/// review rounds ran out and the loop stopped fixing on its own.
+pub async fn get_remediation_prompt(
+    State(deployment): State<DeploymentImpl>,
+    Path((worker_id, task_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<String>>, ApiError> {
+    let pool = &deployment.db().pool;
+    let task = WorkerTask::find_by_id(pool, task_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Worker task not found".into()))?;
+    if task.worker_id != worker_id {
+        return Err(ApiError::BadRequest(
+            "Worker task does not belong to this worker".into(),
+        ));
+    }
+    if task.review_result.as_deref() != Some("changes_requested") {
+        return Err(ApiError::Conflict("no_changes_requested".into()));
+    }
+    let open_pr = open_pr_for_task(pool, &task).await?;
+    let prompt = worker_orchestrator::build_author_fix_prompt(
+        deployment.db(),
+        open_pr.pr_number,
+        task.repo_id,
+    )
+    .await;
+    Ok(ResponseJson(ApiResponse::success(prompt)))
+}
+
+/// The open PR of a developer task, resolved through its workspace. A
+/// developer task's `issue_number` is the ISSUE it implements (#571), not its
+/// PR (#585) — matching on it found no PR for any regular task.
+async fn open_pr_for_task(
+    pool: &sqlx::SqlitePool,
+    task: &WorkerTask,
+) -> Result<PullRequest, ApiError> {
+    let workspace_id = task
+        .workspace_id
+        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
+    PullRequest::find_by_workspace_id(pool, workspace_id)
+        .await?
+        .into_iter()
+        .find(|pr| matches!(pr.pr_status, MergeStatus::Open))
+        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))
+}
+
 /// Manually dispatch a new reviewer round for a developer task in `in_review`
 /// with a verdict already on file. Two flavours:
 /// - `changes_requested`: rescue path for when the automatic `pr_monitor` loop
@@ -1998,20 +2047,9 @@ pub async fn re_request_review(
         return Err(ApiError::Conflict("no_verdict_to_rerun".into()));
     }
 
-    // A review task must be tied to a PR (issue_number stores the PR number).
-    let Some(pr_number) = existing.issue_number else {
-        return Err(ApiError::BadRequest("no_open_pr".into()));
-    };
-
     // The PR must still be open — reviewing a merged/closed PR is nonsense.
-    let workspace_id = existing
-        .workspace_id
-        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
-    let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
-    let open_pr = prs
-        .iter()
-        .find(|pr| pr.pr_number == pr_number && matches!(pr.pr_status, MergeStatus::Open))
-        .ok_or_else(|| ApiError::BadRequest("no_open_pr".into()))?;
+    let open_pr = open_pr_for_task(pool, &existing).await?;
+    let pr_number = open_pr.pr_number;
 
     // Freshness gate: a re-review on an unchanged head can only reproduce the
     // previous verdict — the reviewer sees byte-identical code — while still
@@ -2239,6 +2277,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/workers/{worker_id}/tasks/{task_id}/re-request-review",
             post(re_request_review),
+        )
+        .route(
+            "/workers/{worker_id}/tasks/{task_id}/remediation-prompt",
+            get(get_remediation_prompt),
         )
         .route(
             "/workers/{worker_id}/tasks/{task_id}/retry-actions",

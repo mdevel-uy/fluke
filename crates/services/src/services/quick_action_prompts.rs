@@ -22,7 +22,8 @@ pub const COMMENTS_BLOCK_MAX_BYTES: usize = 16 * 1024;
 pub const FAILED_CHECKS_BLOCK_MAX_BYTES: usize = 4 * 1024;
 
 /// Truncation marker appended when an inline block exceeds its size cap.
-const TRUNCATION_MARKER: &str = "\n… [contenido truncado por límite de tamaño; usá `gh` para ver el resto] …";
+const TRUNCATION_MARKER: &str =
+    "\n… [contenido truncado por límite de tamaño; usá `gh` para ver el resto] …";
 
 /// Fallback prompt for the "Fix merge conflicts" flow when the orchestrator
 /// could NOT pre-merge server-side (sad path: dirty worktree, another op in
@@ -275,7 +276,13 @@ pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
             local; el sistema somete la review por vos.\n\
          2. Mirá el diff contra la rama base con \
             `git diff $(git merge-base HEAD {head_sha}) {head_sha}` \
-            (o directamente `git log --stat {head_sha}` para el resumen).\n\
+            (o directamente `git log --stat {head_sha}` para el resumen). \
+            Revisá TODO el diff contra tu checklist completo en esta pasada y \
+            listá en `items` todo lo que encuentres, no sólo el primer problema: \
+            las rondas de review son limitadas y lo que dejes para la próxima \
+            puede no tener próxima. En un re-review, verificá lo que pediste \
+            antes y lo que cambió; no abras objeciones nuevas sobre código que \
+            ya estaba, salvo un blocker que se te pasó (decilo explícitamente).\n\
          3. Escribí tu veredicto en `.vk/review.json` con este esquema exacto:\n\
          \n\
          ```json\n\
@@ -537,8 +544,8 @@ mod tests {
         let block = render_comments_block(&comments, COMMENTS_BLOCK_MAX_BYTES).unwrap();
         let prompt = format_address_pr_comments_prompt(
             42,
-            "https://github.com/mdevel-uy/vibe-kanban/pull/42",
-            Some("mdevel-uy/vibe-kanban"),
+            "https://github.com/acme/widgets/pull/42",
+            Some("acme/widgets"),
             Some(&block),
         );
         // Body contains the comments verbatim
@@ -555,7 +562,7 @@ mod tests {
             "prompt must not tell the agent to substitute owner/repo"
         );
         // Owner/repo is resolved for any remaining gh invocations
-        assert!(prompt.contains("mdevel-uy/vibe-kanban"));
+        assert!(prompt.contains("acme/widgets"));
         // No stray full-URL substitution as owner/repo (root cause of the
         // reviewer note on PR #490): `-R https://...` would be nonsense.
         assert!(!prompt.contains("-R https://"));
@@ -572,13 +579,13 @@ mod tests {
     fn address_pr_comments_prompt_falls_back_when_enrichment_missing() {
         let prompt = format_address_pr_comments_prompt(
             7,
-            "https://github.com/mdevel-uy/vibe-kanban/pull/7",
-            Some("mdevel-uy/vibe-kanban"),
+            "https://github.com/acme/widgets/pull/7",
+            Some("acme/widgets"),
             None,
         );
         // Fallback tells the agent to fetch, but owner/repo is already resolved
-        assert!(prompt.contains("gh pr view 7 -R mdevel-uy/vibe-kanban --comments"));
-        assert!(prompt.contains("gh api repos/mdevel-uy/vibe-kanban/pulls/7/comments"));
+        assert!(prompt.contains("gh pr view 7 -R acme/widgets --comments"));
+        assert!(prompt.contains("gh api repos/acme/widgets/pulls/7/comments"));
         assert!(!prompt.contains("{{owner}}") && !prompt.contains("{{repo}}"));
         assert!(!prompt.contains("-R https://"));
         assert!(
@@ -628,8 +635,8 @@ mod tests {
         let block = render_failed_checks_block(&checks, FAILED_CHECKS_BLOCK_MAX_BYTES).unwrap();
         let prompt = format_fix_ci_prompt(
             99,
-            "https://github.com/mdevel-uy/vibe-kanban/pull/99",
-            Some("mdevel-uy/vibe-kanban"),
+            "https://github.com/acme/widgets/pull/99",
+            Some("acme/widgets"),
             Some(&block),
         );
         assert!(prompt.contains("backend (failure)"));
@@ -649,11 +656,11 @@ mod tests {
     fn fix_ci_prompt_fallback_still_resolves_owner_repo() {
         let prompt = format_fix_ci_prompt(
             12,
-            "https://github.com/mdevel-uy/vibe-kanban/pull/12",
-            Some("mdevel-uy/vibe-kanban"),
+            "https://github.com/acme/widgets/pull/12",
+            Some("acme/widgets"),
             None,
         );
-        assert!(prompt.contains("gh pr checks 12 -R mdevel-uy/vibe-kanban"));
+        assert!(prompt.contains("gh pr checks 12 -R acme/widgets"));
         assert!(!prompt.contains("--watch"));
     }
 
@@ -740,8 +747,8 @@ mod tests {
     #[test]
     fn parse_owner_repo_from_pr_url_happy_path() {
         assert_eq!(
-            parse_owner_repo_from_pr_url("https://github.com/mdevel-uy/vibe-kanban/pull/42"),
-            Some("mdevel-uy/vibe-kanban".into())
+            parse_owner_repo_from_pr_url("https://github.com/acme/widgets/pull/42"),
+            Some("acme/widgets".into())
         );
         assert_eq!(
             parse_owner_repo_from_pr_url("https://github.enterprise.com/team/repo/pull/1"),

@@ -109,7 +109,7 @@ partir de la licencia firmada. No existe un flag `is_suspended` en disco ni en
 la DB que se pueda flipear — ese ataque no aplica. Persistido solo hay:
 `license.json` (firmado ed25519) y `license_state.json` (`last_seen`,
 `degraded_since`). La verificación usa las claves públicas embebidas en el
-binario en tiempo de compilación (`MKANBAN_LICENSE_PUBKEYS`, nombre heredado de mkanban).
+binario en tiempo de compilación (`FLUKE_LICENSE_PUBKEYS`).
 
 Es un check **del lado del cliente**, que corre con root en el servidor del
 cliente. Ningún esquema offline sobrevive a eso. Por capas:

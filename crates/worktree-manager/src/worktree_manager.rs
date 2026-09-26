@@ -545,7 +545,7 @@ impl WorktreeManager {
 
     /// Get the default base directory (ignoring any override)
     pub fn get_default_worktree_base_dir() -> std::path::PathBuf {
-        utils::path::get_vibe_kanban_temp_dir().join("worktrees")
+        utils::path::get_fluke_temp_dir().join("worktrees")
     }
 
     pub async fn cleanup_suspected_worktree(path: &Path) -> Result<bool, WorktreeError> {

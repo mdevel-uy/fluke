@@ -64,10 +64,7 @@ pub trait GitHostProvider: Send + Sync {
     /// so the agent doesn't have to reach for `gh pr checks` from its prompt.
     /// Returns an empty vec when the host reports no failing checks or does
     /// not implement check introspection (Azure DevOps).
-    async fn get_pr_failed_checks(
-        &self,
-        pr_url: &str,
-    ) -> Result<Vec<PrFailedCheck>, GitHostError>;
+    async fn get_pr_failed_checks(&self, pr_url: &str) -> Result<Vec<PrFailedCheck>, GitHostError>;
 
     /// Return the latest actionable review state for a PR, if any.
     /// Possible values: `"approved"`, `"changes_requested"`. Returns `None`
@@ -86,6 +83,19 @@ pub trait GitHostProvider: Send + Sync {
         &self,
         pr_url: &str,
     ) -> Result<Option<LatestPrReview>, GitHostError>;
+
+    /// Mark the PR's requested changes as addressed once the author pushed a
+    /// fix: dismiss the changes-requested reviews with `message` and resolve
+    /// the open review threads. Returns `(reviews_dismissed, threads_resolved)`;
+    /// hosts without the concept do nothing.
+    async fn mark_changes_addressed(
+        &self,
+        _pr_url: &str,
+        _message: &str,
+        _submitted_before: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(usize, usize), GitHostError> {
+        Ok((0, 0))
+    }
 
     /// Current head SHA of a PR. Pinned at review dispatch so the eventual
     /// review submission ties its verdict to a specific commit even when the

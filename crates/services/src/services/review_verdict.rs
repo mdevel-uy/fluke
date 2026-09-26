@@ -445,11 +445,9 @@ mod tests {
     /// italicised `_(severity)_`.
     #[test]
     fn compose_body_severity_uses_clean_markdown() {
-        let verdict = v(
-            r#"{"verdict":"request_changes","summary":"...","items":[
+        let verdict = v(r#"{"verdict":"request_changes","summary":"...","items":[
                 {"comment":"c","severity":"blocker"}
-            ]}"#,
-        )
+            ]}"#)
         .unwrap();
         let body = compose_body(&verdict);
         assert!(
@@ -472,15 +470,13 @@ mod tests {
     /// dentro deben quedar inline.
     #[test]
     fn demote_items_outside_diff_folds_only_offenders() {
-        let mut verdict = v(
-            r#"{"verdict":"request_changes","summary":"...","items":[
+        let mut verdict = v(r#"{"verdict":"request_changes","summary":"...","items":[
                 {"path":"in_diff.rs","line":10,"comment":"stays inline"},
                 {"path":"in_diff.rs","line":99,"comment":"line outside hunks"},
                 {"path":"untouched.sql","line":15,"comment":"file not in PR","severity":"blocker"},
                 {"path":"huge.rs","line":500,"comment":"patch omitted, benefit of the doubt"},
                 {"comment":"body-only, untouched by demotion"}
-            ]}"#,
-        )
+            ]}"#)
         .unwrap();
         let mut diff = DiffLineMap::new();
         diff.insert("in_diff.rs".to_string(), Some(HashSet::from([9, 10, 11])));
@@ -488,23 +484,28 @@ mod tests {
 
         let demoted = demote_items_outside_diff(&mut verdict, &diff);
         assert_eq!(demoted, 2);
-        assert_eq!(inline_items(&verdict).len(), 2, "in-diff + unknown-coverage stay inline");
+        assert_eq!(
+            inline_items(&verdict).len(),
+            2,
+            "in-diff + unknown-coverage stay inline"
+        );
 
         let body = compose_body(&verdict);
         assert!(body.contains("(línea 99) line outside hunks"));
         assert!(body.contains("(línea 15) file not in PR"));
-        assert!(body.contains("`untouched.sql`"), "demoted item keeps its path as context");
+        assert!(
+            body.contains("`untouched.sql`"),
+            "demoted item keeps its path as context"
+        );
         assert!(!body.contains("stays inline"));
     }
 
     #[test]
     fn demote_all_items_forces_everything_to_body() {
-        let mut verdict = v(
-            r#"{"verdict":"request_changes","summary":"...","items":[
+        let mut verdict = v(r#"{"verdict":"request_changes","summary":"...","items":[
                 {"path":"a.rs","line":1,"comment":"one"},
                 {"path":"b.rs","line":2,"comment":"two"}
-            ]}"#,
-        )
+            ]}"#)
         .unwrap();
         assert_eq!(demote_all_items(&mut verdict), 2);
         assert!(inline_items(&verdict).is_empty());

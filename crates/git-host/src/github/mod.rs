@@ -433,10 +433,7 @@ impl GitHostProvider for GitHubProvider {
             .map_err(GitHostError::from)
     }
 
-    async fn get_pr_failed_checks(
-        &self,
-        pr_url: &str,
-    ) -> Result<Vec<PrFailedCheck>, GitHostError> {
+    async fn get_pr_failed_checks(&self, pr_url: &str) -> Result<Vec<PrFailedCheck>, GitHostError> {
         let cli = self.gh_cli.clone();
         let url = pr_url.to_string();
         task::spawn_blocking(move || cli.get_pr_failed_checks(&url))
@@ -460,6 +457,25 @@ impl GitHostProvider for GitHubProvider {
             .map_err(|err| {
                 GitHostError::PullRequest(format!(
                     "Failed to execute GitHub CLI for PR review state check: {err}"
+                ))
+            })?
+            .map_err(GitHostError::from)
+    }
+
+    async fn mark_changes_addressed(
+        &self,
+        pr_url: &str,
+        message: &str,
+        submitted_before: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(usize, usize), GitHostError> {
+        let cli = self.gh_cli.clone();
+        let url = pr_url.to_string();
+        let message = message.to_string();
+        task::spawn_blocking(move || cli.mark_changes_addressed(&url, &message, submitted_before))
+            .await
+            .map_err(|err| {
+                GitHostError::PullRequest(format!(
+                    "Failed to execute GitHub CLI to mark changes addressed: {err}"
                 ))
             })?
             .map_err(GitHostError::from)

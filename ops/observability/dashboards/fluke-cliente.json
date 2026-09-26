@@ -572,7 +572,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "Memoria usada por el contenedor `mkanban` (cadvisor). Si sube y se estabiliza cerca del límite del host, revisar leaks del server.",
+      "description": "Memoria usada por el contenedor `fluke` (cadvisor). Si sube y se estabiliza cerca del límite del host, revisar leaks del server.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -627,7 +627,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (container_memory_usage_bytes{proyecto=\"fluke\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|mkanban|fluke|alloy\"})",
+          "expr": "sum by (name) (container_memory_usage_bytes{proyecto=\"fluke\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"fluke|alloy\"})",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -641,7 +641,7 @@
         "type": "prometheus",
         "uid": "${datasource_prom}"
       },
-      "description": "CPU consumida por el contenedor `mkanban` (cadvisor), como fracción de un core.",
+      "description": "CPU consumida por el contenedor `fluke` (cadvisor), como fracción de un core.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -696,7 +696,7 @@
             "uid": "${datasource_prom}"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{proyecto=\"fluke\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"vibe-kanban|mkanban|fluke|alloy\"}[5m]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{proyecto=\"fluke\", cliente=\"$cliente\", instancia=\"$instancia\", name=~\"fluke|alloy\"}[5m]))",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"

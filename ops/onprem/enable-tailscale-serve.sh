@@ -37,7 +37,7 @@ if [[ -f ./.env ]]; then
   set +a
 fi
 
-FK_PORT="${FK_PORT:-${MK_PORT:-3000}}"
+FK_PORT="${FK_PORT:-3000}"
 UPSTREAM="http://127.0.0.1:${FK_PORT}"
 
 log() { echo "[ts-serve $(date -u +%FT%TZ)] $*"; }

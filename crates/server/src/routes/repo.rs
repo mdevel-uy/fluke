@@ -270,10 +270,9 @@ pub async fn get_repo_commit(
         .await?;
 
     let git = deployment.git().clone();
-    let detail =
-        tokio::task::spawn_blocking(move || git.get_commit_detail(&repo.path, &oid))
-            .await
-            .map_err(|e| ApiError::BadRequest(format!("Commit lookup failed: {e}")))??;
+    let detail = tokio::task::spawn_blocking(move || git.get_commit_detail(&repo.path, &oid))
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Commit lookup failed: {e}")))??;
     Ok(ResponseJson(ApiResponse::success(detail)))
 }
 
@@ -311,11 +310,9 @@ pub async fn create_repo_branch(
         .await?;
 
     let git = deployment.git().clone();
-    tokio::task::spawn_blocking(move || {
-        git.create_branch_at(&repo.path, &name, &request.at_oid)
-    })
-    .await
-    .map_err(|e| ApiError::BadRequest(format!("Branch creation failed: {e}")))??;
+    tokio::task::spawn_blocking(move || git.create_branch_at(&repo.path, &name, &request.at_oid))
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Branch creation failed: {e}")))??;
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
@@ -337,11 +334,10 @@ pub async fn get_repo_commit_tree(
         .await?;
 
     let git = deployment.git().clone();
-    let entries = tokio::task::spawn_blocking(move || {
-        git.get_commit_tree(&repo.path, &oid, &query.path)
-    })
-    .await
-    .map_err(|e| ApiError::BadRequest(format!("Commit tree read failed: {e}")))??;
+    let entries =
+        tokio::task::spawn_blocking(move || git.get_commit_tree(&repo.path, &oid, &query.path))
+            .await
+            .map_err(|e| ApiError::BadRequest(format!("Commit tree read failed: {e}")))??;
     Ok(ResponseJson(ApiResponse::success(entries)))
 }
 
@@ -382,11 +378,10 @@ pub async fn get_repo_commit_file(
         .await?;
 
     let git = deployment.git().clone();
-    let content = tokio::task::spawn_blocking(move || {
-        git.get_commit_file(&repo.path, &oid, &query.path)
-    })
-    .await
-    .map_err(|e| ApiError::BadRequest(format!("Commit file read failed: {e}")))??;
+    let content =
+        tokio::task::spawn_blocking(move || git.get_commit_file(&repo.path, &oid, &query.path))
+            .await
+            .map_err(|e| ApiError::BadRequest(format!("Commit file read failed: {e}")))??;
     Ok(ResponseJson(ApiResponse::success(CommitFileContent {
         content,
     })))

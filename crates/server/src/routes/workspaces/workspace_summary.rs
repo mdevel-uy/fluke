@@ -83,6 +83,9 @@ pub struct WorkspaceSummary {
     /// from silence before a verdict exists.
     #[ts(optional)]
     pub pr_review_activity: Option<String>,
+    /// The open PR spent every review round (`max_review_rounds`): the loop
+    /// stops dispatching reviews and author fixes, so it is waiting on a human.
+    pub pr_review_rounds_exhausted: bool,
     /// True while the orchestrator is publishing this developer worker's PR
     /// (push + adopt/create + `on_pr_open`). During this window the task is
     /// still `in_progress` in the DB but the agent has already stopped, so
@@ -169,17 +172,32 @@ pub async fn get_workspace_summaries(
             }
         })
         .collect();
-    let agent_signals: HashMap<Uuid, AgentLogSignals> =
-        futures_util::stream::iter(signal_futures)
-            .buffer_unordered(MAX_CONCURRENT_LOG_SCANS)
-            .collect()
-            .await;
+    let agent_signals: HashMap<Uuid, AgentLogSignals> = futures_util::stream::iter(signal_futures)
+        .buffer_unordered(MAX_CONCURRENT_LOG_SCANS)
+        .collect()
+        .await;
 
     // 7b. CI rollup per PR URL (recorded by pr_monitor)
     let ci_status_by_url = PullRequest::get_ci_status_by_url(pool).await?;
 
     // 7c. Review-loop activity: active reviewer task per (repo, pr_number)
     let reviewer_activity = WorkerTask::reviewer_activity_by_pr(pool).await?;
+
+    // 7d. Submitted review rounds per (repo, pr_number), against the same cap
+    //     the orchestrator enforces (dispatch_review_task / claim_author_fix).
+    let max_rounds = {
+        let cfg = deployment.config().read().await;
+        worker_orchestrator::resolve_max_review_rounds(&cfg)
+    };
+    let submitted_rounds: HashMap<(Uuid, i64), i64> = sqlx::query_as::<_, (Uuid, i64, i64)>(
+        "SELECT repo_id, pr_number, COUNT(*) FROM review_rounds
+          WHERE status = 'submitted' GROUP BY repo_id, pr_number",
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(repo_id, pr_number, count)| ((repo_id, pr_number), count))
+    .collect();
 
     // 8. Compute diff stats for each workspace (in parallel)
     let diff_futures: Vec<_> = workspaces
@@ -247,6 +265,14 @@ pub async fn get_workspace_summaries(
                     }
                     pr.repo_id
                         .and_then(|rid| reviewer_activity.get(&(rid, pr.pr_number)).cloned())
+                }),
+                pr_review_rounds_exhausted: pr_statuses.get(&id).is_some_and(|pr| {
+                    matches!(pr.pr_status, MergeStatus::Open)
+                        && pr.repo_id.is_some_and(|rid| {
+                            submitted_rounds
+                                .get(&(rid, pr.pr_number))
+                                .is_some_and(|n| *n >= max_rounds)
+                        })
                 }),
                 is_finalizing: worker_orchestrator::is_workspace_finalizing(id),
             }

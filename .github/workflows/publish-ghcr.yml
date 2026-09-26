@@ -23,8 +23,7 @@ permissions:
   contents: write # crear el tag de git vX.Y.Z tras publicar
   packages: write
 
-# La imagen se publica bajo la marca comercial (mkanban), no bajo el nombre
-# del repo. Cambiar acá si algún día se renombra el repositorio.
+# Nombre del paquete en GHCR. Cambiar acá cuando se renombre el paquete.
 env:
   IMAGE: ghcr.io/mdevel-uy/mkanban
 
@@ -115,5 +114,5 @@ jobs:
             echo "El tag v${VERSION} ya existe — no se recrea."
             exit 0
           fi
-          git tag -a "v${VERSION}" -m "mkanban ${VERSION}"
+          git tag -a "v${VERSION}" -m "fluke ${VERSION}"
           git push origin "v${VERSION}"
