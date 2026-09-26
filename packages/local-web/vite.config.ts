@@ -108,7 +108,7 @@ export default defineConfig({
         ],
       },
     }),
-    sentryVitePlugin({ org: 'mdevel-uy', project: 'mkanban' }),
+    sentryVitePlugin({ org: 'mdevel-uy', project: 'fluke' }),
     executorSchemasPlugin(),
   ],
   resolve: {
