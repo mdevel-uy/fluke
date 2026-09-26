@@ -61,8 +61,7 @@ where
     )
     .ok()?;
 
-    let service_name =
-        env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "fluke-remote".to_string());
+    let service_name = env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "fluke-remote".to_string());
 
     let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_resource(

@@ -13,7 +13,7 @@
 
 services:
   fluke:
-    image: ${FK_IMAGE:-ghcr.io/mdevel-uy/mkanban}:${FK_CHANNEL:-stable}
+    image: ${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/fluke}}:${FK_CHANNEL:-${MK_CHANNEL:-stable}}
     # Nombre fijo: update.sh lo usa para inspeccionar imagen corriente y health.
     container_name: fluke
     environment:
@@ -28,20 +28,20 @@ services:
       WORKER_MAX_IN_REVIEW: ${WORKER_MAX_IN_REVIEW:-}
       PLAN_UPGRADE_CTA_URL: ${PLAN_UPGRADE_CTA_URL:-}
       PLAN_UPGRADE_CTA_LABEL: ${PLAN_UPGRADE_CTA_LABEL:-}
-      FK_ALLOWED_ORIGINS: ${FK_ALLOWED_ORIGINS:-}
+      FK_ALLOWED_ORIGINS: ${FK_ALLOWED_ORIGINS:-${MK_ALLOWED_ORIGINS:-}}
       # Heartbeat al control plane de mdevel (licencia + métricas de
       # facturación). Vacío = no reporta (opt-in). El token auto-vincula la
       # instancia al cliente en el panel de control.
-      FLUKE_CONTROL_PLANE_URL: ${FLUKE_CONTROL_PLANE_URL:-}
-      FLUKE_INGEST_TOKEN: ${FLUKE_INGEST_TOKEN:-}
+      MKANBAN_CONTROL_PLANE_URL: ${MKANBAN_CONTROL_PLANE_URL:-}
+      MKANBAN_INGEST_TOKEN: ${MKANBAN_INGEST_TOKEN:-}
     # Bind por defecto a loopback: el patrón esperado es un reverse proxy
     # (Traefik/Caddy/Nginx) del host que termina TLS y hace forward acá.
     # Para exponer directo en la interfaz pública (sin proxy), sobreescribir
     # `FK_BIND_ADDR=0.0.0.0` en el `.env` — decisión consciente porque Docker
     # publica por iptables y bypassea ufw.
     ports:
-      - "${FK_BIND_ADDR:-127.0.0.1}:${FK_PORT:-3000}:3000"
-      - "${FK_BIND_ADDR:-127.0.0.1}:${FK_PREVIEW_PORT:-3009}:3009"
+      - "${FK_BIND_ADDR:-${MK_BIND_ADDR:-127.0.0.1}}:${FK_PORT:-${MK_PORT:-3000}}:3000"
+      - "${FK_BIND_ADDR:-${MK_BIND_ADDR:-127.0.0.1}}:${FK_PREVIEW_PORT:-${MK_PREVIEW_PORT:-3009}}:3009"
     volumes:
       - fk-repos:/repos
       - fk-home:/home/appuser

@@ -21,8 +21,8 @@ set -a
 source ./.env
 set +a
 
-IMAGE="${FK_IMAGE:-ghcr.io/mdevel-uy/mkanban}"
-CHANNEL="${FK_CHANNEL:-stable}"
+IMAGE="${FK_IMAGE:-${MK_IMAGE:-ghcr.io/mdevel-uy/fluke}}"
+CHANNEL="${FK_CHANNEL:-${MK_CHANNEL:-stable}}"
 SERVICE="fluke"
 CONTAINER="fluke"
 DATA_VOLUME="fk-home"
@@ -45,6 +45,16 @@ if docker volume inspect mk-home >/dev/null 2>&1 &&
    ! docker volume inspect "${DATA_VOLUME}" >/dev/null 2>&1; then
   log "ERROR: existe el volumen mk-home pero no ${DATA_VOLUME}."
   log "migrar los volúmenes antes de actualizar (RUNBOOK → Migración a Fluke)."
+  exit 1
+fi
+
+# Rebrand mkanban → Fluke: la imagen pasó a ghcr.io/mdevel-uy/fluke. El package
+# viejo solo se publica durante una release de transición; seguir apuntando ahí
+# deja la instancia "ya al día" para siempre sin error. Este update.sh solo
+# llega con la migración manual, así que es una migración a medias: abortar.
+if [[ "${IMAGE}" == "ghcr.io/mdevel-uy/mkanban" ]]; then
+  log "ERROR: la imagen configurada es ${IMAGE} (nombre viejo)."
+  log "cambiar FK_IMAGE a ghcr.io/mdevel-uy/fluke en .env (RUNBOOK → Migración a Fluke)."
   exit 1
 fi
 

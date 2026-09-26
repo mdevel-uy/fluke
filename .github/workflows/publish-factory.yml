@@ -35,8 +35,14 @@ permissions:
   contents: read
   packages: write
 
+# Rebrand mkanban -> Fluke (#581): se publica también con el nombre viejo
+# mientras el update.sh de la VPS factory siga bajando ghcr.io/mdevel-uy/mkanban.
+# Para retirarlo: en la VPS, cambiar la imagen en /opt/vibe-kanban/update.sh (el
+# que corre deploy-vps.yml) a ghcr.io/mdevel-uy/fluke:mdev, correr deploy-vps y
+# verificar, y recién después borrar IMAGE_LEGACY y sus tags de este workflow.
 env:
-  IMAGE: ghcr.io/mdevel-uy/mkanban
+  IMAGE: ghcr.io/mdevel-uy/fluke
+  IMAGE_LEGACY: ghcr.io/mdevel-uy/mkanban
 
 jobs:
   publish:
@@ -72,9 +78,11 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:mdev
             ${{ env.IMAGE }}:mdev-${{ github.sha }}
+            ${{ env.IMAGE_LEGACY }}:mdev
+            ${{ env.IMAGE_LEGACY }}:mdev-${{ github.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/mdevel-uy/mkanban
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -84,5 +92,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- \`$IMAGE:mdev\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- \`$IMAGE:mdev-${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE_LEGACY:mdev\` (transición; es la que baja hoy la VPS factory)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE_LEGACY:mdev-${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Para desplegarla, correr el workflow \`deploy-vps\`." >> "$GITHUB_STEP_SUMMARY"
