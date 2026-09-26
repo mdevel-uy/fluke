@@ -245,6 +245,9 @@ jobs:
           - macOS Apple Silicon: `mkanban_*_aarch64.dmg`. macOS Intel: `mkanban_*_x64.dmg`.
             Si macOS indica que no puede verificar la app: Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".
 
+          Si tenés instalada una versión anterior al rename a fluke (identificador `uy.mdevel.mkanban`): desinstalarla e instalar esta.
+          El identificador ahora es `uy.mdevel.fluke`, así que el SO la trata como otra app y la configuración local no se migra.
+
           Sin auto-update: para actualizar, bajar el instalador de la versión nueva e instalar encima.
           EOF
           gh release create "desktop-v$V" \
