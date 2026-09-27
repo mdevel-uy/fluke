@@ -1,5 +1,6 @@
 pub mod client;
 pub mod jsonrpc;
+pub mod models;
 pub mod normalize_logs;
 pub mod review;
 pub mod slash_commands;
@@ -54,6 +55,7 @@ use codex_app_server_protocol::{
 };
 use codex_protocol::config_types::ServiceTier;
 use derivative::Derivative;
+use futures::StreamExt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -77,7 +79,7 @@ use crate::{
         SlashCommandDescription, SpawnedChild, StandardCodingAgentExecutor,
     },
     logs::utils::patch,
-    model_selector::{ModelInfo, ModelSelectorConfig, PermissionPolicy, ReasoningOption},
+    model_selector::{ModelSelectorConfig, PermissionPolicy},
     profile::ExecutorConfig,
     stdout_dup::create_stdout_pipe_writer,
 };
@@ -314,68 +316,26 @@ impl StandardCodingAgentExecutor for Codex {
         _workdir: Option<&std::path::Path>,
         _repo_path: Option<&std::path::Path>,
     ) -> Result<futures::stream::BoxStream<'static, json_patch::Patch>, ExecutorError> {
-        let xhigh_reasoning_options = ReasoningOption::from_names(
-            [
-                ReasoningEffort::Low,
-                ReasoningEffort::Medium,
-                ReasoningEffort::High,
-                ReasoningEffort::Xhigh,
-            ]
-            .map(|e| e.as_ref().to_string()),
-        );
+        use crate::{
+            executor_discovery::ExecutorConfigCacheKey, executors::utils::executor_options_cache,
+        };
 
-        let options = ExecutorDiscoveredOptions {
+        let cache = executor_options_cache();
+        let cache_key = ExecutorConfigCacheKey::new(
+            None,
+            serde_json::to_string(&self.cmd).unwrap_or_default(),
+            BaseCodingAgent::Codex,
+        );
+        if let Some(cached) = cache.get(&cache_key) {
+            return Ok(Box::pin(futures::stream::once(async move {
+                patch::executor_discovered_options(cached.as_ref().clone())
+            })));
+        }
+
+        let fetch_target = self.openai_models_target();
+        let mut options = ExecutorDiscoveredOptions {
             model_selector: ModelSelectorConfig {
-                models: vec![
-                    ModelInfo {
-                        id: "gpt-5.5".to_string(),
-                        name: "GPT-5.5".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.5-fast".to_string(),
-                        name: "GPT-5.5 Fast".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.4".to_string(),
-                        name: "GPT-5.4".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.4-fast".to_string(),
-                        name: "GPT-5.4 Fast".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.4-mini".to_string(),
-                        name: "GPT-5.4 Mini".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.3-codex".to_string(),
-                        name: "GPT-5.3 Codex".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.3-codex-spark".to_string(),
-                        name: "GPT-5.3 Codex Spark".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options.clone(),
-                    },
-                    ModelInfo {
-                        id: "gpt-5.2".to_string(),
-                        name: "GPT-5.2".to_string(),
-                        provider_id: None,
-                        reasoning_options: xhigh_reasoning_options,
-                    },
-                ],
+                models: models::fallback_models(),
                 permissions: vec![
                     PermissionPolicy::Auto,
                     PermissionPolicy::Supervised,
@@ -419,9 +379,41 @@ impl StandardCodingAgentExecutor for Codex {
             ],
             ..Default::default()
         };
-        Ok(Box::pin(futures::stream::once(async move {
-            patch::executor_discovered_options(options)
-        })))
+        options.loading_models = fetch_target.is_some();
+        let initial_patch = patch::executor_discovered_options(options.clone());
+
+        let Some((api_key, base_url)) = fetch_target else {
+            // ChatGPT login / OSS / custom provider: the built-in list is final.
+            return Ok(Box::pin(futures::stream::once(
+                async move { initial_patch },
+            )));
+        };
+
+        let discovery_stream = async_stream::stream! {
+            match models::fetch_openai_models(&api_key, base_url.as_deref()).await {
+                Ok(fetched) if !fetched.is_empty() => {
+                    options.model_selector.models = fetched.clone();
+                    options.loading_models = false;
+                    cache.put(cache_key, options);
+                    yield patch::update_models(fetched);
+                    yield patch::models_loaded();
+                }
+                Ok(_) => {
+                    tracing::warn!("OpenAI /models returned no coding models; using built-in list");
+                    yield patch::models_loaded();
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to fetch Codex models from OpenAI, using fallback: {e}");
+                    yield patch::models_error(format!(
+                        "Could not load models from OpenAI ({e}). Using built-in list."
+                    ));
+                }
+            }
+        };
+
+        Ok(Box::pin(
+            futures::stream::once(async move { initial_patch }).chain(discovery_stream),
+        ))
     }
 
     async fn spawn_review(
@@ -446,6 +438,30 @@ impl StandardCodingAgentExecutor for Codex {
 impl Codex {
     pub fn base_command() -> &'static str {
         "npx -y @openai/codex@0.124.0"
+    }
+
+    /// API key and optional base URL (`OPENAI_BASE_URL`, as honored by the
+    /// Codex CLI) for listing models. `None` when models can't come from the
+    /// OpenAI API: OSS mode, a non-OpenAI `model_provider`, or no API key
+    /// (ChatGPT login) — in those cases the built-in list is used silently.
+    fn openai_models_target(&self) -> Option<(String, Option<String>)> {
+        if self.oss.unwrap_or(false)
+            || self
+                .model_provider
+                .as_deref()
+                .is_some_and(|p| !p.eq_ignore_ascii_case("openai"))
+        {
+            return None;
+        }
+        let var = |name: &str| {
+            self.cmd
+                .env
+                .as_ref()
+                .and_then(|env| env.get(name).cloned())
+                .or_else(|| env::var(name).ok())
+                .filter(|v| !v.trim().is_empty())
+        };
+        Some((var("OPENAI_API_KEY")?, var("OPENAI_BASE_URL")))
     }
 
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
