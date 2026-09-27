@@ -294,7 +294,11 @@ export function StatusBarContainer({
               {t('statusBar.openProject', { defaultValue: 'Open project…' })}
             </span>
           </DropdownMenuItem>
-          <DropdownMenuItem
+          {/* TEMPORALMENTE OCULTO — "Pair remote host…"
+              Para restaurar: descomentar el DropdownMenuItem completo hasta el
+              cierre </DropdownMenuItem>.
+              Contexto: no hay ningún remote host disponible todavía. Ver issue #601. */}
+          {/* <DropdownMenuItem
             onSelect={() =>
               void SettingsDialog.show({ initialSection: 'relay' })
             }
@@ -306,7 +310,7 @@ export function StatusBarContainer({
                 defaultValue: 'Pair remote host…',
               })}
             </span>
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
 
