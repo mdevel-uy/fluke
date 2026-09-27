@@ -229,6 +229,9 @@ impl StandardCodingAgentExecutor for Gemini {
             let Some(key) = api_key else {
                 // No key: the CLI is probably on OAuth / Vertex ADC. Keep the
                 // built-in list without surfacing an error.
+                tracing::debug!(
+                    "GEMINI_API_KEY / GOOGLE_API_KEY not set (env or ~/.gemini/.env); using built-in Gemini model list"
+                );
                 yield patch::models_loaded();
                 return;
             };
@@ -259,9 +262,13 @@ const GEMINI_MODELS_URL: &str = "https://generativelanguage.googleapis.com/v1bet
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 impl Gemini {
-    /// Same env vars the Gemini CLI reads: profile env override first, then process env.
+    /// Same sources the Gemini CLI reads: profile env override, then process env,
+    /// then `~/.gemini/.env` (where the app's Gemini login persists the key).
     fn resolve_api_key(&self) -> Option<String> {
-        ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+        let env_file = dirs::home_dir()
+            .and_then(|home| std::fs::read_to_string(home.join(".gemini").join(".env")).ok())
+            .unwrap_or_default();
+        GEMINI_KEY_VARS
             .iter()
             .find_map(|name| {
                 self.cmd
@@ -271,7 +278,27 @@ impl Gemini {
                     .or_else(|| std::env::var(name).ok())
                     .filter(|k| !k.trim().is_empty())
             })
+            .or_else(|| api_key_from_env_file(&env_file))
     }
+}
+
+const GEMINI_KEY_VARS: [&str; 2] = ["GEMINI_API_KEY", "GOOGLE_API_KEY"];
+
+/// Parse `GEMINI_API_KEY=` / `GOOGLE_API_KEY=` lines from a dotenv file.
+fn api_key_from_env_file(contents: &str) -> Option<String> {
+    GEMINI_KEY_VARS.iter().find_map(|name| {
+        contents.lines().find_map(|line| {
+            let value = line
+                .trim_start()
+                .strip_prefix("export ")
+                .unwrap_or(line.trim_start())
+                .strip_prefix(name)?
+                .strip_prefix('=')?
+                .trim()
+                .trim_matches(|c| c == '"' || c == '\'');
+            (!value.is_empty()).then(|| value.to_string())
+        })
+    })
 }
 
 /// Minimal list used when the Google API is unreachable or no key is configured.
@@ -376,7 +403,9 @@ async fn fetch_gemini_models(api_key: &str) -> Result<Vec<ModelInfo>, String> {
     if models.is_empty() {
         return Err("no Gemini generative models returned".to_string());
     }
-    // Newest versions first (ids are versioned, e.g. gemini-3-pro > gemini-2.5-pro).
+    // Descending by id: numbered versions go newest first (gemini-3-pro >
+    // gemini-2.5-pro), but unnumbered aliases (gemini-pro-latest, gemini-exp-*)
+    // sort ahead of them. Good enough for a selector; not a release order.
     models.sort_by(|a, b| b.id.cmp(&a.id));
     models.dedup_by(|a, b| a.id == b.id);
     Ok(models)
@@ -393,6 +422,24 @@ mod tests {
             supported_generation_methods: methods.iter().map(|s| s.to_string()).collect(),
         })
         .map(|m| m.id)
+    }
+
+    #[test]
+    fn reads_key_from_env_file() {
+        assert_eq!(
+            api_key_from_env_file("FOO=1\nGEMINI_API_KEY=abc\n").as_deref(),
+            Some("abc")
+        );
+        assert_eq!(
+            api_key_from_env_file("GOOGLE_API_KEY=\"xyz\"").as_deref(),
+            Some("xyz")
+        );
+        assert_eq!(
+            api_key_from_env_file("GOOGLE_API_KEY=g\nGEMINI_API_KEY=m").as_deref(),
+            Some("m")
+        );
+        assert!(api_key_from_env_file("GEMINI_API_KEY=\nGEMINI_API_KEY_OLD=x").is_none());
+        assert!(api_key_from_env_file("").is_none());
     }
 
     #[test]
