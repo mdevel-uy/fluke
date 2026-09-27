@@ -335,7 +335,10 @@
     "label": "上下文使用量",
     "emptyTooltip": "上下文使用量将在下一次回复后显示",
     "tooltip": "上下文：{{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "上下文使用量：{{percentage}}%"
+    "ariaLabel": "上下文使用量：{{percentage}}%",
+    "cacheHot": "缓存有效 · {{remaining}} 后过期",
+    "cacheActive": "缓存有效 · 代理运行中",
+    "cacheCold": "缓存已失效 · 下一条消息将重新读取全部上下文"
   },
   "shortcuts": {
     "title": "键盘快捷键",

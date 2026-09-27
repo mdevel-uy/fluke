@@ -364,7 +364,10 @@
     "label": "Context usage",
     "emptyTooltip": "Context usage appears after the next reply",
     "tooltip": "Context: {{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "Context usage: {{percentage}}%"
+    "ariaLabel": "Context usage: {{percentage}}%",
+    "cacheHot": "Cache hot · expires in {{remaining}}",
+    "cacheActive": "Cache hot · agent running",
+    "cacheCold": "Cache cold · next message re-reads the full context"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",

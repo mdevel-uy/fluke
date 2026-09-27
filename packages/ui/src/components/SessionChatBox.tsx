@@ -200,6 +200,8 @@ interface SessionChatBoxProps<TExecutor extends string = string> {
   onScrollToUserMessage?: (patchKey: string) => void;
   getActiveTurnPatchKey?: () => string | null;
   tokenUsageInfo?: ContextUsageInfo | null;
+  /** Epoch ms when the prompt cache goes cold; Infinity while running. */
+  cacheExpiresAt?: number | null;
   supportsContextUsage?: boolean;
   dropzone?: DropzoneProps;
 }
@@ -316,6 +318,7 @@ export function SessionChatBox<TExecutor extends string = string>({
   onScrollToUserMessage,
   getActiveTurnPatchKey,
   tokenUsageInfo,
+  cacheExpiresAt,
   supportsContextUsage,
   dropzone,
 }: SessionChatBoxProps<TExecutor>) {
@@ -1052,7 +1055,10 @@ export function SessionChatBox<TExecutor extends string = string>({
           {/* Todo progress popup - always rendered, disabled when no todos */}
           <TodoProgressPopup todos={todos ?? []} />
           {supportsContextUsage && (
-            <ContextUsageGauge tokenUsageInfo={tokenUsageInfo} />
+            <ContextUsageGauge
+              tokenUsageInfo={tokenUsageInfo}
+              cacheExpiresAt={cacheExpiresAt}
+            />
           )}
           <ToolbarDropdown
             label={sessionLabel}
@@ -1128,7 +1134,10 @@ export function SessionChatBox<TExecutor extends string = string>({
               row; only shown once there is real usage data so it doesn't
               render as an empty ring */}
           {compact && supportsContextUsage && tokenUsageInfo && (
-            <ContextUsageGauge tokenUsageInfo={tokenUsageInfo} />
+            <ContextUsageGauge
+              tokenUsageInfo={tokenUsageInfo}
+              cacheExpiresAt={cacheExpiresAt}
+            />
           )}
           <ToolbarIconButton
             icon={PaperclipIcon}

@@ -5,7 +5,7 @@ import {
   type AskUserQuestionItem,
   BaseAgentCapability,
   type Session,
-  type BaseCodingAgent,
+  BaseCodingAgent,
   ExecutionProcessStatus,
 } from 'shared/types';
 import { AgentIcon } from '@/shared/components/AgentIcon';
@@ -65,6 +65,9 @@ import { RenameSessionDialog } from '@vibe/ui/components/RenameSessionDialog';
 import type { TurnNavigationItem } from '@vibe/ui/components/TurnNavigationPopup';
 
 /** Compute execution status from boolean flags */
+// Anthropic's default TTL; used until the run reports its own (cache_ttl_seconds).
+const DEFAULT_PROMPT_CACHE_TTL_S = 5 * 60;
+
 function computeExecutionStatus(params: {
   isInFeedbackMode: boolean;
   isInEditMode: boolean;
@@ -483,6 +486,35 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     capabilities?.[effectiveExecutor]?.includes(
       BaseAgentCapability.CONTEXT_USAGE
     );
+
+  // Anthropic prompt cache: Claude Code caches automatically and the TTL
+  // restarts on every API call, so it stays hot while the agent runs and
+  // for the reported TTL (5m or 1h) after its last process ends. Only shown
+  // when the usage reports cache tokens (caching can be disabled via env).
+  const cacheExpiresAt = useMemo(() => {
+    if (effectiveExecutor !== BaseCodingAgent.CLAUDE_CODE) return null;
+    if (
+      !tokenUsageInfo?.cache_read_input_tokens &&
+      !tokenUsageInfo?.cache_creation_input_tokens
+    )
+      return null;
+    const agentProcesses = processes.filter(
+      (p) =>
+        p.run_reason === 'codingagent' &&
+        !p.dropped &&
+        (!session || p.session_id === session.id)
+    );
+    if (agentProcesses.some((p) => p.status === ExecutionProcessStatus.running))
+      return Number.POSITIVE_INFINITY;
+    const lastEnd = Math.max(
+      ...agentProcesses.map((p) =>
+        p.completed_at ? Date.parse(p.completed_at) : 0
+      ),
+      0
+    );
+    const ttlS = tokenUsageInfo.cache_ttl_seconds ?? DEFAULT_PROMPT_CACHE_TTL_S;
+    return lastEnd ? lastEnd + ttlS * 1000 : null;
+  }, [effectiveExecutor, tokenUsageInfo, processes, session]);
 
   // Navigate to agent settings to customise variants
   const handleCustomise = () => {
@@ -1040,6 +1072,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
       renderEditor={renderEditor}
       repoIds={repoIds}
       tokenUsageInfo={tokenUsageInfo}
+      cacheExpiresAt={cacheExpiresAt}
       supportsContextUsage={supportsContextUsage}
       formatExecutorLabel={toPrettyCase}
       formatSessionDate={(createdAt) =>

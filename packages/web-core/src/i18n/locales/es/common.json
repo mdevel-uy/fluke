@@ -350,7 +350,10 @@
     "label": "Uso del contexto",
     "emptyTooltip": "El uso del contexto aparece después de la próxima respuesta",
     "tooltip": "Contexto: {{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "Uso del contexto: {{percentage}}%"
+    "ariaLabel": "Uso del contexto: {{percentage}}%",
+    "cacheHot": "Caché activa · vence en {{remaining}}",
+    "cacheActive": "Caché activa · agente en ejecución",
+    "cacheCold": "Caché fría · el próximo mensaje relee todo el contexto"
   },
   "shortcuts": {
     "title": "Atajos de Teclado",

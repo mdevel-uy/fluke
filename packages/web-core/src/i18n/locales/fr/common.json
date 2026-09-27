@@ -335,7 +335,10 @@
     "label": "Utilisation du contexte",
     "emptyTooltip": "L'utilisation du contexte apparaît après la prochaine réponse",
     "tooltip": "Contexte : {{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "Utilisation du contexte : {{percentage}}%"
+    "ariaLabel": "Utilisation du contexte : {{percentage}}%",
+    "cacheHot": "Cache actif · expire dans {{remaining}}",
+    "cacheActive": "Cache actif · agent en cours",
+    "cacheCold": "Cache froid · le prochain message relit tout le contexte"
   },
   "shortcuts": {
     "title": "Raccourcis Clavier",

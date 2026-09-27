@@ -782,6 +782,8 @@ pub struct ClaudeLogProcessor {
     /// to the last-emitted `TokenUsageInfo` so the exit monitor can read it
     /// back from msg_store without re-parsing raw stdout.
     last_total_cost_usd: Option<f64>,
+    /// Prompt-cache TTL, sticky: turns that only read the cache don't report it.
+    cache_ttl_seconds: Option<u32>,
 }
 
 impl ClaudeLogProcessor {
@@ -803,6 +805,7 @@ impl ClaudeLogProcessor {
             context_tokens_used: 0,
             last_usage_breakdown: None,
             last_total_cost_usd: None,
+            cache_ttl_seconds: None,
         }
     }
 
@@ -1441,6 +1444,7 @@ impl ClaudeLogProcessor {
                 }
             }
             ClaudeJson::Assistant { message, .. } => {
+                self.observe_cache_ttl(message.usage.as_ref());
                 if let Some(patch) = extract_model_name(self, message, entry_index_provider) {
                     patches.push(patch);
                 }
@@ -1818,6 +1822,7 @@ impl ClaudeLogProcessor {
                 }
                 ClaudeStreamEvent::ContentBlockStop { .. } => {}
                 ClaudeStreamEvent::MessageDelta { usage, .. } => {
+                    self.observe_cache_ttl(usage.as_ref());
                     // do not report context token usage for subagents
                     if parent_tool_use_id.is_none()
                         && let Some(usage) = usage
@@ -1846,8 +1851,10 @@ impl ClaudeLogProcessor {
                 subtype,
                 result,
                 total_cost_usd,
+                usage,
                 ..
             } => {
+                self.observe_cache_ttl(usage.as_ref());
                 // Capture Claude's own USD figure before re-emitting the
                 // token entry, so the last TokenUsageInfo carries the cost.
                 let mut token_entry_needed = false;
@@ -2117,6 +2124,12 @@ impl ClaudeLogProcessor {
         }
     }
 
+    fn observe_cache_ttl(&mut self, usage: Option<&ClaudeUsage>) {
+        if let Some(ttl) = usage.and_then(ClaudeUsage::cache_ttl_seconds) {
+            self.cache_ttl_seconds = Some(ttl);
+        }
+    }
+
     fn add_token_usage_entry(
         &mut self,
         entry_index_provider: &EntryIndexProvider,
@@ -2138,6 +2151,7 @@ impl ClaudeLogProcessor {
                     .filter(|&n| n > 0),
                 total_cost_usd: self.last_total_cost_usd,
                 model: self.main_model_name.clone(),
+                cache_ttl_seconds: self.cache_ttl_seconds,
             }),
             content: format!(
                 "Tokens used: {} / Context window: {}",
@@ -2476,6 +2490,8 @@ pub struct ClaudeMessage {
     pub model: Option<String>,
     pub content: ClaudeMessageContent,
     pub stop_reason: Option<String>,
+    #[serde(default)]
+    pub usage: Option<ClaudeUsage>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -2588,6 +2604,31 @@ pub struct ClaudeUsage {
     pub cache_read_input_tokens: Option<u64>,
     #[serde(default)]
     pub service_tier: Option<String>,
+    /// Cache-write split by TTL; tells whether Claude Code uses the 5m or 1h cache.
+    #[serde(default)]
+    pub cache_creation: Option<ClaudeCacheCreation>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
+pub struct ClaudeCacheCreation {
+    #[serde(default)]
+    pub ephemeral_5m_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub ephemeral_1h_input_tokens: Option<u64>,
+}
+
+impl ClaudeUsage {
+    /// TTL of the cache entries this turn wrote, if it wrote any.
+    fn cache_ttl_seconds(&self) -> Option<u32> {
+        let c = self.cache_creation.as_ref()?;
+        if c.ephemeral_1h_input_tokens.unwrap_or(0) > 0 {
+            Some(3600)
+        } else if c.ephemeral_5m_input_tokens.unwrap_or(0) > 0 {
+            Some(300)
+        } else {
+            None
+        }
+    }
 }
 
 /// Per-model usage statistics from result message
@@ -2962,6 +3003,24 @@ mod tests {
             "cost missing from TokenUsageInfo: {:?}",
             usage_entry.total_cost_usd
         );
+    }
+
+    #[test]
+    fn test_cache_ttl_from_cache_creation_split() {
+        let result_json = r#"{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5,"usage":{"cache_read_input_tokens":900,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":42}}}"#;
+        let parsed: ClaudeJson = serde_json::from_str(result_json).unwrap();
+        let ttl = normalize(&parsed, "").iter().find_map(|e| match &e.entry_type {
+            NormalizedEntryType::TokenUsageInfo(info) => Some(info.cache_ttl_seconds),
+            _ => None,
+        });
+        assert_eq!(ttl, Some(Some(3600)));
+
+        let five_min: ClaudeUsage = serde_json::from_str(
+            r#"{"cache_creation":{"ephemeral_5m_input_tokens":7,"ephemeral_1h_input_tokens":0}}"#,
+        )
+        .unwrap();
+        assert_eq!(five_min.cache_ttl_seconds(), Some(300));
+        assert_eq!(ClaudeUsage::default().cache_ttl_seconds(), None);
     }
 
     #[test]

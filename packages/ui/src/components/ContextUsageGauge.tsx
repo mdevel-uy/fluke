@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn';
 import { Tooltip } from './Tooltip';
@@ -14,14 +14,36 @@ function clamp(value: number, min: number, max: number) {
 
 export interface ContextUsageGaugeProps {
   tokenUsageInfo?: ContextUsageInfo | null;
+  /** Epoch ms when the prompt cache goes cold; Infinity while running. */
+  cacheExpiresAt?: number | null;
   className?: string;
+}
+
+/** Remaining ms until cacheExpiresAt, re-rendering every second while hot. */
+function useCacheRemaining(expiresAt: number | null | undefined) {
+  const [now, setNow] = useState(() => Date.now());
+  const ticking = !!expiresAt && Number.isFinite(expiresAt) && expiresAt > now;
+  useEffect(() => {
+    if (!ticking) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [ticking]);
+  return expiresAt ? expiresAt - now : null;
+}
+
+function formatMmSs(ms: number) {
+  const total = Math.ceil(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export function ContextUsageGauge({
   tokenUsageInfo,
+  cacheExpiresAt,
   className,
 }: ContextUsageGaugeProps) {
   const { t } = useTranslation('common');
+  const cacheRemaining = useCacheRemaining(cacheExpiresAt);
+  const cacheHot = cacheRemaining !== null && cacheRemaining > 0;
   const { percentage, formattedUsed, formattedTotal, status } = useMemo(() => {
     if (!tokenUsageInfo || tokenUsageInfo.model_context_window === 0) {
       return {
@@ -62,7 +84,18 @@ export function ContextUsageGauge({
 
   const progress = clamp(percentage / 100, 0, 1);
 
-  const tooltip =
+  const cacheLine =
+    cacheRemaining === null
+      ? null
+      : !cacheHot
+        ? t('contextUsage.cacheCold')
+        : Number.isFinite(cacheRemaining)
+          ? t('contextUsage.cacheHot', {
+              remaining: formatMmSs(cacheRemaining),
+            })
+          : t('contextUsage.cacheActive');
+
+  const usageTooltip =
     status === 'empty'
       ? t('contextUsage.emptyTooltip')
       : t('contextUsage.tooltip', {
@@ -70,6 +103,7 @@ export function ContextUsageGauge({
           used: formattedUsed,
           total: formattedTotal,
         });
+  const tooltip = cacheLine ? `${usageTooltip} · ${cacheLine}` : usageTooltip;
 
   const progressColor =
     status === 'empty'
@@ -92,7 +126,7 @@ export function ContextUsageGauge({
       <div
         className={cn(
           'flex items-center justify-center rounded-sm p-half',
-          'hover:bg-panel transition-colors cursor-help',
+          'relative hover:bg-panel transition-colors cursor-help',
           className
         )}
         aria-label={
@@ -134,6 +168,12 @@ export function ContextUsageGauge({
             )}
           />
         </svg>
+        {cacheHot && (
+          <span
+            aria-hidden="true"
+            className="absolute right-0 top-0 size-1.5 rounded-full bg-success"
+          />
+        )}
       </div>
     </Tooltip>
   );

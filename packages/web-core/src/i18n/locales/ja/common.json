@@ -335,7 +335,10 @@
     "label": "コンテキスト使用量",
     "emptyTooltip": "コンテキスト使用量は次の返信後に表示されます",
     "tooltip": "コンテキスト: {{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "コンテキスト使用量: {{percentage}}%"
+    "ariaLabel": "コンテキスト使用量: {{percentage}}%",
+    "cacheHot": "キャッシュ有効 · 残り {{remaining}}",
+    "cacheActive": "キャッシュ有効 · エージェント実行中",
+    "cacheCold": "キャッシュ切れ · 次のメッセージでコンテキスト全体を再読み込み"
   },
   "shortcuts": {
     "title": "キーボードショートカット",
