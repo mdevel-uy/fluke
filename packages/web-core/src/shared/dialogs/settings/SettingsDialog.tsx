@@ -7,7 +7,8 @@ import { defineModal } from '@/shared/lib/modals';
 
 import { cn } from '@/shared/lib/utils';
 import { SettingsSection } from './settings/SettingsSection';
-import { SettingsSelect } from './settings/SettingsComponents';
+// Oculto por #601 (selector de host):
+// import { SettingsSelect } from './settings/SettingsComponents';
 import type {
   SettingsSectionType,
   SettingsSectionInitialState,
@@ -47,27 +48,24 @@ function SettingsDialogNavigation({
   onSectionSelect: (sectionId: SettingsSectionType) => void;
 }) {
   const { t } = useTranslation('settings');
-  const {
-    availableHosts,
-    hostsResolved,
-    selectedHost,
-    selectedHostId,
-    setSelectedHostId,
-  } = useSettingsHost();
+  // Oculto por #601: availableHosts/selectedHostId/setSelectedHostId solo los
+  // usaba el selector de host comentado más abajo.
+  const { hostsResolved, selectedHost } = useSettingsHost();
   const hostSections = SETTINGS_SECTION_DEFINITIONS.filter(
     (section) => section.group === 'host'
   );
   const universalSections = SETTINGS_SECTION_DEFINITIONS.filter(
     (section) => section.group === 'universal'
   );
-  const hostOptions = availableHosts.map((host) => ({
-    value: host.id,
-    label: host.status != null ? `${host.label} (${host.status})` : host.label,
-  }));
+  // Oculto por #601 (selector de host), restaurar junto con el bloque JSX:
+  // const hostOptions = availableHosts.map((host) => ({
+  //   value: host.id,
+  //   label: host.status != null ? `${host.label} (${host.status})` : host.label,
+  // }));
   const hostSettingsDisabled = !hostsResolved || !selectedHost;
-  const hostHint = !hostsResolved
-    ? t('settings.general.loading')
-    : t('settings.hostPicker.selectMachineHint');
+  // const hostHint = !hostsResolved
+  //   ? t('settings.general.loading')
+  //   : t('settings.hostPicker.selectMachineHint');
 
   const renderSectionButton = (sectionId: SettingsSectionType) => {
     const section = SETTINGS_SECTION_DEFINITIONS.find(
@@ -110,7 +108,13 @@ function SettingsDialogNavigation({
             {t('settings.layout.nav.machineSettings')}
           </div>
         </div>
-        <div className="px-2">
+        {/* TEMPORALMENTE OCULTO — selector de host ("This machine ▾")
+            Para restaurar: descomentar el <div className="px-2">...</div> completo
+            (SettingsSelect + hint de hostSettingsDisabled), junto con el import de
+            SettingsSelect y las variables hostOptions/hostHint de más arriba.
+            Contexto: no hay ningún remote host disponible todavía; el dropdown
+            solo mostraba "This machine" sin otras opciones. Ver issue #601. */}
+        {/* <div className="px-2">
           <SettingsSelect
             value={selectedHostId ?? undefined}
             options={hostOptions}
@@ -120,7 +124,7 @@ function SettingsDialogNavigation({
           {hostSettingsDisabled && (
             <p className="mt-2 px-1 text-xs text-low">{hostHint}</p>
           )}
-        </div>
+        </div> */}
         <div className="flex flex-col gap-1">
           {hostSections.map((section) => renderSectionButton(section.id))}
         </div>
