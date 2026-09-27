@@ -53,9 +53,12 @@ pub fn fallback_models() -> Vec<ModelInfo> {
     )
 }
 
-/// Keep only chat/coding models usable by Codex: GPT-5+ and o-series,
-/// excluding audio/image/realtime/search variants and dated snapshots.
+/// Keep only coding models usable by Codex: GPT-5+, o-series and `codex-*`,
+/// excluding audio/image/realtime/search variants, chat-tuned and `pro`
+/// models, and dated snapshots.
 fn is_coding_model(id: &str) -> bool {
+    /// Matched as whole `-` segments (`gpt-5-chat-latest`, `o3-pro`).
+    const EXCLUDED_SEGMENTS: &[&str] = &["chat", "pro"];
     const EXCLUDED: &[&str] = &[
         "audio",
         "realtime",
@@ -69,8 +72,14 @@ fn is_coding_model(id: &str) -> bool {
         "deep-research",
     ];
     let id = id.to_ascii_lowercase();
-    if EXCLUDED.iter().any(|w| id.contains(w)) || is_dated_snapshot(&id) {
+    if EXCLUDED.iter().any(|w| id.contains(w))
+        || id.split('-').any(|s| EXCLUDED_SEGMENTS.contains(&s))
+        || is_dated_snapshot(&id)
+    {
         return false;
+    }
+    if id.starts_with("codex-") {
+        return true;
     }
     let gpt5_plus = id
         .strip_prefix("gpt-")
@@ -247,6 +256,10 @@ mod tests {
             "gpt-image-1",
             "omni-moderation-latest",
             "o3-deep-research",
+            "codex-mini-latest",
+            "gpt-5-chat-latest",
+            "gpt-5-pro",
+            "o3-pro",
         ]
         .map(String::from);
         let got: Vec<String> = map_models(ids).into_iter().map(|m| m.id).collect();
@@ -257,6 +270,7 @@ mod tests {
                 "gpt-5.5-fast",
                 "gpt-5.4-mini",
                 "gpt-5.3-codex",
+                "codex-mini-latest",
                 "o4-mini",
                 "o3"
             ]

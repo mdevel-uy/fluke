@@ -321,9 +321,11 @@ impl StandardCodingAgentExecutor for Codex {
         };
 
         let cache = executor_options_cache();
+        // `oss` and `model_provider` decide whether the OpenAI catalog applies,
+        // so they must split the cache alongside `cmd`.
         let cache_key = ExecutorConfigCacheKey::new(
             None,
-            serde_json::to_string(&self.cmd).unwrap_or_default(),
+            serde_json::to_string(&(&self.cmd, self.oss, &self.model_provider)).unwrap_or_default(),
             BaseCodingAgent::Codex,
         );
         if let Some(cached) = cache.get(&cache_key) {
@@ -389,24 +391,30 @@ impl StandardCodingAgentExecutor for Codex {
             )));
         };
 
+        // Failures are cached too (same TTL) so a down API or bad key doesn't
+        // cost a 10s timeout on every selector open.
         let discovery_stream = async_stream::stream! {
+            options.loading_models = false;
             match models::fetch_openai_models(&api_key, base_url.as_deref()).await {
                 Ok(fetched) if !fetched.is_empty() => {
                     options.model_selector.models = fetched.clone();
-                    options.loading_models = false;
                     cache.put(cache_key, options);
                     yield patch::update_models(fetched);
                     yield patch::models_loaded();
                 }
                 Ok(_) => {
                     tracing::warn!("OpenAI /models returned no coding models; using built-in list");
+                    cache.put(cache_key, options);
                     yield patch::models_loaded();
                 }
                 Err(e) => {
                     tracing::warn!("Failed to fetch Codex models from OpenAI, using fallback: {e}");
-                    yield patch::models_error(format!(
+                    let error = format!(
                         "Could not load models from OpenAI ({e}). Using built-in list."
-                    ));
+                    );
+                    options.error = Some(error.clone());
+                    cache.put(cache_key, options);
+                    yield patch::models_error(error);
                 }
             }
         };
@@ -442,8 +450,8 @@ impl Codex {
 
     /// API key and optional base URL (`OPENAI_BASE_URL`, as honored by the
     /// Codex CLI) for listing models. `None` when models can't come from the
-    /// OpenAI API: OSS mode, a non-OpenAI `model_provider`, or no API key
-    /// (ChatGPT login) — in those cases the built-in list is used silently.
+    /// OpenAI API: OSS mode, a non-OpenAI `model_provider`, or no API key in
+    /// env nor `auth.json` (ChatGPT login) — the built-in list is used silently.
     fn openai_models_target(&self) -> Option<(String, Option<String>)> {
         if self.oss.unwrap_or(false)
             || self
@@ -461,7 +469,21 @@ impl Codex {
                 .or_else(|| env::var(name).ok())
                 .filter(|v| !v.trim().is_empty())
         };
-        Some((var("OPENAI_API_KEY")?, var("OPENAI_BASE_URL")))
+        let api_key = var("OPENAI_API_KEY").or_else(Self::auth_json_api_key)?;
+        Some((api_key, var("OPENAI_BASE_URL")))
+    }
+
+    /// Key stored by `codex login --api-key` in `$CODEX_HOME/auth.json`. The
+    /// desktop app usually doesn't inherit shell exports, so this is often
+    /// the only place the key lives. ChatGPT login leaves the field null.
+    fn auth_json_api_key() -> Option<String> {
+        let raw = std::fs::read_to_string(codex_home()?.join("auth.json")).ok()?;
+        serde_json::from_str::<Value>(&raw)
+            .ok()?
+            .get("OPENAI_API_KEY")?
+            .as_str()
+            .filter(|k| !k.trim().is_empty())
+            .map(str::to_string)
     }
 
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
