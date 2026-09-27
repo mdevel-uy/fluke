@@ -129,6 +129,10 @@ pub struct TokenUsageInfo {
     /// the model with the usage report.
     #[serde(default)]
     pub model: Option<String>,
+    /// Anthropic prompt-cache TTL (300 or 3600) seen on this run's cache
+    /// writes. `None` when the executor doesn't report it.
+    #[serde(default)]
+    pub cache_ttl_seconds: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
