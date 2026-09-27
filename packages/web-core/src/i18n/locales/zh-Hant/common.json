@@ -735,21 +735,21 @@
       }
     },
     "impact": {
-      "title": "已關閉的議題",
+      "title": "已解決工單",
       "windowLabel": "時間範圍",
       "windowDays": "{{days}} 天",
-      "hoursPerIssue": "小時 / 議題",
-      "hoursPerIssueLabel": "每個議題預估的人時",
+      "hoursPerTask": "小時 / 任務",
+      "hoursPerTaskLabel": "每個已解決任務預估的人時",
       "hoursSaved": "約節約 {{hours}} 小時",
-      "summary": "過去 {{days}} 天關閉 {{count}} 個議題",
-      "summary_other": "過去 {{days}} 天關閉 {{count}} 個議題",
-      "loading": "正在載入已關閉的議題…",
-      "empty": "此時間範圍内尚無已關閉的議題 — 下次議題同步時將補全歷史。",
-      "chartLabel": "過去 {{days}} 天每日關閉的議題：共 {{total}} 個，約 {{hours}} 人時。",
-      "tooltipIssues": "關閉 {{count}} 個議題",
-      "tooltipIssues_other": "關閉 {{count}} 個議題",
-      "tooltipHours": "{{issues}} × {{factor}} 小時 = {{hours}} 小時",
-      "moreIssues": "另有 {{extra}} 個"
+      "summary": "過去 {{days}} 天解決 {{count}} 個工單",
+      "summary_other": "過去 {{days}} 天解決 {{count}} 個工單",
+      "loading": "正在載入已解決的工單…",
+      "empty": "此時間範圍内尚無已解決的工單 — 工作器完成任務後圖表將隨之填充。",
+      "chartLabel": "過去 {{days}} 天每日解決的工單：共 {{total}} 個，約 {{hours}} 人時。",
+      "tooltipTasks": "解決 {{count}} 個工單",
+      "tooltipTasks_other": "解決 {{count}} 個工單",
+      "tooltipHours": "{{tasks}} × {{factor}} 小時 = {{hours}} 小時",
+      "moreTasks": "另有 {{extra}} 個"
     },
     "valueGenerated": {
       "title": "產生的價值",
@@ -990,7 +990,8 @@
       "groupByOptions": {
         "none": "不分組",
         "label": "標籤",
-        "milestone": "里程碑"
+        "milestone": "里程碑",
+        "execution": "執行計畫"
       },
       "clear": "清除篩選",
       "noResults": "沒有 Issue 符合目前的篩選條件。",
@@ -1017,6 +1018,18 @@
       "archiveTitle": "封存 Issue",
       "archiveConfirm": "在 GitHub 上關閉 Issue #{{number}}？它將移至已關閉篩選器。",
       "archiveAction": "關閉 Issue"
+    },
+    "execution": {
+      "wave": "第 {{n}} 波",
+      "parallel": "{{n}} 個議題可以同時指派",
+      "single": "本波僅有一個議題",
+      "unwaved": "無波次",
+      "unwavedHint": "有 feature 但沒有可用的 wave: 標籤 — 請逐一指派",
+      "unclassified": "未分類",
+      "unclassifiedHint": "沒有 feature: 標籤 — 無法規劃；請逐一指派",
+      "contentionTitle": "存在爭用的序列化資源",
+      "contentionHint": "這些議題占用同一個儲存庫層級的資源。即使屬於不同功能，同一時間也只能有一個開啟的 PR。",
+      "empty": "沒有可規劃的開啟議題。"
     }
   },
   "workers": {

@@ -64,9 +64,17 @@ es del PM. Tu entregable son issues y un plan.
 - Explorá el repo: el plan se basa en el CÓDIGO REAL, no en suposiciones.
   Verificá que las entidades/flujos que la épica menciona existen (y dónde
   viven) antes de referenciarlos en un issue.
-- Si la épica es ambigua o tiene decisiones abiertas, NO decidas en silencio:
-  listá las preguntas al PM en el comentario del plan y marcá los issues
-  afectados como "bloqueado por decisión".
+- Si la épica es ambigua o tiene decisiones abiertas, NO decidas en silencio.
+  Todo issue que no puede arrancar sin una decisión del PM:
+  1. Lleva el label \`pm:decision\` (si no existe:
+     \`gh label create pm:decision --color D93F0B --description "Espera una decisión del PM"\`).
+  2. Tiene en el body una sección \`## Decisión pendiente del PM\` con las
+     preguntas numeradas, cada una con opciones concretas y tu recomendación.
+     Las preguntas van EN ese issue, no sólo en el comentario del plan.
+  El PM responde con un comentario en el issue y saca el label; vos no lo saques.
+  Usá \`pm:decision\` sólo para decisiones que son del PM (producto, costos,
+  cambios públicos o irreversibles), no para dudas técnicas que se resuelven
+  leyendo el código.
 
 ## Cómo partís una épica
 1. **Issues VERTICALES, jamás por capa**: cada issue atraviesa todas las capas

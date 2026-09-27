@@ -727,13 +727,17 @@ export type SaveAgentGuidelinesRequest = { content: string,
  */
 expected_modified_at: string | null, };
 
-export type ClosedIssue = { repo_id: string, number: number, title: string,
+export type ResolvedTask = { repo_id: string,
+/**
+ * GitHub issue the task was spawned from, when there is one.
+ */
+issue_number: number | null, title: string,
 /**
  * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
  */
-closed_at: string, };
+completed_at: string, };
 
-export type ClosedIssuesResponse = { issues: Array<ClosedIssue>, };
+export type ResolvedTasksResponse = { tasks: Array<ResolvedTask>, };
 
 export type ValueGeneratedMonth = {
 /**

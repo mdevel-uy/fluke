@@ -31,6 +31,7 @@ import {
 } from '@/features/sprint/model/useWorkers';
 import { useWorkerTaskIndex } from '@/features/workers/model/workerTaskInfo';
 import { taskDisplayTitle } from '@/features/sprint/ui/IssueBadge';
+import { reRequestReviewErrorKey } from '@/features/sprint/model/reRequestReviewError';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { ForcePushDialog } from '@/shared/dialogs/command-bar/ForcePushDialog';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
@@ -322,7 +323,9 @@ export const RightSidebar = memo(function RightSidebar({
         title: t('workspaces.aside.requestReviewFailedTitle', {
           defaultValue: 'Request review failed',
         }),
-        message: err instanceof Error ? err.message : 'Unknown error',
+        message: t(reRequestReviewErrorKey(err), {
+          message: err instanceof Error ? err.message : String(err),
+        }),
         confirmText: 'OK',
         showCancelButton: false,
         variant: 'destructive',

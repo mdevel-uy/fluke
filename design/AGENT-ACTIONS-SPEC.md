@@ -93,7 +93,14 @@ repo dentro de su worktree (mismo lugar y mismo fallback de cwd que
   ejecuta. Archivo ausente → corrida sin efectos, perfectamente válida.
 - Catálogo v1 (cada kind con schema cerrado): `create_milestone`,
   `create_issue`, `comment_issue`, `comment_pr`, `close_issue`.
-  v2 (F3): `resolve_review_thread`, `add_labels`, `update_issue`.
+  v2 (F3): `resolve_review_thread`, `update_issue`.
+- `add_labels` estaba listado en v2 y se **adelantó fuera de F3**: la
+  convención de labels de ejecución (`feature:` / `wave:` / `resource:`) lo
+  necesita para que el analyst pueda sumar a una feature issues que no creó
+  él —típicamente escritos por un humano, por lo tanto sin etiquetar—, y sin
+  eso la agrupación del plan de ejecución sólo ve la mitad del backlog.
+  Toma `issue` con la misma forma número-o-placeholder que el resto y es
+  aditivo: nunca quita labels, así que el retry quirúrgico es seguro.
 
 ## Tabla `agent_actions`
 
@@ -176,7 +183,8 @@ pendiente del PR 3) se implementa DIRECTO sobre este mecanismo: es un
    `close_issue`, placeholders, prompts nuevos de los analysts (el soul
    declara actions, no ejecuta gh), UI mínima: estado de acciones en la card
    (N pendientes / fallo en acción K) + botón de retry.
-3. **F3 — Purga total**: `resolve_review_thread` y kinds v2, sacar
+3. **F3 — Purga total**: `resolve_review_thread` y los kinds v2 que queden
+   (`add_labels` ya salió antes, ver el catálogo arriba), sacar
    `GH_TOKEN`/instrucciones gh de escritura de TODOS los souls y prompts,
    lint de factory-guard que rechace souls con `gh pr create|gh issue
    create|gh api -X POST` (el guard convierte la regla en invariante, como

@@ -735,21 +735,21 @@
       }
     },
     "impact": {
-      "title": "已关闭的议题",
+      "title": "已解决工单",
       "windowLabel": "时间范围",
       "windowDays": "{{days}} 天",
-      "hoursPerIssue": "小时 / 议题",
-      "hoursPerIssueLabel": "每个议题预估的人时",
+      "hoursPerTask": "小时 / 任务",
+      "hoursPerTaskLabel": "每个已解决任务预估的人时",
       "hoursSaved": "约节约 {{hours}} 小时",
-      "summary": "过去 {{days}} 天关闭 {{count}} 个议题",
-      "summary_other": "过去 {{days}} 天关闭 {{count}} 个议题",
-      "loading": "正在加载已关闭的议题…",
-      "empty": "此时间范围内暂无已关闭的议题 — 下次议题同步时将补全历史。",
-      "chartLabel": "过去 {{days}} 天每日关闭的议题：共 {{total}} 个，约 {{hours}} 人时。",
-      "tooltipIssues": "关闭 {{count}} 个议题",
-      "tooltipIssues_other": "关闭 {{count}} 个议题",
-      "tooltipHours": "{{issues}} × {{factor}} 小时 = {{hours}} 小时",
-      "moreIssues": "另有 {{extra}} 个"
+      "summary": "过去 {{days}} 天解决 {{count}} 个工单",
+      "summary_other": "过去 {{days}} 天解决 {{count}} 个工单",
+      "loading": "正在加载已解决的工单…",
+      "empty": "此时间范围内暂无已解决的工单 — 工作器完成任务后图表将随之填充。",
+      "chartLabel": "过去 {{days}} 天每日解决的工单：共 {{total}} 个，约 {{hours}} 人时。",
+      "tooltipTasks": "解决 {{count}} 个工单",
+      "tooltipTasks_other": "解决 {{count}} 个工单",
+      "tooltipHours": "{{tasks}} × {{factor}} 小时 = {{hours}} 小时",
+      "moreTasks": "另有 {{extra}} 个"
     },
     "valueGenerated": {
       "title": "生成的价值",
@@ -990,7 +990,8 @@
       "groupByOptions": {
         "none": "不分组",
         "label": "标签",
-        "milestone": "里程碑"
+        "milestone": "里程碑",
+        "execution": "执行计划"
       },
       "clear": "清除筛选",
       "noResults": "没有 Issue 符合当前筛选条件。",
@@ -1017,6 +1018,18 @@
       "archiveTitle": "归档 Issue",
       "archiveConfirm": "在 GitHub 上关闭 Issue #{{number}}？它将移至已关闭筛选器。",
       "archiveAction": "关闭 Issue"
+    },
+    "execution": {
+      "wave": "第 {{n}} 波",
+      "parallel": "{{n}} 个问题可以同时分配",
+      "single": "本波仅有一个问题",
+      "unwaved": "无波次",
+      "unwavedHint": "有 feature 但没有可用的 wave: 标签 — 请逐个分配",
+      "unclassified": "未分类",
+      "unclassifiedHint": "没有 feature: 标签 — 无法规划；请逐个分配",
+      "contentionTitle": "存在争用的串行资源",
+      "contentionHint": "这些问题占用同一个仓库级资源。即使属于不同功能，同一时间也只能有一个开启的 PR。",
+      "empty": "没有可规划的开启问题。"
     }
   },
   "workers": {

@@ -5,9 +5,11 @@
 //! per declared action so [`agent_actions_drain`] can execute them against GitHub.
 //!
 //! F1 shipped `comment_pr` and `comment_issue`; F2 adds `create_milestone`,
-//! `create_issue` and `close_issue`. Any kind outside that catalogue still fails
-//! the ingest as an invalid file so the agent finds out at test time instead of
-//! getting silent partial application.
+//! `create_issue` and `close_issue`; `add_labels` came next, pulled forward
+//! from the v2 list because the execution-label convention needs the analyst
+//! to be able to tag issues it did not create. Any kind outside that catalogue
+//! still fails the ingest as an invalid file so the agent finds out at test
+//! time instead of getting silent partial application.
 //!
 //! Missing file is a valid outcome (`Ok(vec![])`) — a run that produced no
 //! declarations has nothing to drain.
@@ -97,6 +99,16 @@ pub enum AgentActionDeclaration {
         issue: IssueRef,
         reason: String,
     },
+    /// Tag an issue that already exists. The analyst's path for pulling a
+    /// pre-existing issue (typically human-written, therefore unlabelled)
+    /// into a feature/wave grouping — see
+    /// `ANALYST_EXECUTION_LABELS_CONTRACT`. `issue` takes the same
+    /// number-or-placeholder shape as the other issue-targeting kinds so a
+    /// run can also re-tag something it created earlier in the same file.
+    AddLabels {
+        issue: IssueRef,
+        labels: Vec<String>,
+    },
 }
 
 impl AgentActionDeclaration {
@@ -109,6 +121,7 @@ impl AgentActionDeclaration {
             Self::CreateMilestone { .. } => "create_milestone",
             Self::CreateIssue { .. } => "create_issue",
             Self::CloseIssue { .. } => "close_issue",
+            Self::AddLabels { .. } => "add_labels",
         }
     }
 }
@@ -476,6 +489,37 @@ mod tests {
             }
             other => panic!("expected CreateIssue, got {other:?}"),
         }
+    }
+
+    /// `add_labels` is how the analyst pulls a pre-existing issue into a
+    /// feature/wave grouping. `issue` takes both wire shapes, exactly like the
+    /// other issue-targeting kinds.
+    #[test]
+    fn add_labels_parses_with_literal_and_placeholder_issue() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"actions":[
+                {"kind":"add_labels","issue":84,"labels":["feature:rss-v1","wave:2"]},
+                {"kind":"add_labels","issue":"{{action[0].number}}","labels":["resource:db-migration"]}
+            ]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 2);
+        match &actions[0] {
+            AgentActionDeclaration::AddLabels { issue, labels } => {
+                assert_eq!(issue, &IssueRef::Number(84));
+                assert_eq!(labels, &vec!["feature:rss-v1".to_string(), "wave:2".into()]);
+            }
+            other => panic!("expected AddLabels, got {other:?}"),
+        }
+        match &actions[1] {
+            AgentActionDeclaration::AddLabels { issue, .. } => {
+                assert_eq!(issue, &IssueRef::Ref("{{action[0].number}}".into()));
+            }
+            other => panic!("expected AddLabels, got {other:?}"),
+        }
+        assert_eq!(actions[0].kind_str(), "add_labels");
     }
 
     #[test]

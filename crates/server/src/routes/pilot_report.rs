@@ -98,7 +98,7 @@ pub struct PilotReportQuery {
 /// Worker tasks completed and PRs merged inside `[from, to)`.
 ///
 /// Written as runtime-checked queries (like `list_completed_worker_tasks`
-/// and `list_closed_issues`) so the committed sqlx offline metadata for
+/// and `list_resolved_tasks`) so the committed sqlx offline metadata for
 /// the macro queries stays valid.
 pub async fn get_pilot_report(
     State(deployment): State<DeploymentImpl>,

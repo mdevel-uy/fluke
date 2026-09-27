@@ -27,6 +27,7 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
+import { ExecutionPlanView } from './ExecutionPlanView';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
 import { IssuesSidebar } from './IssuesSidebar';
@@ -52,7 +53,7 @@ type RawSearch = {
   labels?: string;
   milestones?: string;
   workers?: string;
-  groupBy?: 'none' | 'label' | 'milestone';
+  groupBy?: 'none' | 'label' | 'milestone' | 'execution';
   issue?: number;
 };
 
@@ -168,7 +169,9 @@ function groupIssues(
   noGroupLabel: string,
   noMilestoneLabel: string
 ): IssueGroup[] {
-  if (groupBy === 'none') {
+  // `execution` never reaches here — it renders through ExecutionPlanView,
+  // which builds its own feature/wave structure instead of a flat group list.
+  if (groupBy === 'none' || groupBy === 'execution') {
     const open = issues.filter((i) => i.state === 'open');
     const closed = issues.filter((i) => i.state !== 'open');
     return [
@@ -545,6 +548,17 @@ export function IssuesPage() {
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.filters.noResults')}
           </div>
+        ) : filters.groupBy === 'execution' ? (
+          <ExecutionPlanView
+            issues={filteredIssues}
+            repoId={selectedRepoId}
+            taskByIssueNumber={activeTaskByIssueNumber}
+            workerNameById={workerNameById}
+            branchByWorkspaceId={branchByWorkspaceId}
+            selectedIssueId={selectedIssue?.id}
+            onSelectIssue={handleSelectIssue}
+            onArchive={handleCloseIssue}
+          />
         ) : (
           <div className="flex flex-col gap-6 py-6">
             {groups.map((group) =>

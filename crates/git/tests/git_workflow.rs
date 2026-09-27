@@ -524,3 +524,65 @@ fn fetch_pr_head_with_unreachable_pinned_sha_errors() {
         "error must mention the missing SHA and the PR ref, got: {msg}"
     );
 }
+
+/// Regression guard for the runtime-stall incident: the branch-status poll
+/// used to call `get_remote_branch_status`, which fetches from the network
+/// synchronously, so every UI poll blocked a tokio worker thread and on a
+/// small host froze the whole server. The poll path now uses the `_cached`
+/// variant, which must resolve ahead/behind purely from the refs already on
+/// disk.
+///
+/// The remote is deleted before the call: any fetch attempt would fail, so a
+/// correct result here proves the read never touched the network.
+#[test]
+fn remote_branch_status_cached_resolves_without_the_remote() {
+    let td = TempDir::new().unwrap();
+    let s = GitService::new();
+    let cli = GitCli::new();
+
+    // "Remote" with a single commit on main.
+    let remote_path = init_repo_main(&td);
+    write_file(&remote_path, "a.txt", "a\n");
+    add_path(&remote_path, "a.txt");
+    s.commit(&remote_path, "commit A").unwrap();
+
+    // Clone it so the local repo has a real origin and a populated
+    // refs/remotes/origin/main.
+    let local_path = td.path().join("local");
+    cli.git(
+        td.path(),
+        ["clone", remote_path.to_str().unwrap(), "local"],
+    )
+    .unwrap();
+    configure_user(&local_path, "Test User", "test@example.com");
+
+    // Two commits on a branch off main → 2 ahead of origin/main, 0 behind.
+    create_branch(&local_path, "feature");
+    checkout_branch(&local_path, "feature");
+    write_file(&local_path, "b.txt", "b\n");
+    add_path(&local_path, "b.txt");
+    s.commit(&local_path, "commit B").unwrap();
+    write_file(&local_path, "c.txt", "c\n");
+    add_path(&local_path, "c.txt");
+    s.commit(&local_path, "commit C").unwrap();
+
+    // Kill the remote. From here on nothing can reach it.
+    fs::remove_dir_all(&remote_path).unwrap();
+
+    let (ahead, behind) = s
+        .get_remote_branch_status_cached(&local_path, "feature", Some("origin/main"))
+        .expect("cached status must not need the remote");
+    assert_eq!(
+        (ahead, behind),
+        (2, 0),
+        "ahead/behind must come from the on-disk remote-tracking ref"
+    );
+
+    // The fetching variant cannot serve this path with the remote gone —
+    // which is exactly why the poll handler must not call it.
+    assert!(
+        s.get_remote_branch_status(&local_path, "feature", Some("origin/main"))
+            .is_err(),
+        "the network variant must fail without a reachable remote"
+    );
+}

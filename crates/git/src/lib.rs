@@ -1020,6 +1020,13 @@ impl GitService {
         Ok(Commit::new(oid))
     }
 
+    /// Ahead/behind after refreshing the remote-tracking refs from the network.
+    ///
+    /// Blocking and network-bound. Never call this from an async request
+    /// handler: it shells out to `git fetch` and holds the calling thread for
+    /// the whole round-trip, which on a small host is enough to stall the
+    /// runtime. Handlers want [`Self::get_remote_branch_status_cached`], kept
+    /// fresh by the `repo_fetch` service.
     pub fn get_remote_branch_status(
         &self,
         repo_path: &Path,
@@ -1039,6 +1046,42 @@ impl GitService {
         let remote = self.get_remote_from_branch_ref(&repo, &base_branch_ref)?;
         self.fetch_all_from_remote(&repo, &remote)?;
         self.get_branch_status_inner(&repo, &branch_ref, &base_branch_ref)
+    }
+
+    /// Ahead/behind against the remote-tracking refs already on disk.
+    ///
+    /// Unlike [`Self::get_remote_branch_status`] this never touches the
+    /// network, which is what makes it safe to call from a request handler:
+    /// the fetch it skips shells out to `git` and blocks the calling thread
+    /// for the whole round-trip. The `repo_fetch` service refreshes those
+    /// refs in the background instead.
+    pub fn get_remote_branch_status_cached(
+        &self,
+        repo_path: &Path,
+        branch_name: &str,
+        base_branch_name: Option<&str>,
+    ) -> Result<(usize, usize), GitServiceError> {
+        let repo = Repository::open(repo_path)?;
+        let branch_ref = Self::find_branch(&repo, branch_name)?.into_reference();
+        let base_branch_ref = if let Some(bn) = base_branch_name {
+            Self::find_branch(&repo, bn)?
+        } else {
+            repo.find_branch(branch_name, BranchType::Local)?
+                .upstream()?
+        }
+        .into_reference();
+        self.get_branch_status_inner(&repo, &branch_ref, &base_branch_ref)
+    }
+
+    /// Refresh every remote-tracking ref from the repo's default remote.
+    ///
+    /// Network-bound and blocking: only call from a blocking context. The
+    /// `repo_fetch` service runs it under `spawn_blocking`.
+    pub fn fetch_all_remote_refs(&self, repo_path: &Path) -> Result<(), GitServiceError> {
+        let repo = Repository::open(repo_path)?;
+        let default_remote = self.default_remote(&repo, repo_path)?;
+        let remote = repo.find_remote(&default_remote.name)?;
+        self.fetch_all_from_remote(&repo, &remote)
     }
 
     pub fn is_worktree_clean(&self, worktree_path: &Path) -> Result<bool, GitServiceError> {
