@@ -63,6 +63,7 @@ function SettingsDialogNavigation({
   //   label: host.status != null ? `${host.label} (${host.status})` : host.label,
   // }));
   const hostSettingsDisabled = !hostsResolved || !selectedHost;
+  // Oculto por #601 (selector de host), restaurar junto con el bloque JSX:
   // const hostHint = !hostsResolved
   //   ? t('settings.general.loading')
   //   : t('settings.hostPicker.selectMachineHint');
