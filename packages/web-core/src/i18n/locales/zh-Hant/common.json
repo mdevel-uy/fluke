@@ -335,7 +335,10 @@
     "label": "上下文使用量",
     "emptyTooltip": "上下文使用量將在下一次回覆後顯示",
     "tooltip": "上下文：{{percentage}}% · {{used}} / {{total}} tokens",
-    "ariaLabel": "上下文使用量：{{percentage}}%"
+    "ariaLabel": "上下文使用量：{{percentage}}%",
+    "cacheHot": "快取有效 · {{remaining}} 後過期",
+    "cacheActive": "快取有效 · 代理執行中",
+    "cacheCold": "快取已失效 · 下一則訊息將重新讀取全部上下文"
   },
   "shortcuts": {
     "title": "鍵盤快捷鍵",
