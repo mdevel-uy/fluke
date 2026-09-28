@@ -38,6 +38,20 @@ fn exit_result_from_payload(payload: &serde_json::Value) -> ExecutorExitResult {
     }
 }
 
+/// `Some(alive)` for a `background_tasks_changed` system message (the CLI
+/// sends the full live set on every change), `None` for anything else.
+fn background_tasks_alive(message: &serde_json::Value) -> Option<bool> {
+    if message.get("subtype")?.as_str()? != "background_tasks_changed" {
+        return None;
+    }
+    Some(
+        message
+            .get("tasks")
+            .and_then(|t| t.as_array())
+            .is_some_and(|t| !t.is_empty()),
+    )
+}
+
 /// Handles bidirectional control protocol communication
 #[derive(Clone)]
 pub struct ProtocolPeer {
@@ -77,6 +91,7 @@ impl ProtocolPeer {
         let mut buffer = String::new();
         let mut interrupt_sent = false;
         let mut exit_tx = Some(exit_tx);
+        let mut background_tasks = false;
 
         loop {
             buffer.clear();
@@ -109,6 +124,18 @@ impl ProtocolPeer {
                                     self.handle_control_request(&client, request_id, request)
                                         .await;
                                 }
+                                Ok(CLIMessage::Other(message)) => {
+                                    if let Some(alive) = background_tasks_alive(&message) {
+                                        background_tasks = alive;
+                                    }
+                                }
+                                // The agent ended its turn with subagents or
+                                // shells still running in background: keep
+                                // stdin open so the CLI gets their completion
+                                // notification and starts a new turn, which
+                                // ends in another result. A cancel still ends
+                                // the run at the next result.
+                                Ok(CLIMessage::Result(_)) if background_tasks && !interrupt_sent => {}
                                 Ok(CLIMessage::Result(payload)) => {
                                     // The run is over: the CLI is expected to
                                     // exit by itself now that the result is
@@ -309,5 +336,24 @@ mod tests {
             exit_result_from_payload(&payload),
             ExecutorExitResult::Success
         ));
+    }
+
+    /// Shapes taken from a real run (Flor, 28-sep): launch lists the task,
+    /// completion sends an empty list, other system messages are ignored.
+    #[test]
+    fn background_tasks_alive_tracks_live_set() {
+        let launched: serde_json::Value = serde_json::from_str(
+            r#"{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"a15a","task_type":"local_agent"}]}"#,
+        )
+        .unwrap();
+        let finished: serde_json::Value = serde_json::from_str(
+            r#"{"type":"system","subtype":"background_tasks_changed","tasks":[]}"#,
+        )
+        .unwrap();
+        let other: serde_json::Value =
+            serde_json::from_str(r#"{"type":"system","subtype":"task_started"}"#).unwrap();
+        assert_eq!(background_tasks_alive(&launched), Some(true));
+        assert_eq!(background_tasks_alive(&finished), Some(false));
+        assert_eq!(background_tasks_alive(&other), None);
     }
 }
