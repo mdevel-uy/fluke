@@ -331,6 +331,24 @@ export type GithubCliInstallResponse = { version: string | null, path: string, }
 
 export type CodegraphStatus = { installed: boolean, path: string | null, };
 
+export type Plan = { workspace_id: string, status: string, pause_requested: boolean, };
+
+export type PlanStep = { id: string, n: number, title: string, summary: string, files: Array<string>, verify: string | null, depends_on: Array<number>, state: string, version: number, has_checkpoint: boolean, started_at: string | null, finished_at: string | null, };
+
+export type NewPlanStep = { n: number, title: string, summary: string, files: Array<string>, verify: string | null, depends_on: Array<number>, };
+
+export type StepProposal = { title: string, summary: string, files: Array<string>, verify: string | null, changes: Array<string>, impact: string | null, };
+
+export type PlanStepRevision = { id: string, n: number, round: number, request: string, proposal: StepProposal | null, status: string, error: string | null, target_n: number | null, created_at: string, };
+
+export type PlanSnapshot = { workspace_id: string, status: string, pause_requested: boolean, steps: Array<PlanStep>, revisions: Array<PlanStepRevision>, };
+
+export type PlanPauseRequest = { on: boolean, };
+
+export type PlanCutRequest = { cut: boolean, };
+
+export type PlanRevisionRequest = { request: string, };
+
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
 export type FinishSpake2EnrollmentRequest = { enrollment_id: string, client_id: string, client_name: string, client_browser: string, client_os: string, client_device: string, public_key_b64: string, client_proof_b64: string, };

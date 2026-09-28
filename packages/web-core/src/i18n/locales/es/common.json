@@ -1580,5 +1580,97 @@
         "action": "Ir a issues"
       }
     }
+  },
+  "plan": {
+    "loading": "Cargando plan",
+    "empty": {
+      "title": "El agente todavía no declaró un plan",
+      "body": "Cuando el agente empiece la tarea va a publicar su plan acá. Vas a poder seguirlo en vivo, editar pasos y controlar la ejecución."
+    },
+    "step": "Paso {{n}}",
+    "state": {
+      "pending": "pendiente",
+      "active": "en curso",
+      "done": "hecho",
+      "cut": "descartado"
+    },
+    "here": {
+      "active": "El agente está acá",
+      "stopped": "Detenido acá",
+      "pausing": "Para al terminar este paso",
+      "queued": "En pausa · sigue acá"
+    },
+    "revising": "revisando",
+    "proposed": "v{{v}} propuesta",
+    "version": "v{{v}}",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "cut": "Descartar paso",
+    "restore": "Restaurar paso",
+    "toolbar": "Control de ejecución del agente",
+    "run": {
+      "running": "Corriendo",
+      "pausing": "Para al terminar el paso",
+      "paused": "En pausa",
+      "halted": "Detenido",
+      "idle": "Sin actividad",
+      "finished": "Terminó"
+    },
+    "btn": {
+      "back": "Volver al inicio del paso {{n}}",
+      "backNone": "Revertir al inicio del paso",
+      "stop": "Detener ahora",
+      "pauseAfter": "Parar al terminar el paso",
+      "play": "Reanudar"
+    },
+    "revert": {
+      "title": "Volver al inicio del paso {{n}}",
+      "stop": "Primero se detiene al agente.",
+      "discard": "Se descartan los cambios hechos desde que empezó este paso, incluidos los de los pasos siguientes.",
+      "after": "Queda en pausa: podés editar el paso antes de darle play.",
+      "confirm": "Revertir"
+    },
+    "cancel": "Cancelar",
+    "hud": {
+      "active": "Paso {{n}} de {{total}} · {{title}}",
+      "queued": "En pausa antes del paso {{n}}",
+      "none": "Sin paso en curso",
+      "progress": "{{done}} de {{total}} pasos",
+      "focus": "Ir al agente"
+    },
+    "panel": {
+      "close": "Cerrar",
+      "willDo": "Qué va a hacer",
+      "did": "Qué hizo",
+      "files": "Archivos",
+      "verify": "Cómo lo verifica",
+      "modify": "Modificar este paso",
+      "placeholder": "Ej.: no toques api.ts, seguí el patrón de SkillsPicker",
+      "send": "Pedir revisión",
+      "hint": "Nada llega al agente hasta que aceptes la propuesta."
+    },
+    "rev": {
+      "preparing": "Preparando v{{v}} del paso",
+      "preparingHint": "Lo arma una copia de la sesión del agente, en solo lectura. El agente sigue trabajando.",
+      "proposal": "Propuesta v{{v}}",
+      "round": "ronda {{round}}",
+      "asked": "Pediste: \"{{request}}\"",
+      "changes": "Qué cambia",
+      "impact": "Impacto en otros pasos",
+      "accept": "Aceptar v{{v}}",
+      "iterate": "Pedir otro cambio",
+      "discard": "Descartar",
+      "iterateLabel": "Qué más querés cambiar",
+      "iterateSend": "Pedir otra versión",
+      "failed": "No se pudo preparar la revisión: {{error}}"
+    },
+    "history": {
+      "title": "Versiones aceptadas",
+      "accepted": "Aceptada · se entrega al agente",
+      "delivered": "Entregada al agente",
+      "acked": "El agente la está usando",
+      "correction": "Aceptada como paso de corrección {{n}}"
+    },
+    "error": "No se pudo completar la acción: {{message}}"
   }
 }

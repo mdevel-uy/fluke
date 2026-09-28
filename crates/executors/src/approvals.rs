@@ -51,6 +51,12 @@ pub trait ExecutorApprovalService: Send + Sync {
         approval_id: &str,
         cancel: CancellationToken,
     ) -> Result<QuestionStatus, ExecutorApprovalError>;
+
+    /// Plan step revisions the user accepted while the agent was running,
+    /// rendered as context for the agent. Taking them marks them delivered.
+    async fn take_plan_injection(&self) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Debug, Default)]

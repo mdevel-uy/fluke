@@ -1565,5 +1565,97 @@
         "action": "Aller aux issues"
       }
     }
+  },
+  "plan": {
+    "loading": "Chargement du plan",
+    "empty": {
+      "title": "L'agent n'a pas encore déclaré de plan",
+      "body": "Quand l'agent commencera la tâche, il publiera son plan ici. Vous pourrez le suivre en direct, modifier les étapes et contrôler l'exécution."
+    },
+    "step": "Étape {{n}}",
+    "state": {
+      "pending": "en attente",
+      "active": "en cours",
+      "done": "terminée",
+      "cut": "retirée"
+    },
+    "here": {
+      "active": "L'agent est ici",
+      "stopped": "Arrêté ici",
+      "pausing": "S'arrête après cette étape",
+      "queued": "En pause · reprend ici"
+    },
+    "revising": "en révision",
+    "proposed": "v{{v}} proposée",
+    "version": "v{{v}}",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "cut": "Retirer l'étape",
+    "restore": "Restaurer l'étape",
+    "toolbar": "Contrôle d'exécution de l'agent",
+    "run": {
+      "running": "En cours",
+      "pausing": "S'arrête après l'étape",
+      "paused": "En pause",
+      "halted": "Arrêté",
+      "idle": "Inactif",
+      "finished": "Terminé"
+    },
+    "btn": {
+      "back": "Revenir au début de l'étape {{n}}",
+      "backNone": "Revenir au début de l'étape",
+      "stop": "Arrêter maintenant",
+      "pauseAfter": "Arrêter après l'étape en cours",
+      "play": "Reprendre"
+    },
+    "revert": {
+      "title": "Revenir au début de l'étape {{n}}",
+      "stop": "L'agent est d'abord arrêté.",
+      "discard": "Toutes les modifications faites depuis le début de cette étape sont supprimées, y compris celles des étapes suivantes.",
+      "after": "Il reste en pause : vous pouvez modifier l'étape avant de reprendre.",
+      "confirm": "Revenir"
+    },
+    "cancel": "Annuler",
+    "hud": {
+      "active": "Étape {{n}} sur {{total}} · {{title}}",
+      "queued": "En pause avant l'étape {{n}}",
+      "none": "Aucune étape en cours",
+      "progress": "{{done}} étapes sur {{total}}",
+      "focus": "Aller à l'agent"
+    },
+    "panel": {
+      "close": "Fermer",
+      "willDo": "Ce qu’il va faire",
+      "did": "Ce qu’il a fait",
+      "files": "Fichiers",
+      "verify": "Comment il vérifie",
+      "modify": "Modifier cette étape",
+      "placeholder": "Ex. : ne touche pas à api.ts, suis le modèle de SkillsPicker",
+      "send": "Demander une révision",
+      "hint": "Rien n'arrive à l'agent tant que vous n'acceptez pas la proposition."
+    },
+    "rev": {
+      "preparing": "Préparation de la v{{v}} de l'étape",
+      "preparingHint": "Une copie en lecture seule de la session de l'agent la prépare. L'agent continue de travailler.",
+      "proposal": "Proposition v{{v}}",
+      "round": "tour {{round}}",
+      "asked": "Vous avez demandé : « {{request}} »",
+      "changes": "Ce qui change",
+      "impact": "Impact sur les autres étapes",
+      "accept": "Accepter la v{{v}}",
+      "iterate": "Demander un autre changement",
+      "discard": "Rejeter",
+      "iterateLabel": "Que voulez-vous changer de plus",
+      "iterateSend": "Demander une autre version",
+      "failed": "La révision n'a pas pu être préparée : {{error}}"
+    },
+    "history": {
+      "title": "Versions acceptées",
+      "accepted": "Acceptée · sera transmise à l'agent",
+      "delivered": "Transmise à l'agent",
+      "acked": "L'agent l'utilise",
+      "correction": "Acceptée comme étape de correction {{n}}"
+    },
+    "error": "L'action n'a pas pu être effectuée : {{message}}"
   }
 }

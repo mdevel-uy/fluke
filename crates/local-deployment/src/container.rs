@@ -1952,6 +1952,16 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
+        // Plan MCP (claude only): the agent declares and walks its plan
+        // against this server, which renders it as a live graph.
+        if matches!(
+            executor_action.base_executor(),
+            Some(BaseCodingAgent::ClaudeCode)
+        ) && let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
+        {
+            env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
+        }
+
         // Deliberately do NOT inject the worker's PAT as GH_TOKEN/GITHUB_TOKEN
         // into the agent process env. Since agent-actions F1+F2+F3, every
         // GitHub write is drained server-side by `agent_actions_drain` using

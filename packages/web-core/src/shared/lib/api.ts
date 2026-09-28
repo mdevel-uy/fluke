@@ -53,6 +53,7 @@ import {
   GithubLoginResponse,
   GithubCliInstallResponse,
   CodegraphStatus,
+  PlanSnapshot,
   GithubStatusResponse,
   RunScriptError,
   StatusResponse,
@@ -2265,6 +2266,47 @@ export const codegraphApi = {
     });
     return handleApiResponse<CodegraphStatus>(response);
   },
+};
+
+// Plan de trabajo del agente (grafo + control de ejecución).
+const planPost = async (url: string, body?: unknown): Promise<void> => {
+  const response = await makeRequest(url, {
+    method: 'POST',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return handleApiResponse<void>(response);
+};
+
+export const planApi = {
+  get: async (workspaceId: string): Promise<PlanSnapshot | null> => {
+    const response = await makeRequest(`/api/plan/${workspaceId}`);
+    return handleApiResponse<PlanSnapshot | null>(response);
+  },
+  getStreamUrl: (workspaceId: string): string =>
+    `/api/plan/${workspaceId}/stream/ws`,
+  pause: (workspaceId: string, on: boolean) =>
+    planPost(`/api/plan/${workspaceId}/pause`, { on }),
+  stop: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/stop`),
+  play: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/play`),
+  revert: (workspaceId: string, n: number) =>
+    planPost(`/api/plan/${workspaceId}/steps/${n}/revert`),
+  cut: (workspaceId: string, n: number, cut: boolean) =>
+    planPost(`/api/plan/${workspaceId}/steps/${n}/cut`, { cut }),
+  requestRevision: async (
+    workspaceId: string,
+    n: number,
+    request: string
+  ): Promise<string> => {
+    const response = await makeRequest(
+      `/api/plan/${workspaceId}/steps/${n}/revisions`,
+      { method: 'POST', body: JSON.stringify({ request }) }
+    );
+    return handleApiResponse<string>(response);
+  },
+  acceptRevision: (revisionId: string) =>
+    planPost(`/api/plan/revisions/${revisionId}/accept`),
+  discardRevision: (revisionId: string) =>
+    planPost(`/api/plan/revisions/${revisionId}/discard`),
 };
 
 // ============================================================================

@@ -1561,5 +1561,97 @@
         "action": "イシューへ"
       }
     }
+  },
+  "plan": {
+    "loading": "プランを読み込み中",
+    "empty": {
+      "title": "エージェントはまだプランを宣言していません",
+      "body": "エージェントがタスクを開始すると、ここにプランが表示されます。進行をライブで追い、ステップを編集し、実行を制御できます。"
+    },
+    "step": "ステップ {{n}}",
+    "state": {
+      "pending": "未着手",
+      "active": "実行中",
+      "done": "完了",
+      "cut": "除外"
+    },
+    "here": {
+      "active": "エージェントはここ",
+      "stopped": "ここで停止",
+      "pausing": "このステップ後に停止",
+      "queued": "一時停止中 · ここから再開"
+    },
+    "revising": "修正中",
+    "proposed": "v{{v}} 提案",
+    "version": "v{{v}}",
+    "files_one": "{{count}} ファイル",
+    "files_other": "{{count}} ファイル",
+    "cut": "ステップを除外",
+    "restore": "ステップを戻す",
+    "toolbar": "エージェントの実行コントロール",
+    "run": {
+      "running": "実行中",
+      "pausing": "ステップ後に停止",
+      "paused": "一時停止中",
+      "halted": "停止",
+      "idle": "待機中",
+      "finished": "完了"
+    },
+    "btn": {
+      "back": "ステップ {{n}} の開始時点に戻す",
+      "backNone": "ステップの開始時点に戻す",
+      "stop": "今すぐ停止",
+      "pauseAfter": "現在のステップ後に停止",
+      "play": "再開"
+    },
+    "revert": {
+      "title": "ステップ {{n}} の開始時点に戻す",
+      "stop": "まずエージェントを停止します。",
+      "discard": "このステップ開始後の変更は、後続ステップのものも含めてすべて破棄されます。",
+      "after": "一時停止のままになります。再開前にステップを編集できます。",
+      "confirm": "戻す"
+    },
+    "cancel": "キャンセル",
+    "hud": {
+      "active": "ステップ {{n}} / {{total}} · {{title}}",
+      "queued": "ステップ {{n}} の前で一時停止中",
+      "none": "実行中のステップはありません",
+      "progress": "{{total}} ステップ中 {{done}} 完了",
+      "focus": "エージェントへ移動"
+    },
+    "panel": {
+      "close": "閉じる",
+      "willDo": "実施内容",
+      "did": "実施した内容",
+      "files": "ファイル",
+      "verify": "確認方法",
+      "modify": "このステップを変更",
+      "placeholder": "例: api.ts は触らない、SkillsPicker のパターンに従う",
+      "send": "修正を依頼",
+      "hint": "提案を承認するまでエージェントには届きません。"
+    },
+    "rev": {
+      "preparing": "ステップの v{{v}} を準備中",
+      "preparingHint": "エージェントのセッションの読み取り専用コピーが準備します。エージェントは作業を続けます。",
+      "proposal": "提案 v{{v}}",
+      "round": "ラウンド {{round}}",
+      "asked": "依頼内容:「{{request}}」",
+      "changes": "変更点",
+      "impact": "他のステップへの影響",
+      "accept": "v{{v}} を承認",
+      "iterate": "別の変更を依頼",
+      "discard": "破棄",
+      "iterateLabel": "さらに変更したい点",
+      "iterateSend": "別のバージョンを依頼",
+      "failed": "修正案を準備できませんでした: {{error}}"
+    },
+    "history": {
+      "title": "承認済みのバージョン",
+      "accepted": "承認済み · エージェントに届けます",
+      "delivered": "エージェントに届きました",
+      "acked": "エージェントが使用中",
+      "correction": "修正ステップ {{n}} として承認"
+    },
+    "error": "操作を完了できませんでした: {{message}}"
   }
 }

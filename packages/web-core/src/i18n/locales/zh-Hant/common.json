@@ -1561,5 +1561,97 @@
         "action": "前往 issues"
       }
     }
+  },
+  "plan": {
+    "loading": "正在加载計劃",
+    "empty": {
+      "title": "代理尚未声明計劃",
+      "body": "代理開始任务後會在這裡發布計劃。你可以即時跟進、編輯步驟并控制執行。"
+    },
+    "step": "步驟 {{n}}",
+    "state": {
+      "pending": "待處理",
+      "active": "進行中",
+      "done": "已完成",
+      "cut": "已移除"
+    },
+    "here": {
+      "active": "代理在這裡",
+      "stopped": "在此停止",
+      "pausing": "完成此步驟後停止",
+      "queued": "已暂停 · 从這裡繼續"
+    },
+    "revising": "修訂中",
+    "proposed": "v{{v}} 提案",
+    "version": "v{{v}}",
+    "files_one": "{{count}} 個文件",
+    "files_other": "{{count}} 個文件",
+    "cut": "移除步驟",
+    "restore": "恢復步驟",
+    "toolbar": "代理執行控制",
+    "run": {
+      "running": "運行中",
+      "pausing": "步驟完成後停止",
+      "paused": "已暂停",
+      "halted": "已停止",
+      "idle": "空閒",
+      "finished": "已完成"
+    },
+    "btn": {
+      "back": "回到步驟 {{n}} 的開始",
+      "backNone": "回到步驟的開始",
+      "stop": "立即停止",
+      "pauseAfter": "当前步驟完成後停止",
+      "play": "繼續"
+    },
+    "revert": {
+      "title": "回到步驟 {{n}} 的開始",
+      "stop": "先停止代理。",
+      "discard": "自此步驟開始後的所有更改都會被丟棄，包括後续步驟的更改。",
+      "after": "保持暂停：繼續前可以編輯該步驟。",
+      "confirm": "回退"
+    },
+    "cancel": "取消",
+    "hud": {
+      "active": "步驟 {{n}} / {{total}} · {{title}}",
+      "queued": "在步驟 {{n}} 前暂停",
+      "none": "沒有進行中的步驟",
+      "progress": "已完成 {{done}} / {{total}} 步",
+      "focus": "轉到代理"
+    },
+    "panel": {
+      "close": "關閉",
+      "willDo": "将要做什麼",
+      "did": "做了什麼",
+      "files": "文件",
+      "verify": "如何驗證",
+      "modify": "修改此步驟",
+      "placeholder": "例如：不要改 api.ts，遵循 SkillsPicker 的模式",
+      "send": "請求修訂",
+      "hint": "在你接受提案之前，不會發送給代理。"
+    },
+    "rev": {
+      "preparing": "正在準備步驟的 v{{v}}",
+      "preparingHint": "由代理會話的只讀副本準備。代理繼續工作。",
+      "proposal": "提案 v{{v}}",
+      "round": "第 {{round}} 輪",
+      "asked": "你的請求：“{{request}}”",
+      "changes": "變更內容",
+      "impact": "对其他步驟的影響",
+      "accept": "接受 v{{v}}",
+      "iterate": "請求其他修改",
+      "discard": "放棄",
+      "iterateLabel": "还想修改什麼",
+      "iterateSend": "請求另一個版本",
+      "failed": "無法準備修訂：{{error}}"
+    },
+    "history": {
+      "title": "已接受的版本",
+      "accepted": "已接受 · 将發送給代理",
+      "delivered": "已發送給代理",
+      "acked": "代理正在使用",
+      "correction": "已作為修正步驟 {{n}} 接受"
+    },
+    "error": "無法完成操作：{{message}}"
   }
 }

@@ -137,6 +137,7 @@ async fn main() -> Result<(), ServerError> {
         .client_info()
         .set_server_addr(main_listener.local_addr()?)
         .expect("client server address already set");
+    utils::plan_mcp::set_server_addr(main_listener.local_addr()?);
     deployment
         .client_info()
         .set_preview_proxy_port(actual_proxy_port)

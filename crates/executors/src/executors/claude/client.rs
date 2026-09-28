@@ -22,6 +22,8 @@ use crate::{
 const EXIT_PLAN_MODE_NAME: &str = "ExitPlanMode";
 const ASK_USER_QUESTION_NAME: &str = "AskUserQuestion";
 pub const AUTO_APPROVE_CALLBACK_ID: &str = "AUTO_APPROVE_CALLBACK_ID";
+/// PostToolUse hook that delivers accepted plan step revisions mid-turn.
+pub const PLAN_INJECT_CALLBACK_ID: &str = "PLAN_INJECT_CALLBACK_ID";
 // Prefix for denial messages from the user, mirrors claude code CLI behavior
 const TOOL_DENY_PREFIX: &str = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said: ";
 
@@ -318,6 +320,21 @@ impl ClaudeAgentClient {
         _input: serde_json::Value,
         _tool_use_id: Option<String>,
     ) -> Result<serde_json::Value, ExecutorError> {
+        if callback_id == PLAN_INJECT_CALLBACK_ID {
+            let context = match &self.approvals {
+                Some(service) => service.take_plan_injection().await,
+                None => None,
+            };
+            return Ok(match context {
+                Some(text) => serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PostToolUse",
+                        "additionalContext": text
+                    }
+                }),
+                None => serde_json::json!({ "continue": true }),
+            });
+        }
         if self.auto_approve {
             Ok(serde_json::json!({
                 "hookSpecificOutput": {

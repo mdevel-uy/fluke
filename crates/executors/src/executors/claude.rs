@@ -30,7 +30,7 @@ use workspace_utils::{
 };
 
 use self::{
-    client::{AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient},
+    client::{AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient, PLAN_INJECT_CALLBACK_ID},
     protocol::ProtocolPeer,
     types::{ControlRequestType, ControlResponseType, PermissionMode},
 };
@@ -59,7 +59,7 @@ use crate::{
 
 const SUPPRESSED_STDERR_PATTERNS: &[&str] = &["[WARN] Fast mode requires the native binary"];
 
-fn base_command(claude_code_router: bool) -> &'static str {
+pub fn base_command(claude_code_router: bool) -> &'static str {
     if claude_code_router {
         "npx -y @musistudio/claude-code-router@1.0.66 code"
     } else {
@@ -147,7 +147,10 @@ pub struct ClaudeCode {
 }
 
 impl ClaudeCode {
-    async fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
+    async fn build_command_builder(
+        &self,
+        env: &ExecutionEnv,
+    ) -> Result<CommandBuilder, CommandBuildError> {
         // If base_command_override is provided and claude_code_router is also set, log a warning
         if self.cmd.base_command_override.is_some() && self.claude_code_router.is_some() {
             tracing::warn!(
@@ -186,11 +189,19 @@ impl ClaudeCode {
         if let Some(agent) = &self.agent {
             builder = builder.extend_params(["--agent", agent]);
         }
-        if let Some(mcp_config) = workspace_utils::codegraph::mcp_config_file().await {
-            builder = builder.extend_params([
-                "--mcp-config".to_string(),
-                mcp_config.to_string_lossy().to_string(),
-            ]);
+        // --mcp-config is variadic: one flag with every config file.
+        let mut mcp_configs = Vec::new();
+        if let Some(path) = workspace_utils::codegraph::mcp_config_file().await {
+            mcp_configs.push(path.to_string_lossy().to_string());
+        }
+        if let Some(url) = env.get(workspace_utils::plan_mcp::PLAN_MCP_URL_ENV)
+            && let Some(path) = workspace_utils::plan_mcp::mcp_config_file(url).await
+        {
+            mcp_configs.push(path.to_string_lossy().to_string());
+        }
+        if !mcp_configs.is_empty() {
+            builder = builder.extend_params(["--mcp-config".to_string()]);
+            builder = builder.extend_params(mcp_configs);
         }
         builder = builder.extend_params([
             "--verbose",
@@ -213,8 +224,22 @@ impl ClaudeCode {
         }
     }
 
-    pub fn get_hooks(&self) -> Option<serde_json::Value> {
+    pub fn get_hooks(&self, plan_enabled: bool) -> Option<serde_json::Value> {
         let mut hooks = serde_json::Map::new();
+
+        // Accepted step revisions reach a running agent as additionalContext
+        // after its next tool call (plan tools answer with the step directly).
+        if plan_enabled {
+            hooks.insert(
+                "PostToolUse".to_string(),
+                serde_json::json!([
+                    {
+                        "matcher": "^(?!mcp__fluke_plan__).*",
+                        "hookCallbackIds": [PLAN_INJECT_CALLBACK_ID],
+                    }
+                ]),
+            );
+        }
 
         // Add PreToolUse hooks based on plan/approvals settings
         if self.plan.unwrap_or(false) {
@@ -236,7 +261,7 @@ impl ClaudeCode {
                 "PreToolUse".to_string(),
                 serde_json::json!([
                     {
-                        "matcher": "^(?!(Glob|Grep|NotebookRead|Read|Task|TodoWrite)$).*",
+                        "matcher": "^(?!(Glob|Grep|NotebookRead|Read|Task|TodoWrite)$|mcp__fluke_plan__).*",
                         "hookCallbackIds": ["tool_approval"],
                     }
                 ]),
@@ -347,7 +372,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         prompt: &str,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
-        let command_builder = self.build_command_builder().await?;
+        let command_builder = self.build_command_builder(env).await?;
         let command_parts = command_builder.build_initial()?;
         self.spawn_internal(current_dir, prompt, command_parts, env)
             .await
@@ -361,7 +386,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         reset_to_message_id: Option<&str>,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
-        let command_builder = self.build_command_builder().await?;
+        let command_builder = self.build_command_builder(env).await?;
 
         let mut args = vec!["--resume".to_string(), session_id.to_string()];
 
@@ -693,7 +718,10 @@ impl ClaudeCode {
 
         let new_stdout = create_stdout_pipe_writer(&mut child)?;
         let permission_mode = self.permission_mode();
-        let hooks = self.get_hooks();
+        let hooks = self.get_hooks(
+            env.get(workspace_utils::plan_mcp::PLAN_MCP_URL_ENV)
+                .is_some(),
+        );
 
         // Create cancellation token for graceful shutdown
         let cancel = CancellationToken::new();
@@ -3015,10 +3043,12 @@ mod tests {
     fn test_cache_ttl_from_cache_creation_split() {
         let result_json = r#"{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5,"usage":{"cache_read_input_tokens":900,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":42}}}"#;
         let parsed: ClaudeJson = serde_json::from_str(result_json).unwrap();
-        let ttl = normalize(&parsed, "").iter().find_map(|e| match &e.entry_type {
-            NormalizedEntryType::TokenUsageInfo(info) => Some(info.cache_ttl_seconds),
-            _ => None,
-        });
+        let ttl = normalize(&parsed, "")
+            .iter()
+            .find_map(|e| match &e.entry_type {
+                NormalizedEntryType::TokenUsageInfo(info) => Some(info.cache_ttl_seconds),
+                _ => None,
+            });
         assert_eq!(ttl, Some(Some(3600)));
 
         let five_min: ClaudeUsage = serde_json::from_str(

@@ -1580,5 +1580,97 @@
         "action": "Go to issues"
       }
     }
+  },
+  "plan": {
+    "loading": "Loading plan",
+    "empty": {
+      "title": "The agent has not declared a plan yet",
+      "body": "When the agent starts the task it will publish its plan here. You will be able to follow it live, edit steps and control the run."
+    },
+    "step": "Step {{n}}",
+    "state": {
+      "pending": "pending",
+      "active": "in progress",
+      "done": "done",
+      "cut": "removed"
+    },
+    "here": {
+      "active": "The agent is here",
+      "stopped": "Stopped here",
+      "pausing": "Stops after this step",
+      "queued": "Paused · resumes here"
+    },
+    "revising": "revising",
+    "proposed": "v{{v}} proposed",
+    "version": "v{{v}}",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "cut": "Remove step",
+    "restore": "Restore step",
+    "toolbar": "Agent run controls",
+    "run": {
+      "running": "Running",
+      "pausing": "Stops after the step",
+      "paused": "Paused",
+      "halted": "Stopped",
+      "idle": "Idle",
+      "finished": "Finished"
+    },
+    "btn": {
+      "back": "Back to the start of step {{n}}",
+      "backNone": "Revert to the start of the step",
+      "stop": "Stop now",
+      "pauseAfter": "Stop after the current step",
+      "play": "Resume"
+    },
+    "revert": {
+      "title": "Back to the start of step {{n}}",
+      "stop": "The agent is stopped first.",
+      "discard": "Every change made since this step started is discarded, including later steps.",
+      "after": "It stays paused: you can edit the step before pressing play.",
+      "confirm": "Revert"
+    },
+    "cancel": "Cancel",
+    "hud": {
+      "active": "Step {{n}} of {{total}} · {{title}}",
+      "queued": "Paused before step {{n}}",
+      "none": "No step in progress",
+      "progress": "{{done}} of {{total}} steps",
+      "focus": "Go to agent"
+    },
+    "panel": {
+      "close": "Close",
+      "willDo": "What it will do",
+      "did": "What it did",
+      "files": "Files",
+      "verify": "How it verifies",
+      "modify": "Change this step",
+      "placeholder": "E.g.: don't touch api.ts, follow the SkillsPicker pattern",
+      "send": "Request revision",
+      "hint": "Nothing reaches the agent until you accept the proposal."
+    },
+    "rev": {
+      "preparing": "Preparing v{{v}} of the step",
+      "preparingHint": "A read-only copy of the agent's session prepares it. The agent keeps working.",
+      "proposal": "Proposal v{{v}}",
+      "round": "round {{round}}",
+      "asked": "You asked: \"{{request}}\"",
+      "changes": "What changes",
+      "impact": "Impact on other steps",
+      "accept": "Accept v{{v}}",
+      "iterate": "Ask for another change",
+      "discard": "Discard",
+      "iterateLabel": "What else do you want to change",
+      "iterateSend": "Request another version",
+      "failed": "The revision could not be prepared: {{error}}"
+    },
+    "history": {
+      "title": "Accepted versions",
+      "accepted": "Accepted · will reach the agent",
+      "delivered": "Delivered to the agent",
+      "acked": "The agent is using it",
+      "correction": "Accepted as correction step {{n}}"
+    },
+    "error": "The action could not be completed: {{message}}"
   }
 }

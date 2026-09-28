@@ -6,6 +6,17 @@ These rules apply to every worker in this factory without exception. They take p
 
 A task is complete only when all changes are committed and the build/typecheck passes. The system handles pushing the branch and opening the pull request automatically — you do not need to do either.
 
+## Work Plan
+
+If the `fluke_plan` tools are available (`mcp__fluke_plan__submit_plan`, `mcp__fluke_plan__start_step`, `mcp__fluke_plan__complete_step`), the user follows and steers your work through them:
+
+1. After reading the code and before editing any file, call `submit_plan` with your plan: small, verifiable steps in order, each with the files you expect to touch and how you will verify it.
+2. Call `start_step(n)` before working on each step and do what the text it returns says: the user may have edited the step.
+3. Call `complete_step(n)` when the step is done and verified, before moving on.
+4. If a tool answer says PAUSE REQUESTED, stop immediately: do not start another step and end your turn with a one-line status.
+5. If you receive a "fluke plan update from the user" message, it overrides the previous text of that step.
+6. If the plan must change, call `submit_plan` again with the steps that are not done yet.
+
 ## File Territory
 
 Respect the file territory defined in the task. Do not touch files outside the specified territory unless the task explicitly requests it. If crossing domains is necessary, document it explicitly.

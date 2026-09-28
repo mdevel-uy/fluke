@@ -176,4 +176,8 @@ impl ExecutorApprovalService for ExecutorApprovalBridge {
             }
         }
     }
+
+    async fn take_plan_injection(&self) -> Option<String> {
+        crate::services::plan::take_injection(&self.db.pool, self.execution_process_id).await
+    }
 }

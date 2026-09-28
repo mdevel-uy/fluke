@@ -1427,6 +1427,14 @@ pub async fn on_agent_finished(
 ) -> Result<(), sqlx::Error> {
     let pool = &db.pool;
 
+    // The user paused, stopped or reverted the agent's plan: the turn ended
+    // on purpose and the work resumes with Play, so there is nothing to
+    // finalize (no push/PR, no failure).
+    if db::models::plan::Plan::is_on_hold(pool, workspace_id).await? {
+        info!(workspace_id = %workspace_id, "Agent turn ended with its plan on hold; skipping finalization");
+        return Ok(());
+    }
+
     let worker_id = match Worker::find_by_workspace_id(pool, workspace_id).await? {
         Some(id) => id,
         // A failed task's workspace was detached (archive_and_detach). A

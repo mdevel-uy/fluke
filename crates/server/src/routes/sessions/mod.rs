@@ -137,6 +137,11 @@ pub async fn follow_up(
 
     tracing::info!("{:?}", workspace);
 
+    // Talking to the agent directly takes its plan off hold: this turn must
+    // finalize the worker normally when it ends.
+    db::models::plan::Plan::set_status(pool, workspace.id, db::models::plan::STATUS_RUNNING)
+        .await?;
+
     deployment
         .container()
         .ensure_container_exists(&workspace)

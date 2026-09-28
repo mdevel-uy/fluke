@@ -8,6 +8,7 @@ export const WORKSPACE_TAB_IDS = [
   'editor',
   'logs',
   'preview',
+  'plan',
 ] as const;
 
 export type WorkspaceTabId = (typeof WORKSPACE_TAB_IDS)[number];

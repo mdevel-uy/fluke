@@ -6,6 +6,7 @@ import {
   FileCode,
   ScrollText,
   Globe,
+  Workflow,
   X,
   Plus,
   Columns2,
@@ -39,6 +40,7 @@ const TAB_ICONS: Record<WorkspaceTabId, LucideIcon> = {
   editor: FileCode,
   logs: ScrollText,
   preview: Globe,
+  plan: Workflow,
 };
 
 // The split sash overlaps the previous group's right border (-ml-1, zero net
@@ -79,6 +81,7 @@ export function WorkspaceTabGroups({
         editor: t('workspaces.tabs.editor', { defaultValue: 'Editor' }),
         logs: t('workspaces.tabs.logs', { defaultValue: 'Logs' }),
         preview: t('workspaces.tabs.preview', { defaultValue: 'Preview' }),
+        plan: t('workspaces.tabs.plan', { defaultValue: 'Plan' }),
       })[tab],
     [t]
   );
@@ -176,9 +179,7 @@ function TabGroupPane({
   onSplit: () => void;
   onDragStartTab: (tab: WorkspaceTabId) => void;
   onDragEnd: () => void;
-  onHint: (
-    hint: { kind: 'bar' | 'split'; gi: number } | null
-  ) => void;
+  onHint: (hint: { kind: 'bar' | 'split'; gi: number } | null) => void;
   onDrop: (e: DragEvent, gi: number, kind: 'bar' | 'split') => void;
 }) {
   const { t } = useTranslation('common');
@@ -245,9 +246,7 @@ function TabGroupPane({
                     })}
                     className={cn(
                       'flex h-4 w-4 items-center justify-center rounded-sm text-low hover:bg-md-surface-container-high hover:text-high cursor-pointer -mr-1',
-                      isActive
-                        ? 'visible'
-                        : 'invisible group-hover/tab:visible'
+                      isActive ? 'visible' : 'invisible group-hover/tab:visible'
                     )}
                   >
                     <X size={11} strokeWidth={2} />

@@ -21,6 +21,7 @@ pub mod heartbeat;
 pub mod licensing;
 pub mod notification;
 pub mod oauth_credentials;
+pub mod plan;
 pub mod pr_monitor;
 pub mod quick_action_prompts;
 pub mod review_verdict;

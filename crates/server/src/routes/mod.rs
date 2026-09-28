@@ -29,6 +29,7 @@ pub mod metrics;
 pub mod oauth;
 pub mod organizations;
 pub mod pilot_report;
+pub mod plan;
 pub mod preview;
 pub mod push;
 pub mod relay_auth;
@@ -64,6 +65,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(filesystem::router())
         .merge(github::router())
         .merge(codegraph::router())
+        .merge(plan::router())
         .merge(ci_studio::router())
         .merge(repo::router())
         .merge(impact::router())

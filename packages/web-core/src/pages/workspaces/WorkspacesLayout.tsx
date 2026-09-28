@@ -33,6 +33,7 @@ import { workspacesApi } from '@/shared/lib/api';
 
 import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
+import { PlanPanel } from '@/features/plan-graph/ui/PlanPanel';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 
@@ -238,10 +239,7 @@ export function WorkspacesLayout() {
               workspace={selectedWorkspace}
             />
           ) : (
-            <RightSidebar
-              selectedWorkspace={selectedWorkspace}
-              repos={repos}
-            />
+            <RightSidebar selectedWorkspace={selectedWorkspace} repos={repos} />
           )}
         </ShellAsidePortal>
         <WorkspaceTabGroups
@@ -281,6 +279,12 @@ export function WorkspacesLayout() {
               <PreviewBrowserContainer
                 workspaceId={selectedWorkspace.id}
                 className=""
+              />
+            ) : null,
+            plan: selectedWorkspace?.id ? (
+              <PlanPanel
+                key={selectedWorkspace.id}
+                workspaceId={selectedWorkspace.id}
               />
             ) : null,
           }}
