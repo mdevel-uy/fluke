@@ -10,9 +10,7 @@ name: publish-ghcr
 # Revoking that token cuts the client off from updates.
 
 on:
-  push:
-    branches:
-      - main
+  # Manual por ahora (sin créditos de Actions); antes: push a main.
   workflow_dispatch: {}
 
 concurrency:

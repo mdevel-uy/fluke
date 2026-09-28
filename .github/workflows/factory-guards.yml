@@ -14,12 +14,16 @@ name: Factory guards
 # fuera de i18n.
 
 on:
-  pull_request:
-    branches:
-      - mdev
+  # Manual por ahora (sin créditos de Actions); antes: pull_request a mdev.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Número del PR a chequear"
+        required: true
+        type: string
 
 concurrency:
-  group: factory-guards-${{ github.ref }}
+  group: factory-guards-${{ inputs.pr }}
   cancel-in-progress: true
 
 jobs:
@@ -28,12 +32,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr }}" > "$RUNNER_TEMP/pr.json"
+          echo "head=$(jq -r .head.sha "$RUNNER_TEMP/pr.json")" >> "$GITHUB_OUTPUT"
+          echo "base=$(jq -r .base.sha "$RUNNER_TEMP/pr.json")" >> "$GITHUB_OUTPUT"
+          { echo 'body<<PR_BODY_EOF'; jq -r '.body // ""' "$RUNNER_TEMP/pr.json"; echo 'PR_BODY_EOF'; } >> "$GITHUB_OUTPUT"
+
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
           # fetch-depth 0 asegura que la base del PR esté presente para el diff.
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ steps.pr.outputs.head }}
 
       - name: Ensure base ref is fetched
         # Red de seguridad: si por algún motivo la base no está en el clon
@@ -42,14 +57,14 @@ jobs:
         # silenciosamente y el guard reportaría verde por error de setup.
         run: |
           set -e
-          if ! git cat-file -e "${{ github.event.pull_request.base.sha }}^{commit}" 2>/dev/null; then
+          if ! git cat-file -e "${{ steps.pr.outputs.base }}^{commit}" 2>/dev/null; then
             echo "Base commit no presente en el checkout, haciendo fetch explícito..."
-            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "${{ steps.pr.outputs.base }}"
           fi
 
       - name: Run factory guards
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          PR_BODY: ${{ steps.pr.outputs.body }}
         run: bash scripts/factory-guards.sh
