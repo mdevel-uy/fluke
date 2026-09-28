@@ -108,4 +108,4 @@ jobs:
         run: cargo test --locked -p licensing -p fluke-license -p heartbeat-protocol
 
       - name: cargo test (migración del data dir)
-        run: cargo test --locked -p utils assets::
+        run: 'cargo test --locked -p utils assets::'
