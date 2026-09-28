@@ -405,6 +405,24 @@
         "description": "Cela supprimera définitivement \"{{configName}}\" de l'exécuteur {{executorType}}. Cette action est irréversible."
       }
     },
+    "codegraph": {
+      "title": "Graphe de code (codegraph)",
+      "description": "Index local du code que les agents interrogent via MCP pour répondre avec moins de lectures de fichiers et moins de tokens. Activé uniquement dans les sessions d'agents lancées par cette application ; votre configuration personnelle n'est pas modifiée.",
+      "status": {
+        "installed": "Installé",
+        "notInstalled": "Non installé",
+        "loading": "Vérification..."
+      },
+      "notInstalledHelp": "Sans codegraph, les agents fonctionnent normalement en lisant les fichiers. L'installation télécharge la version officielle autonome dans votre dossier utilisateur, sans droits administrateur.",
+      "indexingNote": "Le premier workspace de chaque dépôt l'indexe en arrière-plan ; les suivants démarrent avec l'index prêt.",
+      "actions": {
+        "install": "Installer codegraph",
+        "installing": "Installation..."
+      },
+      "errors": {
+        "installFailed": "Impossible d'installer codegraph"
+      }
+    },
     "mcp": {
       "title": "Configuration des serveurs MCP",
       "description": "Configurez les serveurs Model Context Protocol pour étendre les capacités des agents de codage avec des outils et ressources personnalisés.",

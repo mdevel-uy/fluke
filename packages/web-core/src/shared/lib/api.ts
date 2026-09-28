@@ -52,6 +52,7 @@ import {
   GhCliSetupError,
   GithubLoginResponse,
   GithubCliInstallResponse,
+  CodegraphStatus,
   GithubStatusResponse,
   RunScriptError,
   StatusResponse,
@@ -2249,6 +2250,20 @@ export const githubApi = {
       body: JSON.stringify(data),
     });
     return handleApiResponse<CloneRepoResponse>(response);
+  },
+};
+
+export const codegraphApi = {
+  getStatus: async (): Promise<CodegraphStatus> => {
+    const response = await makeRequest('/api/codegraph/status');
+    return handleApiResponse<CodegraphStatus>(response);
+  },
+
+  install: async (): Promise<CodegraphStatus> => {
+    const response = await makeRequest('/api/codegraph/install', {
+      method: 'POST',
+    });
+    return handleApiResponse<CodegraphStatus>(response);
   },
 };
 

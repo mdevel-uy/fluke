@@ -118,6 +118,7 @@ fn generate_types_content() -> String {
         server::routes::github::GithubPatLoginRequest::decl(),
         server::routes::github::GithubPatLoginResponse::decl(),
         server::routes::github::GithubCliInstallResponse::decl(),
+        server::routes::codegraph::CodegraphStatus::decl(),
         server::routes::agent_auth::AgentAuthProvider::decl(),
         server::routes::agent_auth::AgentLoginState::decl(),
         server::routes::agent_auth::AgentLoginProgress::decl(),

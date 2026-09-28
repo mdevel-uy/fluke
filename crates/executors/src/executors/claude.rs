@@ -186,6 +186,12 @@ impl ClaudeCode {
         if let Some(agent) = &self.agent {
             builder = builder.extend_params(["--agent", agent]);
         }
+        if let Some(mcp_config) = workspace_utils::codegraph::mcp_config_file().await {
+            builder = builder.extend_params([
+                "--mcp-config".to_string(),
+                mcp_config.to_string_lossy().to_string(),
+            ]);
+        }
         builder = builder.extend_params([
             "--verbose",
             "--output-format=stream-json",
