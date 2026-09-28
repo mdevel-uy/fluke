@@ -34,6 +34,7 @@ import { workspacesApi } from '@/shared/lib/api';
 import { useWorkspaceTabGroups } from '@/shared/stores/useUiPreferencesStore';
 import { WorkspaceTabGroups } from './WorkspaceTabGroups';
 import { PlanPanel } from '@/features/plan-graph/ui/PlanPanel';
+import { useAutoOpenPlanTab } from '@/features/plan-graph/model/useAutoOpenPlanTab';
 
 const WORKSPACES_GUIDE_ID = 'workspaces-guide';
 
@@ -74,6 +75,7 @@ export function WorkspacesLayout() {
 
   // VSCode-style tab groups (SHELL-SPEC R14)
   const [tabGroups, setTabGroups] = useWorkspaceTabGroups(workspaceId);
+  useAutoOpenPlanTab(workspaceId, tabGroups, setTabGroups);
 
   // Stale route guard: the workspace can disappear underneath us (purged
   // from another tab / the API). Without this the explorer polls a dead id

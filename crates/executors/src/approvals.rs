@@ -57,6 +57,12 @@ pub trait ExecutorApprovalService: Send + Sync {
     async fn take_plan_injection(&self) -> Option<String> {
         None
     }
+
+    /// Plan protocol gate for a file-editing tool: `Some(reason)` denies the
+    /// call (no plan declared, no step in progress, or a pause is pending).
+    async fn plan_gate(&self, _tool_name: &str, _tool_input: &serde_json::Value) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Debug, Default)]

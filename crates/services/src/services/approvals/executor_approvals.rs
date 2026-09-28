@@ -180,4 +180,14 @@ impl ExecutorApprovalService for ExecutorApprovalBridge {
     async fn take_plan_injection(&self) -> Option<String> {
         crate::services::plan::take_injection(&self.db.pool, self.execution_process_id).await
     }
+
+    async fn plan_gate(&self, tool_name: &str, tool_input: &serde_json::Value) -> Option<String> {
+        crate::services::plan::gate(
+            &self.db.pool,
+            self.execution_process_id,
+            tool_name,
+            tool_input,
+        )
+        .await
+    }
 }

@@ -30,7 +30,9 @@ use workspace_utils::{
 };
 
 use self::{
-    client::{AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient, PLAN_INJECT_CALLBACK_ID},
+    client::{
+        AUTO_APPROVE_CALLBACK_ID, ClaudeAgentClient, PLAN_GATE_CALLBACK_ID, PLAN_INJECT_CALLBACK_ID,
+    },
     protocol::ProtocolPeer,
     types::{ControlRequestType, ControlResponseType, PermissionMode},
 };
@@ -276,6 +278,16 @@ impl ClaudeCode {
                     }
                 ]),
             );
+        }
+
+        // File edits wait for the plan protocol: plan declared and a step in
+        // progress. A deny tells the agent which plan tool to call; it wins
+        // over any other hook's allow.
+        if plan_enabled && let Some(serde_json::Value::Array(pre)) = hooks.get_mut("PreToolUse") {
+            pre.push(serde_json::json!({
+                "matcher": "^(Edit|Write|MultiEdit|NotebookEdit)$",
+                "hookCallbackIds": [PLAN_GATE_CALLBACK_ID],
+            }));
         }
 
         Some(serde_json::Value::Object(hooks))

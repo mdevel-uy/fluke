@@ -9,6 +9,7 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason},
     plan::{self, NewPlanStep, Plan, PlanSnapshot, PlanStep, PlanStepRevision, StepProposal},
     session::Session,
+    worker_task::WorkerTask,
     workspace::Workspace,
     workspace_repo::WorkspaceRepo,
 };
@@ -293,6 +294,77 @@ async fn next_pending(pool: &Pool, workspace_id: Uuid) -> Result<Option<PlanStep
         .await?
         .into_iter()
         .find(|s| s.state == plan::STEP_PENDING))
+}
+
+const PLAN_TOOLS_HINT: &str = "Load the plan tools with ToolSearch (query \
+     \"select:mcp__fluke_plan__submit_plan,mcp__fluke_plan__start_step,mcp__fluke_plan__complete_step\")";
+
+/// Gate del protocolo de plan para herramientas que editan archivos, en los
+/// workers con tarea (el chat suelto no se frena). `Some(motivo)` rechaza la
+/// llamada y el motivo le dice al agente qué herramienta de plan usar.
+pub async fn gate(
+    pool: &Pool,
+    execution_process_id: Uuid,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<String> {
+    let process = ExecutionProcess::find_by_id(pool, execution_process_id)
+        .await
+        .ok()??;
+    let session = Session::find_by_id(pool, process.session_id).await.ok()??;
+    gate_for_workspace(pool, session.workspace_id, tool_name, tool_input).await
+}
+
+async fn gate_for_workspace(
+    pool: &Pool,
+    workspace_id: Uuid,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<String> {
+    WorkerTask::find_by_workspace(pool, workspace_id)
+        .await
+        .ok()??;
+    // El outbox de acciones (.vk/actions.json) no es código del plan.
+    let path = tool_input
+        .get("file_path")
+        .or_else(|| tool_input.get("notebook_path"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .replace('\\', "/");
+    if path.starts_with(".vk/") || path.contains("/.vk/") {
+        return None;
+    }
+    let plan = Plan::find(pool, workspace_id).await.ok()?;
+    let steps = PlanStep::list(pool, workspace_id).await.ok()?;
+    if plan.is_none() || steps.is_empty() {
+        return Some(format!(
+            "fluke: {tool_name} is blocked until you declare your work plan. {PLAN_TOOLS_HINT}, \
+             call mcp__fluke_plan__submit_plan with small verifiable steps, then \
+             mcp__fluke_plan__start_step(1), and retry this edit."
+        ));
+    }
+    // Pausa pedida = terminar el paso en curso, así que solo frena si el
+    // plan ya está detenido.
+    if plan.is_some_and(|p| p.status != plan::STATUS_RUNNING) {
+        return Some(
+            "fluke: the user stopped this plan. Do not edit files: end your turn now with a \
+             one-line status."
+                .into(),
+        );
+    }
+    if !steps.iter().any(|s| s.state == plan::STEP_ACTIVE) {
+        let next = steps
+            .iter()
+            .find(|s| s.state == plan::STEP_PENDING)
+            .map(|s| s.n.to_string())
+            .unwrap_or_else(|| "n".into());
+        return Some(format!(
+            "fluke: no plan step is in progress. {PLAN_TOOLS_HINT} if needed and call \
+             mcp__fluke_plan__start_step({next}) for the step this edit belongs to (or \
+             submit_plan again if the work is not in the plan), then retry."
+        ));
+    }
+    None
 }
 
 /// Revisiones aceptadas mientras el agente trabajaba, como contexto para el
@@ -1126,6 +1198,68 @@ mod tests {
         assert!(!dir.join("n.txt").exists());
         // Los cambios quedan sin commitear, como estaban.
         assert!(sh(&dir, &["status", "--porcelain"]).contains("a.txt"));
+    }
+
+    #[tokio::test]
+    async fn gate_forces_the_plan_protocol_on_worker_edits() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let ws = Uuid::new_v4();
+        let edit = json!({ "file_path": "src/app.ts" });
+
+        // Chat suelto (sin tarea): nunca se frena.
+        assert!(gate_for_workspace(&pool, ws, "Edit", &edit).await.is_none());
+
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, status, workspace_id)
+             VALUES (?1, ?2, ?3, 0, 't', 'p', 'in_progress', ?4)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Worker sin plan: frena y dice qué llamar.
+        let why = gate_for_workspace(&pool, ws, "Edit", &edit).await.unwrap();
+        assert!(why.contains("mcp__fluke_plan__submit_plan"));
+        // El outbox de acciones no se frena.
+        let outbox = json!({ "file_path": "C:\\wt\\repo\\.vk\\actions.json" });
+        assert!(
+            gate_for_workspace(&pool, ws, "Write", &outbox)
+                .await
+                .is_none()
+        );
+
+        // Plan declarado pero sin paso en curso: pide start_step del siguiente.
+        let store = MsgStore::new();
+        let steps = json!({ "steps": [{ "n": 1, "title": "Uno", "summary": "s" }] });
+        call_tool(&pool, &store, ws, "submit_plan", &steps)
+            .await
+            .unwrap();
+        let why = gate_for_workspace(&pool, ws, "Edit", &edit).await.unwrap();
+        assert!(why.contains("start_step(1)"));
+
+        // Paso en curso: pasa, aunque haya una pausa pedida (termina el paso).
+        PlanStep::start(&pool, ws, 1, None).await.unwrap();
+        Plan::set_pause_requested(&pool, ws, true).await.unwrap();
+        assert!(gate_for_workspace(&pool, ws, "Edit", &edit).await.is_none());
+
+        // Plan detenido: frena.
+        Plan::set_status(&pool, ws, plan::STATUS_HALTED)
+            .await
+            .unwrap();
+        assert!(gate_for_workspace(&pool, ws, "Edit", &edit).await.is_some());
     }
 
     #[tokio::test]

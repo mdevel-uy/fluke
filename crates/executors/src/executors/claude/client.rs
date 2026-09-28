@@ -24,6 +24,9 @@ const ASK_USER_QUESTION_NAME: &str = "AskUserQuestion";
 pub const AUTO_APPROVE_CALLBACK_ID: &str = "AUTO_APPROVE_CALLBACK_ID";
 /// PostToolUse hook that delivers accepted plan step revisions mid-turn.
 pub const PLAN_INJECT_CALLBACK_ID: &str = "PLAN_INJECT_CALLBACK_ID";
+/// PreToolUse hook that blocks file edits until the agent follows the plan
+/// protocol (plan declared + step in progress).
+pub const PLAN_GATE_CALLBACK_ID: &str = "PLAN_GATE_CALLBACK_ID";
 // Prefix for denial messages from the user, mirrors claude code CLI behavior
 const TOOL_DENY_PREFIX: &str = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said: ";
 
@@ -317,9 +320,32 @@ impl ClaudeAgentClient {
     pub async fn on_hook_callback(
         &self,
         callback_id: String,
-        _input: serde_json::Value,
+        input: serde_json::Value,
         _tool_use_id: Option<String>,
     ) -> Result<serde_json::Value, ExecutorError> {
+        if callback_id == PLAN_GATE_CALLBACK_ID {
+            let tool_name = input
+                .get("tool_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            let tool_input = input.get("tool_input").cloned().unwrap_or_default();
+            let denial = match &self.approvals {
+                Some(service) => service.plan_gate(tool_name, &tool_input).await,
+                None => None,
+            };
+            // No decision when allowed: other hooks and the permission mode
+            // still apply (an explicit "allow" would skip user approvals).
+            return Ok(match denial {
+                Some(reason) => serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reason
+                    }
+                }),
+                None => serde_json::json!({ "continue": true }),
+            });
+        }
         if callback_id == PLAN_INJECT_CALLBACK_ID {
             let context = match &self.approvals {
                 Some(service) => service.take_plan_injection().await,
