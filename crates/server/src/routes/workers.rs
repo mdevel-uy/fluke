@@ -2034,15 +2034,14 @@ pub async fn re_request_review(
         ));
     }
 
-    // Both in_review and approved statuses accept a manual re-review: a
+    // Both in_review and approved statuses accept a manual review: a
     // changes_requested task sits on in_review, while an approved task with
-    // the auto-transition lands on approved — same PR-still-open shape.
-    if (existing.status != worker_task::STATUS_IN_REVIEW
-        && existing.status != worker_task::STATUS_APPROVED)
-        || !matches!(
-            existing.review_result.as_deref(),
-            Some("changes_requested") | Some("approved")
-        )
+    // the auto-transition lands on approved — same PR-still-open shape. No
+    // verdict yet is fine too: an ad-hoc first review when the automatic one
+    // never fired (e.g. CI red/unavailable). A review already in flight is
+    // caught by the review_already_in_progress guard below.
+    if existing.status != worker_task::STATUS_IN_REVIEW
+        && existing.status != worker_task::STATUS_APPROVED
     {
         return Err(ApiError::Conflict("no_verdict_to_rerun".into()));
     }

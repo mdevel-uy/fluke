@@ -38,6 +38,7 @@ import type { Worker, WorkerTask } from '@/features/sprint/types';
 import { repoIssuesKeys } from '@/features/issues/model/repoIssuesKeys';
 import { useAutoIngestStore } from '@/features/sprint/model/useAutoIngestStore';
 import { useAutoIngestReconciler } from '@/features/sprint/model/useAutoIngestReconciler';
+import { reRequestReviewErrorKey } from '@/features/sprint/model/reRequestReviewError';
 import { SprintColumn } from './SprintColumn';
 import { ColumnEmpty } from './ColumnEmpty';
 import { WorkerChip } from './WorkerChip';
@@ -708,29 +709,9 @@ export function SprintPage() {
           onSuccess: () =>
             pushToast('success', t('sprint.toast.reRequestReviewSuccess')),
           onError: (err) => {
-            // Backend returns a machine-readable error code as the message
-            // (e.g. `max_review_rounds_reached`) so the UI can localize
-            // without shipping the English fallback to end users.
-            const code =
-              err instanceof ApiError && err.message ? err.message : '';
-            const key =
-              code === 'max_review_rounds_reached'
-                ? 'sprint.toast.reRequestReviewMaxRounds'
-                : code === 'no_open_pr'
-                  ? 'sprint.toast.reRequestReviewNoOpenPr'
-                  : code === 'no_reviewer_assigned'
-                    ? 'sprint.toast.reRequestReviewNoReviewer'
-                    : code === 'review_already_in_progress'
-                      ? 'sprint.toast.reRequestReviewInProgress'
-                      : code === 'no_changes_requested' ||
-                          code === 'no_verdict_to_rerun'
-                        ? 'sprint.toast.reRequestReviewNoChangesRequested'
-                        : code === 'pr_head_unchanged'
-                          ? 'sprint.toast.reRequestReviewHeadUnchanged'
-                          : 'sprint.toast.reRequestReviewError';
             pushToast(
               'error',
-              t(key, {
+              t(reRequestReviewErrorKey(err), {
                 message: err instanceof Error ? err.message : String(err),
               })
             );
