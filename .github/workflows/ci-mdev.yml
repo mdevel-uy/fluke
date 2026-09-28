@@ -1,9 +1,9 @@
 name: CI (mdev)
 
 on:
-  pull_request:
-    branches:
-      - mdev
+  # Manual por ahora (sin créditos de Actions); antes: pull_request a mdev.
+  # Corre sobre la rama que elijas en "Run workflow".
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

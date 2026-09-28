@@ -20,9 +20,7 @@ name: publish-factory
 # on-prem (stable / X.Y.Z) lo sigue manejando publish-ghcr.yml desde main.
 
 on:
-  push:
-    branches:
-      - mdev
+  # Manual por ahora (sin créditos de Actions); antes: push a mdev.
   workflow_dispatch: {}
 
 concurrency:
