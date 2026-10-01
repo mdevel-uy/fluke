@@ -17,6 +17,10 @@ import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { SharedAppLayout } from '@/shared/components/ui-new/containers/SharedAppLayout';
 import { LicenseBanner } from '@/shared/components/LicenseBanner';
 import { useLicenseStatus } from '@/shared/hooks/useLicenseStatus';
+import {
+  ProviderAuthBanner,
+  useProviderAuthAlert,
+} from '@/shared/components/ProviderAuthBanner';
 import { LocalTaskNotifications } from '@web/app/notifications/LocalTaskNotifications';
 import { PushNavigationBridge } from '@web/app/notifications/PushNavigationBridge';
 
@@ -68,12 +72,24 @@ function AppRouteProviders({ children }: { children: ReactNode }) {
 function AppLayoutRouteComponent() {
   const { hostId } = useParams({ strict: false });
   const { data: license } = useLicenseStatus();
+  const providerAlert = useProviderAuthAlert();
 
   // Only reserve the banner row when there is actually something to show, so
-  // the common (valid / not enforced) case keeps the original layout.
+  // the common (valid / not enforced) case keeps the original layout. Both
+  // banners share that single row.
+  const showLicense =
+    !!license && license.enforced && license.status !== 'valid';
   const banner =
-    license && license.enforced && license.status !== 'valid' ? (
-      <LicenseBanner license={license} />
+    showLicense || providerAlert.reason ? (
+      <div>
+        {showLicense && <LicenseBanner license={license} />}
+        {providerAlert.reason && (
+          <ProviderAuthBanner
+            reason={providerAlert.reason}
+            onDismiss={providerAlert.dismiss}
+          />
+        )}
+      </div>
     ) : undefined;
 
   return (
