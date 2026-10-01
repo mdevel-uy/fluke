@@ -743,7 +743,7 @@
         "waitingForUrl": "CLI がサインイン URL を表示するのを待っています…",
         "codeInputLabel": "引換コード",
         "codeInputPlaceholder": "claude.com のコードを貼り付け",
-        "codeInputHelp": "CLI がコードを受理するとこのカードは自動的に更新されます。",
+        "codeInputHelp": "Once Claude accepts the code, fluke stores the sign-in token for your workers and this card switches to Connected within a few seconds. If the code is rejected, copy it again and resubmit.",
         "submitCode": "コードを送信"
       },
       "hidden": {

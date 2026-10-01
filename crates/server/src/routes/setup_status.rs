@@ -14,7 +14,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utils::{response::ApiResponse, shell::resolve_executable_path};
 
-use crate::{DeploymentImpl, error::ApiError};
+use crate::{
+    DeploymentImpl,
+    error::ApiError,
+    routes::agent_auth::{AgentAuthProvider, cli_available, provider_connection_state},
+};
 
 /// Snapshot of the four onboarding steps. `is_complete` is a convenience
 /// field so the frontend does not have to re-implement the AND across
@@ -27,10 +31,8 @@ pub struct SetupStatusResponse {
     pub github_connected: bool,
     /// At least one repository is registered in the local DB.
     pub repo_added: bool,
-    /// At least one coding-agent CLI is reachable AND has an auth artifact
-    /// on disk — Claude Code (`~/.claude/.credentials.json` etc.), Codex
-    /// (`~/.codex/auth.json`), or Gemini (`GEMINI_API_KEY` in `~/.gemini/.env`
-    /// or `~/.gemini/oauth_creds.json`).
+    /// At least one coding-agent CLI is reachable AND has usable credentials
+    /// (same check as `GET /api/agents/auth`).
     pub agent_connected: bool,
     /// At least one worker task has been enqueued. Reflects "the user has
     /// actually pushed something into the pipeline", which is the last hop
@@ -129,54 +131,18 @@ async fn check_task_created(deployment: &DeploymentImpl) -> bool {
     }
 }
 
-/// Any of the supported coding-agent CLIs is both installed *and* has an
-/// auth artifact on disk. Mirrors the connect-state logic in
-/// `crate::routes::agent_auth::provider_connection_state` for Codex/Gemini
-/// and adds a lightweight check for Claude Code's credentials file so the
-/// default install path (Claude only) is not stuck on "not connected".
+/// Any of the supported coding-agent CLIs is both installed *and* has usable
+/// credentials: the same check Settings shows per provider
+/// (`crate::routes::agent_auth::provider_connection_state`).
 async fn check_agent_connected() -> bool {
-    let Some(home) = dirs::home_dir() else {
-        return false;
-    };
-
-    // Claude Code: the CLI writes one of these when the user finishes
-    // `claude login`. Any of them counts as "connected".
-    let claude_candidates = [
-        home.join(".claude").join(".credentials.json"),
-        home.join(".claude").join("credentials.json"),
-        home.join(".config").join("claude").join("credentials.json"),
-    ];
-    if resolve_executable_path("claude").await.is_some()
-        && claude_candidates.iter().any(|p| p.exists())
-    {
-        return true;
+    for provider in [
+        AgentAuthProvider::ClaudeCode,
+        AgentAuthProvider::Codex,
+        AgentAuthProvider::Gemini,
+    ] {
+        if cli_available(provider).await && provider_connection_state(provider).await.0 {
+            return true;
+        }
     }
-
-    // Codex: `codex login --device-auth` writes `~/.codex/auth.json`.
-    let codex_auth = home.join(".codex").join("auth.json");
-    if resolve_executable_path("codex").await.is_some() && codex_auth.exists() {
-        return true;
-    }
-
-    // Gemini: either the API-key `.env` (with a recognised key) or the OAuth
-    // creds file counts.
-    let gemini_env = home.join(".gemini").join(".env");
-    let gemini_oauth = home.join(".gemini").join("oauth_creds.json");
-    if resolve_executable_path("gemini").await.is_some()
-        && (gemini_env_has_key(&gemini_env) || gemini_oauth.exists())
-    {
-        return true;
-    }
-
     false
-}
-
-fn gemini_env_has_key(path: &std::path::Path) -> bool {
-    match std::fs::read_to_string(path) {
-        Ok(contents) => contents.lines().any(|line| {
-            let trimmed = line.trim_start();
-            trimmed.starts_with("GEMINI_API_KEY=") || trimmed.starts_with("GOOGLE_API_KEY=")
-        }),
-        Err(_) => false,
-    }
 }
