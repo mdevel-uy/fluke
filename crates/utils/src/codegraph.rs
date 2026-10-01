@@ -38,22 +38,47 @@ pub async fn mcp_config_file() -> Option<PathBuf> {
     let bin = codegraph_path().await?;
     let bin_str = bin.to_string_lossy().to_string();
     // Windows installs a .cmd launcher, which Node (Claude Code) can't spawn
-    // without a shell.
-    // ponytail: `cmd /c` mangles paths with spaces + quotes; switch to the
-    // bundled node.exe entrypoint if a user profile path with spaces breaks it.
+    // without a shell. The official installer's launcher just runs its bundled
+    // node.exe, so call that directly (no cmd + conhost per agent); other
+    // installs fall back to `cmd /c`.
     let (command, mut args) = if cfg!(windows) && bin_str.to_lowercase().ends_with(".cmd") {
-        ("cmd".to_string(), vec!["/c".to_string(), bin_str])
+        let root = bin.parent().and_then(Path::parent);
+        let node = root.map(|r| r.join("node.exe")).filter(|p| p.is_file());
+        let entry = root
+            .map(|r| r.join(r"lib\dist\bin\codegraph.js"))
+            .filter(|p| p.is_file());
+        match (node, entry) {
+            (Some(node), Some(entry)) => (
+                node.to_string_lossy().to_string(),
+                vec![
+                    "--liftoff-only".to_string(),
+                    "--disable-warning=ExperimentalWarning".to_string(),
+                    entry.to_string_lossy().to_string(),
+                ],
+            ),
+            _ => ("cmd".to_string(), vec!["/c".to_string(), bin_str]),
+        }
     } else {
         (bin_str, vec![])
     };
     args.extend(["serve".to_string(), "--mcp".to_string()]);
 
+    // Each agent runs in its own worktree, so codegraph's shared daemon
+    // (one per project root) never gets shared: it only adds a proxy process,
+    // a cores-1 query thread pool and a 5 min linger after the agent exits.
+    // Direct mode is one process that dies with the agent. The catch-up sync
+    // on connect only reparses the worktree's diff, so 2 parse workers do.
     let config = serde_json::json!({
         "mcpServers": {
             "codegraph": {
                 "command": command,
                 "args": args,
-                "env": { "CODEGRAPH_TELEMETRY": "0" }
+                "env": {
+                    "CODEGRAPH_TELEMETRY": "0",
+                    "CODEGRAPH_NO_DAEMON": "1",
+                    "CODEGRAPH_PARSE_WORKERS": "2",
+                    "CODEGRAPH_NO_UPDATE_CHECK": "1"
+                }
             }
         }
     });

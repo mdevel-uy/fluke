@@ -297,9 +297,8 @@ pub struct QueuedExecutionSummary {
     pub position: u32,
 }
 
-/// Snapshot of the concurrency semaphore. `limit == 0` means no limit
-/// is configured. Consumers should hide the indicator UI in that case
-/// since the semaphore never gates spawns.
+/// Snapshot of the concurrency semaphore. `limit` is always the effective
+/// cap (an unset limit resolves to the automatic, core-based one).
 #[derive(Debug, Serialize, TS)]
 pub struct ConcurrencyStatus {
     pub limit: u32,
