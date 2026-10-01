@@ -79,6 +79,12 @@ async fn main() -> Result<(), VibeKanbanError> {
     worker_orchestrator::reconcile_in_progress_tasks(deployment.db())
         .await
         .map_err(DeploymentError::from)?;
+    // Workers that pinned a model before choosing an agent (issue #614) get the
+    // current default agent, which is the one that model belonged to.
+    let default_executor = deployment.config().read().await.executor_profile.executor;
+    db::models::worker::Worker::backfill_executor(&deployment.db().pool, default_executor)
+        .await
+        .map_err(DeploymentError::from)?;
     deployment
         .container()
         .backfill_before_head_commits()
