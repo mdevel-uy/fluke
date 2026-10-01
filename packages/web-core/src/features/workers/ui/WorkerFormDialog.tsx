@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,13 +26,21 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
-import type { WorkerResponse } from 'shared/types';
+import { BaseCodingAgent, type WorkerResponse } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
-import { workersApi, type CreateWorkerRequest } from '@/shared/lib/api';
+import {
+  agentAuthApi,
+  workersApi,
+  type AgentAuthProvider,
+  type CreateWorkerRequest,
+} from '@/shared/lib/api';
 import {
   useBaseInstructions,
   useCreateWorker,
@@ -81,8 +90,33 @@ const soulHasGhWritePatterns = (soul: string): boolean =>
 // The API still requires an emoji; the UI no longer exposes it.
 const DEFAULT_WORKER_EMOJI = '🤖';
 
-// Sentinel value used in the Select to represent "no override" (null model).
+// Sentinel value used in the Select to represent "no override" (null agent
+// and model: follow the global default).
 const MODEL_DEFAULT_VALUE = '__default__';
+
+// Providers a worker can pick a model from, in display order, with the slug
+// the agent-auth endpoint reports their connection under.
+const MODEL_PROVIDERS: {
+  agent: BaseCodingAgent;
+  auth: AgentAuthProvider;
+  name: string;
+}[] = [
+  { agent: BaseCodingAgent.CLAUDE_CODE, auth: 'claude_code', name: 'Claude' },
+  { agent: BaseCodingAgent.CODEX, auth: 'codex', name: 'Codex' },
+  { agent: BaseCodingAgent.GEMINI, auth: 'gemini', name: 'Gemini' },
+];
+const providerName = (agent: BaseCodingAgent): string =>
+  MODEL_PROVIDERS.find((p) => p.agent === agent)?.name ?? agent;
+
+// Select values for a concrete pick are `AGENT::model`.
+const toModelValue = (agent: BaseCodingAgent, model: string) =>
+  `${agent}::${model}`;
+const fromModelValue = (
+  value: string
+): { executor: BaseCodingAgent; model: string } => {
+  const [executor, ...rest] = value.split('::');
+  return { executor: executor as BaseCodingAgent, model: rest.join('::') };
+};
 
 // Sentinel values for the three-state plan mode selector. `global` maps to
 // `null` on the wire (follow global setting); `on` / `off` explicitly force
@@ -156,6 +190,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [role, setRole] = useState<WorkerRole>(
     (worker?.role as WorkerRole) ?? 'developer'
   );
+  const [executor, setExecutor] = useState<BaseCodingAgent | null>(
+    worker?.executor ?? null
+  );
   const [model, setModel] = useState<string | null>(worker?.model ?? null);
   const [planMode, setPlanMode] = useState<PlanModeChoice>(
     planModeToChoice(readPlanMode(worker))
@@ -185,7 +222,38 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   const { config: systemConfig } = useUserSystem();
   const configuredExecutor = systemConfig?.executor_profile?.executor ?? null;
-  const { config: modelConfig } = useModelSelectorConfig(configuredExecutor);
+
+  // A provider is usable when it is connected, or when it is the global
+  // default (its credentials may live outside what the auth check sees).
+  const { data: authStatus } = useQuery({
+    queryKey: ['agent-auth-status'],
+    queryFn: () => agentAuthApi.getStatus(),
+  });
+  const isConnected = (agent: BaseCodingAgent): boolean => {
+    const auth = MODEL_PROVIDERS.find((p) => p.agent === agent)?.auth;
+    return (
+      agent === configuredExecutor ||
+      !!authStatus?.providers.some((p) => p.provider === auth && p.connected)
+    );
+  };
+  const claudeModels = useModelSelectorConfig(
+    isConnected(BaseCodingAgent.CLAUDE_CODE)
+      ? BaseCodingAgent.CLAUDE_CODE
+      : null
+  ).config?.models;
+  const codexModels = useModelSelectorConfig(
+    isConnected(BaseCodingAgent.CODEX) ? BaseCodingAgent.CODEX : null
+  ).config?.models;
+  const geminiModels = useModelSelectorConfig(
+    isConnected(BaseCodingAgent.GEMINI) ? BaseCodingAgent.GEMINI : null
+  ).config?.models;
+  const modelsByAgent: Partial<
+    Record<BaseCodingAgent, { id: string; name: string }[]>
+  > = {
+    [BaseCodingAgent.CLAUDE_CODE]: claudeModels,
+    [BaseCodingAgent.CODEX]: codexModels,
+    [BaseCodingAgent.GEMINI]: geminiModels,
+  };
 
   const createMutation = useCreateWorker();
   const updateMutation = useUpdateWorker();
@@ -195,6 +263,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     setName(worker?.name ?? '');
     setSoul(worker?.soul ?? '');
     setRole((worker?.role as WorkerRole) ?? 'developer');
+    setExecutor(worker?.executor ?? null);
     setModel(worker?.model ?? null);
     setPlanMode(planModeToChoice(readPlanMode(worker)));
     setGithubPat(null);
@@ -206,7 +275,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, soul, role, model, planMode, githubPat, clearPat]);
+  }, [name, soul, role, executor, model, planMode, githubPat, clearPat]);
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
@@ -269,6 +338,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       emoji: worker?.emoji ?? DEFAULT_WORKER_EMOJI,
       soul: trimmedSoul,
       role,
+      executor,
       model: model ?? null,
       plan_mode: choiceToPlanMode(planMode),
       ...(github_pat === undefined ? {} : { github_pat }),
@@ -303,10 +373,34 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     ? readGhWriteWarning(worker) || soulHasGhWritePatterns(soul)
     : soulHasGhWritePatterns(soul);
 
-  const availableModels = modelConfig?.models ?? [];
-  const hasModels = availableModels.length > 0;
+  // The saved pick is flagged when its provider is disconnected (the task
+  // will fail to start) or its model left the provider's list (the task
+  // falls back to the provider's default model).
+  const pickedAgent = executor ?? (model ? configuredExecutor : null);
+  const pickedDisconnected = !!pickedAgent && !isConnected(pickedAgent);
+  const pickedModels = pickedAgent ? modelsByAgent[pickedAgent] : undefined;
+  const pickedUnavailable =
+    !!pickedAgent &&
+    !!model &&
+    !pickedDisconnected &&
+    !!pickedModels?.length &&
+    !pickedModels.some((m) => m.id === model);
+  const connectedProviders = MODEL_PROVIDERS.filter((p) =>
+    isConnected(p.agent)
+  );
+  const disconnectedProviders = MODEL_PROVIDERS.filter(
+    (p) => !isConnected(p.agent)
+  );
 
-  const selectValue = model ?? MODEL_DEFAULT_VALUE;
+  const selectValue =
+    pickedAgent && model
+      ? toModelValue(pickedAgent, model)
+      : pickedAgent
+        ? toModelValue(pickedAgent, '')
+        : MODEL_DEFAULT_VALUE;
+  const pickedLabel = pickedAgent
+    ? `${model ?? t('workers.form.modelProviderDefault')} · ${providerName(pickedAgent)}`
+    : null;
 
   return (
     <Dialog open={modal.visible} onOpenChange={handleOpenChange}>
@@ -356,33 +450,106 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
             </Select>
           </div>
 
-          {hasModels && (
-            <div>
-              <Label htmlFor="worker-model">
-                {t('workers.form.modelLabel')}
-              </Label>
-              <Select
-                value={selectValue}
-                onValueChange={(v) =>
-                  setModel(v === MODEL_DEFAULT_VALUE ? null : v)
+          <div>
+            <Label htmlFor="worker-model">{t('workers.form.modelLabel')}</Label>
+            <Select
+              value={selectValue}
+              onValueChange={(v) => {
+                if (v === MODEL_DEFAULT_VALUE) {
+                  setExecutor(null);
+                  setModel(null);
+                  return;
                 }
-              >
-                <SelectTrigger id="worker-model" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={MODEL_DEFAULT_VALUE}>
-                    {t('workers.form.modelDefault')}
+                const picked = fromModelValue(v);
+                setExecutor(picked.executor);
+                setModel(picked.model || null);
+              }}
+            >
+              <SelectTrigger id="worker-model" className="mt-1">
+                <SelectValue>
+                  {pickedLabel ??
+                    (configuredExecutor
+                      ? `${t('workers.form.modelDefault')} · ${providerName(configuredExecutor)}`
+                      : t('workers.form.modelDefault'))}
+                  {pickedDisconnected &&
+                    ` · ${t('workers.form.modelProviderDisconnected')}`}
+                  {pickedUnavailable &&
+                    ` · ${t('workers.form.modelUnavailable')}`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={MODEL_DEFAULT_VALUE}>
+                  {t('workers.form.modelDefault')}
+                  {configuredExecutor &&
+                    ` · ${providerName(configuredExecutor)}`}
+                </SelectItem>
+                {(pickedDisconnected || pickedUnavailable) && (
+                  <SelectItem value={selectValue} disabled>
+                    {pickedLabel} ·{' '}
+                    {pickedDisconnected
+                      ? t('workers.form.modelProviderDisconnected')
+                      : t('workers.form.modelUnavailable')}
                   </SelectItem>
-                  {availableModels.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
+                )}
+                {connectedProviders.map((p) => (
+                  <SelectGroup key={p.agent}>
+                    <SelectSeparator />
+                    <SelectLabel>
+                      {p.name}
+                      {p.agent === configuredExecutor &&
+                        ` · ${t('workers.form.modelProviderIsDefault')}`}
+                    </SelectLabel>
+                    <SelectItem value={toModelValue(p.agent, '')}>
+                      {t('workers.form.modelProviderDefault')}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                    {(modelsByAgent[p.agent] ?? []).map((m) => (
+                      <SelectItem
+                        key={m.id}
+                        value={toModelValue(p.agent, m.id)}
+                      >
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+                {disconnectedProviders.length > 0 && (
+                  <SelectGroup>
+                    <SelectSeparator />
+                    <SelectLabel>
+                      {t('workers.form.modelNotConnectedGroup')}
+                    </SelectLabel>
+                    {disconnectedProviders.map((p) => (
+                      <SelectItem
+                        key={p.agent}
+                        value={`__off__${p.agent}`}
+                        disabled
+                      >
+                        {p.name} · {t('workers.form.modelNotConnected')}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
+            {pickedDisconnected && pickedAgent && (
+              <p className="mt-1 text-xs text-destructive" role="alert">
+                {t('workers.form.modelProviderDisconnectedHelp', {
+                  provider: providerName(pickedAgent),
+                })}
+              </p>
+            )}
+            {pickedUnavailable && pickedAgent && (
+              <p className="mt-1 text-xs text-warning" role="status">
+                {t('workers.form.modelUnavailableHelp', {
+                  model,
+                  provider: providerName(pickedAgent),
+                })}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-low">
+              {t('workers.form.modelHelp')}
+            </p>
+          </div>
 
           <div>
             <LabelWithHelp

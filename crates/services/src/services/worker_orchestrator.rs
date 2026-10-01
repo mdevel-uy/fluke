@@ -72,9 +72,11 @@ use executors::{
     actions::{
         ExecutorAction, ExecutorActionType, coding_agent_follow_up::CodingAgentFollowUpRequest,
     },
+    executors::{BaseCodingAgent, CodingAgent, StandardCodingAgentExecutor},
     model_selector::PermissionPolicy,
-    profile::ExecutorConfig,
+    profile::{ExecutorConfig, ExecutorConfigs, ExecutorProfileId},
 };
+use futures::StreamExt;
 use git_host::{
     CreatePrRequest, GitHostError, GitHostProvider, GitHostService, PrReviewCommentInput,
     SubmitPrReviewRequest,
@@ -303,6 +305,10 @@ pub enum StartError {
     LicenseSuspended,
     #[error("repo not found")]
     RepoNotFound,
+    /// The worker's agent has no login on this machine. The task is marked
+    /// failed with the same message so it does not sit queued forever.
+    #[error("{0}")]
+    ProviderDisconnected(String),
     #[error("repo '{0}' has no default_target_branch configured")]
     RepoMissingDefaultBranch(String),
     #[error(transparent)]
@@ -444,8 +450,137 @@ const INFRA_MODEL_FALLBACK_THRESHOLD: i64 = 2;
 /// Model the dispatcher degrades to after repeated infra failures. Opus is
 /// the fleet's workhorse model and the least likely to be gated: in the
 /// 02-ago-2026 incident `fable` returned API 404 for half an hour while
-/// opus workers kept running.
+/// opus workers kept running. Claude-only: on any other agent the override
+/// degrades to that agent's own default model (see [`pick_worker_model`]).
 const INFRA_FALLBACK_MODEL: &str = "opus";
+
+/// How long a task start waits for an agent's model catalog before giving
+/// up on validating the worker's model (and trusting it as-is).
+const MODEL_CATALOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Human name of a provider for user-facing messages.
+fn provider_name(agent: BaseCodingAgent) -> String {
+    match agent {
+        BaseCodingAgent::ClaudeCode => "Claude".to_string(),
+        BaseCodingAgent::Codex => "Codex".to_string(),
+        BaseCodingAgent::Gemini => "Gemini".to_string(),
+        other => other.to_string(),
+    }
+}
+
+/// Model ids `agent` currently offers, from the same discovery the model
+/// selector uses (cached, so usually instant). `None` when the catalog
+/// cannot be read in time — callers then trust the stored model.
+async fn offered_models(agent: &CodingAgent) -> Option<Vec<String>> {
+    let fetch = async {
+        let mut stream = agent.discover_options(None, None).await.ok()?;
+        let mut doc = serde_json::json!({});
+        while let Some(patch) = stream.next().await {
+            json_patch::patch(&mut doc, &patch).ok()?;
+        }
+        let models = doc
+            .pointer("/options/model_selector/models")?
+            .as_array()?
+            .iter()
+            .filter_map(|m| m.get("id")?.as_str().map(str::to_owned))
+            .collect::<Vec<_>>();
+        Some(models)
+    };
+    tokio::time::timeout(MODEL_CATALOG_TIMEOUT, fetch)
+        .await
+        .ok()
+        .flatten()
+        .filter(|models| !models.is_empty())
+}
+
+/// Model to launch a worker task with on `executor`. `None` = the agent's
+/// default model. Never returns a model outside `offered` when the catalog
+/// is known: a model the agent dropped (or a Claude alias reaching Codex)
+/// degrades to the agent's default with a warning.
+fn pick_worker_model(
+    executor: BaseCodingAgent,
+    worker_model: Option<&str>,
+    dispatcher_override: Option<&str>,
+    offered: Option<&[String]>,
+) -> Option<String> {
+    let wanted = match dispatcher_override {
+        // The dispatcher's infra fallback names a Claude model; any other
+        // agent degrades to its own default model instead.
+        Some(m) if executor == BaseCodingAgent::ClaudeCode => Some(m),
+        Some(_) => None,
+        None => worker_model,
+    }?;
+    match offered {
+        Some(models) if !models.iter().any(|m| m == wanted) => {
+            warn!(
+                executor = %executor,
+                model = wanted,
+                "Worker model is not offered by its agent; using the agent's default model"
+            );
+            None
+        }
+        _ => Some(wanted.to_string()),
+    }
+}
+
+/// Executor config a worker task launches with: the worker's agent (or the
+/// global default), its model validated against that agent's catalog, and
+/// the per-worker plan-mode override. `Err(agent)` when the worker pinned an
+/// agent that is not connected on this machine.
+async fn worker_executor_config(
+    global: ExecutorProfileId,
+    worker: &Worker,
+    dispatcher_override: Option<&str>,
+) -> Result<ExecutorConfig, BaseCodingAgent> {
+    let executor = worker.executor.unwrap_or(global.executor);
+    // The global variant only applies to the global agent; another agent
+    // runs its DEFAULT variant.
+    let mut executor_config: ExecutorConfig = if executor == global.executor {
+        global.into()
+    } else {
+        ExecutorConfig::new(executor)
+    };
+    let agent = ExecutorConfigs::get_cached().get_coding_agent(&executor_config.profile_id());
+    // Only an explicitly chosen agent is gated: the default agent keeps
+    // today's behaviour. ponytail: availability = the executors' own login
+    // heuristic (file-based); a stale credential still passes and the CLI
+    // fails on its own.
+    if worker.executor.is_some()
+        && !agent
+            .as_ref()
+            .is_some_and(|a| a.get_availability_info().is_available())
+    {
+        return Err(executor);
+    }
+    let wanted = dispatcher_override.or(worker.model.as_deref());
+    let offered = match (&agent, wanted) {
+        (Some(agent), Some(_)) => offered_models(agent).await,
+        _ => None,
+    };
+    if let Some(model) = pick_worker_model(
+        executor,
+        worker.model.as_deref(),
+        dispatcher_override,
+        offered.as_deref(),
+    ) {
+        executor_config.model_id = Some(model);
+    }
+    // Per-worker plan mode override. Setting the policy to `None` is *not*
+    // enough to disable plan mode: every executor stores its own `plan`
+    // flag in the persisted profile, so a missing override just falls back
+    // to that stored value. To truly force plan mode off we have to set a
+    // non-plan policy (`Auto`); to force it on we set `Plan`. `None` on the
+    // worker means "no override, follow the global setting" — leave the
+    // field untouched.
+    if let Some(plan_mode) = worker.plan_mode {
+        executor_config.permission_policy = Some(if plan_mode {
+            PermissionPolicy::Plan
+        } else {
+            PermissionPolicy::Auto
+        });
+    }
+    Ok(executor_config)
+}
 
 /// Exponential backoff between infra-failure retries: 2, 4, 8, 16, 30, 30…
 /// minutes. The PR monitor polls every minute; this gate is what keeps a
@@ -623,35 +758,39 @@ pub async fn try_take_next(
         .filter(|b| !b.is_empty())
         .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
-    let executor_config = config.read().await.executor_profile.clone();
-    let mut executor_config: ExecutorConfig = executor_config.into();
-    if let Some(model) = &worker.model {
-        executor_config.model_id = Some(model.clone());
-    }
     // The dispatcher may pin a fallback model on the task itself (after
     // repeated infra failures); that override beats the worker's model.
-    if let Some(model) = WorkerTask::model_override(pool, task.id).await? {
+    let model_override = WorkerTask::model_override(pool, task.id).await?;
+    if let Some(model) = &model_override {
         info!(
             task_id = %task.id,
             model,
-            "Using dispatcher model override for this task"
+            "Dispatcher model override pinned on this task"
         );
-        executor_config.model_id = Some(model);
     }
-    // Per-worker plan mode override. Setting the policy to `None` is *not*
-    // enough to disable plan mode: every executor stores its own `plan`
-    // flag in the persisted profile, so a missing override just falls back
-    // to that stored value. To truly force plan mode off we have to set a
-    // non-plan policy (`Auto`); to force it on we set `Plan`. `None` on the
-    // worker means "no override, follow the global setting" — leave the
-    // field untouched.
-    if let Some(plan_mode) = worker.plan_mode {
-        executor_config.permission_policy = Some(if plan_mode {
-            PermissionPolicy::Plan
-        } else {
-            PermissionPolicy::Auto
-        });
-    }
+    let global_profile = config.read().await.executor_profile.clone();
+    let executor_config = match worker_executor_config(
+        global_profile,
+        &worker,
+        model_override.as_deref(),
+    )
+    .await
+    {
+        Ok(executor_config) => executor_config,
+        Err(agent) => {
+            let reason = format!(
+                "El proveedor {} no está conectado. Conéctalo en Configuración o elige otro modelo para el worker.",
+                provider_name(agent)
+            );
+            // Fail the task instead of leaving it queued: claim first so
+            // a concurrent start cannot pick it up in between.
+            if WorkerTask::try_claim(pool, task.id, worker_id).await? {
+                WorkerTask::set_failed(pool, task.id, &reason).await?;
+            }
+            warn!(worker_id = %worker_id, task_id = %task.id, "{reason}");
+            return Err(StartError::ProviderDisconnected(reason));
+        }
+    };
 
     let workspace_manager = WorkspaceManager::new(db.clone());
 
@@ -5291,6 +5430,7 @@ mod tests {
                 emoji: "🤖".to_string(),
                 soul: "test soul".to_string(),
                 role,
+                executor: None,
                 model: None,
                 github_pat: None,
                 github_login: None,
@@ -6362,6 +6502,55 @@ mod tests {
                 .unwrap(),
             0,
             "re-queued task no longer counts as an infra failure"
+        );
+    }
+
+    #[test]
+    fn pick_worker_model_respects_the_agent() {
+        let claude = vec!["opus".to_string(), "sonnet".to_string()];
+        let codex = vec!["gpt-5-codex".to_string()];
+        // Offered model passes through.
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("sonnet"),
+                None,
+                Some(&claude)
+            ),
+            Some("sonnet".to_string())
+        );
+        // A model the agent does not offer degrades to the agent default.
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Codex, Some("opus"), None, Some(&codex)),
+            None
+        );
+        // Unknown catalog: trust the stored model.
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Codex, Some("gpt-5"), None, None),
+            Some("gpt-5".to_string())
+        );
+        // Infra fallback applies to Claude only.
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&claude)
+            ),
+            Some(INFRA_FALLBACK_MODEL.to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::Codex,
+                Some("gpt-5-codex"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&codex)
+            ),
+            None
+        );
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Gemini, None, None, None),
+            None
         );
     }
 
