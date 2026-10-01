@@ -1,0 +1,765 @@
+<title>fluke — Agentes y modelos (mock #612)</title>
+<style>
+  /* ---------- Tokens (Workbench v3 · Slate & Signal) ---------- */
+  :root {
+    --bg: #F4F4F5; --panel: #FFFFFF; --rail: #FAFAFA;
+    --hover: #F4F4F5; --active: #E4E4E7; --sel: #EEF2FF;
+    --border: #E4E4E7; --border-strong: #D4D4D8;
+    --t-high: #18181B; --t-normal: #3F3F46; --t-low: #71717A;
+    --brand: #4F46E5; --brand-ink: #4F46E5; --on-brand: #FFFFFF;
+    --success: #16A34A; --warning: #D97706; --error: #DC2626;
+    --shadow-overlay: 0 8px 24px rgba(24,24,27,.12), 0 2px 6px rgba(24,24,27,.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #09090B; --panel: #18181B; --rail: #101012;
+    --hover: #27272A; --active: #3F3F46; --sel: #312E81;
+    --border: #27272A; --border-strong: #52525B;
+    --t-high: #FAFAFA; --t-normal: #D4D4D8; --t-low: #A1A1AA;
+    --brand: #6366F1; --brand-ink: #818CF8; --on-brand: #FFFFFF;
+    --success: #4ADE80; --warning: #FBBF24; --error: #F87171;
+    --shadow-overlay: 0 8px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+    color: var(--t-normal); background: var(--bg); overflow: hidden;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+  svg { display: block; flex: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+  button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--brand); outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; background: var(--hover); padding: 1px 4px; border-radius: 3px; }
+
+  /* ---------- Mock controls (no son parte del diseño) ---------- */
+  .mock-controls {
+    position: fixed; left: 50%; transform: translateX(-50%); top: 10px; z-index: 60;
+    display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(100vw - 24px);
+    background: var(--panel); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 6px; box-shadow: var(--shadow-overlay);
+  }
+  .mock-controls .sep { width: 1px; background: var(--border); margin: 2px 4px; }
+  .mock-controls button { padding: 4px 9px; border-radius: 6px; font-size: 12px; border: 1px solid transparent; }
+  .mock-controls button:hover { background: var(--hover); }
+  .mock-controls button[aria-pressed="true"] { background: var(--sel); color: var(--brand-ink); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }
+
+  /* ---------- Settings dialog chrome ---------- */
+  .backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 96px 24px 24px; background: color-mix(in srgb, var(--t-high) 18%, transparent); }
+  .dialog {
+    width: min(1040px, 100%); height: min(720px, 100%);
+    background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px;
+    box-shadow: var(--shadow-overlay); display: grid; grid-template-columns: 220px 1fr; overflow: hidden; position: relative;
+  }
+  .nav { background: var(--rail); border-right: 1px solid var(--border); padding: 12px 6px; overflow-y: auto; }
+  .nav-title { padding: 2px 10px 10px; font-weight: 600; color: var(--t-high); }
+  .nav-item { display: block; width: 100%; text-align: left; padding: 6px 10px; border-radius: 6px; color: var(--t-normal); }
+  .nav-item:hover { background: var(--hover); }
+  .nav-item.here { background: var(--sel); color: var(--brand-ink); }
+  .nav-item small { display: block; color: var(--t-low); font-size: 11px; line-height: 1.3; margin-top: 1px; }
+  .nav-item.here small { color: color-mix(in srgb, var(--brand-ink) 75%, var(--t-low)); }
+  .nav-item.gone { text-decoration: line-through; opacity: .45; pointer-events: none; }
+  .nav-sep { height: 1px; background: var(--border); margin: 8px 10px; }
+  .nav-legend { padding: 4px 10px; font-size: 11px; color: var(--t-low); }
+
+  .content { overflow-y: auto; padding: 22px 28px 40px; position: relative; }
+  .content h1 { margin: 0; font-size: 16px; font-weight: 600; color: var(--t-high); }
+  .content .lead { margin: 4px 0 18px; color: var(--t-low); max-width: 640px; }
+
+  /* ---------- Default summary ---------- */
+  .default-bar {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 16px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--rail);
+  }
+  .default-bar .label { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--t-low); }
+  .default-bar .value { display: flex; align-items: center; gap: 8px; color: var(--t-high); font-weight: 600; font-size: 14px; }
+  .default-bar .hint { margin-left: auto; color: var(--t-low); font-size: 12px; max-width: 320px; text-align: right; }
+  .default-bar.warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 7%, var(--panel)); }
+  .default-bar.warn .hint { color: var(--warning); }
+
+  /* ---------- Provider card ---------- */
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+  .card.is-default { border-color: color-mix(in srgb, var(--brand) 55%, var(--border)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent); }
+  .card-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .logo { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+  .logo.claude { background: #C2410C; } .logo.codex { background: #18181B; } .logo.gemini { background: #2563EB; }
+  :root[data-theme="dark"] .logo.codex { background: #52525B; }
+  .card-title { font-weight: 600; color: var(--t-high); font-size: 14px; }
+  .card-sub { color: var(--t-low); font-size: 12px; }
+  .head-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid transparent; white-space: nowrap; }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+  .pill.off { color: var(--t-low); background: var(--hover); }
+  .pill.busy { color: var(--brand-ink); background: var(--sel); }
+  .pill.err { color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
+  .pill.warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+  .pill.default { color: var(--on-brand); background: var(--brand); }
+  .pill.fallback { color: var(--t-low); border-color: var(--border-strong); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 6px; font-weight: 500; white-space: nowrap; }
+  .btn.primary { background: var(--brand); color: var(--on-brand); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn.secondary { border: 1px solid var(--border-strong); background: var(--panel); color: var(--t-high); }
+  .btn.secondary:hover:not(:disabled) { background: var(--hover); }
+  .btn.ghost { color: var(--t-normal); }
+  .btn.ghost:hover:not(:disabled) { background: var(--hover); }
+  .btn.danger { color: var(--error); }
+  .btn.danger:hover { background: color-mix(in srgb, var(--error) 8%, transparent); }
+  .btn.sm { height: 24px; padding: 0 8px; font-size: 12px; }
+  .link { color: var(--brand-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+  .card-body { border-top: 1px solid var(--border); padding: 12px 14px; display: grid; grid-template-columns: 120px 1fr; gap: 10px 14px; align-items: start; }
+  .row-label { color: var(--t-low); font-size: 12px; padding-top: 3px; }
+  .models { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .model { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; color: var(--t-high); background: var(--rail); }
+  .model.base { border-color: color-mix(in srgb, var(--brand) 50%, var(--border)); }
+  .model.base::after { content: "base"; font-size: 10px; color: var(--brand-ink); font-weight: 600; }
+  .models.dim .model { color: var(--t-low); background: transparent; border-style: dashed; }
+  .meta { color: var(--t-low); font-size: 12px; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+  select.input, input.input {
+    height: 28px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 6px;
+    background: var(--panel); color: var(--t-high); font: inherit;
+  }
+  input.input { flex: 1; min-width: 0; }
+  .form-grid input.input { flex: none; }
+
+  .card-foot { border-top: 1px solid var(--border); padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 8px; }
+  .card-foot .adv { display: inline-flex; align-items: center; gap: 6px; color: var(--t-normal); font-size: 12px; padding: 4px 6px; border-radius: 5px; }
+  .card-foot .adv:hover { background: var(--hover); color: var(--t-high); }
+  .card-foot .adv .count { color: var(--t-low); }
+
+  /* ---------- Inline flow (connecting / error / expired) ---------- */
+  .flow { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 8px; background: var(--rail); padding: 14px; }
+  .flow h3 { margin: 0 0 2px; font-size: 13px; color: var(--t-high); }
+  .flow p { margin: 0; color: var(--t-low); }
+  .steps { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+  .step-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border-strong); color: var(--t-low); background: var(--panel); }
+  .step.done .step-n { background: var(--success); border-color: var(--success); color: #fff; }
+  .step.now .step-n { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .step.todo { opacity: .55; }
+  .step-title { font-weight: 600; color: var(--t-high); }
+  .step-desc { color: var(--t-low); font-size: 12px; margin-top: 1px; }
+  .step-act { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .field-err { color: var(--error); font-size: 12px; margin-top: 6px; display: flex; gap: 6px; align-items: flex-start; }
+  input.input.has-err { border-color: var(--error); }
+  .devcode { font: 600 24px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .25em; color: var(--t-high); padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--panel); }
+  .banner { grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px; border: 1px solid; }
+  .banner.err { color: var(--error); border-color: color-mix(in srgb, var(--error) 40%, transparent); background: color-mix(in srgb, var(--error) 6%, transparent); }
+  .banner.warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 7%, transparent); }
+  .banner .txt { flex: 1; color: var(--t-normal); }
+  .banner .txt b { color: var(--t-high); }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--brand); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden-clis { margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; color: var(--t-low); font-size: 12px; }
+
+  /* ---------- Overlays: drawer + confirm ---------- */
+  .scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--t-high) 20%, transparent); display: none; z-index: 10; }
+  .scrim.on { display: block; }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 620px; max-width: 92%; background: var(--panel); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-overlay); display: none; flex-direction: column; z-index: 11; }
+  .drawer.on { display: flex; }
+  .drawer-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 14px 16px; display: grid; grid-template-columns: 180px 1fr; gap: 14px; align-content: start; }
+  .drawer-foot { border-top: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 8px; align-items: center; }
+  .variants { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .variants .vh { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--t-low); background: var(--rail); border-bottom: 1px solid var(--border); }
+  .variant { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; text-align: left; }
+  .variant:hover { background: var(--hover); }
+  .variant.here { background: var(--sel); color: var(--brand-ink); }
+  .variant small { margin-left: auto; color: var(--t-low); font-size: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
+  .seg button { padding: 3px 10px; font-size: 12px; }
+  .seg button[aria-pressed="true"] { background: var(--sel); color: var(--brand-ink); }
+  .form-grid { display: flex; flex-direction: column; gap: 12px; }
+  .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t-high); font-weight: 500; }
+  .form-grid label span { font-weight: 400; color: var(--t-low); }
+  .check { flex-direction: row !important; align-items: flex-start; gap: 8px !important; }
+  textarea.json { width: 100%; height: 300px; resize: vertical; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--rail); color: var(--t-high); padding: 10px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+
+  .confirm { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 460px; max-width: 92%; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-overlay); z-index: 12; display: none; }
+  .confirm.on { display: block; }
+  .confirm .c-body { padding: 18px 18px 6px; }
+  .confirm h3 { margin: 0 0 6px; font-size: 15px; color: var(--t-high); }
+  .confirm p { margin: 0 0 10px; color: var(--t-normal); }
+  .radio { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
+  .radio:has(input:checked) { border-color: var(--brand); background: var(--sel); }
+  .confirm .c-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
+
+  /* ---------- Worker form (insumo #614) ---------- */
+  .worker-view { display: none; }
+  body[data-view="worker"] .worker-view { display: block; }
+  body[data-view="worker"] .providers-view, body[data-view="spec"] .providers-view { display: none; }
+  .wf { max-width: 560px; border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--panel); }
+  .wf h2 { margin: 0 0 14px; font-size: 15px; color: var(--t-high); }
+  .wf-field { margin-bottom: 14px; }
+  .wf-field > label { display: block; font-weight: 500; color: var(--t-high); margin-bottom: 4px; }
+  .wf-field .help { color: var(--t-low); font-size: 12px; margin-top: 4px; }
+  .fake-input { height: 30px; border: 1px solid var(--border-strong); border-radius: 6px; display: flex; align-items: center; padding: 0 10px; color: var(--t-high); }
+  .trigger { width: 100%; height: 32px; border: 1px solid var(--border-strong); border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--t-high); background: var(--panel); }
+  .trigger .chev { margin-left: auto; color: var(--t-low); }
+  .trigger .prov { color: var(--t-low); }
+  .trigger.warn { border-color: var(--warning); }
+  .trigger.err { border-color: var(--error); }
+  .mini-logo { width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; color: #fff; font-size: 9px; font-weight: 700; }
+  .listbox { margin-top: 4px; border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-overlay); background: var(--panel); max-height: 380px; overflow-y: auto; padding: 4px; }
+  .lb-search { padding: 4px 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .lb-search input { width: 100%; }
+  .lb-group { padding: 8px 8px 4px; display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--t-low); }
+  .opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 5px; text-align: left; color: var(--t-high); }
+  .opt:hover { background: var(--hover); }
+  .opt[aria-selected="true"] { background: var(--sel); }
+  .opt[aria-selected="true"]::after { content: "\2713"; margin-left: auto; color: var(--brand-ink); }
+  .opt .sub { color: var(--t-low); font-size: 12px; }
+  .opt.unavailable { color: var(--t-low); cursor: default; }
+  .opt-tag { font-size: 10px; color: var(--brand-ink); font-weight: 600; }
+  .lb-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+  .wf-variants { display: flex; gap: 6px; margin-bottom: 12px; }
+  .wf-variants button { padding: 3px 9px; font-size: 12px; border: 1px solid var(--border); border-radius: 999px; }
+  .wf-variants button[aria-pressed="true"] { background: var(--sel); color: var(--brand-ink); border-color: var(--brand); }
+  .wf-msg { margin-top: 6px; font-size: 12px; display: flex; gap: 6px; }
+  .wf-msg.warn { color: var(--warning); } .wf-msg.err { color: var(--error); }
+
+  /* ---------- Spec view ---------- */
+  .spec-view { display: none; max-width: 760px; }
+  body[data-view="spec"] .spec-view { display: block; }
+  .spec-view h2 { font-size: 14px; color: var(--t-high); margin: 22px 0 8px; }
+  .spec-view p, .spec-view li { color: var(--t-normal); }
+  .spec-view ol, .spec-view ul { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; margin: 0; }
+  .spec-view b { color: var(--t-high); }
+  table.spec { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.spec th, table.spec td { text-align: left; vertical-align: top; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  table.spec th { color: var(--t-low); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .tag-gone { color: var(--error); font-weight: 600; } .tag-merge { color: var(--brand-ink); font-weight: 600; } .tag-keep { color: var(--success); font-weight: 600; }
+</style>
+
+<body data-view="providers">
+<div class="backdrop">
+  <div class="dialog" role="dialog" aria-label="Configuración">
+    <nav class="nav" aria-label="Secciones de configuración">
+      <div class="nav-title">Configuración</div>
+      <button class="nav-item">General<small>Tema, notificaciones y preferencias</small></button>
+      <button class="nav-item">Valor y facturación<small>Modelo de ahorro y tarifas</small></button>
+      <button class="nav-item">Repositorios<small>Scripts y configuración por repo</small></button>
+      <button class="nav-item here" data-goto="providers">Agentes y modelos<small>Proveedores, modelos y proveedor por defecto</small></button>
+      <button class="nav-item gone" aria-hidden="true">Agentes<small>Se fusiona en Agentes y modelos</small></button>
+      <button class="nav-item gone" aria-hidden="true">Conexiones de agentes<small>Se fusiona en Agentes y modelos</small></button>
+      <button class="nav-item">Guías<small>Instrucciones para los agentes</small></button>
+      <button class="nav-item">Servidores MCP<small>Herramientas externas</small></button>
+      <button class="nav-item">Skills</button>
+      <button class="nav-item">Datos</button>
+      <div class="nav-sep"></div>
+      <button class="nav-item">GitHub</button>
+      <div class="nav-sep"></div>
+      <div class="nav-legend">Tachado: secciones que desaparecen (sólo visible en el mock).</div>
+    </nav>
+
+    <main class="content" id="content">
+      <!-- ===== Pantalla de proveedores ===== -->
+      <section class="providers-view">
+        <h1>Agentes y modelos</h1>
+        <p class="lead">Conecta los proveedores que quieras usar. Cada worker puede elegir cualquier modelo de un proveedor conectado; el proveedor por defecto se usa cuando una tarea o un worker no elige uno.</p>
+        <div id="default-bar"></div>
+        <div class="cards" id="cards"></div>
+        <div class="hidden-clis"><b>No instalados en esta máquina:</b> ninguno. Si falta el CLI de un proveedor, su tarjeta no se muestra y aparece listado aquí con un enlace a cómo instalarlo.</div>
+      </section>
+
+      <!-- ===== Selector de modelo del worker (insumo #614) ===== -->
+      <section class="worker-view">
+        <h1>Selector de modelo del worker</h1>
+        <p class="lead">Vista del campo "Modelo" dentro de <code>WorkerFormDialog</code> con varios proveedores conectados. Es el insumo del issue #614. El estado de los proveedores sale de la misma pantalla de Agentes y modelos.</p>
+        <div class="wf-variants" role="group" aria-label="Caso del selector">
+          <button data-wf="default" aria-pressed="true">Usa el por defecto</button>
+          <button data-wf="explicit" aria-pressed="false">Modelo elegido</button>
+          <button data-wf="missing" aria-pressed="false">Modelo ya no disponible</button>
+          <button data-wf="disconnected" aria-pressed="false">Proveedor desconectado</button>
+        </div>
+        <div class="wf">
+          <h2>Editar worker</h2>
+          <div class="wf-field"><label>Nombre</label><div class="fake-input">Bea</div></div>
+          <div class="wf-field"><label>Rol</label><div class="fake-input">developer</div></div>
+          <div class="wf-field">
+            <label for="wf-trigger">Modelo</label>
+            <div id="wf-trigger-wrap"></div>
+            <div id="wf-listbox"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Especificación ===== -->
+      <section class="spec-view" id="spec"></section>
+
+    </main>
+    <div class="scrim" id="scrim"></div>
+    <aside class="drawer" id="drawer" aria-label="Configuración avanzada"></aside>
+    <div class="confirm" id="confirm" role="alertdialog" aria-modal="true"></div>
+  </div>
+</div>
+
+<div class="mock-controls" role="toolbar" aria-label="Controles del mock">
+  <button data-scn="normal" aria-pressed="true">Normal</button>
+  <button data-scn="fresh" aria-pressed="false">Nada conectado</button>
+  <button data-scn="connecting" aria-pressed="false">Conectando Claude</button>
+  <button data-scn="verifying" aria-pressed="false">Verificando</button>
+  <button data-scn="codeError" aria-pressed="false">Código inválido</button>
+  <button data-scn="failed" aria-pressed="false">Error del CLI</button>
+  <button data-scn="expired" aria-pressed="false">Credencial vencida</button>
+  <button data-scn="codex" aria-pressed="false">Conectando Codex</button>
+  <span class="sep"></span>
+  <button data-scn="advanced" aria-pressed="false">Avanzado</button>
+  <button data-scn="disconnect" aria-pressed="false">Desconectar default</button>
+  <button data-scn="worker" aria-pressed="false">Selector del worker</button>
+  <button data-scn="spec" aria-pressed="false">Especificación</button>
+  <span class="sep"></span>
+  <button id="btn-theme" aria-pressed="false">Oscuro</button>
+</div>
+
+<script>
+  /* ---------- Datos del mock ---------- */
+  const CATALOG = {
+    claude: {
+      name: 'Claude', logo: 'C', via: 'Suscripción de Claude',
+      models: ['Opus 5.5', 'Opus 5.5 (1M)', 'Sonnet 5.5', 'Haiku 4.5', 'Fable 5.1'],
+      variants: ['Estándar', 'Plan', 'Aprobaciones'],
+    },
+    codex: {
+      name: 'Codex', logo: 'O', via: 'Cuenta de OpenAI',
+      models: ['gpt-5-codex', 'gpt-5', 'gpt-5-mini'],
+      variants: ['Estándar'],
+    },
+    gemini: {
+      name: 'Gemini', logo: 'G', via: 'API key de Google AI Studio',
+      models: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+      variants: ['Estándar', 'Rápido'],
+    },
+  };
+  const ORDER = ['claude', 'codex', 'gemini'];
+
+  let S; // estado actual
+  function baseState() {
+    return {
+      defaultId: 'claude',
+      p: {
+        claude: { state: 'connected', base: 'Opus 5.5', account: 'dwaksman@…', fallback: false, workers: 4 },
+        codex:  { state: 'off', base: 'gpt-5-codex', workers: 0 },
+        gemini: { state: 'connected', base: 'gemini-2.5-pro', fallback: true, workers: 1 },
+      },
+      drawer: null, confirm: null, advTab: 'form', advVariant: 0,
+    };
+  }
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const isUsable = (id) => S.p[id].state === 'connected';
+
+  /* ---------- Render: barra del default ---------- */
+  function renderDefaultBar() {
+    const el = document.getElementById('default-bar');
+    const id = S.defaultId;
+    if (!id) {
+      el.innerHTML = `<div class="default-bar warn"><div><div class="label">Proveedor por defecto</div><div class="value">Sin proveedor por defecto</div></div><div class="hint">Conecta un proveedor y elige "Usar por defecto". Hasta entonces las tareas nuevas no pueden arrancar.</div></div>`;
+      return;
+    }
+    const c = CATALOG[id], p = S.p[id];
+    const broken = !isUsable(id);
+    el.innerHTML = `<div class="default-bar ${broken ? 'warn' : ''}">
+      <div><div class="label">Proveedor por defecto</div>
+        <div class="value"><span class="logo ${id}" style="width:20px;height:20px;font-size:11px">${c.logo}</span>${c.name} <span style="color:var(--t-low);font-weight:400">·</span> ${esc(p.base)}</div></div>
+      <div class="hint">${broken
+        ? `${c.name} no está disponible. Las tareas y los workers que usan el por defecto fallan al arrancar hasta que lo reconectes o elijas otro.`
+        : 'Lo usan las tareas nuevas y los workers que no eligen modelo. Para cambiarlo, usa "Usar por defecto" en otro proveedor.'}</div>
+    </div>`;
+  }
+
+  /* ---------- Render: tarjetas ---------- */
+  function statusPill(st) {
+    return {
+      connected: '<span class="pill ok"><span class="dot"></span>Conectado</span>',
+      off: '<span class="pill off"><span class="dot"></span>Sin conectar</span>',
+      connecting: '<span class="pill busy"><span class="dot"></span>Conectando</span>',
+      verifying: '<span class="pill busy"><span class="dot"></span>Verificando</span>',
+      codeError: '<span class="pill busy"><span class="dot"></span>Conectando</span>',
+      failed: '<span class="pill err"><span class="dot"></span>Error al conectar</span>',
+      expired: '<span class="pill warn"><span class="dot"></span>Credencial vencida</span>',
+    }[st];
+  }
+
+  function headActions(id) {
+    const p = S.p[id];
+    if (S.defaultId === id) return '<span class="pill default">Por defecto</span>';
+    if (p.state === 'connected') return `<button class="btn secondary sm" data-act="make-default" data-id="${id}">Usar por defecto</button>`;
+    return `<button class="btn secondary sm" disabled title="Conecta ${CATALOG[id].name} para poder usarlo por defecto">Usar por defecto</button>`;
+  }
+
+  function modelsRow(id) {
+    const c = CATALOG[id], p = S.p[id];
+    const connected = p.state === 'connected';
+    const chips = c.models.map((m) => `<span class="model ${connected && m === p.base ? 'base' : ''}">${esc(m)}</span>`).join('');
+    let meta;
+    if (connected && p.fallback) meta = `<span class="pill fallback">Lista de respaldo</span><span>No se pudo consultar a ${c.name}; se muestran los modelos conocidos.</span><button class="btn ghost sm" data-act="refresh" data-id="${id}">Reintentar</button>`;
+    else if (connected) meta = `<span>Actualizada hace 3 min desde ${c.name}.</span><button class="btn ghost sm" data-act="refresh" data-id="${id}">Actualizar</button>`;
+    else if (p.state === 'expired') meta = `<span>Última lista conocida. No se actualiza hasta que reconectes.</span>`;
+    else meta = `<span>Modelos que ofrece ${c.name}. Quedan disponibles para los workers al conectar.</span>`;
+    return `<div class="row-label">Modelos (${c.models.length})</div>
+      <div><div class="models ${connected ? '' : 'dim'}">${chips}</div><div class="meta">${meta}</div></div>`;
+  }
+
+  function baseRow(id) {
+    const c = CATALOG[id], p = S.p[id];
+    if (p.state !== 'connected') return '';
+    const opts = c.models.map((m) => `<option ${m === p.base ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    return `<div class="row-label">Modelo base</div>
+      <div><select class="input" data-act="base" data-id="${id}" aria-label="Modelo base de ${c.name}">${opts}</select>
+      <div class="meta">Lo usa ${c.name} cuando un worker o una tarea no especifica modelo${S.defaultId === id ? ', incluido el proveedor por defecto' : ''}.</div></div>`;
+  }
+
+  function flowBlock(id) {
+    const c = CATALOG[id], p = S.p[id];
+    const st = p.state;
+
+    if (st === 'off') {
+      if (id === 'gemini') {
+        return `<div class="flow"><h3>Conectar con una API key</h3><p>Pega una API key de Gemini generada en Google AI Studio. Se guarda en esta máquina y nunca sale de ella.</p>
+          <div class="step-act"><input class="input mono" type="password" placeholder="AIza…" aria-label="API key de Gemini"><button class="btn primary" data-act="connect" data-id="${id}">Guardar y conectar</button></div></div>`;
+      }
+      return `<div class="row-label">Conexión</div><div><button class="btn primary" data-act="connect" data-id="${id}">Conectar ${c.name}</button>
+        <div class="meta">${id === 'claude' ? 'Inicia sesión con tu suscripción de Claude. No se usa ni se pide una API key.' : 'Inicia sesión con tu cuenta de OpenAI desde el navegador.'}</div></div>`;
+    }
+
+    if (id === 'codex' && st === 'connecting') {
+      return `<div class="flow"><h3>Autoriza en OpenAI</h3><p>Abre la página de OpenAI e ingresa este código de un solo uso.</p>
+        <ol class="steps">
+          <li class="step now"><span class="step-n">1</span><div><div class="step-title">Copia el código</div>
+            <div class="step-act"><button class="devcode" title="Clic para copiar">K7QM-4XZD</button></div></div></li>
+          <li class="step now"><span class="step-n">2</span><div><div class="step-title">Ábrelo en OpenAI e inicia sesión</div>
+            <div class="step-act"><button class="btn primary">Abrir OpenAI</button></div></div></li>
+          <li class="step todo"><span class="step-n">3</span><div><div class="step-title">Listo</div><div class="step-desc">Esta tarjeta pasa a "Conectado" sola en cuanto autorices. No hace falta refrescar.</div></div></li>
+        </ol>
+        <div class="step-act"><button class="btn ghost" data-act="cancel" data-id="${id}">Cancelar</button></div></div>`;
+    }
+
+    if (st === 'connecting' || st === 'codeError' || st === 'verifying') {
+      const s1 = 'done';
+      const s2 = st === 'verifying' ? 'done' : 'now';
+      const s3 = st === 'verifying' ? 'now' : 'todo';
+      const err = st === 'codeError';
+      return `<div class="flow"><h3>Conectar Claude con tu suscripción</h3><p>Tres pasos. No necesitas abrir una consola.</p>
+        <ol class="steps">
+          <li class="step ${s1}"><span class="step-n">${s1 === 'done' ? '&#10003;' : '1'}</span><div>
+            <div class="step-title">Inicia sesión en claude.com</div>
+            <div class="step-desc">Se abrió la página de autorización en tu navegador. Si no se abrió, ábrela de nuevo.</div>
+            <div class="step-act"><button class="btn secondary sm">Abrir claude.com</button><button class="btn ghost sm">Copiar URL</button></div></div></li>
+          <li class="step ${s2}"><span class="step-n">${s2 === 'done' ? '&#10003;' : '2'}</span><div>
+            <div class="step-title">Pega el código que te muestra la página</div>
+            <div class="step-desc">Al terminar, claude.com muestra un código de autorización. Cópialo completo.</div>
+            ${st === 'verifying' ? '' : `<div class="step-act"><input id="code-input" class="input mono ${err ? 'has-err' : ''}" placeholder="Pega el código aquí" value="${err ? 'abc123#xyz' : ''}" aria-label="Código de autorización" ${err ? 'aria-invalid="true" aria-describedby="code-err"' : ''}><button class="btn primary" data-act="submit-code" data-id="${id}">Continuar</button></div>
+            ${err ? `<div class="field-err" id="code-err" role="alert">El código no es válido o ya venció. Cópialo de nuevo desde claude.com o <button class="link" data-act="restart" data-id="${id}">genera uno nuevo</button>.</div>` : ''}`}
+          </div></li>
+          <li class="step ${s3}"><span class="step-n">3</span><div>
+            <div class="step-title">${st === 'verifying' ? '<span style="display:inline-flex;gap:8px;align-items:center"><span class="spin" aria-hidden="true"></span>Verificando la conexión</span>' : 'Verificación'}</div>
+            <div class="step-desc">fluke comprueba que la credencial funciona y descubre los modelos de tu suscripción. Tarda unos segundos.</div></div></li>
+        </ol>
+        <div class="step-act"><button class="btn ghost" data-act="cancel" data-id="${id}">Cancelar</button><span class="meta" style="margin:0">Pista para el mock: escribe "error" para ver el código inválido.</span></div></div>`;
+    }
+
+    if (st === 'failed') {
+      return `<div class="banner err" role="alert"><div class="txt"><b>No se pudo conectar ${c.name}.</b> El inicio de sesión terminó sin dejar una credencial utilizable. Vuelve a intentarlo; si se repite, revisa que tu suscripción esté activa.
+        <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--t-low)">Detalle técnico</summary><code>claude setup-token: exit 1 · no se encontró token en la salida</code></details></div>
+        <button class="btn primary sm" data-act="connect" data-id="${id}">Reintentar</button></div>`;
+    }
+
+    if (st === 'expired') {
+      return `<div class="banner warn" role="alert"><div class="txt"><b>La sesión de ${c.name} venció el 28 de septiembre.</b> ${p.workers} workers y ${S.defaultId === id ? 'el proveedor por defecto dependen' : 'las tareas que lo eligen dependen'} de esta conexión: fallarán al arrancar hasta que reconectes. Su configuración se conserva.</div>
+        <button class="btn primary sm" data-act="connect" data-id="${id}">Reconectar</button></div>`;
+    }
+    return '';
+  }
+
+  function cardFoot(id) {
+    const c = CATALOG[id], p = S.p[id];
+    const canDisconnect = p.state === 'connected' || p.state === 'expired';
+    return `<div class="card-foot">
+      <button class="adv" data-act="advanced" data-id="${id}">Variantes y configuración avanzada <span class="count">${c.variants.length}</span> <span aria-hidden="true">&rsaquo;</span></button>
+      <span style="flex:1"></span>
+      ${p.workers ? `<span class="meta" style="margin:0">Lo usan ${p.workers} worker${p.workers > 1 ? 's' : ''}</span>` : ''}
+      ${canDisconnect ? `<button class="btn danger sm" data-act="disconnect" data-id="${id}">Desconectar</button>` : ''}
+    </div>`;
+  }
+
+  function renderCards() {
+    document.getElementById('cards').innerHTML = ORDER.map((id) => {
+      const c = CATALOG[id], p = S.p[id];
+      const sub = p.state === 'connected' || p.state === 'expired' ? `${c.via}${p.account ? ' · ' + p.account : ''}` : c.via;
+      return `<article class="card ${S.defaultId === id ? 'is-default' : ''}" aria-label="${c.name}">
+        <header class="card-head">
+          <span class="logo ${id}" aria-hidden="true">${c.logo}</span>
+          <div><div style="display:flex;gap:8px;align-items:center"><span class="card-title">${c.name}</span>${statusPill(p.state)}</div><div class="card-sub">${sub}</div></div>
+          <div class="head-actions">${headActions(id)}</div>
+        </header>
+        <div class="card-body">${flowBlock(id)}${modelsRow(id)}${baseRow(id)}</div>
+        ${cardFoot(id)}
+      </article>`;
+    }).join('');
+  }
+
+  /* ---------- Drawer: configuración avanzada ---------- */
+  function renderDrawer() {
+    const d = document.getElementById('drawer');
+    const id = S.drawer;
+    document.getElementById('scrim').classList.toggle('on', !!id || !!S.confirm);
+    d.classList.toggle('on', !!id);
+    if (!id) { d.innerHTML = ''; return; }
+    const c = CATALOG[id], p = S.p[id];
+    const v = c.variants[S.advVariant] || c.variants[0];
+    const variants = c.variants.map((name, i) => `<button class="variant ${i === S.advVariant ? 'here' : ''}" data-act="variant" data-i="${i}">${name}${i === 0 ? '<small>usa workers y default</small>' : ''}</button>`).join('');
+    const json = JSON.stringify({ executors: { [id.toUpperCase()]: { [v.toUpperCase()]: { [id.toUpperCase()]: { model: p.base.toLowerCase().replace(/ /g, '-'), dangerously_skip_permissions: true, append_prompt: null } } } } }, null, 2);
+    d.innerHTML = `
+      <div class="drawer-head"><span class="logo ${id}">${c.logo}</span><div><div class="card-title">${c.name} · configuración avanzada</div><div class="card-sub">Variantes y perfil del agente. Para el uso habitual no hace falta tocar nada aquí.</div></div>
+        <button class="btn ghost sm" style="margin-left:auto" data-act="close" aria-label="Cerrar">Cerrar</button></div>
+      <div class="drawer-body">
+        <div class="variants"><div class="vh">Variantes <button class="btn ghost sm" title="Nueva variante">+</button></div>${variants}</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <b style="color:var(--t-high)">${v}</b>
+            ${S.advVariant === 0 ? '<span class="pill off">No se puede eliminar</span>' : '<button class="btn danger sm">Eliminar variante</button>'}
+            <div class="seg" style="margin-left:auto" role="group" aria-label="Modo de edición"><button data-act="tab" data-tab="form" aria-pressed="${S.advTab === 'form'}">Formulario</button><button data-act="tab" data-tab="json" aria-pressed="${S.advTab === 'json'}">JSON</button></div>
+          </div>
+          ${S.advTab === 'form' ? `<div class="form-grid">
+            <label>Modelo<select class="input">${c.models.map((m) => `<option ${m === p.base ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
+              <span>${S.advVariant === 0 ? 'En la variante Estándar este valor es el mismo "Modelo base" de la tarjeta; cambiarlo aquí o allá es equivalente.' : 'Modelo de esta variante.'}</span></label>
+            <label class="check"><input type="checkbox" checked> <div>Omitir confirmaciones de permisos<br><span>Necesario para que los workers trabajen sin intervención.</span></div></label>
+            <label>Texto extra al prompt<textarea class="json" style="height:70px" placeholder="Opcional"></textarea></label>
+            <label>Variables de entorno<input class="input mono" placeholder="CLAVE=valor"></label>
+          </div>` : `<textarea class="json" spellcheck="false" aria-label="Perfil en JSON">${esc(json)}</textarea>
+            <div class="meta">Edita el archivo de perfiles completo de ${c.name}. Se valida antes de guardar.</div>`}
+        </div>
+      </div>
+      <div class="drawer-foot"><span class="meta" style="margin:0">Los cambios afectan a las tareas nuevas.</span><span style="flex:1"></span><button class="btn ghost" data-act="close">Descartar</button><button class="btn primary" data-act="close">Guardar</button></div>`;
+  }
+
+  /* ---------- Confirmación al desconectar ---------- */
+  function renderConfirm() {
+    const el = document.getElementById('confirm');
+    const id = S.confirm;
+    document.getElementById('scrim').classList.toggle('on', !!id || !!S.drawer);
+    el.classList.toggle('on', !!id);
+    if (!id) { el.innerHTML = ''; return; }
+    const c = CATALOG[id], p = S.p[id];
+    const others = ORDER.filter((o) => o !== id && isUsable(o));
+    const isDef = S.defaultId === id;
+    let body = `<h3>¿Desconectar ${c.name}?</h3>
+      <p>Se borra la credencial de esta máquina. ${p.workers ? `<b>${p.workers} workers</b> eligieron un modelo de ${c.name}; sus tareas fallarán al arrancar con el mensaje "${c.name} no está conectado" hasta que lo vuelvas a conectar.` : ''}</p>`;
+    if (isDef && others.length) {
+      body += `<p><b>${c.name} es el proveedor por defecto.</b> Elige cuál lo reemplaza:</p>` +
+        others.map((o, i) => `<label class="radio"><input type="radio" name="newdef" value="${o}" ${i === 0 ? 'checked' : ''}><span class="logo ${o}" style="width:20px;height:20px;font-size:11px">${CATALOG[o].logo}</span>${CATALOG[o].name} · ${esc(S.p[o].base)}</label>`).join('');
+    } else if (isDef) {
+      body += `<p><b>${c.name} es el proveedor por defecto y no hay otro conectado.</b> Las tareas nuevas no podrán arrancar hasta que conectes un proveedor.</p>`;
+    }
+    el.innerHTML = `<div class="c-body">${body}</div><div class="c-foot"><button class="btn ghost" data-act="confirm-cancel">Cancelar</button><button class="btn primary" style="background:var(--error)" data-act="confirm-ok">Desconectar</button></div>`;
+  }
+
+  /* ---------- Selector del worker ---------- */
+  let WF = 'default';
+  function renderWorker() {
+    const providersIn = ORDER.filter((id) => isUsable(id));
+    const off = ORDER.filter((id) => !isUsable(id));
+    const def = S.defaultId;
+    const sel = {
+      default: { prov: null, model: null },
+      explicit: { prov: 'gemini', model: 'gemini-2.5-flash' },
+      missing: { prov: 'claude', model: 'Sonnet 4.6' },
+      disconnected: { prov: 'codex', model: 'gpt-5-codex' },
+    }[WF];
+
+    const logo = (id) => `<span class="mini-logo logo ${id}">${CATALOG[id].logo}</span>`;
+    let trigger, msg = '';
+    if (!sel.prov) {
+      trigger = `<button class="trigger" id="wf-trigger" aria-haspopup="listbox" aria-expanded="true">${def ? logo(def) : ''}<span>Por defecto</span><span class="prov">${def ? `${CATALOG[def].name} · ${esc(S.p[def].base)}` : 'sin proveedor'}</span><span class="chev">&#9662;</span></button>`;
+    } else if (WF === 'missing') {
+      trigger = `<button class="trigger warn" id="wf-trigger" aria-haspopup="listbox">${logo(sel.prov)}<span>${sel.model}</span><span class="prov">${CATALOG[sel.prov].name} · no disponible</span><span class="chev">&#9662;</span></button>`;
+      msg = `<div class="wf-msg warn" role="status">${sel.model} ya no aparece en la lista de ${CATALOG[sel.prov].name}. Mientras no elijas otro, las tareas usan el modelo base de ${CATALOG[sel.prov].name} (${esc(S.p[sel.prov].base)}).</div>`;
+    } else if (WF === 'disconnected') {
+      trigger = `<button class="trigger err" id="wf-trigger" aria-haspopup="listbox">${logo(sel.prov)}<span>${sel.model}</span><span class="prov">${CATALOG[sel.prov].name} · sin conectar</span><span class="chev">&#9662;</span></button>`;
+      msg = `<div class="wf-msg err" role="alert">${CATALOG[sel.prov].name} no está conectado: las tareas de este worker fallarán al arrancar. <button class="link" data-goto="providers">Conectar ${CATALOG[sel.prov].name}</button> o elige otro modelo.</div>`;
+    } else {
+      trigger = `<button class="trigger" id="wf-trigger" aria-haspopup="listbox">${logo(sel.prov)}<span>${sel.model}</span><span class="prov">${CATALOG[sel.prov].name}</span><span class="chev">&#9662;</span></button>`;
+    }
+    document.getElementById('wf-trigger-wrap').innerHTML = trigger + msg +
+      `<div class="help" style="color:var(--t-low);font-size:12px;margin-top:4px">El worker usa el proveedor del modelo que elijas. "Por defecto" sigue al proveedor por defecto si lo cambias.</div>`;
+
+    let lb = `<div class="listbox" role="listbox" aria-label="Modelos disponibles">
+      <div class="lb-search"><input class="input" placeholder="Buscar modelo…" aria-label="Buscar modelo"></div>
+      <button class="opt" role="option" aria-selected="${!sel.prov}">${def ? logo(def) : ''}<span>Por defecto</span><span class="sub">${def ? `${CATALOG[def].name} · ${esc(S.p[def].base)}` : ''}</span></button>
+      <div class="lb-sep"></div>`;
+    if (WF === 'missing') {
+      lb += `<button class="opt unavailable" role="option" aria-selected="true" aria-disabled="true">${logo('claude')}<span>Sonnet 4.6</span><span class="sub">no disponible</span></button><div class="lb-sep"></div>`;
+    }
+    if (WF === 'disconnected') {
+      lb += `<button class="opt unavailable" role="option" aria-selected="true" aria-disabled="true">${logo('codex')}<span>gpt-5-codex</span><span class="sub">Codex sin conectar</span></button><div class="lb-sep"></div>`;
+    }
+    providersIn.forEach((id) => {
+      lb += `<div class="lb-group" role="presentation">${logo(id)}${CATALOG[id].name}${def === id ? ' <span class="pill default" style="text-transform:none;letter-spacing:0;font-size:10px;padding:0 6px">Por defecto</span>' : ''}${S.p[id].fallback ? ' <span class="pill fallback" style="text-transform:none;letter-spacing:0;font-size:10px;padding:0 6px">Lista de respaldo</span>' : ''}</div>`;
+      CATALOG[id].models.forEach((m) => {
+        const selected = sel.prov === id && sel.model === m;
+        lb += `<button class="opt" role="option" aria-selected="${selected}"><span style="width:16px"></span><span>${esc(m)}</span>${m === S.p[id].base ? '<span class="opt-tag">base</span>' : ''}</button>`;
+      });
+    });
+    if (off.length) {
+      lb += `<div class="lb-sep"></div><div class="lb-group">Sin conectar</div>`;
+      off.forEach((id) => {
+        lb += `<div class="opt unavailable">${logo(id)}<span>${CATALOG[id].name}</span><span class="sub">${S.p[id].state === 'expired' ? 'Credencial vencida' : 'No conectado'} · <button class="link" data-goto="providers">Conectar</button></span></div>`;
+      });
+    }
+    lb += '</div>';
+    document.getElementById('wf-listbox').innerHTML = lb;
+  }
+
+  /* ---------- Especificación ---------- */
+  document.getElementById('spec').innerHTML = `
+    <h1>Agentes y modelos — especificación</h1>
+    <p class="lead">Resumen para implementar el issue #615 y el selector del issue #614. Las decisiones están cerradas salvo las preguntas del final.</p>
+
+    <h2>Qué desaparece o se fusiona</h2>
+    <table class="spec">
+      <tr><th>Hoy</th><th>Destino</th><th>Detalle</th></tr>
+      <tr><td>General → bloque "Agente de código predeterminado" (dropdown de agente + variante), <code>GeneralSettingsSection.tsx</code> ~l.550-625</td><td class="tag-gone">Desaparece</td><td>El default se elige sólo con "Usar por defecto" en la tarjeta del proveedor. General no muestra nada de agentes.</td></tr>
+      <tr><td>Sección "Agentes" (<code>agents</code>, <code>AgentsSettingsSection.tsx</code>)</td><td class="tag-merge">Se fusiona</td><td>Su contenido (variantes + formulario + JSON) pasa al panel lateral "Variantes y configuración avanzada" de cada tarjeta, filtrado a ese proveedor. La entrada de navegación desaparece.</td></tr>
+      <tr><td>Menú "Establecer por defecto" de cada variante (<code>ConfigActionsDropdown</code>) y badges "Por defecto" del selector de dos columnas</td><td class="tag-gone">Desaparece</td><td>Las variantes ya no definen el default. El menú queda sólo con "Eliminar".</td></tr>
+      <tr><td>Sección "Conexiones de agentes" (<code>agent-auth</code>, <code>AgentAuthSettingsSection.tsx</code>)</td><td class="tag-merge">Se fusiona</td><td>Cada tarjeta de conexión es la cabecera y el flujo de conexión de la tarjeta del proveedor. Desaparece el botón "Refrescar estado": el polling es silencioso.</td></tr>
+      <tr><td>Nueva sección "Agentes y modelos"</td><td class="tag-keep">Nueva</td><td>Reemplaza a las dos anteriores en <code>settingsRegistry.tsx</code>. Recomendado: conservar el id <code>agents</code> y redirigir <code>agent-auth</code> a <code>agents</code> para no romper enlaces existentes (por ejemplo el estado inicial <code>{ executor, variant }</code>, que ahora abre el panel avanzado de ese proveedor).</td></tr>
+      <tr><td>Onboarding (primer arranque)</td><td class="tag-keep">Se mantiene</td><td>Única excepción acordada en #615: puede fijar el default inicial. Escribe el mismo campo.</td></tr>
+    </table>
+
+    <h2>Decisiones</h2>
+    <ol>
+      <li><b>Tarjetas apiladas, una por proveedor, en vez de maestro-detalle.</b> Son 3 proveedores: verlos todos a la vez responde "qué está conectado y qué puedo usar" sin clics. Se descartó un maestro-detalle (lista a la izquierda, detalle a la derecha) porque esconde el estado de los demás y duplica la navegación del diálogo.</li>
+      <li><b>El default es el proveedor, y su modelo es el "Modelo base" de ese proveedor.</b> "Usar por defecto" escribe <code>executor_profile = { executor, variant: DEFAULT }</code>. El modelo base es el <code>model</code> de la variante <code>DEFAULT</code> del proveedor. Así cada proveedor tiene un modelo de respaldo propio, que es justo lo que pide #614 para el caso "modelo no disponible".</li>
+      <li><b>Un solo punto de cambio.</b> El botón "Usar por defecto" vive en la cabecera de cada tarjeta, deshabilitado si el proveedor no está conectado (con tooltip que explica por qué). La barra superior es sólo lectura y recuerda dónde se cambia.</li>
+      <li><b>Los modelos se ven siempre, incluso sin conectar</b> (en gris y con borde punteado), para que se sepa qué ofrece cada proveedor antes de conectarlo. Conectado: chips sólidos, el modelo base marcado, y el origen de la lista ("actualizada hace X" o "Lista de respaldo" según #613).</li>
+      <li><b>La configuración avanzada vive en un panel lateral por proveedor</b>, abierto desde el pie de la tarjeta ("Variantes y configuración avanzada"). Reusa <code>TwoColumnPicker</code> (sólo la columna de variantes) y <code>ExecutorConfigForm</code>, con un conmutador Formulario / JSON. No aparece en el flujo común.</li>
+      <li><b>La variante <code>DEFAULT</code> se muestra como "Estándar"</b>, no se puede eliminar y es la que usan el default y los workers. Las otras variantes siguen disponibles donde hoy se eligen al lanzar una tarea.</li>
+      <li><b>Desconectar el proveedor por defecto pide reemplazo</b> en el mismo diálogo si hay otro conectado; si no, avisa que las tareas nuevas no podrán arrancar. Nunca se cambia el default en silencio.</li>
+      <li><b>Selector del worker agrupado por proveedor</b> (insumo #614): primera opción "Por defecto" (sigue al default si cambia), luego un grupo por proveedor conectado con su modelo base marcado, y al final los proveedores sin conectar como filas no seleccionables con enlace "Conectar". Búsqueda por texto arriba. El trigger muestra modelo y proveedor.</li>
+    </ol>
+
+    <h2>Estados de la tarjeta</h2>
+    <table class="spec">
+      <tr><th>Estado</th><th>Indicador</th><th>Cuerpo</th><th>Acciones</th></tr>
+      <tr><td>Sin conectar</td><td>Gris "Sin conectar"</td><td>Botón "Conectar". Gemini: campo de API key inline. Modelos en gris.</td><td>Conectar. "Usar por defecto" deshabilitado.</td></tr>
+      <tr><td>Conectando (Claude)</td><td>Índigo "Conectando"</td><td>Pasos: 1 iniciar sesión en claude.com (abrir / copiar URL), 2 pegar código + Continuar, 3 verificación.</td><td>Cancelar (mata el proceso del CLI).</td></tr>
+      <tr><td>Conectando (Codex)</td><td>Índigo "Conectando"</td><td>Código de dispositivo grande, copiable, y botón "Abrir OpenAI".</td><td>Cancelar.</td></tr>
+      <tr><td>Verificando</td><td>Índigo "Verificando"</td><td>Paso 3 activo con spinner. Sin botón de refrescar: el estado se actualiza solo.</td><td>Cancelar.</td></tr>
+      <tr><td>Código inválido</td><td>Sigue en "Conectando"</td><td>Error bajo el campo, el campo queda en rojo y editable; no hace falta reiniciar el flujo.</td><td>Continuar de nuevo, generar un código nuevo, Cancelar.</td></tr>
+      <tr><td>Error</td><td>Rojo "Error al conectar"</td><td>Mensaje entendible + detalle técnico plegado.</td><td>Reintentar.</td></tr>
+      <tr><td>Conectado</td><td>Verde "Conectado" + cuenta</td><td>Modelos, origen de la lista, selector de modelo base.</td><td>Usar por defecto, Actualizar lista, Desconectar, avanzado.</td></tr>
+      <tr><td>Credencial vencida</td><td>Ámbar "Credencial vencida"</td><td>Aviso con fecha y cuántos workers dependen. Modelos de la última lista conocida. Si es el default, la barra superior también avisa.</td><td>Reconectar (reabre el flujo), Desconectar.</td></tr>
+    </table>
+
+    <h2>Notas de implementación</h2>
+    <ul>
+      <li>El flujo de Claude del mock asume el comportamiento que define #611: tres pasos, polling silencioso, error de código recuperable sin cancelar. El copy "Esta tarjeta se actualiza sola…" se reemplaza por los pasos.</li>
+      <li>"Lo usan N workers" en el pie cuenta workers cuyo agente guardado (#614) es ese proveedor. Si #614 no está mergeado al implementar #615, se omite.</li>
+      <li>Los CLIs no instalados se siguen listando al final, como hoy.</li>
+      <li>Copy: español neutro (tú), sin voseo, sin emojis. Las claves nuevas van en <code>settings.providers.*</code>; <code>settings.agentAuth.*</code> y <code>settings.general.taskExecution.*</code> quedan sin uso.</li>
+    </ul>
+
+    <h2>Preguntas abiertas para el PM</h2>
+    <ol>
+      <li><b>Default apuntando a una variante no estándar.</b> Hoy un usuario puede tener como default la variante "Plan" de Claude. Propuesta: al migrar, mantener ese valor y mostrar en la barra superior "Variante: Plan" con un enlace "Volver a Estándar"; la UI nueva nunca vuelve a escribir una variante distinta de Estándar. ¿De acuerdo, o se fuerza Estándar en la migración?</li>
+      <li><b>Nombre de la sección:</b> "Agentes y modelos" (propuesto) o "Proveedores".</li>
+      <li><b>Credencial vencida en el proveedor por defecto:</b> el mock avisa pero no cambia el default. ¿Queremos además una notificación fuera de Settings (por ejemplo, en la barra superior) para que se note sin entrar aquí?</li>
+    </ol>`;
+
+  /* ---------- Escenarios ---------- */
+  function scenario(name) {
+    S = baseState();
+    document.body.dataset.view = 'providers';
+    if (name === 'fresh') { S.p.claude.state = 'off'; S.p.gemini.state = 'off'; S.defaultId = null; S.p.claude.workers = 0; S.p.gemini.workers = 0; }
+    if (['connecting', 'verifying', 'codeError', 'failed'].includes(name)) { S.p.claude.state = name; S.defaultId = 'gemini'; S.p.gemini.fallback = false; }
+    if (name === 'expired') S.p.claude.state = 'expired';
+    if (name === 'codex') S.p.codex.state = 'connecting';
+    if (name === 'advanced') S.drawer = 'claude';
+    if (name === 'disconnect') S.confirm = 'claude';
+    if (name === 'worker') document.body.dataset.view = 'worker';
+    if (name === 'spec') document.body.dataset.view = 'spec';
+    document.querySelectorAll('[data-scn]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scn === name)));
+    document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('here', n.dataset.goto === 'providers'));
+    render();
+    document.getElementById('content').scrollTop = 0;
+  }
+
+  function render() { renderDefaultBar(); renderCards(); renderDrawer(); renderConfirm(); renderWorker(); }
+
+  /* ---------- Interacción ---------- */
+  document.addEventListener('click', (e) => {
+    const scn = e.target.closest('[data-scn]');
+    if (scn) return scenario(scn.dataset.scn);
+    const go = e.target.closest('[data-goto]');
+    if (go && go.dataset.goto === 'providers') return scenario('normal');
+    if (go && go.dataset.goto === 'spec') return scenario('spec');
+    const wf = e.target.closest('[data-wf]');
+    if (wf) {
+      WF = wf.dataset.wf;
+      document.querySelectorAll('[data-wf]').forEach((b) => b.setAttribute('aria-pressed', String(b === wf)));
+      return renderWorker();
+    }
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    const id = a.dataset.id;
+    switch (a.dataset.act) {
+      case 'make-default': S.defaultId = id; break;
+      case 'connect': case 'restart':
+        S.p[id].state = id === 'gemini' ? 'connected' : 'connecting';
+        if (id === 'codex') setTimeout(() => { if (S.p.codex.state === 'connecting') { S.p.codex.state = 'connected'; render(); } }, 6000);
+        break;
+      case 'submit-code': {
+        const v = (document.getElementById('code-input') || {}).value || '';
+        if (!v.trim()) return;
+        if (v.trim().toLowerCase() === 'error') { S.p[id].state = 'codeError'; break; }
+        S.p[id].state = 'verifying';
+        setTimeout(() => { if (S.p[id].state === 'verifying') { S.p[id].state = 'connected'; S.p[id].fallback = false; render(); } }, 1800);
+        break;
+      }
+      case 'cancel': S.p[id].state = 'off'; break;
+      case 'refresh': S.p[id].fallback = false; break;
+      case 'disconnect':
+        if (S.defaultId === id || S.p[id].workers) { S.confirm = id; } else { S.p[id].state = 'off'; }
+        break;
+      case 'confirm-cancel': S.confirm = null; break;
+      case 'confirm-ok': {
+        const did = S.confirm;
+        const pick = document.querySelector('input[name="newdef"]:checked');
+        if (S.defaultId === did) S.defaultId = pick ? pick.value : null;
+        S.p[did].state = 'off'; S.confirm = null; break;
+      }
+      case 'advanced': S.drawer = id; S.advVariant = 0; S.advTab = 'form'; break;
+      case 'close': S.drawer = null; break;
+      case 'variant': S.advVariant = Number(a.dataset.i); break;
+      case 'tab': S.advTab = a.dataset.tab; break;
+      default: return;
+    }
+    render();
+  });
+  document.addEventListener('change', (e) => {
+    const a = e.target.closest('[data-act="base"]');
+    if (a) { S.p[a.dataset.id].base = a.value; render(); }
+  });
+  document.getElementById('scrim').addEventListener('click', () => { S.drawer = null; S.confirm = null; render(); });
+
+  const root = document.documentElement;
+  const btnTheme = document.getElementById('btn-theme');
+  btnTheme.addEventListener('click', () => {
+    const dark = root.getAttribute('data-theme') === 'dark';
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    btnTheme.setAttribute('aria-pressed', String(!dark));
+  });
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) { root.setAttribute('data-theme', 'dark'); btnTheme.setAttribute('aria-pressed', 'true'); }
+
+  scenario(location.hash.slice(1) || 'normal');
+</script>
+</body>
