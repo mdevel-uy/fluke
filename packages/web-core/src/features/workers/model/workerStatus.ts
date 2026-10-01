@@ -1,12 +1,7 @@
 import type { WorkerResponse } from 'shared/types';
 
 export type WorkerStatus =
-  | 'working'
-  | 'idle'
-  | 'stalled'
-  | 'in_review'
-  | 'waiting'
-  | 'approved';
+  'working' | 'idle' | 'stalled' | 'in_review' | 'waiting' | 'approved';
 
 export interface WorkerStatusFlags {
   needsAttention: boolean;
@@ -31,7 +26,7 @@ export function deriveWorkerStatus(
   return 'idle';
 }
 
-const MODEL_BUCKETS = ['opus', 'sonnet', 'haiku'] as const;
+export const MODEL_BUCKETS = ['opus', 'sonnet', 'haiku', 'fable'] as const;
 export type WorkerModelBucket = (typeof MODEL_BUCKETS)[number];
 
 export function bucketForModel(model?: string): WorkerModelBucket | null {
