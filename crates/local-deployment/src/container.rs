@@ -1971,14 +1971,32 @@ impl ContainerService for LocalContainerService {
             }
         }
 
-        // Plan MCP (claude only): the agent declares and walks its plan
-        // against this server, which renders it as a live graph.
+        // Claude only. A mission session gets the Director's MCP and system
+        // prompt instead of the plan MCP; every other agent gets the plan
+        // MCP: it declares and walks its plan against this server, which
+        // renders it as a live graph.
         if matches!(
             executor_action.base_executor(),
             Some(BaseCodingAgent::ClaudeCode)
-        ) && let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
-        {
-            env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
+        ) {
+            let session_id = execution_process.session_id;
+            if let Some(mission) =
+                db::models::mission::Mission::find_by_session_id(&self.db.pool, session_id).await?
+            {
+                if let Some(url) =
+                    utils::plan_mcp::director_url_for_session(&session_id.to_string())
+                {
+                    env.insert(utils::plan_mcp::DIRECTOR_MCP_URL_ENV, url);
+                    env.insert(
+                        utils::plan_mcp::DIRECTOR_PROMPT_ENV,
+                        services::services::director::system_prompt(&self.db.pool, &mission)
+                            .await?,
+                    );
+                }
+            } else if let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
+            {
+                env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
+            }
         }
 
         // Deliberately do NOT inject the worker's PAT as GH_TOKEN/GITHUB_TOKEN

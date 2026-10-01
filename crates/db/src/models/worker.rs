@@ -7,6 +7,9 @@ pub const ROLE_DEVELOPER: &str = "developer";
 pub const ROLE_ANALYST: &str = "analyst";
 pub const ROLE_REVIEWER: &str = "reviewer";
 pub const ROLE_DESIGNER: &str = "designer";
+/// El Director (en la UI, "Fluke"): uno solo por instalación, lo crea fluke
+/// y nunca toma tareas de la cola.
+pub const ROLE_ORCHESTRATOR: &str = "orchestrator";
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Worker {
@@ -115,6 +118,18 @@ impl Worker {
                WHERE id = ?1",
         )
         .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// The Director worker, archived or not (there is at most one).
+    pub async fn find_orchestrator(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Worker>(
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+               FROM workers
+               WHERE role = ?1",
+        )
+        .bind(ROLE_ORCHESTRATOR)
         .fetch_optional(pool)
         .await
     }

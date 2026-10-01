@@ -15,8 +15,8 @@ use db::models::{
     repo::Repo,
     review_round::ReviewRound,
     worker::{
-        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
-        Worker,
+        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR,
+        ROLE_REVIEWER, UpdateWorker, Worker,
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
     workspace::Workspace,
@@ -762,7 +762,11 @@ pub async fn update_worker(
         .filter(|r| !r.is_empty());
 
     if let Some(ref r) = role {
-        if !is_valid_role(r) {
+        // Fluke keeps its role; no other worker can take it.
+        if (existing.role == ROLE_ORCHESTRATOR) != (r == ROLE_ORCHESTRATOR) {
+            return Err(ApiError::BadRequest(format!("Invalid role: {r}")));
+        }
+        if !is_valid_role(r) && r != ROLE_ORCHESTRATOR {
             return Err(ApiError::BadRequest(format!("Invalid role: {r}")));
         }
         // Block role changes while tasks are in flight to avoid lifecycle confusion.
@@ -1102,6 +1106,11 @@ pub async fn create_worker_task(
     let worker = Worker::find_by_id(pool, worker_id)
         .await?
         .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+    if worker.role == ROLE_ORCHESTRATOR {
+        return Err(ApiError::BadRequest(
+            "Fluke does not take queue tasks".into(),
+        ));
+    }
 
     // Validate the referenced repo exists (surfaced as 400 rather than
     // a FK violation).

@@ -325,6 +325,18 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
             (Some(ok), _) => {
                 AgentAction::set_done(pool, row.id, ok.result_number, ok.result_url.clone())
                     .await?;
+                // Issues born from a Director mission's brief stay linked to it.
+                if row.kind == "create_issue"
+                    && let Some(number) = ok.result_number
+                {
+                    db::models::mission::Mission::link_issue_for_task(
+                        pool,
+                        task_id,
+                        row.repo_id,
+                        number,
+                    )
+                    .await?;
+                }
                 if let Some(entry) = by_seq.get_mut(&row.seq) {
                     entry.status = agent_action::STATUS_DONE.to_string();
                     entry.result_number = ok.result_number;

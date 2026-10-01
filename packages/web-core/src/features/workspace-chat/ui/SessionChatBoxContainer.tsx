@@ -109,8 +109,10 @@ interface SharedProps {
   disableViewCode: boolean;
   /** Replace diff stats with an "Open Workspace" button in header */
   showOpenWorkspaceButton: boolean;
-  /** Compact layout for narrow surfaces (ad-hoc drawer) */
+  /** Compact layout for narrow surfaces (Director panel) */
   compact?: boolean;
+  /** Hide the model picker (the server fixes the model, e.g. the Director) */
+  hideModelSelector?: boolean;
 }
 
 /** Props for existing session mode */
@@ -157,6 +159,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     disableViewCode = false,
     showOpenWorkspaceButton,
     compact,
+    hideModelSelector = false,
   } = props;
 
   // Extract mode-specific values
@@ -992,20 +995,21 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     [config?.send_message_shortcut, sessionId]
   );
 
-  const modelSelectorNode = effectiveExecutor ? (
-    <ModelSelectorContainer
-      agent={effectiveExecutor}
-      workspaceId={workspaceId}
-      sessionId={sessionId}
-      onAdvancedSettings={handleCustomise}
-      presets={variantOptions}
-      selectedPreset={selectedVariant}
-      onPresetSelect={setSelectedVariant}
-      onOverrideChange={setExecutorOverrides}
-      executorConfig={executorConfig}
-      presetOptions={presetOptions}
-    />
-  ) : undefined;
+  const modelSelectorNode =
+    effectiveExecutor && !hideModelSelector ? (
+      <ModelSelectorContainer
+        agent={effectiveExecutor}
+        workspaceId={workspaceId}
+        sessionId={sessionId}
+        onAdvancedSettings={handleCustomise}
+        presets={variantOptions}
+        selectedPreset={selectedVariant}
+        onPresetSelect={setSelectedVariant}
+        onOverrideChange={setExecutorOverrides}
+        executorConfig={executorConfig}
+        presetOptions={presetOptions}
+      />
+    ) : undefined;
 
   // In placeholder mode, render a disabled version to maintain visual structure
   if (mode === 'placeholder') {

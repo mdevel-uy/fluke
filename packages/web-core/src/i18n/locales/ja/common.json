@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "行折り返しの切り替え",
       "run-setup-script": "セットアップスクリプトを実行",
       "run-cleanup-script": "クリーンアップスクリプトを実行",
-      "run-archive-script": "アーカイブスクリプトを実行"
+      "run-archive-script": "アーカイブスクリプトを実行",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -622,7 +623,7 @@
       "ariaLabel": "コマンドバーを開く"
     },
     "layout": {
-      "toggleAdhocClaude": "アドホック Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -635,21 +636,6 @@
     "branchTooltip": "アクティブなプロジェクトのベースブランチ: {{branch}}",
     "issuesRefreshNew_other": "{{count}} 件の新しいイシュー",
     "issuesRefreshNone": "新しいイシューはありません"
-  },
-  "adhocPanel": {
-    "title": "アドホック Claude",
-    "close": "アドホック Claude パネルを閉じる",
-    "newSession": "新しいセッション",
-    "loading": "Claude セッションを準備中…",
-    "noRepo": {
-      "title": "利用できるリポジトリがありません",
-      "description": "アドホック Claude セッションを開始するにはリポジトリを追加してください。"
-    },
-    "error": {
-      "title": "アドホックセッションを開けませんでした",
-      "description": "スクラッチワークスペースの準備中にエラーが発生しました。",
-      "retry": "再試行"
-    }
   },
   "appBar": {
     "dashboard": "ダッシュボード",
@@ -1163,7 +1149,9 @@
       "developerDescription": "機能を実装してプルリクエストを作成します",
       "analystDescription": "調査を行い、書面による成果物を作成します",
       "reviewerDescription": "コードをレビューしてフィードバックを提供します",
-      "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します"
+      "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
     },
     "toast": {
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
@@ -1653,5 +1641,76 @@
       "correction": "修正ステップ {{n}} として承認"
     },
     "error": "操作を完了できませんでした: {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "collapse": "Back to the panel",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    }
   }
 }

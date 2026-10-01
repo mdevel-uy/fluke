@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "Basculer le retour à la ligne",
       "run-setup-script": "Exécuter le script de configuration",
       "run-cleanup-script": "Exécuter le script de nettoyage",
-      "run-archive-script": "Exécuter le script d'archivage"
+      "run-archive-script": "Exécuter le script d'archivage",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -622,7 +623,7 @@
       "ariaLabel": "Ouvrir la barre de commandes"
     },
     "layout": {
-      "toggleAdhocClaude": "Claude ad hoc"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -637,21 +638,6 @@
     "issuesRefreshNew_one": "{{count}} nouveau ticket",
     "issuesRefreshNew_other": "{{count}} nouveaux tickets",
     "issuesRefreshNone": "Aucun nouveau ticket"
-  },
-  "adhocPanel": {
-    "title": "Claude ad hoc",
-    "close": "Fermer le panneau Claude ad hoc",
-    "newSession": "Nouvelle session",
-    "loading": "Préparation de la session Claude…",
-    "noRepo": {
-      "title": "Aucun dépôt disponible",
-      "description": "Ajoutez un dépôt pour démarrer une session Claude ad hoc."
-    },
-    "error": {
-      "title": "Impossible d'ouvrir la session ad hoc",
-      "description": "Une erreur est survenue lors de la préparation du workspace scratch.",
-      "retry": "Réessayer"
-    }
   },
   "appBar": {
     "dashboard": "Tableau de bord",
@@ -1165,7 +1151,9 @@
       "developerDescription": "Implémente des fonctionnalités et crée des pull requests",
       "analystDescription": "Effectue des recherches et produit des livrables écrits",
       "reviewerDescription": "Révise le code et fournit des retours",
-      "designerDescription": "Produit des propositions de design comme artefacts Claude"
+      "designerDescription": "Produit des propositions de design comme artefacts Claude",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
     },
     "toast": {
       "startSuccess": "{{worker}} a démarré « {{title}} ».",
@@ -1657,5 +1645,76 @@
       "correction": "Acceptée comme étape de correction {{n}}"
     },
     "error": "L'action n'a pas pu être effectuée : {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "collapse": "Back to the panel",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    }
   }
 }

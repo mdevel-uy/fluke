@@ -600,6 +600,11 @@ pub async fn try_take_next(
         .await?
         .ok_or(StartError::WorkerNotFound)?;
 
+    // The Director converses in its own sessions; it never runs queue tasks.
+    if worker.role == db::models::worker::ROLE_ORCHESTRATOR {
+        return Err(StartError::NothingQueued);
+    }
+
     // Auto-repair orphan workspaces attached to this worker before applying
     // the capacity guard, so a previous failed start does not block the
     // worker forever (see issue #32).

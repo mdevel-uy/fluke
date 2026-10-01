@@ -164,6 +164,9 @@ impl ClaudeCode {
             CommandBuilder::new(base_command(self.claude_code_router.unwrap_or(false)))
                 .params(["-p"]);
 
+        // Director sessions converse and edit the brief through their MCP;
+        // they never touch files.
+        let director_url = env.get(workspace_utils::plan_mcp::DIRECTOR_MCP_URL_ENV);
         let plan = self.plan.unwrap_or(false);
         let approvals = self.approvals.unwrap_or(false);
         if plan && approvals {
@@ -176,8 +179,22 @@ impl ClaudeCode {
                 "--permission-mode={}",
                 PermissionMode::BypassPermissions
             )]);
-        } else {
+        }
+        if director_url.is_some() {
+            builder = builder.extend_params([
+                "--disallowedTools=AskUserQuestion,Edit,Write,MultiEdit,NotebookEdit,Bash",
+            ]);
+        } else if !(plan || approvals) {
             builder = builder.extend_params(["--disallowedTools=AskUserQuestion"]);
+        }
+        if let Some(url) = director_url
+            && let Some(prompt) = env.get(workspace_utils::plan_mcp::DIRECTOR_PROMPT_ENV)
+            && let Some(path) = workspace_utils::plan_mcp::director_prompt_file(url, prompt).await
+        {
+            builder = builder.extend_params([
+                "--append-system-prompt-file".to_string(),
+                path.to_string_lossy().to_string(),
+            ]);
         }
         if self.dangerously_skip_permissions.unwrap_or(false) {
             builder = builder.extend_params(["--dangerously-skip-permissions"]);
@@ -198,6 +215,11 @@ impl ClaudeCode {
         }
         if let Some(url) = env.get(workspace_utils::plan_mcp::PLAN_MCP_URL_ENV)
             && let Some(path) = workspace_utils::plan_mcp::mcp_config_file(url).await
+        {
+            mcp_configs.push(path.to_string_lossy().to_string());
+        }
+        if let Some(url) = director_url
+            && let Some(path) = workspace_utils::plan_mcp::director_mcp_config_file(url).await
         {
             mcp_configs.push(path.to_string_lossy().to_string());
         }
