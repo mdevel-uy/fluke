@@ -599,7 +599,11 @@
     "permissionPlan": "Plan",
     "agent": "Agente",
     "default": "Predeterminado",
-    "model": "Modelo"
+    "model": "Modelo",
+    "errors": {
+      "claude_not_connected": "Claude no está conectado. Se muestra la lista de modelos integrada.",
+      "claude_models_fallback": "No se pudo cargar la lista de modelos de Claude. Se muestra la lista integrada."
+    }
   },
   "crashScreen": {
     "title": "Algo salió mal",

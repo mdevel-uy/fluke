@@ -283,17 +283,9 @@ fn gemini_oauth_file() -> Result<PathBuf, ApiError> {
     gemini_home().map(|h| h.join("oauth_creds.json"))
 }
 
-fn claude_home() -> Result<PathBuf, ApiError> {
-    if let Ok(v) = std::env::var("CLAUDE_CONFIG_DIR")
-        && !v.trim().is_empty()
-    {
-        return Ok(PathBuf::from(v));
-    }
-    home_dir().map(|h| h.join(".claude"))
-}
-
 fn claude_credentials_file() -> Result<PathBuf, ApiError> {
-    claude_home().map(|h| h.join(".credentials.json"))
+    utils::claude_credentials::claude_credentials_path()
+        .ok_or_else(|| ApiError::BadGateway("Could not determine $HOME".to_string()))
 }
 
 /// Check whether the CLI needed to authenticate this provider is available.
