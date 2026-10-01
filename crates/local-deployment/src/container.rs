@@ -1952,6 +1952,25 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
+        // Rust repos: one shared target dir per repo across all worktrees, so
+        // a fresh worktree doesn't compile the whole dependency tree from
+        // scratch, and cargo's lock serializes concurrent builds instead of
+        // running them in parallel. Skipped when the user set their own, or
+        // with several Rust repos (their binaries would collide).
+        // ponytail: never GC'd, and same-named binaries from different
+        // worktrees overwrite each other; add a size sweep if disk bites.
+        if std::env::var_os("CARGO_TARGET_DIR").is_none() {
+            let mut rust_repos = repos
+                .iter()
+                .filter(|r| current_dir.join(&r.name).join("Cargo.toml").is_file());
+            if let (Some(repo), None) = (rust_repos.next(), rust_repos.next()) {
+                let target = utils::path::get_fluke_temp_dir()
+                    .join("cargo-target")
+                    .join(repo.id.to_string());
+                env.insert("CARGO_TARGET_DIR", target.to_string_lossy());
+            }
+        }
+
         // Claude only. A mission session gets the Director's MCP and system
         // prompt instead of the plan MCP; every other agent gets the plan
         // MCP: it declares and walks its plan against this server, which

@@ -251,7 +251,7 @@ export function NavbarContainer({
           }
         : kind === 'sprint'
           ? {
-              label: t('appBar.kanban', { defaultValue: 'Kanban' }),
+              label: t('appBar.sprint', { defaultValue: 'Kanban' }),
               goTo: () => appNavigation.goToSprint(),
             }
           : kind === 'issues'
