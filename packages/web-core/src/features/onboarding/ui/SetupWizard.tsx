@@ -67,7 +67,7 @@ export function SetupWizard() {
         icon: KeyIcon,
         done: s.agent_connected,
         actionKey: 'setupWizard.steps.agent.action',
-        onAction: () => SettingsDialog.show({ initialSection: 'agent-auth' }),
+        onAction: () => SettingsDialog.show({ initialSection: 'agents' }),
       },
       {
         id: 'task',

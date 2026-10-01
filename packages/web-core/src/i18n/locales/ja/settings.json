@@ -21,8 +21,8 @@
         "projectsDesc": "プロジェクトリポジトリと設定",
         "repos": "リポジトリ",
         "reposDesc": "リポジトリスクリプトと設定",
-        "agents": "エージェント",
-        "agentsDesc": "コーディングエージェントの設定",
+        "agents": "Agents & models",
+        "agentsDesc": "Providers, models and default provider",
         "guidelines": "ガイドライン",
         "guidelinesDesc": "全エージェント共通の行動ルール",
         "mcp": "MCPサーバー",
@@ -37,8 +37,6 @@
         "skillsDesc": "~/.claude/skills にインストールされたエージェントスキルを管理",
         "github": "GitHub",
         "githubDesc": "gh CLI で GitHub にサインイン",
-        "agent-auth": "エージェント接続",
-        "agent-authDesc": "設定画面から各エージェントの接続・切断を行います",
         "data": "データ",
         "dataDesc": "インスタンスのすべてのデータをエクスポートまたは復元します"
       }
@@ -117,17 +115,6 @@
           "placeholder": "言語を選択",
           "helper": "お好みの言語を選択してください。ブラウザ設定では、システム言語に従います。"
         }
-      },
-      "taskExecution": {
-        "title": "デフォルトコーディングエージェント",
-        "description": "タスクのデフォルトコーディングエージェントを選択します。",
-        "executor": {
-          "label": "デフォルトエージェント設定",
-          "placeholder": "プロファイルを選択",
-          "helper": "タスク試行を作成する際に使用するデフォルトエージェント設定を選択してください。"
-        },
-        "variant": "デフォルト",
-        "defaultLabel": "デフォルト"
       },
       "editor": {
         "title": "エディター",
@@ -350,55 +337,12 @@
       }
     },
     "agents": {
-      "title": "コーディングエージェント設定",
-      "description": "コーディングエージェントの動作を異なる設定でカスタマイズします。",
-      "loading": "エージェント設定を読み込み中...",
-      "selectAgent": "エージェントを選択",
       "save": {
-        "button": "エージェント設定を保存",
-        "success": "✓ 実行設定が正常に保存されました！",
         "unsavedChanges": "• 未保存の変更があります"
       },
-      "availability": {
-        "checking": "確認中...",
-        "checkingAvailability": "利用可能性を確認中...",
-        "available": "エージェント利用可能",
-        "notFoundSimple": "エージェントが見つかりません",
-        "loginDetected": "最近の使用を検出",
-        "loginDetectedTooltip": "このエージェントの最近の認証情報が見つかりました",
-        "installationFound": "以前の使用を検出",
-        "installationFoundTooltip": "エージェント設定が見つかりました。使用するにはログインが必要な場合があります。"
-      },
-      "editor": {
-        "formLabel": "JSONを編集",
-        "agentLabel": "エージェント",
-        "agentPlaceholder": "実行タイプを選択",
-        "configLabel": "設定",
-        "configPlaceholder": "設定を選択",
-        "createNew": "新規作成...",
-        "deleteTitle": "最後の設定は削除できません",
-        "deleteButton": "{{name}}を削除",
-        "deleteText": "削除",
-        "makeDefault": "デフォルトに設定",
-        "isDefault": "デフォルト",
-        "jsonLabel": "エージェント設定（JSON）",
-        "jsonPlaceholder": "プロファイルを読み込み中...",
-        "jsonLoading": "読み込み中...",
-        "pathLabel": "設定ファイルの場所："
-      },
       "errors": {
-        "deleteFailed": "設定の削除に失敗しました。もう一度お試しください。",
-        "saveFailed": "エージェント設定の保存に失敗しました。もう一度お試しください。",
         "saveConfigFailed": "設定の保存に失敗しました。もう一度お試しください。",
         "schemaNotFound": "実行タイプ {{executor}} のスキーマが見つかりません"
-      },
-      "tree": {
-        "search": "設定を検索...",
-        "expandAll": "すべて展開",
-        "collapseAll": "すべて折りたたむ",
-        "noResults": "一致する設定がありません",
-        "noConfigs": "利用可能な設定がありません",
-        "selectConfig": "サイドバーから設定を選択して、その設定を表示・編集できます。"
       },
       "deleteConfigDialog": {
         "title": "設定を削除しますか？",
@@ -700,77 +644,6 @@
         "patLoginFailed": "Personal Access Token の検証に失敗しました。"
       }
     },
-    "agentAuth": {
-      "loading": "インストール済みのエージェントを確認中…",
-      "emptyState": "このマシンにはまだコーディングエージェントがインストールされていません。",
-      "statusLabel": "状態",
-      "status": {
-        "connected": "接続済み",
-        "notConnected": "未接続"
-      },
-      "actions": {
-        "connect": "接続",
-        "disconnect": "切断",
-        "cancel": "キャンセル"
-      },
-      "providers": {
-        "codex": {
-          "name": "Codex",
-          "title": "Codex",
-          "description": "ブラウザのデバイスフローで OpenAI Codex にサインインします。ターミナルは不要です。"
-        },
-        "claude_code": {
-          "name": "Claude Code",
-          "title": "Claude Code",
-          "description": "Claude のサブスクリプションでサインイン: URL を開いてログインし、返された引換コードを下に貼り付けてください。"
-        },
-        "gemini": {
-          "name": "Gemini",
-          "title": "Gemini",
-          "description": "Google AI Studio で取得した API キーで Google Gemini に接続します。"
-        }
-      },
-      "deviceFlow": {
-        "title": "OpenAI で認可",
-        "description": "以下のワンタイムコードをコピーして OpenAI のページに貼り付け、サインインを完了してください。",
-        "codeLabel": "ワンタイムコード",
-        "copyHint": "クリックしてコピー",
-        "openBrowser": "OpenAI を開く",
-        "checkStatus": "状態を更新",
-        "waitingForCode": "CLI がデバイスコードを表示するのを待っています…",
-        "waiting": "認可を待っています… ブラウザで完了するとこのカードは自動的に更新されます。"
-      },
-      "apiKey": {
-        "title": "API キーで接続",
-        "description": "Google AI Studio で発行した Gemini API キーを貼り付けてください。このマシンに GEMINI_API_KEY として保存され、外部には送信されません。",
-        "placeholder": "AIza…",
-        "submit": "保存して接続",
-        "helpBefore": "キーは次から取得できます:",
-        "helpLink": "Google AI Studio",
-        "helpAfter": "上に貼り付けてください。"
-      },
-      "claudeFlow": {
-        "title": "claude.com で認可",
-        "description": "URL を開いて Claude アカウントにサインインし、ページから返された引換コードをコピーしてください。",
-        "openBrowser": "claude.com を開く",
-        "copyUrl": "URL をコピー",
-        "waitingForUrl": "CLI がサインイン URL を表示するのを待っています…",
-        "codeInputLabel": "引換コード",
-        "codeInputPlaceholder": "claude.com のコードを貼り付け",
-        "codeInputHelp": "Once Claude accepts the code, fluke stores the sign-in token for your workers and this card switches to Connected within a few seconds. If the code is rejected, copy it again and resubmit.",
-        "submitCode": "コードを送信"
-      },
-      "hidden": {
-        "title": "CLI 未インストール",
-        "description": "次のエージェントは CLI がこのイメージにインストールされていないため非表示になっています: {{providers}}。"
-      },
-      "errors": {
-        "loginFailed": "接続フローを開始できませんでした。",
-        "logoutFailed": "エージェントを切断できませんでした。",
-        "cancelFailed": "接続をキャンセルできませんでした。",
-        "submitCodeFailed": "引換コードを送信できませんでした。"
-      }
-    },
     "data": {
       "export": {
         "title": "すべてのデータをエクスポート",
@@ -809,6 +682,151 @@
           "copyRepos": "repos/ 配下の各フォルダを任意のパスに移動します。",
           "startAndReattach": "fluke を起動し、リポジトリのパスが変わった場合は 設定 → リポジトリ から更新します。"
         }
+      }
+    },
+    "providers": {
+      "intro": "Connect the providers you want to use. Each worker can choose any model from a connected provider; the default provider is used when a task or a worker does not choose one.",
+      "loading": "Checking installed agents…",
+      "emptyState": "No coding agents are installed on this machine yet.",
+      "defaultBar": {
+        "label": "Default provider",
+        "none": "No default provider",
+        "noneHint": "Connect a provider and choose \"Use as default\". Until then, new tasks cannot start.",
+        "hint": "Used by new tasks and by workers that do not choose a model. To change it, use \"Use as default\" on another provider.",
+        "broken": "{{name}} is not available. Tasks and workers that use the default fail to start until you reconnect it or choose another one."
+      },
+      "status": {
+        "off": "Not connected",
+        "connecting": "Connecting",
+        "verifying": "Verifying",
+        "codeError": "Connecting",
+        "failed": "Connection error",
+        "connected": "Connected",
+        "expired": "Credential expired"
+      },
+      "via": {
+        "claude_code": "Claude subscription",
+        "codex": "OpenAI account",
+        "gemini": "Google AI Studio API key"
+      },
+      "isDefault": "Default",
+      "useAsDefault": "Use as default",
+      "useAsDefaultDisabled": "Connect {{name}} to use it as default",
+      "connection": "Connection",
+      "connect": "Connect {{name}}",
+      "connectHint": {
+        "claude_code": "Sign in with your Claude subscription. No API key is used or requested.",
+        "codex": "Sign in with your OpenAI account from the browser."
+      },
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "reconnect": "Reconnect",
+      "models": {
+        "label": "Models ({{count}})",
+        "loading": "Loading models…",
+        "live": "List retrieved from {{name}}.",
+        "fallbackPill": "Fallback list",
+        "fallback": "Could not query {{name}}; showing the known models.",
+        "expired": "Last known list. It is not updated until you reconnect.",
+        "offline": "Models offered by {{name}}. They become available to workers once you connect.",
+        "base": "base"
+      },
+      "baseModel": {
+        "label": "Base model",
+        "help": "{{name}} uses it when a worker or a task does not specify a model.",
+        "helpDefault": "{{name}} uses it when a worker or a task does not specify a model, including as the default provider."
+      },
+      "claude": {
+        "title": "Connect Claude with your subscription",
+        "description": "Three steps. You do not need to open a terminal.",
+        "step1": "Sign in at claude.com",
+        "step1Desc": "The authorization page opened in your browser. If it did not open, open it again.",
+        "openBrowser": "Open claude.com",
+        "copyUrl": "Copy URL",
+        "waitingForUrl": "Waiting for the sign-in URL…",
+        "step2": "Paste the code shown on the page",
+        "step2Desc": "When you finish, claude.com shows an authorization code. Copy it in full.",
+        "codePlaceholder": "Paste the code here",
+        "submit": "Continue",
+        "codeError": "The code is not valid or has expired. Copy it again from claude.com or",
+        "newCode": "generate a new one.",
+        "step3": "Verification",
+        "verifying": "Verifying the connection",
+        "step3Desc": "fluke checks that the credential works and discovers the models of your subscription. It takes a few seconds."
+      },
+      "codex": {
+        "title": "Authorize in OpenAI",
+        "description": "Open the OpenAI page and enter this one-time code.",
+        "step1": "Copy the code",
+        "copyHint": "Click to copy",
+        "waitingForCode": "Waiting for the code…",
+        "step2": "Open it in OpenAI and sign in",
+        "openBrowser": "Open OpenAI",
+        "step3": "Done",
+        "step3Desc": "This card switches to \"Connected\" as soon as you authorize. No need to refresh."
+      },
+      "gemini": {
+        "title": "Connect with an API key",
+        "description": "Paste a Gemini API key generated in Google AI Studio. It is stored on this machine and never leaves it.",
+        "placeholder": "AIza…",
+        "submit": "Save and connect",
+        "helpLink": "Get an API key in Google AI Studio"
+      },
+      "failed": {
+        "title": "Could not connect {{name}}.",
+        "body": "Sign-in ended without a usable credential. Try again; if it happens again, check that your subscription is active.",
+        "detail": "Technical detail"
+      },
+      "expired": {
+        "title": "The {{name}} credential expired or is no longer valid.",
+        "lastAuth": "Last sign-in: {{date}}.",
+        "body_one": "{{count}} worker depends on this connection and fails to start until you reconnect. Its configuration is kept.",
+        "body_other": "{{count}} workers depend on this connection and fail to start until you reconnect. Their configuration is kept."
+      },
+      "advancedLink": "Variants and advanced settings",
+      "usedBy_one": "Used by {{count}} worker",
+      "usedBy_other": "Used by {{count}} workers",
+      "disconnectAction": "Disconnect",
+      "hidden": {
+        "title": "Not installed on this machine:",
+        "description": "{{providers}}. A provider whose CLI is missing has no card here."
+      },
+      "others": "Other agents:",
+      "advanced": {
+        "title": "{{name}} · advanced settings",
+        "subtitle": "Variants and agent profile. For everyday use you do not need to change anything here.",
+        "variants": "Variants",
+        "newVariant": "New variant",
+        "standard": "Standard",
+        "standardHint": "used by workers and default",
+        "cannotDelete": "Cannot be deleted",
+        "deleteVariant": "Delete variant",
+        "form": "Form",
+        "json": "JSON",
+        "jsonHelp": "Edit the full {{name}} profile. It is validated before saving.",
+        "jsonInvalid": "The JSON is not valid: {{error}}",
+        "footerHint": "Changes apply to new tasks."
+      },
+      "disconnect": {
+        "title": "Disconnect {{name}}?",
+        "body": "The credential is removed from this machine.",
+        "workers_one": "{{count}} worker chose a {{name}} model; its tasks will fail to start with the message \"{{name}} is not connected\" until you connect it again.",
+        "workers_other": "{{count}} workers chose a {{name}} model; their tasks will fail to start with the message \"{{name}} is not connected\" until you connect it again.",
+        "pickReplacement": "{{name}} is the default provider. Choose which one replaces it:",
+        "noReplacement": "{{name}} is the default provider and no other one is connected. New tasks cannot start until you connect a provider.",
+        "confirm": "Disconnect"
+      },
+      "errors": {
+        "loginFailed": "Could not start the connection flow.",
+        "logoutFailed": "Could not disconnect the provider.",
+        "cancelFailed": "Could not cancel the connection.",
+        "submitCodeFailed": "Could not send the authorization code.",
+        "saveFailed": "Could not save the change."
+      },
+      "alert": {
+        "message": "A task could not start: its agent provider is not connected or its credential is no longer valid.",
+        "action": "Open Agents & models",
+        "dismiss": "Dismiss"
       }
     }
   },

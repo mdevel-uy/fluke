@@ -65,24 +65,27 @@ pub fn claude_credentials_usable(raw: &str, now_ms: i64) -> bool {
 /// use: the subscription token captured by Settings (within its validity),
 /// a `CLAUDE_CODE_OAUTH_TOKEN` in the server environment, or a
 /// `.credentials.json` that parses and is either unexpired or refreshable.
+///
+/// When not connected but a credential is still on disk (an expired token
+/// or unusable credentials file), the timestamp is that credential's: Settings
+/// shows it as "credential expired" instead of "not connected".
 fn claude_connection_state() -> (bool, Option<i64>) {
+    let token_mtime = claude_oauth_token_path().and_then(|p| file_mtime_epoch(&p));
     if stored_claude_oauth_token().is_some() {
-        return (
-            true,
-            claude_oauth_token_path().and_then(|p| file_mtime_epoch(&p)),
-        );
+        return (true, token_mtime);
     }
     if std::env::var(CLAUDE_OAUTH_TOKEN_ENV).is_ok_and(|v| !v.trim().is_empty()) {
         return (true, None);
     }
     let Some(path) = claude_credentials_path() else {
-        return (false, None);
+        return (false, token_mtime);
     };
     match std::fs::read_to_string(&path) {
         Ok(raw) if claude_credentials_usable(&raw, now_epoch_millis()) => {
             (true, file_mtime_epoch(&path))
         }
-        _ => (false, None),
+        Ok(_) => (false, token_mtime.or_else(|| file_mtime_epoch(&path))),
+        Err(_) => (false, token_mtime),
     }
 }
 

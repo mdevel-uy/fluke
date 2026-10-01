@@ -8,11 +8,9 @@ import {
 } from '@phosphor-icons/react';
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
 import {
-  type BaseCodingAgent,
   type Config,
   DEFAULT_PR_DESCRIPTION_PROMPT,
   EditorType,
-  type ExecutorProfileId,
   type SendMessageShortcut,
   SoundFile,
   ThemeMode,
@@ -21,10 +19,6 @@ import {
 import { getModifierKey } from '@/shared/lib/platform';
 import { getLanguageOptions } from '@/i18n/languages';
 import { toPrettyCase } from '@/shared/lib/string';
-import {
-  getExecutorVariantKeys,
-  getSortedExecutorVariantKeys,
-} from '@/shared/lib/executor';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { TagManager } from '@/shared/components/TagManager';
@@ -45,16 +39,9 @@ import {
   getBrowserPushSubscriptionState,
   isBrowserPushSupported,
 } from '@/shared/lib/webPush';
-import { cn, playSound } from '@/shared/lib/utils';
+import { playSound } from '@/shared/lib/utils';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import { IconButton } from '@vibe/ui/components/IconButton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuTriggerButton,
-} from '@vibe/ui/components/Dropdown';
 import {
   SettingsCard,
   SettingsCheckbox,
@@ -84,7 +71,7 @@ export function GeneralSettingsSection() {
       defaultValue: 'Browser Default',
     })
   );
-  const { config, loading, updateAndSaveConfig, profiles } = useUserSystem();
+  const { config, loading, updateAndSaveConfig } = useUserSystem();
 
   const [draft, setDraft] = useState(() => (config ? cloneDeep(config) : null));
   const [dirty, setDirty] = useState(false);
@@ -177,20 +164,6 @@ export function GeneralSettingsSection() {
     },
     [browserPushBusy, browserPushSupported]
   );
-
-  // Executor options for the default coding agent dropdown
-  const executorOptions = profiles
-    ? Object.keys(profiles)
-        .sort()
-        .map((key) => ({ value: key, label: toPrettyCase(key) }))
-    : [];
-
-  const selectedAgentProfile =
-    profiles?.[draft?.executor_profile?.executor || ''];
-  const variantOptions = selectedAgentProfile
-    ? getSortedExecutorVariantKeys(selectedAgentProfile)
-    : [];
-  const hasVariants = variantOptions.length > 0;
 
   const validateBranchPrefix = useCallback(
     (prefix: string): string | null => {
@@ -517,104 +490,6 @@ export function GeneralSettingsSection() {
             )}
           </>
         )}
-
-      </SettingsCard>
-
-      {/* Default Coding Agent */}
-      <SettingsCard
-        title={t('settings.general.taskExecution.title')}
-        description={t('settings.general.taskExecution.description')}
-      >
-        <SettingsField
-          label={t('settings.general.taskExecution.executor.label')}
-          description={t('settings.general.taskExecution.executor.helper')}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <DropdownMenuTriggerButton
-                  label={
-                    draft?.executor_profile?.executor
-                      ? toPrettyCase(draft.executor_profile.executor)
-                      : t('settings.agents.selectAgent')
-                  }
-                  className="w-full justify-between"
-                  disabled={!profiles}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                {executorOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => {
-                      const variants = profiles?.[option.value];
-                      const variantKeys = variants
-                        ? getExecutorVariantKeys(variants)
-                        : [];
-                      const keepCurrentVariant =
-                        variantKeys.length > 0 &&
-                        draft?.executor_profile?.variant &&
-                        variantKeys.includes(draft.executor_profile.variant);
-
-                      const newProfile: ExecutorProfileId = {
-                        executor: option.value as BaseCodingAgent,
-                        variant: keepCurrentVariant
-                          ? draft!.executor_profile!.variant
-                          : null,
-                      };
-                      updateDraft({ executor_profile: newProfile });
-                    }}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {hasVariants ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <DropdownMenuTriggerButton
-                    label={
-                      draft?.executor_profile?.variant
-                        ? toPrettyCase(draft.executor_profile.variant)
-                        : t('settings.general.taskExecution.defaultLabel')
-                    }
-                    className="w-full justify-between"
-                  />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                  {variantOptions.map((variantLabel) => (
-                    <DropdownMenuItem
-                      key={variantLabel}
-                      onClick={() => {
-                        const newProfile: ExecutorProfileId = {
-                          executor: draft!.executor_profile!.executor,
-                          variant: variantLabel,
-                        };
-                        updateDraft({ executor_profile: newProfile });
-                      }}
-                    >
-                      {toPrettyCase(variantLabel)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : selectedAgentProfile ? (
-              <button
-                disabled
-                className={cn(
-                  'flex items-center justify-between w-full px-base py-half rounded-sm border border-border bg-secondary',
-                  'text-base text-low opacity-50 cursor-not-allowed'
-                )}
-              >
-                <span className="truncate">
-                  {t('settings.general.taskExecution.defaultLabel')}
-                </span>
-              </button>
-            ) : null}
-          </div>
-        </SettingsField>
       </SettingsCard>
 
       {/* Git */}
@@ -876,7 +751,9 @@ export function GeneralSettingsSection() {
           label={t('settings.general.notifications.browserPush.label')}
           description={
             !browserPushSupported
-              ? t('settings.general.notifications.browserPush.helperUnsupported')
+              ? t(
+                  'settings.general.notifications.browserPush.helperUnsupported'
+                )
               : desktopPermission === 'denied'
                 ? t('settings.general.notifications.browserPush.helperDenied')
                 : t('settings.general.notifications.browserPush.helper')
