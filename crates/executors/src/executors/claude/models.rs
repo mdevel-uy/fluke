@@ -7,13 +7,15 @@ use crate::model_selector::{ModelInfo, ReasoningOption};
 
 const ANTHROPIC_MODELS_URL: &str = "https://api.anthropic.com/v1/models";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
+/// Beta flag Claude Code sends alongside subscription (OAuth) bearer tokens.
+const ANTHROPIC_OAUTH_BETA: &str = "oauth-2025-04-20";
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const PAGE_LIMIT: u32 = 1000;
 
 #[derive(Debug, Error)]
 pub enum ModelsFetchError {
-    #[error("ANTHROPIC_API_KEY not available")]
-    MissingApiKey,
+    #[error("Claude subscription credential not available")]
+    MissingCredential,
     #[error("timed out fetching Anthropic models")]
     Timeout,
     #[error("HTTP error: {0}")]
@@ -36,31 +38,56 @@ struct AnthropicModelsResponse {
     data: Vec<AnthropicModel>,
 }
 
-/// Hardcoded fallback list, used when the Anthropic API is unreachable or the
-/// user has no API key configured. Kept intentionally minimal so it always
-/// matches aliases the Claude Code CLI accepts.
-pub fn fallback_models() -> Vec<ModelInfo> {
-    let effort_options = effort_reasoning_options();
+/// CLI aliases. Always listed first: they track the latest model of each
+/// family and are what existing workers store as their model.
+const ALIASES: [(&str, &str); 5] = [
+    ("opus", "Opus"),
+    ("opus[1m]", "Opus (1M context)"),
+    ("sonnet", "Sonnet"),
+    ("haiku", "Haiku"),
+    ("fable", "Fable"),
+];
 
-    [
-        ("opus", "Opus"),
-        ("opus[1m]", "Opus (1M context)"),
-        ("sonnet", "Sonnet"),
-        ("haiku", "Haiku"),
-        ("fable", "Fable"),
-    ]
-    .into_iter()
-    .map(|(id, name)| ModelInfo {
-        id: id.to_string(),
-        name: name.to_string(),
+/// Pinned models current as of 2026-10-01, only shown when live discovery
+/// is unavailable.
+const FALLBACK_PINNED: [(&str, &str); 4] = [
+    ("claude-opus-5-5", "Opus 5.5"),
+    ("claude-sonnet-5-5", "Sonnet 5.5"),
+    ("claude-fable-5-1", "Fable 5.1"),
+    ("claude-haiku-4-5-20251001", "Haiku 4.5"),
+];
+
+fn model_info(id: String, name: String) -> ModelInfo {
+    let reasoning_options = if supports_effort(&id) {
+        effort_reasoning_options()
+    } else {
+        vec![]
+    };
+    ModelInfo {
+        id,
+        name,
         provider_id: None,
-        reasoning_options: if supports_effort(id) {
-            effort_options.clone()
-        } else {
-            vec![]
-        },
-    })
-    .collect()
+        reasoning_options,
+    }
+}
+
+fn alias_models() -> Vec<ModelInfo> {
+    ALIASES
+        .into_iter()
+        .map(|(id, name)| model_info(id.to_string(), name.to_string()))
+        .collect()
+}
+
+/// Hardcoded fallback list, used when there is no subscription credential or
+/// the Anthropic API is unreachable.
+pub fn fallback_models() -> Vec<ModelInfo> {
+    let mut models = alias_models();
+    models.extend(
+        FALLBACK_PINNED
+            .into_iter()
+            .map(|(id, name)| model_info(id.to_string(), name.to_string())),
+    );
+    models
 }
 
 pub fn effort_reasoning_options() -> Vec<ReasoningOption> {
@@ -80,11 +107,12 @@ fn display_for(id: &str, display_name: Option<&str>) -> String {
     name.strip_prefix("Claude ").unwrap_or(name).to_string()
 }
 
-/// Fetch the list of models from the Anthropic API. Includes the CLI-only
-/// `opus[1m]` variant on success so users keep access to the 1M-context alias.
-pub async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, ModelsFetchError> {
-    if api_key.trim().is_empty() {
-        return Err(ModelsFetchError::MissingApiKey);
+/// Fetch the models the Claude subscription (OAuth access token) can use from
+/// the Anthropic API. The CLI aliases are listed first so `opus`, `opus[1m]`,
+/// etc. stay selectable; the API does not surface them as models.
+pub async fn fetch_anthropic_models(oauth_token: &str) -> Result<Vec<ModelInfo>, ModelsFetchError> {
+    if oauth_token.trim().is_empty() {
+        return Err(ModelsFetchError::MissingCredential);
     }
 
     let client = reqwest::Client::builder()
@@ -94,8 +122,9 @@ pub async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, Mod
 
     let request = client
         .get(ANTHROPIC_MODELS_URL)
-        .header("x-api-key", api_key)
+        .bearer_auth(oauth_token)
         .header("anthropic-version", ANTHROPIC_API_VERSION)
+        .header("anthropic-beta", ANTHROPIC_OAUTH_BETA)
         .query(&[("limit", PAGE_LIMIT.to_string())])
         .send();
 
@@ -124,45 +153,24 @@ pub async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, Mod
         .await
         .map_err(|e| ModelsFetchError::Parse(e.to_string()))?;
 
-    let effort_options = effort_reasoning_options();
+    Ok(merge_with_aliases(parsed.data))
+}
 
-    let mut seen = std::collections::HashSet::new();
-    let mut models: Vec<ModelInfo> = parsed
-        .data
+fn merge_with_aliases(data: Vec<AnthropicModel>) -> Vec<ModelInfo> {
+    let mut models = alias_models();
+    let mut seen: std::collections::HashSet<String> = models.iter().map(|m| m.id.clone()).collect();
+    let mut discovered: Vec<ModelInfo> = data
         .into_iter()
         .filter(|m| !m.id.trim().is_empty())
         .filter(|m| seen.insert(m.id.clone()))
         .map(|m| {
             let name = display_for(&m.id, m.display_name.as_deref());
-            let reasoning_options = if supports_effort(&m.id) {
-                effort_options.clone()
-            } else {
-                vec![]
-            };
-            ModelInfo {
-                id: m.id,
-                name,
-                provider_id: None,
-                reasoning_options,
-            }
+            model_info(m.id, name)
         })
         .collect();
-
-    models.sort_by(|a, b| a.name.cmp(&b.name));
-
-    // Claude Code CLI exposes an `opus[1m]` alias for the 1M-context Opus
-    // variant. The Anthropic API does not surface it as its own model, so we
-    // append it after the API-discovered list.
-    if !models.iter().any(|m| m.id == "opus[1m]") {
-        models.push(ModelInfo {
-            id: "opus[1m]".to_string(),
-            name: "Opus (1M context)".to_string(),
-            provider_id: None,
-            reasoning_options: effort_options,
-        });
-    }
-
-    Ok(models)
+    discovered.sort_by(|a, b| a.name.cmp(&b.name));
+    models.extend(discovered);
+    models
 }
 
 #[cfg(test)]
@@ -207,12 +215,46 @@ mod tests {
     }
 
     #[test]
-    fn empty_api_key_returns_missing_error() {
+    fn empty_token_returns_missing_error() {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
         let err = rt.block_on(fetch_anthropic_models("   ")).unwrap_err();
-        assert!(matches!(err, ModelsFetchError::MissingApiKey));
+        assert!(matches!(err, ModelsFetchError::MissingCredential));
+    }
+
+    #[test]
+    fn discovered_models_keep_aliases_first_and_dedupe() {
+        let data = vec![
+            AnthropicModel {
+                id: "claude-sonnet-5-5".into(),
+                display_name: Some("Claude Sonnet 5.5".into()),
+            },
+            AnthropicModel {
+                id: "claude-sonnet-5-5".into(),
+                display_name: None,
+            },
+            AnthropicModel {
+                id: "opus".into(),
+                display_name: None,
+            },
+            AnthropicModel {
+                id: " ".into(),
+                display_name: None,
+            },
+        ];
+        let ids: Vec<String> = merge_with_aliases(data).into_iter().map(|m| m.id).collect();
+        assert_eq!(
+            ids,
+            [
+                "opus",
+                "opus[1m]",
+                "sonnet",
+                "haiku",
+                "fable",
+                "claude-sonnet-5-5"
+            ]
+        );
     }
 }

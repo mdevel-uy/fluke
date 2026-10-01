@@ -232,6 +232,7 @@ impl ClaudeCode {
         ExecutionEnv::new(RepoContext::default())
             .with_profile(&self.cmd)
             .apply_to_command(&mut command);
+        self.apply_stored_oauth_token(&mut command);
 
         if self.disable_api_key.unwrap_or(false) {
             command.env_remove("ANTHROPIC_API_KEY");

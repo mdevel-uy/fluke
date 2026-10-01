@@ -584,7 +584,11 @@
     "permissionPlan": "Plan",
     "agent": "Agent",
     "default": "Par défaut",
-    "model": "Modèle"
+    "model": "Modèle",
+    "errors": {
+      "claude_not_connected": "Claude is not connected. Showing the built-in model list.",
+      "claude_models_fallback": "Could not load the Claude model list. Showing the built-in list."
+    }
   },
   "crashScreen": {
     "title": "Une erreur est survenue",
