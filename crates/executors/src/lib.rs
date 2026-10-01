@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod approvals;
 pub mod command;
+pub mod connection;
 pub mod env;
 pub mod executor_discovery;
 pub mod executors;

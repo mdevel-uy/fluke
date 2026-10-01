@@ -33,8 +33,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@vibe/ui/components/Select';
-import { BaseCodingAgent, type WorkerResponse } from 'shared/types';
+import {
+  BaseCodingAgent,
+  type ModelSelectorConfig,
+  type WorkerResponse,
+} from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
+import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import {
   agentAuthApi,
   workersApi,
@@ -105,6 +110,10 @@ const MODEL_PROVIDERS: {
   { agent: BaseCodingAgent.CODEX, auth: 'codex', name: 'Codex' },
   { agent: BaseCodingAgent.GEMINI, auth: 'gemini', name: 'Gemini' },
 ];
+// Claude CLI aliases (mirror of `claude/models.rs::fallback_models`). The
+// CLI accepts them even when the catalog comes from the Anthropic API and
+// lists only full ids, so they never count as "not available".
+const CLAUDE_CLI_ALIASES = ['opus', 'opus[1m]', 'sonnet', 'haiku', 'fable'];
 const providerName = (agent: BaseCodingAgent): string =>
   MODEL_PROVIDERS.find((p) => p.agent === agent)?.name ?? agent;
 
@@ -224,8 +233,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const configuredExecutor = systemConfig?.executor_profile?.executor ?? null;
 
   // A provider is usable when it is connected, or when it is the global
-  // default (its credentials may live outside what the auth check sees).
-  const { data: authStatus } = useQuery({
+  // default. Same rule as the orchestrator's start gate, which never gates
+  // the global agent and reads the same connection check as this endpoint.
+  const { data: authStatus, isSuccess: authLoaded } = useQuery({
     queryKey: ['agent-auth-status'],
     queryFn: () => agentAuthApi.getStatus(),
   });
@@ -236,24 +246,39 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       !!authStatus?.providers.some((p) => p.provider === auth && p.connected)
     );
   };
-  const claudeModels = useModelSelectorConfig(
+  // Only claim "not connected" once the status loaded, so the dialog does
+  // not flash disconnected groups and alerts while the query is in flight.
+  const isDisconnected = (agent: BaseCodingAgent): boolean =>
+    authLoaded && !isConnected(agent);
+  const claudeConfig = useModelSelectorConfig(
     isConnected(BaseCodingAgent.CLAUDE_CODE)
       ? BaseCodingAgent.CLAUDE_CODE
       : null
-  ).config?.models;
-  const codexModels = useModelSelectorConfig(
+  ).config;
+  const codexConfig = useModelSelectorConfig(
     isConnected(BaseCodingAgent.CODEX) ? BaseCodingAgent.CODEX : null
-  ).config?.models;
-  const geminiModels = useModelSelectorConfig(
+  ).config;
+  const geminiConfig = useModelSelectorConfig(
     isConnected(BaseCodingAgent.GEMINI) ? BaseCodingAgent.GEMINI : null
-  ).config?.models;
-  const modelsByAgent: Partial<
-    Record<BaseCodingAgent, { id: string; name: string }[]>
+  ).config;
+  const configByAgent: Partial<
+    Record<BaseCodingAgent, ModelSelectorConfig | null>
   > = {
-    [BaseCodingAgent.CLAUDE_CODE]: claudeModels,
-    [BaseCodingAgent.CODEX]: codexModels,
-    [BaseCodingAgent.GEMINI]: geminiModels,
+    [BaseCodingAgent.CLAUDE_CODE]: claudeConfig,
+    [BaseCodingAgent.CODEX]: codexConfig,
+    [BaseCodingAgent.GEMINI]: geminiConfig,
   };
+  // Display name of the model the agent runs when none is pinned.
+  const baseModelName = (agent: BaseCodingAgent): string | null => {
+    const cfg = configByAgent[agent];
+    if (!cfg?.default_model) return null;
+    return (
+      cfg.models.find((m) => m.id === cfg.default_model)?.name ??
+      cfg.default_model
+    );
+  };
+  const openAgentConnections = () =>
+    void SettingsDialog.show({ initialSection: 'agent-auth' });
 
   const createMutation = useCreateWorker();
   const updateMutation = useUpdateWorker();
@@ -377,20 +402,35 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   // will fail to start) or its model left the provider's list (the task
   // falls back to the provider's default model).
   const pickedAgent = executor ?? (model ? configuredExecutor : null);
-  const pickedDisconnected = !!pickedAgent && !isConnected(pickedAgent);
-  const pickedModels = pickedAgent ? modelsByAgent[pickedAgent] : undefined;
+  const pickedDisconnected = !!pickedAgent && isDisconnected(pickedAgent);
+  const pickedModels = pickedAgent
+    ? configByAgent[pickedAgent]?.models
+    : undefined;
   const pickedUnavailable =
     !!pickedAgent &&
     !!model &&
     !pickedDisconnected &&
     !!pickedModels?.length &&
-    !pickedModels.some((m) => m.id === model);
+    !pickedModels.some((m) => m.id === model) &&
+    !(
+      pickedAgent === BaseCodingAgent.CLAUDE_CODE &&
+      CLAUDE_CLI_ALIASES.includes(model)
+    );
   const connectedProviders = MODEL_PROVIDERS.filter((p) =>
     isConnected(p.agent)
   );
-  const disconnectedProviders = MODEL_PROVIDERS.filter(
-    (p) => !isConnected(p.agent)
+  const disconnectedProviders = MODEL_PROVIDERS.filter((p) =>
+    isDisconnected(p.agent)
   );
+  // "Por defecto" reads as "Provider · base model", like the mock (#612).
+  const defaultBase = configuredExecutor
+    ? [providerName(configuredExecutor), baseModelName(configuredExecutor)]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+  const defaultLabel = defaultBase
+    ? `${t('workers.form.modelDefault')} · ${defaultBase}`
+    : t('workers.form.modelDefault');
 
   const selectValue =
     pickedAgent && model
@@ -467,10 +507,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
             >
               <SelectTrigger id="worker-model" className="mt-1">
                 <SelectValue>
-                  {pickedLabel ??
-                    (configuredExecutor
-                      ? `${t('workers.form.modelDefault')} · ${providerName(configuredExecutor)}`
-                      : t('workers.form.modelDefault'))}
+                  {pickedLabel ?? defaultLabel}
                   {pickedDisconnected &&
                     ` · ${t('workers.form.modelProviderDisconnected')}`}
                   {pickedUnavailable &&
@@ -479,9 +516,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={MODEL_DEFAULT_VALUE}>
-                  {t('workers.form.modelDefault')}
-                  {configuredExecutor &&
-                    ` · ${providerName(configuredExecutor)}`}
+                  {defaultLabel}
                 </SelectItem>
                 {(pickedDisconnected || pickedUnavailable) && (
                   <SelectItem value={selectValue} disabled>
@@ -501,8 +536,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
                     </SelectLabel>
                     <SelectItem value={toModelValue(p.agent, '')}>
                       {t('workers.form.modelProviderDefault')}
+                      {baseModelName(p.agent) && ` (${baseModelName(p.agent)})`}
                     </SelectItem>
-                    {(modelsByAgent[p.agent] ?? []).map((m) => (
+                    {(configByAgent[p.agent]?.models ?? []).map((m) => (
                       <SelectItem
                         key={m.id}
                         value={toModelValue(p.agent, m.id)}
@@ -535,7 +571,16 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               <p className="mt-1 text-xs text-destructive" role="alert">
                 {t('workers.form.modelProviderDisconnectedHelp', {
                   provider: providerName(pickedAgent),
-                })}
+                })}{' '}
+                <button
+                  type="button"
+                  onClick={openAgentConnections}
+                  className="underline"
+                >
+                  {t('workers.form.modelConnectProvider', {
+                    provider: providerName(pickedAgent),
+                  })}
+                </button>
               </p>
             )}
             {pickedUnavailable && pickedAgent && (
@@ -548,6 +593,18 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
             )}
             <p className="mt-1 text-xs text-low">
               {t('workers.form.modelHelp')}
+              {disconnectedProviders.length > 0 && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={openAgentConnections}
+                    className="underline hover:text-normal"
+                  >
+                    {t('workers.form.modelConnectProviders')}
+                  </button>
+                </>
+              )}
             </p>
           </div>
 

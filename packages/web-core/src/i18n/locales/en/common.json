@@ -1160,6 +1160,8 @@
       "modelProviderDisconnectedHelp": "{{provider}} is not connected: this worker's tasks will fail to start. Connect {{provider}} in Settings or pick another model.",
       "modelUnavailable": "not available",
       "modelUnavailableHelp": "{{model}} is no longer in the {{provider}} list. Until you pick another one, tasks use the {{provider}} default model.",
+      "modelConnectProvider": "Connect {{provider}}",
+      "modelConnectProviders": "Connect providers",
       "planModeLabel": "Plan mode",
       "planModeGlobal": "Follow global setting",
       "planModeOn": "Force on",

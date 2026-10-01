@@ -469,8 +469,11 @@ fn provider_name(agent: BaseCodingAgent) -> String {
 }
 
 /// Model ids `agent` currently offers, from the same discovery the model
-/// selector uses (cached, so usually instant). `None` when the catalog
-/// cannot be read in time — callers then trust the stored model.
+/// selector uses. Served from the global discovery cache once it is warm;
+/// until then (and every 5 min after it expires) each task start pays the
+/// discovery itself — for Claude an Anthropic API fetch plus an agent scan —
+/// bounded by [`MODEL_CATALOG_TIMEOUT`]. `None` when the catalog cannot be
+/// read in time — callers then trust the stored model.
 async fn offered_models(agent: &CodingAgent) -> Option<Vec<String>> {
     let fetch = async {
         let mut stream = agent.discover_options(None, None).await.ok()?;
@@ -494,24 +497,33 @@ async fn offered_models(agent: &CodingAgent) -> Option<Vec<String>> {
 }
 
 /// Model to launch a worker task with on `executor`. `None` = the agent's
-/// default model. Never returns a model outside `offered` when the catalog
-/// is known: a model the agent dropped (or a Claude alias reaching Codex)
-/// degrades to the agent's default with a warning.
+/// default model. The worker's model is checked against `offered` when the
+/// catalog is known: a model the agent dropped (or a Claude alias reaching
+/// Codex) degrades to the agent's default with a warning.
 fn pick_worker_model(
     executor: BaseCodingAgent,
     worker_model: Option<&str>,
     dispatcher_override: Option<&str>,
     offered: Option<&[String]>,
 ) -> Option<String> {
-    let wanted = match dispatcher_override {
-        // The dispatcher's infra fallback names a Claude model; any other
-        // agent degrades to its own default model instead.
-        Some(m) if executor == BaseCodingAgent::ClaudeCode => Some(m),
-        Some(_) => None,
-        None => worker_model,
-    }?;
+    let is_claude = executor == BaseCodingAgent::ClaudeCode;
+    if let Some(m) = dispatcher_override {
+        // The dispatcher's infra fallback is a Claude CLI alias the CLI always
+        // accepts: it wins unchecked on Claude (the catalog may list only full
+        // API ids). Any other agent degrades to its own default model.
+        return is_claude.then(|| m.to_string());
+    }
+    let wanted = worker_model?;
+    // With an API key the Claude catalog lists full ids (`claude-opus-5-5`),
+    // but the CLI aliases (`opus`, `fable`...) keep working.
+    let is_claude_alias = || {
+        is_claude
+            && executors::executors::claude::models::fallback_models()
+                .iter()
+                .any(|m| m.id == wanted)
+    };
     match offered {
-        Some(models) if !models.iter().any(|m| m == wanted) => {
+        Some(models) if !models.iter().any(|m| m == wanted) && !is_claude_alias() => {
             warn!(
                 executor = %executor,
                 model = wanted,
@@ -532,7 +544,8 @@ async fn worker_executor_config(
     worker: &Worker,
     dispatcher_override: Option<&str>,
 ) -> Result<ExecutorConfig, BaseCodingAgent> {
-    let executor = worker.executor.unwrap_or(global.executor);
+    let global_executor = global.executor;
+    let executor = worker.executor.unwrap_or(global_executor);
     // The global variant only applies to the global agent; another agent
     // runs its DEFAULT variant.
     let mut executor_config: ExecutorConfig = if executor == global.executor {
@@ -540,21 +553,19 @@ async fn worker_executor_config(
     } else {
         ExecutorConfig::new(executor)
     };
-    let agent = ExecutorConfigs::get_cached().get_coding_agent(&executor_config.profile_id());
-    // Only an explicitly chosen agent is gated: the default agent keeps
-    // today's behaviour. ponytail: availability = the executors' own login
-    // heuristic (file-based); a stale credential still passes and the CLI
-    // fails on its own.
-    if worker.executor.is_some()
-        && !agent
-            .as_ref()
-            .is_some_and(|a| a.get_availability_info().is_available())
+    // Gate exactly what the worker form flags as "not connected": a pinned
+    // agent other than the global default whose Settings connection check
+    // fails. Agents without a Settings connect story are not gated.
+    if worker.executor.is_some_and(|e| e != global_executor)
+        && executors::connection::connection_state(executor).is_some_and(|(ok, _)| !ok)
     {
         return Err(executor);
     }
-    let wanted = dispatcher_override.or(worker.model.as_deref());
-    let offered = match (&agent, wanted) {
-        (Some(agent), Some(_)) => offered_models(agent).await,
+    let agent = ExecutorConfigs::get_cached().get_coding_agent(&executor_config.profile_id());
+    // The catalog only matters for the worker's own model: a dispatcher
+    // override never consults it.
+    let offered = match (&agent, dispatcher_override, worker.model.as_deref()) {
+        (Some(agent), None, Some(_)) => offered_models(agent).await,
         _ => None,
     };
     if let Some(model) = pick_worker_model(
@@ -6550,6 +6561,39 @@ mod tests {
         );
         assert_eq!(
             pick_worker_model(BaseCodingAgent::Gemini, None, None, None),
+            None
+        );
+        // Catalog from the Anthropic API (full ids only): the infra
+        // override still wins and CLI aliases still count as offered.
+        let api_ids = vec![
+            "claude-opus-5-5".to_string(),
+            "claude-fable-5-1".to_string(),
+        ];
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&api_ids)
+            ),
+            Some(INFRA_FALLBACK_MODEL.to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                None,
+                Some(&api_ids)
+            ),
+            Some("fable".to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("sonnet-3"),
+                None,
+                Some(&api_ids)
+            ),
             None
         );
     }

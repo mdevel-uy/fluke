@@ -53,6 +53,7 @@ use tokio::{
     task::JoinHandle,
     time::sleep,
 };
+use executors::executors::BaseCodingAgent;
 use ts_rs::TS;
 use utils::{
     command_ext::NoWindowExt, response::ApiResponse, shell::resolve_executable_path,
@@ -315,51 +316,14 @@ fn file_mtime_epoch(path: &std::path::Path) -> Option<i64> {
         .map(|d| d.as_secs() as i64)
 }
 
-async fn provider_connection_state(
-    provider: AgentAuthProvider,
-) -> (bool, Option<i64>) {
-    let candidates: Vec<PathBuf> = match provider {
-        AgentAuthProvider::Codex => codex_auth_file().ok().into_iter().collect(),
-        AgentAuthProvider::Gemini => [gemini_env_file().ok(), gemini_oauth_file().ok()]
-            .into_iter()
-            .flatten()
-            .collect(),
-        AgentAuthProvider::ClaudeCode => {
-            claude_credentials_file().ok().into_iter().collect()
-        }
+/// Same check the worker orchestrator gates task starts on (issue #614).
+async fn provider_connection_state(provider: AgentAuthProvider) -> (bool, Option<i64>) {
+    let agent = match provider {
+        AgentAuthProvider::Codex => BaseCodingAgent::Codex,
+        AgentAuthProvider::Gemini => BaseCodingAgent::Gemini,
+        AgentAuthProvider::ClaudeCode => BaseCodingAgent::ClaudeCode,
     };
-
-    let mut best: Option<i64> = None;
-    let mut connected = false;
-    for c in candidates {
-        if !c.exists() {
-            continue;
-        }
-        // Gemini's `.env` may exist without our key (unlikely but possible if
-        // the user edited it manually). Treat it as connected only when the
-        // recognisable variable is present.
-        if provider == AgentAuthProvider::Gemini
-            && c.file_name().and_then(|n| n.to_str()) == Some(".env")
-            && !gemini_env_has_key(&c)
-        {
-            continue;
-        }
-        connected = true;
-        if let Some(ts) = file_mtime_epoch(&c) {
-            best = Some(best.map_or(ts, |cur| cur.max(ts)));
-        }
-    }
-    (connected, best)
-}
-
-fn gemini_env_has_key(path: &std::path::Path) -> bool {
-    match std::fs::read_to_string(path) {
-        Ok(contents) => contents.lines().any(|line| {
-            let trimmed = line.trim_start();
-            trimmed.starts_with("GEMINI_API_KEY=") || trimmed.starts_with("GOOGLE_API_KEY=")
-        }),
-        Err(_) => false,
-    }
+    executors::connection::connection_state(agent).unwrap_or((false, None))
 }
 
 // ============================================================================

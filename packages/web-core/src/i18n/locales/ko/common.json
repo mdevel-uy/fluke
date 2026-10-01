@@ -1143,6 +1143,8 @@
       "modelProviderDisconnectedHelp": "{{provider}}이(가) 연결되어 있지 않습니다. 이 워커의 작업은 시작 시 실패합니다. 설정에서 {{provider}}을(를) 연결하거나 다른 모델을 선택하세요.",
       "modelUnavailable": "사용 불가",
       "modelUnavailableHelp": "{{model}}이(가) 더 이상 {{provider}} 목록에 없습니다. 다른 모델을 선택할 때까지 작업은 {{provider}} 기본 모델을 사용합니다.",
+      "modelConnectProvider": "{{provider}} 연결",
+      "modelConnectProviders": "공급자 연결",
       "planModeLabel": "플랜 모드",
       "planModeGlobal": "전역 설정 따르기",
       "planModeOn": "강제 활성화",

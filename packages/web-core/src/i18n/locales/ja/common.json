@@ -1143,6 +1143,8 @@
       "modelProviderDisconnectedHelp": "{{provider}} は接続されていません。このワーカーのタスクは開始時に失敗します。設定で {{provider}} を接続するか、別のモデルを選択してください。",
       "modelUnavailable": "利用不可",
       "modelUnavailableHelp": "{{model}} は {{provider}} のリストにありません。別のモデルを選ぶまで、タスクは {{provider}} のデフォルトモデルを使用します。",
+      "modelConnectProvider": "{{provider}} を接続",
+      "modelConnectProviders": "プロバイダーを接続",
       "planModeLabel": "プランモード",
       "planModeGlobal": "グローバル設定に従う",
       "planModeOn": "強制的に有効",

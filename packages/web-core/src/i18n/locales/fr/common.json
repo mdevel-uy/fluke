@@ -1145,6 +1145,8 @@
       "modelProviderDisconnectedHelp": "{{provider}} n'est pas connecté : les tâches de ce worker échoueront au démarrage. Connectez {{provider}} dans les paramètres ou choisissez un autre modèle.",
       "modelUnavailable": "indisponible",
       "modelUnavailableHelp": "{{model}} ne figure plus dans la liste de {{provider}}. Tant que vous n'en choisissez pas un autre, les tâches utilisent le modèle par défaut de {{provider}}.",
+      "modelConnectProvider": "Connecter {{provider}}",
+      "modelConnectProviders": "Connecter des fournisseurs",
       "planModeLabel": "Plan mode",
       "planModeGlobal": "Suivre la configuration globale",
       "planModeOn": "Forcer activé",

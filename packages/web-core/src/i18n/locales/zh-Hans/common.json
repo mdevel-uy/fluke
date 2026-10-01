@@ -1143,6 +1143,8 @@
       "modelProviderDisconnectedHelp": "{{provider}} 未连接：此工作者的任务将在启动时失败。请在设置中连接 {{provider}} 或选择其他模型。",
       "modelUnavailable": "不可用",
       "modelUnavailableHelp": "{{model}} 已不在 {{provider}} 的列表中。在你选择其他模型之前，任务将使用 {{provider}} 的默认模型。",
+      "modelConnectProvider": "连接 {{provider}}",
+      "modelConnectProviders": "连接提供方",
       "planModeLabel": "计划模式",
       "planModeGlobal": "使用全局设置",
       "planModeOn": "强制开启",

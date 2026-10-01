@@ -1160,6 +1160,8 @@
       "modelProviderDisconnectedHelp": "{{provider}} no está conectado: las tareas de este worker fallarán al arrancar. Conecta {{provider}} en Configuración o elige otro modelo.",
       "modelUnavailable": "no disponible",
       "modelUnavailableHelp": "{{model}} ya no aparece en la lista de {{provider}}. Mientras no elijas otro, las tareas usan el modelo por defecto de {{provider}}.",
+      "modelConnectProvider": "Conectar {{provider}}",
+      "modelConnectProviders": "Conectar proveedores",
       "planModeLabel": "Plan mode",
       "planModeGlobal": "Usar configuración global",
       "planModeOn": "Forzar activo",
