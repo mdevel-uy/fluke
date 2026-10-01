@@ -282,8 +282,9 @@ export function useWorkspaces(): UseWorkspacesResult {
       queryKey: workspaceSummaryKeys.byArchived(true, hostId),
       queryFn: () => fetchWorkspaceSummariesByArchived(true, hostId),
       enabled: archivedIsInitialized,
+      // Archived workspaces don't change: polling them ran git diff stats
+      // on every archived worktree every 15s.
       staleTime: 1000,
-      refetchInterval: 15000,
       refetchOnWindowFocus: false,
       refetchOnMount: 'always',
       placeholderData: keepPreviousData,

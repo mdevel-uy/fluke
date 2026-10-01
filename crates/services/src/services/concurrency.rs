@@ -16,7 +16,7 @@
 //!   1. `AGENT_CONCURRENCY_LIMIT` env var if it parses as a
 //!      non-negative integer
 //!   2. `Config.agent_concurrency_limit`
-//!   3. `0` (unlimited) fallback
+//!   3. `0` (the default) = automatic: [`auto_limit`], from the machine's cores
 //!
 //! Reload semantics differ per source:
 //!   - `Config.agent_concurrency_limit` is read from a lock on every
@@ -44,7 +44,7 @@ pub const AGENT_CONCURRENCY_LIMIT_ENV: &str = "AGENT_CONCURRENCY_LIMIT";
 /// to serialize for API responses.
 #[derive(Debug, Clone)]
 pub struct ConcurrencySnapshot {
-    /// Configured limit. `0` = unlimited.
+    /// Effective limit (never `0`: an unset limit resolves to [`auto_limit`]).
     pub limit: u32,
     /// Number of processes currently holding a slot (i.e. running).
     pub used: u32,
@@ -61,6 +61,15 @@ impl ConcurrencySnapshot {
             .position(|q| q == id)
             .map(|idx| idx as u32 + 1)
     }
+}
+
+/// Cap used when none is configured. Agents run on the user's own machine
+/// and each one builds and tests in its own worktree, so unlimited runs
+/// saturate a desktop.
+// ponytail: cores only; factor in free RAM (sysinfo) if 16GB boxes still swap.
+pub fn auto_limit() -> u32 {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get()) as u32;
+    (cores / 2).clamp(2, 8)
 }
 
 #[derive(Debug, Default)]
@@ -83,14 +92,20 @@ impl ConcurrencySemaphore {
         }
     }
 
-    /// Resolve the effective limit. `0` means unlimited.
+    /// Resolve the effective limit. `0` (the default) means [`auto_limit`].
     pub async fn effective_limit(&self) -> u32 {
-        if let Ok(raw) = std::env::var(AGENT_CONCURRENCY_LIMIT_ENV)
-            && let Ok(parsed) = raw.trim().parse::<u32>()
+        let configured = match std::env::var(AGENT_CONCURRENCY_LIMIT_ENV)
+            .ok()
+            .and_then(|raw| raw.trim().parse::<u32>().ok())
         {
-            return parsed;
+            Some(parsed) => parsed,
+            None => self.config.read().await.agent_concurrency_limit,
+        };
+        if configured == 0 {
+            auto_limit()
+        } else {
+            configured
         }
-        self.config.read().await.agent_concurrency_limit
     }
 
     /// Try to reserve a slot for `id`. Returns `true` if a slot was
@@ -107,7 +122,7 @@ impl ConcurrencySemaphore {
         if state.running.contains(&id) {
             return true;
         }
-        if limit == 0 || (state.running.len() as u32) < limit {
+        if (state.running.len() as u32) < limit {
             state.running.insert(id);
             true
         } else {
@@ -141,7 +156,7 @@ impl ConcurrencySemaphore {
     pub async fn try_dequeue(&self) -> Option<Uuid> {
         let limit = self.effective_limit().await;
         let mut state = self.state.lock().await;
-        if limit != 0 && (state.running.len() as u32) >= limit {
+        if (state.running.len() as u32) >= limit {
             return None;
         }
         let next = state.queue.pop_front()?;
@@ -214,12 +229,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn zero_means_unlimited() {
+    async fn zero_means_auto_limit() {
         let sem = make(0).await;
-        for _ in 0..10 {
+        let auto = auto_limit();
+        assert!((2..=8).contains(&auto));
+        for _ in 0..auto {
             assert!(sem.try_acquire(Uuid::new_v4()).await);
         }
-        assert!(sem.try_dequeue().await.is_none());
+        assert!(!sem.try_acquire(Uuid::new_v4()).await);
     }
 
     #[tokio::test]

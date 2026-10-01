@@ -36,7 +36,10 @@ impl Default for MsgStore {
 
 impl MsgStore {
     pub fn new() -> Self {
-        let (sender, _) = broadcast::channel(100000);
+        // tokio preallocates every slot (~70 B each) and there is one store
+        // per execution, setup scripts included. Late subscribers replay
+        // history; this only bounds how far a live one may lag.
+        let (sender, _) = broadcast::channel(16384);
         Self {
             inner: RwLock::new(Inner {
                 history: VecDeque::with_capacity(32),
