@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "切换自动换行",
       "run-setup-script": "运行设置脚本",
       "run-cleanup-script": "运行清理脚本",
-      "run-archive-script": "运行归档脚本"
+      "run-archive-script": "运行归档脚本",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -622,7 +623,7 @@
       "ariaLabel": "打开命令栏"
     },
     "layout": {
-      "toggleAdhocClaude": "临时 Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -635,21 +636,6 @@
     "branchTooltip": "当前项目的基础分支：{{branch}}",
     "issuesRefreshNew_other": "{{count}} 个新 issue",
     "issuesRefreshNone": "没有新 issue"
-  },
-  "adhocPanel": {
-    "title": "临时 Claude",
-    "close": "关闭临时 Claude 面板",
-    "newSession": "新会话",
-    "loading": "正在准备 Claude 会话…",
-    "noRepo": {
-      "title": "没有可用的仓库",
-      "description": "添加一个仓库以启动临时 Claude 会话。"
-    },
-    "error": {
-      "title": "无法打开临时会话",
-      "description": "准备 scratch 工作区时发生错误。",
-      "retry": "重试"
-    }
   },
   "appBar": {
     "dashboard": "仪表盘",
@@ -1163,7 +1149,9 @@
       "developerDescription": "实现功能并创建拉取请求",
       "analystDescription": "调研并产出书面交付物",
       "reviewerDescription": "审查代码并提供反馈",
-      "designerDescription": "以 Claude 制品的形式产出设计方案"
+      "designerDescription": "以 Claude 制品的形式产出设计方案",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
     },
     "toast": {
       "startSuccess": "{{worker}} 已开始“{{title}}”。",
@@ -1653,5 +1641,76 @@
       "correction": "已作为修正步骤 {{n}} 接受"
     },
     "error": "无法完成操作：{{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "collapse": "Back to the panel",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    }
   }
 }

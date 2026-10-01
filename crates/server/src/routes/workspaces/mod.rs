@@ -61,7 +61,6 @@ pub fn router(deployment: &DeploymentImpl) -> Router<DeploymentImpl> {
             "/summaries",
             post(workspace_summary::get_workspace_summaries),
         )
-        .merge(scratch::router())
         .nest("/{id}", workspace_id_router)
         .nest("/{id}/attachments", attachments::router(deployment))
         .nest("/{id}/preview", preview::router(deployment))

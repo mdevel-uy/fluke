@@ -9,6 +9,7 @@ pub mod config;
 pub mod container;
 pub mod design_artifacts;
 pub mod diff_stream;
+pub mod director;
 pub mod events;
 pub mod execution_labels;
 pub mod execution_process;

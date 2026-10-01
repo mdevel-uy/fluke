@@ -333,28 +333,31 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
             />
           </div>
 
-          <div>
-            <LabelWithHelp
-              htmlFor="worker-role"
-              label={t('workers.form.roleLabel')}
-              help={t(`workers.roles.${role}Description`)}
-            />
-            <Select
-              value={role}
-              onValueChange={(v) => setRole(v as WorkerRole)}
-            >
-              <SelectTrigger id="worker-role" className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {WORKER_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {t(`workers.roles.${r}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Fluke (the Director) keeps its role: it is the only orchestrator. */}
+          {worker?.role !== 'orchestrator' && (
+            <div>
+              <LabelWithHelp
+                htmlFor="worker-role"
+                label={t('workers.form.roleLabel')}
+                help={t(`workers.roles.${role}Description`)}
+              />
+              <Select
+                value={role}
+                onValueChange={(v) => setRole(v as WorkerRole)}
+              >
+                <SelectTrigger id="worker-role" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORKER_ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {t(`workers.roles.${r}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {hasModels && (
             <div>

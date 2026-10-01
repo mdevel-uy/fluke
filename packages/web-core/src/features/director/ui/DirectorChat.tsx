@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownIcon, ArrowUpIcon } from '@phosphor-icons/react';
 import type { Session, WorkspaceContext } from 'shared/types';
@@ -15,28 +22,28 @@ import { ExecutionProcessesProvider } from '@/shared/providers/ExecutionProcesse
 import { createWorkspaceWithSession } from '@/shared/types/attempt';
 
 /**
- * Interior of the ad-hoc panel, wired around a single scratch workspace and
- * its currently selected session. Duplicates the provider stack from
- * WorkspacesMainContainer / ProjectRightSidebarContainer (chat state is
+ * Conversation of one Director mission: its session runs in the scratch
+ * workspace of the repo that was active when the mission started. Duplicates
+ * the provider stack from WorkspacesMainContainer (chat state is
  * session-scoped and lives in React contexts, not global stores). Keying the
- * providers on `${workspaceId}-${sessionId}` guarantees a full remount when
- * the user clicks "Nueva sesión" so entries, edit state and approvals reset.
+ * providers on `${workspaceId}-${sessionId}` remounts them when the user
+ * switches missions so entries, edit state and approvals reset.
  */
-interface AdhocChatPanelContentProps {
+interface DirectorChatProps {
   workspaceContext: WorkspaceContext;
   selectedSession: Session;
-  sessions: Session[];
-  onSelectSession: (sessionId: string) => void;
-  onStartNewSession: () => void;
+  /** Rendered between the transcript and the composer (quick replies). */
+  aboveComposer?: ReactNode;
 }
 
-export function AdhocChatPanelContent({
+const noop = () => {};
+
+export function DirectorChat({
   workspaceContext,
   selectedSession,
-  sessions,
-  onSelectSession,
-  onStartNewSession,
-}: AdhocChatPanelContentProps) {
+  aboveComposer,
+}: DirectorChatProps) {
+  const sessions = useMemo(() => [selectedSession], [selectedSession]);
   const { t } = useTranslation('common');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const conversationListRef = useRef<ConversationListHandle | null>(null);
@@ -171,13 +178,15 @@ export function AdhocChatPanelContent({
                 className="@container shrink-0 pl-px"
                 data-chatbox-container="true"
               >
+                {aboveComposer}
                 <SessionChatBoxContainer
                   mode="existing-session"
                   compact
+                  hideModelSelector
                   session={selectedSession}
                   sessions={sessions}
-                  onSelectSession={onSelectSession}
-                  onStartNewSession={onStartNewSession}
+                  onSelectSession={noop}
+                  onStartNewSession={undefined}
                   filesChanged={0}
                   linesAdded={0}
                   linesRemoved={0}

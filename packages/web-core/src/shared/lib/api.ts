@@ -122,6 +122,9 @@ import {
   CreateDesignHandoffRequest,
   PendingDesignHandoffResponse,
   DesignArtifactsResponse,
+  MissionDetail,
+  MissionSummary,
+  UpdateMissionRequest,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -488,17 +491,6 @@ export const workspacesApi = {
   getAllWorkspaces: async (): Promise<Workspace[]> => {
     const response = await makeRequest('/api/workspaces');
     return handleApiResponse<Workspace[]>(response);
-  },
-
-  /**
-   * Resolve (or lazily create) the scratch workspace for a repo. Backs the
-   * ad-hoc chat panel — one scratch workspace per repo, shared across sessions.
-   */
-  getScratchByRepo: async (repoId: string): Promise<WorkspaceContext> => {
-    const response = await makeRequest(
-      `/api/workspaces/scratch?repo_id=${encodeURIComponent(repoId)}`
-    );
-    return handleApiResponse<WorkspaceContext>(response);
   },
 
   get: async (workspaceId: string): Promise<Workspace> => {
@@ -2265,6 +2257,49 @@ export const codegraphApi = {
       method: 'POST',
     });
     return handleApiResponse<CodegraphStatus>(response);
+  },
+};
+
+// Misiones del Director (en la UI, "Fluke").
+export const missionsApi = {
+  list: async (): Promise<MissionSummary[]> => {
+    const response = await makeRequest('/api/missions');
+    return handleApiResponse<MissionSummary[]>(response);
+  },
+  get: async (id: string): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}`);
+    return handleApiResponse<MissionDetail>(response);
+  },
+  create: async (repoId: string): Promise<MissionDetail> => {
+    const response = await makeRequest('/api/missions', {
+      method: 'POST',
+      body: JSON.stringify({ repo_id: repoId }),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  update: async (
+    id: string,
+    data: Partial<UpdateMissionRequest>
+  ): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  approve: async (
+    id: string,
+    analystWorkerId?: string
+  ): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ analyst_worker_id: analystWorkerId ?? null }),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  getWorkspace: async (id: string): Promise<WorkspaceContext> => {
+    const response = await makeRequest(`/api/missions/${id}/workspace`);
+    return handleApiResponse<WorkspaceContext>(response);
   },
 };
 

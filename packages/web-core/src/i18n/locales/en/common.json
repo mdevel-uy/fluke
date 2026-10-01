@@ -432,7 +432,8 @@
       "toggle-wrap-lines": "Toggle line wrapping",
       "run-setup-script": "Run setup script",
       "run-cleanup-script": "Run cleanup script",
-      "run-archive-script": "Run archive script"
+      "run-archive-script": "Run archive script",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -641,7 +642,7 @@
       "ariaLabel": "Open command bar"
     },
     "layout": {
-      "toggleAdhocClaude": "Ad-hoc Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -656,21 +657,6 @@
     "issuesRefreshNew_one": "{{count}} new issue",
     "issuesRefreshNew_other": "{{count}} new issues",
     "issuesRefreshNone": "No new issues"
-  },
-  "adhocPanel": {
-    "title": "Ad-hoc Claude",
-    "close": "Close ad-hoc Claude panel",
-    "newSession": "New session",
-    "loading": "Preparing Claude session…",
-    "noRepo": {
-      "title": "No repository available",
-      "description": "Add a repository to start an ad-hoc Claude session."
-    },
-    "error": {
-      "title": "We couldn't open the ad-hoc session",
-      "description": "Something went wrong while preparing the scratch workspace.",
-      "retry": "Retry"
-    }
   },
   "appBar": {
     "dashboard": "Dashboard",
@@ -1180,7 +1166,9 @@
       "developerDescription": "Implements features and creates pull requests",
       "analystDescription": "Researches and produces written deliverables",
       "reviewerDescription": "Reviews code and provides feedback",
-      "designerDescription": "Produces design proposals as Claude artifacts"
+      "designerDescription": "Produces design proposals as Claude artifacts",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
     },
     "toast": {
       "startSuccess": "{{worker}} started \"{{title}}\".",
@@ -1672,5 +1660,76 @@
       "correction": "Accepted as correction step {{n}}"
     },
     "error": "The action could not be completed: {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "collapse": "Back to the panel",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    }
   }
 }

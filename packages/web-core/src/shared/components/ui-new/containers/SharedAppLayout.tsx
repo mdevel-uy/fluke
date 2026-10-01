@@ -56,7 +56,7 @@ import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { ShellSidebarProvider, ShellSidebarSlot } from '../shell/ShellSidebar';
 import { ShellAsideSlot, useShellAsideHasContent } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
-import { AdhocClaudePanel } from '@/features/adhoc-session';
+import { DirectorRoot } from '@/features/director';
 
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
@@ -491,9 +491,9 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
             </div>
           )}
 
-          {/* Global ad-hoc Claude panel — right slide-in overlay, portaled to
-            document.body so it doesn't push the main column. */}
-          <AdhocClaudePanel />
+          {/* Director ("Fluke"): floating bubble/panel, anchored aside or
+            full-screen view. */}
+          <DirectorRoot />
 
           {/* Mobile navigation drawer */}
           <MobileDrawer

@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanelLeft, PanelBottom, PanelRight, Sparkles } from 'lucide-react';
-import { useAdhocPanelStore } from '@/features/adhoc-session';
+import { useDirectorStore } from '@/features/director';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useActions } from '@/shared/hooks/useActions';
 import { useSyncErrorContext } from '@/shared/hooks/useSyncErrorContext';
@@ -165,20 +165,20 @@ export function NavbarContainer({
     (s) => s.isRightSidebarVisible
   );
   const toggleRightSidebar = useUiPreferencesStore((s) => s.toggleRightSidebar);
-  const isAdhocPanelOpen = useAdhocPanelStore((s) => s.isOpen);
-  const toggleAdhocPanel = useAdhocPanelStore((s) => s.toggle);
+  const isDirectorOpen = useDirectorStore((s) => s.view !== 'bubble');
+  const toggleDirector = useDirectorStore((s) => s.toggle);
 
   const layoutToggleItems: NavbarSectionItem[] = useMemo(
     () => [
       {
         type: 'action',
-        id: 'toggle-adhoc-claude',
+        id: 'toggle-director',
         lucideIcon: Sparkles,
-        isActive: isAdhocPanelOpen,
-        tooltip: t('navbar.layout.toggleAdhocClaude', {
-          defaultValue: 'Ad-hoc Claude',
+        isActive: isDirectorOpen,
+        tooltip: t('navbar.layout.toggleDirector', {
+          defaultValue: 'Fluke',
         }),
-        onClick: toggleAdhocPanel,
+        onClick: toggleDirector,
       },
       {
         type: 'action',
@@ -219,8 +219,8 @@ export function NavbarContainer({
       toggleTerminal,
       isRightSidebarVisible,
       toggleRightSidebar,
-      isAdhocPanelOpen,
-      toggleAdhocPanel,
+      isDirectorOpen,
+      toggleDirector,
     ]
   );
 

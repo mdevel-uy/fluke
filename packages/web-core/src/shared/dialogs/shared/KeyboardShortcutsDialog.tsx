@@ -71,6 +71,10 @@ function useShortcutGroups(): ShortcutGroup[] {
           description: t('shortcuts.actions.toggleTerminal'),
         },
         {
+          keys: [mod, 'Shift', 'I'],
+          description: t('shortcuts.actions.toggleDirector'),
+        },
+        {
           keys: [mod, 'E'],
           description: t('shortcuts.actions.formatInlineCode'),
         },

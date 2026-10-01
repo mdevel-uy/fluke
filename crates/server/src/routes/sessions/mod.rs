@@ -124,9 +124,22 @@ pub struct ResetProcessRequest {
 pub async fn follow_up(
     Extension(session): Extension<Session>,
     State(deployment): State<DeploymentImpl>,
-    Json(payload): Json<CreateFollowUpAttempt>,
+    Json(mut payload): Json<CreateFollowUpAttempt>,
 ) -> Result<ResponseJson<ApiResponse<ExecutionProcess>>, ApiError> {
     let pool = &deployment.db().pool;
+
+    // A mission session talks to the Director: its model is fixed, the
+    // composer's executor selection does not apply.
+    if let Some(mission) =
+        db::models::mission::Mission::find_by_session_id(pool, session.id).await?
+    {
+        use services::services::director;
+        let worker = director::ensure_orchestrator(pool).await?;
+        payload.executor_config =
+            director::executor_config(&*deployment.config().read().await, &worker)
+                .map_err(ApiError::BadRequest)?;
+        director::on_user_message(pool, &mission).await?;
+    }
 
     // Load workspace from session
     let workspace = Workspace::find_by_id(pool, session.workspace_id)

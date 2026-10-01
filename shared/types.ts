@@ -349,6 +349,45 @@ export type PlanCutRequest = { cut: boolean, };
 
 export type PlanRevisionRequest = { request: string, };
 
+export type Mission = { id: string, title: string, status: string, autonomy: string, repo_id: string | null, session_id: string, workspace_id: string, pending_questions: Array<PendingQuestion>, ui_context: string | null, analyst_task_id: string | null, cost_cap_usd: number | null, created_at: string, updated_at: string, };
+
+export type PendingQuestion = { question: string, options: Array<string>, };
+
+export type MissionItem = { id: string, mission_id: string, position: number, kind: string, title: string, fields: { [key in string]?: string }, worker_id: string | null, model: string | null, route_reason: string | null, };
+
+export type MissionBrief = { mission_id: string, version: number, markdown: string, created_at: string, };
+
+export type FieldCheck = { key: string, required: boolean, filled: boolean, };
+
+export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };
+
+export type MissionDetail = { mission: Mission, repo_name: string | null, items: Array<MissionItemView>, missing: Array<string>, complete: boolean, roles_needed: Array<string>, briefs: Array<MissionBrief>, issue_numbers: Array<number>, };
+
+export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, };
+
+export type CreateMissionRequest = { 
+/**
+ * Repo activo en la app: la sesión corre en su worktree scratch y es el
+ * repo inicial de la misión (el agente puede cambiarlo).
+ */
+repo_id: string, };
+
+export type UpdateMissionRequest = { title: string | null, autonomy: string | null, 
+/**
+ * Dónde está el user en la app; va en el system prompt de cada turno.
+ */
+ui_context: string | null, 
+/**
+ * `true` cierra la misión.
+ */
+close: boolean | null, };
+
+export type ApproveBriefRequest = { 
+/**
+ * Analista que recibe la request; sin él, el primero del equipo.
+ */
+analyst_worker_id: string | null, };
+
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
 export type FinishSpake2EnrollmentRequest = { enrollment_id: string, client_id: string, client_name: string, client_browser: string, client_os: string, client_device: string, public_key_b64: string, client_proof_b64: string, };
