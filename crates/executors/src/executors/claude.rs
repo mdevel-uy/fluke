@@ -255,18 +255,20 @@ impl ClaudeCode {
     }
 
     /// Resolve the Claude subscription (OAuth) token used to query the models
-    /// endpoint: `CLAUDE_CODE_OAUTH_TOKEN` from the profile env, then from the
-    /// process env, then the access token `claude login` stores in
-    /// `.credentials.json`. Never uses an Anthropic API key.
-    fn resolve_subscription_token(&self) -> Option<String> {
-        const VAR: &str = "CLAUDE_CODE_OAUTH_TOKEN";
-        self.cmd
+    /// endpoint: `CLAUDE_CODE_OAUTH_TOKEN` from the profile env, then the
+    /// shared lookup (process env, `.credentials.json`, macOS Keychain).
+    /// Never uses an Anthropic API key.
+    async fn resolve_subscription_token(&self) -> Option<String> {
+        if let Some(token) = self
+            .cmd
             .env
             .as_ref()
-            .and_then(|env| env.get(VAR).cloned())
-            .or_else(|| std::env::var(VAR).ok())
+            .and_then(|env| env.get("CLAUDE_CODE_OAUTH_TOKEN"))
             .filter(|t| !t.trim().is_empty())
-            .or_else(models::credentials_file_token)
+        {
+            return Some(token.clone());
+        }
+        workspace_utils::claude_credentials::subscription_access_token().await
     }
 
     /// Cache key for discovered options. Includes a fingerprint of the
@@ -406,7 +408,7 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         };
 
         let cache = executor_options_cache();
-        let subscription_token = self.resolve_subscription_token();
+        let subscription_token = self.resolve_subscription_token().await;
         let cmd_key = self.compute_options_cache_key(subscription_token.as_deref());
         let base_executor = BaseCodingAgent::ClaudeCode;
 
@@ -521,15 +523,17 @@ impl StandardCodingAgentExecutor for ClaudeCode {
                     // Fallback is surfaced through `error` (shown as a banner
                     // above the list) and kept in the cached options so a
                     // cache hit still tells the user the list is the fallback.
+                    // Stable codes, translated by the frontend under
+                    // `modelSelector.*`; the technical detail stays in the log.
                     let message = if matches!(e, models::ModelsFetchError::MissingCredential) {
                         tracing::debug!("No Claude subscription credential; using built-in model list");
-                        "Claude is not connected. Showing the built-in model list.".to_string()
+                        "claude_not_connected".to_string()
                     } else {
                         tracing::warn!(
                             "Failed to fetch Claude models from Anthropic API, using fallback: {}",
                             e
                         );
-                        format!("Could not load Claude models ({e}). Showing the built-in model list.")
+                        "claude_models_fallback".to_string()
                     };
                     final_options.error = Some(message.clone());
                     yield patch::update_models(final_options.model_selector.models.clone());

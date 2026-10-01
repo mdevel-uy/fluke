@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 use serde::Deserialize;
 use thiserror::Error;
@@ -36,43 +36,6 @@ struct AnthropicModel {
 #[derive(Debug, Deserialize)]
 struct AnthropicModelsResponse {
     data: Vec<AnthropicModel>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClaudeCredentialsFile {
-    #[serde(rename = "claudeAiOauth")]
-    claude_ai_oauth: Option<ClaudeAiOauth>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClaudeAiOauth {
-    #[serde(rename = "accessToken")]
-    access_token: Option<String>,
-}
-
-/// Path where the Claude CLI stores the subscription login:
-/// `$CLAUDE_CONFIG_DIR/.credentials.json`, or `~/.claude/.credentials.json`.
-fn credentials_path() -> Option<PathBuf> {
-    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR")
-        && !dir.trim().is_empty()
-    {
-        return Some(PathBuf::from(dir).join(".credentials.json"));
-    }
-    dirs::home_dir().map(|home| home.join(".claude").join(".credentials.json"))
-}
-
-fn parse_credentials_token(raw: &str) -> Option<String> {
-    serde_json::from_str::<ClaudeCredentialsFile>(raw)
-        .ok()?
-        .claude_ai_oauth?
-        .access_token
-        .filter(|t| !t.trim().is_empty())
-}
-
-/// Subscription access token written by `claude login`, if any.
-pub fn credentials_file_token() -> Option<String> {
-    let raw = std::fs::read_to_string(credentials_path()?).ok()?;
-    parse_credentials_token(&raw)
 }
 
 /// CLI aliases. Always listed first: they track the latest model of each
@@ -259,20 +222,6 @@ mod tests {
             .unwrap();
         let err = rt.block_on(fetch_anthropic_models("   ")).unwrap_err();
         assert!(matches!(err, ModelsFetchError::MissingCredential));
-    }
-
-    #[test]
-    fn credentials_token_parsing() {
-        assert_eq!(
-            parse_credentials_token(r#"{"claudeAiOauth":{"accessToken":"tok","expiresAt":1}}"#),
-            Some("tok".to_string())
-        );
-        assert_eq!(
-            parse_credentials_token(r#"{"claudeAiOauth":{"accessToken":" "}}"#),
-            None
-        );
-        assert_eq!(parse_credentials_token("{}"), None);
-        assert_eq!(parse_credentials_token("not json"), None);
     }
 
     #[test]
