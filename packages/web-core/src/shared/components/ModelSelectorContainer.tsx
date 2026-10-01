@@ -477,7 +477,14 @@ export function ModelSelectorContainer({
             />
           }
           config={config}
-          error={streamError}
+          error={
+            // Discovery reports some states as stable codes (e.g.
+            // `claude_not_connected`); anything else is shown as sent.
+            streamError &&
+            t(`modelSelector.errors.${streamError}`, {
+              defaultValue: streamError,
+            })
+          }
           selectedProviderId={selectedProviderId}
           selectedModelId={selectedModelId}
           selectedReasoningId={selectedReasoningId}

@@ -2479,6 +2479,8 @@ export interface CreateWorkerRequest {
   emoji: string;
   soul: string;
   role?: string;
+  /** Coding agent; `null` follows the global default agent. */
+  executor?: BaseCodingAgent | null;
   model?: string | null;
   /**
    * Optional per-worker GitHub PAT. Sent write-only; the server never

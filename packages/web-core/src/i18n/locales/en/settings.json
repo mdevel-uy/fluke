@@ -769,7 +769,7 @@
         "waitingForUrl": "Waiting for the CLI to print the sign-in URL…",
         "codeInputLabel": "Exchange code",
         "codeInputPlaceholder": "Paste the code from claude.com",
-        "codeInputHelp": "This card updates automatically once the CLI accepts the code.",
+        "codeInputHelp": "Once Claude accepts the code, fluke stores the sign-in token for your workers and this card switches to Connected within a few seconds. If the code is rejected, copy it again and resubmit.",
         "submitCode": "Submit code"
       },
       "hidden": {

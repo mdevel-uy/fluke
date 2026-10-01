@@ -257,6 +257,7 @@ pub async fn ensure_orchestrator(pool: &Pool) -> Result<Worker, sqlx::Error> {
             emoji: "\u{2726}".to_string(),
             soul: DEFAULT_SOUL.to_string(),
             role: Some(ROLE_ORCHESTRATOR.to_string()),
+            executor: Some(BaseCodingAgent::ClaudeCode),
             model: None,
             github_pat: None,
             github_login: None,

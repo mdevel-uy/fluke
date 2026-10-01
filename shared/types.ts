@@ -514,25 +514,42 @@ export type PullRequestDetail = { number: bigint, url: string, status: MergeStat
 
 export type GitRemote = { name: string, url: string, };
 
-export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, model?: string, 
+export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, 
+/**
+ * Coding agent the worker runs on; `null` = follow the global default.
+ */
+executor?: BaseCodingAgent | null, model?: string, 
 /**
  * Whether the worker has a personal GitHub PAT stored. The token itself
  * is never exposed — the UI shows this boolean so the form can render a
  * masked placeholder and let the user replace or clear it.
  */
-has_github_pat: boolean,
+has_github_pat: boolean, 
 /**
  * GitHub login the stored PAT belongs to (resolved at validation time),
  * or `null` when no PAT is stored. Lets the UI show which identity the
  * worker acts as, and surface identity clashes (reviewer == PR author).
  */
-github_login?: string | null, plan_mode?: boolean | null,
+github_login?: string | null, 
+/**
+ * Per-worker override for plan mode. `null` = follow the global setting;
+ * `true` = force plan mode on; `false` = force plan mode off.
+ */
+plan_mode?: boolean | null, 
 /**
  * Soft-delete state. `false` = active (shown in the main listing);
  * `true` = archived (moved to the "archived" section, skipped by
  * orchestrator lookups, can be restored or purged from there).
  */
-archived: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+archived: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, 
+/**
+ * `true` when the current `soul` contains direct GitHub CLI write
+ * invocations (`gh pr|issue create|close|comment|review`,
+ * `gh api -X POST|PATCH|DELETE`). Non-blocking hint for the UI —
+ * operators are pointed at the agent-actions outbox but the soul is
+ * persisted anyway to allow a gradual migration.
+ */
+gh_write_warning: boolean, created_at: Date, };
 
 export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
 /**
@@ -647,15 +664,28 @@ export type PendingDesignHandoffResponse = { task_id: string, repo_id: string, t
  */
 export type DesignArtifactsResponse = { files: Array<string>, };
 
-export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
+export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, 
+/**
+ * Coding agent; omitted or `null` = follow the global default.
+ */
+executor?: BaseCodingAgent | null, model?: string, 
 /**
  * Optional GitHub PAT to authenticate this worker's push/PR/review
  * operations. Empty string or omitted → fall back to global gh auth.
  * Validated against `/user` before persisting; never returned by the API.
  */
-github_pat?: string, };
+github_pat?: string, 
+/**
+ * Per-worker override for plan mode. Omitted or `null` = follow global;
+ * `true` = force plan mode on; `false` = force plan mode off.
+ */
+plan_mode?: boolean | null, };
 
 export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string, 
+/**
+ * `undefined` = no change; `null` = follow the global default agent.
+ */
+executor?: BaseCodingAgent | null, 
 /**
  * `undefined` = no change; `null` = clear to global default; `string` = set override
  */
@@ -664,7 +694,12 @@ model?: string | null,
  * `undefined` = don't touch PAT; `null` = clear (fall back to global gh);
  * `string` = new PAT (validated before persisting).
  */
-github_pat?: string | null, };
+github_pat?: string | null, 
+/**
+ * `undefined` = don't touch; `null` = clear the override (follow global);
+ * `true` / `false` = force plan mode on/off for this worker.
+ */
+plan_mode?: boolean | null, };
 
 export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, 
 /**

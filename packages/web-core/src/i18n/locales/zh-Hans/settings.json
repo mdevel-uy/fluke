@@ -757,7 +757,7 @@
         "waitingForUrl": "等待 CLI 显示登录 URL…",
         "codeInputLabel": "兑换码",
         "codeInputPlaceholder": "从 claude.com 粘贴兑换码",
-        "codeInputHelp": "CLI 接受兑换码后此卡片将自动更新。",
+        "codeInputHelp": "Once Claude accepts the code, fluke stores the sign-in token for your workers and this card switches to Connected within a few seconds. If the code is rejected, copy it again and resubmit.",
         "submitCode": "提交兑换码"
       },
       "hidden": {

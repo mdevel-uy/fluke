@@ -20,6 +20,7 @@ const MODEL_CHIP_CLASS: [match: string, className: string][] = [
   ['opus', 'bg-merged/10 text-merged'],
   ['sonnet', 'bg-teal/10 text-teal'],
   ['haiku', 'bg-pink/10 text-pink'],
+  ['fable', 'bg-brand-on-surface/10 text-brand-on-surface'],
 ];
 
 export function modelChipClass(model: string): string {
