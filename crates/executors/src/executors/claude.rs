@@ -254,25 +254,29 @@ impl ClaudeCode {
         serde_json::to_string(&self.cmd).unwrap_or_default()
     }
 
-    /// Resolve the ANTHROPIC_API_KEY used to query the models endpoint.
-    /// Checks the profile-level env override first (so users can pin a key per
-    /// executor profile) and falls back to the process environment. Returns
-    /// `None` when the executor is explicitly configured with
-    /// `disable_api_key`, since in that case the user has opted out of using
-    /// their own key.
-    fn resolve_anthropic_api_key(&self) -> Option<String> {
-        if self.disable_api_key.unwrap_or(false) {
-            return None;
-        }
-        if let Some(env) = &self.cmd.env
-            && let Some(key) = env.get("ANTHROPIC_API_KEY")
-            && !key.trim().is_empty()
-        {
-            return Some(key.clone());
-        }
-        std::env::var("ANTHROPIC_API_KEY")
-            .ok()
-            .filter(|k| !k.trim().is_empty())
+    /// Resolve the Claude subscription (OAuth) token used to query the models
+    /// endpoint: `CLAUDE_CODE_OAUTH_TOKEN` from the profile env, then from the
+    /// process env, then the access token `claude login` stores in
+    /// `.credentials.json`. Never uses an Anthropic API key.
+    fn resolve_subscription_token(&self) -> Option<String> {
+        const VAR: &str = "CLAUDE_CODE_OAUTH_TOKEN";
+        self.cmd
+            .env
+            .as_ref()
+            .and_then(|env| env.get(VAR).cloned())
+            .or_else(|| std::env::var(VAR).ok())
+            .filter(|t| !t.trim().is_empty())
+            .or_else(models::credentials_file_token)
+    }
+
+    /// Cache key for discovered options. Includes a fingerprint of the
+    /// subscription credential so connecting, disconnecting or re-logging
+    /// Claude misses the cache and the model list refreshes without a restart.
+    fn compute_options_cache_key(&self, token: Option<&str>) -> String {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        token.hash(&mut hasher);
+        format!("{}#{:x}", self.compute_cmd_key(), hasher.finish())
     }
 }
 
@@ -402,7 +406,8 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         };
 
         let cache = executor_options_cache();
-        let cmd_key = self.compute_cmd_key();
+        let subscription_token = self.resolve_subscription_token();
+        let cmd_key = self.compute_options_cache_key(subscription_token.as_deref());
         let base_executor = BaseCodingAgent::ClaudeCode;
 
         let (target_path, initial_options) = if let Some(wd) = workdir {
@@ -496,11 +501,10 @@ impl StandardCodingAgentExecutor for ClaudeCode {
             let discovery_path = target_path.as_deref().unwrap_or(Path::new(".")).to_path_buf();
             let mut final_options = default_discovered_options();
 
-            let api_key = this.resolve_anthropic_api_key();
             let models_future = async {
-                match api_key {
-                    Some(key) => models::fetch_anthropic_models(&key).await,
-                    None => Err(models::ModelsFetchError::MissingApiKey),
+                match subscription_token {
+                    Some(token) => models::fetch_anthropic_models(&token).await,
+                    None => Err(models::ModelsFetchError::MissingCredential),
                 }
             };
             let agents_future = this.discover_agents_and_slash_commands_initial(&discovery_path);
@@ -513,25 +517,23 @@ impl StandardCodingAgentExecutor for ClaudeCode {
                     yield patch::update_models(fetched);
                     yield patch::models_loaded();
                 }
-                Err(models::ModelsFetchError::MissingApiKey) => {
-                    // No API key configured. Silently fall back to the built-in
-                    // list without surfacing an error to the UI — this is the
-                    // expected state for users on subscription auth.
-                    tracing::debug!(
-                        "ANTHROPIC_API_KEY not set; using built-in Claude model list"
-                    );
-                    yield patch::update_models(final_options.model_selector.models.clone());
-                    yield patch::models_loaded();
-                }
                 Err(e) => {
-                    tracing::warn!(
-                        "Failed to fetch Claude models from Anthropic API, using fallback: {}",
-                        e
-                    );
+                    // Fallback is surfaced through `error` (shown as a banner
+                    // above the list) and kept in the cached options so a
+                    // cache hit still tells the user the list is the fallback.
+                    let message = if matches!(e, models::ModelsFetchError::MissingCredential) {
+                        tracing::debug!("No Claude subscription credential; using built-in model list");
+                        "Claude is not connected. Showing the built-in model list.".to_string()
+                    } else {
+                        tracing::warn!(
+                            "Failed to fetch Claude models from Anthropic API, using fallback: {}",
+                            e
+                        );
+                        format!("Could not load Claude models ({e}). Showing the built-in model list.")
+                    };
+                    final_options.error = Some(message.clone());
                     yield patch::update_models(final_options.model_selector.models.clone());
-                    yield patch::models_error(format!(
-                        "Could not load Claude models from Anthropic ({e}). Using built-in list."
-                    ));
+                    yield patch::models_error(message);
                 }
             }
 
@@ -3009,10 +3011,12 @@ mod tests {
     fn test_cache_ttl_from_cache_creation_split() {
         let result_json = r#"{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5,"usage":{"cache_read_input_tokens":900,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":42}}}"#;
         let parsed: ClaudeJson = serde_json::from_str(result_json).unwrap();
-        let ttl = normalize(&parsed, "").iter().find_map(|e| match &e.entry_type {
-            NormalizedEntryType::TokenUsageInfo(info) => Some(info.cache_ttl_seconds),
-            _ => None,
-        });
+        let ttl = normalize(&parsed, "")
+            .iter()
+            .find_map(|e| match &e.entry_type {
+                NormalizedEntryType::TokenUsageInfo(info) => Some(info.cache_ttl_seconds),
+                _ => None,
+            });
         assert_eq!(ttl, Some(Some(3600)));
 
         let five_min: ClaudeUsage = serde_json::from_str(
