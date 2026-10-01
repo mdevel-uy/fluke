@@ -274,6 +274,62 @@ impl ClaudeCode {
             .ok()
             .filter(|k| !k.trim().is_empty())
     }
+
+    /// Export the subscription token stored by Settings → Connect Claude as
+    /// `CLAUDE_CODE_OAUTH_TOKEN`, unless the executor profile pins its own.
+    fn apply_stored_oauth_token(&self, command: &mut Command) {
+        if self
+            .cmd
+            .env
+            .as_ref()
+            .is_some_and(|env| env.contains_key(CLAUDE_OAUTH_TOKEN_ENV))
+        {
+            return;
+        }
+        if let Some(token) = stored_claude_oauth_token() {
+            command.env(CLAUDE_OAUTH_TOKEN_ENV, token);
+        }
+    }
+}
+
+pub const CLAUDE_OAUTH_TOKEN_ENV: &str = "CLAUDE_CODE_OAUTH_TOKEN";
+
+/// `claude setup-token` tokens are valid for one year.
+const CLAUDE_OAUTH_TOKEN_TTL: Duration = Duration::from_secs(365 * 24 * 60 * 60);
+
+/// `$CLAUDE_CONFIG_DIR`, or `~/.claude`.
+pub fn claude_config_dir() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR")
+        && !dir.trim().is_empty()
+    {
+        return Some(PathBuf::from(dir));
+    }
+    dirs::home_dir().map(|home| home.join(".claude"))
+}
+
+/// Where Settings → Connect Claude keeps the subscription token. `claude
+/// setup-token` prints the token instead of writing `.credentials.json`, so
+/// fluke captures it from the CLI output and stores it here (owner-only).
+pub fn claude_oauth_token_path() -> Option<PathBuf> {
+    claude_config_dir().map(|dir| dir.join("fluke-oauth-token"))
+}
+
+/// The stored subscription token, or `None` when missing, malformed or older
+/// than its one-year validity. Every Claude spawn exports it as
+/// `CLAUDE_CODE_OAUTH_TOKEN`.
+pub fn stored_claude_oauth_token() -> Option<String> {
+    let path = claude_oauth_token_path()?;
+    let age = std::fs::metadata(&path)
+        .ok()?
+        .modified()
+        .ok()?
+        .elapsed()
+        .unwrap_or_default();
+    if age >= CLAUDE_OAUTH_TOKEN_TTL {
+        return None;
+    }
+    let token = std::fs::read_to_string(&path).ok()?.trim().to_string();
+    token.starts_with("sk-ant-").then_some(token)
 }
 
 fn default_discovered_options() -> crate::executor_discovery::ExecutorDiscoveredOptions {
@@ -669,6 +725,7 @@ impl ClaudeCode {
         env.clone()
             .with_profile(&self.cmd)
             .apply_to_command(&mut command);
+        self.apply_stored_oauth_token(&mut command);
 
         // Remove ANTHROPIC_API_KEY if disable_api_key is enabled
         if self.disable_api_key.unwrap_or(false) {
