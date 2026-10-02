@@ -94,7 +94,7 @@ Orden por dependencias y por valor sin voz: F0 y F1 ya rinden en texto. Tamaños
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
 | 0 | **F3.1 Exposición y auth** | S | Según D5. Token en Settings; el túnel solo ve `/api/director/turn`. Nada más de la API sale de la PC. |
-| 0 | **F3.2 Adaptador custom-LLM** | M | Endpoint compatible con chat-completions con streaming que envuelve F0.5: toma el último mensaje del usuario, lo manda al proceso de Fluke, devuelve los deltas. ElevenLabs hace STT, turnos, interrupciones y TTS; solo ve texto. Las herramientas son nuestras. |
+| 0 | **F3.2 Adaptador custom-LLM** | M | Endpoint compatible con chat-completions con streaming que envuelve F0.5: toma el último mensaje del usuario, lo manda al proceso de Fluke, devuelve los deltas. ElevenLabs hace STT, turnos, interrupciones y TTS; solo ve texto. Las herramientas son nuestras. **Acuse inmediato**: emite un "Dale." / "A ver." apenas llega el mensaje, antes del primer token de Fluke, para que el silencio percibido sea ~1 s. |
 | 1 | **F3.3 Voz en la app de escritorio** | S | Botón de hablar en el panel de Fluke con el SDK web de ElevenLabs. |
 | 1 | **F3.4 App móvil** | L | Expo + EAS Build, iOS primero. Una pantalla: hablar con Fluke (SDK React Native de ElevenLabs) y el transcript. Entra a la PC por Tailscale. CarPlay = Bluetooth del teléfono, sin app propia de CarPlay. |
 | 2 | **F3.5 Push al celular** | M | Los eventos de F1 que Fluke decide contar llegan al celular (Expo push) cuando la app de escritorio no está al frente. |
@@ -107,9 +107,24 @@ Depende de fluke v2 (plan de fases por issue). Fluke sigue el plan de cada issue
 
 Levantar únicamente el cerebro (proceso de Fluke + Honcho + adaptador ElevenLabs) en un host siempre encendido; la PC se conecta saliente y expone `app_api` por esa conexión. Costo real: en la nube no corre la suscripción de Claude Code, el cerebro pasa a Messages API por token. No se planifica hasta que haga falta.
 
-## 6. Riesgos
+## 6. Presupuesto de latencia por voz
 
-- **Latencia con el prompt real**: la medición fue con prompt trivial y sin herramientas. F0.1 mide con el prompt de Fluke; el umbral es 3 s.
+Desde que el usuario termina de hablar hasta el primer audio de respuesta (cifras típicas de ElevenLabs Agents; Fish Audio similar en TTS):
+
+| Etapa | Tiempo |
+|---|---|
+| Detección de fin de turno (VAD) | 0.3–0.6 s |
+| ASR: cierre de la transcripción (streaming) | 0.2–0.4 s |
+| Red ElevenLabs → túnel → PC → vuelta | 0.2–0.4 s |
+| Fluke: primer token (CLI persistente) | 1.5–3 s |
+| TTS: primer audio (Flash) + red | 0.2–0.4 s |
+| **Total** | **2.5–4.5 s** |
+
+Cada herramienta que Fluke llama antes de contestar suma 1–3 s más; por eso `status_snapshot` (F0.2) y el acuse inmediato (F3.2), que baja el silencio percibido a ~1 s. El TTS no es el término grande: cambiar de proveedor no mueve la aguja; el cerebro sí.
+
+## 7. Riesgos
+
+- **Latencia con el prompt real**: la medición fue con prompt trivial y sin herramientas. F0.1 mide con el prompt de Fluke; el umbral es 3 s al primer token. Si se supera, la salida de emergencia es un modelo rápido por Messages API solo para el canal de voz.
 - **SDKs de terceros**: la forma exacta de la API de Honcho (dialéctica, contexto) y del SDK React Native de ElevenLabs (WebRTC) se verifica al implementar F2.2 y F3.4, no antes.
 - **Superficie expuesta**: F3.1 es una frontera de confianza. Solo el endpoint de turno, solo con token, y las confirmaciones de F0.3 en código para que una orden mal entendida por voz no borre nada.
 - **Confusión de tema** en la conversación permanente: mitigada por foco explícito + nombrar el tema + `ask_user` ante ambigüedad. Si en la práctica no alcanza, el fallback es volver a una conversación por misión con la de guardia solo para eventos.
