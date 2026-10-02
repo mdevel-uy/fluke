@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>fluke — Asistente: barra de tabs sin scroll con dropdown de misiones abiertas (spec, #648)</title>
+<style>
+  /* ---------- Tokens (Workbench v3 · Slate & Signal, design/UI-SPEC.md) ---------- */
+  .dark {
+    --bg: #09090B; --panel: #18181B; --hover: #27272A; --menu: #1F1F23;
+    --border: #27272A; --border-strong: #52525B;
+    --t-high: #FAFAFA; --t-normal: #D4D4D8; --t-low: #A1A1AA;
+    --brand: #6366F1; --brand-ink: #818CF8;
+    --warning: #FBBF24;
+  }
+  .light {
+    --bg: #F4F4F5; --panel: #FFFFFF; --hover: #F4F4F5; --menu: #FFFFFF;
+    --border: #E4E4E7; --border-strong: #D4D4D8;
+    --t-high: #18181B; --t-normal: #3F3F46; --t-low: #71717A;
+    --brand: #4F46E5; --brand-ink: #4F46E5;
+    --warning: #D97706;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif; background: #E4E4E7; color: #18181B; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 40px 0 8px; }
+  h3 { font-size: 13px; font-weight: 600; margin: 20px 0 6px; }
+  p, li { max-width: 860px; color: #3F3F46; }
+  code { font: 12px/1.4 ui-monospace, Consolas, monospace; background: #F4F4F5; padding: 1px 4px; border-radius: 4px; }
+  pre { font: 12px/1.5 ui-monospace, Consolas, monospace; background: #18181B; color: #E4E4E7; padding: 12px 16px; border-radius: 8px; max-width: 900px; overflow: auto; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; max-width: 900px; background: #fff; }
+  th, td { border: 1px solid #D4D4D8; padding: 6px 10px; text-align: left; vertical-align: top; font-size: 12px; }
+  th { background: #F4F4F5; }
+
+  /* ---------- Controles del mock ---------- */
+  .controls { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; background: #fff; padding: 12px 16px; border-radius: 8px; max-width: 900px; }
+  .controls label { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+  .controls button { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #D4D4D8; border-radius: 6px; background: #fff; cursor: pointer; }
+  .controls button[aria-pressed="true"] { background: #18181B; color: #fff; border-color: #18181B; }
+
+  /* ---------- Panel del Asistente ---------- */
+  .stage { margin-top: 16px; padding: 24px; border-radius: 8px; background: var(--bg); display: inline-block; max-width: 100%; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; color: var(--t-high); position: relative; }
+  .hdr { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 500; }
+  .hdr .mark { width: 24px; height: 24px; border-radius: 50%; background: var(--brand); }
+  .body { height: 160px; display: flex; align-items: center; justify-content: center; color: var(--t-low); font-size: 12px; }
+
+  /* Barra: Missions | zona medida (franja + desborde) | +. Nunca hay overflow-x. */
+  .tabs { height: 32px; display: flex; align-items: stretch; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--border); overflow: hidden; }
+  .zone { flex: 1 1 auto; min-width: 0; display: flex; gap: 2px; }
+  .strip { flex: 1 1 auto; min-width: 0; display: flex; gap: 2px; overflow: hidden; }
+  .tab { display: flex; flex: none; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 2px solid transparent; font-size: 12px; color: var(--t-low); cursor: pointer; }
+  .tab:hover { color: var(--t-normal); }
+  .tab.active { border-color: var(--brand); color: var(--t-high); }
+  .strip .tab { flex: 1 1 0; min-width: 96px; max-width: 160px; }
+  .strip .tab.squeezed { min-width: 0; }
+  .tab .lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warning); flex: none; }
+  .x { width: 16px; height: 16px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0; color: var(--t-low); }
+  .tab:hover .x, .tab:focus-within .x { opacity: 1; }
+  .x:hover { background: var(--hover); color: var(--t-high); }
+  .touch .tab.active .x { opacity: 1; }
+  .spin { width: 12px; height: 12px; flex: none; border: 1.5px solid var(--t-low); border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+
+  .ovf { flex: none; width: 44px; height: 24px; align-self: center; position: relative; display: flex; align-items: center; justify-content: center; gap: 2px; border: 0; border-radius: 6px; background: transparent; color: var(--t-low); font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer; }
+  .ovf:hover, .ovf[aria-expanded="true"] { background: var(--hover); color: var(--t-high); }
+  .ovf .dot { position: absolute; top: 2px; right: 2px; }
+  .plus { flex: none; width: 24px; height: 24px; align-self: center; border: 0; border-radius: 6px; background: transparent; color: var(--t-low); font-size: 16px; line-height: 1; cursor: pointer; }
+  .plus:hover { background: var(--hover); color: var(--t-high); }
+  svg.i { width: 12px; height: 12px; }
+
+  /* ---------- Dropdown ---------- */
+  .menu { position: absolute; z-index: 5; background: var(--menu); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 4px; max-height: 320px; overflow-y: auto; }
+  .item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; color: var(--t-normal); outline: none; }
+  .item:hover, .item:focus { background: var(--hover); color: var(--t-high); }
+  .item.two { min-height: 40px; }
+  .item .chk { width: 12px; flex: none; color: var(--brand-ink); display: flex; }
+  .item .txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .item .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .item.cur .t1 { color: var(--t-high); font-weight: 500; }
+  .item .t2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--t-low); }
+  .item .x { opacity: 1; }
+
+  .note { font-size: 12px; color: #52525B; margin-top: 8px; max-width: 900px; }
+  .measure { font: 11px ui-monospace, Consolas, monospace; color: #52525B; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(3, auto); gap: 16px 24px; justify-content: start; overflow-x: auto; }
+  .grid .stage { margin-top: 0; padding: 12px; }
+  .cap { font-size: 12px; font-weight: 600; margin: 0 0 6px; color: #18181B; }
+</style>
+</head>
+<body>
+
+<h1>Barra de tabs del Asistente sin scroll, con dropdown de misiones abiertas</h1>
+<p>Spec del issue #648. Reemplaza el <code>overflow-x-auto</code> de <code>MissionTabs</code> (<code>packages/web-core/src/features/director/ui/DirectorPanel.tsx</code>) por una barra de ancho fijo en tres zonas: <b>Missions</b> fija a la izquierda, una franja con las tabs que entran (la activa siempre entre ellas) y, a la derecha, el botón de <b>desborde</b> con la lista de todas las tabs abiertas y el <b>+</b> de nueva misión. Ninguna zona tiene scroll. El mock usa el mismo algoritmo que hay que implementar (sección 3): cambiá el ancho y la cantidad de tabs.</p>
+
+<!-- =============================== MOCK INTERACTIVO =============================== -->
+<h2>1. Mock interactivo</h2>
+<div class="controls">
+  <span id="presets"></span>
+  <label>Ancho <input id="w" type="range" min="240" max="1400" value="380"> <span id="wv"></span></label>
+  <label>Tabs abiertas <input id="n" type="range" min="0" max="20" value="5"> <span id="nv"></span></label>
+  <label><input id="touch" type="checkbox"> sin hover (touch)</label>
+  <label><input id="light" type="checkbox"> claro</label>
+</div>
+<div class="stage dark" id="stage">
+  <div class="panel" id="panel">
+    <div class="hdr"><span class="mark"></span>Fluke</div>
+    <div class="tabs"></div>
+    <div class="body" id="body">contenido de la tab activa</div>
+  </div>
+</div>
+<div class="measure" id="readout"></div>
+<p class="note">Probá: con 20 tabs en 300px, abrí el dropdown y elegí una tab oculta (pasa al último lugar visible y el resto no se mueve). Cerrá varias tabs desde el menú sin que se cierre. Usá las flechas, Enter, Supr y Esc dentro del menú. Fijate en el punto ámbar del botón de desborde cuando una tab oculta espera respuesta.</p>
+
+<h3>Criterio de aceptación: 1, 5 y 20 tabs (la última abierta es la activa, el caso más exigente)</h3>
+<div class="grid" id="matrix"></div>
+
+<!-- =============================== SPEC =============================== -->
+<h2>2. Anatomía y medidas</h2>
+<pre>
+ ┌px-2┬──────────┬────────── zona medida (flex-1) ─────────────────────────────┬──────┬px-2┐
+ │    │ Missions │ franja: [Tab A      ×] [Tab B    • ×] [Tab activa ×]  │ +17▾•│  +   │    │
+ └────┴──────────┴───────────────────────────────────────────────────┴──────┴──────┴────┘
+        shrink-0    cada tab: flex 1 1 0 · min 96px · max 160px          44px   24px
+</pre>
+<table>
+  <tr><th>Elemento</th><th>Medida / clase</th><th>Notas</th></tr>
+  <tr><td>Barra</td><td><code>flex h-8 shrink-0 items-stretch gap-0.5 overflow-hidden px-2</code></td><td>Se quita <code>overflow-x-auto</code>. <code>overflow-hidden</code> es solo una red de seguridad, porque el algoritmo garantiza que nada desborda. Si se implementa la altura de 40px de #640, solo cambia la altura.</td></tr>
+  <tr><td>Tab Missions</td><td><code>shrink-0</code>, sin cambios</td><td>Siempre primera, sin X, nunca va al dropdown.</td></tr>
+  <tr><td>Zona medida</td><td><code>flex min-w-0 flex-1 gap-0.5</code> + <code>ResizeObserver</code></td><td>Envuelve la franja y el botón de desborde. Su ancho es la entrada del algoritmo.</td></tr>
+  <tr><td>Franja</td><td><code>flex min-w-0 flex-1 gap-0.5 overflow-hidden</code></td><td></td></tr>
+  <tr><td>Tab de misión</td><td><code>flex-[1_1_0] min-w-[96px] max-w-[160px] gap-1 px-2</code></td><td>Las tabs se reparten el espacio en partes iguales (no según el largo del título): el layout no salta cuando el Director renombra una misión y no hace falta medir cada tab. Reemplaza el <code>max-w-[140px] shrink-0</code> actual.</td></tr>
+  <tr><td>Título</td><td><code>min-w-0 flex-1 truncate</code> + <code>title={label}</code></td><td>Tooltip nativo con el título completo, igual que el chip de contexto del header.</td></tr>
+  <tr><td>Punto de atención</td><td><code>size-1.5 shrink-0 rounded-full bg-warning</code></td><td>Sin cambios (patrón actual de <code>Tab</code>).</td></tr>
+  <tr><td>X de cerrar</td><td>slot <code>size-4 shrink-0</code>, ícono <code>size-icon-2xs</code></td><td>Se hereda el comportamiento del issue de bug de esta épica: siempre ocupa su lugar y se ve con hover/focus. Lo único que se agrega: en dispositivos sin hover (<code>@media (hover: none)</code>, Tailwind <code>[@media(hover:none)]:opacity-100</code>) la X de la <b>tab activa</b> queda visible.</td></tr>
+  <tr><td>Botón de desborde</td><td><code>relative h-6 w-11 shrink-0 self-center rounded-md text-xs tabular-nums</code>; contenido <code>+{ocultas}</code> + <code>CaretDownIcon size-icon-2xs</code></td><td>Solo existe si hay tabs ocultas. Si alguna tab <b>oculta</b> espera respuesta, lleva el punto <code>bg-warning</code> absoluto arriba a la derecha (2px).</td></tr>
+  <tr><td>Botón +</td><td><code>size-6 shrink-0 self-center</code>, hermano de la zona medida</td><td>Siempre visible, siempre al extremo derecho, fuera de toda zona que se adapte. Muestra spinner mientras crea (sin cambios).</td></tr>
+</table>
+
+<h2>3. Qué tabs se muestran sueltas (decisión)</h2>
+<p><b>Orden de apertura estable, con la activa siempre visible en el último lugar.</b> Se muestran las primeras tabs de <code>openMissionIds</code> (el store ya las guarda en orden de apertura) hasta llenar la franja. Si la activa no está entre ellas, ocupa el último lugar visible y las demás no se mueven. Es un cálculo de render: el store no cambia y el orden persistido sigue siendo el de apertura.</p>
+<p>Por qué así y no "las más recientes" (MRU): si las tabs se reordenan cada vez que el usuario cambia de una a otra, la que estaba bajo el cursor se mueve y se pierde la memoria espacial ("billing es la segunda"). Con orden estable, al elegir una tab oculta solo cambia el último lugar. Costo: una tab muy usada pero abierta temprano puede quedar visible y otra igual de usada quedar oculta. El dropdown cubre ese caso.</p>
+<pre><code>// Medidas de la sección 2.
+const TAB_MIN = 96, GAP = 2, OVERFLOW_W = 44;
+
+/** `width` = ancho medido de la zona (franja + botón de desborde). */
+function layoutTabs(ids: string[], active: string, width: number) {
+  const fit = (w: number) =&gt; Math.floor((w + GAP) / (TAB_MIN + GAP));
+  if (fit(width) &gt;= ids.length) return { visible: ids, hidden: [] };
+  const k = Math.max(1, fit(width - OVERFLOW_W - GAP)); // reserva el botón
+  let visible = ids.slice(0, k);
+  if (ids.includes(active) &amp;&amp; !visible.includes(active))
+    visible = [...ids.slice(0, k - 1), active];
+  return { visible, hidden: ids.filter((id) =&gt; !visible.includes(id)) };
+}</code></pre>
+<ul>
+  <li><b>Sin oscilación:</b> es una función pura del ancho de la zona, que no cambia cuando aparece o desaparece el botón de desborde (el botón vive adentro de la zona y su ancho ya está descontado).</li>
+  <li><b>Mínimo 1:</b> si no entra ni una tab de 96px (zona &lt; 142px, por ejemplo un panel de unos 250px), igual se muestra una (la activa, o la primera) con <code>min-w-0</code>, truncada. La activa nunca queda oculta.</li>
+  <li><b>Activa = Missions:</b> se muestran las primeras <code>k</code> sin forzar nada.</li>
+  <li><b>Test:</b> <code>layoutTabs</code> es pura; un test unitario con 1/5/20 ids y anchos 150/250/1100 cubre el criterio de aceptación sin DOM.</li>
+</ul>
+
+<h2>4. Dropdown de tabs abiertas</h2>
+<p>Se arma con <code>DropdownMenu</code> de <code>@vibe/ui/components/DropdownMenu</code> (Radix), igual que <code>features/source-control/ui/GraphBranchFilter.tsx</code>: <code>DropdownMenuContent align="end"</code> con <code>max-h-80 overflow-y-auto</code>. Lista <b>todas</b> las tabs abiertas, no solo las ocultas, en el mismo orden que la barra: así cualquier tab se encuentra en un único lugar.</p>
+<table>
+  <tr><th></th><th>Panel angosto (flotante 380px, columna fijada, mobile)</th><th>Vista expandida</th></tr>
+  <tr><td>Ancho del menú</td><td><code>w-[min(300px,calc(100vw-2rem))]</code></td><td><code>w-80</code> (320px)</td></tr>
+  <tr><td>Fila</td><td>Una línea: check · título truncado · indicadores · X</td><td>Dos líneas: título / <code>repo · estado</code> (el mismo texto que la segunda línea de <code>MissionsList</code>, sin el progreso) · indicadores · X</td></tr>
+  <tr><td>Alto de fila</td><td>28px (<code>py-1.5</code>)</td><td>40px</td></tr>
+  <tr><td>Por qué</td><td colspan="2">En el panel angosto importa más poder leer el título que el repo, y en una línea entran 10 filas en <code>max-h-80</code> sin scroll. En la vista expandida sobra ancho, y el repo distingue misiones con títulos parecidos. Cómo se elige la variante: el componente ya sabe la vista por <code>useDirectorStore(s =&gt; s.view) === 'expanded'</code>.</td></tr>
+</table>
+<h3>Contenido de cada fila</h3>
+<ul>
+  <li><b>Check</b> (<code>CheckIcon size-icon-2xs text-brand</code>) en la tab activa, con un slot de 12px reservado en todas las filas. El título de la activa va en <code>font-medium text-high</code>.</li>
+  <li><b>Indicadores</b> a la derecha del título, exactamente los de <code>MissionsList</code>: punto <code>bg-warning</code> si <code>isWaitingForUser(m)</code>, y <code>SpinnerIcon size-icon-xs animate-spin text-low</code> si <code>m.agent_running</code>. Pueden aparecer los dos.</li>
+  <li><b>X de cerrar</b> siempre visible en el menú, sin depender del hover: en touch es la única forma de cerrar una tab oculta. Usar <code>onPointerDown</code>/<code>onClick</code> con <code>e.preventDefault(); e.stopPropagation()</code> para que no dispare el <code>onSelect</code> del ítem y el menú siga abierto, así se pueden cerrar varias seguidas. Si al cerrar ya no quedan ocultas, el trigger se desmonta y el menú se cierra.</li>
+  <li><b>Click en la fila</b> (<code>onSelect</code>): <code>setActiveTab(id)</code> y el menú se cierra. Si la tab estaba oculta, pasa al último lugar visible (sección 3).</li>
+  <li>Sin título de grupo ni acciones extra ("cerrar todas", etc.): quedan fuera del alcance (ver preguntas abiertas).</li>
+</ul>
+<h3>Accesibilidad</h3>
+<ul>
+  <li>Trigger: <code>aria-label</code> y <code>title</code> = <code>t('director.openTabs', {count})</code> (clave nueva, en: "{{count}} more open missions"). Si hay ocultas esperando: <code>t('director.openTabsWaiting', {count, waiting})</code> ("… ({{waiting}} waiting for you)"), porque un punto de color solo no lo anuncia un lector de pantalla.</li>
+  <li>Teclado: Radix resuelve flechas, Home/End, typeahead, Enter y Esc, y devuelve el foco al trigger. Además, <b>Delete/Backspace</b> sobre un ítem enfocado cierra esa tab (<code>onKeyDown</code> del ítem).</li>
+  <li>La X del ítem lleva <code>aria-label={t('director.closeTab', {title})}</code> (hoy la X de <code>Tab</code> dice <code>"close"</code> fijo; conviene usar la misma clave en los dos lugares).</li>
+  <li>No hay colores nuevos: se usan los tokens existentes (<code>text-low</code>, <code>bg-warning</code>, <code>text-brand</code>).</li>
+</ul>
+
+<h2>5. Estados</h2>
+<table>
+  <tr><th>Situación</th><th>Comportamiento</th></tr>
+  <tr><td>0 tabs de misión</td><td>Missions y +, con la franja vacía entre los dos. Sin botón de desborde.</td></tr>
+  <tr><td>Todas entran</td><td>Sin botón de desborde. Las tabs crecen hasta 160px y el resto de la franja queda vacío. El + no se pega a las tabs: queda fijo a la derecha.</td></tr>
+  <tr><td>Hay ocultas</td><td>Botón <code>+N</code>, donde N es la cantidad de ocultas (no el total).</td></tr>
+  <tr><td>Una oculta espera respuesta</td><td>Punto ámbar en el trigger y en su fila del menú.</td></tr>
+  <tr><td>Nueva misión (+)</td><td><code>openMission</code> la agrega al final y la activa, así que queda en el último lugar visible.</td></tr>
+  <tr><td>Cerrar la activa</td><td>Igual que hoy: vuelve a Missions. Se recalcula, y una oculta puede pasar a visible.</td></tr>
+  <tr><td>Resize (fijar/desfijar, expandir, rotar el mobile)</td><td>Se recalcula con el <code>ResizeObserver</code>. Sin transición de ancho, para evitar el parpadeo.</td></tr>
+  <tr><td>Menú abierto y la tab se cierra desde otro lado</td><td>La fila desaparece. Si no quedan ocultas, el trigger se desmonta y Radix cierra el menú.</td></tr>
+</table>
+
+<h2>6. Alternativas descartadas</h2>
+<ul>
+  <li><b>Scroll horizontal con la scrollbar oculta y flechas:</b> saca la scrollbar fea, pero la activa puede quedar fuera de vista y las flechas son lentas con 20 tabs. Para cumplir "la activa siempre visible" haría falta además lógica de scroll-into-view.</li>
+  <li><b>Solo Missions + activa + dropdown:</b> es más simple, pero en la vista expandida desperdicia todo el ancho y obliga a abrir el menú para alternar entre dos misiones.</li>
+  <li><b>MRU (las más recientes visibles):</b> ver sección 3.</li>
+  <li><b>Tabs con ancho según el título:</b> aprovecha mejor el espacio, pero obliga a medir cada tab y la barra salta cuando cambia un título.</li>
+</ul>
+
+<h2>7. Preguntas abiertas (no bloquean la implementación)</h2>
+<ul>
+  <li>¿Agregar "Cerrar las demás" o "Cerrar todas" al pie del menú? No está en el brief y queda fuera.</li>
+  <li>Al cerrar la tab activa, ¿ir a la tab vecina en vez de a Missions? Hoy va a Missions y esta spec no lo cambia.</li>
+  <li>¿Cerrar automáticamente las tabs de misiones en <code>done</code>? Con el dropdown deja de ser urgente.</li>
+</ul>
+
+<script>
+const TITLES = ['Login con GitHub', 'Billing por consumo', 'Migrar a Postgres', 'Refactor del shell', 'Editor embebido: pestañas persistentes entre recargas', 'Review loop', 'CI pipeline studio', 'Dashboard de impacto', 'Licencias y heartbeat', 'Landing nueva', 'Outbox de acciones', 'Source control de flota', 'App de escritorio', 'Indicador de cache', 'Codegraph MCP', 'Onboarding de repos', 'Notificaciones push', 'Export de métricas', 'New mission', 'Permisos por worker'];
+const REPOS = ['fluke', 'fluke', 'canon', 'fluke', 'fluke-web'];
+const STATUS = ['Drafting brief', 'Waiting for you', 'Executing', 'Reviewing'];
+const all = TITLES.map((t, i) => ({ id: 'm' + i, title: t, repo: REPOS[i % 5], status: STATUS[i % 4], attention: i % 4 === 1, running: i % 3 === 2 }));
+const byId = Object.fromEntries(all.map((m) => [m.id, m]));
+
+// Mismo algoritmo que la sección 3.
+const TAB_MIN = 96, GAP = 2, OVERFLOW_W = 44;
+function layoutTabs(ids, active, width) {
+  const fit = (w) => Math.floor((w + GAP) / (TAB_MIN + GAP));
+  if (fit(width) >= ids.length) return { visible: ids, hidden: [] };
+  const k = Math.max(1, fit(width - OVERFLOW_W - GAP));
+  let visible = ids.slice(0, k);
+  if (ids.includes(active) && !visible.includes(active)) visible = [...ids.slice(0, k - 1), active];
+  return { visible, hidden: ids.filter((id) => !visible.includes(id)) };
+}
+
+const X = '<svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>';
+const CARET = '<svg class="i" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>';
+const CHECK = '<svg class="i" viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>';
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+function closeMenus() {
+  document.querySelectorAll('.menu').forEach((m) => m.remove());
+  document.querySelectorAll('.ovf[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+}
+document.addEventListener('click', closeMenus);
+
+// Una barra de tabs sobre `panel`; devuelve su función de render.
+function makeBar(panel, state, onChange) {
+  const bar = panel.querySelector('.tabs');
+
+  function tabEl(label, id, closable) {
+    const m = byId[id];
+    const d = document.createElement('div');
+    d.className = 'tab' + (state.active === id ? ' active' : '');
+    d.innerHTML = `<span class="lbl" title="${esc(label)}">${esc(label)}</span>`
+      + (m && m.attention ? '<span class="dot"></span>' : '')
+      + (closable ? `<span class="x" role="button" aria-label="Close ${esc(label)}">${X}</span>` : '');
+    d.onclick = (e) => { if (e.target.closest('.x')) close(id); else { state.active = id; render(); } };
+    return d;
+  }
+
+  function render() {
+    bar.innerHTML = '';
+    bar.appendChild(tabEl('Missions', 'missions', false));
+    const zone = document.createElement('div'); zone.className = 'zone';
+    bar.appendChild(zone);
+    const plus = document.createElement('button');
+    plus.className = 'plus'; plus.textContent = '+'; plus.title = 'New mission';
+    plus.onclick = () => {
+      const next = all.find((m) => !state.open.includes(m.id));
+      if (next) { state.open.push(next.id); state.active = next.id; render(); }
+    };
+    bar.appendChild(plus);
+
+    const width = zone.getBoundingClientRect().width;
+    const { visible, hidden } = layoutTabs(state.open, state.active, width);
+    const strip = document.createElement('div'); strip.className = 'strip';
+    zone.appendChild(strip);
+    visible.forEach((id) => {
+      const t = tabEl(byId[id].title, id, true);
+      if (visible.length === 1) t.classList.add('squeezed');
+      strip.appendChild(t);
+    });
+    if (hidden.length) {
+      const waiting = hidden.filter((id) => byId[id].attention).length;
+      const b = document.createElement('button');
+      b.className = 'ovf'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false');
+      b.title = `${hidden.length} more open missions` + (waiting ? ` (${waiting} waiting for you)` : '');
+      b.setAttribute('aria-label', b.title);
+      b.innerHTML = `+${hidden.length}${CARET}` + (waiting ? '<span class="dot"></span>' : '');
+      b.onclick = (e) => { e.stopPropagation(); openMenu(b); };
+      zone.appendChild(b);
+    }
+    if (onChange) onChange(width, visible, hidden);
+  }
+
+  function close(id) {
+    state.open = state.open.filter((x) => x !== id);
+    if (state.active === id) state.active = 'missions';
+    render();
+  }
+
+  function openMenu(trigger) {
+    closeMenus();
+    trigger.setAttribute('aria-expanded', 'true');
+    const expanded = panel.offsetWidth >= 700;
+    const menu = document.createElement('div');
+    menu.className = 'menu'; menu.setAttribute('role', 'menu');
+    menu.style.width = expanded ? '320px' : Math.min(300, panel.offsetWidth - 16) + 'px';
+    const pr = panel.getBoundingClientRect(), tr = trigger.getBoundingClientRect();
+    menu.style.top = (tr.bottom - pr.top + 4) + 'px';
+    menu.style.right = Math.max(8, pr.right - tr.right) + 'px';
+    menu.onclick = (e) => e.stopPropagation();
+    let items = [];
+
+    function closeFromMenu(id) {
+      const i = state.open.indexOf(id);
+      close(id);
+      const ovf = panel.querySelector('.ovf');
+      if (!ovf) { closeMenus(); return; }  // ya no quedan ocultas: el trigger se desmonta
+      ovf.setAttribute('aria-expanded', 'true');
+      fill();
+      if (items.length) items[Math.min(i, items.length - 1)].focus();
+    }
+    function fill() {
+      menu.innerHTML = '';
+      items = state.open.map((id) => {
+        const m = byId[id], cur = state.active === id;
+        const it = document.createElement('div');
+        it.className = 'item' + (cur ? ' cur' : '') + (expanded ? ' two' : '');
+        it.setAttribute('role', 'menuitem'); it.tabIndex = -1;
+        it.innerHTML = `<span class="chk">${cur ? CHECK : ''}</span>`
+          + `<span class="txt"><span class="t1" title="${esc(m.title)}">${esc(m.title)}</span>`
+          + (expanded ? `<span class="t2">${m.repo} · ${m.status}</span>` : '') + '</span>'
+          + (m.attention ? '<span class="dot"></span>' : '')
+          + (m.running ? '<span class="spin"></span>' : '')
+          + `<span class="x" role="button" aria-label="Close ${esc(m.title)}">${X}</span>`;
+        it.onclick = (e) => {
+          if (e.target.closest('.x')) { closeFromMenu(id); return; }
+          state.active = id; closeMenus(); render();
+        };
+        it.onkeydown = (e) => { if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); closeFromMenu(id); } };
+        menu.appendChild(it);
+        return it;
+      });
+    }
+    fill();
+    menu.onkeydown = (e) => {
+      const i = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { items[(i + 1) % items.length].focus(); e.preventDefault(); }
+      if (e.key === 'ArrowUp') { items[(i - 1 + items.length) % items.length].focus(); e.preventDefault(); }
+      if (e.key === 'Enter' && i >= 0) items[i].click();
+      if (e.key === 'Escape') { closeMenus(); const t = panel.querySelector('.ovf'); if (t) t.focus(); }
+    };
+    panel.appendChild(menu);
+    (items.find((x) => x.classList.contains('cur')) || items[0]).focus();
+  }
+
+  return render;
+}
+
+// ---------- Mock principal ----------
+const $ = (id) => document.getElementById(id);
+const state = { open: [], active: 'missions' };
+const PRESETS = [['Mobile 300', 300], ['Flotante 380', 380], ['Columna 440', 440], ['Expandida 1280', 1280]];
+$('presets').innerHTML = PRESETS.map(([l, w]) => `<button data-w="${w}">${l}</button> `).join('');
+$('presets').onclick = (e) => { const w = e.target.dataset.w; if (w) { $('w').value = w; apply(); } };
+
+function report(width, visible, hidden) {
+  $('n').value = state.open.length; $('nv').textContent = state.open.length;
+  const bar = $('panel').querySelector('.tabs');
+  const activeOk = state.active === 'missions' || visible.includes(state.active);
+  const overflow = bar.scrollWidth > bar.clientWidth;
+  $('readout').textContent = `zona = ${Math.round(width)}px -> visibles ${visible.length}, ocultas ${hidden.length} | activa visible: ${activeOk ? 'si' : 'NO (error)'} | desborde: ${overflow ? 'SI (error)' : 'no'}`;
+}
+const render = makeBar($('panel'), state, report);
+
+function apply() {
+  const w = +$('w').value;
+  $('wv').textContent = w + 'px';
+  $('panel').style.width = w + 'px';
+  $('body').style.height = w >= 700 ? '240px' : '160px';
+  document.querySelectorAll('#presets button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.w === w)));
+  $('stage').classList.toggle('light', $('light').checked);
+  $('stage').classList.toggle('dark', !$('light').checked);
+  $('stage').classList.toggle('touch', $('touch').checked);
+  closeMenus(); render();
+}
+$('w').oninput = apply;
+$('n').oninput = () => {
+  const n = +$('n').value;
+  state.open = all.slice(0, n).map((m) => m.id);
+  state.active = n ? state.open[n - 1] : 'missions';
+  apply();
+};
+$('light').onchange = apply; $('touch').onchange = apply;
+$('n').oninput();
+
+// ---------- Matriz 1 / 5 / 20 x 300 / 380 / 1280 ----------
+for (const n of [1, 5, 20]) for (const [label, w] of [['Mobile 300', 300], ['Flotante 380', 380], ['Expandida 1280', 1280]]) {
+  const st = { open: all.slice(0, n).map((m) => m.id), active: '' };
+  st.active = st.open[n - 1];
+  const cell = document.createElement('div');
+  cell.innerHTML = `<p class="cap">${n} tab${n > 1 ? 's' : ''} · ${label}</p><div class="stage dark"><div class="panel" style="width:${w}px"><div class="tabs"></div></div></div>`;
+  $('matrix').appendChild(cell);
+  makeBar(cell.querySelector('.panel'), st)();
+}
+</script>
+</body>
+</html>
