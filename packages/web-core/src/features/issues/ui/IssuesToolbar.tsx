@@ -10,7 +10,9 @@ export type IssueStateFilter =
   | 'closed'
   | IssueTaskStatusFilter;
 export type IssuePriorityFilter = 'urgent' | 'high' | 'medium' | 'low';
-export type IssueGroupBy = 'none' | 'label' | 'milestone' | 'execution';
+// 'plan' is the fluke v2 Plan view (#663); it is chosen with the header tabs,
+// not from the Group by menu.
+export type IssueGroupBy = 'none' | 'label' | 'milestone' | 'plan';
 
 export interface IssueFilters {
   search: string;
@@ -55,12 +57,7 @@ const TASK_STATUSES: IssueTaskStatusFilter[] = [
   'in_review',
 ];
 const PRIORITIES: IssuePriorityFilter[] = ['urgent', 'high', 'medium', 'low'];
-const GROUP_BY_OPTIONS: IssueGroupBy[] = [
-  'none',
-  'execution',
-  'label',
-  'milestone',
-];
+const GROUP_BY_OPTIONS: IssueGroupBy[] = ['none', 'label', 'milestone'];
 
 /** Maps the issue list's filters onto the shared `FilterBar`. */
 export function IssuesToolbar({

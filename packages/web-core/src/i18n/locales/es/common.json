@@ -1020,8 +1020,7 @@
       "groupByOptions": {
         "none": "Ninguno",
         "label": "Etiqueta",
-        "milestone": "Hito",
-        "execution": "Plan de ejecución"
+        "milestone": "Hito"
       },
       "clear": "Limpiar filtros",
       "noResults": "Ningún issue coincide con los filtros actuales.",
@@ -1049,17 +1048,56 @@
       "archiveConfirm": "¿Cerrar el issue #{{number}} en GitHub? Se moverá al filtro Cerrados.",
       "archiveAction": "Cerrar issue"
     },
-    "execution": {
-      "wave": "Ola {{n}}",
-      "parallel": "{{n}} issues se pueden asignar a la vez",
-      "single": "Un solo issue en esta ola",
-      "unwaved": "Sin ola",
-      "unwavedHint": "Tiene feature pero no una etiqueta wave: usable — asignar de a uno",
-      "unclassified": "Sin clasificar",
-      "unclassifiedHint": "Sin etiqueta feature: — no se puede planificar; asignar de a uno",
-      "contentionTitle": "Recursos serializados en disputa",
-      "contentionHint": "Estos issues reclaman el mismo recurso global del repo. Un solo PR abierto a la vez, aunque sean de features distintas.",
-      "empty": "No hay issues abiertos para planificar."
+    "plan": {
+      "tabsLabel": "Vista",
+      "tabs": {
+        "list": "Lista",
+        "groups": "Grupos",
+        "plan": "Plan"
+      },
+      "slots": "Slots {{used}}/{{limit}}",
+      "pauseBetweenWaves": "Pausar al terminar cada wave",
+      "collapseAll": "Colapsar todas",
+      "expandAll": "Expandir todas",
+      "runAll": "Ejecutar todas",
+      "comingSoon": "Disponible próximamente",
+      "play": "Ejecutar milestone",
+      "collapse": "Colapsar milestone",
+      "wave": "Wave {{n}}",
+      "merged": "{{done}}/{{total}} mergeados",
+      "status": {
+        "readyTitle": "Listo para ejecutar",
+        "waves_one": "{{count}} wave",
+        "waves_other": "{{count}} waves",
+        "issues_one": "{{count}} issue",
+        "issues_other": "{{count}} issues",
+        "gateDetail": "arranca esperando tu decisión en #{{n}}",
+        "runningTitle": "Ejecutando wave {{n}}",
+        "runningDetail": "{{count}} en paralelo"
+      },
+      "card": {
+        "ready": "● listo",
+        "gate": "◆ decisión",
+        "blocked": "espera wave {{n}}",
+        "queued": "en cola",
+        "running": "ejecutando",
+        "review": "en review",
+        "done": "✓ mergeado",
+        "manual": "manual",
+        "decideNow": "Decidir ahora",
+        "workerBranch": "{{name}} · worker en su rama",
+        "prReview": "{{name}} · PR en review"
+      },
+      "loose": "Sin milestone o sin wave · se despachan de a uno",
+      "legend": {
+        "ready": "Listo",
+        "running": "Ejecutando",
+        "review": "En review",
+        "gate": "Decisión del PM",
+        "queued": "En cola (sin slot libre)",
+        "blocked": "Espera la wave anterior"
+      },
+      "empty": "No hay issues abiertos con milestone y wave para planificar."
     }
   },
   "workers": {

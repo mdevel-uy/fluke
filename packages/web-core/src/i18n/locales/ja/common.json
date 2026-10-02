@@ -1003,8 +1003,7 @@
       "groupByOptions": {
         "none": "なし",
         "label": "ラベル",
-        "milestone": "マイルストーン",
-        "execution": "実行プラン"
+        "milestone": "マイルストーン"
       },
       "clear": "フィルターをクリア",
       "noResults": "現在のフィルターに一致する Issue はありません。",
@@ -1032,17 +1031,54 @@
       "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
       "archiveAction": "Issue をクローズ"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "表示",
+      "tabs": {
+        "list": "リスト",
+        "groups": "グループ",
+        "plan": "プラン"
+      },
+      "slots": "スロット {{used}}/{{limit}}",
+      "pauseBetweenWaves": "各ウェーブの後で一時停止",
+      "collapseAll": "すべて折りたたむ",
+      "expandAll": "すべて展開",
+      "runAll": "すべて実行",
+      "comingSoon": "近日公開",
+      "play": "マイルストーンを実行",
+      "collapse": "マイルストーンを折りたたむ",
       "wave": "ウェーブ {{n}}",
-      "parallel": "{{n}} 件のイシューを同時に割り当てられます",
-      "single": "このウェーブのイシューは 1 件のみ",
-      "unwaved": "ウェーブなし",
-      "unwavedHint": "feature はありますが有効な wave: ラベルがありません — 1 件ずつ割り当ててください",
-      "unclassified": "未分類",
-      "unclassifiedHint": "feature: ラベルがありません — 計画できません。1 件ずつ割り当ててください",
-      "contentionTitle": "競合しているシリアライズ済みリソース",
-      "contentionHint": "これらのイシューはリポジトリ全体の同じリソースを要求しています。異なる機能であっても、同時に開ける PR は 1 つだけです。",
-      "empty": "計画対象のオープンなイシューがありません。"
+      "merged": "{{done}}/{{total}} マージ済み",
+      "status": {
+        "readyTitle": "実行可能",
+        "waves_other": "{{count}} ウェーブ",
+        "issues_other": "{{count}} 件の issue",
+        "gateDetail": "#{{n}} のあなたの判断待ちで開始",
+        "runningTitle": "ウェーブ {{n}} を実行中",
+        "runningDetail": "{{count}} 件を並行実行"
+      },
+      "card": {
+        "ready": "● 準備完了",
+        "gate": "◆ 判断待ち",
+        "blocked": "ウェーブ {{n}} 待ち",
+        "queued": "キュー",
+        "running": "実行中",
+        "review": "レビュー中",
+        "done": "✓ マージ済み",
+        "manual": "手動",
+        "decideNow": "今すぐ判断",
+        "workerBranch": "{{name}} · 自分のブランチで作業中",
+        "prReview": "{{name}} · PR レビュー中"
+      },
+      "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
+      "legend": {
+        "ready": "準備完了",
+        "running": "実行中",
+        "review": "レビュー中",
+        "gate": "PM の判断",
+        "queued": "キュー（空きスロットなし）",
+        "blocked": "前のウェーブ待ち"
+      },
+      "empty": "マイルストーンとウェーブのある未完了の issue はありません。"
     }
   },
   "workers": {
