@@ -1043,7 +1043,6 @@
       "collapseAll": "모두 접기",
       "expandAll": "모두 펼치기",
       "runAll": "모두 실행",
-      "comingSoon": "곧 제공",
       "play": "마일스톤 실행",
       "collapse": "마일스톤 접기",
       "wave": "웨이브 {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "이슈 {{count}}개",
         "gateDetail": "#{{n}}에 대한 결정을 기다리며 시작",
         "runningTitle": "웨이브 {{n}} 실행 중",
-        "runningDetail": "{{count}}개 병렬 실행"
+        "runningDetail": "{{count}}개 병렬 실행",
+        "waitingDecisionTitle": "중지됨: 결정 대기 중",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "중지됨",
+        "failedDetail": "#{{n}} 실패. 재배정하거나 닫아야 계속됩니다",
+        "pausedTitle": "일시 정지됨",
+        "pausedDetail": "실행 중인 작업은 끝까지 진행됩니다",
+        "stepTitle": "웨이브 {{n}} 완료",
+        "stepDetail": "재생을 눌러 웨이브 {{n}} 시작",
+        "doneTitle": "마일스톤 완료",
+        "doneDetail": "모든 PR 병합됨"
       },
       "card": {
         "ready": "● 준비됨",
@@ -1134,7 +1143,9 @@
         "viewPr": "PR 보기",
         "branch": "브랜치",
         "noTask": "이 이슈에는 아직 작업이 없습니다."
-      }
+      },
+      "pause": "마일스톤 일시 정지",
+      "reset": "초기화"
     }
   },
   "workers": {

@@ -1043,7 +1043,6 @@
       "collapseAll": "全部摺疊",
       "expandAll": "全部展開",
       "runAll": "全部執行",
-      "comingSoon": "即將推出",
       "play": "執行里程碑",
       "collapse": "摺疊里程碑",
       "wave": "波次 {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "{{count}} 個 issue",
         "gateDetail": "開始時等待你對 #{{n}} 的決定",
         "runningTitle": "正在執行波次 {{n}}",
-        "runningDetail": "{{count}} 個平行"
+        "runningDetail": "{{count}} 個平行",
+        "waitingDecisionTitle": "已停止：等待你的決定",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "已停止",
+        "failedDetail": "#{{n}} 失敗；重新分配或關閉後繼續",
+        "pausedTitle": "已暫停",
+        "pausedDetail": "正在執行的會完成",
+        "stepTitle": "波次 {{n}} 已完成",
+        "stepDetail": "點擊執行開始波次 {{n}}",
+        "doneTitle": "里程碑完成",
+        "doneDetail": "所有 PR 已合併"
       },
       "card": {
         "ready": "● 就緒",
@@ -1134,7 +1143,9 @@
         "viewPr": "檢視 PR",
         "branch": "分支",
         "noTask": "此 issue 還沒有任務。"
-      }
+      },
+      "pause": "暫停里程碑",
+      "reset": "重設"
     }
   },
   "workers": {

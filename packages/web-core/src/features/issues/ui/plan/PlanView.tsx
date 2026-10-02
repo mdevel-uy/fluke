@@ -8,6 +8,11 @@ import {
   type PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 import { usePlanCollapseStore } from '@/features/issues/model/usePlanCollapseStore';
+import {
+  useMilestoneRunActions,
+  useMilestoneRuns,
+  usePlanStepModeStore,
+} from '@/features/issues/model/useMilestoneRuns';
 import { MilestoneBand } from './MilestoneBand';
 import type { DecisionContext } from './DecisionDrawer';
 import { PlanCard } from './PlanCard';
@@ -19,6 +24,7 @@ import { PlanCard } from './PlanCard';
  */
 
 export interface PlanViewProps {
+  repoId: string;
   /** Open and closed issues: closed ones count as merged inside a band. */
   issues: RepoIssue[];
   taskByIssueNumber: ReadonlyMap<number, WorkerTask>;
@@ -46,6 +52,7 @@ const LEGEND: { key: string; className: string }[] = [
 ];
 
 export function PlanView({
+  repoId,
   issues,
   taskByIssueNumber,
   workerNameById,
@@ -58,6 +65,13 @@ export function PlanView({
     () => buildMilestonePlan(issues, taskByIssueNumber),
     [issues, taskByIssueNumber]
   );
+  const { data: runs = [] } = useMilestoneRuns(repoId);
+  const actions = useMilestoneRunActions(repoId);
+  const stepMode = usePlanStepModeStore((s) => s.stepMode);
+  const busy =
+    actions.play.isPending ||
+    actions.pause.isPending ||
+    actions.reset.isPending;
   const collapsed = usePlanCollapseStore((s) => s.collapsed);
   const toggle = usePlanCollapseStore((s) => s.toggle);
   const setVisible = usePlanCollapseStore((s) => s.setVisible);
@@ -87,6 +101,13 @@ export function PlanView({
               onDecide={onDecide}
               collapsed={collapsed.includes(band.milestone)}
               onToggle={() => toggle(band.milestone)}
+              run={runs.find((r) => r.milestone === band.milestone)}
+              onPlay={() =>
+                actions.play.mutate({ milestone: band.milestone, stepMode })
+              }
+              onPause={() => actions.pause.mutate(band.milestone)}
+              onReset={() => actions.reset.mutate(band.milestone)}
+              busy={busy}
             />
           ))}
         </div>

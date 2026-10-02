@@ -588,7 +588,7 @@ export function IssuesPage() {
         }
         actions={
           <>
-            {isPlan && <PlanHeaderActions />}
+            {isPlan && <PlanHeaderActions repoId={selectedRepoId} />}
             <Button
               variant="secondary"
               size="sm"
@@ -665,6 +665,7 @@ export function IssuesPage() {
           </div>
         ) : isPlan ? (
           <PlanView
+            repoId={selectedRepoId}
             issues={planIssues}
             taskByIssueNumber={activeTaskByIssueNumber}
             workerNameById={workerNameById}

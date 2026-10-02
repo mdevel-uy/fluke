@@ -1060,7 +1060,6 @@
       "collapseAll": "Collapse all",
       "expandAll": "Expand all",
       "runAll": "Run all",
-      "comingSoon": "Coming soon",
       "play": "Run milestone",
       "collapse": "Collapse milestone",
       "wave": "Wave {{n}}",
@@ -1073,7 +1072,17 @@
         "issues_other": "{{count}} issues",
         "gateDetail": "starts waiting for your decision on #{{n}}",
         "runningTitle": "Running wave {{n}}",
-        "runningDetail": "{{count}} in parallel"
+        "runningDetail": "{{count}} in parallel",
+        "waitingDecisionTitle": "Stopped: waiting for your decision",
+        "waitingDecisionDetail": "on #{{n}}",
+        "waitingTitle": "Stopped",
+        "failedDetail": "#{{n}} failed; reassign or close it to continue",
+        "pausedTitle": "Paused",
+        "pausedDetail": "whatever is running finishes",
+        "stepTitle": "Wave {{n}} finished",
+        "stepDetail": "press play to start wave {{n}}",
+        "doneTitle": "Milestone complete",
+        "doneDetail": "all PRs merged"
       },
       "card": {
         "ready": "● ready",
@@ -1153,7 +1162,9 @@
         "viewPr": "View PR",
         "branch": "Branch",
         "noTask": "This issue has no task yet."
-      }
+      },
+      "pause": "Pause milestone",
+      "reset": "Reset"
     }
   },
   "workers": {

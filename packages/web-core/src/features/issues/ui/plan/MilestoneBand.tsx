@@ -7,6 +7,7 @@ import type {
   PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 import type { WorkerTask } from '@/features/sprint/types';
+import type { MilestoneRun } from 'shared/types';
 import { PlanCard } from './PlanCard';
 import { CollapsedSummary } from './CollapsedSummary';
 import type { DecisionContext } from './DecisionDrawer';
@@ -17,7 +18,7 @@ import type { DecisionContext } from './DecisionDrawer';
  * column per wave with arrows between consecutive populated waves.
  *
  * The chevron (or a click on the name) collapses the band into a status
- * summary (#664). Play is drawn as in the mockup but does nothing until #666.
+ * summary (#664). Play / pause / Reiniciar drive the milestone run (#666).
  */
 
 export interface MilestoneBandProps {
@@ -30,6 +31,12 @@ export interface MilestoneBandProps {
   onDecide?: (issue: RepoIssue, context: DecisionContext) => void;
   collapsed: boolean;
   onToggle: () => void;
+  /** The milestone's run, if it was ever played (#666). */
+  run?: MilestoneRun;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onReset?: () => void;
+  busy?: boolean;
 }
 
 type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
@@ -62,10 +69,16 @@ function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-function PlayIcon() {
+function PlayIcon({ kind }: { kind: 'play' | 'pause' | 'done' }) {
   return (
     <svg viewBox="0 0 16 16" className="size-3.5 fill-current" aria-hidden>
-      <path d="M4 2.5v11l9-5.5z" />
+      {kind === 'pause' ? (
+        <path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" />
+      ) : kind === 'done' ? (
+        <path d="M6.2 11.6 2.6 8l1.1-1.1 2.5 2.5 6.1-6.1 1.1 1.1z" />
+      ) : (
+        <path d="M4 2.5v11l9-5.5z" />
+      )}
     </svg>
   );
 }
@@ -80,6 +93,11 @@ export function MilestoneBand({
   onDecide,
   collapsed,
   onToggle,
+  run,
+  onPlay,
+  onPause,
+  onReset,
+  busy,
 }: MilestoneBandProps) {
   const { t } = useTranslation('common');
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -124,7 +142,9 @@ export function MilestoneBand({
     return () => ro.disconnect();
   }, [measure, collapsed]);
 
-  const running = band.status.kind === 'running';
+  const runActive = run?.status === 'running' || run?.status === 'waiting';
+  const running = run?.status === 'running' || band.status.kind === 'running';
+  const waiting = run?.status === 'waiting';
   // The decision drawer needs the wave, the milestone and the later issues
   // the decision unblocks.
   const decide = onDecide
@@ -149,7 +169,8 @@ export function MilestoneBand({
     <section
       className={cn(
         'overflow-hidden rounded-[10px] border border-md-outline-variant bg-md-surface-container-low',
-        running && 'border-md-primary/60'
+        running && 'border-md-primary/60',
+        waiting && 'border-warning/60'
       )}
     >
       <div
@@ -171,15 +192,20 @@ export function MilestoneBand({
         </button>
         <button
           type="button"
-          disabled
-          title={t('issues.plan.comingSoon')}
-          aria-label={t('issues.plan.play')}
+          disabled={busy || run?.status === 'done'}
+          onClick={runActive ? onPause : onPlay}
+          aria-label={t(runActive ? 'issues.plan.pause' : 'issues.plan.play')}
           className={cn(
-            'grid size-[34px] flex-none place-items-center rounded-full border border-md-primary text-md-primary disabled:cursor-default',
-            running && 'bg-md-primary text-md-on-primary'
+            'grid size-[34px] flex-none place-items-center rounded-full border border-md-primary text-md-primary hover:bg-md-primary/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
+            runActive && 'bg-md-primary text-md-on-primary hover:bg-md-primary',
+            run?.status === 'done' && 'border-success text-success'
           )}
         >
-          <PlayIcon />
+          <PlayIcon
+            kind={
+              runActive ? 'pause' : run?.status === 'done' ? 'done' : 'play'
+            }
+          />
         </button>
         <div className="grid min-w-0 flex-[1_1_260px] gap-0.5">
           <h2
@@ -189,7 +215,7 @@ export function MilestoneBand({
             {band.milestone}
           </h2>
           <div className="flex flex-wrap items-center gap-2 text-xs text-normal">
-            <BandStatus band={band} />
+            <BandStatus band={band} run={run} />
           </div>
         </div>
         <div className="grid w-40 flex-none gap-1">
@@ -203,6 +229,16 @@ export function MilestoneBand({
             {t('issues.plan.merged', { done: band.done, total: band.total })}
           </span>
         </div>
+        {run && onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={busy}
+            className="p-1 text-xs text-normal hover:text-high disabled:opacity-60"
+          >
+            {t('issues.plan.reset')}
+          </button>
+        )}
       </div>
 
       {collapsed ? (
@@ -316,35 +352,73 @@ export function MilestoneBand({
   );
 }
 
-function BandStatus({ band }: { band: Band }) {
+function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
   const { t } = useTranslation('common');
-  const s = band.status;
-  if (s.kind === 'running') {
-    return (
-      <>
-        <b className="font-medium text-md-primary">
-          {t('issues.plan.status.runningTitle', { n: s.wave })}
-        </b>
-        <span>
-          · {t('issues.plan.status.runningDetail', { count: s.count })}
-        </span>
-      </>
+  const line = (title: string, detail: string, tone: string) => (
+    <>
+      <b className={cn('font-medium', tone)}>{title}</b>
+      <span>· {detail}</span>
+    </>
+  );
+  const wave = run?.current_wave ?? band.currentWave;
+  const inWave = (n: number | null) =>
+    band.waves.find((w) => w.wave === n)?.cards.length ?? 0;
+
+  if (run?.status === 'waiting') {
+    const [kind, num] = (run.waiting_reason ?? '').split(':');
+    return kind === 'failed'
+      ? line(
+          t('issues.plan.status.waitingTitle'),
+          t('issues.plan.status.failedDetail', { n: num }),
+          'text-warning'
+        )
+      : line(
+          t('issues.plan.status.waitingDecisionTitle'),
+          t('issues.plan.status.waitingDecisionDetail', { n: num }),
+          'text-warning'
+        );
+  }
+  if (run?.status === 'paused') {
+    // Paused by step mode right after a wave finished.
+    const previous = band.waves
+      .map((w) => w.wave)
+      .filter((w) => wave !== null && w < wave)
+      .pop();
+    return run.step_mode && previous !== undefined
+      ? line(
+          t('issues.plan.status.stepTitle', { n: previous }),
+          t('issues.plan.status.stepDetail', { n: wave }),
+          'text-high'
+        )
+      : line(
+          t('issues.plan.status.pausedTitle'),
+          t('issues.plan.status.pausedDetail'),
+          'text-high'
+        );
+  }
+  if (run?.status === 'done') {
+    return line(
+      t('issues.plan.status.doneTitle'),
+      t('issues.plan.status.doneDetail'),
+      'text-success'
     );
   }
-  return (
-    <>
-      <b className="font-medium text-high">
-        {t('issues.plan.status.readyTitle')}
-      </b>
-      <span>
-        ·{' '}
-        {s.kind === 'decision'
-          ? t('issues.plan.status.gateDetail', { n: s.issueNumber })
-          : `${t('issues.plan.status.waves', { count: band.waveCount })}, ${t(
-              'issues.plan.status.issues',
-              { count: band.total }
-            )}`}
-      </span>
-    </>
+  const s = band.status;
+  if (run?.status === 'running' || s.kind === 'running') {
+    return line(
+      t('issues.plan.status.runningTitle', { n: wave }),
+      t('issues.plan.status.runningDetail', { count: inWave(wave) }),
+      'text-md-primary'
+    );
+  }
+  return line(
+    t('issues.plan.status.readyTitle'),
+    s.kind === 'decision'
+      ? t('issues.plan.status.gateDetail', { n: s.issueNumber })
+      : `${t('issues.plan.status.waves', { count: band.waveCount })}, ${t(
+          'issues.plan.status.issues',
+          { count: band.total }
+        )}`,
+    'text-high'
   );
 }

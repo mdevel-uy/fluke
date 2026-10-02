@@ -1043,7 +1043,6 @@
       "collapseAll": "すべて折りたたむ",
       "expandAll": "すべて展開",
       "runAll": "すべて実行",
-      "comingSoon": "近日公開",
       "play": "マイルストーンを実行",
       "collapse": "マイルストーンを折りたたむ",
       "wave": "ウェーブ {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "{{count}} 件の issue",
         "gateDetail": "#{{n}} のあなたの判断待ちで開始",
         "runningTitle": "ウェーブ {{n}} を実行中",
-        "runningDetail": "{{count}} 件を並行実行"
+        "runningDetail": "{{count}} 件を並行実行",
+        "waitingDecisionTitle": "停止中: あなたの判断待ち",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "停止中",
+        "failedDetail": "#{{n}} が失敗しました。再割り当てかクローズで続行",
+        "pausedTitle": "一時停止中",
+        "pausedDetail": "実行中のものは完了まで続きます",
+        "stepTitle": "ウェーブ {{n}} 完了",
+        "stepDetail": "再生でウェーブ {{n}} を開始",
+        "doneTitle": "マイルストーン完了",
+        "doneDetail": "すべての PR がマージ済み"
       },
       "card": {
         "ready": "● 準備完了",
@@ -1134,7 +1143,9 @@
         "viewPr": "PR を見る",
         "branch": "ブランチ",
         "noTask": "この issue にはまだタスクがありません。"
-      }
+      },
+      "pause": "マイルストーンを一時停止",
+      "reset": "リセット"
     }
   },
   "workers": {

@@ -5,6 +5,7 @@ pub mod execution_process_logs;
 pub mod execution_process_repo_state;
 pub mod file;
 pub mod merge;
+pub mod milestone_run;
 pub mod mission;
 pub mod plan;
 pub mod plan_cap_hit;

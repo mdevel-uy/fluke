@@ -30,7 +30,7 @@ use crate::services::{
     config::Config,
     container::ContainerService,
     remote_client::{RemoteClient, RemoteClientError},
-    remote_sync, worker_orchestrator,
+    milestone_runs, remote_sync, worker_orchestrator,
 };
 
 #[derive(Debug, Error)]
@@ -573,6 +573,12 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         .await
         {
             warn!("Stuck-queue kickstart sweep failed: {}", e);
+        }
+
+        // Milestone runs (fluke v2, #666): dispatch the next ready issues of
+        // each playing milestone and move to the next wave once merged.
+        if let Err(e) = milestone_runs::advance_all(&self.config, &self.db, &self.container).await {
+            warn!("Milestone run sweep failed: {}", e);
         }
 
         let open_prs = PullRequest::get_open(&self.db.pool).await?;

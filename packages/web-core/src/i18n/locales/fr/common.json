@@ -1045,7 +1045,6 @@
       "collapseAll": "Tout réduire",
       "expandAll": "Tout développer",
       "runAll": "Tout exécuter",
-      "comingSoon": "Bientôt disponible",
       "play": "Exécuter le jalon",
       "collapse": "Réduire le jalon",
       "wave": "Vague {{n}}",
@@ -1058,7 +1057,17 @@
         "issues_other": "{{count}} issues",
         "gateDetail": "démarre en attendant votre décision sur #{{n}}",
         "runningTitle": "Exécution de la vague {{n}}",
-        "runningDetail": "{{count}} en parallèle"
+        "runningDetail": "{{count}} en parallèle",
+        "waitingDecisionTitle": "Arrêté : en attente de votre décision",
+        "waitingDecisionDetail": "sur #{{n}}",
+        "waitingTitle": "Arrêté",
+        "failedDetail": "#{{n}} a échoué ; réassignez-la ou fermez-la pour continuer",
+        "pausedTitle": "En pause",
+        "pausedDetail": "ce qui tourne déjà se termine",
+        "stepTitle": "Vague {{n}} terminée",
+        "stepDetail": "lancez la vague {{n}} avec play",
+        "doneTitle": "Jalon terminé",
+        "doneDetail": "toutes les PR fusionnées"
       },
       "card": {
         "ready": "● prêt",
@@ -1138,7 +1147,9 @@
         "viewPr": "Voir la PR",
         "branch": "Branche",
         "noTask": "Cette issue n'a pas encore de tâche."
-      }
+      },
+      "pause": "Mettre le jalon en pause",
+      "reset": "Réinitialiser"
     }
   },
   "workers": {

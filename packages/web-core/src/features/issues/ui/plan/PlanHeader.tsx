@@ -5,14 +5,18 @@ import {
   selectAllCollapsed,
   usePlanCollapseStore,
 } from '@/features/issues/model/usePlanCollapseStore';
+import {
+  useMilestoneRunActions,
+  usePlanStepModeStore,
+} from '@/features/issues/model/useMilestoneRuns';
 
 /**
  * Header pieces of the Issues page in the fluke v2 mockup
  * (design/mockups/fluke-v2/issues-plan.html, `header`): the Lista / Grupos /
  * Plan tabs next to the title, and the Plan controls on the right.
  *
- * "Pausar al terminar cada wave" and "Ejecutar todas" are drawn as in the
- * mockup but disabled until #666.
+ * "Pausar al terminar cada wave" and "Ejecutar todas" drive the milestone
+ * runs (#666).
  */
 
 export type IssuesView = 'list' | 'groups' | 'plan';
@@ -52,7 +56,7 @@ export function IssuesViewTabs({
   );
 }
 
-export function PlanHeaderActions() {
+export function PlanHeaderActions({ repoId }: { repoId?: string }) {
   const { t } = useTranslation('common');
   const { data: concurrency } = useConcurrencyStatus();
   const limit = concurrency?.limit ?? 0;
@@ -60,6 +64,14 @@ export function PlanHeaderActions() {
   const allCollapsed = usePlanCollapseStore(selectAllCollapsed);
   const collapseAll = usePlanCollapseStore((s) => s.collapseAll);
   const expandAll = usePlanCollapseStore((s) => s.expandAll);
+  const visible = usePlanCollapseStore((s) => s.visible);
+  const stepMode = usePlanStepModeStore((s) => s.stepMode);
+  const setStepModePref = usePlanStepModeStore((s) => s.setStepMode);
+  const actions = useMilestoneRunActions(repoId);
+  const onStepMode = (v: boolean) => {
+    setStepModePref(v);
+    if (repoId) actions.setStepMode.mutate(v);
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-3.5">
@@ -77,11 +89,13 @@ export function PlanHeaderActions() {
           ))}
         </span>
       )}
-      <label
-        className="inline-flex cursor-default items-center gap-2 text-[13px] text-normal"
-        title={t('issues.plan.comingSoon')}
-      >
-        <input type="checkbox" disabled />
+      <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-normal">
+        <input
+          type="checkbox"
+          checked={stepMode}
+          disabled={!repoId}
+          onChange={(e) => onStepMode(e.target.checked)}
+        />
         {t('issues.plan.pauseBetweenWaves')}
       </label>
       <button
@@ -93,9 +107,11 @@ export function PlanHeaderActions() {
       </button>
       <button
         type="button"
-        disabled
-        title={t('issues.plan.comingSoon')}
-        className="inline-flex h-8 items-center rounded-md border border-md-primary bg-md-primary px-3 text-[13px] font-medium text-md-on-primary disabled:cursor-default"
+        disabled={!repoId || visible.length === 0 || actions.playAll.isPending}
+        onClick={() =>
+          actions.playAll.mutate({ milestones: visible, stepMode })
+        }
+        className="inline-flex h-8 items-center rounded-md border border-md-primary bg-md-primary px-3 text-[13px] font-medium text-md-on-primary hover:opacity-90 disabled:opacity-60"
       >
         {t('issues.plan.runAll')}
       </button>

@@ -54,9 +54,11 @@ pub const KIND_DESIGN_HANDOFF: &str = "design_handoff";
 pub const SOURCE_KANBAN: &str = "kanban";
 /// Ad-hoc request submitted from the Analyst Desk screen.
 pub const SOURCE_DESK: &str = "desk";
+/// Dispatched by a milestone run (fluke v2, #666).
+pub const SOURCE_MILESTONE: &str = "milestone";
 
 pub fn is_valid_source(value: &str) -> bool {
-    matches!(value, SOURCE_KANBAN | SOURCE_DESK)
+    matches!(value, SOURCE_KANBAN | SOURCE_DESK | SOURCE_MILESTONE)
 }
 
 /// Encode territory globs for storage: `None` for an empty vector (issue
@@ -820,6 +822,31 @@ impl WorkerTask {
         .execute(pool)
         .await?;
         Ok(result.rows_affected())
+    }
+
+    /// Latest task for the given repo and issue number, whatever its status.
+    /// Milestone runs use it to tell a merged issue from a failed one.
+    pub async fn find_latest_by_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
+                    created_at, review_result, failure_reason,
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id, territory_globs
+               FROM worker_tasks
+               WHERE repo_id = ?1
+                 AND issue_number = ?2
+               ORDER BY created_at DESC
+               LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
     }
 
     /// Find the first active task (queued, in_progress, in_review, or

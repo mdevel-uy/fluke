@@ -357,6 +357,32 @@ export type MissionItem = { id: string, mission_id: string, position: number, ki
 
 export type MissionBrief = { mission_id: string, version: number, markdown: string, created_at: string, };
 
+export type MilestoneRun = { id: string, repo_id: string, milestone: string, 
+/**
+ * `running | paused | waiting | done`.
+ */
+status: string, 
+/**
+ * Pause when a wave finishes instead of starting the next one.
+ */
+step_mode: boolean, 
+/**
+ * Wave being worked on; `None` before the first sweep.
+ */
+current_wave: number | null, 
+/**
+ * Why a `waiting` run is stopped: `decision:<n>` or `failed:<n>`.
+ */
+waiting_reason: string | null, created_at: string, updated_at: string, };
+
+export type PlayMilestoneRequest = { milestone: string, step_mode: boolean, };
+
+export type MilestoneRequest = { milestone: string, };
+
+export type PlayAllMilestonesRequest = { milestones: Array<string>, step_mode: boolean, };
+
+export type StepModeRequest = { step_mode: boolean, };
+
 export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 
 export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };

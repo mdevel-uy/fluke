@@ -27,6 +27,7 @@ pub mod health;
 pub mod host_relay;
 pub mod impact;
 pub mod metrics;
+pub mod milestone_runs;
 pub mod oauth;
 pub mod organizations;
 pub mod pilot_report;
@@ -68,6 +69,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(codegraph::router())
         .merge(plan::router())
         .merge(director::router())
+        .merge(milestone_runs::router())
         .merge(ci_studio::router())
         .merge(repo::router())
         .merge(impact::router())
