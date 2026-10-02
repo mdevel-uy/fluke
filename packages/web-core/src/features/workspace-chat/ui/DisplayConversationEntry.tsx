@@ -39,9 +39,7 @@ import {
 import { ChatApprovalCard } from '@vibe/ui/components/ChatApprovalCard';
 import { ChatUserMessage } from '@vibe/ui/components/ChatUserMessage';
 import { ChatAssistantMessage } from '@vibe/ui/components/ChatAssistantMessage';
-import { ChatSystemMessage } from '@vibe/ui/components/ChatSystemMessage';
 import { ChatThinkingMessage } from '@vibe/ui/components/ChatThinkingMessage';
-import { ChatErrorMessage } from '@vibe/ui/components/ChatErrorMessage';
 import { ChatScriptEntry } from '@vibe/ui/components/ChatScriptEntry';
 import { ChatSubagentEntry } from '@vibe/ui/components/ChatSubagentEntry';
 import { ChatAggregatedToolEntries } from '@vibe/ui/components/ChatAggregatedToolEntries';
@@ -282,6 +280,12 @@ function renderToolUseEntry(
     );
   }
 
+  // Generic tool calls (MCP and the like) only show the raw tool name: noise
+  // for the user, so they are hidden (#636).
+  if (action_type.action === 'tool' || action_type.action === 'other') {
+    return null;
+  }
+
   // Other tool uses - use ChatToolSummary
   return (
     <ToolSummaryEntry
@@ -372,12 +376,10 @@ function DisplayConversationEntry(props: Props) {
       );
 
     case 'system_message':
-      return (
-        <SystemMessageEntry
-          content={entry.content}
-          expansionKey={expansionKey}
-        />
-      );
+    case 'error_message':
+      // Technical noise (hooks, model init, executor errors): hidden from the
+      // chat (#636). Actionable failures have their own notice outside it.
+      return null;
 
     case 'thinking':
       return (
@@ -393,14 +395,6 @@ function DisplayConversationEntry(props: Props) {
               maxWidth={undefined}
             />
           )}
-        />
-      );
-
-    case 'error_message':
-      return (
-        <ErrorMessageEntry
-          content={entry.content}
-          expansionKey={expansionKey}
         />
       );
 
@@ -857,14 +851,20 @@ function UserAnsweredQuestionsEntry({
  * Loading placeholder entry
  */
 function LoadingEntry() {
+  const { t } = useTranslation('common');
   return (
-    <div className="px-4 py-2 text-sm">
-      <div className="flex animate-pulse space-x-2 items-center">
-        <div className="size-3 bg-foreground/10" />
-        <div className="flex-1 h-3 bg-foreground/10" />
-        <div className="flex-1 h-3" />
-        <div className="flex-1 h-3" />
-      </div>
+    <div
+      className="flex items-center gap-1.5 px-4 py-2 text-sm text-low"
+      role="status"
+    >
+      <span>{t('conversation.thinking')}</span>
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="size-1.5 rounded-full bg-current animate-bounce"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
     </div>
   );
 }
@@ -1023,30 +1023,6 @@ function SubagentEntry({
 }
 
 /**
- * System message entry with expandable content
- */
-function SystemMessageEntry({
-  content,
-  expansionKey,
-}: {
-  content: string;
-  expansionKey: string;
-}) {
-  const [expanded, toggle] = usePersistedExpanded(
-    `system:${expansionKey}`,
-    false
-  );
-
-  return (
-    <ChatSystemMessage
-      content={content}
-      expanded={expanded}
-      onToggle={toggle}
-    />
-  );
-}
-
-/**
  * Script entry with fix button for failed scripts
  */
 function ScriptEntryWithFix({
@@ -1109,26 +1085,6 @@ function ScriptEntryWithFix({
       onViewProcess={viewProcessInPanel}
       onFix={canFix ? handleFix : undefined}
     />
-  );
-}
-
-/**
- * Error message entry with expandable content
- */
-function ErrorMessageEntry({
-  content,
-  expansionKey,
-}: {
-  content: string;
-  expansionKey: string;
-}) {
-  const [expanded, toggle] = usePersistedExpanded(
-    `error:${expansionKey}`,
-    false
-  );
-
-  return (
-    <ChatErrorMessage content={content} expanded={expanded} onToggle={toggle} />
   );
 }
 
