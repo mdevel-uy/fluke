@@ -21,6 +21,7 @@ import { PmDecisionDialog, hasPmDecisionPending } from './PmDecisionDialog';
 const TASK_STATUS_STYLES: Record<string, string> = {
   queued: 'bg-warning/10 text-warning',
   in_progress: 'bg-mod/10 text-mod',
+  waiting_user: 'bg-warning/10 text-warning',
   in_review: 'bg-info/10 text-info',
   approved: 'bg-success/10 text-success',
   done: 'bg-success/10 text-success',

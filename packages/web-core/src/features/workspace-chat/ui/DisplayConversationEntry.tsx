@@ -1,4 +1,11 @@
-import { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -290,7 +297,11 @@ function renderToolUseEntry(
     const question = parseAskUser(action_type.arguments);
     if (!question || !workspaceWithSession?.id) return null;
     return (
-      <AskUserEntry question={question} workspaceId={workspaceWithSession.id} />
+      <AskUserEntry
+        question={question}
+        workspaceId={workspaceWithSession.id}
+        toolStatus={status.status}
+      />
     );
   }
 
@@ -863,17 +874,27 @@ function sameQuestion(a: AskUserQuestion, b: AskUserQuestion | null) {
 function AskUserEntry({
   question,
   workspaceId,
+  toolStatus,
 }: {
   question: AskUserQuestion;
   workspaceId: string;
+  toolStatus: string;
 }) {
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
-  const queryKey = ['askUserPending', workspaceId];
+  const queryKey = useMemo(
+    () => ['askUserPending', workspaceId],
+    [workspaceId]
+  );
   const { data: pending } = useQuery({
     queryKey,
     queryFn: () => planApi.pendingQuestion(workspaceId),
   });
+  // A new ask_user call (or this one finishing) changes which question is
+  // pending: refresh so older cards close on their own.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey, toolStatus]);
   const open = sameQuestion(question, parseAskUser(pending));
   const [other, setOther] = useState('');
   const [sending, setSending] = useState(false);
@@ -887,7 +908,16 @@ function AskUserEntry({
       await planApi.answer(workspaceId, question, answer);
       setAnswered(label);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const raw = e instanceof Error ? e.message : String(e);
+      // Known backend refusals get a translated message; anything else is
+      // shown as is.
+      setError(
+        /no longer pending|no question is waiting|already answered/.test(raw)
+          ? t('askQuestion.stale')
+          : /still ending its turn/.test(raw)
+            ? t('askQuestion.agentRunning')
+            : raw
+      );
     } finally {
       setSending(false);
       void queryClient.invalidateQueries({ queryKey });

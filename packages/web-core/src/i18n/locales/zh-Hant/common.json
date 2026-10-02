@@ -891,7 +891,9 @@
     "otherPlaceholder": "或輸入其他回答",
     "send": "送出",
     "answered": "已回答：{{answer}}",
-    "closed": "已不再等待回答"
+    "closed": "已不再等待回答",
+    "stale": "此問題已不再待回答：已被回答或被較新的問題取代。",
+    "agentRunning": "代理仍在結束目前回合，請稍後再試。"
   },
   "issues": {
     "title": "Issues",
@@ -927,7 +929,8 @@
       "queued": "排隊中",
       "in_progress": "進行中",
       "in_review": "審查中",
-      "done": "已完成"
+      "done": "已完成",
+      "waiting_user": "等待回答"
     },
     "taskLinked": {
       "openWorkspace": "開啟工作區",
@@ -1247,7 +1250,8 @@
       "queuedAhead": "排隊中 · 前面還有 {{ahead}} 個",
       "inProgress": "進行中",
       "done": "已完成",
-      "failed": "失敗"
+      "failed": "失敗",
+      "waitingUser": "等待回答"
     },
     "toast": {
       "started": "{{worker}} 已開始處理你的請求。",

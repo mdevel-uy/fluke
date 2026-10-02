@@ -891,7 +891,9 @@
     "otherPlaceholder": "または別の回答を入力",
     "send": "送信",
     "answered": "回答済み: {{answer}}",
-    "closed": "回答待ちではありません"
+    "closed": "回答待ちではありません",
+    "stale": "この質問はもう保留中ではありません。回答済みか、新しい質問に置き換えられました。",
+    "agentRunning": "エージェントはまだターンを終了中です。少し待ってから再試行してください。"
   },
   "issues": {
     "title": "Issues",
@@ -927,7 +929,8 @@
       "queued": "待機中",
       "in_progress": "進行中",
       "in_review": "レビュー中",
-      "done": "完了"
+      "done": "完了",
+      "waiting_user": "回答待ち"
     },
     "taskLinked": {
       "openWorkspace": "ワークスペースを開く",
@@ -1247,7 +1250,8 @@
       "queuedAhead": "待機中 · 前に {{ahead}} 件",
       "inProgress": "実行中",
       "done": "完了",
-      "failed": "失敗"
+      "failed": "失敗",
+      "waitingUser": "回答待ち"
     },
     "toast": {
       "started": "{{worker}} が依頼に着手しました。",

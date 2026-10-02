@@ -9,6 +9,7 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason},
     plan::{self, NewPlanStep, Plan, PlanSnapshot, PlanStep, PlanStepRevision, StepProposal},
     session::Session,
+    worker::{self, Worker},
     worker_task::{self, WorkerTask},
     workspace::Workspace,
     workspace_repo::WorkspaceRepo,
@@ -338,6 +339,19 @@ pub async fn call_tool(
                 .await
                 .map_err(db_err)?
                 .ok_or("ask_user only works inside a fluke task: ask in your reply instead")?;
+            // Un reviewer que pregunta deja su ronda parada: tiene que emitir
+            // veredicto (y pedir cambios si algo no se puede decidir).
+            if Worker::find_by_id(pool, task.worker_id)
+                .await
+                .map_err(db_err)?
+                .is_some_and(|w| w.role == worker::ROLE_REVIEWER)
+            {
+                return Err(
+                    "reviewers do not ask the user: submit your verdict, and request \
+                            changes if something cannot be decided from the PR"
+                        .into(),
+                );
+            }
             let json = serde_json::to_string(&q).map_err(|e| e.to_string())?;
             if !WorkerTask::set_waiting_user(pool, task.id, &json)
                 .await
@@ -1638,6 +1652,31 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+
+        // Un reviewer no pregunta: emite veredicto.
+        let (rev_ws, reviewer) = (Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query(
+            "INSERT INTO workers (id, name, emoji, soul, role) VALUES (?1, 'r', 'r', 's', 'reviewer')",
+        )
+        .bind(reviewer)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, status, workspace_id)
+             VALUES (?1, ?2, ?3, 0, 't', 'p', 'in_progress', ?4)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(reviewer)
+        .bind(Uuid::new_v4())
+        .bind(rev_ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+        let err = call_tool(&pool, &store, rev_ws, "ask_user", &ask("merge?"))
+            .await
+            .unwrap_err();
+        assert!(err.contains("reviewers do not ask"));
 
         // Ya respondida: no se manda dos veces.
         assert!(

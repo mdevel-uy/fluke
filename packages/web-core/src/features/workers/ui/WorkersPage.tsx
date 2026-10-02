@@ -161,7 +161,9 @@ export function WorkersPage() {
   const activeTaskByWorkerId = useMemo(() => {
     const map = new Map<string, WorkerTask>();
     for (const task of allTasks) {
-      if (task.status === 'in_progress') map.set(task.worker_id, task);
+      // waiting_user (#662) still holds the worker's slot.
+      if (task.status === 'in_progress' || task.status === 'waiting_user')
+        map.set(task.worker_id, task);
     }
     return map;
   }, [allTasks]);
