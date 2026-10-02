@@ -50,13 +50,13 @@ Verificado el 02-oct en `main`:
 5. **Migración de workers**: un referente por rol → su soul y configuración pasan a ser la plantilla del perfil; los workers se borran.
 6. **Merge (ex D1, 02-oct)**: siempre humano. La fase Merge es una compuerta tuya (botón Mergear en la card y en el issue), sin excepción por nivel de autonomía.
 7. **Milestone (ex D2, 02-oct)**: una sola fuente, el milestone de GitHub. El Analyst crea el milestone y se lo asigna a los issues; la banda agrupa por milestone. El label `feature:` deja de hacer falta cuando F1.1 agrupa por milestone; hasta entonces se sigue poniendo para que la vista actual funcione.
+8. **Referente (ex D3, 03-oct)**: los workers de un mismo rol son iguales; la migración (#681) toma el más antiguo del rol, prefiriendo los activos, hereda un PAT del rol si no tiene, re-apunta tareas, workspaces e ítems de misión, guarda su nombre en `migrated_from` y borra el resto.
+9. **Tareas en vuelo (ex D4, 03-oct)**: no va a haber nada corriendo al migrar; la migración es SQL directa, sin chequeo previo.
 
 ## 4. Decisiones pendientes (confirmar antes de la fase correspondiente)
 
 | # | Decisión | Propuesta | Bloquea |
 |---|----------|-----------|---------|
-| D3 | **Regla del referente** cuando hay varios workers del mismo rol con souls distintos. | El activo con más tareas `done`; empate → el más reciente. La migración muestra la elección y permite cambiarla antes de confirmar. | F2 |
-| D4 | **Tareas en vuelo** durante la migración. | La migración se niega si hay tareas `in_progress`/`in_review`. Las `queued` se reasignan al perfil del rol de su worker. | F2 |
 | D5 | **Reviewer sobre el mismo workspace**: hoy el reviewer hace checkout en su propio worktree. | Las fases son secuenciales, así que el Reviewer lee el worktree del issue. Si hace falta aislar, un worktree de solo lectura por fase de review. | F3 |
 
 ## 5. Fases

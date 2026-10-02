@@ -78,6 +78,8 @@ pub struct WorkerResponse {
     pub active_workspace_id: Option<Uuid>,
     /// Every running instance of this profile (#680), newest first.
     pub active_workspace_ids: Vec<Uuid>,
+    /// Name the worker had before becoming a profile (#681), if migrated.
+    pub migrated_from: Option<String>,
     #[ts(type = "number")]
     pub queued_count: i64,
     #[ts(type = "number")]
@@ -646,6 +648,7 @@ fn is_valid_role(role: &str) -> bool {
 async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {
     let active_workspace_ids = Worker::active_workspace_ids(pool, worker.id).await?;
     let active_workspace_id = active_workspace_ids.first().copied();
+    let migrated_from = Worker::migrated_from(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
     let gh_write_warning = utils::text::has_gh_write_patterns(&worker.soul);
@@ -664,6 +667,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         archived: worker.archived,
         active_workspace_id,
         active_workspace_ids,
+        migrated_from,
         queued_count,
         completed_count,
         gh_write_warning,

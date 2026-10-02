@@ -329,6 +329,20 @@ impl Worker {
         .await
     }
 
+    /// Name the worker had before becoming a profile (fluke v2, #681), shown
+    /// as "Migrado de" on the Perfiles screen. Read on its own so the many
+    /// `SELECT`s that build `Worker` stay as they are.
+    pub async fn migrated_from(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT migrated_from FROM workers WHERE id = ?1")
+            .bind(worker_id)
+            .fetch_optional(pool)
+            .await
+            .map(Option::flatten)
+    }
+
     pub async fn queued_task_count(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)

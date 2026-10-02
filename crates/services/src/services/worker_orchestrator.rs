@@ -5798,6 +5798,124 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn consolidate_workers_into_profiles_migration() {
+        // #681: run every migration before the consolidation, load several
+        // workers per role with history, then apply the rest and check that
+        // one profile per role remains and nothing points at a deleted worker.
+        use sqlx::sqlite::SqlitePoolOptions;
+        const CONSOLIDATION: i64 = 20261003100000;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("open pool");
+        let full = sqlx::migrate!("../db/migrations");
+        let before = sqlx::migrate::Migrator {
+            migrations: std::borrow::Cow::Owned(
+                full.migrations
+                    .iter()
+                    .filter(|m| m.version < CONSOLIDATION)
+                    .cloned()
+                    .collect(),
+            ),
+            ignore_missing: full.ignore_missing,
+            locking: full.locking,
+            no_tx: full.no_tx,
+        };
+        before.run(&pool).await.expect("run migrations before");
+        let db = DBService { pool: pool.clone() };
+
+        let daniel = insert_worker(&db, "Daniel").await;
+        let neo = insert_worker(&db, "Neo").await;
+        let morpheus = insert_reviewer(&db, "Morpheus").await;
+        let drwho = insert_reviewer(&db, "Dr Who").await;
+        let flor = insert_worker_with_role(
+            &db,
+            "Flor",
+            Some(db::models::worker::ROLE_ANALYST.to_string()),
+        )
+        .await;
+        for (i, w) in [&daniel, &neo, &morpheus, &drwho, &flor].iter().enumerate() {
+            sqlx::query("UPDATE workers SET created_at = ?2 WHERE id = ?1")
+                .bind(w.id)
+                .bind(format!("2026-01-0{} 00:00:00", i + 1))
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("UPDATE workers SET github_pat = 'tok', github_login = 'drwho' WHERE id = ?1")
+            .bind(drwho.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let (repo, _tmp) = insert_repo(&db, "profiles-repo").await;
+        let neo_task = WorkerTask::append(
+            &pool,
+            neo.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "history".to_string(),
+                prompt: "done long ago".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let neo_ws = insert_workspace(&db).await;
+        Worker::attach_workspace(&pool, neo.id, neo_ws.id)
+            .await
+            .unwrap();
+
+        full.run(&pool).await.expect("run consolidation");
+
+        let profiles: Vec<(Uuid, String, String, Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT id, role, name, migrated_from, github_login FROM workers ORDER BY role",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(profiles.len(), 3, "one profile per role: {profiles:?}");
+        let by_role = |role: &str| profiles.iter().find(|p| p.1 == role).unwrap().clone();
+
+        let dev = by_role("developer");
+        assert_eq!(
+            (dev.0, dev.2.as_str(), dev.3.as_deref()),
+            (daniel.id, "Fullstack", Some("Daniel"))
+        );
+        let rev = by_role("reviewer");
+        assert_eq!((rev.0, rev.2.as_str()), (morpheus.id, "Reviewer"));
+        assert_eq!(
+            rev.4.as_deref(),
+            Some("drwho"),
+            "keeper inherits the role's PAT"
+        );
+        let analyst = by_role("analyst");
+        assert_eq!(
+            (analyst.2.as_str(), analyst.3.as_deref()),
+            ("Analyst", Some("Flor"))
+        );
+
+        let task_owner: Uuid =
+            sqlx::query_scalar("SELECT worker_id FROM worker_tasks WHERE id = ?1")
+                .bind(neo_task.id)
+                .fetch_one(&pool)
+                .await
+                .expect("history kept");
+        assert_eq!(task_owner, daniel.id);
+        let ws_owner: Uuid = sqlx::query_scalar("SELECT worker_id FROM workspaces WHERE id = ?1")
+            .bind(neo_ws.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(ws_owner, daniel.id);
+    }
+
+    #[tokio::test]
     async fn reconcile_archives_orphan_workspace_attached_to_worker() {
         let db = setup_test_db().await;
         let worker = insert_worker(&db, "wall-e").await;
