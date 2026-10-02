@@ -885,7 +885,12 @@
     "confirmSelection": "選択を確定",
     "submitting": "回答を送信中...",
     "answeredCount": "{{count}}件の質問に回答済み",
-    "answeredCount_other": "{{count}}件の質問に回答済み"
+    "answeredCount_other": "{{count}}件の質問に回答済み",
+    "recommended": "推奨",
+    "why": "理由: {{why}}",
+    "otherPlaceholder": "または別の回答を入力",
+    "send": "送信",
+    "answered": "回答済み: {{answer}}"
   },
   "issues": {
     "title": "Issues",

@@ -32,6 +32,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/plan/{workspace_id}/pause", post(pause))
         .route("/plan/{workspace_id}/stop", post(stop))
         .route("/plan/{workspace_id}/play", post(play))
+        .route("/plan/{workspace_id}/answer", post(answer))
         .route("/plan/{workspace_id}/steps/{n}/revert", post(revert))
         .route("/plan/{workspace_id}/steps/{n}/cut", post(cut))
         .route(
@@ -307,6 +308,29 @@ async fn discard_revision(
         &deployment.db().pool,
         deployment.events().msg_store(),
         revision_id,
+    )
+    .await
+    .map_err(ApiError::Conflict)?;
+    Ok(ok())
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct PlanAnswerRequest {
+    /// Clave de una opción de la pregunta o una respuesta libre.
+    pub answer: String,
+}
+
+/// Respuesta a la pregunta pendiente de `ask_user`.
+async fn answer(
+    State(deployment): State<DeploymentImpl>,
+    Path(workspace_id): Path<Uuid>,
+    Json(req): Json<PlanAnswerRequest>,
+) -> Empty {
+    plan_service::answer_question(
+        &deployment.db().pool,
+        deployment.container(),
+        workspace_id,
+        &req.answer,
     )
     .await
     .map_err(ApiError::Conflict)?;

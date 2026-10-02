@@ -1638,11 +1638,13 @@ pub async fn cancel_worker_task(
     }
 
     if existing.status != worker_task::STATUS_IN_PROGRESS
+        && existing.status != worker_task::STATUS_WAITING_USER
         && existing.status != worker_task::STATUS_IN_REVIEW
         && existing.status != worker_task::STATUS_APPROVED
     {
         return Err(ApiError::Conflict(
-            "Only in_progress, in_review or approved tasks can be cancelled".into(),
+            "Only in_progress, waiting_user, in_review or approved tasks can be cancelled"
+                .into(),
         ));
     }
 

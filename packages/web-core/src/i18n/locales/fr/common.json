@@ -887,7 +887,12 @@
     "confirmSelection": "Confirmer la sélection",
     "submitting": "Envoi des réponses...",
     "answeredCount": "Répondu à {{count}} question",
-    "answeredCount_other": "Répondu à {{count}} questions"
+    "answeredCount_other": "Répondu à {{count}} questions",
+    "recommended": "Recommandée",
+    "why": "Pourquoi : {{why}}",
+    "otherPlaceholder": "Ou écrivez une autre réponse",
+    "send": "Envoyer",
+    "answered": "Répondu : {{answer}}"
   },
   "issues": {
     "title": "Issues",

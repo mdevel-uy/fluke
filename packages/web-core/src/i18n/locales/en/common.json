@@ -902,7 +902,12 @@
     "confirmSelection": "Confirm selection",
     "submitting": "Submitting answers...",
     "answeredCount": "Answered {{count}} question",
-    "answeredCount_other": "Answered {{count}} questions"
+    "answeredCount_other": "Answered {{count}} questions",
+    "recommended": "Recommended",
+    "why": "Why: {{why}}",
+    "otherPlaceholder": "Or write another answer",
+    "send": "Send",
+    "answered": "Answered: {{answer}}"
   },
   "issues": {
     "title": "Issues",

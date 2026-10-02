@@ -302,7 +302,7 @@ impl Worker {
             "SELECT COUNT(*)
                FROM worker_tasks
                WHERE worker_id = ?1
-                 AND status IN ('in_progress', 'in_review')",
+                 AND status IN ('in_progress', 'waiting_user', 'in_review')",
         )
         .bind(worker_id)
         .fetch_one(pool)

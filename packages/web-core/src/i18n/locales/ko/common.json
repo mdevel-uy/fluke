@@ -885,7 +885,12 @@
     "confirmSelection": "선택 확인",
     "submitting": "답변 제출 중...",
     "answeredCount": "{{count}}개의 질문에 답변함",
-    "answeredCount_other": "{{count}}개의 질문에 답변함"
+    "answeredCount_other": "{{count}}개의 질문에 답변함",
+    "recommended": "추천",
+    "why": "이유: {{why}}",
+    "otherPlaceholder": "또는 다른 답변 입력",
+    "send": "보내기",
+    "answered": "답변함: {{answer}}"
   },
   "issues": {
     "title": "Issues",

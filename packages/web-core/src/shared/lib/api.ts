@@ -2334,6 +2334,9 @@ export const planApi = {
     planPost(`/api/plan/${workspaceId}/pause`, { on }),
   stop: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/stop`),
   play: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/play`),
+  // Respuesta a la pregunta de ask_user: clave de una opción o texto libre.
+  answer: (workspaceId: string, answer: string) =>
+    planPost(`/api/plan/${workspaceId}/answer`, { answer }),
   revert: (workspaceId: string, n: number) =>
     planPost(`/api/plan/${workspaceId}/steps/${n}/revert`),
   cut: (workspaceId: string, n: number, cut: boolean) =>

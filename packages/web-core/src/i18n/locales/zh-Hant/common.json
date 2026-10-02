@@ -885,7 +885,12 @@
     "confirmSelection": "確認選擇",
     "submitting": "正在提交回答...",
     "answeredCount": "已回答{{count}}個問題",
-    "answeredCount_other": "已回答{{count}}個問題"
+    "answeredCount_other": "已回答{{count}}個問題",
+    "recommended": "推薦",
+    "why": "原因：{{why}}",
+    "otherPlaceholder": "或輸入其他回答",
+    "send": "送出",
+    "answered": "已回答：{{answer}}"
   },
   "issues": {
     "title": "Issues",

@@ -1590,6 +1590,16 @@ pub async fn on_agent_finished(
         return Ok(());
     }
 
+    // The agent asked the user (plan MCP ask_user) and ended its turn on
+    // purpose: the task waits for the answer, which resumes the session.
+    if WorkerTask::find_by_workspace(pool, workspace_id)
+        .await?
+        .is_some_and(|t| t.status == worker_task::STATUS_WAITING_USER)
+    {
+        info!(workspace_id = %workspace_id, "Agent turn ended waiting for the user's answer; skipping finalization");
+        return Ok(());
+    }
+
     let worker_id = match Worker::find_by_workspace_id(pool, workspace_id).await? {
         Some(id) => id,
         // A failed task's workspace was detached (archive_and_detach). A
