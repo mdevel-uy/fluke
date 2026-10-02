@@ -173,6 +173,24 @@ impl Config {
 
 impl From<String> for Config {
     fn from(raw_config: String) -> Self {
+        let mut config = Self::parse(raw_config);
+        // The default provider always runs its DEFAULT variant (#615): a
+        // default left on another variant (e.g. Claude "PLAN") is reset, and
+        // Settings never writes anything else.
+        if config
+            .executor_profile
+            .variant
+            .as_deref()
+            .is_some_and(|v| v != "DEFAULT")
+        {
+            config.executor_profile.variant = Some("DEFAULT".to_string());
+        }
+        config
+    }
+}
+
+impl Config {
+    fn parse(raw_config: String) -> Self {
         if let Ok(config) = serde_json::from_str::<Config>(&raw_config)
             && config.config_version == "v10"
         {
@@ -251,5 +269,18 @@ mod tests {
         };
         let raw = serde_json::to_string(&v9_config).unwrap();
         assert_eq!(Config::from(raw).git_branch_prefix, "mk");
+    }
+
+    #[test]
+    fn default_variant_is_forced_on_load() {
+        let mut existing = Config::default();
+        existing.executor_profile.variant = Some("PLAN".to_string());
+        let raw = serde_json::to_string(&existing).unwrap();
+        let loaded = Config::from(raw);
+        assert_eq!(loaded.executor_profile.variant.as_deref(), Some("DEFAULT"));
+        assert_eq!(
+            loaded.executor_profile.executor,
+            existing.executor_profile.executor
+        );
     }
 }

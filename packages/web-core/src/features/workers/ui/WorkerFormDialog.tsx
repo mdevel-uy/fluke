@@ -278,7 +278,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     );
   };
   const openAgentConnections = () =>
-    void SettingsDialog.show({ initialSection: 'agent-auth' });
+    void SettingsDialog.show({ initialSection: 'agents' });
 
   const createMutation = useCreateWorker();
   const updateMutation = useUpdateWorker();
