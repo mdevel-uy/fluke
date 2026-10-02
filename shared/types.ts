@@ -571,7 +571,11 @@ archived: boolean, active_workspace_id: string | null,
 /**
  * Every running instance of this profile (#680), newest first.
  */
-active_workspace_ids: Array<string>, queued_count: number, completed_count: number, 
+active_workspace_ids: Array<string>, 
+/**
+ * Name the worker had before becoming a profile (#681), if migrated.
+ */
+migrated_from: string | null, queued_count: number, completed_count: number, 
 /**
  * `true` when the current `soul` contains direct GitHub CLI write
  * invocations (`gh pr|issue create|close|comment|review`,
