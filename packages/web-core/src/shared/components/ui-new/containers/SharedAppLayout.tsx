@@ -465,7 +465,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                       maxSize="480px"
                       className="h-full overflow-hidden border-l border-md-outline-variant"
                     >
-                      <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
+                      <ShellAsideSlot className="flex h-full min-h-0 flex-col overflow-hidden" />
                     </Panel>
                   )}
                 </Group>

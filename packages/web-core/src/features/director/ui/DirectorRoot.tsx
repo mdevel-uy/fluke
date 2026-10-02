@@ -62,6 +62,11 @@ export function DirectorRoot() {
   useEffect(() => {
     if (pinned && view === 'panel') showRightSidebar(true);
   }, [pinned, view, showRightSidebar]);
+  // Hiding the aside while pinned must not hide Fluke with it (issue #637):
+  // it floats until the aside is shown again, then docks back.
+  const isRightSidebarVisible = useUiPreferencesStore(
+    (s) => s.isRightSidebarVisible
+  );
 
   if (view === 'expanded') {
     return createPortal(
@@ -69,9 +74,9 @@ export function DirectorRoot() {
       document.body
     );
   }
-  if (view === 'panel' && pinned) {
+  if (view === 'panel' && pinned && isRightSidebarVisible) {
     return (
-      <ShellAsidePortal>
+      <ShellAsidePortal className="order-last">
         <div className="flex h-full min-h-0 flex-col bg-primary">
           <DirectorHeader context={context} />
           <MissionTabs />
