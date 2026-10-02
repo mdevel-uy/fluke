@@ -76,6 +76,8 @@ pub struct WorkerResponse {
     /// orchestrator lookups, can be restored or purged from there).
     pub archived: bool,
     pub active_workspace_id: Option<Uuid>,
+    /// Every running instance of this profile (#680), newest first.
+    pub active_workspace_ids: Vec<Uuid>,
     #[ts(type = "number")]
     pub queued_count: i64,
     #[ts(type = "number")]
@@ -642,7 +644,8 @@ fn is_valid_role(role: &str) -> bool {
 }
 
 async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {
-    let active_workspace_id = Worker::active_workspace_id(pool, worker.id).await?;
+    let active_workspace_ids = Worker::active_workspace_ids(pool, worker.id).await?;
+    let active_workspace_id = active_workspace_ids.first().copied();
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
     let gh_write_warning = utils::text::has_gh_write_patterns(&worker.soul);
@@ -660,6 +663,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         plan_mode: worker.plan_mode,
         archived: worker.archived,
         active_workspace_id,
+        active_workspace_ids,
         queued_count,
         completed_count,
         gh_write_warning,
@@ -1486,6 +1490,11 @@ fn map_start_error(err: StartError) -> ApiError {
                 "Concurrent-agents limit reached ({cap}). Task remains queued."
             ))
         }
+        StartError::NoFreeSlot => ApiError::Conflict(
+            "Todos los slots de agente están ocupados; la tarea queda en cola y arranca \
+             cuando se libere uno."
+                .into(),
+        ),
         StartError::LicenseSuspended => ApiError::Conflict(
             "La licencia está suspendida; no se arrancan agentes nuevos. \
              Los datos y el historial siguen disponibles. Contactá a fluke."
@@ -1643,8 +1652,7 @@ pub async fn cancel_worker_task(
         && existing.status != worker_task::STATUS_APPROVED
     {
         return Err(ApiError::Conflict(
-            "Only in_progress, waiting_user, in_review or approved tasks can be cancelled"
-                .into(),
+            "Only in_progress, waiting_user, in_review or approved tasks can be cancelled".into(),
         ));
     }
 

@@ -428,10 +428,11 @@ impl WorkerTask {
         .await
     }
 
-    /// Atomically claim a queued task for its worker: flips it to
-    /// `in_progress` only while it is still `queued` and the worker has no
-    /// other `in_progress` task. SQLite serializes writes, so exactly one
-    /// of several concurrent claimers succeeds; the rest get `false`.
+    /// Atomically claim a queued task: flips it to `in_progress` only while
+    /// it is still `queued`. SQLite serializes writes, so exactly one of
+    /// several concurrent claimers succeeds; the rest get `false`. A worker
+    /// is a profile (fluke v2, #680) and may run several tasks at once; the
+    /// global agent slots are checked by the caller before claiming.
     pub async fn try_claim(
         pool: &SqlitePool,
         id: Uuid,
@@ -441,11 +442,8 @@ impl WorkerTask {
             "UPDATE worker_tasks
                 SET status = 'in_progress'
               WHERE id = ?1
-                AND status = 'queued'
-                AND NOT EXISTS (
-                  SELECT 1 FROM worker_tasks
-                   WHERE worker_id = ?2 AND status IN ('in_progress', 'waiting_user')
-                )",
+                AND worker_id = ?2
+                AND status = 'queued'",
         )
         .bind(id)
         .bind(worker_id)

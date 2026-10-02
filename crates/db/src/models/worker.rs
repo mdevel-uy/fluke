@@ -380,9 +380,9 @@ impl Worker {
         Ok(())
     }
 
-    /// All non-archived workspaces currently attached to the worker.
-    /// Used by the orchestrator to detect and auto-repair orphan
-    /// workspaces before applying the capacity guard.
+    /// All non-archived workspaces currently attached to the worker. A
+    /// worker is a profile (#680) and each running instance has its own;
+    /// the orchestrator also uses this to auto-repair orphan workspaces.
     pub async fn active_workspace_ids(
         pool: &SqlitePool,
         worker_id: Uuid,
