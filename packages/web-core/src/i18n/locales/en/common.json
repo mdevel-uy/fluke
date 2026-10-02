@@ -1086,7 +1086,9 @@
         "manual": "manual",
         "decideNow": "Decide now",
         "workerBranch": "{{name}} · worker on its branch",
-        "prReview": "{{name}} · PR in review"
+        "prReview": "{{name}} · PR in review",
+        "open": "Open issue #{{n}}",
+        "openHint": "Open →"
       },
       "loose": "No milestone or no wave · dispatched one at a time",
       "legend": {
@@ -1142,7 +1144,15 @@
           "decided": "Decision posted on #{{n}} · pm:decision removed",
           "returned": "#{{n}} goes back to the analyst",
           "closed": "#{{n}} closed without doing"
-        }
+        },
+        "openIssue": "Open issue →"
+      },
+      "issuePage": {
+        "notFound": "We couldn't find issue #{{n}}.",
+        "backToIssues": "Back to Issues",
+        "viewPr": "View PR",
+        "branch": "Branch",
+        "noTask": "This issue has no task yet."
       }
     }
   },

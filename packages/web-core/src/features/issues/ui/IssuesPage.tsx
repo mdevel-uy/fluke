@@ -518,13 +518,21 @@ export function IssuesPage() {
         repoName: selectedRepo?.name ?? '',
         ...context,
       });
-      if (result !== 'canceled') {
+      if (result === 'openIssue') {
+        appNavigation.goToIssue(issue.number, selectedRepoId);
+      } else if (result !== 'canceled') {
         setToast(
           t(`issues.plan.decision.toast.${result}`, { n: issue.number })
         );
       }
     },
-    [selectedRepoId, selectedRepo, t]
+    [selectedRepoId, selectedRepo, t, appNavigation]
+  );
+
+  // In the Plan view a card opens the issue page; the list keeps the drawer.
+  const handleOpenIssuePage = useCallback(
+    (issue: RepoIssue) => appNavigation.goToIssue(issue.number, selectedRepoId),
+    [appNavigation, selectedRepoId]
   );
 
   const handleRefresh = () => {
@@ -661,7 +669,7 @@ export function IssuesPage() {
             taskByIssueNumber={activeTaskByIssueNumber}
             workerNameById={workerNameById}
             selectedIssueId={selectedIssue?.id}
-            onSelectIssue={handleSelectIssue}
+            onSelectIssue={handleOpenIssuePage}
             onDecide={handleDecide}
           />
         ) : filteredIssues.length === 0 ? (

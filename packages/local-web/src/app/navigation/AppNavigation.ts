@@ -51,6 +51,14 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       const repoId = params.get('repo');
       return { kind: 'issues', ...(repoId ? { repoId } : {}) };
     }
+    case '/_app/issues_/$issueNumber': {
+      const issueNumber = Number(routeParams.issueNumber);
+      if (!Number.isInteger(issueNumber)) return null;
+      const repoId = new URLSearchParams(
+        new URL(path, 'http://localhost').search
+      ).get('repo');
+      return { kind: 'issue', issueNumber, ...(repoId ? { repoId } : {}) };
+    }
     case '/_app/workers':
       return { kind: 'workers' };
     case '/_app/dashboard':
@@ -159,6 +167,12 @@ function destinationToLocalTarget(
         to: '/issues',
         search: destination.repoId ? { repo: destination.repoId } : {},
       } as const;
+    case 'issue':
+      return {
+        to: '/issues/$issueNumber',
+        params: { issueNumber: String(destination.issueNumber) },
+        search: destination.repoId ? { repo: destination.repoId } : {},
+      } as const;
     case 'workers':
       return { to: '/workers' } as const;
     case 'dashboard':
@@ -227,6 +241,11 @@ export function createLocalAppNavigation(): AppNavigation {
       navigateTo({ kind: 'source-control' }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: 'issue', issueNumber, ...(repoId ? { repoId } : {}) },
+        transition
+      ),
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
     goToAnalystDesk: (transition) =>
       navigateTo({ kind: 'analyst-desk' }, transition),

@@ -50,7 +50,9 @@ export type DecisionDrawerResult =
   | 'decided'
   | 'returned'
   | 'closed'
-  | 'canceled';
+  | 'canceled'
+  /** "Abrir issue →": the caller navigates to /issues/n (#667). */
+  | 'openIssue';
 
 const OTHER = '__other__';
 
@@ -255,9 +257,17 @@ const DecisionDrawerImpl = create<DecisionDrawerProps>(
               ]
                 .filter(Boolean)
                 .join(' · ')}
+              {milestone || unblocks.length ? ' · ' : ''}
+              <button
+                type="button"
+                onClick={() => finish('openIssue')}
+                className="font-medium text-high hover:underline"
+              >
+                {t('issues.plan.decision.openIssue')}
+              </button>
               {githubUrl && (
                 <>
-                  {milestone || unblocks.length ? ' · ' : ''}
+                  {' · '}
                   <a
                     href={githubUrl}
                     target="_blank"

@@ -1067,7 +1067,9 @@
         "manual": "수동",
         "decideNow": "지금 결정",
         "workerBranch": "{{name}} · 자기 브랜치에서 작업 중",
-        "prReview": "{{name}} · PR 리뷰 중"
+        "prReview": "{{name}} · PR 리뷰 중",
+        "open": "이슈 #{{n}} 열기",
+        "openHint": "열기 →"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
       "legend": {
@@ -1123,7 +1125,15 @@
           "decided": "#{{n}}에 결정 게시 · pm:decision 제거",
           "returned": "#{{n}} 분석가에게 돌아감",
           "closed": "#{{n}} 하지 않고 닫음"
-        }
+        },
+        "openIssue": "이슈 열기 →"
+      },
+      "issuePage": {
+        "notFound": "이슈 #{{n}}을(를) 찾을 수 없습니다.",
+        "backToIssues": "Issues로 돌아가기",
+        "viewPr": "PR 보기",
+        "branch": "브랜치",
+        "noTask": "이 이슈에는 아직 작업이 없습니다."
       }
     }
   },

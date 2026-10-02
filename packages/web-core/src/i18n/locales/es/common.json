@@ -1086,7 +1086,9 @@
         "manual": "manual",
         "decideNow": "Decidir ahora",
         "workerBranch": "{{name}} · worker en su rama",
-        "prReview": "{{name}} · PR en review"
+        "prReview": "{{name}} · PR en review",
+        "open": "Abrir issue #{{n}}",
+        "openHint": "Abrir →"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
       "legend": {
@@ -1142,7 +1144,15 @@
           "decided": "Decisión publicada en #{{n}} · se quitó pm:decision",
           "returned": "#{{n}} vuelve al analista",
           "closed": "#{{n}} se cerró sin hacer"
-        }
+        },
+        "openIssue": "Abrir issue →"
+      },
+      "issuePage": {
+        "notFound": "No encontramos el issue #{{n}}.",
+        "backToIssues": "Volver a Issues",
+        "viewPr": "Ver PR",
+        "branch": "Rama",
+        "noTask": "Este issue todavía no tiene una tarea."
       }
     }
   },

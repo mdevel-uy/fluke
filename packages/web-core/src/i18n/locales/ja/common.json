@@ -1067,7 +1067,9 @@
         "manual": "手動",
         "decideNow": "今すぐ判断",
         "workerBranch": "{{name}} · 自分のブランチで作業中",
-        "prReview": "{{name}} · PR レビュー中"
+        "prReview": "{{name}} · PR レビュー中",
+        "open": "issue #{{n}} を開く",
+        "openHint": "開く →"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
       "legend": {
@@ -1123,7 +1125,15 @@
           "decided": "#{{n}} に判断を投稿 · pm:decision を削除",
           "returned": "#{{n}} をアナリストに差し戻し",
           "closed": "#{{n}} を対応せずにクローズ"
-        }
+        },
+        "openIssue": "issue を開く →"
+      },
+      "issuePage": {
+        "notFound": "issue #{{n}} が見つかりません。",
+        "backToIssues": "Issues に戻る",
+        "viewPr": "PR を見る",
+        "branch": "ブランチ",
+        "noTask": "この issue にはまだタスクがありません。"
       }
     }
   },

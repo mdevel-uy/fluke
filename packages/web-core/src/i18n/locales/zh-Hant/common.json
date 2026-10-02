@@ -1067,7 +1067,9 @@
         "manual": "手動",
         "decideNow": "立即決定",
         "workerBranch": "{{name}} · 在自己的分支上工作",
-        "prReview": "{{name}} · PR 審查中"
+        "prReview": "{{name}} · PR 審查中",
+        "open": "開啟 issue #{{n}}",
+        "openHint": "開啟 →"
       },
       "loose": "無里程碑或無波次 · 逐一分配",
       "legend": {
@@ -1123,7 +1125,15 @@
           "decided": "已在 #{{n}} 發布決定 · 已移除 pm:decision",
           "returned": "#{{n}} 已退回分析師",
           "closed": "#{{n}} 已不做直接關閉"
-        }
+        },
+        "openIssue": "開啟 issue →"
+      },
+      "issuePage": {
+        "notFound": "找不到 issue #{{n}}。",
+        "backToIssues": "返回 Issues",
+        "viewPr": "檢視 PR",
+        "branch": "分支",
+        "noTask": "此 issue 還沒有任務。"
       }
     }
   },

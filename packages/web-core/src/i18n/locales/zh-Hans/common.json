@@ -1067,7 +1067,9 @@
         "manual": "手动",
         "decideNow": "立即决定",
         "workerBranch": "{{name}} · 在自己的分支上工作",
-        "prReview": "{{name}} · PR 评审中"
+        "prReview": "{{name}} · PR 评审中",
+        "open": "打开 issue #{{n}}",
+        "openHint": "打开 →"
       },
       "loose": "无里程碑或无波次 · 逐个分配",
       "legend": {
@@ -1123,7 +1125,15 @@
           "decided": "已在 #{{n}} 发布决定 · 已移除 pm:decision",
           "returned": "#{{n}} 已退回分析师",
           "closed": "#{{n}} 已不做直接关闭"
-        }
+        },
+        "openIssue": "打开 issue →"
+      },
+      "issuePage": {
+        "notFound": "找不到 issue #{{n}}。",
+        "backToIssues": "返回 Issues",
+        "viewPr": "查看 PR",
+        "branch": "分支",
+        "noTask": "此 issue 还没有任务。"
       }
     }
   },

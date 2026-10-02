@@ -13,7 +13,11 @@ const issuesSearchSchema = z.object({
   priority: z.coerce.string().optional(),
   labels: z.coerce.string().optional(),
   milestones: z.coerce.string().optional(),
-  groupBy: z.enum(['none', 'label', 'milestone']).optional(),
+  // 'plan' is the default and stays out of the URL; 'execution' is the
+  // pre-v2 name and still opens the Plan view (#663).
+  groupBy: z
+    .enum(['none', 'label', 'milestone', 'plan', 'execution'])
+    .optional(),
   issue: z.number().optional(),
 });
 

@@ -10,6 +10,7 @@ export type AppDestination =
   | { kind: 'pilot-report' }
   | { kind: 'source-control' }
   | { kind: 'issues'; repoId?: string }
+  | { kind: 'issue'; issueNumber: number; repoId?: string }
   | { kind: 'workers' }
   | { kind: 'analyst-desk' }
   | { kind: 'ci-pipelines' }
@@ -55,6 +56,11 @@ export interface AppNavigation {
   goToPilotReport(transition?: NavigationTransition): void;
   goToSourceControl(transition?: NavigationTransition): void;
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
+  goToIssue(
+    issueNumber: number,
+    repoId?: string,
+    transition?: NavigationTransition
+  ): void;
   goToWorkers(transition?: NavigationTransition): void;
   goToAnalystDesk(transition?: NavigationTransition): void;
   goToCiPipelines(transition?: NavigationTransition): void;

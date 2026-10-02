@@ -26,6 +26,7 @@ import { Route as AppCiPipelinesRouteImport } from './routes/_app.ci-pipelines'
 import { Route as AppAnalystDeskRouteImport } from './routes/_app.analyst-desk'
 import { Route as WorkspacesWorkspaceIdVscodeRouteImport } from './routes/workspaces.$workspaceId.vscode'
 import { Route as AppWorkspacesWorkspaceIdRouteImport } from './routes/_app.workspaces_.$workspaceId'
+import { Route as AppIssuesIssueNumberRouteImport } from './routes/_app.issues_.$issueNumber'
 import { Route as AppHostsHostIdWorkspacesRouteImport } from './routes/_app.hosts.$hostId.workspaces'
 import { Route as HostsHostIdWorkspacesWorkspaceIdVscodeRouteImport } from './routes/hosts.$hostId.workspaces.$workspaceId.vscode'
 import { Route as AppHostsHostIdWorkspacesWorkspaceIdRouteImport } from './routes/_app.hosts.$hostId.workspaces_.$workspaceId'
@@ -116,6 +117,11 @@ const AppWorkspacesWorkspaceIdRoute =
     path: '/workspaces/$workspaceId',
     getParentRoute: () => AppRoute,
   } as any)
+const AppIssuesIssueNumberRoute = AppIssuesIssueNumberRouteImport.update({
+  id: '/issues_/$issueNumber',
+  path: '/issues/$issueNumber',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHostsHostIdWorkspacesRoute =
   AppHostsHostIdWorkspacesRouteImport.update({
     id: '/hosts/$hostId/workspaces',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
+  '/issues/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
+  '/issues/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_app/workers': typeof AppWorkersRoute
   '/_app/workspaces': typeof AppWorkspacesRoute
   '/onboarding_/sign-in': typeof OnboardingSignInRoute
+  '/_app/issues_/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/_app/workspaces_/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/_app/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
+    | '/issues/$issueNumber'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/hosts/$hostId/workspaces'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
+    | '/issues/$issueNumber'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/hosts/$hostId/workspaces'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_app/workers'
     | '/_app/workspaces'
     | '/onboarding_/sign-in'
+    | '/_app/issues_/$issueNumber'
     | '/_app/workspaces_/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/_app/hosts/$hostId/workspaces'
@@ -397,6 +409,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesWorkspaceIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/issues_/$issueNumber': {
+      id: '/_app/issues_/$issueNumber'
+      path: '/issues/$issueNumber'
+      fullPath: '/issues/$issueNumber'
+      preLoaderRoute: typeof AppIssuesIssueNumberRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/hosts/$hostId/workspaces': {
       id: '/_app/hosts/$hostId/workspaces'
       path: '/hosts/$hostId/workspaces'
@@ -433,6 +452,7 @@ interface AppRouteChildren {
   AppSprintRoute: typeof AppSprintRoute
   AppWorkersRoute: typeof AppWorkersRoute
   AppWorkspacesRoute: typeof AppWorkspacesRoute
+  AppIssuesIssueNumberRoute: typeof AppIssuesIssueNumberRoute
   AppWorkspacesWorkspaceIdRoute: typeof AppWorkspacesWorkspaceIdRoute
   AppHostsHostIdWorkspacesRoute: typeof AppHostsHostIdWorkspacesRoute
   AppHostsHostIdWorkspacesWorkspaceIdRoute: typeof AppHostsHostIdWorkspacesWorkspaceIdRoute
@@ -450,6 +470,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSprintRoute: AppSprintRoute,
   AppWorkersRoute: AppWorkersRoute,
   AppWorkspacesRoute: AppWorkspacesRoute,
+  AppIssuesIssueNumberRoute: AppIssuesIssueNumberRoute,
   AppWorkspacesWorkspaceIdRoute: AppWorkspacesWorkspaceIdRoute,
   AppHostsHostIdWorkspacesRoute: AppHostsHostIdWorkspacesRoute,
   AppHostsHostIdWorkspacesWorkspaceIdRoute:

@@ -1071,7 +1071,9 @@
         "manual": "manuel",
         "decideNow": "Décider maintenant",
         "workerBranch": "{{name}} · worker sur sa branche",
-        "prReview": "{{name}} · PR en revue"
+        "prReview": "{{name}} · PR en revue",
+        "open": "Ouvrir l'issue #{{n}}",
+        "openHint": "Ouvrir →"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
       "legend": {
@@ -1127,7 +1129,15 @@
           "decided": "Décision publiée sur #{{n}} · pm:decision retiré",
           "returned": "#{{n}} retourne à l'analyste",
           "closed": "#{{n}} fermé sans être fait"
-        }
+        },
+        "openIssue": "Ouvrir l'issue →"
+      },
+      "issuePage": {
+        "notFound": "Issue #{{n}} introuvable.",
+        "backToIssues": "Retour aux issues",
+        "viewPr": "Voir la PR",
+        "branch": "Branche",
+        "noTask": "Cette issue n'a pas encore de tâche."
       }
     }
   },
