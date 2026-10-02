@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>fluke — Review del brief: opciones de ubicación</title>
+<style>
+  /* ---------- Tokens (Workbench v3 · Slate & Signal) ---------- */
+  :root {
+    --bg: #F4F4F5; --panel: #FFFFFF; --rail: #FAFAFA;
+    --hover: #F4F4F5; --active: #E4E4E7; --sel: #EEF2FF;
+    --border: #E4E4E7; --border-strong: #D4D4D8;
+    --t-high: #18181B; --t-normal: #3F3F46; --t-low: #71717A;
+    --brand: #4F46E5; --brand-ink: #4F46E5; --on-brand: #FFFFFF;
+    --success: #16A34A; --warning: #D97706; --error: #DC2626;
+    --shadow-overlay: 0 8px 24px rgba(24,24,27,.12), 0 2px 6px rgba(24,24,27,.08);
+    --scrim: rgba(24,24,27,.28);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #09090B; --panel: #18181B; --rail: #101012;
+      --hover: #27272A; --active: #3F3F46; --sel: #312E81;
+      --border: #27272A; --border-strong: #52525B;
+      --t-high: #FAFAFA; --t-normal: #D4D4D8; --t-low: #A1A1AA;
+      --brand: #6366F1; --brand-ink: #818CF8; --on-brand: #FFFFFF;
+      --success: #4ADE80; --warning: #FBBF24; --error: #F87171;
+      --shadow-overlay: 0 8px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+      --scrim: rgba(0,0,0,.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 40px 64px;
+    font: 400 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+    color: var(--t-normal); background: var(--bg);
+  }
+  svg { display: block; flex: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  h1 { margin: 0 0 4px; font-size: 20px; color: var(--t-high); font-weight: 600; }
+  .lead { margin: 0 0 32px; max-width: 760px; color: var(--t-low); }
+
+  /* ---------- Option sections ---------- */
+  .option { display: grid; grid-template-columns: auto 300px; gap: 32px; align-items: start; margin-bottom: 56px; }
+  .option h2 { margin: 0 0 8px; font-size: 15px; color: var(--t-high); font-weight: 600; }
+  .option .notes p { margin: 0 0 10px; }
+  .notes dl { margin: 0; display: grid; grid-template-columns: 88px 1fr; gap: 6px 10px; font-size: 12px; }
+  .notes dt { color: var(--t-low); }
+  .notes dd { margin: 0; color: var(--t-normal); }
+  .tradeoff { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--brand); background: var(--panel); font-size: 12px; }
+
+  /* Fake app behind the panel */
+  .stage {
+    position: relative; width: 760px; height: 660px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--rail); overflow: hidden;
+  }
+  .stage::before { /* workspace skeleton */
+    content: ""; position: absolute; inset: 16px 16px 16px 16px;
+    background:
+      linear-gradient(var(--border) 0 0) 0 0 / 180px 100% no-repeat,
+      repeating-linear-gradient(to bottom, transparent 0 22px, var(--border) 22px 23px) 200px 8px / 300px 100% no-repeat;
+    opacity: .6;
+  }
+  .stage .panel { position: absolute; right: 16px; bottom: 16px; }
+
+  /* ---------- Panel ---------- */
+  .panel {
+    width: 380px; height: 620px; display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-overlay);
+  }
+  .panel.wide { width: 728px; }
+  .hdr { height: 40px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+  .mark { width: 24px; height: 24px; border-radius: 999px; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .hdr .name { font-weight: 500; color: var(--t-high); }
+  .chip { padding: 2px 8px; border-radius: 999px; background: var(--hover); font-size: 11px; color: var(--t-low); white-space: nowrap; }
+  .hdr .acts { margin-left: auto; display: flex; gap: 2px; }
+  .hbtn { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: var(--t-low); }
+  .hbtn.on { background: var(--sel); color: var(--brand-ink); }
+
+  .tabs { height: 32px; flex: none; display: flex; align-items: stretch; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .tab { display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 2px solid transparent; color: var(--t-low); white-space: nowrap; }
+  .tab.on { border-color: var(--brand); color: var(--t-high); }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--warning); }
+  .tabs .plus { margin-left: 4px; align-self: center; color: var(--t-low); }
+
+  .body { flex: 1; min-height: 0; display: flex; position: relative; }
+
+  /* Chat */
+  .chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .msgs { flex: 1; min-height: 0; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+  .msg { max-width: 88%; padding: 8px 10px; border-radius: 8px; }
+  .msg.f { background: var(--hover); color: var(--t-normal); }
+  .msg.u { align-self: flex-end; background: var(--sel); color: var(--t-high); }
+  .composer { flex: none; margin: 0 12px 12px; height: 56px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 10px; color: var(--t-low); font-size: 12px; }
+
+  /* Brief (same content and order as BriefView.tsx) */
+  .brief { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; font-size: 12px; overflow: auto; }
+  .brief .approve { position: sticky; bottom: 0; flex: none; box-shadow: 0 -8px 12px var(--panel); }
+  .brief h3 { margin: 0; font-size: 14px; font-weight: 500; color: var(--t-high); }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .status { padding: 2px 8px; border-radius: 999px; background: var(--hover); font-size: 11px; }
+  .ck { display: flex; align-items: center; gap: 4px; color: var(--t-normal); }
+  .ck.no { color: var(--t-low); }
+  .ck i { width: 12px; height: 12px; border-radius: 999px; border: 1.5px solid var(--t-low); flex: none; }
+  .ck:not(.no) i { border: 0; background: var(--success); }
+  .val { margin: 0 0 2px 16px; color: var(--t-low); font-size: 11px; }
+  .item { border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .item b { font-weight: 500; color: var(--t-high); }
+  .lbl { font-weight: 500; color: var(--t-high); }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill { border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+  .select { height: 28px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; color: var(--t-high); }
+  .approve { height: 30px; border-radius: 6px; background: var(--brand); color: var(--on-brand); font-weight: 500; font-size: 12px; width: 100%; }
+  .muted { color: var(--t-low); font-size: 11px; }
+
+  /* A: fixed column */
+  .colA { width: 320px; flex: none; border-left: 1px solid var(--border); background: var(--rail); }
+
+  /* B: drawer over the chat */
+  .scrim { position: absolute; inset: 0; background: var(--scrim); }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 320px; background: var(--panel); border-left: 1px solid var(--border); box-shadow: var(--shadow-overlay); display: flex; flex-direction: column; }
+  .drawer .dh { height: 36px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border); font-weight: 500; color: var(--t-high); }
+  .briefbtn { display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: var(--sel); color: var(--brand-ink); font-size: 11px; font-weight: 500; }
+
+  /* C: collapsible summary */
+  details.sum { flex: none; border-bottom: 1px solid var(--border); background: var(--rail); font-size: 12px; }
+  details.sum summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+  details.sum summary::-webkit-details-marker { display: none; }
+  details.sum summary .chev { margin-left: auto; color: var(--t-low); transition: transform .15s; }
+  details.sum[open] summary .chev { transform: rotate(180deg); }
+  .bar { flex: 1; max-width: 90px; height: 4px; border-radius: 999px; background: var(--active); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--success); }
+  .sumbody { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+  .sumline { display: flex; align-items: center; justify-content: space-between; }
+
+  /* D: segmented tab inside the mission */
+  .seg { flex: none; display: flex; gap: 2px; margin: 8px 12px 0; padding: 2px; border-radius: 6px; background: var(--hover); font-size: 12px; }
+  .seg span { flex: 1; text-align: center; padding: 4px 0; border-radius: 4px; color: var(--t-low); }
+  .seg span.on { background: var(--panel); color: var(--t-high); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .count { margin-left: 4px; color: var(--warning); }
+
+  table.cmp { border-collapse: collapse; font-size: 12px; background: var(--panel); border: 1px solid var(--border); }
+  table.cmp th, table.cmp td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.cmp th { color: var(--t-high); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>Review del brief fuera de pantalla completa</h1>
+<p class="lead">
+  Hoy el brief (checklist de campos, equipo necesario, autonomía y "Aprobar brief") solo se ve con el asistente expandido.
+  Estas son cuatro alternativas para verlo desde la vista habitual: el panel flotante de 380 px (o anclado como columna, que tiene el mismo ancho).
+  Son maquetas sin comportamiento real; el contenido del brief es el mismo en todas. Elija una para implementar.
+</p>
+
+<!-- Reused fragments, cloned by the script at the end -->
+<template id="t-hdr">
+  <div class="hdr">
+    <span class="mark">f</span><span class="name">Fluke</span><span class="chip">Tablero · fluke</span>
+    <div class="acts"><span class="hbtn" title="Anclar como columna">&#8869;</span><span class="hbtn" title="Expandir">&#8599;</span><span class="hbtn" title="Minimizar">&#8722;</span></div>
+  </div>
+</template>
+<template id="t-tabs">
+  <div class="tabs">
+    <span class="tab">Misiones</span>
+    <span class="tab on">Exportar reportes <span class="dot"></span></span>
+    <span class="plus">+</span>
+  </div>
+</template>
+<template id="t-chat">
+  <div class="chat">
+    <div class="msgs">
+      <div class="msg u">Quiero poder exportar los reportes a CSV. Y de paso, las fechas del reporte mensual salen mal.</div>
+      <div class="msg f">Anoté dos ítems: una feature de exportación y un bug de fechas. ¿Qué columnas debe incluir el CSV?</div>
+      <div class="msg u">Las mismas que la tabla en pantalla, en el mismo orden.</div>
+      <div class="msg f">Listo. ¿Cómo reproduzco el problema de las fechas?</div>
+      <div class="msg u">Abrir el reporte de septiembre: aparecen con el formato mes/día.</div>
+      <div class="msg f">Con eso el brief está completo. Puede revisarlo y aprobarlo para enviarlo al Analista.</div>
+    </div>
+    <div class="composer">Escriba un mensaje para Fluke…</div>
+  </div>
+</template>
+<template id="t-brief">
+  <div class="brief">
+    <div>
+      <div class="row"><h3>Exportar reportes</h3><span class="status">Brief listo</span></div>
+      <span class="ck"><i></i>Repo: fluke</span>
+    </div>
+    <div class="item">
+      <b>1. [Feature] Exportación de reportes a CSV</b>
+      <span class="ck"><i></i>Objetivo</span><p class="val">Descargar cualquier reporte como CSV.</p>
+      <span class="ck"><i></i>Alcance</span><p class="val">Mismas columnas y orden que la tabla en pantalla.</p>
+      <span class="ck"><i></i>Criterio de aceptación</span><p class="val">El archivo abre en una planilla sin ajustes.</p>
+      <span class="ck no"><i></i>Referencia <span>(opcional)</span></span>
+    </div>
+    <div class="item">
+      <b>2. [Bug] Fechas invertidas en el reporte mensual</b>
+      <span class="ck"><i></i>Síntoma</span><p class="val">Las fechas aparecen como mes/día.</p>
+      <span class="ck"><i></i>Pasos para reproducir</span><p class="val">Abrir el reporte de septiembre.</p>
+      <span class="ck"><i></i>Criterio de aceptación</span><p class="val">Formato día/mes en todo el reporte.</p>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 4px">Equipo necesario</p>
+      <div class="pills"><span class="pill">Frontend</span><span class="pill">Backend</span></div>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 4px">Autonomía</p>
+      <div class="select">Brief y PR <span class="muted">&#9662;</span></div>
+    </div>
+    <button class="approve">Aprobar brief y enviar al Analista</button>
+  </div>
+</template>
+
+<!-- ============ A ============ -->
+<section class="option">
+  <div class="stage">
+    <div class="panel wide">
+      <div data-use="t-hdr"></div>
+      <div data-use="t-tabs"></div>
+      <div class="body">
+        <div data-use="t-chat"></div>
+        <div class="colA" data-use="t-brief"></div>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <h2>A. Columna fija junto al chat</h2>
+    <p>Cuando la misión activa tiene brief, el panel se ensancha y suma una columna de 320 px a la derecha del chat: es una versión reducida de la pantalla completa actual.</p>
+    <dl>
+      <dt>Espacio</dt><dd>El panel pasa de 380 a unos 700 px; tapa más del tablero.</dd>
+      <dt>Clics</dt><dd>Cero: el brief está siempre a la vista.</dd>
+      <dt>Tapa del chat</dt><dd>Nada.</dd>
+    </dl>
+    <p class="tradeoff">Lo más directo para revisar mientras se conversa, pero en pantallas chicas o con el panel anclado obliga a recortar el chat o el aside.</p>
+  </div>
+</section>
+
+<!-- ============ B ============ -->
+<section class="option">
+  <div class="stage">
+    <div class="panel">
+      <div class="hdr">
+        <span class="mark">f</span><span class="name">Fluke</span>
+        <div class="acts"><span class="briefbtn">Brief listo</span><span class="hbtn">&#8869;</span><span class="hbtn">&#8599;</span><span class="hbtn">&#8722;</span></div>
+      </div>
+      <div data-use="t-tabs"></div>
+      <div class="body">
+        <div data-use="t-chat"></div>
+        <div class="scrim"></div>
+        <div class="drawer">
+          <div class="dh">Brief <span class="hbtn" title="Cerrar">&#215;</span></div>
+          <div data-use="t-brief"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notes">
+    <h2>B. Drawer sobre el chat</h2>
+    <p>Un botón "Brief" en el encabezado (con el estado como etiqueta) abre un panel que se desliza desde la derecha, dentro del mismo asistente, con fondo atenuado. Se cierra con la X, Esc o un clic afuera.</p>
+    <dl>
+      <dt>Espacio</dt><dd>Ninguno extra: el panel mantiene sus 380 px.</dd>
+      <dt>Clics</dt><dd>Uno para abrir, uno para cerrar.</dd>
+      <dt>Tapa del chat</dt><dd>Casi todo mientras está abierto.</dd>
+    </dl>
+    <p class="tradeoff">Ocupa poco y es fácil de descubrir, pero no deja leer la conversación y el brief a la vez. Patrón ya presente en el repo (MobileDrawer).</p>
+  </div>
+</section>
+
+<!-- ============ C ============ -->
+<section class="option">
+  <div class="stage">
+    <div class="panel">
+      <div data-use="t-hdr"></div>
+      <div data-use="t-tabs"></div>
+      <details class="sum" open>
+        <summary>
+          <span class="lbl">Brief</span><span class="status">Brief listo</span>
+          <span class="bar"><span style="width:100%"></span></span><span class="muted">6 de 6</span>
+          <span class="chev">&#9662;</span>
+        </summary>
+        <div class="sumbody">
+          <div class="sumline"><span class="ck"><i></i>1. Exportación de reportes a CSV</span><span class="muted">3 de 3</span></div>
+          <div class="sumline"><span class="ck"><i></i>2. Fechas invertidas en el reporte mensual</span><span class="muted">3 de 3</span></div>
+          <div class="sumline"><span class="muted">Equipo: Frontend, Backend</span><span class="muted">Autonomía: Brief y PR</span></div>
+          <button class="approve">Aprobar brief y enviar al Analista</button>
+          <span class="muted">Ver detalle de los campos</span>
+        </div>
+      </details>
+      <div class="body"><div data-use="t-chat"></div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h2>C. Resumen colapsable arriba del chat</h2>
+    <p>Una franja de una línea (estado y campos completos) fija arriba del chat. Al expandirla muestra un resumen por ítem, el equipo, la autonomía y el botón de aprobar. Clic en la franja para colapsar; el estado se recuerda (CollapsibleSectionHeader).</p>
+    <dl>
+      <dt>Espacio</dt><dd>32 px colapsado; hasta 260 px expandido.</dd>
+      <dt>Clics</dt><dd>Cero para ver el estado; uno para expandir y aprobar.</dd>
+      <dt>Tapa del chat</dt><dd>Achica el chat mientras está expandido; no lo cubre.</dd>
+    </dl>
+    <p class="tradeoff">El progreso queda siempre visible sin costo de ancho, pero el resumen no muestra el texto de cada campo: revisar el contenido completo pide "Ver detalle" (que podría abrir B o D).</p>
+  </div>
+</section>
+
+<!-- ============ D ============ -->
+<section class="option">
+  <div class="stage">
+    <div class="panel">
+      <div data-use="t-hdr"></div>
+      <div data-use="t-tabs"></div>
+      <div class="seg"><span>Conversación</span><span class="on">Brief<span class="count">&#9679;</span></span></div>
+      <div class="body" style="flex-direction:column"><div data-use="t-brief"></div></div>
+    </div>
+  </div>
+  <div class="notes">
+    <h2>D. Pestaña Brief dentro de la misión</h2>
+    <p>Debajo de las pestañas de misiones, un selector "Conversación / Brief" alterna el cuerpo del panel entre el chat y el brief completo. El punto ámbar indica que el brief espera una acción.</p>
+    <dl>
+      <dt>Espacio</dt><dd>Una fila de 32 px; el brief usa todo el panel.</dd>
+      <dt>Clics</dt><dd>Uno para ver el brief, uno para volver al chat.</dd>
+      <dt>Tapa del chat</dt><dd>Lo reemplaza por completo mientras se ve el brief.</dd>
+    </dl>
+    <p class="tradeoff">Da al brief el máximo espacio sin agrandar el panel y es consistente con las pestañas existentes, pero suma un segundo nivel de pestañas y separa la conversación de la revisión.</p>
+  </div>
+</section>
+
+<h2 style="font-size:15px;color:var(--t-high)">Comparación rápida</h2>
+<table class="cmp">
+  <tr><th></th><th>Ancho del panel</th><th>Clics para aprobar</th><th>Chat y brief a la vez</th><th>Texto completo de campos</th></tr>
+  <tr><td>A. Columna fija</td><td>~700 px</td><td>1</td><td>Sí</td><td>Sí</td></tr>
+  <tr><td>B. Drawer</td><td>380 px</td><td>2</td><td>No</td><td>Sí</td></tr>
+  <tr><td>C. Resumen colapsable</td><td>380 px</td><td>1-2</td><td>Sí (resumen)</td><td>No, solo el estado</td></tr>
+  <tr><td>D. Pestaña</td><td>380 px</td><td>2</td><td>No</td><td>Sí</td></tr>
+</table>
+<p class="muted" style="margin-top:12px">Las opciones se pueden combinar: por ejemplo C como indicador permanente y B o D para el detalle.</p>
+
+<script>
+  // Mock only: inline the shared fragments.
+  document.querySelectorAll('[data-use]').forEach((el) => {
+    const frag = document.getElementById(el.dataset.use).content.cloneNode(true);
+    const root = frag.firstElementChild;
+    el.classList.forEach((c) => root.classList.add(c));
+    el.replaceWith(root);
+  });
+</script>
+</body>
+</html>
