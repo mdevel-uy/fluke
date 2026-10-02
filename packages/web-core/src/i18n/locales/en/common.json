@@ -1020,8 +1020,7 @@
       "groupByOptions": {
         "none": "None",
         "label": "Label",
-        "milestone": "Milestone",
-        "execution": "Execution plan"
+        "milestone": "Milestone"
       },
       "clear": "Clear filters",
       "noResults": "No issues match the current filters.",
@@ -1049,17 +1048,56 @@
       "archiveConfirm": "Close issue #{{number}} on GitHub? This will move it to the Closed filter.",
       "archiveAction": "Close issue"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "View",
+      "tabs": {
+        "list": "List",
+        "groups": "Groups",
+        "plan": "Plan"
+      },
+      "slots": "Slots {{used}}/{{limit}}",
+      "pauseBetweenWaves": "Pause after each wave",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all",
+      "runAll": "Run all",
+      "comingSoon": "Coming soon",
+      "play": "Run milestone",
+      "collapse": "Collapse milestone",
       "wave": "Wave {{n}}",
-      "parallel": "{{n}} issues can be handed out at the same time",
-      "single": "Single issue in this wave",
-      "unwaved": "No wave",
-      "unwavedHint": "Has a feature but no usable wave: label — hand these out one at a time",
-      "unclassified": "Unclassified",
-      "unclassifiedHint": "No feature: label — cannot be planned; hand these out one at a time",
-      "contentionTitle": "Serialized resources in contention",
-      "contentionHint": "These issues claim the same repo-wide resource. Only one open PR at a time, even across different features.",
-      "empty": "No open issues to plan."
+      "merged": "{{done}}/{{total}} merged",
+      "status": {
+        "readyTitle": "Ready to run",
+        "waves_one": "{{count}} wave",
+        "waves_other": "{{count}} waves",
+        "issues_one": "{{count}} issue",
+        "issues_other": "{{count}} issues",
+        "gateDetail": "starts waiting for your decision on #{{n}}",
+        "runningTitle": "Running wave {{n}}",
+        "runningDetail": "{{count}} in parallel"
+      },
+      "card": {
+        "ready": "● ready",
+        "gate": "◆ decision",
+        "blocked": "waits for wave {{n}}",
+        "queued": "queued",
+        "running": "running",
+        "review": "in review",
+        "done": "✓ merged",
+        "manual": "manual",
+        "decideNow": "Decide now",
+        "workerBranch": "{{name}} · worker on its branch",
+        "prReview": "{{name}} · PR in review"
+      },
+      "loose": "No milestone or no wave · dispatched one at a time",
+      "legend": {
+        "ready": "Ready",
+        "running": "Running",
+        "review": "In review",
+        "gate": "PM decision",
+        "queued": "Queued (no free slot)",
+        "blocked": "Waits for the previous wave"
+      },
+      "empty": "There are no open issues with a milestone and wave to plan."
     }
   },
   "workers": {

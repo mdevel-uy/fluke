@@ -1005,8 +1005,7 @@
       "groupByOptions": {
         "none": "Aucun",
         "label": "Étiquette",
-        "milestone": "Jalon",
-        "execution": "Plan d'exécution"
+        "milestone": "Jalon"
       },
       "clear": "Effacer les filtres",
       "noResults": "Aucun issue ne correspond aux filtres actuels.",
@@ -1034,17 +1033,56 @@
       "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
       "archiveAction": "Fermer l'issue"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "Vue",
+      "tabs": {
+        "list": "Liste",
+        "groups": "Groupes",
+        "plan": "Plan"
+      },
+      "slots": "Slots {{used}}/{{limit}}",
+      "pauseBetweenWaves": "Mettre en pause après chaque vague",
+      "collapseAll": "Tout réduire",
+      "expandAll": "Tout développer",
+      "runAll": "Tout exécuter",
+      "comingSoon": "Bientôt disponible",
+      "play": "Exécuter le jalon",
+      "collapse": "Réduire le jalon",
       "wave": "Vague {{n}}",
-      "parallel": "{{n}} tickets peuvent être assignés en même temps",
-      "single": "Un seul ticket dans cette vague",
-      "unwaved": "Sans vague",
-      "unwavedHint": "Possède un feature mais pas d'étiquette wave: exploitable — à assigner un par un",
-      "unclassified": "Non classé",
-      "unclassifiedHint": "Pas d'étiquette feature: — impossible à planifier ; à assigner un par un",
-      "contentionTitle": "Ressources sérialisées en conflit",
-      "contentionHint": "Ces tickets réclament la même ressource globale du dépôt. Une seule PR ouverte à la fois, même entre features différentes.",
-      "empty": "Aucun ticket ouvert à planifier."
+      "merged": "{{done}}/{{total}} fusionnés",
+      "status": {
+        "readyTitle": "Prêt à exécuter",
+        "waves_one": "{{count}} vague",
+        "waves_other": "{{count}} vagues",
+        "issues_one": "{{count}} issue",
+        "issues_other": "{{count}} issues",
+        "gateDetail": "démarre en attendant votre décision sur #{{n}}",
+        "runningTitle": "Exécution de la vague {{n}}",
+        "runningDetail": "{{count}} en parallèle"
+      },
+      "card": {
+        "ready": "● prêt",
+        "gate": "◆ décision",
+        "blocked": "attend la vague {{n}}",
+        "queued": "en file",
+        "running": "en cours",
+        "review": "en revue",
+        "done": "✓ fusionné",
+        "manual": "manuel",
+        "decideNow": "Décider maintenant",
+        "workerBranch": "{{name}} · worker sur sa branche",
+        "prReview": "{{name}} · PR en revue"
+      },
+      "loose": "Sans jalon ou sans vague · traités un par un",
+      "legend": {
+        "ready": "Prêt",
+        "running": "En cours",
+        "review": "En revue",
+        "gate": "Décision du PM",
+        "queued": "En file (aucun slot libre)",
+        "blocked": "Attend la vague précédente"
+      },
+      "empty": "Aucune issue ouverte avec jalon et vague à planifier."
     }
   },
   "workers": {

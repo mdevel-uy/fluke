@@ -1003,8 +1003,7 @@
       "groupByOptions": {
         "none": "없음",
         "label": "레이블",
-        "milestone": "마일스톤",
-        "execution": "실행 계획"
+        "milestone": "마일스톤"
       },
       "clear": "필터 초기화",
       "noResults": "현재 필터에 맞는 이슈가 없습니다.",
@@ -1032,17 +1031,54 @@
       "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
       "archiveAction": "이슈 닫기"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "보기",
+      "tabs": {
+        "list": "목록",
+        "groups": "그룹",
+        "plan": "플랜"
+      },
+      "slots": "슬롯 {{used}}/{{limit}}",
+      "pauseBetweenWaves": "웨이브마다 일시 정지",
+      "collapseAll": "모두 접기",
+      "expandAll": "모두 펼치기",
+      "runAll": "모두 실행",
+      "comingSoon": "곧 제공",
+      "play": "마일스톤 실행",
+      "collapse": "마일스톤 접기",
       "wave": "웨이브 {{n}}",
-      "parallel": "이슈 {{n}}건을 동시에 배정할 수 있습니다",
-      "single": "이 웨이브에는 이슈가 1건뿐입니다",
-      "unwaved": "웨이브 없음",
-      "unwavedHint": "feature는 있지만 사용할 수 있는 wave: 라벨이 없습니다 — 하나씩 배정하세요",
-      "unclassified": "미분류",
-      "unclassifiedHint": "feature: 라벨이 없습니다 — 계획할 수 없습니다. 하나씩 배정하세요",
-      "contentionTitle": "충돌 중인 직렬화 리소스",
-      "contentionHint": "이 이슈들은 저장소 전역의 동일한 리소스를 요구합니다. 서로 다른 기능이더라도 한 번에 하나의 PR만 열 수 있습니다.",
-      "empty": "계획할 열린 이슈가 없습니다."
+      "merged": "{{done}}/{{total}} 병합됨",
+      "status": {
+        "readyTitle": "실행 준비됨",
+        "waves_other": "웨이브 {{count}}개",
+        "issues_other": "이슈 {{count}}개",
+        "gateDetail": "#{{n}}에 대한 결정을 기다리며 시작",
+        "runningTitle": "웨이브 {{n}} 실행 중",
+        "runningDetail": "{{count}}개 병렬 실행"
+      },
+      "card": {
+        "ready": "● 준비됨",
+        "gate": "◆ 결정 필요",
+        "blocked": "웨이브 {{n}} 대기",
+        "queued": "대기열",
+        "running": "실행 중",
+        "review": "리뷰 중",
+        "done": "✓ 병합됨",
+        "manual": "수동",
+        "decideNow": "지금 결정",
+        "workerBranch": "{{name}} · 자기 브랜치에서 작업 중",
+        "prReview": "{{name}} · PR 리뷰 중"
+      },
+      "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
+      "legend": {
+        "ready": "준비됨",
+        "running": "실행 중",
+        "review": "리뷰 중",
+        "gate": "PM 결정",
+        "queued": "대기열 (빈 슬롯 없음)",
+        "blocked": "이전 웨이브 대기"
+      },
+      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다."
     }
   },
   "workers": {

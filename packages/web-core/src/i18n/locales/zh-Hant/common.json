@@ -1003,8 +1003,7 @@
       "groupByOptions": {
         "none": "不分組",
         "label": "標籤",
-        "milestone": "里程碑",
-        "execution": "執行計畫"
+        "milestone": "里程碑"
       },
       "clear": "清除篩選",
       "noResults": "沒有 Issue 符合目前的篩選條件。",
@@ -1032,17 +1031,54 @@
       "archiveConfirm": "在 GitHub 上關閉 Issue #{{number}}？它將移至已關閉篩選器。",
       "archiveAction": "關閉 Issue"
     },
-    "execution": {
-      "wave": "第 {{n}} 波",
-      "parallel": "{{n}} 個議題可以同時指派",
-      "single": "本波僅有一個議題",
-      "unwaved": "無波次",
-      "unwavedHint": "有 feature 但沒有可用的 wave: 標籤 — 請逐一指派",
-      "unclassified": "未分類",
-      "unclassifiedHint": "沒有 feature: 標籤 — 無法規劃；請逐一指派",
-      "contentionTitle": "存在爭用的序列化資源",
-      "contentionHint": "這些議題占用同一個儲存庫層級的資源。即使屬於不同功能，同一時間也只能有一個開啟的 PR。",
-      "empty": "沒有可規劃的開啟議題。"
+    "plan": {
+      "tabsLabel": "檢視",
+      "tabs": {
+        "list": "列表",
+        "groups": "分組",
+        "plan": "計畫"
+      },
+      "slots": "槽位 {{used}}/{{limit}}",
+      "pauseBetweenWaves": "每個波次結束後暫停",
+      "collapseAll": "全部摺疊",
+      "expandAll": "全部展開",
+      "runAll": "全部執行",
+      "comingSoon": "即將推出",
+      "play": "執行里程碑",
+      "collapse": "摺疊里程碑",
+      "wave": "波次 {{n}}",
+      "merged": "已合併 {{done}}/{{total}}",
+      "status": {
+        "readyTitle": "可以執行",
+        "waves_other": "{{count}} 個波次",
+        "issues_other": "{{count}} 個 issue",
+        "gateDetail": "開始時等待你對 #{{n}} 的決定",
+        "runningTitle": "正在執行波次 {{n}}",
+        "runningDetail": "{{count}} 個平行"
+      },
+      "card": {
+        "ready": "● 就緒",
+        "gate": "◆ 待決定",
+        "blocked": "等待波次 {{n}}",
+        "queued": "排隊中",
+        "running": "執行中",
+        "review": "審查中",
+        "done": "✓ 已合併",
+        "manual": "手動",
+        "decideNow": "立即決定",
+        "workerBranch": "{{name}} · 在自己的分支上工作",
+        "prReview": "{{name}} · PR 審查中"
+      },
+      "loose": "無里程碑或無波次 · 逐一分配",
+      "legend": {
+        "ready": "就緒",
+        "running": "執行中",
+        "review": "審查中",
+        "gate": "PM 決定",
+        "queued": "排隊中（無空閒槽位）",
+        "blocked": "等待上一波次"
+      },
+      "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。"
     }
   },
   "workers": {

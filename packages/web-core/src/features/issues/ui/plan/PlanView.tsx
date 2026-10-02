@@ -1,0 +1,125 @@
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/shared/lib/utils';
+import type { RepoIssue } from '@/features/issues/types';
+import type { WorkerTask } from '@/features/sprint/types';
+import {
+  buildMilestonePlan,
+  type PlanCardState,
+} from '@/features/issues/lib/milestonePlan';
+import { MilestoneBand } from './MilestoneBand';
+import { PlanCard } from './PlanCard';
+
+/**
+ * Plan view of the Issues page (fluke v2, #663): one band per GitHub
+ * milestone with its issues in columns by wave, the loose bucket below and
+ * the legend. Contract: design/mockups/fluke-v2/issues-plan.html.
+ */
+
+export interface PlanViewProps {
+  /** Open and closed issues: closed ones count as merged inside a band. */
+  issues: RepoIssue[];
+  taskByIssueNumber: ReadonlyMap<number, WorkerTask>;
+  workerNameById: ReadonlyMap<string, string>;
+  selectedIssueId?: string;
+  onSelectIssue?: (issue: RepoIssue) => void;
+  onDecide?: (issue: RepoIssue) => void;
+}
+
+const TASK_TO_CARD: Record<string, PlanCardState> = {
+  queued: 'queued',
+  in_progress: 'running',
+  waiting_user: 'running',
+  in_review: 'review',
+  approved: 'review',
+};
+
+const LEGEND: { key: string; className: string }[] = [
+  { key: 'ready', className: 'border-success' },
+  { key: 'running', className: 'border-md-primary' },
+  { key: 'review', className: 'border-violet-600 dark:border-violet-400' },
+  { key: 'gate', className: 'border-dashed border-warning' },
+  { key: 'queued', className: 'border-dashed border-md-on-surface-variant' },
+  { key: 'blocked', className: 'border-md-outline' },
+];
+
+export function PlanView({
+  issues,
+  taskByIssueNumber,
+  workerNameById,
+  selectedIssueId,
+  onSelectIssue,
+  onDecide,
+}: PlanViewProps) {
+  const { t } = useTranslation('common');
+  const plan = useMemo(
+    () => buildMilestonePlan(issues, taskByIssueNumber),
+    [issues, taskByIssueNumber]
+  );
+
+  return (
+    <div className="mx-auto grid w-full max-w-[1240px] gap-4 px-4 py-5">
+      {plan.bands.length === 0 ? (
+        <div className="px-4 py-10 text-center text-body-md text-normal">
+          {t('issues.plan.empty')}
+        </div>
+      ) : (
+        <div className="grid gap-3.5">
+          {plan.bands.map((band) => (
+            <MilestoneBand
+              key={band.milestone}
+              band={band}
+              columnCount={plan.columnCount}
+              taskByIssueNumber={taskByIssueNumber}
+              workerNameById={workerNameById}
+              selectedIssueId={selectedIssueId}
+              onSelectIssue={onSelectIssue}
+              onDecide={onDecide}
+            />
+          ))}
+        </div>
+      )}
+
+      {plan.loose.length > 0 && (
+        <div className="grid gap-2.5 rounded-[10px] border border-dashed border-md-outline-variant px-4 py-3.5">
+          <h3 className="m-0 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-normal">
+            {t('issues.plan.loose')}
+          </h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5">
+            {plan.loose.map((issue) => {
+              const task = taskByIssueNumber.get(issue.number);
+              const state = task ? TASK_TO_CARD[task.status] : undefined;
+              return (
+                <PlanCard
+                  key={issue.id}
+                  issue={issue}
+                  state={state ?? 'manual'}
+                  currentWave={null}
+                  workerName={
+                    task ? workerNameById.get(task.worker_id) : undefined
+                  }
+                  selected={issue.id === selectedIssueId}
+                  onSelect={onSelectIssue}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-normal">
+        {LEGEND.map((item) => (
+          <span key={item.key} className="inline-flex items-center gap-2">
+            <i
+              className={cn(
+                'h-3 w-5 rounded-[3px] border bg-md-surface-container-high',
+                item.className
+              )}
+            />
+            {t(`issues.plan.legend.${item.key}`)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

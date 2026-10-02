@@ -41,6 +41,8 @@ export interface MilestoneBand {
   milestone: string;
   /** Populated waves only, ascending. Gaps are drawn as empty columns. */
   waves: PlanWave[];
+  /** Number of populated waves ("N waves" in the band status line). */
+  waveCount: number;
   /** Lowest wave that still has something not merged; null when all are. */
   currentWave: number | null;
   done: number;
@@ -140,7 +142,8 @@ export function buildMilestonePlan(
     const current = waves.find((w) => w.wave === currentWave)?.cards ?? [];
     const pending = current.filter((c) => c.state !== 'done');
     const active = cards.some(
-      (c) => c.state === 'queued' || c.state === 'running' || c.state === 'review'
+      (c) =>
+        c.state === 'queued' || c.state === 'running' || c.state === 'review'
     );
     const status: PlanBandStatus =
       active && currentWave !== null
@@ -152,6 +155,7 @@ export function buildMilestonePlan(
     bands.push({
       milestone,
       waves,
+      waveCount: waves.length,
       currentWave,
       done: cards.filter((c) => c.state === 'done').length,
       total: cards.length,

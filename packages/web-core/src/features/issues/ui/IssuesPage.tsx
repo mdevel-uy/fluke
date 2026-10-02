@@ -27,7 +27,13 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
-import { ExecutionPlanView } from './ExecutionPlanView';
+import { PlanView } from './plan/PlanView';
+import {
+  IssuesViewTabs,
+  PlanHeaderActions,
+  type IssuesView,
+} from './plan/PlanHeader';
+import { PmDecisionDialog } from './PmDecisionDialog';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
 import { IssuesSidebar } from './IssuesSidebar';
@@ -53,9 +59,36 @@ type RawSearch = {
   labels?: string;
   milestones?: string;
   workers?: string;
-  groupBy?: 'none' | 'label' | 'milestone' | 'execution';
+  // `execution` is the pre-v2 plan view: old links land on the Plan view.
+  groupBy?: 'none' | 'label' | 'milestone' | 'plan' | 'execution';
   issue?: number;
 };
+
+// The Lista / Grupos / Plan choice survives visits (#663). Per-browser only.
+const VIEW_STORAGE_KEY = 'fluke.issues.groupBy';
+const GROUP_BY_VALUES: IssueGroupBy[] = ['none', 'label', 'milestone', 'plan'];
+
+function readStoredGroupBy(): IssueGroupBy {
+  try {
+    const v = localStorage.getItem(VIEW_STORAGE_KEY) as IssueGroupBy | null;
+    return v && GROUP_BY_VALUES.includes(v) ? v : 'plan';
+  } catch {
+    return 'plan';
+  }
+}
+
+function storeGroupBy(v: IssueGroupBy) {
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, v);
+  } catch {
+    // Storage blocked: the view simply isn't remembered.
+  }
+}
+
+function viewOf(groupBy: IssueGroupBy): IssuesView {
+  if (groupBy === 'plan') return 'plan';
+  return groupBy === 'none' ? 'list' : 'groups';
+}
 
 function filtersFromUrl(s: RawSearch): IssueFilters {
   return {
@@ -67,7 +100,10 @@ function filtersFromUrl(s: RawSearch): IssueFilters {
     labels: s.labels ? s.labels.split(',').filter(Boolean) : [],
     milestones: s.milestones ? s.milestones.split(',').filter(Boolean) : [],
     workers: s.workers ? s.workers.split(',').filter(Boolean) : [],
-    groupBy: (s.groupBy as IssueGroupBy) ?? 'none',
+    groupBy:
+      s.groupBy === 'execution'
+        ? 'plan'
+        : ((s.groupBy as IssueGroupBy | undefined) ?? readStoredGroupBy()),
   };
 }
 
@@ -79,7 +115,8 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
     labels: f.labels.length ? f.labels.join(',') : undefined,
     milestones: f.milestones.length ? f.milestones.join(',') : undefined,
     workers: f.workers.length ? f.workers.join(',') : undefined,
-    groupBy: f.groupBy !== 'none' ? f.groupBy : undefined,
+    // Plan is the default view, so it is the one that stays out of the URL.
+    groupBy: f.groupBy !== 'plan' ? f.groupBy : undefined,
   };
 }
 
@@ -174,9 +211,9 @@ function groupIssues(
   noGroupLabel: string,
   noMilestoneLabel: string
 ): IssueGroup[] {
-  // `execution` never reaches here — it renders through ExecutionPlanView,
-  // which builds its own feature/wave structure instead of a flat group list.
-  if (groupBy === 'none' || groupBy === 'execution') {
+  // `plan` never reaches here — it renders through PlanView, which builds its
+  // own milestone/wave structure instead of a flat group list.
+  if (groupBy === 'none' || groupBy === 'plan') {
     const open = issues.filter((i) => i.state === 'open');
     const closed = issues.filter((i) => i.state !== 'open');
     return [
@@ -269,6 +306,7 @@ export function IssuesPage() {
   }, [queryClient]);
 
   const filters = useMemo(() => filtersFromUrl(search), [search]);
+  const isPlan = filters.groupBy === 'plan';
   const selectedIssueNumber = search.issue;
 
   const { repos, isLoadingRepos } = useRepos();
@@ -377,6 +415,20 @@ export function IssuesPage() {
     [issues, filters, activeTaskByIssueNumber]
   );
 
+  // The Plan view needs merged (closed) issues to fill its bands, so it
+  // ignores the open/closed state filter and keeps the rest.
+  const planIssues = useMemo(
+    () =>
+      filters.groupBy === 'plan'
+        ? applyFilters(
+            issues,
+            { ...filters, state: 'all' },
+            activeTaskByIssueNumber
+          )
+        : [],
+    [issues, filters, activeTaskByIssueNumber]
+  );
+
   const groups = useMemo(
     () =>
       groupIssues(
@@ -425,9 +477,36 @@ export function IssuesPage() {
 
   const handleFilterChange = useCallback(
     (newFilters: IssueFilters) => {
+      if (newFilters.groupBy !== filters.groupBy) {
+        storeGroupBy(newFilters.groupBy);
+      }
       updateUrl(filtersToUrlParams(newFilters));
     },
-    [updateUrl]
+    [filters.groupBy, updateUrl]
+  );
+
+  const handleViewChange = useCallback(
+    (view: IssuesView) => {
+      const groupBy: IssueGroupBy =
+        view === 'plan'
+          ? 'plan'
+          : view === 'list'
+            ? 'none'
+            : filters.groupBy === 'label' || filters.groupBy === 'milestone'
+              ? filters.groupBy
+              : 'milestone';
+      storeGroupBy(groupBy);
+      updateUrl(filtersToUrlParams({ ...filters, groupBy }));
+    },
+    [filters, updateUrl]
+  );
+
+  const handleDecide = useCallback(
+    (issue: RepoIssue) => {
+      if (!selectedRepoId) return;
+      void PmDecisionDialog.show({ issue, repoId: selectedRepoId });
+    },
+    [selectedRepoId]
   );
 
   const handleRefresh = () => {
@@ -475,21 +554,30 @@ export function IssuesPage() {
       {/* MD3 top bar — 64px, surface-bright, border bottom */}
       <PageHeader
         title={t('issues.title')}
+        meta={
+          <IssuesViewTabs
+            view={viewOf(filters.groupBy)}
+            onChange={handleViewChange}
+          />
+        }
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-8 gap-1.5 text-sm"
-            onClick={handleRefresh}
-            disabled={!selectedRepoId || isSyncing}
-            title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-          >
-            <RefreshCw
-              className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
-              strokeWidth={1.75}
-            />
-            {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-          </Button>
+          <>
+            {isPlan && <PlanHeaderActions />}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 gap-1.5 text-sm"
+              onClick={handleRefresh}
+              disabled={!selectedRepoId || isSyncing}
+              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
+                strokeWidth={1.75}
+              />
+              {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+            </Button>
+          </>
         }
       />
 
@@ -502,7 +590,7 @@ export function IssuesPage() {
           onChange={handleFilterChange}
         />
       </ShellSidebarPortal>
-      {hasIssues && (
+      {hasIssues && !isPlan && (
         <IssuesToolbar
           filters={filters}
           availableLabels={availableLabels}
@@ -549,21 +637,19 @@ export function IssuesPage() {
           <div className="flex h-full">
             <IssuesEmptyState />
           </div>
+        ) : isPlan ? (
+          <PlanView
+            issues={planIssues}
+            taskByIssueNumber={activeTaskByIssueNumber}
+            workerNameById={workerNameById}
+            selectedIssueId={selectedIssue?.id}
+            onSelectIssue={handleSelectIssue}
+            onDecide={handleDecide}
+          />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.filters.noResults')}
           </div>
-        ) : filters.groupBy === 'execution' ? (
-          <ExecutionPlanView
-            issues={filteredIssues}
-            repoId={selectedRepoId}
-            taskByIssueNumber={activeTaskByIssueNumber}
-            workerNameById={workerNameById}
-            branchByWorkspaceId={branchByWorkspaceId}
-            selectedIssueId={selectedIssue?.id}
-            onSelectIssue={handleSelectIssue}
-            onArchive={handleCloseIssue}
-          />
         ) : (
           <div className="flex flex-col gap-6 py-6">
             {groups.map((group) =>
