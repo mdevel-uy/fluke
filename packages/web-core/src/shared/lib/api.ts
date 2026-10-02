@@ -1973,6 +1973,17 @@ export const repoIssuesApi = {
     );
     return handleApiResponse<RepoIssue>(response);
   },
+  comment: async (
+    repoId: string,
+    issueNumber: number,
+    body: string
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/comments`,
+      { method: 'POST', body: JSON.stringify({ body }) }
+    );
+    return handleApiResponse<void>(response);
+  },
 };
 
 // Scratch API

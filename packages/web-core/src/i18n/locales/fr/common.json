@@ -908,6 +908,16 @@
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
     "reassignAction": "Réaffecter",
+    "pmDecision": {
+      "action": "Décision du PM",
+      "title": "Décision du PM pour #{{number}}",
+      "description": "Le texte est publié en commentaire sur l'issue GitHub et le label pm:decision est retiré.",
+      "placeholder": "Rédigez la décision...",
+      "confirm": "Publier la décision",
+      "retryLabelRemoval": "Réessayer de retirer le label",
+      "labelRemovalFailed": "La décision a été publiée sur GitHub, mais le label pm:decision n'a pas pu être retiré : {{error}}",
+      "assignBlocked": "En attente de la décision du PM : publiez-la avant d'assigner cette issue."
+    },
     "archiveAction": "Archiver",
     "taskStatus": {
       "queued": "En attente",
