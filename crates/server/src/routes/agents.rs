@@ -1,5 +1,4 @@
 use std::{
-    path::PathBuf,
     sync::{LazyLock, Mutex},
     time::{Duration, Instant},
 };
@@ -9,7 +8,7 @@ use deployment::Deployment;
 use executors::executors::BaseCodingAgent;
 use serde::Serialize;
 use ts_rs::TS;
-use utils::response::ApiResponse;
+use utils::{claude_credentials, response::ApiResponse};
 
 use crate::{DeploymentImpl, error::ApiError};
 
@@ -55,16 +54,6 @@ fn cached() -> Option<Option<ClaudeUsageResponse>> {
     (stamped.elapsed() < CACHE_TTL).then(|| value.clone())
 }
 
-/// `$CLAUDE_CONFIG_DIR/.credentials.json`, or `~/.claude/.credentials.json`.
-fn claude_credentials_path() -> Option<PathBuf> {
-    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR")
-        && !dir.is_empty()
-    {
-        return Some(PathBuf::from(dir).join(".credentials.json"));
-    }
-    dirs::home_dir().map(|home| home.join(".claude").join(".credentials.json"))
-}
-
 #[derive(Debug, Clone)]
 struct ClaudeCredentials {
     access_token: String,
@@ -76,7 +65,7 @@ struct ClaudeCredentials {
 fn credentials_from_json(raw: &str) -> Option<ClaudeCredentials> {
     let value: serde_json::Value = serde_json::from_str(raw).ok()?;
     let oauth = value.get("claudeAiOauth").unwrap_or(&value);
-    let access_token = oauth.get("accessToken")?.as_str()?.to_string();
+    let access_token = claude_credentials::access_token_from_json(raw)?;
     let plan = plan_label(
         oauth.get("rateLimitTier").and_then(|v| v.as_str()),
         oauth.get("subscriptionType").and_then(|v| v.as_str()),
@@ -108,8 +97,8 @@ fn plan_label(rate_limit_tier: Option<&str>, subscription_type: Option<&str>) ->
     })
 }
 
-/// Read the CLI's stored OAuth credentials: the credentials file, then (on
-/// macOS dev machines, where the CLI keeps them in the Keychain) `security`.
+/// Read the CLI's stored OAuth credentials (credentials file or macOS
+/// Keychain, see [`utils::claude_credentials::read_stored_credentials_json`]).
 ///
 /// A missing credentials file is the most common reason the dashboard's Claude
 /// limits card stays hidden, so say which source was missing instead of just
@@ -117,38 +106,15 @@ fn plan_label(rate_limit_tier: Option<&str>, subscription_type: Option<&str>) ->
 /// `CLAUDE_CODE_OAUTH_TOKEN` never writes this file, and that silence is
 /// indistinguishable from a failed request.
 async fn read_claude_credentials() -> Option<ClaudeCredentials> {
-    let path = claude_credentials_path();
-
-    if let Some(path) = path.as_deref()
-        && let Ok(raw) = tokio::fs::read_to_string(path).await
-    {
+    if let Some(raw) = claude_credentials::read_stored_credentials_json().await {
         if let Some(creds) = credentials_from_json(&raw) {
             return Some(creds);
         }
         tracing::warn!(
-            "claude credentials at {} are not in the expected \
-             {{\"claudeAiOauth\":{{\"accessToken\":..}}}} shape",
-            path.display()
+            "stored claude credentials are not in the expected \
+             {{\"claudeAiOauth\":{{\"accessToken\":..}}}} shape"
         );
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(output) = tokio::process::Command::new("security")
-            .args([
-                "find-generic-password",
-                "-s",
-                "Claude Code-credentials",
-                "-w",
-            ])
-            .output()
-            .await
-            && output.status.success()
-            && let Ok(raw) = String::from_utf8(output.stdout)
-            && let Some(creds) = credentials_from_json(raw.trim())
-        {
-            return Some(creds);
-        }
+        return None;
     }
 
     tracing::warn!(
@@ -156,7 +122,7 @@ async fn read_claude_credentials() -> Option<ClaudeCredentials> {
          until `claude login` stores them there. CLAUDE_CODE_OAUTH_TOKEN is not \
          a substitute: those tokens lack the `user:profile` scope the usage API \
          requires",
-        path.map_or_else(
+        claude_credentials::claude_credentials_path().map_or_else(
             || "$HOME/.claude/.credentials.json (no home directory)".to_string(),
             |path| path.display().to_string()
         )

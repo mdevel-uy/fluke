@@ -22,6 +22,7 @@ use db::models::{
     workspace::Workspace,
 };
 use deployment::Deployment;
+use executors::executors::BaseCodingAgent;
 use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
@@ -52,6 +53,9 @@ pub struct WorkerResponse {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    /// Coding agent the worker runs on; `null` = follow the global default.
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<BaseCodingAgent>,
     #[ts(optional)]
     pub model: Option<String>,
     /// Whether the worker has a personal GitHub PAT stored. The token itself
@@ -352,6 +356,9 @@ pub struct CreateWorkerRequest {
     pub soul: String,
     #[ts(optional)]
     pub role: Option<String>,
+    /// Coding agent; omitted or `null` = follow the global default.
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<BaseCodingAgent>,
     #[ts(optional)]
     pub model: Option<String>,
     /// Optional GitHub PAT to authenticate this worker's push/PR/review
@@ -372,6 +379,10 @@ pub struct UpdateWorkerRequest {
     pub soul: Option<String>,
     #[ts(optional)]
     pub role: Option<String>,
+    /// `undefined` = no change; `null` = follow the global default agent.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<Option<BaseCodingAgent>>,
     /// `undefined` = no change; `null` = clear to global default; `string` = set override
     #[serde(default, deserialize_with = "deserialize_double_option")]
     #[ts(optional, type = "string | null")]
@@ -642,6 +653,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         emoji: worker.emoji,
         soul: worker.soul,
         role: worker.role,
+        executor: worker.executor,
         model: worker.model,
         has_github_pat: worker.github_pat.is_some(),
         github_login: worker.github_login,
@@ -710,6 +722,14 @@ pub async fn create_worker(
         }
     }
 
+    // A model is only meaningful for one agent: pin the default agent when
+    // the caller picked a model without saying whose.
+    let model = payload.model.filter(|m| !m.is_empty());
+    let executor = match payload.executor {
+        None if model.is_some() => Some(default_executor(&deployment).await),
+        executor => executor,
+    };
+
     let pool = &deployment.db().pool;
     let worker = Worker::create(
         pool,
@@ -718,7 +738,8 @@ pub async fn create_worker(
             emoji: emoji.to_string(),
             soul: payload.soul,
             role: payload.role,
-            model: payload.model.filter(|m| !m.is_empty()),
+            executor,
+            model,
             github_pat,
             github_login,
             plan_mode: payload.plan_mode,
@@ -779,6 +800,13 @@ pub async fn update_worker(
 
     // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
     let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
+    // Same invariant as create: a pinned model always has a pinned agent.
+    let mut executor = payload.executor;
+    if model.clone().unwrap_or(existing.model.clone()).is_some()
+        && executor.unwrap_or(existing.executor).is_none()
+    {
+        executor = Some(Some(default_executor(&deployment).await));
+    }
 
     // Normalize PAT the same way, then validate a *new non-empty* value before
     // persisting. `None` (missing field) leaves it alone; `Some(None)` clears
@@ -815,6 +843,7 @@ pub async fn update_worker(
                 .filter(|s| !s.is_empty()),
             soul: payload.soul,
             role,
+            executor,
             model,
             github_pat,
             github_login,
@@ -825,6 +854,10 @@ pub async fn update_worker(
 
     let response = to_response(pool, worker).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+async fn default_executor(deployment: &DeploymentImpl) -> BaseCodingAgent {
+    deployment.config().read().await.executor_profile.executor
 }
 
 /// Empty / whitespace-only PAT is treated as "no token" — same as omitting
@@ -966,7 +999,7 @@ pub async fn delete_all_failed_tasks(
     )))
 }
 
-/// Clone an existing worker's identity (emoji, soul, role, model) into a new
+/// Clone an existing worker's identity (emoji, soul, role, agent, model) into a new
 /// worker. The duplicate is named `"Copia de {name}"` and starts empty — no
 /// tasks or workspaces are copied. Returns 201 with the new worker, or 404
 /// when the source worker does not exist.
@@ -995,6 +1028,7 @@ pub async fn duplicate_worker(
             emoji: source.emoji,
             soul: source.soul,
             role: Some(source.role),
+            executor: source.executor,
             model: source.model,
             github_pat: None,
             github_login: None,
@@ -1435,6 +1469,7 @@ fn map_start_error(err: StartError) -> ApiError {
     match err {
         StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
         StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
+        e @ StartError::ProviderDisconnected(_) => ApiError::BadRequest(e.to_string()),
         StartError::RepoMissingDefaultBranch(repo_name) => ApiError::BadRequest(format!(
             "Repo '{}' is missing a default target branch. Configure it in Settings \u{2192} Repos \u{2192} {} \u{2192} Default target branch",
             repo_name, repo_name

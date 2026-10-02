@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -29,7 +29,7 @@ const PROVIDER_ORDER: AgentAuthProvider[] = ['codex', 'claude_code', 'gemini'];
 export function AgentAuthSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: AGENT_AUTH_STATUS_KEY,
     queryFn: () => agentAuthApi.getStatus(),
     // Poll while any provider has a pending login. `refetchInterval` accepts
@@ -79,7 +79,6 @@ export function AgentAuthSettingsSection() {
           key={provider.provider}
           status={provider}
           refetch={() => void refetch()}
-          isFetching={isFetching}
         />
       ))}
 
@@ -106,10 +105,9 @@ export function AgentAuthSettingsSection() {
 interface ProviderCardProps {
   status: AgentAuthProviderStatus;
   refetch: () => void;
-  isFetching: boolean;
 }
 
-function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
+function ProviderCard({ status, refetch }: ProviderCardProps) {
   const { t } = useTranslation(['settings', 'common']);
   const provider = status.provider;
 
@@ -121,16 +119,24 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
   const [exchangeCode, setExchangeCode] = useState('');
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
 
-  // A previously started login that never finished should not linger as
-  // "pending" on the card after the user disconnected: server-side we clear
-  // it in the logout handler, so as long as the polled snapshot is fresh the
-  // banner stays truthful. Errors surface locally too so the message is
-  // immediately visible without waiting for the next status poll.
-  useEffect(() => {
-    if (status.login?.state === 'failed' && status.login.error) {
-      setErrorMessage(status.login.error);
-    }
-  }, [status.login?.state, status.login?.error]);
+  // Server-side login errors (e.g. a rejected code) surface while the flow
+  // is still pending too, so the user can fix the code and resubmit.
+  const loginError =
+    status.login?.state === 'completed' ? null : status.login?.error;
+  const shownError = errorMessage ?? loginError;
+
+  // Claude's flow needs the code pasted into this card: when the card goes
+  // away (dialog closed) cancel the login so the CLI's PTY does not linger.
+  const pendingRef = useRef(false);
+  pendingRef.current = status.login?.state === 'pending';
+  useEffect(
+    () => () => {
+      if (provider === 'claude_code' && pendingRef.current) {
+        void agentAuthApi.cancelLogin(provider).catch(() => undefined);
+      }
+    },
+    [provider]
+  );
 
   const handleConnectCodex = useCallback(async () => {
     setErrorMessage(null);
@@ -258,9 +264,9 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
 
   return (
     <>
-      {errorMessage && (
+      {shownError && (
         <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error text-sm">
-          {errorMessage}
+          {shownError}
         </div>
       )}
       <SettingsCard
@@ -360,8 +366,6 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
               <PrimaryButton
                 variant="tertiary"
                 onClick={() => void refetch()}
-                disabled={isFetching}
-                actionIcon={isFetching ? 'spinner' : undefined}
                 value={t('settings.agentAuth.deviceFlow.checkStatus')}
               />
               <PrimaryButton
@@ -453,11 +457,7 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
                 />
                 <PrimaryButton
                   onClick={() => void handleSubmitClaudeCode()}
-                  disabled={
-                    isSubmittingCode ||
-                    !exchangeCode.trim() ||
-                    !status.login?.verification_uri
-                  }
+                  disabled={isSubmittingCode || !exchangeCode.trim()}
                   actionIcon={isSubmittingCode ? 'spinner' : undefined}
                   value={t('settings.agentAuth.claudeFlow.submitCode')}
                 />
@@ -471,8 +471,6 @@ function ProviderCard({ status, refetch, isFetching }: ProviderCardProps) {
               <PrimaryButton
                 variant="tertiary"
                 onClick={() => void refetch()}
-                disabled={isFetching}
-                actionIcon={isFetching ? 'spinner' : undefined}
                 value={t('settings.agentAuth.deviceFlow.checkStatus')}
               />
               <PrimaryButton

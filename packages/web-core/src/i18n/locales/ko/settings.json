@@ -757,7 +757,7 @@
         "waitingForUrl": "CLI가 로그인 URL을 표시할 때까지 기다리는 중…",
         "codeInputLabel": "교환 코드",
         "codeInputPlaceholder": "claude.com의 코드를 붙여넣기",
-        "codeInputHelp": "CLI가 코드를 승인하면 이 카드는 자동으로 업데이트됩니다.",
+        "codeInputHelp": "Once Claude accepts the code, fluke stores the sign-in token for your workers and this card switches to Connected within a few seconds. If the code is rejected, copy it again and resubmit.",
         "submitCode": "코드 제출"
       },
       "hidden": {

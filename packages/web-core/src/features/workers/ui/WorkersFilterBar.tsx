@@ -1,7 +1,11 @@
 import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
-import type { WorkerModelBucket, WorkerStatus } from '../model/workerStatus';
+import {
+  MODEL_BUCKETS,
+  type WorkerModelBucket,
+  type WorkerStatus,
+} from '../model/workerStatus';
 
 export interface WorkersFilterState {
   search: string;
@@ -34,7 +38,6 @@ const ROLE_VALUES: readonly string[] = [
   'reviewer',
   'designer',
 ];
-const MODEL_VALUES: readonly WorkerModelBucket[] = ['opus', 'sonnet', 'haiku'];
 const STATUS_VALUES: readonly WorkerStatus[] = [
   'working',
   'idle',
@@ -60,6 +63,7 @@ const MODEL_ACTIVE: Record<WorkerModelBucket, string> = {
   opus: 'border-merged bg-merged/10 text-merged',
   sonnet: 'border-teal bg-teal/10 text-teal',
   haiku: 'border-pink bg-pink/10 text-pink',
+  fable: 'border-brand-on-surface bg-brand-on-surface/10 text-brand-on-surface',
 };
 
 const STATUS_ACTIVE: Record<WorkerStatus, string> = {
@@ -181,7 +185,7 @@ export function WorkersFilterBar({
         <span className="mr-1 shrink-0 font-sans text-label uppercase tracking-wide text-low">
           {t('workers.filters.modelLabel')}
         </span>
-        {MODEL_VALUES.map((value) => (
+        {MODEL_BUCKETS.map((value) => (
           <Chip
             key={value}
             active={filters.model.has(value)}
