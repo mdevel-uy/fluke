@@ -55,7 +55,6 @@ use db::{
         agent_action::{self, AgentAction},
         coding_agent_turn::CodingAgentTurn,
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
-        plan_cap_hit::PlanCapHit,
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
@@ -312,6 +311,10 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("licencia suspendida: no se arrancan agentes nuevos")]
     LicenseSuspended,
+    /// Every global agent slot is taken: the task stays queued (and without
+    /// a worktree) until one frees up.
+    #[error("no hay slots de agente libres")]
+    NoFreeSlot,
     #[error("repo not found")]
     RepoNotFound,
     /// The worker's agent has no login on this machine. The task is marked
@@ -342,6 +345,7 @@ impl StartError {
                 | StartError::AlreadyInProgress
                 | StartError::InReviewCapReached(_)
                 | StartError::LicenseSuspended
+                | StartError::NoFreeSlot
         )
     }
 }
@@ -373,40 +377,45 @@ pub fn max_in_review_from_env() -> i64 {
 pub(crate) async fn resolve_next_takeable_task(
     pool: &sqlx::SqlitePool,
     worker_id: Uuid,
-    cap: i64,
 ) -> Result<WorkerTask, StartError> {
-    if WorkerTask::find_in_progress(pool, worker_id)
+    // A worker is a profile (fluke v2, #680): it runs as many tasks at once
+    // as there are free global slots, so the next queued task is always
+    // takeable. No per-worker "one in progress" rule and no in-review cap.
+    WorkerTask::find_next_queued(pool, worker_id)
         .await?
-        .is_some()
-    {
-        return Err(StartError::AlreadyInProgress);
-    }
+        .ok_or(StartError::NothingQueued)
+}
 
-    let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
-    let next_queued = WorkerTask::find_next_queued(pool, worker_id).await?;
-    if in_review >= cap {
-        let next_is_review_fix = match &next_queued {
-            Some(task) => {
-                WorkerTask::kind(pool, task.id).await?.as_deref()
-                    == Some(worker_task::KIND_REVIEW_FIX)
-            }
-            None => false,
-        };
-        if !next_is_review_fix {
-            if next_queued.is_some()
-                && let Err(e) = PlanCapHit::record_hit_today(pool).await
-            {
-                warn!(
-                    worker_id = %worker_id,
-                    "Failed to record plan cap hit: {}",
-                    e
-                );
-            }
-            return Err(StartError::InReviewCapReached(cap));
+/// Free global agent slots: the effective limit minus whatever already holds
+/// or waits for one (running processes plus the semaphore queue, or the
+/// in-progress worker tasks if that is higher). Claiming only when this is
+/// positive keeps queued tasks from getting a worktree before they can run.
+pub async fn free_agent_slots(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+) -> Result<i64, sqlx::Error> {
+    let in_progress: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM worker_tasks WHERE status = 'in_progress'")
+            .fetch_one(&db.pool)
+            .await?;
+    let (limit, busy) = match container.concurrency() {
+        Some(sem) => {
+            let snap = sem.snapshot().await;
+            let held = snap.used as i64 + snap.queued.len() as i64;
+            (snap.limit as i64, held.max(in_progress))
         }
-    }
-
-    next_queued.ok_or(StartError::NothingQueued)
+        None => {
+            let configured = config.read().await.agent_concurrency_limit;
+            let limit = if configured == 0 {
+                crate::services::concurrency::auto_limit()
+            } else {
+                configured
+            };
+            (limit as i64, in_progress)
+        }
+    };
+    Ok((limit - busy).max(0))
 }
 
 pub const WORKER_LEAD_ENABLED_ENV: &str = "WORKER_LEAD_ENABLED";
@@ -769,7 +778,10 @@ pub async fn try_take_next(
         return Err(StartError::LicenseSuspended);
     }
 
-    let task = resolve_next_takeable_task(pool, worker_id, max_in_review_from_env()).await?;
+    if free_agent_slots(config, db, container).await? <= 0 {
+        return Err(StartError::NoFreeSlot);
+    }
+    let task = resolve_next_takeable_task(pool, worker_id).await?;
 
     let repo = Repo::find_by_id(pool, task.repo_id)
         .await?
@@ -3623,64 +3635,19 @@ async fn territory_note_for_reviewer(
 }
 
 /// Walk an LRU-ordered reviewer candidate list and pick the first one that
-/// passes the dispatch-time guards:
-///   (a) not the same worker as the PR author (self-review guard — GitHub
-///       rejects `gh pr review --approve` from the PR author with 422), and
-///   (b) strictly under [`WORKER_MAX_IN_REVIEW_ENV`] (capacity guard — same
-///       cap that [`try_take_next`] enforces at start time; skipping saturated
-///       reviewers here prevents the task from being enqueued on a worker that
-///       already can't start it, which would starve the PR while other
-///       reviewers sit idle).
+/// is not the PR author (self-review guard — GitHub rejects
+/// `gh pr review --approve` from the PR author with 422). Reviewers are
+/// profiles (#680) and can review several PRs at once, so busy ones are not
+/// skipped.
 ///
-/// Returns `Ok(None)` when every candidate fails at least one guard; the
-/// caller logs and no-ops in that case.
+/// Returns `Ok(None)` when the only candidate is the author.
 pub(crate) async fn select_lru_reviewer(
-    pool: &sqlx::SqlitePool,
     candidates: Vec<Worker>,
     author_worker_id: Option<Uuid>,
-    cap: i64,
 ) -> Result<Option<Worker>, sqlx::Error> {
-    // Two passes. LRU orders by last *assigned* task, which says nothing
-    // about availability: a reviewer can be LRU-first while its agent is
-    // mid-review, and the in_review cap below can't see that — reviewer
-    // tasks go queued → in_progress → done without ever holding an
-    // `in_review` slot. First pass takes only reviewers that are free right
-    // now; second pass (everyone busy) falls back to queueing on the
-    // LRU-first eligible reviewer so the task still lands somewhere.
-    for busy_allowed in [false, true] {
-        for candidate in &candidates {
-            if let Some(author_id) = author_worker_id {
-                if candidate.id == author_id {
-                    continue;
-                }
-            }
-            let in_review = WorkerTask::count_in_review(pool, candidate.id).await?;
-            if in_review >= cap {
-                debug!(
-                    reviewer_id = %candidate.id,
-                    in_review,
-                    cap,
-                    "Skipping LRU-first reviewer at WORKER_MAX_IN_REVIEW cap; \
-                     trying next candidate"
-                );
-                continue;
-            }
-            if !busy_allowed {
-                let active = WorkerTask::count_active(pool, candidate.id).await?;
-                if active > 0 {
-                    debug!(
-                        reviewer_id = %candidate.id,
-                        active,
-                        "Skipping busy reviewer (queued/in_progress task); \
-                         trying next candidate"
-                    );
-                    continue;
-                }
-            }
-            return Ok(Some(candidate.clone()));
-        }
-    }
-    Ok(None)
+    Ok(candidates
+        .into_iter()
+        .find(|c| author_worker_id != Some(c.id)))
 }
 
 /// Dispatch a review task to the next available reviewer worker for the given
@@ -3738,17 +3705,14 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
-    let cap = max_in_review_from_env();
-    let reviewer = select_lru_reviewer(pool, candidates, author_worker_id, cap).await?;
+    let reviewer = select_lru_reviewer(candidates, author_worker_id).await?;
 
     let Some(reviewer) = reviewer else {
         debug!(
             pr_number,
             author_worker_id = ?author_worker_id,
-            cap,
-            "No eligible reviewer for PR #{} — every active reviewer is \
-             either the PR author or already at the WORKER_MAX_IN_REVIEW cap. \
-             Skipping dispatch.",
+            "No eligible reviewer for PR #{} — the only active reviewer is \
+             the PR author. Skipping dispatch.",
             pr_number,
         );
         return Ok(());
@@ -4165,31 +4129,32 @@ pub async fn kickstart_stuck_worker_queues(
     let pool = &db.pool;
     let workers = Worker::list_all(pool).await?;
 
-    for worker in workers {
-        if WorkerTask::find_in_progress(pool, worker.id)
-            .await?
-            .is_some()
-        {
-            continue;
-        }
-        if WorkerTask::find_next_queued(pool, worker.id)
-            .await?
-            .is_none()
-        {
-            continue;
-        }
-
-        match try_take_next(config, db, container, worker.id).await {
-            Ok(started) => info!(
-                worker_id = %worker.id,
-                task_id = %started.task.id,
-                "Kickstarted stuck worker queue: took next queued task"
-            ),
-            Err(e) if e.is_conflict() => {}
-            Err(e) => warn!(
-                worker_id = %worker.id,
-                "Failed to kickstart stuck worker queue: {}", e
-            ),
+    // Profiles run several tasks at once (#680): keep starting queued tasks
+    // until no worker has one left or the global slots run out.
+    'fill: for worker in workers {
+        loop {
+            if WorkerTask::find_next_queued(pool, worker.id)
+                .await?
+                .is_none()
+            {
+                break;
+            }
+            match try_take_next(config, db, container, worker.id).await {
+                Ok(started) => info!(
+                    worker_id = %worker.id,
+                    task_id = %started.task.id,
+                    "Kickstarted worker queue: took next queued task"
+                ),
+                Err(StartError::NoFreeSlot) => break 'fill,
+                Err(e) if e.is_conflict() => break,
+                Err(e) => {
+                    warn!(
+                        worker_id = %worker.id,
+                        "Failed to kickstart worker queue: {}", e
+                    );
+                    break;
+                }
+            }
         }
     }
 
@@ -6116,7 +6081,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn try_claim_is_exclusive_per_task_and_worker() {
+    async fn try_claim_is_exclusive_per_task() {
         let db = setup_test_db().await;
         let worker = insert_worker(&db, "gasty").await;
         let (repo, _repo_tmp) = insert_repo(&db, "claim-repo").await;
@@ -6151,15 +6116,15 @@ mod tests {
                 .unwrap()
         );
 
-        // A different queued task is also blocked while the worker already
-        // has one in progress.
+        // A worker is a profile (#680): a second task of the same worker can
+        // be claimed while the first one is in progress.
         assert!(
-            !WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
                 .await
                 .unwrap()
         );
 
-        // Releasing the unlinked claim re-queues it and frees the worker.
+        // Releasing the unlinked claim re-queues it.
         WorkerTask::release_claim(&db.pool, task_a.id)
             .await
             .unwrap();
@@ -6168,11 +6133,69 @@ mod tests {
             .unwrap()
             .expect("task still exists");
         assert_eq!(refreshed.status, worker_task::STATUS_QUEUED);
+    }
+
+    #[tokio::test]
+    async fn resolve_next_takeable_task_ignores_tasks_in_progress_and_in_review() {
+        // Profiles (#680): neither a running task nor one in review keeps the
+        // worker from taking the next queued one.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "parallel-repo").await;
+        let worker = insert_worker(&db, "parallel-worker").await;
+        let make_task = |title: &str| CreateWorkerTask {
+            repo_id: repo.id,
+            title: title.to_string(),
+            prompt: "do it".to_string(),
+            issue_number: None,
+            skills: Vec::new(),
+            issue_labels: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
+        };
+        let reviewing = WorkerTask::append(&db.pool, worker.id, &make_task("in review"))
+            .await
+            .unwrap();
+        force_in_review(&db.pool, reviewing.id).await;
+        let running = WorkerTask::append(&db.pool, worker.id, &make_task("running"))
+            .await
+            .unwrap();
         assert!(
-            WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            WorkerTask::try_claim(&db.pool, running.id, worker.id)
                 .await
                 .unwrap()
         );
+        let next = WorkerTask::append(&db.pool, worker.id, &make_task("next"))
+            .await
+            .unwrap();
+
+        let taken = resolve_next_takeable_task(&db.pool, worker.id)
+            .await
+            .expect("next queued task is takeable");
+        assert_eq!(taken.id, next.id);
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_only_skips_the_pr_author() {
+        // Reviewers are profiles (#680): a busy reviewer is still picked; only
+        // the PR author is skipped (GitHub rejects self-review).
+        let db = setup_test_db().await;
+        let alpha = insert_worker(&db, "alpha").await;
+        let bravo = insert_worker(&db, "bravo").await;
+
+        let picked = select_lru_reviewer(vec![alpha.clone(), bravo.clone()], None)
+            .await
+            .unwrap();
+        assert_eq!(picked.map(|w| w.id), Some(alpha.id));
+
+        let picked = select_lru_reviewer(vec![alpha.clone(), bravo.clone()], Some(alpha.id))
+            .await
+            .unwrap();
+        assert_eq!(picked.map(|w| w.id), Some(bravo.id));
+
+        let picked = select_lru_reviewer(vec![alpha.clone()], Some(alpha.id))
+            .await
+            .unwrap();
+        assert!(picked.is_none());
     }
 
     #[tokio::test]
@@ -6475,226 +6498,6 @@ mod tests {
         )
         .await
         .expect("append task")
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_skips_candidate_at_capacity_cap() {
-        // Sad path #1 from issue #302: the LRU-first candidate is at the
-        // WORKER_MAX_IN_REVIEW cap while another reviewer has capacity.
-        // The walk must skip the saturated one and land on the free one,
-        // otherwise the task piles onto a worker that can't start it and
-        // the PR waits while another reviewer sits idle.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "capacity-fallback-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-
-        // Cap = 1 so a single `in_review` task saturates a reviewer.
-        let cap = 1i64;
-
-        // Saturate alpha: append a task and flip it to `in_review` so
-        // count_in_review(alpha) == cap.
-        let alpha_task = WorkerTask::append(
-            &db.pool,
-            alpha.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "Review PR #1".to_string(),
-                prompt: "review".to_string(),
-                issue_number: Some(1),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, alpha_task.id).await;
-        assert_eq!(
-            WorkerTask::count_in_review(&db.pool, alpha.id)
-                .await
-                .unwrap(),
-            1
-        );
-        assert_eq!(
-            WorkerTask::count_in_review(&db.pool, bravo.id)
-                .await
-                .unwrap(),
-            0
-        );
-
-        // Feed the candidates in alpha-first order (the scenario the bug
-        // describes: LRU surfaces the saturated reviewer at the head). We
-        // don't rely on `list_active_reviewers_lru`'s current ordering
-        // here because it depends on subsecond timestamps of the seeded
-        // task; the point of this test is the walk logic, not the query.
-        let picked = select_lru_reviewer(&db.pool, vec![alpha.clone(), bravo.clone()], None, cap)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(bravo.id),
-            "walk must skip the saturated LRU-first candidate and land on bravo",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_returns_none_when_every_candidate_is_saturated() {
-        // No-op path: every candidate is at the cap. `dispatch_review_task`
-        // logs and skips instead of enqueuing on a saturated worker.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "all-saturated-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-        let cap = 1i64;
-
-        for (reviewer_id, title) in [(alpha.id, "a"), (bravo.id, "b")] {
-            let t = WorkerTask::append(
-                &db.pool,
-                reviewer_id,
-                &CreateWorkerTask {
-                    repo_id: repo.id,
-                    title: title.to_string(),
-                    prompt: "review".to_string(),
-                    issue_number: None,
-                    skills: Vec::new(),
-                    issue_labels: Vec::new(),
-                    source: worker_task::SOURCE_KANBAN.to_string(),
-                    territory_globs: Vec::new(),
-                },
-            )
-            .await
-            .unwrap();
-            force_in_review(&db.pool, t.id).await;
-        }
-
-        let picked = select_lru_reviewer(&db.pool, vec![alpha, bravo], None, cap)
-            .await
-            .unwrap();
-        assert!(
-            picked.is_none(),
-            "walk must return None when every candidate is at cap",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_combines_self_review_and_capacity_guards() {
-        // LRU-first is the PR author (skipped by self-review guard).
-        // Next candidate is at cap (skipped by capacity guard).
-        // Third candidate is free → picked.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "combined-guards-repo").await;
-        let author = insert_reviewer(&db, "author").await;
-        let saturated = insert_reviewer(&db, "saturated").await;
-        let free = insert_reviewer(&db, "free").await;
-        let cap = 1i64;
-
-        let saturated_task = WorkerTask::append(
-            &db.pool,
-            saturated.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "existing".to_string(),
-                prompt: "review".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, saturated_task.id).await;
-
-        let picked = select_lru_reviewer(
-            &db.pool,
-            vec![author.clone(), saturated.clone(), free.clone()],
-            Some(author.id),
-            cap,
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(free.id),
-            "walk must skip author (self-review) and saturated (capacity), \
-             then land on the free reviewer",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_prefers_idle_over_busy_lru_first() {
-        // Incidente PR #490 (08-ago-2026): the LRU-first reviewer was
-        // mid-review (task in_progress) while another reviewer sat idle.
-        // Reviewer tasks never hold an `in_review` slot, so the capacity
-        // cap can't catch this — the busy-skip pass must.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "busy-skip-repo").await;
-        let busy = insert_reviewer(&db, "busy").await;
-        let idle = insert_reviewer(&db, "idle").await;
-
-        let busy_task = append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
-        force_in_progress(&db.pool, busy_task.id).await;
-
-        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(idle.id),
-            "walk must skip the reviewer with a running task and pick the idle one",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_queued_task_also_counts_as_busy() {
-        // A task sitting in the reviewer's queue occupies the slot just
-        // like a running one — the next dispatch must go to the idle
-        // reviewer, not deepen the busy reviewer's queue.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "queued-busy-repo").await;
-        let busy = insert_reviewer(&db, "busy").await;
-        let idle = insert_reviewer(&db, "idle").await;
-
-        // append leaves the task in `queued` — no status change needed.
-        append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
-
-        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(idle.id),
-            "a queued task must mark the reviewer as busy for the first pass",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_falls_back_to_busy_when_all_busy() {
-        // When every reviewer is occupied the walk must still enqueue on
-        // the LRU-first eligible one instead of returning None — a review
-        // waiting in a queue beats a review not dispatched at all.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "all-busy-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-
-        for (worker_id, title) in [(alpha.id, "Review PR #1"), (bravo.id, "Review PR #2")] {
-            let t = append_review_task(&db, worker_id, repo.id, title).await;
-            force_in_progress(&db.pool, t.id).await;
-        }
-
-        let picked = select_lru_reviewer(&db.pool, vec![alpha.clone(), bravo.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(alpha.id),
-            "with every reviewer busy the walk must fall back to the \
-             LRU-first candidate, not skip dispatch",
-        );
     }
 
     // --- infra-failure classification + round accounting ---
@@ -7210,189 +7013,6 @@ mod tests {
             DEFAULT_MAX_IN_REVIEW, 1,
             "raising the default reopens the serial-per-worker contract from #472"
         );
-    }
-
-    #[tokio::test]
-    async fn cap_blocks_new_ticket_when_worker_has_in_review_task() {
-        // Serial-per-worker (issue #472): with the default cap of 1, a worker
-        // that already has an in_review task cannot take a fresh queued ticket
-        // — the helper must return InReviewCapReached and record the hit.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-block-repo").await;
-        let worker = insert_worker(&db, "serial-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "already merged-ish".to_string(),
-                prompt: "occupy the slot".to_string(),
-                issue_number: Some(500),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        // Fresh feature ticket queued behind the in_review one.
-        WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "next feature".to_string(),
-                prompt: "build".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        let result = resolve_next_takeable_task(&db.pool, worker.id, 1).await;
-        assert!(
-            matches!(result, Err(StartError::InReviewCapReached(1))),
-            "expected InReviewCapReached(1), got {result:?}"
-        );
-
-        // The blocked queued task is a real upsell signal — hit is recorded.
-        assert_eq!(
-            PlanCapHit::count_today(&db.pool).await.unwrap(),
-            1,
-            "blocked queued task must record a plan-cap-hit for the day"
-        );
-    }
-
-    #[tokio::test]
-    async fn cap_allows_review_fix_even_when_worker_is_at_cap() {
-        // Review-fix exemption (#386): a worker whose PR came back with
-        // changes-requested keeps the slot occupied, but its drain task
-        // (the review_fix) must still run — otherwise the fix waits for a
-        // slot that only opens by merging the PR the fix is supposed to fix.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-fix-repo").await;
-        let worker = insert_worker(&db, "fix-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "PR #501 awaiting review".to_string(),
-                prompt: "the original ticket".to_string(),
-                issue_number: Some(501),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        let fix = WorkerTask::prepend_review_fix(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "Atendé el review del PR #501".to_string(),
-                prompt: "fix the review comments".to_string(),
-                issue_number: Some(501),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
-            .await
-            .expect("review_fix must be exempt from the in-review cap");
-        assert_eq!(
-            taken.id, fix.id,
-            "the exempt review_fix must be the task offered next"
-        );
-
-        // Exempt take must NOT bump the plan-cap-hit counter — the worker
-        // was not turned away, and this is not an upsell signal.
-        assert_eq!(
-            PlanCapHit::count_today(&db.pool).await.unwrap(),
-            0,
-            "review_fix exemption is not a cap hit"
-        );
-    }
-
-    #[tokio::test]
-    async fn cap_frees_the_worker_once_in_review_task_completes() {
-        // Merging (or otherwise moving the in_review task to a terminal state)
-        // frees the slot so the worker picks up the next queued ticket. This
-        // is the "PR mergea → worker toma el próximo" leg of the state
-        // machine.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-free-repo").await;
-        let worker = insert_worker(&db, "free-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "will merge".to_string(),
-                prompt: "occupy".to_string(),
-                issue_number: Some(502),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        let next = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "next up".to_string(),
-                prompt: "build the next thing".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        // Sanity: still blocked while the earlier task sits in_review.
-        assert!(matches!(
-            resolve_next_takeable_task(&db.pool, worker.id, 1).await,
-            Err(StartError::InReviewCapReached(1))
-        ));
-
-        // PR merges → occupying task moves to `done` → slot frees up.
-        WorkerTask::set_status(&db.pool, occupying.id, worker_task::STATUS_DONE)
-            .await
-            .unwrap();
-
-        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
-            .await
-            .expect("freed slot must allow taking the next queued task");
-        assert_eq!(taken.id, next.id, "the worker must pick the queued ticket");
     }
 
     // -------- Issue #510: remediation summary comment --------

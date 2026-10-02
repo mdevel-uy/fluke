@@ -133,32 +133,14 @@ pub fn issue_prompt(number: i64, title: &str, body: Option<&str>) -> String {
     )
 }
 
-/// Active developer with the shortest queue (queued + running); ties go to
-/// the one that got a task longest ago. Until profiles exist (F2), this is
-/// who a milestone run hands issues to.
+/// The developer profile a milestone run hands issues to (#680): profiles
+/// run several tasks at once, so the first active developer is enough.
 async fn pick_developer(pool: &SqlitePool) -> Result<Option<Uuid>, sqlx::Error> {
-    let developers: Vec<Worker> = Worker::list_all(pool)
+    Ok(Worker::list_all(pool)
         .await?
         .into_iter()
-        .filter(|w| w.role == worker::ROLE_DEVELOPER)
-        .collect();
-    let mut best: Option<(i64, String, Uuid)> = None;
-    for w in developers {
-        let (load, last): (i64, Option<String>) = sqlx::query_as(
-            "SELECT
-                (SELECT COUNT(*) FROM worker_tasks
-                  WHERE worker_id = ?1 AND status IN ('queued', 'in_progress', 'waiting_user')),
-                (SELECT MAX(created_at) FROM worker_tasks WHERE worker_id = ?1)",
-        )
-        .bind(w.id)
-        .fetch_one(pool)
-        .await?;
-        let key = (load, last.unwrap_or_default(), w.id);
-        if best.as_ref().is_none_or(|b| (key.0, &key.1) < (b.0, &b.1)) {
-            best = Some(key);
-        }
-    }
-    Ok(best.map(|b| b.2))
+        .find(|w| w.role == worker::ROLE_DEVELOPER)
+        .map(|w| w.id))
 }
 
 async fn load_issues(
@@ -265,13 +247,12 @@ pub async fn advance_run(
                 milestone_run::STATUS_RUNNING
             };
             MilestoneRun::set_state(pool, run.id, status, Some(wave), waiting.as_deref()).await?;
-            kicked.sort();
-            kicked.dedup();
-            for worker_id in kicked {
-                match worker_orchestrator::try_take_next(config, db, container, worker_id).await {
-                    Ok(_) => {}
-                    Err(e) if e.is_conflict() => {}
-                    Err(e) => warn!(%worker_id, "Milestone run: failed to start worker: {}", e),
+            if !kicked.is_empty() {
+                // Start what fits in the free global slots (#680).
+                if let Err(e) =
+                    worker_orchestrator::kickstart_stuck_worker_queues(config, db, container).await
+                {
+                    warn!(milestone = %run.milestone, "Milestone run: failed to start tasks: {}", e);
                 }
             }
             Ok(())

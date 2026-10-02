@@ -29,7 +29,8 @@ export function useAutoIngestReconciler(
     if (!autoIngest || !workers) return;
     for (const worker of workers) {
       const queuedCount = queuedCountByWorkerId.get(worker.id) ?? 0;
-      if (worker.active_workspace_id !== null || queuedCount === 0) {
+      // Profiles (#680) take queued work even while running other tasks.
+      if (queuedCount === 0) {
         continue;
       }
       if (inFlightRef.current.has(worker.id)) continue;

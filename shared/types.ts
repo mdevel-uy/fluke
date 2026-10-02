@@ -567,7 +567,11 @@ plan_mode?: boolean | null,
  * `true` = archived (moved to the "archived" section, skipped by
  * orchestrator lookups, can be restored or purged from there).
  */
-archived: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, 
+archived: boolean, active_workspace_id: string | null, 
+/**
+ * Every running instance of this profile (#680), newest first.
+ */
+active_workspace_ids: Array<string>, queued_count: number, completed_count: number, 
 /**
  * `true` when the current `soul` contains direct GitHub CLI write
  * invocations (`gh pr|issue create|close|comment|review`,

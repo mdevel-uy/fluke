@@ -158,10 +158,11 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         queryClient.invalidateQueries({
           queryKey: repoIssuesKeys.byRepo(repoId),
         });
-        // With auto-ingest on, kick the worker right away if it is idle.
+        // With auto-ingest on, start it right away. A worker is a profile
+        // (#680) and runs several tasks at once; the backend answers 409 when
+        // every global slot is taken and the task simply stays queued.
         const { autoIngest } = useAutoIngestStore.getState();
-        const worker = workers.find((w) => w.id === selectedWorkerId);
-        if (autoIngest && worker && !worker.active_workspace_id) {
+        if (autoIngest) {
           workersApi
             .startNext(selectedWorkerId)
             .catch(() => {
