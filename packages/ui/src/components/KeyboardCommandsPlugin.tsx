@@ -179,6 +179,13 @@ export function KeyboardCommandsPlugin({
       (event: KeyboardEvent | null) => {
         if (!event) return false;
 
+        // Enter confirming an IME composition (accents, CJK): swallow it without
+        // preventDefault so the IME commits the text — no submit, no newline.
+        // keyCode 229 covers Safari, which fires this keydown after compositionend.
+        if (event.isComposing || event.keyCode === 229) {
+          return true;
+        }
+
         // If typeahead is open, let it handle Enter
         if (isTypeaheadOpen) {
           return false;
