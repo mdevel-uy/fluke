@@ -902,7 +902,15 @@
     "confirmSelection": "Confirmar selección",
     "submitting": "Enviando respuestas...",
     "answeredCount": "Respondió {{count}} pregunta",
-    "answeredCount_other": "Respondió {{count}} preguntas"
+    "answeredCount_other": "Respondió {{count}} preguntas",
+    "recommended": "Recomendada",
+    "why": "Por qué: {{why}}",
+    "otherPlaceholder": "O escribe otra respuesta",
+    "send": "Enviar",
+    "answered": "Respondida: {{answer}}",
+    "closed": "Ya no espera respuesta",
+    "stale": "Esta pregunta ya no está pendiente: se respondió o la reemplazó otra más nueva.",
+    "agentRunning": "El agente todavía está terminando su turno. Intenta de nuevo en un momento."
   },
   "issues": {
     "title": "Issues",
@@ -938,7 +946,8 @@
       "queued": "En cola",
       "in_progress": "En progreso",
       "in_review": "En revisión",
-      "done": "Listo"
+      "done": "Listo",
+      "waiting_user": "Esperando respuesta"
     },
     "taskLinked": {
       "openWorkspace": "Abrir workspace",
@@ -1258,7 +1267,8 @@
       "queuedAhead": "En cola · {{ahead}} adelante",
       "inProgress": "En progreso",
       "done": "Completado",
-      "failed": "Falló"
+      "failed": "Falló",
+      "waitingUser": "Esperando respuesta"
     },
     "toast": {
       "started": "{{worker}} empezó con tu pedido.",

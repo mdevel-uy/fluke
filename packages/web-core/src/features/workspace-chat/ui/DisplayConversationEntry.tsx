@@ -1,4 +1,12 @@
-import { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -26,6 +34,7 @@ import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
 import { useChangesViewActions } from '@/shared/hooks/useChangesView';
 import { useLogsPanelActions } from '@/shared/hooks/useLogsPanel';
 import { cn } from '@/shared/lib/utils';
+import { planApi } from '@/shared/lib/api';
 import {
   ScriptFixerDialog,
   type ScriptType,
@@ -276,6 +285,22 @@ function renderToolUseEntry(
         workspaceId={workspaceWithSession?.id}
         sessionId={sessionId}
         status={status}
+      />
+    );
+  }
+
+  // The agent's explicit question (plan MCP ask_user, #662).
+  if (
+    action_type.action === 'tool' &&
+    action_type.tool_name === 'mcp:fluke_plan:ask_user'
+  ) {
+    const question = parseAskUser(action_type.arguments);
+    if (!question || !workspaceWithSession?.id) return null;
+    return (
+      <AskUserEntry
+        question={question}
+        workspaceId={workspaceWithSession.id}
+        toolStatus={status.status}
       />
     );
   }
@@ -794,6 +819,198 @@ function UserFeedbackEntry({
           workspaceId={workspaceId}
           sessionId={sessionId}
         />
+      </div>
+    </div>
+  );
+}
+
+type AskUserQuestion = {
+  question: string;
+  options: { key: string; text: string }[];
+  recommended: string;
+  why: string;
+};
+
+// Same normalization as the backend's ask_user (blank options dropped), so a
+// card's question compares equal to the stored pending one.
+function parseAskUser(args: unknown): AskUserQuestion | null {
+  const a = args as Partial<AskUserQuestion> | null;
+  if (!a || typeof a.question !== 'string' || !Array.isArray(a.options)) {
+    return null;
+  }
+  return {
+    question: a.question,
+    options: a.options
+      .filter(
+        (o) =>
+          typeof o?.key === 'string' &&
+          typeof o?.text === 'string' &&
+          o.key.trim() !== '' &&
+          o.text.trim() !== ''
+      )
+      .map((o) => ({ key: o.key, text: o.text })),
+    recommended: typeof a.recommended === 'string' ? a.recommended : '',
+    why: typeof a.why === 'string' ? a.why : '',
+  };
+}
+
+function sameQuestion(a: AskUserQuestion, b: AskUserQuestion | null) {
+  return (
+    !!b &&
+    a.question === b.question &&
+    a.options.length === b.options.length &&
+    a.options.every(
+      (o, i) => o.key === b.options[i].key && o.text === b.options[i].text
+    )
+  );
+}
+
+/**
+ * Explicit question from the agent (plan MCP ask_user): options with the
+ * recommended one marked, plus a free answer. Answering resumes the task.
+ * Only the question still pending on the task can be answered; older cards
+ * (answered or replaced by a newer question) are shown inert.
+ */
+function AskUserEntry({
+  question,
+  workspaceId,
+  toolStatus,
+}: {
+  question: AskUserQuestion;
+  workspaceId: string;
+  toolStatus: string;
+}) {
+  const { t } = useTranslation('common');
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(
+    () => ['askUserPending', workspaceId],
+    [workspaceId]
+  );
+  const { data: pending } = useQuery({
+    queryKey,
+    queryFn: () => planApi.pendingQuestion(workspaceId),
+  });
+  // A new ask_user call (or this one finishing) changes which question is
+  // pending: refresh so older cards close on their own.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey, toolStatus]);
+  const open = sameQuestion(question, parseAskUser(pending));
+  const [other, setOther] = useState('');
+  const [sending, setSending] = useState(false);
+  const [answered, setAnswered] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (answer: string, label: string) => {
+    setSending(true);
+    setError(null);
+    try {
+      await planApi.answer(workspaceId, question, answer);
+      setAnswered(label);
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      // Known backend refusals get a translated message; anything else is
+      // shown as is.
+      setError(
+        /no longer pending|no question is waiting|already answered/.test(raw)
+          ? t('askQuestion.stale')
+          : /still ending its turn/.test(raw)
+            ? t('askQuestion.agentRunning')
+            : raw
+      );
+    } finally {
+      setSending(false);
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  };
+
+  return (
+    <div className="py-2">
+      <div
+        className={cn(
+          'rounded-md border bg-panel px-4 py-3 text-sm',
+          open ? 'border-brand' : 'border-md-outline-variant'
+        )}
+      >
+        <div
+          className={cn(
+            'text-xs font-semibold',
+            open ? 'text-brand' : 'text-low'
+          )}
+        >
+          {t('askQuestion.title')}
+        </div>
+        <div className="mt-1 font-semibold text-high">{question.question}</div>
+        {answered ? (
+          <div className="mt-2 text-low">
+            {t('askQuestion.answered', { answer: answered })}
+          </div>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {question.options.map((o) => {
+                const recommended = o.key === question.recommended;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    disabled={!open || sending}
+                    onClick={() => send(o.key, `${o.key}: ${o.text}`)}
+                    className={cn(
+                      'rounded-md border px-3 py-1.5 text-left enabled:hover:bg-secondary disabled:opacity-60',
+                      recommended && open
+                        ? 'border-brand ring-2 ring-brand/15'
+                        : 'border-md-outline-variant'
+                    )}
+                  >
+                    <span className="font-semibold">{o.key}</span> {o.text}
+                    {recommended && (
+                      <span className="ml-2 rounded-full bg-brand/15 px-2 text-xs text-brand">
+                        {t('askQuestion.recommended')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {question.why && (
+              <div className="mt-2 text-xs text-low">
+                {t('askQuestion.why', { why: question.why })}
+              </div>
+            )}
+            {open ? (
+              <form
+                className="mt-2 flex gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const text = other.trim();
+                  if (text) void send(text, text);
+                }}
+              >
+                <input
+                  value={other}
+                  onChange={(e) => setOther(e.target.value)}
+                  disabled={sending}
+                  placeholder={t('askQuestion.otherPlaceholder')}
+                  aria-label={t('askQuestion.otherPlaceholder')}
+                  className="min-w-0 flex-1 rounded-md border border-md-outline-variant bg-transparent px-2 py-1 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={sending || !other.trim()}
+                  className="rounded-md bg-brand px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {t('askQuestion.send')}
+                </button>
+              </form>
+            ) : (
+              <div className="mt-2 text-xs text-low">
+                {t('askQuestion.closed')}
+              </div>
+            )}
+            {error && <div className="mt-2 text-xs text-error">{error}</div>}
+          </>
+        )}
       </div>
     </div>
   );

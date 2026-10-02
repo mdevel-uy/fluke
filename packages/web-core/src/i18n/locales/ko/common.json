@@ -885,7 +885,15 @@
     "confirmSelection": "선택 확인",
     "submitting": "답변 제출 중...",
     "answeredCount": "{{count}}개의 질문에 답변함",
-    "answeredCount_other": "{{count}}개의 질문에 답변함"
+    "answeredCount_other": "{{count}}개의 질문에 답변함",
+    "recommended": "추천",
+    "why": "이유: {{why}}",
+    "otherPlaceholder": "또는 다른 답변 입력",
+    "send": "보내기",
+    "answered": "답변함: {{answer}}",
+    "closed": "더 이상 답변을 기다리지 않습니다",
+    "stale": "이 질문은 더 이상 대기 중이 아닙니다. 이미 답변되었거나 새 질문으로 바뀌었습니다.",
+    "agentRunning": "에이전트가 아직 턴을 마무리하는 중입니다. 잠시 후 다시 시도하세요."
   },
   "issues": {
     "title": "Issues",
@@ -921,7 +929,8 @@
       "queued": "대기 중",
       "in_progress": "진행 중",
       "in_review": "검토 중",
-      "done": "완료"
+      "done": "완료",
+      "waiting_user": "답변 대기 중"
     },
     "taskLinked": {
       "openWorkspace": "워크스페이스 열기",
@@ -1241,7 +1250,8 @@
       "queuedAhead": "대기 중 · 앞에 {{ahead}}건",
       "inProgress": "진행 중",
       "done": "완료",
-      "failed": "실패"
+      "failed": "실패",
+      "waitingUser": "답변 대기 중"
     },
     "toast": {
       "started": "{{worker}}이(가) 요청을 시작했습니다.",

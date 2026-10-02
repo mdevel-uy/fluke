@@ -158,6 +158,12 @@ function StatusPill({
           {t('analystDesk.status.inProgress')}
         </span>
       );
+    case 'waiting_user':
+      return (
+        <span className="shrink-0 rounded-full border border-warning/40 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
+          {t('analystDesk.status.waitingUser')}
+        </span>
+      );
     case 'done':
       return (
         <span className="shrink-0 rounded-full border border-success/40 px-2.5 py-0.5 text-[11px] font-semibold text-success">
@@ -933,6 +939,7 @@ export function AnalystDeskPage() {
               deskTasks.map((task) => {
                 const canCancel =
                   task.status === 'in_progress' ||
+                  task.status === 'waiting_user' ||
                   task.status === 'in_review' ||
                   task.status === 'approved';
                 const canRemove = task.status === 'queued';

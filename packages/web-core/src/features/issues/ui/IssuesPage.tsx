@@ -90,6 +90,8 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
 const ACTIVE_STATUSES = new Set([
   'queued',
   'in_progress',
+  // Agent waiting for the user's answer (#662): still on the board as in progress.
+  'waiting_user',
   'in_review',
   'approved',
 ]);
@@ -111,7 +113,10 @@ function applyFilters(
     if (filters.state === 'closed' && issue.state !== 'closed') return false;
     if (TASK_STATUS_FILTERS.has(filters.state)) {
       const task = taskByIssueNumber.get(issue.number);
-      if (!task || task.status !== filters.state) return false;
+      // waiting_user (#662) is shown as in_progress.
+      const status =
+        task?.status === 'waiting_user' ? 'in_progress' : task?.status;
+      if (!task || status !== filters.state) return false;
     }
 
     if (filters.workers.length > 0) {

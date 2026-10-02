@@ -7,6 +7,11 @@ use uuid::Uuid;
 
 pub const STATUS_QUEUED: &str = "queued";
 pub const STATUS_IN_PROGRESS: &str = "in_progress";
+/// The coding agent asked the user an explicit question (plan MCP `ask_user`)
+/// and ended its turn. The question lives in `pending_question`; answering
+/// resumes the same session and puts the task back to `in_progress`. The task
+/// keeps its worker's slot, and no watchdog or infra retry treats it as hung.
+pub const STATUS_WAITING_USER: &str = "waiting_user";
 pub const STATUS_IN_REVIEW: &str = "in_review";
 /// The developer's PR received an approving verdict from the reviewer. The
 /// task is done with review-loop work but the PR is still open (waiting for
@@ -21,6 +26,7 @@ pub fn is_valid_status(value: &str) -> bool {
         value,
         STATUS_QUEUED
             | STATUS_IN_PROGRESS
+            | STATUS_WAITING_USER
             | STATUS_IN_REVIEW
             | STATUS_APPROVED
             | STATUS_DONE
@@ -377,7 +383,8 @@ impl WorkerTask {
         .await
     }
 
-    /// Task currently in progress for the worker, if any.
+    /// Task currently in progress for the worker, if any. A task waiting for the
+    /// user's answer counts too: it still owns the worker's workspace.
     pub async fn find_in_progress(
         pool: &SqlitePool,
         worker_id: Uuid,
@@ -389,7 +396,7 @@ impl WorkerTask {
                     hours_saved_override, result_summary, deliverable_ref,
                     source_task_id, territory_globs
                FROM worker_tasks
-               WHERE worker_id = ?1 AND status = 'in_progress'
+               WHERE worker_id = ?1 AND status IN ('in_progress', 'waiting_user')
                ORDER BY position ASC, created_at ASC
                LIMIT 1",
         )
@@ -435,7 +442,7 @@ impl WorkerTask {
                 AND status = 'queued'
                 AND NOT EXISTS (
                   SELECT 1 FROM worker_tasks
-                   WHERE worker_id = ?2 AND status = 'in_progress'
+                   WHERE worker_id = ?2 AND status IN ('in_progress', 'waiting_user')
                 )",
         )
         .bind(id)
@@ -487,7 +494,7 @@ impl WorkerTask {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
                FROM worker_tasks
-               WHERE worker_id = ?1 AND status IN ('queued', 'in_progress')",
+               WHERE worker_id = ?1 AND status IN ('queued', 'in_progress', 'waiting_user')",
         )
         .bind(worker_id)
         .fetch_one(pool)
@@ -511,6 +518,7 @@ impl WorkerTask {
         let all = [
             STATUS_QUEUED,
             STATUS_IN_PROGRESS,
+            STATUS_WAITING_USER,
             STATUS_IN_REVIEW,
             STATUS_APPROVED,
             STATUS_DONE,
@@ -584,7 +592,7 @@ impl WorkerTask {
         let result = sqlx::query(
             "DELETE FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')",
+                 AND status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .execute(pool)
@@ -617,7 +625,7 @@ impl WorkerTask {
             "SELECT COUNT(*)
                FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('in_progress', 'in_review', 'approved')",
+                 AND status IN ('in_progress', 'waiting_user', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .fetch_one(pool)
@@ -724,14 +732,14 @@ impl WorkerTask {
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
                  AND wt.issue_number IS NOT NULL
-                 AND wt.status IN ('queued', 'in_progress')",
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user')",
         )
         .fetch_all(pool)
         .await?;
         Ok(rows
             .into_iter()
             .map(|(repo_id, pr_number, status)| {
-                let activity = if status == STATUS_IN_PROGRESS {
+                let activity = if status != STATUS_QUEUED {
                     "running"
                 } else {
                     "queued"
@@ -759,7 +767,7 @@ impl WorkerTask {
                WHERE w.role = 'reviewer'
                  AND wt.issue_number = ?1
                  AND wt.repo_id = ?2
-                 AND wt.status IN ('queued', 'in_progress', 'in_review')
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                ORDER BY wt.created_at ASC
                LIMIT 1",
         )
@@ -831,7 +839,7 @@ impl WorkerTask {
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
-                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')
+                 AND status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -864,6 +872,65 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Park a running task on the agent's question (`question` is JSON). A
+    /// second question replaces the first. Only a task that is `in_progress`
+    /// or already `waiting_user` can ask; returns false otherwise.
+    pub async fn set_waiting_user(
+        pool: &SqlitePool,
+        id: Uuid,
+        question: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks
+                SET status = 'waiting_user', pending_question = ?2
+              WHERE id = ?1 AND status IN ('in_progress', 'waiting_user')",
+        )
+        .bind(id)
+        .bind(question)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    /// The pending `ask_user` question (JSON), if any.
+    pub async fn pending_question(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT pending_question FROM worker_tasks WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map(Option::flatten)
+    }
+
+    /// `waiting_user` → `in_progress`, keeping the question until the answer
+    /// is delivered. Returns false when the task was not waiting (already
+    /// answered, cancelled), so two answers never both go through.
+    pub async fn resume_from_waiting_user(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks SET status = 'in_progress'
+              WHERE id = ?1 AND status = 'waiting_user'",
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn clear_pending_question(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET pending_question = NULL WHERE id = ?1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     /// Transition to 'failed' recording why. The reason is what the UI shows
@@ -961,7 +1028,7 @@ impl WorkerTask {
                WHERE issue_number = ?1
                  AND repo_id = ?2
                  AND kind = 'review_fix'
-                 AND status IN ('queued', 'in_progress')
+                 AND status IN ('queued', 'in_progress', 'waiting_user')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -990,7 +1057,7 @@ impl WorkerTask {
                  ON pr.repo_id = wt.repo_id
                 AND pr.pr_number = wt.issue_number
               WHERE w.role = 'reviewer'
-                AND wt.status IN ('queued', 'in_progress', 'in_review')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                 AND pr.pr_status IN ('merged', 'closed')",
         )
         .fetch_all(pool)
@@ -1047,7 +1114,7 @@ impl WorkerTask {
               WHERE w.role = 'reviewer'
                 AND wt.issue_number = ?1
                 AND wt.repo_id = ?2
-                AND wt.status IN ('queued', 'in_progress')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY wt.created_at ASC
               LIMIT 1",
         )
@@ -1062,7 +1129,7 @@ impl WorkerTask {
               WHERE issue_number = ?1
                 AND repo_id = ?2
                 AND kind = 'review_fix'
-                AND status IN ('queued', 'in_progress')
+                AND status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY created_at ASC
               LIMIT 1",
         )
@@ -1073,7 +1140,7 @@ impl WorkerTask {
 
         let to_activity = |status: Option<String>| {
             status.map(|s| {
-                if s == STATUS_IN_PROGRESS {
+                if s != STATUS_QUEUED {
                     "running".to_string()
                 } else {
                     "queued".to_string()

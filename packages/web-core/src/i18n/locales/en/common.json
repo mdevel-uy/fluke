@@ -902,7 +902,15 @@
     "confirmSelection": "Confirm selection",
     "submitting": "Submitting answers...",
     "answeredCount": "Answered {{count}} question",
-    "answeredCount_other": "Answered {{count}} questions"
+    "answeredCount_other": "Answered {{count}} questions",
+    "recommended": "Recommended",
+    "why": "Why: {{why}}",
+    "otherPlaceholder": "Or write another answer",
+    "send": "Send",
+    "answered": "Answered: {{answer}}",
+    "closed": "No longer waiting for an answer",
+    "stale": "This question is no longer pending: it was answered or replaced by a newer one.",
+    "agentRunning": "The agent is still ending its turn. Try again in a moment."
   },
   "issues": {
     "title": "Issues",
@@ -938,7 +946,8 @@
       "queued": "Queued",
       "in_progress": "In progress",
       "in_review": "In review",
-      "done": "Done"
+      "done": "Done",
+      "waiting_user": "Waiting for answer"
     },
     "taskLinked": {
       "openWorkspace": "Open workspace",
@@ -1258,7 +1267,8 @@
       "queuedAhead": "Queued · {{ahead}} ahead",
       "inProgress": "In progress",
       "done": "Done",
-      "failed": "Failed"
+      "failed": "Failed",
+      "waitingUser": "Waiting for answer"
     },
     "toast": {
       "started": "{{worker}} started your request.",

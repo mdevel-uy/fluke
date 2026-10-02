@@ -885,7 +885,15 @@
     "confirmSelection": "确认选择",
     "submitting": "正在提交回答...",
     "answeredCount": "已回答{{count}}个问题",
-    "answeredCount_other": "已回答{{count}}个问题"
+    "answeredCount_other": "已回答{{count}}个问题",
+    "recommended": "推荐",
+    "why": "原因：{{why}}",
+    "otherPlaceholder": "或输入其他回答",
+    "send": "发送",
+    "answered": "已回答：{{answer}}",
+    "closed": "已不再等待回答",
+    "stale": "此问题已不再待回答：已被回答或被更新的问题取代。",
+    "agentRunning": "代理仍在结束当前回合，请稍后再试。"
   },
   "issues": {
     "title": "Issues",
@@ -921,7 +929,8 @@
       "queued": "排队中",
       "in_progress": "进行中",
       "in_review": "审查中",
-      "done": "已完成"
+      "done": "已完成",
+      "waiting_user": "等待回答"
     },
     "taskLinked": {
       "openWorkspace": "打开工作区",
@@ -1241,7 +1250,8 @@
       "queuedAhead": "排队中 · 前面还有 {{ahead}} 个",
       "inProgress": "进行中",
       "done": "已完成",
-      "failed": "失败"
+      "failed": "失败",
+      "waitingUser": "等待回答"
     },
     "toast": {
       "started": "{{worker}} 已开始处理你的请求。",

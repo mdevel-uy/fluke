@@ -887,7 +887,15 @@
     "confirmSelection": "Confirmer la sélection",
     "submitting": "Envoi des réponses...",
     "answeredCount": "Répondu à {{count}} question",
-    "answeredCount_other": "Répondu à {{count}} questions"
+    "answeredCount_other": "Répondu à {{count}} questions",
+    "recommended": "Recommandée",
+    "why": "Pourquoi : {{why}}",
+    "otherPlaceholder": "Ou écrivez une autre réponse",
+    "send": "Envoyer",
+    "answered": "Répondu : {{answer}}",
+    "closed": "N’attend plus de réponse",
+    "stale": "Cette question n’est plus en attente : elle a reçu une réponse ou a été remplacée par une plus récente.",
+    "agentRunning": "L’agent termine encore son tour. Réessayez dans un instant."
   },
   "issues": {
     "title": "Issues",
@@ -923,7 +931,8 @@
       "queued": "En attente",
       "in_progress": "En cours",
       "in_review": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "waiting_user": "En attente de réponse"
     },
     "taskLinked": {
       "openWorkspace": "Ouvrir le workspace",
@@ -1243,7 +1252,8 @@
       "queuedAhead": "En file · {{ahead}} devant",
       "inProgress": "En cours",
       "done": "Terminée",
-      "failed": "Échouée"
+      "failed": "Échouée",
+      "waitingUser": "En attente de réponse"
     },
     "toast": {
       "started": "{{worker}} a commencé votre demande.",

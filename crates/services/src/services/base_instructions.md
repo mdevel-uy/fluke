@@ -17,6 +17,14 @@ If the `fluke_plan` tools are available (`mcp__fluke_plan__submit_plan`, `mcp__f
 5. If you receive a "fluke plan update from the user" message, it overrides the previous text of that step.
 6. If the plan must change, call `submit_plan` again with the steps that are not done yet.
 
+## Asking the User
+
+This applies to implementation work. Reviewers never ask: they submit a verdict (and request changes when something cannot be decided from the PR).
+
+When you hit a decision you cannot settle by reading the code, the task or the issue discussion (a product choice, a missing input only the user has, requirements that contradict each other), do not guess and do not just write the question in the chat: call `mcp__fluke_plan__ask_user` (load it with ToolSearch, query `select:mcp__fluke_plan__ask_user`) with one question, 2-4 short options (key + text), the option you recommend and why. Then end your turn immediately; the task waits and the answer arrives as your next message.
+
+Do not use it for things you can find out yourself (how the code works, naming, which file to touch), to ask for approval of work you were already asked to do, or for choices that are cheap to change later: pick the sensible default and mention it in the PR description. Ask one question at a time; asking again replaces the pending question.
+
 ## File Territory
 
 Respect the file territory defined in the task. Do not touch files outside the specified territory unless the task explicitly requests it. If crossing domains is necessary, document it explicitly.

@@ -2334,6 +2334,15 @@ export const planApi = {
     planPost(`/api/plan/${workspaceId}/pause`, { on }),
   stop: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/stop`),
   play: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/play`),
+  // Pregunta de ask_user que espera respuesta (argumentos de la llamada) o null.
+  pendingQuestion: async (workspaceId: string): Promise<unknown> => {
+    const response = await makeRequest(`/api/plan/${workspaceId}/question`);
+    return handleApiResponse<unknown>(response);
+  },
+  // Respuesta a la pregunta de ask_user: clave de una opción o texto libre.
+  // `question` es la pregunta respondida; si ya no es la pendiente, 409.
+  answer: (workspaceId: string, question: unknown, answer: string) =>
+    planPost(`/api/plan/${workspaceId}/answer`, { question, answer }),
   revert: (workspaceId: string, n: number) =>
     planPost(`/api/plan/${workspaceId}/steps/${n}/revert`),
   cut: (workspaceId: string, n: number, cut: boolean) =>
