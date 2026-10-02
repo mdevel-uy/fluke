@@ -234,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "Concurrence des agents",
+        "description": "Limitez le nombre d'agents de code exécutés en parallèle.",
+        "limit": {
+          "label": "Agents simultanés",
+          "helper": "Nombre maximal d'agents de code exécutés en même temps. 0 = automatique (selon les cœurs CPU). La variable d'environnement AGENT_CONCURRENCY_LIMIT, si définie, est prioritaire.",
+          "errors": {
+            "required": "Saisissez une valeur.",
+            "notInteger": "La valeur doit être un nombre entier (0 ou plus)."
+          }
+        }
+      },
       "notifications": {
         "title": "Notifications",
         "description": "Contrôlez quand et comment vous recevez des notifications.",

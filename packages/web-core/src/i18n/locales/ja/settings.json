@@ -234,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "エージェントの同時実行",
+        "description": "並列で実行するコーディングエージェントの数を制限します。",
+        "limit": {
+          "label": "同時実行エージェント数",
+          "helper": "同時に実行できるコーディングエージェントの最大数。0 = 自動（CPUコア数に基づく）。環境変数 AGENT_CONCURRENCY_LIMIT が設定されている場合はそちらが優先されます。",
+          "errors": {
+            "required": "値を入力してください。",
+            "notInteger": "値は0以上の整数である必要があります。"
+          }
+        }
+      },
       "notifications": {
         "title": "通知",
         "description": "通知を受け取るタイミングと方法を制御します。",
