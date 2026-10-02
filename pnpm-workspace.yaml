@@ -74,7 +74,7 @@ overrides:
   esbuild: '>=0.28.1 <1'
   # Vite dev-server file-read / fs.deny bypass advisories.
   vite: '>=7.3.5 <9'
-  # adm-zip — used by npx-cli (shipped) and dev tooling. Still 0.x.
+  # adm-zip — used by dev tooling. Still 0.x.
   adm-zip: '>=0.6.0 <1'
   # GHSA-4x5r-pxfx-6jf8 — @babel/core sourceMappingURL arbitrary file read.
   # Dev-only (used by @tanstack/router-plugin); bumped to close the alert.
