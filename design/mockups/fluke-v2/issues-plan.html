@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan de ejecución fluke</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: una banda por milestone (cabecera con play + carriles de wave debajo); motor de ticks que avanza wave por wave respetando slots y decisiones del PM. */
+:root {
+  --bg: #0b0e15;
+  --band: #121725;
+  --band-head: #161c2c;
+  --col: #0f1420;
+  --card: #1b2234;
+  --line: #262e44;
+  --fg: #e0e4ef;
+  --muted: #8a93ab;
+  --accent: #7b7cf5;
+  --ready: #3fc79a;
+  --gate: #f0a24a;
+  --review: #c38df5;
+  --blocked: #4a5268;
+  --danger: #ef6b6b;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); padding-inline: 16px; padding-block: 20px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 16px; }
+button { font: inherit; color: inherit; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; justify-content: space-between; }
+.hl { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 20px; font-weight: 600; margin: 0; }
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.tabs span { padding: 6px 14px; color: var(--muted); font-size: 13px; }
+.tabs span.on { background: var(--band-head); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.hr { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.slots { font: 12px var(--mono); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+.slots i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+.slots i.on { background: var(--accent); border-color: var(--accent); }
+label.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--band-head); border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn:focus-visible, .play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+
+/* Banda de milestone */
+.band { border: 1px solid var(--line); border-radius: 10px; background: var(--band); overflow: hidden; }
+.band.st-playing { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.band.st-waiting { border-color: color-mix(in srgb, var(--gate) 60%, var(--line)); }
+.band.st-done { border-color: color-mix(in srgb, var(--ready) 50%, var(--line)); }
+.bhead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; background: var(--band-head); border-bottom: 1px solid var(--line); }
+.play { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--accent); background: transparent; color: var(--accent); display: grid; place-items: center; cursor: pointer; flex: none; }
+.play:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.st-playing .play { background: var(--accent); color: #fff; }
+.st-done .play { border-color: var(--ready); color: var(--ready); }
+.play svg { width: 14px; height: 14px; fill: currentColor; }
+.bt { flex: 1 1 260px; min-width: 0; display: grid; gap: 2px; }
+.bt h2 { margin: 0; font-size: 15px; font-weight: 600; text-wrap: balance; }
+.status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.status b { font-weight: 500; }
+.status b.stk { color: var(--danger) !important; }
+.band.has-stuck { border-color: color-mix(in srgb, var(--danger) 65%, var(--line)) !important; }
+.card.s-stuck { border-color: var(--danger); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent), 0 6px 20px -10px var(--danger); }
+.card.s-stuck .state { color: var(--danger); }
+.stuckwhy { font-size: 12px; line-height: 1.4; color: var(--fg); background: color-mix(in srgb, var(--danger) 10%, transparent); border-radius: 4px; padding: 6px 8px; }
+.stuckwhy small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+.decide .btn.unstick { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.sum .btn.unstick { padding: 4px 10px; font-size: 12px; background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; margin-left: auto; }
+.attn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent); border-radius: 999px; padding: 3px 10px; }
+.attn i { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.st-playing .status b { color: var(--accent); }
+.st-waiting .status b { color: var(--gate); }
+.st-done .status b { color: var(--ready); }
+.st-paused .status b { color: var(--fg); }
+.pg { display: grid; gap: 4px; width: 160px; flex: none; }
+.pg .bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.pg .bar i { display: block; height: 100%; background: var(--ready); transition: width .4s; }
+.pg span { font: 11px var(--mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.chev { width: 28px; height: 28px; border: 0; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; border-radius: 6px; flex: none; }
+.chev:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.chev:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chev svg { width: 14px; height: 14px; fill: currentColor; transition: transform .2s; }
+.collapsed .chev svg { transform: rotate(-90deg); }
+.collapsed .bhead { border-bottom: 0; }
+.bt h2 { cursor: pointer; }
+.sum { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 10px 16px 12px 58px; border-top: 1px solid var(--line); background: var(--band); }
+.sw-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.wsum { display: inline-flex; align-items: center; gap: 6px; font: 500 11px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.wsum.current { color: var(--accent); }
+.segs { display: inline-flex; gap: 3px; }
+.seg { width: 14px; height: 8px; border-radius: 2px; background: var(--c); }
+.seg.dash { background: transparent; border: 1px dashed var(--c); }
+.arrow { color: var(--blocked); font-size: 12px; }
+.counts { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.counts span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.counts .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.avs { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); }
+.sum .btn.ok { padding: 4px 10px; font-size: 12px; background: var(--gate); border-color: var(--gate); color: #1b1206; font-weight: 600; margin-left: auto; }
+@media (max-width: 600px) { .sum { padding-left: 16px; } }
+.reset { background: none; border: 0; color: var(--muted); font-size: 12px; cursor: pointer; padding: 4px; }
+.reset:hover { color: var(--fg); }
+
+.lanes-scroll { overflow-x: auto; }
+.lanes { position: relative; display: grid; grid-template-columns: repeat(3, 280px); column-gap: 48px; padding: 14px 16px 16px; min-width: max-content; }
+.lanes svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.wcol { display: flex; flex-direction: column; gap: 10px; background: var(--col); border: 1px solid var(--line); border-radius: 8px; padding: 10px; justify-content: flex-start; }
+.wcol.current { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.wcol.done-col { opacity: .75; }
+.wlabel { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.wcol.current .wlabel { color: var(--accent); }
+.wcol.empty-col { border-style: dashed; background: transparent; }
+.wcol.empty-col .wlabel { color: var(--blocked); }
+
+.bands-open .card[data-n] { cursor: pointer; }
+.card[data-n]:hover { border-color: var(--muted); }
+.card .open { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: var(--muted); opacity: 0; transition: opacity .15s; }
+.card[data-n]:hover .open, .card[data-n]:focus-visible .open { opacity: 1; }
+.card[data-n]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dmeta .openissue { color: var(--fg); font-weight: 500; }
+.card { position: relative; z-index: 1; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; overflow: hidden; transition: border-color .2s, opacity .2s; }
+.card .top { display: flex; align-items: center; gap: 8px; }
+.card .num { font: 500 12px var(--mono); color: var(--muted); }
+.card .state { margin-left: auto; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); white-space: nowrap; }
+.card .title { font-size: 13px; line-height: 1.35; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font: 500 10px var(--mono); letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.tag.hot { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.who { font: 11px var(--mono); color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.av { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #fff; font: 600 9px var(--sans); display: grid; place-items: center; }
+.decide { display: flex; gap: 6px; flex-wrap: wrap; }
+.decide .btn { padding: 4px 10px; font-size: 12px; }
+.decide .btn.ok { background: var(--gate); border-color: var(--gate); color: #1b1206; font-weight: 600; }
+.run { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); transition: width .4s linear; }
+
+.card.s-ready { border-color: var(--ready); }
+.card.s-ready .state { color: var(--ready); }
+.card.s-gate { border-color: var(--gate); border-style: dashed; }
+.card.s-gate .state { color: var(--gate); }
+.card.s-blocked { opacity: .5; }
+.card.s-queued { border-color: var(--muted); border-style: dashed; }
+.card.s-running { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
+.card.s-running .state { color: var(--accent); }
+.card.s-review { border-color: var(--review); }
+.card.s-review .state { color: var(--review); }
+.card.s-decision { border-color: var(--gate); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gate) 35%, transparent), 0 6px 20px -10px var(--gate); }
+.card.s-decision .state { color: var(--gate); }
+.card.s-done { opacity: .65; }
+.card.s-done .state { color: var(--ready); }
+.card.s-done .title { text-decoration: line-through; text-decoration-color: var(--muted); }
+
+.spin { width: 9px; height: 9px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: sp 0.8s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+
+.bucket { border: 1px dashed var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; }
+.bucket h3 { margin: 0; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bucket .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.more { color: var(--blocked); font: 12px var(--mono); border: 1px dashed var(--line); border-radius: 6px; display: grid; place-items: center; padding: 10px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 20px; height: 12px; border-radius: 3px; border: 1px solid var(--c); background: var(--card); }
+.sw.dash { border-style: dashed; }
+.note { font-size: 12px; color: var(--muted); max-width: 80ch; margin: 0; }
+
+/* Drawer de decisión */
+.diamond { width: 8px; height: 8px; transform: rotate(45deg); background: var(--gate); flex: none; }
+.scrim { position: fixed; inset: 0; background: rgb(4 6 12 / .55); opacity: 0; transition: opacity .2s; z-index: 20; }
+.scrim.open { opacity: 1; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--band); border-left: 1px solid var(--line); z-index: 21; display: grid; grid-template-rows: auto 1fr auto; transform: translateX(100%); transition: transform .2s ease-out; box-shadow: -20px 0 60px -20px rgb(0 0 0 / .6); }
+.drawer.open { transform: none; }
+.dhead { position: relative; padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 14px; border-bottom: 1px solid var(--line); background: var(--band-head); display: grid; gap: 6px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--gate); }
+.dhead h2 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; padding-right: 32px; text-wrap: balance; }
+.dhead h2 .num { font: 500 15px var(--mono); color: var(--muted); }
+.dmeta { font-size: 12px; color: var(--muted); }
+.dmeta a { color: var(--accent); }
+.dclose { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 32px; height: 32px; border-radius: 6px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+.dclose:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.dclose:focus-visible { outline: 2px solid var(--accent); }
+.dbody { overflow-y: auto; padding: 18px 20px 24px; display: grid; gap: 22px; align-content: start; }
+.dbody h3 { margin: 0 0 8px; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.opt-l { text-transform: none; letter-spacing: 0; color: var(--blocked); }
+.issue { margin: 0 0 8px; font-size: 14px; line-height: 1.55; max-width: 65ch; }
+details { font-size: 13px; color: var(--muted); }
+details summary { cursor: pointer; color: var(--fg); font-size: 13px; }
+details ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.q { border: 0; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.q legend { font-size: 14px; font-weight: 500; margin-bottom: 8px; display: flex; gap: 10px; line-height: 1.4; padding: 0; }
+.qn { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--muted); }
+.opt { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); cursor: pointer; font-size: 13px; }
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.sel { border-color: var(--gate); background: color-mix(in srgb, var(--gate) 10%, var(--card)); }
+.ok-key { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--line); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--muted); }
+.opt.sel .ok-key { background: var(--gate); border-color: var(--gate); color: #1b1206; }
+.ol { min-width: 0; }
+.rec { font: 500 10px var(--mono); letter-spacing: .04em; color: var(--ready); border: 1px solid color-mix(in srgb, var(--ready) 45%, transparent); padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.why { margin: 4px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; padding-left: 12px; border-left: 2px solid var(--line); }
+.why b { color: var(--fg); font-weight: 500; }
+.ta { width: 100%; background: var(--col); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 13px var(--sans); resize: vertical; }
+.ta:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.prev { margin-top: 10px; }
+.prev pre { margin: 8px 0 0; background: var(--col); border: 1px solid var(--line); border-radius: 6px; padding: 10px; font: 12px/1.5 var(--mono); color: var(--fg); white-space: pre-wrap; }
+.hint { margin: 6px 0 0; font-size: 12px; }
+.dfoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--band-head); }
+.dfoot .spacer { flex: 1; }
+.dfoot .alt { display: flex; gap: 12px; }
+.link { background: none; border: 0; color: var(--muted); font-size: 12px; cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
+.link:hover { color: var(--fg); }
+.btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--band-head); border: 1px solid var(--ready); color: var(--fg); padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 30; box-shadow: 0 10px 30px -10px rgb(0 0 0 / .6); max-width: calc(100vw - 32px); }
+
+@media (prefers-reduced-motion: reduce) { .drawer, .scrim { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } .card, .run, .pg .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="hl">
+      <h1>Issues</h1>
+      <div class="tabs" aria-label="Vista"><span>Lista</span><span>Grupos</span><span class="on">Plan</span></div>
+    </div>
+    <div class="hr">
+      <span class="attn" id="attn" hidden></span>
+      <span class="slots" id="slots"></span>
+      <label class="toggle"><input type="checkbox" id="stepMode"> Pausar al terminar cada wave</label>
+      <button class="btn" id="toggleAll" type="button">Colapsar todas</button>
+      <button class="btn primary" id="playAll" type="button">Ejecutar todas</button>
+    </div>
+  </header>
+
+  <div id="bands" style="display:grid;gap:14px"></div>
+
+  <div class="bucket">
+    <h3>Sin milestone o sin wave · se despachan de a uno</h3>
+    <div class="row" id="loose"></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="--c:var(--ready)"></i>Listo</span>
+    <span><i class="sw" style="--c:var(--accent)"></i>Ejecutando</span>
+    <span><i class="sw" style="--c:var(--review)"></i>En review</span>
+    <span><i class="sw dash" style="--c:var(--gate)"></i>Decisión del PM</span>
+    <span><i class="sw dash" style="--c:var(--muted)"></i>En cola (sin slot libre)</span>
+    <span><i class="sw" style="--c:var(--blocked)"></i>Espera la wave anterior</span>
+  </div>
+  <p class="note">Simulación: los tiempos están acelerados y los workers son de ejemplo. Al darle play a un milestone, se lanza en paralelo todo lo de la wave actual y la siguiente arranca cuando la anterior queda mergeada. Un issue con <code>pm:decision</code> detiene el milestone hasta que lo apruebes. Se respetan los 3 slots de agentes entre todos los milestones.</p>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle" hidden></aside>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const FEATURES = [
+  { name: 'Fluke detecta errores de la app y propone issue en GitHub', issues: [
+    { n: 656, w: 0, t: 'Fluke avisa con un globito cuando el backend registra un error', tags: ['UI','P2','BACKEND'] },
+    { n: 657, w: 1, t: 'Fluke avisa con un globito cuando la UI tiene un error JS no capturado', tags: ['UI','P2'] },
+    { n: 658, w: 1, t: 'Fluke busca el error en los issues de mdevel-uy/fluke antes de crear uno', tags: ['UI','P2','BACKEND'] },
+    { n: 659, w: 2, t: 'Al autorizar, Fluke analiza el error y crea el issue', tags: ['UI','P2','BACKEND'], pm: true },
+  ]},
+  { name: 'Issues agrupado por milestone por defecto', issues: [
+    { n: 652, w: 0, t: 'Issues: agrupar por milestone por defecto y persistir elección', tags: ['UI','P1'] },
+    { n: 653, w: 1, t: '[Decisión] Cómo alinear Sprint con el agrupado', tags: ['UI','P2'], pm: true },
+  ]},
+  { name: 'Rediseño de tabs de Brief del panel Fluke', issues: [
+    { n: 647, w: 0, t: '[Bug] Habilitar cierre y borrado real de la…', tags: ['BUG','UI','P1','BACKEND'], pm: true },
+    { n: 649, w: 1, t: 'Implementar el rediseño de la barra de tabs (sin scroll, dropdown de misiones)', tags: ['UI','P2'] },
+  ]},
+  { name: 'Advanced settings como collapsable', issues: [
+    { n: 651, w: 0, t: "Diseño: fila 'Variants and advanced settings'", tags: ['UI','P2','DESIGN'], pm: true },
+  ]},
+  { name: 'Brief: "Team needed" muestra el plantel total, no lo necesario', issues: [
+    { n: 654, w: 0, t: '[Bug] "Team needed" en BriefView: verificar sufijo ×N y alcance', tags: ['UI','P2'], pm: true },
+  ]},
+];
+const LOOSE = [
+  { n: 626, t: 'Settings → General: agregar control para el límite de concurrencia de agentes', tags: ['UI','P2','WAVE:0'] },
+  { n: 609, t: 'CI no disponible (billing, runner caído) se trata como CI rojo: bloquea la review y despacha fixes imposibles', tags: ['BUG','UI','P1','BACKEND'] },
+];
+const WAVES = 3, SLOTS = 3, TICK = 450;
+const WORKERS = ['Ana', 'Bea', 'Ciro'];
+
+// Estado de simulación. Issue: pending | queued | running | review | decision | done.
+// Milestone: idle | playing | paused | waiting | done.
+function reset(f) {
+  f.status = 'idle';
+  for (const i of f.issues) Object.assign(i, { s: 'pending', left: 0, total: 0, worker: null, approved: false, unstuck: false });
+}
+FEATURES.forEach(reset);
+const curWave = f => { const open = f.issues.filter(i => i.s !== 'done'); return open.length ? Math.min(...open.map(i => i.w)) : null; };
+const busyWorkers = () => FEATURES.flatMap(f => f.issues).filter(i => i.s === 'running' || i.s === 'review' || i.s === 'stuck').map(i => i.worker);
+
+// Orden: primero los milestones que pueden arrancar sin decisión.
+FEATURES.sort((a, b) => (b.issues.some(i => i.w === curWave(b) && !i.pm) ? 1 : 0) - (a.issues.some(i => i.w === curWave(a) && !i.pm) ? 1 : 0));
+
+function step() {
+  let changed = false;
+  for (const f of FEATURES) {
+    if (f.status !== 'playing' && f.status !== 'waiting') continue;
+    const w = curWave(f);
+    if (w === null) { f.status = 'done'; changed = true; continue; }
+    const wave = f.issues.filter(i => i.w === w);
+    for (const i of wave) {
+      if (i.s === 'running' || i.s === 'review') {
+        // Ejemplo: #658 se tranca a mitad del desarrollo y espera una respuesta.
+        if (i.s === 'running' && i.n === 658 && !i.unstuck && i.left <= Math.ceil(i.total / 2)) { i.s = 'stuck'; changed = true; continue; }
+        i.left--; changed = true;
+        if (i.left <= 0) {
+          if (i.s === 'running') { i.s = 'review'; i.left = i.total = 3; }
+          else { i.s = 'done'; i.worker = null; }
+        }
+      }
+    }
+    for (const i of wave) {
+      if (i.s !== 'pending' && i.s !== 'queued') continue;
+      if (i.pm && !i.approved) { if (i.s !== 'decision') { i.s = 'decision'; changed = true; } continue; }
+      const busy = busyWorkers();
+      const free = WORKERS.find(x => !busy.includes(x));
+      if (free) { i.s = 'running'; i.worker = free; i.left = i.total = 5 + Math.floor(Math.random() * 4); }
+      else i.s = 'queued';
+      changed = true;
+    }
+    const blockedOnDecision = wave.some(i => i.s === 'decision') && wave.every(i => i.s === 'decision' || i.s === 'done');
+    const ns = blockedOnDecision ? 'waiting' : 'playing';
+    if (f.status !== ns) { f.status = ns; changed = true; }
+    if (wave.every(i => i.s === 'done')) {
+      const next = curWave(f);
+      if (next === null) f.status = 'done';
+      else if (document.getElementById('stepMode').checked) f.status = 'paused';
+      f.justFinished = w; changed = true;
+    }
+  }
+  if (changed) render();
+}
+setInterval(step, TICK);
+
+const ICON = {
+  play: '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 16 16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>',
+  done: '<svg viewBox="0 0 16 16"><path d="M6.2 11.6 2.6 8l1.1-1.1 2.5 2.5 6.1-6.1 1.1 1.1z"/></svg>',
+  chev: '<svg viewBox="0 0 16 16"><path d="M3.5 5.5 8 10l4.5-4.5 1 1L8 12 2.5 6.5z"/></svg>',
+};
+const tagHtml = tags => tags.map(t => `<span class="tag ${t === 'P1' || t === 'BUG' ? 'hot' : ''}">${t}</span>`).join('');
+
+function viewState(f, i) {
+  // Antes de dar play mostramos qué arrancaría y qué espera una decisión.
+  const w = curWave(f);
+  if (i.s === 'pending') {
+    if (i.w !== w) return ['s-blocked', `espera wave ${w}`];
+    return i.pm && !i.approved ? ['s-gate', '◆ decisión'] : ['s-ready', i.pm ? '✓ decidido' : '● listo'];
+  }
+  return {
+    queued: ['s-queued', 'en cola'],
+    running: ['s-running', '<i class="spin"></i>ejecutando'],
+    review: ['s-review', '<i class="spin"></i>en review'],
+    decision: ['s-decision', '◆ tu decisión'],
+    stuck: ['s-stuck', '⚠ trancado'],
+    done: ['s-done', '✓ mergeado'],
+  }[i.s];
+}
+
+function cardHtml(f, fi, i) {
+  const [cls, label] = viewState(f, i);
+  let extra = '';
+  if (i.worker) extra += `<div class="who"><span class="av">${i.worker[0]}</span>${i.worker} · ${i.s === 'review' ? 'reviewer revisando el PR' : i.s === 'stuck' ? 'esperando tu respuesta' : 'worker en su rama'}</div>`;
+  if (i.s === 'stuck') extra += `<div class="stuckwhy"><small>Desarrollo · paso 2 de 3 · hace 1 min</small>El agente pregunta qué token usar para buscar en GitHub: sin token la API corta a los 10 pedidos.</div><div class="decide"><button class="btn unstick" type="button" data-unstick="${i.n}">Destrabar</button></div>`;
+  if (i.pm && !i.approved && i.s !== 'done') extra += `<div class="decide"><button class="btn ${i.s === 'decision' ? 'ok' : ''}" type="button" data-decide="${fi}:${i.n}">${i.s === 'decision' ? 'Revisar y decidir' : 'Decidir ahora'}</button></div>`;
+  const run = i.s === 'running' || i.s === 'review' ? `<i class="run" style="width:${100 * (1 - i.left / i.total)}%;${i.s === 'review' ? 'background:var(--review)' : ''}"></i>` : '';
+  return `<div class="card ${cls}" data-n="${i.n}" tabindex="0" role="link" aria-label="Abrir issue #${i.n}"><span class="open">Abrir →</span>
+    <div class="top"><span class="num">#${i.n}</span><span class="state">${label}</span></div>
+    <div class="title">${i.t}</div><div class="tags">${tagHtml(i.tags)}</div>${extra}${run}</div>`;
+}
+
+function statusText(f) {
+  const w = curWave(f);
+  const waves = [...new Set(f.issues.map(i => i.w))].length;
+  const gate = f.issues.find(i => i.s === 'decision') || f.issues.find(i => i.w === w && i.pm && !i.approved);
+  switch (f.status) {
+    case 'idle': return gate && f.issues.filter(i => i.w === w).every(i => i.pm)
+      ? `<b>Listo para ejecutar</b> · arranca esperando tu decisión en #${gate.n}`
+      : `<b>Listo para ejecutar</b> · ${waves} wave${waves > 1 ? 's' : ''}, ${f.issues.length} issue${f.issues.length > 1 ? 's' : ''}`;
+    case 'playing': if (f.issues.some(i => i.s === 'stuck')) return `<b class="stk">#${f.issues.find(i => i.s === 'stuck').n} necesita tu ayuda</b> · el resto de la wave sigue corriendo`;
+      return `<b>Ejecutando wave ${w}</b> · ${f.issues.filter(i => i.w === w).length} en paralelo`;
+    case 'waiting': return `<b>Detenido: esperando tu decisión</b> en #${gate.n}`;
+    case 'paused': return f.justFinished != null && w !== null
+      ? `<b>Wave ${f.justFinished} terminada</b> · dale play para lanzar la wave ${w}`
+      : `<b>En pausa</b> · lo que ya está corriendo termina`;
+    case 'done': return `<b>Milestone completo</b> · todos los PRs mergeados`;
+  }
+}
+
+// Resumen para la banda colapsada: segmentos por wave + conteos + workers activos.
+const SEG = { done: 'var(--ready)', running: 'var(--accent)', review: 'var(--review)', decision: 'var(--gate)', queued: 'var(--muted)', stuck: 'var(--danger)' };
+function summaryHtml(f, fi) {
+  const w = curWave(f);
+  const waves = [...new Set(f.issues.map(i => i.w))].sort((a, b) => a - b);
+  const segs = waves.map(k => {
+    const s = f.issues.filter(i => i.w === k).map(i => {
+      const c = SEG[i.s] || (i.pm && !i.approved ? 'var(--gate)' : i.w === w ? 'var(--ready)' : 'var(--blocked)');
+      const dash = i.s === 'queued' || (i.s === 'pending' && i.pm && !i.approved);
+      return `<i class="seg ${dash ? 'dash' : ''}" style="--c:${c}" title="#${i.n}"></i>`;
+    }).join('');
+    return `<span class="wsum ${k === w && f.status !== 'idle' ? 'current' : ''}">W${k}<span class="segs">${s}</span></span>`;
+  }).join('<span class="arrow">→</span>');
+  const n = st => f.issues.filter(i => i.s === st).length;
+  const counts = [
+    [n('done'), 'mergeados', 'var(--ready)'],
+    [n('running'), 'ejecutando', 'var(--accent)'],
+    [n('review'), 'en review', 'var(--review)'],
+    [n('stuck'), 'necesita tu ayuda', 'var(--danger)'],
+    [n('queued'), 'en cola', 'var(--muted)'],
+    [f.issues.filter(i => i.pm && !i.approved && i.s !== 'done').length, 'decisión pendiente', 'var(--gate)'],
+    [f.issues.filter(i => i.s === 'pending' && !(i.pm && !i.approved)).length, 'por hacer', 'var(--blocked)'],
+  ].filter(c => c[0]).map(([v, l, c]) => `<span><i class="dot" style="--c:${c}"></i>${v} ${l}</span>`).join('');
+  const ws = f.issues.filter(i => i.worker);
+  const avs = ws.length ? `<span class="avs">${ws.map(i => `<span class="av" title="${i.worker} en #${i.n}">${i.worker[0]}</span>`).join('')} trabajando</span>` : '';
+  const dec = f.issues.find(i => i.s === 'decision');
+  const stk = f.issues.find(i => i.s === 'stuck');
+  const btn = stk ? `<button class="btn unstick" type="button" data-unstick="${stk.n}">Destrabar #${stk.n}</button>` : dec ? `<button class="btn ok" type="button" data-decide="${fi}:${dec.n}">Decidir #${dec.n}</button>` : '';
+  return `<div class="sum"><div class="sw-row">${segs}</div><div class="counts">${counts}</div>${avs}${btn}</div>`;
+}
+
+function render() {
+  const attn = FEATURES.flatMap(f => f.issues).filter(i => i.s === 'stuck').length;
+  const attnEl = document.getElementById('attn');
+  attnEl.hidden = !attn; attnEl.innerHTML = `<i></i>${attn} necesita${attn > 1 ? 'n' : ''} tu ayuda`;
+  document.getElementById('toggleAll').textContent = FEATURES.every(f => f.collapsed) ? 'Expandir todas' : 'Colapsar todas';
+
+  const busy = busyWorkers().length;
+  document.getElementById('slots').innerHTML = `Slots ${busy}/${SLOTS} ` + Array.from({ length: SLOTS }, (_, k) => `<i class="${k < busy ? 'on' : ''}"></i>`).join('');
+  document.getElementById('bands').innerHTML = FEATURES.map((f, fi) => {
+    const w = curWave(f), done = f.issues.filter(i => i.s === 'done').length;
+    const icon = f.status === 'playing' || f.status === 'waiting' ? ICON.pause : f.status === 'done' ? ICON.done : ICON.play;
+    const aria = f.status === 'playing' || f.status === 'waiting' ? 'Pausar milestone' : 'Ejecutar milestone';
+    const cols = Array.from({ length: WAVES }, (_, k) => {
+      const items = f.issues.filter(i => i.w === k);
+      if (!items.length) return `<div class="wcol empty-col"><div class="wlabel"><span>Wave ${k}</span><span>—</span></div></div>`;
+      const allDone = items.every(i => i.s === 'done');
+      const cls = allDone ? 'done-col' : k === w ? 'current' : '';
+      const cnt = `${items.filter(i => i.s === 'done').length}/${items.length}`;
+      return `<div class="wcol ${cls}"><div class="wlabel"><span>Wave ${k}</span><span>${cnt}</span></div>${items.map(i => cardHtml(f, fi, i)).join('')}</div>`;
+    }).join('');
+    return `<section class="band st-${f.status} ${f.collapsed ? 'collapsed' : ''} ${f.issues.some(i => i.s === 'stuck') ? 'has-stuck' : ''}" data-fi="${fi}">
+      <div class="bhead">
+        <button class="chev" type="button" data-toggle="${fi}" aria-expanded="${!f.collapsed}" aria-label="${f.collapsed ? 'Expandir' : 'Colapsar'} milestone">${ICON.chev}</button>
+        <button class="play" type="button" data-play="${fi}" aria-label="${aria}">${icon}</button>
+        <div class="bt"><h2 data-toggle="${fi}">${f.name}</h2><div class="status">${statusText(f)}</div></div>
+        <div class="pg"><div class="bar"><i style="width:${100 * done / f.issues.length}%"></i></div><span>${done}/${f.issues.length} mergeados</span></div>
+        ${f.status !== 'idle' ? `<button class="reset" type="button" data-reset="${fi}">Reiniciar</button>` : ''}
+      </div>
+      ${f.collapsed ? summaryHtml(f, fi) : `<div class="lanes-scroll"><div class="lanes"><svg aria-hidden="true"></svg>${cols}</div></div>`}
+    </section>`;
+  }).join('');
+  drawEdges();
+}
+
+// Flechas entre waves pobladas consecutivas, coloreadas según avance.
+function drawEdges() {
+  document.querySelectorAll('.band').forEach(band => {
+    const f = FEATURES[band.dataset.fi], lanes = band.querySelector('.lanes');
+    if (!lanes) return;
+    const svg = lanes.querySelector('svg');
+    const o = lanes.getBoundingClientRect();
+    const waves = [...new Set(f.issues.map(i => i.w))].sort((a, b) => a - b);
+    let out = `<defs>${['accent', 'ready', 'blocked'].map(c => `<marker id="a-${c}-${band.dataset.fi}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--${c})"/></marker>`).join('')}</defs>`;
+    for (let k = 0; k < waves.length - 1; k++) for (const a of f.issues.filter(i => i.w === waves[k])) for (const b of f.issues.filter(i => i.w === waves[k + 1])) {
+      const A = lanes.querySelector(`[data-n="${a.n}"]`).getBoundingClientRect(), B = lanes.querySelector(`[data-n="${b.n}"]`).getBoundingClientRect();
+      const x1 = A.right - o.left, y1 = A.top + A.height / 2 - o.top, x2 = B.left - o.left - 2, y2 = B.top + B.height / 2 - o.top, mx = (x1 + x2) / 2;
+      const c = a.s === 'done' ? 'ready' : (a.s === 'running' || a.s === 'review') ? 'accent' : 'blocked';
+      out += `<path d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" fill="none" stroke="var(--${c})" stroke-width="1.6" marker-end="url(#a-${c}-${band.dataset.fi})"/>`;
+    }
+    svg.innerHTML = out;
+  });
+}
+
+document.getElementById('bands').addEventListener('click', ev => {
+  const tg = ev.target.closest('[data-toggle]');
+  if (tg) { const f = FEATURES[tg.dataset.toggle]; f.collapsed = !f.collapsed; render(); return; }
+  const p = ev.target.closest('[data-play]'), r = ev.target.closest('[data-reset]'), a = ev.target.closest('[data-decide]');
+  if (p) {
+    const f = FEATURES[p.dataset.play];
+    if (f.status === 'done') return;
+    f.status = f.status === 'playing' || f.status === 'waiting' ? 'paused' : 'playing';
+    f.justFinished = null;
+    render(); step();
+  }
+  if (r) { reset(FEATURES[r.dataset.reset]); render(); }
+  if (a) { const [fi, n] = a.dataset.decide.split(':'); openDrawer(+fi, +n); }
+});
+
+function approve(fi, n) {
+  const f = FEATURES[fi], i = f.issues.find(x => x.n === n);
+  i.approved = true;
+  if (i.s === 'decision') i.s = 'pending';
+  if (f.status === 'waiting') f.status = 'playing';
+  render(); step();
+}
+
+// ---------- Drawer de decisión ----------
+// Contenido tomado de la sección "## Decisión pendiente del PM" que el analista escribe en cada issue.
+const DECISIONS = {
+  647: {
+    title: '[Bug] Habilitar cierre y borrado real de las tabs de brief',
+    unblocks: [649],
+    issue: 'Las tabs de brief no se pueden cerrar de verdad: la X queda recortada en tabs angostas y cerrar solo saca la tab, la misión sigue en la lista. El fix agrega borrado real (DELETE /missions/{id}) con confirmación.',
+    context: ['closeMissionTab solo filtra openMissionIds; no borra la misión.', 'No existe DELETE /missions/{id}; borrar la fila ya cascadea items, brief e issues vinculados.', 'Borrar la misión no detiene un agente que esté corriendo ni su sesión.'],
+    questions: [
+      { q: 'Si la misión tiene el agente corriendo al pedir el borrado, ¿qué debe pasar?', options: [
+        ['a', 'Bloquear el borrado con un mensaje hasta que el agente termine'],
+        ['b', 'Permitir el borrado y dejar el agente corriendo huérfano'],
+        ['c', 'Permitir el borrado y detener el agente en la misma operación'],
+      ], rec: 'a', why: 'Es lo más simple y evita procesos huérfanos o cancelaciones que el usuario no pidió. Se reutiliza Mission::agent_running para el chequeo.' },
+    ],
+  },
+  651: {
+    title: "Diseño: fila 'Variants and advanced settings'",
+    unblocks: [],
+    issue: 'El brief se contradice: el encabezado del alcance dice "(incluye mobile)" pero el cuerpo dice "Mobile: pendiente de confirmar".',
+    context: ['El designer termina en in_review y el OK final del diseño es tuyo.'],
+    questions: [
+      { q: '¿Mobile entra en el alcance de este mock?', options: [
+        ['a', 'Sí: el mock también diseña la fila expandida en mobile'],
+        ['b', 'No: solo desktop; mobile va en un issue aparte'],
+      ], rec: 'a', why: 'El encabezado dice explícitamente "incluye mobile"; "pendiente de confirmar" se lee como detalle visual por definir, no como fuera de alcance.' },
+    ],
+  },
+  653: {
+    title: '[Decisión] Cómo alinear Sprint con el agrupado',
+    unblocks: [],
+    issue: 'Pediste que Sprint "aplique el mismo comportamiento" que Issues (agrupar por milestone por defecto). Sprint hoy agrupa por estado en columnas y solo filtra por epic.',
+    context: ['Ninguna columna de Sprint tiene sub-agrupado configurable hoy.', 'Si se elige (a) esto pasa a ser una feature nueva de UI, no una alineación.'],
+    questions: [
+      { q: '¿Qué significa "aplicar el mismo comportamiento" en Sprint?', options: [
+        ['a', 'Agrupar por milestone dentro de la columna Backlog, activo por defecto'],
+        ['b', 'Dejar Sprint como está: las columnas por estado ya son su agrupado'],
+      ], rec: 'b', why: 'El sub-agrupado dentro de una columna no existe en el código y cambia la semántica del tablero más allá de "alinear".' },
+      { q: '¿La preferencia de agrupado de Backlog comparte storage con la de Issues?', when: { q: 0, is: 'a' }, options: [
+        ['a', 'Compartida: una sola preferencia para Issues y Sprint'],
+        ['b', 'Independiente por vista'],
+      ], rec: 'a', why: 'Consistencia de producto. Es decisión de UX, no técnica.' },
+    ],
+  },
+  654: {
+    title: '[Bug] "Team needed" en BriefView: verificar sufijo ×N y alcance',
+    unblocks: [],
+    issue: 'El analista no pudo reproducir el bug: en main, "Team needed" muestra chips de solo texto sin ×N, y el backend ya devuelve los roles deduplicados. Tampoco existe el indicador de check por rol que el criterio pide preservar.',
+    context: ['BriefView.tsx:84-100 renderiza roles_needed como chips de texto.', 'git log -S"staffed" no encuentra nada en ninguna rama.', 'director.rs ya cumple el criterio 3 (sort + dedup).'],
+    questions: [
+      { q: '¿Contra qué código reprodujiste el bug?', options: [
+        ['a', 'No hay otra rama: el bug ya está resuelto, cerrar con verificación manual'],
+        ['b', 'Hay una rama o parche local con esa lógica (indicá cuál abajo)'],
+      ], rec: 'a', why: 'Si no hay rama con staffed.length, lo más probable es que nunca se haya fusionado así.' },
+      { q: 'El indicador de check por rol y el tooltip con workers no existen. ¿Entran en este issue?', options: [
+        ['a', 'Sí: construirlos de cero acá'],
+        ['b', 'No: abrir un issue de feature aparte con sus propios criterios'],
+      ], rec: 'b', why: 'Es trabajo nuevo; mezclarlo con la verificación de un bug que no se reproduce ensucia ambos.' },
+    ],
+  },
+  659: {
+    title: 'Al autorizar, Fluke analiza el error y crea el issue',
+    unblocks: [],
+    issue: 'Puede arrancar con las recomendaciones, pero cambia costo, privacidad y superficie de seguridad: crea issues en mdevel-uy/fluke desde la instalación del usuario.',
+    context: ['La huella del error se calcula siempre en el backend Rust.', 'Antes de crear se repite la búsqueda por huella para evitar duplicados.'],
+    questions: [
+      { q: '¿Qué significa "Fluke analiza el error"?', options: [
+        ['a', 'Reporte determinista: mensaje, stack, log, versión, SO, huella; sin IA'],
+        ['b', 'Además un diagnóstico con LLM (consume tokens del usuario)'],
+      ], rec: 'a', why: 'Suficiente para v1; el diagnóstico con IA queda como mejora.' },
+      { q: 'Privacidad de lo que se publica en el issue', options: [
+        ['a', 'Redactar rutas del home y secretos, y mostrar vista previa antes de autorizar'],
+        ['b', 'Publicar tal cual'],
+      ], rec: 'a', why: 'El stack y el log pueden tener el usuario del SO, nombres de repos o datos del proyecto.' },
+      { q: 'Token para crear el issue', options: [
+        ['a', 'Fine-grained token embebido, limitado al repo y a issues'],
+        ['b', 'Servicio propio que recibe el reporte y crea el issue'],
+      ], rec: 'a', why: 'Para v1, asumiendo riesgo de spam; pasar a (b) si el instalador se distribuye ampliamente.' },
+    ],
+  },
+};
+
+const drawer = document.getElementById('drawer'), scrim = document.getElementById('scrim');
+let D = null; // { fi, n, answers: {}, other: {}, note, lastFocus }
+
+function openDrawer(fi, n) {
+  D = { fi, n, answers: {}, other: {}, note: '', lastFocus: document.activeElement };
+  renderDrawer();
+  drawer.hidden = scrim.hidden = false;
+  requestAnimationFrame(() => { drawer.classList.add('open'); scrim.classList.add('open'); drawer.querySelector('.dclose').focus(); });
+}
+function closeDrawer() {
+  drawer.classList.remove('open'); scrim.classList.remove('open');
+  setTimeout(() => { drawer.hidden = scrim.hidden = true; }, 200);
+  D && D.lastFocus && D.lastFocus.focus && D.lastFocus.focus();
+  D = null;
+}
+const visibleQs = d => d.questions.map((q, k) => [q, k]).filter(([q]) => !q.when || D.answers[q.when.q] === q.when.is);
+const ready = () => { const d = DECISIONS[D.n]; return visibleQs(d).every(([, k]) => D.answers[k] && (D.answers[k] !== 'other' || (D.other[k] || '').trim())); };
+
+function commentPreview(d) {
+  const lines = ['**Decisión del PM**', ''];
+  visibleQs(d).forEach(([q, k], idx) => {
+    const a = D.answers[k];
+    const txt = a === 'other' ? (D.other[k] || '…') : a ? `(${a}) ${q.options.find(o => o[0] === a)[1]}` : '…';
+    lines.push(`${idx + 1}. ${txt}`);
+  });
+  if (D.note.trim()) lines.push('', D.note.trim());
+  return lines.join('\n');
+}
+
+function renderDrawer() {
+  const d = DECISIONS[D.n], f = FEATURES[D.fi], i = f.issues.find(x => x.n === D.n);
+  const blocked = f.issues.filter(x => x.w > i.w).map(x => x.n);
+  const qs = visibleQs(d).map(([q, k], idx) => `
+    <fieldset class="q">
+      <legend><span class="qn">${idx + 1}</span>${q.q}</legend>
+      ${q.options.map(([key, label]) => `
+        <label class="opt ${D.answers[k] === key ? 'sel' : ''}">
+          <input type="radio" name="q${k}" value="${key}" ${D.answers[k] === key ? 'checked' : ''} data-q="${k}">
+          <span class="ok-key">${key}</span><span class="ol">${label}</span>
+          ${q.rec === key ? '<span class="rec">Recomendado</span>' : ''}
+        </label>`).join('')}
+      <label class="opt ${D.answers[k] === 'other' ? 'sel' : ''}">
+        <input type="radio" name="q${k}" value="other" ${D.answers[k] === 'other' ? 'checked' : ''} data-q="${k}">
+        <span class="ok-key">…</span><span class="ol">Otra respuesta</span>
+      </label>
+      ${D.answers[k] === 'other' ? `<textarea class="ta" id="other-${D.n}-${k}" data-other="${k}" rows="2" placeholder="Escribí tu respuesta">${D.other[k] || ''}</textarea>` : ''}
+      <p class="why"><b>Por qué el analista recomienda (${q.rec}):</b> ${q.why}</p>
+    </fieldset>`).join('');
+  drawer.innerHTML = `
+    <div class="dhead">
+      <div class="eyebrow"><i class="diamond"></i>Decisión pendiente · wave ${i.w}</div>
+      <button class="dclose" type="button" aria-label="Cerrar">×</button>
+      <h2 id="dtitle"><span class="num">#${D.n}</span> ${d.title}</h2>
+      <div class="dmeta">${f.name}${blocked.length ? ` · destraba ${blocked.map(b => '#' + b).join(', ')}` : ''} · <a href="#" class="openissue" data-openissue="${D.n}">Abrir issue →</a> · <a href="https://github.com/mdevel-uy/fluke/issues/${D.n}" target="_blank" rel="noopener">Ver en GitHub</a></div>
+    </div>
+    <div class="dbody">
+      <section><h3>El asunto</h3><p class="issue">${d.issue}</p>
+        <details><summary>Lo que verificó el analista en el código</summary><ul>${d.context.map(c => `<li>${c}</li>`).join('')}</ul></details>
+      </section>
+      <section><h3>Qué hay que decidir</h3>${qs}</section>
+      <section><h3>Comentario adicional <span class="opt-l">opcional</span></h3>
+        <textarea class="ta" id="note-${D.n}" data-note rows="2" placeholder="Contexto para el worker que tome el issue">${D.note}</textarea>
+        <details class="prev"><summary>Lo que se publica en #${D.n}</summary><pre>${commentPreview(d).replace(/</g, '&lt;')}</pre><p class="hint">Además se quita el label <code>pm:decision</code> y el milestone sigue.</p></details>
+      </section>
+    </div>
+    <div class="dfoot">
+      <button class="btn" type="button" data-recs>Usar recomendaciones</button>
+      <span class="spacer"></span>
+      <div class="alt">
+        <button class="link" type="button" data-alt="analyst">Devolver al analista</button>
+        <button class="link" type="button" data-alt="close">Cerrar sin hacer</button>
+      </div>
+      <button class="btn primary" type="button" data-submit ${ready() ? '' : 'disabled'}>Decidir y seguir</button>
+    </div>`;
+}
+
+drawer.addEventListener('change', ev => {
+  const q = ev.target.dataset.q;
+  if (q !== undefined) { D.answers[q] = ev.target.value; const st = drawer.querySelector('.dbody').scrollTop; renderDrawer(); drawer.querySelector('.dbody').scrollTop = st; }
+});
+drawer.addEventListener('input', ev => {
+  if (ev.target.dataset.other !== undefined) D.other[ev.target.dataset.other] = ev.target.value;
+  if (ev.target.dataset.note !== undefined) D.note = ev.target.value;
+  drawer.querySelector('.prev pre').textContent = commentPreview(DECISIONS[D.n]);
+  drawer.querySelector('[data-submit]').disabled = !ready();
+});
+drawer.addEventListener('click', ev => {
+  if (ev.target.closest('.dclose')) return closeDrawer();
+  if (ev.target.closest('[data-recs]')) {
+    const d = DECISIONS[D.n];
+    d.questions.forEach((q, k) => { D.answers[k] = q.rec; });
+    return renderDrawer();
+  }
+  const alt = ev.target.closest('[data-alt]');
+  if (alt) {
+    const n = D.n;
+    closeDrawer();
+    return toast(alt.dataset.alt === 'analyst' ? `#${n} vuelve al analista con tu comentario; el milestone queda detenido` : `#${n} se cierra sin hacer y el milestone sigue`);
+  }
+  if (ev.target.closest('[data-submit]') && ready()) {
+    const { fi, n } = D;
+    closeDrawer(); approve(fi, n);
+    toast(`Decisión publicada en #${n} · se quitó pm:decision`);
+  }
+});
+scrim.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && D) closeDrawer(); });
+
+let toastT;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3500);
+}
+document.getElementById('toggleAll').addEventListener('click', () => {
+  const c = !FEATURES.every(f => f.collapsed);
+  FEATURES.forEach(f => f.collapsed = c);
+  render();
+});
+document.getElementById('playAll').addEventListener('click', () => {
+  FEATURES.forEach(f => { if (f.status !== 'done') { f.status = 'playing'; f.justFinished = null; } });
+  render(); step();
+});
+
+// Abrir el issue: avisa a la app contenedora (en la app real es navegar a /issues/<n>).
+function openIssue(n) { try { parent.postMessage({ type: 'open-issue', n }, '*'); } catch (e) {} }
+document.getElementById('bands').classList.add('bands-open');
+document.getElementById('bands').addEventListener('click', ev => {
+  const u = ev.target.closest('[data-unstick]');
+  if (u) { try { parent.postMessage({ type: 'unstick', n: +u.dataset.unstick }, '*'); } catch (e) {} return; }
+  if (ev.target.closest('button, a')) return;
+  const c = ev.target.closest('.card[data-n]');
+  if (c) openIssue(+c.dataset.n);
+});
+document.getElementById('bands').addEventListener('keydown', ev => {
+  const c = ev.target.closest('.card[data-n]');
+  if (c && (ev.key === 'Enter' || ev.key === ' ') && ev.target === c) { ev.preventDefault(); openIssue(+c.dataset.n); }
+});
+drawer.addEventListener('click', ev => {
+  const a = ev.target.closest('[data-openissue]');
+  if (a) { ev.preventDefault(); const n = +a.dataset.openissue; closeDrawer(); openIssue(n); }
+}, true);
+window.addEventListener('message', ev => {
+  if (!ev.data || ev.data.type !== 'unstuck') return;
+  for (const f of FEATURES) for (const i of f.issues) if (i.n === ev.data.n) { i.unstuck = true; if (i.s === 'stuck') i.s = 'running'; }
+  render();
+});
+document.getElementById('loose').innerHTML = LOOSE.map(i => `<div class="card"><div class="top"><span class="num">#${i.n}</span><span class="state">manual</span></div><div class="title">${i.t}</div><div class="tags">${tagHtml(i.tags)}</div></div>`).join('') + `<div class="more">+3 issues más sin milestone</div>`;
+
+render();
+new ResizeObserver(drawEdges).observe(document.body);
+document.fonts && document.fonts.ready.then(drawEdges);
+</script>
