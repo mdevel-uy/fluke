@@ -923,6 +923,16 @@
     "emptyDescription": "Refresh to sync issues from the source.",
     "assignToAgent": "Assign to agent",
     "reassignAction": "Reassign",
+    "pmDecision": {
+      "action": "PM decision",
+      "title": "PM decision for #{{number}}",
+      "description": "Your text is published as a comment on the GitHub issue and the pm:decision label is removed.",
+      "placeholder": "Write the decision...",
+      "confirm": "Publish decision",
+      "retryLabelRemoval": "Retry label removal",
+      "labelRemovalFailed": "The decision was published on GitHub, but the pm:decision label could not be removed: {{error}}",
+      "assignBlocked": "Waiting for the PM decision: publish it before assigning this issue."
+    },
     "archiveAction": "Archive",
     "taskStatus": {
       "queued": "Queued",

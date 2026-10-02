@@ -923,6 +923,16 @@
     "emptyDescription": "Actualizá para sincronizar los issues desde la fuente.",
     "assignToAgent": "Asignar a un agente",
     "reassignAction": "Reasignar",
+    "pmDecision": {
+      "action": "Decisión del PM",
+      "title": "Decisión del PM para #{{number}}",
+      "description": "El texto se publica como comentario en el issue de GitHub y se quita la etiqueta pm:decision.",
+      "placeholder": "Escribí la decisión...",
+      "confirm": "Publicar decisión",
+      "retryLabelRemoval": "Reintentar quitar la etiqueta",
+      "labelRemovalFailed": "La decisión se publicó en GitHub, pero no se pudo quitar la etiqueta pm:decision: {{error}}",
+      "assignBlocked": "Falta la decisión del PM: publicala antes de asignar este issue."
+    },
     "archiveAction": "Archivar",
     "taskStatus": {
       "queued": "En cola",

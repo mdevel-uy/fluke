@@ -906,6 +906,16 @@
     "emptyDescription": "重新整理以從來源同步 Issue。",
     "assignToAgent": "指派給代理",
     "reassignAction": "重新指派",
+    "pmDecision": {
+      "action": "PM 決定",
+      "title": "#{{number}} 的 PM 決定",
+      "description": "文字將作為留言發布到 GitHub issue，並移除 pm:decision 標籤。",
+      "placeholder": "輸入決定內容...",
+      "confirm": "發布決定",
+      "retryLabelRemoval": "重試移除標籤",
+      "labelRemovalFailed": "決定已發布到 GitHub，但無法移除 pm:decision 標籤：{{error}}",
+      "assignBlocked": "等待 PM 決定：請在指派此 issue 之前發布決定。"
+    },
     "archiveAction": "封存",
     "taskStatus": {
       "queued": "排隊中",

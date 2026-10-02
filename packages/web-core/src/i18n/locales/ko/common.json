@@ -906,6 +906,16 @@
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
     "reassignAction": "재할당",
+    "pmDecision": {
+      "action": "PM 결정",
+      "title": "#{{number}}에 대한 PM 결정",
+      "description": "텍스트가 GitHub 이슈에 댓글로 게시되고 pm:decision 레이블이 제거됩니다.",
+      "placeholder": "결정 내용을 입력하세요...",
+      "confirm": "결정 게시",
+      "retryLabelRemoval": "레이블 제거 재시도",
+      "labelRemovalFailed": "결정은 GitHub에 게시되었지만 pm:decision 레이블을 제거하지 못했습니다: {{error}}",
+      "assignBlocked": "PM 결정 대기 중: 이 이슈를 할당하기 전에 결정을 게시하세요."
+    },
     "archiveAction": "보관",
     "taskStatus": {
       "queued": "대기 중",

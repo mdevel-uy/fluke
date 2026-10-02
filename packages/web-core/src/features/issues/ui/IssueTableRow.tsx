@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import {
   Archive,
   ExternalLink,
+  Gavel,
   Loader2,
   UserCog,
   UserPlus,
 } from 'lucide-react';
+import { Tooltip } from '@vibe/ui/components/Tooltip';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
@@ -14,6 +16,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 import { ReassignTaskDialog } from './ReassignTaskDialog';
+import { PmDecisionDialog, hasPmDecisionPending } from './PmDecisionDialog';
 
 const TASK_STATUS_STYLES: Record<string, string> = {
   queued: 'bg-warning/10 text-warning',
@@ -73,6 +76,14 @@ export function IssueTableRow({
     e.stopPropagation();
     if (!repoId) return;
     void AssignToAgentDialog.show({ issue, repoId });
+  };
+
+  const pmDecisionPending = hasPmDecisionPending(issue);
+
+  const handlePmDecision = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!repoId) return;
+    void PmDecisionDialog.show({ issue, repoId });
   };
 
   const handleReassign = (e: React.MouseEvent) => {
@@ -220,18 +231,45 @@ export function IssueTableRow({
                     )}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={handleAssign}
-                  disabled={!repoId}
-                  aria-label={t('issues.assignToAgent')}
-                  title={t('issues.assignToAgent')}
-                  className={ICON_BUTTON}
-                >
-                  <UserPlus className="h-4 w-4" strokeWidth={1.75} />
-                </button>
+                {pmDecisionPending ? (
+                  <Tooltip content={t('issues.pmDecision.assignBlocked')}>
+                    <span className="inline-flex">
+                      <button
+                        type="button"
+                        disabled
+                        aria-label={t('issues.pmDecision.assignBlocked')}
+                        className={ICON_BUTTON}
+                      >
+                        <UserPlus className="h-4 w-4" strokeWidth={1.75} />
+                      </button>
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAssign}
+                    disabled={!repoId}
+                    aria-label={t('issues.assignToAgent')}
+                    title={t('issues.assignToAgent')}
+                    className={ICON_BUTTON}
+                  >
+                    <UserPlus className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                )}
               </>
             )
+          )}
+          {isOpen && pmDecisionPending && (
+            <button
+              type="button"
+              onClick={handlePmDecision}
+              disabled={!repoId}
+              aria-label={t('issues.pmDecision.action')}
+              title={t('issues.pmDecision.action')}
+              className={ICON_BUTTON}
+            >
+              <Gavel className="h-4 w-4" strokeWidth={1.75} />
+            </button>
           )}
         </div>
       </td>

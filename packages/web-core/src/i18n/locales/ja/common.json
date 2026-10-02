@@ -906,6 +906,16 @@
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
     "reassignAction": "再割り当て",
+    "pmDecision": {
+      "action": "PMの決定",
+      "title": "#{{number}} のPMの決定",
+      "description": "テキストはGitHubのissueにコメントとして投稿され、pm:decisionラベルが削除されます。",
+      "placeholder": "決定内容を入力...",
+      "confirm": "決定を公開",
+      "retryLabelRemoval": "ラベル削除を再試行",
+      "labelRemovalFailed": "決定はGitHubに公開されましたが、pm:decisionラベルを削除できませんでした: {{error}}",
+      "assignBlocked": "PMの決定待ちです。このissueを割り当てる前に決定を公開してください。"
+    },
     "archiveAction": "アーカイブ",
     "taskStatus": {
       "queued": "待機中",

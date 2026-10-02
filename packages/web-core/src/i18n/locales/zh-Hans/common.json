@@ -906,6 +906,16 @@
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
     "reassignAction": "重新分配",
+    "pmDecision": {
+      "action": "PM 决定",
+      "title": "#{{number}} 的 PM 决定",
+      "description": "文本将作为评论发布到 GitHub issue，并移除 pm:decision 标签。",
+      "placeholder": "输入决定内容...",
+      "confirm": "发布决定",
+      "retryLabelRemoval": "重试移除标签",
+      "labelRemovalFailed": "决定已发布到 GitHub，但无法移除 pm:decision 标签：{{error}}",
+      "assignBlocked": "等待 PM 决定：请在分配此 issue 之前发布决定。"
+    },
     "archiveAction": "归档",
     "taskStatus": {
       "queued": "排队中",

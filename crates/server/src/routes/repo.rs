@@ -857,6 +857,27 @@ pub async fn close_issue(
     ))))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CommentIssueRequest {
+    pub body: String,
+}
+
+pub async fn comment_issue(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, issue_number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<CommentIssueRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let body = payload.body.trim();
+    if body.is_empty() {
+        return Err(ApiError::BadRequest("Comment body is empty".to_string()));
+    }
+    let pool = deployment.db().pool.clone();
+    RepoIssuesService::new()
+        .comment_issue(&pool, repo_id, issue_number, body)
+        .await?;
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
 impl From<RepoIssuesError> for ApiError {
     fn from(err: RepoIssuesError) -> Self {
         match err {
@@ -939,6 +960,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/repos/{repo_id}/issues/{issue_number}/labels/{label_name}",
             delete(remove_issue_label),
+        )
+        .route(
+            "/repos/{repo_id}/issues/{issue_number}/comments",
+            post(comment_issue),
         )
         .route(
             "/repos/{repo_id}/issues/{issue_number}/close",
