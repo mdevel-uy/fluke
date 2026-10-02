@@ -732,14 +732,14 @@ impl WorkerTask {
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
                  AND wt.issue_number IS NOT NULL
-                 AND wt.status IN ('queued', 'in_progress')",
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user')",
         )
         .fetch_all(pool)
         .await?;
         Ok(rows
             .into_iter()
             .map(|(repo_id, pr_number, status)| {
-                let activity = if status == STATUS_IN_PROGRESS {
+                let activity = if status != STATUS_QUEUED {
                     "running"
                 } else {
                     "queued"
@@ -767,7 +767,7 @@ impl WorkerTask {
                WHERE w.role = 'reviewer'
                  AND wt.issue_number = ?1
                  AND wt.repo_id = ?2
-                 AND wt.status IN ('queued', 'in_progress', 'in_review')
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                ORDER BY wt.created_at ASC
                LIMIT 1",
         )
@@ -839,7 +839,7 @@ impl WorkerTask {
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
-                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')
+                 AND status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -1028,7 +1028,7 @@ impl WorkerTask {
                WHERE issue_number = ?1
                  AND repo_id = ?2
                  AND kind = 'review_fix'
-                 AND status IN ('queued', 'in_progress')
+                 AND status IN ('queued', 'in_progress', 'waiting_user')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -1057,7 +1057,7 @@ impl WorkerTask {
                  ON pr.repo_id = wt.repo_id
                 AND pr.pr_number = wt.issue_number
               WHERE w.role = 'reviewer'
-                AND wt.status IN ('queued', 'in_progress', 'in_review')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                 AND pr.pr_status IN ('merged', 'closed')",
         )
         .fetch_all(pool)
@@ -1114,7 +1114,7 @@ impl WorkerTask {
               WHERE w.role = 'reviewer'
                 AND wt.issue_number = ?1
                 AND wt.repo_id = ?2
-                AND wt.status IN ('queued', 'in_progress')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY wt.created_at ASC
               LIMIT 1",
         )
@@ -1129,7 +1129,7 @@ impl WorkerTask {
               WHERE issue_number = ?1
                 AND repo_id = ?2
                 AND kind = 'review_fix'
-                AND status IN ('queued', 'in_progress')
+                AND status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY created_at ASC
               LIMIT 1",
         )
@@ -1140,7 +1140,7 @@ impl WorkerTask {
 
         let to_activity = |status: Option<String>| {
             status.map(|s| {
-                if s == STATUS_IN_PROGRESS {
+                if s != STATUS_QUEUED {
                     "running".to_string()
                 } else {
                     "queued".to_string()

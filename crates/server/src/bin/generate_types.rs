@@ -127,7 +127,6 @@ fn generate_types_content() -> String {
         db::models::plan::PlanSnapshot::decl(),
         server::routes::plan::PlanPauseRequest::decl(),
         server::routes::plan::PlanCutRequest::decl(),
-        server::routes::plan::PlanAnswerRequest::decl(),
         server::routes::plan::PlanRevisionRequest::decl(),
         db::models::mission::Mission::decl(),
         db::models::mission::PendingQuestion::decl(),

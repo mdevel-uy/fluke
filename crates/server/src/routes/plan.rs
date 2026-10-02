@@ -32,6 +32,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/plan/{workspace_id}/pause", post(pause))
         .route("/plan/{workspace_id}/stop", post(stop))
         .route("/plan/{workspace_id}/play", post(play))
+        .route("/plan/{workspace_id}/question", get(get_question))
         .route("/plan/{workspace_id}/answer", post(answer))
         .route("/plan/{workspace_id}/steps/{n}/revert", post(revert))
         .route("/plan/{workspace_id}/steps/{n}/cut", post(cut))
@@ -314,8 +315,22 @@ async fn discard_revision(
     Ok(ok())
 }
 
-#[derive(Debug, Deserialize, TS)]
+/// Pregunta de `ask_user` que espera respuesta (o `null`).
+async fn get_question(
+    State(deployment): State<DeploymentImpl>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Option<Value>>>, ApiError> {
+    let q = plan_service::pending_question(&deployment.db().pool, workspace_id)
+        .await
+        .map_err(ApiError::Conflict)?;
+    Ok(ResponseJson(ApiResponse::success(q)))
+}
+
+#[derive(Debug, Deserialize)]
 pub struct PlanAnswerRequest {
+    /// La pregunta que se responde: los argumentos de esa llamada a `ask_user`.
+    /// Si ya no es la pendiente (respondida o reemplazada) se responde 409.
+    pub question: Value,
     /// Clave de una opción de la pregunta o una respuesta libre.
     pub answer: String,
 }
@@ -330,6 +345,7 @@ async fn answer(
         &deployment.db().pool,
         deployment.container(),
         workspace_id,
+        &req.question,
         &req.answer,
     )
     .await

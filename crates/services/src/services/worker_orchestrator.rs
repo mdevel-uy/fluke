@@ -4248,7 +4248,9 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
                         );
                     }
                 }
-                worker_task::STATUS_IN_PROGRESS | worker_task::STATUS_IN_REVIEW => {
+                worker_task::STATUS_IN_PROGRESS
+                | worker_task::STATUS_WAITING_USER
+                | worker_task::STATUS_IN_REVIEW => {
                     if let Some(ws_id) = task.workspace_id {
                         if let Ok(Some(workspace)) = Workspace::find_by_id(pool, ws_id).await {
                             container.try_stop(&workspace, false).await;

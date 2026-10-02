@@ -892,7 +892,8 @@
     "why": "Pourquoi : {{why}}",
     "otherPlaceholder": "Ou écrivez une autre réponse",
     "send": "Envoyer",
-    "answered": "Répondu : {{answer}}"
+    "answered": "Répondu : {{answer}}",
+    "closed": "N’attend plus de réponse"
   },
   "issues": {
     "title": "Issues",

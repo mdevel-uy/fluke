@@ -164,7 +164,7 @@ pub fn tool_definitions() -> Value {
 
 const MAX_OPTIONS: usize = 4;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 struct AskOption {
     key: String,
     text: String,
@@ -779,15 +779,34 @@ pub async fn revert_to_step(
     Ok(())
 }
 
+/// Pregunta de `ask_user` que espera respuesta en el workspace, si hay.
+pub async fn pending_question(pool: &Pool, workspace_id: Uuid) -> Result<Option<Value>, String> {
+    let e = |e: sqlx::Error| e.to_string();
+    let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id)
+        .await
+        .map_err(e)?
+        .filter(|t| t.status == worker_task::STATUS_WAITING_USER)
+    else {
+        return Ok(None);
+    };
+    Ok(WorkerTask::pending_question(pool, task.id)
+        .await
+        .map_err(e)?
+        .and_then(|j| serde_json::from_str(&j).ok()))
+}
+
 /// Respuesta del user a la pregunta de `ask_user`: `answer` es la clave de
-/// una opción o una respuesta libre. Llega como mensaje a la misma sesión.
+/// una opción o una respuesta libre, y `question` la pregunta que responde
+/// (los argumentos de esa llamada a `ask_user`). Si ya no es la pendiente
+/// (respondida o reemplazada) se rechaza. Llega como mensaje a la misma sesión.
 pub async fn answer_question(
     pool: &Pool,
     container: &(impl ContainerService + Sync),
     workspace_id: Uuid,
+    question: &Value,
     answer: &str,
 ) -> Result<(), String> {
-    answer_with(pool, workspace_id, answer, |prompt| async move {
+    answer_with(pool, workspace_id, question, answer, |prompt| async move {
         follow_up(pool, container, workspace_id, &prompt).await
     })
     .await
@@ -796,6 +815,7 @@ pub async fn answer_question(
 async fn answer_with<F, Fut>(
     pool: &Pool,
     workspace_id: Uuid,
+    question: &Value,
     answer: &str,
     send: F,
 ) -> Result<(), String>
@@ -816,26 +836,30 @@ where
     if agent_running(pool, workspace_id).await {
         return Err("the agent is still ending its turn; try again in a moment".into());
     }
-    let question: Option<AskUserQuestion> = WorkerTask::pending_question(pool, task.id)
+    let pending: Option<AskUserQuestion> = WorkerTask::pending_question(pool, task.id)
         .await
         .map_err(e)?
         .and_then(|j| serde_json::from_str(&j).ok());
-    let prompt = match &question {
-        Some(q) => {
-            let picked = q
-                .options
-                .iter()
-                .find(|o| o.key == answer)
-                .map(|o| format!("option {}: {}", o.key, o.text))
-                .unwrap_or_else(|| answer.to_string());
-            format!(
-                "The user answered your question \"{}\": {picked}\nContinue the task with this \
-                 decision.",
-                q.question
-            )
+    let answered: Option<AskUserQuestion> = serde_json::from_value(question.clone()).ok();
+    let q = match (pending, answered) {
+        (Some(p), Some(a)) if p.question == a.question && p.options == a.options => p,
+        _ => {
+            return Err(
+                "this question is no longer pending: it was answered or replaced by a newer one"
+                    .into(),
+            );
         }
-        None => format!("The user answered your question: {answer}\nContinue the task."),
     };
+    let picked = q
+        .options
+        .iter()
+        .find(|o| o.key == answer)
+        .map(|o| format!("option {}: {}", o.key, o.text))
+        .unwrap_or_else(|| answer.to_string());
+    let prompt = format!(
+        "The user answered your question \"{}\": {picked}\nContinue the task with this decision.",
+        q.question
+    );
     // A in_progress antes de mandar: si el turno nuevo terminara antes, el
     // cierre vería waiting_user y no finalizaría la tarea.
     if !WorkerTask::resume_from_waiting_user(pool, task.id)
@@ -1541,7 +1565,11 @@ mod tests {
         // Recomendada que no es una opción: error, la tarea sigue en curso.
         let mut bad = ask("first?");
         bad["recommended"] = json!("Z");
-        assert!(call_tool(&pool, &store, ws, "ask_user", &bad).await.is_err());
+        assert!(
+            call_tool(&pool, &store, ws, "ask_user", &bad)
+                .await
+                .is_err()
+        );
         let status = |pool: Pool| async move {
             WorkerTask::find_by_id(&pool, task_id)
                 .await
@@ -1564,9 +1592,22 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(pending.contains("second?") && !pending.contains("first?"));
+        assert_eq!(
+            super::pending_question(&pool, ws).await.unwrap().unwrap()["question"],
+            "second?"
+        );
+
+        // Card vieja (pregunta reemplazada): se rechaza sin mandar nada.
+        let err = answer_with(&pool, ws, &ask("first?"), "A", |_| async {
+            panic!("a stale answer must not reach the agent")
+        })
+        .await
+        .unwrap_err();
+        assert!(err.contains("no longer pending"));
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_WAITING_USER);
 
         // La sesión ya no existe: error y la tarea sigue esperando.
-        let err = answer_with(&pool, ws, "B", |_| async {
+        let err = answer_with(&pool, ws, &ask("second?"), "B", |_| async {
             Err::<(), String>("workspace has no session".into())
         })
         .await
@@ -1582,7 +1623,7 @@ mod tests {
 
         // Respuesta por clave: llega con el texto de la opción.
         let sent = std::sync::Mutex::new(String::new());
-        answer_with(&pool, ws, "B", |p| {
+        answer_with(&pool, ws, &ask("second?"), "B", |p| {
             *sent.lock().unwrap() = p;
             async { Ok(()) }
         })
@@ -1600,9 +1641,11 @@ mod tests {
 
         // Ya respondida: no se manda dos veces.
         assert!(
-            answer_with(&pool, ws, "otra cosa", |_| async { Ok(()) })
-                .await
-                .is_err()
+            answer_with(&pool, ws, &ask("second?"), "otra cosa", |_| async {
+                Ok(())
+            })
+            .await
+            .is_err()
         );
     }
 

@@ -907,7 +907,8 @@
     "why": "Why: {{why}}",
     "otherPlaceholder": "Or write another answer",
     "send": "Send",
-    "answered": "Answered: {{answer}}"
+    "answered": "Answered: {{answer}}",
+    "closed": "No longer waiting for an answer"
   },
   "issues": {
     "title": "Issues",

@@ -890,7 +890,8 @@
     "why": "이유: {{why}}",
     "otherPlaceholder": "또는 다른 답변 입력",
     "send": "보내기",
-    "answered": "답변함: {{answer}}"
+    "answered": "답변함: {{answer}}",
+    "closed": "더 이상 답변을 기다리지 않습니다"
   },
   "issues": {
     "title": "Issues",

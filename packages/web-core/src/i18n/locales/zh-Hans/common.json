@@ -890,7 +890,8 @@
     "why": "原因：{{why}}",
     "otherPlaceholder": "或输入其他回答",
     "send": "发送",
-    "answered": "已回答：{{answer}}"
+    "answered": "已回答：{{answer}}",
+    "closed": "已不再等待回答"
   },
   "issues": {
     "title": "Issues",

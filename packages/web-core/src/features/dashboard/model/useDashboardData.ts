@@ -88,7 +88,13 @@ export function useDashboardData() {
       // `approved` is a substate of "PR still open" (#464). The pipeline
       // widget stays a 3-bucket view — fold approved into in_review so the
       // total for "still on the board" stays stable.
-      const bucket = task.status === 'approved' ? 'in_review' : task.status;
+      // waiting_user (#662) counts as in_progress.
+      const bucket =
+        task.status === 'approved'
+          ? 'in_review'
+          : task.status === 'waiting_user'
+            ? 'in_progress'
+            : task.status;
       if (bucket in counts) {
         counts[bucket as keyof typeof counts] += 1;
       }
@@ -99,7 +105,8 @@ export function useDashboardData() {
   const activeTaskByWorkerId = useMemo(() => {
     const map = new Map<string, (typeof tasks)[number]>();
     for (const task of tasks) {
-      if (task.status === 'in_progress') map.set(task.worker_id, task);
+      if (task.status === 'in_progress' || task.status === 'waiting_user')
+        map.set(task.worker_id, task);
     }
     return map;
   }, [tasks]);
@@ -113,7 +120,8 @@ export function useDashboardData() {
   const reposInProgress = useMemo(() => {
     const repos = new Set<string>();
     for (const task of tasks) {
-      if (task.status === 'in_progress') repos.add(task.repo_id);
+      if (task.status === 'in_progress' || task.status === 'waiting_user')
+        repos.add(task.repo_id);
     }
     return repos.size;
   }, [tasks]);

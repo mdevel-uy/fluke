@@ -60,6 +60,8 @@ import { SprintFilterBar, type SprintFilters } from './SprintFilterBar';
 const ACTIVE_STATUSES = new Set([
   'queued',
   'in_progress',
+  // Agent waiting for the user's answer (#662): still on the board as in progress.
+  'waiting_user',
   'in_review',
   'approved',
 ]);
@@ -841,7 +843,11 @@ export function SprintPage() {
   );
 
   const inProgressTasks = useMemo(
-    () => repoTasks.filter((task) => task.status === 'in_progress'),
+    () =>
+      repoTasks.filter(
+        (task) =>
+          task.status === 'in_progress' || task.status === 'waiting_user'
+      ),
     [repoTasks]
   );
 

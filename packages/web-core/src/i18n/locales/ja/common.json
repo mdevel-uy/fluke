@@ -890,7 +890,8 @@
     "why": "理由: {{why}}",
     "otherPlaceholder": "または別の回答を入力",
     "send": "送信",
-    "answered": "回答済み: {{answer}}"
+    "answered": "回答済み: {{answer}}",
+    "closed": "回答待ちではありません"
   },
   "issues": {
     "title": "Issues",
