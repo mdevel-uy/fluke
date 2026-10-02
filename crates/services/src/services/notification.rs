@@ -228,6 +228,10 @@ async fn send_windows_notification(title: &str, message: &str) {
         .arg(title)
         .arg("-Message")
         .arg(message)
+        // Explicit: the script is cached on disk and never refreshed, so an old
+        // copy may still default to "Vibe Kanban".
+        .arg("-AppName")
+        .arg("fluke")
         .no_window()
         .spawn();
 }
