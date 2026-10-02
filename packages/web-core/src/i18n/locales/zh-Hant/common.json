@@ -1089,6 +1089,41 @@
         "todo": "{{count}} 待處理",
         "working": "工作中",
         "decide": "決定 #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "待決定",
+        "eyebrowWave": "待決定 · 波次 {{n}}",
+        "unblocks": "解除阻塞 {{list}}",
+        "viewOnGithub": "在 GitHub 檢視",
+        "issue": "事項",
+        "verified": "分析師在程式碼中核實的內容",
+        "toDecide": "需要決定的事",
+        "answer": "回答",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "輸入你的回答",
+        "recommended": "推薦",
+        "why": "分析師推薦 ({{key}}) 的原因：",
+        "note": "補充說明",
+        "optional": "選填",
+        "notePlaceholder": "給接手該 issue 的 worker 的背景",
+        "returnNeedsNote": "請在說明中寫出分析師缺少什麼。",
+        "preview": "將發布到 #{{n}} 的內容",
+        "previewHint": "同時會移除 pm:decision 標籤，里程碑繼續。",
+        "useRecommendations": "使用推薦",
+        "returnToAnalyst": "退回分析師",
+        "closeWithoutDoing": "不做直接關閉",
+        "decide": "決定並繼續",
+        "confirmClose": "不做直接關閉 #{{n}}？",
+        "closeIssue": "關閉 issue",
+        "followUpFailed": "留言已發布，但下一步失敗：{{error}}。請重試，不會重複發布。",
+        "commentTitle": "PM 決定",
+        "returnedTitle": "退回分析師",
+        "closedTitle": "依 PM 決定不做直接關閉",
+        "toast": {
+          "decided": "已在 #{{n}} 發布決定 · 已移除 pm:decision",
+          "returned": "#{{n}} 已退回分析師",
+          "closed": "#{{n}} 已不做直接關閉"
+        }
       }
     }
   },

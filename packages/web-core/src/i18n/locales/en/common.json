@@ -1108,6 +1108,41 @@
         "todo": "{{count}} to do",
         "working": "working",
         "decide": "Decide #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Pending decision",
+        "eyebrowWave": "Pending decision · wave {{n}}",
+        "unblocks": "unblocks {{list}}",
+        "viewOnGithub": "View on GitHub",
+        "issue": "The issue",
+        "verified": "What the analyst verified in the code",
+        "toDecide": "What needs deciding",
+        "answer": "Answer",
+        "otherAnswer": "Other answer",
+        "otherPlaceholder": "Write your answer",
+        "recommended": "Recommended",
+        "why": "Why the analyst recommends ({{key}}):",
+        "note": "Additional comment",
+        "optional": "optional",
+        "notePlaceholder": "Context for the worker who takes the issue",
+        "returnNeedsNote": "Write in the comment what the analyst is missing.",
+        "preview": "What gets posted on #{{n}}",
+        "previewHint": "The pm:decision label is also removed and the milestone continues.",
+        "useRecommendations": "Use recommendations",
+        "returnToAnalyst": "Send back to the analyst",
+        "closeWithoutDoing": "Close without doing",
+        "decide": "Decide and continue",
+        "confirmClose": "Close #{{n}} without doing it?",
+        "closeIssue": "Close issue",
+        "followUpFailed": "The comment was posted, but the next step failed: {{error}}. Try again: it will not be posted twice.",
+        "commentTitle": "PM decision",
+        "returnedTitle": "Sent back to the analyst",
+        "closedTitle": "Closed without doing by PM decision",
+        "toast": {
+          "decided": "Decision posted on #{{n}} · pm:decision removed",
+          "returned": "#{{n}} goes back to the analyst",
+          "closed": "#{{n}} closed without doing"
+        }
       }
     }
   },

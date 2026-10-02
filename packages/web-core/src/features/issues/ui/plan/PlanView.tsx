@@ -9,6 +9,7 @@ import {
 } from '@/features/issues/lib/milestonePlan';
 import { usePlanCollapseStore } from '@/features/issues/model/usePlanCollapseStore';
 import { MilestoneBand } from './MilestoneBand';
+import type { DecisionContext } from './DecisionDrawer';
 import { PlanCard } from './PlanCard';
 
 /**
@@ -24,7 +25,7 @@ export interface PlanViewProps {
   workerNameById: ReadonlyMap<string, string>;
   selectedIssueId?: string;
   onSelectIssue?: (issue: RepoIssue) => void;
-  onDecide?: (issue: RepoIssue) => void;
+  onDecide?: (issue: RepoIssue, context: DecisionContext) => void;
 }
 
 const TASK_TO_CARD: Record<string, PlanCardState> = {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +33,7 @@ import {
   PlanHeaderActions,
   type IssuesView,
 } from './plan/PlanHeader';
-import { PmDecisionDialog } from './PmDecisionDialog';
+import { DecisionDrawer, type DecisionContext } from './plan/DecisionDrawer';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
 import { IssuesSidebar } from './IssuesSidebar';
@@ -501,12 +501,30 @@ export function IssuesPage() {
     [filters, updateUrl]
   );
 
+  // Confirmation line after a decision (mockup's toast), cleared after 3.5 s.
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
   const handleDecide = useCallback(
-    (issue: RepoIssue) => {
+    async (issue: RepoIssue, context: DecisionContext) => {
       if (!selectedRepoId) return;
-      void PmDecisionDialog.show({ issue, repoId: selectedRepoId });
+      const result = await DecisionDrawer.show({
+        issue,
+        repoId: selectedRepoId,
+        repoName: selectedRepo?.name ?? '',
+        ...context,
+      });
+      if (result !== 'canceled') {
+        setToast(
+          t(`issues.plan.decision.toast.${result}`, { n: issue.number })
+        );
+      }
     },
-    [selectedRepoId]
+    [selectedRepoId, selectedRepo, t]
   );
 
   const handleRefresh = () => {
@@ -672,6 +690,15 @@ export function IssuesPage() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-5 left-1/2 z-[95] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-lg border border-success bg-md-surface-container px-4 py-2.5 text-[13px] text-high shadow-overlay"
+        >
+          {toast}
+        </div>
+      )}
 
       {/* Issue detail drawer */}
       <IssueDetailDrawer

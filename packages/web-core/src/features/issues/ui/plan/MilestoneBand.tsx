@@ -9,6 +9,7 @@ import type {
 import type { WorkerTask } from '@/features/sprint/types';
 import { PlanCard } from './PlanCard';
 import { CollapsedSummary } from './CollapsedSummary';
+import type { DecisionContext } from './DecisionDrawer';
 
 /**
  * One milestone of the Plan view (design/mockups/fluke-v2/issues-plan.html,
@@ -26,7 +27,7 @@ export interface MilestoneBandProps {
   workerNameById: ReadonlyMap<string, string>;
   selectedIssueId?: string;
   onSelectIssue?: (issue: RepoIssue) => void;
-  onDecide?: (issue: RepoIssue) => void;
+  onDecide?: (issue: RepoIssue, context: DecisionContext) => void;
   collapsed: boolean;
   onToggle: () => void;
 }
@@ -124,6 +125,22 @@ export function MilestoneBand({
   }, [measure, collapsed]);
 
   const running = band.status.kind === 'running';
+  // The decision drawer needs the wave, the milestone and the later issues
+  // the decision unblocks.
+  const decide = onDecide
+    ? (issue: RepoIssue) => {
+        const wave =
+          band.waves.find((w) => w.cards.some((c) => c.issue.id === issue.id))
+            ?.wave ?? null;
+        onDecide(issue, {
+          wave,
+          milestone: band.milestone,
+          unblocks: band.waves
+            .filter((w) => wave !== null && w.wave > wave)
+            .flatMap((w) => w.cards.map((c) => c.issue.number)),
+        });
+      }
+    : undefined;
   const percent = band.total ? (100 * band.done) / band.total : 0;
   const markerId = (tone: Edge['tone']) =>
     `plan-arrow-${tone}-${band.milestone.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
@@ -193,7 +210,7 @@ export function MilestoneBand({
           band={band}
           taskByIssueNumber={taskByIssueNumber}
           workerNameById={workerNameById}
-          onDecide={onDecide}
+          onDecide={decide}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -285,7 +302,7 @@ export function MilestoneBand({
                         }
                         selected={card.issue.id === selectedIssueId}
                         onSelect={onSelectIssue}
-                        onDecide={onDecide}
+                        onDecide={decide}
                       />
                     );
                   })}

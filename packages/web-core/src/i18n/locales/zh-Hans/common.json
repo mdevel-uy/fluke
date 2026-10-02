@@ -1089,6 +1089,41 @@
         "todo": "{{count}} 待处理",
         "working": "工作中",
         "decide": "决定 #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "待决定",
+        "eyebrowWave": "待决定 · 波次 {{n}}",
+        "unblocks": "解除阻塞 {{list}}",
+        "viewOnGithub": "在 GitHub 查看",
+        "issue": "事项",
+        "verified": "分析师在代码中核实的内容",
+        "toDecide": "需要决定的事",
+        "answer": "回答",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "输入你的回答",
+        "recommended": "推荐",
+        "why": "分析师推荐 ({{key}}) 的原因：",
+        "note": "补充说明",
+        "optional": "可选",
+        "notePlaceholder": "给接手该 issue 的 worker 的背景",
+        "returnNeedsNote": "请在说明中写出分析师缺少什么。",
+        "preview": "将发布到 #{{n}} 的内容",
+        "previewHint": "同时会移除 pm:decision 标签，里程碑继续。",
+        "useRecommendations": "使用推荐",
+        "returnToAnalyst": "退回分析师",
+        "closeWithoutDoing": "不做直接关闭",
+        "decide": "决定并继续",
+        "confirmClose": "不做直接关闭 #{{n}}？",
+        "closeIssue": "关闭 issue",
+        "followUpFailed": "评论已发布，但下一步失败：{{error}}。请重试，不会重复发布。",
+        "commentTitle": "PM 决定",
+        "returnedTitle": "退回分析师",
+        "closedTitle": "按 PM 决定不做直接关闭",
+        "toast": {
+          "decided": "已在 #{{n}} 发布决定 · 已移除 pm:decision",
+          "returned": "#{{n}} 已退回分析师",
+          "closed": "#{{n}} 已不做直接关闭"
+        }
       }
     }
   },

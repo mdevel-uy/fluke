@@ -1108,6 +1108,41 @@
         "todo": "{{count}} por hacer",
         "working": "trabajando",
         "decide": "Decidir #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Decisión pendiente",
+        "eyebrowWave": "Decisión pendiente · wave {{n}}",
+        "unblocks": "destraba {{list}}",
+        "viewOnGithub": "Ver en GitHub",
+        "issue": "El asunto",
+        "verified": "Lo que verificó el analista en el código",
+        "toDecide": "Qué hay que decidir",
+        "answer": "Respuesta",
+        "otherAnswer": "Otra respuesta",
+        "otherPlaceholder": "Escribí tu respuesta",
+        "recommended": "Recomendado",
+        "why": "Por qué el analista recomienda ({{key}}):",
+        "note": "Comentario adicional",
+        "optional": "opcional",
+        "notePlaceholder": "Contexto para el worker que tome el issue",
+        "returnNeedsNote": "Escribí en el comentario qué le falta al analista.",
+        "preview": "Lo que se publica en #{{n}}",
+        "previewHint": "Además se quita la etiqueta pm:decision y el milestone sigue.",
+        "useRecommendations": "Usar recomendaciones",
+        "returnToAnalyst": "Devolver al analista",
+        "closeWithoutDoing": "Cerrar sin hacer",
+        "decide": "Decidir y seguir",
+        "confirmClose": "¿Cerrar #{{n}} sin hacerlo?",
+        "closeIssue": "Cerrar issue",
+        "followUpFailed": "El comentario se publicó, pero falló el paso siguiente: {{error}}. Volvé a intentarlo: no se publica de nuevo.",
+        "commentTitle": "Decisión del PM",
+        "returnedTitle": "Devuelto al analista",
+        "closedTitle": "Cerrado sin hacer por decisión del PM",
+        "toast": {
+          "decided": "Decisión publicada en #{{n}} · se quitó pm:decision",
+          "returned": "#{{n}} vuelve al analista",
+          "closed": "#{{n}} se cerró sin hacer"
+        }
       }
     }
   },

@@ -1089,6 +1089,41 @@
         "todo": "{{count}} 할 일",
         "working": "작업 중",
         "decide": "#{{n}} 결정"
+      },
+      "decision": {
+        "eyebrow": "결정 대기",
+        "eyebrowWave": "결정 대기 · 웨이브 {{n}}",
+        "unblocks": "{{list}} 차단 해제",
+        "viewOnGithub": "GitHub에서 보기",
+        "issue": "내용",
+        "verified": "분석가가 코드에서 확인한 것",
+        "toDecide": "결정할 것",
+        "answer": "답변",
+        "otherAnswer": "다른 답변",
+        "otherPlaceholder": "답변을 입력하세요",
+        "recommended": "추천",
+        "why": "분석가가 ({{key}})를 추천하는 이유:",
+        "note": "추가 코멘트",
+        "optional": "선택",
+        "notePlaceholder": "이슈를 맡을 worker를 위한 맥락",
+        "returnNeedsNote": "분석가에게 무엇이 부족한지 코멘트에 적어 주세요.",
+        "preview": "#{{n}}에 게시될 내용",
+        "previewHint": "pm:decision 라벨도 제거되고 마일스톤은 계속됩니다.",
+        "useRecommendations": "추천 사용",
+        "returnToAnalyst": "분석가에게 돌려보내기",
+        "closeWithoutDoing": "하지 않고 닫기",
+        "decide": "결정하고 계속",
+        "confirmClose": "#{{n}}을(를) 하지 않고 닫을까요?",
+        "closeIssue": "이슈 닫기",
+        "followUpFailed": "코멘트는 게시되었지만 다음 단계가 실패했습니다: {{error}}. 다시 시도해도 중복 게시되지 않습니다.",
+        "commentTitle": "PM 결정",
+        "returnedTitle": "분석가에게 돌려보냄",
+        "closedTitle": "PM 결정으로 하지 않고 닫음",
+        "toast": {
+          "decided": "#{{n}}에 결정 게시 · pm:decision 제거",
+          "returned": "#{{n}} 분석가에게 돌아감",
+          "closed": "#{{n}} 하지 않고 닫음"
+        }
       }
     }
   },

@@ -1093,6 +1093,41 @@
         "todo": "{{count}} à faire",
         "working": "au travail",
         "decide": "Décider #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Décision en attente",
+        "eyebrowWave": "Décision en attente · vague {{n}}",
+        "unblocks": "débloque {{list}}",
+        "viewOnGithub": "Voir sur GitHub",
+        "issue": "Le sujet",
+        "verified": "Ce que l'analyste a vérifié dans le code",
+        "toDecide": "Ce qu’il faut décider",
+        "answer": "Réponse",
+        "otherAnswer": "Autre réponse",
+        "otherPlaceholder": "Écrivez votre réponse",
+        "recommended": "Recommandé",
+        "why": "Pourquoi l'analyste recommande ({{key}}) :",
+        "note": "Commentaire supplémentaire",
+        "optional": "facultatif",
+        "notePlaceholder": "Contexte pour le worker qui prendra l'issue",
+        "returnNeedsNote": "Indiquez dans le commentaire ce qui manque à l'analyste.",
+        "preview": "Ce qui sera publié sur #{{n}}",
+        "previewHint": "Le label pm:decision est aussi retiré et le jalon continue.",
+        "useRecommendations": "Utiliser les recommandations",
+        "returnToAnalyst": "Renvoyer à l'analyste",
+        "closeWithoutDoing": "Fermer sans faire",
+        "decide": "Décider et continuer",
+        "confirmClose": "Fermer #{{n}} sans le faire ?",
+        "closeIssue": "Fermer l'issue",
+        "followUpFailed": "Le commentaire a été publié, mais l'étape suivante a échoué : {{error}}. Réessayez : il ne sera pas republié.",
+        "commentTitle": "Décision du PM",
+        "returnedTitle": "Renvoyé à l'analyste",
+        "closedTitle": "Fermé sans être fait sur décision du PM",
+        "toast": {
+          "decided": "Décision publiée sur #{{n}} · pm:decision retiré",
+          "returned": "#{{n}} retourne à l'analyste",
+          "closed": "#{{n}} fermé sans être fait"
+        }
       }
     }
   },
