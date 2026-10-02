@@ -234,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "代理並行",
+        "description": "限制並行執行的編碼代理數量。",
+        "limit": {
+          "label": "並行代理數",
+          "helper": "同時執行的編碼代理的最大數量。0 = 自動（依 CPU 核心數）。若設定了環境變數 AGENT_CONCURRENCY_LIMIT，則以其為準。",
+          "errors": {
+            "required": "請輸入一個值。",
+            "notInteger": "值必須是大於或等於 0 的整數。"
+          }
+        }
+      },
       "notifications": {
         "title": "通知",
         "description": "控制何時與如何接收通知。",

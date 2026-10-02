@@ -85,6 +85,11 @@ export function GeneralSettingsSection() {
     string | null
   >(null);
   const [maxReviewRoundsDraft, setMaxReviewRoundsDraft] = useState<string>('');
+  const [concurrencyLimitError, setConcurrencyLimitError] = useState<
+    string | null
+  >(null);
+  const [concurrencyLimitDraft, setConcurrencyLimitDraft] =
+    useState<string>('');
   const { setTheme } = useTheme();
 
   // Per-browser desktop alerts (Notification API). The toggle is stored in
@@ -207,6 +212,8 @@ export function GeneralSettingsSection() {
         String((config as ConfigWithReview).max_review_rounds ?? 3)
       );
       setMaxReviewRoundsError(null);
+      setConcurrencyLimitDraft(String(config.agent_concurrency_limit));
+      setConcurrencyLimitError(null);
     }
   }, [config, dirty]);
 
@@ -281,6 +288,8 @@ export function GeneralSettingsSection() {
       String((config as ConfigWithReview).max_review_rounds ?? 3)
     );
     setMaxReviewRoundsError(null);
+    setConcurrencyLimitDraft(String(config.agent_concurrency_limit));
+    setConcurrencyLimitError(null);
     setDirty(false);
   };
 
@@ -658,6 +667,49 @@ export function GeneralSettingsSection() {
         </SettingsField>
       </SettingsCard>
 
+      {/* Agent Concurrency */}
+      <SettingsCard
+        title={t('settings.general.concurrency.title')}
+        description={t('settings.general.concurrency.description')}
+      >
+        <SettingsField
+          label={t('settings.general.concurrency.limit.label')}
+          description={t('settings.general.concurrency.limit.helper')}
+          error={concurrencyLimitError}
+        >
+          <SettingsInput
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            value={concurrencyLimitDraft}
+            error={!!concurrencyLimitError}
+            className="w-24"
+            placeholder="0"
+            onChange={(value) => {
+              setConcurrencyLimitDraft(value);
+              const trimmed = value.trim();
+              if (trimmed === '') {
+                setConcurrencyLimitError(
+                  t('settings.general.concurrency.limit.errors.required')
+                );
+                return;
+              }
+              // Backend field is u32: reject anything that would fail
+              // deserialization on save.
+              if (!/^\d+$/.test(trimmed) || Number(trimmed) > 0xffffffff) {
+                setConcurrencyLimitError(
+                  t('settings.general.concurrency.limit.errors.notInteger')
+                );
+                return;
+              }
+              setConcurrencyLimitError(null);
+              updateDraft({ agent_concurrency_limit: Number(trimmed) });
+            }}
+          />
+        </SettingsField>
+      </SettingsCard>
+
       {/* Notifications */}
       <SettingsCard
         title={t('settings.general.notifications.title')}
@@ -845,7 +897,11 @@ export function GeneralSettingsSection() {
       <SettingsSaveBar
         show={hasUnsavedChanges}
         saving={saving}
-        saveDisabled={!!branchPrefixError || !!maxReviewRoundsError}
+        saveDisabled={
+          !!branchPrefixError ||
+          !!maxReviewRoundsError ||
+          !!concurrencyLimitError
+        }
         onSave={handleSave}
         onDiscard={handleDiscard}
       />

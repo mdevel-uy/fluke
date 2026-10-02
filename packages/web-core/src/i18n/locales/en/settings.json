@@ -241,6 +241,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "Agent concurrency",
+        "description": "Limit how many coding agents run in parallel.",
+        "limit": {
+          "label": "Concurrent agents",
+          "helper": "Maximum number of coding agents running at once. 0 = automatic (based on CPU cores). The AGENT_CONCURRENCY_LIMIT environment variable, if set, takes precedence.",
+          "errors": {
+            "required": "Enter a value.",
+            "notInteger": "Value must be a whole number (0 or greater)."
+          }
+        }
+      },
       "notifications": {
         "title": "Notifications",
         "description": "Control when and how you receive notifications.",

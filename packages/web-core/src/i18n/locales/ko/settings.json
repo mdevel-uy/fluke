@@ -234,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "에이전트 동시 실행",
+        "description": "병렬로 실행되는 코딩 에이전트 수를 제한합니다.",
+        "limit": {
+          "label": "동시 실행 에이전트 수",
+          "helper": "동시에 실행되는 코딩 에이전트의 최대 수입니다. 0 = 자동(CPU 코어 기준). AGENT_CONCURRENCY_LIMIT 환경 변수가 설정되어 있으면 그 값이 우선합니다.",
+          "errors": {
+            "required": "값을 입력하세요.",
+            "notInteger": "값은 0 이상의 정수여야 합니다."
+          }
+        }
+      },
       "notifications": {
         "title": "알림",
         "description": "알림을 받는 시기와 방법을 제어하세요.",
