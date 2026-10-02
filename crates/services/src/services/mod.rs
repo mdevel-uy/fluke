@@ -20,6 +20,7 @@ pub mod filesystem;
 pub mod filesystem_watcher;
 pub mod heartbeat;
 pub mod licensing;
+pub mod milestone_runs;
 pub mod notification;
 pub mod oauth_credentials;
 pub mod plan;

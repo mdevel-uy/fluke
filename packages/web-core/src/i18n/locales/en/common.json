@@ -1060,7 +1060,6 @@
       "collapseAll": "Collapse all",
       "expandAll": "Expand all",
       "runAll": "Run all",
-      "comingSoon": "Coming soon",
       "play": "Run milestone",
       "collapse": "Collapse milestone",
       "wave": "Wave {{n}}",
@@ -1073,7 +1072,17 @@
         "issues_other": "{{count}} issues",
         "gateDetail": "starts waiting for your decision on #{{n}}",
         "runningTitle": "Running wave {{n}}",
-        "runningDetail": "{{count}} in parallel"
+        "runningDetail": "{{count}} in parallel",
+        "waitingDecisionTitle": "Stopped: waiting for your decision",
+        "waitingDecisionDetail": "on #{{n}}",
+        "waitingTitle": "Stopped",
+        "failedDetail": "#{{n}} failed; reassign or close it to continue",
+        "pausedTitle": "Paused",
+        "pausedDetail": "whatever is running finishes",
+        "stepTitle": "Wave {{n}} finished",
+        "stepDetail": "press play to start wave {{n}}",
+        "doneTitle": "Milestone complete",
+        "doneDetail": "all PRs merged"
       },
       "card": {
         "ready": "● ready",
@@ -1086,7 +1095,9 @@
         "manual": "manual",
         "decideNow": "Decide now",
         "workerBranch": "{{name}} · worker on its branch",
-        "prReview": "{{name}} · PR in review"
+        "prReview": "{{name}} · PR in review",
+        "open": "Open issue #{{n}}",
+        "openHint": "Open →"
       },
       "loose": "No milestone or no wave · dispatched one at a time",
       "legend": {
@@ -1097,7 +1108,63 @@
         "queued": "Queued (no free slot)",
         "blocked": "Waits for the previous wave"
       },
-      "empty": "There are no open issues with a milestone and wave to plan."
+      "empty": "There are no open issues with a milestone and wave to plan.",
+      "expand": "Expand milestone",
+      "summary": {
+        "done": "{{count}} merged",
+        "running": "{{count}} running",
+        "review": "{{count}} in review",
+        "queued": "{{count}} queued",
+        "gate": "{{count}} decision pending",
+        "todo": "{{count}} to do",
+        "working": "working",
+        "decide": "Decide #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Pending decision",
+        "eyebrowWave": "Pending decision · wave {{n}}",
+        "unblocks": "unblocks {{list}}",
+        "viewOnGithub": "View on GitHub",
+        "issue": "The issue",
+        "verified": "What the analyst verified in the code",
+        "toDecide": "What needs deciding",
+        "answer": "Answer",
+        "otherAnswer": "Other answer",
+        "otherPlaceholder": "Write your answer",
+        "recommended": "Recommended",
+        "why": "Why the analyst recommends ({{key}}):",
+        "note": "Additional comment",
+        "optional": "optional",
+        "notePlaceholder": "Context for the worker who takes the issue",
+        "returnNeedsNote": "Write in the comment what the analyst is missing.",
+        "preview": "What gets posted on #{{n}}",
+        "previewHint": "The pm:decision label is also removed and the milestone continues.",
+        "useRecommendations": "Use recommendations",
+        "returnToAnalyst": "Send back to the analyst",
+        "closeWithoutDoing": "Close without doing",
+        "decide": "Decide and continue",
+        "confirmClose": "Close #{{n}} without doing it?",
+        "closeIssue": "Close issue",
+        "followUpFailed": "The comment was posted, but the next step failed: {{error}}. Try again: it will not be posted twice.",
+        "commentTitle": "PM decision",
+        "returnedTitle": "Sent back to the analyst",
+        "closedTitle": "Closed without doing by PM decision",
+        "toast": {
+          "decided": "Decision posted on #{{n}} · pm:decision removed",
+          "returned": "#{{n}} goes back to the analyst",
+          "closed": "#{{n}} closed without doing"
+        },
+        "openIssue": "Open issue →"
+      },
+      "issuePage": {
+        "notFound": "We couldn't find issue #{{n}}.",
+        "backToIssues": "Back to Issues",
+        "viewPr": "View PR",
+        "branch": "Branch",
+        "noTask": "This issue has no task yet."
+      },
+      "pause": "Pause milestone",
+      "reset": "Reset"
     }
   },
   "workers": {

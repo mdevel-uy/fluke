@@ -1043,7 +1043,6 @@
       "collapseAll": "모두 접기",
       "expandAll": "모두 펼치기",
       "runAll": "모두 실행",
-      "comingSoon": "곧 제공",
       "play": "마일스톤 실행",
       "collapse": "마일스톤 접기",
       "wave": "웨이브 {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "이슈 {{count}}개",
         "gateDetail": "#{{n}}에 대한 결정을 기다리며 시작",
         "runningTitle": "웨이브 {{n}} 실행 중",
-        "runningDetail": "{{count}}개 병렬 실행"
+        "runningDetail": "{{count}}개 병렬 실행",
+        "waitingDecisionTitle": "중지됨: 결정 대기 중",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "중지됨",
+        "failedDetail": "#{{n}} 실패. 재배정하거나 닫아야 계속됩니다",
+        "pausedTitle": "일시 정지됨",
+        "pausedDetail": "실행 중인 작업은 끝까지 진행됩니다",
+        "stepTitle": "웨이브 {{n}} 완료",
+        "stepDetail": "재생을 눌러 웨이브 {{n}} 시작",
+        "doneTitle": "마일스톤 완료",
+        "doneDetail": "모든 PR 병합됨"
       },
       "card": {
         "ready": "● 준비됨",
@@ -1067,7 +1076,9 @@
         "manual": "수동",
         "decideNow": "지금 결정",
         "workerBranch": "{{name}} · 자기 브랜치에서 작업 중",
-        "prReview": "{{name}} · PR 리뷰 중"
+        "prReview": "{{name}} · PR 리뷰 중",
+        "open": "이슈 #{{n}} 열기",
+        "openHint": "열기 →"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
       "legend": {
@@ -1078,7 +1089,63 @@
         "queued": "대기열 (빈 슬롯 없음)",
         "blocked": "이전 웨이브 대기"
       },
-      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다."
+      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다.",
+      "expand": "마일스톤 펼치기",
+      "summary": {
+        "done": "{{count}} 병합됨",
+        "running": "{{count}} 실행 중",
+        "review": "{{count}} 리뷰 중",
+        "queued": "{{count}} 대기열",
+        "gate": "{{count}} 결정 대기",
+        "todo": "{{count}} 할 일",
+        "working": "작업 중",
+        "decide": "#{{n}} 결정"
+      },
+      "decision": {
+        "eyebrow": "결정 대기",
+        "eyebrowWave": "결정 대기 · 웨이브 {{n}}",
+        "unblocks": "{{list}} 차단 해제",
+        "viewOnGithub": "GitHub에서 보기",
+        "issue": "내용",
+        "verified": "분석가가 코드에서 확인한 것",
+        "toDecide": "결정할 것",
+        "answer": "답변",
+        "otherAnswer": "다른 답변",
+        "otherPlaceholder": "답변을 입력하세요",
+        "recommended": "추천",
+        "why": "분석가가 ({{key}})를 추천하는 이유:",
+        "note": "추가 코멘트",
+        "optional": "선택",
+        "notePlaceholder": "이슈를 맡을 worker를 위한 맥락",
+        "returnNeedsNote": "분석가에게 무엇이 부족한지 코멘트에 적어 주세요.",
+        "preview": "#{{n}}에 게시될 내용",
+        "previewHint": "pm:decision 라벨도 제거되고 마일스톤은 계속됩니다.",
+        "useRecommendations": "추천 사용",
+        "returnToAnalyst": "분석가에게 돌려보내기",
+        "closeWithoutDoing": "하지 않고 닫기",
+        "decide": "결정하고 계속",
+        "confirmClose": "#{{n}}을(를) 하지 않고 닫을까요?",
+        "closeIssue": "이슈 닫기",
+        "followUpFailed": "코멘트는 게시되었지만 다음 단계가 실패했습니다: {{error}}. 다시 시도해도 중복 게시되지 않습니다.",
+        "commentTitle": "PM 결정",
+        "returnedTitle": "분석가에게 돌려보냄",
+        "closedTitle": "PM 결정으로 하지 않고 닫음",
+        "toast": {
+          "decided": "#{{n}}에 결정 게시 · pm:decision 제거",
+          "returned": "#{{n}} 분석가에게 돌아감",
+          "closed": "#{{n}} 하지 않고 닫음"
+        },
+        "openIssue": "이슈 열기 →"
+      },
+      "issuePage": {
+        "notFound": "이슈 #{{n}}을(를) 찾을 수 없습니다.",
+        "backToIssues": "Issues로 돌아가기",
+        "viewPr": "PR 보기",
+        "branch": "브랜치",
+        "noTask": "이 이슈에는 아직 작업이 없습니다."
+      },
+      "pause": "마일스톤 일시 정지",
+      "reset": "초기화"
     }
   },
   "workers": {

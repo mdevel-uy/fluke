@@ -125,6 +125,7 @@ import {
   MissionDetail,
   MissionSummary,
   UpdateMissionRequest,
+  MilestoneRun,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -2918,5 +2919,64 @@ export const searchApi = {
       options
     );
     return handleApiResponse<SearchResult[]>(response);
+  },
+};
+
+// Play por milestone (fluke v2, #666).
+export const milestoneRunsApi = {
+  list: async (repoId: string): Promise<MilestoneRun[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs`
+    );
+    return handleApiResponse<MilestoneRun[]>(response);
+  },
+  play: async (
+    repoId: string,
+    milestone: string,
+    stepMode: boolean
+  ): Promise<MilestoneRun> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/play`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ milestone, step_mode: stepMode }),
+      }
+    );
+    return handleApiResponse<MilestoneRun>(response);
+  },
+  playAll: async (
+    repoId: string,
+    milestones: string[],
+    stepMode: boolean
+  ): Promise<MilestoneRun[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/play-all`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ milestones, step_mode: stepMode }),
+      }
+    );
+    return handleApiResponse<MilestoneRun[]>(response);
+  },
+  pause: async (repoId: string, milestone: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/pause`,
+      { method: 'POST', body: JSON.stringify({ milestone }) }
+    );
+    await handleApiResponse<void>(response);
+  },
+  reset: async (repoId: string, milestone: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/reset`,
+      { method: 'POST', body: JSON.stringify({ milestone }) }
+    );
+    await handleApiResponse<void>(response);
+  },
+  setStepMode: async (repoId: string, stepMode: boolean): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/step-mode`,
+      { method: 'POST', body: JSON.stringify({ step_mode: stepMode }) }
+    );
+    await handleApiResponse<void>(response);
   },
 };

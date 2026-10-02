@@ -1043,7 +1043,6 @@
       "collapseAll": "すべて折りたたむ",
       "expandAll": "すべて展開",
       "runAll": "すべて実行",
-      "comingSoon": "近日公開",
       "play": "マイルストーンを実行",
       "collapse": "マイルストーンを折りたたむ",
       "wave": "ウェーブ {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "{{count}} 件の issue",
         "gateDetail": "#{{n}} のあなたの判断待ちで開始",
         "runningTitle": "ウェーブ {{n}} を実行中",
-        "runningDetail": "{{count}} 件を並行実行"
+        "runningDetail": "{{count}} 件を並行実行",
+        "waitingDecisionTitle": "停止中: あなたの判断待ち",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "停止中",
+        "failedDetail": "#{{n}} が失敗しました。再割り当てかクローズで続行",
+        "pausedTitle": "一時停止中",
+        "pausedDetail": "実行中のものは完了まで続きます",
+        "stepTitle": "ウェーブ {{n}} 完了",
+        "stepDetail": "再生でウェーブ {{n}} を開始",
+        "doneTitle": "マイルストーン完了",
+        "doneDetail": "すべての PR がマージ済み"
       },
       "card": {
         "ready": "● 準備完了",
@@ -1067,7 +1076,9 @@
         "manual": "手動",
         "decideNow": "今すぐ判断",
         "workerBranch": "{{name}} · 自分のブランチで作業中",
-        "prReview": "{{name}} · PR レビュー中"
+        "prReview": "{{name}} · PR レビュー中",
+        "open": "issue #{{n}} を開く",
+        "openHint": "開く →"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
       "legend": {
@@ -1078,7 +1089,63 @@
         "queued": "キュー（空きスロットなし）",
         "blocked": "前のウェーブ待ち"
       },
-      "empty": "マイルストーンとウェーブのある未完了の issue はありません。"
+      "empty": "マイルストーンとウェーブのある未完了の issue はありません。",
+      "expand": "マイルストーンを展開",
+      "summary": {
+        "done": "{{count}} マージ済み",
+        "running": "{{count}} 実行中",
+        "review": "{{count}} レビュー中",
+        "queued": "{{count}} キュー",
+        "gate": "{{count}} 判断待ち",
+        "todo": "{{count}} 未着手",
+        "working": "作業中",
+        "decide": "#{{n}} を判断"
+      },
+      "decision": {
+        "eyebrow": "判断待ち",
+        "eyebrowWave": "判断待ち · ウェーブ {{n}}",
+        "unblocks": "{{list}} のブロックを解除",
+        "viewOnGithub": "GitHub で見る",
+        "issue": "概要",
+        "verified": "アナリストがコードで確認したこと",
+        "toDecide": "決めること",
+        "answer": "回答",
+        "otherAnswer": "その他の回答",
+        "otherPlaceholder": "回答を入力",
+        "recommended": "推奨",
+        "why": "アナリストが ({{key}}) を推奨する理由:",
+        "note": "追加コメント",
+        "optional": "任意",
+        "notePlaceholder": "issue を担当する worker への補足",
+        "returnNeedsNote": "アナリストに足りないことをコメントに書いてください。",
+        "preview": "#{{n}} に投稿される内容",
+        "previewHint": "pm:decision ラベルも外れ、マイルストーンは続行します。",
+        "useRecommendations": "推奨を使う",
+        "returnToAnalyst": "アナリストに差し戻す",
+        "closeWithoutDoing": "対応せずにクローズ",
+        "decide": "決定して続行",
+        "confirmClose": "#{{n}} を対応せずにクローズしますか？",
+        "closeIssue": "issue をクローズ",
+        "followUpFailed": "コメントは投稿されましたが、次の手順が失敗しました: {{error}}。再試行しても二重投稿はされません。",
+        "commentTitle": "PM の判断",
+        "returnedTitle": "アナリストに差し戻し",
+        "closedTitle": "PM の判断により対応せずにクローズ",
+        "toast": {
+          "decided": "#{{n}} に判断を投稿 · pm:decision を削除",
+          "returned": "#{{n}} をアナリストに差し戻し",
+          "closed": "#{{n}} を対応せずにクローズ"
+        },
+        "openIssue": "issue を開く →"
+      },
+      "issuePage": {
+        "notFound": "issue #{{n}} が見つかりません。",
+        "backToIssues": "Issues に戻る",
+        "viewPr": "PR を見る",
+        "branch": "ブランチ",
+        "noTask": "この issue にはまだタスクがありません。"
+      },
+      "pause": "マイルストーンを一時停止",
+      "reset": "リセット"
     }
   },
   "workers": {

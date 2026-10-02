@@ -1043,7 +1043,6 @@
       "collapseAll": "全部摺疊",
       "expandAll": "全部展開",
       "runAll": "全部執行",
-      "comingSoon": "即將推出",
       "play": "執行里程碑",
       "collapse": "摺疊里程碑",
       "wave": "波次 {{n}}",
@@ -1054,7 +1053,17 @@
         "issues_other": "{{count}} 個 issue",
         "gateDetail": "開始時等待你對 #{{n}} 的決定",
         "runningTitle": "正在執行波次 {{n}}",
-        "runningDetail": "{{count}} 個平行"
+        "runningDetail": "{{count}} 個平行",
+        "waitingDecisionTitle": "已停止：等待你的決定",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "已停止",
+        "failedDetail": "#{{n}} 失敗；重新分配或關閉後繼續",
+        "pausedTitle": "已暫停",
+        "pausedDetail": "正在執行的會完成",
+        "stepTitle": "波次 {{n}} 已完成",
+        "stepDetail": "點擊執行開始波次 {{n}}",
+        "doneTitle": "里程碑完成",
+        "doneDetail": "所有 PR 已合併"
       },
       "card": {
         "ready": "● 就緒",
@@ -1067,7 +1076,9 @@
         "manual": "手動",
         "decideNow": "立即決定",
         "workerBranch": "{{name}} · 在自己的分支上工作",
-        "prReview": "{{name}} · PR 審查中"
+        "prReview": "{{name}} · PR 審查中",
+        "open": "開啟 issue #{{n}}",
+        "openHint": "開啟 →"
       },
       "loose": "無里程碑或無波次 · 逐一分配",
       "legend": {
@@ -1078,7 +1089,63 @@
         "queued": "排隊中（無空閒槽位）",
         "blocked": "等待上一波次"
       },
-      "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。"
+      "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。",
+      "expand": "展開里程碑",
+      "summary": {
+        "done": "{{count}} 已合併",
+        "running": "{{count}} 執行中",
+        "review": "{{count}} 審查中",
+        "queued": "{{count}} 排隊中",
+        "gate": "{{count}} 待決定",
+        "todo": "{{count}} 待處理",
+        "working": "工作中",
+        "decide": "決定 #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "待決定",
+        "eyebrowWave": "待決定 · 波次 {{n}}",
+        "unblocks": "解除阻塞 {{list}}",
+        "viewOnGithub": "在 GitHub 檢視",
+        "issue": "事項",
+        "verified": "分析師在程式碼中核實的內容",
+        "toDecide": "需要決定的事",
+        "answer": "回答",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "輸入你的回答",
+        "recommended": "推薦",
+        "why": "分析師推薦 ({{key}}) 的原因：",
+        "note": "補充說明",
+        "optional": "選填",
+        "notePlaceholder": "給接手該 issue 的 worker 的背景",
+        "returnNeedsNote": "請在說明中寫出分析師缺少什麼。",
+        "preview": "將發布到 #{{n}} 的內容",
+        "previewHint": "同時會移除 pm:decision 標籤，里程碑繼續。",
+        "useRecommendations": "使用推薦",
+        "returnToAnalyst": "退回分析師",
+        "closeWithoutDoing": "不做直接關閉",
+        "decide": "決定並繼續",
+        "confirmClose": "不做直接關閉 #{{n}}？",
+        "closeIssue": "關閉 issue",
+        "followUpFailed": "留言已發布，但下一步失敗：{{error}}。請重試，不會重複發布。",
+        "commentTitle": "PM 決定",
+        "returnedTitle": "退回分析師",
+        "closedTitle": "依 PM 決定不做直接關閉",
+        "toast": {
+          "decided": "已在 #{{n}} 發布決定 · 已移除 pm:decision",
+          "returned": "#{{n}} 已退回分析師",
+          "closed": "#{{n}} 已不做直接關閉"
+        },
+        "openIssue": "開啟 issue →"
+      },
+      "issuePage": {
+        "notFound": "找不到 issue #{{n}}。",
+        "backToIssues": "返回 Issues",
+        "viewPr": "檢視 PR",
+        "branch": "分支",
+        "noTask": "此 issue 還沒有任務。"
+      },
+      "pause": "暫停里程碑",
+      "reset": "重設"
     }
   },
   "workers": {

@@ -1060,7 +1060,6 @@
       "collapseAll": "Colapsar todas",
       "expandAll": "Expandir todas",
       "runAll": "Ejecutar todas",
-      "comingSoon": "Disponible próximamente",
       "play": "Ejecutar milestone",
       "collapse": "Colapsar milestone",
       "wave": "Wave {{n}}",
@@ -1073,7 +1072,17 @@
         "issues_other": "{{count}} issues",
         "gateDetail": "arranca esperando tu decisión en #{{n}}",
         "runningTitle": "Ejecutando wave {{n}}",
-        "runningDetail": "{{count}} en paralelo"
+        "runningDetail": "{{count}} en paralelo",
+        "waitingDecisionTitle": "Detenido: esperando tu decisión",
+        "waitingDecisionDetail": "en #{{n}}",
+        "waitingTitle": "Detenido",
+        "failedDetail": "#{{n}} falló; reasignalo o cerralo para seguir",
+        "pausedTitle": "En pausa",
+        "pausedDetail": "lo que ya está corriendo termina",
+        "stepTitle": "Wave {{n}} terminada",
+        "stepDetail": "dale play para lanzar la wave {{n}}",
+        "doneTitle": "Milestone completo",
+        "doneDetail": "todos los PRs mergeados"
       },
       "card": {
         "ready": "● listo",
@@ -1086,7 +1095,9 @@
         "manual": "manual",
         "decideNow": "Decidir ahora",
         "workerBranch": "{{name}} · worker en su rama",
-        "prReview": "{{name}} · PR en review"
+        "prReview": "{{name}} · PR en review",
+        "open": "Abrir issue #{{n}}",
+        "openHint": "Abrir →"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
       "legend": {
@@ -1097,7 +1108,63 @@
         "queued": "En cola (sin slot libre)",
         "blocked": "Espera la wave anterior"
       },
-      "empty": "No hay issues abiertos con milestone y wave para planificar."
+      "empty": "No hay issues abiertos con milestone y wave para planificar.",
+      "expand": "Expandir milestone",
+      "summary": {
+        "done": "{{count}} mergeados",
+        "running": "{{count}} ejecutando",
+        "review": "{{count}} en review",
+        "queued": "{{count}} en cola",
+        "gate": "{{count}} decisión pendiente",
+        "todo": "{{count}} por hacer",
+        "working": "trabajando",
+        "decide": "Decidir #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Decisión pendiente",
+        "eyebrowWave": "Decisión pendiente · wave {{n}}",
+        "unblocks": "destraba {{list}}",
+        "viewOnGithub": "Ver en GitHub",
+        "issue": "El asunto",
+        "verified": "Lo que verificó el analista en el código",
+        "toDecide": "Qué hay que decidir",
+        "answer": "Respuesta",
+        "otherAnswer": "Otra respuesta",
+        "otherPlaceholder": "Escribí tu respuesta",
+        "recommended": "Recomendado",
+        "why": "Por qué el analista recomienda ({{key}}):",
+        "note": "Comentario adicional",
+        "optional": "opcional",
+        "notePlaceholder": "Contexto para el worker que tome el issue",
+        "returnNeedsNote": "Escribí en el comentario qué le falta al analista.",
+        "preview": "Lo que se publica en #{{n}}",
+        "previewHint": "Además se quita la etiqueta pm:decision y el milestone sigue.",
+        "useRecommendations": "Usar recomendaciones",
+        "returnToAnalyst": "Devolver al analista",
+        "closeWithoutDoing": "Cerrar sin hacer",
+        "decide": "Decidir y seguir",
+        "confirmClose": "¿Cerrar #{{n}} sin hacerlo?",
+        "closeIssue": "Cerrar issue",
+        "followUpFailed": "El comentario se publicó, pero falló el paso siguiente: {{error}}. Volvé a intentarlo: no se publica de nuevo.",
+        "commentTitle": "Decisión del PM",
+        "returnedTitle": "Devuelto al analista",
+        "closedTitle": "Cerrado sin hacer por decisión del PM",
+        "toast": {
+          "decided": "Decisión publicada en #{{n}} · se quitó pm:decision",
+          "returned": "#{{n}} vuelve al analista",
+          "closed": "#{{n}} se cerró sin hacer"
+        },
+        "openIssue": "Abrir issue →"
+      },
+      "issuePage": {
+        "notFound": "No encontramos el issue #{{n}}.",
+        "backToIssues": "Volver a Issues",
+        "viewPr": "Ver PR",
+        "branch": "Rama",
+        "noTask": "Este issue todavía no tiene una tarea."
+      },
+      "pause": "Pausar milestone",
+      "reset": "Reiniciar"
     }
   },
   "workers": {

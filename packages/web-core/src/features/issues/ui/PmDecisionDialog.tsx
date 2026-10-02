@@ -14,8 +14,8 @@ import {
 } from '@vibe/ui/components/KeyboardDialog';
 import { Textarea } from '@vibe/ui/components/Textarea';
 import { defineModal } from '@/shared/lib/modals';
-import { repoIssuesApi } from '@/shared/lib/api';
 import { useRemoveIssueLabel } from '@/features/issues/model/useRepoIssues';
+import { usePublishPmDecision } from '@/features/issues/model/usePublishPmDecision';
 import type { RepoIssue } from '@/features/issues/types';
 
 export const PM_DECISION_LABEL = 'pm:decision';
@@ -30,14 +30,10 @@ export interface PmDecisionDialogProps {
 
 export type PmDecisionResult = 'published' | 'canceled';
 
-const errorMessage = (err: unknown) =>
-  err instanceof Error ? err.message : String(err);
-
 /**
  * Publish the PM's decision as a GitHub comment, then drop the
- * `pm:decision` label. Comment first: if it fails the label stays. If the
- * comment lands but the label removal fails, the dialog switches to a
- * label-only retry so the comment is never posted twice.
+ * `pm:decision` label (comment-first and retry rules live in
+ * usePublishPmDecision).
  */
 const PmDecisionDialogImpl = create<PmDecisionDialogProps>(
   ({ issue, repoId }) => {
@@ -46,9 +42,19 @@ const PmDecisionDialogImpl = create<PmDecisionDialogProps>(
     const removeLabel = useRemoveIssueLabel(repoId);
 
     const [text, setText] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [commentPublished, setCommentPublished] = useState(false);
+    const {
+      run,
+      submitting,
+      error: publishError,
+      commentPublished,
+    } = usePublishPmDecision(repoId, issue.number);
+    const error = !publishError
+      ? null
+      : publishError.step === 'comment'
+        ? publishError.message
+        : t('issues.pmDecision.labelRemovalFailed', {
+            error: publishError.message,
+          });
 
     const closeWith = (result: PmDecisionResult) => {
       modal.resolve(result);
@@ -59,32 +65,13 @@ const PmDecisionDialogImpl = create<PmDecisionDialogProps>(
     const handleConfirm = async () => {
       const body = text.trim();
       if (!body && !commentPublished) return;
-      setSubmitting(true);
-      setError(null);
-      if (!commentPublished) {
-        try {
-          await repoIssuesApi.comment(repoId, issue.number, body);
-          setCommentPublished(true);
-        } catch (err) {
-          setError(errorMessage(err));
-          setSubmitting(false);
-          return;
-        }
-      }
-      try {
-        await removeLabel.mutateAsync({
+      const ok = await run(body, () =>
+        removeLabel.mutateAsync({
           issueNumber: issue.number,
           labelName: PM_DECISION_LABEL,
-        });
-        closeWith('published');
-      } catch (err) {
-        setError(
-          t('issues.pmDecision.labelRemovalFailed', {
-            error: errorMessage(err),
-          })
-        );
-        setSubmitting(false);
-      }
+        })
+      );
+      if (ok) closeWith('published');
     };
 
     const handleOpenChange = (open: boolean) => {

@@ -80,8 +80,9 @@ export function PlanCard({
 
   return (
     <div
-      role="button"
+      role="link"
       tabIndex={0}
+      aria-label={t('issues.plan.card.open', { n: issue.number })}
       data-n={issue.number}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
@@ -97,10 +98,17 @@ export function PlanCard({
       className={cn(
         'relative z-[1] grid cursor-pointer gap-1.5 overflow-hidden rounded-md border border-md-outline-variant bg-md-surface-container-high px-3 py-2.5 text-left transition-[border-color,opacity] duration-200',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary',
+        'group/card hover:border-md-on-surface-variant',
         CARD_STATE_CLASS[state],
         selected && 'ring-1 ring-md-on-surface'
       )}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-2 right-2.5 text-[11px] text-normal opacity-0 transition-opacity duration-150 group-hover/card:opacity-100 group-focus-visible/card:opacity-100 motion-reduce:transition-none"
+      >
+        {t('issues.plan.card.openHint')}
+      </span>
       <div className="flex items-center gap-2">
         <span className="font-mono text-xs font-medium text-normal">
           #{issue.number}

@@ -1045,7 +1045,6 @@
       "collapseAll": "Tout réduire",
       "expandAll": "Tout développer",
       "runAll": "Tout exécuter",
-      "comingSoon": "Bientôt disponible",
       "play": "Exécuter le jalon",
       "collapse": "Réduire le jalon",
       "wave": "Vague {{n}}",
@@ -1058,7 +1057,17 @@
         "issues_other": "{{count}} issues",
         "gateDetail": "démarre en attendant votre décision sur #{{n}}",
         "runningTitle": "Exécution de la vague {{n}}",
-        "runningDetail": "{{count}} en parallèle"
+        "runningDetail": "{{count}} en parallèle",
+        "waitingDecisionTitle": "Arrêté : en attente de votre décision",
+        "waitingDecisionDetail": "sur #{{n}}",
+        "waitingTitle": "Arrêté",
+        "failedDetail": "#{{n}} a échoué ; réassignez-la ou fermez-la pour continuer",
+        "pausedTitle": "En pause",
+        "pausedDetail": "ce qui tourne déjà se termine",
+        "stepTitle": "Vague {{n}} terminée",
+        "stepDetail": "lancez la vague {{n}} avec play",
+        "doneTitle": "Jalon terminé",
+        "doneDetail": "toutes les PR fusionnées"
       },
       "card": {
         "ready": "● prêt",
@@ -1071,7 +1080,9 @@
         "manual": "manuel",
         "decideNow": "Décider maintenant",
         "workerBranch": "{{name}} · worker sur sa branche",
-        "prReview": "{{name}} · PR en revue"
+        "prReview": "{{name}} · PR en revue",
+        "open": "Ouvrir l'issue #{{n}}",
+        "openHint": "Ouvrir →"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
       "legend": {
@@ -1082,7 +1093,63 @@
         "queued": "En file (aucun slot libre)",
         "blocked": "Attend la vague précédente"
       },
-      "empty": "Aucune issue ouverte avec jalon et vague à planifier."
+      "empty": "Aucune issue ouverte avec jalon et vague à planifier.",
+      "expand": "Développer le jalon",
+      "summary": {
+        "done": "{{count}} fusionnés",
+        "running": "{{count}} en cours",
+        "review": "{{count}} en revue",
+        "queued": "{{count}} en file",
+        "gate": "{{count}} décision en attente",
+        "todo": "{{count}} à faire",
+        "working": "au travail",
+        "decide": "Décider #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Décision en attente",
+        "eyebrowWave": "Décision en attente · vague {{n}}",
+        "unblocks": "débloque {{list}}",
+        "viewOnGithub": "Voir sur GitHub",
+        "issue": "Le sujet",
+        "verified": "Ce que l'analyste a vérifié dans le code",
+        "toDecide": "Ce qu’il faut décider",
+        "answer": "Réponse",
+        "otherAnswer": "Autre réponse",
+        "otherPlaceholder": "Écrivez votre réponse",
+        "recommended": "Recommandé",
+        "why": "Pourquoi l'analyste recommande ({{key}}) :",
+        "note": "Commentaire supplémentaire",
+        "optional": "facultatif",
+        "notePlaceholder": "Contexte pour le worker qui prendra l'issue",
+        "returnNeedsNote": "Indiquez dans le commentaire ce qui manque à l'analyste.",
+        "preview": "Ce qui sera publié sur #{{n}}",
+        "previewHint": "Le label pm:decision est aussi retiré et le jalon continue.",
+        "useRecommendations": "Utiliser les recommandations",
+        "returnToAnalyst": "Renvoyer à l'analyste",
+        "closeWithoutDoing": "Fermer sans faire",
+        "decide": "Décider et continuer",
+        "confirmClose": "Fermer #{{n}} sans le faire ?",
+        "closeIssue": "Fermer l'issue",
+        "followUpFailed": "Le commentaire a été publié, mais l'étape suivante a échoué : {{error}}. Réessayez : il ne sera pas republié.",
+        "commentTitle": "Décision du PM",
+        "returnedTitle": "Renvoyé à l'analyste",
+        "closedTitle": "Fermé sans être fait sur décision du PM",
+        "toast": {
+          "decided": "Décision publiée sur #{{n}} · pm:decision retiré",
+          "returned": "#{{n}} retourne à l'analyste",
+          "closed": "#{{n}} fermé sans être fait"
+        },
+        "openIssue": "Ouvrir l'issue →"
+      },
+      "issuePage": {
+        "notFound": "Issue #{{n}} introuvable.",
+        "backToIssues": "Retour aux issues",
+        "viewPr": "Voir la PR",
+        "branch": "Branche",
+        "noTask": "Cette issue n'a pas encore de tâche."
+      },
+      "pause": "Mettre le jalon en pause",
+      "reset": "Réinitialiser"
     }
   },
   "workers": {

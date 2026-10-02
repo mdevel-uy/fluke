@@ -143,6 +143,7 @@ function destinationToRemoteTarget(
     case "export":
       return { to: "/export" } as const;
     case "issues":
+    case "issue":
       // No dedicated issues route on the remote web; fall back to root.
       return { to: "/" } as const;
     case "workers":
@@ -239,6 +240,11 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: "issue", issueNumber, ...(repoId ? { repoId } : {}) },
+        transition,
+      ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
     goToAnalystDesk: (transition) =>
       navigateTo({ kind: "analyst-desk" }, transition),
@@ -319,6 +325,11 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: "issue", issueNumber, ...(repoId ? { repoId } : {}) },
+        transition,
+      ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
     goToAnalystDesk: (transition) =>
       navigateTo({ kind: "analyst-desk" }, transition),
