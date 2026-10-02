@@ -1097,7 +1097,18 @@
         "queued": "Queued (no free slot)",
         "blocked": "Waits for the previous wave"
       },
-      "empty": "There are no open issues with a milestone and wave to plan."
+      "empty": "There are no open issues with a milestone and wave to plan.",
+      "expand": "Expand milestone",
+      "summary": {
+        "done": "{{count}} merged",
+        "running": "{{count}} running",
+        "review": "{{count}} in review",
+        "queued": "{{count}} queued",
+        "gate": "{{count}} decision pending",
+        "todo": "{{count}} to do",
+        "working": "working",
+        "decide": "Decide #{{n}}"
+      }
     }
   },
   "workers": {

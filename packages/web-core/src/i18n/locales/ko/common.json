@@ -1078,7 +1078,18 @@
         "queued": "대기열 (빈 슬롯 없음)",
         "blocked": "이전 웨이브 대기"
       },
-      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다."
+      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다.",
+      "expand": "마일스톤 펼치기",
+      "summary": {
+        "done": "{{count}} 병합됨",
+        "running": "{{count}} 실행 중",
+        "review": "{{count}} 리뷰 중",
+        "queued": "{{count}} 대기열",
+        "gate": "{{count}} 결정 대기",
+        "todo": "{{count}} 할 일",
+        "working": "작업 중",
+        "decide": "#{{n}} 결정"
+      }
     }
   },
   "workers": {

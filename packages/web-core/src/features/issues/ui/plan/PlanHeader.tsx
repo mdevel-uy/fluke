@@ -1,14 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { useConcurrencyStatus } from '@/shared/hooks/useConcurrencyStatus';
+import {
+  selectAllCollapsed,
+  usePlanCollapseStore,
+} from '@/features/issues/model/usePlanCollapseStore';
 
 /**
  * Header pieces of the Issues page in the fluke v2 mockup
  * (design/mockups/fluke-v2/issues-plan.html, `header`): the Lista / Grupos /
  * Plan tabs next to the title, and the Plan controls on the right.
  *
- * "Pausar al terminar cada wave", "Colapsar todas" and "Ejecutar todas" are
- * drawn as in the mockup but disabled: they come with #664 and #666.
+ * "Pausar al terminar cada wave" and "Ejecutar todas" are drawn as in the
+ * mockup but disabled until #666.
  */
 
 export type IssuesView = 'list' | 'groups' | 'plan';
@@ -53,6 +57,9 @@ export function PlanHeaderActions() {
   const { data: concurrency } = useConcurrencyStatus();
   const limit = concurrency?.limit ?? 0;
   const used = concurrency?.used ?? 0;
+  const allCollapsed = usePlanCollapseStore(selectAllCollapsed);
+  const collapseAll = usePlanCollapseStore((s) => s.collapseAll);
+  const expandAll = usePlanCollapseStore((s) => s.expandAll);
 
   return (
     <div className="flex flex-wrap items-center gap-3.5">
@@ -79,11 +86,10 @@ export function PlanHeaderActions() {
       </label>
       <button
         type="button"
-        disabled
-        title={t('issues.plan.comingSoon')}
-        className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high disabled:cursor-default"
+        onClick={allCollapsed ? expandAll : collapseAll}
+        className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
       >
-        {t('issues.plan.collapseAll')}
+        {t(allCollapsed ? 'issues.plan.expandAll' : 'issues.plan.collapseAll')}
       </button>
       <button
         type="button"

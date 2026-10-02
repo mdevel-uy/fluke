@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
@@ -7,6 +7,7 @@ import {
   buildMilestonePlan,
   type PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
+import { usePlanCollapseStore } from '@/features/issues/model/usePlanCollapseStore';
 import { MilestoneBand } from './MilestoneBand';
 import { PlanCard } from './PlanCard';
 
@@ -56,6 +57,14 @@ export function PlanView({
     () => buildMilestonePlan(issues, taskByIssueNumber),
     [issues, taskByIssueNumber]
   );
+  const collapsed = usePlanCollapseStore((s) => s.collapsed);
+  const toggle = usePlanCollapseStore((s) => s.toggle);
+  const setVisible = usePlanCollapseStore((s) => s.setVisible);
+  // Serialized so the effect only fires when the set of bands changes.
+  const milestones = JSON.stringify(plan.bands.map((b) => b.milestone));
+  useEffect(() => {
+    setVisible(JSON.parse(milestones) as string[]);
+  }, [milestones, setVisible]);
 
   return (
     <div className="mx-auto grid w-full max-w-[1240px] gap-4 px-4 py-5">
@@ -75,6 +84,8 @@ export function PlanView({
               selectedIssueId={selectedIssueId}
               onSelectIssue={onSelectIssue}
               onDecide={onDecide}
+              collapsed={collapsed.includes(band.milestone)}
+              onToggle={() => toggle(band.milestone)}
             />
           ))}
         </div>

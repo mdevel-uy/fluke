@@ -1082,7 +1082,18 @@
         "queued": "En file (aucun slot libre)",
         "blocked": "Attend la vague précédente"
       },
-      "empty": "Aucune issue ouverte avec jalon et vague à planifier."
+      "empty": "Aucune issue ouverte avec jalon et vague à planifier.",
+      "expand": "Développer le jalon",
+      "summary": {
+        "done": "{{count}} fusionnés",
+        "running": "{{count}} en cours",
+        "review": "{{count}} en revue",
+        "queued": "{{count}} en file",
+        "gate": "{{count}} décision en attente",
+        "todo": "{{count}} à faire",
+        "working": "au travail",
+        "decide": "Décider #{{n}}"
+      }
     }
   },
   "workers": {

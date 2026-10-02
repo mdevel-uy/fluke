@@ -1078,7 +1078,18 @@
         "queued": "キュー（空きスロットなし）",
         "blocked": "前のウェーブ待ち"
       },
-      "empty": "マイルストーンとウェーブのある未完了の issue はありません。"
+      "empty": "マイルストーンとウェーブのある未完了の issue はありません。",
+      "expand": "マイルストーンを展開",
+      "summary": {
+        "done": "{{count}} マージ済み",
+        "running": "{{count}} 実行中",
+        "review": "{{count}} レビュー中",
+        "queued": "{{count}} キュー",
+        "gate": "{{count}} 判断待ち",
+        "todo": "{{count}} 未着手",
+        "working": "作業中",
+        "decide": "#{{n}} を判断"
+      }
     }
   },
   "workers": {

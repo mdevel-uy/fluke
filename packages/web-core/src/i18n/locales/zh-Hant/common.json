@@ -1078,7 +1078,18 @@
         "queued": "排隊中（無空閒槽位）",
         "blocked": "等待上一波次"
       },
-      "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。"
+      "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。",
+      "expand": "展開里程碑",
+      "summary": {
+        "done": "{{count}} 已合併",
+        "running": "{{count}} 執行中",
+        "review": "{{count}} 審查中",
+        "queued": "{{count}} 排隊中",
+        "gate": "{{count}} 待決定",
+        "todo": "{{count}} 待處理",
+        "working": "工作中",
+        "decide": "決定 #{{n}}"
+      }
     }
   },
   "workers": {

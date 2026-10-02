@@ -1097,7 +1097,18 @@
         "queued": "En cola (sin slot libre)",
         "blocked": "Espera la wave anterior"
       },
-      "empty": "No hay issues abiertos con milestone y wave para planificar."
+      "empty": "No hay issues abiertos con milestone y wave para planificar.",
+      "expand": "Expandir milestone",
+      "summary": {
+        "done": "{{count}} mergeados",
+        "running": "{{count}} ejecutando",
+        "review": "{{count}} en review",
+        "queued": "{{count}} en cola",
+        "gate": "{{count}} decisión pendiente",
+        "todo": "{{count}} por hacer",
+        "working": "trabajando",
+        "decide": "Decidir #{{n}}"
+      }
     }
   },
   "workers": {

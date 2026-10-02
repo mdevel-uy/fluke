@@ -8,14 +8,15 @@ import type {
 } from '@/features/issues/lib/milestonePlan';
 import type { WorkerTask } from '@/features/sprint/types';
 import { PlanCard } from './PlanCard';
+import { CollapsedSummary } from './CollapsedSummary';
 
 /**
  * One milestone of the Plan view (design/mockups/fluke-v2/issues-plan.html,
  * `.band`): header with play, name, status line and progress; below it one
  * column per wave with arrows between consecutive populated waves.
  *
- * Play and the chevron are drawn as in the mockup but do nothing yet: they
- * belong to #666 (play) and #664 (collapse).
+ * The chevron (or a click on the name) collapses the band into a status
+ * summary (#664). Play is drawn as in the mockup but does nothing until #666.
  */
 
 export interface MilestoneBandProps {
@@ -26,6 +27,8 @@ export interface MilestoneBandProps {
   selectedIssueId?: string;
   onSelectIssue?: (issue: RepoIssue) => void;
   onDecide?: (issue: RepoIssue) => void;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
 type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
@@ -43,9 +46,16 @@ const EDGE_COLOR: Record<Edge['tone'], string> = {
   blocked: 'hsl(var(--md-outline))',
 };
 
-function ChevronIcon() {
+function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
-    <svg viewBox="0 0 16 16" className="size-3.5 fill-current" aria-hidden>
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden
+      className={cn(
+        'size-3.5 fill-current transition-transform duration-200 motion-reduce:transition-none',
+        collapsed && '-rotate-90'
+      )}
+    >
       <path d="M3.5 5.5 8 10l4.5-4.5 1 1L8 12 2.5 6.5z" />
     </svg>
   );
@@ -67,6 +77,8 @@ export function MilestoneBand({
   selectedIssueId,
   onSelectIssue,
   onDecide,
+  collapsed,
+  onToggle,
 }: MilestoneBandProps) {
   const { t } = useTranslation('common');
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -109,7 +121,7 @@ export function MilestoneBand({
     const ro = new ResizeObserver(measure);
     ro.observe(lanes);
     return () => ro.disconnect();
-  }, [measure]);
+  }, [measure, collapsed]);
 
   const running = band.status.kind === 'running';
   const percent = band.total ? (100 * band.done) / band.total : 0;
@@ -123,15 +135,22 @@ export function MilestoneBand({
         running && 'border-md-primary/60'
       )}
     >
-      <div className="flex flex-wrap items-center gap-3.5 border-b border-md-outline-variant bg-md-surface-container px-4 py-3">
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-3.5 bg-md-surface-container px-4 py-3',
+          !collapsed && 'border-b border-md-outline-variant'
+        )}
+      >
         <button
           type="button"
-          disabled
-          title={t('issues.plan.comingSoon')}
-          aria-label={t('issues.plan.collapse')}
-          className="grid size-7 flex-none place-items-center rounded-md text-normal disabled:cursor-default"
+          onClick={onToggle}
+          aria-expanded={!collapsed}
+          aria-label={t(
+            collapsed ? 'issues.plan.expand' : 'issues.plan.collapse'
+          )}
+          className="grid size-7 flex-none place-items-center rounded-md text-normal hover:bg-md-on-surface/10 hover:text-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
         >
-          <ChevronIcon />
+          <ChevronIcon collapsed={collapsed} />
         </button>
         <button
           type="button"
@@ -146,7 +165,10 @@ export function MilestoneBand({
           <PlayIcon />
         </button>
         <div className="grid min-w-0 flex-[1_1_260px] gap-0.5">
-          <h2 className="m-0 text-[15px] font-semibold text-high [text-wrap:balance]">
+          <h2
+            onClick={onToggle}
+            className="m-0 cursor-pointer text-[15px] font-semibold text-high [text-wrap:balance]"
+          >
             {band.milestone}
           </h2>
           <div className="flex flex-wrap items-center gap-2 text-xs text-normal">
@@ -166,104 +188,113 @@ export function MilestoneBand({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          ref={lanesRef}
-          className="relative grid min-w-max gap-x-12 px-4 pb-4 pt-3.5"
-          style={{ gridTemplateColumns: `repeat(${columnCount}, 280px)` }}
-        >
-          <svg
-            aria-hidden
-            className="pointer-events-none absolute inset-0 size-full overflow-visible"
+      {collapsed ? (
+        <CollapsedSummary
+          band={band}
+          taskByIssueNumber={taskByIssueNumber}
+          workerNameById={workerNameById}
+          onDecide={onDecide}
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <div
+            ref={lanesRef}
+            className="relative grid min-w-max gap-x-12 px-4 pb-4 pt-3.5"
+            style={{ gridTemplateColumns: `repeat(${columnCount}, 280px)` }}
           >
-            <defs>
-              {(['done', 'active', 'blocked'] as const).map((tone) => (
-                <marker
-                  key={tone}
-                  id={markerId(tone)}
-                  viewBox="0 0 8 8"
-                  refX="7"
-                  refY="4"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto"
-                >
-                  <path d="M0 0L8 4L0 8z" fill={EDGE_COLOR[tone]} />
-                </marker>
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute inset-0 size-full overflow-visible"
+            >
+              <defs>
+                {(['done', 'active', 'blocked'] as const).map((tone) => (
+                  <marker
+                    key={tone}
+                    id={markerId(tone)}
+                    viewBox="0 0 8 8"
+                    refX="7"
+                    refY="4"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto"
+                  >
+                    <path d="M0 0L8 4L0 8z" fill={EDGE_COLOR[tone]} />
+                  </marker>
+                ))}
+              </defs>
+              {edges.map((e, i) => (
+                <path
+                  key={i}
+                  d={e.d}
+                  fill="none"
+                  stroke={EDGE_COLOR[e.tone]}
+                  strokeWidth={1.6}
+                  markerEnd={`url(#${markerId(e.tone)})`}
+                />
               ))}
-            </defs>
-            {edges.map((e, i) => (
-              <path
-                key={i}
-                d={e.d}
-                fill="none"
-                stroke={EDGE_COLOR[e.tone]}
-                strokeWidth={1.6}
-                markerEnd={`url(#${markerId(e.tone)})`}
-              />
-            ))}
-          </svg>
+            </svg>
 
-          {Array.from({ length: columnCount }, (_, k) => {
-            const wave = band.waves.find((w) => w.wave === k);
-            if (!wave) {
+            {Array.from({ length: columnCount }, (_, k) => {
+              const wave = band.waves.find((w) => w.wave === k);
+              if (!wave) {
+                return (
+                  <div
+                    key={k}
+                    className="flex flex-col gap-2.5 rounded-lg border border-dashed border-md-outline-variant p-2.5"
+                  >
+                    <p className="m-0 flex justify-between font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-low">
+                      <span>{t('issues.plan.wave', { n: k })}</span>
+                      <span>—</span>
+                    </p>
+                  </div>
+                );
+              }
+              const done = wave.cards.filter((c) => c.state === 'done').length;
+              const allDone = done === wave.cards.length;
+              const current = k === band.currentWave;
               return (
                 <div
                   key={k}
-                  className="flex flex-col gap-2.5 rounded-lg border border-dashed border-md-outline-variant p-2.5"
-                >
-                  <p className="m-0 flex justify-between font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-low">
-                    <span>{t('issues.plan.wave', { n: k })}</span>
-                    <span>—</span>
-                  </p>
-                </div>
-              );
-            }
-            const done = wave.cards.filter((c) => c.state === 'done').length;
-            const allDone = done === wave.cards.length;
-            const current = k === band.currentWave;
-            return (
-              <div
-                key={k}
-                className={cn(
-                  'flex flex-col gap-2.5 rounded-lg border border-md-outline-variant bg-md-surface-container-lowest p-2.5',
-                  current && 'border-md-primary/45',
-                  allDone && 'opacity-75'
-                )}
-              >
-                <p
                   className={cn(
-                    'm-0 flex justify-between font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-normal',
-                    current && 'text-md-primary'
+                    'flex flex-col gap-2.5 rounded-lg border border-md-outline-variant bg-md-surface-container-lowest p-2.5',
+                    current && 'border-md-primary/45',
+                    allDone && 'opacity-75'
                   )}
                 >
-                  <span>{t('issues.plan.wave', { n: k })}</span>
-                  <span className="tabular-nums">
-                    {done}/{wave.cards.length}
-                  </span>
-                </p>
-                {wave.cards.map((card) => {
-                  const task = taskByIssueNumber.get(card.issue.number);
-                  return (
-                    <PlanCard
-                      key={card.issue.id}
-                      issue={card.issue}
-                      state={card.state}
-                      currentWave={band.currentWave}
-                      workerName={
-                        task ? workerNameById.get(task.worker_id) : undefined
-                      }
-                      selected={card.issue.id === selectedIssueId}
-                      onSelect={onSelectIssue}
-                      onDecide={onDecide}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
+                  <p
+                    className={cn(
+                      'm-0 flex justify-between font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-normal',
+                      current && 'text-md-primary'
+                    )}
+                  >
+                    <span>{t('issues.plan.wave', { n: k })}</span>
+                    <span className="tabular-nums">
+                      {done}/{wave.cards.length}
+                    </span>
+                  </p>
+                  {wave.cards.map((card) => {
+                    const task = taskByIssueNumber.get(card.issue.number);
+                    return (
+                      <PlanCard
+                        key={card.issue.id}
+                        issue={card.issue}
+                        state={card.state}
+                        currentWave={band.currentWave}
+                        workerName={
+                          task ? workerNameById.get(task.worker_id) : undefined
+                        }
+                        selected={card.issue.id === selectedIssueId}
+                        onSelect={onSelectIssue}
+                        onDecide={onDecide}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
