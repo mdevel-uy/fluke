@@ -1766,6 +1766,11 @@
     "error": "无法完成操作：{{message}}"
   },
   "director": {
+    "eventsBatch_one": "{{count}} 个应用事件",
+    "eventsBatch_other": "{{count}} 个应用事件",
+    "guard": {
+      "noBrief": "这是 Fluke 的常驻对话：应用中发生的事情会到这里。它没有简报；新的开发工作会开启一个任务。"
+    },
     "name": "Fluke",
     "open": "Open Fluke",
     "pin": "Anchor as a column",

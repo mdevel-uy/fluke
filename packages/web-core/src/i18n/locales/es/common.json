@@ -1991,6 +1991,11 @@
     "error": "No se pudo completar la acción: {{message}}"
   },
   "director": {
+    "eventsBatch_one": "{{count}} evento de la app",
+    "eventsBatch_other": "{{count}} eventos de la app",
+    "guard": {
+      "noBrief": "Esta es la conversación de guardia de Fluke: acá llega lo que pasa en la app. No tiene brief; el trabajo nuevo de desarrollo arranca una misión."
+    },
     "name": "Fluke",
     "open": "Abrir Fluke",
     "pin": "Anclar como columna",

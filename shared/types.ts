@@ -480,7 +480,11 @@ proposal: Array<MissionProposalIssue>,
  * `none` (nothing dispatched), `planning` (devs started, no plan steps
  * yet) or `running` (at least one dev submitted its plan).
  */
-execution: string, };
+execution: string,
+/**
+ * Fluke's standing conversation (J0.3): app events land here, no brief.
+ */
+is_guard: boolean, };
 
 export type MissionProposalIssue = { number: number, title: string, state: string, milestone: string | null, wave: number | null, 
 /**
@@ -492,7 +496,11 @@ export type MissionSummary = { mission: Mission, repo_name: string | null, agent
 /**
  * Issues the Analyst created for the mission.
  */
-issue_numbers: Array<number>, };
+issue_numbers: Array<number>,
+/**
+ * Fluke's standing conversation (J0.3): app events land here, no brief.
+ */
+is_guard: boolean, };
 
 export type CreateMissionRequest = { 
 /**

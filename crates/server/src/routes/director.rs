@@ -53,12 +53,17 @@ pub struct MissionSummary {
     /// Issues the Analyst created for the mission.
     #[ts(type = "Array<number>")]
     pub issue_numbers: Vec<i64>,
+    /// Fluke's standing conversation (J0.3): app events land here, no brief.
+    pub is_guard: bool,
 }
 
 async fn list_missions(
     State(deployment): State<DeploymentImpl>,
 ) -> Result<ResponseJson<ApiResponse<Vec<MissionSummary>>>, ApiError> {
     let pool = &deployment.db().pool;
+    let guard = db::models::fluke_event::FlukeGuard::get(pool)
+        .await?
+        .map(|g| g.mission_id);
     let mut out = Vec::new();
     for mission in Mission::list(pool).await? {
         let repo_name = match mission.repo_id {
@@ -69,6 +74,7 @@ async fn list_missions(
         };
         let (issues_total, issues_closed) = Mission::issue_progress(pool, mission.id).await?;
         out.push(MissionSummary {
+            is_guard: guard == Some(mission.id),
             issue_numbers: Mission::issue_numbers(pool, mission.id).await?,
             agent_running: Mission::agent_running(pool, mission.id).await?,
             mission,
@@ -422,4 +428,119 @@ async fn get_mission_workspace(
     let mission = load(&deployment, id).await?;
     let ctx = Workspace::load_context(&deployment.db().pool, mission.workspace_id).await?;
     Ok(ResponseJson(ApiResponse::success(ctx)))
+}
+
+// ---------------------------------------------------------------------------
+// Conversación de guardia (J0.3): los eventos del bus le llegan a Fluke
+// ---------------------------------------------------------------------------
+
+/// Cada cuánto se mira el bus.
+const EVENT_POLL: std::time::Duration = std::time::Duration::from_secs(10);
+/// Como mucho un lote por minuto: cada lote es un turno de Fluke.
+// ponytail: fixed gap; make it a setting if a busy factory needs faster alerts.
+const MIN_DELIVERY_GAP_SECS: i64 = 60;
+const EVENTS_PER_BATCH: i64 = 100;
+
+/// Arranca el watcher de la guardia: lee `fluke_events` y le manda a la
+/// misión fija de Fluke lo que no es progreso puro, en lotes.
+pub fn spawn_event_watcher(deployment: DeploymentImpl) {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(EVENT_POLL);
+        loop {
+            tick.tick().await;
+            if let Err(e) = deliver_events(&deployment).await {
+                tracing::debug!("Fluke event watcher: {e}");
+            }
+        }
+    });
+}
+
+/// La misión de guardia; la crea (en el primer repo) si todavía no existe.
+async fn ensure_guard(
+    deployment: &DeploymentImpl,
+) -> Result<Option<db::models::fluke_event::FlukeGuard>, ApiError> {
+    use db::models::{fluke_event::FlukeGuard, repo::Repo};
+    let pool = &deployment.db().pool;
+    if let Some(guard) = FlukeGuard::get(pool).await?
+        && Mission::find_by_id(pool, guard.mission_id).await?.is_some()
+    {
+        return Ok(Some(guard));
+    }
+    let Some(repo) = Repo::list_all(pool).await?.into_iter().next() else {
+        return Ok(None);
+    };
+    let worker = director::ensure_orchestrator(pool).await?;
+    let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
+        .map_err(ApiError::BadRequest)?;
+    let workspace = scratch::ensure_scratch_workspace(deployment, repo.id).await?;
+    let session = Session::create(
+        pool,
+        &CreateSession {
+            executor: Some(executor_config.executor.to_string()),
+            name: Some("Fluke".to_string()),
+        },
+        Uuid::new_v4(),
+        workspace.id,
+    )
+    .await?;
+    let mission = Mission::create(pool, session.id, Some(repo.id)).await?;
+    Mission::set_title(pool, mission.id, "Fluke").await?;
+    FlukeGuard::set(pool, mission.id).await?;
+    Ok(FlukeGuard::get(pool).await?)
+}
+
+async fn deliver_events(deployment: &DeploymentImpl) -> Result<(), ApiError> {
+    use db::models::fluke_event::{FlukeEvent, FlukeGuard, SEVERITY_PROGRESS};
+    let pool = &deployment.db().pool;
+    // Until the server knows its own address, Fluke would start without its MCP.
+    if utils::plan_mcp::director_url_for_session("").is_none() {
+        return Ok(());
+    }
+    let Some(guard) = ensure_guard(deployment).await? else {
+        return Ok(());
+    };
+    if guard
+        .secs_since_delivery
+        .is_some_and(|s| s < MIN_DELIVERY_GAP_SECS)
+    {
+        return Ok(());
+    }
+    let events = FlukeEvent::list_after(pool, guard.event_cursor, EVENTS_PER_BATCH).await?;
+    let Some(last) = events.last().map(|e| e.id) else {
+        return Ok(());
+    };
+    // Progress is for the UI; the guard's own mission events are Fluke's.
+    let worth: Vec<FlukeEvent> = events
+        .into_iter()
+        .filter(|e| e.severity != SEVERITY_PROGRESS && e.subject_id != Some(guard.mission_id))
+        .collect();
+    if worth.is_empty() {
+        FlukeGuard::advance(pool, last, false).await?;
+        return Ok(());
+    }
+    // Never interrupt Fluke mid-reply: the batch waits for the next tick.
+    if Mission::agent_running(pool, guard.mission_id).await? {
+        return Ok(());
+    }
+    let mission = load(deployment, guard.mission_id).await?;
+    let session = Session::find_by_id(pool, mission.session_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("guard session not found".into()))?;
+    let worker = director::ensure_orchestrator(pool).await?;
+    let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
+        .map_err(ApiError::BadRequest)?;
+    crate::routes::sessions::follow_up(
+        axum::Extension(session),
+        State(deployment.clone()),
+        Json(crate::routes::sessions::CreateFollowUpAttempt {
+            prompt: director::events_message(&worth),
+            executor_config,
+            retry_process_id: None,
+            force_when_dirty: None,
+            perform_git_reset: None,
+        }),
+    )
+    .await?;
+    FlukeGuard::advance(pool, last, true).await?;
+    Ok(())
 }

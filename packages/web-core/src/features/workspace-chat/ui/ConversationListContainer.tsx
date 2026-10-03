@@ -22,6 +22,7 @@ import { useScrollCommandExecutor } from '../model/useScrollCommandExecutor';
 
 import DisplayConversationEntry from './DisplayConversationEntry';
 import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import { isSilentReply } from '@/features/director/lib/events';
 import { FlukeMark } from '@/features/director/ui/FlukeMark';
 import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
@@ -155,6 +156,9 @@ function opensAssistantTurn(entry: DisplayEntry): boolean {
   if (entry.type !== 'NORMALIZED_ENTRY') return false;
   const { entry_type, content } = entry.content;
   if (entry_type.type === 'loading') return true;
+  // A SILENT reply to app events renders nothing: no header for it either.
+  if (entry_type.type === 'assistant_message' && isSilentReply(content))
+    return false;
   if (entry_type.type === 'assistant_message' || entry_type.type === 'thinking')
     return content.trim().length > 0;
   return false;

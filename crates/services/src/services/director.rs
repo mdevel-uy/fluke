@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 
 use db::models::{
+    fluke_event::FlukeGuard,
     mission::{self, Mission, MissionBrief, MissionItem, PendingQuestion},
     repo::Repo,
     repo_issue::RepoIssue,
@@ -168,6 +169,8 @@ pub struct MissionDetail {
     /// `none` (nothing dispatched), `planning` (devs started, no plan steps
     /// yet) or `running` (at least one dev submitted its plan).
     pub execution: String,
+    /// Fluke's standing conversation (J0.3): app events land here, no brief.
+    pub is_guard: bool,
 }
 
 /// An issue of the Analyst's breakdown, for the mission stepper (#700).
@@ -274,6 +277,7 @@ pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx
         None => None,
     };
     Ok(MissionDetail {
+        is_guard: FlukeGuard::is_guard(pool, mission.id).await?,
         briefs: Mission::briefs(pool, mission.id).await?,
         proposal: proposal(pool, mission.repo_id, &issue_numbers).await?,
         execution: execution(pool, mission.repo_id, &issue_numbers)
@@ -411,6 +415,11 @@ pub async fn on_user_message(
     mission: &Mission,
     prompt: &str,
 ) -> Result<(), sqlx::Error> {
+    // A batch of app events is not the user talking: it neither answers the
+    // open questions nor confirms or cancels an action.
+    if prompt.starts_with(EVENTS_PREFIX) {
+        return Ok(());
+    }
     confirmations::on_user_message(mission.id, prompt);
     if !mission.pending_questions.is_empty() {
         Mission::set_pending_questions(pool, mission.id, &[]).await?;
@@ -498,10 +507,61 @@ pub async fn system_prompt(pool: &Pool, mission: &Mission) -> Result<String, sql
         .filter(|c| !c.is_empty())
         .unwrap_or("unknown");
     let status = status_snapshot(pool).await?;
+    let guard = if FlukeGuard::is_guard(pool, mission.id).await? {
+        GUARD_PROMPT
+    } else {
+        ""
+    };
     Ok(format!(
-        "{SYSTEM_PROMPT}\n\n[DIRECTOR SOUL]\n{}\n\n[APP CONTEXT]\n{ctx}\n\n[STATUS]\n{status}",
+        "{SYSTEM_PROMPT}{guard}\n\n[DIRECTOR SOUL]\n{}\n\n[APP CONTEXT]\n{ctx}\n\n[STATUS]\n{status}",
         worker.soul
     ))
+}
+
+// ---------------------------------------------------------------------------
+// Conversación de guardia (J0.3): los eventos del bus llegan acá
+// ---------------------------------------------------------------------------
+
+/// Encabezado de un lote de eventos. Lo que empieza así no es el usuario.
+pub const EVENTS_PREFIX: &str = "[EVENTS]";
+/// Respuesta de Fluke cuando nada amerita avisar; la UI no la muestra.
+pub const SILENT_REPLY: &str = "SILENT";
+
+const GUARD_PROMPT: &str = "
+
+This is your standing conversation, the first tab, always open. Besides the user, the app writes \
+here: a message that starts with [EVENTS] lists what just happened (tasks, reviews, PRs and CI, \
+missions, milestone runs). It is not the user talking. For an [EVENTS] message:
+- If something deserves the user's attention (a failure, a question from a worker, a PR ready to \
+merge, red CI, a run that stopped), tell them in one or two short sentences: what happened and \
+what you suggest. Do not list every event.
+- Otherwise reply with exactly SILENT and nothing else.
+- Do not act on events by yourself; at most suggest. Never call tools for an [EVENTS] message \
+unless you need a detail to explain it.
+This conversation has no brief: for new development work, start a mission (app_api POST \
+/api/missions with the repo_id) and tell the user to continue there.";
+
+/// El lote de eventos que se le manda a la guardia, una línea por evento.
+pub fn events_message(events: &[db::models::fluke_event::FlukeEvent]) -> String {
+    let mut out = String::from(EVENTS_PREFIX);
+    for e in events {
+        let time = e.created_at.get(11..16).unwrap_or(&e.created_at);
+        let mut line = format!("\n- {time} {} [{}]", e.kind, e.severity);
+        if let Some(n) = e.issue_number {
+            line.push_str(&format!(" issue #{n}"));
+        }
+        if let Some(n) = e.pr_number {
+            line.push_str(&format!(" PR #{n}"));
+        }
+        if let Some(t) = e.title.as_deref().filter(|t| !t.is_empty()) {
+            line.push_str(&format!(" \"{t}\""));
+        }
+        if let Some(d) = e.detail.as_deref().filter(|d| !d.is_empty()) {
+            line.push_str(&format!(": {d}"));
+        }
+        out.push_str(&line);
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -1145,6 +1205,15 @@ pub async fn call_tool(
         .map_err(db_err)?
         .ok_or("this session has no mission")?;
     let id = mission.id;
+
+    if matches!(name, "set_mission" | "upsert_item" | "remove_item")
+        && FlukeGuard::is_guard(pool, id).await.map_err(db_err)?
+    {
+        return Err("this is your standing conversation, it has no brief: for new development \
+                    work start a mission with app_api (POST /api/missions with the \
+                    repo_id) and tell the user to continue there"
+            .into());
+    }
 
     match name {
         "list_repos" => {

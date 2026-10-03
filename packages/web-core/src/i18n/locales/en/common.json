@@ -1991,6 +1991,11 @@
     "error": "The action could not be completed: {{message}}"
   },
   "director": {
+    "eventsBatch_one": "{{count}} app event",
+    "eventsBatch_other": "{{count}} app events",
+    "guard": {
+      "noBrief": "This is Fluke's standing conversation: what happens in the app lands here. It has no brief; new development work starts a mission."
+    },
     "name": "Fluke",
     "open": "Open Fluke",
     "pin": "Anchor as a column",
