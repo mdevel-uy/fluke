@@ -5,6 +5,12 @@
 //! MCP (`/api/director-mcp/{session_id}`). Qué campos son obligatorios y
 //! cuándo el brief está completo lo decide este módulo, nunca el modelo. El
 //! traspaso al Analista (G1) es un botón del user, no una herramienta.
+//!
+//! Además es el mayordomo de la app: `app_api` llama cualquier endpoint del
+//! backend local, así todo lo que hace la UI lo puede hacer Fluke (pensado
+//! para manejar fluke sin pantalla, por voz). `app_api_reference` busca en el
+//! cliente de API del frontend y en los tipos compartidos, embebidos al
+//! compilar, para que encuentre la ruta y la forma del body.
 
 use std::collections::BTreeMap;
 
@@ -28,6 +34,13 @@ type Pool = sqlx::SqlitePool;
 
 pub const MAX_QUESTIONS: usize = 3;
 const MAX_OPTIONS: usize = 4;
+
+// What the UI can do, as the UI does it: every call with its method, path
+// and body type. Embedded so the catalog never drifts from the app.
+const API_CLIENT: &str = include_str!("../../../../packages/web-core/src/shared/lib/api.ts");
+const API_TYPES: &str = include_str!("../../../../shared/types.ts");
+const API_REFERENCE_MAX: usize = 12_000;
+const API_RESPONSE_MAX: usize = 20_000;
 
 // ---------------------------------------------------------------------------
 // Esquema del brief
@@ -402,11 +415,36 @@ pub async fn on_user_message(pool: &Pool, mission: &Mission) -> Result<(), sqlx:
 }
 
 const SYSTEM_PROMPT: &str = "\
-You are Fluke, the director agent of the fluke app (a desktop app where a team of AI workers \
-- developers, analysts, reviewers, designers - builds software). You sit above the Analyst: \
-you talk with the user until the request is fully understood and recorded as a structured brief.
+You are Fluke, the butler of the fluke app (a desktop app where a team of AI workers \
+- developers, analysts, reviewers, designers - builds software), like Jarvis. The user must be \
+able to run the whole app just by talking to you, eventually by voice and without looking at a \
+screen: anything the app's UI can do, you can do, through app_api. That covers every area of \
+the app: workers (create, edit, duplicate, archive, delete, their tasks and assignments), \
+issues and pull requests, repos, workspaces, sessions and agent runs (start, follow up, stop, \
+approvals, queue), plans, missions and briefs, settings and agent profiles, MCP servers, skills, \
+tags, CI pipelines, GitHub, search, files and system status. If the user asks what you can do, \
+say exactly that: everything they can do in fluke, by asking you, with a few concrete examples. \
+Never describe yourself as limited to a couple of things.
 
-How you work:
+Doing things (most requests):
+- Act yourself: assign or reassign a task, create or edit a worker, change a setting, start or \
+stop a run, report status, and so on.
+- Find the endpoint and the body shape with app_api_reference (search a keyword such as \
+\"workers\", \"reassign\", \"issues\"; an empty query lists every endpoint).
+- Resolve names to ids with GET calls first (for example list the workers to find \"Dani\"). \
+If a name matches more than one thing, ask with ask_user and short options.
+- Make the call with app_api and confirm what changed in one short sentence. If it fails, \
+read the error, fix the call and retry once before telling the user.
+- Before anything destructive or hard to undo (DELETE, archive, remove, merge, approve or send \
+something on the user's behalf), confirm with ask_user, unless the user's message already asked \
+for exactly that action on exactly that target.
+- These never create brief items. Give the conversation a short title with set_mission.
+
+New development work (a bug, a feature or a design change that needs code written) is the one \
+case with its own flow: you do not build it yourself, you sit above the Analyst and turn it into \
+a structured brief.
+
+Brief flow:
 - Split the request into items. Each item is a bug, a feature or a design change. Detect which \
 registered repo it is about (list_repos) and set it with set_mission, together with a short \
 mission title.
@@ -420,9 +458,11 @@ the item is testable logic, ask the user (options \"Con TDD\" / \"Sin TDD\") and
 \"no\". When test-first makes no sense (purely visual change, configuration, a bug that cannot \
 be reproduced), record \"no aplica\" yourself without asking.
 - You may read the code of the current repo (Read, Grep, Glob) to understand the request or \
-propose likely files, but you never write code, edit files or run commands.
+propose likely files, but you never write code, edit files or run commands: development is \
+the workers' job.
 - When the brief is complete, give a 2-3 line summary and tell the user to review it and press \
-\"Approve brief and send to the Analyst\". You never send it yourself and never create issues.
+\"Approve brief and send to the Analyst\". Approve it yourself (app_api) only when the user \
+explicitly asks you to, and never create the issues yourself: that is the Analyst's job.
 - Unblocking: when the user talks about a stuck issue (a coding agent waiting for an answer, a \
 failed phase), call get_stuck_issues to see why it is stuck. If the agent asked a question, turn \
 what the user says into a concrete answer (one of the agent's option keys, or a short text) and \
@@ -430,8 +470,8 @@ confirm it with the user through ask_user before calling answer_agent. Never ans
 without that confirmation. For other blocks, explain them and point the user to the Destrabar \
 button of the issue.
 - [APP CONTEXT] below tells you the screen, repo and selection the user is looking at right now. \
-Use it to resolve references like \"this screen\" or \"this bug\".
-- Reply in the user's language. Be brief.";
+Use it to resolve references like \"this screen\", \"this task\" or \"this bug\".
+- Reply in the user's language. Be brief: short sentences that also work read aloud.";
 
 /// Se arma en cada turno (cada mensaje relanza el CLI), así lleva el soul y
 /// el contexto de la app vigentes.
@@ -523,6 +563,27 @@ pub fn tool_definitions() -> Value {
             }
         },
         {
+            "name": "app_api_reference",
+            "description": "Search the fluke app's API: the frontend API client (every call the UI makes, with method, path and body type) and the shared request/response types. An empty query lists every endpoint path. Use it before app_api to find the endpoint and the exact body shape.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "query": { "type": "string", "description": "Keyword, endpoint path or type name, case-insensitive. Empty: list every endpoint." } }
+            }
+        },
+        {
+            "name": "app_api",
+            "description": "Call any endpoint of the fluke app's local API as the user, exactly like the UI does. Returns the HTTP status and the JSON response (responses are wrapped as {success, data, message}).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+                    "path": { "type": "string", "description": "Starts with /api/, query string included, e.g. /api/workers or /api/workers/{id}." },
+                    "body": { "description": "JSON body for POST/PUT/PATCH." }
+                },
+                "required": ["method", "path"]
+            }
+        },
+        {
             "name": "ask_user",
             "description": "Ask the user up to 3 questions, each with up to 4 short answer options shown as clickable chips. After calling it, end your turn.",
             "inputSchema": {
@@ -594,6 +655,91 @@ async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
                 || r.display_name.eq_ignore_ascii_case(needle)
         })
         .ok_or_else(|| format!("unknown repo '{needle}': use an id or name from list_repos"))
+}
+
+/// Endpoints del cliente (líneas con `/api/`), o los fragmentos de cliente y
+/// tipos que mencionan `query`, con unas líneas de contexto.
+fn api_reference(query: &str) -> String {
+    let query = query.trim().to_lowercase();
+    if query.is_empty() {
+        let lines: Vec<&str> = API_CLIENT
+            .lines()
+            .filter(|l| l.contains("/api/"))
+            .map(str::trim)
+            .collect();
+        return truncate(lines.join("\n"), API_REFERENCE_MAX);
+    }
+    let mut out = String::new();
+    for (name, text) in [("api.ts", API_CLIENT), ("types.ts", API_TYPES)] {
+        let lines: Vec<&str> = text.lines().collect();
+        let mut shown_until = 0;
+        for (i, line) in lines.iter().enumerate() {
+            if i < shown_until || !line.to_lowercase().contains(&query) {
+                continue;
+            }
+            let from = i.saturating_sub(4).max(shown_until);
+            shown_until = (i + 12).min(lines.len());
+            out.push_str(&format!("--- {name}:{}\n", from + 1));
+            out.push_str(&lines[from..shown_until].join("\n"));
+            out.push('\n');
+            if out.len() > API_REFERENCE_MAX {
+                return truncate(out, API_REFERENCE_MAX);
+            }
+        }
+    }
+    if out.is_empty() {
+        format!("nothing matches '{query}': try another keyword or an empty query")
+    } else {
+        out
+    }
+}
+
+fn truncate(mut s: String, max: usize) -> String {
+    if s.len() > max {
+        let cut = (0..=max)
+            .rev()
+            .find(|&i| s.is_char_boundary(i))
+            .unwrap_or(0);
+        s.truncate(cut);
+        s.push_str("\n[truncated: narrow the query or the request]");
+    }
+    s
+}
+
+/// Llama al backend local como lo haría la UI (mismo proceso, loopback).
+async fn app_api(args: &Value) -> Result<String, String> {
+    let method = args.get("method").and_then(Value::as_str).unwrap_or("GET");
+    let method = reqwest::Method::from_bytes(method.to_uppercase().as_bytes())
+        .map_err(|_| format!("invalid method '{method}'"))?;
+    let path = args
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or("missing path")?;
+    if !path.starts_with("/api/") || path.contains("..") {
+        return Err("path must start with /api/".into());
+    }
+    // Its own MCP endpoint: no use, and a loop if it ever called itself.
+    if path.starts_with("/api/director-mcp") {
+        return Err("that endpoint is not available to you".into());
+    }
+    // The server address is only exposed through the MCP URL helper.
+    let base = utils::plan_mcp::director_url_for_session("")
+        .and_then(|url| url.split("/api/").next().map(str::to_string))
+        .ok_or("the app's API address is not known yet")?;
+
+    let mut request = reqwest::Client::new()
+        .request(method, format!("{base}{path}"))
+        .timeout(std::time::Duration::from_secs(60));
+    if let Some(body) = args.get("body").filter(|b| !b.is_null()) {
+        request = request.json(body);
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {e}"))?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    Ok(truncate(format!("HTTP {status}\n{text}"), API_RESPONSE_MAX))
 }
 
 /// Ejecuta una herramienta. `Err` vuelve al agente como resultado con
@@ -708,6 +854,10 @@ pub async fn call_tool(
                 .map_err(db_err)?;
             Ok("Questions shown to the user. End your turn now and wait for the answer.".into())
         }
+        "app_api_reference" => Ok(api_reference(
+            args.get("query").and_then(Value::as_str).unwrap_or(""),
+        )),
+        "app_api" => app_api(args).await,
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -715,6 +865,15 @@ pub async fn call_tool(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_reference_finds_endpoints_and_types() {
+        assert!(api_reference("").contains("/api/workers"));
+        let hit = api_reference("ReassignWorkerTaskRequest");
+        assert!(hit.contains("--- api.ts:") && hit.contains("reassign"));
+        assert!(api_reference("zz-no-such-thing").starts_with("nothing matches"));
+        assert!(truncate("ñandú".repeat(10), 7).starts_with("ñand"));
+    }
 
     fn mission(title: &str, repo: bool) -> Mission {
         Mission {
