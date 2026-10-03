@@ -15,8 +15,6 @@ import {
 } from '@/shared/components/ui-new/shell/SidebarPrimitives';
 import { repoApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
-import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useWorkspaceEditorStore } from '@/shared/stores/useWorkspaceEditorStore';
@@ -24,10 +22,7 @@ import {
   useEditorSourceStore,
   type EditorCommitSource,
 } from '@/shared/stores/useEditorSourceStore';
-import {
-  COMMIT_BROWSER_WORKSPACE_ID,
-  makeCommitFilePath,
-} from '@/shared/lib/commitFilePath';
+import { makeCommitFilePath } from '@/shared/lib/commitFilePath';
 import { WorkspaceExplorerSidebarContainer } from './WorkspaceExplorerSidebarContainer';
 import { cn } from '@/shared/lib/utils';
 
@@ -166,18 +161,15 @@ function CommitTree({
 }
 
 /**
- * The Editor rail item's OWN sidebar: pick what code to look at — a
- * workspace's live worktree or a commit snapshot — and browse its files
- * below. Replaces the old behavior of falling back to the workspaces list.
+ * The workspace Editor's sidebar: browse the live worktree, or pick one of
+ * the base branch's recent commits to browse its read-only snapshot.
  */
 export function EditorSidebarContainer({
   workspaceId,
 }: {
-  workspaceId?: string;
+  workspaceId: string;
 }) {
   const { t } = useTranslation('common');
-  const appNavigation = useAppNavigation();
-  const { activeWorkspaces } = useWorkspaceContext();
   const commitSource = useEditorSourceStore((s) => s.commitSource);
   const setCommitSource = useEditorSourceStore((s) => s.setCommitSource);
 
@@ -205,26 +197,19 @@ export function EditorSidebarContainer({
     staleTime: 30_000,
   });
 
-  // Snapshot files always open: a real workspace hosts the tab when routed,
-  // otherwise the sentinel host renders the editor on the landing.
   const openSnapshotFile = commitSource
     ? (relPath: string) => {
-        const host = workspaceId ?? COMMIT_BROWSER_WORKSPACE_ID;
-        useWorkspaceEditorStore
+        useWorkspaceEditorStore.getState().openFile(
+          workspaceId,
+          makeCommitFilePath({
+            repoId: commitSource.repoId,
+            oid: commitSource.oid,
+            path: relPath,
+          })
+        );
+        useUiPreferencesStore
           .getState()
-          .openFile(
-            host,
-            makeCommitFilePath({
-              repoId: commitSource.repoId,
-              oid: commitSource.oid,
-              path: relPath,
-            })
-          );
-        if (workspaceId) {
-          useUiPreferencesStore
-            .getState()
-            .openWorkspaceViewTab(workspaceId, 'editor');
-        }
+          .openWorkspaceViewTab(workspaceId, 'editor');
       }
     : null;
 
@@ -239,39 +224,6 @@ export function EditorSidebarContainer({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        <SidebarSection
-          persistKey="editor-sidebar-workspaces"
-          title={t('workspaces.editorSidebar.workspaces', {
-            defaultValue: 'Workspaces',
-          })}
-          count={activeWorkspaces.length || undefined}
-        >
-          {activeWorkspaces.length === 0 ? (
-            <div className="px-3.5 py-1 text-xs text-low">
-              {t('workspaces.editorSidebar.noWorkspaces', {
-                defaultValue: 'No active workspaces.',
-              })}
-            </div>
-          ) : (
-            activeWorkspaces.map((ws) => (
-              <SidebarRow
-                key={ws.id}
-                selected={!commitSource && ws.id === workspaceId}
-                onClick={() => {
-                  setCommitSource(null);
-                  if (ws.id !== workspaceId) {
-                    appNavigation.goToWorkspace(ws.id);
-                  }
-                }}
-              >
-                <span className="min-w-0 flex-1 truncate font-mono text-code">
-                  {ws.branch}
-                </span>
-              </SidebarRow>
-            ))
-          )}
-        </SidebarSection>
-
         <SidebarSection
           persistKey="editor-sidebar-commits"
           title={t('workspaces.editorSidebar.commits', {
@@ -317,16 +269,9 @@ export function EditorSidebarContainer({
 
         {commitSource ? (
           <CommitTree source={commitSource} onOpenFile={openSnapshotFile} />
-        ) : workspaceId ? (
+        ) : (
           <div className="flex min-h-[200px] flex-col">
             <WorkspaceExplorerSidebarContainer workspaceId={workspaceId} />
-          </div>
-        ) : (
-          <div className="px-3.5 py-2 text-xs text-low">
-            {t('workspaces.editorSidebar.pickSource', {
-              defaultValue:
-                'Pick a workspace or a commit to browse its files.',
-            })}
           </div>
         )}
       </div>

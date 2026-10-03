@@ -151,9 +151,9 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
-  // clicking any other item navigates to that section. Workspaces and Editor
+  // clicking any other item navigates to that section. Workspaces and Search
   // share the workspaces section and switch its sidebar content instead
-  // (workspaces list vs file explorer), activity-bar style.
+  // (workspaces list vs content search), activity-bar style.
   const toggleLeftSidebar = useUiPreferencesStore((s) => s.toggleLeftSidebar);
   const setLeftSidebarVisible = useUiPreferencesStore(
     (s) => s.setLeftSidebarVisible
@@ -215,42 +215,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     if (isCiPipelinesActive) toggleLeftSidebar();
     else appNavigation.goToCiPipelines();
   }, [isCiPipelinesActive, toggleLeftSidebar, appNavigation]);
-
-  // Editor rail item: switches the workspaces-section sidebar to the file
-  // explorer and surfaces the editor tab of the selected workspace.
-  const currentWorkspaceId =
-    currentDestination?.kind === 'workspace'
-      ? currentDestination.workspaceId
-      : undefined;
-  const isEditorActive =
-    isWorkspacesActive && workspacesSidebarMode === 'explorer';
-
-  const handleEditorClick = useCallback(() => {
-    if (isWorkspacesActive) {
-      if (workspacesSidebarMode !== 'explorer') {
-        setWorkspacesSidebarMode('explorer');
-        setLeftSidebarVisible(true);
-      } else {
-        toggleLeftSidebar();
-      }
-    } else {
-      setWorkspacesSidebarMode('explorer');
-      void navigate({ to: '/workspaces' });
-    }
-    if (currentWorkspaceId) {
-      useUiPreferencesStore
-        .getState()
-        .openWorkspaceViewTab(currentWorkspaceId, 'editor');
-    }
-  }, [
-    isWorkspacesActive,
-    workspacesSidebarMode,
-    setWorkspacesSidebarMode,
-    setLeftSidebarVisible,
-    toggleLeftSidebar,
-    navigate,
-    currentWorkspaceId,
-  ]);
 
   // Search rail item: content search over the selected workspace's worktree.
   const isSearchActive =
@@ -348,7 +312,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   // routes stay for direct links and the command bar.
                   showWorkspacesButton={false}
                   onWorkspacesClick={handleWorkspacesClick}
-                  onEditorClick={handleEditorClick}
                   onSearchClick={handleSearchClick}
                   onDashboardClick={handleDashboardClick}
                   onSprintClick={handleSprintClick}
@@ -359,7 +322,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   isWorkspacesActive={
                     isWorkspacesActive && workspacesSidebarMode === 'workspaces'
                   }
-                  isEditorActive={isEditorActive}
                   isSearchActive={isSearchActive}
                   isDashboardActive={isDashboardActive}
                   isSprintActive={isSprintActive}
