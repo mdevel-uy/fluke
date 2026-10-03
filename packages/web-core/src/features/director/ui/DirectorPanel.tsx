@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   ArchiveIcon,
+  ArrowCounterClockwiseIcon,
   ArrowsOutSimpleIcon,
   MinusIcon,
   PlusIcon,
@@ -13,7 +14,6 @@ import {
 } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
-import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -271,18 +271,6 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
     ? missions
     : missions.filter((m) => !isArchived(m));
 
-  const handleArchive = async (m: MissionSummary) => {
-    const result = await ConfirmDialog.show({
-      title: t('director.archive.title'),
-      message: t('director.archive.message', {
-        title: missionLabel(m, t('director.newMission')),
-      }),
-      confirmText: t('director.archive.action'),
-      cancelText: t('director.archive.cancel'),
-    });
-    if (result === 'confirmed') archive.mutate(m.mission.id);
-  };
-
   if (isLoading)
     return (
       <Centered>
@@ -353,17 +341,30 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
               <SpinnerIcon className="size-icon-xs shrink-0 animate-spin text-low" />
             )}
           </button>
-          {!isArchived(m) && (
-            <button
-              type="button"
-              onClick={() => void handleArchive(m)}
-              aria-label={t('director.archive.action')}
-              title={t('director.archive.action')}
-              className="mr-2 shrink-0 rounded-md p-1 text-low opacity-0 hover:bg-secondary hover:text-high focus-visible:opacity-100 group-hover:opacity-100"
-            >
+          {/* Archive is one click: restoring is as easy (no confirm). */}
+          <button
+            type="button"
+            onClick={() =>
+              archive.mutate({ id: m.mission.id, archived: !isArchived(m) })
+            }
+            aria-label={t(
+              isArchived(m)
+                ? 'director.archive.restore'
+                : 'director.archive.action'
+            )}
+            title={t(
+              isArchived(m)
+                ? 'director.archive.restore'
+                : 'director.archive.action'
+            )}
+            className="mr-2 shrink-0 rounded-md p-1 text-low opacity-0 hover:bg-secondary hover:text-high focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            {isArchived(m) ? (
+              <ArrowCounterClockwiseIcon className="size-icon-xs" />
+            ) : (
               <ArchiveIcon className="size-icon-xs" />
-            </button>
-          )}
+            )}
+          </button>
         </li>
       ))}
       {archivedCount > 0 && (
