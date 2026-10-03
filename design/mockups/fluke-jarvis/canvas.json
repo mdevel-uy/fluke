@@ -30,6 +30,13 @@
       "w": 380,
       "h": 640,
       "title": "B2 · Panel: Fluke responde"
+    },
+    "Gates.dc.html": {
+      "x": 0,
+      "y": 2320,
+      "w": 1480,
+      "h": 1540,
+      "title": "D · Compuertas: pregunta, aprobar brief, bloqueo (texto y voz, tokens reales)"
     }
   },
   "createdOnFiles": {
@@ -56,13 +63,22 @@
       "w": 240,
       "x": 0,
       "y": 1020
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 1480,
+      "text": "D · Las tres compuertas, en texto y en voz, con los tokens reales de fluke",
+      "w": 240,
+      "x": 0,
+      "y": 2020
     }
   },
   "order": [
     "Main.dc.html",
     "Panel.dc.html",
     "PanelReply.dc.html",
-    "States.dc.html"
+    "States.dc.html",
+    "Gates.dc.html"
   ],
   "pages": [],
   "title": "Fluke Jarvis"
