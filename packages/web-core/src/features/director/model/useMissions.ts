@@ -67,6 +67,19 @@ export function useCreateMission() {
   });
 }
 
+/** Archive = close: the mission leaves the list but nothing is deleted. */
+export function useArchiveMission() {
+  const store = useStoreDetail();
+  const closeTab = useDirectorStore((s) => s.closeMissionTab);
+  return useMutation({
+    mutationFn: (id: string) => missionsApi.update(id, { close: true }),
+    onSuccess: (detail) => {
+      store(detail);
+      closeTab(detail.mission.id);
+    },
+  });
+}
+
 export function useUpdateMission(id: string) {
   const store = useStoreDetail();
   return useMutation({

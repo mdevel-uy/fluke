@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
+  ArchiveIcon,
   ArrowsOutSimpleIcon,
   MinusIcon,
   PlusIcon,
@@ -11,6 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -19,6 +22,7 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
 import {
   isWaitingForUser,
+  useArchiveMission,
   useCreateMission,
   useMission,
   useMissionList,
@@ -231,6 +235,8 @@ function Tab({
   );
 }
 
+const isArchived = (m: MissionSummary) => m.mission.status === 'closed';
+
 export function missionLabel(m: MissionSummary, fallback: string): string {
   return m.mission.title || m.repo_name || fallback;
 }
@@ -258,6 +264,24 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
   const { data: missions = [], isLoading } = useMissionList();
   const openMission = useDirectorStore((s) => s.openMission);
   const { repoId, create } = useNewMission();
+  const archive = useArchiveMission();
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedCount = missions.filter(isArchived).length;
+  const shown = showArchived
+    ? missions
+    : missions.filter((m) => !isArchived(m));
+
+  const handleArchive = async (m: MissionSummary) => {
+    const result = await ConfirmDialog.show({
+      title: t('director.archive.title'),
+      message: t('director.archive.message', {
+        title: missionLabel(m, t('director.newMission')),
+      }),
+      confirmText: t('director.archive.action'),
+      cancelText: t('director.archive.cancel'),
+    });
+    if (result === 'confirmed') archive.mutate(m.mission.id);
+  };
 
   if (isLoading)
     return (
@@ -295,16 +319,20 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
   }
   return (
     <ul className="flex flex-col overflow-y-auto">
-      {missions.map((m) => (
-        <li key={m.mission.id}>
+      {shown.map((m) => (
+        <li
+          key={m.mission.id}
+          className={cn(
+            'group flex items-center border-b border-md-outline-variant hover:bg-secondary/60',
+            m.mission.id === selectedId && 'bg-secondary',
+            isArchived(m) && 'opacity-60'
+          )}
+        >
           <button
             type="button"
             onClick={() => openMission(m.mission.id)}
             aria-current={m.mission.id === selectedId || undefined}
-            className={cn(
-              'flex w-full items-center gap-2 border-b border-md-outline-variant px-3 py-2 text-left hover:bg-secondary/60',
-              m.mission.id === selectedId && 'bg-secondary'
-            )}
+            className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left"
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm text-high">
@@ -325,8 +353,32 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
               <SpinnerIcon className="size-icon-xs shrink-0 animate-spin text-low" />
             )}
           </button>
+          {!isArchived(m) && (
+            <button
+              type="button"
+              onClick={() => void handleArchive(m)}
+              aria-label={t('director.archive.action')}
+              title={t('director.archive.action')}
+              className="mr-2 shrink-0 rounded-md p-1 text-low opacity-0 hover:bg-secondary hover:text-high focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <ArchiveIcon className="size-icon-xs" />
+            </button>
+          )}
         </li>
       ))}
+      {archivedCount > 0 && (
+        <li>
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="w-full px-3 py-2 text-left text-xs text-low hover:text-high"
+          >
+            {showArchived
+              ? t('director.archive.hide')
+              : t('director.archive.show', { count: archivedCount })}
+          </button>
+        </li>
+      )}
     </ul>
   );
 }
