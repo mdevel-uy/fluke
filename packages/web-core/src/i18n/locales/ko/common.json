@@ -1199,8 +1199,6 @@
         "selectHint": "단계를 선택하면 자세히 볼 수 있습니다."
       },
       "templates": {
-        "title": "단계 템플릿",
-        "hint": "Fluke가 brief에서 고릅니다: 디자인이 필요한지, TDD를 쓸지(의미가 있으면 물어봅니다). Analyst는 단계를 바꾸지 않고 이슈 간 흐름을 짭니다.",
         "names": {
           "tdd": "TDD 포함",
           "no_tdd": "TDD 없음",
@@ -1208,21 +1206,6 @@
           "bug": "버그",
           "decision": "결정 포함",
           "none": "현재 흐름 (플랜 없음)"
-        },
-        "phases": {
-          "tdd": "테스트 먼저",
-          "dev": "개발",
-          "test": "테스트",
-          "review": "리뷰",
-          "merge": "병합",
-          "design": "디자인",
-          "approval": "승인",
-          "withOrWithoutTdd": "…TDD 유무",
-          "reproduce": "재현",
-          "failingTest": "실패하는 테스트",
-          "fix": "수정",
-          "decision": "결정",
-          "baseTemplate": "…기본 템플릿"
         }
       },
       "code": {

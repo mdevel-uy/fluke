@@ -1204,8 +1204,6 @@
         "selectHint": "Choisissez une phase pour voir son détail."
       },
       "templates": {
-        "title": "Modèles de phases",
-        "hint": "Fluke le choisit dans le brief : s'il faut du design et du TDD (quand c'est pertinent, il vous le demande). L'Analyst ne change pas les phases : il organise le flux entre issues.",
         "names": {
           "tdd": "Avec TDD",
           "no_tdd": "Sans TDD",
@@ -1213,21 +1211,6 @@
           "bug": "Bug",
           "decision": "Avec décision",
           "none": "Flux actuel (sans plan)"
-        },
-        "phases": {
-          "tdd": "Tests d'abord",
-          "dev": "Développement",
-          "test": "Tests",
-          "review": "Revue",
-          "merge": "Fusion",
-          "design": "Design",
-          "approval": "Votre OK",
-          "withOrWithoutTdd": "…avec ou sans TDD",
-          "reproduce": "Reproduire",
-          "failingTest": "Test en échec",
-          "fix": "Correctif",
-          "decision": "Votre décision",
-          "baseTemplate": "…modèle de base"
         }
       },
       "code": {

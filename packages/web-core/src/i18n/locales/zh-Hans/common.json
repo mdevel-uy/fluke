@@ -1199,8 +1199,6 @@
         "selectHint": "选择一个阶段查看详情。"
       },
       "templates": {
-        "title": "阶段模板",
-        "hint": "Fluke 在 brief 中选择：是否需要设计、是否使用 TDD（有意义时会问你）。Analyst 不改阶段，只安排 issue 之间的流程。",
         "names": {
           "tdd": "含 TDD",
           "no_tdd": "不含 TDD",
@@ -1208,21 +1206,6 @@
           "bug": "Bug",
           "decision": "含决定",
           "none": "当前流程（无计划）"
-        },
-        "phases": {
-          "tdd": "测试先行",
-          "dev": "开发",
-          "test": "测试",
-          "review": "评审",
-          "merge": "合并",
-          "design": "设计",
-          "approval": "你的确认",
-          "withOrWithoutTdd": "…有无 TDD",
-          "reproduce": "复现",
-          "failingTest": "失败的测试",
-          "fix": "修复",
-          "decision": "你的决定",
-          "baseTemplate": "…基础模板"
         }
       },
       "code": {

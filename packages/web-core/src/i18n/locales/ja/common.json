@@ -1199,8 +1199,6 @@
         "selectHint": "フェーズを選ぶと詳細が表示されます。"
       },
       "templates": {
-        "title": "フェーズのテンプレート",
-        "hint": "Fluke が brief で選びます: デザインが必要か、TDD を使うか（意味がある場合は確認します）。Analyst はフェーズを変えず、issue 間の流れを組み立てます。",
         "names": {
           "tdd": "TDD あり",
           "no_tdd": "TDD なし",
@@ -1208,21 +1206,6 @@
           "bug": "バグ",
           "decision": "判断あり",
           "none": "現在のフロー（プランなし）"
-        },
-        "phases": {
-          "tdd": "テスト先行",
-          "dev": "開発",
-          "test": "テスト",
-          "review": "レビュー",
-          "merge": "マージ",
-          "design": "デザイン",
-          "approval": "あなたの OK",
-          "withOrWithoutTdd": "…TDD の有無",
-          "reproduce": "再現",
-          "failingTest": "失敗するテスト",
-          "fix": "修正",
-          "decision": "あなたの判断",
-          "baseTemplate": "…基本テンプレート"
         }
       },
       "code": {

@@ -1219,8 +1219,6 @@
         "selectHint": "Elegí una fase para ver su detalle."
       },
       "templates": {
-        "title": "Plantillas de fases",
-        "hint": "Fluke la elige en el brief: si lleva diseño, y si lleva TDD (cuando tiene sentido, te lo pregunta). El Analyst no cambia las fases: arma el flujo entre issues.",
         "names": {
           "tdd": "Con TDD",
           "no_tdd": "Sin TDD",
@@ -1228,21 +1226,6 @@
           "bug": "Bug",
           "decision": "Con decisión",
           "none": "Flujo actual (sin plan)"
-        },
-        "phases": {
-          "tdd": "Tests primero",
-          "dev": "Desarrollo",
-          "test": "Testing",
-          "review": "Review",
-          "merge": "Merge",
-          "design": "Diseño",
-          "approval": "Tu OK",
-          "withOrWithoutTdd": "…con o sin TDD",
-          "reproduce": "Reproducir",
-          "failingTest": "Test que falla",
-          "fix": "Fix",
-          "decision": "Tu decisión",
-          "baseTemplate": "…plantilla base"
         }
       },
       "code": {
