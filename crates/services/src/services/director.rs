@@ -551,6 +551,10 @@ what you suggest. Do not list every event.
 - Otherwise reply with exactly SILENT and nothing else.
 - Do not act on events by yourself; at most suggest. Never call tools for an [EVENTS] message \
 unless you need a detail to explain it.
+- A worker waiting for an answer (task.waiting_user) always deserves attention: call \
+get_stuck_issues to read its question and options, explain it in one sentence, and ask the user \
+with ask_user using the agent's options (the recommended one first). When the user answers, call \
+answer_agent with that issue, its repo and the chosen option: the worker carries on.
 This conversation has no brief: for new development work, start a mission (app_api POST \
 /api/missions with the repo_id) and tell the user to continue there.";
 
@@ -810,8 +814,11 @@ pub fn tool_definitions() -> Value {
         },
         {
             "name": "get_stuck_issues",
-            "description": "List the open issues of the mission's repo that need a person: why each one is stuck (question, credential, failed, review_cap, no_progress), the stuck phase and, for a question, the agent's question with its options.",
-            "inputSchema": { "type": "object", "properties": {} }
+            "description": "List the open issues that need a person: why each one is stuck (question, credential, failed, review_cap, no_progress), the stuck phase, the repo and, for a question, the agent's question with its options. Without repo: the mission's repo; in your standing conversation, every repo.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "repo": { "type": "string", "description": "Repo id or name. Optional." } }
+            }
         },
         {
             "name": "answer_agent",
@@ -820,7 +827,8 @@ pub fn tool_definitions() -> Value {
                 "type": "object",
                 "properties": {
                     "issue_number": { "type": "integer" },
-                    "answer": { "type": "string" }
+                    "answer": { "type": "string" },
+                    "repo": { "type": "string", "description": "Repo id or name of the issue. Optional when only one repo has that issue waiting." }
                 },
                 "required": ["issue_number", "answer"]
             }
@@ -920,7 +928,7 @@ fn status_text(d: &MissionDetail) -> String {
     .to_string()
 }
 
-async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
+pub async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
     let repos = Repo::list_all(pool)
         .await
         .map_err(|e| format!("internal error: {e}"))?;

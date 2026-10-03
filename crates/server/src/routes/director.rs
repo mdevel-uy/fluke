@@ -348,21 +348,42 @@ async fn unstick_tool(
         .await
         .map_err(db_err)?
         .ok_or("this session has no mission")?;
-    let repo_id = mission
-        .repo_id
-        .ok_or("the mission has no repo yet: set it with set_mission")?;
     let max_rounds =
         worker_orchestrator::resolve_max_review_rounds(&*deployment.config().read().await);
     let stuck_minutes = stuck_task_detector::threshold_minutes();
 
+    // Which repos to look at: the one asked for; else the mission's; in the
+    // standing conversation (no brief, no single repo), every repo (J1.1).
+    let repos: Vec<db::models::repo::Repo> =
+        match args.get("repo").and_then(Value::as_str).filter(|r| !r.trim().is_empty()) {
+            Some(repo) => vec![director::resolve_repo(pool, repo).await?],
+            None if db::models::fluke_event::FlukeGuard::is_guard(pool, mission.id)
+                .await
+                .map_err(db_err)? =>
+            {
+                db::models::repo::Repo::list_all(pool).await.map_err(db_err)?
+            }
+            None => {
+                let repo_id = mission
+                    .repo_id
+                    .ok_or("the mission has no repo yet: set it with set_mission")?;
+                db::models::repo::Repo::find_by_id(pool, repo_id)
+                    .await
+                    .map_err(db_err)?
+                    .into_iter()
+                    .collect()
+            }
+        };
+
     if name == "get_stuck_issues" {
-        let list = issue_phases::list_blockers(pool, repo_id, max_rounds, stuck_minutes)
-            .await
-            .map_err(db_err)?;
-        let out: Vec<Value> = list
-            .into_iter()
-            .map(|e| {
+        let mut out: Vec<Value> = Vec::new();
+        for repo in &repos {
+            let list = issue_phases::list_blockers(pool, repo.id, max_rounds, stuck_minutes)
+                .await
+                .map_err(db_err)?;
+            out.extend(list.into_iter().map(|e| {
                 json!({
+                    "repo": repo.display_name,
                     "issue_number": e.issue_number,
                     "kind": e.blocker.kind,
                     "phase": e.blocker.phase,
@@ -371,8 +392,8 @@ async fn unstick_tool(
                         .as_deref()
                         .and_then(|q| serde_json::from_str::<Value>(q).ok()),
                 })
-            })
-            .collect();
+            }));
+        }
         return Ok(Value::Array(out).to_string());
     }
 
@@ -386,27 +407,47 @@ async fn unstick_tool(
         .map(str::trim)
         .filter(|a| !a.is_empty())
         .ok_or("missing answer")?;
-    let issue = db::models::repo_issue::RepoIssue::find_by_repo_and_number(pool, repo_id, n)
+
+    // The agent waiting in issue #n, among the repos in scope.
+    let mut waiting = Vec::new();
+    for repo in &repos {
+        let Some(issue) =
+            db::models::repo_issue::RepoIssue::find_by_repo_and_number(pool, repo.id, n)
+                .await
+                .map_err(db_err)?
+        else {
+            continue;
+        };
+        let plan = issue_phases::load_issue_plan(
+            pool,
+            repo.id,
+            n,
+            issue.state != "open",
+            issue.body.as_deref(),
+            max_rounds,
+            stuck_minutes,
+        )
         .await
-        .map_err(db_err)?
-        .ok_or_else(|| format!("issue #{n} not found in the mission's repo"))?;
-    let plan = issue_phases::load_issue_plan(
-        pool,
-        repo_id,
-        n,
-        issue.state != "open",
-        issue.body.as_deref(),
-        max_rounds,
-        stuck_minutes,
-    )
-    .await
-    .map_err(db_err)?;
-    let blocker = plan
-        .blocker
-        .filter(|b| b.kind == "question")
-        .ok_or_else(|| format!("no agent is waiting for an answer in #{n}"))?;
-    let (Some(workspace_id), Some(raw)) = (blocker.workspace_id, blocker.question) else {
-        return Err(format!("no agent is waiting for an answer in #{n}"));
+        .map_err(db_err)?;
+        if let Some(blocker) = plan.blocker.filter(|b| b.kind == "question")
+            && let (Some(workspace_id), Some(raw)) = (blocker.workspace_id, blocker.question)
+        {
+            waiting.push((repo.display_name.clone(), workspace_id, raw));
+        }
+    }
+    let (workspace_id, raw) = match waiting.len() {
+        0 => return Err(format!("no agent is waiting for an answer in #{n}")),
+        1 => {
+            let (_, workspace_id, raw) = waiting.remove(0);
+            (workspace_id, raw)
+        }
+        _ => {
+            let names: Vec<String> = waiting.into_iter().map(|(name, _, _)| name).collect();
+            return Err(format!(
+                "#{n} is waiting in more than one repo ({}): pass the repo",
+                names.join(", ")
+            ));
+        }
     };
     let question: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
     plan_service::answer_question(
