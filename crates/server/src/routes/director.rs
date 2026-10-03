@@ -50,6 +50,9 @@ pub struct MissionSummary {
     pub issues_total: i64,
     #[ts(type = "number")]
     pub issues_closed: i64,
+    /// Issues the Analyst created for the mission.
+    #[ts(type = "Array<number>")]
+    pub issue_numbers: Vec<i64>,
 }
 
 async fn list_missions(
@@ -66,6 +69,7 @@ async fn list_missions(
         };
         let (issues_total, issues_closed) = Mission::issue_progress(pool, mission.id).await?;
         out.push(MissionSummary {
+            issue_numbers: Mission::issue_numbers(pool, mission.id).await?,
             agent_running: Mission::agent_running(pool, mission.id).await?,
             mission,
             repo_name,
@@ -275,7 +279,12 @@ async fn mcp(
                 .and_then(Value::as_str)
                 .unwrap_or_default();
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            let out = director::call_tool(&deployment.db().pool, session_id, name, &args).await;
+            let out = match name {
+                "get_stuck_issues" | "answer_agent" => {
+                    unstick_tool(&deployment, session_id, name, &args).await
+                }
+                _ => director::call_tool(&deployment.db().pool, session_id, name, &args).await,
+            };
             Ok(match out {
                 Ok(text) => json!({ "content": [{ "type": "text", "text": text }] }),
                 Err(text) => {
@@ -290,6 +299,95 @@ async fn mcp(
         Err(e) => json!({ "jsonrpc": "2.0", "id": id, "error": e }),
     };
     Json(body).into_response()
+}
+
+/// Herramientas de destrabe del Director (fluke v2, #702): necesitan el
+/// container para retomar la sesión del agente, por eso viven acá.
+async fn unstick_tool(
+    deployment: &DeploymentImpl,
+    session_id: Uuid,
+    name: &str,
+    args: &Value,
+) -> Result<String, String> {
+    use services::services::{
+        issue_phases, plan as plan_service, stuck_task_detector, worker_orchestrator,
+    };
+    let pool = &deployment.db().pool;
+    let db_err = |e: sqlx::Error| format!("internal error: {e}");
+    let mission = Mission::find_by_session_id(pool, session_id)
+        .await
+        .map_err(db_err)?
+        .ok_or("this session has no mission")?;
+    let repo_id = mission
+        .repo_id
+        .ok_or("the mission has no repo yet: set it with set_mission")?;
+    let max_rounds =
+        worker_orchestrator::resolve_max_review_rounds(&*deployment.config().read().await);
+    let stuck_minutes = stuck_task_detector::threshold_minutes();
+
+    if name == "get_stuck_issues" {
+        let list = issue_phases::list_blockers(pool, repo_id, max_rounds, stuck_minutes)
+            .await
+            .map_err(db_err)?;
+        let out: Vec<Value> = list
+            .into_iter()
+            .map(|e| {
+                json!({
+                    "issue_number": e.issue_number,
+                    "kind": e.blocker.kind,
+                    "phase": e.blocker.phase,
+                    "message": e.blocker.message,
+                    "question": e.blocker.question
+                        .as_deref()
+                        .and_then(|q| serde_json::from_str::<Value>(q).ok()),
+                })
+            })
+            .collect();
+        return Ok(Value::Array(out).to_string());
+    }
+
+    let n = args
+        .get("issue_number")
+        .and_then(Value::as_i64)
+        .ok_or("missing issue_number")?;
+    let answer = args
+        .get("answer")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .ok_or("missing answer")?;
+    let issue = db::models::repo_issue::RepoIssue::find_by_repo_and_number(pool, repo_id, n)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| format!("issue #{n} not found in the mission's repo"))?;
+    let plan = issue_phases::load_issue_plan(
+        pool,
+        repo_id,
+        n,
+        issue.state != "open",
+        issue.body.as_deref(),
+        max_rounds,
+        stuck_minutes,
+    )
+    .await
+    .map_err(db_err)?;
+    let blocker = plan
+        .blocker
+        .filter(|b| b.kind == "question")
+        .ok_or_else(|| format!("no agent is waiting for an answer in #{n}"))?;
+    let (Some(workspace_id), Some(raw)) = (blocker.workspace_id, blocker.question) else {
+        return Err(format!("no agent is waiting for an answer in #{n}"));
+    };
+    let question: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    plan_service::answer_question(
+        pool,
+        deployment.container(),
+        workspace_id,
+        &question,
+        answer,
+    )
+    .await?;
+    Ok(format!("Answer sent to the agent of #{n}; it carries on."))
 }
 
 /// Workspace donde corre la sesión de la misión (lo necesita el chat).

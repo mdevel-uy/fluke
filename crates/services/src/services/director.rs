@@ -423,6 +423,12 @@ be reproduced), record \"no aplica\" yourself without asking.
 propose likely files, but you never write code, edit files or run commands.
 - When the brief is complete, give a 2-3 line summary and tell the user to review it and press \
 \"Approve brief and send to the Analyst\". You never send it yourself and never create issues.
+- Unblocking: when the user talks about a stuck issue (a coding agent waiting for an answer, a \
+failed phase), call get_stuck_issues to see why it is stuck. If the agent asked a question, turn \
+what the user says into a concrete answer (one of the agent's option keys, or a short text) and \
+confirm it with the user through ask_user before calling answer_agent. Never answer the agent \
+without that confirmation. For other blocks, explain them and point the user to the Destrabar \
+button of the issue.
 - [APP CONTEXT] below tells you the screen, repo and selection the user is looking at right now. \
 Use it to resolve references like \"this screen\" or \"this bug\".
 - Reply in the user's language. Be brief.";
@@ -498,6 +504,23 @@ pub fn tool_definitions() -> Value {
             "name": "get_brief",
             "description": "Return the current brief as markdown, its items with ids, and what is missing.",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "get_stuck_issues",
+            "description": "List the open issues of the mission's repo that need a person: why each one is stuck (question, credential, failed, review_cap, no_progress), the stuck phase and, for a question, the agent's question with its options.",
+            "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "answer_agent",
+            "description": "Answer, on the user's behalf, the question a coding agent is waiting on in an issue. Only after the user confirmed this exact answer in this conversation. The answer is one of the agent's option keys or a short free text.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "issue_number": { "type": "integer" },
+                    "answer": { "type": "string" }
+                },
+                "required": ["issue_number", "answer"]
+            }
         },
         {
             "name": "ask_user",

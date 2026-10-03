@@ -6,7 +6,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { BaseCodingAgent } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
 import { cn } from '@/shared/lib/utils';
-import { issuePhasesApi, planApi, sessionsApi } from '@/shared/lib/api';
+import {
+  issuePhasesApi,
+  missionsApi,
+  planApi,
+  sessionsApi,
+} from '@/shared/lib/api';
+import { useDirectorStore } from '@/features/director/model/useDirectorStore';
 import type { RepoIssue } from '@/features/issues/types';
 import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { useCloseIssue } from '@/features/issues/model/useRepoIssues';
@@ -63,6 +69,7 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
   const { data: plan } = useIssuePlan(repoId, issue.number);
   const closeIssue = useCloseIssue(repoId);
   const createMission = useCreateMission();
+  const openMission = useDirectorStore((st) => st.openMission);
   const blocker = plan?.blocker ?? null;
   const question = useMemo(
     () => parseQuestion(blocker?.question ?? null),
@@ -164,8 +171,19 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
 
   const talkToFluke = () =>
     run(async () => {
-      const detail = await createMission.mutateAsync(repoId);
-      await sessionsApi.followUp(detail.mission.session_id, {
+      // The mission the issue came from, when it is still open (#702);
+      // otherwise a new one.
+      const own = (await missionsApi.list()).find(
+        (m) =>
+          m.mission.status !== 'closed' &&
+          m.mission.repo_id === repoId &&
+          m.issue_numbers.includes(issue.number)
+      )?.mission;
+      if (own) openMission(own.id);
+      const sessionId =
+        own?.session_id ??
+        (await createMission.mutateAsync(repoId)).mission.session_id;
+      await sessionsApi.followUp(sessionId, {
         prompt: t('issues.plan.unstick.flukeMessage', {
           n: issue.number,
           title: issue.title,

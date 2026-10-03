@@ -478,7 +478,11 @@ export type MissionProposalIssue = { number: number, title: string, state: strin
  */
 decision: boolean, };
 
-export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, };
+export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, 
+/**
+ * Issues the Analyst created for the mission.
+ */
+issue_numbers: Array<number>, };
 
 export type CreateMissionRequest = { 
 /**
