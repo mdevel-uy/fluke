@@ -15,7 +15,7 @@ import type {
  * workers on it right now and "Decidir #n" when a decision is pending.
  */
 
-const SEGMENT: Record<PlanCardState, string> = {
+export const SEGMENT: Record<PlanCardState, string> = {
   done: 'bg-success',
   running: 'bg-md-primary',
   review: 'bg-violet-600 dark:bg-violet-400',

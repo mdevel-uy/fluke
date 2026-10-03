@@ -1415,6 +1415,33 @@
           "canceledIssue": "#{{n}} canceled; the wave goes on without it",
           "fluke": "Fluke opens a conversation about #{{n}} with the context of the block"
         }
+      },
+      "star": "Star milestone",
+      "unstar": "Unstar milestone",
+      "reorder": "Drag to reorder (or use the arrow keys)",
+      "actions": "Milestone actions",
+      "archive": "Archive milestone",
+      "archiveHint": "Closes it on GitHub and hides it from Plan. Issues are not touched.",
+      "openOnGithub": "Open on GitHub",
+      "showIssues": "Show issues in list",
+      "archived": "Milestone archived",
+      "archivedOpenIssues_one": "Milestone archived · {{count}} issue still open on GitHub",
+      "archivedOpenIssues_other": "Milestone archived · {{count}} issues still open on GitHub",
+      "undo": "Undo",
+      "restore": "Restore",
+      "archivedSection": "Archived",
+      "archivedOn": "archived {{date}}",
+      "stillOpen_one": "{{count}} issue still open",
+      "stillOpen_other": "{{count}} issues still open",
+      "archiveFailed": "Could not change the milestone on GitHub. Check that gh is signed in.",
+      "starred": "Starred",
+      "milestones": "Milestones",
+      "milestoneCount_one": "{{count}} milestone",
+      "milestoneCount_other": "{{count}} milestones",
+      "density": {
+        "label": "Density",
+        "bands": "Bands",
+        "compact": "Compact"
       }
     }
   },

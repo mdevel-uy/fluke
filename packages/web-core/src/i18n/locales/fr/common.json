@@ -1198,6 +1198,33 @@
           "canceledIssue": "#{{n}} annulé ; la wave continue sans lui",
           "fluke": "Fluke ouvre une conversation sur #{{n}} avec le contexte du blocage"
         }
+      },
+      "star": "Ajouter aux favoris",
+      "unstar": "Retirer des favoris",
+      "reorder": "Glisser pour réordonner (ou flèches)",
+      "actions": "Actions du jalon",
+      "archive": "Archiver le jalon",
+      "archiveHint": "Le ferme sur GitHub et le retire du Plan. Les issues ne changent pas.",
+      "openOnGithub": "Ouvrir sur GitHub",
+      "showIssues": "Voir les issues dans la liste",
+      "archived": "Jalon archivé",
+      "archivedOpenIssues_one": "Jalon archivé · {{count}} issue encore ouverte sur GitHub",
+      "archivedOpenIssues_other": "Jalon archivé · {{count}} issues encore ouvertes sur GitHub",
+      "undo": "Annuler",
+      "restore": "Restaurer",
+      "archivedSection": "Archivés",
+      "archivedOn": "archivé le {{date}}",
+      "stillOpen_one": "{{count}} issue encore ouverte",
+      "stillOpen_other": "{{count}} issues encore ouvertes",
+      "archiveFailed": "Impossible de modifier le jalon sur GitHub. Vérifiez que gh est connecté.",
+      "starred": "Favoris",
+      "milestones": "Jalons",
+      "milestoneCount_one": "{{count}} jalon",
+      "milestoneCount_other": "{{count}} jalons",
+      "density": {
+        "label": "Densité",
+        "bands": "Bandes",
+        "compact": "Compacte"
       }
     }
   },

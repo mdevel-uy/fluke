@@ -1192,6 +1192,30 @@
           "canceledIssue": "#{{n}} 已取消；wave 继续进行",
           "fluke": "Fluke 带着卡住的背景开启关于 #{{n}} 的对话"
         }
+      },
+      "star": "加星标",
+      "unstar": "取消星标",
+      "reorder": "拖动以重新排序（或使用方向键）",
+      "actions": "里程碑操作",
+      "archive": "归档里程碑",
+      "archiveHint": "在 GitHub 上关闭并从计划中隐藏。不会改动 issue。",
+      "openOnGithub": "在 GitHub 上打开",
+      "showIssues": "在列表中查看 issue",
+      "archived": "里程碑已归档",
+      "archivedOpenIssues_other": "已归档 · GitHub 上仍有 {{count}} 个未关闭的 issue",
+      "undo": "撤销",
+      "restore": "恢复",
+      "archivedSection": "已归档",
+      "archivedOn": "归档于 {{date}}",
+      "stillOpen_other": "{{count}} 个 issue 未关闭",
+      "archiveFailed": "无法在 GitHub 上修改里程碑。请确认 gh 已登录。",
+      "starred": "星标",
+      "milestones": "里程碑",
+      "milestoneCount_other": "{{count}} 个里程碑",
+      "density": {
+        "label": "密度",
+        "bands": "条带",
+        "compact": "紧凑"
       }
     }
   },
