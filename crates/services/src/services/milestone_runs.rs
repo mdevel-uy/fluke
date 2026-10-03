@@ -144,7 +144,7 @@ async fn pick_developer(pool: &SqlitePool) -> Result<Option<Uuid>, sqlx::Error> 
         .map(|w| w.id))
 }
 
-async fn load_issues(
+pub async fn load_issues(
     pool: &SqlitePool,
     repo_id: Uuid,
     milestone: &str,

@@ -1,51 +1,140 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@vibe/ui/components/Button';
 import { cn } from '@/shared/lib/utils';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import type { DashboardData } from '@/features/dashboard/model/useDashboardData';
-import { Panel, PanelEmpty } from './parts/primitives';
+import { Panel } from './parts/primitives';
 
-export function AttentionPanel({
-  attentionItems,
-}: Pick<DashboardData, 'attentionItems'>) {
+/** Blocker kinds (`IssueBlocker.kind`) plus the two the workspace stream knows. */
+type AttentionKind =
+  | 'question'
+  | 'credential'
+  | 'failed'
+  | 'review_cap'
+  | 'no_progress'
+  | 'approval'
+  | 'conflict';
+
+const KIND_CLASS: Record<AttentionKind, string> = {
+  question: 'border-warning text-warning',
+  credential: 'border-error text-error',
+  failed: 'border-error text-error',
+  review_cap: 'border-merged text-merged',
+  no_progress: 'border-warning text-warning',
+  approval: 'border-warning text-warning',
+  conflict: 'border-error text-error',
+};
+
+type AttentionItem = {
+  key: string;
+  kind: AttentionKind;
+  ref: string;
+  repo: string;
+  text: string;
+  action: string;
+  onAction: () => void;
+};
+
+export function useAttentionItems(data: DashboardData) {
   const { t } = useTranslation('common');
-  const appNavigation = useAppNavigation();
+  const nav = useAppNavigation();
 
+  return useMemo(() => {
+    const items: AttentionItem[] = [];
+    for (const b of data.overview?.blockers ?? []) {
+      const kind = b.blocker.kind as AttentionKind;
+      items.push({
+        key: `blocker-${b.repo_id}-${b.issue_number}`,
+        kind,
+        ref: `#${b.issue_number}`,
+        repo: b.repo_name,
+        text: b.blocker.message || b.issue_title,
+        action:
+          kind === 'question'
+            ? t('dashboard.attention.answer')
+            : kind === 'credential'
+              ? t('dashboard.attention.configure')
+              : t('dashboard.attention.viewIssue'),
+        onAction:
+          kind === 'credential'
+            ? () => void SettingsDialog.show({ initialSection: 'agents' })
+            : () => nav.goToIssue(b.issue_number, b.repo_id),
+      });
+    }
+    for (const ws of data.approvalWorkspaces) {
+      items.push({
+        key: `approval-${ws.id}`,
+        kind: 'approval',
+        ref: '',
+        repo: '',
+        text: t('dashboard.attention.approvalText', { name: ws.name }),
+        action: t('dashboard.attention.review'),
+        onAction: () => nav.goToWorkspace(ws.id),
+      });
+    }
+    for (const ws of data.conflictingPrs) {
+      items.push({
+        key: `conflict-${ws.id}`,
+        kind: 'conflict',
+        ref: `#${ws.prNumber}`,
+        repo: '',
+        text: t('dashboard.attention.conflictText', { name: ws.name }),
+        action: t('dashboard.attention.open'),
+        onAction: () => nav.goToWorkspace(ws.id),
+      });
+    }
+
+    const counts = new Map<AttentionKind, number>();
+    for (const item of items)
+      counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+    const summary = [...counts]
+      .map(([kind, count]) => t(`dashboard.attention.count.${kind}`, { count }))
+      .join(', ');
+    return { items, summary };
+  }, [data, nav, t]);
+}
+
+export function AttentionPanel({ items }: { items: AttentionItem[] }) {
+  const { t } = useTranslation('common');
+  if (items.length === 0) return null;
   return (
-    <Panel title={t('dashboard.attentionSection')} chip={attentionItems.length}>
-      {attentionItems.length === 0 ? (
-        <PanelEmpty>{t('dashboard.attentionEmpty')}</PanelEmpty>
-      ) : (
-        attentionItems.map((item) => (
-          <button
+    <Panel title={t('dashboard.attention.title')} chip={items.length}>
+      <div className="flex flex-col gap-2 p-3">
+        {items.map((item) => (
+          <div
             key={item.key}
-            type="button"
-            onClick={() => appNavigation.goToWorkspace(item.workspaceId)}
-            className="group flex w-full items-center gap-2.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+            className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary/40 px-3 py-2"
           >
             <span
               className={cn(
-                'flex h-6 w-6 shrink-0 items-center justify-center rounded',
-                item.tone === 'error'
-                  ? 'bg-error/10 text-error'
-                  : 'bg-warning/10 text-warning'
+                'shrink-0 rounded border px-1.5 py-px font-mono text-[10px] font-medium uppercase tracking-wide',
+                KIND_CLASS[item.kind]
               )}
             >
-              <item.icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t(`dashboard.attention.kind.${item.kind}`)}
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-high">
-                {item.title}
-              </span>
-              <span className="block truncate text-xs text-low">
-                {item.meta}
-              </span>
-            </span>
-            <span className="shrink-0 text-xs font-medium text-brand-on-surface group-hover:underline">
+            <p className="min-w-0 flex-[1_1_320px] text-sm text-normal">
+              {item.ref && (
+                <span className="font-mono font-semibold text-high">
+                  {item.ref}{' '}
+                </span>
+              )}
+              {item.repo && <span className="text-low">{item.repo} · </span>}
+              {item.text}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant={item.kind === 'question' ? 'default' : 'outline'}
+              onClick={item.onAction}
+            >
               {item.action}
-            </span>
-          </button>
-        ))
-      )}
+            </Button>
+          </div>
+        ))}
+      </div>
     </Panel>
   );
 }

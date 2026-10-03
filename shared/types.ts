@@ -497,7 +497,7 @@ export type UpdateMissionRequest = { title: string | null, autonomy: string | nu
  */
 ui_context: string | null, 
 /**
- * `true` cierra la misión.
+ * `true` cierra (archiva) la misión; `false` la restaura.
  */
 close: boolean | null, };
 
@@ -904,9 +904,10 @@ base_branch: string | null, commit_message: string, pr_title: string, pr_body: s
 
 export type CreateCiPipelinePrResponse = { pr_url: string, branch: string, commit: string, };
 
-export type ClaudeUsageMeter = {
+export type UsageMeter = { 
 /**
- * `session`, `week_all` or `week_opus`.
+ * Claude: `session`, `week_all`, `week_opus`. Copilot: `premium`,
+ * `chat`, `completions`.
  */
 key: string, 
 /**
@@ -914,19 +915,120 @@ key: string,
  */
 used_percent: number, 
 /**
- * RFC3339, when Claude reported a reset time.
+ * RFC3339, when the provider reported a reset time.
  */
-resets_at: string | null, };
+resets_at: string | null, 
+/**
+ * Absolute figures, for quotas counted in requests (Copilot).
+ */
+used: number | null, limit: number | null, };
 
-export type ClaudeUsageResponse = { 
+export type ProviderUsage = { agent: BaseCodingAgent, 
 /**
- * Human plan label derived from the stored credentials (e.g. "Max 20x").
+ * Human plan label (e.g. "Max 20x").
  */
-plan: string | null, meters: Array<ClaudeUsageMeter>, 
+plan: string | null, 
 /**
- * Workers whose active workspace runs Claude Code.
+ * Empty when the provider does not publish its usage.
  */
-workers_on_claude: bigint, };
+meters: Array<UsageMeter>, 
+/**
+ * Coding agents running on this provider right now.
+ */
+running: bigint, 
+/**
+ * API-equivalent cost of the coding agents run on it, last 30 days.
+ */
+cost_30d: number, };
+
+export type ProvidersUsageResponse = { providers: Array<ProviderUsage>, 
+/**
+ * Agents fluke supports that have no login here.
+ */
+without_login: Array<BaseCodingAgent>, };
+
+export type Ticket = { key: string, repo_id: string, 
+/**
+ * The issue, or the PR when the ticket is a review of a PR without one.
+ */
+issue_number: number | null, is_pr: boolean, title: string, 
+/**
+ * When the last task finished, once nothing of the ticket is live and at
+ * least one task is done. SQLite datetime string (UTC).
+ */
+resolved_at: string | null, 
+/**
+ * Sum over every task of the ticket, retries and failures included.
+ */
+cost_usd: number, tasks: number, 
+/**
+ * Override of the most recent done task that has one.
+ */
+hours_override: number | null, 
+/**
+ * Task that takes a new override: the latest done one.
+ */
+edit_task_id: string | null, edit_worker_id: string | null, };
+
+export type TicketsResponse = { 
+/**
+ * Tickets resolved inside the window, newest first.
+ */
+tickets: Array<Ticket>, };
+
+export type WaveCell = { number: number, 
+/**
+ * `done | active | failed | decision | pending`.
+ */
+state: string, };
+
+export type Wave = { wave: number, cells: Array<WaveCell>, };
+
+export type RepoMilestone = { name: string, 
+/**
+ * `running | paused | waiting`.
+ */
+status: string, current_wave: number | null, waiting_reason: string | null, waves: Array<Wave>, issues_total: number, issues_closed: number, cost_usd: number, };
+
+export type RepoOverview = { repo_id: string, name: string, milestone: RepoMilestone | null, running: number, blocked: number, open_prs: number, 
+/**
+ * Latest task start or finish. SQLite datetime string (UTC).
+ */
+last_activity: string | null, };
+
+export type PhaseChip = { 
+/**
+ * `design | tdd | dev | test | review | merge`.
+ */
+kind: string, 
+/**
+ * `pending | active | done | changes | stuck`.
+ */
+state: string, };
+
+export type RunningTask = { task_id: string, worker_id: string, workspace_id: string | null, repo_id: string, repo_name: string, issue_number: number | null, title: string, profile: string, role: string, 
+/**
+ * Agent and model the profile runs on.
+ */
+executor: string, model: string | null, status: string, phases: Array<PhaseChip>, steps_done: number, steps_total: number, 
+/**
+ * Cost of the whole ticket so far.
+ */
+cost_usd: number, 
+/**
+ * When the agent started this run. SQLite datetime string (UTC).
+ */
+started_at: string, };
+
+export type QueuedTask = { task_id: string, repo_name: string, issue_number: number | null, title: string, profile: string, };
+
+export type DashboardBlocker = { repo_id: string, repo_name: string, issue_number: number, issue_title: string, blocker: IssueBlocker, };
+
+export type DashboardOverview = { repos: Array<RepoOverview>, running: Array<RunningTask>, queued: Array<QueuedTask>, blockers: Array<DashboardBlocker>, 
+/**
+ * Agents running now and the concurrency limit (0 = no limit).
+ */
+slots_used: number, slots_limit: number, };
 
 export type AgentGuidelines = { content: string,
 /**
@@ -945,73 +1047,6 @@ export type SaveAgentGuidelinesRequest = { content: string,
  * file changed since (concurrent edit over SSH or another client).
  */
 expected_modified_at: string | null, };
-
-export type ResolvedTask = { repo_id: string,
-/**
- * GitHub issue the task was spawned from, when there is one.
- */
-issue_number: number | null, title: string,
-/**
- * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
- */
-completed_at: string, };
-
-export type ResolvedTasksResponse = { tasks: Array<ResolvedTask>, };
-
-export type ValueGeneratedMonth = {
-/**
- * Month key in `YYYY-MM` form (UTC).
- */
-year_month: string,
-/**
- * Worker tasks that reached `done` inside this month.
- */
-done_count: number,
-/**
- * Worker tasks in `done_count` that carry a per-task override.
- */
-tasks_with_override: number,
-/**
- * Sum of `hours_saved_override` across the tasks in `tasks_with_override`.
- * Zero when none of the month's tasks carry an override.
- */
-override_hours_sum: number,
-/**
- * Worker tasks in `done_count` that have any recorded LLM usage. Used by
- * the panel to flag partial coverage — when `tasks_with_cost < done_count`
- * the cost figure is a lower bound (agents like Codex/OpenCode may not
- * report USD until pricing tables are wired up).
- */
-tasks_with_cost: number,
-/**
- * Sum of `cost_usd_total` across the tasks in `tasks_with_cost`. Zero when
- * no task in the bucket recorded API cost.
- */
-cost_usd_sum: number,
-/**
- * Sum of `input_tokens_total`. Zero when no task recorded tokens.
- */
-input_tokens_sum: number,
-/**
- * Sum of `output_tokens_total`. Zero when no task recorded tokens.
- */
-output_tokens_sum: number,
-/**
- * Sum of `cache_creation_tokens_total`. Zero when unrecorded.
- */
-cache_creation_tokens_sum: number,
-/**
- * Sum of `cache_read_tokens_total`. Zero when unrecorded.
- */
-cache_read_tokens_sum: number, };
-
-export type ValueGeneratedSummaryResponse = {
-/**
- * Newest month first. Includes the current month even when it has zero
- * completed tasks so the panel can render a "0" today without special-
- * casing an empty response.
- */
-months: Array<ValueGeneratedMonth>, };
 
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
 

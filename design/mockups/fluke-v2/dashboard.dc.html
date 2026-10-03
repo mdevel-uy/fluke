@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard de fluke</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0b0e15}
+a{color:#9a9bff}a:hover{color:#c4c5ff}
+.root{--bg:#0b0e15;--rail:#0e121c;--band:#121725;--head:#161c2c;--col:#0f1420;--card:#1b2234;--line:#262e44;--fg:#e0e4ef;--muted:#8a93ab;--faint:#4a5268;--accent:#7b7cf5;--ready:#3fc79a;--gate:#f0a24a;--review:#c38df5;--danger:#ef6b6b;--mono:"IBM Plex Mono",ui-monospace,monospace;font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+.root *{box-sizing:border-box}
+.root button{font:inherit;color:inherit;cursor:pointer}
+.app{display:flex;min-height:100vh}
+.rail{width:52px;flex:none;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
+.ri{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--muted);text-decoration:none}
+.ri svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7}
+.ri.on{background:var(--head);color:var(--fg)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.topbar h1{margin:0;font-size:18px;font-weight:600}
+.sp{flex:1}
+.content{padding:18px 20px 40px;display:grid;gap:16px;max-width:1380px;width:100%;margin:0 auto}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--head);border-radius:6px;padding:6px 12px;font-size:13px;color:var(--fg);text-decoration:none;min-height:32px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.btn.gate{background:var(--gate);border-color:var(--gate);color:#1b1206;font-weight:600}
+.btn.sm{padding:3px 10px;font-size:12px;min-height:28px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.lbl{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.panel{background:var(--band);border:1px solid var(--line);border-radius:10px;min-width:0}
+.ph-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ph-head h2{margin:0;font-size:14px;font-weight:600}
+.ph-body{padding:14px 16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi{background:var(--band);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px}
+.kpi b{font-size:22px;font-weight:600;line-height:1.1}
+.kpi small{color:var(--muted);font-size:12px}
+.att{display:grid;gap:8px}
+.ai{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;flex-wrap:wrap}
+.ai .k{font:500 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;border:1px solid}
+.ai .t{flex:1 1 320px;min-width:0;font-size:13px}
+.ai .t span{color:var(--muted)}
+.repos{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.repo{background:var(--band);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:12px;align-content:start}
+.repo.run{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.repo.wait{border-color:color-mix(in srgb,var(--gate) 50%,var(--line))}
+.repo .nm{display:flex;align-items:center;gap:8px;font:500 13px var(--mono)}
+.ms{display:grid;gap:4px}
+.ms b{font-size:14px;font-weight:600}
+.ms small{font-size:12px;color:var(--muted)}
+.wmap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.wv{display:flex;align-items:center;gap:3px}
+.wv em{font:500 10px var(--mono);font-style:normal;color:var(--muted);margin-right:3px}
+.wv i{width:14px;height:8px;border-radius:2px;display:block}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.stats div{display:grid;gap:1px}
+.stats b{font-size:15px;font-weight:600}
+.stats small{font-size:11px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;min-width:900px}
+.tbl th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.scroll{overflow-x:auto}
+.pav{width:22px;height:22px;border-radius:6px;display:inline-grid;place-items:center;font:600 10px var(--mono);color:#0b0e15;flex:none}
+.who{display:flex;align-items:center;gap:8px}
+.who small{display:block;color:var(--muted);font:11px var(--mono)}
+.phs{display:flex;gap:3px}
+.ph{font:500 10px var(--mono);padding:2px 5px;border-radius:4px;border:1px solid var(--line);color:var(--faint)}
+.ph.done{background:color-mix(in srgb,var(--ready) 18%,transparent);border-color:color-mix(in srgb,var(--ready) 45%,var(--line));color:var(--ready)}
+.ph.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.ph.skip{border-style:dashed;opacity:.5;text-decoration:line-through}
+.steps{display:grid;gap:4px;min-width:120px}
+.steps span{font:11px var(--mono);color:var(--muted)}
+.queue{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.subs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.sub{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:10px;align-content:start}
+.sub .hd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sub .hd b{font-size:14px;font-weight:600}
+.meter{display:grid;gap:4px}
+.meter .row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.meter .row span:last-child{font-family:var(--mono)}
+.meter small{font-size:11px;color:var(--muted)}
+.note{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:8px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{background:transparent;border:0;border-right:1px solid var(--line);padding:7px 14px;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:8px;min-height:36px}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--head);color:var(--fg)}
+.big{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:14px}
+.big .meter .row{font-size:13px}
+.big .bar{height:9px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;align-content:start}
+.kv dt{color:var(--muted);font-size:12px}
+.kv dd{margin:0}
+.impact{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
+.chartbox{position:relative;height:230px}
+.chartbox svg{position:absolute;inset:0 0 30px 34px;width:calc(100% - 78px);height:200px;overflow:visible}
+.yl,.yr{position:absolute;top:0;height:200px;display:flex;flex-direction:column;justify-content:space-between;font:10px var(--mono)}
+.yl{left:0;color:var(--muted)}
+.yr{right:0;color:var(--gate);text-align:right}
+.hits{position:absolute;left:34px;right:44px;top:0;height:200px;display:flex}
+.hits button{flex:1;background:transparent;border:0;padding:0;border-radius:3px}
+.hits button:hover{background:color-mix(in srgb,var(--fg) 6%,transparent)}
+.hits button:focus-visible{outline:2px solid var(--accent)}
+.xl{position:absolute;left:34px;right:44px;bottom:6px;display:flex;justify-content:space-between;font:10px var(--mono);color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:8px;border-radius:2px;display:inline-block}
+.day{margin-top:12px;background:var(--col);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px}
+.tk{display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap}
+.tk .ttl{flex:1 1 240px;min-width:0}
+.tk .c{font-family:var(--mono);color:var(--gate)}
+.top5{display:grid;gap:8px;align-content:start}
+.top5 .tk{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.vg{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+.month{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.month div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px}
+.month b{font-size:18px;font-weight:600}
+.month small{font-size:11.5px;color:var(--muted)}
+.feed{display:grid;gap:0}
+.fday{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 0 6px}
+.fe{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;flex-wrap:wrap}
+.fe .tm{font:11px var(--mono);color:var(--muted);width:40px;flex:none}
+.fe .tx{flex:1 1 260px;min-width:0}
+.fe .tx span{color:var(--muted)}
+.val{display:inline-flex;align-items:center;gap:6px;font:12px var(--mono)}
+.hrs{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--col);border-radius:5px;padding:1px 6px;color:var(--fg)}
+.hrs input{width:28px;background:transparent;border:0;color:var(--fg);font:12px var(--mono);text-align:right;padding:0}
+.hist{width:100%;border-collapse:collapse}
+.hist th{font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+.hist th:first-child,.hist td:first-child{text-align:left}
+.hist td{font:12.5px var(--mono);text-align:right;padding:8px;border-bottom:1px solid var(--line)}
+.hist tr.cur td{color:var(--fg);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+@media (max-width:900px){.rail{display:none}.impact,.vg,.big{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</helmet>
+<div class="root">
+<div class="app">
+
+<nav class="rail" aria-label="Navegación principal">
+<a class="ri" href="#" aria-label="Fluke"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></a>
+<a class="ri" href="#" aria-label="Issues"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></a>
+<a class="ri" href="#" aria-label="Workspaces"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg></a>
+<a class="ri on" href="#" aria-label="Dashboard"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a>
+<div style="flex: 1"></div>
+<a class="ri" href="#" aria-label="Configuración"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></a>
+</nav>
+
+<div class="main">
+<header class="topbar">
+<h1>Dashboard</h1>
+<span class="chip"><span class="dot" style="background: #3fc79a"></span>en vivo</span>
+<div class="sp"></div>
+<label class="chip" style="cursor: pointer"><input type="checkbox" checked="checked" style="accent-color: #7b7cf5; margin: 0"> Auto-ingesta</label>
+<button class="btn" type="button">Pilot report</button>
+</header>
+
+<main class="content">
+
+<section class="kpis" aria-label="Resumen">
+<div class="kpi"><span class="lbl">Cupos</span><b>3 / 4</b><small>2 tareas en cola</small></div>
+<div class="kpi"><span class="lbl">Atención</span><b style="color: #f0a24a">3</b><small>1 pregunta, 1 credencial, 1 tope</small></div>
+<div class="kpi"><span class="lbl">Repos activos</span><b>2 de 3</b><small>fluke, canon</small></div>
+<div class="kpi"><span class="lbl">Resueltos hoy</span><b>3 tickets</b><small>12 h ahorradas</small></div>
+<div class="kpi"><span class="lbl">Costo hoy</span><b>$11.30</b><small>$3.77 por ticket, equiv. API</small></div>
+<div class="kpi"><span class="lbl">Límite más cerca</span><b>61%</b><small>Claude semanal, lun 09:00</small></div>
+</section>
+
+<section class="panel" aria-labelledby="h-att">
+<div class="ph-head"><h2 id="h-att">Necesita tu atención</h2><span class="chip">3</span></div>
+<div class="ph-body att">
+<div class="ai">
+<span class="k" style="color: #f0a24a; border-color: #f0a24a">Pregunta</span>
+<div class="t"><b class="mono">#709</b> <span>fluke ·</span> El agente pregunta si el límite de Copilot se mide por mes calendario o por ciclo de facturación.</div>
+<button class="btn gate sm" type="button">Responder</button>
+</div>
+<div class="ai">
+<span class="k" style="color: #ef6b6b; border-color: #ef6b6b">Credencial</span>
+<div class="t"><b class="mono">#26</b> <span>canon ·</span> Codex no tiene login en esta máquina. La tarea quedó en espera y frena la ola W0.</div>
+<button class="btn sm" type="button">Configurar Codex</button>
+</div>
+<div class="ai">
+<span class="k" style="color: #c38df5; border-color: #c38df5">Tope de review</span>
+<div class="t"><b class="mono">#698</b> <span>fluke ·</span> 3 de 3 rondas de review sin aprobar. PR #701 espera tu decisión.</div>
+<button class="btn sm" type="button">Ver PR #701</button>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-repos" style="display: grid; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px"><h2 id="h-repos" style="margin: 0; font-size: 14px; font-weight: 600">Repos</h2><span class="muted" style="font-size: 12px">en qué está cada uno</span></div>
+<div class="repos">
+<sc-for list="{{repos}}" as="r" hint-placeholder-count="3">
+<article class="repo {{r.cls}}">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span class="nm"><span class="dot" style="background: {{r.dot}}"></span>{{r.name}}</span>
+<div class="sp"></div>
+<span class="chip" style="color: {{r.dot}}">{{r.state}}</span>
+</div>
+<div class="ms">
+<small>{{r.msLabel}}</small>
+<b>{{r.ms}}</b>
+<small>{{r.wave}}</small>
+</div>
+<sc-if value="{{r.hasMap}}" hint-placeholder-val="{{true}}">
+<div class="wmap">
+<sc-for list="{{r.map}}" as="w" hint-placeholder-count="2">
+<div class="wv"><em>{{w.n}}</em><sc-for list="{{w.cells}}" as="c" hint-placeholder-count="3"><i style="background: {{c}}"></i></sc-for></div>
+</sc-for>
+</div>
+<div style="display: grid; gap: 4px">
+<div class="bar"><i style="width: {{r.pct}}; background: #3fc79a"></i></div>
+<span class="mono muted" style="font-size: 11px; text-align: right">{{r.done}}</span>
+</div>
+</sc-if>
+<div class="stats">
+<div><b>{{r.running}}</b><small>en curso</small></div>
+<div><b style="color: {{r.blkColor}}">{{r.blocked}}</b><small>bloqueos</small></div>
+<div><b>{{r.prs}}</b><small>{{r.prsLabel}}</small></div>
+<div><b class="mono" style="font-size: 14px">{{r.cost}}</b><small>costo milestone</small></div>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-run">
+<div class="ph-head"><h2 id="h-run">En curso</h2><span class="chip"><span class="dot" style="background: #7b7cf5"></span>3 de 4 cupos</span><div class="sp"></div><span class="muted" style="font-size: 12px">una fila por ejecución</span></div>
+<div class="scroll">
+<table class="tbl">
+<thead><tr><th>Perfil</th><th>Issue</th><th>Fases</th><th>Pasos del plan</th><th>Contexto</th><th>Costo</th><th>Tiempo</th><th></th></tr></thead>
+<tbody>
+<sc-for list="{{execs}}" as="e" hint-placeholder-count="3">
+<tr>
+<td><div class="who"><span class="pav" style="background: {{e.color}}">{{e.av}}</span><div>{{e.profile}}<small>{{e.agent}}</small></div></div></td>
+<td><b class="mono">{{e.issue}}</b> <span class="muted">{{e.repo}}</span><div>{{e.title}}</div></td>
+<td><div class="phs"><sc-for list="{{e.phases}}" as="p" hint-placeholder-count="6"><span class="ph {{p.st}}" title="{{p.full}}">{{p.l}}</span></sc-for></div><small class="muted" style="font-size: 11.5px">{{e.phaseNow}}</small></td>
+<td><div class="steps"><div class="bar"><i style="width: {{e.stepPct}}; background: #7b7cf5"></i></div><span>{{e.steps}}</span></div></td>
+<td><span class="mono" style="color: {{e.ctxColor}}">{{e.ctx}}</span></td>
+<td><span class="mono" style="color: #f0a24a">{{e.cost}}</span></td>
+<td><span class="mono muted">{{e.time}}</span></td>
+<td><a class="btn sm" href="#">Abrir</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div class="queue"><span class="lbl">En cola</span><span><b class="mono" style="color: #e0e4ef">#714</b> fluke · Fullstack</span><span><b class="mono" style="color: #e0e4ef">#24</b> canon · Reviewer</span><div class="sp"></div><span>arrancan cuando se libere un cupo</span></div>
+</section>
+
+<section class="panel" aria-labelledby="h-subs">
+<div class="ph-head"><h2 id="h-subs">Suscripciones</h2><span class="chip">{{subsCount}}</span><div class="sp"></div><span class="muted" style="font-size: 12px">se actualiza cada 60 s</span></div>
+<div class="ph-body">
+
+<sc-if value="{{modeAll}}" hint-placeholder-val="{{true}}">
+<div class="subs">
+<sc-for list="{{subs}}" as="s" hint-placeholder-count="4">
+<div class="sub">
+<div class="hd"><span class="dot" style="background: {{s.color}}"></span><b>{{s.name}}</b><span class="chip">{{s.plan}}</span></div>
+<sc-for list="{{s.meters}}" as="m" hint-placeholder-count="2">
+<div class="meter"><div class="row"><span>{{m.label}}</span><span style="color: {{m.color}}">{{m.pctText}}</span></div><div class="bar"><i style="width: {{m.pct}}; background: {{m.color}}"></i></div><small>{{m.reset}}</small></div>
+</sc-for>
+<sc-if value="{{s.hasNote}}" hint-placeholder-val="{{false}}"><div class="note">{{s.note}}</div></sc-if>
+<small class="muted" style="font-size: 12px">{{s.users}}</small>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{modeSel}}" hint-placeholder-val="{{false}}">
+<div class="seg" role="group" aria-label="Elegir proveedor">
+<sc-for list="{{subs}}" as="s" hint-placeholder-count="4">
+<button type="button" class="{{s.segCls}}" aria-pressed="{{s.on}}" onClick="{{s.pick}}"><span class="dot" style="background: {{s.color}}"></span>{{s.name}}<span class="mono" style="font-size: 11px; color: {{s.maxColor}}">{{s.maxText}}</span></button>
+</sc-for>
+</div>
+<div class="big">
+<div style="display: grid; gap: 14px; align-content: start">
+<div class="hd" style="display: flex; align-items: baseline; gap: 10px"><b style="font-size: 18px; font-weight: 600">{{sel.name}}</b><span class="chip">{{sel.plan}}</span></div>
+<sc-for list="{{sel.meters}}" as="m" hint-placeholder-count="2">
+<div class="meter"><div class="row"><span>{{m.label}}</span><span style="color: {{m.color}}">{{m.pctText}}</span></div><div class="bar"><i style="width: {{m.pct}}; background: {{m.color}}"></i></div><small>{{m.reset}}</small></div>
+</sc-for>
+<sc-if value="{{sel.hasNote}}" hint-placeholder-val="{{false}}"><div class="note">{{sel.note}}</div></sc-if>
+</div>
+<dl class="kv">
+<dt>Perfiles que lo usan</dt><dd>{{sel.profiles}}</dd>
+<dt>Ejecuciones ahora</dt><dd>{{sel.users}}</dd>
+<dt>Costo 30 días</dt><dd class="mono" style="color: #f0a24a">{{sel.cost30}}</dd>
+<dt>Cuenta</dt><dd>{{sel.account}}</dd>
+</dl>
+</div>
+</sc-if>
+
+<div style="margin-top: 12px; font-size: 12px; color: #8a93ab">Sin login: Amp, Cursor, Opencode, Qwen, Droid. <a href="#">Configurar agentes</a></div>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-imp">
+<div class="ph-head"><h2 id="h-imp">Impacto y costo</h2><div class="sp"></div>
+<div class="seg" role="group" aria-label="Ventana"><button type="button">7 d</button><button type="button" class="on" aria-pressed="true">30 d</button><button type="button">90 d</button></div>
+</div>
+<div class="ph-body impact">
+<div style="min-width: 0">
+<div class="legend" style="margin-bottom: 10px"><span><i class="sw" style="background: #7b7cf5"></i>Tickets resueltos (por issue, no por tarea)</span><span><i class="sw" style="background: #f0a24a; height: 2px"></i>Costo promedio por ticket</span></div>
+<div class="chartbox">
+<div class="yl"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div>
+<div class="yr"><span>$10</span><span>$8</span><span>$6</span><span>$4</span><span>$2</span><span>$0</span></div>
+<svg viewBox="0 0 900 200" preserveAspectRatio="none" aria-hidden="true">
+<path d="M0 36H900M0 72H900M0 108H900M0 144H900M0 180H900" stroke="#262e44" stroke-width="1" vector-effect="non-scaling-stroke" fill="none"></path>
+<path d="{{chart.bars}}" fill="#7b7cf5" opacity="0.55"></path>
+<path d="{{chart.selBar}}" fill="#7b7cf5"></path>
+<path d="{{chart.line}}" stroke="#f0a24a" stroke-width="2" fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"></path>
+</svg>
+<div class="hits">
+<sc-for list="{{chart.days}}" as="d" hint-placeholder-count="30">
+<button type="button" aria-label="{{d.aria}}" onClick="{{d.pick}}"></button>
+</sc-for>
+</div>
+<div class="xl"><sc-for list="{{chart.ticks}}" as="t" hint-placeholder-count="5"><span>{{t}}</span></sc-for></div>
+</div>
+<div class="day">
+<div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap"><b>{{day.label}}</b><span class="muted" style="font-size: 12px">{{day.summary}}</span></div>
+<sc-for list="{{day.tickets}}" as="t" hint-placeholder-count="3">
+<div class="tk"><b class="mono">{{t.n}}</b><span class="ttl">{{t.title}} <span class="muted">· {{t.repo}}</span></span><span class="muted mono" style="font-size: 11px">{{t.phases}}</span><span class="c">{{t.cost}}</span></div>
+</sc-for>
+<sc-if value="{{day.empty}}" hint-placeholder-val="{{false}}"><span class="muted" style="font-size: 13px">Sin tickets resueltos ese día.</span></sc-if>
+</div>
+<p style="margin: 10px 0 0; font-size: 12px; color: #8a93ab">El costo de un ticket suma todas sus fases (diseño, TDD, dev, QA, review y sus reintentos). Con suscripción es el costo equivalente de la API, no lo que pagás.</p>
+</div>
+<div class="top5">
+<span class="lbl">Tickets más caros, 30 d</span>
+<sc-for list="{{top}}" as="t" hint-placeholder-count="5">
+<div class="tk"><b class="mono">{{t.n}}</b><span class="ttl">{{t.title}} <span class="muted">· {{t.repo}}</span></span><span class="c">{{t.cost}}</span></div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-vg">
+<div class="ph-head"><h2 id="h-vg">Valor y actividad</h2><span class="muted" style="font-size: 12px">4 h por ticket a $30/h</span></div>
+<div class="ph-body vg">
+<div style="min-width: 0">
+<div class="month">
+<div><small>Octubre, en curso</small><b>14</b><small>tickets resueltos</small></div>
+<div><small>Horas ahorradas</small><b>56 h</b><small>14 × 4 h</small></div>
+<div><small>Valor generado</small><b style="color: #3fc79a">$1,680</b><small>56 h × $30</small></div>
+<div><small>Costo IA</small><b style="color: #f0a24a">$58.90</b><small>equiv. API</small></div>
+</div>
+<div class="feed">
+<sc-for list="{{feed}}" as="g" hint-placeholder-count="2">
+<div class="fday">{{g.day}}</div>
+<sc-for list="{{g.items}}" as="f" hint-placeholder-count="4">
+<div class="fe">
+<span class="tm">{{f.t}}</span>
+<span class="dot" style="background: {{f.c}}"></span>
+<span class="tx">{{f.text}} <span>{{f.sub}}</span></span>
+<sc-if value="{{f.done}}" hint-placeholder-val="{{false}}">
+<span class="val"><label class="hrs"><input type="text" value="{{f.h}}" aria-label="Horas ahorradas"> h</label><span style="color: #3fc79a">{{f.v}}</span><span style="color: #f0a24a">{{f.cost}}</span></span>
+</sc-if>
+</div>
+</sc-for>
+</sc-for>
+</div>
+<div style="margin-top: 10px"><a href="#">Ver toda la actividad</a></div>
+</div>
+<div style="min-width: 0; display: grid; gap: 10px; align-content: start">
+<span class="lbl">Historial por mes</span>
+<table class="hist">
+<thead><tr><th>Mes</th><th>Tickets</th><th>Horas</th><th>Valor</th><th>Costo IA</th></tr></thead>
+<tbody>
+<tr class="cur"><td>oct</td><td>14</td><td>56</td><td>$1,680</td><td>$58.90</td></tr>
+<tr><td>sep</td><td>41</td><td>164</td><td>$4,920</td><td>$212.40</td></tr>
+<tr><td>ago</td><td>37</td><td>148</td><td>$4,440</td><td>$241.10</td></tr>
+<tr><td>jul</td><td>22</td><td>88</td><td>$2,640</td><td>$163.75</td></tr>
+</tbody>
+</table>
+<small class="muted" style="font-size: 12px">Las horas de cada ticket se editan en la actividad.</small>
+</div>
+</div>
+</section>
+
+</main>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"suscripciones":{"editor":"enum","options":["todas","selector"],"default":"todas"},"$preview":{"width":1440,"height":2700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { day: 29, prov: 'claude' };
+  }
+  renderVals() {
+    var self = this;
+    var G = '#3fc79a', A = '#7b7cf5', Y = '#f0a24a', R = '#ef6b6b', F = '#4a5268', P = '#c38df5';
+    var mode = this.props.suscripciones || 'todas';
+    function mcolor(p) { return p >= 85 ? R : (p >= 60 ? Y : G); }
+
+    var repos = [
+      { name: 'mdevel-uy/fluke', cls: 'run', dot: A, state: 'Ejecutando', msLabel: 'Milestone activo', ms: 'Dashboard v2', wave: 'Ola W1 de 3 · 2 issues en curso', hasMap: true,
+        map: [{ n: 'W0', cells: [G, G, G, G] }, { n: 'W1', cells: [G, G, A, A, Y] }, { n: 'W2', cells: [F, F] }],
+        pct: '55%', done: '6 de 11 issues cerradas', running: '2', blocked: '2', blkColor: Y, prs: '3', prsLabel: 'PRs, 1 en conflicto', cost: '$38.20' },
+      { name: 'mdevel-uy/canon', cls: 'wait', dot: Y, state: 'Esperando credencial', msLabel: 'Milestone activo', ms: 'Fase 1, control plane', wave: 'Ola W0 de 2 · frenada por #26', hasMap: true,
+        map: [{ n: 'W0', cells: [G, G, A, R] }, { n: 'W1', cells: [F, F, F, F] }],
+        pct: '25%', done: '2 de 8 issues cerradas', running: '1', blocked: '1', blkColor: R, prs: '1', prsLabel: 'PR abierto', cost: '$12.75' },
+      { name: 'mdevel-uy/landing', cls: '', dot: F, state: 'Sin actividad', msLabel: 'Sin milestone activo', ms: 'Nada planificado', wave: 'Último movimiento hace 2 días', hasMap: false,
+        map: [], pct: '0%', done: '', running: '0', blocked: '0', blkColor: '#e0e4ef', prs: '0', prsLabel: 'PRs', cost: '$0.00' }
+    ];
+
+    var PH = [['design', 'Dis', 'Diseño'], ['tdd', 'TDD', 'Tests primero'], ['dev', 'Dev', 'Desarrollo'], ['test', 'QA', 'QA'], ['review', 'Rev', 'Review'], ['merge', 'Mrg', 'Merge']];
+    function phases(st) { return PH.map(function (p, i) { return { l: p[1], full: p[2], st: st[i] }; }); }
+    var execs = [
+      { av: 'F', color: A, profile: 'Fullstack', agent: 'Claude Opus', issue: '#712', repo: 'fluke', title: 'Costo por ticket en el gráfico de impacto',
+        phases: phases(['done', 'done', 'active', '', '', '']), phaseNow: 'Desarrollo, ronda 1', stepPct: '57%', steps: '4 de 7 pasos', ctx: '58%', ctxColor: '#e0e4ef', cost: '$3.40', time: '41 min' },
+      { av: 'Q', color: G, profile: 'QA', agent: 'Claude Sonnet', issue: '#705', repo: 'fluke', title: 'Validar vista Plan por milestone',
+        phases: phases(['done', 'done', 'done', 'active', '', '']), phaseNow: 'QA, corriendo tests', stepPct: '40%', steps: '2 de 5 pasos', ctx: '31%', ctxColor: '#e0e4ef', cost: '$1.10', time: '12 min' },
+      { av: 'F', color: A, profile: 'Fullstack', agent: 'Codex', issue: '#23', repo: 'canon', title: 'Heartbeat firmado del control plane',
+        phases: phases(['skip', 'skip', 'active', '', '', '']), phaseNow: 'Desarrollo, sin TDD', stepPct: '17%', steps: '1 de 6 pasos', ctx: '86%', ctxColor: Y, cost: '$0.40', time: '6 min' }
+    ];
+
+    var subs = [
+      { key: 'claude', name: 'Claude', color: '#d97757', plan: 'Max 20x', account: 'OAuth del CLI de Claude', profiles: 'Fullstack (Opus), QA (Sonnet), Designer', users: '2 ejecuciones ahora: Fullstack, QA', cost30: '$486.20',
+        meters: [{ label: 'Sesión, 5 h', p: 42, reset: 'se reinicia hoy 18:30' }, { label: 'Semanal', p: 61, reset: 'se reinicia lun 09:00' }, { label: 'Semanal Opus', p: 18, reset: 'se reinicia lun 09:00' }] },
+      { key: 'codex', name: 'Codex', color: '#e0e4ef', plan: 'ChatGPT Pro', account: 'Login del CLI de Codex', profiles: 'Fullstack en canon', users: '1 ejecución ahora: Fullstack', cost30: '$64.10',
+        meters: [{ label: 'Sesión, 5 h', p: 12, reset: 'se reinicia hoy 20:10' }, { label: 'Semanal', p: 30, reset: 'se reinicia mié 14:00' }] },
+      { key: 'copilot', name: 'GitHub Copilot', color: '#9a9bff', plan: 'Pro', account: 'gh, cuenta dwaksman', profiles: 'Ninguno', users: 'Sin uso ahora', cost30: '$0.00',
+        meters: [{ label: 'Pedidos premium del mes', p: 40, reset: '120 de 300 · se reinicia 1 nov' }] },
+      { key: 'gemini', name: 'Gemini', color: '#6fb3f2', plan: 'Google AI Pro', account: 'Login del CLI de Gemini', profiles: 'Ninguno', users: 'Sin uso ahora', cost30: '$0.00', meters: [],
+        note: 'Logueado. Gemini no publica el uso de la suscripción, así que no hay medidores.' }
+    ].map(function (s) {
+      var max = 0;
+      s.meters = s.meters.map(function (m) { if (m.p > max) max = m.p; return { label: m.label, reset: m.reset, pct: m.p + '%', pctText: m.p + '%', color: mcolor(m.p) }; });
+      s.hasNote = !!s.note;
+      s.on = s.key === self.state.prov;
+      s.segCls = s.on ? 'on' : '';
+      s.maxText = s.meters.length ? max + '%' : 's/d';
+      s.maxColor = s.meters.length ? mcolor(max) : F;
+      s.pick = function () { self.setState({ prov: s.key }); };
+      return s;
+    });
+    var sel = subs.filter(function (s) { return s.on; })[0] || subs[0];
+
+    var T = [1,0,2,1,3,0,0,2,1,2,4,1,0,0,3,2,2,1,3,0,0,2,3,1,2,4,0,0,3,3];
+    var C = [6.2,0,4.8,7.1,5.0,0,0,5.6,8.4,4.2,3.9,6.6,0,0,4.4,5.1,3.8,7.9,4.6,0,0,5.3,4.1,6.8,4.9,3.6,0,0,3.4,3.77];
+    var MES = ['sep', 'oct'];
+    function lbl(i) { var d = 4 + i; return d <= 30 ? d + ' ' + MES[0] : (d - 30) + ' ' + MES[1]; }
+    function bar(i, t) { var h = t / 5 * 180; return 'M' + (i * 30 + 6) + ' ' + (200 - h) + 'h18v' + h + 'h-18Z'; }
+    var bars = '', line = '', first = true;
+    T.forEach(function (t, i) {
+      if (!t) return;
+      bars += bar(i, t);
+      line += (first ? 'M' : 'L') + (i * 30 + 15) + ' ' + (200 - C[i] / 10 * 180).toFixed(1);
+      first = false;
+    });
+    var d = this.state.day;
+    var chart = {
+      bars: bars, line: line, selBar: T[d] ? bar(d, T[d]) : '',
+      ticks: [lbl(0), lbl(7), lbl(14), lbl(21), lbl(29)],
+      days: T.map(function (t, i) { return { aria: lbl(i) + ', ' + t + ' tickets', pick: function () { self.setState({ day: i }); } }; })
+    };
+
+    var POOL = [['#688', 'Vínculo N:M workspace y PR', 'fluke'], ['#22', 'Bundle sin fuente para on-prem', 'canon'], ['#693', 'Reconciliador de reviews escalados', 'fluke'], ['#680', 'Perfiles en vez de workers', 'fluke'], ['#671', 'Plan como grafo por workspace', 'fluke'], ['#19', 'ADR de licencias firmadas', 'canon'], ['#664', 'Issues por milestone', 'fluke']];
+    var FAC = { 1: [1], 2: [0.7, 1.3], 3: [0.6, 1.0, 1.4], 4: [0.5, 0.8, 1.2, 1.5] };
+    var tickets;
+    if (d === 29) {
+      tickets = [{ n: '#703', title: 'Ocultar Kanban del rail', repo: 'fluke', phases: '3 fases', cost: '$2.10' },
+                 { n: '#699', title: 'Lista de misiones en el sidebar', repo: 'fluke', phases: '5 fases', cost: '$5.80' },
+                 { n: '#21', title: 'Mover ADR 0009 a docs', repo: 'canon', phases: '2 fases', cost: '$3.40' }];
+    } else {
+      tickets = (FAC[T[d]] || []).map(function (f, k) {
+        var p = POOL[(d + k * 3) % POOL.length];
+        return { n: p[0], title: p[1], repo: p[2], phases: (3 + (d + k) % 3) + ' fases', cost: '$' + (C[d] * f).toFixed(2) };
+      });
+    }
+    var day = {
+      label: lbl(d) + (d === 29 ? ', hoy' : ''),
+      summary: T[d] ? T[d] + ' tickets · $' + (C[d] * T[d]).toFixed(2) + ' en total · $' + C[d].toFixed(2) + ' promedio' : '',
+      tickets: tickets, empty: !T[d]
+    };
+
+    var top = [
+      { n: '#688', title: 'Vínculo N:M workspace y PR', repo: 'fluke', cost: '$14.80' },
+      { n: '#671', title: 'Plan como grafo por workspace', repo: 'fluke', cost: '$12.30' },
+      { n: '#22', title: 'Bundle sin fuente para on-prem', repo: 'canon', cost: '$11.05' },
+      { n: '#693', title: 'Reconciliador de reviews escalados', repo: 'fluke', cost: '$9.40' },
+      { n: '#680', title: 'Perfiles en vez de workers', repo: 'fluke', cost: '$8.90' }
+    ];
+
+    var feed = [
+      { day: 'Hoy', items: [
+        { t: '15:42', c: G, text: 'Ticket resuelto #703 Ocultar Kanban del rail', sub: '· fluke', done: true, h: '4', v: '$120', cost: '$2.10' },
+        { t: '15:10', c: A, text: 'PR #718 mergeado', sub: '· fluke', done: false },
+        { t: '14:55', c: P, text: 'Review pidió cambios en #698, ronda 3 de 3', sub: '· fluke', done: false },
+        { t: '13:20', c: G, text: 'Ticket resuelto #699 Lista de misiones en el sidebar', sub: '· fluke', done: true, h: '6', v: '$180', cost: '$5.80' },
+        { t: '11:05', c: G, text: 'Ticket resuelto #21 Mover ADR 0009 a docs', sub: '· canon', done: true, h: '2', v: '$60', cost: '$3.40' }
+      ] },
+      { day: 'Ayer', items: [
+        { t: '19:48', c: R, text: 'Falló #26: Codex sin login', sub: '· canon', done: false },
+        { t: '17:30', c: G, text: 'Ticket resuelto #693 Reconciliador de reviews escalados', sub: '· fluke', done: true, h: '4', v: '$120', cost: '$9.40' }
+      ] }
+    ];
+
+    return {
+      repos: repos, execs: execs, subs: subs, sel: sel,
+      modeAll: mode === 'todas', modeSel: mode === 'selector',
+      subsCount: subs.length + ' con login',
+      chart: chart, day: day, top: top, feed: feed
+    };
+  }
+}
+</script>
+</body>
+</html>

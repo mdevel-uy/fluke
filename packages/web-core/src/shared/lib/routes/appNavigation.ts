@@ -332,7 +332,6 @@ export function hasShellSidebar(destination: AppDestination | null): boolean {
     isIssuesDestination(destination) ||
     isWorkersDestination(destination) ||
     isFlukeDestination(destination) ||
-    isDashboardDestination(destination) ||
     isCiPipelinesDestination(destination)
   );
 }

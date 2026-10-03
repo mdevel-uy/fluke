@@ -14,6 +14,7 @@ pub mod ci_studio;
 pub mod codegraph;
 pub mod config;
 pub mod containers;
+pub mod dashboard;
 pub mod data_export;
 pub mod director;
 pub mod editor_server;
@@ -25,7 +26,6 @@ pub mod github;
 pub mod guidelines;
 pub mod health;
 pub mod host_relay;
-pub mod impact;
 pub mod issue_phases;
 pub mod metrics;
 pub mod milestone_runs;
@@ -47,7 +47,6 @@ pub mod ssh_session;
 pub mod system;
 pub mod tags;
 pub mod terminal;
-pub mod value_generated;
 pub mod webrtc;
 pub mod workers;
 pub mod workspaces;
@@ -74,10 +73,9 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(issue_phases::router())
         .merge(ci_studio::router())
         .merge(repo::router())
-        .merge(impact::router())
+        .merge(dashboard::router())
         .merge(pilot_report::router())
         .merge(metrics::router())
-        .merge(value_generated::router())
         .merge(events::router(&deployment))
         .merge(approvals::router())
         .merge(scratch::router(&deployment))

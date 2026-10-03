@@ -187,9 +187,9 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   ]);
 
   const handleDashboardClick = useCallback(() => {
-    if (isDashboardActive) toggleLeftSidebar();
-    else appNavigation.goToDashboard();
-  }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
+    // No sidebar on the dashboard: nothing to toggle.
+    appNavigation.goToDashboard();
+  }, [appNavigation]);
 
   const handleSprintClick = useCallback(() => {
     if (isSprintActive) toggleLeftSidebar();
