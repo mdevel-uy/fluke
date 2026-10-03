@@ -6,6 +6,7 @@ approved_by: (pendiente)
 created: 2026-10-02
 version: 1
 complements: FLUKE-V2-SPEC.md (perfiles, plan por issue, Issues por milestone), REVIEW-LOOP-SPEC.md (merge humano), DESKTOP-SPEC.md
+mockups: https://claude.ai/artifact/La7VehB55E3HgdPzKJHzez (canvas "Fluke Jarvis", en curso) — fuentes en design/mockups/fluke-jarvis/
 ---
 
 # Fluke como Jarvis — Plan de implementación (v1)
@@ -116,6 +117,28 @@ Depende de fluke v2 (plan de fases por issue). Fluke sigue el plan de cada issue
 ### F5 — Cerebro en la nube (solo si aparece la razón)
 
 El control plane de F2 ya es "nube". Lo que **no** se mueve es el cerebro ni los workers: viven en la PC del cliente, con su suscripción de Claude. Mover el cerebro a un host siempre encendido (para que Fluke conteste con la PC apagada) obligaría a Messages API por token, pagado por alguien. No se planifica hasta que haga falta.
+
+## 6b. Diseño (estudio en curso)
+
+Canvas: https://claude.ai/artifact/La7VehB55E3HgdPzKJHzez. Las fuentes de cada artboard (`.dc.html`) están copiadas en `design/mockups/fluke-jarvis/`; el canvas es la fuente de verdad mientras el estudio siga abierto, y al cerrarse se implementa tal cual (regla de los mockups de v2).
+
+**Lenguaje**: HUD oscuro (`#0C121F` con grilla tenue), acento índigo (`#818CF8` / `#6366F1`), ámbar `#FBBF24` solo para "lo espera", verde `#4ADE80` para activos; etiquetas en monospace con tracking ancho; el **núcleo de anillos** es el estado de Fluke y aparece en todas las presentaciones, del tamaño que haga falta: reposo (anillo lento), escuchando (pulso + micrófono), pensando (arcos rápidos + onda), hablando (logo + onda), lo espera (ámbar + contador).
+
+| Artboard | Qué muestra | Fase / issue que lo implementa |
+|---|---|---|
+| **A · Puente de mando** (1440×900, página) | Pestañas de misiones arriba (la activa = foco), columna izquierda con Misiones, Equipo y "Fluke está viendo", centro con las 4 fases de la misión, el núcleo, la conversación, la pregunta de Fluke con chips y el input con micrófono; derecha el brief con checklist y la compuerta "Aprobar brief". | F0.5 (conversación permanente: pestañas = misiones, "Misiones" = índice), F0.2 (Equipo y "Fluke está viendo" son `[STATUS]` y `[APP CONTEXT]` hechos visibles), F0.3 (compuerta de aprobación), F0.6 (input de texto + hablar en el mismo lugar). |
+| **B1 · Panel: escuchando / B2 · Panel: Fluke responde** (380×640) | Panel compacto centrado en la voz: misión en foco con progreso del brief, núcleo grande, transcripción en vivo, última pregunta de Fluke, botón central (detener / interrumpir), cambiar a texto, cancelar o silenciar. | F3.4 (voz en escritorio); base visual de F3.5 (móvil, mismo panel a 390×844). B2 muestra "anunciar, hacer, confirmar" (F0.6) y la acción "Enviar al Analista" como chip. |
+| **C · Estados del núcleo (burbuja)** (1100×420) | La burbuja flotante en 4 estados: reposo, escuchando sin abrir el panel (se estira y transcribe), trabajando (píldora con la misión en ejecución y segmentos por issue), lo espera (ámbar + contador + tarjeta con la compuerta). | F0.1 (siempre despierto), F1 (lo espera = eventos y preguntas pendientes, con la tarjeta como notificación in-app), F4 (trabajando sigue el plan por issue). |
+
+**Lo que el diseño pide y el plan todavía no tiene** (se resuelven antes de la fase correspondiente):
+
+| # | Decisión | Propuesta | Bloquea |
+|---|----------|-----------|---------|
+| D11 | **Wake word "Fluke" en escritorio** (burbuja 01 dice "Diga Fluke"). Implica micrófono siempre abierto y detección local. | Primero Espacio mantenido y Ctrl+Shift+I (ya en el mockup). Wake word después, con detección local (openWakeWord o Porcupine), opt-in en Settings. | F3.4 |
+| D12 | **Fases de la misión** del mockup (BRIEF → SPEC → PLAN → TAREAS) contra los estados de `missions` (`clarifying → brief_ready → equipping → planning → executing → in_review`). | Cuatro fases visibles, mapeadas: BRIEF = draft/clarifying/brief_ready; SPEC = equipping (Fluke elige plantilla, ¿diseño? ¿TDD?); PLAN = planning (despiece del Analyst); TAREAS = executing/in_review. `closed` sale de las pestañas. | F0.5 |
+| D13 | **Panel y vista expandida** son dos presentaciones de la misma conversación (D2), no dos conversaciones. | Sí: mismo hilo, mismo foco; el panel muestra el último intercambio y la vista expandida el historial. "Expandir" y "Volver al panel" alternan sin perder nada. | F0.5 |
+
+**Pantallas que faltan en el estudio** (próximas iteraciones): móvil 390×844 (panel + emparejamiento por QR + estado "la PC está apagada"), plantilla de CarPlay (solo voz), Settings → Fluke (login de Claude Code, licencia, celulares vinculados), confirmación de acción peligrosa (F0.3) en chat y por voz, notificación nativa con deeplink (F1.2), y la burbuja en estado "error" (relay caído, agente desconectado).
 
 ## 7. Cuentas y costos
 
