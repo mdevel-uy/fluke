@@ -402,9 +402,16 @@ pub fn executor_config(config: &Config, worker: &Worker) -> Result<ExecutorConfi
     Ok(executor_config)
 }
 
-/// El user respondió: las preguntas pendientes quedan contestadas y una
-/// misión nueva pasa a `clarifying`.
-pub async fn on_user_message(pool: &Pool, mission: &Mission) -> Result<(), sqlx::Error> {
+/// El user respondió: las preguntas pendientes quedan contestadas, una
+/// acción peligrosa pendiente queda habilitada (si el mensaje empieza con
+/// "sí") o cancelada (cualquier otra cosa), y una misión nueva pasa a
+/// `clarifying`.
+pub async fn on_user_message(
+    pool: &Pool,
+    mission: &Mission,
+    prompt: &str,
+) -> Result<(), sqlx::Error> {
+    confirmations::on_user_message(mission.id, prompt);
     if !mission.pending_questions.is_empty() {
         Mission::set_pending_questions(pool, mission.id, &[]).await?;
     }
@@ -435,9 +442,11 @@ stop a run, report status, and so on.
 If a name matches more than one thing, ask with ask_user and short options.
 - Make the call with app_api and confirm what changed in one short sentence. If it fails, \
 read the error, fix the call and retry once before telling the user.
-- Before anything destructive or hard to undo (DELETE, archive, remove, merge, approve or send \
-something on the user's behalf), confirm with ask_user, unless the user's message already asked \
-for exactly that action on exactly that target.
+- Destructive or hard-to-undo calls (DELETE, archive, remove, merge, approve, stop, send...) are \
+gated by the app, even when the user asked for them: app_api answers needs_confirmation and shows \
+the user 'Sí' / 'Cancelar'. Pass a short summary in the user's words, say in one sentence what \
+you are about to do and end your turn. When the user's next message confirms, call confirm_action \
+with the token; if they say anything else, the action is cancelled.
 - These never create brief items. Give the conversation a short title with set_mission.
 
 New development work (a bug, a feature or a design change that needs code written) is the one \
@@ -756,15 +765,25 @@ pub fn tool_definitions() -> Value {
         },
         {
             "name": "app_api",
-            "description": "Call any endpoint of the fluke app's local API as the user, exactly like the UI does. Returns the HTTP status and the JSON response (responses are wrapped as {success, data, message}).",
+            "description": "Call any endpoint of the fluke app's local API as the user, exactly like the UI does. Returns the HTTP status and the JSON response (responses are wrapped as {success, data, message}). Destructive calls (DELETE, archive, merge, approve, stop, send...) are not executed: the app asks the user to confirm and answers needs_confirmation with a token for confirm_action.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
                     "path": { "type": "string", "description": "Starts with /api/, query string included, e.g. /api/workers or /api/workers/{id}." },
-                    "body": { "description": "JSON body for POST/PUT/PATCH." }
+                    "body": { "description": "JSON body for POST/PUT/PATCH." },
+                    "summary": { "type": "string", "description": "For destructive calls: what it does in the user's words and language, shown in the confirmation, e.g. 'borrar el perfil QA'." }
                 },
                 "required": ["method", "path"]
+            }
+        },
+        {
+            "name": "confirm_action",
+            "description": "Execute a destructive app_api call the user just confirmed. Only works after the user's own message confirmed it; otherwise it fails.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "token": { "type": "string" } },
+                "required": ["token"]
             }
         },
         {
@@ -890,8 +909,8 @@ fn truncate(mut s: String, max: usize) -> String {
     s
 }
 
-/// Llama al backend local como lo haría la UI (mismo proceso, loopback).
-async fn app_api(args: &Value) -> Result<String, String> {
+/// Método y ruta de una llamada de `app_api`, validados.
+fn api_call(args: &Value) -> Result<(reqwest::Method, String), String> {
     let method = args.get("method").and_then(Value::as_str).unwrap_or("GET");
     let method = reqwest::Method::from_bytes(method.to_uppercase().as_bytes())
         .map_err(|_| format!("invalid method '{method}'"))?;
@@ -906,6 +925,12 @@ async fn app_api(args: &Value) -> Result<String, String> {
     if path.starts_with("/api/director-mcp") {
         return Err("that endpoint is not available to you".into());
     }
+    Ok((method, path.to_string()))
+}
+
+/// Llama al backend local como lo haría la UI (mismo proceso, loopback).
+async fn app_api(args: &Value) -> Result<String, String> {
+    let (method, path) = api_call(args)?;
     // The server address is only exposed through the MCP URL helper.
     let base = utils::plan_mcp::director_url_for_session("")
         .and_then(|url| url.split("/api/").next().map(str::to_string))
@@ -924,6 +949,109 @@ async fn app_api(args: &Value) -> Result<String, String> {
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
     Ok(truncate(format!("HTTP {status}\n{text}"), API_RESPONSE_MAX))
+}
+
+/// Compuerta de acciones peligrosas (J0.5): la decide el código, no el
+/// modelo. `app_api` no ejecuta un DELETE ni una ruta peligrosa: la deja
+/// pendiente y le muestra al usuario chips "Sí, …" / "Cancelar". Solo un
+/// mensaje del usuario que empiece con "sí" la habilita; cualquier otro la
+/// cancela. Recién entonces `confirm_action` la ejecuta. En memoria a
+/// propósito: un reinicio cancela lo pendiente.
+mod confirmations {
+    use std::{
+        collections::HashMap,
+        sync::{Mutex, OnceLock},
+    };
+
+    use serde_json::Value;
+    use uuid::Uuid;
+
+    /// Tramos de ruta que hacen peligrosa una llamada que no es GET.
+    const DANGEROUS: &[&str] = &[
+        "archive", "merge", "approve", "delete", "remove", "reset", "close", "push", "send",
+        "revert", "stop", "cancel", "force",
+    ];
+
+    pub struct Pending {
+        pub token: Uuid,
+        pub args: Value,
+        pub approved: bool,
+    }
+
+    fn store() -> &'static Mutex<HashMap<Uuid, Pending>> {
+        static STORE: OnceLock<Mutex<HashMap<Uuid, Pending>>> = OnceLock::new();
+        STORE.get_or_init(Default::default)
+    }
+
+    pub fn is_dangerous(method: &reqwest::Method, path: &str) -> bool {
+        if *method == reqwest::Method::GET {
+            return false;
+        }
+        if *method == reqwest::Method::DELETE {
+            return true;
+        }
+        let path = path.split('?').next().unwrap_or(path).to_lowercase();
+        path.split(['/', '-', '_'])
+            .any(|part| DANGEROUS.contains(&part))
+    }
+
+    /// Deja la llamada pendiente para la misión (reemplaza la anterior).
+    pub fn hold(mission_id: Uuid, args: Value) -> Uuid {
+        let token = Uuid::new_v4();
+        if let Ok(mut map) = store().lock() {
+            map.insert(
+                mission_id,
+                Pending {
+                    token,
+                    args,
+                    approved: false,
+                },
+            );
+        }
+        token
+    }
+
+    pub fn on_user_message(mission_id: Uuid, prompt: &str) {
+        let Ok(mut map) = store().lock() else { return };
+        let yes = {
+            let p = prompt.trim_start().to_lowercase();
+            ["sí", "si", "yes", "dale", "ok"]
+                .iter()
+                .any(|w| p == *w || p.starts_with(&format!("{w},")) || p.starts_with(&format!("{w} ")))
+        };
+        match map.get_mut(&mission_id) {
+            Some(pending) if yes => pending.approved = true,
+            Some(_) => {
+                map.remove(&mission_id);
+            }
+            None => {}
+        }
+    }
+
+    /// La llamada aprobada con ese token, una sola vez.
+    pub fn take_approved(mission_id: Uuid, token: Uuid) -> Result<Value, &'static str> {
+        let mut map = store().lock().map_err(|_| "internal error")?;
+        match map.get(&mission_id) {
+            Some(p) if p.token == token && p.approved => {
+                Ok(map.remove(&mission_id).map(|p| p.args).unwrap_or_default())
+            }
+            Some(p) if p.token == token => Err(
+                "the user has not confirmed yet: the chips are shown, end your turn and wait",
+            ),
+            _ => Err("no pending action with that token (the user cancelled it or it expired)"),
+        }
+    }
+}
+
+/// Texto corto de la acción para el chip: "DELETE /api/workers/…".
+fn action_label(method: &reqwest::Method, path: &str) -> String {
+    let path = path.split('?').next().unwrap_or(path);
+    let short: Vec<&str> = path
+        .trim_start_matches("/api/")
+        .split('/')
+        .filter(|s| Uuid::parse_str(s).is_err())
+        .collect();
+    format!("{method} {}", short.join(" "))
 }
 
 /// Ejecuta una herramienta. `Err` vuelve al agente como resultado con
@@ -1042,7 +1170,45 @@ pub async fn call_tool(
         "app_api_reference" => Ok(api_reference(
             args.get("query").and_then(Value::as_str).unwrap_or(""),
         )),
-        "app_api" => app_api(args).await,
+        "app_api" => {
+            let (method, path) = api_call(args)?;
+            if !confirmations::is_dangerous(&method, &path) {
+                return app_api(args).await;
+            }
+            let label = action_label(&method, &path);
+            let summary = args
+                .get("summary")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| label.clone());
+            let token = confirmations::hold(id, args.clone());
+            Mission::set_pending_questions(
+                pool,
+                id,
+                &[PendingQuestion {
+                    question: format!("¿Confirmás? {summary}"),
+                    options: vec![format!("Sí, {summary}"), "Cancelar".into()],
+                }],
+            )
+            .await
+            .map_err(db_err)?;
+            Ok(format!(
+                "needs_confirmation: '{label}' was NOT executed. The user now sees a confirmation \
+                 with 'Sí' / 'Cancelar'. Say in one sentence what you are about to do and end your \
+                 turn. If the user's next message confirms, call confirm_action with token {token}."
+            ))
+        }
+        "confirm_action" => {
+            let token = args
+                .get("token")
+                .and_then(Value::as_str)
+                .and_then(|s| Uuid::parse_str(s).ok())
+                .ok_or("missing token")?;
+            let held = confirmations::take_approved(id, token)?;
+            app_api(&held).await
+        }
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -1102,6 +1268,41 @@ mod tests {
         assert!(s.contains("Running:\n- #664 Vista Plan (developer)"), "{s}");
         assert!(s.contains("- #663 Vista Plan (developer): asks"), "{s}");
         assert!(s.contains("#675 (CI passing"), "{s}");
+    }
+
+    #[test]
+    fn dangerous_calls_need_the_users_own_yes() {
+        use reqwest::Method;
+        assert!(confirmations::is_dangerous(&Method::DELETE, "/api/workers/x"));
+        assert!(confirmations::is_dangerous(&Method::POST, "/api/missions/x/approve-brief"));
+        assert!(confirmations::is_dangerous(&Method::POST, "/api/workspaces/x/merge?force=1"));
+        assert!(!confirmations::is_dangerous(&Method::GET, "/api/workers/x/archive"));
+        assert!(!confirmations::is_dangerous(&Method::POST, "/api/workers/x/tasks"));
+        assert!(!confirmations::is_dangerous(&Method::PATCH, "/api/workers/x"));
+
+        let mission = Uuid::new_v4();
+        let token = confirmations::hold(mission, json!({"method": "DELETE", "path": "/api/workers/x"}));
+        // The model cannot confirm by itself.
+        assert!(confirmations::take_approved(mission, token).is_err());
+        confirmations::on_user_message(mission, "Sí, borrar el perfil QA");
+        assert!(confirmations::take_approved(mission, Uuid::new_v4()).is_err());
+        assert_eq!(
+            confirmations::take_approved(mission, token).unwrap()["method"],
+            "DELETE"
+        );
+        // Only once.
+        assert!(confirmations::take_approved(mission, token).is_err());
+
+        // Anything but a yes cancels.
+        let token = confirmations::hold(mission, json!({}));
+        confirmations::on_user_message(mission, "sigo pensando");
+        confirmations::on_user_message(mission, "sí");
+        assert!(confirmations::take_approved(mission, token).is_err());
+
+        assert_eq!(
+            action_label(&Method::DELETE, "/api/workers/3f6c1b4e-8d2a-4c1e-9f0a-1b2c3d4e5f60?x=1"),
+            "DELETE workers"
+        );
     }
 
     #[test]
