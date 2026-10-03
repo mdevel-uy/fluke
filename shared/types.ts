@@ -783,8 +783,6 @@ source?: string, };
  * A finished designer deliverable no analyst has taken yet, as served to
  * the Analyst Desk picker and the sprint board.
  */
-export type PendingDesignHandoffResponse = { task_id: string, repo_id: string, title: string, issue_number: number | null, worker_name: string, worker_emoji: string, deliverable_ref: string | null, result_summary: string | null, completed_at: Date | null, };
-
 /**
  * HTML artifacts a designer task committed under `design/`, as repo-relative
  * paths the client turns into `/api/workspaces/{id}/preview/{path}` links.

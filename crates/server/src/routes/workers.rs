@@ -18,7 +18,7 @@ use db::models::{
         CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR, ROLE_QA,
         ROLE_REVIEWER, UpdateWorker, Worker,
     },
-    worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
+    worker_task::{self, CreateWorkerTask, HandoffInfo, WorkerTask},
     workspace::Workspace,
 };
 use deployment::Deployment;
@@ -589,50 +589,6 @@ pub async fn create_design_handoff(
     .await?;
 
     let response = worker_task_to_response(pool, task).await?;
-    Ok(ResponseJson(ApiResponse::success(response)))
-}
-
-/// A finished designer deliverable no analyst has taken yet, as served to
-/// the Analyst Desk picker and the sprint board.
-#[derive(Debug, Serialize, TS)]
-pub struct PendingDesignHandoffResponse {
-    pub task_id: Uuid,
-    pub repo_id: Uuid,
-    pub title: String,
-    #[ts(type = "number | null")]
-    pub issue_number: Option<i64>,
-    pub worker_name: String,
-    pub worker_emoji: String,
-    pub deliverable_ref: Option<String>,
-    pub result_summary: Option<String>,
-    #[ts(type = "Date | null")]
-    pub completed_at: Option<DateTime<Utc>>,
-}
-
-impl From<PendingDesignHandoff> for PendingDesignHandoffResponse {
-    fn from(p: PendingDesignHandoff) -> Self {
-        Self {
-            task_id: p.task_id,
-            repo_id: p.repo_id,
-            title: p.title,
-            issue_number: p.issue_number,
-            worker_name: p.worker_name,
-            worker_emoji: p.worker_emoji,
-            deliverable_ref: p.deliverable_ref,
-            result_summary: p.result_summary,
-            completed_at: p.completed_at,
-        }
-    }
-}
-
-/// GET /api/workers/design-handoffs/pending — finished designer deliverables
-/// no analyst has taken yet. Feeds the Analyst Desk picker.
-pub async fn list_pending_design_handoffs(
-    State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<Vec<PendingDesignHandoffResponse>>>, ApiError> {
-    let pool = &deployment.db().pool;
-    let pending = WorkerTask::find_pending_design_handoffs(pool).await?;
-    let response: Vec<PendingDesignHandoffResponse> = pending.into_iter().map(Into::into).collect();
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
@@ -2279,10 +2235,6 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
         .route("/workers/design-handoffs", post(create_design_handoff))
-        .route(
-            "/workers/design-handoffs/pending",
-            get(list_pending_design_handoffs),
-        )
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
         .route("/workers/failed-tasks", delete(delete_all_failed_tasks))
         .route(

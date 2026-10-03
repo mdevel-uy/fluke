@@ -16,6 +16,13 @@ mock_v2: design/git-fleet-mock.html (fuente de verdad visual de R34–R40)
 complements: design/UI-SPEC.md v3 (contrato visual — paleta, tipografía, densidad; este doc NO lo modifica)
 ---
 
+> **Actualización fluke v2 (03-oct-2026).** Ver `FLUKE-V2-SPEC.md`. El rail cambió respecto de R6 y R34:
+>
+> - Workspaces y Source control salieron del rail (#689). Sus rutas siguen vigentes para los links directos y el command bar.
+> - El badge de conflictos de R34 se quitó junto con el botón (#703).
+> - El workspace y el source control de un issue viven en su página (pestañas Código y Sesiones).
+> - Analyst Desk se eliminó (#701): todo pedido entra por Fluke.
+
 # Workbench Shell — Spec estructural (v1)
 
 > El contrato visual (Slate & Signal, 13px system font, densidades 22/26/30/36px,

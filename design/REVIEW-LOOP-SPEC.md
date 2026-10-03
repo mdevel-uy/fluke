@@ -11,6 +11,12 @@ complements: SHELL-SPEC.md (F7 source control), memoria git-fleet-source-control
 
 # Review Loop — Spec de blindaje (v1)
 
+> **Actualización fluke v2 (03-oct-2026).** Ver `FLUKE-V2-SPEC.md`. El loop sigue vigente con estos cambios:
+>
+> - No hay workers con identidad. Cada rol es un perfil que corre varias instancias, y la selección LRU de reviewers opera sobre un solo perfil por rol.
+> - El review es una fase del plan del issue (`services::issue_phases`). Con plantilla TDD o testing, el portón de Testing (`qa_phases::testing_gate`) corre antes de cada ronda.
+> - Cuando se agotan las rondas, el issue queda trancado con motivo `review_cap`: aviso push y drawer Destrabar (F4, #694–#696), además del escalado de R-max.
+
 > **Principio rector: el agente produce contenido; el sistema produce efectos.**
 > Toda interacción con GitHub (someter reviews, leer comentarios, checkout de
 > branches, push) sale de los prompts/souls y pasa al orquestador. Lo que el
