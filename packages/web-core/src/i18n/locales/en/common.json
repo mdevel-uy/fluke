@@ -2029,7 +2029,7 @@
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",
     "guard": {
-      "noBrief": "This is Fluke's standing conversation: what happens in the app lands here. It has no brief; new development work starts a mission."
+      "noBrief": "No mission in focus. Ask Fluke for new work or name a mission, and its brief shows here."
     },
     "name": "Fluke",
     "open": "Open Fluke",

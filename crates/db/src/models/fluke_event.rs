@@ -84,12 +84,15 @@ pub struct FlukeGuard {
     pub event_cursor: i64,
     /// Segundos desde la última entrega a Fluke; `None` si nunca hubo.
     pub secs_since_delivery: Option<i64>,
+    /// La misión de la que se está hablando (J1.2): las herramientas del
+    /// brief operan sobre ella.
+    pub focus_mission_id: Option<Uuid>,
 }
 
 impl FlukeGuard {
     pub async fn get(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Self>(
-            "SELECT mission_id, event_cursor, \
+            "SELECT mission_id, event_cursor, focus_mission_id, \
                     CAST(strftime('%s', 'now') - strftime('%s', last_delivery_at) AS INTEGER) \
                         AS secs_since_delivery \
                FROM fluke_guard WHERE id = 1",
@@ -136,6 +139,60 @@ impl FlukeGuard {
         Ok(Self::get(pool)
             .await?
             .is_some_and(|g| g.mission_id == mission_id))
+    }
+
+    /// Pone `mission_id` en foco (o ninguna) y marca con ese foco el turno de
+    /// la guardia que esté corriendo, si hay: desde ahí se habla de ella.
+    pub async fn set_focus(
+        pool: &SqlitePool,
+        mission_id: Option<Uuid>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE fluke_guard SET focus_mission_id = ?1 WHERE id = 1")
+            .bind(mission_id)
+            .execute(pool)
+            .await?;
+        if let Some(mission_id) = mission_id {
+            sqlx::query(
+                "INSERT INTO fluke_turn_focus (execution_process_id, mission_id) \
+                 SELECT ep.id, ?1 FROM execution_processes ep \
+                   JOIN missions m ON m.session_id = ep.session_id \
+                   JOIN fluke_guard g ON g.mission_id = m.id \
+                  WHERE ep.status = 'running' \
+                 ON CONFLICT(execution_process_id) DO UPDATE SET mission_id = ?1",
+            )
+            .bind(mission_id)
+            .execute(pool)
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// Marca un turno de la guardia con la misión en foco al empezar.
+    pub async fn tag_turn(
+        pool: &SqlitePool,
+        execution_process_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO fluke_turn_focus (execution_process_id, mission_id) \
+             SELECT ?1, focus_mission_id FROM fluke_guard \
+              WHERE id = 1 AND focus_mission_id IS NOT NULL \
+             ON CONFLICT(execution_process_id) DO NOTHING",
+        )
+        .bind(execution_process_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Los turnos del hilo que tuvieron `mission_id` en foco.
+    pub async fn turns_of(pool: &SqlitePool, mission_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT execution_process_id FROM fluke_turn_focus \
+              WHERE mission_id = ?1 ORDER BY created_at",
+        )
+        .bind(mission_id)
+        .fetch_all(pool)
+        .await
     }
 }
 
@@ -224,5 +281,60 @@ mod tests {
         assert_eq!(failed.subject_id, Some(task));
         assert_eq!(failed.issue_number, Some(7));
         assert_eq!(failed.detail.as_deref(), Some("developer · infra: 404"));
+    }
+
+    /// One thread (J1.2): turns are tagged with the mission in focus, at
+    /// start and when the focus moves mid-turn.
+    #[tokio::test]
+    async fn turns_carry_the_focus() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let (guard, guard_session) = (Uuid::new_v4(), Uuid::new_v4());
+        let (login, export) = (Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query("INSERT INTO missions (id, session_id) VALUES (?, ?)")
+            .bind(guard)
+            .bind(guard_session)
+            .execute(&pool)
+            .await
+            .unwrap();
+        FlukeGuard::set(&pool, guard).await.unwrap();
+
+        // No focus yet: the turn is not tagged.
+        let first = Uuid::new_v4();
+        FlukeGuard::tag_turn(&pool, first).await.unwrap();
+        assert!(FlukeGuard::turns_of(&pool, login).await.unwrap().is_empty());
+
+        FlukeGuard::set_focus(&pool, Some(login)).await.unwrap();
+        assert_eq!(
+            FlukeGuard::get(&pool).await.unwrap().unwrap().focus_mission_id,
+            Some(login)
+        );
+        let second = Uuid::new_v4();
+        FlukeGuard::tag_turn(&pool, second).await.unwrap();
+        assert_eq!(FlukeGuard::turns_of(&pool, login).await.unwrap(), vec![second]);
+
+        // Focus moves while a guard turn runs: that turn moves with it.
+        let running = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO execution_processes (id, session_id, run_reason, executor_action, status) \
+             VALUES (?, ?, 'codingagent', '{}', 'running')",
+        )
+        .bind(running)
+        .bind(guard_session)
+        .execute(&pool)
+        .await
+        .unwrap();
+        FlukeGuard::tag_turn(&pool, running).await.unwrap();
+        FlukeGuard::set_focus(&pool, Some(export)).await.unwrap();
+        assert_eq!(FlukeGuard::turns_of(&pool, export).await.unwrap(), vec![running]);
+        assert_eq!(FlukeGuard::turns_of(&pool, login).await.unwrap(), vec![second]);
     }
 }

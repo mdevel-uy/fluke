@@ -1800,7 +1800,7 @@
     "eventsBatch_one": "{{count}} 個應用程式事件",
     "eventsBatch_other": "{{count}} 個應用程式事件",
     "guard": {
-      "noBrief": "這是 Fluke 的常駐對話：應用程式中發生的事情會到這裡。它沒有簡報；新的開發工作會開啟一個任務。"
+      "noBrief": "目前沒有聚焦的任務。向 Fluke 提出新工作或說出任務名稱，它的簡報會顯示在這裡。"
     },
     "name": "Fluke",
     "open": "Open Fluke",

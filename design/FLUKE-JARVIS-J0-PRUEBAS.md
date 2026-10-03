@@ -81,3 +81,30 @@ Para medir la latencia: tiempo desde Enviar hasta la primera palabra, primer men
 - El paso y lo que se vio.
 - `curl …/api/fluke-events?limit=50` en ese momento.
 - El log del server alrededor (buscar `Fluke event watcher`, `Fluke's live CLI`).
+
+---
+
+# J1 · Un solo Fluke — cómo probarlo
+
+Después de J0, con #751 y #752 mergeados y el server reiniciado (corre la migración `fluke_focus`).
+
+## 7. Preguntas de workers por Fluke (J1.1)
+
+| Paso | Resultado esperado |
+|---|---|
+| Dejar un worker esperando una respuesta (un issue cuyo plan le pida una decisión) | La tarea queda en `waiting_user`; en `/api/fluke-events` aparece `task.waiting_user` con severidad `ask`. |
+| Esperar hasta un minuto | En la guardia Fluke explica la pregunta en una frase y muestra chips con las opciones del agente, la recomendada primero. |
+| Elegir una opción | Fluke le responde al worker; la tarea sale de `waiting_user` y sigue. |
+| Dos repos con el mismo número de issue esperando | Fluke pide aclarar el repo en vez de responder a ciegas. |
+
+## 8. Un solo hilo con misión en foco (J1.2)
+
+| Paso | Resultado esperado |
+|---|---|
+| En la guardia "Fluke", pedir trabajo nuevo ("quiero un botón de exportar en métricas") | Fluke crea una misión nueva (`new_mission`), queda en foco y arma el brief **en la misma conversación**. En /fluke, el panel derecho muestra el brief de esa misión. |
+| Pedir otra cosa nueva en el mismo hilo | Crea otra misión, cambia el foco y lo dice ("Sobre …:"). El panel derecho cambia de brief. |
+| "Volvamos a lo de exportar" | Fluke enfoca esa misión (`focus_mission`) y sigue su brief. |
+| Abrir una de esas misiones desde la lista | Se ve el hilo de Fluke filtrado: solo los turnos que fueron sobre esa misión. Lo que se escribe ahí entra con esa misión en foco. |
+| Abrir una misión vieja (de antes de J1) | Muestra su conversación propia de siempre; se sigue pudiendo usar. |
+| "¿Cómo vamos?" en el medio | Responde sin cambiar el foco. |
+| Botón "Nueva misión" de la lista | La misión nueva se abre como vista del hilo de Fluke, ya en foco. |
