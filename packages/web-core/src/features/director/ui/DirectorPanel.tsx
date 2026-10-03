@@ -10,6 +10,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
+import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -51,7 +52,7 @@ export function DirectorHeader({
       <span className="shrink-0 text-sm font-medium text-high">
         {t('director.name')}
       </span>
-      {context && (
+      {context && !page && (
         <span
           className="min-w-0 truncate rounded-full bg-secondary px-2 py-0.5 text-xs text-low"
           title={context}
@@ -115,7 +116,6 @@ export function MissionTabs() {
   const setActiveTab = useDirectorStore((s) => s.setActiveTab);
   const closeTab = useDirectorStore((s) => s.closeMissionTab);
   const { data: missions = [] } = useMissionList();
-  const { repoId, create } = useNewMission();
   const byId = new Map(missions.map((m) => [m.mission.id, m]));
 
   return (
@@ -137,20 +137,52 @@ export function MissionTabs() {
             attention={isWaitingForUser(byId.get(id)!)}
           />
         ))}
-      <button
-        type="button"
-        disabled={!repoId || create.isPending}
-        onClick={() => repoId && create.mutate(repoId)}
-        aria-label={t('director.newMission')}
-        title={t('director.newMission')}
-        className="ml-1 self-center rounded-md p-1 text-low hover:bg-secondary/60 hover:text-high disabled:opacity-40"
-      >
-        {create.isPending ? (
-          <SpinnerIcon className="size-icon-xs animate-spin" />
-        ) : (
-          <PlusIcon className="size-icon-xs" />
-        )}
-      </button>
+      <NewMissionButton className="ml-1 self-center" />
+    </div>
+  );
+}
+
+function NewMissionButton({ className }: { className?: string }) {
+  const { t } = useTranslation('common');
+  const { repoId, create } = useNewMission();
+  return (
+    <button
+      type="button"
+      disabled={!repoId || create.isPending}
+      onClick={() => repoId && create.mutate(repoId)}
+      aria-label={t('director.newMission')}
+      title={t('director.newMission')}
+      className={cn(
+        'rounded-md p-1 text-low hover:bg-secondary/60 hover:text-high disabled:opacity-40',
+        className
+      )}
+    >
+      {create.isPending ? (
+        <SpinnerIcon className="size-icon-xs animate-spin" />
+      ) : (
+        <PlusIcon className="size-icon-xs" />
+      )}
+    </button>
+  );
+}
+
+/** Missions of the /fluke page, in the shell sidebar instead of a tab. */
+export function FlukeMissionsSidebar({
+  selectedId,
+}: {
+  selectedId: string | null;
+}) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
+      <CollapsibleSectionHeader
+        title={t('director.missions')}
+        collapsible={false}
+        headerExtra={<NewMissionButton />}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <MissionsList selectedId={selectedId} />
+      </div>
     </div>
   );
 }
@@ -219,7 +251,7 @@ export function DirectorBody() {
 }
 
 /** Every mission of every repo (the Director is global). */
-function MissionsList() {
+function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
   const { t } = useTranslation('common');
   const { data: missions = [], isLoading } = useMissionList();
   const openMission = useDirectorStore((s) => s.openMission);
@@ -266,7 +298,11 @@ function MissionsList() {
           <button
             type="button"
             onClick={() => openMission(m.mission.id)}
-            className="flex w-full items-center gap-2 border-b border-md-outline-variant px-3 py-2 text-left hover:bg-secondary/60"
+            aria-current={m.mission.id === selectedId || undefined}
+            className={cn(
+              'flex w-full items-center gap-2 border-b border-md-outline-variant px-3 py-2 text-left hover:bg-secondary/60',
+              m.mission.id === selectedId && 'bg-secondary'
+            )}
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm text-high">
