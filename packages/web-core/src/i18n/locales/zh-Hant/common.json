@@ -1063,7 +1063,9 @@
         "stepTitle": "波次 {{n}} 已完成",
         "stepDetail": "點擊執行開始波次 {{n}}",
         "doneTitle": "里程碑完成",
-        "doneDetail": "所有 PR 已合併"
+        "doneDetail": "所有 PR 已合併",
+        "stuckTitle": "#{{n}} 需要你處理",
+        "stuckDetail": "wave 的其餘部分繼續執行"
       },
       "card": {
         "ready": "● 就緒",
@@ -1078,7 +1080,11 @@
         "workerBranch": "{{name}} · 在自己的分支上工作",
         "prReview": "{{name}} · PR 審查中",
         "open": "開啟 issue #{{n}}",
-        "openHint": "開啟 →"
+        "openHint": "開啟 →",
+        "waitingYou": "{{name}} · 等待你的回覆",
+        "ago": "{{age}}前",
+        "unstick": "解除卡住",
+        "stuck": "⚠ 卡住"
       },
       "loose": "無里程碑或無波次 · 逐一分配",
       "legend": {
@@ -1099,7 +1105,9 @@
         "gate": "{{count}} 待決定",
         "todo": "{{count}} 待處理",
         "working": "工作中",
-        "decide": "決定 #{{n}}"
+        "decide": "決定 #{{n}}",
+        "stuck_other": "{{count}} 個需要你處理",
+        "unstick": "解除 #{{n}}"
       },
       "decision": {
         "eyebrow": "待決定",
@@ -1231,6 +1239,39 @@
         "readOnly": "已結束 · 唯讀",
         "waitingYou": "等待你的回答",
         "discarded": "該實例已丟棄。工作階段作為它在此階段所做工作的紀錄保留。"
+      },
+      "attention_other": "{{count}} 個需要你處理",
+      "stuck": {
+        "unstick": "解除卡住",
+        "viewSession": "查看工作階段",
+        "since": "已卡住 {{age}}",
+        "banner": "{{phase}} 已卡住 {{age}}",
+        "bannerNoAge": "{{phase}} 已卡住",
+        "kindsTitle": "階段何時會卡住",
+        "thisCase": "這個 issue 就是這種情況。",
+        "kindsNote": "在通知你之前，Fluke 會先自己嘗試：對基礎設施故障依遞增的等待時間重試。只把需要人處理的事交給你。",
+        "kinds": {
+          "question": {
+            "title": "代理提出了它無法自行決定的問題",
+            "hint": "等待你的回覆。"
+          },
+          "failed": {
+            "title": "同一件事連續多次失敗",
+            "hint": "嘗試 N 次後測試或 CI 仍然失敗。"
+          },
+          "review_cap": {
+            "title": "review 輪次已用完",
+            "hint": "每一輪都要求修改。"
+          },
+          "no_progress": {
+            "title": "N 分鐘內沒有進展",
+            "hint": "工作階段卡住或在等待外部條件。"
+          },
+          "credential": {
+            "title": "缺少憑證或權限",
+            "hint": "PAT 過期、密鑰不存在。"
+          }
+        }
       }
     }
   },

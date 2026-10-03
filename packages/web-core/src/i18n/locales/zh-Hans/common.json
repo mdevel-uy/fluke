@@ -1063,7 +1063,9 @@
         "stepTitle": "波次 {{n}} 已完成",
         "stepDetail": "点击运行开始波次 {{n}}",
         "doneTitle": "里程碑完成",
-        "doneDetail": "所有 PR 已合并"
+        "doneDetail": "所有 PR 已合并",
+        "stuckTitle": "#{{n}} 需要你处理",
+        "stuckDetail": "wave 的其余部分继续运行"
       },
       "card": {
         "ready": "● 就绪",
@@ -1078,7 +1080,11 @@
         "workerBranch": "{{name}} · 在自己的分支上工作",
         "prReview": "{{name}} · PR 评审中",
         "open": "打开 issue #{{n}}",
-        "openHint": "打开 →"
+        "openHint": "打开 →",
+        "waitingYou": "{{name}} · 等待你的回复",
+        "ago": "{{age}}前",
+        "unstick": "解除卡住",
+        "stuck": "⚠ 卡住"
       },
       "loose": "无里程碑或无波次 · 逐个分配",
       "legend": {
@@ -1099,7 +1105,9 @@
         "gate": "{{count}} 待决定",
         "todo": "{{count}} 待处理",
         "working": "工作中",
-        "decide": "决定 #{{n}}"
+        "decide": "决定 #{{n}}",
+        "stuck_other": "{{count}} 个需要你处理",
+        "unstick": "解除 #{{n}}"
       },
       "decision": {
         "eyebrow": "待决定",
@@ -1231,6 +1239,39 @@
         "readOnly": "已结束 · 只读",
         "waitingYou": "等待你的回答",
         "discarded": "该实例已丢弃。会话作为它在此阶段所做工作的记录保留。"
+      },
+      "attention_other": "{{count}} 个需要你处理",
+      "stuck": {
+        "unstick": "解除卡住",
+        "viewSession": "查看会话",
+        "since": "已卡住 {{age}}",
+        "banner": "{{phase}} 已卡住 {{age}}",
+        "bannerNoAge": "{{phase}} 已卡住",
+        "kindsTitle": "阶段何时会卡住",
+        "thisCase": "这个 issue 就是这种情况。",
+        "kindsNote": "在通知你之前，Fluke 会先自己尝试：对基础设施故障按递增的等待时间重试。只把需要人处理的事交给你。",
+        "kinds": {
+          "question": {
+            "title": "代理提出了它无法自行决定的问题",
+            "hint": "等待你的回复。"
+          },
+          "failed": {
+            "title": "同一件事连续多次失败",
+            "hint": "尝试 N 次后测试或 CI 仍然失败。"
+          },
+          "review_cap": {
+            "title": "review 轮次已用完",
+            "hint": "每一轮都要求修改。"
+          },
+          "no_progress": {
+            "title": "N 分钟内没有进展",
+            "hint": "会话卡死或在等待外部条件。"
+          },
+          "credential": {
+            "title": "缺少凭据或权限",
+            "hint": "PAT 过期、密钥不存在。"
+          }
+        }
       }
     }
   },

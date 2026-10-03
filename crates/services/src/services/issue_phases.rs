@@ -134,6 +134,8 @@ pub fn pick_blocker(
             .unwrap_or_else(|| raw.clone());
         let mut b = blocker_at("question", &phases[i], text);
         b.question = Some(raw);
+        // Tasks keep no "asked at"; the task start would read as a wrong age.
+        b.since = None;
         phases[i].state = "stuck".to_string();
         return Some(b);
     }

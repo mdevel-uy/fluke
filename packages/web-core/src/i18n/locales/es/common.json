@@ -1082,7 +1082,9 @@
         "stepTitle": "Wave {{n}} terminada",
         "stepDetail": "dale play para lanzar la wave {{n}}",
         "doneTitle": "Milestone completo",
-        "doneDetail": "todos los PRs mergeados"
+        "doneDetail": "todos los PRs mergeados",
+        "stuckTitle": "#{{n}} necesita tu ayuda",
+        "stuckDetail": "el resto de la wave sigue corriendo"
       },
       "card": {
         "ready": "● listo",
@@ -1097,7 +1099,11 @@
         "workerBranch": "{{name}} · worker en su rama",
         "prReview": "{{name}} · PR en review",
         "open": "Abrir issue #{{n}}",
-        "openHint": "Abrir →"
+        "openHint": "Abrir →",
+        "waitingYou": "{{name}} · esperando tu respuesta",
+        "ago": "hace {{age}}",
+        "unstick": "Destrabar",
+        "stuck": "⚠ trancado"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
       "legend": {
@@ -1118,7 +1124,10 @@
         "gate": "{{count}} decisión pendiente",
         "todo": "{{count}} por hacer",
         "working": "trabajando",
-        "decide": "Decidir #{{n}}"
+        "decide": "Decidir #{{n}}",
+        "stuck_one": "{{count}} necesita tu ayuda",
+        "stuck_other": "{{count}} necesitan tu ayuda",
+        "unstick": "Destrabar #{{n}}"
       },
       "decision": {
         "eyebrow": "Decisión pendiente",
@@ -1250,6 +1259,40 @@
         "readOnly": "terminada · solo lectura",
         "waitingYou": "esperando tu respuesta",
         "discarded": "La instancia ya se descartó. La sesión queda como registro de lo que hizo en esta fase."
+      },
+      "attention_one": "{{count}} necesita tu ayuda",
+      "attention_other": "{{count}} necesitan tu ayuda",
+      "stuck": {
+        "unstick": "Destrabar",
+        "viewSession": "Ver sesión",
+        "since": "Trancado hace {{age}}",
+        "banner": "{{phase}} trancada hace {{age}}",
+        "bannerNoAge": "{{phase}} trancada",
+        "kindsTitle": "Cuándo se tranca una fase",
+        "thisCase": "Es el caso de este issue.",
+        "kindsNote": "Antes de avisarte, Fluke intenta solo: reintenta las fallas de infraestructura con espera creciente. Solo te escala lo que necesita una persona.",
+        "kinds": {
+          "question": {
+            "title": "El agente pregunta algo que no puede decidir solo",
+            "hint": "Queda esperando tu respuesta."
+          },
+          "failed": {
+            "title": "Falla lo mismo varias veces seguidas",
+            "hint": "Tests o CI en rojo después de N intentos."
+          },
+          "review_cap": {
+            "title": "Se agotan las rondas de review",
+            "hint": "Todas las rondas con cambios pedidos."
+          },
+          "no_progress": {
+            "title": "No hay progreso en N minutos",
+            "hint": "Sesión colgada o esperando algo externo."
+          },
+          "credential": {
+            "title": "Falta una credencial o un permiso",
+            "hint": "PAT vencido, secreto que no existe."
+          }
+        }
       }
     }
   },

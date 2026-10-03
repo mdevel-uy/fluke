@@ -126,6 +126,7 @@ import {
   MissionSummary,
   UpdateMissionRequest,
   MilestoneRun,
+  IssueBlockerEntry,
   IssuePlanResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
@@ -2992,5 +2993,12 @@ export const issuePhasesApi = {
       `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/phases`
     );
     return handleApiResponse<IssuePlanResponse>(response);
+  },
+  /** Open issues of the repo that need a person (#694). */
+  blockers: async (repoId: string): Promise<IssueBlockerEntry[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/blockers`
+    );
+    return handleApiResponse<IssueBlockerEntry[]>(response);
   },
 };
