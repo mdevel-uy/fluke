@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fluke Jarvis · Ajustes de Fluke</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#09090B}
+a{color:#818CF8}a:hover{color:#A5B4FC}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.lbl{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#A1A1AA}
+.hud{position:relative;border:1px solid #3F3F46;background:rgba(24,24,27,.8)}
+.hud::before,.hud::after{content:"";position:absolute;width:8px;height:8px;border-color:#818CF8;border-style:solid;pointer-events:none}
+.hud::before{top:-1px;left:-1px;border-width:1px 0 0 1px}
+.hud::after{bottom:-1px;right:-1px;border-width:0 1px 1px 0}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #27272A}
+.row:last-child{border-bottom:none}
+.led{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.btn{height:30px;padding:0 12px;border:1px solid #52525B;background:transparent;color:#FAFAFA;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.btn.brand{background:#6366F1;border-color:#6366F1;color:#FFFFFF}
+.btn.ghost{border-color:transparent;color:#A1A1AA}
+.kind{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:9px;letter-spacing:.12em;padding:2px 7px;border:1px solid #3F3F46;color:#D4D4D8}
+.toggle{width:34px;height:18px;border:1px solid #52525B;background:#27272A;position:relative;flex-shrink:0;cursor:pointer}
+.toggle i{position:absolute;top:2px;left:2px;width:12px;height:12px;background:#A1A1AA}
+.toggle.on{border-color:#6366F1;background:#312E81}.toggle.on i{left:18px;background:#C7D2FE}
+</style>
+</helmet>
+<div style="width: 900px; height: 620px; box-sizing: border-box; padding: 24px 28px; background-color: #09090B; background-image: linear-gradient(rgba(63,63,70,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,.18) 1px, transparent 1px); background-size: 24px 24px; color: #FAFAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; font-size: 13px; display: flex; flex-direction: column; gap: 16px; border: 1px solid #3F3F46">
+  <div style="display: flex; align-items: baseline; gap: 14px"><span class="lbl">Ajustes</span><span class="mono" style="font-size: 10px; color: #52525B">/</span><span style="font-size: 15px; font-weight: 600">Fluke</span><span class="lbl" style="margin-left: auto; font-size: 9px; text-transform: none; letter-spacing: .04em">Tres cosas y nada más: su cerebro, su licencia y sus celulares.</span></div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; flex: 1">
+    <section class="hud" style="padding: 14px 16px; display: flex; flex-direction: column">
+      <span class="lbl" style="margin-bottom: 4px">Cerebro</span>
+      <div class="row"><span class="led" style="background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.7)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Claude Code</span><span style="font-size: 12px; color: #A1A1AA">dani@… · Max · Sonnet para Fluke</span></span><button class="btn ghost" type="button">Cambiar</button></div>
+      <div class="row"><span class="led" style="background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.7)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Proceso persistente</span><span style="font-size: 12px; color: #A1A1AA">Vivo hace 41 min · último turno 1.6 s · se apaga a los 30 min sin uso</span></span><span class="kind" style="color: #4ADE80; border-color: rgba(74,222,128,.4)">DESPIERTO</span></div>
+      <div class="row"><span class="led" style="background: #52525B"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Wake word "Fluke"</span><span style="font-size: 12px; color: #A1A1AA">Detección local, micrófono siempre abierto. Opt-in.</span></span><span class="toggle" role="switch" aria-checked="false" aria-label="Wake word"><i></i></span></div>
+      <div class="row"><span class="led" style="background: #818CF8"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Avisos por iniciativa</span><span style="font-size: 12px; color: #A1A1AA">Siempre: fallas, preguntas, PR listo, CI roja. Nunca: progreso.</span></span><span class="toggle on" role="switch" aria-checked="true" aria-label="Avisos"><i></i></span></div>
+    </section>
+
+    <section class="hud" style="padding: 14px 16px; display: flex; flex-direction: column">
+      <span class="lbl" style="margin-bottom: 4px">Licencia · add-on Jarvis</span>
+      <div class="row"><span class="led" style="background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.7)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>fluke · Jarvis Pro</span><span style="font-size: 12px; color: #A1A1AA">Instalación "Dani · Windows" · renueva el 01 nov</span></span><span class="kind" style="color: #4ADE80; border-color: rgba(74,222,128,.4)">ACTIVA</span></div>
+      <div class="row"><span class="led" style="background: #4ADE80"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 4px"><span>Voz</span><span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #A1A1AA"><span style="flex: 1; height: 2px; background: #27272A; position: relative"><span style="position: absolute; left: 0; top: 0; height: 2px; width: 31%; background: #818CF8"></span></span>62 de 200 min este mes</span></span></div>
+      <div class="row"><span class="led" style="background: #4ADE80"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Memoria</span><span style="font-size: 12px; color: #A1A1AA">Fluke recuerda 14 cosas de vos · <a href="#memoria">ver y borrar</a></span></span></div>
+      <div class="row"><span class="led" style="background: #4ADE80"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>Relay</span><span style="font-size: 12px; color: #A1A1AA">Conectado · 38 ms · solo texto, el audio no pasa por acá</span></span><span class="kind" style="color: #4ADE80; border-color: rgba(74,222,128,.4)">OK</span></div>
+    </section>
+
+    <section class="hud" style="padding: 14px 16px; display: flex; flex-direction: column; grid-column: 1 / -1">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px"><span class="lbl">Celulares vinculados</span><span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">Sin usuario ni contraseña: el QR vincula el celular a esta instalación.</span></div>
+      <div style="display: flex; gap: 24px; align-items: stretch">
+        <div style="flex: 1; display: flex; flex-direction: column">
+          <div class="row"><span class="led" style="background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.7)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span>iPhone de Dani</span><span style="font-size: 12px; color: #A1A1AA">Vinculado el 03 oct · última conversación hoy 08:52 · CarPlay</span></span><button class="btn ghost" type="button">Revocar</button></div>
+          <div class="row"><span class="led" style="background: #52525B"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="color: #A1A1AA">iPad</span><span style="font-size: 12px; color: #71717A">Revocado el 01 oct</span></span></div>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: center; padding: 8px 12px; border: 1px dashed #52525B">
+          <span aria-label="Código QR de vinculación" style="width: 96px; height: 96px; background-color: #FAFAFA; background-image: linear-gradient(90deg, #09090B 50%, transparent 50%), linear-gradient(#09090B 50%, transparent 50%); background-size: 12px 12px; opacity: .9; flex-shrink: 0"></span>
+          <span style="display: flex; flex-direction: column; gap: 6px; max-width: 220px"><span style="font-weight: 600">Vincular otro celular</span><span style="font-size: 12px; color: #A1A1AA; line-height: 1.45">Abrí la app de Fluke en el celular y escaneá. El código vence en 4:51.</span><button class="btn" type="button" style="align-self: flex-start">Nuevo código</button></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":900,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

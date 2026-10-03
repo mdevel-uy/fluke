@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fluke Jarvis · Puente de mando</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#09090B}
+a{color:#818CF8}a:hover{color:#A5B4FC}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.lbl{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#A1A1AA}
+.val{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;color:#FAFAFA}
+.ground{background-color:#09090B;background-image:radial-gradient(ellipse at 50% 46%,rgba(99,102,241,.16),transparent 52%),linear-gradient(rgba(63,63,70,.2) 1px,transparent 1px),linear-gradient(90deg,rgba(63,63,70,.2) 1px,transparent 1px);background-size:auto,24px 24px,24px 24px}
+.hud{position:relative;border:1px solid #3F3F46;background:rgba(24,24,27,.74)}
+.hud::before,.hud::after{content:"";position:absolute;width:10px;height:10px;border-color:#818CF8;border-style:solid;pointer-events:none}
+.hud::before{top:-1px;left:-1px;border-width:1px 0 0 1px}
+.hud::after{bottom:-1px;right:-1px;border-width:0 1px 1px 0}
+.hud.amber{border-color:rgba(251,191,36,.5)}.hud.amber::before,.hud.amber::after{border-color:#FBBF24}
+.ibtn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #3F3F46;background:transparent;color:#A1A1AA;cursor:pointer}
+.ibtn:hover{color:#FAFAFA;border-color:#818CF8}
+.seg{display:flex;border:1px solid #3F3F46}
+.seg button{background:transparent;border:none;padding:6px 12px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.16em;color:#A1A1AA;cursor:pointer}
+.seg button.on{background:#312E81;color:#FAFAFA}
+.btn{height:32px;padding:0 14px;border:1px solid #52525B;background:transparent;color:#FAFAFA;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.btn:hover{border-color:#818CF8}
+.btn.brand{background:#6366F1;border-color:#6366F1;color:#FFFFFF}.btn.brand:hover{background:#4F46E5}
+.btn.ghost{border-color:transparent;color:#A1A1AA}.btn.ghost:hover{color:#FAFAFA}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chip{border:1px solid #52525B;background:rgba(24,24,27,.8);color:#D4D4D8;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;min-height:32px}
+.chip:hover{border-color:#818CF8;color:#FAFAFA}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #27272A}
+.row:last-child{border-bottom:none}
+.bar{height:2px;background:#27272A;position:relative}
+.bar i{position:absolute;left:0;top:0;height:2px;background:#818CF8;box-shadow:0 0 6px rgba(129,140,248,.7)}
+.core{position:relative;border-radius:50%}
+.ring{position:absolute;border-radius:50%;box-sizing:border-box}
+.r-ticks{inset:0;background:repeating-conic-gradient(#52525B 0 .5deg,transparent .5deg 3deg);-webkit-mask:radial-gradient(circle,transparent 69%,#000 69.5%,#000 73%,transparent 73.5%);mask:radial-gradient(circle,transparent 69%,#000 69.5%,#000 73%,transparent 73.5%)}
+.r-ticks2{inset:0;background:repeating-conic-gradient(#818CF8 0 1deg,transparent 1deg 30deg);-webkit-mask:radial-gradient(circle,transparent 66%,#000 66.5%,#000 74%,transparent 74.5%);mask:radial-gradient(circle,transparent 66%,#000 66.5%,#000 74%,transparent 74.5%)}
+.r-phase{inset:9%;background:conic-gradient(from -90deg,#818CF8 0 66deg,transparent 66deg 72deg,#C7D2FE 72deg 138deg,transparent 138deg 144deg,#3F3F46 144deg 210deg,transparent 210deg 216deg,#3F3F46 216deg 282deg,transparent 282deg 288deg,#3F3F46 288deg 354deg,transparent 354deg 360deg);-webkit-mask:radial-gradient(circle,transparent 90%,#000 90.5%);mask:radial-gradient(circle,transparent 90%,#000 90.5%)}
+.r-dash{inset:15%;border:1px dashed #3F3F46;animation:spin 120s linear infinite}
+.r-arc{inset:20%;border:2px solid transparent;border-top-color:#818CF8;border-left-color:rgba(129,140,248,.3);animation:spin 7s linear infinite}
+.r-arc2{inset:25%;border:1px solid transparent;border-bottom-color:#6366F1;border-right-color:#6366F1;animation:spin 11s linear infinite reverse}
+.r-inner{inset:31%;border:1px solid #3F3F46;background:radial-gradient(circle,#1E1B4B 0%,#18181B 58%,#101012 100%);box-shadow:0 0 56px rgba(99,102,241,.3),inset 0 0 30px rgba(99,102,241,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#C7D2FE}
+.glow{filter:drop-shadow(0 0 8px rgba(129,140,248,.8))}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wave span{display:block;width:2px;background:#818CF8;animation:wv 1.2s ease-in-out infinite}
+@keyframes wv{0%,100%{transform:scaleY(.3);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+.read{display:flex;flex-direction:column;gap:2px}
+.read .lbl{font-size:9px}
+.read .big{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:20px;color:#FAFAFA;line-height:1}
+.hair{height:1px;background:linear-gradient(90deg,transparent,#52525B)}
+.hair.r{background:linear-gradient(90deg,#52525B,transparent)}
+.log{display:flex;gap:10px;align-items:baseline}
+.log .who{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.14em;width:52px;flex-shrink:0;text-align:right}
+.log p{margin:0;font-size:13px;line-height:1.5;color:#D4D4D8}
+.scan{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(129,140,248,.35),transparent);animation:scan 9s linear infinite;pointer-events:none}
+@keyframes scan{0%{top:0}100%{top:100%}}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid #3F3F46;background:rgba(24,24,27,.8);cursor:pointer;text-align:left;font-family:inherit;color:#FAFAFA;font-size:12px}
+.opt:hover{border-color:#52525B}
+.opt.rec{border-color:#818CF8;background:#1E1B4B}
+.kind{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:9px;letter-spacing:.12em;padding:2px 6px;border:1px solid #3F3F46;color:#D4D4D8}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div class="ground" style="min-height: 900px; position: relative; overflow: hidden; color: #FAFAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; font-size: 13px; display: flex; flex-direction: column">
+  <div class="scan" aria-hidden="true"></div>
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid #27272A; background: rgba(9,9,11,.85)">
+    <div style="display: flex; align-items: center; gap: 10px; min-width: 150px">
+      <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #3F3F46; color: #818CF8; box-shadow: 0 0 14px rgba(99,102,241,.4)"><svg viewBox="0 0 100 100" width="13" height="13" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span>
+      <span class="mono" style="font-size: 12px; letter-spacing: .32em; font-weight: 600">FLUKE</span>
+      <span class="lbl" style="font-size: 9px">en línea</span>
+    </div>
+    <div style="flex: 1; display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; min-width: 300px">
+      <div class="read" style="align-items: center"><span class="lbl">En curso</span><span class="big" style="color: #4ADE80">2</span></div>
+      <div class="read" style="align-items: center"><span class="lbl">Trancado</span><span class="big" style="color: #FBBF24">1</span></div>
+      <div class="read" style="align-items: center"><span class="lbl">Lo espera</span><span class="big" style="color: #FBBF24">2</span></div>
+      <div class="read" style="align-items: center"><span class="lbl">PRs</span><span class="big">3</span></div>
+      <div class="read" style="align-items: center"><span class="lbl">CI</span><span class="big" style="color: #4ADE80">OK</span></div>
+      <div class="read" style="align-items: center"><span class="lbl">Slots</span><span class="big">2/3</span></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div class="seg" role="group" aria-label="Modo"><button type="button" class="on">TEXTO</button><button type="button">VOZ</button></div>
+      <span class="lbl" style="margin-left: 6px">Vie 03 Oct · 09:41</span>
+      <button class="ibtn" type="button" aria-label="Anclar como columna"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 4h6l-1 6 4 3H6l4-3z"></path><path d="M12 13v7"></path></svg></button>
+      <button class="ibtn" type="button" aria-label="Volver al panel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M10 14l-6 6M14 10l6-6"></path></svg></button>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 20px 20px; align-items: stretch">
+
+    <aside style="flex: 1 1 250px; max-width: 290px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+      <section class="hud" style="padding: 12px 14px; display: flex; flex-direction: column">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px"><span class="lbl">Misiones</span><span class="lbl" style="color: #FAFAFA">3 abiertas</span></div>
+        <button type="button" class="row" style="background: #1E1B4B; border: 1px solid #818CF8; margin: 4px -6px; padding: 8px; text-align: left; cursor: pointer; color: inherit; font-family: inherit">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 13px; font-weight: 600">Login con GitHub</span><span class="lbl" style="font-size: 9px; color: #C7D2FE">Brief · 4/6 · en foco</span></span>
+          <span class="mono" style="font-size: 10px; color: #C7D2FE">02</span>
+        </button>
+        <button type="button" class="row" style="background: none; border: none; border-bottom: 1px solid #27272A; text-align: left; cursor: pointer; color: inherit; font-family: inherit">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 13px">Exportar métricas</span><span class="lbl" style="font-size: 9px; color: #FBBF24">Brief listo · lo espera</span></span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,.7)"></span>
+        </button>
+        <button type="button" class="row" style="background: none; border: none; text-align: left; cursor: pointer; color: inherit; font-family: inherit">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-size: 13px">Vista Plan por milestone</span><span class="lbl" style="font-size: 9px">Ejecución · wave 2</span><span class="bar"><i style="width: 60%"></i></span></span>
+          <span class="mono" style="font-size: 10px; color: #A1A1AA">3/5</span>
+        </button>
+        <button class="btn ghost" type="button" style="align-self: flex-start; margin-top: 6px; padding-left: 0; height: 26px">+ Nueva misión</button>
+      </section>
+
+      <section class="hud" style="padding: 12px 14px; display: flex; flex-direction: column">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px"><span class="lbl">Equipo</span><span class="lbl" style="color: #FAFAFA">2 de 3 slots</span></div>
+        <div class="row"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.6)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><span>Dev</span><span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">#664 · flk/plan-swimlanes · 12 min</span></span><span class="kind" style="color: #4ADE80; border-color: rgba(74,222,128,.4)">EN CURSO</span></div>
+        <div class="row"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 8px rgba(74,222,128,.6)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><span>Revisor</span><span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">PR #675 · ronda 2</span></span><span class="kind" style="color: #4ADE80; border-color: rgba(74,222,128,.4)">EN CURSO</span></div>
+        <div class="row"><span style="width: 7px; height: 7px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,.6)"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><span>Dev</span><span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">#663 · espera una decisión</span></span><span class="kind" style="color: #FBBF24; border-color: rgba(251,191,36,.4)">TRANCADO</span></div>
+        <div class="row"><span style="width: 7px; height: 7px; border-radius: 50%; background: #52525B"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><span>Analyst · Diseñador · QA</span><span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">sin tarea</span></span><span class="kind">LIBRES</span></div>
+      </section>
+
+      <section class="hud" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+        <span class="lbl">Eventos</span>
+        <div style="display: flex; gap: 8px; align-items: baseline"><span class="mono" style="font-size: 10px; color: #52525B; flex-shrink: 0">09:36</span><span style="font-size: 12px; color: #D4D4D8">PR #675 listo para mergear. Fluke avisó.</span></div>
+        <div style="display: flex; gap: 8px; align-items: baseline"><span class="mono" style="font-size: 10px; color: #52525B; flex-shrink: 0">09:31</span><span style="font-size: 12px; color: #D4D4D8">#663 se trancó: el Dev pregunta.</span></div>
+        <div style="display: flex; gap: 8px; align-items: baseline"><span class="mono" style="font-size: 10px; color: #52525B; flex-shrink: 0">09:12</span><span style="font-size: 12px; color: #71717A">#661 done · CI verde. Fluke calló.</span></div>
+      </section>
+
+      <section class="hud" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+        <span class="lbl">Fluke está viendo</span>
+        <span style="font-size: 12px; color: #D4D4D8">Workspace fluke · main · pestaña Plan</span>
+        <span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">Contexto de cada mensaje; se actualiza al navegar.</span>
+      </section>
+    </aside>
+
+    <main style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+
+      <div style="display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; padding: 6px 0 0">
+        <div style="display: flex; flex-direction: column; gap: 14px; align-items: flex-end; min-width: 150px">
+          <div class="read" style="align-items: flex-end; width: 100%"><span class="lbl">Misión</span><span class="val" style="font-size: 13px">Login con GitHub</span><span class="hair" style="width: 100%"></span></div>
+          <div class="read" style="align-items: flex-end; width: 100%"><span class="lbl">Repo</span><span class="val" style="font-size: 13px">fluke · main</span><span class="hair" style="width: 100%"></span></div>
+          <div class="read" style="align-items: flex-end; width: 100%"><span class="lbl">Fase</span><span class="val" style="font-size: 13px; color: #C7D2FE">02 · Brief</span><span class="hair" style="width: 100%"></span></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+          <ol aria-label="Fases de la misión" class="mono" style="list-style: none; margin: 0; padding: 0; display: flex; gap: 14px; font-size: 9px; letter-spacing: .16em; color: #A1A1AA">
+            <li style="color: #818CF8">01 ENTENDER</li><li style="color: #FAFAFA">02 BRIEF</li><li>03 DESPIECE</li><li>04 PLAN</li><li>05 EJECUCIÓN</li>
+          </ol>
+          <div class="core" style="width: {{coreSize}}px; height: {{coreSize}}px">
+            <div class="ring r-ticks"></div><div class="ring r-ticks2"></div><div class="ring r-phase"></div><div class="ring r-dash"></div><div class="ring r-arc"></div><div class="ring r-arc2"></div>
+            <div class="ring r-inner">
+              <svg class="glow" viewBox="0 0 100 100" width="34" height="34" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="#818CF8"></path></svg>
+              <span class="mono" style="font-size: 9px; letter-spacing: .3em; color: #C7D2FE">PENSANDO</span>
+              <div class="wave" aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 14px"><sc-for list="{{bars}}" as="b" hint-placeholder-count="14"><span style="height: {{b.h}}px; animation-delay: {{b.d}}s"></span></sc-for></div>
+            </div>
+          </div>
+          <span style="font-size: 13px; color: #D4D4D8">Redactando el criterio de aceptación</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; align-items: flex-start; min-width: 150px">
+          <div class="read" style="width: 100%"><span class="lbl">Brief</span><span class="val" style="font-size: 13px">v2 · 4 de 6 campos</span><span class="hair r" style="width: 100%"></span></div>
+          <div class="read" style="width: 100%"><span class="lbl">Preguntas abiertas</span><span class="val" style="font-size: 13px; color: #FBBF24">1</span><span class="hair r" style="width: 100%"></span></div>
+          <div class="read" style="width: 100%"><span class="lbl">Fluke recuerda</span><span class="val" style="font-size: 12px; color: #D4D4D8">Preferís device flow</span><span class="hair r" style="width: 100%"></span></div>
+        </div>
+      </div>
+
+      <section class="hud" aria-label="Conversación" style="flex: 1; min-height: 160px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto">
+        <div class="log"><span class="who" style="color: #818CF8">FLUKE</span><p>Para el login con GitHub, ¿reutilizamos el device flow de Ajustes o un redirect OAuth clásico?</p></div>
+        <div class="log"><span class="who" style="color: #FAFAFA">DANI</span><p style="color: #FAFAFA">Device flow, ya está probado.</p></div>
+        <div style="display: flex; align-items: center; gap: 10px; padding-left: 62px"><span class="lbl" style="font-size: 9px; color: #818CF8">Brief · alcance anotado</span><span style="flex: 1; height: 1px; background: #27272A"></span><span class="mono" style="font-size: 10px; color: #52525B">09:39</span></div>
+        <div class="log"><span class="who" style="color: #818CF8">FLUKE</span><p>Perfecto, reutilizo ese flujo. Me falta una definición antes de pasarlo al Analista.</p></div>
+      </section>
+
+      <section class="hud amber" aria-label="Fluke necesita saber" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="lbl" style="color: #FBBF24">Decisión requerida · 1 de 2</span><span class="lbl" style="font-size: 9px">ask_user</span></div>
+        <span style="font-size: 14px">¿El login es obligatorio al abrir la app o se puede omitir?</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button class="chip" type="button">Obligatorio</button>
+          <button class="chip" type="button">Opcional, se puede omitir</button>
+          <button class="chip" type="button">Solo para funciones de GitHub</button>
+        </div>
+      </section>
+
+      <form class="hud" style="display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px">
+        <label for="msg" class="mono" style="color: #818CF8; font-size: 12px; flex-shrink: 0">&gt;</label>
+        <input id="msg" type="text" placeholder="Escriba a Fluke o mantenga Espacio para hablar" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #FAFAFA; font-size: 13px; font-family: inherit; height: 34px">
+        <button class="ibtn" type="button" aria-label="Hablar" style="width: 38px; height: 38px; color: #C7D2FE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+        <button type="submit" aria-label="Enviar" style="width: 38px; height: 38px; border: none; background: #6366F1; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></button>
+      </form>
+    </main>
+
+    <aside class="hud" aria-label="Brief" style="flex: 1 1 300px; max-width: 380px; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="lbl">Brief · v2</span><span class="mono" style="font-size: 12px; color: #FAFAFA">4 / 6</span></div>
+      <div style="display: flex; gap: 3px"><span class="bar" style="flex: 1"><i style="width: 100%"></i></span><span class="bar" style="flex: 1"><i style="width: 100%"></i></span><span class="bar" style="flex: 1"><i style="width: 100%"></i></span><span class="bar" style="flex: 1"><i style="width: 100%"></i></span><span class="bar" style="flex: 1"></span><span class="bar" style="flex: 1"></span></div>
+      <div style="display: flex; gap: 8px; align-items: center"><span class="kind" style="border-color: #818CF8; color: #C7D2FE">FEATURE</span><span style="font-size: 15px; font-weight: 600">Login con GitHub al iniciar</span></div>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; gap: 10px"><span class="mono" style="color: #4ADE80; font-size: 11px; width: 14px; flex-shrink: 0">OK</span><div style="display: flex; flex-direction: column; gap: 3px"><span class="lbl" style="font-size: 9px">Objetivo</span><span style="font-size: 12px; color: #D4D4D8; line-height: 1.5">Vincular la cuenta de GitHub sin pasar por la consola.</span></div></div>
+        <div style="display: flex; gap: 10px"><span class="mono" style="color: #4ADE80; font-size: 11px; width: 14px; flex-shrink: 0">OK</span><div style="display: flex; flex-direction: column; gap: 3px"><span class="lbl" style="font-size: 9px">Alcance</span><span style="font-size: 12px; color: #D4D4D8; line-height: 1.5">Reutiliza el device flow de Ajustes. Sin cambios en el backend.</span></div></div>
+        <div style="display: flex; gap: 10px"><span class="mono" style="color: #818CF8; font-size: 11px; width: 14px; flex-shrink: 0">..</span><div style="flex: 1; display: flex; flex-direction: column; gap: 5px"><span class="lbl" style="font-size: 9px; color: #C7D2FE">Criterio de aceptación · redactando</span><span class="bar" style="width: 90%"><i style="width: 40%"></i></span><span class="bar" style="width: 65%"></span></div></div>
+        <div style="display: flex; gap: 10px"><span class="mono" style="color: #FBBF24; font-size: 11px; width: 14px; flex-shrink: 0">?</span><div style="display: flex; flex-direction: column; gap: 3px"><span class="lbl" style="font-size: 9px; color: #FBBF24">Comportamiento al abrir</span><span style="font-size: 12px; color: #A1A1AA">Pendiente de su respuesta</span></div></div>
+        <div style="display: flex; gap: 10px"><span class="mono" style="color: #52525B; font-size: 11px; width: 14px; flex-shrink: 0">--</span><div style="display: flex; flex-direction: column; gap: 3px"><span class="lbl" style="font-size: 9px">Referencia · opcional</span><span style="font-size: 12px; color: #A1A1AA">Sin completar</span></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #27272A; padding-top: 12px">
+        <span class="lbl">Plantilla</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="kind">SIN TDD</span><span class="kind">SIN DISEÑO</span><span class="kind" style="color: #D4D4D8">DEV · REVISOR</span></div>
+      </div>
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px">
+        <button class="btn brand" type="button" disabled style="height: 40px">Aprobar y enviar al Analista</button>
+        <span class="lbl" style="font-size: 9px; text-transform: none; letter-spacing: .04em">Se habilita con los 6 campos. Siempre lo aprobás vos.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"coreSize":{"editor":"range","default":280,"min":200,"max":380,"step":10,"unit":"px"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var hs = [4,8,12,9,6,11,13,7,5,10,12,8,6,9];
+    return {
+      coreSize: this.props.coreSize ?? 280,
+      bars: hs.map(function (h, i) { return { h: h, d: ((i * 0.08) % 1.2).toFixed(2) }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

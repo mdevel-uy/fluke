@@ -37,6 +37,56 @@
       "w": 1480,
       "h": 1540,
       "title": "D · Compuertas: pregunta, aprobar brief, bloqueo (texto y voz, tokens reales)"
+    },
+    "JarvisBridge.dc.html": {
+      "expand": "fill",
+      "x": 0,
+      "y": 4320,
+      "w": 1440,
+      "h": 900,
+      "title": "E1 · Puente de mando Jarvis (texto, con snapshot, equipo, eventos y brief)"
+    },
+    "JarvisPanelText.dc.html": {
+      "x": 0,
+      "y": 5560,
+      "w": 380,
+      "h": 640,
+      "title": "E2 · Panel Jarvis · modo texto"
+    },
+    "JarvisPanelVoice.dc.html": {
+      "x": 460,
+      "y": 5560,
+      "w": 380,
+      "h": 640,
+      "title": "E3 · Panel Jarvis · modo voz"
+    },
+    "JarvisAmbient.dc.html": {
+      "x": 920,
+      "y": 5560,
+      "w": 1100,
+      "h": 640,
+      "title": "E4 · Burbuja, eventos, confirmación peligrosa, sin conexión"
+    },
+    "JarvisMobile.dc.html": {
+      "x": 0,
+      "y": 6540,
+      "w": 900,
+      "h": 844,
+      "title": "E5 · Móvil: hablando con Fluke · PC apagada"
+    },
+    "JarvisCarPlay.dc.html": {
+      "x": 980,
+      "y": 6540,
+      "w": 800,
+      "h": 480,
+      "title": "E6 · CarPlay (plantilla de solo voz)"
+    },
+    "JarvisSettings.dc.html": {
+      "x": 980,
+      "y": 7140,
+      "w": 900,
+      "h": 620,
+      "title": "E7 · Ajustes → Fluke (cerebro, licencia, celulares)"
     }
   },
   "createdOnFiles": {
@@ -71,6 +121,21 @@
       "w": 240,
       "x": 0,
       "y": 2020
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 2020,
+      "text": "E · Rediseño Jarvis: HUD de Iron Man sobre la paleta zinc + índigo de fluke",
+      "w": 240,
+      "x": 0,
+      "y": 4020
+    },
+    "n4": {
+      "x": 1500,
+      "y": 4320,
+      "w": 420,
+      "text": "Sistema E: todo irradia del núcleo. Anillo exterior de ticks; anillo de 5 fases (Entender, Brief, Despiece, Plan, Ejecución) con el segmento actual más claro; arcos que giran cuando piensa; onda cuando habla o escucha. Lecturas radiales a los lados con hairlines. Marcos HUD con esquinas índigo; ámbar = te espera; rojo = confirmación o sin conexión; verde = activo. Mono 10px para estados, 13px sistema para leer. Dos modos (TEXTO | VOZ) en el header de todas las superficies.",
+      "fill": "blue"
     }
   },
   "order": [
@@ -78,7 +143,14 @@
     "Panel.dc.html",
     "PanelReply.dc.html",
     "States.dc.html",
-    "Gates.dc.html"
+    "Gates.dc.html",
+    "JarvisBridge.dc.html",
+    "JarvisPanelText.dc.html",
+    "JarvisPanelVoice.dc.html",
+    "JarvisAmbient.dc.html",
+    "JarvisMobile.dc.html",
+    "JarvisCarPlay.dc.html",
+    "JarvisSettings.dc.html"
   ],
   "pages": [],
   "title": "Fluke Jarvis"

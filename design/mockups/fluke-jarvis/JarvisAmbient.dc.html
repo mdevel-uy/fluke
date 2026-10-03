@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fluke Jarvis · Burbuja, eventos y confirmación</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#09090B}
+a{color:#818CF8}a:hover{color:#A5B4FC}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.lbl{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#A1A1AA}
+.cell{border:1px solid #27272A;background:rgba(24,24,27,.6);padding:18px;display:flex;flex-direction:column;gap:12px}
+.cell p{margin:0;font-size:12px;line-height:1.5;color:#A1A1AA}
+.hud{position:relative;border:1px solid #3F3F46;background:rgba(24,24,27,.92)}
+.hud::before,.hud::after{content:"";position:absolute;width:8px;height:8px;border-color:#818CF8;border-style:solid;pointer-events:none}
+.hud::before{top:-1px;left:-1px;border-width:1px 0 0 1px}
+.hud::after{bottom:-1px;right:-1px;border-width:0 1px 1px 0}
+.hud.amber{border-color:rgba(251,191,36,.5)}.hud.amber::before,.hud.amber::after{border-color:#FBBF24}
+.hud.red{border-color:rgba(248,113,113,.55)}.hud.red::before,.hud.red::after{border-color:#F87171}
+.orb{position:relative;width:56px;height:56px;border-radius:50%;border:none;background:transparent;padding:0;cursor:pointer;color:#818CF8;flex-shrink:0}
+.orb .ring{position:absolute;border-radius:50%;box-sizing:border-box}
+.orb .t{inset:0;background:repeating-conic-gradient(#52525B 0 1deg,transparent 1deg 8deg);-webkit-mask:radial-gradient(circle,transparent 80%,#000 80.5%);mask:radial-gradient(circle,transparent 80%,#000 80.5%);animation:spin 60s linear infinite}
+.orb .a{inset:5px;border:1.5px solid transparent;border-top-color:#818CF8;animation:spin 6s linear infinite}
+.orb .c{inset:11px;background:radial-gradient(circle,#1E1B4B,#101012);border:1px solid #3F3F46;box-shadow:0 0 18px rgba(99,102,241,.45);display:flex;align-items:center;justify-content:center}
+.orb.fast .a{animation-duration:1.4s;border-right-color:rgba(129,140,248,.4)}
+.orb.listen .p{inset:-6px;border:1px solid #818CF8;animation:pulse 1.6s ease-out infinite}
+.orb.amber{color:#FBBF24}.orb.amber .a{border-top-color:#FBBF24;border-right-color:#FBBF24;animation-duration:10s}.orb.amber .c{box-shadow:0 0 18px rgba(251,191,36,.4);border-color:rgba(251,191,36,.45)}
+.orb.red{color:#F87171}.orb.red .a{border-top-color:#F87171;animation:none}.orb.red .c{box-shadow:none;border-color:rgba(248,113,113,.5)}
+.orb.idle .a{animation-duration:16s;border-top-color:rgba(129,140,248,.6)}.orb.idle .c{box-shadow:0 0 10px rgba(99,102,241,.25)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+.wave span{display:block;width:2px;background:#818CF8;animation:wv 1s ease-in-out infinite}
+@keyframes wv{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.btn{height:28px;padding:0 10px;border:1px solid #52525B;background:transparent;color:#FAFAFA;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.btn.brand{background:#6366F1;border-color:#6366F1;color:#FFFFFF}
+.btn.red{background:#DC2626;border-color:#DC2626;color:#FFFFFF}
+.btn.ghost{border-color:transparent;color:#A1A1AA}
+.bar{height:2px;background:#27272A;position:relative;flex:1}
+.bar i{position:absolute;left:0;top:0;height:2px;background:#818CF8}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 1100px; height: 640px; box-sizing: border-box; padding: 24px; background-color: #09090B; background-image: linear-gradient(rgba(63,63,70,.2) 1px, transparent 1px), linear-gradient(90deg, rgba(63,63,70,.2) 1px, transparent 1px); background-size: 24px 24px; color: #FAFAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 16px">
+
+  <section class="cell">
+    <span class="lbl">01 · Reposo</span>
+    <div style="flex: 1; display: flex; align-items: flex-end; justify-content: flex-end">
+      <button class="orb idle" type="button" aria-label="Abrir Fluke"><span class="ring t"></span><span class="ring a"></span><span class="ring c"><svg viewBox="0 0 100 100" width="14" height="14" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span></button>
+    </div>
+    <p>Anillo lento abajo a la derecha. Ctrl Shift I o Espacio mantenido. Wake word después, opt-in (D11).</p>
+  </section>
+
+  <section class="cell">
+    <span class="lbl">02 · Escuchando sin abrir</span>
+    <div style="flex: 1; display: flex; align-items: flex-end; justify-content: flex-end">
+      <div class="hud" style="display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px">
+        <div style="display: flex; flex-direction: column; gap: 5px; min-width: 0">
+          <span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px">Estado de los workers</span>
+          <div class="wave" aria-hidden="true" style="display: flex; align-items: center; gap: 2px; height: 10px"><span style="height: 4px"></span><span style="height: 8px; animation-delay: .1s"></span><span style="height: 10px; animation-delay: .2s"></span><span style="height: 6px; animation-delay: .3s"></span><span style="height: 9px; animation-delay: .4s"></span><span style="height: 5px; animation-delay: .5s"></span><span style="height: 8px; animation-delay: .6s"></span></div>
+        </div>
+        <button class="orb fast listen" type="button" aria-label="Detener y enviar" style="width: 40px; height: 40px; color: #C7D2FE"><span class="ring p"></span><span class="ring a" style="inset: 3px"></span><span class="ring c" style="inset: 7px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></span></button>
+      </div>
+    </div>
+    <p>La burbuja se estira, transcribe en vivo y Fluke contesta por voz. Con "cómo vamos" lee el snapshot sin abrir nada.</p>
+  </section>
+
+  <section class="cell">
+    <span class="lbl">03 · Trabajando</span>
+    <div style="flex: 1; display: flex; align-items: flex-end; justify-content: flex-end">
+      <button type="button" aria-label="Abrir misión Vista Plan por milestone" class="hud" style="display: flex; align-items: center; gap: 10px; padding: 7px 12px 7px 7px; color: #FAFAFA; cursor: pointer; font-family: inherit">
+        <span class="orb" style="width: 26px; height: 26px" aria-hidden="true"><span class="ring a" style="inset: 0"></span><span class="ring c" style="inset: 5px"><svg viewBox="0 0 100 100" width="8" height="8"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span></span>
+        <span style="display: flex; flex-direction: column; gap: 5px; min-width: 150px">
+          <span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #D4D4D8">VISTA PLAN · WAVE 2 · 3/5</span>
+          <span style="display: flex; gap: 2px"><span class="bar"><i style="width: 100%"></i></span><span class="bar"><i style="width: 100%"></i></span><span class="bar"><i style="width: 100%"></i></span><span class="bar"></span><span class="bar"></span></span>
+        </span>
+      </button>
+    </div>
+    <p>Misión en ejecución: píldora con el núcleo chico y un segmento por issue. Click abre la misión en foco.</p>
+  </section>
+
+  <section class="cell" style="border-color: rgba(251,191,36,.3)">
+    <span class="lbl" style="color: #FBBF24">04 · Fluke decidió avisar (evento)</span>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 10px">
+      <div class="hud amber" style="width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="lbl" style="font-size: 9px; color: #FBBF24">Fluke</span><span class="mono" style="font-size: 9px; color: #52525B">09:36</span></div>
+        <span style="font-size: 12px; line-height: 1.45; color: #D4D4D8">El revisor aprobó el PR #675 y la CI está verde. Queda listo para que lo mergees.</span>
+        <div style="display: flex; gap: 6px; justify-content: flex-end"><button class="btn ghost" type="button">Después</button><button class="btn brand" type="button">Ver PR</button></div>
+      </div>
+      <button class="orb amber" type="button" aria-label="Abrir Fluke, 2 cosas lo esperan"><span class="ring t"></span><span class="ring a"></span><span class="ring c"><svg viewBox="0 0 100 100" width="14" height="14" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span><span class="mono" style="position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; background: #FBBF24; color: #1F1300; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center">2</span></button>
+    </div>
+    <p>El evento entró a la conversación de guardia; Fluke lo juzgó digno de aviso (D6). Con la ventana atrás, además notificación nativa con deeplink.</p>
+  </section>
+
+  <section class="cell" style="border-color: rgba(248,113,113,.3)">
+    <span class="lbl" style="color: #F87171">05 · Confirmación de acción peligrosa</span>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 10px">
+      <div class="hud red" style="width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="lbl" style="font-size: 9px; color: #F87171">Confirmación requerida</span><span class="lbl" style="font-size: 8px">DELETE /api/workers/…</span></div>
+        <span style="font-size: 12px; line-height: 1.45; color: #D4D4D8">Pediste borrar el perfil <span style="color: #FAFAFA">QA</span>. Tiene 0 tareas en curso. No se puede deshacer.</span>
+        <div style="display: flex; gap: 6px; justify-content: flex-end"><button class="btn ghost" type="button">Cancelar</button><button class="btn red" type="button">Sí, borralo</button></div>
+      </div>
+    </div>
+    <p>El código decide qué es peligroso, no el modelo (F0.3). En voz Fluke lee lo mismo y espera un "sí, borralo"; cualquier otra cosa cancela.</p>
+  </section>
+
+  <section class="cell" style="border-color: rgba(248,113,113,.3)">
+    <span class="lbl" style="color: #F87171">06 · Sin conexión</span>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 10px">
+      <div class="hud red" style="width: 100%; box-sizing: border-box; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+        <span class="lbl" style="font-size: 9px; color: #F87171">Fluke no responde</span>
+        <span style="font-size: 12px; line-height: 1.45; color: #D4D4D8">Claude Code no está conectado. Conectalo en Ajustes → Agentes; mientras tanto el chat queda en espera.</span>
+        <div style="display: flex; gap: 6px; justify-content: flex-end"><button class="btn" type="button">Abrir Ajustes</button></div>
+      </div>
+      <button class="orb red" type="button" aria-label="Fluke sin conexión"><span class="ring t"></span><span class="ring a"></span><span class="ring c"><svg viewBox="0 0 100 100" width="14" height="14" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span></button>
+    </div>
+    <p>Anillo quieto en rojo. Mismo estado para el relay caído (solo afecta voz y celular) y para la voz sin licencia.</p>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
