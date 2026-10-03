@@ -314,6 +314,9 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   // an issue live in its page (Código / Sesiones). Their
                   // routes stay for direct links and the command bar.
                   showWorkspacesButton={false}
+                  // Kanban hidden for now: adds nothing over Issues. The route
+                  // stays for direct links and the command bar.
+                  showSprintButton={false}
                   onWorkspacesClick={handleWorkspacesClick}
                   onSearchClick={handleSearchClick}
                   onDashboardClick={handleDashboardClick}
