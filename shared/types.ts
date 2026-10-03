@@ -491,7 +491,11 @@ export type CreateMissionRequest = {
  */
 repo_id: string, };
 
-export type UpdateMissionRequest = { title: string | null, autonomy: string | null, 
+export type UpdateMissionRequest = { title: string | null, autonomy: string | null,
+/**
+ * Repo de la misión; sólo editable antes de mandar el brief al Analyst.
+ */
+repo_id: string | null,
 /**
  * Dónde está el user en la app; va en el system prompt de cada turno.
  */

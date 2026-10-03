@@ -12,6 +12,7 @@ import {
 } from '@vibe/ui/components/Select';
 import { cn } from '@/shared/lib/utils';
 import { useWorkers } from '@/features/workers/model/useWorkers';
+import { useRepos } from '@/shared/hooks/useRepos';
 import { useApproveBrief, useUpdateMission } from '../model/useMissions';
 
 const AUTONOMY = ['step', 'brief_pr', 'autopilot'] as const;
@@ -28,6 +29,7 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
   const approve = useApproveBrief(mission.id);
   const { data: workers = [] } = useWorkers();
   const analysts = workers.filter((w) => w.role === 'analyst' && !w.archived);
+  const { repos } = useRepos();
   const [analystId, setAnalystId] = useState<string | undefined>(undefined);
 
   const canApprove = detail.complete && mission.status === 'brief_ready';
@@ -45,10 +47,31 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
             {t(`director.status.${mission.status}`)}
           </span>
         </div>
-        <Check
-          ok={!missingRepo}
-          label={`${t('director.brief.repo')}: ${detail.repo_name ?? '-'}`}
-        />
+        {mission.analyst_task_id ? (
+          <Check
+            ok={!missingRepo}
+            label={`${t('director.brief.repo')}: ${detail.repo_name ?? '-'}`}
+          />
+        ) : (
+          <div className="flex items-center gap-2">
+            <Check ok={!missingRepo} label={t('director.brief.repo')} />
+            <Select
+              value={mission.repo_id ?? undefined}
+              onValueChange={(repo_id) => update.mutate({ repo_id })}
+            >
+              <SelectTrigger className="h-7 flex-1 text-xs">
+                <SelectValue placeholder="-" />
+              </SelectTrigger>
+              <SelectContent>
+                {repos.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {missingTitle && <Check ok={false} label={t('director.brief.title')} />}
       </div>
 
