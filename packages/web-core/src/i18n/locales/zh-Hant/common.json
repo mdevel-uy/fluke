@@ -645,7 +645,7 @@
     "dashboard": "儀表板",
     "workspaces": "工作區",
     "issues": "問題",
-    "workers": "工作者",
+    "workers": "設定檔",
     "sprint": "看板",
     "analystDesk": "分析師工作台",
     "ciPipelines": "CI 流水線",
@@ -1149,7 +1149,7 @@
     }
   },
   "workers": {
-    "title": "工作者",
+    "title": "設定檔",
     "newWorker": "新增工作者",
     "loading": "正在載入工作者...",
     "loadError": "載入工作者失敗。",
@@ -1850,5 +1850,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "新增設定檔",
+    "newHint": "設定角色、代理、模型和指示",
+    "bannerStart": "設定檔是範本。每當一個階段開始，就會建立設定檔的一個",
+    "bannerInstance": "臨時實例",
+    "bannerEnd": "，它在 issue 的工作區中工作，完成後丟棄。沒有名字，也沒有自己的佇列。設定檔的所有實例都使用它的 PAT（沒有則用你的）。",
+    "slots": "全域槽位 {{used}}/{{limit}}",
+    "adjustInSettings": "在 Settings 中調整",
+    "baseRole": "基礎角色：{{role}}",
+    "agent": "代理",
+    "github": "GitHub",
+    "ownPat": "自有 PAT · @{{login}}",
+    "userPat": "使用者的 PAT",
+    "migratedFrom": "遷移自",
+    "instancesNow": "目前實例",
+    "none": "無",
+    "defaultAgent": "預設代理",
+    "defaultModel": "預設模型"
   }
 }

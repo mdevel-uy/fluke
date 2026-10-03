@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
+import { instanceLabel } from '@/features/workers/model/instance';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
 import type {
@@ -57,8 +58,13 @@ export function CollapsedSummary({
     .filter((c) => c.state === 'running' || c.state === 'review')
     .map((c) => {
       const task = taskByIssueNumber.get(c.issue.number);
-      const name = task ? workerNameById.get(task.worker_id) : undefined;
-      return name ? { name, issue: c.issue.number } : null;
+      const profile = task ? workerNameById.get(task.worker_id) : undefined;
+      return profile
+        ? {
+            name: instanceLabel(profile, task?.workspace_id),
+            issue: c.issue.number,
+          }
+        : null;
     })
     .filter((w): w is { name: string; issue: number } => w !== null);
 

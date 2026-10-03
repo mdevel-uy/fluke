@@ -662,7 +662,7 @@
     "dashboard": "Dashboard",
     "workspaces": "Espacios de trabajo",
     "issues": "Issues",
-    "workers": "Workers",
+    "workers": "Perfiles",
     "sprint": "Kanban",
     "analystDesk": "Mesa de analistas",
     "ciPipelines": "Pipelines de CI",
@@ -1168,7 +1168,7 @@
     }
   },
   "workers": {
-    "title": "Workers",
+    "title": "Perfiles",
     "newWorker": "Nuevo worker",
     "loading": "Cargando workers...",
     "loadError": "No se pudieron cargar los workers.",
@@ -1871,5 +1871,24 @@
       "optional": "opcional",
       "pickMission": "Abra una misión para ver su brief."
     }
+  },
+  "profiles": {
+    "new": "Nuevo perfil",
+    "newHint": "Definí rol, agente, modelo e instrucciones",
+    "bannerStart": "Los perfiles son plantillas. Cada vez que una fase arranca, se crea una",
+    "bannerInstance": "instancia efímera",
+    "bannerEnd": "del perfil, trabaja en el workspace del issue y se descarta al terminar. Sin nombres, sin colas propias. Todas las instancias de un perfil usan su PAT (o el tuyo si no tiene).",
+    "slots": "Slots globales {{used}}/{{limit}}",
+    "adjustInSettings": "Ajustar en Settings",
+    "baseRole": "Rol base: {{role}}",
+    "agent": "Agente",
+    "github": "GitHub",
+    "ownPat": "PAT propio · @{{login}}",
+    "userPat": "PAT del usuario",
+    "migratedFrom": "Migrado de",
+    "instancesNow": "Instancias ahora",
+    "none": "ninguna",
+    "defaultAgent": "Agente por defecto",
+    "defaultModel": "modelo por defecto"
   }
 }

@@ -8,6 +8,7 @@ import type {
 } from '@/features/issues/lib/milestonePlan';
 import type { WorkerTask } from '@/features/sprint/types';
 import type { MilestoneRun } from 'shared/types';
+import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
 import { CollapsedSummary } from './CollapsedSummary';
 import type { DecisionContext } from './DecisionDrawer';
@@ -334,7 +335,12 @@ export function MilestoneBand({
                         state={card.state}
                         currentWave={band.currentWave}
                         workerName={
-                          task ? workerNameById.get(task.worker_id) : undefined
+                          task && workerNameById.get(task.worker_id)
+                            ? instanceLabel(
+                                workerNameById.get(task.worker_id)!,
+                                task.workspace_id
+                              )
+                            : undefined
                         }
                         selected={card.issue.id === selectedIssueId}
                         onSelect={onSelectIssue}
