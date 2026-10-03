@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import {
   Boxes,
   FileCode,
-  GitBranch,
   Kanban,
   LayoutGrid,
   ListChecks,
@@ -35,7 +34,6 @@ interface AppBarProps {
   onWorkspacesClick: () => void;
   onEditorClick?: () => void;
   onSearchClick?: () => void;
-  onSourceControlClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
   onIssuesClick?: () => void;
@@ -45,7 +43,6 @@ interface AppBarProps {
   showWorkspacesButton?: boolean;
   showEditorButton?: boolean;
   showSearchButton?: boolean;
-  showSourceControlButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
   showIssuesButton?: boolean;
@@ -54,9 +51,7 @@ interface AppBarProps {
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
   isSearchActive?: boolean;
-  isSourceControlActive?: boolean;
   /** Nº of fleet branches stopped on conflicts (SHELL-SPEC R34 badge). */
-  sourceControlBadgeCount?: number;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
   isIssuesActive?: boolean;
@@ -164,7 +159,6 @@ export function AppBar({
   onWorkspacesClick,
   onEditorClick,
   onSearchClick,
-  onSourceControlClick,
   onDashboardClick,
   onSprintClick,
   onIssuesClick,
@@ -174,7 +168,6 @@ export function AppBar({
   showWorkspacesButton = true,
   showEditorButton = true,
   showSearchButton = true,
-  showSourceControlButton = true,
   showDashboardButton = true,
   showSprintButton = true,
   showIssuesButton = true,
@@ -183,8 +176,6 @@ export function AppBar({
   isWorkspacesActive,
   isEditorActive = false,
   isSearchActive = false,
-  isSourceControlActive = false,
-  sourceControlBadgeCount = 0,
   isDashboardActive = false,
   isSprintActive = false,
   isIssuesActive = false,
@@ -242,17 +233,6 @@ export function AppBar({
         lucideIcon: FileCode,
         isActive: isEditorActive,
         onClick: onEditorClick,
-      });
-    }
-    if (showSourceControlButton && onSourceControlClick) {
-      localItems.push({
-        key: 'local-source-control',
-        kind: 'icon-button',
-        label: t('appBar.sourceControl', { defaultValue: 'Source control' }),
-        lucideIcon: GitBranch,
-        isActive: isSourceControlActive,
-        badgeCount: sourceControlBadgeCount,
-        onClick: onSourceControlClick,
       });
     }
     if (showSprintButton && onSprintClick) {

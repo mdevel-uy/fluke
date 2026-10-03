@@ -1,25 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError, workersApi } from '@/shared/lib/api';
 import { workersKeys } from './workersKeys';
-import type { PendingDesignHandoffResponse } from 'shared/types';
 
-export const designHandoffsKeys = {
-  pending: ['design-handoffs', 'pending'] as const,
-};
-
-/**
- * Finished designer deliverables no analyst has taken yet. Shared by the
- * Analyst Desk picker and any future board surface; polled so a design that
- * finishes while the Desk is open shows up without a manual refresh.
- */
-export function usePendingDesignHandoffs(enabled = true) {
-  return useQuery<PendingDesignHandoffResponse[]>({
-    queryKey: designHandoffsKeys.pending,
-    queryFn: () => workersApi.listPendingDesignHandoffs(),
-    enabled,
-    refetchInterval: 60_000,
-  });
-}
 
 export interface CreateDesignHandoffInput {
   /** Designer task whose deliverable is being handed off. */
@@ -28,7 +10,7 @@ export interface CreateDesignHandoffInput {
   workerId: string;
   /** Optional PM guidance layered on top of the server-side template. */
   note?: string;
-  /** Entry point: designer done card or Analyst Desk picker. */
+  /** Entry point: the designer's done card. */
   source: 'kanban';
 }
 
@@ -71,9 +53,6 @@ export function useCreateDesignHandoff() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: workersKeys.all });
-      void queryClient.invalidateQueries({
-        queryKey: designHandoffsKeys.pending,
-      });
     },
   });
 }

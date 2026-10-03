@@ -134,21 +134,6 @@ pub struct WorkerTask {
     pub territory_globs: Option<String>,
 }
 
-/// A finished designer deliverable that no analyst has taken yet. Feeds the
-/// Analyst Desk picker and the sprint-board handoff dialog.
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct PendingDesignHandoff {
-    pub task_id: Uuid,
-    pub repo_id: Uuid,
-    pub title: String,
-    pub issue_number: Option<i64>,
-    pub worker_name: String,
-    pub worker_emoji: String,
-    pub deliverable_ref: Option<String>,
-    pub result_summary: Option<String>,
-    pub completed_at: Option<DateTime<Utc>>,
-}
-
 /// Where a designer deliverable went: the handoff task consuming it.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct HandoffInfo {
@@ -1292,30 +1277,6 @@ impl WorkerTask {
         .execute(pool)
         .await?;
         Ok(())
-    }
-
-    /// Finished designer deliverables that no handoff task consumes yet,
-    /// newest first. A deliverable exists when the run left a summary or a
-    /// pushed ref; the NOT EXISTS clause is the "already taken" guard.
-    pub async fn find_pending_design_handoffs(
-        pool: &SqlitePool,
-    ) -> Result<Vec<PendingDesignHandoff>, sqlx::Error> {
-        sqlx::query_as::<_, PendingDesignHandoff>(
-            "SELECT wt.id AS task_id, wt.repo_id, wt.title, wt.issue_number,
-                    w.name AS worker_name, w.emoji AS worker_emoji,
-                    wt.deliverable_ref, wt.result_summary, wt.completed_at
-               FROM worker_tasks wt
-               JOIN workers w ON wt.worker_id = w.id
-              WHERE w.role = 'designer'
-                AND wt.status = 'done'
-                AND (wt.deliverable_ref IS NOT NULL
-                     OR wt.result_summary IS NOT NULL)
-                AND NOT EXISTS (SELECT 1 FROM worker_tasks h
-                                 WHERE h.source_task_id = wt.id)
-              ORDER BY COALESCE(wt.completed_at, wt.created_at) DESC",
-        )
-        .fetch_all(pool)
-        .await
     }
 
     /// The handoff task consuming a given designer task's deliverable, if

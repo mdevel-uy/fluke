@@ -37,7 +37,6 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppUpdateStore } from '@/shared/stores/useAppUpdateStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
-import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
   isCiPipelinesDestination,
   isDashboardDestination,
@@ -190,14 +189,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     if (isDashboardActive) toggleLeftSidebar();
     else appNavigation.goToDashboard();
   }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
-
-  // SHELL-SPEC R34: rail badge = nº of fleet branches stopped on conflicts.
-  const sourceControlBadgeCount = useFleetConflictCount();
-
-  const handleSourceControlClick = useCallback(() => {
-    if (isSourceControlActive) toggleLeftSidebar();
-    else appNavigation.goToSourceControl();
-  }, [isSourceControlActive, toggleLeftSidebar, appNavigation]);
 
   const handleSprintClick = useCallback(() => {
     if (isSprintActive) toggleLeftSidebar();
@@ -356,13 +347,11 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                 <AppBar
                   // fluke v2 (#689): the workspace and the source control of
                   // an issue live in its page (Código / Sesiones). Their
-                  // routes stay for direct links.
+                  // routes stay for direct links and the command bar.
                   showWorkspacesButton={false}
-                  showSourceControlButton={false}
                   onWorkspacesClick={handleWorkspacesClick}
                   onEditorClick={handleEditorClick}
                   onSearchClick={handleSearchClick}
-                  onSourceControlClick={handleSourceControlClick}
                   onDashboardClick={handleDashboardClick}
                   onSprintClick={handleSprintClick}
                   onIssuesClick={handleIssuesClick}
@@ -373,8 +362,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   }
                   isEditorActive={isEditorActive}
                   isSearchActive={isSearchActive}
-                  isSourceControlActive={isSourceControlActive}
-                  sourceControlBadgeCount={sourceControlBadgeCount}
                   isDashboardActive={isDashboardActive}
                   isSprintActive={isSprintActive}
                   isIssuesActive={isIssuesActive}

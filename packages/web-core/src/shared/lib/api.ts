@@ -120,7 +120,6 @@ import {
   CreateWorkerTaskRequest,
   UpdateWorkerTaskRequest,
   CreateDesignHandoffRequest,
-  PendingDesignHandoffResponse,
   DesignArtifactsResponse,
   MissionDetail,
   MissionSummary,
@@ -2631,17 +2630,6 @@ export const workersApi = {
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`);
     return handleApiResponse<WorkerTaskResponse[]>(response);
-  },
-
-  /**
-   * Finished designer deliverables no analyst has taken yet. Feeds the
-   * Analyst Desk picker and the sprint-board handoff dialog.
-   */
-  listPendingDesignHandoffs: async (): Promise<
-    PendingDesignHandoffResponse[]
-  > => {
-    const response = await makeRequest('/api/workers/design-handoffs/pending');
-    return handleApiResponse<PendingDesignHandoffResponse[]>(response);
   },
 
   /**
