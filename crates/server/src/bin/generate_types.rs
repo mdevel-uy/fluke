@@ -130,6 +130,7 @@ fn generate_types_content() -> String {
         server::routes::plan::PlanRevisionRequest::decl(),
         db::models::mission::Mission::decl(),
         db::models::mission::PendingQuestion::decl(),
+        db::models::fluke_event::FlukeEvent::decl(),
         db::models::mission::MissionItem::decl(),
         db::models::mission::MissionBrief::decl(),
         db::models::milestone_run::MilestoneRun::decl(),
