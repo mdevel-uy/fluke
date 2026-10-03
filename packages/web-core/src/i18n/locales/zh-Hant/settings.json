@@ -21,8 +21,8 @@
         "projectsDesc": "專案儲存庫與設定",
         "repos": "儲存庫",
         "reposDesc": "儲存庫腳本與設定",
-        "agents": "代理",
-        "agentsDesc": "編碼代理設定",
+        "agents": "Agents & models",
+        "agentsDesc": "Providers, models and default provider",
         "guidelines": "行為準則",
         "guidelinesDesc": "適用於所有代理的全域行為規則",
         "mcp": "MCP 伺服器",
@@ -37,8 +37,6 @@
         "skillsDesc": "管理和安裝 Claude 技能",
         "github": "GitHub",
         "githubDesc": "使用 gh CLI 登入 GitHub",
-        "agent-auth": "代理連線",
-        "agent-authDesc": "在設定中連線和中斷每個已安裝的代理",
         "data": "資料",
         "dataDesc": "匯出或還原您實例的所有資料"
       }
@@ -117,17 +115,6 @@
           "placeholder": "選擇語言",
           "helper": "選擇您偏好的語言。瀏覽器預設將跟隨系統語言。"
         }
-      },
-      "taskExecution": {
-        "title": "預設編碼代理",
-        "description": "選擇任務的預設編碼代理。",
-        "executor": {
-          "label": "預設代理設定檔",
-          "placeholder": "選擇設定檔",
-          "helper": "選擇建立任務嘗試時要使用的預設代理設定檔。"
-        },
-        "variant": "預設",
-        "defaultLabel": "預設"
       },
       "editor": {
         "title": "編輯器",
@@ -247,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "代理並行",
+        "description": "限制並行執行的編碼代理數量。",
+        "limit": {
+          "label": "並行代理數",
+          "helper": "同時執行的編碼代理的最大數量。0 = 自動（依 CPU 核心數）。若設定了環境變數 AGENT_CONCURRENCY_LIMIT，則以其為準。",
+          "errors": {
+            "required": "請輸入一個值。",
+            "notInteger": "值必須是大於或等於 0 的整數。"
+          }
+        }
+      },
       "notifications": {
         "title": "通知",
         "description": "控制何時與如何接收通知。",
@@ -350,55 +349,12 @@
       }
     },
     "agents": {
-      "title": "編碼代理設定",
-      "description": "使用不同設定自訂編碼代理的行為。",
-      "loading": "載入代理設定中...",
-      "selectAgent": "選擇代理",
       "save": {
-        "button": "儲存代理設定",
-        "success": "✓ 執行器設定儲存成功！",
         "unsavedChanges": "• 您有未儲存的變更"
       },
-      "availability": {
-        "checking": "檢查中...",
-        "checkingAvailability": "正在檢查可用性...",
-        "available": "代理可用",
-        "notFoundSimple": "找不到代理",
-        "loginDetected": "偵測到最近使用",
-        "loginDetectedTooltip": "找到此代理的最近驗證憑證",
-        "installationFound": "偵測到曾使用",
-        "installationFoundTooltip": "找到代理設定。您可能需要登入才能使用。"
-      },
-      "editor": {
-        "formLabel": "編輯 JSON",
-        "agentLabel": "代理",
-        "agentPlaceholder": "選擇執行器類型",
-        "configLabel": "設定",
-        "configPlaceholder": "選擇設定",
-        "createNew": "新建...",
-        "deleteTitle": "無法刪除最後一個設定",
-        "deleteButton": "刪除 {{name}}",
-        "deleteText": "刪除",
-        "makeDefault": "設為預設",
-        "isDefault": "預設",
-        "jsonLabel": "代理設定（JSON）",
-        "jsonPlaceholder": "載入設定檔中...",
-        "jsonLoading": "載入中...",
-        "pathLabel": "設定檔位置："
-      },
       "errors": {
-        "deleteFailed": "刪除設定失敗。請重試。",
-        "saveFailed": "儲存代理設定失敗。請重試。",
         "saveConfigFailed": "儲存設定失敗。請重試。",
         "schemaNotFound": "找不到執行器類型 {{executor}} 的結構描述"
-      },
-      "tree": {
-        "search": "搜尋設定...",
-        "expandAll": "全部展開",
-        "collapseAll": "全部收合",
-        "noResults": "沒有符合的設定",
-        "noConfigs": "沒有可用的設定",
-        "selectConfig": "從側邊欄選擇一個設定來查看和編輯其設定。"
       },
       "deleteConfigDialog": {
         "title": "刪除設定？",
@@ -700,77 +656,6 @@
         "patLoginFailed": "驗證 Personal Access Token 失敗。"
       }
     },
-    "agentAuth": {
-      "loading": "正在檢查已安裝的代理…",
-      "emptyState": "這台機器上尚未安裝任何編碼代理。",
-      "statusLabel": "狀態",
-      "status": {
-        "connected": "已連線",
-        "notConnected": "未連線"
-      },
-      "actions": {
-        "connect": "連線",
-        "disconnect": "中斷",
-        "cancel": "取消"
-      },
-      "providers": {
-        "codex": {
-          "name": "Codex",
-          "title": "Codex",
-          "description": "使用瀏覽器裝置流程登入 OpenAI Codex,無需開啟終端機。"
-        },
-        "claude_code": {
-          "name": "Claude Code",
-          "title": "Claude Code",
-          "description": "使用你的 Claude 訂閱登入:開啟 URL,登入後將頁面返回的兌換碼貼到下方。"
-        },
-        "gemini": {
-          "name": "Gemini",
-          "title": "Gemini",
-          "description": "使用在 Google AI Studio 取得的 API 金鑰連線至 Google Gemini。"
-        }
-      },
-      "deviceFlow": {
-        "title": "在 OpenAI 授權",
-        "description": "複製下方一次性代碼,然後開啟 OpenAI 頁面貼上以完成登入。",
-        "codeLabel": "一次性代碼",
-        "copyHint": "點擊複製",
-        "openBrowser": "開啟 OpenAI",
-        "checkStatus": "重新整理狀態",
-        "waitingForCode": "等待 CLI 顯示裝置代碼…",
-        "waiting": "等待授權中… 在瀏覽器中完成後此卡片將自動更新。"
-      },
-      "apiKey": {
-        "title": "使用 API 金鑰連線",
-        "description": "貼上從 Google AI Studio 取得的 Gemini API 金鑰。將以 GEMINI_API_KEY 儲存在這台機器上,不會外傳。",
-        "placeholder": "AIza…",
-        "submit": "儲存並連線",
-        "helpBefore": "在下列位置取得金鑰:",
-        "helpLink": "Google AI Studio",
-        "helpAfter": "然後貼到上方。"
-      },
-      "claudeFlow": {
-        "title": "在 claude.com 授權",
-        "description": "開啟 URL,登入你的 Claude 帳號,然後複製頁面返回的兌換碼。",
-        "openBrowser": "開啟 claude.com",
-        "copyUrl": "複製 URL",
-        "waitingForUrl": "等待 CLI 顯示登入 URL…",
-        "codeInputLabel": "兌換碼",
-        "codeInputPlaceholder": "從 claude.com 貼上兌換碼",
-        "codeInputHelp": "CLI 接受兌換碼後此卡片將自動更新。",
-        "submitCode": "送出兌換碼"
-      },
-      "hidden": {
-        "title": "CLI 未安裝",
-        "description": "下列代理因為其 CLI 未安裝於此映像檔而被隱藏: {{providers}}。"
-      },
-      "errors": {
-        "loginFailed": "無法啟動連線流程。",
-        "logoutFailed": "無法中斷代理連線。",
-        "cancelFailed": "無法取消連線。",
-        "submitCodeFailed": "無法送出兌換碼。"
-      }
-    },
     "data": {
       "export": {
         "title": "匯出所有資料",
@@ -809,6 +694,151 @@
           "copyRepos": "將 repos/ 下的每個資料夾移動到您選擇的路徑。",
           "startAndReattach": "啟動 fluke，如果儲存庫路徑已變更，請從設定 → 儲存庫中更新它。"
         }
+      }
+    },
+    "providers": {
+      "intro": "Connect the providers you want to use. Each worker can choose any model from a connected provider; the default provider is used when a task or a worker does not choose one.",
+      "loading": "Checking installed agents…",
+      "emptyState": "No coding agents are installed on this machine yet.",
+      "defaultBar": {
+        "label": "Default provider",
+        "none": "No default provider",
+        "noneHint": "Connect a provider and choose \"Use as default\". Until then, new tasks cannot start.",
+        "hint": "Used by new tasks and by workers that do not choose a model. To change it, use \"Use as default\" on another provider.",
+        "broken": "{{name}} is not available. Tasks and workers that use the default fail to start until you reconnect it or choose another one."
+      },
+      "status": {
+        "off": "Not connected",
+        "connecting": "Connecting",
+        "verifying": "Verifying",
+        "codeError": "Connecting",
+        "failed": "Connection error",
+        "connected": "Connected",
+        "expired": "Credential expired"
+      },
+      "via": {
+        "claude_code": "Claude subscription",
+        "codex": "OpenAI account",
+        "gemini": "Google AI Studio API key"
+      },
+      "isDefault": "Default",
+      "useAsDefault": "Use as default",
+      "useAsDefaultDisabled": "Connect {{name}} to use it as default",
+      "connection": "Connection",
+      "connect": "Connect {{name}}",
+      "connectHint": {
+        "claude_code": "Sign in with your Claude subscription. No API key is used or requested.",
+        "codex": "Sign in with your OpenAI account from the browser."
+      },
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "reconnect": "Reconnect",
+      "models": {
+        "label": "Models ({{count}})",
+        "loading": "Loading models…",
+        "live": "List retrieved from {{name}}.",
+        "fallbackPill": "Fallback list",
+        "fallback": "Could not query {{name}}; showing the known models.",
+        "expired": "Last known list. It is not updated until you reconnect.",
+        "offline": "Models offered by {{name}}. They become available to workers once you connect.",
+        "base": "base"
+      },
+      "baseModel": {
+        "label": "Base model",
+        "help": "{{name}} uses it when a worker or a task does not specify a model.",
+        "helpDefault": "{{name}} uses it when a worker or a task does not specify a model, including as the default provider."
+      },
+      "claude": {
+        "title": "Connect Claude with your subscription",
+        "description": "Three steps. You do not need to open a terminal.",
+        "step1": "Sign in at claude.com",
+        "step1Desc": "The authorization page opened in your browser. If it did not open, open it again.",
+        "openBrowser": "Open claude.com",
+        "copyUrl": "Copy URL",
+        "waitingForUrl": "Waiting for the sign-in URL…",
+        "step2": "Paste the code shown on the page",
+        "step2Desc": "When you finish, claude.com shows an authorization code. Copy it in full.",
+        "codePlaceholder": "Paste the code here",
+        "submit": "Continue",
+        "codeError": "The code is not valid or has expired. Copy it again from claude.com or",
+        "newCode": "generate a new one.",
+        "step3": "Verification",
+        "verifying": "Verifying the connection",
+        "step3Desc": "fluke checks that the credential works and discovers the models of your subscription. It takes a few seconds."
+      },
+      "codex": {
+        "title": "Authorize in OpenAI",
+        "description": "Open the OpenAI page and enter this one-time code.",
+        "step1": "Copy the code",
+        "copyHint": "Click to copy",
+        "waitingForCode": "Waiting for the code…",
+        "step2": "Open it in OpenAI and sign in",
+        "openBrowser": "Open OpenAI",
+        "step3": "Done",
+        "step3Desc": "This card switches to \"Connected\" as soon as you authorize. No need to refresh."
+      },
+      "gemini": {
+        "title": "Connect with an API key",
+        "description": "Paste a Gemini API key generated in Google AI Studio. It is stored on this machine and never leaves it.",
+        "placeholder": "AIza…",
+        "submit": "Save and connect",
+        "helpLink": "Get an API key in Google AI Studio"
+      },
+      "failed": {
+        "title": "Could not connect {{name}}.",
+        "body": "Sign-in ended without a usable credential. Try again; if it happens again, check that your subscription is active.",
+        "detail": "Technical detail"
+      },
+      "expired": {
+        "title": "The {{name}} credential expired or is no longer valid.",
+        "lastAuth": "Last sign-in: {{date}}.",
+        "body_one": "{{count}} worker depends on this connection and fails to start until you reconnect. Its configuration is kept.",
+        "body_other": "{{count}} workers depend on this connection and fail to start until you reconnect. Their configuration is kept."
+      },
+      "advancedLink": "Variants and advanced settings",
+      "usedBy_one": "Used by {{count}} worker",
+      "usedBy_other": "Used by {{count}} workers",
+      "disconnectAction": "Disconnect",
+      "hidden": {
+        "title": "Not installed on this machine:",
+        "description": "{{providers}}. A provider whose CLI is missing has no card here."
+      },
+      "others": "Other agents:",
+      "advanced": {
+        "title": "{{name}} · advanced settings",
+        "subtitle": "Variants and agent profile. For everyday use you do not need to change anything here.",
+        "variants": "Variants",
+        "newVariant": "New variant",
+        "standard": "Standard",
+        "standardHint": "used by workers and default",
+        "cannotDelete": "Cannot be deleted",
+        "deleteVariant": "Delete variant",
+        "form": "Form",
+        "json": "JSON",
+        "jsonHelp": "Edit the full {{name}} profile. It is validated before saving.",
+        "jsonInvalid": "The JSON is not valid: {{error}}",
+        "footerHint": "Changes apply to new tasks."
+      },
+      "disconnect": {
+        "title": "Disconnect {{name}}?",
+        "body": "The credential is removed from this machine.",
+        "workers_one": "{{count}} worker chose a {{name}} model; its tasks will fail to start with the message \"{{name}} is not connected\" until you connect it again.",
+        "workers_other": "{{count}} workers chose a {{name}} model; their tasks will fail to start with the message \"{{name}} is not connected\" until you connect it again.",
+        "pickReplacement": "{{name}} is the default provider. Choose which one replaces it:",
+        "noReplacement": "{{name}} is the default provider and no other one is connected. New tasks cannot start until you connect a provider.",
+        "confirm": "Disconnect"
+      },
+      "errors": {
+        "loginFailed": "Could not start the connection flow.",
+        "logoutFailed": "Could not disconnect the provider.",
+        "cancelFailed": "Could not cancel the connection.",
+        "submitCodeFailed": "Could not send the authorization code.",
+        "saveFailed": "Could not save the change."
+      },
+      "alert": {
+        "message": "A task could not start: its agent provider is not connected or its credential is no longer valid.",
+        "action": "Open Agents & models",
+        "dismiss": "Dismiss"
       }
     }
   },

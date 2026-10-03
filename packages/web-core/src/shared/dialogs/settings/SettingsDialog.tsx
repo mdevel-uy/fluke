@@ -154,6 +154,8 @@ function SettingsDialogContent({
   const { availableHosts, hostsResolved, selectedHost } = useSettingsHost();
 
   const resolvedInitialSection = useMemo<SettingsSectionType>(() => {
+    // 'agent-auth' was merged into 'agents' (#615); keep old links working.
+    if (initialSection === 'agent-auth') return 'agents';
     if (
       initialSection &&
       SETTINGS_SECTION_DEFINITIONS.some(
@@ -171,7 +173,7 @@ function SettingsDialogContent({
   );
   // On mobile, null means show the nav menu, a section means show that section
   const [mobileShowContent, setMobileShowContent] = useState<boolean>(
-    initialSection === resolvedInitialSection
+    initialSection === resolvedInitialSection || initialSection === 'agent-auth'
   );
   const isConfirmingRef = useRef(false);
 

@@ -129,7 +129,8 @@ pub fn expand_tilde(path_str: &str) -> std::path::PathBuf {
     shellexpand::tilde(path_str).as_ref().into()
 }
 
-#[cfg(test)]
+// POSIX worktree paths: on Windows they are not absolute.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

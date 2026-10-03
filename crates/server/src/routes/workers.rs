@@ -15,13 +15,14 @@ use db::models::{
     repo::Repo,
     review_round::ReviewRound,
     worker::{
-        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, UpdateWorker,
-        Worker,
+        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR, ROLE_QA,
+        ROLE_REVIEWER, UpdateWorker, Worker,
     },
-    worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
+    worker_task::{self, CreateWorkerTask, HandoffInfo, WorkerTask},
     workspace::Workspace,
 };
 use deployment::Deployment;
+use executors::executors::BaseCodingAgent;
 use git_host::{GitHostProvider, GitHostService, github::GhCli};
 use serde::{Deserialize, Deserializer, Serialize};
 use services::services::{
@@ -52,6 +53,9 @@ pub struct WorkerResponse {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    /// Coding agent the worker runs on; `null` = follow the global default.
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<BaseCodingAgent>,
     #[ts(optional)]
     pub model: Option<String>,
     /// Whether the worker has a personal GitHub PAT stored. The token itself
@@ -72,6 +76,10 @@ pub struct WorkerResponse {
     /// orchestrator lookups, can be restored or purged from there).
     pub archived: bool,
     pub active_workspace_id: Option<Uuid>,
+    /// Every running instance of this profile (#680), newest first.
+    pub active_workspace_ids: Vec<Uuid>,
+    /// Name the worker had before becoming a profile (#681), if migrated.
+    pub migrated_from: Option<String>,
     #[ts(type = "number")]
     pub queued_count: i64,
     #[ts(type = "number")]
@@ -112,7 +120,7 @@ pub struct WorkerTaskResponse {
     pub pr_state: Option<String>,
     /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
-    /// Origin of the task: `"kanban"` or `"desk"`.
+    /// Origin of the task: `"kanban"`, `"mission"` or `"milestone"`.
     pub source: String,
     /// TL reviewer's verdict: "approved" | "changes_requested" | null.
     /// Set by pr_monitor when the PR review state is detected.
@@ -352,6 +360,9 @@ pub struct CreateWorkerRequest {
     pub soul: String,
     #[ts(optional)]
     pub role: Option<String>,
+    /// Coding agent; omitted or `null` = follow the global default.
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<BaseCodingAgent>,
     #[ts(optional)]
     pub model: Option<String>,
     /// Optional GitHub PAT to authenticate this worker's push/PR/review
@@ -372,6 +383,10 @@ pub struct UpdateWorkerRequest {
     pub soul: Option<String>,
     #[ts(optional)]
     pub role: Option<String>,
+    /// `undefined` = no change; `null` = follow the global default agent.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    #[ts(optional, type = "BaseCodingAgent | null")]
+    pub executor: Option<Option<BaseCodingAgent>>,
     /// `undefined` = no change; `null` = clear to global default; `string` = set override
     #[serde(default, deserialize_with = "deserialize_double_option")]
     #[ts(optional, type = "string | null")]
@@ -422,8 +437,7 @@ pub struct CreateWorkerTaskRequest {
     #[serde(default)]
     #[ts(optional)]
     pub force_duplicate: Option<bool>,
-    /// Origin of the task: `"kanban"` (default) or `"desk"` for Analyst Desk
-    /// requests.
+    /// Origin of the task: `"kanban"` (default), `"mission"` or `"milestone"`.
     #[serde(default)]
     #[ts(optional)]
     pub source: Option<String>,
@@ -484,8 +498,7 @@ pub struct CreateDesignHandoffRequest {
     /// (priorities, business constraints). Never replaces the template.
     #[ts(optional)]
     pub note: Option<String>,
-    /// Origin of the handoff: `"kanban"` (designer card) or `"desk"`
-    /// (Analyst Desk picker). Defaults to kanban.
+    /// Origin of the handoff: `"kanban"` (designer card). Defaults to kanban.
     #[serde(default)]
     #[ts(optional)]
     pub source: Option<String>,
@@ -579,59 +592,17 @@ pub async fn create_design_handoff(
     Ok(ResponseJson(ApiResponse::success(response)))
 }
 
-/// A finished designer deliverable no analyst has taken yet, as served to
-/// the Analyst Desk picker and the sprint board.
-#[derive(Debug, Serialize, TS)]
-pub struct PendingDesignHandoffResponse {
-    pub task_id: Uuid,
-    pub repo_id: Uuid,
-    pub title: String,
-    #[ts(type = "number | null")]
-    pub issue_number: Option<i64>,
-    pub worker_name: String,
-    pub worker_emoji: String,
-    pub deliverable_ref: Option<String>,
-    pub result_summary: Option<String>,
-    #[ts(type = "Date | null")]
-    pub completed_at: Option<DateTime<Utc>>,
-}
-
-impl From<PendingDesignHandoff> for PendingDesignHandoffResponse {
-    fn from(p: PendingDesignHandoff) -> Self {
-        Self {
-            task_id: p.task_id,
-            repo_id: p.repo_id,
-            title: p.title,
-            issue_number: p.issue_number,
-            worker_name: p.worker_name,
-            worker_emoji: p.worker_emoji,
-            deliverable_ref: p.deliverable_ref,
-            result_summary: p.result_summary,
-            completed_at: p.completed_at,
-        }
-    }
-}
-
-/// GET /api/workers/design-handoffs/pending — finished designer deliverables
-/// no analyst has taken yet. Feeds the Analyst Desk picker.
-pub async fn list_pending_design_handoffs(
-    State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<Vec<PendingDesignHandoffResponse>>>, ApiError> {
-    let pool = &deployment.db().pool;
-    let pending = WorkerTask::find_pending_design_handoffs(pool).await?;
-    let response: Vec<PendingDesignHandoffResponse> = pending.into_iter().map(Into::into).collect();
-    Ok(ResponseJson(ApiResponse::success(response)))
-}
-
 fn is_valid_role(role: &str) -> bool {
     matches!(
         role,
-        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER
+        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER | ROLE_QA
     )
 }
 
 async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerResponse, ApiError> {
-    let active_workspace_id = Worker::active_workspace_id(pool, worker.id).await?;
+    let active_workspace_ids = Worker::active_workspace_ids(pool, worker.id).await?;
+    let active_workspace_id = active_workspace_ids.first().copied();
+    let migrated_from = Worker::migrated_from(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
     let gh_write_warning = utils::text::has_gh_write_patterns(&worker.soul);
@@ -642,12 +613,15 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         emoji: worker.emoji,
         soul: worker.soul,
         role: worker.role,
+        executor: worker.executor,
         model: worker.model,
         has_github_pat: worker.github_pat.is_some(),
         github_login: worker.github_login,
         plan_mode: worker.plan_mode,
         archived: worker.archived,
         active_workspace_id,
+        active_workspace_ids,
+        migrated_from,
         queued_count,
         completed_count,
         gh_write_warning,
@@ -710,6 +684,14 @@ pub async fn create_worker(
         }
     }
 
+    // A model is only meaningful for one agent: pin the default agent when
+    // the caller picked a model without saying whose.
+    let model = payload.model.filter(|m| !m.is_empty());
+    let executor = match payload.executor {
+        None if model.is_some() => Some(default_executor(&deployment).await),
+        executor => executor,
+    };
+
     let pool = &deployment.db().pool;
     let worker = Worker::create(
         pool,
@@ -718,7 +700,8 @@ pub async fn create_worker(
             emoji: emoji.to_string(),
             soul: payload.soul,
             role: payload.role,
-            model: payload.model.filter(|m| !m.is_empty()),
+            executor,
+            model,
             github_pat,
             github_login,
             plan_mode: payload.plan_mode,
@@ -762,7 +745,11 @@ pub async fn update_worker(
         .filter(|r| !r.is_empty());
 
     if let Some(ref r) = role {
-        if !is_valid_role(r) {
+        // Fluke keeps its role; no other worker can take it.
+        if (existing.role == ROLE_ORCHESTRATOR) != (r == ROLE_ORCHESTRATOR) {
+            return Err(ApiError::BadRequest(format!("Invalid role: {r}")));
+        }
+        if !is_valid_role(r) && r != ROLE_ORCHESTRATOR {
             return Err(ApiError::BadRequest(format!("Invalid role: {r}")));
         }
         // Block role changes while tasks are in flight to avoid lifecycle confusion.
@@ -775,6 +762,13 @@ pub async fn update_worker(
 
     // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
     let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
+    // Same invariant as create: a pinned model always has a pinned agent.
+    let mut executor = payload.executor;
+    if model.clone().unwrap_or(existing.model.clone()).is_some()
+        && executor.unwrap_or(existing.executor).is_none()
+    {
+        executor = Some(Some(default_executor(&deployment).await));
+    }
 
     // Normalize PAT the same way, then validate a *new non-empty* value before
     // persisting. `None` (missing field) leaves it alone; `Some(None)` clears
@@ -811,6 +805,7 @@ pub async fn update_worker(
                 .filter(|s| !s.is_empty()),
             soul: payload.soul,
             role,
+            executor,
             model,
             github_pat,
             github_login,
@@ -821,6 +816,10 @@ pub async fn update_worker(
 
     let response = to_response(pool, worker).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+async fn default_executor(deployment: &DeploymentImpl) -> BaseCodingAgent {
+    deployment.config().read().await.executor_profile.executor
 }
 
 /// Empty / whitespace-only PAT is treated as "no token" — same as omitting
@@ -962,7 +961,7 @@ pub async fn delete_all_failed_tasks(
     )))
 }
 
-/// Clone an existing worker's identity (emoji, soul, role, model) into a new
+/// Clone an existing worker's identity (emoji, soul, role, agent, model) into a new
 /// worker. The duplicate is named `"Copia de {name}"` and starts empty — no
 /// tasks or workspaces are copied. Returns 201 with the new worker, or 404
 /// when the source worker does not exist.
@@ -991,6 +990,7 @@ pub async fn duplicate_worker(
             emoji: source.emoji,
             soul: source.soul,
             role: Some(source.role),
+            executor: source.executor,
             model: source.model,
             github_pat: None,
             github_login: None,
@@ -1102,6 +1102,11 @@ pub async fn create_worker_task(
     let worker = Worker::find_by_id(pool, worker_id)
         .await?
         .ok_or_else(|| ApiError::BadRequest("Worker not found".into()))?;
+    if worker.role == ROLE_ORCHESTRATOR {
+        return Err(ApiError::BadRequest(
+            "Fluke does not take queue tasks".into(),
+        ));
+    }
 
     // Validate the referenced repo exists (surfaced as 400 rather than
     // a FK violation).
@@ -1426,6 +1431,7 @@ fn map_start_error(err: StartError) -> ApiError {
     match err {
         StartError::WorkerNotFound => ApiError::BadRequest("Worker not found".into()),
         StartError::RepoNotFound => ApiError::BadRequest("Repo not found".into()),
+        e @ StartError::ProviderDisconnected(_) => ApiError::BadRequest(e.to_string()),
         StartError::RepoMissingDefaultBranch(repo_name) => ApiError::BadRequest(format!(
             "Repo '{}' is missing a default target branch. Configure it in Settings \u{2192} Repos \u{2192} {} \u{2192} Default target branch",
             repo_name, repo_name
@@ -1442,6 +1448,11 @@ fn map_start_error(err: StartError) -> ApiError {
                 "Concurrent-agents limit reached ({cap}). Task remains queued."
             ))
         }
+        StartError::NoFreeSlot => ApiError::Conflict(
+            "Todos los slots de agente están ocupados; la tarea queda en cola y arranca \
+             cuando se libere uno."
+                .into(),
+        ),
         StartError::LicenseSuspended => ApiError::Conflict(
             "La licencia está suspendida; no se arrancan agentes nuevos. \
              Los datos y el historial siguen disponibles. Contactá a fluke."
@@ -1594,11 +1605,12 @@ pub async fn cancel_worker_task(
     }
 
     if existing.status != worker_task::STATUS_IN_PROGRESS
+        && existing.status != worker_task::STATUS_WAITING_USER
         && existing.status != worker_task::STATUS_IN_REVIEW
         && existing.status != worker_task::STATUS_APPROVED
     {
         return Err(ApiError::Conflict(
-            "Only in_progress, in_review or approved tasks can be cancelled".into(),
+            "Only in_progress, waiting_user, in_review or approved tasks can be cancelled".into(),
         ));
     }
 
@@ -2223,10 +2235,6 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/workers/start-all", post(start_all_workers))
         .route("/workers/active-issue-task", get(get_active_issue_task))
         .route("/workers/design-handoffs", post(create_design_handoff))
-        .route(
-            "/workers/design-handoffs/pending",
-            get(list_pending_design_handoffs),
-        )
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
         .route("/workers/failed-tasks", delete(delete_all_failed_tasks))
         .route(

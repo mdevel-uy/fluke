@@ -120,8 +120,14 @@ import {
   CreateWorkerTaskRequest,
   UpdateWorkerTaskRequest,
   CreateDesignHandoffRequest,
-  PendingDesignHandoffResponse,
   DesignArtifactsResponse,
+  MissionDetail,
+  MissionSummary,
+  UpdateMissionRequest,
+  MilestoneRun,
+  IssueBlockerEntry,
+  UnstickRequest,
+  IssuePlanResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -488,17 +494,6 @@ export const workspacesApi = {
   getAllWorkspaces: async (): Promise<Workspace[]> => {
     const response = await makeRequest('/api/workspaces');
     return handleApiResponse<Workspace[]>(response);
-  },
-
-  /**
-   * Resolve (or lazily create) the scratch workspace for a repo. Backs the
-   * ad-hoc chat panel — one scratch workspace per repo, shared across sessions.
-   */
-  getScratchByRepo: async (repoId: string): Promise<WorkspaceContext> => {
-    const response = await makeRequest(
-      `/api/workspaces/scratch?repo_id=${encodeURIComponent(repoId)}`
-    );
-    return handleApiResponse<WorkspaceContext>(response);
   },
 
   get: async (workspaceId: string): Promise<Workspace> => {
@@ -1981,6 +1976,17 @@ export const repoIssuesApi = {
     );
     return handleApiResponse<RepoIssue>(response);
   },
+  comment: async (
+    repoId: string,
+    issueNumber: number,
+    body: string
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/comments`,
+      { method: 'POST', body: JSON.stringify({ body }) }
+    );
+    return handleApiResponse<void>(response);
+  },
 };
 
 // Scratch API
@@ -2268,6 +2274,49 @@ export const codegraphApi = {
   },
 };
 
+// Misiones del Director (en la UI, "Fluke").
+export const missionsApi = {
+  list: async (): Promise<MissionSummary[]> => {
+    const response = await makeRequest('/api/missions');
+    return handleApiResponse<MissionSummary[]>(response);
+  },
+  get: async (id: string): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}`);
+    return handleApiResponse<MissionDetail>(response);
+  },
+  create: async (repoId: string): Promise<MissionDetail> => {
+    const response = await makeRequest('/api/missions', {
+      method: 'POST',
+      body: JSON.stringify({ repo_id: repoId }),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  update: async (
+    id: string,
+    data: Partial<UpdateMissionRequest>
+  ): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  approve: async (
+    id: string,
+    analystWorkerId?: string
+  ): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ analyst_worker_id: analystWorkerId ?? null }),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  getWorkspace: async (id: string): Promise<WorkspaceContext> => {
+    const response = await makeRequest(`/api/missions/${id}/workspace`);
+    return handleApiResponse<WorkspaceContext>(response);
+  },
+};
+
 // Plan de trabajo del agente (grafo + control de ejecución).
 const planPost = async (url: string, body?: unknown): Promise<void> => {
   const response = await makeRequest(url, {
@@ -2288,6 +2337,15 @@ export const planApi = {
     planPost(`/api/plan/${workspaceId}/pause`, { on }),
   stop: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/stop`),
   play: (workspaceId: string) => planPost(`/api/plan/${workspaceId}/play`),
+  // Pregunta de ask_user que espera respuesta (argumentos de la llamada) o null.
+  pendingQuestion: async (workspaceId: string): Promise<unknown> => {
+    const response = await makeRequest(`/api/plan/${workspaceId}/question`);
+    return handleApiResponse<unknown>(response);
+  },
+  // Respuesta a la pregunta de ask_user: clave de una opción o texto libre.
+  // `question` es la pregunta respondida; si ya no es la pendiente, 409.
+  answer: (workspaceId: string, question: unknown, answer: string) =>
+    planPost(`/api/plan/${workspaceId}/answer`, { question, answer }),
   revert: (workspaceId: string, n: number) =>
     planPost(`/api/plan/${workspaceId}/steps/${n}/revert`),
   cut: (workspaceId: string, n: number, cut: boolean) =>
@@ -2444,6 +2502,8 @@ export interface CreateWorkerRequest {
   emoji: string;
   soul: string;
   role?: string;
+  /** Coding agent; `null` follows the global default agent. */
+  executor?: BaseCodingAgent | null;
   model?: string | null;
   /**
    * Optional per-worker GitHub PAT. Sent write-only; the server never
@@ -2570,17 +2630,6 @@ export const workersApi = {
   listTasks: async (workerId: string): Promise<WorkerTaskResponse[]> => {
     const response = await makeRequest(`/api/workers/${workerId}/tasks`);
     return handleApiResponse<WorkerTaskResponse[]>(response);
-  },
-
-  /**
-   * Finished designer deliverables no analyst has taken yet. Feeds the
-   * Analyst Desk picker and the sprint-board handoff dialog.
-   */
-  listPendingDesignHandoffs: async (): Promise<
-    PendingDesignHandoffResponse[]
-  > => {
-    const response = await makeRequest('/api/workers/design-handoffs/pending');
-    return handleApiResponse<PendingDesignHandoffResponse[]>(response);
   },
 
   /**
@@ -2861,5 +2910,96 @@ export const searchApi = {
       options
     );
     return handleApiResponse<SearchResult[]>(response);
+  },
+};
+
+// Play por milestone (fluke v2, #666).
+export const milestoneRunsApi = {
+  list: async (repoId: string): Promise<MilestoneRun[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs`
+    );
+    return handleApiResponse<MilestoneRun[]>(response);
+  },
+  play: async (
+    repoId: string,
+    milestone: string,
+    stepMode: boolean
+  ): Promise<MilestoneRun> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/play`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ milestone, step_mode: stepMode }),
+      }
+    );
+    return handleApiResponse<MilestoneRun>(response);
+  },
+  playAll: async (
+    repoId: string,
+    milestones: string[],
+    stepMode: boolean
+  ): Promise<MilestoneRun[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/play-all`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ milestones, step_mode: stepMode }),
+      }
+    );
+    return handleApiResponse<MilestoneRun[]>(response);
+  },
+  pause: async (repoId: string, milestone: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/pause`,
+      { method: 'POST', body: JSON.stringify({ milestone }) }
+    );
+    await handleApiResponse<void>(response);
+  },
+  reset: async (repoId: string, milestone: string): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/reset`,
+      { method: 'POST', body: JSON.stringify({ milestone }) }
+    );
+    await handleApiResponse<void>(response);
+  },
+  setStepMode: async (repoId: string, stepMode: boolean): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestone-runs/step-mode`,
+      { method: 'POST', body: JSON.stringify({ step_mode: stepMode }) }
+    );
+    await handleApiResponse<void>(response);
+  },
+};
+
+// Plan de fases del issue (fluke v2, #686).
+export const issuePhasesApi = {
+  get: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<IssuePlanResponse> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/phases`
+    );
+    return handleApiResponse<IssuePlanResponse>(response);
+  },
+  /** Open issues of the repo that need a person (#694). */
+  blockers: async (repoId: string): Promise<IssueBlockerEntry[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/blockers`
+    );
+    return handleApiResponse<IssueBlockerEntry[]>(response);
+  },
+  /** An exit of the Destrabar drawer other than answering (#696). */
+  unstick: async (
+    repoId: string,
+    issueNumber: number,
+    body: UnstickRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/unstick`,
+      { method: 'POST', body: JSON.stringify(body) }
+    );
+    await handleApiResponse<void>(response);
   },
 };

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Archive,
   ExternalLink,
+  Gavel,
   Loader2,
   Play,
   Plus,
@@ -11,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@vibe/ui/components/Button';
+import { Tooltip } from '@vibe/ui/components/Tooltip';
 import type { IssueLabel } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
@@ -20,6 +22,7 @@ import { cn } from '@/shared/lib/utils';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 import { ReassignTaskDialog } from './ReassignTaskDialog';
+import { PmDecisionDialog, hasPmDecisionPending } from './PmDecisionDialog';
 
 interface IssueDetailDrawerProps {
   issue: RepoIssue | null;
@@ -275,6 +278,13 @@ export function IssueDetailDrawer({
     void AssignToAgentDialog.show({ issue, repoId });
   };
 
+  const pmDecisionPending = issue ? hasPmDecisionPending(issue) : false;
+
+  const handlePmDecision = () => {
+    if (!issue) return;
+    void PmDecisionDialog.show({ issue, repoId });
+  };
+
   const handleReassign = () => {
     if (!issue || !linkedTask) return;
     void ReassignTaskDialog.show({
@@ -441,10 +451,29 @@ export function IssueDetailDrawer({
                         <UserCog className="h-3.5 w-3.5" />
                         {t('issues.reassignAction')}
                       </Button>
+                    ) : pmDecisionPending ? (
+                      <Tooltip content={t('issues.pmDecision.assignBlocked')}>
+                        <span className="inline-flex">
+                          <Button variant="tonal" size="sm" disabled>
+                            <Play className="h-3.5 w-3.5" />
+                            {t('issues.assignToAgent')}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     ) : (
                       <Button variant="tonal" size="sm" onClick={handleAssign}>
                         <Play className="h-3.5 w-3.5" />
                         {t('issues.assignToAgent')}
+                      </Button>
+                    )}
+                    {pmDecisionPending && (
+                      <Button
+                        variant="tonal"
+                        size="sm"
+                        onClick={handlePmDecision}
+                      >
+                        <Gavel className="h-3.5 w-3.5" />
+                        {t('issues.pmDecision.action')}
                       </Button>
                     )}
                     <Button

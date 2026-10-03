@@ -19,7 +19,6 @@ import {
   Users,
   AlertCircle,
   Zap,
-  ClipboardList,
   Workflow,
 } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
@@ -38,11 +37,10 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useAppUpdateStore } from '@/shared/stores/useAppUpdateStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
-import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
-  isAnalystDeskDestination,
   isCiPipelinesDestination,
   isDashboardDestination,
+  isFlukeDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
   isSourceControlDestination,
@@ -56,7 +54,7 @@ import { useCommandBarShortcut } from '@/shared/hooks/useCommandBarShortcut';
 import { ShellSidebarProvider, ShellSidebarSlot } from '../shell/ShellSidebar';
 import { ShellAsideSlot, useShellAsideHasContent } from '../shell/ShellAside';
 import { ShellTerminalPanel } from '../shell/ShellTerminalPanel';
-import { AdhocClaudePanel } from '@/features/adhoc-session';
+import { DirectorRoot } from '@/features/director';
 
 // Kept from the old WorkspacesLayout split so stored terminal heights migrate.
 const SHELL_TERMINAL_LAYOUT_ID = 'workspaces-bottom-layout';
@@ -150,7 +148,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
-  const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
+  const isFlukeActive = isFlukeDestination(currentDestination);
   const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
@@ -194,14 +192,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     else appNavigation.goToDashboard();
   }, [isDashboardActive, toggleLeftSidebar, appNavigation]);
 
-  // SHELL-SPEC R34: rail badge = nº of fleet branches stopped on conflicts.
-  const sourceControlBadgeCount = useFleetConflictCount();
-
-  const handleSourceControlClick = useCallback(() => {
-    if (isSourceControlActive) toggleLeftSidebar();
-    else appNavigation.goToSourceControl();
-  }, [isSourceControlActive, toggleLeftSidebar, appNavigation]);
-
   const handleSprintClick = useCallback(() => {
     if (isSprintActive) toggleLeftSidebar();
     else appNavigation.goToSprint();
@@ -216,11 +206,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     if (isWorkersActive) toggleLeftSidebar();
     else appNavigation.goToWorkers();
   }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
-
-  const handleAnalystDeskClick = useCallback(() => {
-    if (isAnalystDeskActive) toggleLeftSidebar();
-    else appNavigation.goToAnalystDesk();
-  }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
   const handleCiPipelinesClick = useCallback(() => {
     if (isCiPipelinesActive) toggleLeftSidebar();
@@ -297,7 +282,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     isIssuesActive ||
     isWorkersActive ||
     isDashboardActive ||
-    isAnalystDeskActive ||
     isCiPipelinesActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   // The horizontal split is intentionally NOT persisted: stored proportions
@@ -362,28 +346,29 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
               <div className="flex min-h-0 overflow-hidden">
                 {/* Desktop AppBar sidebar. */}
                 <AppBar
+                  // fluke v2 (#689): the workspace and the source control of
+                  // an issue live in its page (Código / Sesiones). Their
+                  // routes stay for direct links and the command bar.
+                  showWorkspacesButton={false}
                   onWorkspacesClick={handleWorkspacesClick}
                   onEditorClick={handleEditorClick}
                   onSearchClick={handleSearchClick}
-                  onSourceControlClick={handleSourceControlClick}
                   onDashboardClick={handleDashboardClick}
                   onSprintClick={handleSprintClick}
+                  onFlukeClick={() => appNavigation.goToFluke()}
                   onIssuesClick={handleIssuesClick}
                   onWorkersClick={handleWorkersClick}
-                  onAnalystDeskClick={handleAnalystDeskClick}
                   onCiPipelinesClick={handleCiPipelinesClick}
                   isWorkspacesActive={
                     isWorkspacesActive && workspacesSidebarMode === 'workspaces'
                   }
                   isEditorActive={isEditorActive}
                   isSearchActive={isSearchActive}
-                  isSourceControlActive={isSourceControlActive}
-                  sourceControlBadgeCount={sourceControlBadgeCount}
                   isDashboardActive={isDashboardActive}
                   isSprintActive={isSprintActive}
+                  isFlukeActive={isFlukeActive}
                   isIssuesActive={isIssuesActive}
                   isWorkersActive={isWorkersActive}
-                  isAnalystDeskActive={isAnalystDeskActive}
                   isCiPipelinesActive={isCiPipelinesActive}
                   updateVersion={updateVersion}
                   onUpdateClick={restartForUpdate ?? undefined}
@@ -465,7 +450,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                       maxSize="480px"
                       className="h-full overflow-hidden border-l border-md-outline-variant"
                     >
-                      <ShellAsideSlot className="h-full min-h-0 overflow-hidden" />
+                      <ShellAsideSlot className="flex h-full min-h-0 flex-col overflow-hidden" />
                     </Panel>
                   )}
                 </Group>
@@ -491,9 +476,9 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
             </div>
           )}
 
-          {/* Global ad-hoc Claude panel — right slide-in overlay, portaled to
-            document.body so it doesn't push the main column. */}
-          <AdhocClaudePanel />
+          {/* Director ("Fluke"): floating bubble/panel, anchored aside or
+            full-screen view. */}
+          <DirectorRoot />
 
           {/* Mobile navigation drawer */}
           <MobileDrawer
@@ -558,18 +543,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                 >
                   <Users className="h-4 w-4" strokeWidth={2} />
                   {t('appBar.workers')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleAnalystDeskClick();
-                    setIsDrawerOpen(false);
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-                >
-                  <ClipboardList className="h-4 w-4" strokeWidth={2} />
-                  {t('appBar.analystDesk')}
                 </button>
 
                 <button

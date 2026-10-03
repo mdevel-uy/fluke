@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "行折り返しの切り替え",
       "run-setup-script": "セットアップスクリプトを実行",
       "run-cleanup-script": "クリーンアップスクリプトを実行",
-      "run-archive-script": "アーカイブスクリプトを実行"
+      "run-archive-script": "アーカイブスクリプトを実行",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -584,7 +585,11 @@
     "permissionPlan": "計画",
     "agent": "エージェント",
     "default": "デフォルト",
-    "model": "モデル"
+    "model": "モデル",
+    "errors": {
+      "claude_not_connected": "Claude is not connected. Showing the built-in model list.",
+      "claude_models_fallback": "Could not load the Claude model list. Showing the built-in list."
+    }
   },
   "crashScreen": {
     "title": "問題が発生しました",
@@ -622,7 +627,7 @@
       "ariaLabel": "コマンドバーを開く"
     },
     "layout": {
-      "toggleAdhocClaude": "アドホック Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -636,28 +641,12 @@
     "issuesRefreshNew_other": "{{count}} 件の新しいイシュー",
     "issuesRefreshNone": "新しいイシューはありません"
   },
-  "adhocPanel": {
-    "title": "アドホック Claude",
-    "close": "アドホック Claude パネルを閉じる",
-    "newSession": "新しいセッション",
-    "loading": "Claude セッションを準備中…",
-    "noRepo": {
-      "title": "利用できるリポジトリがありません",
-      "description": "アドホック Claude セッションを開始するにはリポジトリを追加してください。"
-    },
-    "error": {
-      "title": "アドホックセッションを開けませんでした",
-      "description": "スクラッチワークスペースの準備中にエラーが発生しました。",
-      "retry": "再試行"
-    }
-  },
   "appBar": {
     "dashboard": "ダッシュボード",
     "workspaces": "ワークスペース",
     "issues": "課題",
-    "workers": "ワーカー",
+    "workers": "プロフィール",
     "sprint": "カンバン",
-    "analystDesk": "アナリストデスク",
     "ciPipelines": "CIパイプライン",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
@@ -895,7 +884,15 @@
     "confirmSelection": "選択を確定",
     "submitting": "回答を送信中...",
     "answeredCount": "{{count}}件の質問に回答済み",
-    "answeredCount_other": "{{count}}件の質問に回答済み"
+    "answeredCount_other": "{{count}}件の質問に回答済み",
+    "recommended": "推奨",
+    "why": "理由: {{why}}",
+    "otherPlaceholder": "または別の回答を入力",
+    "send": "送信",
+    "answered": "回答済み: {{answer}}",
+    "closed": "回答待ちではありません",
+    "stale": "この質問はもう保留中ではありません。回答済みか、新しい質問に置き換えられました。",
+    "agentRunning": "エージェントはまだターンを終了中です。少し待ってから再試行してください。"
   },
   "issues": {
     "title": "Issues",
@@ -916,12 +913,23 @@
     "emptyDescription": "更新してソースから Issue を同期してください。",
     "assignToAgent": "エージェントに割り当てる",
     "reassignAction": "再割り当て",
+    "pmDecision": {
+      "action": "PMの決定",
+      "title": "#{{number}} のPMの決定",
+      "description": "テキストはGitHubのissueにコメントとして投稿され、pm:decisionラベルが削除されます。",
+      "placeholder": "決定内容を入力...",
+      "confirm": "決定を公開",
+      "retryLabelRemoval": "ラベル削除を再試行",
+      "labelRemovalFailed": "決定はGitHubに公開されましたが、pm:decisionラベルを削除できませんでした: {{error}}",
+      "assignBlocked": "PMの決定待ちです。このissueを割り当てる前に決定を公開してください。"
+    },
     "archiveAction": "アーカイブ",
     "taskStatus": {
       "queued": "待機中",
       "in_progress": "進行中",
       "in_review": "レビュー中",
-      "done": "完了"
+      "done": "完了",
+      "waiting_user": "回答待ち"
     },
     "taskLinked": {
       "openWorkspace": "ワークスペースを開く",
@@ -994,8 +1002,7 @@
       "groupByOptions": {
         "none": "なし",
         "label": "ラベル",
-        "milestone": "マイルストーン",
-        "execution": "実行プラン"
+        "milestone": "マイルストーン"
       },
       "clear": "フィルターをクリア",
       "noResults": "現在のフィルターに一致する Issue はありません。",
@@ -1023,21 +1030,308 @@
       "archiveConfirm": "GitHub で Issue #{{number}} をクローズしますか？クローズフィルターに移動します。",
       "archiveAction": "Issue をクローズ"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "表示",
+      "tabs": {
+        "list": "リスト",
+        "groups": "グループ",
+        "plan": "プラン"
+      },
+      "slots": "スロット {{used}}/{{limit}}",
+      "pauseBetweenWaves": "各ウェーブの後で一時停止",
+      "collapseAll": "すべて折りたたむ",
+      "expandAll": "すべて展開",
+      "runAll": "すべて実行",
+      "play": "マイルストーンを実行",
+      "collapse": "マイルストーンを折りたたむ",
       "wave": "ウェーブ {{n}}",
-      "parallel": "{{n}} 件のイシューを同時に割り当てられます",
-      "single": "このウェーブのイシューは 1 件のみ",
-      "unwaved": "ウェーブなし",
-      "unwavedHint": "feature はありますが有効な wave: ラベルがありません — 1 件ずつ割り当ててください",
-      "unclassified": "未分類",
-      "unclassifiedHint": "feature: ラベルがありません — 計画できません。1 件ずつ割り当ててください",
-      "contentionTitle": "競合しているシリアライズ済みリソース",
-      "contentionHint": "これらのイシューはリポジトリ全体の同じリソースを要求しています。異なる機能であっても、同時に開ける PR は 1 つだけです。",
-      "empty": "計画対象のオープンなイシューがありません。"
+      "merged": "{{done}}/{{total}} マージ済み",
+      "status": {
+        "readyTitle": "実行可能",
+        "waves_other": "{{count}} ウェーブ",
+        "issues_other": "{{count}} 件の issue",
+        "gateDetail": "#{{n}} のあなたの判断待ちで開始",
+        "runningTitle": "ウェーブ {{n}} を実行中",
+        "runningDetail": "{{count}} 件を並行実行",
+        "waitingDecisionTitle": "停止中: あなたの判断待ち",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "停止中",
+        "failedDetail": "#{{n}} が失敗しました。再割り当てかクローズで続行",
+        "pausedTitle": "一時停止中",
+        "pausedDetail": "実行中のものは完了まで続きます",
+        "stepTitle": "ウェーブ {{n}} 完了",
+        "stepDetail": "再生でウェーブ {{n}} を開始",
+        "doneTitle": "マイルストーン完了",
+        "doneDetail": "すべての PR がマージ済み",
+        "stuckTitle": "#{{n}} が対応を待っています",
+        "stuckDetail": "wave の残りは実行を続けます"
+      },
+      "card": {
+        "ready": "● 準備完了",
+        "gate": "◆ 判断待ち",
+        "blocked": "ウェーブ {{n}} 待ち",
+        "queued": "キュー",
+        "running": "実行中",
+        "review": "レビュー中",
+        "done": "✓ マージ済み",
+        "manual": "手動",
+        "decideNow": "今すぐ判断",
+        "workerBranch": "{{name}} · 自分のブランチで作業中",
+        "prReview": "{{name}} · PR レビュー中",
+        "open": "issue #{{n}} を開く",
+        "openHint": "開く →",
+        "waitingYou": "{{name}} · 回答待ち",
+        "ago": "{{age}}前",
+        "unstick": "解除する",
+        "stuck": "⚠ 停止中"
+      },
+      "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
+      "legend": {
+        "ready": "準備完了",
+        "running": "実行中",
+        "review": "レビュー中",
+        "gate": "PM の判断",
+        "queued": "キュー（空きスロットなし）",
+        "blocked": "前のウェーブ待ち"
+      },
+      "empty": "マイルストーンとウェーブのある未完了の issue はありません。",
+      "expand": "マイルストーンを展開",
+      "summary": {
+        "done": "{{count}} マージ済み",
+        "running": "{{count}} 実行中",
+        "review": "{{count}} レビュー中",
+        "queued": "{{count}} キュー",
+        "gate": "{{count}} 判断待ち",
+        "todo": "{{count}} 未着手",
+        "working": "作業中",
+        "decide": "#{{n}} を判断",
+        "stuck_other": "{{count}} 件が対応待ち",
+        "unstick": "#{{n}} を解除"
+      },
+      "decision": {
+        "eyebrow": "判断待ち",
+        "eyebrowWave": "判断待ち · ウェーブ {{n}}",
+        "unblocks": "{{list}} のブロックを解除",
+        "viewOnGithub": "GitHub で見る",
+        "issue": "概要",
+        "verified": "アナリストがコードで確認したこと",
+        "toDecide": "決めること",
+        "answer": "回答",
+        "otherAnswer": "その他の回答",
+        "otherPlaceholder": "回答を入力",
+        "recommended": "推奨",
+        "why": "アナリストが ({{key}}) を推奨する理由:",
+        "note": "追加コメント",
+        "optional": "任意",
+        "notePlaceholder": "issue を担当する worker への補足",
+        "returnNeedsNote": "アナリストに足りないことをコメントに書いてください。",
+        "preview": "#{{n}} に投稿される内容",
+        "previewHint": "pm:decision ラベルも外れ、マイルストーンは続行します。",
+        "useRecommendations": "推奨を使う",
+        "returnToAnalyst": "アナリストに差し戻す",
+        "closeWithoutDoing": "対応せずにクローズ",
+        "decide": "決定して続行",
+        "confirmClose": "#{{n}} を対応せずにクローズしますか？",
+        "closeIssue": "issue をクローズ",
+        "followUpFailed": "コメントは投稿されましたが、次の手順が失敗しました: {{error}}。再試行しても二重投稿はされません。",
+        "commentTitle": "PM の判断",
+        "returnedTitle": "アナリストに差し戻し",
+        "closedTitle": "PM の判断により対応せずにクローズ",
+        "toast": {
+          "decided": "#{{n}} に判断を投稿 · pm:decision を削除",
+          "returned": "#{{n}} をアナリストに差し戻し",
+          "closed": "#{{n}} を対応せずにクローズ"
+        },
+        "openIssue": "issue を開く →"
+      },
+      "issuePage": {
+        "notFound": "issue #{{n}} が見つかりません。",
+        "backToIssues": "Issues に戻る",
+        "viewPr": "PR を見る",
+        "branch": "ブランチ",
+        "noTask": "この issue にはまだタスクがありません。",
+        "templateLine": "テンプレート",
+        "tabs": {
+          "plan": "プラン",
+          "code": "コード",
+          "sessions": "セッション"
+        },
+        "description": "issue の説明",
+        "originBy": "選択:",
+        "originFlow": "issue 間の流れ:",
+        "originSteps": "開発の手順:"
+      },
+      "pause": "マイルストーンを一時停止",
+      "reset": "リセット",
+      "phases": {
+        "origin": "起点",
+        "end": "終了",
+        "loop": "戻り",
+        "phaseN": "フェーズ {{n}}",
+        "loopLabel": "変更依頼 · ラウンド {{n}} → 同じブランチで戻る",
+        "round": "ラウンド {{n}}",
+        "mergeSub": "人の判断: あなたがマージします",
+        "state": {
+          "done": "完了",
+          "active": "進行中",
+          "changes": "変更依頼",
+          "stuck": "停止中",
+          "pending": "保留"
+        },
+        "kind": {
+          "origin": "issue 作成",
+          "design": "デザイン",
+          "dev": "開発",
+          "review": "レビュー",
+          "merge": "マージ",
+          "tdd": "テスト先行",
+          "test": "テスト"
+        },
+        "profile": "プロフィール",
+        "instance": "インスタンス",
+        "ephemeral": "(一時的)",
+        "status": "状態",
+        "duration": "所要時間",
+        "cost": "コスト",
+        "output": "出力",
+        "viewSession": "エージェントのセッションを見る",
+        "viewPrComments": "PR のコメントを見る",
+        "selectHint": "フェーズを選ぶと詳細が表示されます。"
+      },
+      "templates": {
+        "title": "フェーズのテンプレート",
+        "hint": "Fluke が brief で選びます: デザインが必要か、TDD を使うか（意味がある場合は確認します）。Analyst はフェーズを変えず、issue 間の流れを組み立てます。",
+        "names": {
+          "tdd": "TDD あり",
+          "no_tdd": "TDD なし",
+          "design": "デザインあり",
+          "bug": "バグ",
+          "decision": "判断あり",
+          "none": "現在のフロー（プランなし）"
+        },
+        "phases": {
+          "tdd": "テスト先行",
+          "dev": "開発",
+          "test": "テスト",
+          "review": "レビュー",
+          "merge": "マージ",
+          "design": "デザイン",
+          "approval": "あなたの OK",
+          "withOrWithoutTdd": "…TDD の有無",
+          "reproduce": "再現",
+          "failingTest": "失敗するテスト",
+          "fix": "修正",
+          "decision": "あなたの判断",
+          "baseTemplate": "…基本テンプレート"
+        }
+      },
+      "code": {
+        "changes": "issue の変更",
+        "terminal": "ターミナル · issue のワークスペース",
+        "terminalHint": "全フェーズで共有",
+        "noTerminal": "ターミナルは issue のワークスペースが有効な間だけ使えます。"
+      },
+      "sessions": {
+        "empty": "まだ実行されたフェーズはありません。",
+        "onePerPhase": "フェーズごとに 1 セッション",
+        "live": "ライブ",
+        "readOnly": "終了 · 読み取り専用",
+        "waitingYou": "あなたの回答待ち",
+        "discarded": "インスタンスは破棄されました。セッションはこのフェーズの記録として残ります。"
+      },
+      "attention_other": "{{count}} 件が対応待ち",
+      "stuck": {
+        "unstick": "解除する",
+        "viewSession": "セッションを見る",
+        "since": "{{age}}前から停止",
+        "banner": "{{phase}} が {{age}}前から停止",
+        "bannerNoAge": "{{phase}} が停止",
+        "kindsTitle": "フェーズが停止するとき",
+        "thisCase": "この issue が該当します。",
+        "kindsNote": "通知する前に Fluke は自分で試みます。インフラの障害は待ち時間を延ばしながら再試行し、人が必要なものだけを知らせます。",
+        "kinds": {
+          "question": {
+            "title": "エージェントが自分で決められないことを質問している",
+            "hint": "回答を待っています。"
+          },
+          "failed": {
+            "title": "同じことが続けて何度も失敗する",
+            "hint": "N 回試してもテストや CI が赤。"
+          },
+          "review_cap": {
+            "title": "レビューのラウンドを使い切った",
+            "hint": "すべてのラウンドで変更を求められた。"
+          },
+          "no_progress": {
+            "title": "N 分間進捗がない",
+            "hint": "セッションが固まっているか外部を待っている。"
+          },
+          "credential": {
+            "title": "認証情報か権限が足りない",
+            "hint": "PAT の期限切れ、存在しないシークレット。"
+          }
+        }
+      },
+      "unstick": {
+        "eyebrow": "⚠ 停止中 · {{phase}} · {{age}}前",
+        "eyebrowNoAge": "⚠ 停止中 · {{phase}}",
+        "instanceAlive": "インスタンスは待機したまま動いています",
+        "notStuck": "この issue はもう停止していません。",
+        "whatHappened": "何が起きたか",
+        "tried": "すでに試したこと",
+        "triedRound": "ラウンド {{n}}: 変更を要求",
+        "question": "エージェントの質問",
+        "recommended": "エージェントの推奨",
+        "otherAnswer": "別の回答",
+        "otherPlaceholder": "回答を入力",
+        "why": "推奨の理由 ({{key}}):",
+        "note": "エージェントへの補足",
+        "optional": "任意",
+        "notePlaceholder": "例: 別の issue で決めたことと揃えてください",
+        "alternatives": "ほかの解除方法",
+        "alt": {
+          "fluke": {
+            "title": "Fluke と相談する",
+            "hint": "自分の言葉で説明すると Fluke がエージェントに伝えます"
+          },
+          "session": {
+            "title": "エージェントに書く",
+            "hint": "ライブのセッションで会話する"
+          },
+          "code": {
+            "title": "自分で引き継ぐ",
+            "hint": "コードを開いてそこから自分で続ける"
+          },
+          "retry": {
+            "title": "再試行",
+            "hint": "フェーズがキューに戻り新しいインスタンスが引き継ぐ"
+          },
+          "back": {
+            "title": "先にテストへ戻る",
+            "hint": "問題がテストの要求にある場合"
+          },
+          "cancel": {
+            "title": "issue をキャンセル",
+            "hint": "issue を閉じ、wave はそれなしで続く"
+          }
+        },
+        "confirmCancel": "#{{n}} をキャンセルしますか? 進行中の作業を止めて issue を閉じます。",
+        "keep": "戻る",
+        "footHint": "回答は同じセッションに送られ、エージェントが続行します。",
+        "answer": "回答して続行",
+        "flukeMessage": "issue #{{n}}「{{title}}」の停止を解除したい。{{phase}} フェーズが停止しています: {{message}}\n解決を手伝って。方針が決まったらエージェントに回答します。",
+        "toast": {
+          "answered": "回答を送信 · #{{n}} は続行",
+          "retried": "#{{n}} をキューに戻しました",
+          "backToTests": "#{{n}} は先にテストへ戻ります",
+          "canceledIssue": "#{{n}} をキャンセル。wave はそれなしで続きます",
+          "fluke": "Fluke が #{{n}} について停止の状況を踏まえて会話を開きます"
+        }
+      }
     }
   },
   "workers": {
-    "title": "ワーカー",
+    "title": "プロフィール",
     "newWorker": "新しいワーカー",
     "loading": "ワーカーを読み込み中...",
     "loadError": "ワーカーの読み込みに失敗しました。",
@@ -1134,6 +1428,17 @@
       "saveEdit": "変更を保存",
       "modelLabel": "モデル",
       "modelDefault": "デフォルト（グローバル）",
+      "modelHelp": "ワーカーは選択したモデルのプロバイダーを使用します。「デフォルト」はデフォルトのプロバイダーが変わると追従します。",
+      "modelProviderDefault": "プロバイダーのデフォルトモデル",
+      "modelProviderIsDefault": "デフォルト",
+      "modelNotConnectedGroup": "未接続",
+      "modelNotConnected": "未接続",
+      "modelProviderDisconnected": "未接続",
+      "modelProviderDisconnectedHelp": "{{provider}} は接続されていません。このワーカーのタスクは開始時に失敗します。設定で {{provider}} を接続するか、別のモデルを選択してください。",
+      "modelUnavailable": "利用不可",
+      "modelUnavailableHelp": "{{model}} は {{provider}} のリストにありません。別のモデルを選ぶまで、タスクは {{provider}} のデフォルトモデルを使用します。",
+      "modelConnectProvider": "{{provider}} を接続",
+      "modelConnectProviders": "プロバイダーを接続",
       "planModeLabel": "プランモード",
       "planModeGlobal": "グローバル設定に従う",
       "planModeOn": "強制的に有効",
@@ -1163,7 +1468,11 @@
       "developerDescription": "機能を実装してプルリクエストを作成します",
       "analystDescription": "調査を行い、書面による成果物を作成します",
       "reviewerDescription": "コードをレビューしてフィードバックを提供します",
-      "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します"
+      "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "コードより先にテストを書き、レビュー前に PR を検証します"
     },
     "toast": {
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",
@@ -1185,69 +1494,6 @@
       "purgeAllSuccess": "アーカイブ済みのワーカー {{count}} 件を完全に削除しました。",
       "purgeAllError": "アーカイブ済みワーカーの削除に失敗しました：{{message}}",
       "dismiss": "閉じる"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "デザインを添付",
-      "pendingCount": "未着手 {{n}} 件",
-      "searchPlaceholder": "タイトルまたはデザイナーで検索…",
-      "empty": "未着手のデザインはありません",
-      "attachedHint": "オーケストレーターが参照・要約・fetch手順をプロンプトに追加します。",
-      "remove": "デザインを外す",
-      "notePlaceholder": "PM指示(任意):優先度、制約…"
-    },
-    "title": "アナリストデスク",
-    "repoLabel": "リポジトリ",
-    "analystsLabel": "アナリスト",
-    "skillsPicker": "スキル",
-    "skillsEmpty": "インストール済みのスキルはありません。",
-    "requestLabel": "依頼",
-    "promptPlaceholder": "アナリストに依頼したい内容を記述してください。例: 通知エピックを受け入れ基準付きの小さなissueに分解する。",
-    "hint": "アナリストが空いていれば即時実行、作業中ならキューに追加されます。",
-    "submit": "依頼を送信",
-    "loading": "読み込み中...",
-    "loadError": "アナリストを読み込めませんでした。",
-    "noAnalystsTitle": "アナリストがいません",
-    "noAnalystsDescription": "Analystロールのワーカーを作成すると依頼を送れます。",
-    "goToWorkers": "Workersへ",
-    "historyTitle": "{{worker}} への依頼",
-    "historyEmpty": "まだ依頼はありません。依頼と結果がここに表示されます。",
-    "openWorkspace": "実行を見る",
-    "retry": "再試行",
-    "stop": "停止",
-    "remove": "削除",
-    "stopConfirmMessage": "この依頼を停止しますか？コンテナが停止し、依頼が削除されます。",
-    "removeConfirmMessage": "この依頼をアナリストのキューから削除しますか？",
-    "cancelConfirm": "キャンセル",
-    "stopConfirm": "停止",
-    "removeConfirm": "削除",
-    "dismiss": "閉じる",
-    "status": {
-      "queued": "待機中",
-      "queuedAhead": "待機中 · 前に {{ahead}} 件",
-      "inProgress": "実行中",
-      "done": "完了",
-      "failed": "失敗"
-    },
-    "toast": {
-      "started": "{{worker}} が依頼に着手しました。",
-      "queued": "{{worker}} のキューに追加しました。",
-      "error": "依頼を送信できませんでした: {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "画像をここにドラッグ、クリックして追加、または貼り付け",
-      "addMore": "画像を追加",
-      "removeAria": "{{name}} を削除",
-      "uploading": "アップロード中",
-      "errorLabel": "アップロードに失敗しました",
-      "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
-      "tooLarge": "ファイルサイズが上限を超えています。"
-    },
-    "labelsInput": {
-      "title": "Issue ラベル",
-      "placeholder": "例: design, bug",
-      "removeAria": "ラベル {{label}} を削除"
     }
   },
   "ciPipelines": {
@@ -1653,5 +1899,137 @@
       "correction": "修正ステップ {{n}} として承認"
     },
     "error": "操作を完了できませんでした: {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference",
+      "tdd": "TDD"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "ミッションの状態",
+      "understand": {
+        "title": "理解",
+        "todo": "Fluke が brief に必要なことを質問します",
+        "done": "質問に回答済み"
+      },
+      "brief": {
+        "title": "Brief + テンプレート",
+        "todo": "Fluke が brief を書きテンプレートを選びます",
+        "done": "v{{v}} 承認済み · {{template}}"
+      },
+      "breakdown": {
+        "title": "分解",
+        "todo": "Analyst が issue、wave、その流れを作ります",
+        "done": "{{issues}} 件の issue、{{waves}} wave"
+      },
+      "plan": {
+        "title": "内部計画",
+        "todo": "各 dev が自分の issue の手順を作ります",
+        "done": "dev が手順を作りました"
+      },
+      "run": {
+        "title": "実行",
+        "todo": "Issues の milestone を play で実行",
+        "done": "milestone 完了"
+      },
+      "template": {
+        "tddDesign": "TDD とデザインあり",
+        "tddNoDesign": "TDD あり、デザインなし",
+        "noTddDesign": "TDD なし、デザインあり",
+        "noTddNoDesign": "TDD もデザインもなし"
+      }
+    },
+    "proposal": {
+      "title": "Analyst の提案",
+      "decision": "決定待ち",
+      "openInIssues": "Issues で開く",
+      "message": "Analyst は {{issues}} 件の issue を {{waves}} wave で提案しています。私が選んだテンプレートの上で issue 間の流れを作りました。各 dev は開始時に自分の issue の内部計画を作ります。Issues に milestone ができているので play を押してください。",
+      "viewMilestone": "milestone を見る",
+      "runNow": "今すぐ実行"
+    }
+  },
+  "profiles": {
+    "new": "新しいプロフィール",
+    "newHint": "ロール、エージェント、モデル、指示を設定",
+    "bannerStart": "プロフィールはテンプレートです。フェーズが始まるたびに、プロフィールの",
+    "bannerInstance": "一時的なインスタンス",
+    "bannerEnd": "が作られ、issue のワークスペースで作業し、終わると破棄されます。名前も専用キューもありません。プロフィールの全インスタンスはその PAT（なければあなたの PAT）を使います。",
+    "slots": "グローバルスロット {{used}}/{{limit}}",
+    "adjustInSettings": "Settings で調整",
+    "baseRole": "基本ロール: {{role}}",
+    "agent": "エージェント",
+    "github": "GitHub",
+    "ownPat": "専用 PAT · @{{login}}",
+    "userPat": "ユーザーの PAT",
+    "migratedFrom": "移行元",
+    "instancesNow": "現在のインスタンス",
+    "none": "なし",
+    "defaultAgent": "デフォルトのエージェント",
+    "defaultModel": "デフォルトのモデル"
   }
 }

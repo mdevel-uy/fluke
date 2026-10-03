@@ -17,10 +17,20 @@ import { WorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 
 interface WorkspaceProviderProps {
   children: ReactNode;
+  /**
+   * Workspace to provide instead of the one in the URL. The issue page
+   * (#689) embeds an issue's workbench this way; everywhere else the id
+   * still comes from the route.
+   */
+  workspaceId?: string;
 }
 
-export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
-  const { workspaceId } = useParams({ strict: false });
+export function WorkspaceProvider({
+  children,
+  workspaceId: workspaceIdProp,
+}: WorkspaceProviderProps) {
+  const { workspaceId: workspaceIdParam } = useParams({ strict: false });
+  const workspaceId = workspaceIdProp ?? workspaceIdParam;
   const appNavigation = useAppNavigation();
   const queryClient = useQueryClient();
 

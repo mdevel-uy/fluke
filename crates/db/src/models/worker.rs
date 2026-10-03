@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use executors::executors::BaseCodingAgent;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
@@ -7,6 +8,11 @@ pub const ROLE_DEVELOPER: &str = "developer";
 pub const ROLE_ANALYST: &str = "analyst";
 pub const ROLE_REVIEWER: &str = "reviewer";
 pub const ROLE_DESIGNER: &str = "designer";
+/// QA profile (fluke v2, #687): writes tests first and validates PRs.
+pub const ROLE_QA: &str = "qa";
+/// El Director (en la UI, "Fluke"): uno solo por instalación, lo crea fluke
+/// y nunca toma tareas de la cola.
+pub const ROLE_ORCHESTRATOR: &str = "orchestrator";
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Worker {
@@ -15,6 +21,9 @@ pub struct Worker {
     pub emoji: String,
     pub soul: String,
     pub role: String,
+    /// Coding agent this worker runs on. `None` = follow the global default
+    /// agent. `model` always belongs to this agent's catalog.
+    pub executor: Option<BaseCodingAgent>,
     pub model: Option<String>,
     /// Personal Access Token for GitHub. Write-only: never returned by the
     /// API. When set, push/PR/review operations performed on behalf of this
@@ -51,6 +60,7 @@ pub struct CreateWorker {
     pub emoji: String,
     pub soul: String,
     pub role: Option<String>,
+    pub executor: Option<BaseCodingAgent>,
     pub model: Option<String>,
     pub github_pat: Option<String>,
     /// Login resolved from PAT validation; must be `Some` whenever
@@ -65,6 +75,8 @@ pub struct UpdateWorker {
     pub emoji: Option<String>,
     pub soul: Option<String>,
     pub role: Option<String>,
+    /// `None` = don't change; `Some(None)` = follow the global default agent.
+    pub executor: Option<Option<BaseCodingAgent>>,
     /// `None` = don't change; `Some(None)` = clear to global default; `Some(Some(x))` = set override
     pub model: Option<Option<String>>,
     /// `None` = don't touch; `Some(None)` = clear the PAT; `Some(Some(x))` = set new PAT.
@@ -85,7 +97,7 @@ impl Worker {
     /// through `find_by_id` or `list_archived`.
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE archived = 0
                ORDER BY created_at ASC",
@@ -99,7 +111,7 @@ impl Worker {
     /// the "Workers archivados" section on the workers page.
     pub async fn list_archived(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE archived = 1
                ORDER BY created_at ASC",
@@ -110,11 +122,23 @@ impl Worker {
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE id = ?1",
         )
         .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// The Director worker, archived or not (there is at most one).
+    pub async fn find_orchestrator(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Worker>(
+            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+               FROM workers
+               WHERE role = ?1",
+        )
+        .bind(ROLE_ORCHESTRATOR)
         .fetch_optional(pool)
         .await
     }
@@ -139,14 +163,15 @@ impl Worker {
         let id = Uuid::new_v4();
         let role = data.role.as_deref().unwrap_or(ROLE_DEVELOPER).to_string();
         sqlx::query(
-            "INSERT INTO workers (id, name, emoji, soul, role, model, github_pat, github_login, plan_mode)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO workers (id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         )
         .bind(id)
         .bind(&data.name)
         .bind(&data.emoji)
         .bind(&data.soul)
         .bind(&role)
+        .bind(data.executor)
         .bind(&data.model)
         .bind(&data.github_pat)
         .bind(&data.github_login)
@@ -173,6 +198,7 @@ impl Worker {
         let soul = data.soul.as_ref().unwrap_or(&existing.soul);
         let role = data.role.as_ref().unwrap_or(&existing.role);
         // None = keep existing; Some(None) = clear; Some(Some(x)) = set to x
+        let executor = data.executor.unwrap_or(existing.executor);
         let model = data.model.clone().unwrap_or(existing.model.clone());
         let github_pat = data
             .github_pat
@@ -193,7 +219,8 @@ impl Worker {
                     model        = ?6,
                     github_pat   = ?7,
                     github_login = ?8,
-                    plan_mode    = ?9
+                    plan_mode    = ?9,
+                    executor     = ?10
               WHERE id = ?1",
         )
         .bind(id)
@@ -205,12 +232,29 @@ impl Worker {
         .bind(github_pat)
         .bind(github_login)
         .bind(plan_mode)
+        .bind(executor)
         .execute(pool)
         .await?;
 
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Pin `default_executor` on workers that chose a model before workers
+    /// could choose their agent (issue #614): that model belonged to the
+    /// default agent of the time. Idempotent; returns the rows touched.
+    pub async fn backfill_executor(
+        pool: &SqlitePool,
+        default_executor: BaseCodingAgent,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE workers SET executor = ?1 WHERE executor IS NULL AND model IS NOT NULL",
+        )
+        .bind(default_executor)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
     }
 
     pub async fn delete(pool: &SqlitePool, id: Uuid) -> Result<u64, sqlx::Error> {
@@ -260,7 +304,7 @@ impl Worker {
             "SELECT COUNT(*)
                FROM worker_tasks
                WHERE worker_id = ?1
-                 AND status IN ('in_progress', 'in_review')",
+                 AND status IN ('in_progress', 'waiting_user', 'in_review')",
         )
         .bind(worker_id)
         .fetch_one(pool)
@@ -285,6 +329,20 @@ impl Worker {
         .bind(worker_id)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Name the worker had before becoming a profile (fluke v2, #681), shown
+    /// as "Migrado de" on the Perfiles screen. Read on its own so the many
+    /// `SELECT`s that build `Worker` stay as they are.
+    pub async fn migrated_from(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT migrated_from FROM workers WHERE id = ?1")
+            .bind(worker_id)
+            .fetch_optional(pool)
+            .await
+            .map(Option::flatten)
     }
 
     pub async fn queued_task_count(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
@@ -338,9 +396,9 @@ impl Worker {
         Ok(())
     }
 
-    /// All non-archived workspaces currently attached to the worker.
-    /// Used by the orchestrator to detect and auto-repair orphan
-    /// workspaces before applying the capacity guard.
+    /// All non-archived workspaces currently attached to the worker. A
+    /// worker is a profile (#680) and each running instance has its own;
+    /// the orchestrator also uses this to auto-repair orphan workspaces.
     pub async fn active_workspace_ids(
         pool: &SqlitePool,
         worker_id: Uuid,
@@ -365,7 +423,7 @@ impl Worker {
     /// balance load across multiple reviewers.
     pub async fn find_first_reviewer(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE role = 'reviewer' AND archived = 0
                ORDER BY created_at ASC
@@ -395,7 +453,7 @@ impl Worker {
     /// same reviewer that the legacy `find_first_reviewer` would have picked.
     pub async fn list_active_reviewers_lru(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT w.id, w.name, w.emoji, w.soul, w.role, w.model, w.github_pat,
+            "SELECT w.id, w.name, w.emoji, w.soul, w.role, w.executor, w.model, w.github_pat,
                     w.github_login, w.plan_mode, w.archived, w.created_at
                FROM workers w
                LEFT JOIN (

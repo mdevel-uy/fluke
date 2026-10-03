@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,19 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
-import { ExecutionPlanView } from './ExecutionPlanView';
+import { PlanView } from './plan/PlanView';
+import {
+  IssuesViewTabs,
+  PlanHeaderActions,
+  type IssuesView,
+} from './plan/PlanHeader';
+import { DecisionDrawer, type DecisionContext } from './plan/DecisionDrawer';
+import { UnstickDrawer } from './plan/UnstickDrawer';
+import {
+  readStoredGroupBy,
+  rememberIssuesView,
+} from '@/features/issues/model/issuesView';
+import { useIssueTabIntent } from '@/features/issues/model/useIssueTabIntent';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
 import { IssuesSidebar } from './IssuesSidebar';
@@ -53,9 +65,15 @@ type RawSearch = {
   labels?: string;
   milestones?: string;
   workers?: string;
-  groupBy?: 'none' | 'label' | 'milestone' | 'execution';
+  // `execution` is the pre-v2 plan view: old links land on the Plan view.
+  groupBy?: 'none' | 'label' | 'milestone' | 'plan' | 'execution';
   issue?: number;
 };
+
+function viewOf(groupBy: IssueGroupBy): IssuesView {
+  if (groupBy === 'plan') return 'plan';
+  return groupBy === 'none' ? 'list' : 'groups';
+}
 
 function filtersFromUrl(s: RawSearch): IssueFilters {
   return {
@@ -67,7 +85,10 @@ function filtersFromUrl(s: RawSearch): IssueFilters {
     labels: s.labels ? s.labels.split(',').filter(Boolean) : [],
     milestones: s.milestones ? s.milestones.split(',').filter(Boolean) : [],
     workers: s.workers ? s.workers.split(',').filter(Boolean) : [],
-    groupBy: (s.groupBy as IssueGroupBy) ?? 'none',
+    groupBy:
+      s.groupBy === 'execution'
+        ? 'plan'
+        : ((s.groupBy as IssueGroupBy | undefined) ?? readStoredGroupBy()),
   };
 }
 
@@ -79,7 +100,8 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
     labels: f.labels.length ? f.labels.join(',') : undefined,
     milestones: f.milestones.length ? f.milestones.join(',') : undefined,
     workers: f.workers.length ? f.workers.join(',') : undefined,
-    groupBy: f.groupBy !== 'none' ? f.groupBy : undefined,
+    // Plan is the default view, so it is the one that stays out of the URL.
+    groupBy: f.groupBy !== 'plan' ? f.groupBy : undefined,
   };
 }
 
@@ -90,6 +112,8 @@ function filtersToUrlParams(f: IssueFilters): Partial<RawSearch> {
 const ACTIVE_STATUSES = new Set([
   'queued',
   'in_progress',
+  // Agent waiting for the user's answer (#662): still on the board as in progress.
+  'waiting_user',
   'in_review',
   'approved',
 ]);
@@ -111,7 +135,10 @@ function applyFilters(
     if (filters.state === 'closed' && issue.state !== 'closed') return false;
     if (TASK_STATUS_FILTERS.has(filters.state)) {
       const task = taskByIssueNumber.get(issue.number);
-      if (!task || task.status !== filters.state) return false;
+      // waiting_user (#662) is shown as in_progress.
+      const status =
+        task?.status === 'waiting_user' ? 'in_progress' : task?.status;
+      if (!task || status !== filters.state) return false;
     }
 
     if (filters.workers.length > 0) {
@@ -169,9 +196,9 @@ function groupIssues(
   noGroupLabel: string,
   noMilestoneLabel: string
 ): IssueGroup[] {
-  // `execution` never reaches here — it renders through ExecutionPlanView,
-  // which builds its own feature/wave structure instead of a flat group list.
-  if (groupBy === 'none' || groupBy === 'execution') {
+  // `plan` never reaches here — it renders through PlanView, which builds its
+  // own milestone/wave structure instead of a flat group list.
+  if (groupBy === 'none' || groupBy === 'plan') {
     const open = issues.filter((i) => i.state === 'open');
     const closed = issues.filter((i) => i.state !== 'open');
     return [
@@ -264,6 +291,7 @@ export function IssuesPage() {
   }, [queryClient]);
 
   const filters = useMemo(() => filtersFromUrl(search), [search]);
+  const isPlan = filters.groupBy === 'plan';
   const selectedIssueNumber = search.issue;
 
   const { repos, isLoadingRepos } = useRepos();
@@ -372,6 +400,20 @@ export function IssuesPage() {
     [issues, filters, activeTaskByIssueNumber]
   );
 
+  // The Plan view needs merged (closed) issues to fill its bands, so it
+  // ignores the open/closed state filter and keeps the rest.
+  const planIssues = useMemo(
+    () =>
+      filters.groupBy === 'plan'
+        ? applyFilters(
+            issues,
+            { ...filters, state: 'all' },
+            activeTaskByIssueNumber
+          )
+        : [],
+    [issues, filters, activeTaskByIssueNumber]
+  );
+
   const groups = useMemo(
     () =>
       groupIssues(
@@ -420,9 +462,84 @@ export function IssuesPage() {
 
   const handleFilterChange = useCallback(
     (newFilters: IssueFilters) => {
+      if (newFilters.groupBy !== filters.groupBy) {
+        rememberIssuesView(newFilters.groupBy);
+      }
       updateUrl(filtersToUrlParams(newFilters));
     },
-    [updateUrl]
+    [filters.groupBy, updateUrl]
+  );
+
+  const handleViewChange = useCallback(
+    (view: IssuesView) => {
+      const groupBy: IssueGroupBy =
+        view === 'plan'
+          ? 'plan'
+          : view === 'list'
+            ? 'none'
+            : filters.groupBy === 'label' || filters.groupBy === 'milestone'
+              ? filters.groupBy
+              : 'milestone';
+      rememberIssuesView(groupBy);
+      updateUrl(filtersToUrlParams({ ...filters, groupBy }));
+    },
+    [filters, updateUrl]
+  );
+
+  // Confirmation line after a decision (mockup's toast), cleared after 3.5 s.
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const handleDecide = useCallback(
+    async (issue: RepoIssue, context: DecisionContext) => {
+      if (!selectedRepoId) return;
+      const result = await DecisionDrawer.show({
+        issue,
+        repoId: selectedRepoId,
+        repoName: selectedRepo?.name ?? '',
+        ...context,
+      });
+      if (result === 'openIssue') {
+        appNavigation.goToIssue(issue.number, selectedRepoId);
+      } else if (result !== 'canceled') {
+        setToast(
+          t(`issues.plan.decision.toast.${result}`, { n: issue.number })
+        );
+      }
+    },
+    [selectedRepoId, selectedRepo, t, appNavigation]
+  );
+
+  const setTabIntent = useIssueTabIntent((s) => s.set);
+  const handleUnstick = useCallback(
+    async (issue: RepoIssue) => {
+      if (!selectedRepoId) return;
+      const result = await UnstickDrawer.show({
+        issue,
+        repoId: selectedRepoId,
+      });
+      if (typeof result === 'object') {
+        setTabIntent({
+          issueNumber: issue.number,
+          tab: result.open,
+          phase: result.phase,
+        });
+        appNavigation.goToIssue(issue.number, selectedRepoId);
+      } else if (result !== 'canceled') {
+        setToast(t(`issues.plan.unstick.toast.${result}`, { n: issue.number }));
+      }
+    },
+    [selectedRepoId, setTabIntent, appNavigation, t]
+  );
+
+  // In the Plan view a card opens the issue page; the list keeps the drawer.
+  const handleOpenIssuePage = useCallback(
+    (issue: RepoIssue) => appNavigation.goToIssue(issue.number, selectedRepoId),
+    [appNavigation, selectedRepoId]
   );
 
   const handleRefresh = () => {
@@ -470,21 +587,30 @@ export function IssuesPage() {
       {/* MD3 top bar — 64px, surface-bright, border bottom */}
       <PageHeader
         title={t('issues.title')}
+        meta={
+          <IssuesViewTabs
+            view={viewOf(filters.groupBy)}
+            onChange={handleViewChange}
+          />
+        }
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-8 gap-1.5 text-sm"
-            onClick={handleRefresh}
-            disabled={!selectedRepoId || isSyncing}
-            title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-          >
-            <RefreshCw
-              className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
-              strokeWidth={1.75}
-            />
-            {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
-          </Button>
+          <>
+            {isPlan && <PlanHeaderActions repoId={selectedRepoId} />}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 gap-1.5 text-sm"
+              onClick={handleRefresh}
+              disabled={!selectedRepoId || isSyncing}
+              title={isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+            >
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', isSyncing && 'animate-spin')}
+                strokeWidth={1.75}
+              />
+              {isSyncing ? t('issues.refreshing') : t('issues.refresh')}
+            </Button>
+          </>
         }
       />
 
@@ -497,7 +623,7 @@ export function IssuesPage() {
           onChange={handleFilterChange}
         />
       </ShellSidebarPortal>
-      {hasIssues && (
+      {hasIssues && !isPlan && (
         <IssuesToolbar
           filters={filters}
           availableLabels={availableLabels}
@@ -544,21 +670,21 @@ export function IssuesPage() {
           <div className="flex h-full">
             <IssuesEmptyState />
           </div>
+        ) : isPlan ? (
+          <PlanView
+            repoId={selectedRepoId}
+            issues={planIssues}
+            taskByIssueNumber={activeTaskByIssueNumber}
+            workerNameById={workerNameById}
+            selectedIssueId={selectedIssue?.id}
+            onSelectIssue={handleOpenIssuePage}
+            onDecide={handleDecide}
+            onUnstick={handleUnstick}
+          />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
             {t('issues.filters.noResults')}
           </div>
-        ) : filters.groupBy === 'execution' ? (
-          <ExecutionPlanView
-            issues={filteredIssues}
-            repoId={selectedRepoId}
-            taskByIssueNumber={activeTaskByIssueNumber}
-            workerNameById={workerNameById}
-            branchByWorkspaceId={branchByWorkspaceId}
-            selectedIssueId={selectedIssue?.id}
-            onSelectIssue={handleSelectIssue}
-            onArchive={handleCloseIssue}
-          />
         ) : (
           <div className="flex flex-col gap-6 py-6">
             {groups.map((group) =>
@@ -581,6 +707,15 @@ export function IssuesPage() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-5 left-1/2 z-[95] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-lg border border-success bg-md-surface-container px-4 py-2.5 text-[13px] text-high shadow-overlay"
+        >
+          {toast}
+        </div>
+      )}
 
       {/* Issue detail drawer */}
       <IssueDetailDrawer

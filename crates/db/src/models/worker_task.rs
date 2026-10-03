@@ -7,6 +7,11 @@ use uuid::Uuid;
 
 pub const STATUS_QUEUED: &str = "queued";
 pub const STATUS_IN_PROGRESS: &str = "in_progress";
+/// The coding agent asked the user an explicit question (plan MCP `ask_user`)
+/// and ended its turn. The question lives in `pending_question`; answering
+/// resumes the same session and puts the task back to `in_progress`. The task
+/// keeps its worker's slot, and no watchdog or infra retry treats it as hung.
+pub const STATUS_WAITING_USER: &str = "waiting_user";
 pub const STATUS_IN_REVIEW: &str = "in_review";
 /// The developer's PR received an approving verdict from the reviewer. The
 /// task is done with review-loop work but the PR is still open (waiting for
@@ -21,6 +26,7 @@ pub fn is_valid_status(value: &str) -> bool {
         value,
         STATUS_QUEUED
             | STATUS_IN_PROGRESS
+            | STATUS_WAITING_USER
             | STATUS_IN_REVIEW
             | STATUS_APPROVED
             | STATUS_DONE
@@ -32,6 +38,10 @@ pub fn is_valid_status(value: &str) -> bool {
 /// the CLI died on an API error (rate limit, model not available, auth).
 /// These do not consume review rounds and are retried with backoff.
 pub const FAILURE_KIND_INFRA: &str = "infra";
+/// The worker's agent has no login on this machine (fluke v2, #694): the
+/// person has to connect the provider, so the issue reads as blocked on a
+/// credential rather than as a plain failure.
+pub const FAILURE_KIND_PROVIDER: &str = "provider";
 
 /// `kind` value for author fix tasks dispatched by the orchestrator on a
 /// changes-requested review. These jump to the front of the author's queue
@@ -43,14 +53,20 @@ pub const KIND_REVIEW_FIX: &str = "review_fix";
 /// designer's deliverable into an analyst's input. Carries `source_task_id`
 /// pointing at the designer task.
 pub const KIND_DESIGN_HANDOFF: &str = "design_handoff";
+/// QA phases of an issue (fluke v2, #687): tests first, and testing of the
+/// PR before review.
+pub const KIND_QA_TDD: &str = "qa_tdd";
+pub const KIND_QA_TEST: &str = "qa_test";
 
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
-/// Ad-hoc request submitted from the Analyst Desk screen.
-pub const SOURCE_DESK: &str = "desk";
+/// Analyst breakdown started by a Fluke mission (fluke v2, #701).
+pub const SOURCE_MISSION: &str = "mission";
+/// Dispatched by a milestone run (fluke v2, #666).
+pub const SOURCE_MILESTONE: &str = "milestone";
 
 pub fn is_valid_source(value: &str) -> bool {
-    matches!(value, SOURCE_KANBAN | SOURCE_DESK)
+    matches!(value, SOURCE_KANBAN | SOURCE_MISSION | SOURCE_MILESTONE)
 }
 
 /// Encode territory globs for storage: `None` for an empty vector (issue
@@ -116,21 +132,6 @@ pub struct WorkerTask {
     /// the reviewer prompt injection (issue #95). The value is advisory —
     /// never a gate.
     pub territory_globs: Option<String>,
-}
-
-/// A finished designer deliverable that no analyst has taken yet. Feeds the
-/// Analyst Desk picker and the sprint-board handoff dialog.
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct PendingDesignHandoff {
-    pub task_id: Uuid,
-    pub repo_id: Uuid,
-    pub title: String,
-    pub issue_number: Option<i64>,
-    pub worker_name: String,
-    pub worker_emoji: String,
-    pub deliverable_ref: Option<String>,
-    pub result_summary: Option<String>,
-    pub completed_at: Option<DateTime<Utc>>,
 }
 
 /// Where a designer deliverable went: the handoff task consuming it.
@@ -377,7 +378,8 @@ impl WorkerTask {
         .await
     }
 
-    /// Task currently in progress for the worker, if any.
+    /// Task currently in progress for the worker, if any. A task waiting for the
+    /// user's answer counts too: it still owns the worker's workspace.
     pub async fn find_in_progress(
         pool: &SqlitePool,
         worker_id: Uuid,
@@ -389,7 +391,7 @@ impl WorkerTask {
                     hours_saved_override, result_summary, deliverable_ref,
                     source_task_id, territory_globs
                FROM worker_tasks
-               WHERE worker_id = ?1 AND status = 'in_progress'
+               WHERE worker_id = ?1 AND status IN ('in_progress', 'waiting_user')
                ORDER BY position ASC, created_at ASC
                LIMIT 1",
         )
@@ -419,10 +421,11 @@ impl WorkerTask {
         .await
     }
 
-    /// Atomically claim a queued task for its worker: flips it to
-    /// `in_progress` only while it is still `queued` and the worker has no
-    /// other `in_progress` task. SQLite serializes writes, so exactly one
-    /// of several concurrent claimers succeeds; the rest get `false`.
+    /// Atomically claim a queued task: flips it to `in_progress` only while
+    /// it is still `queued`. SQLite serializes writes, so exactly one of
+    /// several concurrent claimers succeeds; the rest get `false`. A worker
+    /// is a profile (fluke v2, #680) and may run several tasks at once; the
+    /// global agent slots are checked by the caller before claiming.
     pub async fn try_claim(
         pool: &SqlitePool,
         id: Uuid,
@@ -432,11 +435,8 @@ impl WorkerTask {
             "UPDATE worker_tasks
                 SET status = 'in_progress'
               WHERE id = ?1
-                AND status = 'queued'
-                AND NOT EXISTS (
-                  SELECT 1 FROM worker_tasks
-                   WHERE worker_id = ?2 AND status = 'in_progress'
-                )",
+                AND worker_id = ?2
+                AND status = 'queued'",
         )
         .bind(id)
         .bind(worker_id)
@@ -487,7 +487,7 @@ impl WorkerTask {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
                FROM worker_tasks
-               WHERE worker_id = ?1 AND status IN ('queued', 'in_progress')",
+               WHERE worker_id = ?1 AND status IN ('queued', 'in_progress', 'waiting_user')",
         )
         .bind(worker_id)
         .fetch_one(pool)
@@ -511,6 +511,7 @@ impl WorkerTask {
         let all = [
             STATUS_QUEUED,
             STATUS_IN_PROGRESS,
+            STATUS_WAITING_USER,
             STATUS_IN_REVIEW,
             STATUS_APPROVED,
             STATUS_DONE,
@@ -584,7 +585,7 @@ impl WorkerTask {
         let result = sqlx::query(
             "DELETE FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')",
+                 AND status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .execute(pool)
@@ -617,7 +618,7 @@ impl WorkerTask {
             "SELECT COUNT(*)
                FROM worker_tasks
                WHERE workspace_id = ?1
-                 AND status IN ('in_progress', 'in_review', 'approved')",
+                 AND status IN ('in_progress', 'waiting_user', 'in_review', 'approved')",
         )
         .bind(workspace_id)
         .fetch_one(pool)
@@ -724,14 +725,14 @@ impl WorkerTask {
                JOIN workers w ON wt.worker_id = w.id
                WHERE w.role = 'reviewer'
                  AND wt.issue_number IS NOT NULL
-                 AND wt.status IN ('queued', 'in_progress')",
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user')",
         )
         .fetch_all(pool)
         .await?;
         Ok(rows
             .into_iter()
             .map(|(repo_id, pr_number, status)| {
-                let activity = if status == STATUS_IN_PROGRESS {
+                let activity = if status != STATUS_QUEUED {
                     "running"
                 } else {
                     "queued"
@@ -759,7 +760,7 @@ impl WorkerTask {
                WHERE w.role = 'reviewer'
                  AND wt.issue_number = ?1
                  AND wt.repo_id = ?2
-                 AND wt.status IN ('queued', 'in_progress', 'in_review')
+                 AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                ORDER BY wt.created_at ASC
                LIMIT 1",
         )
@@ -814,6 +815,31 @@ impl WorkerTask {
         Ok(result.rows_affected())
     }
 
+    /// Latest task for the given repo and issue number, whatever its status.
+    /// Milestone runs use it to tell a merged issue from a failed one.
+    pub async fn find_latest_by_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, WorkerTask>(
+            "SELECT id, worker_id, repo_id, position, title, prompt,
+                    issue_number, status, workspace_id, skills, issue_labels, source,
+                    created_at, review_result, failure_reason,
+                    hours_saved_override, result_summary, deliverable_ref,
+                    source_task_id, territory_globs
+               FROM worker_tasks
+               WHERE repo_id = ?1
+                 AND issue_number = ?2
+               ORDER BY created_at DESC
+               LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Find the first active task (queued, in_progress, in_review, or
     /// approved) for the given repo and issue number, across all workers.
     /// Used to detect duplicate issue assignments before creating a new task.
@@ -831,7 +857,7 @@ impl WorkerTask {
                FROM worker_tasks
                WHERE repo_id = ?1
                  AND issue_number = ?2
-                 AND status IN ('queued', 'in_progress', 'in_review', 'approved')
+                 AND status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -864,6 +890,65 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Park a running task on the agent's question (`question` is JSON). A
+    /// second question replaces the first. Only a task that is `in_progress`
+    /// or already `waiting_user` can ask; returns false otherwise.
+    pub async fn set_waiting_user(
+        pool: &SqlitePool,
+        id: Uuid,
+        question: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks
+                SET status = 'waiting_user', pending_question = ?2
+              WHERE id = ?1 AND status IN ('in_progress', 'waiting_user')",
+        )
+        .bind(id)
+        .bind(question)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    /// The pending `ask_user` question (JSON), if any.
+    pub async fn pending_question(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>(
+            "SELECT pending_question FROM worker_tasks WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map(Option::flatten)
+    }
+
+    /// `waiting_user` → `in_progress`, keeping the question until the answer
+    /// is delivered. Returns false when the task was not waiting (already
+    /// answered, cancelled), so two answers never both go through.
+    pub async fn resume_from_waiting_user(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE worker_tasks SET status = 'in_progress'
+              WHERE id = ?1 AND status = 'waiting_user'",
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn clear_pending_question(pool: &SqlitePool, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET pending_question = NULL WHERE id = ?1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     /// Transition to 'failed' recording why. The reason is what the UI shows
@@ -961,7 +1046,7 @@ impl WorkerTask {
                WHERE issue_number = ?1
                  AND repo_id = ?2
                  AND kind = 'review_fix'
-                 AND status IN ('queued', 'in_progress')
+                 AND status IN ('queued', 'in_progress', 'waiting_user')
                ORDER BY created_at ASC
                LIMIT 1",
         )
@@ -990,7 +1075,7 @@ impl WorkerTask {
                  ON pr.repo_id = wt.repo_id
                 AND pr.pr_number = wt.issue_number
               WHERE w.role = 'reviewer'
-                AND wt.status IN ('queued', 'in_progress', 'in_review')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user', 'in_review')
                 AND pr.pr_status IN ('merged', 'closed')",
         )
         .fetch_all(pool)
@@ -1047,7 +1132,7 @@ impl WorkerTask {
               WHERE w.role = 'reviewer'
                 AND wt.issue_number = ?1
                 AND wt.repo_id = ?2
-                AND wt.status IN ('queued', 'in_progress')
+                AND wt.status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY wt.created_at ASC
               LIMIT 1",
         )
@@ -1062,7 +1147,7 @@ impl WorkerTask {
               WHERE issue_number = ?1
                 AND repo_id = ?2
                 AND kind = 'review_fix'
-                AND status IN ('queued', 'in_progress')
+                AND status IN ('queued', 'in_progress', 'waiting_user')
               ORDER BY created_at ASC
               LIMIT 1",
         )
@@ -1073,7 +1158,7 @@ impl WorkerTask {
 
         let to_activity = |status: Option<String>| {
             status.map(|s| {
-                if s == STATUS_IN_PROGRESS {
+                if s != STATUS_QUEUED {
                     "running".to_string()
                 } else {
                     "queued".to_string()
@@ -1192,30 +1277,6 @@ impl WorkerTask {
         .execute(pool)
         .await?;
         Ok(())
-    }
-
-    /// Finished designer deliverables that no handoff task consumes yet,
-    /// newest first. A deliverable exists when the run left a summary or a
-    /// pushed ref; the NOT EXISTS clause is the "already taken" guard.
-    pub async fn find_pending_design_handoffs(
-        pool: &SqlitePool,
-    ) -> Result<Vec<PendingDesignHandoff>, sqlx::Error> {
-        sqlx::query_as::<_, PendingDesignHandoff>(
-            "SELECT wt.id AS task_id, wt.repo_id, wt.title, wt.issue_number,
-                    w.name AS worker_name, w.emoji AS worker_emoji,
-                    wt.deliverable_ref, wt.result_summary, wt.completed_at
-               FROM worker_tasks wt
-               JOIN workers w ON wt.worker_id = w.id
-              WHERE w.role = 'designer'
-                AND wt.status = 'done'
-                AND (wt.deliverable_ref IS NOT NULL
-                     OR wt.result_summary IS NOT NULL)
-                AND NOT EXISTS (SELECT 1 FROM worker_tasks h
-                                 WHERE h.source_task_id = wt.id)
-              ORDER BY COALESCE(wt.completed_at, wt.created_at) DESC",
-        )
-        .fetch_all(pool)
-        .await
     }
 
     /// The handoff task consuming a given designer task's deliverable, if
@@ -1409,5 +1470,95 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+}
+
+/// QA phases (fluke v2, #687). Kept apart from the main impl so the many
+/// SELECTs that build WorkerTask stay as they are.
+impl WorkerTask {
+    pub async fn set_kind(pool: &SqlitePool, id: Uuid, kind: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET kind = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(kind)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Branch the task starts from instead of the repo's target branch.
+    pub async fn set_start_ref(
+        pool: &SqlitePool,
+        id: Uuid,
+        start_ref: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET start_ref = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(start_ref)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn start_ref(pool: &SqlitePool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT start_ref FROM worker_tasks WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .map(Option::flatten)
+    }
+
+    /// Head commit a testing task validates, and later its verdict.
+    pub async fn set_qa_result(
+        pool: &SqlitePool,
+        id: Uuid,
+        head_sha: Option<&str>,
+        verdict: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET qa_head_sha = COALESCE(?2, qa_head_sha),
+                    qa_verdict = COALESCE(?3, qa_verdict)
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(head_sha)
+        .bind(verdict)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Latest testing task of a PR: (id, status, head it validated, verdict).
+    pub async fn latest_qa_test_for_pr(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+    ) -> Result<Option<(Uuid, String, Option<String>, Option<String>)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT id, status, qa_head_sha, qa_verdict FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_test'
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(pr_number)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Latest tests-first task of an issue: (id, status, pushed branch).
+    pub async fn latest_qa_tdd_for_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<(Uuid, String, Option<String>)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT id, status, deliverable_ref FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_tdd'
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
     }
 }

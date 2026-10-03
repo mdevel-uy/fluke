@@ -51,16 +51,24 @@ function resolveLocalDestinationFromPath(path: string): AppDestination | null {
       const repoId = params.get('repo');
       return { kind: 'issues', ...(repoId ? { repoId } : {}) };
     }
+    case '/_app/issues_/$issueNumber': {
+      const issueNumber = Number(routeParams.issueNumber);
+      if (!Number.isInteger(issueNumber)) return null;
+      const repoId = new URLSearchParams(
+        new URL(path, 'http://localhost').search
+      ).get('repo');
+      return { kind: 'issue', issueNumber, ...(repoId ? { repoId } : {}) };
+    }
     case '/_app/workers':
       return { kind: 'workers' };
+    case '/_app/fluke':
+      return { kind: 'fluke' };
     case '/_app/dashboard':
       return { kind: 'dashboard' };
     case '/_app/pilot-report':
       return { kind: 'pilot-report' };
     case '/_app/source-control':
       return { kind: 'source-control' };
-    case '/_app/analyst-desk':
-      return { kind: 'analyst-desk' };
     case '/_app/ci-pipelines':
       return { kind: 'ci-pipelines' };
     case '/_app/sprint': {
@@ -159,16 +167,22 @@ function destinationToLocalTarget(
         to: '/issues',
         search: destination.repoId ? { repo: destination.repoId } : {},
       } as const;
+    case 'issue':
+      return {
+        to: '/issues/$issueNumber',
+        params: { issueNumber: String(destination.issueNumber) },
+        search: destination.repoId ? { repo: destination.repoId } : {},
+      } as const;
     case 'workers':
       return { to: '/workers' } as const;
+    case 'fluke':
+      return { to: '/fluke' } as const;
     case 'dashboard':
       return { to: '/dashboard' } as const;
     case 'pilot-report':
       return { to: '/pilot-report' } as const;
     case 'source-control':
       return { to: '/source-control' } as const;
-    case 'analyst-desk':
-      return { to: '/analyst-desk' } as const;
     case 'ci-pipelines':
       return { to: '/ci-pipelines' } as const;
     case 'sprint':
@@ -227,9 +241,13 @@ export function createLocalAppNavigation(): AppNavigation {
       navigateTo({ kind: 'source-control' }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: 'issues', ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: 'issue', issueNumber, ...(repoId ? { repoId } : {}) },
+        transition
+      ),
     goToWorkers: (transition) => navigateTo({ kind: 'workers' }, transition),
-    goToAnalystDesk: (transition) =>
-      navigateTo({ kind: 'analyst-desk' }, transition),
+    goToFluke: (transition) => navigateTo({ kind: 'fluke' }, transition),
     goToCiPipelines: (transition) =>
       navigateTo({ kind: 'ci-pipelines' }, transition),
     goToSprint: (repoId, transition) =>

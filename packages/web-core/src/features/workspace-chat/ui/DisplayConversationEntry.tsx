@@ -1,4 +1,12 @@
-import { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -22,10 +30,13 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useTheme } from '@/shared/hooks/useTheme';
 import WYSIWYGEditor from '@/shared/components/WYSIWYGEditor';
 import { useMessageEditContext } from '../model/contexts/MessageEditContext';
+import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import { BRIEF_TOOLS } from '../model/deriveConversationTimeline';
 import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
 import { useChangesViewActions } from '@/shared/hooks/useChangesView';
 import { useLogsPanelActions } from '@/shared/hooks/useLogsPanel';
 import { cn } from '@/shared/lib/utils';
+import { planApi } from '@/shared/lib/api';
 import {
   ScriptFixerDialog,
   type ScriptType,
@@ -39,9 +50,7 @@ import {
 import { ChatApprovalCard } from '@vibe/ui/components/ChatApprovalCard';
 import { ChatUserMessage } from '@vibe/ui/components/ChatUserMessage';
 import { ChatAssistantMessage } from '@vibe/ui/components/ChatAssistantMessage';
-import { ChatSystemMessage } from '@vibe/ui/components/ChatSystemMessage';
 import { ChatThinkingMessage } from '@vibe/ui/components/ChatThinkingMessage';
-import { ChatErrorMessage } from '@vibe/ui/components/ChatErrorMessage';
 import { ChatScriptEntry } from '@vibe/ui/components/ChatScriptEntry';
 import { ChatSubagentEntry } from '@vibe/ui/components/ChatSubagentEntry';
 import { ChatAggregatedToolEntries } from '@vibe/ui/components/ChatAggregatedToolEntries';
@@ -165,7 +174,8 @@ function renderToolUseEntry(
   entryType: Extract<NormalizedEntry['entry_type'], { type: 'tool_use' }>,
   entry: NormalizedEntry,
   props: Props,
-  t: TFunction<'common'>
+  t: TFunction<'common'>,
+  assistant: boolean
 ): React.ReactNode {
   const { expansionKey, executionProcessId, workspaceWithSession, repos } =
     props;
@@ -244,6 +254,8 @@ function renderToolUseEntry(
     action_type.action === 'command_run' &&
     scriptToolNames.includes(entryType.tool_name)
   ) {
+    // Fluke is not a coding agent: workspace scripts mean nothing there.
+    if (assistant) return null;
     const exitCode =
       action_type.result?.exit_status?.type === 'exit_code'
         ? action_type.result.exit_status.code
@@ -282,6 +294,41 @@ function renderToolUseEntry(
     );
   }
 
+  // The agent's explicit question (plan MCP ask_user, #662).
+  if (
+    action_type.action === 'tool' &&
+    action_type.tool_name === 'mcp:fluke_plan:ask_user'
+  ) {
+    const question = parseAskUser(action_type.arguments);
+    if (!question || !workspaceWithSession?.id) return null;
+    return (
+      <AskUserEntry
+        question={question}
+        workspaceId={workspaceWithSession.id}
+        toolStatus={status.status}
+      />
+    );
+  }
+
+  // Generic tool calls (MCP and the like) only show the raw tool name: noise
+  // for the user, so they are hidden (#636).
+  if (action_type.action === 'tool' || action_type.action === 'other') {
+    // Except Fluke's brief edits, which the user should see happen.
+    if (
+      assistant &&
+      action_type.action === 'tool' &&
+      BRIEF_TOOLS.test(entryType.tool_name)
+    ) {
+      const args = action_type.arguments as { title?: unknown } | null;
+      return (
+        <BriefUpdatedEvent
+          title={typeof args?.title === 'string' ? args.title : null}
+        />
+      );
+    }
+    return null;
+  }
+
   // Other tool uses - use ChatToolSummary
   return (
     <ToolSummaryEntry
@@ -296,8 +343,71 @@ function renderToolUseEntry(
   );
 }
 
+function BriefUpdatedEvent({ title }: { title: string | null }) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="flex w-fit max-w-full items-center gap-2 rounded-md border border-md-outline-variant bg-secondary/60 px-3 py-1.5 text-xs text-low">
+      <FileTextIcon className="size-icon-sm shrink-0" />
+      <span className="truncate">
+        {t('director.chat.briefUpdated')}
+        {title && <span className="text-normal">: {title}</span>}
+      </span>
+    </div>
+  );
+}
+
+/** Reasoning folded into one labelled line; hidden when it says nothing. */
+function AssistantThinking({
+  content,
+  expansionKey,
+  workspaceId,
+  sessionId,
+}: {
+  content: string;
+  expansionKey: string;
+  workspaceId: string | undefined;
+  sessionId: string | undefined;
+}) {
+  const { t } = useTranslation('common');
+  const [expanded, toggle] = usePersistedExpanded(
+    `entry:thinking:${expansionKey}`,
+    false
+  );
+  if (!content.trim()) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => toggle()}
+        aria-expanded={expanded}
+        className="flex w-fit items-center gap-1.5 text-xs text-low hover:text-normal"
+      >
+        <CaretDownIcon
+          className={cn(
+            'size-3 transition-transform',
+            !expanded && '-rotate-90'
+          )}
+        />
+        {t('director.chat.reasoning')}
+      </button>
+      {expanded && (
+        <div className="pl-[18px] text-low">
+          <AppChatMarkdown
+            content={content.trim()}
+            workspaceId={workspaceId}
+            sessionId={sessionId}
+            className="text-sm"
+            maxWidth={undefined}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DisplayConversationEntry(props: Props) {
   const { t } = useTranslation('common');
+  const assistant = useIsAssistantChat();
   const { capabilities } = useUserSystem();
   const {
     entry,
@@ -347,7 +457,7 @@ function DisplayConversationEntry(props: Props) {
 
   switch (entryType.type) {
     case 'tool_use':
-      return renderToolUseEntry(entryType, entry, props, t);
+      return renderToolUseEntry(entryType, entry, props, t, assistant);
 
     case 'user_message':
       return (
@@ -359,27 +469,37 @@ function DisplayConversationEntry(props: Props) {
           executionProcessId={executionProcessId}
           executorCanFork={executorCanFork}
           resetAction={resetAction}
+          variant={assistant ? 'bubble' : 'card'}
         />
       );
 
     case 'assistant_message':
+      // Leading/trailing newlines render as blank lines (pre-wrap).
+      if (assistant && !entry.content.trim()) return null;
       return (
         <AssistantMessageEntry
-          content={entry.content}
+          content={assistant ? entry.content.trim() : entry.content}
           workspaceId={workspaceWithSession?.id}
           sessionId={sessionId}
         />
       );
 
     case 'system_message':
-      return (
-        <SystemMessageEntry
-          content={entry.content}
-          expansionKey={expansionKey}
-        />
-      );
+    case 'error_message':
+      // Technical noise (hooks, model init, executor errors): hidden from the
+      // chat (#636). Actionable failures have their own notice outside it.
+      return null;
 
     case 'thinking':
+      if (assistant)
+        return (
+          <AssistantThinking
+            content={entry.content}
+            expansionKey={expansionKey}
+            workspaceId={workspaceWithSession?.id}
+            sessionId={sessionId}
+          />
+        );
       return (
         <ChatThinkingMessage
           content={entry.content}
@@ -393,14 +513,6 @@ function DisplayConversationEntry(props: Props) {
               maxWidth={undefined}
             />
           )}
-        />
-      );
-
-    case 'error_message':
-      return (
-        <ErrorMessageEntry
-          content={entry.content}
-          expansionKey={expansionKey}
         />
       );
 
@@ -711,6 +823,7 @@ function UserMessageEntry({
   executionProcessId,
   executorCanFork,
   resetAction,
+  variant,
 }: {
   content: string;
   expansionKey: string;
@@ -719,6 +832,7 @@ function UserMessageEntry({
   executionProcessId: string | undefined;
   executorCanFork: boolean;
   resetAction: UseResetProcessResult;
+  variant: 'card' | 'bubble';
 }) {
   const [expanded, toggle] = usePersistedExpanded(`user:${expansionKey}`, true);
   const { startEdit, isEntryGreyed, isInEditMode } = useMessageEditContext();
@@ -755,6 +869,7 @@ function UserMessageEntry({
       onEdit={canEdit ? handleEdit : undefined}
       onReset={canReset ? handleReset : undefined}
       isGreyed={isGreyed}
+      variant={variant}
       renderMarkdown={({ content, workspaceId }) => (
         <AppChatMarkdown
           content={content}
@@ -800,6 +915,198 @@ function UserFeedbackEntry({
           workspaceId={workspaceId}
           sessionId={sessionId}
         />
+      </div>
+    </div>
+  );
+}
+
+type AskUserQuestion = {
+  question: string;
+  options: { key: string; text: string }[];
+  recommended: string;
+  why: string;
+};
+
+// Same normalization as the backend's ask_user (blank options dropped), so a
+// card's question compares equal to the stored pending one.
+function parseAskUser(args: unknown): AskUserQuestion | null {
+  const a = args as Partial<AskUserQuestion> | null;
+  if (!a || typeof a.question !== 'string' || !Array.isArray(a.options)) {
+    return null;
+  }
+  return {
+    question: a.question,
+    options: a.options
+      .filter(
+        (o) =>
+          typeof o?.key === 'string' &&
+          typeof o?.text === 'string' &&
+          o.key.trim() !== '' &&
+          o.text.trim() !== ''
+      )
+      .map((o) => ({ key: o.key, text: o.text })),
+    recommended: typeof a.recommended === 'string' ? a.recommended : '',
+    why: typeof a.why === 'string' ? a.why : '',
+  };
+}
+
+function sameQuestion(a: AskUserQuestion, b: AskUserQuestion | null) {
+  return (
+    !!b &&
+    a.question === b.question &&
+    a.options.length === b.options.length &&
+    a.options.every(
+      (o, i) => o.key === b.options[i].key && o.text === b.options[i].text
+    )
+  );
+}
+
+/**
+ * Explicit question from the agent (plan MCP ask_user): options with the
+ * recommended one marked, plus a free answer. Answering resumes the task.
+ * Only the question still pending on the task can be answered; older cards
+ * (answered or replaced by a newer question) are shown inert.
+ */
+function AskUserEntry({
+  question,
+  workspaceId,
+  toolStatus,
+}: {
+  question: AskUserQuestion;
+  workspaceId: string;
+  toolStatus: string;
+}) {
+  const { t } = useTranslation('common');
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(
+    () => ['askUserPending', workspaceId],
+    [workspaceId]
+  );
+  const { data: pending } = useQuery({
+    queryKey,
+    queryFn: () => planApi.pendingQuestion(workspaceId),
+  });
+  // A new ask_user call (or this one finishing) changes which question is
+  // pending: refresh so older cards close on their own.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey, toolStatus]);
+  const open = sameQuestion(question, parseAskUser(pending));
+  const [other, setOther] = useState('');
+  const [sending, setSending] = useState(false);
+  const [answered, setAnswered] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (answer: string, label: string) => {
+    setSending(true);
+    setError(null);
+    try {
+      await planApi.answer(workspaceId, question, answer);
+      setAnswered(label);
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      // Known backend refusals get a translated message; anything else is
+      // shown as is.
+      setError(
+        /no longer pending|no question is waiting|already answered/.test(raw)
+          ? t('askQuestion.stale')
+          : /still ending its turn/.test(raw)
+            ? t('askQuestion.agentRunning')
+            : raw
+      );
+    } finally {
+      setSending(false);
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  };
+
+  return (
+    <div className="py-2">
+      <div
+        className={cn(
+          'rounded-md border bg-panel px-4 py-3 text-sm',
+          open ? 'border-brand' : 'border-md-outline-variant'
+        )}
+      >
+        <div
+          className={cn(
+            'text-xs font-semibold',
+            open ? 'text-brand' : 'text-low'
+          )}
+        >
+          {t('askQuestion.title')}
+        </div>
+        <div className="mt-1 font-semibold text-high">{question.question}</div>
+        {answered ? (
+          <div className="mt-2 text-low">
+            {t('askQuestion.answered', { answer: answered })}
+          </div>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {question.options.map((o) => {
+                const recommended = o.key === question.recommended;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    disabled={!open || sending}
+                    onClick={() => send(o.key, `${o.key}: ${o.text}`)}
+                    className={cn(
+                      'rounded-md border px-3 py-1.5 text-left enabled:hover:bg-secondary disabled:opacity-60',
+                      recommended && open
+                        ? 'border-brand ring-2 ring-brand/15'
+                        : 'border-md-outline-variant'
+                    )}
+                  >
+                    <span className="font-semibold">{o.key}</span> {o.text}
+                    {recommended && (
+                      <span className="ml-2 rounded-full bg-brand/15 px-2 text-xs text-brand">
+                        {t('askQuestion.recommended')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {question.why && (
+              <div className="mt-2 text-xs text-low">
+                {t('askQuestion.why', { why: question.why })}
+              </div>
+            )}
+            {open ? (
+              <form
+                className="mt-2 flex gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const text = other.trim();
+                  if (text) void send(text, text);
+                }}
+              >
+                <input
+                  value={other}
+                  onChange={(e) => setOther(e.target.value)}
+                  disabled={sending}
+                  placeholder={t('askQuestion.otherPlaceholder')}
+                  aria-label={t('askQuestion.otherPlaceholder')}
+                  className="min-w-0 flex-1 rounded-md border border-md-outline-variant bg-transparent px-2 py-1 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={sending || !other.trim()}
+                  className="rounded-md bg-brand px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {t('askQuestion.send')}
+                </button>
+              </form>
+            ) : (
+              <div className="mt-2 text-xs text-low">
+                {t('askQuestion.closed')}
+              </div>
+            )}
+            {error && <div className="mt-2 text-xs text-error">{error}</div>}
+          </>
+        )}
       </div>
     </div>
   );
@@ -857,14 +1164,20 @@ function UserAnsweredQuestionsEntry({
  * Loading placeholder entry
  */
 function LoadingEntry() {
+  const { t } = useTranslation('common');
   return (
-    <div className="px-4 py-2 text-sm">
-      <div className="flex animate-pulse space-x-2 items-center">
-        <div className="size-3 bg-foreground/10" />
-        <div className="flex-1 h-3 bg-foreground/10" />
-        <div className="flex-1 h-3" />
-        <div className="flex-1 h-3" />
-      </div>
+    <div
+      className="flex items-center gap-1.5 px-4 py-2 text-sm text-low"
+      role="status"
+    >
+      <span>{t('conversation.thinking')}</span>
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="size-1.5 rounded-full bg-current animate-bounce"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
     </div>
   );
 }
@@ -1023,30 +1336,6 @@ function SubagentEntry({
 }
 
 /**
- * System message entry with expandable content
- */
-function SystemMessageEntry({
-  content,
-  expansionKey,
-}: {
-  content: string;
-  expansionKey: string;
-}) {
-  const [expanded, toggle] = usePersistedExpanded(
-    `system:${expansionKey}`,
-    false
-  );
-
-  return (
-    <ChatSystemMessage
-      content={content}
-      expanded={expanded}
-      onToggle={toggle}
-    />
-  );
-}
-
-/**
  * Script entry with fix button for failed scripts
  */
 function ScriptEntryWithFix({
@@ -1109,26 +1398,6 @@ function ScriptEntryWithFix({
       onViewProcess={viewProcessInPanel}
       onFix={canFix ? handleFix : undefined}
     />
-  );
-}
-
-/**
- * Error message entry with expandable content
- */
-function ErrorMessageEntry({
-  content,
-  expansionKey,
-}: {
-  content: string;
-  expansionKey: string;
-}) {
-  const [expanded, toggle] = usePersistedExpanded(
-    `error:${expansionKey}`,
-    false
-  );
-
-  return (
-    <ChatErrorMessage content={content} expanded={expanded} onToggle={toggle} />
   );
 }
 
@@ -1392,7 +1661,7 @@ const DisplayConversationEntrySpaced = (props: Props) => {
   return (
     <div
       className={cn(
-        'py-base px-double',
+        'py-base px-double empty:hidden',
         isGreyed && 'opacity-50 pointer-events-none'
       )}
     >

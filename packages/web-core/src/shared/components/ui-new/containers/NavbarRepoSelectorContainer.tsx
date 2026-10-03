@@ -7,7 +7,7 @@ import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestinatio
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 /** Views scoped to a single repo — the only ones that show the picker. */
-const REPO_SCOPED_VIEWS = ['sprint', 'issues', 'analyst-desk'] as const;
+const REPO_SCOPED_VIEWS = ['sprint', 'issues'] as const;
 
 /**
  * The one repo picker for the app. Sprint, Issues and Analyst Desk used to

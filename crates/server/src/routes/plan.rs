@@ -32,6 +32,8 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/plan/{workspace_id}/pause", post(pause))
         .route("/plan/{workspace_id}/stop", post(stop))
         .route("/plan/{workspace_id}/play", post(play))
+        .route("/plan/{workspace_id}/question", get(get_question))
+        .route("/plan/{workspace_id}/answer", post(answer))
         .route("/plan/{workspace_id}/steps/{n}/revert", post(revert))
         .route("/plan/{workspace_id}/steps/{n}/cut", post(cut))
         .route(
@@ -97,6 +99,9 @@ async fn mcp(
                 &args,
             )
             .await;
+            if name == "ask_user" && out.is_ok() {
+                notify_question(&deployment, workspace_id, &args).await;
+            }
             Ok(match out {
                 Ok(text) => json!({ "content": [{ "type": "text", "text": text }] }),
                 Err(text) => {
@@ -311,4 +316,70 @@ async fn discard_revision(
     .await
     .map_err(ApiError::Conflict)?;
     Ok(ok())
+}
+
+/// Pregunta de `ask_user` que espera respuesta (o `null`).
+async fn get_question(
+    State(deployment): State<DeploymentImpl>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Option<Value>>>, ApiError> {
+    let q = plan_service::pending_question(&deployment.db().pool, workspace_id)
+        .await
+        .map_err(ApiError::Conflict)?;
+    Ok(ResponseJson(ApiResponse::success(q)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlanAnswerRequest {
+    /// La pregunta que se responde: los argumentos de esa llamada a `ask_user`.
+    /// Si ya no es la pendiente (respondida o reemplazada) se responde 409.
+    pub question: Value,
+    /// Clave de una opción de la pregunta o una respuesta libre.
+    pub answer: String,
+}
+
+/// Respuesta a la pregunta pendiente de `ask_user`.
+async fn answer(
+    State(deployment): State<DeploymentImpl>,
+    Path(workspace_id): Path<Uuid>,
+    Json(req): Json<PlanAnswerRequest>,
+) -> Empty {
+    plan_service::answer_question(
+        &deployment.db().pool,
+        deployment.container(),
+        workspace_id,
+        &req.question,
+        &req.answer,
+    )
+    .await
+    .map_err(ApiError::Conflict)?;
+    Ok(ok())
+}
+
+/// Push when a coding agent asks something (fluke v2, #694): the issue is
+/// waiting for a person. Links to the issue page.
+async fn notify_question(deployment: &DeploymentImpl, workspace_id: Uuid, args: &Value) {
+    use services::services::container::ContainerService;
+    let Some(web_push) = deployment.container().web_push() else {
+        return;
+    };
+    let task =
+        db::models::worker_task::WorkerTask::find_by_workspace(&deployment.db().pool, workspace_id)
+            .await
+            .ok()
+            .flatten();
+    let question = args
+        .get("question")
+        .and_then(Value::as_str)
+        .unwrap_or("El agente necesita una definición para seguir.");
+    let payload = services::services::web_push::PushEventPayload {
+        title: "El agente necesita tu respuesta".to_string(),
+        body: question.chars().take(180).collect(),
+        tag: format!("agent-question-{workspace_id}"),
+        deeplink_path: task.and_then(|t| {
+            t.issue_number
+                .map(|n| format!("/issues/{n}?repo={}", t.repo_id))
+        }),
+    };
+    services::services::web_push::spawn_notify(web_push.clone(), payload);
 }

@@ -20,12 +20,13 @@ import { Route as AppSourceControlRouteImport } from './routes/_app.source-contr
 import { Route as AppPilotReportRouteImport } from './routes/_app.pilot-report'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
+import { Route as AppFlukeRouteImport } from './routes/_app.fluke'
 import { Route as AppExportRouteImport } from './routes/_app.export'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCiPipelinesRouteImport } from './routes/_app.ci-pipelines'
-import { Route as AppAnalystDeskRouteImport } from './routes/_app.analyst-desk'
 import { Route as WorkspacesWorkspaceIdVscodeRouteImport } from './routes/workspaces.$workspaceId.vscode'
 import { Route as AppWorkspacesWorkspaceIdRouteImport } from './routes/_app.workspaces_.$workspaceId'
+import { Route as AppIssuesIssueNumberRouteImport } from './routes/_app.issues_.$issueNumber'
 import { Route as AppHostsHostIdWorkspacesRouteImport } from './routes/_app.hosts.$hostId.workspaces'
 import { Route as HostsHostIdWorkspacesWorkspaceIdVscodeRouteImport } from './routes/hosts.$hostId.workspaces.$workspaceId.vscode'
 import { Route as AppHostsHostIdWorkspacesWorkspaceIdRouteImport } from './routes/_app.hosts.$hostId.workspaces_.$workspaceId'
@@ -84,6 +85,11 @@ const AppIssuesRoute = AppIssuesRouteImport.update({
   path: '/issues',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFlukeRoute = AppFlukeRouteImport.update({
+  id: '/fluke',
+  path: '/fluke',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
@@ -99,11 +105,6 @@ const AppCiPipelinesRoute = AppCiPipelinesRouteImport.update({
   path: '/ci-pipelines',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAnalystDeskRoute = AppAnalystDeskRouteImport.update({
-  id: '/analyst-desk',
-  path: '/analyst-desk',
-  getParentRoute: () => AppRoute,
-} as any)
 const WorkspacesWorkspaceIdVscodeRoute =
   WorkspacesWorkspaceIdVscodeRouteImport.update({
     id: '/workspaces/$workspaceId/vscode',
@@ -116,6 +117,11 @@ const AppWorkspacesWorkspaceIdRoute =
     path: '/workspaces/$workspaceId',
     getParentRoute: () => AppRoute,
   } as any)
+const AppIssuesIssueNumberRoute = AppIssuesIssueNumberRouteImport.update({
+  id: '/issues_/$issueNumber',
+  path: '/issues/$issueNumber',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHostsHostIdWorkspacesRoute =
   AppHostsHostIdWorkspacesRouteImport.update({
     id: '/hosts/$hostId/workspaces',
@@ -138,10 +144,10 @@ const AppHostsHostIdWorkspacesWorkspaceIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
-  '/analyst-desk': typeof AppAnalystDeskRoute
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
+  '/fluke': typeof AppFlukeRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
   '/pilot-report': typeof AppPilotReportRoute
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
+  '/issues/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -159,10 +166,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
-  '/analyst-desk': typeof AppAnalystDeskRoute
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
+  '/fluke': typeof AppFlukeRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
   '/pilot-report': typeof AppPilotReportRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/workers': typeof AppWorkersRoute
   '/workspaces': typeof AppWorkspacesRoute
   '/onboarding/sign-in': typeof OnboardingSignInRoute
+  '/issues/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -182,10 +190,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/onboarding': typeof OnboardingRoute
-  '/_app/analyst-desk': typeof AppAnalystDeskRoute
   '/_app/ci-pipelines': typeof AppCiPipelinesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/export': typeof AppExportRoute
+  '/_app/fluke': typeof AppFlukeRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/pilot-report': typeof AppPilotReportRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_app/workers': typeof AppWorkersRoute
   '/_app/workspaces': typeof AppWorkspacesRoute
   '/onboarding_/sign-in': typeof OnboardingSignInRoute
+  '/_app/issues_/$issueNumber': typeof AppIssuesIssueNumberRoute
   '/_app/workspaces_/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/workspaces/$workspaceId/vscode': typeof WorkspacesWorkspaceIdVscodeRoute
   '/_app/hosts/$hostId/workspaces': typeof AppHostsHostIdWorkspacesRoute
@@ -205,10 +214,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
-    | '/analyst-desk'
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
+    | '/fluke'
     | '/issues'
     | '/notifications'
     | '/pilot-report'
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
+    | '/issues/$issueNumber'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/hosts/$hostId/workspaces'
@@ -226,10 +236,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding'
-    | '/analyst-desk'
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
+    | '/fluke'
     | '/issues'
     | '/notifications'
     | '/pilot-report'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/workers'
     | '/workspaces'
     | '/onboarding/sign-in'
+    | '/issues/$issueNumber'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/hosts/$hostId/workspaces'
@@ -248,10 +259,10 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/onboarding'
-    | '/_app/analyst-desk'
     | '/_app/ci-pipelines'
     | '/_app/dashboard'
     | '/_app/export'
+    | '/_app/fluke'
     | '/_app/issues'
     | '/_app/notifications'
     | '/_app/pilot-report'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_app/workers'
     | '/_app/workspaces'
     | '/onboarding_/sign-in'
+    | '/_app/issues_/$issueNumber'
     | '/_app/workspaces_/$workspaceId'
     | '/workspaces/$workspaceId/vscode'
     | '/_app/hosts/$hostId/workspaces'
@@ -355,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIssuesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/fluke': {
+      id: '/_app/fluke'
+      path: '/fluke'
+      fullPath: '/fluke'
+      preLoaderRoute: typeof AppFlukeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/export': {
       id: '/_app/export'
       path: '/export'
@@ -376,13 +395,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCiPipelinesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/analyst-desk': {
-      id: '/_app/analyst-desk'
-      path: '/analyst-desk'
-      fullPath: '/analyst-desk'
-      preLoaderRoute: typeof AppAnalystDeskRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/workspaces/$workspaceId/vscode': {
       id: '/workspaces/$workspaceId/vscode'
       path: '/workspaces/$workspaceId/vscode'
@@ -395,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/workspaces/$workspaceId'
       fullPath: '/workspaces/$workspaceId'
       preLoaderRoute: typeof AppWorkspacesWorkspaceIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/issues_/$issueNumber': {
+      id: '/_app/issues_/$issueNumber'
+      path: '/issues/$issueNumber'
+      fullPath: '/issues/$issueNumber'
+      preLoaderRoute: typeof AppIssuesIssueNumberRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/hosts/$hostId/workspaces': {
@@ -422,10 +441,10 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
-  AppAnalystDeskRoute: typeof AppAnalystDeskRoute
   AppCiPipelinesRoute: typeof AppCiPipelinesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppExportRoute: typeof AppExportRoute
+  AppFlukeRoute: typeof AppFlukeRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPilotReportRoute: typeof AppPilotReportRoute
@@ -433,16 +452,17 @@ interface AppRouteChildren {
   AppSprintRoute: typeof AppSprintRoute
   AppWorkersRoute: typeof AppWorkersRoute
   AppWorkspacesRoute: typeof AppWorkspacesRoute
+  AppIssuesIssueNumberRoute: typeof AppIssuesIssueNumberRoute
   AppWorkspacesWorkspaceIdRoute: typeof AppWorkspacesWorkspaceIdRoute
   AppHostsHostIdWorkspacesRoute: typeof AppHostsHostIdWorkspacesRoute
   AppHostsHostIdWorkspacesWorkspaceIdRoute: typeof AppHostsHostIdWorkspacesWorkspaceIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAnalystDeskRoute: AppAnalystDeskRoute,
   AppCiPipelinesRoute: AppCiPipelinesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppExportRoute: AppExportRoute,
+  AppFlukeRoute: AppFlukeRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPilotReportRoute: AppPilotReportRoute,
@@ -450,6 +470,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSprintRoute: AppSprintRoute,
   AppWorkersRoute: AppWorkersRoute,
   AppWorkspacesRoute: AppWorkspacesRoute,
+  AppIssuesIssueNumberRoute: AppIssuesIssueNumberRoute,
   AppWorkspacesWorkspaceIdRoute: AppWorkspacesWorkspaceIdRoute,
   AppHostsHostIdWorkspacesRoute: AppHostsHostIdWorkspacesRoute,
   AppHostsHostIdWorkspacesWorkspaceIdRoute:

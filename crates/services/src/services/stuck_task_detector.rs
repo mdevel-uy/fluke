@@ -44,6 +44,16 @@ const DEFAULT_THRESHOLD_MINUTES: i64 = 30;
 
 const THRESHOLD_ENV: &str = "FLUKE_STUCK_TASK_THRESHOLD_MINUTES";
 
+/// Minutes after which a running coding agent counts as stuck. Shared with
+/// the issue plan (#694), which marks the phase as needing a person.
+pub fn threshold_minutes() -> i64 {
+    std::env::var(THRESHOLD_ENV)
+        .ok()
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .filter(|m| *m > 0)
+        .unwrap_or(DEFAULT_THRESHOLD_MINUTES)
+}
+
 pub struct StuckTaskDetector {
     db: DBService,
     web_push: WebPushService,

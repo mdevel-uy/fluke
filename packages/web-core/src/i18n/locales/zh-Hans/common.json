@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "切换自动换行",
       "run-setup-script": "运行设置脚本",
       "run-cleanup-script": "运行清理脚本",
-      "run-archive-script": "运行归档脚本"
+      "run-archive-script": "运行归档脚本",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -584,7 +585,11 @@
     "permissionPlan": "计划",
     "agent": "代理",
     "default": "默认",
-    "model": "模型"
+    "model": "模型",
+    "errors": {
+      "claude_not_connected": "Claude is not connected. Showing the built-in model list.",
+      "claude_models_fallback": "Could not load the Claude model list. Showing the built-in list."
+    }
   },
   "crashScreen": {
     "title": "出了点问题",
@@ -622,7 +627,7 @@
       "ariaLabel": "打开命令栏"
     },
     "layout": {
-      "toggleAdhocClaude": "临时 Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -636,28 +641,12 @@
     "issuesRefreshNew_other": "{{count}} 个新 issue",
     "issuesRefreshNone": "没有新 issue"
   },
-  "adhocPanel": {
-    "title": "临时 Claude",
-    "close": "关闭临时 Claude 面板",
-    "newSession": "新会话",
-    "loading": "正在准备 Claude 会话…",
-    "noRepo": {
-      "title": "没有可用的仓库",
-      "description": "添加一个仓库以启动临时 Claude 会话。"
-    },
-    "error": {
-      "title": "无法打开临时会话",
-      "description": "准备 scratch 工作区时发生错误。",
-      "retry": "重试"
-    }
-  },
   "appBar": {
     "dashboard": "仪表盘",
     "workspaces": "工作区",
     "issues": "问题",
-    "workers": "工作者",
+    "workers": "配置",
     "sprint": "看板",
-    "analystDesk": "分析师工作台",
     "ciPipelines": "CI 流水线",
     "collapseSidebar": "折叠侧边栏",
     "expandSidebar": "展开侧边栏",
@@ -895,7 +884,15 @@
     "confirmSelection": "确认选择",
     "submitting": "正在提交回答...",
     "answeredCount": "已回答{{count}}个问题",
-    "answeredCount_other": "已回答{{count}}个问题"
+    "answeredCount_other": "已回答{{count}}个问题",
+    "recommended": "推荐",
+    "why": "原因：{{why}}",
+    "otherPlaceholder": "或输入其他回答",
+    "send": "发送",
+    "answered": "已回答：{{answer}}",
+    "closed": "已不再等待回答",
+    "stale": "此问题已不再待回答：已被回答或被更新的问题取代。",
+    "agentRunning": "代理仍在结束当前回合，请稍后再试。"
   },
   "issues": {
     "title": "Issues",
@@ -916,12 +913,23 @@
     "emptyDescription": "刷新以从源同步 Issue。",
     "assignToAgent": "分配给代理",
     "reassignAction": "重新分配",
+    "pmDecision": {
+      "action": "PM 决定",
+      "title": "#{{number}} 的 PM 决定",
+      "description": "文本将作为评论发布到 GitHub issue，并移除 pm:decision 标签。",
+      "placeholder": "输入决定内容...",
+      "confirm": "发布决定",
+      "retryLabelRemoval": "重试移除标签",
+      "labelRemovalFailed": "决定已发布到 GitHub，但无法移除 pm:decision 标签：{{error}}",
+      "assignBlocked": "等待 PM 决定：请在分配此 issue 之前发布决定。"
+    },
     "archiveAction": "归档",
     "taskStatus": {
       "queued": "排队中",
       "in_progress": "进行中",
       "in_review": "审查中",
-      "done": "已完成"
+      "done": "已完成",
+      "waiting_user": "等待回答"
     },
     "taskLinked": {
       "openWorkspace": "打开工作区",
@@ -994,8 +1002,7 @@
       "groupByOptions": {
         "none": "不分组",
         "label": "标签",
-        "milestone": "里程碑",
-        "execution": "执行计划"
+        "milestone": "里程碑"
       },
       "clear": "清除筛选",
       "noResults": "没有 Issue 符合当前筛选条件。",
@@ -1023,21 +1030,308 @@
       "archiveConfirm": "在 GitHub 上关闭 Issue #{{number}}？它将移至已关闭筛选器。",
       "archiveAction": "关闭 Issue"
     },
-    "execution": {
-      "wave": "第 {{n}} 波",
-      "parallel": "{{n}} 个问题可以同时分配",
-      "single": "本波仅有一个问题",
-      "unwaved": "无波次",
-      "unwavedHint": "有 feature 但没有可用的 wave: 标签 — 请逐个分配",
-      "unclassified": "未分类",
-      "unclassifiedHint": "没有 feature: 标签 — 无法规划；请逐个分配",
-      "contentionTitle": "存在争用的串行资源",
-      "contentionHint": "这些问题占用同一个仓库级资源。即使属于不同功能，同一时间也只能有一个开启的 PR。",
-      "empty": "没有可规划的开启问题。"
+    "plan": {
+      "tabsLabel": "视图",
+      "tabs": {
+        "list": "列表",
+        "groups": "分组",
+        "plan": "计划"
+      },
+      "slots": "槽位 {{used}}/{{limit}}",
+      "pauseBetweenWaves": "每个波次结束后暂停",
+      "collapseAll": "全部折叠",
+      "expandAll": "全部展开",
+      "runAll": "全部运行",
+      "play": "运行里程碑",
+      "collapse": "折叠里程碑",
+      "wave": "波次 {{n}}",
+      "merged": "已合并 {{done}}/{{total}}",
+      "status": {
+        "readyTitle": "可以运行",
+        "waves_other": "{{count}} 个波次",
+        "issues_other": "{{count}} 个 issue",
+        "gateDetail": "开始时等待你对 #{{n}} 的决定",
+        "runningTitle": "正在运行波次 {{n}}",
+        "runningDetail": "{{count}} 个并行",
+        "waitingDecisionTitle": "已停止：等待你的决定",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "已停止",
+        "failedDetail": "#{{n}} 失败；重新分配或关闭后继续",
+        "pausedTitle": "已暂停",
+        "pausedDetail": "正在运行的会完成",
+        "stepTitle": "波次 {{n}} 已完成",
+        "stepDetail": "点击运行开始波次 {{n}}",
+        "doneTitle": "里程碑完成",
+        "doneDetail": "所有 PR 已合并",
+        "stuckTitle": "#{{n}} 需要你处理",
+        "stuckDetail": "wave 的其余部分继续运行"
+      },
+      "card": {
+        "ready": "● 就绪",
+        "gate": "◆ 待决定",
+        "blocked": "等待波次 {{n}}",
+        "queued": "排队中",
+        "running": "运行中",
+        "review": "评审中",
+        "done": "✓ 已合并",
+        "manual": "手动",
+        "decideNow": "立即决定",
+        "workerBranch": "{{name}} · 在自己的分支上工作",
+        "prReview": "{{name}} · PR 评审中",
+        "open": "打开 issue #{{n}}",
+        "openHint": "打开 →",
+        "waitingYou": "{{name}} · 等待你的回复",
+        "ago": "{{age}}前",
+        "unstick": "解除卡住",
+        "stuck": "⚠ 卡住"
+      },
+      "loose": "无里程碑或无波次 · 逐个分配",
+      "legend": {
+        "ready": "就绪",
+        "running": "运行中",
+        "review": "评审中",
+        "gate": "PM 决定",
+        "queued": "排队中（无空闲槽位）",
+        "blocked": "等待上一波次"
+      },
+      "empty": "没有带里程碑和波次的未关闭 issue 可供规划。",
+      "expand": "展开里程碑",
+      "summary": {
+        "done": "{{count}} 已合并",
+        "running": "{{count}} 运行中",
+        "review": "{{count}} 评审中",
+        "queued": "{{count}} 排队中",
+        "gate": "{{count}} 待决定",
+        "todo": "{{count}} 待处理",
+        "working": "工作中",
+        "decide": "决定 #{{n}}",
+        "stuck_other": "{{count}} 个需要你处理",
+        "unstick": "解除 #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "待决定",
+        "eyebrowWave": "待决定 · 波次 {{n}}",
+        "unblocks": "解除阻塞 {{list}}",
+        "viewOnGithub": "在 GitHub 查看",
+        "issue": "事项",
+        "verified": "分析师在代码中核实的内容",
+        "toDecide": "需要决定的事",
+        "answer": "回答",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "输入你的回答",
+        "recommended": "推荐",
+        "why": "分析师推荐 ({{key}}) 的原因：",
+        "note": "补充说明",
+        "optional": "可选",
+        "notePlaceholder": "给接手该 issue 的 worker 的背景",
+        "returnNeedsNote": "请在说明中写出分析师缺少什么。",
+        "preview": "将发布到 #{{n}} 的内容",
+        "previewHint": "同时会移除 pm:decision 标签，里程碑继续。",
+        "useRecommendations": "使用推荐",
+        "returnToAnalyst": "退回分析师",
+        "closeWithoutDoing": "不做直接关闭",
+        "decide": "决定并继续",
+        "confirmClose": "不做直接关闭 #{{n}}？",
+        "closeIssue": "关闭 issue",
+        "followUpFailed": "评论已发布，但下一步失败：{{error}}。请重试，不会重复发布。",
+        "commentTitle": "PM 决定",
+        "returnedTitle": "退回分析师",
+        "closedTitle": "按 PM 决定不做直接关闭",
+        "toast": {
+          "decided": "已在 #{{n}} 发布决定 · 已移除 pm:decision",
+          "returned": "#{{n}} 已退回分析师",
+          "closed": "#{{n}} 已不做直接关闭"
+        },
+        "openIssue": "打开 issue →"
+      },
+      "issuePage": {
+        "notFound": "找不到 issue #{{n}}。",
+        "backToIssues": "返回 Issues",
+        "viewPr": "查看 PR",
+        "branch": "分支",
+        "noTask": "此 issue 还没有任务。",
+        "templateLine": "模板",
+        "tabs": {
+          "plan": "计划",
+          "code": "代码",
+          "sessions": "会话"
+        },
+        "description": "issue 描述",
+        "originBy": "选择者：",
+        "originFlow": "issue 之间的流程：",
+        "originSteps": "开发步骤："
+      },
+      "pause": "暂停里程碑",
+      "reset": "重置",
+      "phases": {
+        "origin": "起点",
+        "end": "结束",
+        "loop": "返工",
+        "phaseN": "阶段 {{n}}",
+        "loopLabel": "要求修改 · 第 {{n}} 轮 → 返工使用同一分支",
+        "round": "第 {{n}} 轮",
+        "mergeSub": "人工关卡：由你合并",
+        "state": {
+          "done": "完成",
+          "active": "进行中",
+          "changes": "要求修改",
+          "stuck": "卡住",
+          "pending": "待开始"
+        },
+        "kind": {
+          "origin": "issue 创建",
+          "design": "设计",
+          "dev": "开发",
+          "review": "评审",
+          "merge": "合并",
+          "tdd": "测试先行",
+          "test": "测试"
+        },
+        "profile": "配置",
+        "instance": "实例",
+        "ephemeral": "（临时）",
+        "status": "状态",
+        "duration": "耗时",
+        "cost": "成本",
+        "output": "输出",
+        "viewSession": "查看代理会话",
+        "viewPrComments": "查看 PR 评论",
+        "selectHint": "选择一个阶段查看详情。"
+      },
+      "templates": {
+        "title": "阶段模板",
+        "hint": "Fluke 在 brief 中选择：是否需要设计、是否使用 TDD（有意义时会问你）。Analyst 不改阶段，只安排 issue 之间的流程。",
+        "names": {
+          "tdd": "含 TDD",
+          "no_tdd": "不含 TDD",
+          "design": "含设计",
+          "bug": "Bug",
+          "decision": "含决定",
+          "none": "当前流程（无计划）"
+        },
+        "phases": {
+          "tdd": "测试先行",
+          "dev": "开发",
+          "test": "测试",
+          "review": "评审",
+          "merge": "合并",
+          "design": "设计",
+          "approval": "你的确认",
+          "withOrWithoutTdd": "…有无 TDD",
+          "reproduce": "复现",
+          "failingTest": "失败的测试",
+          "fix": "修复",
+          "decision": "你的决定",
+          "baseTemplate": "…基础模板"
+        }
+      },
+      "code": {
+        "changes": "issue 的改动",
+        "terminal": "终端 · issue 工作区",
+        "terminalHint": "所有阶段共用",
+        "noTerminal": "仅在 issue 工作区处于活动状态时可用终端。"
+      },
+      "sessions": {
+        "empty": "还没有阶段运行过。",
+        "onePerPhase": "每个阶段一个会话",
+        "live": "实时",
+        "readOnly": "已结束 · 只读",
+        "waitingYou": "等待你的回答",
+        "discarded": "该实例已丢弃。会话作为它在此阶段所做工作的记录保留。"
+      },
+      "attention_other": "{{count}} 个需要你处理",
+      "stuck": {
+        "unstick": "解除卡住",
+        "viewSession": "查看会话",
+        "since": "已卡住 {{age}}",
+        "banner": "{{phase}} 已卡住 {{age}}",
+        "bannerNoAge": "{{phase}} 已卡住",
+        "kindsTitle": "阶段何时会卡住",
+        "thisCase": "这个 issue 就是这种情况。",
+        "kindsNote": "在通知你之前，Fluke 会先自己尝试：对基础设施故障按递增的等待时间重试。只把需要人处理的事交给你。",
+        "kinds": {
+          "question": {
+            "title": "代理提出了它无法自行决定的问题",
+            "hint": "等待你的回复。"
+          },
+          "failed": {
+            "title": "同一件事连续多次失败",
+            "hint": "尝试 N 次后测试或 CI 仍然失败。"
+          },
+          "review_cap": {
+            "title": "review 轮次已用完",
+            "hint": "每一轮都要求修改。"
+          },
+          "no_progress": {
+            "title": "N 分钟内没有进展",
+            "hint": "会话卡死或在等待外部条件。"
+          },
+          "credential": {
+            "title": "缺少凭据或权限",
+            "hint": "PAT 过期、密钥不存在。"
+          }
+        }
+      },
+      "unstick": {
+        "eyebrow": "⚠ 卡住 · {{phase}} · {{age}}前",
+        "eyebrowNoAge": "⚠ 卡住 · {{phase}}",
+        "instanceAlive": "实例仍在运行并等待",
+        "notStuck": "这个 issue 已经不再卡住。",
+        "whatHappened": "发生了什么",
+        "tried": "已经尝试过的",
+        "triedRound": "第 {{n}} 轮：要求修改",
+        "question": "代理的问题",
+        "recommended": "代理推荐",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "写下你的回答",
+        "why": "推荐理由（{{key}}）：",
+        "note": "给代理的额外背景",
+        "optional": "可选",
+        "notePlaceholder": "例如：与另一个 issue 中的决定保持一致",
+        "alternatives": "其他解除方式",
+        "alt": {
+          "fluke": {
+            "title": "和 Fluke 商量",
+            "hint": "用你自己的话说明，Fluke 转达给代理"
+          },
+          "session": {
+            "title": "给代理留言",
+            "hint": "进入实时会话交流"
+          },
+          "code": {
+            "title": "接手处理",
+            "hint": "打开代码，从那里自己继续"
+          },
+          "retry": {
+            "title": "重试",
+            "hint": "该阶段回到队列，由新实例接手"
+          },
+          "back": {
+            "title": "先回到测试",
+            "hint": "如果问题出在测试的要求上"
+          },
+          "cancel": {
+            "title": "取消 issue",
+            "hint": "关闭 issue；wave 继续进行"
+          }
+        },
+        "confirmCancel": "取消 #{{n}}？进行中的工作会停止并关闭 issue。",
+        "keep": "返回",
+        "footHint": "回答会发到同一个会话，代理继续工作。",
+        "answer": "回答并继续",
+        "flukeMessage": "我需要解除 issue #{{n}}「{{title}}」的卡住。{{phase}} 阶段卡住了：{{message}}\n帮我解决；想清楚后我们再回复代理。",
+        "toast": {
+          "answered": "回答已发送 · #{{n}} 继续",
+          "retried": "#{{n}} 已回到队列",
+          "backToTests": "#{{n}} 先回到测试",
+          "canceledIssue": "#{{n}} 已取消；wave 继续进行",
+          "fluke": "Fluke 带着卡住的背景开启关于 #{{n}} 的对话"
+        }
+      }
     }
   },
   "workers": {
-    "title": "工作者",
+    "title": "配置",
     "newWorker": "新建工作者",
     "loading": "正在加载工作者...",
     "loadError": "加载工作者失败。",
@@ -1134,6 +1428,17 @@
       "saveEdit": "保存更改",
       "modelLabel": "模型",
       "modelDefault": "默认（全局）",
+      "modelHelp": "工作者使用所选模型的提供方。“默认”会随默认提供方的变化而变化。",
+      "modelProviderDefault": "提供方默认模型",
+      "modelProviderIsDefault": "默认",
+      "modelNotConnectedGroup": "未连接",
+      "modelNotConnected": "未连接",
+      "modelProviderDisconnected": "未连接",
+      "modelProviderDisconnectedHelp": "{{provider}} 未连接：此工作者的任务将在启动时失败。请在设置中连接 {{provider}} 或选择其他模型。",
+      "modelUnavailable": "不可用",
+      "modelUnavailableHelp": "{{model}} 已不在 {{provider}} 的列表中。在你选择其他模型之前，任务将使用 {{provider}} 的默认模型。",
+      "modelConnectProvider": "连接 {{provider}}",
+      "modelConnectProviders": "连接提供方",
       "planModeLabel": "计划模式",
       "planModeGlobal": "使用全局设置",
       "planModeOn": "强制开启",
@@ -1163,7 +1468,11 @@
       "developerDescription": "实现功能并创建拉取请求",
       "analystDescription": "调研并产出书面交付物",
       "reviewerDescription": "审查代码并提供反馈",
-      "designerDescription": "以 Claude 制品的形式产出设计方案"
+      "designerDescription": "以 Claude 制品的形式产出设计方案",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "先于代码编写测试，并在评审前验证 PR"
     },
     "toast": {
       "startSuccess": "{{worker}} 已开始“{{title}}”。",
@@ -1185,69 +1494,6 @@
       "purgeAllSuccess": "已永久删除 {{count}} 个归档的工作者。",
       "purgeAllError": "删除归档的工作者失败：{{message}}",
       "dismiss": "关闭"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "附加设计",
-      "pendingCount": "{{n}} 个未认领",
-      "searchPlaceholder": "按标题或设计师搜索…",
-      "empty": "没有未认领的设计",
-      "attachedHint": "编排器会把引用、摘要和 fetch 步骤加入提示词。",
-      "remove": "移除设计",
-      "notePlaceholder": "PM 指示(可选):优先级、约束…"
-    },
-    "title": "分析师工作台",
-    "repoLabel": "仓库",
-    "analystsLabel": "分析师",
-    "skillsPicker": "技能",
-    "skillsEmpty": "没有已安装的技能。",
-    "requestLabel": "请求",
-    "promptPlaceholder": "描述你需要分析师做什么。例如：将通知 epic 拆分为带验收标准的小 issue。",
-    "hint": "分析师空闲时立即执行，否则加入其队列。",
-    "submit": "发送请求",
-    "loading": "加载中...",
-    "loadError": "无法加载分析师。",
-    "noAnalystsTitle": "还没有分析师",
-    "noAnalystsDescription": "创建一个 Analyst 角色的 worker 即可开始发送请求。",
-    "goToWorkers": "前往 Workers",
-    "historyTitle": "发给 {{worker}} 的请求",
-    "historyEmpty": "还没有请求。你的请求及其结果将显示在这里。",
-    "openWorkspace": "查看执行",
-    "retry": "重试",
-    "stop": "停止",
-    "remove": "移除",
-    "stopConfirmMessage": "确定停止该请求吗？容器将被停止，请求也会被删除。",
-    "removeConfirmMessage": "确定要从分析师队列中移除该请求吗？",
-    "cancelConfirm": "取消",
-    "stopConfirm": "停止",
-    "removeConfirm": "移除",
-    "dismiss": "关闭",
-    "status": {
-      "queued": "排队中",
-      "queuedAhead": "排队中 · 前面还有 {{ahead}} 个",
-      "inProgress": "进行中",
-      "done": "已完成",
-      "failed": "失败"
-    },
-    "toast": {
-      "started": "{{worker}} 已开始处理你的请求。",
-      "queued": "请求已加入 {{worker}} 的队列。",
-      "error": "请求发送失败：{{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "将图片拖到此处、点击添加或粘贴",
-      "addMore": "添加更多图片",
-      "removeAria": "移除 {{name}}",
-      "uploading": "上传中",
-      "errorLabel": "上传失败",
-      "uploadError": "无法上传 '{{name}}'：{{message}}",
-      "tooLarge": "文件超过允许的最大大小。"
-    },
-    "labelsInput": {
-      "title": "Issue 标签",
-      "placeholder": "例如：design, bug",
-      "removeAria": "移除标签 {{label}}"
     }
   },
   "ciPipelines": {
@@ -1653,5 +1899,137 @@
       "correction": "已作为修正步骤 {{n}} 接受"
     },
     "error": "无法完成操作：{{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference",
+      "tdd": "TDD"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "任务状态",
+      "understand": {
+        "title": "理解",
+        "todo": "Fluke 询问写 brief 需要的信息",
+        "done": "问题已回答"
+      },
+      "brief": {
+        "title": "Brief + 模板",
+        "todo": "Fluke 撰写 brief 并选择模板",
+        "done": "v{{v}} 已批准 · {{template}}"
+      },
+      "breakdown": {
+        "title": "拆分",
+        "todo": "Analyst 创建 issue、wave 以及它们之间的流程",
+        "done": "{{issues}} 个 issue，{{waves}} 个 wave"
+      },
+      "plan": {
+        "title": "内部计划",
+        "todo": "每个 dev 为自己的 issue 制定步骤",
+        "done": "dev 已制定步骤"
+      },
+      "run": {
+        "title": "执行",
+        "todo": "Issues 中的 milestone，可 play",
+        "done": "milestone 已完成"
+      },
+      "template": {
+        "tddDesign": "含 TDD 和设计",
+        "tddNoDesign": "含 TDD，无设计",
+        "noTddDesign": "无 TDD，含设计",
+        "noTddNoDesign": "无 TDD 和设计"
+      }
+    },
+    "proposal": {
+      "title": "Analyst 的提案",
+      "decision": "待决定",
+      "openInIssues": "在 Issues 中打开",
+      "message": "Analyst 提议 {{issues}} 个 issue，分 {{waves}} 个 wave。它在我选的模板上搭建了 issue 之间的流程。每个 dev 开始时会制定自己 issue 的内部计划。milestone 已在 Issues 中，等你按 play。",
+      "viewMilestone": "查看 milestone",
+      "runNow": "立即执行"
+    }
+  },
+  "profiles": {
+    "new": "新建配置",
+    "newHint": "设置角色、代理、模型和指令",
+    "bannerStart": "配置是模板。每当一个阶段开始，就会创建配置的一个",
+    "bannerInstance": "临时实例",
+    "bannerEnd": "，它在 issue 的工作区中工作，完成后丢弃。没有名字，也没有自己的队列。配置的所有实例都使用它的 PAT（没有则用你的）。",
+    "slots": "全局槽位 {{used}}/{{limit}}",
+    "adjustInSettings": "在 Settings 中调整",
+    "baseRole": "基础角色：{{role}}",
+    "agent": "代理",
+    "github": "GitHub",
+    "ownPat": "自有 PAT · @{{login}}",
+    "userPat": "用户的 PAT",
+    "migratedFrom": "迁移自",
+    "instancesNow": "当前实例",
+    "none": "无",
+    "defaultAgent": "默认代理",
+    "defaultModel": "默认模型"
   }
 }

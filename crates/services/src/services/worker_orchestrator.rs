@@ -55,13 +55,12 @@ use db::{
         agent_action::{self, AgentAction},
         coding_agent_turn::CodingAgentTurn,
         execution_process::{ExecutionProcess, ExecutionProcessRunReason},
-        plan_cap_hit::PlanCapHit,
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
         review_round::{self, CreateReviewRound, ReviewRound},
         session::Session,
-        worker::{ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_REVIEWER, Worker},
+        worker::{ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_QA, ROLE_REVIEWER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -71,9 +70,11 @@ use executors::{
     actions::{
         ExecutorAction, ExecutorActionType, coding_agent_follow_up::CodingAgentFollowUpRequest,
     },
+    executors::{BaseCodingAgent, CodingAgent, StandardCodingAgentExecutor},
     model_selector::PermissionPolicy,
-    profile::ExecutorConfig,
+    profile::{ExecutorConfig, ExecutorConfigs, ExecutorProfileId},
 };
+use futures::StreamExt;
 use git_host::{
     CreatePrRequest, GitHostError, GitHostProvider, GitHostService, PrReviewCommentInput,
     SubmitPrReviewRequest,
@@ -88,7 +89,7 @@ use crate::services::{
     agent_actions_drain, agent_actions_ingest,
     config::Config,
     container::{ContainerError, ContainerService},
-    design_artifacts, quick_action_prompts,
+    design_artifacts, qa_phases, quick_action_prompts,
     repo_issues::RepoIssuesService,
     review_verdict, territory,
 };
@@ -310,8 +311,16 @@ pub enum StartError {
     InReviewCapReached(i64),
     #[error("licencia suspendida: no se arrancan agentes nuevos")]
     LicenseSuspended,
+    /// Every global agent slot is taken: the task stays queued (and without
+    /// a worktree) until one frees up.
+    #[error("no hay slots de agente libres")]
+    NoFreeSlot,
     #[error("repo not found")]
     RepoNotFound,
+    /// The worker's agent has no login on this machine. The task is marked
+    /// failed with the same message so it does not sit queued forever.
+    #[error("{0}")]
+    ProviderDisconnected(String),
     #[error("repo '{0}' has no default_target_branch configured")]
     RepoMissingDefaultBranch(String),
     #[error(transparent)]
@@ -336,6 +345,7 @@ impl StartError {
                 | StartError::AlreadyInProgress
                 | StartError::InReviewCapReached(_)
                 | StartError::LicenseSuspended
+                | StartError::NoFreeSlot
         )
     }
 }
@@ -367,40 +377,45 @@ pub fn max_in_review_from_env() -> i64 {
 pub(crate) async fn resolve_next_takeable_task(
     pool: &sqlx::SqlitePool,
     worker_id: Uuid,
-    cap: i64,
 ) -> Result<WorkerTask, StartError> {
-    if WorkerTask::find_in_progress(pool, worker_id)
+    // A worker is a profile (fluke v2, #680): it runs as many tasks at once
+    // as there are free global slots, so the next queued task is always
+    // takeable. No per-worker "one in progress" rule and no in-review cap.
+    WorkerTask::find_next_queued(pool, worker_id)
         .await?
-        .is_some()
-    {
-        return Err(StartError::AlreadyInProgress);
-    }
+        .ok_or(StartError::NothingQueued)
+}
 
-    let in_review = WorkerTask::count_in_review(pool, worker_id).await?;
-    let next_queued = WorkerTask::find_next_queued(pool, worker_id).await?;
-    if in_review >= cap {
-        let next_is_review_fix = match &next_queued {
-            Some(task) => {
-                WorkerTask::kind(pool, task.id).await?.as_deref()
-                    == Some(worker_task::KIND_REVIEW_FIX)
-            }
-            None => false,
-        };
-        if !next_is_review_fix {
-            if next_queued.is_some()
-                && let Err(e) = PlanCapHit::record_hit_today(pool).await
-            {
-                warn!(
-                    worker_id = %worker_id,
-                    "Failed to record plan cap hit: {}",
-                    e
-                );
-            }
-            return Err(StartError::InReviewCapReached(cap));
+/// Free global agent slots: the effective limit minus whatever already holds
+/// or waits for one (running processes plus the semaphore queue, or the
+/// in-progress worker tasks if that is higher). Claiming only when this is
+/// positive keeps queued tasks from getting a worktree before they can run.
+pub async fn free_agent_slots(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+) -> Result<i64, sqlx::Error> {
+    let in_progress: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM worker_tasks WHERE status = 'in_progress'")
+            .fetch_one(&db.pool)
+            .await?;
+    let (limit, busy) = match container.concurrency() {
+        Some(sem) => {
+            let snap = sem.snapshot().await;
+            let held = snap.used as i64 + snap.queued.len() as i64;
+            (snap.limit as i64, held.max(in_progress))
         }
-    }
-
-    next_queued.ok_or(StartError::NothingQueued)
+        None => {
+            let configured = config.read().await.agent_concurrency_limit;
+            let limit = if configured == 0 {
+                crate::services::concurrency::auto_limit()
+            } else {
+                configured
+            };
+            (limit as i64, in_progress)
+        }
+    };
+    Ok((limit - busy).max(0))
 }
 
 pub const WORKER_LEAD_ENABLED_ENV: &str = "WORKER_LEAD_ENABLED";
@@ -453,8 +468,148 @@ const INFRA_MODEL_FALLBACK_THRESHOLD: i64 = 2;
 /// Model the dispatcher degrades to after repeated infra failures. Opus is
 /// the fleet's workhorse model and the least likely to be gated: in the
 /// 02-ago-2026 incident `fable` returned API 404 for half an hour while
-/// opus workers kept running.
+/// opus workers kept running. Claude-only: on any other agent the override
+/// degrades to that agent's own default model (see [`pick_worker_model`]).
 const INFRA_FALLBACK_MODEL: &str = "opus";
+
+/// How long a task start waits for an agent's model catalog before giving
+/// up on validating the worker's model (and trusting it as-is).
+const MODEL_CATALOG_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Human name of a provider for user-facing messages.
+fn provider_name(agent: BaseCodingAgent) -> String {
+    match agent {
+        BaseCodingAgent::ClaudeCode => "Claude".to_string(),
+        BaseCodingAgent::Codex => "Codex".to_string(),
+        BaseCodingAgent::Gemini => "Gemini".to_string(),
+        other => other.to_string(),
+    }
+}
+
+/// Model ids `agent` currently offers, from the same discovery the model
+/// selector uses. Served from the global discovery cache once it is warm;
+/// until then (and every 5 min after it expires) each task start pays the
+/// discovery itself — for Claude an Anthropic API fetch plus an agent scan —
+/// bounded by [`MODEL_CATALOG_TIMEOUT`]. `None` when the catalog cannot be
+/// read in time — callers then trust the stored model.
+async fn offered_models(agent: &CodingAgent) -> Option<Vec<String>> {
+    let fetch = async {
+        let mut stream = agent.discover_options(None, None).await.ok()?;
+        let mut doc = serde_json::json!({});
+        while let Some(patch) = stream.next().await {
+            json_patch::patch(&mut doc, &patch).ok()?;
+        }
+        let models = doc
+            .pointer("/options/model_selector/models")?
+            .as_array()?
+            .iter()
+            .filter_map(|m| m.get("id")?.as_str().map(str::to_owned))
+            .collect::<Vec<_>>();
+        Some(models)
+    };
+    tokio::time::timeout(MODEL_CATALOG_TIMEOUT, fetch)
+        .await
+        .ok()
+        .flatten()
+        .filter(|models| !models.is_empty())
+}
+
+/// Model to launch a worker task with on `executor`. `None` = the agent's
+/// default model. The worker's model is checked against `offered` when the
+/// catalog is known: a model the agent dropped (or a Claude alias reaching
+/// Codex) degrades to the agent's default with a warning.
+fn pick_worker_model(
+    executor: BaseCodingAgent,
+    worker_model: Option<&str>,
+    dispatcher_override: Option<&str>,
+    offered: Option<&[String]>,
+) -> Option<String> {
+    let is_claude = executor == BaseCodingAgent::ClaudeCode;
+    if let Some(m) = dispatcher_override {
+        // The dispatcher's infra fallback is a Claude CLI alias the CLI always
+        // accepts: it wins unchecked on Claude (the catalog may list only full
+        // API ids). Any other agent degrades to its own default model.
+        return is_claude.then(|| m.to_string());
+    }
+    let wanted = worker_model?;
+    // With an API key the Claude catalog lists full ids (`claude-opus-5-5`),
+    // but the CLI aliases (`opus`, `fable`...) keep working.
+    let is_claude_alias = || {
+        is_claude
+            && executors::executors::claude::models::fallback_models()
+                .iter()
+                .any(|m| m.id == wanted)
+    };
+    match offered {
+        Some(models) if !models.iter().any(|m| m == wanted) && !is_claude_alias() => {
+            warn!(
+                executor = %executor,
+                model = wanted,
+                "Worker model is not offered by its agent; using the agent's default model"
+            );
+            None
+        }
+        _ => Some(wanted.to_string()),
+    }
+}
+
+/// Executor config a worker task launches with: the worker's agent (or the
+/// global default), its model validated against that agent's catalog, and
+/// the per-worker plan-mode override. `Err(agent)` when the worker pinned an
+/// agent that is not connected on this machine.
+async fn worker_executor_config(
+    global: ExecutorProfileId,
+    worker: &Worker,
+    dispatcher_override: Option<&str>,
+) -> Result<ExecutorConfig, BaseCodingAgent> {
+    let global_executor = global.executor;
+    let executor = worker.executor.unwrap_or(global_executor);
+    // The global variant only applies to the global agent; another agent
+    // runs its DEFAULT variant.
+    let mut executor_config: ExecutorConfig = if executor == global.executor {
+        global.into()
+    } else {
+        ExecutorConfig::new(executor)
+    };
+    // Gate exactly what the worker form flags as "not connected": a pinned
+    // agent other than the global default whose Settings connection check
+    // fails. Agents without a Settings connect story are not gated.
+    if worker.executor.is_some_and(|e| e != global_executor)
+        && executors::connection::connection_state(executor).is_some_and(|(ok, _)| !ok)
+    {
+        return Err(executor);
+    }
+    let agent = ExecutorConfigs::get_cached().get_coding_agent(&executor_config.profile_id());
+    // The catalog only matters for the worker's own model: a dispatcher
+    // override never consults it.
+    let offered = match (&agent, dispatcher_override, worker.model.as_deref()) {
+        (Some(agent), None, Some(_)) => offered_models(agent).await,
+        _ => None,
+    };
+    if let Some(model) = pick_worker_model(
+        executor,
+        worker.model.as_deref(),
+        dispatcher_override,
+        offered.as_deref(),
+    ) {
+        executor_config.model_id = Some(model);
+    }
+    // Per-worker plan mode override. Setting the policy to `None` is *not*
+    // enough to disable plan mode: every executor stores its own `plan`
+    // flag in the persisted profile, so a missing override just falls back
+    // to that stored value. To truly force plan mode off we have to set a
+    // non-plan policy (`Auto`); to force it on we set `Plan`. `None` on the
+    // worker means "no override, follow the global setting" — leave the
+    // field untouched.
+    if let Some(plan_mode) = worker.plan_mode {
+        executor_config.permission_policy = Some(if plan_mode {
+            PermissionPolicy::Plan
+        } else {
+            PermissionPolicy::Auto
+        });
+    }
+    Ok(executor_config)
+}
 
 /// Exponential backoff between infra-failure retries: 2, 4, 8, 16, 30, 30…
 /// minutes. The PR monitor polls every minute; this gate is what keeps a
@@ -600,6 +755,11 @@ pub async fn try_take_next(
         .await?
         .ok_or(StartError::WorkerNotFound)?;
 
+    // The Director converses in its own sessions; it never runs queue tasks.
+    if worker.role == db::models::worker::ROLE_ORCHESTRATOR {
+        return Err(StartError::NothingQueued);
+    }
+
     // Auto-repair orphan workspaces attached to this worker before applying
     // the capacity guard, so a previous failed start does not block the
     // worker forever (see issue #32).
@@ -618,7 +778,10 @@ pub async fn try_take_next(
         return Err(StartError::LicenseSuspended);
     }
 
-    let task = resolve_next_takeable_task(pool, worker_id, max_in_review_from_env()).await?;
+    if free_agent_slots(config, db, container).await? <= 0 {
+        return Err(StartError::NoFreeSlot);
+    }
+    let task = resolve_next_takeable_task(pool, worker_id).await?;
 
     let repo = Repo::find_by_id(pool, task.repo_id)
         .await?
@@ -632,35 +795,45 @@ pub async fn try_take_next(
         .filter(|b| !b.is_empty())
         .ok_or_else(|| StartError::RepoMissingDefaultBranch(repo.display_name.clone()))?;
 
-    let executor_config = config.read().await.executor_profile.clone();
-    let mut executor_config: ExecutorConfig = executor_config.into();
-    if let Some(model) = &worker.model {
-        executor_config.model_id = Some(model.clone());
-    }
     // The dispatcher may pin a fallback model on the task itself (after
     // repeated infra failures); that override beats the worker's model.
-    if let Some(model) = WorkerTask::model_override(pool, task.id).await? {
+    let model_override = WorkerTask::model_override(pool, task.id).await?;
+    if let Some(model) = &model_override {
         info!(
             task_id = %task.id,
             model,
-            "Using dispatcher model override for this task"
+            "Dispatcher model override pinned on this task"
         );
-        executor_config.model_id = Some(model);
     }
-    // Per-worker plan mode override. Setting the policy to `None` is *not*
-    // enough to disable plan mode: every executor stores its own `plan`
-    // flag in the persisted profile, so a missing override just falls back
-    // to that stored value. To truly force plan mode off we have to set a
-    // non-plan policy (`Auto`); to force it on we set `Plan`. `None` on the
-    // worker means "no override, follow the global setting" — leave the
-    // field untouched.
-    if let Some(plan_mode) = worker.plan_mode {
-        executor_config.permission_policy = Some(if plan_mode {
-            PermissionPolicy::Plan
-        } else {
-            PermissionPolicy::Auto
-        });
-    }
+    let global_profile = config.read().await.executor_profile.clone();
+    let executor_config = match worker_executor_config(
+        global_profile,
+        &worker,
+        model_override.as_deref(),
+    )
+    .await
+    {
+        Ok(executor_config) => executor_config,
+        Err(agent) => {
+            let reason = format!(
+                "El proveedor {} no está conectado. Conéctalo en Configuración o elige otro modelo para el worker.",
+                provider_name(agent)
+            );
+            // Fail the task instead of leaving it queued: claim first so
+            // a concurrent start cannot pick it up in between.
+            if WorkerTask::try_claim(pool, task.id, worker_id).await? {
+                WorkerTask::set_failed_with_kind(
+                    pool,
+                    task.id,
+                    &reason,
+                    Some(worker_task::FAILURE_KIND_PROVIDER),
+                )
+                .await?;
+            }
+            warn!(worker_id = %worker_id, task_id = %task.id, "{reason}");
+            return Err(StartError::ProviderDisconnected(reason));
+        }
+    };
 
     let workspace_manager = WorkspaceManager::new(db.clone());
 
@@ -1435,6 +1608,16 @@ pub async fn on_agent_finished(
         return Ok(());
     }
 
+    // The agent asked the user (plan MCP ask_user) and ended its turn on
+    // purpose: the task waits for the answer, which resumes the session.
+    if WorkerTask::find_by_workspace(pool, workspace_id)
+        .await?
+        .is_some_and(|t| t.status == worker_task::STATUS_WAITING_USER)
+    {
+        info!(workspace_id = %workspace_id, "Agent turn ended waiting for the user's answer; skipping finalization");
+        return Ok(());
+    }
+
     let worker_id = match Worker::find_by_workspace_id(pool, workspace_id).await? {
         Some(id) => id,
         // A failed task's workspace was detached (archive_and_detach). A
@@ -1529,8 +1712,15 @@ pub async fn on_agent_finished(
 
     let mut infra_failure = false;
     let mut actions_failed_task = false;
+    // Testing phase (#687): QA's verdict, read before the worktree goes.
+    let mut qa_testing: Option<(String, String)> = None;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
+        if worker.role == ROLE_QA
+            && WorkerTask::kind(pool, task.id).await?.as_deref() == Some(worker_task::KIND_QA_TEST)
+        {
+            qa_testing = qa_phases::read_testing_verdict(pool, workspace_id, &task).await;
+        }
         // Persist what the run left behind BEFORE archiving the worktree:
         // the agent's final message for every non-developer role, plus — for
         // designers that committed work — the branch pushed as a durable
@@ -1586,6 +1776,14 @@ pub async fn on_agent_finished(
     let keep_alive = new_status == worker_task::STATUS_IN_REVIEW && !actions_failed_task;
     if !keep_alive {
         archive_and_detach(db, container, workspace_id).await;
+    }
+
+    // Testing passed → review; failed → back to the developer (#687).
+    if let Some((verdict, reasons)) = &qa_testing
+        && let Err(e) =
+            qa_phases::after_testing(config, db, container, &task, verdict, reasons).await
+    {
+        warn!(task_id = %task.id, "Failed to act on the QA verdict: {}", e);
     }
 
     // Auto-start the next queued task for this worker.
@@ -2346,7 +2544,17 @@ async fn persist_non_developer_deliverable(
     let summary = agent_result_text(pool, execution_id).await;
 
     let deliverable_ref = if worker.role == ROLE_DESIGNER {
-        push_design_ref(db, container, workspace_id, task, worker).await
+        push_design_ref(db, container, workspace_id, task, worker, "design").await
+    } else if worker.role == ROLE_QA
+        && WorkerTask::kind(pool, task.id)
+            .await
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some(worker_task::KIND_QA_TDD)
+    {
+        // Tests first (#687): QA's tests become the developer's start_ref.
+        push_design_ref(db, container, workspace_id, task, worker, "tdd").await
     } else {
         None
     };
@@ -2376,6 +2584,7 @@ async fn push_design_ref(
     workspace_id: Uuid,
     task: &WorkerTask,
     worker: &Worker,
+    ref_prefix: &str,
 ) -> Option<String> {
     let pool = &db.pool;
     let workspace = Workspace::find_by_id(pool, workspace_id)
@@ -2409,7 +2618,8 @@ async fn push_design_ref(
         None => utils::text::short_uuid(&task.id),
     };
     let ref_name = format!(
-        "design/{}-{}",
+        "{}/{}-{}",
+        ref_prefix,
         prefix,
         utils::text::git_branch_id(&task.title)
     );
@@ -3458,64 +3668,19 @@ async fn territory_note_for_reviewer(
 }
 
 /// Walk an LRU-ordered reviewer candidate list and pick the first one that
-/// passes the dispatch-time guards:
-///   (a) not the same worker as the PR author (self-review guard — GitHub
-///       rejects `gh pr review --approve` from the PR author with 422), and
-///   (b) strictly under [`WORKER_MAX_IN_REVIEW_ENV`] (capacity guard — same
-///       cap that [`try_take_next`] enforces at start time; skipping saturated
-///       reviewers here prevents the task from being enqueued on a worker that
-///       already can't start it, which would starve the PR while other
-///       reviewers sit idle).
+/// is not the PR author (self-review guard — GitHub rejects
+/// `gh pr review --approve` from the PR author with 422). Reviewers are
+/// profiles (#680) and can review several PRs at once, so busy ones are not
+/// skipped.
 ///
-/// Returns `Ok(None)` when every candidate fails at least one guard; the
-/// caller logs and no-ops in that case.
+/// Returns `Ok(None)` when the only candidate is the author.
 pub(crate) async fn select_lru_reviewer(
-    pool: &sqlx::SqlitePool,
     candidates: Vec<Worker>,
     author_worker_id: Option<Uuid>,
-    cap: i64,
 ) -> Result<Option<Worker>, sqlx::Error> {
-    // Two passes. LRU orders by last *assigned* task, which says nothing
-    // about availability: a reviewer can be LRU-first while its agent is
-    // mid-review, and the in_review cap below can't see that — reviewer
-    // tasks go queued → in_progress → done without ever holding an
-    // `in_review` slot. First pass takes only reviewers that are free right
-    // now; second pass (everyone busy) falls back to queueing on the
-    // LRU-first eligible reviewer so the task still lands somewhere.
-    for busy_allowed in [false, true] {
-        for candidate in &candidates {
-            if let Some(author_id) = author_worker_id {
-                if candidate.id == author_id {
-                    continue;
-                }
-            }
-            let in_review = WorkerTask::count_in_review(pool, candidate.id).await?;
-            if in_review >= cap {
-                debug!(
-                    reviewer_id = %candidate.id,
-                    in_review,
-                    cap,
-                    "Skipping LRU-first reviewer at WORKER_MAX_IN_REVIEW cap; \
-                     trying next candidate"
-                );
-                continue;
-            }
-            if !busy_allowed {
-                let active = WorkerTask::count_active(pool, candidate.id).await?;
-                if active > 0 {
-                    debug!(
-                        reviewer_id = %candidate.id,
-                        active,
-                        "Skipping busy reviewer (queued/in_progress task); \
-                         trying next candidate"
-                    );
-                    continue;
-                }
-            }
-            return Ok(Some(candidate.clone()));
-        }
-    }
-    Ok(None)
+    Ok(candidates
+        .into_iter()
+        .find(|c| author_worker_id != Some(c.id)))
 }
 
 /// Dispatch a review task to the next available reviewer worker for the given
@@ -3573,17 +3738,14 @@ pub async fn dispatch_review_task(
         return Ok(());
     }
 
-    let cap = max_in_review_from_env();
-    let reviewer = select_lru_reviewer(pool, candidates, author_worker_id, cap).await?;
+    let reviewer = select_lru_reviewer(candidates, author_worker_id).await?;
 
     let Some(reviewer) = reviewer else {
         debug!(
             pr_number,
             author_worker_id = ?author_worker_id,
-            cap,
-            "No eligible reviewer for PR #{} — every active reviewer is \
-             either the PR author or already at the WORKER_MAX_IN_REVIEW cap. \
-             Skipping dispatch.",
+            "No eligible reviewer for PR #{} — the only active reviewer is \
+             the PR author. Skipping dispatch.",
             pr_number,
         );
         return Ok(());
@@ -3663,6 +3825,7 @@ pub async fn dispatch_review_task(
             rounds,
             max_rounds,
         );
+        notify_review_cap(db, container, repo_id, pr_number).await;
         return Ok(());
     }
 
@@ -3751,6 +3914,17 @@ pub async fn dispatch_review_task(
             return Ok(());
         }
     };
+
+    // Fluke v2, #687: an issue with a phase plan is tested by QA before the
+    // review. Manual dispatches skip the gate.
+    if !manual
+        && !qa_phases::review_may_start(
+            config, db, container, repo_id, pr_number, pr_title, &head_sha,
+        )
+        .await?
+    {
+        return Ok(());
+    }
 
     let task_title = format!("Review PR #{}: {}", pr_number, pr_title);
     let mut task_prompt = quick_action_prompts::format_review_pr_prompt(pr_number, &head_sha);
@@ -4000,35 +4174,75 @@ pub async fn kickstart_stuck_worker_queues(
     let pool = &db.pool;
     let workers = Worker::list_all(pool).await?;
 
-    for worker in workers {
-        if WorkerTask::find_in_progress(pool, worker.id)
-            .await?
-            .is_some()
-        {
-            continue;
-        }
-        if WorkerTask::find_next_queued(pool, worker.id)
-            .await?
-            .is_none()
-        {
-            continue;
-        }
-
-        match try_take_next(config, db, container, worker.id).await {
-            Ok(started) => info!(
-                worker_id = %worker.id,
-                task_id = %started.task.id,
-                "Kickstarted stuck worker queue: took next queued task"
-            ),
-            Err(e) if e.is_conflict() => {}
-            Err(e) => warn!(
-                worker_id = %worker.id,
-                "Failed to kickstart stuck worker queue: {}", e
-            ),
+    // Profiles run several tasks at once (#680): keep starting queued tasks
+    // until no worker has one left or the global slots run out.
+    'fill: for worker in workers {
+        loop {
+            if WorkerTask::find_next_queued(pool, worker.id)
+                .await?
+                .is_none()
+            {
+                break;
+            }
+            match try_take_next(config, db, container, worker.id).await {
+                Ok(started) => info!(
+                    worker_id = %worker.id,
+                    task_id = %started.task.id,
+                    "Kickstarted worker queue: took next queued task"
+                ),
+                Err(StartError::NoFreeSlot) => break 'fill,
+                Err(e) if e.is_conflict() => break,
+                Err(e) => {
+                    warn!(
+                        worker_id = %worker.id,
+                        "Failed to kickstart worker queue: {}", e
+                    );
+                    break;
+                }
+            }
         }
     }
 
     Ok(())
+}
+
+/// Push once per PR (per server run) when its review rounds run out (#694):
+/// the issue now needs a person.
+async fn notify_review_cap(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    repo_id: Uuid,
+    pr_number: i64,
+) {
+    static NOTIFIED: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<(Uuid, i64)>>> =
+        std::sync::OnceLock::new();
+    let first = NOTIFIED
+        .get_or_init(Default::default)
+        .lock()
+        .map(|mut set| set.insert((repo_id, pr_number)))
+        .unwrap_or(false);
+    let Some(web_push) = container.web_push() else {
+        return;
+    };
+    if !first {
+        return;
+    }
+    let issue = match PullRequest::find_latest_workspace_for_pr(&db.pool, repo_id, pr_number).await
+    {
+        Ok(Some(ws)) => WorkerTask::find_by_workspace(&db.pool, ws)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|t| t.issue_number),
+        _ => None,
+    };
+    let payload = crate::services::web_push::PushEventPayload {
+        title: "El review necesita una persona".to_string(),
+        body: format!("El PR #{pr_number} agotó las rondas de review automáticas."),
+        tag: format!("review-cap-{repo_id}-{pr_number}"),
+        deeplink_path: issue.map(|n| format!("/issues/{n}?repo={repo_id}")),
+    };
+    crate::services::web_push::spawn_notify(web_push.clone(), payload);
 }
 
 /// Cancel any other pending reviewer rounds pinned to the same PR head as
@@ -4083,7 +4297,9 @@ pub async fn cancel_sibling_reviewer_rounds_for_head(
                         );
                     }
                 }
-                worker_task::STATUS_IN_PROGRESS | worker_task::STATUS_IN_REVIEW => {
+                worker_task::STATUS_IN_PROGRESS
+                | worker_task::STATUS_WAITING_USER
+                | worker_task::STATUS_IN_REVIEW => {
                     if let Some(ws_id) = task.workspace_id {
                         if let Ok(Some(workspace)) = Workspace::find_by_id(pool, ws_id).await {
                             container.try_stop(&workspace, false).await;
@@ -4395,7 +4611,7 @@ fn build_remediation_prompt(
 /// the task is `in_review` as a follow-up (push commits, do not archive, do
 /// not touch state) — the review re-dispatch then flows through the normal
 /// `pr_monitor` head-moved check.
-async fn dispatch_remediation_follow_up(
+pub(crate) async fn dispatch_remediation_follow_up(
     db: &DBService,
     container: &(impl ContainerService + Send + Sync),
     pr_number: i64,
@@ -5641,6 +5857,7 @@ mod tests {
                 emoji: "🤖".to_string(),
                 soul: "test soul".to_string(),
                 role,
+                executor: None,
                 model: None,
                 github_pat: None,
                 github_login: None,
@@ -5662,6 +5879,256 @@ mod tests {
         )
         .await
         .expect("insert workspace")
+    }
+
+    #[tokio::test]
+    async fn consolidate_workers_into_profiles_migration() {
+        // #681: run every migration before the consolidation, load several
+        // workers per role with history, then apply the rest and check that
+        // one profile per role remains and nothing points at a deleted worker.
+        use sqlx::sqlite::SqlitePoolOptions;
+        const CONSOLIDATION: i64 = 20261003100000;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("open pool");
+        let full = sqlx::migrate!("../db/migrations");
+        let before = sqlx::migrate::Migrator {
+            migrations: std::borrow::Cow::Owned(
+                full.migrations
+                    .iter()
+                    .filter(|m| m.version < CONSOLIDATION)
+                    .cloned()
+                    .collect(),
+            ),
+            ignore_missing: full.ignore_missing,
+            locking: full.locking,
+            no_tx: full.no_tx,
+        };
+        before.run(&pool).await.expect("run migrations before");
+        let db = DBService { pool: pool.clone() };
+
+        let daniel = insert_worker(&db, "Daniel").await;
+        let neo = insert_worker(&db, "Neo").await;
+        let morpheus = insert_reviewer(&db, "Morpheus").await;
+        let drwho = insert_reviewer(&db, "Dr Who").await;
+        let flor = insert_worker_with_role(
+            &db,
+            "Flor",
+            Some(db::models::worker::ROLE_ANALYST.to_string()),
+        )
+        .await;
+        for (i, w) in [&daniel, &neo, &morpheus, &drwho, &flor].iter().enumerate() {
+            sqlx::query("UPDATE workers SET created_at = ?2 WHERE id = ?1")
+                .bind(w.id)
+                .bind(format!("2026-01-0{} 00:00:00", i + 1))
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        sqlx::query("UPDATE workers SET github_pat = 'tok', github_login = 'drwho' WHERE id = ?1")
+            .bind(drwho.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let (repo, _tmp) = insert_repo(&db, "profiles-repo").await;
+        let neo_task = WorkerTask::append(
+            &pool,
+            neo.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "history".to_string(),
+                prompt: "done long ago".to_string(),
+                issue_number: Some(1),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        let neo_ws = insert_workspace(&db).await;
+        Worker::attach_workspace(&pool, neo.id, neo_ws.id)
+            .await
+            .unwrap();
+
+        full.run(&pool).await.expect("run consolidation");
+
+        let profiles: Vec<(Uuid, String, String, Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT id, role, name, migrated_from, github_login FROM workers WHERE role <> 'qa' ORDER BY role",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(profiles.len(), 3, "one profile per role: {profiles:?}");
+        let by_role = |role: &str| profiles.iter().find(|p| p.1 == role).unwrap().clone();
+
+        let dev = by_role("developer");
+        assert_eq!(
+            (dev.0, dev.2.as_str(), dev.3.as_deref()),
+            (daniel.id, "Fullstack", Some("Daniel"))
+        );
+        let rev = by_role("reviewer");
+        assert_eq!((rev.0, rev.2.as_str()), (morpheus.id, "Reviewer"));
+        assert_eq!(
+            rev.4.as_deref(),
+            Some("drwho"),
+            "keeper inherits the role's PAT"
+        );
+        let analyst = by_role("analyst");
+        assert_eq!(
+            (analyst.2.as_str(), analyst.3.as_deref()),
+            ("Analyst", Some("Flor"))
+        );
+
+        let task_owner: Uuid =
+            sqlx::query_scalar("SELECT worker_id FROM worker_tasks WHERE id = ?1")
+                .bind(neo_task.id)
+                .fetch_one(&pool)
+                .await
+                .expect("history kept");
+        assert_eq!(task_owner, daniel.id);
+        let ws_owner: Uuid = sqlx::query_scalar("SELECT worker_id FROM workspaces WHERE id = ?1")
+            .bind(neo_ws.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(ws_owner, daniel.id);
+    }
+
+    #[tokio::test]
+    async fn testing_gate_runs_qa_once_per_head_before_review() {
+        // #687: an issue with a phase plan is tested by QA before the review,
+        // once per PR head. The migration creates the QA profile.
+        use db::models::repo_issue::{RepoIssue, UpsertRepoIssue};
+
+        use crate::services::qa_phases::{self, TestingGate};
+
+        let db = setup_test_db().await;
+        let qa = qa_phases::qa_profile(&db.pool)
+            .await
+            .unwrap()
+            .expect("the migration creates the QA profile");
+        assert_eq!(qa.role, db::models::worker::ROLE_QA);
+
+        let (repo, _tmp) = insert_repo(&db, "qa-gate-repo").await;
+        let dev = insert_worker(&db, "dev").await;
+        let ws = insert_workspace(&db).await;
+        let dev_task = WorkerTask::append(
+            &db.pool,
+            dev.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "#5 feature".to_string(),
+                prompt: "build".to_string(),
+                issue_number: Some(5),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        WorkerTask::set_workspace_id(&db.pool, dev_task.id, ws.id)
+            .await
+            .unwrap();
+        let pr = PullRequest::create(
+            &db.pool,
+            Some(ws.id),
+            Some(repo.id),
+            "https://github.com/o/r/pull/50",
+            50,
+            "main",
+        )
+        .await
+        .unwrap();
+        PullRequest::link_workspace(&db.pool, ws.id, &pr.id)
+            .await
+            .unwrap();
+        let issue = |body: &str| UpsertRepoIssue {
+            number: 5,
+            title: "feature".to_string(),
+            body: Some(body.to_string()),
+            state: "open".to_string(),
+            labels: "[]".to_string(),
+            author: None,
+            updated_at: chrono::Utc::now(),
+            milestone: None,
+            closed_at: None,
+        };
+
+        // Without a plan block the review goes ahead as today.
+        RepoIssue::upsert(&db.pool, repo.id, &issue("sin bloque"))
+            .await
+            .unwrap();
+        assert!(matches!(
+            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+                .await
+                .unwrap(),
+            TestingGate::Proceed
+        ));
+
+        RepoIssue::upsert(
+            &db.pool,
+            repo.id,
+            &issue("<!-- fluke:plan {\"template\":\"no_tdd\"} -->"),
+        )
+        .await
+        .unwrap();
+        let TestingGate::Dispatch(profile) = qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+            .await
+            .unwrap()
+        else {
+            panic!("first look at a head dispatches testing");
+        };
+        let testing = qa_phases::queue_testing(&db.pool, &profile, repo.id, 50, "feature", "sha1")
+            .await
+            .unwrap();
+        assert!(matches!(
+            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+                .await
+                .unwrap(),
+            TestingGate::Hold
+        ));
+
+        WorkerTask::set_status(&db.pool, testing.id, worker_task::STATUS_DONE)
+            .await
+            .unwrap();
+        WorkerTask::set_qa_result(&db.pool, testing.id, None, Some(qa_phases::VERDICT_FAIL))
+            .await
+            .unwrap();
+        assert!(
+            matches!(
+                qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+                    .await
+                    .unwrap(),
+                TestingGate::Hold
+            ),
+            "a failed head waits for the developer's fix"
+        );
+
+        WorkerTask::set_qa_result(&db.pool, testing.id, None, Some(qa_phases::VERDICT_PASS))
+            .await
+            .unwrap();
+        assert!(matches!(
+            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+                .await
+                .unwrap(),
+            TestingGate::Proceed
+        ));
+        assert!(
+            matches!(
+                qa_phases::testing_gate(&db.pool, repo.id, 50, "sha2")
+                    .await
+                    .unwrap(),
+                TestingGate::Dispatch(_)
+            ),
+            "a new head is tested again"
+        );
     }
 
     #[tokio::test]
@@ -5715,14 +6182,14 @@ mod tests {
                 issue_number: None,
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
-                source: worker_task::SOURCE_DESK.to_string(),
+                source: worker_task::SOURCE_MISSION.to_string(),
                 territory_globs: Vec::new(),
             },
         )
         .await
         .unwrap();
 
-        assert_eq!(task.source, worker_task::SOURCE_DESK);
+        assert_eq!(task.source, worker_task::SOURCE_MISSION);
         assert_eq!(task.status, worker_task::STATUS_QUEUED);
     }
 
@@ -5948,7 +6415,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn try_claim_is_exclusive_per_task_and_worker() {
+    async fn try_claim_is_exclusive_per_task() {
         let db = setup_test_db().await;
         let worker = insert_worker(&db, "gasty").await;
         let (repo, _repo_tmp) = insert_repo(&db, "claim-repo").await;
@@ -5983,15 +6450,15 @@ mod tests {
                 .unwrap()
         );
 
-        // A different queued task is also blocked while the worker already
-        // has one in progress.
+        // A worker is a profile (#680): a second task of the same worker can
+        // be claimed while the first one is in progress.
         assert!(
-            !WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
                 .await
                 .unwrap()
         );
 
-        // Releasing the unlinked claim re-queues it and frees the worker.
+        // Releasing the unlinked claim re-queues it.
         WorkerTask::release_claim(&db.pool, task_a.id)
             .await
             .unwrap();
@@ -6000,11 +6467,69 @@ mod tests {
             .unwrap()
             .expect("task still exists");
         assert_eq!(refreshed.status, worker_task::STATUS_QUEUED);
+    }
+
+    #[tokio::test]
+    async fn resolve_next_takeable_task_ignores_tasks_in_progress_and_in_review() {
+        // Profiles (#680): neither a running task nor one in review keeps the
+        // worker from taking the next queued one.
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "parallel-repo").await;
+        let worker = insert_worker(&db, "parallel-worker").await;
+        let make_task = |title: &str| CreateWorkerTask {
+            repo_id: repo.id,
+            title: title.to_string(),
+            prompt: "do it".to_string(),
+            issue_number: None,
+            skills: Vec::new(),
+            issue_labels: Vec::new(),
+            source: worker_task::SOURCE_KANBAN.to_string(),
+            territory_globs: Vec::new(),
+        };
+        let reviewing = WorkerTask::append(&db.pool, worker.id, &make_task("in review"))
+            .await
+            .unwrap();
+        force_in_review(&db.pool, reviewing.id).await;
+        let running = WorkerTask::append(&db.pool, worker.id, &make_task("running"))
+            .await
+            .unwrap();
         assert!(
-            WorkerTask::try_claim(&db.pool, task_b.id, worker.id)
+            WorkerTask::try_claim(&db.pool, running.id, worker.id)
                 .await
                 .unwrap()
         );
+        let next = WorkerTask::append(&db.pool, worker.id, &make_task("next"))
+            .await
+            .unwrap();
+
+        let taken = resolve_next_takeable_task(&db.pool, worker.id)
+            .await
+            .expect("next queued task is takeable");
+        assert_eq!(taken.id, next.id);
+    }
+
+    #[tokio::test]
+    async fn select_lru_reviewer_only_skips_the_pr_author() {
+        // Reviewers are profiles (#680): a busy reviewer is still picked; only
+        // the PR author is skipped (GitHub rejects self-review).
+        let db = setup_test_db().await;
+        let alpha = insert_worker(&db, "alpha").await;
+        let bravo = insert_worker(&db, "bravo").await;
+
+        let picked = select_lru_reviewer(vec![alpha.clone(), bravo.clone()], None)
+            .await
+            .unwrap();
+        assert_eq!(picked.map(|w| w.id), Some(alpha.id));
+
+        let picked = select_lru_reviewer(vec![alpha.clone(), bravo.clone()], Some(alpha.id))
+            .await
+            .unwrap();
+        assert_eq!(picked.map(|w| w.id), Some(bravo.id));
+
+        let picked = select_lru_reviewer(vec![alpha.clone()], Some(alpha.id))
+            .await
+            .unwrap();
+        assert!(picked.is_none());
     }
 
     #[tokio::test]
@@ -6309,226 +6834,6 @@ mod tests {
         .expect("append task")
     }
 
-    #[tokio::test]
-    async fn select_lru_reviewer_skips_candidate_at_capacity_cap() {
-        // Sad path #1 from issue #302: the LRU-first candidate is at the
-        // WORKER_MAX_IN_REVIEW cap while another reviewer has capacity.
-        // The walk must skip the saturated one and land on the free one,
-        // otherwise the task piles onto a worker that can't start it and
-        // the PR waits while another reviewer sits idle.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "capacity-fallback-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-
-        // Cap = 1 so a single `in_review` task saturates a reviewer.
-        let cap = 1i64;
-
-        // Saturate alpha: append a task and flip it to `in_review` so
-        // count_in_review(alpha) == cap.
-        let alpha_task = WorkerTask::append(
-            &db.pool,
-            alpha.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "Review PR #1".to_string(),
-                prompt: "review".to_string(),
-                issue_number: Some(1),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, alpha_task.id).await;
-        assert_eq!(
-            WorkerTask::count_in_review(&db.pool, alpha.id)
-                .await
-                .unwrap(),
-            1
-        );
-        assert_eq!(
-            WorkerTask::count_in_review(&db.pool, bravo.id)
-                .await
-                .unwrap(),
-            0
-        );
-
-        // Feed the candidates in alpha-first order (the scenario the bug
-        // describes: LRU surfaces the saturated reviewer at the head). We
-        // don't rely on `list_active_reviewers_lru`'s current ordering
-        // here because it depends on subsecond timestamps of the seeded
-        // task; the point of this test is the walk logic, not the query.
-        let picked = select_lru_reviewer(&db.pool, vec![alpha.clone(), bravo.clone()], None, cap)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(bravo.id),
-            "walk must skip the saturated LRU-first candidate and land on bravo",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_returns_none_when_every_candidate_is_saturated() {
-        // No-op path: every candidate is at the cap. `dispatch_review_task`
-        // logs and skips instead of enqueuing on a saturated worker.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "all-saturated-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-        let cap = 1i64;
-
-        for (reviewer_id, title) in [(alpha.id, "a"), (bravo.id, "b")] {
-            let t = WorkerTask::append(
-                &db.pool,
-                reviewer_id,
-                &CreateWorkerTask {
-                    repo_id: repo.id,
-                    title: title.to_string(),
-                    prompt: "review".to_string(),
-                    issue_number: None,
-                    skills: Vec::new(),
-                    issue_labels: Vec::new(),
-                    source: worker_task::SOURCE_KANBAN.to_string(),
-                    territory_globs: Vec::new(),
-                },
-            )
-            .await
-            .unwrap();
-            force_in_review(&db.pool, t.id).await;
-        }
-
-        let picked = select_lru_reviewer(&db.pool, vec![alpha, bravo], None, cap)
-            .await
-            .unwrap();
-        assert!(
-            picked.is_none(),
-            "walk must return None when every candidate is at cap",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_combines_self_review_and_capacity_guards() {
-        // LRU-first is the PR author (skipped by self-review guard).
-        // Next candidate is at cap (skipped by capacity guard).
-        // Third candidate is free → picked.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "combined-guards-repo").await;
-        let author = insert_reviewer(&db, "author").await;
-        let saturated = insert_reviewer(&db, "saturated").await;
-        let free = insert_reviewer(&db, "free").await;
-        let cap = 1i64;
-
-        let saturated_task = WorkerTask::append(
-            &db.pool,
-            saturated.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "existing".to_string(),
-                prompt: "review".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, saturated_task.id).await;
-
-        let picked = select_lru_reviewer(
-            &db.pool,
-            vec![author.clone(), saturated.clone(), free.clone()],
-            Some(author.id),
-            cap,
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(free.id),
-            "walk must skip author (self-review) and saturated (capacity), \
-             then land on the free reviewer",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_prefers_idle_over_busy_lru_first() {
-        // Incidente PR #490 (08-ago-2026): the LRU-first reviewer was
-        // mid-review (task in_progress) while another reviewer sat idle.
-        // Reviewer tasks never hold an `in_review` slot, so the capacity
-        // cap can't catch this — the busy-skip pass must.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "busy-skip-repo").await;
-        let busy = insert_reviewer(&db, "busy").await;
-        let idle = insert_reviewer(&db, "idle").await;
-
-        let busy_task = append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
-        force_in_progress(&db.pool, busy_task.id).await;
-
-        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(idle.id),
-            "walk must skip the reviewer with a running task and pick the idle one",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_queued_task_also_counts_as_busy() {
-        // A task sitting in the reviewer's queue occupies the slot just
-        // like a running one — the next dispatch must go to the idle
-        // reviewer, not deepen the busy reviewer's queue.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "queued-busy-repo").await;
-        let busy = insert_reviewer(&db, "busy").await;
-        let idle = insert_reviewer(&db, "idle").await;
-
-        // append leaves the task in `queued` — no status change needed.
-        append_review_task(&db, busy.id, repo.id, "Review PR #1").await;
-
-        let picked = select_lru_reviewer(&db.pool, vec![busy.clone(), idle.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(idle.id),
-            "a queued task must mark the reviewer as busy for the first pass",
-        );
-    }
-
-    #[tokio::test]
-    async fn select_lru_reviewer_falls_back_to_busy_when_all_busy() {
-        // When every reviewer is occupied the walk must still enqueue on
-        // the LRU-first eligible one instead of returning None — a review
-        // waiting in a queue beats a review not dispatched at all.
-        let db = setup_test_db().await;
-        let (repo, _repo_tmp) = insert_repo(&db, "all-busy-repo").await;
-        let alpha = insert_reviewer(&db, "alpha").await;
-        let bravo = insert_reviewer(&db, "bravo").await;
-
-        for (worker_id, title) in [(alpha.id, "Review PR #1"), (bravo.id, "Review PR #2")] {
-            let t = append_review_task(&db, worker_id, repo.id, title).await;
-            force_in_progress(&db.pool, t.id).await;
-        }
-
-        let picked = select_lru_reviewer(&db.pool, vec![alpha.clone(), bravo.clone()], None, 1)
-            .await
-            .unwrap();
-        assert_eq!(
-            picked.map(|w| w.id),
-            Some(alpha.id),
-            "with every reviewer busy the walk must fall back to the \
-             LRU-first candidate, not skip dispatch",
-        );
-    }
-
     // --- infra-failure classification + round accounting ---
 
     /// Real payload from the 02-ago-2026 incident: the CLI died on an API
@@ -6712,6 +7017,88 @@ mod tests {
                 .unwrap(),
             0,
             "re-queued task no longer counts as an infra failure"
+        );
+    }
+
+    #[test]
+    fn pick_worker_model_respects_the_agent() {
+        let claude = vec!["opus".to_string(), "sonnet".to_string()];
+        let codex = vec!["gpt-5-codex".to_string()];
+        // Offered model passes through.
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("sonnet"),
+                None,
+                Some(&claude)
+            ),
+            Some("sonnet".to_string())
+        );
+        // A model the agent does not offer degrades to the agent default.
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Codex, Some("opus"), None, Some(&codex)),
+            None
+        );
+        // Unknown catalog: trust the stored model.
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Codex, Some("gpt-5"), None, None),
+            Some("gpt-5".to_string())
+        );
+        // Infra fallback applies to Claude only.
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&claude)
+            ),
+            Some(INFRA_FALLBACK_MODEL.to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::Codex,
+                Some("gpt-5-codex"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&codex)
+            ),
+            None
+        );
+        assert_eq!(
+            pick_worker_model(BaseCodingAgent::Gemini, None, None, None),
+            None
+        );
+        // Catalog from the Anthropic API (full ids only): the infra
+        // override still wins and CLI aliases still count as offered.
+        let api_ids = vec![
+            "claude-opus-5-5".to_string(),
+            "claude-fable-5-1".to_string(),
+        ];
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                Some(INFRA_FALLBACK_MODEL),
+                Some(&api_ids)
+            ),
+            Some(INFRA_FALLBACK_MODEL.to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("fable"),
+                None,
+                Some(&api_ids)
+            ),
+            Some("fable".to_string())
+        );
+        assert_eq!(
+            pick_worker_model(
+                BaseCodingAgent::ClaudeCode,
+                Some("sonnet-3"),
+                None,
+                Some(&api_ids)
+            ),
+            None
         );
     }
 
@@ -6960,189 +7347,6 @@ mod tests {
             DEFAULT_MAX_IN_REVIEW, 1,
             "raising the default reopens the serial-per-worker contract from #472"
         );
-    }
-
-    #[tokio::test]
-    async fn cap_blocks_new_ticket_when_worker_has_in_review_task() {
-        // Serial-per-worker (issue #472): with the default cap of 1, a worker
-        // that already has an in_review task cannot take a fresh queued ticket
-        // — the helper must return InReviewCapReached and record the hit.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-block-repo").await;
-        let worker = insert_worker(&db, "serial-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "already merged-ish".to_string(),
-                prompt: "occupy the slot".to_string(),
-                issue_number: Some(500),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        // Fresh feature ticket queued behind the in_review one.
-        WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "next feature".to_string(),
-                prompt: "build".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        let result = resolve_next_takeable_task(&db.pool, worker.id, 1).await;
-        assert!(
-            matches!(result, Err(StartError::InReviewCapReached(1))),
-            "expected InReviewCapReached(1), got {result:?}"
-        );
-
-        // The blocked queued task is a real upsell signal — hit is recorded.
-        assert_eq!(
-            PlanCapHit::count_today(&db.pool).await.unwrap(),
-            1,
-            "blocked queued task must record a plan-cap-hit for the day"
-        );
-    }
-
-    #[tokio::test]
-    async fn cap_allows_review_fix_even_when_worker_is_at_cap() {
-        // Review-fix exemption (#386): a worker whose PR came back with
-        // changes-requested keeps the slot occupied, but its drain task
-        // (the review_fix) must still run — otherwise the fix waits for a
-        // slot that only opens by merging the PR the fix is supposed to fix.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-fix-repo").await;
-        let worker = insert_worker(&db, "fix-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "PR #501 awaiting review".to_string(),
-                prompt: "the original ticket".to_string(),
-                issue_number: Some(501),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        let fix = WorkerTask::prepend_review_fix(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "Atendé el review del PR #501".to_string(),
-                prompt: "fix the review comments".to_string(),
-                issue_number: Some(501),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
-            .await
-            .expect("review_fix must be exempt from the in-review cap");
-        assert_eq!(
-            taken.id, fix.id,
-            "the exempt review_fix must be the task offered next"
-        );
-
-        // Exempt take must NOT bump the plan-cap-hit counter — the worker
-        // was not turned away, and this is not an upsell signal.
-        assert_eq!(
-            PlanCapHit::count_today(&db.pool).await.unwrap(),
-            0,
-            "review_fix exemption is not a cap hit"
-        );
-    }
-
-    #[tokio::test]
-    async fn cap_frees_the_worker_once_in_review_task_completes() {
-        // Merging (or otherwise moving the in_review task to a terminal state)
-        // frees the slot so the worker picks up the next queued ticket. This
-        // is the "PR mergea → worker toma el próximo" leg of the state
-        // machine.
-        let db = setup_test_db().await;
-        let (repo, _tmp) = insert_repo(&db, "serial-free-repo").await;
-        let worker = insert_worker(&db, "free-worker").await;
-
-        let occupying = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "will merge".to_string(),
-                prompt: "occupy".to_string(),
-                issue_number: Some(502),
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-        force_in_review(&db.pool, occupying.id).await;
-
-        let next = WorkerTask::append(
-            &db.pool,
-            worker.id,
-            &CreateWorkerTask {
-                repo_id: repo.id,
-                title: "next up".to_string(),
-                prompt: "build the next thing".to_string(),
-                issue_number: None,
-                skills: Vec::new(),
-                issue_labels: Vec::new(),
-                source: worker_task::SOURCE_KANBAN.to_string(),
-                territory_globs: Vec::new(),
-            },
-        )
-        .await
-        .unwrap();
-
-        // Sanity: still blocked while the earlier task sits in_review.
-        assert!(matches!(
-            resolve_next_takeable_task(&db.pool, worker.id, 1).await,
-            Err(StartError::InReviewCapReached(1))
-        ));
-
-        // PR merges → occupying task moves to `done` → slot frees up.
-        WorkerTask::set_status(&db.pool, occupying.id, worker_task::STATUS_DONE)
-            .await
-            .unwrap();
-
-        let taken = resolve_next_takeable_task(&db.pool, worker.id, 1)
-            .await
-            .expect("freed slot must allow taking the next queued task");
-        assert_eq!(taken.id, next.id, "the worker must pick the queued ticket");
     }
 
     // -------- Issue #510: remediation summary comment --------

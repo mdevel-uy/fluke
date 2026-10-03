@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "줄 바꿈 전환",
       "run-setup-script": "설정 스크립트 실행",
       "run-cleanup-script": "정리 스크립트 실행",
-      "run-archive-script": "보관 스크립트 실행"
+      "run-archive-script": "보관 스크립트 실행",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -584,7 +585,11 @@
     "permissionPlan": "계획",
     "agent": "에이전트",
     "default": "기본값",
-    "model": "모델"
+    "model": "모델",
+    "errors": {
+      "claude_not_connected": "Claude is not connected. Showing the built-in model list.",
+      "claude_models_fallback": "Could not load the Claude model list. Showing the built-in list."
+    }
   },
   "crashScreen": {
     "title": "문제가 발생했습니다",
@@ -622,7 +627,7 @@
       "ariaLabel": "명령 바 열기"
     },
     "layout": {
-      "toggleAdhocClaude": "임시 Claude"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -636,28 +641,12 @@
     "issuesRefreshNew_other": "새 이슈 {{count}}개",
     "issuesRefreshNone": "새 이슈 없음"
   },
-  "adhocPanel": {
-    "title": "임시 Claude",
-    "close": "임시 Claude 패널 닫기",
-    "newSession": "새 세션",
-    "loading": "Claude 세션 준비 중…",
-    "noRepo": {
-      "title": "사용 가능한 저장소가 없습니다",
-      "description": "임시 Claude 세션을 시작하려면 저장소를 추가하세요."
-    },
-    "error": {
-      "title": "임시 세션을 열 수 없습니다",
-      "description": "스크래치 워크스페이스를 준비하는 중에 오류가 발생했습니다.",
-      "retry": "다시 시도"
-    }
-  },
   "appBar": {
     "dashboard": "대시보드",
     "workspaces": "워크스페이스",
     "issues": "이슈",
-    "workers": "워커",
+    "workers": "프로필",
     "sprint": "칸반",
-    "analystDesk": "분석가 데스크",
     "ciPipelines": "CI 파이프라인",
     "collapseSidebar": "사이드바 접기",
     "expandSidebar": "사이드바 펼치기",
@@ -895,7 +884,15 @@
     "confirmSelection": "선택 확인",
     "submitting": "답변 제출 중...",
     "answeredCount": "{{count}}개의 질문에 답변함",
-    "answeredCount_other": "{{count}}개의 질문에 답변함"
+    "answeredCount_other": "{{count}}개의 질문에 답변함",
+    "recommended": "추천",
+    "why": "이유: {{why}}",
+    "otherPlaceholder": "또는 다른 답변 입력",
+    "send": "보내기",
+    "answered": "답변함: {{answer}}",
+    "closed": "더 이상 답변을 기다리지 않습니다",
+    "stale": "이 질문은 더 이상 대기 중이 아닙니다. 이미 답변되었거나 새 질문으로 바뀌었습니다.",
+    "agentRunning": "에이전트가 아직 턴을 마무리하는 중입니다. 잠시 후 다시 시도하세요."
   },
   "issues": {
     "title": "Issues",
@@ -916,12 +913,23 @@
     "emptyDescription": "새로 고쳐서 소스에서 이슈를 동기화하세요.",
     "assignToAgent": "에이전트에게 할당",
     "reassignAction": "재할당",
+    "pmDecision": {
+      "action": "PM 결정",
+      "title": "#{{number}}에 대한 PM 결정",
+      "description": "텍스트가 GitHub 이슈에 댓글로 게시되고 pm:decision 레이블이 제거됩니다.",
+      "placeholder": "결정 내용을 입력하세요...",
+      "confirm": "결정 게시",
+      "retryLabelRemoval": "레이블 제거 재시도",
+      "labelRemovalFailed": "결정은 GitHub에 게시되었지만 pm:decision 레이블을 제거하지 못했습니다: {{error}}",
+      "assignBlocked": "PM 결정 대기 중: 이 이슈를 할당하기 전에 결정을 게시하세요."
+    },
     "archiveAction": "보관",
     "taskStatus": {
       "queued": "대기 중",
       "in_progress": "진행 중",
       "in_review": "검토 중",
-      "done": "완료"
+      "done": "완료",
+      "waiting_user": "답변 대기 중"
     },
     "taskLinked": {
       "openWorkspace": "워크스페이스 열기",
@@ -994,8 +1002,7 @@
       "groupByOptions": {
         "none": "없음",
         "label": "레이블",
-        "milestone": "마일스톤",
-        "execution": "실행 계획"
+        "milestone": "마일스톤"
       },
       "clear": "필터 초기화",
       "noResults": "현재 필터에 맞는 이슈가 없습니다.",
@@ -1023,21 +1030,308 @@
       "archiveConfirm": "GitHub에서 이슈 #{{number}}을(를) 닫으시겠습니까? 닫힘 필터로 이동합니다.",
       "archiveAction": "이슈 닫기"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "보기",
+      "tabs": {
+        "list": "목록",
+        "groups": "그룹",
+        "plan": "플랜"
+      },
+      "slots": "슬롯 {{used}}/{{limit}}",
+      "pauseBetweenWaves": "웨이브마다 일시 정지",
+      "collapseAll": "모두 접기",
+      "expandAll": "모두 펼치기",
+      "runAll": "모두 실행",
+      "play": "마일스톤 실행",
+      "collapse": "마일스톤 접기",
       "wave": "웨이브 {{n}}",
-      "parallel": "이슈 {{n}}건을 동시에 배정할 수 있습니다",
-      "single": "이 웨이브에는 이슈가 1건뿐입니다",
-      "unwaved": "웨이브 없음",
-      "unwavedHint": "feature는 있지만 사용할 수 있는 wave: 라벨이 없습니다 — 하나씩 배정하세요",
-      "unclassified": "미분류",
-      "unclassifiedHint": "feature: 라벨이 없습니다 — 계획할 수 없습니다. 하나씩 배정하세요",
-      "contentionTitle": "충돌 중인 직렬화 리소스",
-      "contentionHint": "이 이슈들은 저장소 전역의 동일한 리소스를 요구합니다. 서로 다른 기능이더라도 한 번에 하나의 PR만 열 수 있습니다.",
-      "empty": "계획할 열린 이슈가 없습니다."
+      "merged": "{{done}}/{{total}} 병합됨",
+      "status": {
+        "readyTitle": "실행 준비됨",
+        "waves_other": "웨이브 {{count}}개",
+        "issues_other": "이슈 {{count}}개",
+        "gateDetail": "#{{n}}에 대한 결정을 기다리며 시작",
+        "runningTitle": "웨이브 {{n}} 실행 중",
+        "runningDetail": "{{count}}개 병렬 실행",
+        "waitingDecisionTitle": "중지됨: 결정 대기 중",
+        "waitingDecisionDetail": "#{{n}}",
+        "waitingTitle": "중지됨",
+        "failedDetail": "#{{n}} 실패. 재배정하거나 닫아야 계속됩니다",
+        "pausedTitle": "일시 정지됨",
+        "pausedDetail": "실행 중인 작업은 끝까지 진행됩니다",
+        "stepTitle": "웨이브 {{n}} 완료",
+        "stepDetail": "재생을 눌러 웨이브 {{n}} 시작",
+        "doneTitle": "마일스톤 완료",
+        "doneDetail": "모든 PR 병합됨",
+        "stuckTitle": "#{{n}}에 도움이 필요합니다",
+        "stuckDetail": "wave의 나머지는 계속 실행됩니다"
+      },
+      "card": {
+        "ready": "● 준비됨",
+        "gate": "◆ 결정 필요",
+        "blocked": "웨이브 {{n}} 대기",
+        "queued": "대기열",
+        "running": "실행 중",
+        "review": "리뷰 중",
+        "done": "✓ 병합됨",
+        "manual": "수동",
+        "decideNow": "지금 결정",
+        "workerBranch": "{{name}} · 자기 브랜치에서 작업 중",
+        "prReview": "{{name}} · PR 리뷰 중",
+        "open": "이슈 #{{n}} 열기",
+        "openHint": "열기 →",
+        "waitingYou": "{{name}} · 답변 대기 중",
+        "ago": "{{age}} 전",
+        "unstick": "해결하기",
+        "stuck": "⚠ 멈춤"
+      },
+      "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
+      "legend": {
+        "ready": "준비됨",
+        "running": "실행 중",
+        "review": "리뷰 중",
+        "gate": "PM 결정",
+        "queued": "대기열 (빈 슬롯 없음)",
+        "blocked": "이전 웨이브 대기"
+      },
+      "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다.",
+      "expand": "마일스톤 펼치기",
+      "summary": {
+        "done": "{{count}} 병합됨",
+        "running": "{{count}} 실행 중",
+        "review": "{{count}} 리뷰 중",
+        "queued": "{{count}} 대기열",
+        "gate": "{{count}} 결정 대기",
+        "todo": "{{count}} 할 일",
+        "working": "작업 중",
+        "decide": "#{{n}} 결정",
+        "stuck_other": "{{count}}개가 도움 필요",
+        "unstick": "#{{n}} 해결하기"
+      },
+      "decision": {
+        "eyebrow": "결정 대기",
+        "eyebrowWave": "결정 대기 · 웨이브 {{n}}",
+        "unblocks": "{{list}} 차단 해제",
+        "viewOnGithub": "GitHub에서 보기",
+        "issue": "내용",
+        "verified": "분석가가 코드에서 확인한 것",
+        "toDecide": "결정할 것",
+        "answer": "답변",
+        "otherAnswer": "다른 답변",
+        "otherPlaceholder": "답변을 입력하세요",
+        "recommended": "추천",
+        "why": "분석가가 ({{key}})를 추천하는 이유:",
+        "note": "추가 코멘트",
+        "optional": "선택",
+        "notePlaceholder": "이슈를 맡을 worker를 위한 맥락",
+        "returnNeedsNote": "분석가에게 무엇이 부족한지 코멘트에 적어 주세요.",
+        "preview": "#{{n}}에 게시될 내용",
+        "previewHint": "pm:decision 라벨도 제거되고 마일스톤은 계속됩니다.",
+        "useRecommendations": "추천 사용",
+        "returnToAnalyst": "분석가에게 돌려보내기",
+        "closeWithoutDoing": "하지 않고 닫기",
+        "decide": "결정하고 계속",
+        "confirmClose": "#{{n}}을(를) 하지 않고 닫을까요?",
+        "closeIssue": "이슈 닫기",
+        "followUpFailed": "코멘트는 게시되었지만 다음 단계가 실패했습니다: {{error}}. 다시 시도해도 중복 게시되지 않습니다.",
+        "commentTitle": "PM 결정",
+        "returnedTitle": "분석가에게 돌려보냄",
+        "closedTitle": "PM 결정으로 하지 않고 닫음",
+        "toast": {
+          "decided": "#{{n}}에 결정 게시 · pm:decision 제거",
+          "returned": "#{{n}} 분석가에게 돌아감",
+          "closed": "#{{n}} 하지 않고 닫음"
+        },
+        "openIssue": "이슈 열기 →"
+      },
+      "issuePage": {
+        "notFound": "이슈 #{{n}}을(를) 찾을 수 없습니다.",
+        "backToIssues": "Issues로 돌아가기",
+        "viewPr": "PR 보기",
+        "branch": "브랜치",
+        "noTask": "이 이슈에는 아직 작업이 없습니다.",
+        "templateLine": "템플릿",
+        "tabs": {
+          "plan": "플랜",
+          "code": "코드",
+          "sessions": "세션"
+        },
+        "description": "이슈 설명",
+        "originBy": "선택:",
+        "originFlow": "이슈 간 흐름:",
+        "originSteps": "개발 단계:"
+      },
+      "pause": "마일스톤 일시 정지",
+      "reset": "초기화",
+      "phases": {
+        "origin": "시작",
+        "end": "끝",
+        "loop": "되돌림",
+        "phaseN": "단계 {{n}}",
+        "loopLabel": "변경 요청 · 라운드 {{n}} → 같은 브랜치에서 되돌림",
+        "round": "라운드 {{n}}",
+        "mergeSub": "사람의 판단: 직접 병합합니다",
+        "state": {
+          "done": "완료",
+          "active": "진행 중",
+          "changes": "변경 요청",
+          "stuck": "막힘",
+          "pending": "대기"
+        },
+        "kind": {
+          "origin": "이슈 생성",
+          "design": "디자인",
+          "dev": "개발",
+          "review": "리뷰",
+          "merge": "병합",
+          "tdd": "테스트 먼저",
+          "test": "테스트"
+        },
+        "profile": "프로필",
+        "instance": "인스턴스",
+        "ephemeral": "(임시)",
+        "status": "상태",
+        "duration": "소요 시간",
+        "cost": "비용",
+        "output": "출력",
+        "viewSession": "에이전트 세션 보기",
+        "viewPrComments": "PR 코멘트 보기",
+        "selectHint": "단계를 선택하면 자세히 볼 수 있습니다."
+      },
+      "templates": {
+        "title": "단계 템플릿",
+        "hint": "Fluke가 brief에서 고릅니다: 디자인이 필요한지, TDD를 쓸지(의미가 있으면 물어봅니다). Analyst는 단계를 바꾸지 않고 이슈 간 흐름을 짭니다.",
+        "names": {
+          "tdd": "TDD 포함",
+          "no_tdd": "TDD 없음",
+          "design": "디자인 포함",
+          "bug": "버그",
+          "decision": "결정 포함",
+          "none": "현재 흐름 (플랜 없음)"
+        },
+        "phases": {
+          "tdd": "테스트 먼저",
+          "dev": "개발",
+          "test": "테스트",
+          "review": "리뷰",
+          "merge": "병합",
+          "design": "디자인",
+          "approval": "승인",
+          "withOrWithoutTdd": "…TDD 유무",
+          "reproduce": "재현",
+          "failingTest": "실패하는 테스트",
+          "fix": "수정",
+          "decision": "결정",
+          "baseTemplate": "…기본 템플릿"
+        }
+      },
+      "code": {
+        "changes": "이슈의 변경 사항",
+        "terminal": "터미널 · 이슈 워크스페이스",
+        "terminalHint": "모든 단계에서 공유",
+        "noTerminal": "터미널은 이슈 워크스페이스가 활성화된 동안 사용할 수 있습니다."
+      },
+      "sessions": {
+        "empty": "아직 실행된 단계가 없습니다.",
+        "onePerPhase": "단계별 세션 1개",
+        "live": "실시간",
+        "readOnly": "완료 · 읽기 전용",
+        "waitingYou": "답변 대기 중",
+        "discarded": "인스턴스는 폐기되었습니다. 세션은 이 단계에서 한 일의 기록으로 남습니다."
+      },
+      "attention_other": "{{count}}개가 도움 필요",
+      "stuck": {
+        "unstick": "해결하기",
+        "viewSession": "세션 보기",
+        "since": "{{age}} 전부터 멈춤",
+        "banner": "{{phase}} {{age}} 전부터 멈춤",
+        "bannerNoAge": "{{phase}} 멈춤",
+        "kindsTitle": "단계가 멈추는 경우",
+        "thisCase": "이 issue가 해당합니다.",
+        "kindsNote": "알리기 전에 Fluke가 먼저 시도합니다. 인프라 장애는 대기 시간을 늘려 가며 다시 시도하고, 사람이 필요한 것만 알립니다.",
+        "kinds": {
+          "question": {
+            "title": "에이전트가 혼자 정할 수 없는 것을 묻는다",
+            "hint": "답변을 기다립니다."
+          },
+          "failed": {
+            "title": "같은 것이 연속으로 여러 번 실패한다",
+            "hint": "N번 시도 후에도 테스트나 CI가 실패."
+          },
+          "review_cap": {
+            "title": "리뷰 라운드를 모두 소진했다",
+            "hint": "모든 라운드에서 변경을 요청했다."
+          },
+          "no_progress": {
+            "title": "N분 동안 진행이 없다",
+            "hint": "세션이 멈췄거나 외부를 기다리는 중."
+          },
+          "credential": {
+            "title": "자격 증명이나 권한이 없다",
+            "hint": "만료된 PAT, 없는 시크릿."
+          }
+        }
+      },
+      "unstick": {
+        "eyebrow": "⚠ 멈춤 · {{phase}} · {{age}} 전",
+        "eyebrowNoAge": "⚠ 멈춤 · {{phase}}",
+        "instanceAlive": "인스턴스가 살아 있고 기다리는 중",
+        "notStuck": "이 issue는 더 이상 멈춰 있지 않습니다.",
+        "whatHappened": "무슨 일이 있었나",
+        "tried": "이미 시도한 것",
+        "triedRound": "라운드 {{n}}: 변경 요청",
+        "question": "에이전트의 질문",
+        "recommended": "에이전트 추천",
+        "otherAnswer": "다른 답변",
+        "otherPlaceholder": "답변을 입력하세요",
+        "why": "추천 이유 ({{key}}):",
+        "note": "에이전트에게 줄 추가 맥락",
+        "optional": "선택",
+        "notePlaceholder": "예: 다른 issue에서 정한 것과 일관되게 해 주세요",
+        "alternatives": "다른 해결 방법",
+        "alt": {
+          "fluke": {
+            "title": "Fluke와 이야기하기",
+            "hint": "내 말로 설명하면 Fluke가 에이전트에게 전달합니다"
+          },
+          "session": {
+            "title": "에이전트에게 쓰기",
+            "hint": "라이브 세션으로 가서 대화하기"
+          },
+          "code": {
+            "title": "직접 맡기",
+            "hint": "코드를 열고 거기서 직접 계속하기"
+          },
+          "retry": {
+            "title": "다시 시도",
+            "hint": "단계가 대기열로 돌아가고 새 인스턴스가 이어받습니다"
+          },
+          "back": {
+            "title": "먼저 테스트로 돌아가기",
+            "hint": "문제가 테스트가 요구하는 내용에 있을 때"
+          },
+          "cancel": {
+            "title": "issue 취소",
+            "hint": "issue를 닫고 wave는 그것 없이 계속됩니다"
+          }
+        },
+        "confirmCancel": "#{{n}}을(를) 취소할까요? 진행 중인 작업을 멈추고 issue를 닫습니다.",
+        "keep": "돌아가기",
+        "footHint": "답변은 같은 세션으로 가고 에이전트가 계속합니다.",
+        "answer": "답변하고 계속",
+        "flukeMessage": "issue #{{n}} \"{{title}}\"의 멈춤을 풀어야 해. {{phase}} 단계가 멈췄어: {{message}}\n해결을 도와줘. 정리되면 에이전트에게 답할게.",
+        "toast": {
+          "answered": "답변 전송 · #{{n}} 계속",
+          "retried": "#{{n}}이(가) 대기열로 돌아갔습니다",
+          "backToTests": "#{{n}}이(가) 먼저 테스트로 돌아갑니다",
+          "canceledIssue": "#{{n}} 취소됨. wave는 그것 없이 계속됩니다",
+          "fluke": "Fluke가 멈춤 맥락과 함께 #{{n}}에 대한 대화를 엽니다"
+        }
+      }
     }
   },
   "workers": {
-    "title": "워커",
+    "title": "프로필",
     "newWorker": "새 워커",
     "loading": "워커를 불러오는 중...",
     "loadError": "워커를 불러오지 못했습니다.",
@@ -1134,6 +1428,17 @@
       "saveEdit": "변경 사항 저장",
       "modelLabel": "모델",
       "modelDefault": "기본값 (글로벌)",
+      "modelHelp": "워커는 선택한 모델의 공급자를 사용합니다. \"기본값\"은 기본 공급자가 바뀌면 따라갑니다.",
+      "modelProviderDefault": "공급자 기본 모델",
+      "modelProviderIsDefault": "기본값",
+      "modelNotConnectedGroup": "연결되지 않음",
+      "modelNotConnected": "연결되지 않음",
+      "modelProviderDisconnected": "연결되지 않음",
+      "modelProviderDisconnectedHelp": "{{provider}}이(가) 연결되어 있지 않습니다. 이 워커의 작업은 시작 시 실패합니다. 설정에서 {{provider}}을(를) 연결하거나 다른 모델을 선택하세요.",
+      "modelUnavailable": "사용 불가",
+      "modelUnavailableHelp": "{{model}}이(가) 더 이상 {{provider}} 목록에 없습니다. 다른 모델을 선택할 때까지 작업은 {{provider}} 기본 모델을 사용합니다.",
+      "modelConnectProvider": "{{provider}} 연결",
+      "modelConnectProviders": "공급자 연결",
       "planModeLabel": "플랜 모드",
       "planModeGlobal": "전역 설정 따르기",
       "planModeOn": "강제 활성화",
@@ -1163,7 +1468,11 @@
       "developerDescription": "기능을 구현하고 풀 리퀘스트를 생성합니다",
       "analystDescription": "조사를 수행하고 서면 결과물을 생성합니다",
       "reviewerDescription": "코드를 검토하고 피드백을 제공합니다",
-      "designerDescription": "Claude 아티팩트로 디자인 제안을 생성합니다"
+      "designerDescription": "Claude 아티팩트로 디자인 제안을 생성합니다",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "코드보다 먼저 테스트를 작성하고 리뷰 전에 PR을 검증합니다"
     },
     "toast": {
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
@@ -1185,69 +1494,6 @@
       "purgeAllSuccess": "보관된 워커 {{count}}개를 영구 삭제했습니다.",
       "purgeAllError": "보관된 워커 삭제 실패: {{message}}",
       "dismiss": "닫기"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "디자인 첨부",
-      "pendingCount": "미할당 {{n}}건",
-      "searchPlaceholder": "제목 또는 디자이너로 검색…",
-      "empty": "미할당 디자인이 없습니다",
-      "attachedHint": "오케스트레이터가 참조, 요약, fetch 방법을 프롬프트에 추가합니다.",
-      "remove": "디자인 제거",
-      "notePlaceholder": "PM 지침 (선택): 우선순위, 제약…"
-    },
-    "title": "분석가 데스크",
-    "repoLabel": "저장소",
-    "analystsLabel": "분석가",
-    "skillsPicker": "스킬",
-    "skillsEmpty": "설치된 스킬이 없습니다.",
-    "requestLabel": "요청",
-    "promptPlaceholder": "분석가에게 요청할 내용을 설명하세요. 예: 알림 에픽을 수용 기준이 있는 작은 이슈로 분해.",
-    "hint": "분석가가 비어 있으면 즉시 실행되고, 아니면 대기열에 추가됩니다.",
-    "submit": "요청 보내기",
-    "loading": "불러오는 중...",
-    "loadError": "분석가를 불러오지 못했습니다.",
-    "noAnalystsTitle": "아직 분석가가 없습니다",
-    "noAnalystsDescription": "Analyst 역할의 워커를 만들면 요청을 보낼 수 있습니다.",
-    "goToWorkers": "Workers로 이동",
-    "historyTitle": "{{worker}}에게 보낸 요청",
-    "historyEmpty": "아직 요청이 없습니다. 요청과 결과가 여기에 표시됩니다.",
-    "openWorkspace": "실행 보기",
-    "retry": "다시 시도",
-    "stop": "중지",
-    "remove": "제거",
-    "stopConfirmMessage": "이 요청을 중지하시겠습니까? 컨테이너가 중지되고 요청이 삭제됩니다.",
-    "removeConfirmMessage": "분석가의 대기열에서 이 요청을 제거하시겠습니까?",
-    "cancelConfirm": "취소",
-    "stopConfirm": "중지",
-    "removeConfirm": "제거",
-    "dismiss": "닫기",
-    "status": {
-      "queued": "대기 중",
-      "queuedAhead": "대기 중 · 앞에 {{ahead}}건",
-      "inProgress": "진행 중",
-      "done": "완료",
-      "failed": "실패"
-    },
-    "toast": {
-      "started": "{{worker}}이(가) 요청을 시작했습니다.",
-      "queued": "{{worker}}의 대기열에 추가되었습니다.",
-      "error": "요청을 보내지 못했습니다: {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "이미지를 여기에 끌어다 놓거나, 클릭하여 추가하거나, 붙여넣기",
-      "addMore": "이미지 더 추가",
-      "removeAria": "{{name}} 제거",
-      "uploading": "업로드 중",
-      "errorLabel": "업로드 실패",
-      "uploadError": "'{{name}}' 업로드에 실패했습니다: {{message}}",
-      "tooLarge": "파일이 허용된 최대 크기를 초과했습니다."
-    },
-    "labelsInput": {
-      "title": "이슈 라벨",
-      "placeholder": "예: design, bug",
-      "removeAria": "라벨 {{label}} 제거"
     }
   },
   "ciPipelines": {
@@ -1653,5 +1899,137 @@
       "correction": "수정 단계 {{n}}(으)로 수락됨"
     },
     "error": "작업을 완료하지 못했습니다: {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference",
+      "tdd": "TDD"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "미션 상태",
+      "understand": {
+        "title": "이해",
+        "todo": "Fluke가 brief에 필요한 것을 묻습니다",
+        "done": "질문에 답함"
+      },
+      "brief": {
+        "title": "Brief + 템플릿",
+        "todo": "Fluke가 brief를 쓰고 템플릿을 고릅니다",
+        "done": "v{{v}} 승인 · {{template}}"
+      },
+      "breakdown": {
+        "title": "분해",
+        "todo": "Analyst가 issue, wave, 그 사이의 흐름을 만듭니다",
+        "done": "issue {{issues}}개, wave {{waves}}개"
+      },
+      "plan": {
+        "title": "내부 계획",
+        "todo": "각 dev가 자기 issue의 단계를 만듭니다",
+        "done": "dev들이 단계를 만들었습니다"
+      },
+      "run": {
+        "title": "실행",
+        "todo": "Issues의 milestone을 play로 실행",
+        "done": "milestone 완료"
+      },
+      "template": {
+        "tddDesign": "TDD와 디자인 포함",
+        "tddNoDesign": "TDD 포함, 디자인 없음",
+        "noTddDesign": "TDD 없음, 디자인 포함",
+        "noTddNoDesign": "TDD와 디자인 없음"
+      }
+    },
+    "proposal": {
+      "title": "Analyst 제안",
+      "decision": "결정 필요",
+      "openInIssues": "Issues에서 열기",
+      "message": "Analyst가 issue {{issues}}개를 wave {{waves}}개로 제안합니다. 내가 고른 템플릿 위에 issue 사이의 흐름을 만들었습니다. 각 dev는 시작할 때 자기 issue의 내부 계획을 만듭니다. Issues에 milestone이 준비됐으니 play를 누르세요.",
+      "viewMilestone": "milestone 보기",
+      "runNow": "지금 실행"
+    }
+  },
+  "profiles": {
+    "new": "새 프로필",
+    "newHint": "역할, 에이전트, 모델, 지침 설정",
+    "bannerStart": "프로필은 템플릿입니다. 단계가 시작될 때마다 프로필의",
+    "bannerInstance": "임시 인스턴스",
+    "bannerEnd": "가 생성되어 이슈 워크스페이스에서 작업하고 끝나면 폐기됩니다. 이름도 전용 대기열도 없습니다. 프로필의 모든 인스턴스는 그 PAT(없으면 사용자의 PAT)를 사용합니다.",
+    "slots": "전역 슬롯 {{used}}/{{limit}}",
+    "adjustInSettings": "Settings에서 조정",
+    "baseRole": "기본 역할: {{role}}",
+    "agent": "에이전트",
+    "github": "GitHub",
+    "ownPat": "전용 PAT · @{{login}}",
+    "userPat": "사용자 PAT",
+    "migratedFrom": "이전 이름",
+    "instancesNow": "현재 인스턴스",
+    "none": "없음",
+    "defaultAgent": "기본 에이전트",
+    "defaultModel": "기본 모델"
   }
 }

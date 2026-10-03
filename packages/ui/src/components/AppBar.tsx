@@ -6,11 +6,10 @@ import { useTranslation } from 'react-i18next';
 import {
   Boxes,
   FileCode,
-  GitBranch,
-  Headphones,
   Kanban,
   LayoutGrid,
   ListChecks,
+  Sparkles,
   Search,
   Settings as SettingsIcon,
   Users,
@@ -36,35 +35,31 @@ interface AppBarProps {
   onWorkspacesClick: () => void;
   onEditorClick?: () => void;
   onSearchClick?: () => void;
-  onSourceControlClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
+  onFlukeClick?: () => void;
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
-  onAnalystDeskClick?: () => void;
   onCiPipelinesClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
   showEditorButton?: boolean;
   showSearchButton?: boolean;
-  showSourceControlButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
+  showFlukeButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
-  showAnalystDeskButton?: boolean;
   showCiPipelinesButton?: boolean;
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
   isSearchActive?: boolean;
-  isSourceControlActive?: boolean;
   /** Nº of fleet branches stopped on conflicts (SHELL-SPEC R34 badge). */
-  sourceControlBadgeCount?: number;
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
+  isFlukeActive?: boolean;
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
-  isAnalystDeskActive?: boolean;
   isCiPipelinesActive?: boolean;
   isExportActive?: boolean;
   isSignedIn?: boolean;
@@ -168,34 +163,30 @@ export function AppBar({
   onWorkspacesClick,
   onEditorClick,
   onSearchClick,
-  onSourceControlClick,
   onDashboardClick,
   onSprintClick,
+  onFlukeClick,
   onIssuesClick,
   onWorkersClick,
-  onAnalystDeskClick,
   onCiPipelinesClick,
   onHostClick,
   showWorkspacesButton = true,
   showEditorButton = true,
   showSearchButton = true,
-  showSourceControlButton = true,
   showDashboardButton = true,
   showSprintButton = true,
+  showFlukeButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
-  showAnalystDeskButton = true,
   showCiPipelinesButton = true,
   isWorkspacesActive,
   isEditorActive = false,
   isSearchActive = false,
-  isSourceControlActive = false,
-  sourceControlBadgeCount = 0,
   isDashboardActive = false,
   isSprintActive = false,
+  isFlukeActive = false,
   isIssuesActive = false,
   isWorkersActive = false,
-  isAnalystDeskActive = false,
   isCiPipelinesActive = false,
   isExportActive = false,
   isSignedIn,
@@ -211,15 +202,26 @@ export function AppBar({
   const sections: AppBarSection[] = [];
 
   if (
+    showFlukeButton ||
     showWorkspacesButton ||
     showDashboardButton ||
     showSprintButton ||
     showIssuesButton ||
     showWorkersButton ||
-    showAnalystDeskButton ||
     showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
+    // Every request enters through Fluke (fluke v2, #701): first in the rail.
+    if (showFlukeButton && onFlukeClick) {
+      localItems.push({
+        key: 'local-fluke',
+        kind: 'icon-button',
+        label: t('director.name'),
+        lucideIcon: Sparkles,
+        isActive: isFlukeActive,
+        onClick: onFlukeClick,
+      });
+    }
     if (showDashboardButton && onDashboardClick) {
       localItems.push({
         key: 'local-dashboard',
@@ -252,17 +254,6 @@ export function AppBar({
         onClick: onEditorClick,
       });
     }
-    if (showSourceControlButton && onSourceControlClick) {
-      localItems.push({
-        key: 'local-source-control',
-        kind: 'icon-button',
-        label: t('appBar.sourceControl', { defaultValue: 'Source control' }),
-        lucideIcon: GitBranch,
-        isActive: isSourceControlActive,
-        badgeCount: sourceControlBadgeCount,
-        onClick: onSourceControlClick,
-      });
-    }
     if (showSprintButton && onSprintClick) {
       localItems.push({
         key: 'local-sprint',
@@ -291,16 +282,6 @@ export function AppBar({
         lucideIcon: Users,
         isActive: isWorkersActive,
         onClick: onWorkersClick,
-      });
-    }
-    if (showAnalystDeskButton && onAnalystDeskClick) {
-      localItems.push({
-        key: 'local-analyst-desk',
-        kind: 'icon-button',
-        label: t('appBar.analystDesk'),
-        lucideIcon: Headphones,
-        isActive: isAnalystDeskActive,
-        onClick: onAnalystDeskClick,
       });
     }
     if (showCiPipelinesButton && onCiPipelinesClick) {

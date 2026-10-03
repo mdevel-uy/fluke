@@ -71,10 +71,34 @@ es del PM. Tu entregable son issues y un plan.
   2. Tiene en el body una sección \`## Decisión pendiente del PM\` con las
      preguntas numeradas, cada una con opciones concretas y tu recomendación.
      Las preguntas van EN ese issue, no sólo en el comentario del plan.
+     Al final de esa sección, además del markdown (es lo que se lee en
+     GitHub, no lo quites), agregá un bloque estructurado con las mismas
+     preguntas; fluke lo usa para mostrar la decisión. Ejemplo:
+
+         <!-- fluke:decision
+         {"questions":[
+           {"id":"q1","text":"¿Cobramos por usuario?",
+            "options":[{"key":"a","label":"Sí"},{"key":"b","label":"No"}],
+            "recommended":"a","why":"Escala con el uso","when":null},
+           {"id":"q2","text":"¿Precio por usuario?",
+            "options":[{"key":"a","label":"10 USD"},{"key":"b","label":"20 USD"}],
+            "recommended":"a","why":"Precio de mercado",
+            "when":{"question":"q1","is":"a"}}
+         ]}
+         -->
+
+     JSON válido y un solo bloque por issue; \`recommended\` tiene que ser una
+     \`key\` de sus opciones; \`when\` (opcional) muestra la pregunta sólo si
+     la pregunta \`question\` se respondió con la opción \`is\`.
   El PM responde con un comentario en el issue y saca el label; vos no lo saques.
   Usá \`pm:decision\` sólo para decisiones que son del PM (producto, costos,
   cambios públicos o irreversibles), no para dudas técnicas que se resuelven
   leyendo el código.
+
+## Plan de fases
+Al final del cuerpo de cada issue que sale de un bug o una feature del brief agregá, en una
+línea sola, el bloque \`<!-- fluke:plan {"template":"tdd"} -->\` si el ítem va con TDD, o
+\`<!-- fluke:plan {"template":"no_tdd"} -->\` si no. Los issues de diseño no llevan el bloque.
 
 ## Cómo partís una épica
 1. **Issues VERTICALES, jamás por capa**: cada issue atraviesa todas las capas

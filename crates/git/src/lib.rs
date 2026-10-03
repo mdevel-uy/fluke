@@ -2293,6 +2293,27 @@ impl GitService {
         Ok(pinned.to_string())
     }
 
+    /// Fetch `refs/heads/<branch>` from the default remote and return its
+    /// tip. A task with a `start_ref` (fluke v2, #687: the developer of a TDD
+    /// issue starts from the branch with QA's tests) is anchored on it.
+    pub fn fetch_branch_tip(
+        &self,
+        repo_path: &Path,
+        branch: &str,
+    ) -> Result<String, GitServiceError> {
+        let remote = self.get_default_remote(repo_path)?;
+        let refspec = format!("+refs/heads/{branch}:refs/remotes/{}/{branch}", remote.name);
+        let cli = GitCli::new();
+        cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
+        let repo = self.open_repo(repo_path)?;
+        let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|e| {
+            GitServiceError::InvalidRepository(format!(
+                "FETCH_HEAD missing after fetching {branch}: {e}"
+            ))
+        })?;
+        Ok(fetch_head.peel_to_commit()?.id().to_string())
+    }
+
     /// Clone a repository to the specified directory
     #[cfg(feature = "cloud")]
     pub fn clone_repository(

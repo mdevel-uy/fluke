@@ -10,8 +10,9 @@ export type AppDestination =
   | { kind: 'pilot-report' }
   | { kind: 'source-control' }
   | { kind: 'issues'; repoId?: string }
+  | { kind: 'issue'; issueNumber: number; repoId?: string }
   | { kind: 'workers' }
-  | { kind: 'analyst-desk' }
+  | { kind: 'fluke' }
   | { kind: 'ci-pipelines' }
   | { kind: 'sprint'; repoId?: string }
   | { kind: 'project'; projectId: string }
@@ -55,8 +56,13 @@ export interface AppNavigation {
   goToPilotReport(transition?: NavigationTransition): void;
   goToSourceControl(transition?: NavigationTransition): void;
   goToIssues(repoId?: string, transition?: NavigationTransition): void;
+  goToIssue(
+    issueNumber: number,
+    repoId?: string,
+    transition?: NavigationTransition
+  ): void;
   goToWorkers(transition?: NavigationTransition): void;
-  goToAnalystDesk(transition?: NavigationTransition): void;
+  goToFluke(transition?: NavigationTransition): void;
   goToCiPipelines(transition?: NavigationTransition): void;
   goToSprint(repoId?: string, transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
@@ -209,16 +215,16 @@ export function isSourceControlDestination(
   return destination?.kind === 'source-control';
 }
 
+export function isFlukeDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'fluke' }> {
+  return destination?.kind === 'fluke';
+}
+
 export function isWorkersDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'workers' }> {
   return destination?.kind === 'workers';
-}
-
-export function isAnalystDeskDestination(
-  destination: AppDestination | null
-): destination is Extract<AppDestination, { kind: 'analyst-desk' }> {
-  return destination?.kind === 'analyst-desk';
 }
 
 export function isCiPipelinesDestination(

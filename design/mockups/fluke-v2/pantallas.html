@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transformación de fluke</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: shell de la app (rail de iconos + área) con un selector de pantallas arriba; cada pantalla es un mockup estático salvo el detalle de fases del issue. */
+:root {
+  --bg: #0b0e15;
+  --rail: #0e121c;
+  --band: #121725;
+  --head: #161c2c;
+  --col: #0f1420;
+  --card: #1b2234;
+  --line: #262e44;
+  --fg: #e0e4ef;
+  --muted: #8a93ab;
+  --faint: #4a5268;
+  --accent: #7b7cf5;
+  --ready: #3fc79a;
+  --gate: #f0a24a;
+  --review: #c38df5;
+  --danger: #ef6b6b;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); padding-inline: 16px; padding-block: 16px 40px; }
+button { font: inherit; color: inherit; }
+code { font: 12px var(--mono); background: var(--col); border: 1px solid var(--line); padding: 0 4px; border-radius: 3px; }
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 14px; }
+
+.switch { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.switch a { padding: 8px 14px; color: var(--muted); text-decoration: none; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.switch a:hover { color: var(--fg); }
+.switch a.on { color: var(--fg); border-color: var(--accent); }
+.switch a:focus-visible { outline: 2px solid var(--accent); }
+
+.app { display: grid; grid-template-columns: 52px 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 640px; background: var(--bg); }
+.rail { background: var(--rail); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; }
+.ri { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); position: relative; }
+.ri svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.ri.on { background: var(--head); color: var(--fg); }
+.ri.gone { color: var(--danger); opacity: .55; }
+.ri.gone::after { content: ""; position: absolute; left: 7px; right: 7px; top: 50%; border-top: 1.5px solid var(--danger); transform: rotate(-35deg); }
+.ri .pip { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--gate); }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.topbar h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.crumb { color: var(--muted); font-size: 13px; }
+.topbar .sp { flex: 1; }
+.content { padding: 16px 18px 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--head); border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; text-decoration: none; color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+.btn.gate { background: var(--gate); border-color: var(--gate); color: #1b1206; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+.tag { font: 500 10px var(--mono); letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.tag.hot { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.lbl { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.prof { display: inline-flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--muted); }
+.pav { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font: 600 9px var(--mono); color: #0b0e15; background: var(--c); flex: none; }
+
+.issues-frame { display: block; width: 100%; height: max(640px, calc(100vh - 120px)); border: 0; background: var(--bg); }
+.screen[hidden] { display: none !important; }
+
+/* ---------- Resumen ---------- */
+.ov { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; }
+.chg { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.chg h3 { margin: 0; font-size: 15px; font-weight: 600; display: flex; gap: 10px; align-items: baseline; }
+.chg h3 .n { font: 500 12px var(--mono); color: var(--accent); }
+.ba { display: grid; grid-template-columns: 60px 1fr; gap: 6px 10px; font-size: 13px; }
+.ba dt { font: 500 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+.ba dd { margin: 0; }
+.ba dd.after { color: var(--fg); }
+.ba dd.before { color: var(--muted); }
+.impact { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.impact b { color: var(--fg); font-weight: 500; }
+.flow { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; }
+.flowrow { display: flex; align-items: center; gap: 0; min-width: max-content; }
+.fn { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 170px; display: grid; gap: 4px; }
+.fn b { font-size: 13px; font-weight: 600; }
+.fn span { font-size: 12px; color: var(--muted); }
+.fn.you { border-color: var(--gate); }
+.fa { width: 34px; height: 2px; background: var(--faint); position: relative; flex: none; }
+.fa::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--faint); border-right: 0; }
+.qs { background: var(--band); border: 1px dashed var(--line); border-radius: 10px; padding: 14px 16px; }
+.qs ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13px; }
+.qs li b { font-weight: 500; }
+.qs li span { color: var(--muted); }
+
+/* ---------- Fluke ---------- */
+.fl { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; }
+.chat { background: var(--band); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-width: 0; }
+.msgs { padding: 16px; display: grid; gap: 14px; }
+.m { max-width: 78%; display: grid; gap: 6px; }
+.m .who { font: 11px var(--mono); color: var(--muted); }
+.m .bub { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.5; }
+.m.u { justify-self: end; }
+.m.u .bub { background: color-mix(in srgb, var(--accent) 18%, var(--card)); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.qr { display: flex; gap: 6px; flex-wrap: wrap; }
+.qr span { border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.qr span.picked { background: var(--accent); color: #fff; }
+.sys { justify-self: center; font: 12px var(--mono); color: var(--muted); display: inline-flex; gap: 8px; align-items: center; border: 1px dashed var(--line); border-radius: 999px; padding: 4px 12px; }
+.compose { margin-top: auto; border-top: 1px solid var(--line); padding: 10px 12px; display: flex; gap: 8px; align-items: center; }
+.compose .in { flex: 1; background: var(--col); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; color: var(--faint); font-size: 13px; }
+.side { display: grid; gap: 12px; align-content: start; }
+.panel { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+.stepper { display: grid; gap: 0; }
+.st { display: grid; grid-template-columns: 18px 1fr; gap: 10px; font-size: 13px; position: relative; padding-bottom: 12px; }
+.st:last-child { padding-bottom: 0; }
+.st::before { content: ""; position: absolute; left: 8px; top: 18px; bottom: 0; border-left: 1.5px solid var(--line); }
+.st:last-child::before { display: none; }
+.st i { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--faint); display: grid; place-items: center; font: 600 10px var(--mono); font-style: normal; background: var(--band); position: relative; z-index: 1; }
+.st.done i { border-color: var(--ready); background: var(--ready); color: #0b0e15; }
+.st.cur i { border-color: var(--accent); color: var(--accent); }
+.st.cur b { color: var(--fg); }
+.st b { font-weight: 500; color: var(--muted); }
+.st small { display: block; color: var(--muted); font-size: 12px; }
+.mini-ms { display: grid; gap: 6px; }
+.mini-ms .row { display: grid; grid-template-columns: 38px 1fr; gap: 8px; font-size: 12.5px; align-items: start; }
+.mini-ms .w { font: 500 11px var(--mono); color: var(--muted); padding-top: 1px; }
+
+/* ---------- Issues (milestone-centric) ---------- */
+.band { border: 1px solid var(--line); border-radius: 10px; background: var(--band); overflow: hidden; }
+.band.run { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.band.wait { border-color: color-mix(in srgb, var(--gate) 55%, var(--line)); }
+.bhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 14px; background: var(--head); }
+.band:not(.col) .bhead { border-bottom: 1px solid var(--line); }
+.chev { color: var(--muted); width: 14px; height: 14px; fill: currentColor; flex: none; }
+.col .chev { transform: rotate(-90deg); }
+.play { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); display: grid; place-items: center; flex: none; }
+.run .play { background: var(--accent); color: #fff; }
+.play svg { width: 12px; height: 12px; fill: currentColor; }
+.bt { flex: 1 1 240px; min-width: 0; }
+.bt h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.bt .s { font-size: 12px; color: var(--muted); }
+.run .bt .s b { color: var(--accent); font-weight: 500; }
+.wait .bt .s b { color: var(--gate); font-weight: 500; }
+.pg { width: 140px; display: grid; gap: 3px; }
+.pg .bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.pg .bar i { display: block; height: 100%; background: var(--ready); }
+.pg span { font: 11px var(--mono); color: var(--muted); text-align: right; }
+.lanes { overflow-x: auto; }
+.lanes-in { display: grid; grid-template-columns: repeat(3, 290px); gap: 40px; padding: 12px 14px 14px; min-width: max-content; }
+.wcol { background: var(--col); border: 1px solid var(--line); border-radius: 8px; padding: 9px; display: flex; flex-direction: column; gap: 9px; }
+.wcol.cur { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.wcol .lbl { display: flex; justify-content: space-between; }
+.wcol.cur .lbl { color: var(--accent); }
+.ic { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; display: grid; gap: 7px; text-decoration: none; color: inherit; }
+a.ic:hover { border-color: var(--muted); }
+.ic.active { border-color: var(--accent); }
+.ic.gatec { border-color: var(--gate); border-style: dashed; }
+.ic.donec { opacity: .6; }
+.ic .top { display: flex; align-items: center; gap: 8px; font: 500 12px var(--mono); color: var(--muted); }
+.ic .top .r { margin-left: auto; font: 11px var(--sans); }
+.ic .t { font-size: 13px; line-height: 1.35; }
+.life { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.life i { height: 5px; border-radius: 2px; background: var(--faint); opacity: .5; }
+.life i.d { background: var(--ready); opacity: 1; }
+.life i.a { background: var(--accent); opacity: 1; animation: pulse 1.6s ease-in-out infinite; }
+.life i.rv { background: var(--review); opacity: 1; }
+.life i.g { background: var(--gate); opacity: 1; }
+@keyframes pulse { 50% { opacity: .45; } }
+.lifecap { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); gap: 8px; }
+.lifecap b { color: var(--fg); font-weight: 500; }
+.sum { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 9px 14px 11px 56px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.segs { display: inline-flex; gap: 3px; vertical-align: middle; }
+.seg { width: 13px; height: 7px; border-radius: 2px; background: var(--c); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- Issue detail ---------- */
+.idhead { display: grid; gap: 6px; }
+.idhead h2 { margin: 0; font-size: 18px; font-weight: 600; text-wrap: balance; }
+.idhead .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.origin { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); background: var(--band); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+.origin b { color: var(--fg); font-weight: 500; }
+.graphwrap { background: var(--band); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; background-image: radial-gradient(color-mix(in srgb, var(--fg) 9%, transparent) 1px, transparent 1px); background-size: 18px 18px; }
+.graph { position: relative; display: flex; gap: 38px; padding: 64px 22px 26px; min-width: max-content; align-items: flex-start; }
+.graph svg.loops { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.ph { position: relative; z-index: 1; width: 158px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 5px; cursor: pointer; text-align: left; }
+.ph:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ph .k { display: flex; justify-content: space-between; align-items: center; font: 500 10.5px var(--mono); letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.ph .badge { font: 600 10px var(--mono); letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
+.ph b { font-size: 13.5px; font-weight: 600; }
+.ph .sub { font-size: 11.5px; color: var(--muted); }
+.ph.done { border-color: color-mix(in srgb, var(--ready) 70%, var(--line)); }
+.ph.done .badge { color: var(--ready); background: color-mix(in srgb, var(--ready) 14%, transparent); }
+.ph.active { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 8px 24px -12px var(--accent); }
+.ph.active .badge { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ph.changes { border-color: var(--review); }
+.ph.changes .badge { color: var(--review); background: color-mix(in srgb, var(--review) 14%, transparent); }
+.ph.pending { opacity: .55; }
+.ph.pending .badge { color: var(--muted); border: 1px solid var(--line); }
+.ph.sel { outline: 2px solid var(--fg); outline-offset: 3px; }
+.ph .steps { display: grid; gap: 3px; margin-top: 2px; }
+.ph .steps span { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.ph .steps span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--faint)); flex: none; }
+.conn { position: absolute; z-index: 0; }
+.detail { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
+.dcard { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.dcard h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; min-width: 0; }
+.out { background: var(--col); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 12px/1.6 var(--mono); white-space: pre-wrap; color: var(--fg); overflow-x: auto; }
+.tmpl { display: grid; gap: 6px; }
+.tmpl .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.tmpl .row b { font-weight: 500; width: 100%; font-size: 12.5px; }
+.tmpl .row span { font: 10.5px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
+.tmpl .row span.x { border-color: var(--gate); color: var(--gate); }
+
+/* ---------- Issue: pestañas Plan / Código / Sesiones ---------- */
+.itabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+.itabs button { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; color: var(--muted); cursor: pointer; font-size: 13.5px; display: inline-flex; gap: 8px; align-items: center; }
+.itabs button:hover { color: var(--fg); }
+.itabs button.on { color: var(--fg); border-color: var(--accent); }
+.itabs button:focus-visible { outline: 2px solid var(--accent); }
+.cnt { font: 11px var(--mono); color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; }
+.itab { display: grid; gap: 14px; }
+.itab[hidden] { display: none; }
+.codebar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.seg2 { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg2 button { background: none; border: 0; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.seg2 button.on { background: var(--head); color: var(--fg); }
+.ide { display: grid; grid-template-columns: 240px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--band); min-height: 470px; }
+.tree { border-right: 1px solid var(--line); padding: 12px; display: grid; gap: 4px; align-content: start; }
+.tree .lbl { margin-bottom: 4px; }
+.f { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; text-align: left; background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; font: 12.5px var(--mono); color: var(--fg); }
+.f small { grid-column: 1 / -1; color: var(--muted); font: 11px var(--sans); }
+.f.on { background: var(--card); border-color: var(--line); }
+.pm { display: inline-flex; gap: 6px; font: 11px var(--mono); }
+.pm i { font-style: normal; }
+.add { color: var(--ready); }
+.del { color: var(--danger); }
+.byphase { display: grid; gap: 6px; font-size: 12px; color: var(--muted); padding: 0 4px; }
+.byphase span { display: flex; gap: 8px; align-items: center; }
+.diffcol { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+.diff { min-width: 0; overflow-x: auto; }
+.dh { padding: 9px 14px; border-bottom: 1px solid var(--line); font: 12px var(--mono); background: var(--head); }
+.diff pre, .term pre { margin: 0; padding: 10px 14px; font: 12.5px/1.65 var(--mono); color: var(--fg); }
+.ln { display: inline-block; width: 30px; color: var(--faint); user-select: none; }
+.ln.a { color: var(--ready); }
+.diff .a { background: color-mix(in srgb, var(--ready) 12%, transparent); color: var(--fg); display: inline-block; min-width: calc(100% - 34px); }
+.rvc { margin: 0 14px 14px; border: 1px solid color-mix(in srgb, var(--review) 50%, var(--line)); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; background: color-mix(in srgb, var(--review) 6%, var(--band)); font-size: 13px; }
+.rvc p { margin: 0; }
+.rvc .chip { justify-self: start; }
+.term { border-top: 1px solid var(--line); background: var(--col); }
+.th { display: flex; justify-content: space-between; gap: 8px; padding: 6px 14px; border-bottom: 1px solid var(--line); font: 11.5px var(--mono); color: var(--muted); flex-wrap: wrap; }
+.term .ok { color: var(--ready); }
+.term .mut { color: var(--muted); }
+.cursor { display: inline-block; width: 7px; height: 14px; background: var(--fg); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.sess { display: grid; grid-template-columns: 280px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--band); min-height: 470px; }
+.slist { border-right: 1px solid var(--line); padding: 10px; display: grid; gap: 4px; align-content: start; }
+.si { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: center; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer; color: var(--fg); }
+.si:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.si.on { background: var(--card); border-color: var(--line); }
+.si:focus-visible { outline: 2px solid var(--accent); }
+.si b { font-size: 13px; font-weight: 500; }
+.si small { grid-column: 2 / -1; font: 11px var(--mono); color: var(--muted); }
+.si .stt { font-size: 11px; color: var(--muted); }
+.si .stt.active { color: var(--accent); }
+.si .stt.changes { color: var(--review); }
+.si .stt.done { color: var(--ready); }
+.sconv { display: flex; flex-direction: column; min-width: 0; }
+.sch { padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--head); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.sch b { font-weight: 600; }
+.sbody { padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.ev { font-size: 13px; line-height: 1.5; max-width: 72ch; }
+.ev.tool { font: 12px var(--mono); color: var(--muted); border-left: 2px solid var(--line); padding: 2px 0 2px 10px; }
+.ev.tool b { color: var(--fg); font-weight: 500; }
+.ev.you { justify-self: end; background: color-mix(in srgb, var(--accent) 18%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius: 10px; padding: 8px 12px; }
+.ev.in { background: var(--col); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; color: var(--muted); font-size: 12.5px; }
+.ev.in b { color: var(--fg); font-weight: 500; }
+.scompose { margin-top: auto; border-top: 1px solid var(--line); padding: 10px 12px; display: flex; gap: 8px; align-items: center; }
+.scompose .in { flex: 1; background: var(--col); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; color: var(--faint); font-size: 13px; }
+.ro { margin-top: auto; border-top: 1px solid var(--line); padding: 10px 16px; font-size: 12px; color: var(--muted); }
+@media (max-width: 900px) { .ide, .sess { grid-template-columns: 1fr; } .tree, .slist { border-right: 0; border-bottom: 1px solid var(--line); } }
+@media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+/* ---------- Trancado ---------- */
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.stuckbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--line)); background: color-mix(in srgb, var(--danger) 9%, var(--band)); border-radius: 10px; padding: 10px 14px; }
+.stuckbar[hidden] { display: none; }
+.sic { width: 28px; height: 28px; border-radius: 50%; background: var(--danger); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; }
+.stx { display: grid; gap: 2px; min-width: 0; flex: 1 1 280px; }
+.stx b { font-size: 14px; font-weight: 600; }
+.stx span { font-size: 12.5px; color: var(--muted); }
+.ph.stuck { border-color: var(--danger); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent), 0 8px 24px -12px var(--danger); }
+.ph.stuck .badge { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.si .stt.stuck { color: var(--danger); }
+.ev.ask { border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line)); background: color-mix(in srgb, var(--danger) 8%, var(--card)); border-radius: 10px; padding: 9px 12px; }
+.ev.sys { font: 12px var(--mono); color: var(--muted); }
+.kinds { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
+.kinds li span { color: var(--muted); }
+.codeph { border: 1px dashed var(--line); border-radius: 10px; padding: 24px; color: var(--muted); font-size: 13px; text-align: center; }
+.uscrim { position: fixed; inset: 0; background: rgb(4 6 12 / .55); opacity: 0; transition: opacity .2s; z-index: 20; }
+.uscrim.open { opacity: 1; }
+.udrawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(580px, 100vw); background: var(--band); border-left: 1px solid var(--line); z-index: 21; display: grid; grid-template-rows: auto 1fr auto; transform: translateX(100%); transition: transform .2s ease-out; box-shadow: -20px 0 60px -20px rgb(0 0 0 / .6); }
+.udrawer.open { transform: none; }
+.uhead { position: relative; padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 14px; border-bottom: 1px solid var(--line); background: var(--head); display: grid; gap: 6px; }
+.ueye { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--danger); }
+.uhead h2 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3; padding-right: 32px; text-wrap: balance; }
+.uhead h2 .num { font: 500 15px var(--mono); color: var(--muted); }
+.umeta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.uclose { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 32px; height: 32px; border-radius: 6px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+.uclose:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.uclose:focus-visible { outline: 2px solid var(--accent); }
+.ubody { overflow-y: auto; padding: 18px 20px 24px; display: grid; gap: 22px; align-content: start; }
+.ubody h3 { margin: 0 0 8px; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.fsays { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+.fsays .pav { width: 24px; height: 24px; border-radius: 6px; }
+.fsays p { margin: 0; font-size: 14px; line-height: 1.55; max-width: 62ch; }
+.tried { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.tried b { color: var(--fg); font: 500 12px var(--mono); }
+.uq { border: 0; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.uq legend { font-size: 14px; font-weight: 500; margin-bottom: 8px; padding: 0; }
+.uopt { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); cursor: pointer; font-size: 13px; }
+.uopt:hover { border-color: var(--muted); }
+.uopt input { position: absolute; opacity: 0; pointer-events: none; }
+.uopt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.uopt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+.ukey { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--line); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--muted); }
+.uopt.sel .ukey { background: var(--accent); border-color: var(--accent); color: #fff; }
+.urec { font: 500 10px var(--mono); color: var(--ready); border: 1px solid color-mix(in srgb, var(--ready) 45%, transparent); padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.uwhy { margin: 4px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; padding-left: 12px; border-left: 2px solid var(--line); }
+.uwhy b { color: var(--fg); font-weight: 500; }
+.ulbl { display: block; font-size: 13px; margin: 6px 0 6px; }
+.ulbl span { color: var(--faint); font-size: 12px; }
+.uta { width: 100%; background: var(--col); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 13px var(--sans); resize: vertical; }
+.uta:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.ualts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.ualt { display: grid; gap: 2px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; cursor: pointer; color: var(--fg); }
+.ualt:hover { border-color: var(--muted); }
+.ualt:focus-visible { outline: 2px solid var(--accent); }
+.ualt b { font-size: 13px; font-weight: 500; }
+.ualt span { font-size: 12px; color: var(--muted); }
+.ualt.warn b { color: var(--danger); }
+.ufoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--head); }
+.btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+.utoast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--head); border: 1px solid var(--ready); color: var(--fg); padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 30; box-shadow: 0 10px 30px -10px rgb(0 0 0 / .6); max-width: calc(100vw - 32px); }
+@media (prefers-reduced-motion: reduce) { .udrawer, .uscrim { transition: none; } }
+
+/* ---------- Perfiles ---------- */
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.pc { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; align-content: start; }
+.pc .h { display: flex; gap: 10px; align-items: center; }
+.pc .h .pav { width: 30px; height: 30px; border-radius: 8px; font-size: 11px; }
+.pc .h b { font-size: 14.5px; font-weight: 600; display: block; }
+.pc .h small { color: var(--muted); font-size: 12px; }
+.pc .soul { font-size: 12.5px; color: var(--muted); line-height: 1.5; border-left: 2px solid var(--line); padding-left: 10px; }
+.pc .kv { grid-template-columns: 96px 1fr; font-size: 12.5px; }
+.inst { display: grid; gap: 5px; border-top: 1px solid var(--line); padding-top: 10px; }
+.inst div { display: flex; justify-content: space-between; gap: 8px; font: 11.5px var(--mono); color: var(--muted); }
+.inst div b { color: var(--accent); font-weight: 500; }
+.inst .none { color: var(--faint); }
+.pc.add { border-style: dashed; place-content: center; text-align: center; color: var(--muted); min-height: 200px; }
+.banner { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+.banner b { color: var(--fg); font-weight: 500; }
+.slots { display: inline-flex; gap: 4px; }
+.slots i { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--line); }
+.slots i.on { background: var(--accent); border-color: var(--accent); }
+
+@media (max-width: 900px) {
+  .fl, .detail { grid-template-columns: 1fr; }
+  .app { grid-template-columns: 1fr; }
+  .rail { flex-direction: row; justify-content: center; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px; flex-wrap: wrap; }
+  .m { max-width: 92%; }
+}
+@media (prefers-reduced-motion: reduce) { .life i.a { animation: none; } }
+</style>
+
+<div class="wrap">
+  <nav class="switch" id="switch" aria-label="Pantallas">
+    <a href="#resumen" data-s="resumen">Resumen</a>
+    <a href="#fluke" data-s="fluke">1 · Fluke</a>
+    <a href="#issues" data-s="issues">2 · Issues</a>
+    <a href="#issue" data-s="issue">3 · Issue #657</a>
+    <a href="#perfiles" data-s="perfiles">4 · Perfiles</a>
+  </nav>
+
+  <div class="app">
+    <aside class="rail" aria-label="Navegación de la app">
+      <span class="ri" data-r="fluke" title="Fluke"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4z"/></svg><i class="pip"></i></span>
+      <span class="ri" data-r="issues" title="Issues"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="4" rx="1"/><rect x="4" y="10" width="11" height="4" rx="1"/><rect x="4" y="16" width="7" height="4" rx="1"/></svg></span>
+      <span class="ri gone" title="Workspaces (pasa a la pestaña Código del issue)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></span>
+      <span class="ri gone" title="Source control (pasa a cada issue)"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10c0 4-6 3-11 6"/></svg></span>
+      <span class="ri" data-r="perfiles" title="Perfiles"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5h5M16 9h5M18 13h3"/></svg></span>
+      <span class="ri gone" title="Workers (se elimina)"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2.5 1.5-4.5 4-4.5"/></svg></span>
+      <span class="ri gone" title="Analyst desk (se elimina)"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18V9h12v9M9 9V6h6v3"/></svg></span>
+    </aside>
+
+    <div class="main">
+
+<!-- ================= RESUMEN ================= -->
+<section class="screen" id="s-resumen">
+  <div class="topbar"><h1>La transformación en una pantalla</h1><span class="sp"></span><span class="crumb">4 cambios · 3 pantallas nuevas o rehechas · 2 que desaparecen</span></div>
+  <div class="content">
+    <div class="flow">
+      <p class="lbl" style="margin-bottom:10px">El recorrido nuevo de punta a punta</p>
+      <div class="flowrow">
+        <div class="fn you"><b>Vos</b><span>Le contás a Fluke qué querés</span></div><i class="fa"></i>
+        <div class="fn"><b>Fluke</b><span>Pregunta, entiende y arma el brief</span></div><i class="fa"></i>
+        <div class="fn you"><b>Aprobás el brief</b><span>Primera compuerta</span></div><i class="fa"></i>
+        <div class="fn"><b>Analyst (perfil)</b><span>Despieza en issues con waves; Fluke arma el plan de cada issue</span></div><i class="fa"></i>
+        <div class="fn"><b>Milestone en Issues</b><span>Le das play; corre wave por wave</span></div><i class="fa"></i>
+        <div class="fn"><b>Plan del issue</b><span>TDD → desarrollo → testing → review → merge, cada fase con un perfil</span></div>
+      </div>
+    </div>
+
+    <div class="ov">
+      <article class="chg">
+        <h3><span class="n">1</span>Perfiles en vez de workers</h3>
+        <dl class="ba"><dt>Hoy</dt><dd class="before">Workers con nombre (Daniel, Neo, Bea), cada uno con su cola, su soul, su PAT.</dd>
+        <dt>Nuevo</dt><dd class="after">Perfiles: Fullstack, Backend, Frontend, Analyst, Reviewer, QA, Designer. Una instancia efímera se crea al tomar una fase y se descarta al terminarla.</dd></dl>
+        <p class="impact"><b>Impacto:</b> <code>workers</code> pasa a ser plantilla; las colas por worker desaparecen y queda una cola por fase; el LRU de reviewers ya no hace falta. Los workers actuales se migran tomando un referente por rol.</p>
+      </article>
+      <article class="chg">
+        <h3><span class="n">2</span>Plan atado al issue, con su ciclo de vida</h3>
+        <dl class="ba"><dt>Hoy</dt><dd class="before">El plan vive en el workspace del agente (<code>plans.workspace_id</code>) y solo cubre los pasos de implementación.</dd>
+        <dt>Nuevo</dt><dd class="after">Cada issue tiene un plan de fases (TDD, desarrollo, testing, review y sus vueltas). Lo crea Fluke al armar el brief. Los pasos de implementación quedan dentro de la fase Desarrollo.</dd></dl>
+        <p class="impact"><b>Impacto:</b> nueva tabla de fases por issue; el review loop actual (<code>review_fix</code>, rondas) se vuelve una arista de vuelta en el grafo.</p>
+      </article>
+      <article class="chg">
+        <h3><span class="n">3</span>Issues centrado en milestones</h3>
+        <dl class="ba"><dt>Hoy</dt><dd class="before">Tabla con agrupado opcional; el modo "execution" muestra waves como tablas apiladas.</dd>
+        <dt>Nuevo</dt><dd class="after">Bandas por milestone con play, waves en columnas, compuertas de decisión y drawer para decidir.</dd></dl>
+        <p class="impact"><b>Impacto:</b> reemplaza la vista por defecto; parte de <code>ExecutionPlanView</code> y <code>buildExecutionPlan</code>.</p>
+      </article>
+      <article class="chg">
+        <h3><span class="n">4</span>Sin analyst desk</h3>
+        <dl class="ba"><dt>Hoy</dt><dd class="before">Le pedís cosas al analista directo desde <code>/analyst-desk</code>.</dd>
+        <dt>Nuevo</dt><dd class="after">Todo entra por Fluke. Fluke conversa, pregunta y recién con el brief aprobado le encarga el despiece al perfil Analyst.</dd></dl>
+        <p class="impact"><b>Impacto:</b> se borra la feature <code>analyst-desk</code> y las tareas <code>source=desk</code>; <code>approve_brief</code> ya hace el traspaso.</p>
+      </article>
+    </div>
+
+    <article class="chg" style="border-style:dashed;border-color:color-mix(in srgb, var(--danger) 50%, var(--line))">
+      <h3><span class="n" style="color:var(--danger)">6</span>Cuando una fase se tranca</h3>
+      <dl class="ba"><dt>Dónde</dt><dd class="after">En Issues la card queda en rojo con el motivo y la banda dice "#658 necesita tu ayuda"; arriba hay un contador global. En el issue, la fase trancada se marca en el grafo y aparece un banner.</dd>
+      <dt>Cómo</dt><dd class="after">Botón Destrabar: drawer con lo que pasó (explicado por Fluke), lo que ya se intentó, la pregunta del agente con opciones y otras salidas: hablar con Fluke, escribirle al agente, tomar el control, otro perfil, volver a una fase anterior o cancelar.</dd></dl>
+    </article>
+    <article class="chg" style="border-style:dashed">
+      <h3><span class="n">5</span>Workspaces y Source control entran al issue</h3>
+      <dl class="ba"><dt>Hoy</dt><dd class="before">Pantallas propias: lista de workspaces (uno por tarea de worker) y la flota de ramas.</dd>
+      <dt>Nuevo</dt><dd class="after">Un workspace por issue, compartido por todas las fases. Se ve en las pestañas Código (diff, editor, terminal) y Sesiones (una por fase) del issue. La barra queda en Fluke, Issues, Perfiles y Settings.</dd></dl>
+    </article>
+
+    <div class="qs">
+      <p class="lbl">Decisiones tomadas</p>
+      <ol>
+        <li><b>Identidad en GitHub.</b> <span>Como hoy: cada perfil puede tener su PAT; si no tiene, usa el del usuario. Todas las instancias de un perfil comparten ese PAT.</span></li>
+        <li><b>Concurrencia.</b> <span>Solo slots globales, sin máximo por perfil. El número se ajusta desde Settings (hoy no se puede; es el issue #626).</span></li>
+        <li><b>Quién arma el plan.</b> <span>Tres niveles: Fluke elige la plantilla (lleva diseño, lleva TDD); el Analyst arma el flujo entre los issues que salen del despiece; el dev arma el plan interno de cada issue (los pasos de Desarrollo).</span></li>
+        <li><b>TDD.</b> <span>Si para ese tipo de problema no tiene sentido, no se aplica. Si tiene sentido, Fluke te pregunta si lo querés.</span></li>
+        <li><b>Migración.</b> <span>Se toma un worker referente de cada rol, su soul y su configuración pasan a ser la plantilla del perfil, y los workers se borran.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FLUKE ================= -->
+<section class="screen" id="s-fluke" hidden>
+  <div class="topbar"><h1>Fluke</h1><span class="crumb">Misión · Fluke detecta errores de la app y propone issue en GitHub</span><span class="sp"></span><span class="chip"><i class="dot" style="--c:var(--accent)"></i>Analyst despiezando</span></div>
+  <div class="content">
+    <div class="fl">
+      <div class="chat">
+        <div class="msgs">
+          <div class="m u"><span class="who">Vos</span><div class="bub">Quiero que cuando la app tire un error, Fluke me avise y me ofrezca abrir un issue en el repo de fluke, sin duplicar si ya existe.</div></div>
+          <div class="m"><span class="who">Fluke</span><div class="bub">Entendido. Antes de armar el brief necesito dos definiciones:<br><br>1. ¿Cubrimos errores del backend, de la UI o ambos?<br>2. ¿El issue se crea solo o siempre con tu autorización?<br>3. Es lógica testeable (captura, deduplicación). ¿Lo hacemos con TDD?</div>
+            <div class="qr"><span class="picked">Ambos</span><span>Solo backend</span><span>Solo UI</span></div>
+            <div class="qr"><span>Automático</span><span class="picked">Con mi autorización</span></div>
+            <div class="qr"><span class="picked">Con TDD</span><span>Sin TDD</span></div></div>
+          <div class="m u"><span class="who">Vos</span><div class="bub">Ambos, siempre con autorización, y sí a TDD. Que primero busque si ya hay un issue igual.</div></div>
+          <div class="m"><span class="who">Fluke</span><div class="bub">Listo, el brief está a la derecha: 4 ítems, plantilla <b>con TDD y sin diseño</b>. Hay un punto de privacidad (stacks con rutas locales) que dejo marcado como decisión tuya para cuando llegue esa parte. ¿Lo apruebo y se lo paso al Analyst para el despiece?</div>
+            <div class="qr"><span class="picked">Aprobar brief</span><span>Cambiar algo</span></div></div>
+          <span class="sys"><i class="dot" style="--c:var(--ready)"></i>Brief v1 aprobado · 14:02</span>
+          <span class="sys"><i class="dot" style="--c:var(--accent)"></i>Analyst despiezando el brief · instancia analyst·7c2</span>
+          <div class="m"><span class="who">Fluke</span><div class="bub">El Analyst propone 4 issues en 3 waves. Armó el flujo entre los issues sobre la plantilla que elegí; #659 arranca con tu decisión. Cada dev va a armar el plan interno de su issue al empezar. Ya está el milestone en Issues para que le des play.</div>
+            <div class="qr"><span>Ver milestone</span><span>Ejecutar ahora</span></div></div>
+        </div>
+        <div class="compose"><span class="in">Pedile algo a Fluke…</span><button class="btn primary" type="button">Enviar</button></div>
+      </div>
+      <div class="side">
+        <div class="panel">
+          <p class="lbl">Estado de la misión</p>
+          <div class="stepper">
+            <div class="st done"><i>✓</i><div><b>Entender</b><small>3 preguntas respondidas, incluida TDD</small></div></div>
+            <div class="st done"><i>✓</i><div><b>Brief + plantilla</b><small>v1 aprobado · con TDD, sin diseño</small></div></div>
+            <div class="st cur"><i>3</i><div><b>Despiece</b><small>El Analyst arma issues, waves y el flujo entre ellos</small></div></div>
+            <div class="st"><i>4</i><div><b>Plan interno</b><small>Cada dev arma los pasos de su issue</small></div></div>
+            <div class="st"><i>5</i><div><b>Ejecución</b><small>Milestone en Issues, con play</small></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="lbl">Propuesta del Analyst</p>
+          <div class="mini-ms">
+            <div class="row"><span class="w">W0</span><span>#656 Globito para errores del backend</span></div>
+            <div class="row"><span class="w">W1</span><span>#657 Globito para errores JS de la UI<br>#658 Buscar duplicados antes de crear</span></div>
+            <div class="row"><span class="w">W2</span><span>#659 Autorizar y crear el issue <span class="tag" style="color:var(--gate);border-color:var(--gate)">DECISIÓN</span></span></div>
+          </div>
+          <a class="btn" href="#issues" data-go="issues">Abrir en Issues</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ISSUES ================= -->
+<section class="screen" id="s-issues" hidden>
+  <iframe id="issues-frame" class="issues-frame" title="Issues por milestone"></iframe>
+</section>
+
+<!-- ================= ISSUE ================= -->
+<section class="screen" id="s-issue" hidden>
+  <div class="topbar"><span class="crumb"><a href="#issues" data-go="issues" style="color:var(--muted)">Issues</a> / Fluke detecta errores… / Wave 1</span><span class="sp"></span><button class="btn" type="button">Pausar issue</button><button class="btn" type="button" id="ipr">Ver PR #671</button></div>
+  <div class="content">
+    <p class="crumb" id="issue-note" hidden style="margin:0;border:1px dashed var(--line);border-radius:8px;padding:8px 12px">Abriste <b id="issue-note-n"></b>. En el mockup solo están armados #657 (en curso) y #658 (trancado); en la app cada issue abre el suyo.</p>
+    <div class="idhead">
+      <h2 id="ititle"></h2>
+      <div class="meta" id="imeta"></div>
+    </div>
+    <div class="origin"><i class="dot" style="--c:var(--accent)"></i><span>Plantilla <b>con TDD, sin diseño</b> elegida por <b>Fluke</b> · flujo entre issues armado por el <b>Analyst</b> (wave 1, después de #656) · pasos de Desarrollo armados por el <b>dev</b></span><span class="sp" style="flex:1"></span><button class="btn" type="button" style="padding:3px 10px;font-size:12px">Editar fases</button></div>
+
+    <div class="stuckbar" id="stuckbar" hidden></div>
+
+    <div class="itabs" role="tablist" id="itabs">
+      <button type="button" role="tab" data-t="plan" class="on">Plan</button>
+      <button type="button" role="tab" data-t="code">Código <span class="cnt">3 archivos</span></button>
+      <button type="button" role="tab" data-t="sessions">Sesiones <span class="cnt">6</span></button>
+    </div>
+
+    <div class="itab" data-t="plan">
+    <div class="graphwrap"><div class="graph" id="graph">
+      <svg class="loops" id="loops" aria-hidden="true"></svg>
+    </div></div>
+
+    <div class="detail">
+      <div class="dcard" id="phdetail"></div>
+      <div class="dcard" id="stuckkinds" hidden>
+        <h3>Cuándo se tranca una fase</h3>
+        <ol class="kinds">
+          <li>El agente pregunta algo que no puede decidir solo. <span>Es el caso de este issue.</span></li>
+          <li>Falla lo mismo varias veces seguidas. <span>Tests o CI en rojo después de N intentos.</span></li>
+          <li>Se agotan las rondas de review. <span>3 de 3 con cambios pedidos.</span></li>
+          <li>No hay progreso en N minutos. <span>Sesión colgada o esperando algo externo.</span></li>
+          <li>Falta una credencial o un permiso. <span>PAT vencido, secreto que no existe.</span></li>
+        </ol>
+        <p class="crumb" style="margin:0">Antes de avisarte, Fluke intenta solo: reintenta las fallas de infraestructura con espera creciente. Solo te escala lo que necesita una persona.</p>
+      </div>
+      <div class="dcard" id="tmplcard">
+        <h3>Plantillas de fases</h3>
+        <p class="crumb" style="margin:0">Fluke la elige en el brief: si lleva diseño, y si lleva TDD (cuando tiene sentido, te lo pregunta). El Analyst no cambia las fases: arma el flujo entre issues.</p>
+        <div class="tmpl">
+          <div class="row"><b>Con TDD</b><span>Tests primero</span><span>Desarrollo</span><span>Testing</span><span>Review</span><span>Merge</span></div>
+          <div class="row"><b>Sin TDD</b><span>Desarrollo</span><span>Testing</span><span>Review</span><span>Merge</span></div>
+          <div class="row"><b>Con diseño</b><span>Diseño</span><span class="x">Tu OK</span><span>…con o sin TDD</span></div>
+          <div class="row"><b>Bug</b><span>Reproducir</span><span>Test que falla</span><span>Fix</span><span>Review</span><span>Merge</span></div>
+          <div class="row"><b>Con decisión</b><span class="x">Tu decisión</span><span>…plantilla base</span></div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="itab" data-t="code" hidden>
+      <p class="codeph" id="codeOther" hidden>Mismo layout que en #657: diff, editor y terminal del workspace de este issue.</p>
+      <div id="code657" style="display:grid;gap:14px">
+      <div class="codebar">
+        <span><code>flk/657-globito-js</code> ← <code>main</code></span>
+        <span class="chip"><i class="dot" style="--c:var(--ready)"></i>CI verde</span>
+        <span class="chip">PR #671 · cambios pedidos</span>
+        <span class="sp" style="flex:1"></span>
+        <div class="seg2"><button type="button" class="on">Diff</button><button type="button">Editor</button></div>
+        <button class="btn" type="button" style="padding:4px 10px;font-size:12px">Abrir en VS Code</button>
+      </div>
+      <div class="ide">
+        <div class="tree">
+          <p class="lbl">Cambios en el issue</p>
+          <button type="button" class="f on"><span>errorCapture.ts</span><span class="pm"><i class="add">+48</i><i class="del">−0</i></span><small>shared/errors</small></button>
+          <button type="button" class="f"><span>ErrorToast.tsx</span><span class="pm"><i class="add">+61</i><i class="del">−0</i></span><small>features/director/ui</small></button>
+          <button type="button" class="f"><span>errorCapture.test.ts</span><span class="pm"><i class="add">+72</i><i class="del">−0</i></span><small>shared/errors · fase TDD</small></button>
+          <p class="lbl" style="margin-top:12px">Por fase</p>
+          <div class="byphase"><span><i class="dot" style="--c:var(--ready)"></i>Tests primero · 1 archivo</span><span><i class="dot" style="--c:var(--ready)"></i>Desarrollo r1 · 3 archivos</span><span><i class="dot" style="--c:var(--accent)"></i>Desarrollo r2 · 2 archivos (en curso)</span></div>
+        </div>
+        <div class="diffcol">
+          <div class="diff">
+            <div class="dh">packages/web-core/src/shared/errors/errorCapture.ts <span class="crumb">· último cambio de frontend·a3f hace 1 min</span></div>
+            <pre><span class="ln">12</span>  export function captureErrors(report: Reporter) {
+<span class="ln">13</span>    window.addEventListener('error', (ev) =&gt; {
+<span class="ln a">14</span><span class="a">+     if (isExtensionError(ev.filename)) return;</span>
+<span class="ln">15</span>      report(normalize(ev.error ?? ev.message));
+<span class="ln">16</span>    });
+<span class="ln">17</span>    window.addEventListener('unhandledrejection', (ev) =&gt; {
+<span class="ln a">18</span><span class="a">+     if (isExtensionError(stackFile(ev.reason))) return;</span>
+<span class="ln">19</span>      report(normalize(ev.reason));
+<span class="ln">20</span>    });
+<span class="ln">21</span>  }
+<span class="ln a">22</span><span class="a">+</span>
+<span class="ln a">23</span><span class="a">+ const EXTENSION_SCHEMES = ['chrome-extension://', 'moz-extension://'];</span>
+<span class="ln a">24</span><span class="a">+ function isExtensionError(file?: string) {</span>
+<span class="ln a">25</span><span class="a">+   return !!file &amp;&amp; EXTENSION_SCHEMES.some((s) =&gt; file.startsWith(s));</span>
+<span class="ln a">26</span><span class="a">+ }</span></pre>
+            <div class="rvc"><span class="prof"><i class="pav" style="--c:#c38df5">RV</i>reviewer·e02 · ronda 1</span><p>errorCapture.ts:18 los errores de extensiones del navegador no deberían reportarse.</p><span class="chip"><i class="dot" style="--c:var(--accent)"></i>en arreglo</span></div>
+          </div>
+          <div class="term">
+            <div class="th"><span>Terminal · workspace del issue</span><span class="crumb">compartida por todas las fases</span></div>
+            <pre><span class="mut">$</span> pnpm vitest run shared/errors
+ <span class="ok">✓</span> captura window.onerror y lo envía al backend
+ <span class="ok">✓</span> captura unhandledrejection
+ <span class="ok">✓</span> no reenvía el mismo error dos veces en 10 s
+ <span class="ok">✓</span> muestra el globito con la huella devuelta
+ <span class="ok">✓</span> ignora errores de chrome-extension://   <span class="mut">← nuevo, ronda 2</span>
+<span class="mut">Tests  5 passed (5)</span>
+<span class="mut">$</span> <span class="cursor"></span></pre>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="itab" data-t="sessions" hidden>
+      <div class="sess">
+        <div class="slist" id="slist"></div>
+        <div class="sconv" id="sconv"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PERFILES ================= -->
+<section class="screen" id="s-perfiles" hidden>
+  <div class="topbar"><h1>Perfiles</h1><span class="crumb">Reemplaza a Workers</span><span class="sp"></span><button class="btn primary" type="button">Nuevo perfil</button></div>
+  <div class="content">
+    <div class="banner"><span>Los perfiles son plantillas. Cada vez que una fase arranca, se crea una <b>instancia efímera</b> del perfil, trabaja en el workspace del issue y se descarta al terminar. Sin nombres, sin colas propias. Todas las instancias de un perfil usan su PAT (o el tuyo si no tiene).</span><span class="sp" style="flex:1"></span><span style="display:inline-flex;gap:8px;align-items:center">Slots globales 2/3 <span class="slots"><i class="on"></i><i class="on"></i><i></i></span><a class="btn" href="#perfiles" style="padding:3px 10px;font-size:12px">Ajustar en Settings</a></span></div>
+    <div class="pgrid" id="pgrid"></div>
+  </div>
+</section>
+
+    </div>
+  </div>
+</div>
+
+<div class="uscrim" id="uscrim" hidden></div>
+<aside class="udrawer" id="udrawer" role="dialog" aria-modal="true" aria-labelledby="utitle" hidden></aside>
+<div class="utoast" id="utoast" role="status" hidden></div>
+
+<script>
+// ---------- Navegación entre pantallas (deep link con #ancla) ----------
+const SCREENS = ['resumen', 'fluke', 'issues', 'issue', 'perfiles'];
+function show(s) {
+  if (!SCREENS.includes(s)) s = 'resumen';
+  SCREENS.forEach(x => { document.getElementById('s-' + x).hidden = x !== s; });
+  document.querySelectorAll('#switch a').forEach(a => a.classList.toggle('on', a.dataset.s === s));
+  const railKey = s === 'issue' ? 'issues' : s;
+  document.querySelectorAll('.rail .ri').forEach(r => r.classList.toggle('on', r.dataset.r === railKey));
+  if (s === 'issue') requestAnimationFrame(drawLoops);
+}
+// Issues: el mockup aprobado (plan-de-ejecucion) tal cual, aislado en un iframe para que su CSS no choque.
+window.addEventListener('message', ev => {
+  if (ev.data && ev.data.type === 'open-issue') { renderIssue(ev.data.n, ev.data.n); location.hash = 'issue'; }
+  if (ev.data && ev.data.type === 'unstick') openUnstick(ev.data.n);
+});
+document.getElementById('issues-frame').src = 'issues-plan.html';
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+show(location.hash.slice(1));
+
+// ---------- Issues con su plan de fases (#657 en curso, #658 trancado) ----------
+const PROFILES = {
+  fluke: ['FL', '#7b7cf5'], analyst: ['AN', '#f0a24a'], qa: ['QA', '#3fc79a'], frontend: ['FE', '#7fb3ff'],
+  backend: ['BE', '#5fd3d3'], fullstack: ['FS', '#9aa7ff'], reviewer: ['RV', '#c38df5'], designer: ['DS', '#f58dc2'],
+};
+const ISSUES = {
+  657: {
+    title: 'Fluke avisa con un globito cuando la UI tiene un error JS no capturado',
+    meta: '<span class="tag">UI</span><span class="tag">P2</span><span class="tag">WAVE:1</span><span>·</span><span>Rama <code>flk/657-globito-js</code></span><span>·</span><span>Ronda de review 2 de 3</span>',
+    pr: 671, code: true, sel: 'dev2',
+    loop: { from: 'rev1', to: 'dev1', label: 'cambios pedidos · ronda 1 → la vuelta usa la misma rama' },
+    phases: [
+      { id: 'brief', k: 'Origen', name: 'Brief + despiece', prof: 'analyst', inst: 'analyst·7c2', state: 'done', sub: 'Issue creado desde la misión',
+        out: 'Issue #657 creado en wave 1.\nTerritorio: packages/web-core/src/shared/errors/*, features/director/ui/ErrorToast.tsx\nContrato: huella fp-<12 hex> calculada en el backend.', time: '3 min', cost: '$0.18' },
+      { id: 'tdd', k: 'Fase 1', name: 'Tests primero', prof: 'qa', inst: 'qa·41b', state: 'done', sub: '4 tests escritos, todos en rojo',
+        out: 'errorCapture.test.ts\n  ✗ captura window.onerror y lo envía al backend\n  ✗ captura unhandledrejection\n  ✗ no reenvía el mismo error dos veces en 10 s\n  ✗ muestra el globito con la huella devuelta', time: '6 min', cost: '$0.31' },
+      { id: 'dev1', k: 'Fase 2', name: 'Desarrollo', prof: 'frontend', inst: 'frontend·9d0', state: 'done', sub: 'Ronda 1 · 3 pasos',
+        steps: [['Hook global de errores', 'var(--ready)'], ['Globito en el panel', 'var(--ready)'], ['Textos en 7 idiomas', 'var(--ready)']],
+        out: 'Paso 1 · captureErrors() con window.onerror y unhandledrejection\nPaso 2 · ErrorToast con acciones Ignorar / Ver\nPaso 3 · claves director.errors.* en los 7 locales\nTests: 4/4 en verde', time: '22 min', cost: '$1.40' },
+      { id: 'test', k: 'Fase 3', name: 'Testing', prof: 'qa', inst: 'qa·b77', state: 'done', sub: 'CI verde · 4/4 · smoke manual OK',
+        out: 'pnpm run check ✓\ncargo test ✓\nSmoke: forzar throw en DevTools → aparece el globito con huella fp-3a91c0d2e4f1', time: '9 min', cost: '$0.22' },
+      { id: 'rev1', k: 'Fase 4', name: 'Review', prof: 'reviewer', inst: 'reviewer·e02', state: 'changes', sub: 'Ronda 1 · pidió 2 cambios',
+        out: 'request_changes\n1. ErrorToast.tsx:41 el globito tapa el botón de enviar del chat en pantallas angostas.\n2. errorCapture.ts:18 los errores de extensiones del navegador (chrome-extension://) no deberían reportarse.', time: '5 min', cost: '$0.27' },
+      { id: 'dev2', k: 'Vuelta', name: 'Desarrollo', prof: 'frontend', inst: 'frontend·a3f', state: 'active', sub: 'Ronda 2 · arreglando 2 cambios', round: 'r2',
+        steps: [['Reposicionar el globito', 'var(--ready)'], ['Filtrar errores de extensiones', 'var(--accent)']],
+        out: 'Paso 1 ✓ globito anclado arriba del composer\nPaso 2 ▸ filtrando chrome-extension:// y moz-extension:// en captureErrors()', time: '7 min hasta ahora', cost: '$0.38' },
+      { id: 'rev2', k: 'Fase 4', name: 'Review', prof: 'reviewer', inst: '—', state: 'pending', sub: 'Ronda 2', out: 'Arranca cuando termine la vuelta de desarrollo y el CI quede verde.' },
+      { id: 'merge', k: 'Fin', name: 'Merge', prof: 'fluke', inst: '—', state: 'pending', sub: 'Al aprobar: merge y libera wave 2', out: 'Fluke mergea el PR, cierra el issue y, si es el último de la wave, arranca la siguiente.' },
+    ],
+    transcripts: {
+      brief: [['in', '<b>Encargo de Fluke</b> · despiezar el brief v1 de la misión en issues verticales con feature, waves y territorio'], ['tool', '<b>Read</b> crates/services/src/services/director.rs'], ['tool', '<b>gh issue create</b> #656 #657 #658 #659'], ['msg', 'Creé 4 issues en 3 waves. #657 y #658 van en paralelo en la wave 1 porque sus territorios no se tocan.']],
+      tdd: [['in', '<b>Fase Tests primero</b> · escribir los tests del issue antes del código; deben fallar'], ['tool', '<b>Write</b> shared/errors/errorCapture.test.ts'], ['tool', '<b>Bash</b> pnpm vitest run shared/errors → 4 failed'], ['msg', 'Dejé 4 tests en rojo que cubren los criterios de aceptación. Commit en la rama del issue.']],
+      dev1: [['in', '<b>Fase Desarrollo</b> · hacer pasar los tests de la fase anterior'], ['tool', '<b>submit_plan</b> 3 pasos'], ['tool', '<b>Write</b> shared/errors/errorCapture.ts'], ['tool', '<b>Write</b> features/director/ui/ErrorToast.tsx'], ['tool', '<b>Bash</b> pnpm vitest run → 4 passed'], ['msg', 'Los 4 tests pasan. Abrí el PR #671.']],
+      test: [['in', '<b>Fase Testing</b> · validar CI y hacer un smoke manual'], ['tool', '<b>Bash</b> pnpm run check ✓'], ['tool', '<b>Bash</b> cargo test ✓'], ['msg', 'CI verde. Forcé un throw desde DevTools y apareció el globito con la huella.']],
+      rev1: [['in', '<b>Fase Review</b> · revisar el PR #671 contra el issue y su territorio'], ['tool', '<b>gh pr diff</b> 671'], ['tool', '<b>gh pr review</b> --request-changes (2 comentarios)'], ['msg', 'Pedí 2 cambios: el globito tapa el botón de enviar en pantallas angostas, y no hay que reportar errores de extensiones del navegador.']],
+      dev2: [['in', '<b>Vuelta a Desarrollo</b> · ronda 2 · arreglar los 2 comentarios del review en la misma rama'], ['tool', '<b>submit_plan</b> 2 pasos'], ['tool', '<b>Edit</b> features/director/ui/ErrorToast.tsx'], ['msg', 'Paso 1 listo: el globito queda anclado arriba del composer.'], ['you', 'Ojo que en mobile el composer cambia de alto cuando se abre el teclado.'], ['msg', 'Bien visto: lo anclo con position sticky relativo al composer, no con un offset fijo. Ya está.'], ['tool', '<b>Edit</b> shared/errors/errorCapture.ts'], ['tool', '<b>Bash</b> pnpm vitest run shared/errors → 5 passed'], ['msg', 'Paso 2 en curso: agregué el test de extensiones y el filtro. Falta correr el check completo.']],
+    },
+  },
+  658: {
+    title: 'Fluke busca el error en los issues de mdevel-uy/fluke antes de crear uno',
+    meta: '<span class="tag">UI</span><span class="tag">P2</span><span class="tag">BACKEND</span><span class="tag">WAVE:1</span><span>·</span><span>Rama <code>flk/658-buscar-duplicados</code></span><span>·</span><span style="color:var(--danger)">Trancado hace 14 min</span>',
+    pr: null, code: false, sel: 'dev1',
+    stuck: {
+      phase: 'dev1', since: '14 min', kind: 'El agente pregunta algo que no puede decidir solo',
+      summary: 'Para buscar si el error ya tiene issue, el agente usa la API de búsqueda de GitHub. Sin token esa API corta a los 10 pedidos por minuto y devuelve 403. Hay dos formas de autenticarse y elegir una cambia qué credencial viaja en el instalador, así que no lo decide solo.',
+      tried: [['Fluke', 'Revisó si era una falla de infraestructura (red, proveedor del modelo). No lo es, así que no reintentó.'], ['backend·c41', 'Probó buscar sin token: 7 de 10 corridas de test terminan en 403.'], ['backend·c41', 'Probó cachear las búsquedas por huella: baja los pedidos, pero el primero de cada error sigue sin token.']],
+      q: '¿Con qué credencial busca issues en mdevel-uy/fluke?',
+      options: [['a', 'Con el PAT del perfil Backend (el mismo que usa para crear el issue en #659)'], ['b', 'Con el token del usuario si inició sesión en GitHub; si no, omitir la búsqueda y avisar'], ['c', 'Sin token, con caché por huella y aceptar que a veces no encuentre el duplicado']],
+      rec: 'b', why: 'No embebe ninguna credencial nueva en el binario y reusa el login de GitHub que fluke ya tiene. El costo es que sin login no hay deduplicación.',
+    },
+    phases: [
+      { id: 'brief', k: 'Origen', name: 'Brief + despiece', prof: 'analyst', inst: 'analyst·7c2', state: 'done', sub: 'Issue creado desde la misión',
+        out: 'Issue #658 creado en wave 1, en paralelo con #657.\nTerritorio: crates/services/src/services/error_reporter/*\nContrato: buscar por la huella fp-<12 hex> en el cuerpo del issue.', time: '3 min', cost: '$0.18' },
+      { id: 'tdd', k: 'Fase 1', name: 'Tests primero', prof: 'qa', inst: 'qa·58e', state: 'done', sub: '3 tests escritos, todos en rojo',
+        out: 'search_by_fingerprint.rs\n  ✗ encuentra un issue abierto con la misma huella\n  ✗ ignora issues cerrados como duplicado\n  ✗ si la búsqueda falla, no bloquea el aviso', time: '5 min', cost: '$0.26' },
+      { id: 'dev1', k: 'Fase 2', name: 'Desarrollo', prof: 'backend', inst: 'backend·c41', state: 'stuck', sub: 'Paso 2 de 3 · espera tu respuesta',
+        steps: [['Cliente de búsqueda por huella', 'var(--ready)'], ['Autenticación contra la API', 'var(--danger)'], ['Aviso discreto con link', 'var(--faint)']],
+        out: 'Paso 1 ✓ search_issues(fingerprint) contra /search/issues\nPaso 2 ⚠ 403 rate limit sin token; esperando definición de credencial\nTests: 2 passed, 1 failed (intermitente por 403)', time: '31 min', cost: '$1.12' },
+      { id: 'test', k: 'Fase 3', name: 'Testing', prof: 'qa', inst: '—', state: 'pending', sub: 'CI y smoke manual', out: 'Arranca cuando Desarrollo termine con los tests en verde.' },
+      { id: 'rev1', k: 'Fase 4', name: 'Review', prof: 'reviewer', inst: '—', state: 'pending', sub: 'Ronda 1', out: 'Arranca con el CI en verde.' },
+      { id: 'merge', k: 'Fin', name: 'Merge', prof: 'fluke', inst: '—', state: 'pending', sub: 'Al aprobar: merge', out: 'Fluke mergea el PR y cierra el issue.' },
+    ],
+    transcripts: {
+      brief: [['in', '<b>Encargo de Fluke</b> · despiezar el brief v1 de la misión'], ['tool', '<b>gh issue create</b> #656 #657 #658 #659'], ['msg', 'Creé 4 issues en 3 waves.']],
+      tdd: [['in', '<b>Fase Tests primero</b> · escribir los tests del issue antes del código; deben fallar'], ['tool', '<b>Write</b> crates/services/tests/search_by_fingerprint.rs'], ['tool', '<b>Bash</b> cargo test search_by_fingerprint → 3 failed'], ['msg', 'Dejé 3 tests en rojo.']],
+      dev1: [['in', '<b>Fase Desarrollo</b> · hacer pasar los tests de la fase anterior'], ['tool', '<b>submit_plan</b> 3 pasos'], ['tool', '<b>Write</b> error_reporter/search.rs'], ['tool', '<b>Bash</b> cargo test search_by_fingerprint → 2 passed, 1 failed'], ['tool', '<b>Bash</b> gh api search/issues?q=fp-3a91… → HTTP 403 rate limit exceeded'], ['msg', 'Sin token la búsqueda corta a los 10 pedidos por minuto. Probé cachear por huella: ayuda, pero el primer pedido de cada error sigue sin autenticar.'], ['ask', '<b>Necesito una definición para seguir.</b> ¿Con qué credencial busco? (a) el PAT del perfil, (b) el token del usuario si inició sesión, (c) sin token con caché. Recomiendo (b).'], ['sys', 'Fluke: no es una falla de infraestructura, no reintento. Te avisé hace 14 min.']],
+    },
+  },
+};
+const BADGE = { done: 'done', active: 'en curso', changes: 'cambios', pending: 'pendiente', stuck: 'trancada' };
+const pav = p => `<i class="pav" style="--c:${PROFILES[p][1]}">${PROFILES[p][0]}</i>`;
+const pname = p => p[0].toUpperCase() + p.slice(1);
+const graph = document.getElementById('graph');
+let CUR = 657;
+const issue = () => ISSUES[CUR];
+const phases = () => issue().phases;
+
+function renderIssue(n, requested) {
+  CUR = ISSUES[n] ? n : 657;
+  const it = issue();
+  document.getElementById('issue-note').hidden = !requested || ISSUES[requested];
+  document.getElementById('issue-note-n').textContent = '#' + requested;
+  document.getElementById('ititle').textContent = `#${CUR} ${it.title}`;
+  document.getElementById('imeta').innerHTML = it.meta;
+  document.getElementById('ipr').hidden = !it.pr;
+  if (it.pr) document.getElementById('ipr').textContent = `Ver PR #${it.pr}`;
+  // banner de trancado
+  const bar = document.getElementById('stuckbar');
+  if (it.stuck) {
+    const p = phases().find(x => x.id === it.stuck.phase);
+    bar.hidden = false;
+    bar.innerHTML = `<span class="sic">⚠</span><div class="stx"><b>${p.name} trancada hace ${it.stuck.since}</b><span>${it.stuck.kind}: ${it.stuck.q}</span></div><span class="sp" style="flex:1"></span><button class="btn" type="button" data-opensess="${p.id}">Ver sesión</button><button class="btn danger" type="button" data-unstick-issue="${CUR}">Destrabar</button>`;
+  } else bar.hidden = true;
+  // pestañas
+  document.querySelector('#itabs [data-t="code"] .cnt').textContent = it.code ? '3 archivos' : '1 archivo';
+  document.querySelector('#itabs [data-t="sessions"] .cnt').textContent = phases().filter(p => p.inst !== '—').length;
+  document.getElementById('code657').hidden = !it.code;
+  document.getElementById('codeOther').hidden = it.code;
+  document.getElementById('tmplcard').hidden = !!it.stuck;
+  document.getElementById('stuckkinds').hidden = !it.stuck;
+  // grafo
+  graph.querySelectorAll('.ph').forEach(x => x.remove());
+  graph.insertAdjacentHTML('beforeend', phases().map(p => `
+    <button class="ph ${p.state}" type="button" data-ph="${p.id}">
+      <span class="k">${p.k}<span class="badge">${BADGE[p.state]}</span></span>
+      <b>${p.name}</b>
+      <span class="prof">${pav(p.prof)}${pname(p.prof)}</span>
+      <span class="sub">${p.sub}</span>
+      ${p.steps ? `<span class="steps">${p.steps.map(([t, c]) => `<span style="--c:${c}">${t}</span>`).join('')}</span>` : ''}
+    </button>`).join(''));
+  // sesiones
+  document.getElementById('slist').innerHTML = '<p class="lbl" style="padding:2px 4px 6px">Una sesión por fase</p>' + phases().filter(p => p.inst !== '—').map(p => `
+    <button type="button" class="si" data-sess="${p.id}">${pav(p.prof)}<b>${p.name}${p.round ? ' · ' + p.round : ''}</b><span class="stt ${p.state}">${BADGE[p.state]}</span><small>${p.inst}${p.time ? ' · ' + p.time : ''}</small></button>`).join('');
+  openSession(it.sel);
+  select(it.sel);
+  requestAnimationFrame(drawLoops);
+}
+
+function drawLoops() {
+  const svg = document.getElementById('loops'), o = graph.getBoundingClientRect();
+  if (!o.width || !graph.querySelector('.ph')) return;
+  const r = id => graph.querySelector(`[data-ph="${id}"]`).getBoundingClientRect();
+  const P = phases(), loop = issue().loop;
+  let out = `<defs>${[['ok', 'ready'], ['rv', 'review'], ['pd', 'faint']].map(([k, c]) => `<marker id="m-${k}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--${c})"/></marker>`).join('')}</defs>`;
+  for (let k = 0; k < P.length - 1; k++) {
+    const a = r(P[k].id), b = r(P[k + 1].id), y = a.top + 26 - o.top;
+    const done = P[k].state === 'done', isLoopEdge = loop && P[k].id === loop.from;
+    const c = isLoopEdge ? 'rv' : done ? 'ok' : 'pd';
+    const col = isLoopEdge ? 'var(--review)' : done ? 'var(--ready)' : 'var(--faint)';
+    out += `<path d="M${a.right - o.left} ${y} L${b.left - o.left - 2} ${y}" stroke="${col}" stroke-width="1.8" fill="none" ${!done && !isLoopEdge ? 'stroke-dasharray="4 4"' : ''} marker-end="url(#m-${c})"/>`;
+  }
+  if (loop) {
+    const rv = r(loop.from), dv = r(loop.to);
+    const x1 = rv.left + rv.width / 2 - o.left, x2 = dv.left + dv.width / 2 - o.left, top = rv.top - o.top;
+    out += `<path d="M${x1} ${top - 2} C${x1} ${top - 46} ${x2} ${top - 46} ${x2} ${top - 4}" stroke="var(--review)" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#m-rv)"/>
+      <text x="${(x1 + x2) / 2}" y="${top - 40}" text-anchor="middle" fill="var(--review)" font-family="IBM Plex Mono, monospace" font-size="11">${loop.label}</text>`;
+  }
+  svg.innerHTML = out;
+}
+
+function select(id) {
+  const p = phases().find(x => x.id === id);
+  graph.querySelectorAll('.ph').forEach(b => b.classList.toggle('sel', b.dataset.ph === id));
+  const btns = [];
+  if (p.inst !== '—') btns.push(`<button class="btn" type="button" data-opensess="${p.id}">Ver sesión del agente</button>`);
+  if (p.state === 'active') btns.push('<button class="btn" type="button">Pausar en el próximo paso</button>');
+  if (p.state === 'stuck') btns.push(`<button class="btn danger" type="button" data-unstick-issue="${CUR}">Destrabar</button>`);
+  if (p.state === 'changes') btns.push('<button class="btn" type="button">Ver comentarios en el PR</button>');
+  document.getElementById('phdetail').innerHTML = `
+    <h3>${p.k} · ${p.name}</h3>
+    <dl class="kv">
+      <dt>Perfil</dt><dd><span class="prof">${pav(p.prof)}${pname(p.prof)}</span></dd>
+      <dt>Instancia</dt><dd><code>${p.inst}</code>${p.inst !== '—' ? ` <span class="crumb">(efímera${p.state === 'stuck' ? ', sigue viva esperando' : ''})</span>` : ''}</dd>
+      <dt>Estado</dt><dd>${BADGE[p.state]} · ${p.sub}</dd>
+      ${p.time ? `<dt>Duración</dt><dd>${p.time}</dd><dt>Costo</dt><dd>${p.cost}</dd>` : ''}
+    </dl>
+    <p class="lbl">Salida</p>
+    <div class="out">${p.out}</div>
+    ${btns.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${btns.join('')}</div>` : ''}`;
+}
+
+// ---------- Pestañas del issue ----------
+function itab(t) {
+  document.querySelectorAll('#itabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  document.querySelectorAll('.itab').forEach(x => { x.hidden = x.dataset.t !== t; });
+  if (t === 'plan') requestAnimationFrame(drawLoops);
+}
+document.getElementById('itabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) itab(b.dataset.t); });
+document.getElementById('s-issue').addEventListener('click', e => {
+  const os = e.target.closest('[data-opensess]');
+  if (os) { openSession(os.dataset.opensess); itab('sessions'); return; }
+  const un = e.target.closest('[data-unstick-issue]');
+  if (un) openUnstick(+un.dataset.unstickIssue);
+});
+
+// ---------- Sesiones: una por fase que corrió ----------
+function openSession(id) {
+  const p = phases().find(x => x.id === id);
+  document.querySelectorAll('.si').forEach(b => b.classList.toggle('on', b.dataset.sess === id));
+  const live = p.state === 'active' || p.state === 'stuck';
+  document.getElementById('sconv').innerHTML = `
+    <div class="sch">${pav(p.prof)}<b>${p.k} · ${p.name}</b><code>${p.inst}</code><span class="sp" style="flex:1"></span><span class="crumb" ${p.state === 'stuck' ? 'style="color:var(--danger)"' : ''}>${p.state === 'stuck' ? 'esperando tu respuesta' : live ? 'en vivo' : 'terminada · solo lectura'}</span></div>
+    <div class="sbody">${(issue().transcripts[id] || []).map(([k, t]) => `<div class="ev ${k}">${t}</div>`).join('')}</div>
+    ${live ? `<div class="scompose"><span class="in">${p.state === 'stuck' ? 'Respondele a ' + p.inst + ' o usá Destrabar para ver opciones…' : 'Escribile a ' + p.inst + '…'}</span>${p.state === 'stuck' ? `<button class="btn danger" type="button" data-unstick-issue="${CUR}">Destrabar</button>` : ''}<button class="btn primary" type="button">Enviar</button></div>` : '<div class="ro">La instancia ya se descartó. La sesión queda como registro de lo que hizo en esta fase.</div>'}`;
+}
+document.getElementById('slist').addEventListener('click', e => { const b = e.target.closest('[data-sess]'); if (b) openSession(b.dataset.sess); });
+graph.addEventListener('click', e => { const b = e.target.closest('.ph'); if (b) select(b.dataset.ph); });
+new ResizeObserver(() => { if (!document.getElementById('s-issue').hidden) drawLoops(); }).observe(document.body);
+document.fonts && document.fonts.ready.then(() => { if (!document.getElementById('s-issue').hidden) drawLoops(); });
+
+// ---------- Destrabar: drawer ----------
+const ud = document.getElementById('udrawer'), us = document.getElementById('uscrim');
+let U = null;
+function openUnstick(n) {
+  const it = ISSUES[n];
+  if (!it || !it.stuck) return;
+  U = { n, ans: null, other: '', note: '', last: document.activeElement };
+  renderUnstick();
+  ud.hidden = us.hidden = false;
+  requestAnimationFrame(() => { ud.classList.add('open'); us.classList.add('open'); ud.querySelector('.uclose').focus(); });
+}
+function closeUnstick() {
+  ud.classList.remove('open'); us.classList.remove('open');
+  setTimeout(() => { ud.hidden = us.hidden = true; }, 200);
+  if (U && U.last && U.last.focus) U.last.focus();
+  U = null;
+}
+const uReady = () => U.ans && (U.ans !== 'other' || U.other.trim());
+function renderUnstick() {
+  const it = ISSUES[U.n], st = it.stuck, p = it.phases.find(x => x.id === st.phase);
+  ud.innerHTML = `
+    <div class="uhead">
+      <div class="ueye">⚠ Trancado · ${p.name} · hace ${st.since}</div>
+      <button class="uclose" type="button" aria-label="Cerrar">×</button>
+      <h2 id="utitle"><span class="num">#${U.n}</span> ${it.title}</h2>
+      <div class="umeta"><span class="prof">${pav(p.prof)}${p.inst}</span> · la instancia sigue viva esperando</div>
+    </div>
+    <div class="ubody">
+      <section><h3>Qué pasó</h3>
+        <div class="fsays">${pav('fluke')}<p>${st.summary}</p></div>
+      </section>
+      <section><h3>Lo que ya se intentó</h3>
+        <ol class="tried">${st.tried.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join('')}</ol>
+      </section>
+      <section><h3>La pregunta del agente</h3>
+        <fieldset class="uq"><legend>${st.q}</legend>
+          ${st.options.map(([k, l]) => `<label class="uopt ${U.ans === k ? 'sel' : ''}"><input type="radio" name="uq" value="${k}" ${U.ans === k ? 'checked' : ''}><span class="ukey">${k}</span><span>${l}</span>${st.rec === k ? '<span class="urec">Recomienda el agente</span>' : ''}</label>`).join('')}
+          <label class="uopt ${U.ans === 'other' ? 'sel' : ''}"><input type="radio" name="uq" value="other" ${U.ans === 'other' ? 'checked' : ''}><span class="ukey">…</span><span>Otra respuesta</span></label>
+          ${U.ans === 'other' ? `<textarea class="uta" id="uother" rows="2" placeholder="Escribí tu respuesta">${U.other}</textarea>` : ''}
+          <p class="uwhy"><b>Por qué recomienda (${st.rec}):</b> ${st.why}</p>
+        </fieldset>
+        <label class="ulbl" for="unote">Contexto extra para el agente <span>opcional</span></label>
+        <textarea class="uta" id="unote" rows="2" placeholder="Por ejemplo: en #659 vamos a usar el PAT del perfil, mantenelo consistente">${U.note}</textarea>
+      </section>
+      <section><h3>Otras formas de destrabar</h3>
+        <div class="ualts">
+          <button type="button" class="ualt" data-ualt="fluke"><b>Hablarlo con Fluke</b><span>Explicale en tus palabras; Fluke le traduce al agente</span></button>
+          <button type="button" class="ualt" data-ualt="session"><b>Escribirle al agente</b><span>Ir a la sesión en vivo y conversar</span></button>
+          <button type="button" class="ualt" data-ualt="code"><b>Tomar el control</b><span>Abrir Código y la terminal; después "seguir desde acá"</span></button>
+          <button type="button" class="ualt" data-ualt="retry"><b>Reintentar con otro perfil</b><span>Fullstack · opus, con lo que ya se hizo</span></button>
+          <button type="button" class="ualt" data-ualt="back"><b>Volver a Tests primero</b><span>Si el problema está en lo que piden los tests</span></button>
+          <button type="button" class="ualt warn" data-ualt="cancel"><b>Cancelar el issue</b><span>Cierra el issue; la wave sigue sin él</span></button>
+        </div>
+      </section>
+    </div>
+    <div class="ufoot">
+      <span class="crumb">La respuesta va a la misma sesión y el agente sigue desde el paso 2.</span>
+      <span class="sp" style="flex:1"></span>
+      <button class="btn primary" type="button" data-uok ${uReady() ? '' : 'disabled'}>Responder y seguir</button>
+    </div>`;
+}
+ud.addEventListener('change', e => {
+  if (e.target.name === 'uq') { U.ans = e.target.value; const st = ud.querySelector('.ubody').scrollTop; renderUnstick(); ud.querySelector('.ubody').scrollTop = st; }
+});
+ud.addEventListener('input', e => {
+  if (e.target.id === 'uother') U.other = e.target.value;
+  if (e.target.id === 'unote') U.note = e.target.value;
+  ud.querySelector('[data-uok]').disabled = !uReady();
+});
+ud.addEventListener('click', e => {
+  if (e.target.closest('.uclose')) return closeUnstick();
+  const alt = e.target.closest('[data-ualt]');
+  if (alt) {
+    const n = U.n, a = alt.dataset.ualt;
+    closeUnstick();
+    if (a === 'fluke') { location.hash = 'fluke'; return toast(`Fluke abre una conversación sobre #${n} con todo el contexto de la traba`); }
+    if (a === 'session' || a === 'code') { renderIssue(n); location.hash = 'issue'; itab(a === 'session' ? 'sessions' : 'code'); return; }
+    if (a === 'retry') return toast(`#${n}: nueva instancia fullstack retoma Desarrollo desde el paso 2`);
+    if (a === 'back') return toast(`#${n} vuelve a Tests primero`);
+    if (a === 'cancel') return toast(`#${n} cancelado; la wave sigue sin él`);
+  }
+  if (e.target.closest('[data-uok]') && uReady()) {
+    const n = U.n, it = ISSUES[n], st = it.stuck, p = it.phases.find(x => x.id === st.phase);
+    const txt = U.ans === 'other' ? U.other : `(${U.ans}) ${st.options.find(o => o[0] === U.ans)[1]}`;
+    it.transcripts[p.id].push(['you', txt + (U.note.trim() ? '<br>' + U.note.trim() : '')], ['msg', 'Gracias, sigo con eso desde el paso 2.']);
+    p.state = 'active'; p.sub = 'Paso 2 de 3 · retomó con tu respuesta';
+    p.steps[1][1] = 'var(--accent)';
+    delete it.stuck;
+    it.meta = it.meta.replace(/<span style="color:var\(--danger\)">[^<]*<\/span>/, '<span>Retomado</span>');
+    closeUnstick();
+    try { document.getElementById('issues-frame').contentWindow.postMessage({ type: 'unstuck', n }, '*'); } catch (err) {}
+    if (CUR === n) renderIssue(n);
+    toast(`Respuesta enviada a ${p.inst} · #${n} sigue`);
+  }
+});
+us.addEventListener('click', closeUnstick);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && U) closeUnstick(); });
+let toastT;
+function toast(msg) {
+  const t = document.getElementById('utoast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3500);
+}
+
+renderIssue(657);
+
+// ---------- Perfiles ----------
+const PCARDS = [
+  { p: 'fullstack', pat: 'fluke-dev-bot', from: 'Daniel', role: 'Developer', soul: 'Resuelve issues verticales de punta a punta: migración, endpoint, tipos y UI en una sola corrida.', exec: 'Claude Code', model: 'opus', max: '2', inst: [] },
+  { p: 'frontend', pat: 'fluke-dev-bot', from: 'Neo', role: 'Developer', soul: 'React + Tailwind del design system de fluke. No toca crates/ salvo tipos generados.', exec: 'Claude Code', model: 'sonnet', max: '2', inst: [['frontend·a3f', '#657 · Desarrollo r2']] },
+  { p: 'backend', pat: 'fluke-dev-bot', from: 'Daniel', role: 'Developer', soul: 'Rust (axum, sqlx). Migraciones nuevas siempre con su test y el cache de sqlx actualizado.', exec: 'Claude Code', model: 'opus', max: '2', inst: [] },
+  { p: 'qa', pat: null, from: '— (nuevo)', role: 'Tester', soul: 'Escribe los tests antes del código (fase TDD) y valida CI y smoke manual (fase Testing).', exec: 'Claude Code', model: 'sonnet', max: '1', inst: [] },
+  { p: 'reviewer', pat: 'fluke-review-bot', from: 'Bea', role: 'Reviewer', soul: 'Revisa el PR contra el issue y su territorio. Aprueba o pide cambios con comentarios en el diff.', exec: 'Claude Code', model: 'opus', max: '1', inst: [['reviewer·e19', '#658 · Review r1']] },
+  { p: 'analyst', pat: null, from: 'Analyst', role: 'Analyst', soul: 'Recibe el brief aprobado de Fluke y lo despieza en issues verticales con feature, waves y territorio.', exec: 'Claude Code', model: 'opus', max: '1', inst: [] },
+  { p: 'designer', pat: null, from: 'Designer', role: 'Designer', soul: 'Produce el mock como artefacto y deja el issue en in_review hasta tu OK.', exec: 'Claude Code', model: 'opus', max: '1', inst: [] },
+];
+document.getElementById('pgrid').innerHTML = PCARDS.map(c => `
+  <article class="pc">
+    <div class="h">${pav(c.p)}<div><b>${pname(c.p)}</b><small>Rol base: ${c.role}</small></div></div>
+    <p class="soul">${c.soul}</p>
+    <dl class="kv"><dt>Agente</dt><dd>${c.exec} · ${c.model}</dd><dt>GitHub</dt><dd>${c.pat ? 'PAT propio · @' + c.pat : 'PAT del usuario'}</dd><dt>Migrado de</dt><dd>${c.from}</dd></dl>
+    <div class="inst"><span class="lbl">Instancias ahora</span>${c.inst.length ? c.inst.map(([i, w]) => `<div><b>${i}</b><span>${w}</span></div>`).join('') : '<div class="none">ninguna</div>'}</div>
+  </article>`).join('') + `<article class="pc add"><b style="font-size:14px;color:var(--fg)">Nuevo perfil</b><span>Partí de una plantilla (Mobile, DevOps, Docs) o de cero</span></article>`;
+</script>

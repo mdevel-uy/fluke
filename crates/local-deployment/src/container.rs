@@ -265,6 +265,32 @@ impl LocalContainerService {
         let Some(task) = WorkerTask::find_by_workspace(&self.db.pool, workspace_id).await? else {
             return Ok(inputs);
         };
+
+        // A task with a start_ref (fluke v2, #687) starts from that branch:
+        // the developer of a TDD issue continues on QA's tests.
+        if let Some(start_ref) = WorkerTask::start_ref(&self.db.pool, task.id).await? {
+            for input in inputs.iter_mut() {
+                let repo_path = input.repo.path.clone();
+                let git = self.git.clone();
+                let branch = start_ref.clone();
+                let sha =
+                    tokio::task::spawn_blocking(move || git.fetch_branch_tip(&repo_path, &branch))
+                        .await
+                        .map_err(|e| {
+                            ContainerError::Other(anyhow!("fetch_branch_tip join error: {e}"))
+                        })?
+                        .map_err(|e| {
+                            ContainerError::Other(anyhow!(
+                                "No pude traer la rama {start_ref} (repo {}): {e}",
+                                input.repo.name
+                            ))
+                        })?;
+                tracing::info!(workspace_id = %workspace_id, start_ref = %start_ref, sha = %sha, "Anchoring workspace branch on start_ref");
+                input.starting_point = Some(sha);
+            }
+            return Ok(inputs);
+        }
+
         let Some(pr_number) = task.issue_number else {
             return Ok(inputs);
         };
@@ -1952,14 +1978,32 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
-        // Plan MCP (claude only): the agent declares and walks its plan
-        // against this server, which renders it as a live graph.
+        // Claude only. A mission session gets the Director's MCP and system
+        // prompt instead of the plan MCP; every other agent gets the plan
+        // MCP: it declares and walks its plan against this server, which
+        // renders it as a live graph.
         if matches!(
             executor_action.base_executor(),
             Some(BaseCodingAgent::ClaudeCode)
-        ) && let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
-        {
-            env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
+        ) {
+            let session_id = execution_process.session_id;
+            if let Some(mission) =
+                db::models::mission::Mission::find_by_session_id(&self.db.pool, session_id).await?
+            {
+                if let Some(url) =
+                    utils::plan_mcp::director_url_for_session(&session_id.to_string())
+                {
+                    env.insert(utils::plan_mcp::DIRECTOR_MCP_URL_ENV, url);
+                    env.insert(
+                        utils::plan_mcp::DIRECTOR_PROMPT_ENV,
+                        services::services::director::system_prompt(&self.db.pool, &mission)
+                            .await?,
+                    );
+                }
+            } else if let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
+            {
+                env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
+            }
         }
 
         // Deliberately do NOT inject the worker's PAT as GH_TOKEN/GITHUB_TOKEN

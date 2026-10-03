@@ -21,8 +21,8 @@
         "projectsDesc": "Repositorios de proyectos y configuración",
         "repos": "Repositorios",
         "reposDesc": "Scripts y configuración de repositorios",
-        "agents": "Agentes",
-        "agentsDesc": "Configuraciones de agentes",
+        "agents": "Agentes y modelos",
+        "agentsDesc": "Proveedores, modelos y proveedor por defecto",
         "guidelines": "Lineamientos",
         "guidelinesDesc": "Reglas de comportamiento globales para todos los agentes",
         "mcp": "Servidores MCP",
@@ -37,8 +37,6 @@
         "skillsDesc": "Gestionar skills de agentes instalados en ~/.claude/skills",
         "github": "GitHub",
         "githubDesc": "Inicia sesión con tu cuenta de GitHub",
-        "agent-auth": "Conexiones de agentes",
-        "agent-authDesc": "Conectá y desconectá cada agente instalado desde Ajustes",
         "data": "Datos",
         "dataDesc": "Exportá o restaurá todos los datos de tu instancia"
       }
@@ -117,17 +115,6 @@
           "placeholder": "Selecciona tu idioma",
           "helper": "Elige tu idioma preferido. El predeterminado del navegador sigue el idioma de tu sistema."
         }
-      },
-      "taskExecution": {
-        "title": "Agente de Código Predeterminado",
-        "description": "Elige el agente de código predeterminado para las tareas.",
-        "executor": {
-          "label": "Configuración predeterminada del Agente",
-          "placeholder": "Seleccionar perfil",
-          "helper": "Define la configuración predeterminada del agente que se usará al iniciar una tarea."
-        },
-        "variant": "PREDETERMINADO",
-        "defaultLabel": "Predeterminado"
       },
       "editor": {
         "title": "Editor",
@@ -247,6 +234,18 @@
           }
         }
       },
+      "concurrency": {
+        "title": "Concurrencia de agentes",
+        "description": "Limita cuántos agentes de código corren en paralelo.",
+        "limit": {
+          "label": "Agentes en paralelo",
+          "helper": "Cantidad máxima de agentes de código ejecutándose a la vez. 0 = automático (según los núcleos de CPU). Si la variable de entorno AGENT_CONCURRENCY_LIMIT está definida, tiene prioridad.",
+          "errors": {
+            "required": "Ingresa un valor.",
+            "notInteger": "El valor debe ser un número entero (0 o mayor)."
+          }
+        }
+      },
       "notifications": {
         "title": "Notificaciones",
         "description": "Controla cuándo y cómo recibes notificaciones.",
@@ -362,55 +361,12 @@
       }
     },
     "agents": {
-      "title": "Configuraciones de Agentes de Código",
-      "description": "Personaliza el comportamiento de los agentes con diferentes configuraciones.",
-      "loading": "Cargando configuraciones de agentes...",
-      "selectAgent": "Seleccionar agente",
       "save": {
-        "button": "Guardar Configuraciones de Agentes",
-        "success": "✓ ¡Configuración guardada con éxito!",
         "unsavedChanges": "• Tienes cambios sin guardar"
       },
-      "availability": {
-        "checking": "Comprobando...",
-        "checkingAvailability": "Comprobando disponibilidad...",
-        "available": "Agente disponible",
-        "notFoundSimple": "Agente no encontrado",
-        "loginDetected": "Uso reciente detectado",
-        "loginDetectedTooltip": "Se encontraron credenciales de autenticación recientes para este agente",
-        "installationFound": "Uso previo detectado",
-        "installationFoundTooltip": "Se encontró la configuración del agente. Es posible que debas iniciar sesión para usarlo."
-      },
-      "editor": {
-        "formLabel": "Editar JSON",
-        "agentLabel": "Agente",
-        "agentPlaceholder": "Seleccionar tipo",
-        "configLabel": "Configuración",
-        "configPlaceholder": "Seleccionar configuración",
-        "createNew": "Crear nuevo...",
-        "deleteTitle": "No se puede eliminar la última configuración",
-        "deleteButton": "Eliminar {{name}}",
-        "deleteText": "Eliminar",
-        "makeDefault": "Establecer por defecto",
-        "isDefault": "Por defecto",
-        "jsonLabel": "Configuración de Agente (JSON)",
-        "jsonPlaceholder": "Cargando perfiles...",
-        "jsonLoading": "Cargando...",
-        "pathLabel": "Ubicación del archivo de configuración:"
-      },
       "errors": {
-        "deleteFailed": "Error al eliminar la configuración. Por favor, inténtalo de nuevo.",
-        "saveFailed": "Error al guardar la configuración de los agentes. Por favor, inténtalo de nuevo.",
         "saveConfigFailed": "Error al guardar la configuración. Por favor, inténtalo de nuevo.",
         "schemaNotFound": "Esquema no encontrado para el tipo de ejecutor: {{executor}}"
-      },
-      "tree": {
-        "search": "Buscar configuraciones...",
-        "expandAll": "Expandir todo",
-        "collapseAll": "Contraer todo",
-        "noResults": "No se encontraron configuraciones",
-        "noConfigs": "No hay configuraciones disponibles",
-        "selectConfig": "Selecciona una configuración de la barra lateral para ver y editar sus ajustes."
       },
       "deleteConfigDialog": {
         "title": "¿Eliminar configuración?",
@@ -712,77 +668,6 @@
         "patLoginFailed": "No se pudo validar el Personal Access Token."
       }
     },
-    "agentAuth": {
-      "loading": "Comprobando agentes instalados…",
-      "emptyState": "Todavía no hay agentes de código instalados en esta máquina.",
-      "statusLabel": "Estado",
-      "status": {
-        "connected": "Conectado",
-        "notConnected": "Sin conectar"
-      },
-      "actions": {
-        "connect": "Conectar",
-        "disconnect": "Desconectar",
-        "cancel": "Cancelar"
-      },
-      "providers": {
-        "codex": {
-          "name": "Codex",
-          "title": "Codex",
-          "description": "Iniciá sesión en OpenAI Codex con el flujo de dispositivo en el navegador, sin abrir una terminal."
-        },
-        "claude_code": {
-          "name": "Claude Code",
-          "title": "Claude Code",
-          "description": "Iniciá sesión con tu suscripción de Claude: abrí la URL, entrá a tu cuenta y pegá abajo el código que te devuelve la página."
-        },
-        "gemini": {
-          "name": "Gemini",
-          "title": "Gemini",
-          "description": "Conectá Google Gemini con una API key generada en Google AI Studio."
-        }
-      },
-      "deviceFlow": {
-        "title": "Autorizá en OpenAI",
-        "description": "Copiá el código de un solo uso y pegalo en la página de OpenAI para completar el inicio de sesión.",
-        "codeLabel": "Código de un solo uso",
-        "copyHint": "Clic para copiar",
-        "openBrowser": "Abrir OpenAI",
-        "checkStatus": "Refrescar estado",
-        "waitingForCode": "Esperando a que el CLI muestre el código…",
-        "waiting": "Esperando autorización… esta tarjeta se actualiza sola cuando termines en el navegador."
-      },
-      "apiKey": {
-        "title": "Conectar con una API key",
-        "description": "Pegá una API key de Gemini obtenida en Google AI Studio. Se guarda en esta máquina como GEMINI_API_KEY y nunca sale de ella.",
-        "placeholder": "AIza…",
-        "submit": "Guardar y conectar",
-        "helpBefore": "Generá una API key en",
-        "helpLink": "Google AI Studio",
-        "helpAfter": "y pegala arriba."
-      },
-      "claudeFlow": {
-        "title": "Autorizá en claude.com",
-        "description": "Abrí la URL, iniciá sesión en tu cuenta de Claude y copiá el código de intercambio que te devuelve la página.",
-        "openBrowser": "Abrir claude.com",
-        "copyUrl": "Copiar URL",
-        "waitingForUrl": "Esperando a que el CLI muestre la URL de inicio de sesión…",
-        "codeInputLabel": "Código de intercambio",
-        "codeInputPlaceholder": "Pegá el código de claude.com",
-        "codeInputHelp": "Esta tarjeta se actualiza sola en cuanto el CLI acepta el código.",
-        "submitCode": "Enviar código"
-      },
-      "hidden": {
-        "title": "CLIs no instalados",
-        "description": "Estos agentes están ocultos porque su CLI no está instalado en esta imagen: {{providers}}."
-      },
-      "errors": {
-        "loginFailed": "No pudimos iniciar el flujo de conexión.",
-        "logoutFailed": "No pudimos desconectar el agente.",
-        "cancelFailed": "No pudimos cancelar la conexión.",
-        "submitCodeFailed": "No pudimos enviar el código de intercambio."
-      }
-    },
     "data": {
       "export": {
         "title": "Exportar todos los datos",
@@ -821,6 +706,151 @@
           "copyRepos": "Movete cada carpeta bajo repos/ al path que elijas.",
           "startAndReattach": "Iniciá fluke y, si el path de algún repo cambió, actualizalo desde Ajustes → Repositorios."
         }
+      }
+    },
+    "providers": {
+      "intro": "Conecta los proveedores que quieras usar. Cada worker puede elegir cualquier modelo de un proveedor conectado; el proveedor por defecto se usa cuando una tarea o un worker no elige uno.",
+      "loading": "Comprobando agentes instalados…",
+      "emptyState": "Todavía no hay agentes de código instalados en esta máquina.",
+      "defaultBar": {
+        "label": "Proveedor por defecto",
+        "none": "Sin proveedor por defecto",
+        "noneHint": "Conecta un proveedor y elige \"Usar por defecto\". Hasta entonces las tareas nuevas no pueden arrancar.",
+        "hint": "Lo usan las tareas nuevas y los workers que no eligen modelo. Para cambiarlo, usa \"Usar por defecto\" en otro proveedor.",
+        "broken": "{{name}} no está disponible. Las tareas y los workers que usan el proveedor por defecto fallan al arrancar hasta que lo reconectes o elijas otro."
+      },
+      "status": {
+        "off": "Sin conectar",
+        "connecting": "Conectando",
+        "verifying": "Verificando",
+        "codeError": "Conectando",
+        "failed": "Error al conectar",
+        "connected": "Conectado",
+        "expired": "Credencial vencida"
+      },
+      "via": {
+        "claude_code": "Suscripción de Claude",
+        "codex": "Cuenta de OpenAI",
+        "gemini": "API key de Google AI Studio"
+      },
+      "isDefault": "Por defecto",
+      "useAsDefault": "Usar por defecto",
+      "useAsDefaultDisabled": "Conecta {{name}} para poder usarlo por defecto",
+      "connection": "Conexión",
+      "connect": "Conectar {{name}}",
+      "connectHint": {
+        "claude_code": "Inicia sesión con tu suscripción de Claude. No se usa ni se pide una API key.",
+        "codex": "Inicia sesión con tu cuenta de OpenAI desde el navegador."
+      },
+      "cancel": "Cancelar",
+      "retry": "Reintentar",
+      "reconnect": "Reconectar",
+      "models": {
+        "label": "Modelos ({{count}})",
+        "loading": "Cargando modelos…",
+        "live": "Lista obtenida de {{name}}.",
+        "fallbackPill": "Lista de respaldo",
+        "fallback": "No se pudo consultar a {{name}}; se muestran los modelos conocidos.",
+        "expired": "Última lista conocida. No se actualiza hasta que reconectes.",
+        "offline": "Modelos que ofrece {{name}}. Quedan disponibles para los workers al conectar.",
+        "base": "base"
+      },
+      "baseModel": {
+        "label": "Modelo base",
+        "help": "Lo usa {{name}} cuando un worker o una tarea no especifica modelo.",
+        "helpDefault": "Lo usa {{name}} cuando un worker o una tarea no especifica modelo, incluido el proveedor por defecto."
+      },
+      "claude": {
+        "title": "Conectar Claude con tu suscripción",
+        "description": "Tres pasos. No necesitas abrir una consola.",
+        "step1": "Inicia sesión en claude.com",
+        "step1Desc": "Se abrió la página de autorización en tu navegador. Si no se abrió, ábrela de nuevo.",
+        "openBrowser": "Abrir claude.com",
+        "copyUrl": "Copiar URL",
+        "waitingForUrl": "Esperando la URL de inicio de sesión…",
+        "step2": "Pega el código que te muestra la página",
+        "step2Desc": "Al terminar, claude.com muestra un código de autorización. Cópialo completo.",
+        "codePlaceholder": "Pega el código aquí",
+        "submit": "Continuar",
+        "codeError": "El código no es válido o ya venció. Cópialo de nuevo desde claude.com o",
+        "newCode": "genera uno nuevo.",
+        "step3": "Verificación",
+        "verifying": "Verificando la conexión",
+        "step3Desc": "fluke comprueba que la credencial funciona y descubre los modelos de tu suscripción. Tarda unos segundos."
+      },
+      "codex": {
+        "title": "Autoriza en OpenAI",
+        "description": "Abre la página de OpenAI e ingresa este código de un solo uso.",
+        "step1": "Copia el código",
+        "copyHint": "Clic para copiar",
+        "waitingForCode": "Esperando el código…",
+        "step2": "Ábrelo en OpenAI e inicia sesión",
+        "openBrowser": "Abrir OpenAI",
+        "step3": "Listo",
+        "step3Desc": "Esta tarjeta pasa a \"Conectado\" sola en cuanto autorices. No hace falta refrescar."
+      },
+      "gemini": {
+        "title": "Conectar con una API key",
+        "description": "Pega una API key de Gemini generada en Google AI Studio. Se guarda en esta máquina y nunca sale de ella.",
+        "placeholder": "AIza…",
+        "submit": "Guardar y conectar",
+        "helpLink": "Obtener una API key en Google AI Studio"
+      },
+      "failed": {
+        "title": "No se pudo conectar {{name}}.",
+        "body": "El inicio de sesión terminó sin dejar una credencial utilizable. Vuelve a intentarlo; si se repite, revisa que tu suscripción esté activa.",
+        "detail": "Detalle técnico"
+      },
+      "expired": {
+        "title": "La credencial de {{name}} venció o ya no es válida.",
+        "lastAuth": "Último inicio de sesión: {{date}}.",
+        "body_one": "{{count}} worker depende de esta conexión y falla al arrancar hasta que reconectes. Su configuración se conserva.",
+        "body_other": "{{count}} workers dependen de esta conexión y fallan al arrancar hasta que reconectes. Su configuración se conserva."
+      },
+      "advancedLink": "Variantes y configuración avanzada",
+      "usedBy_one": "Lo usa {{count}} worker",
+      "usedBy_other": "Lo usan {{count}} workers",
+      "disconnectAction": "Desconectar",
+      "hidden": {
+        "title": "No instalados en esta máquina:",
+        "description": "{{providers}}. Si falta el CLI de un proveedor, su tarjeta no se muestra."
+      },
+      "others": "Otros agentes:",
+      "advanced": {
+        "title": "{{name}} · configuración avanzada",
+        "subtitle": "Variantes y perfil del agente. Para el uso habitual no hace falta tocar nada aquí.",
+        "variants": "Variantes",
+        "newVariant": "Nueva variante",
+        "standard": "Estándar",
+        "standardHint": "la usan los workers y el proveedor por defecto",
+        "cannotDelete": "No se puede eliminar",
+        "deleteVariant": "Eliminar variante",
+        "form": "Formulario",
+        "json": "JSON",
+        "jsonHelp": "Edita el perfil completo de {{name}}. Se valida antes de guardar.",
+        "jsonInvalid": "El JSON no es válido: {{error}}",
+        "footerHint": "Los cambios afectan a las tareas nuevas."
+      },
+      "disconnect": {
+        "title": "¿Desconectar {{name}}?",
+        "body": "Se borra la credencial de esta máquina.",
+        "workers_one": "{{count}} worker eligió un modelo de {{name}}; sus tareas fallarán al arrancar con el mensaje \"{{name}} no está conectado\" hasta que lo vuelvas a conectar.",
+        "workers_other": "{{count}} workers eligieron un modelo de {{name}}; sus tareas fallarán al arrancar con el mensaje \"{{name}} no está conectado\" hasta que lo vuelvas a conectar.",
+        "pickReplacement": "{{name}} es el proveedor por defecto. Elige cuál lo reemplaza:",
+        "noReplacement": "{{name}} es el proveedor por defecto y no hay otro conectado. Las tareas nuevas no podrán arrancar hasta que conectes un proveedor.",
+        "confirm": "Desconectar"
+      },
+      "errors": {
+        "loginFailed": "No se pudo iniciar el flujo de conexión.",
+        "logoutFailed": "No se pudo desconectar el proveedor.",
+        "cancelFailed": "No se pudo cancelar la conexión.",
+        "submitCodeFailed": "No se pudo enviar el código de autorización.",
+        "saveFailed": "No se pudo guardar el cambio."
+      },
+      "alert": {
+        "message": "Una tarea no pudo arrancar: su proveedor no está conectado o su credencial ya no es válida.",
+        "action": "Abrir Agentes y modelos",
+        "dismiss": "Descartar"
       }
     }
   },

@@ -349,6 +349,164 @@ export type PlanCutRequest = { cut: boolean, };
 
 export type PlanRevisionRequest = { request: string, };
 
+export type Mission = { id: string, title: string, status: string, autonomy: string, repo_id: string | null, session_id: string, workspace_id: string, pending_questions: Array<PendingQuestion>, ui_context: string | null, analyst_task_id: string | null, cost_cap_usd: number | null, created_at: string, updated_at: string, };
+
+export type PendingQuestion = { question: string, options: Array<string>, };
+
+export type MissionItem = { id: string, mission_id: string, position: number, kind: string, title: string, fields: { [key in string]?: string }, worker_id: string | null, model: string | null, route_reason: string | null, };
+
+export type MissionBrief = { mission_id: string, version: number, markdown: string, created_at: string, };
+
+export type MilestoneRun = { id: string, repo_id: string, milestone: string, 
+/**
+ * `running | paused | waiting | done`.
+ */
+status: string, 
+/**
+ * Pause when a wave finishes instead of starting the next one.
+ */
+step_mode: boolean, 
+/**
+ * Wave being worked on; `None` before the first sweep.
+ */
+current_wave: number | null, 
+/**
+ * Why a `waiting` run is stopped: `decision:<n>` or `failed:<n>`.
+ */
+waiting_reason: string | null, created_at: string, updated_at: string, };
+
+export type PlayMilestoneRequest = { milestone: string, step_mode: boolean, };
+
+export type MilestoneRequest = { milestone: string, };
+
+export type PlayAllMilestonesRequest = { milestones: Array<string>, step_mode: boolean, };
+
+export type StepModeRequest = { step_mode: boolean, };
+
+export type IssuePhaseStep = { n: number, title: string, 
+/**
+ * `pending | active | done | cut`.
+ */
+state: string, };
+
+export type IssuePhase = { 
+/**
+ * `origin | design | tdd | dev | test | review | merge`.
+ */
+kind: string, 
+/**
+ * 1-based round for `dev` and `review`; 1 for the rest.
+ */
+round: number, 
+/**
+ * `pending | active | done | changes | stuck`.
+ */
+state: string, 
+/**
+ * Profile that ran (or runs) the phase.
+ */
+profile: string | null, role: string | null, workspace_id: string | null, task_id: string | null, started_at: string | null, finished_at: string | null, cost_usd: number | null, 
+/**
+ * Task summary, review reasons or failure reason.
+ */
+output: string | null, 
+/**
+ * The developer's own plan for this phase (plan MCP steps).
+ */
+steps: Array<IssuePhaseStep>, };
+
+export type IssuePlanResponse = { template: string, pr_url: string | null, pr_number: number | null, phases: Array<IssuePhase>, 
+/**
+ * Why the issue needs a person right now, if it does (#694).
+ */
+blocker: IssueBlocker | null, };
+
+export type IssueBlocker = { 
+/**
+ * `question | credential | failed | review_cap | no_progress`.
+ */
+kind: string, 
+/**
+ * Phase that is stuck, as `<kind>-<round>`.
+ */
+phase: string | null, 
+/**
+ * The agent's question, the failure reason or what happened.
+ */
+message: string, 
+/**
+ * The agent's question as sent to ask_user (JSON), for `question`.
+ */
+question: string | null, workspace_id: string | null, task_id: string | null, since: string | null, };
+
+export type IssueBlockerEntry = { issue_number: number, blocker: IssueBlocker, };
+
+export type UnstickRequest = { 
+/**
+ * `retry`: the failed task goes back to the queue.
+ * `back_to_tests`: drop the open work and let QA redo the tests first.
+ * `cancel`: drop the open work (the client closes the issue).
+ */
+action: string, 
+/**
+ * What the person adds for QA on `back_to_tests`.
+ */
+note?: string, };
+
+export type FieldCheck = { key: string, required: boolean, filled: boolean, };
+
+export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };
+
+export type MissionDetail = { mission: Mission, repo_name: string | null, items: Array<MissionItemView>, missing: Array<string>, complete: boolean, roles_needed: Array<string>, briefs: Array<MissionBrief>, issue_numbers: Array<number>, 
+/**
+ * Status of the Analyst's breakdown task, once the brief was handed over.
+ */
+analyst_status: string | null, 
+/**
+ * The issues the Analyst created, with milestone and wave (#700).
+ */
+proposal: Array<MissionProposalIssue>, 
+/**
+ * `none` (nothing dispatched), `planning` (devs started, no plan steps
+ * yet) or `running` (at least one dev submitted its plan).
+ */
+execution: string, };
+
+export type MissionProposalIssue = { number: number, title: string, state: string, milestone: string | null, wave: number | null, 
+/**
+ * Carries `pm:decision`: it waits for the user.
+ */
+decision: boolean, };
+
+export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, 
+/**
+ * Issues the Analyst created for the mission.
+ */
+issue_numbers: Array<number>, };
+
+export type CreateMissionRequest = { 
+/**
+ * Repo activo en la app: la sesión corre en su worktree scratch y es el
+ * repo inicial de la misión (el agente puede cambiarlo).
+ */
+repo_id: string, };
+
+export type UpdateMissionRequest = { title: string | null, autonomy: string | null, 
+/**
+ * Dónde está el user en la app; va en el system prompt de cada turno.
+ */
+ui_context: string | null, 
+/**
+ * `true` cierra la misión.
+ */
+close: boolean | null, };
+
+export type ApproveBriefRequest = { 
+/**
+ * Analista que recibe la request; sin él, el primero del equipo.
+ */
+analyst_worker_id: string | null, };
+
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
 export type FinishSpake2EnrollmentRequest = { enrollment_id: string, client_id: string, client_name: string, client_browser: string, client_os: string, client_device: string, public_key_b64: string, client_proof_b64: string, };
@@ -475,25 +633,50 @@ export type PullRequestDetail = { number: bigint, url: string, status: MergeStat
 
 export type GitRemote = { name: string, url: string, };
 
-export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, model?: string, 
+export type WorkerResponse = { id: string, name: string, emoji: string, soul: string, role: string, 
+/**
+ * Coding agent the worker runs on; `null` = follow the global default.
+ */
+executor?: BaseCodingAgent | null, model?: string, 
 /**
  * Whether the worker has a personal GitHub PAT stored. The token itself
  * is never exposed — the UI shows this boolean so the form can render a
  * masked placeholder and let the user replace or clear it.
  */
-has_github_pat: boolean,
+has_github_pat: boolean, 
 /**
  * GitHub login the stored PAT belongs to (resolved at validation time),
  * or `null` when no PAT is stored. Lets the UI show which identity the
  * worker acts as, and surface identity clashes (reviewer == PR author).
  */
-github_login?: string | null, plan_mode?: boolean | null,
+github_login?: string | null, 
+/**
+ * Per-worker override for plan mode. `null` = follow the global setting;
+ * `true` = force plan mode on; `false` = force plan mode off.
+ */
+plan_mode?: boolean | null, 
 /**
  * Soft-delete state. `false` = active (shown in the main listing);
  * `true` = archived (moved to the "archived" section, skipped by
  * orchestrator lookups, can be restored or purged from there).
  */
-archived: boolean, active_workspace_id: string | null, queued_count: number, completed_count: number, created_at: Date, };
+archived: boolean, active_workspace_id: string | null, 
+/**
+ * Every running instance of this profile (#680), newest first.
+ */
+active_workspace_ids: Array<string>, 
+/**
+ * Name the worker had before becoming a profile (#681), if migrated.
+ */
+migrated_from: string | null, queued_count: number, completed_count: number, 
+/**
+ * `true` when the current `soul` contains direct GitHub CLI write
+ * invocations (`gh pr|issue create|close|comment|review`,
+ * `gh api -X POST|PATCH|DELETE`). Non-blocking hint for the UI —
+ * operators are pointed at the agent-actions outbox but the soul is
+ * persisted anyway to allow a gradual migration.
+ */
+gh_write_warning: boolean, created_at: Date, };
 
 export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: string, position: number, title: string, prompt: string, issue_number: number | null, status: string, workspace_id: string | null, 
 /**
@@ -600,23 +783,34 @@ source?: string, };
  * A finished designer deliverable no analyst has taken yet, as served to
  * the Analyst Desk picker and the sprint board.
  */
-export type PendingDesignHandoffResponse = { task_id: string, repo_id: string, title: string, issue_number: number | null, worker_name: string, worker_emoji: string, deliverable_ref: string | null, result_summary: string | null, completed_at: Date | null, };
-
 /**
  * HTML artifacts a designer task committed under `design/`, as repo-relative
  * paths the client turns into `/api/workspaces/{id}/preview/{path}` links.
  */
 export type DesignArtifactsResponse = { files: Array<string>, };
 
-export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, model?: string, 
+export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, 
+/**
+ * Coding agent; omitted or `null` = follow the global default.
+ */
+executor?: BaseCodingAgent | null, model?: string, 
 /**
  * Optional GitHub PAT to authenticate this worker's push/PR/review
  * operations. Empty string or omitted → fall back to global gh auth.
  * Validated against `/user` before persisting; never returned by the API.
  */
-github_pat?: string, };
+github_pat?: string, 
+/**
+ * Per-worker override for plan mode. Omitted or `null` = follow global;
+ * `true` = force plan mode on; `false` = force plan mode off.
+ */
+plan_mode?: boolean | null, };
 
 export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string, 
+/**
+ * `undefined` = no change; `null` = follow the global default agent.
+ */
+executor?: BaseCodingAgent | null, 
 /**
  * `undefined` = no change; `null` = clear to global default; `string` = set override
  */
@@ -625,7 +819,12 @@ model?: string | null,
  * `undefined` = don't touch PAT; `null` = clear (fall back to global gh);
  * `string` = new PAT (validated before persisting).
  */
-github_pat?: string | null, };
+github_pat?: string | null, 
+/**
+ * `undefined` = don't touch; `null` = clear the override (follow global);
+ * `true` / `false` = force plan mode on/off for this worker.
+ */
+plan_mode?: boolean | null, };
 
 export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, 
 /**

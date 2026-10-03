@@ -9,7 +9,8 @@ use db::models::{
     execution_process::{ExecutionProcess, ExecutionProcessRunReason},
     plan::{self, NewPlanStep, Plan, PlanSnapshot, PlanStep, PlanStepRevision, StepProposal},
     session::Session,
-    worker_task::WorkerTask,
+    worker::{self, Worker},
+    worker_task::{self, WorkerTask},
     workspace::Workspace,
     workspace_repo::WorkspaceRepo,
 };
@@ -133,8 +134,71 @@ pub fn tool_definitions() -> Value {
                 "properties": { "n": { "type": "integer" } },
                 "required": ["n"]
             }
+        },
+        {
+            "name": "ask_user",
+            "description": "Ask the user ONE decision you cannot settle by reading the code or the task (product choice, missing input, conflicting requirements). Give short options (key + text), the one you recommend and why. The task waits for the answer: after calling it, end your turn; the answer arrives as your next message. Calling it again replaces the pending question.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "question": { "type": "string" },
+                    "options": {
+                        "type": "array",
+                        "maxItems": MAX_OPTIONS,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": { "type": "string" },
+                                "text": { "type": "string" }
+                            },
+                            "required": ["key", "text"]
+                        }
+                    },
+                    "recommended": { "type": "string", "description": "key of the option you recommend" },
+                    "why": { "type": "string", "description": "why you recommend it" }
+                },
+                "required": ["question", "options", "recommended", "why"]
+            }
         }
     ])
+}
+
+const MAX_OPTIONS: usize = 4;
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+struct AskOption {
+    key: String,
+    text: String,
+}
+
+/// Pregunta de `ask_user`, guardada como JSON en `worker_tasks.pending_question`.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct AskUserQuestion {
+    question: String,
+    options: Vec<AskOption>,
+    recommended: String,
+    why: String,
+}
+
+fn parse_question(args: &Value) -> Result<AskUserQuestion, String> {
+    let mut q: AskUserQuestion =
+        serde_json::from_value(args.clone()).map_err(|e| format!("invalid question: {e}"))?;
+    q.options
+        .retain(|o| !o.key.trim().is_empty() && !o.text.trim().is_empty());
+    if q.question.trim().is_empty() {
+        return Err("the question is empty".into());
+    }
+    if q.options.is_empty() || q.options.len() > MAX_OPTIONS {
+        return Err(format!("give between 1 and {MAX_OPTIONS} options"));
+    }
+    let mut keys = std::collections::HashSet::new();
+    if !q.options.iter().all(|o| keys.insert(o.key.as_str())) {
+        return Err("option keys must be unique".into());
+    }
+    if !keys.contains(q.recommended.as_str()) {
+        return Err("recommended must be the key of one of the options".into());
+    }
+    Ok(q)
 }
 
 /// Ejecuta una herramienta del MCP de plan. `Err` se devuelve al agente como
@@ -268,6 +332,41 @@ pub async fn call_tool(
                     None => format!("Step {n} marked done. All plan steps are done."),
                 }
             }
+        }
+        "ask_user" => {
+            let q = parse_question(args)?;
+            let task = WorkerTask::find_by_workspace(pool, workspace_id)
+                .await
+                .map_err(db_err)?
+                .ok_or("ask_user only works inside a fluke task: ask in your reply instead")?;
+            // Un reviewer que pregunta deja su ronda parada: tiene que emitir
+            // veredicto (y pedir cambios si algo no se puede decidir).
+            if Worker::find_by_id(pool, task.worker_id)
+                .await
+                .map_err(db_err)?
+                .is_some_and(|w| w.role == worker::ROLE_REVIEWER)
+            {
+                return Err(
+                    "reviewers do not ask the user: submit your verdict, and request \
+                            changes if something cannot be decided from the PR"
+                        .into(),
+                );
+            }
+            let json = serde_json::to_string(&q).map_err(|e| e.to_string())?;
+            if !WorkerTask::set_waiting_user(pool, task.id, &json)
+                .await
+                .map_err(db_err)?
+            {
+                return Err(format!(
+                    "the task is {}, not in progress: ask in your final message instead",
+                    task.status
+                ));
+            }
+            return Ok(
+                "Question shown to the user. End your turn now without further work; the \
+                 answer will arrive as your next message."
+                    .into(),
+            );
         }
         other => return Err(format!("unknown tool {other}")),
     };
@@ -691,6 +790,108 @@ pub async fn revert_to_step(
     .await
     .map_err(e)?;
     publish(pool, msg_store, workspace_id).await;
+    Ok(())
+}
+
+/// Pregunta de `ask_user` que espera respuesta en el workspace, si hay.
+pub async fn pending_question(pool: &Pool, workspace_id: Uuid) -> Result<Option<Value>, String> {
+    let e = |e: sqlx::Error| e.to_string();
+    let Some(task) = WorkerTask::find_by_workspace(pool, workspace_id)
+        .await
+        .map_err(e)?
+        .filter(|t| t.status == worker_task::STATUS_WAITING_USER)
+    else {
+        return Ok(None);
+    };
+    Ok(WorkerTask::pending_question(pool, task.id)
+        .await
+        .map_err(e)?
+        .and_then(|j| serde_json::from_str(&j).ok()))
+}
+
+/// Respuesta del user a la pregunta de `ask_user`: `answer` es la clave de
+/// una opción o una respuesta libre, y `question` la pregunta que responde
+/// (los argumentos de esa llamada a `ask_user`). Si ya no es la pendiente
+/// (respondida o reemplazada) se rechaza. Llega como mensaje a la misma sesión.
+pub async fn answer_question(
+    pool: &Pool,
+    container: &(impl ContainerService + Sync),
+    workspace_id: Uuid,
+    question: &Value,
+    answer: &str,
+) -> Result<(), String> {
+    answer_with(pool, workspace_id, question, answer, |prompt| async move {
+        follow_up(pool, container, workspace_id, &prompt).await
+    })
+    .await
+}
+
+async fn answer_with<F, Fut>(
+    pool: &Pool,
+    workspace_id: Uuid,
+    question: &Value,
+    answer: &str,
+    send: F,
+) -> Result<(), String>
+where
+    F: FnOnce(String) -> Fut,
+    Fut: std::future::Future<Output = Result<(), String>>,
+{
+    let e = |e: sqlx::Error| e.to_string();
+    let answer = answer.trim();
+    if answer.is_empty() {
+        return Err("the answer is empty".into());
+    }
+    let task = WorkerTask::find_by_workspace(pool, workspace_id)
+        .await
+        .map_err(e)?
+        .filter(|t| t.status == worker_task::STATUS_WAITING_USER)
+        .ok_or("no question is waiting for an answer in this workspace")?;
+    if agent_running(pool, workspace_id).await {
+        return Err("the agent is still ending its turn; try again in a moment".into());
+    }
+    let pending: Option<AskUserQuestion> = WorkerTask::pending_question(pool, task.id)
+        .await
+        .map_err(e)?
+        .and_then(|j| serde_json::from_str(&j).ok());
+    let answered: Option<AskUserQuestion> = serde_json::from_value(question.clone()).ok();
+    let q = match (pending, answered) {
+        (Some(p), Some(a)) if p.question == a.question && p.options == a.options => p,
+        _ => {
+            return Err(
+                "this question is no longer pending: it was answered or replaced by a newer one"
+                    .into(),
+            );
+        }
+    };
+    let picked = q
+        .options
+        .iter()
+        .find(|o| o.key == answer)
+        .map(|o| format!("option {}: {}", o.key, o.text))
+        .unwrap_or_else(|| answer.to_string());
+    let prompt = format!(
+        "The user answered your question \"{}\": {picked}\nContinue the task with this decision.",
+        q.question
+    );
+    // A in_progress antes de mandar: si el turno nuevo terminara antes, el
+    // cierre vería waiting_user y no finalizaría la tarea.
+    if !WorkerTask::resume_from_waiting_user(pool, task.id)
+        .await
+        .map_err(e)?
+    {
+        return Err("the question was already answered".into());
+    }
+    if let Err(err) = send(prompt).await {
+        // Sin sesión a la que mandar: la pregunta sigue pendiente.
+        WorkerTask::set_status(pool, task.id, worker_task::STATUS_WAITING_USER)
+            .await
+            .map_err(e)?;
+        return Err(err);
+    }
+    WorkerTask::clear_pending_question(pool, task.id)
+        .await
+        .map_err(e)?;
     Ok(())
 }
 
@@ -1327,6 +1528,164 @@ mod tests {
         PlanStepRevision::ack_for_step(&pool, ws, 1).await.unwrap();
         let revs = PlanStepRevision::list(&pool, ws).await.unwrap();
         assert_eq!(revs[0].status, plan::REV_ACKED);
+    }
+
+    /// ask_user: la tarea pasa a waiting_user con la pregunta, una segunda
+    /// pregunta reemplaza a la primera, y responder vuelve a in_progress solo
+    /// si el mensaje llega a la sesión.
+    #[tokio::test]
+    async fn ask_user_parks_the_task_until_answered() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let store = MsgStore::new();
+        let ws = Uuid::new_v4();
+        let ask = |q: &str| {
+            json!({
+                "question": q,
+                "options": [{ "key": "A", "text": "Keep it" }, { "key": "B", "text": "Drop it" }],
+                "recommended": "B",
+                "why": "less code"
+            })
+        };
+
+        // Chat suelto (sin tarea): no hay a quién dejar esperando.
+        assert!(
+            call_tool(&pool, &store, ws, "ask_user", &ask("first?"))
+                .await
+                .is_err()
+        );
+
+        let task_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, status, workspace_id)
+             VALUES (?1, ?2, ?3, 0, 't', 'p', 'in_progress', ?4)",
+        )
+        .bind(task_id)
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Recomendada que no es una opción: error, la tarea sigue en curso.
+        let mut bad = ask("first?");
+        bad["recommended"] = json!("Z");
+        assert!(
+            call_tool(&pool, &store, ws, "ask_user", &bad)
+                .await
+                .is_err()
+        );
+        let status = |pool: Pool| async move {
+            WorkerTask::find_by_id(&pool, task_id)
+                .await
+                .unwrap()
+                .unwrap()
+                .status
+        };
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_IN_PROGRESS);
+
+        let out = call_tool(&pool, &store, ws, "ask_user", &ask("first?"))
+            .await
+            .unwrap();
+        assert!(out.contains("End your turn"));
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_WAITING_USER);
+        call_tool(&pool, &store, ws, "ask_user", &ask("second?"))
+            .await
+            .unwrap();
+        let pending = WorkerTask::pending_question(&pool, task_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(pending.contains("second?") && !pending.contains("first?"));
+        assert_eq!(
+            super::pending_question(&pool, ws).await.unwrap().unwrap()["question"],
+            "second?"
+        );
+
+        // Card vieja (pregunta reemplazada): se rechaza sin mandar nada.
+        let err = answer_with(&pool, ws, &ask("first?"), "A", |_| async {
+            panic!("a stale answer must not reach the agent")
+        })
+        .await
+        .unwrap_err();
+        assert!(err.contains("no longer pending"));
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_WAITING_USER);
+
+        // La sesión ya no existe: error y la tarea sigue esperando.
+        let err = answer_with(&pool, ws, &ask("second?"), "B", |_| async {
+            Err::<(), String>("workspace has no session".into())
+        })
+        .await
+        .unwrap_err();
+        assert!(err.contains("no session"));
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_WAITING_USER);
+        assert!(
+            WorkerTask::pending_question(&pool, task_id)
+                .await
+                .unwrap()
+                .is_some()
+        );
+
+        // Respuesta por clave: llega con el texto de la opción.
+        let sent = std::sync::Mutex::new(String::new());
+        answer_with(&pool, ws, &ask("second?"), "B", |p| {
+            *sent.lock().unwrap() = p;
+            async { Ok(()) }
+        })
+        .await
+        .unwrap();
+        let sent = sent.into_inner().unwrap();
+        assert!(sent.contains("second?") && sent.contains("option B: Drop it"));
+        assert_eq!(status(pool.clone()).await, worker_task::STATUS_IN_PROGRESS);
+        assert!(
+            WorkerTask::pending_question(&pool, task_id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        // Un reviewer no pregunta: emite veredicto.
+        let (rev_ws, reviewer) = (Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query(
+            "INSERT INTO workers (id, name, emoji, soul, role) VALUES (?1, 'r', 'r', 's', 'reviewer')",
+        )
+        .bind(reviewer)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, status, workspace_id)
+             VALUES (?1, ?2, ?3, 0, 't', 'p', 'in_progress', ?4)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(reviewer)
+        .bind(Uuid::new_v4())
+        .bind(rev_ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+        let err = call_tool(&pool, &store, rev_ws, "ask_user", &ask("merge?"))
+            .await
+            .unwrap_err();
+        assert!(err.contains("reviewers do not ask"));
+
+        // Ya respondida: no se manda dos veces.
+        assert!(
+            answer_with(&pool, ws, &ask("second?"), "otra cosa", |_| async {
+                Ok(())
+            })
+            .await
+            .is_err()
+        );
     }
 
     #[test]

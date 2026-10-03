@@ -91,7 +91,7 @@ Prerequisito: contrato firmado con los parámetros de facturación acordados
 
 - ▸ Mergear a `mdev` todo lo que entra en la release.
 - ▸ PR de bump de versión (package.json raíz, los 30 `Cargo.toml`, `Cargo.lock`,
-  `npx-cli`, `tauri.conf.json`) → mergear a `mdev`.
+  `tauri.conf.json`) → mergear a `mdev`.
 - ▸ Mergear `mdev` → `main`. Esto dispara `publish-ghcr` (~40 min).
 - ✓ La imagen `X.Y.Z` existe en GHCR y `stable` apunta a ella.
 - ▸ Avisar a los clientes si la versión trae cambios visibles; el updater la

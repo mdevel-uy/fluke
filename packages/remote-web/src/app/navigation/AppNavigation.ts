@@ -143,10 +143,12 @@ function destinationToRemoteTarget(
     case "export":
       return { to: "/export" } as const;
     case "issues":
+    case "issue":
       // No dedicated issues route on the remote web; fall back to root.
       return { to: "/" } as const;
+    case "fluke":
     case "workers":
-      // No dedicated workers route on the remote web; fall back to root.
+      // No dedicated route on the remote web; fall back to root.
       return { to: "/" } as const;
     case "dashboard":
       // No dedicated dashboard route on the remote web; fall back to root.
@@ -156,9 +158,6 @@ function destinationToRemoteTarget(
       return { to: "/" } as const;
     case "source-control":
       // No dedicated source control route on the remote web; fall back to root.
-      return { to: "/" } as const;
-    case "analyst-desk":
-      // No dedicated analyst desk route on the remote web; fall back to root.
       return { to: "/" } as const;
     case "ci-pipelines":
       // No dedicated CI pipelines route on the remote web; fall back to root.
@@ -239,9 +238,13 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: "issue", issueNumber, ...(repoId ? { repoId } : {}) },
+        transition,
+      ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
-    goToAnalystDesk: (transition) =>
-      navigateTo({ kind: "analyst-desk" }, transition),
+    goToFluke: (transition) => navigateTo({ kind: "fluke" }, transition),
     goToCiPipelines: (transition) =>
       navigateTo({ kind: "ci-pipelines" }, transition),
     goToSprint: (repoId, transition) =>
@@ -319,9 +322,13 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
       navigateTo({ kind: "source-control" }, transition),
     goToIssues: (repoId, transition) =>
       navigateTo({ kind: "issues", ...(repoId ? { repoId } : {}) }, transition),
+    goToIssue: (issueNumber, repoId, transition) =>
+      navigateTo(
+        { kind: "issue", issueNumber, ...(repoId ? { repoId } : {}) },
+        transition,
+      ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
-    goToAnalystDesk: (transition) =>
-      navigateTo({ kind: "analyst-desk" }, transition),
+    goToFluke: (transition) => navigateTo({ kind: "fluke" }, transition),
     goToCiPipelines: (transition) =>
       navigateTo({ kind: "ci-pipelines" }, transition),
     goToSprint: (repoId, transition) =>

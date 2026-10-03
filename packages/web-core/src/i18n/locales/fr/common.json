@@ -403,7 +403,8 @@
       "toggle-wrap-lines": "Basculer le retour à la ligne",
       "run-setup-script": "Exécuter le script de configuration",
       "run-cleanup-script": "Exécuter le script de nettoyage",
-      "run-archive-script": "Exécuter le script d'archivage"
+      "run-archive-script": "Exécuter le script d'archivage",
+      "toggleDirector": "Open or close Fluke"
     }
   },
   "typeahead": {
@@ -584,7 +585,11 @@
     "permissionPlan": "Plan",
     "agent": "Agent",
     "default": "Par défaut",
-    "model": "Modèle"
+    "model": "Modèle",
+    "errors": {
+      "claude_not_connected": "Claude is not connected. Showing the built-in model list.",
+      "claude_models_fallback": "Could not load the Claude model list. Showing the built-in list."
+    }
   },
   "crashScreen": {
     "title": "Une erreur est survenue",
@@ -622,7 +627,7 @@
       "ariaLabel": "Ouvrir la barre de commandes"
     },
     "layout": {
-      "toggleAdhocClaude": "Claude ad hoc"
+      "toggleDirector": "Fluke"
     }
   },
   "statusBar": {
@@ -638,28 +643,12 @@
     "issuesRefreshNew_other": "{{count}} nouveaux tickets",
     "issuesRefreshNone": "Aucun nouveau ticket"
   },
-  "adhocPanel": {
-    "title": "Claude ad hoc",
-    "close": "Fermer le panneau Claude ad hoc",
-    "newSession": "Nouvelle session",
-    "loading": "Préparation de la session Claude…",
-    "noRepo": {
-      "title": "Aucun dépôt disponible",
-      "description": "Ajoutez un dépôt pour démarrer une session Claude ad hoc."
-    },
-    "error": {
-      "title": "Impossible d'ouvrir la session ad hoc",
-      "description": "Une erreur est survenue lors de la préparation du workspace scratch.",
-      "retry": "Réessayer"
-    }
-  },
   "appBar": {
     "dashboard": "Tableau de bord",
     "workspaces": "Espaces de travail",
     "issues": "Tickets",
-    "workers": "Workers",
+    "workers": "Profils",
     "sprint": "Kanban",
-    "analystDesk": "Bureau des analystes",
     "ciPipelines": "Pipelines CI",
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Étendre la barre latérale",
@@ -897,7 +886,15 @@
     "confirmSelection": "Confirmer la sélection",
     "submitting": "Envoi des réponses...",
     "answeredCount": "Répondu à {{count}} question",
-    "answeredCount_other": "Répondu à {{count}} questions"
+    "answeredCount_other": "Répondu à {{count}} questions",
+    "recommended": "Recommandée",
+    "why": "Pourquoi : {{why}}",
+    "otherPlaceholder": "Ou écrivez une autre réponse",
+    "send": "Envoyer",
+    "answered": "Répondu : {{answer}}",
+    "closed": "N’attend plus de réponse",
+    "stale": "Cette question n’est plus en attente : elle a reçu une réponse ou a été remplacée par une plus récente.",
+    "agentRunning": "L’agent termine encore son tour. Réessayez dans un instant."
   },
   "issues": {
     "title": "Issues",
@@ -918,12 +915,23 @@
     "emptyDescription": "Actualisez pour synchroniser les issues depuis la source.",
     "assignToAgent": "Assigner à un agent",
     "reassignAction": "Réaffecter",
+    "pmDecision": {
+      "action": "Décision du PM",
+      "title": "Décision du PM pour #{{number}}",
+      "description": "Le texte est publié en commentaire sur l'issue GitHub et le label pm:decision est retiré.",
+      "placeholder": "Rédigez la décision...",
+      "confirm": "Publier la décision",
+      "retryLabelRemoval": "Réessayer de retirer le label",
+      "labelRemovalFailed": "La décision a été publiée sur GitHub, mais le label pm:decision n'a pas pu être retiré : {{error}}",
+      "assignBlocked": "En attente de la décision du PM : publiez-la avant d'assigner cette issue."
+    },
     "archiveAction": "Archiver",
     "taskStatus": {
       "queued": "En attente",
       "in_progress": "En cours",
       "in_review": "En revue",
-      "done": "Terminé"
+      "done": "Terminé",
+      "waiting_user": "En attente de réponse"
     },
     "taskLinked": {
       "openWorkspace": "Ouvrir le workspace",
@@ -996,8 +1004,7 @@
       "groupByOptions": {
         "none": "Aucun",
         "label": "Étiquette",
-        "milestone": "Jalon",
-        "execution": "Plan d'exécution"
+        "milestone": "Jalon"
       },
       "clear": "Effacer les filtres",
       "noResults": "Aucun issue ne correspond aux filtres actuels.",
@@ -1025,21 +1032,312 @@
       "archiveConfirm": "Fermer l'issue #{{number}} sur GitHub ? Elle sera déplacée vers le filtre Fermés.",
       "archiveAction": "Fermer l'issue"
     },
-    "execution": {
+    "plan": {
+      "tabsLabel": "Vue",
+      "tabs": {
+        "list": "Liste",
+        "groups": "Groupes",
+        "plan": "Plan"
+      },
+      "slots": "Slots {{used}}/{{limit}}",
+      "pauseBetweenWaves": "Mettre en pause après chaque vague",
+      "collapseAll": "Tout réduire",
+      "expandAll": "Tout développer",
+      "runAll": "Tout exécuter",
+      "play": "Exécuter le jalon",
+      "collapse": "Réduire le jalon",
       "wave": "Vague {{n}}",
-      "parallel": "{{n}} tickets peuvent être assignés en même temps",
-      "single": "Un seul ticket dans cette vague",
-      "unwaved": "Sans vague",
-      "unwavedHint": "Possède un feature mais pas d'étiquette wave: exploitable — à assigner un par un",
-      "unclassified": "Non classé",
-      "unclassifiedHint": "Pas d'étiquette feature: — impossible à planifier ; à assigner un par un",
-      "contentionTitle": "Ressources sérialisées en conflit",
-      "contentionHint": "Ces tickets réclament la même ressource globale du dépôt. Une seule PR ouverte à la fois, même entre features différentes.",
-      "empty": "Aucun ticket ouvert à planifier."
+      "merged": "{{done}}/{{total}} fusionnés",
+      "status": {
+        "readyTitle": "Prêt à exécuter",
+        "waves_one": "{{count}} vague",
+        "waves_other": "{{count}} vagues",
+        "issues_one": "{{count}} issue",
+        "issues_other": "{{count}} issues",
+        "gateDetail": "démarre en attendant votre décision sur #{{n}}",
+        "runningTitle": "Exécution de la vague {{n}}",
+        "runningDetail": "{{count}} en parallèle",
+        "waitingDecisionTitle": "Arrêté : en attente de votre décision",
+        "waitingDecisionDetail": "sur #{{n}}",
+        "waitingTitle": "Arrêté",
+        "failedDetail": "#{{n}} a échoué ; réassignez-la ou fermez-la pour continuer",
+        "pausedTitle": "En pause",
+        "pausedDetail": "ce qui tourne déjà se termine",
+        "stepTitle": "Vague {{n}} terminée",
+        "stepDetail": "lancez la vague {{n}} avec play",
+        "doneTitle": "Jalon terminé",
+        "doneDetail": "toutes les PR fusionnées",
+        "stuckTitle": "#{{n}} a besoin de vous",
+        "stuckDetail": "le reste de la wave continue"
+      },
+      "card": {
+        "ready": "● prêt",
+        "gate": "◆ décision",
+        "blocked": "attend la vague {{n}}",
+        "queued": "en file",
+        "running": "en cours",
+        "review": "en revue",
+        "done": "✓ fusionné",
+        "manual": "manuel",
+        "decideNow": "Décider maintenant",
+        "workerBranch": "{{name}} · worker sur sa branche",
+        "prReview": "{{name}} · PR en revue",
+        "open": "Ouvrir l'issue #{{n}}",
+        "openHint": "Ouvrir →",
+        "waitingYou": "{{name}} · attend votre réponse",
+        "ago": "il y a {{age}}",
+        "unstick": "Débloquer",
+        "stuck": "⚠ bloqué"
+      },
+      "loose": "Sans jalon ou sans vague · traités un par un",
+      "legend": {
+        "ready": "Prêt",
+        "running": "En cours",
+        "review": "En revue",
+        "gate": "Décision du PM",
+        "queued": "En file (aucun slot libre)",
+        "blocked": "Attend la vague précédente"
+      },
+      "empty": "Aucune issue ouverte avec jalon et vague à planifier.",
+      "expand": "Développer le jalon",
+      "summary": {
+        "done": "{{count}} fusionnés",
+        "running": "{{count}} en cours",
+        "review": "{{count}} en revue",
+        "queued": "{{count}} en file",
+        "gate": "{{count}} décision en attente",
+        "todo": "{{count}} à faire",
+        "working": "au travail",
+        "decide": "Décider #{{n}}",
+        "stuck_one": "{{count}} a besoin de vous",
+        "stuck_other": "{{count}} ont besoin de vous",
+        "unstick": "Débloquer #{{n}}"
+      },
+      "decision": {
+        "eyebrow": "Décision en attente",
+        "eyebrowWave": "Décision en attente · vague {{n}}",
+        "unblocks": "débloque {{list}}",
+        "viewOnGithub": "Voir sur GitHub",
+        "issue": "Le sujet",
+        "verified": "Ce que l'analyste a vérifié dans le code",
+        "toDecide": "Ce qu’il faut décider",
+        "answer": "Réponse",
+        "otherAnswer": "Autre réponse",
+        "otherPlaceholder": "Écrivez votre réponse",
+        "recommended": "Recommandé",
+        "why": "Pourquoi l'analyste recommande ({{key}}) :",
+        "note": "Commentaire supplémentaire",
+        "optional": "facultatif",
+        "notePlaceholder": "Contexte pour le worker qui prendra l'issue",
+        "returnNeedsNote": "Indiquez dans le commentaire ce qui manque à l'analyste.",
+        "preview": "Ce qui sera publié sur #{{n}}",
+        "previewHint": "Le label pm:decision est aussi retiré et le jalon continue.",
+        "useRecommendations": "Utiliser les recommandations",
+        "returnToAnalyst": "Renvoyer à l'analyste",
+        "closeWithoutDoing": "Fermer sans faire",
+        "decide": "Décider et continuer",
+        "confirmClose": "Fermer #{{n}} sans le faire ?",
+        "closeIssue": "Fermer l'issue",
+        "followUpFailed": "Le commentaire a été publié, mais l'étape suivante a échoué : {{error}}. Réessayez : il ne sera pas republié.",
+        "commentTitle": "Décision du PM",
+        "returnedTitle": "Renvoyé à l'analyste",
+        "closedTitle": "Fermé sans être fait sur décision du PM",
+        "toast": {
+          "decided": "Décision publiée sur #{{n}} · pm:decision retiré",
+          "returned": "#{{n}} retourne à l'analyste",
+          "closed": "#{{n}} fermé sans être fait"
+        },
+        "openIssue": "Ouvrir l'issue →"
+      },
+      "issuePage": {
+        "notFound": "Issue #{{n}} introuvable.",
+        "backToIssues": "Retour aux issues",
+        "viewPr": "Voir la PR",
+        "branch": "Branche",
+        "noTask": "Cette issue n'a pas encore de tâche.",
+        "templateLine": "Modèle",
+        "tabs": {
+          "plan": "Plan",
+          "code": "Code",
+          "sessions": "Sessions"
+        },
+        "description": "Description de l'issue",
+        "originBy": "choisi par",
+        "originFlow": "flux entre issues organisé par l’",
+        "originSteps": "étapes de développement organisées par le"
+      },
+      "pause": "Mettre le jalon en pause",
+      "reset": "Réinitialiser",
+      "phases": {
+        "origin": "Origine",
+        "end": "Fin",
+        "loop": "Retour",
+        "phaseN": "Phase {{n}}",
+        "loopLabel": "changements demandés · tour {{n}} → le retour utilise la même branche",
+        "round": "Tour {{n}}",
+        "mergeSub": "Validation humaine : vous fusionnez",
+        "state": {
+          "done": "fait",
+          "active": "en cours",
+          "changes": "changements",
+          "stuck": "bloquée",
+          "pending": "en attente"
+        },
+        "kind": {
+          "origin": "Issue créée",
+          "design": "Design",
+          "dev": "Développement",
+          "review": "Revue",
+          "merge": "Fusion",
+          "tdd": "Tests d'abord",
+          "test": "Tests"
+        },
+        "profile": "Profil",
+        "instance": "Instance",
+        "ephemeral": "(éphémère)",
+        "status": "État",
+        "duration": "Durée",
+        "cost": "Coût",
+        "output": "Sortie",
+        "viewSession": "Voir la session de l'agent",
+        "viewPrComments": "Voir les commentaires de la PR",
+        "selectHint": "Choisissez une phase pour voir son détail."
+      },
+      "templates": {
+        "title": "Modèles de phases",
+        "hint": "Fluke le choisit dans le brief : s'il faut du design et du TDD (quand c'est pertinent, il vous le demande). L'Analyst ne change pas les phases : il organise le flux entre issues.",
+        "names": {
+          "tdd": "Avec TDD",
+          "no_tdd": "Sans TDD",
+          "design": "Avec design",
+          "bug": "Bug",
+          "decision": "Avec décision",
+          "none": "Flux actuel (sans plan)"
+        },
+        "phases": {
+          "tdd": "Tests d'abord",
+          "dev": "Développement",
+          "test": "Tests",
+          "review": "Revue",
+          "merge": "Fusion",
+          "design": "Design",
+          "approval": "Votre OK",
+          "withOrWithoutTdd": "…avec ou sans TDD",
+          "reproduce": "Reproduire",
+          "failingTest": "Test en échec",
+          "fix": "Correctif",
+          "decision": "Votre décision",
+          "baseTemplate": "…modèle de base"
+        }
+      },
+      "code": {
+        "changes": "Changements de l'issue",
+        "terminal": "Terminal · workspace de l'issue",
+        "terminalHint": "partagé par toutes les phases",
+        "noTerminal": "Le terminal est disponible tant que le workspace de l'issue est actif."
+      },
+      "sessions": {
+        "empty": "Aucune phase n'a encore tourné.",
+        "onePerPhase": "Une session par phase",
+        "live": "en direct",
+        "readOnly": "terminée · lecture seule",
+        "waitingYou": "attend votre réponse",
+        "discarded": "L'instance a été supprimée. La session reste comme trace de ce qu'elle a fait dans cette phase."
+      },
+      "attention_one": "{{count}} a besoin de vous",
+      "attention_other": "{{count}} ont besoin de vous",
+      "stuck": {
+        "unstick": "Débloquer",
+        "viewSession": "Voir la session",
+        "since": "Bloqué depuis {{age}}",
+        "banner": "{{phase}} bloquée depuis {{age}}",
+        "bannerNoAge": "{{phase}} bloquée",
+        "kindsTitle": "Quand une phase se bloque",
+        "thisCase": "C’est le cas de cet issue.",
+        "kindsNote": "Avant de vous prévenir, Fluke essaie seul : il relance les pannes d’infrastructure avec une attente croissante. Il ne remonte que ce qui demande une personne.",
+        "kinds": {
+          "question": {
+            "title": "L’agent pose une question qu’il ne peut pas trancher seul",
+            "hint": "Il attend votre réponse."
+          },
+          "failed": {
+            "title": "La même chose échoue plusieurs fois de suite",
+            "hint": "Tests ou CI en rouge après N tentatives."
+          },
+          "review_cap": {
+            "title": "Les tours de review sont épuisés",
+            "hint": "Chaque tour a demandé des changements."
+          },
+          "no_progress": {
+            "title": "Aucun progrès depuis N minutes",
+            "hint": "Session figée ou en attente de quelque chose d’externe."
+          },
+          "credential": {
+            "title": "Il manque un identifiant ou une permission",
+            "hint": "PAT expiré, secret inexistant."
+          }
+        }
+      },
+      "unstick": {
+        "eyebrow": "⚠ Bloqué · {{phase}} · il y a {{age}}",
+        "eyebrowNoAge": "⚠ Bloqué · {{phase}}",
+        "instanceAlive": "l’instance est toujours active et attend",
+        "notStuck": "Cet issue n’est plus bloqué.",
+        "whatHappened": "Ce qui s’est passé",
+        "tried": "Ce qui a déjà été tenté",
+        "triedRound": "tour {{n}} : changements demandés",
+        "question": "La question de l’agent",
+        "recommended": "Recommandé par l’agent",
+        "otherAnswer": "Autre réponse",
+        "otherPlaceholder": "Écrivez votre réponse",
+        "why": "Pourquoi il recommande ({{key}}) :",
+        "note": "Contexte supplémentaire pour l’agent",
+        "optional": "facultatif",
+        "notePlaceholder": "Par exemple : restez cohérent avec ce qui a été décidé dans un autre issue",
+        "alternatives": "Autres façons de débloquer",
+        "alt": {
+          "fluke": {
+            "title": "En parler avec Fluke",
+            "hint": "Expliquez avec vos mots ; Fluke le traduit pour l’agent"
+          },
+          "session": {
+            "title": "Écrire à l’agent",
+            "hint": "Aller à la session en direct et discuter"
+          },
+          "code": {
+            "title": "Prendre la main",
+            "hint": "Ouvrir Code et continuer vous-même"
+          },
+          "retry": {
+            "title": "Réessayer",
+            "hint": "La phase retourne dans la file et une nouvelle instance la reprend"
+          },
+          "back": {
+            "title": "Revenir d’abord aux tests",
+            "hint": "Si le problème vient de ce que demandent les tests"
+          },
+          "cancel": {
+            "title": "Annuler l’issue",
+            "hint": "Ferme l’issue ; la wave continue sans lui"
+          }
+        },
+        "confirmCancel": "Annuler #{{n}} ? Le travail en cours s’arrête et l’issue est fermé.",
+        "keep": "Retour",
+        "footHint": "La réponse va dans la même session et l’agent continue.",
+        "answer": "Répondre et continuer",
+        "flukeMessage": "Je dois débloquer l’issue #{{n}} « {{title}} ». La phase {{phase}} est bloquée : {{message}}\nAide-moi à le résoudre ; une fois clair, nous répondrons à l’agent.",
+        "toast": {
+          "answered": "Réponse envoyée · #{{n}} continue",
+          "retried": "#{{n}} retourne dans la file",
+          "backToTests": "#{{n}} revient d’abord aux tests",
+          "canceledIssue": "#{{n}} annulé ; la wave continue sans lui",
+          "fluke": "Fluke ouvre une conversation sur #{{n}} avec le contexte du blocage"
+        }
+      }
     }
   },
   "workers": {
-    "title": "Workers",
+    "title": "Profils",
     "newWorker": "Nouveau worker",
     "loading": "Chargement des workers...",
     "loadError": "Échec du chargement des workers.",
@@ -1136,6 +1434,17 @@
       "saveEdit": "Enregistrer",
       "modelLabel": "Modèle",
       "modelDefault": "Par défaut (global)",
+      "modelHelp": "Le worker utilise le fournisseur du modèle choisi. « Par défaut » suit le fournisseur par défaut s'il change.",
+      "modelProviderDefault": "Modèle par défaut du fournisseur",
+      "modelProviderIsDefault": "par défaut",
+      "modelNotConnectedGroup": "Non connectés",
+      "modelNotConnected": "Non connecté",
+      "modelProviderDisconnected": "non connecté",
+      "modelProviderDisconnectedHelp": "{{provider}} n'est pas connecté : les tâches de ce worker échoueront au démarrage. Connectez {{provider}} dans les paramètres ou choisissez un autre modèle.",
+      "modelUnavailable": "indisponible",
+      "modelUnavailableHelp": "{{model}} ne figure plus dans la liste de {{provider}}. Tant que vous n'en choisissez pas un autre, les tâches utilisent le modèle par défaut de {{provider}}.",
+      "modelConnectProvider": "Connecter {{provider}}",
+      "modelConnectProviders": "Connecter des fournisseurs",
       "planModeLabel": "Plan mode",
       "planModeGlobal": "Suivre la configuration globale",
       "planModeOn": "Forcer activé",
@@ -1165,7 +1474,11 @@
       "developerDescription": "Implémente des fonctionnalités et crée des pull requests",
       "analystDescription": "Effectue des recherches et produit des livrables écrits",
       "reviewerDescription": "Révise le code et fournit des retours",
-      "designerDescription": "Produit des propositions de design comme artefacts Claude"
+      "designerDescription": "Produit des propositions de design comme artefacts Claude",
+      "orchestrator": "Orchestrator",
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "Écrit les tests avant le code et valide les PR avant la revue"
     },
     "toast": {
       "startSuccess": "{{worker}} a démarré « {{title}} ».",
@@ -1187,69 +1500,6 @@
       "purgeAllSuccess": "{{count}} workers archivés supprimés définitivement.",
       "purgeAllError": "Échec de la suppression des workers archivés : {{message}}",
       "dismiss": "Fermer"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "Joindre un design",
-      "pendingCount": "{{n}} non pris",
-      "searchPlaceholder": "Rechercher par titre ou designer…",
-      "empty": "Aucun design non pris",
-      "attachedHint": "L'orchestrateur ajoute la référence, le résumé et la recette de fetch au prompt.",
-      "remove": "Retirer le design",
-      "notePlaceholder": "Consignes du PM (optionnel) : priorités, contraintes…"
-    },
-    "title": "Bureau des analystes",
-    "repoLabel": "Dépôt",
-    "analystsLabel": "Analyste",
-    "skillsPicker": "Skills",
-    "skillsEmpty": "Aucune skill installée.",
-    "requestLabel": "Demande",
-    "promptPlaceholder": "Décrivez ce dont vous avez besoin de l'analyste. Ex. : découper l'epic notifications en petites issues avec critères d'acceptation.",
-    "hint": "Envoyée immédiatement si l'analyste est libre ; sinon elle rejoint sa file.",
-    "submit": "Envoyer la demande",
-    "loading": "Chargement...",
-    "loadError": "Impossible de charger les analystes.",
-    "noAnalystsTitle": "Aucun analyste pour l'instant",
-    "noAnalystsDescription": "Créez un worker avec le rôle Analyste pour commencer à envoyer des demandes.",
-    "goToWorkers": "Aller aux Workers",
-    "historyTitle": "Demandes à {{worker}}",
-    "historyEmpty": "Aucune demande pour l'instant. Vos demandes et leurs résultats apparaîtront ici.",
-    "openWorkspace": "Voir l'exécution",
-    "retry": "Réessayer",
-    "stop": "Arrêter",
-    "remove": "Retirer",
-    "stopConfirmMessage": "Arrêter cette demande ? Le conteneur sera arrêté et la demande supprimée.",
-    "removeConfirmMessage": "Retirer cette demande de la file de l'analyste ?",
-    "cancelConfirm": "Annuler",
-    "stopConfirm": "Arrêter",
-    "removeConfirm": "Retirer",
-    "dismiss": "Fermer",
-    "status": {
-      "queued": "En file",
-      "queuedAhead": "En file · {{ahead}} devant",
-      "inProgress": "En cours",
-      "done": "Terminée",
-      "failed": "Échouée"
-    },
-    "toast": {
-      "started": "{{worker}} a commencé votre demande.",
-      "queued": "Demande mise en file pour {{worker}}.",
-      "error": "Échec de l'envoi de la demande : {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "Glissez des images ici, cliquez pour ajouter ou collez",
-      "addMore": "Ajouter d'autres images",
-      "removeAria": "Retirer {{name}}",
-      "uploading": "Envoi en cours",
-      "errorLabel": "Échec de l'envoi",
-      "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
-      "tooLarge": "Le fichier dépasse la taille maximale autorisée."
-    },
-    "labelsInput": {
-      "title": "Labels d'issues",
-      "placeholder": "Ex. : design, bug",
-      "removeAria": "Retirer le label {{label}}"
     }
   },
   "ciPipelines": {
@@ -1657,5 +1907,137 @@
       "correction": "Acceptée comme étape de correction {{n}}"
     },
     "error": "L'action n'a pas pu être effectuée : {{message}}"
+  },
+  "director": {
+    "name": "Fluke",
+    "open": "Open Fluke",
+    "pin": "Anchor as a column",
+    "unpin": "Float the panel",
+    "expand": "Expand",
+    "minimize": "Minimize",
+    "dismiss": "Dismiss",
+    "missions": "Missions",
+    "newMission": "New mission",
+    "loading": "Preparing the conversation…",
+    "thinking": "thinking",
+    "noRepo": "Add a repository to start a mission.",
+    "empty": {
+      "title": "Tell Fluke what you want to do",
+      "description": "Fluke turns your request into a brief, asks for what is missing and hands it to the Analyst."
+    },
+    "progress": "{{done}} of {{total}}",
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you",
+    "notice": {
+      "briefReady": "Brief ready to approve: {{title}}",
+      "questions": "Fluke has questions about {{title}}",
+      "review": "Review",
+      "answer": "Answer"
+    },
+    "status": {
+      "draft": "Draft",
+      "clarifying": "Clarifying",
+      "brief_ready": "Brief ready",
+      "equipping": "Equipping",
+      "planning": "Planning",
+      "executing": "Executing",
+      "in_review": "In review",
+      "closed": "Closed",
+      "blocked": "Blocked"
+    },
+    "kinds": {
+      "bug": "Bug",
+      "feature": "Feature",
+      "design": "Design"
+    },
+    "fields": {
+      "symptom": "Symptom",
+      "steps": "Steps to reproduce",
+      "acceptance": "Acceptance criteria",
+      "goal": "Goal",
+      "scope": "Scope",
+      "reference": "Reference",
+      "tdd": "TDD"
+    },
+    "autonomy": {
+      "label": "Autonomy",
+      "step": "Step by step",
+      "brief_pr": "Brief and PR",
+      "autopilot": "Autopilot"
+    },
+    "brief": {
+      "untitled": "Untitled mission",
+      "repo": "Repo",
+      "title": "Mission title",
+      "noItems": "No items yet. Tell Fluke what you need.",
+      "team": "Team needed",
+      "approve": "Approve brief and send to the Analyst",
+      "incomplete": "Available once every required field is complete.",
+      "sent": "Brief v{{version}} sent to the Analyst.",
+      "issues": "Issues: {{list}}",
+      "optional": "optional",
+      "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "État de la mission",
+      "understand": {
+        "title": "Comprendre",
+        "todo": "Fluke demande ce qu’il lui faut pour le brief",
+        "done": "Questions répondues"
+      },
+      "brief": {
+        "title": "Brief + modèle",
+        "todo": "Fluke rédige le brief et choisit le modèle",
+        "done": "v{{v}} approuvé · {{template}}"
+      },
+      "breakdown": {
+        "title": "Découpage",
+        "todo": "L’Analyst crée les issues, les waves et le flux entre eux",
+        "done": "{{issues}} issues en {{waves}} waves"
+      },
+      "plan": {
+        "title": "Plan interne",
+        "todo": "Chaque dev définit les étapes de son issue",
+        "done": "Les devs ont défini leurs étapes"
+      },
+      "run": {
+        "title": "Exécution",
+        "todo": "Milestone dans Issues, avec play",
+        "done": "Milestone terminé"
+      },
+      "template": {
+        "tddDesign": "avec TDD et design",
+        "tddNoDesign": "avec TDD, sans design",
+        "noTddDesign": "sans TDD, avec design",
+        "noTddNoDesign": "sans TDD ni design"
+      }
+    },
+    "proposal": {
+      "title": "Proposition de l’Analyst",
+      "decision": "DÉCISION",
+      "openInIssues": "Ouvrir dans Issues",
+      "message": "L’Analyst propose {{issues}} issues en {{waves}} waves. Il a construit le flux entre les issues sur le modèle que j’ai choisi. Chaque dev définira le plan interne de son issue en commençant. Le milestone est prêt dans Issues pour que vous lanciez play.",
+      "viewMilestone": "Voir le milestone",
+      "runNow": "Exécuter maintenant"
+    }
+  },
+  "profiles": {
+    "new": "Nouveau profil",
+    "newHint": "Définissez rôle, agent, modèle et instructions",
+    "bannerStart": "Les profils sont des modèles. Chaque fois qu’une phase démarre, une",
+    "bannerInstance": "instance éphémère",
+    "bannerEnd": "du profil est créée, travaille dans le workspace de l'issue et est supprimée à la fin. Sans noms, sans files propres. Toutes les instances d'un profil utilisent son PAT (ou le vôtre s'il n'en a pas).",
+    "slots": "Slots globaux {{used}}/{{limit}}",
+    "adjustInSettings": "Régler dans Settings",
+    "baseRole": "Rôle de base : {{role}}",
+    "agent": "Agent",
+    "github": "GitHub",
+    "ownPat": "PAT propre · @{{login}}",
+    "userPat": "PAT de l'utilisateur",
+    "migratedFrom": "Migré depuis",
+    "instancesNow": "Instances en cours",
+    "none": "aucune",
+    "defaultAgent": "Agent par défaut",
+    "defaultModel": "modèle par défaut"
   }
 }

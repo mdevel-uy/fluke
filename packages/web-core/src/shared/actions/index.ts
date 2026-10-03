@@ -1560,17 +1560,6 @@ export const Actions = {
       ctx.appNavigation.goToWorkers();
     },
   } satisfies GlobalActionDefinition,
-
-  GoToAnalystDesk: {
-    id: 'go-to-analyst-desk',
-    label: 'Analyst Desk',
-    icon: MagnifyingGlassIcon,
-    keywords: ['navigate', 'go to', 'page'],
-    requiresTarget: ActionTargetType.NONE,
-    execute: (ctx) => {
-      ctx.appNavigation.goToAnalystDesk();
-    },
-  } satisfies GlobalActionDefinition,
 } as const satisfies Record<string, ActionDefinition>;
 
 // Navbar action groups define which actions appear in each section

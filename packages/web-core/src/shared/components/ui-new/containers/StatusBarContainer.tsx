@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from '@vibe/ui/components/RadixTooltip';
 import { cn } from '@/shared/lib/utils';
+import { DirectorStatusItem } from '@/features/director';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
 import {
   useSyncErrorContext,
@@ -190,15 +191,7 @@ export function StatusBarContainer({
 
   return (
     <StatusBar className={className}>
-      <StatusBarItem variant="brand" readOnly>
-        <svg viewBox="0 0 100 100" width={12} height={12} aria-hidden>
-          <path
-            d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z"
-            fill="currentColor"
-          />
-        </svg>
-        fluke
-      </StatusBarItem>
+      <DirectorStatusItem />
 
       {/* R25 · project/environment selector (menu opens upward) */}
       <DropdownMenu>

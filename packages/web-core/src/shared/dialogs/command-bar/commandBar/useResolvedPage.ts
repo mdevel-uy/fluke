@@ -6,6 +6,7 @@ import {
   GitBranchIcon,
   KanbanIcon,
   LightningIcon,
+  HashIcon,
 } from '@phosphor-icons/react';
 import type { Workspace } from 'shared/types';
 import { Pages } from '@/shared/command-bar/actions/pages';
@@ -17,8 +18,10 @@ import type {
   ResolvedGroupItem,
 } from '@/shared/types/commandBar';
 import {
+  ActionTargetType,
   isActionVisible,
   type ActionVisibilityContext,
+  type GlobalActionDefinition,
 } from '@/shared/types/actions';
 import { isPageVisible } from '@/shared/command-bar/actions/useActionVisibility';
 import { injectSearchMatches } from './injectSearchMatches';
@@ -76,6 +79,23 @@ function buildPageGroups(
     .filter((g): g is ResolvedGroup => g !== null);
 }
 
+// Typing an issue number ("657" or "#657") offers to open that issue (#667).
+function issueJumpAction(search: string): ResolvedGroupItem | null {
+  const match = /^#?(\d+)$/.exec(search.trim());
+  if (!match) return null;
+  const issueNumber = Number(match[1]);
+  const action: GlobalActionDefinition = {
+    id: `go-to-issue-${issueNumber}`,
+    label: `Issue #${issueNumber}`,
+    icon: HashIcon,
+    requiresTarget: ActionTargetType.NONE,
+    execute: (ctx) => {
+      ctx.appNavigation.goToIssue(issueNumber);
+    },
+  };
+  return { type: 'action', action };
+}
+
 export function useResolvedPage(
   pageId: PageId,
   search: string,
@@ -85,6 +105,8 @@ export function useResolvedPage(
   return useMemo(() => {
     const groups = buildPageGroups(pageId, ctx);
     if (pageId === 'root' && search.trim()) {
+      const issue = issueJumpAction(search);
+      if (issue) groups.unshift({ label: 'Issues', items: [issue] });
       groups.push(...injectSearchMatches(search, ctx, workspace));
     }
 

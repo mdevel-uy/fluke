@@ -1,42 +1,27 @@
-use axum::{
-    Router,
-    extract::{Query, State},
-    response::Json as ResponseJson,
-    routing::get,
-};
 use db::models::{
     repo::{Repo, RepoError},
     requests::WorkspaceRepoInput,
     scratch_workspace::ScratchWorkspace,
-    session::{CreateSession, Session},
-    workspace::{Workspace, WorkspaceContext, WorkspaceError},
+    workspace::{Workspace, WorkspaceError},
 };
 use deployment::Deployment;
-use serde::Deserialize;
 use services::services::{container::ContainerService, events::workspace_patch};
-use utils::response::ApiResponse;
 use uuid::Uuid;
 
 use crate::{DeploymentImpl, error::ApiError, routes::workspaces::create::create_workspace_record};
 
-#[derive(Debug, Deserialize)]
-pub struct ScratchWorkspaceQuery {
-    pub repo_id: Uuid,
-}
-
-/// Resolve (or lazily create) the scratch workspace for the given repository
-/// and return the same `WorkspaceContext` shape used elsewhere in the API.
+/// Resolve (or lazily create) the scratch workspace for the given repository:
+/// a worktree outside the fleet where the Director's mission sessions run.
 ///
 /// One scratch workspace exists per repo (enforced by the `scratch_workspaces`
-/// table). Both the worktree and the orchestrator session are provisioned on
-/// first call; subsequent calls reuse them and re-materialise the worktree via
-/// `ensure_container_exists` if it was cleaned up in the meantime.
-pub async fn get_or_create_scratch_workspace(
-    State(deployment): State<DeploymentImpl>,
-    Query(query): Query<ScratchWorkspaceQuery>,
-) -> Result<ResponseJson<ApiResponse<WorkspaceContext>>, ApiError> {
+/// table). The worktree is provisioned on first call; subsequent calls reuse
+/// it and re-materialise it via `ensure_container_exists` if it was cleaned
+/// up in the meantime.
+pub async fn ensure_scratch_workspace(
+    deployment: &DeploymentImpl,
+    repo_id: Uuid,
+) -> Result<Workspace, ApiError> {
     let pool = &deployment.db().pool;
-    let repo_id = query.repo_id;
 
     let repo = Repo::find_by_id(pool, repo_id)
         .await?
@@ -47,19 +32,15 @@ pub async fn get_or_create_scratch_workspace(
             .await?
             .ok_or(ApiError::Workspace(WorkspaceError::WorkspaceNotFound))?;
 
-        materialize_scratch_workspace(&deployment, &workspace, &repo).await?;
-
-        ensure_scratch_session(&deployment, workspace.id).await?;
-
-        let ctx = Workspace::load_context(pool, workspace.id).await?;
-        retract_from_fleet_sidebar(&deployment, workspace.id);
-        return Ok(ResponseJson(ApiResponse::success(ctx)));
+        materialize_scratch_workspace(deployment, &workspace, &repo).await?;
+        retract_from_fleet_sidebar(deployment, workspace.id);
+        return Ok(workspace);
     }
 
-    let target_branch = resolve_target_branch(&deployment, &repo).await?;
+    let target_branch = resolve_target_branch(deployment, &repo).await?;
     let workspace_name = Some(format!("scratch: {}", repo.display_name));
 
-    let workspace = create_workspace_record(&deployment, workspace_name).await?;
+    let workspace = create_workspace_record(deployment, workspace_name).await?;
 
     let mut managed_workspace = deployment
         .workspace_manager()
@@ -93,13 +74,9 @@ pub async fn get_or_create_scratch_workspace(
         return Err(ApiError::Database(err));
     }
 
-    materialize_scratch_workspace(&deployment, &managed_workspace.workspace, &repo).await?;
-
-    ensure_scratch_session(&deployment, workspace_id).await?;
-
-    let ctx = Workspace::load_context(pool, workspace_id).await?;
-    retract_from_fleet_sidebar(&deployment, workspace_id);
-    Ok(ResponseJson(ApiResponse::success(ctx)))
+    materialize_scratch_workspace(deployment, &managed_workspace.workspace, &repo).await?;
+    retract_from_fleet_sidebar(deployment, workspace_id);
+    Ok(managed_workspace.workspace.clone())
 }
 
 /// The workspace INSERT (and the repo attachment) fire the live-events hook
@@ -146,30 +123,6 @@ async fn materialize_scratch_workspace(
     Ok(())
 }
 
-async fn ensure_scratch_session(
-    deployment: &DeploymentImpl,
-    workspace_id: Uuid,
-) -> Result<Session, ApiError> {
-    let pool = &deployment.db().pool;
-
-    if let Some(session) = Session::find_first_by_workspace_id(pool, workspace_id).await? {
-        return Ok(session);
-    }
-
-    let session = Session::create(
-        pool,
-        &CreateSession {
-            executor: None,
-            name: Some("Ad-hoc chat".to_string()),
-        },
-        Uuid::new_v4(),
-        workspace_id,
-    )
-    .await?;
-
-    Ok(session)
-}
-
 async fn resolve_target_branch(
     deployment: &DeploymentImpl,
     repo: &Repo,
@@ -195,8 +148,4 @@ async fn resolve_target_branch(
                 repo.display_name, err
             ))
         })
-}
-
-pub fn router() -> Router<DeploymentImpl> {
-    Router::new().route("/scratch", get(get_or_create_scratch_workspace))
 }
