@@ -1918,11 +1918,19 @@ impl ContainerService for LocalContainerService {
         // Other run reasons (setup / cleanup / archive scripts, dev
         // servers) always spawn immediately — the limit is about how
         // many *agents* run in parallel, not how many child processes
-        // in total the box is running.
+        // in total the box is running. Fluke (a mission session) is not
+        // one of those agents: its reply never waits behind the workers.
+        let is_director = db::models::mission::Mission::find_by_session_id(
+            &self.db.pool,
+            execution_process.session_id,
+        )
+        .await?
+        .is_some();
         if matches!(
             execution_process.run_reason,
             ExecutionProcessRunReason::CodingAgent
-        ) && !self.concurrency.try_acquire(execution_process.id).await
+        ) && !is_director
+            && !self.concurrency.try_acquire(execution_process.id).await
         {
             if let Err(e) = ExecutionProcess::mark_queued(&self.db.pool, execution_process.id).await
             {
