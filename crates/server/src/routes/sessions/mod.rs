@@ -138,7 +138,7 @@ pub async fn follow_up(
         payload.executor_config =
             director::executor_config(&*deployment.config().read().await, &worker)
                 .map_err(ApiError::BadRequest)?;
-        director::on_user_message(pool, &mission).await?;
+        director::on_user_message(pool, &mission, &payload.prompt).await?;
     }
 
     // Load workspace from session
