@@ -86,7 +86,7 @@ Para medir la latencia: tiempo desde Enviar hasta la primera palabra, primer men
 
 # J1 · Un solo Fluke — cómo probarlo
 
-Después de J0, con #751 y #752 mergeados y el server reiniciado (corre la migración `fluke_focus`).
+Después de J0, con #751 y #754 mergeados y el server reiniciado (corre la migración `fluke_focus`).
 
 ## 7. Preguntas de workers por Fluke (J1.1)
 
