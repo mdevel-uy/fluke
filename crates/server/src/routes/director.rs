@@ -133,6 +133,8 @@ async fn get_mission(
 pub struct UpdateMissionRequest {
     pub title: Option<String>,
     pub autonomy: Option<String>,
+    /// Repo de la misión; sólo editable antes de mandar el brief al Analyst.
+    pub repo_id: Option<Uuid>,
     /// Dónde está el user en la app; va en el system prompt de cada turno.
     pub ui_context: Option<String>,
     /// `true` cierra (archiva) la misión; `false` la restaura.
@@ -156,6 +158,17 @@ async fn update_mission(
             )));
         }
         Mission::set_autonomy(pool, id, autonomy).await?;
+    }
+    if let Some(repo_id) = payload.repo_id {
+        if current.analyst_task_id.is_some() {
+            return Err(ApiError::Conflict(
+                "The brief was already sent; the repo can't change".to_string(),
+            ));
+        }
+        if db::models::repo::Repo::find_by_id(pool, repo_id).await?.is_none() {
+            return Err(ApiError::BadRequest("Unknown repo".to_string()));
+        }
+        Mission::set_repo(pool, id, Some(repo_id)).await?;
     }
     if let Some(ctx) = &payload.ui_context {
         Mission::set_ui_context(pool, id, Some(ctx.as_str())).await?;
