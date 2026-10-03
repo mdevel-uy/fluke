@@ -21,6 +21,9 @@ import { useConversationVirtualizer } from '../model/useConversationVirtualizer'
 import { useScrollCommandExecutor } from '../model/useScrollCommandExecutor';
 
 import DisplayConversationEntry from './DisplayConversationEntry';
+import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import { FlukeMark } from '@/features/director/ui/FlukeMark';
+import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
 import { useEntriesActions } from '../model/contexts/EntriesContext';
 import {
@@ -142,6 +145,45 @@ function renderRowContent(
   }
 
   return null;
+}
+
+// Assistant chat: the first visible Fluke row after a user message opens a
+// turn and carries the author header. Hidden families (scripts, raw tool
+// calls, empty reasoning) must not, or the header would vanish with them.
+function opensAssistantTurn(entry: DisplayEntry): boolean {
+  if (isAggregatedThinkingGroup(entry)) return true;
+  if (entry.type !== 'NORMALIZED_ENTRY') return false;
+  const { entry_type, content } = entry.content;
+  if (entry_type.type === 'loading') return true;
+  if (entry_type.type === 'assistant_message' || entry_type.type === 'thinking')
+    return content.trim().length > 0;
+  return false;
+}
+
+function entryTimestamp(entry: DisplayEntry): string | null {
+  return entry.type === 'NORMALIZED_ENTRY' ? entry.content.timestamp : null;
+}
+
+function AssistantTurnHeader({ timestamp }: { timestamp: string | null }) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="mb-2.5 flex items-center gap-2">
+      <span className="flex size-6 items-center justify-center rounded-full bg-brand text-on-brand">
+        <FlukeMark size={12} />
+      </span>
+      <span className="text-sm font-semibold text-high">
+        {t('director.name')}
+      </span>
+      {timestamp && (
+        <span className="text-xs text-low">
+          {new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export const ConversationList = forwardRef<
@@ -395,6 +437,42 @@ export const ConversationList = forwardRef<
     () => prevRowsRef.current,
     [filteredEntries]
   );
+
+  const assistant = useIsAssistantChat();
+  const turnStarts = useMemo(() => {
+    const starts = new Set<number>();
+    if (!assistant) return starts;
+    let pending = true;
+    conversationRows.forEach((row, i) => {
+      if (row.isUserMessage) pending = true;
+      else if (pending && opensAssistantTurn(row.entry)) {
+        starts.add(i);
+        pending = false;
+      }
+    });
+    return starts;
+  }, [assistant, conversationRows]);
+
+  // Assistant chat: fixed rhythm (28px between turns, 10px inside one);
+  // rows that render nothing collapse instead of leaving gaps.
+  const renderRow = (row: ConversationRow, index: number) => {
+    const content = renderRowContent(row.entry, attempt, resetAction, repos);
+    if (!assistant) return content;
+    const opensTurn = turnStarts.has(index);
+    return (
+      <div
+        className={cn(
+          'px-4 [&:has(>div:empty)]:hidden',
+          row.isUserMessage || opensTurn ? 'pt-7' : 'pt-2.5'
+        )}
+      >
+        {opensTurn && (
+          <AssistantTurnHeader timestamp={entryTimestamp(row.entry)} />
+        )}
+        {content}
+      </div>
+    );
+  };
 
   const hasActiveStreamingTurn = useMemo(
     () =>
@@ -767,7 +845,7 @@ export const ConversationList = forwardRef<
           onClickCapture={handleConversationClickCapture}
         >
           <div className="pt-2">
-            {showSetupPlaceholder && (
+            {showSetupPlaceholder && !assistant && (
               <div className="my-base px-double">
                 <ChatScriptPlaceholder
                   type="setup"
@@ -841,7 +919,7 @@ export const ConversationList = forwardRef<
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
-                    {renderRowContent(row.entry, attempt, resetAction, repos)}
+                    {renderRow(row, virtualItem.index)}
                   </div>
                 );
               })}
@@ -856,7 +934,7 @@ export const ConversationList = forwardRef<
                 data-row-index={rowIndex}
                 data-semantic-key={row.semanticKey}
               >
-                {renderRowContent(row.entry, attempt, resetAction, repos)}
+                {renderRow(row, rowIndex)}
               </div>
             );
           })}
@@ -868,7 +946,7 @@ export const ConversationList = forwardRef<
 
           {/* Footer placeholder */}
           <div className="pb-2">
-            {showCleanupPlaceholder && (
+            {showCleanupPlaceholder && !assistant && (
               <div className="my-base px-double">
                 <ChatScriptPlaceholder
                   type="cleanup"
