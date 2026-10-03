@@ -497,7 +497,7 @@ export type UpdateMissionRequest = { title: string | null, autonomy: string | nu
  */
 ui_context: string | null, 
 /**
- * `true` cierra la misión.
+ * `true` cierra (archiva) la misión; `false` la restaura.
  */
 close: boolean | null, };
 

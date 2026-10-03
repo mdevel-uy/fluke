@@ -135,7 +135,7 @@ pub struct UpdateMissionRequest {
     pub autonomy: Option<String>,
     /// Dónde está el user en la app; va en el system prompt de cada turno.
     pub ui_context: Option<String>,
-    /// `true` cierra la misión.
+    /// `true` cierra (archiva) la misión; `false` la restaura.
     pub close: Option<bool>,
 }
 
@@ -145,7 +145,7 @@ async fn update_mission(
     Json(payload): Json<UpdateMissionRequest>,
 ) -> Result<ResponseJson<ApiResponse<MissionDetail>>, ApiError> {
     let pool = &deployment.db().pool;
-    load(&deployment, id).await?;
+    let current = load(&deployment, id).await?;
     if let Some(title) = &payload.title {
         Mission::set_title(pool, id, title.trim()).await?;
     }
@@ -160,8 +160,19 @@ async fn update_mission(
     if let Some(ctx) = &payload.ui_context {
         Mission::set_ui_context(pool, id, Some(ctx.as_str())).await?;
     }
-    if payload.close == Some(true) {
-        Mission::set_status(pool, id, mission::STATUS_CLOSED).await?;
+    match payload.close {
+        Some(true) => Mission::set_status(pool, id, mission::STATUS_CLOSED).await?,
+        // Restore: back to planning if the brief already went to the
+        // Analyst; otherwise clarifying, and refresh_status settles it.
+        Some(false) if current.status == mission::STATUS_CLOSED => {
+            let status = if current.analyst_task_id.is_some() {
+                mission::STATUS_PLANNING
+            } else {
+                mission::STATUS_CLARIFYING
+            };
+            Mission::set_status(pool, id, status).await?;
+        }
+        _ => {}
     }
     Ok(ResponseJson(ApiResponse::success(
         director::refresh_status(pool, id).await?,

@@ -2024,9 +2024,7 @@
     },
     "archive": {
       "action": "Archivar",
-      "title": "Archivar misión",
-      "message": "\"{{title}}\" sale de la lista. Se conservan su brief, sus issues y la conversación.",
-      "cancel": "Cancelar",
+      "restore": "Restaurar",
       "show": "Archivadas ({{count}})",
       "hide": "Ocultar archivadas"
     }

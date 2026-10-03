@@ -67,15 +67,19 @@ export function useCreateMission() {
   });
 }
 
-/** Archive = close: the mission leaves the list but nothing is deleted. */
+/**
+ * Archive (close) or restore a mission. Nothing is deleted: an archived
+ * mission keeps its brief, issues and conversation.
+ */
 export function useArchiveMission() {
   const store = useStoreDetail();
   const closeTab = useDirectorStore((s) => s.closeMissionTab);
   return useMutation({
-    mutationFn: (id: string) => missionsApi.update(id, { close: true }),
-    onSuccess: (detail) => {
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      missionsApi.update(id, { close: archived }),
+    onSuccess: (detail, { archived }) => {
       store(detail);
-      closeTab(detail.mission.id);
+      if (archived) closeTab(detail.mission.id);
     },
   });
 }
