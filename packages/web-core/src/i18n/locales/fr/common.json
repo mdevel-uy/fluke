@@ -951,7 +951,10 @@
         "doneTitle": "Jalon terminé",
         "doneDetail": "toutes les PR fusionnées",
         "stuckTitle": "#{{n}} a besoin de vous",
-        "stuckDetail": "le reste de la wave continue"
+        "stuckDetail": "le reste de la wave continue",
+        "mergeTitle_one": "{{count}} PR prête à fusionner",
+        "mergeTitle_other": "{{count}} PR prêtes à fusionner",
+        "mergeDetail": "relisez et fusionnez #{{n}} sur GitHub"
       },
       "card": {
         "ready": "● prêt",
@@ -970,7 +973,9 @@
         "waitingYou": "{{name}} · attend votre réponse",
         "ago": "il y a {{age}}",
         "unstick": "Débloquer",
-        "stuck": "⚠ bloqué"
+        "stuck": "⚠ bloqué",
+        "approved": "✓ approuvé",
+        "prApproved": "{{name}} · approuvé, prêt à fusionner"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
       "legend": {
@@ -979,7 +984,8 @@
         "review": "En revue",
         "gate": "Décision du PM",
         "queued": "En file (aucun slot libre)",
-        "blocked": "Attend la vague précédente"
+        "blocked": "Attend la vague précédente",
+        "approved": "Approuvé, prêt à fusionner"
       },
       "empty": "Aucune issue ouverte avec jalon et vague à planifier.",
       "expand": "Développer le jalon",
@@ -994,7 +1000,8 @@
         "decide": "Décider #{{n}}",
         "stuck_one": "{{count}} a besoin de vous",
         "stuck_other": "{{count}} ont besoin de vous",
-        "unstick": "Débloquer #{{n}}"
+        "unstick": "Débloquer #{{n}}",
+        "approved": "{{count}} prêts à fusionner"
       },
       "decision": {
         "eyebrow": "Décision en attente",

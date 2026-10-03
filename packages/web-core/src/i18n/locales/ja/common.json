@@ -947,7 +947,9 @@
         "doneTitle": "マイルストーン完了",
         "doneDetail": "すべての PR がマージ済み",
         "stuckTitle": "#{{n}} が対応を待っています",
-        "stuckDetail": "wave の残りは実行を続けます"
+        "stuckDetail": "wave の残りは実行を続けます",
+        "mergeTitle_other": "{{count}} 件の PR がマージ可能",
+        "mergeDetail": "GitHub で #{{n}} を確認してマージ"
       },
       "card": {
         "ready": "● 準備完了",
@@ -966,7 +968,9 @@
         "waitingYou": "{{name}} · 回答待ち",
         "ago": "{{age}}前",
         "unstick": "解除する",
-        "stuck": "⚠ 停止中"
+        "stuck": "⚠ 停止中",
+        "approved": "✓ 承認済み",
+        "prApproved": "{{name}} · 承認済み、マージ可能"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
       "legend": {
@@ -975,7 +979,8 @@
         "review": "レビュー中",
         "gate": "PM の判断",
         "queued": "キュー（空きスロットなし）",
-        "blocked": "前のウェーブ待ち"
+        "blocked": "前のウェーブ待ち",
+        "approved": "承認済み、マージ可能"
       },
       "empty": "マイルストーンとウェーブのある未完了の issue はありません。",
       "expand": "マイルストーンを展開",
@@ -989,7 +994,8 @@
         "working": "作業中",
         "decide": "#{{n}} を判断",
         "stuck_other": "{{count}} 件が対応待ち",
-        "unstick": "#{{n}} を解除"
+        "unstick": "#{{n}} を解除",
+        "approved": "{{count}} 件マージ可能"
       },
       "decision": {
         "eyebrow": "判断待ち",

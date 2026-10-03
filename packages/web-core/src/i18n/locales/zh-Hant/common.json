@@ -947,7 +947,9 @@
         "doneTitle": "里程碑完成",
         "doneDetail": "所有 PR 已合併",
         "stuckTitle": "#{{n}} 需要你處理",
-        "stuckDetail": "wave 的其餘部分繼續執行"
+        "stuckDetail": "wave 的其餘部分繼續執行",
+        "mergeTitle_other": "{{count}} 個 PR 可合併",
+        "mergeDetail": "在 GitHub 上審閱並合併 #{{n}}"
       },
       "card": {
         "ready": "● 就緒",
@@ -966,7 +968,9 @@
         "waitingYou": "{{name}} · 等待你的回覆",
         "ago": "{{age}}前",
         "unstick": "解除卡住",
-        "stuck": "⚠ 卡住"
+        "stuck": "⚠ 卡住",
+        "approved": "✓ 已核准",
+        "prApproved": "{{name}} · 已核准，可合併"
       },
       "loose": "無里程碑或無波次 · 逐一分配",
       "legend": {
@@ -975,7 +979,8 @@
         "review": "審查中",
         "gate": "PM 決定",
         "queued": "排隊中（無空閒槽位）",
-        "blocked": "等待上一波次"
+        "blocked": "等待上一波次",
+        "approved": "已核准，可合併"
       },
       "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。",
       "expand": "展開里程碑",
@@ -989,7 +994,8 @@
         "working": "工作中",
         "decide": "決定 #{{n}}",
         "stuck_other": "{{count}} 個需要你處理",
-        "unstick": "解除 #{{n}}"
+        "unstick": "解除 #{{n}}",
+        "approved": "{{count}} 個可合併"
       },
       "decision": {
         "eyebrow": "待決定",

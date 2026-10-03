@@ -1168,7 +1168,10 @@
         "doneTitle": "Milestone completo",
         "doneDetail": "todos los PRs mergeados",
         "stuckTitle": "#{{n}} necesita tu ayuda",
-        "stuckDetail": "el resto de la wave sigue corriendo"
+        "stuckDetail": "el resto de la wave sigue corriendo",
+        "mergeTitle_one": "{{count}} PR listo para mergear",
+        "mergeTitle_other": "{{count}} PRs listos para mergear",
+        "mergeDetail": "revisar y mergear #{{n}} en GitHub"
       },
       "card": {
         "ready": "● listo",
@@ -1187,7 +1190,9 @@
         "waitingYou": "{{name}} · esperando tu respuesta",
         "ago": "hace {{age}}",
         "unstick": "Destrabar",
-        "stuck": "⚠ trancado"
+        "stuck": "⚠ trancado",
+        "approved": "✓ aprobado",
+        "prApproved": "{{name}} · aprobado, listo para mergear"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
       "legend": {
@@ -1196,7 +1201,8 @@
         "review": "En review",
         "gate": "Decisión del PM",
         "queued": "En cola (sin slot libre)",
-        "blocked": "Espera la wave anterior"
+        "blocked": "Espera la wave anterior",
+        "approved": "Aprobado, listo para mergear"
       },
       "empty": "No hay issues abiertos con milestone y wave para planificar.",
       "expand": "Expandir milestone",
@@ -1211,7 +1217,8 @@
         "decide": "Decidir #{{n}}",
         "stuck_one": "{{count}} necesita tu ayuda",
         "stuck_other": "{{count}} necesitan tu ayuda",
-        "unstick": "Destrabar #{{n}}"
+        "unstick": "Destrabar #{{n}}",
+        "approved": "{{count}} listos para mergear"
       },
       "decision": {
         "eyebrow": "Decisión pendiente",
