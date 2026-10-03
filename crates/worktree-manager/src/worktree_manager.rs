@@ -175,11 +175,7 @@ impl WorktreeManager {
             &worktree_path_owned,
             &path_str,
         )
-        .await?;
-
-        // Step 4: Warm codegraph index for the agent (no-op if not installed)
-        utils::codegraph::seed_worktree_index(repo_path, &worktree_path_owned).await;
-        Ok(())
+        .await
     }
 
     /// Check if a worktree is properly set up (filesystem + git metadata)

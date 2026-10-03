@@ -716,6 +716,16 @@ pub trait ContainerService {
         // itself, spawned right after, is not swept away by this cleanup.
         self.try_stop(&workspace, true).await;
 
+        // Archived = done: drop the worktree now instead of waiting for the
+        // periodic cleanup. The branch stays, and anything that reopens the
+        // workspace recreates the worktree via ensure_container_exists. An
+        // archive script needs the worktree, so then the periodic cleanup
+        // takes it later.
+        let repos = WorkspaceRepo::find_repos_for_workspace(pool, workspace_id).await?;
+        if self.archive_actions_for_repos(&repos).is_none() {
+            return self.delete(&workspace).await;
+        }
+
         // Run archive script (silently skips if not configured)
         if let Err(e) = self.try_run_archive_script(workspace_id).await {
             tracing::error!(
