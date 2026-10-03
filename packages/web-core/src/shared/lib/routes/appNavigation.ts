@@ -318,3 +318,21 @@ export function resolveKanbanRouteState(
     isPanelOpen: !!projectDestination && projectDestination.kind !== 'project',
   };
 }
+
+/**
+ * Sections whose page contributes a shell sidebar (SHELL-SPEC R9). Shared by
+ * the shell (whether to render the panel) and the navbar (whether to offer
+ * its toggle), so both always agree.
+ */
+export function hasShellSidebar(destination: AppDestination | null): boolean {
+  return (
+    isLocalWorkspacesDestination(destination) ||
+    isSourceControlDestination(destination) ||
+    isSprintDestination(destination) ||
+    isIssuesDestination(destination) ||
+    isWorkersDestination(destination) ||
+    isFlukeDestination(destination) ||
+    isDashboardDestination(destination) ||
+    isCiPipelinesDestination(destination)
+  );
+}

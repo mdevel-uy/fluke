@@ -39,11 +39,11 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import {
   isCiPipelinesDestination,
+  hasShellSidebar,
   isDashboardDestination,
   isFlukeDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
-  isSourceControlDestination,
   isSprintDestination,
   isWorkersDestination,
 } from '@/shared/lib/routes/appNavigation';
@@ -144,7 +144,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   // Navigation state for AppBar active indicators
   const isWorkspacesActive = isLocalWorkspacesDestination(currentDestination);
   const isDashboardActive = isDashboardDestination(currentDestination);
-  const isSourceControlActive = isSourceControlDestination(currentDestination);
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
@@ -206,6 +205,11 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     if (isWorkersActive) toggleLeftSidebar();
     else appNavigation.goToWorkers();
   }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
+
+  const handleFlukeClick = useCallback(() => {
+    if (isFlukeActive) toggleLeftSidebar();
+    else appNavigation.goToFluke();
+  }, [isFlukeActive, toggleLeftSidebar, appNavigation]);
 
   const handleCiPipelinesClick = useCallback(() => {
     if (isCiPipelinesActive) toggleLeftSidebar();
@@ -275,14 +279,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
 
   // SHELL-SPEC R9: the shell owns one contextual sidebar panel; pages portal
   // their content in. Sections without a contributed sidebar hide the panel.
-  const sectionHasSidebar =
-    isWorkspacesActive ||
-    isSourceControlActive ||
-    isSprintActive ||
-    isIssuesActive ||
-    isWorkersActive ||
-    isDashboardActive ||
-    isCiPipelinesActive;
+  const sectionHasSidebar = hasShellSidebar(currentDestination);
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   // The horizontal split is intentionally NOT persisted: stored proportions
   // re-applied after aside/terminal remounts made the sidebar grow on its
@@ -355,7 +352,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   onSearchClick={handleSearchClick}
                   onDashboardClick={handleDashboardClick}
                   onSprintClick={handleSprintClick}
-                  onFlukeClick={() => appNavigation.goToFluke()}
+                  onFlukeClick={handleFlukeClick}
                   onIssuesClick={handleIssuesClick}
                   onWorkersClick={handleWorkersClick}
                   onCiPipelinesClick={handleCiPipelinesClick}
