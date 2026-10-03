@@ -138,6 +138,7 @@ fn generate_types_content() -> String {
         services::services::issue_phases::IssuePlanResponse::decl(),
         services::services::issue_phases::IssueBlocker::decl(),
         services::services::issue_phases::IssueBlockerEntry::decl(),
+        server::routes::issue_phases::UnstickRequest::decl(),
         server::routes::milestone_runs::PlayMilestoneRequest::decl(),
         server::routes::milestone_runs::MilestoneRequest::decl(),
         server::routes::milestone_runs::PlayAllMilestonesRequest::decl(),

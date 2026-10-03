@@ -1272,6 +1272,62 @@
             "hint": "PAT 过期、密钥不存在。"
           }
         }
+      },
+      "unstick": {
+        "eyebrow": "⚠ 卡住 · {{phase}} · {{age}}前",
+        "eyebrowNoAge": "⚠ 卡住 · {{phase}}",
+        "instanceAlive": "实例仍在运行并等待",
+        "notStuck": "这个 issue 已经不再卡住。",
+        "whatHappened": "发生了什么",
+        "tried": "已经尝试过的",
+        "triedRound": "第 {{n}} 轮：要求修改",
+        "question": "代理的问题",
+        "recommended": "代理推荐",
+        "otherAnswer": "其他回答",
+        "otherPlaceholder": "写下你的回答",
+        "why": "推荐理由（{{key}}）：",
+        "note": "给代理的额外背景",
+        "optional": "可选",
+        "notePlaceholder": "例如：与另一个 issue 中的决定保持一致",
+        "alternatives": "其他解除方式",
+        "alt": {
+          "fluke": {
+            "title": "和 Fluke 商量",
+            "hint": "用你自己的话说明，Fluke 转达给代理"
+          },
+          "session": {
+            "title": "给代理留言",
+            "hint": "进入实时会话交流"
+          },
+          "code": {
+            "title": "接手处理",
+            "hint": "打开代码，从那里自己继续"
+          },
+          "retry": {
+            "title": "重试",
+            "hint": "该阶段回到队列，由新实例接手"
+          },
+          "back": {
+            "title": "先回到测试",
+            "hint": "如果问题出在测试的要求上"
+          },
+          "cancel": {
+            "title": "取消 issue",
+            "hint": "关闭 issue；wave 继续进行"
+          }
+        },
+        "confirmCancel": "取消 #{{n}}？进行中的工作会停止并关闭 issue。",
+        "keep": "返回",
+        "footHint": "回答会发到同一个会话，代理继续工作。",
+        "answer": "回答并继续",
+        "flukeMessage": "我需要解除 issue #{{n}}「{{title}}」的卡住。{{phase}} 阶段卡住了：{{message}}\n帮我解决；想清楚后我们再回复代理。",
+        "toast": {
+          "answered": "回答已发送 · #{{n}} 继续",
+          "retried": "#{{n}} 已回到队列",
+          "backToTests": "#{{n}} 先回到测试",
+          "canceledIssue": "#{{n}} 已取消；wave 继续进行",
+          "fluke": "Fluke 带着卡住的背景开启关于 #{{n}} 的对话"
+        }
       }
     }
   },
