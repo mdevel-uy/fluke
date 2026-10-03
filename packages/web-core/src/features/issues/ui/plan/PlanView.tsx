@@ -34,6 +34,8 @@ export interface PlanViewProps {
   selectedIssueId?: string;
   onSelectIssue?: (issue: RepoIssue) => void;
   onDecide?: (issue: RepoIssue, context: DecisionContext) => void;
+  /** Destrabar on a stuck card (#696). */
+  onUnstick?: (issue: RepoIssue) => void;
 }
 
 const TASK_TO_CARD: Record<string, PlanCardState> = {
@@ -61,6 +63,7 @@ export function PlanView({
   selectedIssueId,
   onSelectIssue,
   onDecide,
+  onUnstick,
 }: PlanViewProps) {
   const { t } = useTranslation('common');
   const blockers = useIssueBlockers(repoId);
@@ -113,7 +116,7 @@ export function PlanView({
               onReset={() => actions.reset.mutate(band.milestone)}
               busy={busy}
               blockers={blockers}
-              onUnstick={onSelectIssue}
+              onUnstick={onUnstick}
             />
           ))}
         </div>
@@ -150,7 +153,7 @@ export function PlanView({
                   selected={issue.id === selectedIssueId}
                   onSelect={onSelectIssue}
                   blocker={blocker}
-                  onUnstick={onSelectIssue}
+                  onUnstick={onUnstick}
                 />
               );
             })}

@@ -441,6 +441,18 @@ question: string | null, workspace_id: string | null, task_id: string | null, si
 
 export type IssueBlockerEntry = { issue_number: number, blocker: IssueBlocker, };
 
+export type UnstickRequest = { 
+/**
+ * `retry`: the failed task goes back to the queue.
+ * `back_to_tests`: drop the open work and let QA redo the tests first.
+ * `cancel`: drop the open work (the client closes the issue).
+ */
+action: string, 
+/**
+ * What the person adds for QA on `back_to_tests`.
+ */
+note?: string, };
+
 export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 
 export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };

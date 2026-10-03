@@ -127,6 +127,7 @@ import {
   UpdateMissionRequest,
   MilestoneRun,
   IssueBlockerEntry,
+  UnstickRequest,
   IssuePlanResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
@@ -3000,5 +3001,17 @@ export const issuePhasesApi = {
       `/api/repos/${encodeURIComponent(repoId)}/issues/blockers`
     );
     return handleApiResponse<IssueBlockerEntry[]>(response);
+  },
+  /** An exit of the Destrabar drawer other than answering (#696). */
+  unstick: async (
+    repoId: string,
+    issueNumber: number,
+    body: UnstickRequest
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/unstick`,
+      { method: 'POST', body: JSON.stringify(body) }
+    );
+    await handleApiResponse<void>(response);
   },
 };

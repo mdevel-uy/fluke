@@ -1293,6 +1293,62 @@
             "hint": "Expired PAT, missing secret."
           }
         }
+      },
+      "unstick": {
+        "eyebrow": "⚠ Stuck · {{phase}} · {{age}} ago",
+        "eyebrowNoAge": "⚠ Stuck · {{phase}}",
+        "instanceAlive": "the instance is still alive and waiting",
+        "notStuck": "This issue is no longer stuck.",
+        "whatHappened": "What happened",
+        "tried": "What was already tried",
+        "triedRound": "round {{n}}: asked for changes",
+        "question": "The agent’s question",
+        "recommended": "Agent recommends",
+        "otherAnswer": "Another answer",
+        "otherPlaceholder": "Write your answer",
+        "why": "Why it recommends ({{key}}):",
+        "note": "Extra context for the agent",
+        "optional": "optional",
+        "notePlaceholder": "For example: keep it consistent with what we decided in another issue",
+        "alternatives": "Other ways to unblock",
+        "alt": {
+          "fluke": {
+            "title": "Talk it over with Fluke",
+            "hint": "Explain it in your words; Fluke translates it for the agent"
+          },
+          "session": {
+            "title": "Write to the agent",
+            "hint": "Go to the live session and talk"
+          },
+          "code": {
+            "title": "Take over",
+            "hint": "Open Code and continue yourself from there"
+          },
+          "retry": {
+            "title": "Retry",
+            "hint": "The phase goes back to the queue and a new instance picks it up"
+          },
+          "back": {
+            "title": "Back to tests first",
+            "hint": "If the problem is in what the tests ask for"
+          },
+          "cancel": {
+            "title": "Cancel the issue",
+            "hint": "Closes the issue; the wave goes on without it"
+          }
+        },
+        "confirmCancel": "Cancel #{{n}}? Work in progress stops and the issue is closed.",
+        "keep": "Back",
+        "footHint": "The answer goes to the same session and the agent carries on.",
+        "answer": "Answer and continue",
+        "flukeMessage": "I need to unblock issue #{{n}} \"{{title}}\". The {{phase}} phase is stuck: {{message}}\nHelp me sort it out; once it is clear, we answer the agent.",
+        "toast": {
+          "answered": "Answer sent · #{{n}} continues",
+          "retried": "#{{n}} is back in the queue",
+          "backToTests": "#{{n}} goes back to tests first",
+          "canceledIssue": "#{{n}} canceled; the wave goes on without it",
+          "fluke": "Fluke opens a conversation about #{{n}} with the context of the block"
+        }
       }
     }
   },

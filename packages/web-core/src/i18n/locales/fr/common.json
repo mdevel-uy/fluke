@@ -1278,6 +1278,62 @@
             "hint": "PAT expiré, secret inexistant."
           }
         }
+      },
+      "unstick": {
+        "eyebrow": "⚠ Bloqué · {{phase}} · il y a {{age}}",
+        "eyebrowNoAge": "⚠ Bloqué · {{phase}}",
+        "instanceAlive": "l’instance est toujours active et attend",
+        "notStuck": "Cet issue n’est plus bloqué.",
+        "whatHappened": "Ce qui s’est passé",
+        "tried": "Ce qui a déjà été tenté",
+        "triedRound": "tour {{n}} : changements demandés",
+        "question": "La question de l’agent",
+        "recommended": "Recommandé par l’agent",
+        "otherAnswer": "Autre réponse",
+        "otherPlaceholder": "Écrivez votre réponse",
+        "why": "Pourquoi il recommande ({{key}}) :",
+        "note": "Contexte supplémentaire pour l’agent",
+        "optional": "facultatif",
+        "notePlaceholder": "Par exemple : restez cohérent avec ce qui a été décidé dans un autre issue",
+        "alternatives": "Autres façons de débloquer",
+        "alt": {
+          "fluke": {
+            "title": "En parler avec Fluke",
+            "hint": "Expliquez avec vos mots ; Fluke le traduit pour l’agent"
+          },
+          "session": {
+            "title": "Écrire à l’agent",
+            "hint": "Aller à la session en direct et discuter"
+          },
+          "code": {
+            "title": "Prendre la main",
+            "hint": "Ouvrir Code et continuer vous-même"
+          },
+          "retry": {
+            "title": "Réessayer",
+            "hint": "La phase retourne dans la file et une nouvelle instance la reprend"
+          },
+          "back": {
+            "title": "Revenir d’abord aux tests",
+            "hint": "Si le problème vient de ce que demandent les tests"
+          },
+          "cancel": {
+            "title": "Annuler l’issue",
+            "hint": "Ferme l’issue ; la wave continue sans lui"
+          }
+        },
+        "confirmCancel": "Annuler #{{n}} ? Le travail en cours s’arrête et l’issue est fermé.",
+        "keep": "Retour",
+        "footHint": "La réponse va dans la même session et l’agent continue.",
+        "answer": "Répondre et continuer",
+        "flukeMessage": "Je dois débloquer l’issue #{{n}} « {{title}} ». La phase {{phase}} est bloquée : {{message}}\nAide-moi à le résoudre ; une fois clair, nous répondrons à l’agent.",
+        "toast": {
+          "answered": "Réponse envoyée · #{{n}} continue",
+          "retried": "#{{n}} retourne dans la file",
+          "backToTests": "#{{n}} revient d’abord aux tests",
+          "canceledIssue": "#{{n}} annulé ; la wave continue sans lui",
+          "fluke": "Fluke ouvre une conversation sur #{{n}} avec le contexte du blocage"
+        }
       }
     }
   },

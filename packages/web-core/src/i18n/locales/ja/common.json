@@ -1272,6 +1272,62 @@
             "hint": "PAT の期限切れ、存在しないシークレット。"
           }
         }
+      },
+      "unstick": {
+        "eyebrow": "⚠ 停止中 · {{phase}} · {{age}}前",
+        "eyebrowNoAge": "⚠ 停止中 · {{phase}}",
+        "instanceAlive": "インスタンスは待機したまま動いています",
+        "notStuck": "この issue はもう停止していません。",
+        "whatHappened": "何が起きたか",
+        "tried": "すでに試したこと",
+        "triedRound": "ラウンド {{n}}: 変更を要求",
+        "question": "エージェントの質問",
+        "recommended": "エージェントの推奨",
+        "otherAnswer": "別の回答",
+        "otherPlaceholder": "回答を入力",
+        "why": "推奨の理由 ({{key}}):",
+        "note": "エージェントへの補足",
+        "optional": "任意",
+        "notePlaceholder": "例: 別の issue で決めたことと揃えてください",
+        "alternatives": "ほかの解除方法",
+        "alt": {
+          "fluke": {
+            "title": "Fluke と相談する",
+            "hint": "自分の言葉で説明すると Fluke がエージェントに伝えます"
+          },
+          "session": {
+            "title": "エージェントに書く",
+            "hint": "ライブのセッションで会話する"
+          },
+          "code": {
+            "title": "自分で引き継ぐ",
+            "hint": "コードを開いてそこから自分で続ける"
+          },
+          "retry": {
+            "title": "再試行",
+            "hint": "フェーズがキューに戻り新しいインスタンスが引き継ぐ"
+          },
+          "back": {
+            "title": "先にテストへ戻る",
+            "hint": "問題がテストの要求にある場合"
+          },
+          "cancel": {
+            "title": "issue をキャンセル",
+            "hint": "issue を閉じ、wave はそれなしで続く"
+          }
+        },
+        "confirmCancel": "#{{n}} をキャンセルしますか? 進行中の作業を止めて issue を閉じます。",
+        "keep": "戻る",
+        "footHint": "回答は同じセッションに送られ、エージェントが続行します。",
+        "answer": "回答して続行",
+        "flukeMessage": "issue #{{n}}「{{title}}」の停止を解除したい。{{phase}} フェーズが停止しています: {{message}}\n解決を手伝って。方針が決まったらエージェントに回答します。",
+        "toast": {
+          "answered": "回答を送信 · #{{n}} は続行",
+          "retried": "#{{n}} をキューに戻しました",
+          "backToTests": "#{{n}} は先にテストへ戻ります",
+          "canceledIssue": "#{{n}} をキャンセル。wave はそれなしで続きます",
+          "fluke": "Fluke が #{{n}} について停止の状況を踏まえて会話を開きます"
+        }
       }
     }
   },

@@ -34,6 +34,8 @@ import {
   type IssuesView,
 } from './plan/PlanHeader';
 import { DecisionDrawer, type DecisionContext } from './plan/DecisionDrawer';
+import { UnstickDrawer } from './plan/UnstickDrawer';
+import { useIssueTabIntent } from '@/features/issues/model/useIssueTabIntent';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
 import { IssuesSidebar } from './IssuesSidebar';
@@ -529,6 +531,28 @@ export function IssuesPage() {
     [selectedRepoId, selectedRepo, t, appNavigation]
   );
 
+  const setTabIntent = useIssueTabIntent((s) => s.set);
+  const handleUnstick = useCallback(
+    async (issue: RepoIssue) => {
+      if (!selectedRepoId) return;
+      const result = await UnstickDrawer.show({
+        issue,
+        repoId: selectedRepoId,
+      });
+      if (typeof result === 'object') {
+        setTabIntent({
+          issueNumber: issue.number,
+          tab: result.open,
+          phase: result.phase,
+        });
+        appNavigation.goToIssue(issue.number, selectedRepoId);
+      } else if (result !== 'canceled') {
+        setToast(t(`issues.plan.unstick.toast.${result}`, { n: issue.number }));
+      }
+    },
+    [selectedRepoId, setTabIntent, appNavigation, t]
+  );
+
   // In the Plan view a card opens the issue page; the list keeps the drawer.
   const handleOpenIssuePage = useCallback(
     (issue: RepoIssue) => appNavigation.goToIssue(issue.number, selectedRepoId),
@@ -672,6 +696,7 @@ export function IssuesPage() {
             selectedIssueId={selectedIssue?.id}
             onSelectIssue={handleOpenIssuePage}
             onDecide={handleDecide}
+            onUnstick={handleUnstick}
           />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">

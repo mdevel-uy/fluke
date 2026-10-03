@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
@@ -24,6 +24,8 @@ import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 import { IssuePlanTab } from './plan/IssuePlanTab';
 import { blockerAge, blockerPhaseKind } from '@/features/issues/lib/blocker';
+import { useIssueTabIntent } from '@/features/issues/model/useIssueTabIntent';
+import { UnstickDrawer } from './plan/UnstickDrawer';
 import { IssueCodeTab } from './plan/IssueCodeTab';
 import { IssueSessionsTab } from './plan/IssueSessionsTab';
 
@@ -72,6 +74,14 @@ export function IssuePage() {
   const [tab, setTab] = useState<'plan' | 'code' | 'sessions'>('plan');
   const [sessionKey, setSessionKey] = useState<string | null>(null);
   const { data: plan } = useIssuePlan(repoId, issueNumber);
+  const intent = useIssueTabIntent((s) => s.intent);
+  const clearIntent = useIssueTabIntent((s) => s.set);
+  useEffect(() => {
+    if (intent?.issueNumber !== issueNumber) return;
+    setTab(intent.tab);
+    setSessionKey(intent.phase);
+    clearIntent(null);
+  }, [intent, issueNumber, clearIntent]);
 
   const task = useMemo(() => {
     const own = tasks.filter(
@@ -103,8 +113,14 @@ export function IssuePage() {
     setSessionKey(key);
     setTab('sessions');
   };
-  // ponytail: Destrabar opens the stuck phase's session until the drawer (#696).
-  const unstick = () => openSession(blocker?.phase ?? null);
+  const unstick = async () => {
+    if (!issue || !repoId) return;
+    const result = await UnstickDrawer.show({ issue, repoId });
+    if (typeof result === 'object') {
+      if (result.open === 'sessions') openSession(result.phase);
+      else setTab('code');
+    }
+  };
 
   if (!isLoading && repoId && !issue) {
     return (

@@ -1293,6 +1293,62 @@
             "hint": "PAT vencido, secreto que no existe."
           }
         }
+      },
+      "unstick": {
+        "eyebrow": "⚠ Trancado · {{phase}} · hace {{age}}",
+        "eyebrowNoAge": "⚠ Trancado · {{phase}}",
+        "instanceAlive": "la instancia sigue viva esperando",
+        "notStuck": "Este issue ya no está trancado.",
+        "whatHappened": "Qué pasó",
+        "tried": "Lo que ya se intentó",
+        "triedRound": "ronda {{n}}: pidió cambios",
+        "question": "La pregunta del agente",
+        "recommended": "Recomienda el agente",
+        "otherAnswer": "Otra respuesta",
+        "otherPlaceholder": "Escribí tu respuesta",
+        "why": "Por qué recomienda ({{key}}):",
+        "note": "Contexto extra para el agente",
+        "optional": "opcional",
+        "notePlaceholder": "Por ejemplo: mantenelo consistente con lo que decidimos en otro issue",
+        "alternatives": "Otras formas de destrabar",
+        "alt": {
+          "fluke": {
+            "title": "Hablarlo con Fluke",
+            "hint": "Explicale en tus palabras; Fluke le traduce al agente"
+          },
+          "session": {
+            "title": "Escribirle al agente",
+            "hint": "Ir a la sesión en vivo y conversar"
+          },
+          "code": {
+            "title": "Tomar el control",
+            "hint": "Abrir Código y seguir vos desde ahí"
+          },
+          "retry": {
+            "title": "Reintentar",
+            "hint": "La fase vuelve a la cola y la retoma una instancia nueva"
+          },
+          "back": {
+            "title": "Volver a Tests primero",
+            "hint": "Si el problema está en lo que piden los tests"
+          },
+          "cancel": {
+            "title": "Cancelar el issue",
+            "hint": "Cierra el issue; la wave sigue sin él"
+          }
+        },
+        "confirmCancel": "¿Cancelar #{{n}}? Se detiene el trabajo en curso y se cierra el issue.",
+        "keep": "Volver",
+        "footHint": "La respuesta va a la misma sesión y el agente sigue.",
+        "answer": "Responder y seguir",
+        "flukeMessage": "Necesito destrabar el issue #{{n}} \"{{title}}\". La fase {{phase}} está trancada: {{message}}\nAyudame a resolverlo; cuando lo tengamos claro, le respondemos al agente.",
+        "toast": {
+          "answered": "Respuesta enviada · #{{n}} sigue",
+          "retried": "#{{n}} vuelve a la cola",
+          "backToTests": "#{{n}} vuelve a Tests primero",
+          "canceledIssue": "#{{n}} cancelado; la wave sigue sin él",
+          "fluke": "Fluke abre una conversación sobre #{{n}} con el contexto de la traba"
+        }
       }
     }
   },
