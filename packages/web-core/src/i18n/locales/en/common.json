@@ -2109,8 +2109,8 @@
     "archive": {
       "action": "Archive",
       "restore": "Restore",
-      "show": "Archived ({{count}})",
-      "hide": "Hide archived"
+      "open": "Open",
+      "archived": "Archived"
     }
   },
   "profiles": {

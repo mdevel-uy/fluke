@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +16,7 @@ import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSection
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
+import { SidebarSection } from '@/shared/components/ui-new/shell/SidebarPrimitives';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
@@ -185,9 +185,7 @@ export function FlukeMissionsSidebar({
         collapsible={false}
         headerExtra={<NewMissionButton />}
       >
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <MissionsList selectedId={selectedId} />
-        </div>
+        <MissionsList selectedId={selectedId} />
       </CollapsibleSectionHeader>
     </div>
   );
@@ -262,14 +260,7 @@ export function DirectorBody() {
 function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
   const { t } = useTranslation('common');
   const { data: missions = [], isLoading } = useMissionList();
-  const openMission = useDirectorStore((s) => s.openMission);
   const { repoId, create } = useNewMission();
-  const archive = useArchiveMission();
-  const [showArchived, setShowArchived] = useState(false);
-  const archivedCount = missions.filter(isArchived).length;
-  const shown = showArchived
-    ? missions
-    : missions.filter((m) => !isArchived(m));
 
   if (isLoading)
     return (
@@ -305,82 +296,102 @@ function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
       </Centered>
     );
   }
+  const open = missions.filter((m) => !isArchived(m));
+  const archived = missions.filter(isArchived);
   return (
-    <ul className="flex flex-col overflow-y-auto">
-      {shown.map((m) => (
-        <li
-          key={m.mission.id}
-          className={cn(
-            'group flex items-center border-b border-md-outline-variant hover:bg-secondary/60',
-            m.mission.id === selectedId && 'bg-secondary',
-            isArchived(m) && 'opacity-60'
-          )}
+    <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+      <SidebarSection
+        persistKey="fluke-missions-open"
+        title={t('director.archive.open')}
+        count={open.length}
+      >
+        {open.map((m) => (
+          <MissionRow
+            key={m.mission.id}
+            m={m}
+            selected={m.mission.id === selectedId}
+          />
+        ))}
+      </SidebarSection>
+      {archived.length > 0 && (
+        <SidebarSection
+          persistKey="fluke-missions-archived"
+          title={t('director.archive.archived')}
+          count={archived.length}
+          defaultOpen={false}
         >
-          <button
-            type="button"
-            onClick={() => openMission(m.mission.id)}
-            aria-current={m.mission.id === selectedId || undefined}
-            className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left"
-          >
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm text-high">
-                {missionLabel(m, t('director.newMission'))}
-              </span>
-              <span className="truncate text-xs text-low">
-                {[m.repo_name, t(`director.status.${m.mission.status}`)]
-                  .filter(Boolean)
-                  .join(' · ')}
-                {m.issues_total > 0 &&
-                  ` · ${t('director.progress', { done: m.issues_closed, total: m.issues_total })}`}
-              </span>
-            </span>
-            {isWaitingForUser(m) && (
-              <span className="size-2 shrink-0 rounded-full bg-warning" />
-            )}
-            {m.agent_running && (
-              <SpinnerIcon className="size-icon-xs shrink-0 animate-spin text-low" />
-            )}
-          </button>
-          {/* Archive is one click: restoring is as easy (no confirm). */}
-          <button
-            type="button"
-            onClick={() =>
-              archive.mutate({ id: m.mission.id, archived: !isArchived(m) })
-            }
-            aria-label={t(
-              isArchived(m)
-                ? 'director.archive.restore'
-                : 'director.archive.action'
-            )}
-            title={t(
-              isArchived(m)
-                ? 'director.archive.restore'
-                : 'director.archive.action'
-            )}
-            className="mr-2 shrink-0 rounded-md p-1 text-low opacity-0 hover:bg-secondary hover:text-high focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            {isArchived(m) ? (
-              <ArrowCounterClockwiseIcon className="size-icon-xs" />
-            ) : (
-              <ArchiveIcon className="size-icon-xs" />
-            )}
-          </button>
-        </li>
-      ))}
-      {archivedCount > 0 && (
-        <li>
-          <button
-            type="button"
-            onClick={() => setShowArchived((v) => !v)}
-            className="w-full px-3 py-2 text-left text-xs text-low hover:text-high"
-          >
-            {showArchived
-              ? t('director.archive.hide')
-              : t('director.archive.show', { count: archivedCount })}
-          </button>
-        </li>
+          {archived.map((m) => (
+            <MissionRow
+              key={m.mission.id}
+              m={m}
+              selected={m.mission.id === selectedId}
+            />
+          ))}
+        </SidebarSection>
       )}
-    </ul>
+    </div>
+  );
+}
+
+/** SidebarRow look plus a hover archive/restore action (a SidebarRow is a button, so it can't nest one). */
+function MissionRow({ m, selected }: { m: MissionSummary; selected: boolean }) {
+  const { t } = useTranslation('common');
+  const openMission = useDirectorStore((s) => s.openMission);
+  const archive = useArchiveMission();
+  const archivedMission = isArchived(m);
+  const actionLabel = t(
+    archivedMission ? 'director.archive.restore' : 'director.archive.action'
+  );
+  return (
+    <div
+      className={cn(
+        'group relative mx-1.5 flex h-[22px] items-center rounded-[4px] text-sm',
+        selected
+          ? 'bg-sel text-high before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-[2px] before:rounded-full before:bg-brand-on-surface'
+          : 'text-normal hover:bg-secondary'
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => openMission(m.mission.id)}
+        aria-current={selected || undefined}
+        title={[m.repo_name, t(`director.status.${m.mission.status}`)]
+          .filter(Boolean)
+          .join(' · ')}
+        className="flex h-full min-w-0 flex-1 items-center gap-2 pl-4 pr-1 text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {missionLabel(m, t('director.newMission'))}
+        </span>
+        {isWaitingForUser(m) && (
+          <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+        )}
+        {m.agent_running && (
+          <SpinnerIcon className="size-icon-2xs shrink-0 animate-spin text-low" />
+        )}
+        {m.issues_total > 0 && (
+          <span className="shrink-0 text-xs text-low group-hover:hidden">
+            {m.issues_closed}/{m.issues_total}
+          </span>
+        )}
+      </button>
+      {/* Archive is one click: restoring is as easy (no confirm). */}
+      <button
+        type="button"
+        onClick={() =>
+          archive.mutate({ id: m.mission.id, archived: !archivedMission })
+        }
+        aria-label={actionLabel}
+        title={actionLabel}
+        className="mr-1 hidden shrink-0 rounded p-0.5 text-low hover:text-high focus-visible:flex group-hover:flex"
+      >
+        {archivedMission ? (
+          <ArrowCounterClockwiseIcon className="size-icon-2xs" />
+        ) : (
+          <ArchiveIcon className="size-icon-2xs" />
+        )}
+      </button>
+    </div>
   );
 }
 
