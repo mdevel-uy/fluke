@@ -19,6 +19,7 @@ const SEGMENT: Record<PlanCardState, string> = {
   done: 'bg-success',
   running: 'bg-md-primary',
   review: 'bg-violet-600 dark:bg-violet-400',
+  stuck: 'bg-md-error',
   gate: 'border border-dashed border-warning',
   queued: 'border border-dashed border-md-on-surface-variant',
   ready: 'bg-success/60',
@@ -33,6 +34,7 @@ const COUNTS: { key: string; states: PlanCardState[]; dot: string }[] = [
     states: ['review'],
     dot: 'bg-violet-600 dark:bg-violet-400',
   },
+  { key: 'stuck', states: ['stuck'], dot: 'bg-md-error' },
   { key: 'queued', states: ['queued'], dot: 'bg-md-on-surface-variant' },
   { key: 'gate', states: ['gate'], dot: 'bg-warning' },
   { key: 'todo', states: ['ready', 'blocked'], dot: 'bg-md-outline' },
@@ -43,16 +45,19 @@ export function CollapsedSummary({
   taskByIssueNumber,
   workerNameById,
   onDecide,
+  onUnstick,
 }: {
   band: MilestoneBand;
   taskByIssueNumber: ReadonlyMap<number, WorkerTask>;
   workerNameById: ReadonlyMap<string, string>;
   onDecide?: (issue: RepoIssue) => void;
+  onUnstick?: (issue: RepoIssue) => void;
 }) {
   const { t } = useTranslation('common');
   const cards = band.waves.flatMap((w) => w.cards);
   const running = band.status.kind === 'running';
   const pendingDecision = cards.find((c) => c.state === 'gate');
+  const stuck = cards.find((c) => c.state === 'stuck');
 
   const workers = cards
     .filter((c) => c.state === 'running' || c.state === 'review')
@@ -129,14 +134,27 @@ export function CollapsedSummary({
         </span>
       )}
 
-      {pendingDecision && onDecide && (
+      {stuck && onUnstick ? (
         <button
           type="button"
-          onClick={() => onDecide(pendingDecision.issue)}
-          className="ml-auto rounded-md border border-warning bg-warning px-2.5 py-1 text-xs font-semibold text-warning-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
+          onClick={() => onUnstick(stuck.issue)}
+          className="ml-auto inline-flex items-center rounded-md border border-md-error bg-md-error px-2.5 py-1 text-xs font-semibold text-md-on-error focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
         >
-          {t('issues.plan.summary.decide', { n: pendingDecision.issue.number })}
+          {t('issues.plan.summary.unstick', { n: stuck.issue.number })}
         </button>
+      ) : (
+        pendingDecision &&
+        onDecide && (
+          <button
+            type="button"
+            onClick={() => onDecide(pendingDecision.issue)}
+            className="ml-auto rounded-md border border-warning bg-warning px-2.5 py-1 text-xs font-semibold text-warning-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
+          >
+            {t('issues.plan.summary.decide', {
+              n: pendingDecision.issue.number,
+            })}
+          </button>
+        )
       )}
     </div>
   );

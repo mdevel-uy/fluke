@@ -1082,7 +1082,9 @@
         "stepTitle": "Wave {{n}} finished",
         "stepDetail": "press play to start wave {{n}}",
         "doneTitle": "Milestone complete",
-        "doneDetail": "all PRs merged"
+        "doneDetail": "all PRs merged",
+        "stuckTitle": "#{{n}} needs your help",
+        "stuckDetail": "the rest of the wave keeps running"
       },
       "card": {
         "ready": "● ready",
@@ -1097,7 +1099,11 @@
         "workerBranch": "{{name}} · worker on its branch",
         "prReview": "{{name}} · PR in review",
         "open": "Open issue #{{n}}",
-        "openHint": "Open →"
+        "openHint": "Open →",
+        "waitingYou": "{{name}} · waiting for your answer",
+        "ago": "{{age}} ago",
+        "unstick": "Unblock",
+        "stuck": "⚠ stuck"
       },
       "loose": "No milestone or no wave · dispatched one at a time",
       "legend": {
@@ -1118,7 +1124,10 @@
         "gate": "{{count}} decision pending",
         "todo": "{{count}} to do",
         "working": "working",
-        "decide": "Decide #{{n}}"
+        "decide": "Decide #{{n}}",
+        "stuck_one": "{{count}} needs your help",
+        "stuck_other": "{{count}} need your help",
+        "unstick": "Unblock #{{n}}"
       },
       "decision": {
         "eyebrow": "Pending decision",
@@ -1250,6 +1259,40 @@
         "readOnly": "finished · read only",
         "waitingYou": "waiting for your answer",
         "discarded": "The instance was discarded. The session stays as a record of what it did in this phase."
+      },
+      "attention_one": "{{count}} needs your help",
+      "attention_other": "{{count}} need your help",
+      "stuck": {
+        "unstick": "Unblock",
+        "viewSession": "View session",
+        "since": "Stuck for {{age}}",
+        "banner": "{{phase}} stuck for {{age}}",
+        "bannerNoAge": "{{phase}} stuck",
+        "kindsTitle": "When a phase gets stuck",
+        "thisCase": "This is the case for this issue.",
+        "kindsNote": "Before telling you, Fluke tries on its own: it retries infrastructure failures with growing waits. It only escalates what needs a person.",
+        "kinds": {
+          "question": {
+            "title": "The agent asks something it cannot decide alone",
+            "hint": "It waits for your answer."
+          },
+          "failed": {
+            "title": "The same thing fails several times in a row",
+            "hint": "Tests or CI red after N attempts."
+          },
+          "review_cap": {
+            "title": "The review rounds run out",
+            "hint": "Every round asked for changes."
+          },
+          "no_progress": {
+            "title": "No progress in N minutes",
+            "hint": "Session hung or waiting on something external."
+          },
+          "credential": {
+            "title": "A credential or permission is missing",
+            "hint": "Expired PAT, missing secret."
+          }
+        }
       }
     }
   },

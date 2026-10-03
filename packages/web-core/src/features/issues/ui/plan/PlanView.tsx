@@ -8,6 +8,7 @@ import {
   type PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 import { usePlanCollapseStore } from '@/features/issues/model/usePlanCollapseStore';
+import { useIssueBlockers } from '@/features/issues/model/useIssueBlockers';
 import {
   useMilestoneRunActions,
   useMilestoneRuns,
@@ -62,9 +63,11 @@ export function PlanView({
   onDecide,
 }: PlanViewProps) {
   const { t } = useTranslation('common');
+  const blockers = useIssueBlockers(repoId);
   const plan = useMemo(
-    () => buildMilestonePlan(issues, taskByIssueNumber),
-    [issues, taskByIssueNumber]
+    () =>
+      buildMilestonePlan(issues, taskByIssueNumber, new Set(blockers.keys())),
+    [issues, taskByIssueNumber, blockers]
   );
   const { data: runs = [] } = useMilestoneRuns(repoId);
   const actions = useMilestoneRunActions(repoId);
@@ -109,6 +112,8 @@ export function PlanView({
               onPause={() => actions.pause.mutate(band.milestone)}
               onReset={() => actions.reset.mutate(band.milestone)}
               busy={busy}
+              blockers={blockers}
+              onUnstick={onSelectIssue}
             />
           ))}
         </div>
@@ -122,7 +127,12 @@ export function PlanView({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5">
             {plan.loose.map((issue) => {
               const task = taskByIssueNumber.get(issue.number);
-              const state = task ? TASK_TO_CARD[task.status] : undefined;
+              const blocker = blockers.get(issue.number);
+              const state = blocker
+                ? 'stuck'
+                : task
+                  ? TASK_TO_CARD[task.status]
+                  : undefined;
               return (
                 <PlanCard
                   key={issue.id}
@@ -139,6 +149,8 @@ export function PlanView({
                   }
                   selected={issue.id === selectedIssueId}
                   onSelect={onSelectIssue}
+                  blocker={blocker}
+                  onUnstick={onSelectIssue}
                 />
               );
             })}

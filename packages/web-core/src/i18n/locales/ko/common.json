@@ -1063,7 +1063,9 @@
         "stepTitle": "웨이브 {{n}} 완료",
         "stepDetail": "재생을 눌러 웨이브 {{n}} 시작",
         "doneTitle": "마일스톤 완료",
-        "doneDetail": "모든 PR 병합됨"
+        "doneDetail": "모든 PR 병합됨",
+        "stuckTitle": "#{{n}}에 도움이 필요합니다",
+        "stuckDetail": "wave의 나머지는 계속 실행됩니다"
       },
       "card": {
         "ready": "● 준비됨",
@@ -1078,7 +1080,11 @@
         "workerBranch": "{{name}} · 자기 브랜치에서 작업 중",
         "prReview": "{{name}} · PR 리뷰 중",
         "open": "이슈 #{{n}} 열기",
-        "openHint": "열기 →"
+        "openHint": "열기 →",
+        "waitingYou": "{{name}} · 답변 대기 중",
+        "ago": "{{age}} 전",
+        "unstick": "해결하기",
+        "stuck": "⚠ 멈춤"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
       "legend": {
@@ -1099,7 +1105,9 @@
         "gate": "{{count}} 결정 대기",
         "todo": "{{count}} 할 일",
         "working": "작업 중",
-        "decide": "#{{n}} 결정"
+        "decide": "#{{n}} 결정",
+        "stuck_other": "{{count}}개가 도움 필요",
+        "unstick": "#{{n}} 해결하기"
       },
       "decision": {
         "eyebrow": "결정 대기",
@@ -1231,6 +1239,39 @@
         "readOnly": "완료 · 읽기 전용",
         "waitingYou": "답변 대기 중",
         "discarded": "인스턴스는 폐기되었습니다. 세션은 이 단계에서 한 일의 기록으로 남습니다."
+      },
+      "attention_other": "{{count}}개가 도움 필요",
+      "stuck": {
+        "unstick": "해결하기",
+        "viewSession": "세션 보기",
+        "since": "{{age}} 전부터 멈춤",
+        "banner": "{{phase}} {{age}} 전부터 멈춤",
+        "bannerNoAge": "{{phase}} 멈춤",
+        "kindsTitle": "단계가 멈추는 경우",
+        "thisCase": "이 issue가 해당합니다.",
+        "kindsNote": "알리기 전에 Fluke가 먼저 시도합니다. 인프라 장애는 대기 시간을 늘려 가며 다시 시도하고, 사람이 필요한 것만 알립니다.",
+        "kinds": {
+          "question": {
+            "title": "에이전트가 혼자 정할 수 없는 것을 묻는다",
+            "hint": "답변을 기다립니다."
+          },
+          "failed": {
+            "title": "같은 것이 연속으로 여러 번 실패한다",
+            "hint": "N번 시도 후에도 테스트나 CI가 실패."
+          },
+          "review_cap": {
+            "title": "리뷰 라운드를 모두 소진했다",
+            "hint": "모든 라운드에서 변경을 요청했다."
+          },
+          "no_progress": {
+            "title": "N분 동안 진행이 없다",
+            "hint": "세션이 멈췄거나 외부를 기다리는 중."
+          },
+          "credential": {
+            "title": "자격 증명이나 권한이 없다",
+            "hint": "만료된 PAT, 없는 시크릿."
+          }
+        }
       }
     }
   },

@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
+import type { IssueBlocker } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
+import { blockerAge, blockerPhaseKind } from '@/features/issues/lib/blocker';
 import type { RepoIssue } from '@/features/issues/types';
 import {
   PM_DECISION_LABEL,
@@ -21,6 +23,8 @@ const CARD_STATE_CLASS: Record<PlanCardState | 'manual', string> = {
   queued: 'border-dashed border-md-on-surface-variant',
   running: 'border-md-primary shadow-[0_0_0_1px_hsl(var(--md-primary)/0.3)]',
   review: 'border-violet-600 dark:border-violet-400',
+  stuck:
+    'border-md-error shadow-[0_0_0_1px_hsl(var(--md-error)/0.35),0_6px_20px_-10px_hsl(var(--md-error))]',
   done: 'opacity-65',
   manual: '',
 };
@@ -30,6 +34,7 @@ const STATE_TEXT_CLASS: Partial<Record<PlanCardState, string>> = {
   gate: 'text-warning',
   running: 'text-md-primary',
   review: 'text-violet-600 dark:text-violet-400',
+  stuck: 'text-md-error',
   done: 'text-success',
 };
 
@@ -43,6 +48,9 @@ export interface PlanCardProps {
   selected?: boolean;
   onSelect?: (issue: RepoIssue) => void;
   onDecide?: (issue: RepoIssue) => void;
+  /** Why the issue needs a person (#694), when `state` is `stuck`. */
+  blocker?: IssueBlocker;
+  onUnstick?: (issue: RepoIssue) => void;
 }
 
 function Spinner() {
@@ -62,6 +70,8 @@ export function PlanCard({
   selected,
   onSelect,
   onDecide,
+  blocker,
+  onUnstick,
 }: PlanCardProps) {
   const { t } = useTranslation('common');
   const tags = issue.labels
@@ -77,6 +87,8 @@ export function PlanCard({
         : t(`issues.plan.card.${state}`);
 
   const busy = state === 'running' || state === 'review';
+  const phaseKind = blocker ? blockerPhaseKind(blocker) : null;
+  const age = blocker ? blockerAge(blocker.since) : null;
 
   return (
     <div
@@ -156,6 +168,40 @@ export function PlanCard({
           {state === 'review'
             ? t('issues.plan.card.prReview', { name: workerName })
             : t('issues.plan.card.workerBranch', { name: workerName })}
+        </div>
+      )}
+      {state === 'stuck' && workerName && (
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-normal">
+          <span className="grid size-4 place-items-center rounded-full bg-md-primary font-sans text-[9px] font-semibold text-md-on-primary">
+            {workerName[0]?.toUpperCase()}
+          </span>
+          {t('issues.plan.card.waitingYou', { name: workerName })}
+        </div>
+      )}
+      {state === 'stuck' && blocker && (
+        <div className="rounded bg-md-error/10 px-2 py-1.5 text-xs leading-[1.4] text-high">
+          {(phaseKind || age) && (
+            <small className="mb-0.5 block text-[11px] text-normal">
+              {[
+                phaseKind && t(`issues.plan.phases.kind.${phaseKind}`),
+                age && t('issues.plan.card.ago', { age }),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </small>
+          )}
+          {blocker.message}
+        </div>
+      )}
+      {state === 'stuck' && onUnstick && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onUnstick(issue)}
+            className="inline-flex items-center rounded-md border border-md-error bg-md-error px-2.5 py-1 text-xs font-semibold text-md-on-error focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
+          >
+            {t('issues.plan.card.unstick')}
+          </button>
         </div>
       )}
       {state === 'gate' && onDecide && (

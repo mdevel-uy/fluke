@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import type { IssueBlocker } from 'shared/types';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
@@ -38,6 +39,9 @@ export interface MilestoneBandProps {
   onPause?: () => void;
   onReset?: () => void;
   busy?: boolean;
+  /** Issues that need a person (#694), by number. */
+  blockers?: ReadonlyMap<number, IssueBlocker>;
+  onUnstick?: (issue: RepoIssue) => void;
 }
 
 type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
@@ -99,6 +103,8 @@ export function MilestoneBand({
   onPause,
   onReset,
   busy,
+  blockers,
+  onUnstick,
 }: MilestoneBandProps) {
   const { t } = useTranslation('common');
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -143,6 +149,9 @@ export function MilestoneBand({
     return () => ro.disconnect();
   }, [measure, collapsed]);
 
+  const hasStuck = band.waves.some((w) =>
+    w.cards.some((c) => c.state === 'stuck')
+  );
   const runActive = run?.status === 'running' || run?.status === 'waiting';
   const running = run?.status === 'running' || band.status.kind === 'running';
   const waiting = run?.status === 'waiting';
@@ -171,7 +180,8 @@ export function MilestoneBand({
       className={cn(
         'overflow-hidden rounded-[10px] border border-md-outline-variant bg-md-surface-container-low',
         running && 'border-md-primary/60',
-        waiting && 'border-warning/60'
+        waiting && 'border-warning/60',
+        hasStuck && 'border-md-error/65'
       )}
     >
       <div
@@ -248,6 +258,7 @@ export function MilestoneBand({
           taskByIssueNumber={taskByIssueNumber}
           workerNameById={workerNameById}
           onDecide={decide}
+          onUnstick={onUnstick}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -345,6 +356,8 @@ export function MilestoneBand({
                         selected={card.issue.id === selectedIssueId}
                         onSelect={onSelectIssue}
                         onDecide={decide}
+                        blocker={blockers?.get(card.issue.number)}
+                        onUnstick={onUnstick}
                       />
                     );
                   })}
@@ -407,6 +420,16 @@ function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
       t('issues.plan.status.doneTitle'),
       t('issues.plan.status.doneDetail'),
       'text-success'
+    );
+  }
+  const stuck = band.waves
+    .flatMap((w) => w.cards)
+    .find((c) => c.state === 'stuck');
+  if (stuck) {
+    return line(
+      t('issues.plan.status.stuckTitle', { n: stuck.issue.number }),
+      t('issues.plan.status.stuckDetail'),
+      'text-md-error'
     );
   }
   const s = band.status;

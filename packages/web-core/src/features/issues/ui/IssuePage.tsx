@@ -23,6 +23,7 @@ import { PM_DECISION_LABEL } from '@/features/issues/lib/milestonePlan';
 import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 import { IssuePlanTab } from './plan/IssuePlanTab';
+import { blockerAge, blockerPhaseKind } from '@/features/issues/lib/blocker';
 import { IssueCodeTab } from './plan/IssueCodeTab';
 import { IssueSessionsTab } from './plan/IssueSessionsTab';
 
@@ -95,6 +96,15 @@ export function IssuePage() {
   const sessionCount = plan?.phases.filter((p) => p.workspace_id).length ?? 0;
 
   const goBack = () => appNavigation.goToIssues(repoId);
+  const blocker = plan?.blocker ?? null;
+  const blockerKind = blocker ? blockerPhaseKind(blocker) : null;
+  const blockerSince = blocker ? blockerAge(blocker.since) : null;
+  const openSession = (key: string | null) => {
+    setSessionKey(key);
+    setTab('sessions');
+  };
+  // ponytail: Destrabar opens the stuck phase's session until the drawer (#696).
+  const unstick = () => openSession(blocker?.phase ?? null);
 
   if (!isLoading && repoId && !issue) {
     return (
@@ -196,6 +206,14 @@ export function IssuePage() {
                   </span>
                 </>
               )}
+              {blockerSince && (
+                <>
+                  <span>·</span>
+                  <span className="text-md-error">
+                    {t('issues.plan.stuck.since', { age: blockerSince })}
+                  </span>
+                </>
+              )}
               {githubUrl && (
                 <>
                   <span>·</span>
@@ -237,6 +255,53 @@ export function IssuePage() {
               )}
             </span>
           </div>
+
+          {blocker && (
+            <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-md-error/60 bg-md-error/10 px-3.5 py-2.5">
+              <span
+                aria-hidden
+                className="grid size-7 flex-none place-items-center rounded-full bg-md-error font-bold text-md-on-error"
+              >
+                ⚠
+              </span>
+              <div className="grid min-w-0 flex-[1_1_280px] gap-0.5">
+                <b className="text-sm font-semibold text-high">
+                  {t(
+                    blockerSince
+                      ? 'issues.plan.stuck.banner'
+                      : 'issues.plan.stuck.bannerNoAge',
+                    {
+                      phase: blockerKind
+                        ? t(`issues.plan.phases.kind.${blockerKind}`)
+                        : '',
+                      age: blockerSince,
+                    }
+                  )}
+                </b>
+                <span className="text-[12.5px] text-normal">
+                  {t(`issues.plan.stuck.kinds.${blocker.kind}.title`)}:{' '}
+                  {blocker.message}
+                </span>
+              </div>
+              <span className="flex-1" />
+              {blocker.workspace_id && (
+                <button
+                  type="button"
+                  onClick={() => openSession(blocker.phase)}
+                  className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
+                >
+                  {t('issues.plan.stuck.viewSession')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={unstick}
+                className="inline-flex h-8 items-center rounded-md border border-md-error bg-md-error px-3 text-[13px] font-semibold text-md-on-error"
+              >
+                {t('issues.plan.stuck.unstick')}
+              </button>
+            </div>
+          )}
 
           <div
             role="tablist"
@@ -284,10 +349,8 @@ export function IssuePage() {
             (plan ? (
               <IssuePlanTab
                 plan={plan}
-                onOpenSession={(key) => {
-                  setSessionKey(key);
-                  setTab('sessions');
-                }}
+                onOpenSession={openSession}
+                onUnstick={unstick}
               />
             ) : (
               <div className="flex items-center gap-2 py-6 text-normal">

@@ -1067,7 +1067,9 @@
         "stepTitle": "Vague {{n}} terminée",
         "stepDetail": "lancez la vague {{n}} avec play",
         "doneTitle": "Jalon terminé",
-        "doneDetail": "toutes les PR fusionnées"
+        "doneDetail": "toutes les PR fusionnées",
+        "stuckTitle": "#{{n}} a besoin de vous",
+        "stuckDetail": "le reste de la wave continue"
       },
       "card": {
         "ready": "● prêt",
@@ -1082,7 +1084,11 @@
         "workerBranch": "{{name}} · worker sur sa branche",
         "prReview": "{{name}} · PR en revue",
         "open": "Ouvrir l'issue #{{n}}",
-        "openHint": "Ouvrir →"
+        "openHint": "Ouvrir →",
+        "waitingYou": "{{name}} · attend votre réponse",
+        "ago": "il y a {{age}}",
+        "unstick": "Débloquer",
+        "stuck": "⚠ bloqué"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
       "legend": {
@@ -1103,7 +1109,10 @@
         "gate": "{{count}} décision en attente",
         "todo": "{{count}} à faire",
         "working": "au travail",
-        "decide": "Décider #{{n}}"
+        "decide": "Décider #{{n}}",
+        "stuck_one": "{{count}} a besoin de vous",
+        "stuck_other": "{{count}} ont besoin de vous",
+        "unstick": "Débloquer #{{n}}"
       },
       "decision": {
         "eyebrow": "Décision en attente",
@@ -1235,6 +1244,40 @@
         "readOnly": "terminée · lecture seule",
         "waitingYou": "attend votre réponse",
         "discarded": "L'instance a été supprimée. La session reste comme trace de ce qu'elle a fait dans cette phase."
+      },
+      "attention_one": "{{count}} a besoin de vous",
+      "attention_other": "{{count}} ont besoin de vous",
+      "stuck": {
+        "unstick": "Débloquer",
+        "viewSession": "Voir la session",
+        "since": "Bloqué depuis {{age}}",
+        "banner": "{{phase}} bloquée depuis {{age}}",
+        "bannerNoAge": "{{phase}} bloquée",
+        "kindsTitle": "Quand une phase se bloque",
+        "thisCase": "C’est le cas de cet issue.",
+        "kindsNote": "Avant de vous prévenir, Fluke essaie seul : il relance les pannes d’infrastructure avec une attente croissante. Il ne remonte que ce qui demande une personne.",
+        "kinds": {
+          "question": {
+            "title": "L’agent pose une question qu’il ne peut pas trancher seul",
+            "hint": "Il attend votre réponse."
+          },
+          "failed": {
+            "title": "La même chose échoue plusieurs fois de suite",
+            "hint": "Tests ou CI en rouge après N tentatives."
+          },
+          "review_cap": {
+            "title": "Les tours de review sont épuisés",
+            "hint": "Chaque tour a demandé des changements."
+          },
+          "no_progress": {
+            "title": "Aucun progrès depuis N minutes",
+            "hint": "Session figée ou en attente de quelque chose d’externe."
+          },
+          "credential": {
+            "title": "Il manque un identifiant ou une permission",
+            "hint": "PAT expiré, secret inexistant."
+          }
+        }
       }
     }
   },

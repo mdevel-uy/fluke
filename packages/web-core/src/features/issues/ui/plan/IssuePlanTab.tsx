@@ -49,13 +49,23 @@ function defaultSelection(phases: IssuePhase[]) {
   return done ? phaseKey(done) : null;
 }
 
+const STUCK_KINDS = [
+  'question',
+  'failed',
+  'review_cap',
+  'no_progress',
+  'credential',
+] as const;
+
 export function IssuePlanTab({
   plan,
   onOpenSession,
+  onUnstick,
 }: {
   plan: IssuePlanResponse;
   /** Opens the phase's session in the Sesiones tab (#689). */
   onOpenSession: (phaseKey: string) => void;
+  onUnstick: () => void;
 }) {
   const { t } = useTranslation('common');
   const label = usePhaseLabel(plan.phases);
@@ -150,6 +160,15 @@ export function IssuePlanTab({
                     {t('issues.plan.phases.viewSession')}
                   </button>
                 )}
+                {phase.state === 'stuck' && plan.blocker && (
+                  <button
+                    type="button"
+                    onClick={onUnstick}
+                    className="inline-flex h-8 items-center rounded-md border border-md-error bg-md-error px-3 text-[13px] font-semibold text-md-on-error"
+                  >
+                    {t('issues.plan.stuck.unstick')}
+                  </button>
+                )}
                 {phase.state === 'changes' && plan.pr_url && (
                   <a
                     href={plan.pr_url}
@@ -169,44 +188,69 @@ export function IssuePlanTab({
           )}
         </div>
 
-        <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
-          <h3 className="m-0 text-[15px] font-semibold text-high">
-            {t('issues.plan.templates.title')}
-          </h3>
-          <p className="m-0 text-xs text-normal">
-            {t('issues.plan.templates.hint')}
-          </p>
-          <div className="grid gap-1.5">
-            {TEMPLATES.map((tpl) => (
-              <div
-                key={tpl.key}
-                className="flex flex-wrap items-center gap-1 text-xs"
-              >
-                <b
-                  className={cn(
-                    'w-full text-[12.5px] font-medium',
-                    tpl.key === plan.template ? 'text-md-primary' : 'text-high'
-                  )}
+        {plan.blocker ? (
+          <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
+            <h3 className="m-0 text-[15px] font-semibold text-high">
+              {t('issues.plan.stuck.kindsTitle')}
+            </h3>
+            <ol className="m-0 grid gap-1.5 pl-[18px] text-[13px] text-high">
+              {STUCK_KINDS.map((kind) => (
+                <li key={kind}>
+                  {t(`issues.plan.stuck.kinds.${kind}.title`)}.{' '}
+                  <span className="text-normal">
+                    {kind === plan.blocker?.kind
+                      ? t('issues.plan.stuck.thisCase')
+                      : t(`issues.plan.stuck.kinds.${kind}.hint`)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="m-0 text-xs text-normal">
+              {t('issues.plan.stuck.kindsNote')}
+            </p>
+          </div>
+        ) : (
+          <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
+            <h3 className="m-0 text-[15px] font-semibold text-high">
+              {t('issues.plan.templates.title')}
+            </h3>
+            <p className="m-0 text-xs text-normal">
+              {t('issues.plan.templates.hint')}
+            </p>
+            <div className="grid gap-1.5">
+              {TEMPLATES.map((tpl) => (
+                <div
+                  key={tpl.key}
+                  className="flex flex-wrap items-center gap-1 text-xs"
                 >
-                  {t(`issues.plan.templates.names.${tpl.key}`)}
-                </b>
-                {tpl.phases.map((ph) => (
-                  <span
-                    key={ph}
+                  <b
                     className={cn(
-                      'rounded border px-[5px] py-px font-mono text-[10.5px]',
-                      tpl.gates?.includes(ph)
-                        ? 'border-warning text-warning'
-                        : 'border-md-outline-variant text-normal'
+                      'w-full text-[12.5px] font-medium',
+                      tpl.key === plan.template
+                        ? 'text-md-primary'
+                        : 'text-high'
                     )}
                   >
-                    {t(`issues.plan.templates.phases.${ph}`)}
-                  </span>
-                ))}
-              </div>
-            ))}
+                    {t(`issues.plan.templates.names.${tpl.key}`)}
+                  </b>
+                  {tpl.phases.map((ph) => (
+                    <span
+                      key={ph}
+                      className={cn(
+                        'rounded border px-[5px] py-px font-mono text-[10.5px]',
+                        tpl.gates?.includes(ph)
+                          ? 'border-warning text-warning'
+                          : 'border-md-outline-variant text-normal'
+                      )}
+                    >
+                      {t(`issues.plan.templates.phases.${ph}`)}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -32,6 +32,16 @@ const stateOf = (plan: ReturnType<typeof buildMilestonePlan>, n: number) =>
     .find((c) => c.issue.number === n)?.state;
 
 describe('buildMilestonePlan', () => {
+  it('an open issue that needs a person reads as stuck', () => {
+    const plan = buildMilestonePlan(
+      [issue(1, 'M1', ['wave:0']), issue(2, 'M1', ['wave:0'], 'closed')],
+      new Map([[1, { status: 'waiting_user' }]]),
+      new Set([1, 2])
+    );
+    expect(stateOf(plan, 1)).toBe('stuck');
+    expect(stateOf(plan, 2)).toBe('done');
+  });
+
   it('groups by milestone and wave, sending the rest to the loose bucket', () => {
     const plan = buildMilestonePlan(
       [

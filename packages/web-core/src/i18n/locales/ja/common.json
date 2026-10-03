@@ -1063,7 +1063,9 @@
         "stepTitle": "ウェーブ {{n}} 完了",
         "stepDetail": "再生でウェーブ {{n}} を開始",
         "doneTitle": "マイルストーン完了",
-        "doneDetail": "すべての PR がマージ済み"
+        "doneDetail": "すべての PR がマージ済み",
+        "stuckTitle": "#{{n}} が対応を待っています",
+        "stuckDetail": "wave の残りは実行を続けます"
       },
       "card": {
         "ready": "● 準備完了",
@@ -1078,7 +1080,11 @@
         "workerBranch": "{{name}} · 自分のブランチで作業中",
         "prReview": "{{name}} · PR レビュー中",
         "open": "issue #{{n}} を開く",
-        "openHint": "開く →"
+        "openHint": "開く →",
+        "waitingYou": "{{name}} · 回答待ち",
+        "ago": "{{age}}前",
+        "unstick": "解除する",
+        "stuck": "⚠ 停止中"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
       "legend": {
@@ -1099,7 +1105,9 @@
         "gate": "{{count}} 判断待ち",
         "todo": "{{count}} 未着手",
         "working": "作業中",
-        "decide": "#{{n}} を判断"
+        "decide": "#{{n}} を判断",
+        "stuck_other": "{{count}} 件が対応待ち",
+        "unstick": "#{{n}} を解除"
       },
       "decision": {
         "eyebrow": "判断待ち",
@@ -1231,6 +1239,39 @@
         "readOnly": "終了 · 読み取り専用",
         "waitingYou": "あなたの回答待ち",
         "discarded": "インスタンスは破棄されました。セッションはこのフェーズの記録として残ります。"
+      },
+      "attention_other": "{{count}} 件が対応待ち",
+      "stuck": {
+        "unstick": "解除する",
+        "viewSession": "セッションを見る",
+        "since": "{{age}}前から停止",
+        "banner": "{{phase}} が {{age}}前から停止",
+        "bannerNoAge": "{{phase}} が停止",
+        "kindsTitle": "フェーズが停止するとき",
+        "thisCase": "この issue が該当します。",
+        "kindsNote": "通知する前に Fluke は自分で試みます。インフラの障害は待ち時間を延ばしながら再試行し、人が必要なものだけを知らせます。",
+        "kinds": {
+          "question": {
+            "title": "エージェントが自分で決められないことを質問している",
+            "hint": "回答を待っています。"
+          },
+          "failed": {
+            "title": "同じことが続けて何度も失敗する",
+            "hint": "N 回試してもテストや CI が赤。"
+          },
+          "review_cap": {
+            "title": "レビューのラウンドを使い切った",
+            "hint": "すべてのラウンドで変更を求められた。"
+          },
+          "no_progress": {
+            "title": "N 分間進捗がない",
+            "hint": "セッションが固まっているか外部を待っている。"
+          },
+          "credential": {
+            "title": "認証情報か権限が足りない",
+            "hint": "PAT の期限切れ、存在しないシークレット。"
+          }
+        }
       }
     }
   },

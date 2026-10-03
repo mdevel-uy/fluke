@@ -19,6 +19,7 @@ export type PlanCardState =
   | 'queued'
   | 'running'
   | 'review'
+  | 'stuck'
   | 'done';
 
 export interface PlanCard {
@@ -75,11 +76,13 @@ const byNumber = (a: RepoIssue, b: RepoIssue) => a.number - b.number;
 /**
  * `taskByIssueNumber` holds the task that represents each issue (the active
  * one, otherwise a finished one). A `failed` task reads as no task: the issue
- * is back to waiting for a dispatch.
+ * is back to waiting for a dispatch. An open issue in `stuck` (#694: it
+ * needs a person) shows as stuck whatever its task says.
  */
 export function buildMilestonePlan(
   issues: readonly RepoIssue[],
-  taskByIssueNumber: ReadonlyMap<number, TaskLike>
+  taskByIssueNumber: ReadonlyMap<number, TaskLike>,
+  stuck: ReadonlySet<number> = new Set()
 ): MilestonePlan {
   const loose: RepoIssue[] = [];
   const byMilestone = new Map<string, RepoIssue[]>();
@@ -105,7 +108,12 @@ export function buildMilestonePlan(
       return {
         issue,
         wave: waveNumber(issue.labels)!,
-        taskState: issue.state !== 'open' ? 'done' : taskState,
+        taskState:
+          issue.state !== 'open'
+            ? 'done'
+            : stuck.has(issue.number)
+              ? 'stuck'
+              : taskState,
       };
     });
 

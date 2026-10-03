@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { useConcurrencyStatus } from '@/shared/hooks/useConcurrencyStatus';
+import { useIssueBlockers } from '@/features/issues/model/useIssueBlockers';
 import {
   selectAllCollapsed,
   usePlanCollapseStore,
@@ -61,6 +62,7 @@ export function PlanHeaderActions({ repoId }: { repoId?: string }) {
   const { data: concurrency } = useConcurrencyStatus();
   const limit = concurrency?.limit ?? 0;
   const used = concurrency?.used ?? 0;
+  const attention = useIssueBlockers(repoId).size;
   const allCollapsed = usePlanCollapseStore(selectAllCollapsed);
   const collapseAll = usePlanCollapseStore((s) => s.collapseAll);
   const expandAll = usePlanCollapseStore((s) => s.expandAll);
@@ -75,6 +77,12 @@ export function PlanHeaderActions({ repoId }: { repoId?: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3.5">
+      {attention > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-md-error/50 px-2.5 py-[3px] text-xs font-medium text-md-error">
+          <i className="size-[7px] rounded-full bg-md-error" />
+          {t('issues.plan.attention', { count: attention })}
+        </span>
+      )}
       {limit > 0 && (
         <span className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-normal">
           {t('issues.plan.slots', { used, limit })}
