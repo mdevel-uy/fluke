@@ -457,7 +457,26 @@ export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 
 export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };
 
-export type MissionDetail = { mission: Mission, repo_name: string | null, items: Array<MissionItemView>, missing: Array<string>, complete: boolean, roles_needed: Array<string>, briefs: Array<MissionBrief>, issue_numbers: Array<number>, };
+export type MissionDetail = { mission: Mission, repo_name: string | null, items: Array<MissionItemView>, missing: Array<string>, complete: boolean, roles_needed: Array<string>, briefs: Array<MissionBrief>, issue_numbers: Array<number>, 
+/**
+ * Status of the Analyst's breakdown task, once the brief was handed over.
+ */
+analyst_status: string | null, 
+/**
+ * The issues the Analyst created, with milestone and wave (#700).
+ */
+proposal: Array<MissionProposalIssue>, 
+/**
+ * `none` (nothing dispatched), `planning` (devs started, no plan steps
+ * yet) or `running` (at least one dev submitted its plan).
+ */
+execution: string, };
+
+export type MissionProposalIssue = { number: number, title: string, state: string, milestone: string | null, wave: number | null, 
+/**
+ * Carries `pm:decision`: it waits for the user.
+ */
+decision: boolean, };
 
 export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, };
 

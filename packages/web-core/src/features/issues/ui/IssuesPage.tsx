@@ -35,6 +35,10 @@ import {
 } from './plan/PlanHeader';
 import { DecisionDrawer, type DecisionContext } from './plan/DecisionDrawer';
 import { UnstickDrawer } from './plan/UnstickDrawer';
+import {
+  readStoredGroupBy,
+  rememberIssuesView,
+} from '@/features/issues/model/issuesView';
 import { useIssueTabIntent } from '@/features/issues/model/useIssueTabIntent';
 import { IssuesEmptyState } from './IssuesEmptyState';
 import { IssuesToolbar } from './IssuesToolbar';
@@ -65,27 +69,6 @@ type RawSearch = {
   groupBy?: 'none' | 'label' | 'milestone' | 'plan' | 'execution';
   issue?: number;
 };
-
-// The Lista / Grupos / Plan choice survives visits (#663). Per-browser only.
-const VIEW_STORAGE_KEY = 'fluke.issues.groupBy';
-const GROUP_BY_VALUES: IssueGroupBy[] = ['none', 'label', 'milestone', 'plan'];
-
-function readStoredGroupBy(): IssueGroupBy {
-  try {
-    const v = localStorage.getItem(VIEW_STORAGE_KEY) as IssueGroupBy | null;
-    return v && GROUP_BY_VALUES.includes(v) ? v : 'plan';
-  } catch {
-    return 'plan';
-  }
-}
-
-function storeGroupBy(v: IssueGroupBy) {
-  try {
-    localStorage.setItem(VIEW_STORAGE_KEY, v);
-  } catch {
-    // Storage blocked: the view simply isn't remembered.
-  }
-}
 
 function viewOf(groupBy: IssueGroupBy): IssuesView {
   if (groupBy === 'plan') return 'plan';
@@ -480,7 +463,7 @@ export function IssuesPage() {
   const handleFilterChange = useCallback(
     (newFilters: IssueFilters) => {
       if (newFilters.groupBy !== filters.groupBy) {
-        storeGroupBy(newFilters.groupBy);
+        rememberIssuesView(newFilters.groupBy);
       }
       updateUrl(filtersToUrlParams(newFilters));
     },
@@ -497,7 +480,7 @@ export function IssuesPage() {
             : filters.groupBy === 'label' || filters.groupBy === 'milestone'
               ? filters.groupBy
               : 'milestone';
-      storeGroupBy(groupBy);
+      rememberIssuesView(groupBy);
       updateUrl(filtersToUrlParams({ ...filters, groupBy }));
     },
     [filters, updateUrl]

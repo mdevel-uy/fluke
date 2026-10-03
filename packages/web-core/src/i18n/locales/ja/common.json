@@ -2035,6 +2035,48 @@
       "issues": "Issues: {{list}}",
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "ミッションの状態",
+      "understand": {
+        "title": "理解",
+        "todo": "Fluke が brief に必要なことを質問します",
+        "done": "質問に回答済み"
+      },
+      "brief": {
+        "title": "Brief + テンプレート",
+        "todo": "Fluke が brief を書きテンプレートを選びます",
+        "done": "v{{v}} 承認済み · {{template}}"
+      },
+      "breakdown": {
+        "title": "分解",
+        "todo": "Analyst が issue、wave、その流れを作ります",
+        "done": "{{issues}} 件の issue、{{waves}} wave"
+      },
+      "plan": {
+        "title": "内部計画",
+        "todo": "各 dev が自分の issue の手順を作ります",
+        "done": "dev が手順を作りました"
+      },
+      "run": {
+        "title": "実行",
+        "todo": "Issues の milestone を play で実行",
+        "done": "milestone 完了"
+      },
+      "template": {
+        "tddDesign": "TDD とデザインあり",
+        "tddNoDesign": "TDD あり、デザインなし",
+        "noTddDesign": "TDD なし、デザインあり",
+        "noTddNoDesign": "TDD もデザインもなし"
+      }
+    },
+    "proposal": {
+      "title": "Analyst の提案",
+      "decision": "決定待ち",
+      "openInIssues": "Issues で開く",
+      "message": "Analyst は {{issues}} 件の issue を {{waves}} wave で提案しています。私が選んだテンプレートの上で issue 間の流れを作りました。各 dev は開始時に自分の issue の内部計画を作ります。Issues に milestone ができているので play を押してください。",
+      "viewMilestone": "milestone を見る",
+      "runNow": "今すぐ実行"
     }
   },
   "profiles": {

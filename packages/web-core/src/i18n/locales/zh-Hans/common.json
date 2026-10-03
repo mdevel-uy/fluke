@@ -2035,6 +2035,48 @@
       "issues": "Issues: {{list}}",
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "任务状态",
+      "understand": {
+        "title": "理解",
+        "todo": "Fluke 询问写 brief 需要的信息",
+        "done": "问题已回答"
+      },
+      "brief": {
+        "title": "Brief + 模板",
+        "todo": "Fluke 撰写 brief 并选择模板",
+        "done": "v{{v}} 已批准 · {{template}}"
+      },
+      "breakdown": {
+        "title": "拆分",
+        "todo": "Analyst 创建 issue、wave 以及它们之间的流程",
+        "done": "{{issues}} 个 issue，{{waves}} 个 wave"
+      },
+      "plan": {
+        "title": "内部计划",
+        "todo": "每个 dev 为自己的 issue 制定步骤",
+        "done": "dev 已制定步骤"
+      },
+      "run": {
+        "title": "执行",
+        "todo": "Issues 中的 milestone，可 play",
+        "done": "milestone 已完成"
+      },
+      "template": {
+        "tddDesign": "含 TDD 和设计",
+        "tddNoDesign": "含 TDD，无设计",
+        "noTddDesign": "无 TDD，含设计",
+        "noTddNoDesign": "无 TDD 和设计"
+      }
+    },
+    "proposal": {
+      "title": "Analyst 的提案",
+      "decision": "待决定",
+      "openInIssues": "在 Issues 中打开",
+      "message": "Analyst 提议 {{issues}} 个 issue，分 {{waves}} 个 wave。它在我选的模板上搭建了 issue 之间的流程。每个 dev 开始时会制定自己 issue 的内部计划。milestone 已在 Issues 中，等你按 play。",
+      "viewMilestone": "查看 milestone",
+      "runNow": "立即执行"
     }
   },
   "profiles": {

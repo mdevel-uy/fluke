@@ -2058,6 +2058,48 @@
       "issues": "Issues: {{list}}",
       "optional": "opcional",
       "pickMission": "Abra una misión para ver su brief."
+    },
+    "steps": {
+      "title": "Estado de la misión",
+      "understand": {
+        "title": "Entender",
+        "todo": "Fluke pregunta lo que necesita para el brief",
+        "done": "Preguntas respondidas"
+      },
+      "brief": {
+        "title": "Brief + plantilla",
+        "todo": "Fluke arma el brief y elige la plantilla",
+        "done": "v{{v}} aprobado · {{template}}"
+      },
+      "breakdown": {
+        "title": "Despiece",
+        "todo": "El Analyst arma issues, waves y el flujo entre ellos",
+        "done": "{{issues}} issues en {{waves}} waves"
+      },
+      "plan": {
+        "title": "Plan interno",
+        "todo": "Cada dev arma los pasos de su issue",
+        "done": "Los devs armaron sus pasos"
+      },
+      "run": {
+        "title": "Ejecución",
+        "todo": "Milestone en Issues, con play",
+        "done": "Milestone completo"
+      },
+      "template": {
+        "tddDesign": "con TDD y diseño",
+        "tddNoDesign": "con TDD, sin diseño",
+        "noTddDesign": "sin TDD, con diseño",
+        "noTddNoDesign": "sin TDD ni diseño"
+      }
+    },
+    "proposal": {
+      "title": "Propuesta del Analyst",
+      "decision": "DECISIÓN",
+      "openInIssues": "Abrir en Issues",
+      "message": "El Analyst propone {{issues}} issues en {{waves}} waves. Armó el flujo entre los issues sobre la plantilla que elegí. Cada dev va a armar el plan interno de su issue al empezar. Ya está el milestone en Issues para que le des play.",
+      "viewMilestone": "Ver milestone",
+      "runNow": "Ejecutar ahora"
     }
   },
   "profiles": {
