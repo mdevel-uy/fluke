@@ -7,6 +7,8 @@ import { IssueTableRow } from './IssueTableRow';
 const TH_CLASS = 'px-3 text-left font-sans text-label uppercase text-low';
 
 interface IssuesGroupProps {
+  /** Group key, exposed as data-group-key so the page can scroll back to it. */
+  groupKey: string;
   title: string;
   count: number;
   /**
@@ -28,6 +30,7 @@ interface IssuesGroupProps {
 }
 
 export function IssuesGroup({
+  groupKey,
   title,
   count,
   subtitle,
@@ -46,7 +49,7 @@ export function IssuesGroup({
   if (issues.length === 0) return null;
 
   return (
-    <section className="mx-6 flex flex-col gap-2">
+    <section data-group-key={groupKey} className="mx-6 flex flex-col gap-2">
       <header className="flex flex-col gap-0.5 px-1">
         <div className="flex items-center gap-2">
           <h3 className="font-sans text-label uppercase text-normal">

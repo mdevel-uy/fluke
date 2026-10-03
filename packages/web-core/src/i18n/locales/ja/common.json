@@ -887,6 +887,7 @@
     "drawer": {
       "title": "Issue 詳細",
       "close": "閉じる",
+      "back": "戻る",
       "openOnGitHub": "GitHub で開く",
       "stateOpen": "オープン",
       "stateClosed": "クローズ",
@@ -946,7 +947,9 @@
         "doneTitle": "マイルストーン完了",
         "doneDetail": "すべての PR がマージ済み",
         "stuckTitle": "#{{n}} が対応を待っています",
-        "stuckDetail": "wave の残りは実行を続けます"
+        "stuckDetail": "wave の残りは実行を続けます",
+        "mergeTitle_other": "{{count}} 件の PR がマージ可能",
+        "mergeDetail": "GitHub で #{{n}} を確認してマージ"
       },
       "card": {
         "ready": "● 準備完了",
@@ -965,7 +968,9 @@
         "waitingYou": "{{name}} · 回答待ち",
         "ago": "{{age}}前",
         "unstick": "解除する",
-        "stuck": "⚠ 停止中"
+        "stuck": "⚠ 停止中",
+        "approved": "✓ 承認済み",
+        "prApproved": "{{name}} · 承認済み、マージ可能"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
       "legend": {
@@ -974,7 +979,8 @@
         "review": "レビュー中",
         "gate": "PM の判断",
         "queued": "キュー（空きスロットなし）",
-        "blocked": "前のウェーブ待ち"
+        "blocked": "前のウェーブ待ち",
+        "approved": "承認済み、マージ可能"
       },
       "empty": "マイルストーンとウェーブのある未完了の issue はありません。",
       "expand": "マイルストーンを展開",
@@ -988,7 +994,8 @@
         "working": "作業中",
         "decide": "#{{n}} を判断",
         "stuck_other": "{{count}} 件が対応待ち",
-        "unstick": "#{{n}} を解除"
+        "unstick": "#{{n}} を解除",
+        "approved": "{{count}} 件マージ可能"
       },
       "decision": {
         "eyebrow": "判断待ち",
@@ -1192,6 +1199,30 @@
           "canceledIssue": "#{{n}} をキャンセル。wave はそれなしで続きます",
           "fluke": "Fluke が #{{n}} について停止の状況を踏まえて会話を開きます"
         }
+      },
+      "star": "スターを付ける",
+      "unstar": "スターを外す",
+      "reorder": "ドラッグで並べ替え（矢印キーも可）",
+      "actions": "マイルストーンの操作",
+      "archive": "マイルストーンをアーカイブ",
+      "archiveHint": "GitHub でクローズし、Plan から外します。Issue は変更しません。",
+      "openOnGithub": "GitHub で開く",
+      "showIssues": "リストで Issue を表示",
+      "archived": "マイルストーンをアーカイブしました",
+      "archivedOpenIssues_other": "アーカイブしました · GitHub で {{count}} 件の Issue が未完了",
+      "undo": "元に戻す",
+      "restore": "復元",
+      "archivedSection": "アーカイブ済み",
+      "archivedOn": "{{date}} にアーカイブ",
+      "stillOpen_other": "{{count}} 件の Issue が未完了",
+      "archiveFailed": "GitHub のマイルストーンを変更できませんでした。gh のログインを確認してください。",
+      "starred": "スター付き",
+      "milestones": "マイルストーン",
+      "milestoneCount_other": "{{count}} 件のマイルストーン",
+      "density": {
+        "label": "表示密度",
+        "bands": "バンド",
+        "compact": "コンパクト"
       }
     }
   },

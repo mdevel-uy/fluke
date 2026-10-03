@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Archive,
+  ArrowLeft,
   ExternalLink,
   Gavel,
   Loader2,
@@ -31,6 +32,8 @@ interface IssueDetailDrawerProps {
   availableLabels: IssueLabel[];
   linkedTask?: WorkerTask;
   onClose: () => void;
+  /** Closes the drawer and brings the issue's group back into view. */
+  onBack: () => void;
   onAddLabel: (
     issueNumber: number,
     label: string,
@@ -216,6 +219,7 @@ export function IssueDetailDrawer({
   availableLabels,
   linkedTask,
   onClose,
+  onBack,
   onAddLabel,
   onRemoveLabel,
   onArchiveIssue: onCloseIssue,
@@ -325,6 +329,14 @@ export function IssueDetailDrawer({
             {/* Header */}
             <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border/60 shrink-0">
               <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="-ml-1 mb-2 inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-xs text-low hover:text-high hover:bg-secondary/60 transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t('issues.drawer.back')}
+                </button>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-ibm-plex-mono text-xs text-low shrink-0">
                     #{issue.number}

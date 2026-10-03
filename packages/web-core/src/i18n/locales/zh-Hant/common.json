@@ -887,6 +887,7 @@
     "drawer": {
       "title": "Issue 詳情",
       "close": "關閉",
+      "back": "返回",
       "openOnGitHub": "在 GitHub 開啟",
       "stateOpen": "開啟",
       "stateClosed": "已關閉",
@@ -946,7 +947,9 @@
         "doneTitle": "里程碑完成",
         "doneDetail": "所有 PR 已合併",
         "stuckTitle": "#{{n}} 需要你處理",
-        "stuckDetail": "wave 的其餘部分繼續執行"
+        "stuckDetail": "wave 的其餘部分繼續執行",
+        "mergeTitle_other": "{{count}} 個 PR 可合併",
+        "mergeDetail": "在 GitHub 上審閱並合併 #{{n}}"
       },
       "card": {
         "ready": "● 就緒",
@@ -965,7 +968,9 @@
         "waitingYou": "{{name}} · 等待你的回覆",
         "ago": "{{age}}前",
         "unstick": "解除卡住",
-        "stuck": "⚠ 卡住"
+        "stuck": "⚠ 卡住",
+        "approved": "✓ 已核准",
+        "prApproved": "{{name}} · 已核准，可合併"
       },
       "loose": "無里程碑或無波次 · 逐一分配",
       "legend": {
@@ -974,7 +979,8 @@
         "review": "審查中",
         "gate": "PM 決定",
         "queued": "排隊中（無空閒槽位）",
-        "blocked": "等待上一波次"
+        "blocked": "等待上一波次",
+        "approved": "已核准，可合併"
       },
       "empty": "沒有帶里程碑和波次的未關閉 issue 可供規劃。",
       "expand": "展開里程碑",
@@ -988,7 +994,8 @@
         "working": "工作中",
         "decide": "決定 #{{n}}",
         "stuck_other": "{{count}} 個需要你處理",
-        "unstick": "解除 #{{n}}"
+        "unstick": "解除 #{{n}}",
+        "approved": "{{count}} 個可合併"
       },
       "decision": {
         "eyebrow": "待決定",
@@ -1192,6 +1199,30 @@
           "canceledIssue": "#{{n}} 已取消；wave 繼續進行",
           "fluke": "Fluke 帶著卡住的背景開啟關於 #{{n}} 的對話"
         }
+      },
+      "star": "加上星號",
+      "unstar": "移除星號",
+      "reorder": "拖曳以重新排序（或使用方向鍵）",
+      "actions": "里程碑操作",
+      "archive": "封存里程碑",
+      "archiveHint": "在 GitHub 上關閉並從計畫中隱藏。不會更動 issue。",
+      "openOnGithub": "在 GitHub 上開啟",
+      "showIssues": "在清單中檢視 issue",
+      "archived": "里程碑已封存",
+      "archivedOpenIssues_other": "已封存 · GitHub 上仍有 {{count}} 個未關閉的 issue",
+      "undo": "復原",
+      "restore": "還原",
+      "archivedSection": "已封存",
+      "archivedOn": "封存於 {{date}}",
+      "stillOpen_other": "{{count}} 個 issue 未關閉",
+      "archiveFailed": "無法在 GitHub 上修改里程碑。請確認 gh 已登入。",
+      "starred": "星號",
+      "milestones": "里程碑",
+      "milestoneCount_other": "{{count}} 個里程碑",
+      "density": {
+        "label": "密度",
+        "bands": "條帶",
+        "compact": "精簡"
       }
     }
   },

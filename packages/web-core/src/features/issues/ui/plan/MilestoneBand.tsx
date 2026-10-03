@@ -13,6 +13,13 @@ import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
 import { CollapsedSummary } from './CollapsedSummary';
 import type { DecisionContext } from './DecisionDrawer';
+import {
+  DragHandle,
+  MilestoneMenu,
+  MilestoneTagChips,
+  StarButton,
+  type MilestoneActions,
+} from './MilestoneControls';
 
 /**
  * One milestone of the Plan view (design/mockups/fluke-v2/issues-plan.html,
@@ -42,6 +49,8 @@ export interface MilestoneBandProps {
   /** Issues that need a person (#694), by number. */
   blockers?: ReadonlyMap<number, IssueBlocker>;
   onUnstick?: (issue: RepoIssue) => void;
+  /** Star, reorder, tags and the actions menu (milestone-actions mockup). */
+  actions?: MilestoneActions;
 }
 
 type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
@@ -49,7 +58,10 @@ type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
 const EDGE_TONE = (state: PlanCardState): Edge['tone'] =>
   state === 'done'
     ? 'done'
-    : state === 'running' || state === 'review' || state === 'queued'
+    : state === 'running' ||
+        state === 'review' ||
+        state === 'approved' ||
+        state === 'queued'
       ? 'active'
       : 'blocked';
 
@@ -105,6 +117,7 @@ export function MilestoneBand({
   busy,
   blockers,
   onUnstick,
+  actions,
 }: MilestoneBandProps) {
   const { t } = useTranslation('common');
   const lanesRef = useRef<HTMLDivElement>(null);
@@ -155,21 +168,21 @@ export function MilestoneBand({
   const runActive = run?.status === 'running' || run?.status === 'waiting';
   const running = run?.status === 'running' || band.status.kind === 'running';
   const waiting = run?.status === 'waiting';
-  // The decision drawer needs the wave, the milestone and the later issues
-  // the decision unblocks.
+  // Play circle tone: red on error, amber when a person must act (decision,
+  // merge), green while agents work.
+  const failed = waiting && run?.waiting_reason?.startsWith('failed');
+  const tone =
+    hasStuck || failed
+      ? 'border-md-error bg-md-error/20 text-md-error'
+      : waiting ||
+          band.status.kind === 'merge' ||
+          band.status.kind === 'decision'
+        ? 'border-warning bg-warning/20 text-warning'
+        : running
+          ? 'border-success bg-success/20 text-success'
+          : null;
   const decide = onDecide
-    ? (issue: RepoIssue) => {
-        const wave =
-          band.waves.find((w) => w.cards.some((c) => c.issue.id === issue.id))
-            ?.wave ?? null;
-        onDecide(issue, {
-          wave,
-          milestone: band.milestone,
-          unblocks: band.waves
-            .filter((w) => wave !== null && w.wave > wave)
-            .flatMap((w) => w.cards.map((c) => c.issue.number)),
-        });
-      }
+    ? (issue: RepoIssue) => onDecide(issue, decisionContext(band, issue))
     : undefined;
   const percent = band.total ? (100 * band.done) / band.total : 0;
   const markerId = (tone: Edge['tone']) =>
@@ -181,8 +194,12 @@ export function MilestoneBand({
         'overflow-hidden rounded-[10px] border border-md-outline-variant bg-md-surface-container-low',
         running && 'border-md-primary/60',
         waiting && 'border-warning/60',
-        hasStuck && 'border-md-error/65'
+        hasStuck && 'border-md-error/65',
+        actions?.reorder.dragging && 'opacity-40',
+        actions?.reorder.over && 'shadow-[0_-3px_0_0_hsl(var(--md-primary))]'
       )}
+      onDragOver={actions?.reorder.onDragOver}
+      onDrop={actions?.reorder.onDrop}
     >
       <div
         className={cn(
@@ -190,6 +207,7 @@ export function MilestoneBand({
           !collapsed && 'border-b border-md-outline-variant'
         )}
       >
+        {actions && <DragHandle reorder={actions.reorder} className="-mx-2" />}
         <button
           type="button"
           onClick={onToggle}
@@ -201,15 +219,25 @@ export function MilestoneBand({
         >
           <ChevronIcon collapsed={collapsed} />
         </button>
+        {actions && (
+          <StarButton
+            starred={actions.starred}
+            onToggle={actions.onToggleStar}
+            className="-ml-2"
+          />
+        )}
         <button
           type="button"
           disabled={busy || run?.status === 'done'}
           onClick={runActive ? onPause : onPlay}
           aria-label={t(runActive ? 'issues.plan.pause' : 'issues.plan.play')}
           className={cn(
-            'grid size-[34px] flex-none place-items-center rounded-full border border-md-primary text-md-primary hover:bg-md-primary/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
-            runActive && 'bg-md-primary text-md-on-primary hover:bg-md-primary',
-            run?.status === 'done' && 'border-success text-success'
+            // No twMerge in cn(): base color classes must not overlap the
+            // tone ones, or CSS order decides (the pause icon went invisible).
+            'grid size-[34px] flex-none place-items-center rounded-full border hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
+            run?.status === 'done'
+              ? 'border-success text-success'
+              : (tone ?? 'border-md-primary text-md-primary')
           )}
         >
           <PlayIcon
@@ -219,12 +247,15 @@ export function MilestoneBand({
           />
         </button>
         <div className="grid min-w-0 flex-[1_1_260px] gap-0.5">
-          <h2
-            onClick={onToggle}
-            className="m-0 cursor-pointer text-[15px] font-semibold text-high [text-wrap:balance]"
-          >
-            {band.milestone}
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2
+              onClick={onToggle}
+              className="m-0 cursor-pointer text-[15px] font-semibold text-high [text-wrap:balance]"
+            >
+              {band.milestone}
+            </h2>
+            {actions && <MilestoneTagChips tags={actions.tags} max={3} />}
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-normal">
             <BandStatus band={band} run={run} />
           </div>
@@ -250,6 +281,7 @@ export function MilestoneBand({
             {t('issues.plan.reset')}
           </button>
         )}
+        {actions && <MilestoneMenu actions={actions} />}
       </div>
 
       {collapsed ? (
@@ -371,7 +403,24 @@ export function MilestoneBand({
   );
 }
 
-function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
+/**
+ * What the decision drawer needs: the wave, the milestone and the later
+ * issues the decision unblocks.
+ */
+export function decisionContext(band: Band, issue: RepoIssue): DecisionContext {
+  const wave =
+    band.waves.find((w) => w.cards.some((c) => c.issue.id === issue.id))
+      ?.wave ?? null;
+  return {
+    wave,
+    milestone: band.milestone,
+    unblocks: band.waves
+      .filter((w) => wave !== null && w.wave > wave)
+      .flatMap((w) => w.cards.map((c) => c.issue.number)),
+  };
+}
+
+export function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
   const { t } = useTranslation('common');
   const line = (title: string, detail: string, tone: string) => (
     <>
@@ -433,6 +482,13 @@ function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
     );
   }
   const s = band.status;
+  if (s.kind === 'merge') {
+    return line(
+      t('issues.plan.status.mergeTitle', { count: s.count }),
+      t('issues.plan.status.mergeDetail', { n: s.issueNumber }),
+      'text-warning'
+    );
+  }
   if (run?.status === 'running' || s.kind === 'running') {
     return line(
       t('issues.plan.status.runningTitle', { n: wave }),

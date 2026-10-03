@@ -19,6 +19,8 @@ export type PlanCardState =
   | 'queued'
   | 'running'
   | 'review'
+  /** Reviewer approved the PR: waits for a person to merge it. */
+  | 'approved'
   | 'stuck'
   | 'done';
 
@@ -36,6 +38,8 @@ export interface PlanWave {
 export type PlanBandStatus =
   | { kind: 'ready' }
   | { kind: 'decision'; issueNumber: number }
+  /** Nothing else is moving: approved PRs wait for a person to merge. */
+  | { kind: 'merge'; issueNumber: number; count: number }
   | { kind: 'running'; wave: number; count: number };
 
 export interface MilestoneBand {
@@ -67,7 +71,7 @@ const TASK_STATE: Record<string, PlanCardState> = {
   // Agent waiting for the user's answer (#662) is still running work.
   waiting_user: 'running',
   in_review: 'review',
-  approved: 'review',
+  approved: 'approved',
   done: 'done',
 };
 
@@ -153,12 +157,19 @@ export function buildMilestonePlan(
       (c) =>
         c.state === 'queued' || c.state === 'running' || c.state === 'review'
     );
+    const approved = cards.filter((c) => c.state === 'approved');
     const status: PlanBandStatus =
       active && currentWave !== null
         ? { kind: 'running', wave: currentWave, count: current.length }
-        : pending.length > 0 && pending.every((c) => c.state === 'gate')
-          ? { kind: 'decision', issueNumber: pending[0].issue.number }
-          : { kind: 'ready' };
+        : approved.length > 0
+          ? {
+              kind: 'merge',
+              issueNumber: approved[0].issue.number,
+              count: approved.length,
+            }
+          : pending.length > 0 && pending.every((c) => c.state === 'gate')
+            ? { kind: 'decision', issueNumber: pending[0].issue.number }
+            : { kind: 'ready' };
 
     bands.push({
       milestone,

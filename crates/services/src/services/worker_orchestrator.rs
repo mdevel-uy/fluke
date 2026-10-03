@@ -149,8 +149,12 @@ impl Drop for FinalizingGuard {
 /// handles push and PR creation automatically on run completion.
 pub const WORKER_FINAL_INSTRUCTION_TEMPLATE: &str = "\
 When you finish the work above, commit your changes with clear messages and \
-verify that `pnpm run check` passes for frontend changes (`cargo check` runs \
-in CI for backend changes). \
+verify only what you touched: `pnpm --filter <package> run check` for each \
+frontend package you changed, `cargo check -p <crate>` for each Rust crate \
+you changed. Do NOT run `pnpm run check`, `cargo check --workspace` or \
+builds/tests of code you did not touch: this worktree starts with no Rust \
+build cache, a full build takes 15+ minutes and saturates the machine, and \
+CI validates everything else. \
 The system will push the branch and open the pull request against \
 `{target_branch}` automatically once your run ends — do NOT create the PR \
 yourself. \

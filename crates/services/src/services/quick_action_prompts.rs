@@ -43,8 +43,9 @@ pub const RESOLVE_MERGE_CONFLICTS_PROMPT: &str = r#"Tu PR tiene conflictos de me
    feature. Ante solapamiento directo, combiná ambos lados — no pierdas
    ninguno. En los locales de i18n conservá los dos grupos de keys y
    validá que el JSON quede bien formado.
-3. Verificá el build/typecheck que corresponda (pnpm run check) antes de
-   pushear.
+3. Verificá el typecheck sólo de los paquetes/crates que tocaste
+   (`pnpm --filter <paquete> run check`, `cargo check -p <crate>`; nunca
+   `pnpm run check` ni `--workspace`, el CI valida el resto) antes de pushear.
 4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR
    nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,
    git te lo va a decir al pushear: usá `git push origin HEAD:<rama-del-PR>`
@@ -92,8 +93,9 @@ pub fn format_resolve_merge_conflicts_prompt_with_conflicts(
             cerrar el merge (NO uses squash — el commit de merge tiene que preservar \
             la ancestría). Podés revisar el estado con `git status` y confirmar que \
             no quedan entradas `Unmerged paths`.\n\
-         3. Verificá el build/typecheck que corresponda (`pnpm run check`) antes de \
-            pushear.\n\
+         3. Verificá el typecheck sólo de los paquetes/crates que tocaste \
+            (`pnpm --filter <paquete> run check`, `cargo check -p <crate>`; nunca \
+            `pnpm run check` ni `--workspace`, el CI valida el resto) antes de pushear.\n\
          4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR \
             nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR, \
             usá `git push origin HEAD:<rama-del-PR>` (la rama del PR es el upstream \
@@ -168,8 +170,9 @@ pub fn format_address_pr_comments_prompt(
             en `.vk/actions.json` en la raíz del worktree — el sistema las publica\n\
             con tu identidad después de la corrida. NO ejecutes escrituras a\n\
             GitHub vos mismo.\n\
-         3. Aplicá los cambios en tu rama, corré el build/typecheck (`pnpm run check`\n\
-            o `cargo check` según corresponda) y ejecutá los tests que toquen las\n\
+         3. Aplicá los cambios en tu rama, corré el typecheck sólo de lo que tocaste\n\
+            (`pnpm --filter <paquete> run check` o `cargo check -p <crate>`; nunca\n\
+            `pnpm run check` ni `--workspace`) y ejecutá los tests que toquen las\n\
             zonas modificadas.\n\
          4. Pusheá a ESTA misma rama (actualiza el PR existente). NO crees un PR\n\
             nuevo. Si tu rama local tiene un nombre distinto al de la rama del PR,\n\

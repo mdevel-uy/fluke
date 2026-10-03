@@ -43,7 +43,7 @@ Before declaring a multi-step implementation complete, answer: "What happens if 
 
 ## Build and Typecheck
 
-The build and typecheck must pass before you finish. Run `pnpm run check` for frontend and TypeScript changes. `cargo check` runs in CI for backend changes.
+The typecheck of what you changed must pass before you finish. Run `pnpm --filter <package> run check` for each frontend package you touched, and `cargo check -p <crate>` for each Rust crate you touched. Never run `pnpm run check`, `cargo check --workspace` or builds/tests of code you did not touch: your worktree starts with no Rust build cache, a full build takes 15+ minutes and saturates the machine, and CI validates the rest.
 
 ## CI Must Be Green
 

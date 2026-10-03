@@ -1106,6 +1106,7 @@
     "drawer": {
       "title": "Issue detail",
       "close": "Close",
+      "back": "Back",
       "openOnGitHub": "Open on GitHub",
       "stateOpen": "open",
       "stateClosed": "closed",
@@ -1167,7 +1168,10 @@
         "doneTitle": "Milestone complete",
         "doneDetail": "all PRs merged",
         "stuckTitle": "#{{n}} needs your help",
-        "stuckDetail": "the rest of the wave keeps running"
+        "stuckDetail": "the rest of the wave keeps running",
+        "mergeTitle_one": "{{count}} PR ready to merge",
+        "mergeTitle_other": "{{count}} PRs ready to merge",
+        "mergeDetail": "review and merge #{{n}} on GitHub"
       },
       "card": {
         "ready": "● ready",
@@ -1186,7 +1190,9 @@
         "waitingYou": "{{name}} · waiting for your answer",
         "ago": "{{age}} ago",
         "unstick": "Unblock",
-        "stuck": "⚠ stuck"
+        "stuck": "⚠ stuck",
+        "approved": "✓ approved",
+        "prApproved": "{{name}} · approved, ready to merge"
       },
       "loose": "No milestone or no wave · dispatched one at a time",
       "legend": {
@@ -1195,7 +1201,8 @@
         "review": "In review",
         "gate": "PM decision",
         "queued": "Queued (no free slot)",
-        "blocked": "Waits for the previous wave"
+        "blocked": "Waits for the previous wave",
+        "approved": "Approved, ready to merge"
       },
       "empty": "There are no open issues with a milestone and wave to plan.",
       "expand": "Expand milestone",
@@ -1210,7 +1217,8 @@
         "decide": "Decide #{{n}}",
         "stuck_one": "{{count}} needs your help",
         "stuck_other": "{{count}} need your help",
-        "unstick": "Unblock #{{n}}"
+        "unstick": "Unblock #{{n}}",
+        "approved": "{{count}} ready to merge"
       },
       "decision": {
         "eyebrow": "Pending decision",
@@ -1415,6 +1423,33 @@
           "canceledIssue": "#{{n}} canceled; the wave goes on without it",
           "fluke": "Fluke opens a conversation about #{{n}} with the context of the block"
         }
+      },
+      "star": "Star milestone",
+      "unstar": "Unstar milestone",
+      "reorder": "Drag to reorder (or use the arrow keys)",
+      "actions": "Milestone actions",
+      "archive": "Archive milestone",
+      "archiveHint": "Closes it on GitHub and hides it from Plan. Issues are not touched.",
+      "openOnGithub": "Open on GitHub",
+      "showIssues": "Show issues in list",
+      "archived": "Milestone archived",
+      "archivedOpenIssues_one": "Milestone archived · {{count}} issue still open on GitHub",
+      "archivedOpenIssues_other": "Milestone archived · {{count}} issues still open on GitHub",
+      "undo": "Undo",
+      "restore": "Restore",
+      "archivedSection": "Archived",
+      "archivedOn": "archived {{date}}",
+      "stillOpen_one": "{{count}} issue still open",
+      "stillOpen_other": "{{count}} issues still open",
+      "archiveFailed": "Could not change the milestone on GitHub. Check that gh is signed in.",
+      "starred": "Starred",
+      "milestones": "Milestones",
+      "milestoneCount_one": "{{count}} milestone",
+      "milestoneCount_other": "{{count}} milestones",
+      "density": {
+        "label": "Density",
+        "bands": "Bands",
+        "compact": "Compact"
       }
     }
   },

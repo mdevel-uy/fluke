@@ -887,6 +887,7 @@
     "drawer": {
       "title": "이슈 상세",
       "close": "닫기",
+      "back": "뒤로",
       "openOnGitHub": "GitHub에서 열기",
       "stateOpen": "열림",
       "stateClosed": "닫힘",
@@ -946,7 +947,9 @@
         "doneTitle": "마일스톤 완료",
         "doneDetail": "모든 PR 병합됨",
         "stuckTitle": "#{{n}}에 도움이 필요합니다",
-        "stuckDetail": "wave의 나머지는 계속 실행됩니다"
+        "stuckDetail": "wave의 나머지는 계속 실행됩니다",
+        "mergeTitle_other": "PR {{count}}개 병합 가능",
+        "mergeDetail": "GitHub에서 #{{n}} 검토 후 병합"
       },
       "card": {
         "ready": "● 준비됨",
@@ -965,7 +968,9 @@
         "waitingYou": "{{name}} · 답변 대기 중",
         "ago": "{{age}} 전",
         "unstick": "해결하기",
-        "stuck": "⚠ 멈춤"
+        "stuck": "⚠ 멈춤",
+        "approved": "✓ 승인됨",
+        "prApproved": "{{name}} · 승인됨, 병합 가능"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
       "legend": {
@@ -974,7 +979,8 @@
         "review": "리뷰 중",
         "gate": "PM 결정",
         "queued": "대기열 (빈 슬롯 없음)",
-        "blocked": "이전 웨이브 대기"
+        "blocked": "이전 웨이브 대기",
+        "approved": "승인됨, 병합 가능"
       },
       "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다.",
       "expand": "마일스톤 펼치기",
@@ -988,7 +994,8 @@
         "working": "작업 중",
         "decide": "#{{n}} 결정",
         "stuck_other": "{{count}}개가 도움 필요",
-        "unstick": "#{{n}} 해결하기"
+        "unstick": "#{{n}} 해결하기",
+        "approved": "{{count}}개 병합 가능"
       },
       "decision": {
         "eyebrow": "결정 대기",
@@ -1192,6 +1199,30 @@
           "canceledIssue": "#{{n}} 취소됨. wave는 그것 없이 계속됩니다",
           "fluke": "Fluke가 멈춤 맥락과 함께 #{{n}}에 대한 대화를 엽니다"
         }
+      },
+      "star": "즐겨찾기",
+      "unstar": "즐겨찾기 해제",
+      "reorder": "드래그하여 순서 변경 (화살표 키 가능)",
+      "actions": "마일스톤 작업",
+      "archive": "마일스톤 보관",
+      "archiveHint": "GitHub에서 닫고 Plan에서 숨깁니다. 이슈는 변경되지 않습니다.",
+      "openOnGithub": "GitHub에서 열기",
+      "showIssues": "목록에서 이슈 보기",
+      "archived": "마일스톤을 보관했습니다",
+      "archivedOpenIssues_other": "보관됨 · GitHub에 열린 이슈 {{count}}개",
+      "undo": "실행 취소",
+      "restore": "복원",
+      "archivedSection": "보관됨",
+      "archivedOn": "{{date}} 보관",
+      "stillOpen_other": "열린 이슈 {{count}}개",
+      "archiveFailed": "GitHub에서 마일스톤을 변경할 수 없습니다. gh 로그인을 확인하세요.",
+      "starred": "즐겨찾기",
+      "milestones": "마일스톤",
+      "milestoneCount_other": "마일스톤 {{count}}개",
+      "density": {
+        "label": "밀도",
+        "bands": "밴드",
+        "compact": "간결"
       }
     }
   },
