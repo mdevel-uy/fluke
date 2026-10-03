@@ -2043,6 +2043,48 @@
       "issues": "Issues: {{list}}",
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "État de la mission",
+      "understand": {
+        "title": "Comprendre",
+        "todo": "Fluke demande ce qu’il lui faut pour le brief",
+        "done": "Questions répondues"
+      },
+      "brief": {
+        "title": "Brief + modèle",
+        "todo": "Fluke rédige le brief et choisit le modèle",
+        "done": "v{{v}} approuvé · {{template}}"
+      },
+      "breakdown": {
+        "title": "Découpage",
+        "todo": "L’Analyst crée les issues, les waves et le flux entre eux",
+        "done": "{{issues}} issues en {{waves}} waves"
+      },
+      "plan": {
+        "title": "Plan interne",
+        "todo": "Chaque dev définit les étapes de son issue",
+        "done": "Les devs ont défini leurs étapes"
+      },
+      "run": {
+        "title": "Exécution",
+        "todo": "Milestone dans Issues, avec play",
+        "done": "Milestone terminé"
+      },
+      "template": {
+        "tddDesign": "avec TDD et design",
+        "tddNoDesign": "avec TDD, sans design",
+        "noTddDesign": "sans TDD, avec design",
+        "noTddNoDesign": "sans TDD ni design"
+      }
+    },
+    "proposal": {
+      "title": "Proposition de l’Analyst",
+      "decision": "DÉCISION",
+      "openInIssues": "Ouvrir dans Issues",
+      "message": "L’Analyst propose {{issues}} issues en {{waves}} waves. Il a construit le flux entre les issues sur le modèle que j’ai choisi. Chaque dev définira le plan interne de son issue en commençant. Le milestone est prêt dans Issues pour que vous lanciez play.",
+      "viewMilestone": "Voir le milestone",
+      "runNow": "Exécuter maintenant"
     }
   },
   "profiles": {

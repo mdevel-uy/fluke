@@ -2058,6 +2058,48 @@
       "issues": "Issues: {{list}}",
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "Mission status",
+      "understand": {
+        "title": "Understand",
+        "todo": "Fluke asks what it needs for the brief",
+        "done": "Questions answered"
+      },
+      "brief": {
+        "title": "Brief + template",
+        "todo": "Fluke writes the brief and picks the template",
+        "done": "v{{v}} approved · {{template}}"
+      },
+      "breakdown": {
+        "title": "Breakdown",
+        "todo": "The Analyst builds issues, waves and the flow between them",
+        "done": "{{issues}} issues in {{waves}} waves"
+      },
+      "plan": {
+        "title": "Internal plan",
+        "todo": "Each dev lays out the steps of their issue",
+        "done": "The devs laid out their steps"
+      },
+      "run": {
+        "title": "Execution",
+        "todo": "Milestone in Issues, with play",
+        "done": "Milestone complete"
+      },
+      "template": {
+        "tddDesign": "with TDD and design",
+        "tddNoDesign": "with TDD, no design",
+        "noTddDesign": "no TDD, with design",
+        "noTddNoDesign": "no TDD, no design"
+      }
+    },
+    "proposal": {
+      "title": "Analyst proposal",
+      "decision": "DECISION",
+      "openInIssues": "Open in Issues",
+      "message": "The Analyst proposes {{issues}} issues in {{waves}} waves. It built the flow between the issues on the template I picked. Each dev will lay out the internal plan of their issue when they start. The milestone is ready in Issues for you to press play.",
+      "viewMilestone": "View milestone",
+      "runNow": "Run now"
     }
   },
   "profiles": {

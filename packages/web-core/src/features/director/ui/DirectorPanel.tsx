@@ -27,6 +27,7 @@ import {
 import { DirectorChat } from './DirectorChat';
 import { FlukeMark } from './FlukeMark';
 import { QuickReplies } from './QuickReplies';
+import { ProposalMessage } from './MissionProgress';
 
 export function DirectorHeader({ context }: { context: string }) {
   const { t } = useTranslation('common');
@@ -323,14 +324,17 @@ export function MissionConversation({ missionId }: { missionId: string }) {
       workspaceContext={workspaceContext}
       selectedSession={session}
       aboveComposer={
-        <QuickReplies
-          key={detail.mission.pending_questions
-            .map((q) => q.question)
-            .join('|')}
-          questions={detail.mission.pending_questions}
-          disabled={running || send.isPending}
-          onSend={(text) => send.mutate(text)}
-        />
+        <>
+          <ProposalMessage detail={detail} />
+          <QuickReplies
+            key={detail.mission.pending_questions
+              .map((q) => q.question)
+              .join('|')}
+            questions={detail.mission.pending_questions}
+            disabled={running || send.isPending}
+            onSend={(text) => send.mutate(text)}
+          />
+        </>
       }
     />
   );

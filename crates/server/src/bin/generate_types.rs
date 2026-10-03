@@ -146,6 +146,7 @@ fn generate_types_content() -> String {
         services::services::director::FieldCheck::decl(),
         services::services::director::MissionItemView::decl(),
         services::services::director::MissionDetail::decl(),
+        services::services::director::MissionProposalIssue::decl(),
         server::routes::director::MissionSummary::decl(),
         server::routes::director::CreateMissionRequest::decl(),
         server::routes::director::UpdateMissionRequest::decl(),

@@ -16,6 +16,7 @@ import {
   useSyncUiContext,
 } from '../model/useMissions';
 import { BriefView } from './BriefView';
+import { MissionStepper, ProposalPanel } from './MissionProgress';
 import {
   DirectorBody,
   DirectorHeader,
@@ -130,7 +131,11 @@ function DirectorExpanded({
         </div>
         <div className="w-[420px] shrink-0 overflow-y-auto">
           {detail ? (
-            <BriefView detail={detail} />
+            <div className="grid gap-3 p-base">
+              <MissionStepper detail={detail} />
+              <ProposalPanel detail={detail} />
+              <BriefView detail={detail} />
+            </div>
           ) : (
             <p className="p-base text-xs text-low">
               {t('director.brief.pickMission')}

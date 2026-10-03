@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use db::models::{
     mission::{self, Mission, MissionBrief, MissionItem, PendingQuestion},
     repo::Repo,
+    repo_issue::RepoIssue,
     worker::{CreateWorker, ROLE_ORCHESTRATOR, Worker},
 };
 use executors::{
@@ -147,6 +148,89 @@ pub struct MissionDetail {
     pub briefs: Vec<MissionBrief>,
     #[ts(type = "Array<number>")]
     pub issue_numbers: Vec<i64>,
+    /// Status of the Analyst's breakdown task, once the brief was handed over.
+    pub analyst_status: Option<String>,
+    /// The issues the Analyst created, with milestone and wave (#700).
+    pub proposal: Vec<MissionProposalIssue>,
+    /// `none` (nothing dispatched), `planning` (devs started, no plan steps
+    /// yet) or `running` (at least one dev submitted its plan).
+    pub execution: String,
+}
+
+/// An issue of the Analyst's breakdown, for the mission stepper (#700).
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct MissionProposalIssue {
+    #[ts(type = "number")]
+    pub number: i64,
+    pub title: String,
+    pub state: String,
+    pub milestone: Option<String>,
+    #[ts(type = "number | null")]
+    pub wave: Option<i64>,
+    /// Carries `pm:decision`: it waits for the user.
+    pub decision: bool,
+}
+
+/// Issues of the mission as the Analyst left them on GitHub.
+async fn proposal(
+    pool: &Pool,
+    repo_id: Option<Uuid>,
+    numbers: &[i64],
+) -> Result<Vec<MissionProposalIssue>, sqlx::Error> {
+    let Some(repo_id) = repo_id else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for &n in numbers {
+        let Some(issue) = RepoIssue::find_by_repo_and_number(pool, repo_id, n).await? else {
+            continue;
+        };
+        let labels: Vec<String> = serde_json::from_str::<Vec<serde_json::Value>>(&issue.labels)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|l| l.get("name")?.as_str().map(str::to_string))
+            .collect();
+        out.push(MissionProposalIssue {
+            number: n,
+            title: issue.title,
+            state: issue.state,
+            milestone: issue.milestone,
+            wave: labels
+                .iter()
+                .find_map(|l| crate::services::execution_labels::wave_number(l)),
+            decision: labels.iter().any(|l| l == "pm:decision"),
+        });
+    }
+    Ok(out)
+}
+
+/// How far the execution of the mission's issues went (see `execution`).
+async fn execution(
+    pool: &Pool,
+    repo_id: Option<Uuid>,
+    numbers: &[i64],
+) -> Result<&'static str, sqlx::Error> {
+    let Some(repo_id) = repo_id else {
+        return Ok("none");
+    };
+    let mut started = false;
+    for &n in numbers {
+        let (tasks, planned): (i64, i64) = sqlx::query_as(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(EXISTS (SELECT 1 FROM plan_steps p WHERE p.workspace_id = t.workspace_id)), 0)
+               FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
+              WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND w.role = 'developer'",
+        )
+        .bind(repo_id)
+        .bind(n)
+        .fetch_one(pool)
+        .await?;
+        if planned > 0 {
+            return Ok("running");
+        }
+        started |= tasks > 0;
+    }
+    Ok(if started { "planning" } else { "none" })
 }
 
 pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx::Error> {
@@ -166,9 +250,24 @@ pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx
         .collect();
     roles_needed.sort();
     roles_needed.dedup();
+    let issue_numbers = Mission::issue_numbers(pool, mission.id).await?;
+    let analyst_status = match mission.analyst_task_id {
+        Some(id) => {
+            sqlx::query_scalar("SELECT status FROM worker_tasks WHERE id = ?1")
+                .bind(id)
+                .fetch_optional(pool)
+                .await?
+        }
+        None => None,
+    };
     Ok(MissionDetail {
         briefs: Mission::briefs(pool, mission.id).await?,
-        issue_numbers: Mission::issue_numbers(pool, mission.id).await?,
+        proposal: proposal(pool, mission.repo_id, &issue_numbers).await?,
+        execution: execution(pool, mission.repo_id, &issue_numbers)
+            .await?
+            .to_string(),
+        analyst_status,
+        issue_numbers,
         complete: missing.is_empty(),
         mission,
         repo_name,

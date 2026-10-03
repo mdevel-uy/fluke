@@ -2035,6 +2035,48 @@
       "issues": "Issues: {{list}}",
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
+    },
+    "steps": {
+      "title": "미션 상태",
+      "understand": {
+        "title": "이해",
+        "todo": "Fluke가 brief에 필요한 것을 묻습니다",
+        "done": "질문에 답함"
+      },
+      "brief": {
+        "title": "Brief + 템플릿",
+        "todo": "Fluke가 brief를 쓰고 템플릿을 고릅니다",
+        "done": "v{{v}} 승인 · {{template}}"
+      },
+      "breakdown": {
+        "title": "분해",
+        "todo": "Analyst가 issue, wave, 그 사이의 흐름을 만듭니다",
+        "done": "issue {{issues}}개, wave {{waves}}개"
+      },
+      "plan": {
+        "title": "내부 계획",
+        "todo": "각 dev가 자기 issue의 단계를 만듭니다",
+        "done": "dev들이 단계를 만들었습니다"
+      },
+      "run": {
+        "title": "실행",
+        "todo": "Issues의 milestone을 play로 실행",
+        "done": "milestone 완료"
+      },
+      "template": {
+        "tddDesign": "TDD와 디자인 포함",
+        "tddNoDesign": "TDD 포함, 디자인 없음",
+        "noTddDesign": "TDD 없음, 디자인 포함",
+        "noTddNoDesign": "TDD와 디자인 없음"
+      }
+    },
+    "proposal": {
+      "title": "Analyst 제안",
+      "decision": "결정 필요",
+      "openInIssues": "Issues에서 열기",
+      "message": "Analyst가 issue {{issues}}개를 wave {{waves}}개로 제안합니다. 내가 고른 템플릿 위에 issue 사이의 흐름을 만들었습니다. 각 dev는 시작할 때 자기 issue의 내부 계획을 만듭니다. Issues에 milestone이 준비됐으니 play를 누르세요.",
+      "viewMilestone": "milestone 보기",
+      "runNow": "지금 실행"
     }
   },
   "profiles": {
