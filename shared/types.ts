@@ -415,7 +415,31 @@ output: string | null,
  */
 steps: Array<IssuePhaseStep>, };
 
-export type IssuePlanResponse = { template: string, pr_url: string | null, pr_number: number | null, phases: Array<IssuePhase>, };
+export type IssuePlanResponse = { template: string, pr_url: string | null, pr_number: number | null, phases: Array<IssuePhase>, 
+/**
+ * Why the issue needs a person right now, if it does (#694).
+ */
+blocker: IssueBlocker | null, };
+
+export type IssueBlocker = { 
+/**
+ * `question | credential | failed | review_cap | no_progress`.
+ */
+kind: string, 
+/**
+ * Phase that is stuck, as `<kind>-<round>`.
+ */
+phase: string | null, 
+/**
+ * The agent's question, the failure reason or what happened.
+ */
+message: string, 
+/**
+ * The agent's question as sent to ask_user (JSON), for `question`.
+ */
+question: string | null, workspace_id: string | null, task_id: string | null, since: string | null, };
+
+export type IssueBlockerEntry = { issue_number: number, blocker: IssueBlocker, };
 
 export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 

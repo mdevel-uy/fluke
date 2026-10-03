@@ -62,6 +62,203 @@ pub struct IssuePlanResponse {
     #[ts(type = "number | null")]
     pub pr_number: Option<i64>,
     pub phases: Vec<IssuePhase>,
+    /// Why the issue needs a person right now, if it does (#694).
+    pub blocker: Option<IssueBlocker>,
+}
+
+/// Why an issue needs a person (fluke v2, F4, #694). Derived on read from
+/// tasks, review rounds and running processes; nothing is stored.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct IssueBlocker {
+    /// `question | credential | failed | review_cap | no_progress`.
+    pub kind: String,
+    /// Phase that is stuck, as `<kind>-<round>`.
+    pub phase: Option<String>,
+    /// The agent's question, the failure reason or what happened.
+    pub message: String,
+    /// The agent's question as sent to ask_user (JSON), for `question`.
+    pub question: Option<String>,
+    pub workspace_id: Option<Uuid>,
+    pub task_id: Option<Uuid>,
+    pub since: Option<String>,
+}
+
+/// An issue of the repo that needs a person, for the Plan view (#694).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct IssueBlockerEntry {
+    #[ts(type = "number")]
+    pub issue_number: i64,
+    pub blocker: IssueBlocker,
+}
+
+fn blocker_at(kind: &str, phase: &IssuePhase, message: String) -> IssueBlocker {
+    IssueBlocker {
+        kind: kind.to_string(),
+        phase: Some(format!("{}-{}", phase.kind, phase.round)),
+        message,
+        question: None,
+        workspace_id: phase.workspace_id,
+        task_id: phase.task_id,
+        since: phase
+            .finished_at
+            .clone()
+            .or_else(|| phase.started_at.clone()),
+    }
+}
+
+/// The issue's blocker, checked in order of what the person can act on
+/// first: a question, a missing credential, a failure, the review rounds
+/// ran out, the agent running for too long. `tasks` are every task behind
+/// the phases; `running_since` is when the agent of the last active phase
+/// started, if it has been running past the threshold. Marks the phase it
+/// points at as stuck.
+pub fn pick_blocker(
+    phases: &mut [IssuePhase],
+    tasks: &[&TaskRow],
+    pr: Option<&PrInfo>,
+    rounds: &[RoundRow],
+    max_rounds: i64,
+    running_since: Option<String>,
+    stuck_minutes: i64,
+) -> Option<IssueBlocker> {
+    let task_of = |p: &IssuePhase| p.task_id.and_then(|id| tasks.iter().find(|t| t.id == id));
+
+    // 1. The agent asked something.
+    if let Some(i) = phases.iter().rposition(|p| {
+        task_of(p).is_some_and(|t| t.status == "waiting_user" && t.pending_question.is_some())
+    }) {
+        let raw = task_of(&phases[i])?.pending_question.clone()?;
+        let text = serde_json::from_str::<serde_json::Value>(&raw)
+            .ok()
+            .and_then(|v| v.get("question")?.as_str().map(str::to_string))
+            .unwrap_or_else(|| raw.clone());
+        let mut b = blocker_at("question", &phases[i], text);
+        b.question = Some(raw);
+        phases[i].state = "stuck".to_string();
+        return Some(b);
+    }
+    // 2. The agent's provider has no login on this machine.
+    if let Some(i) = phases.iter().rposition(|p| {
+        task_of(p).is_some_and(|t| {
+            t.status == "failed"
+                && t.failure_kind.as_deref() == Some(db::models::worker_task::FAILURE_KIND_PROVIDER)
+        })
+    }) {
+        let msg = phases[i].output.clone().unwrap_or_default();
+        return Some(blocker_at("credential", &phases[i], msg));
+    }
+    // 3. A phase failed: task failed, testing without verdict, round failed.
+    if let Some(i) = phases.iter().rposition(|p| p.state == "stuck") {
+        let msg = phases[i].output.clone().unwrap_or_default();
+        return Some(blocker_at("failed", &phases[i], msg));
+    }
+    // 4. The review rounds ran out and the reviewer still asks for changes.
+    if let Some(pr) = pr.filter(|p| !p.merged) {
+        let submitted: Vec<&RoundRow> = rounds
+            .iter()
+            .filter(|r| r.kind == "review" && r.status == "submitted")
+            .collect();
+        if submitted.len() as i64 >= max_rounds
+            && submitted.last().and_then(|r| r.verdict.as_deref()) == Some("request_changes")
+            && let Some(i) = phases
+                .iter()
+                .rposition(|p| p.kind == "review" && p.state != "pending")
+        {
+            let msg = format!(
+                "El PR #{} agotó las {max_rounds} rondas de review automáticas y el reviewer sigue pidiendo cambios.",
+                pr.number
+            );
+            phases[i].state = "stuck".to_string();
+            return Some(blocker_at("review_cap", &phases[i], msg));
+        }
+    }
+    // 5. The agent has been running past the threshold.
+    if let Some(since) = running_since
+        && let Some(i) = last_running(phases)
+    {
+        let msg = format!("El agente lleva más de {stuck_minutes} minutos corriendo sin terminar.");
+        phases[i].state = "stuck".to_string();
+        let mut b = blocker_at("no_progress", &phases[i], msg);
+        b.since = Some(since);
+        return Some(b);
+    }
+    None
+}
+
+/// The last active phase with an agent behind it.
+fn last_running(phases: &[IssuePhase]) -> Option<usize> {
+    phases
+        .iter()
+        .rposition(|p| p.state == "active" && p.workspace_id.is_some())
+}
+
+/// When the coding agent of `workspace_id` started, if it is still running
+/// and started before `stuck_minutes` ago.
+async fn running_since(
+    pool: &SqlitePool,
+    workspace_id: Uuid,
+    stuck_minutes: i64,
+) -> Result<Option<String>, sqlx::Error> {
+    let cutoff = chrono::Utc::now() - chrono::Duration::minutes(stuck_minutes);
+    sqlx::query_scalar(
+        "SELECT MIN(ep.started_at) FROM execution_processes ep
+           JOIN sessions s ON s.id = ep.session_id
+          WHERE s.workspace_id = ?1 AND ep.status = 'running'
+            AND ep.run_reason = 'codingagent' AND ep.started_at < ?2",
+    )
+    .bind(workspace_id)
+    .bind(cutoff)
+    .fetch_one(pool)
+    .await
+}
+
+/// Open issues of the repo that need a person right now (#694). Candidates
+/// are issues with a developer, designer or QA task that is still alive or
+/// failed; each one is checked through its plan.
+pub async fn list_blockers(
+    pool: &SqlitePool,
+    repo_id: Uuid,
+    max_rounds: i64,
+    stuck_minutes: i64,
+) -> Result<Vec<IssueBlockerEntry>, sqlx::Error> {
+    let candidates: Vec<i64> = sqlx::query_scalar(
+        "SELECT DISTINCT t.issue_number
+           FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
+          WHERE t.repo_id = ?1 AND t.issue_number IS NOT NULL
+            AND w.role <> 'reviewer' AND (t.kind IS NULL OR t.kind <> 'qa_test')
+            AND t.status IN ('in_progress', 'waiting_user', 'failed', 'in_review', 'approved')",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await?;
+    let mut out = Vec::new();
+    for n in candidates {
+        let Some(issue) =
+            db::models::repo_issue::RepoIssue::find_by_repo_and_number(pool, repo_id, n).await?
+        else {
+            continue;
+        };
+        if issue.state != "open" {
+            continue;
+        }
+        let plan = load_issue_plan(
+            pool,
+            repo_id,
+            n,
+            false,
+            issue.body.as_deref(),
+            max_rounds,
+            stuck_minutes,
+        )
+        .await?;
+        if let Some(blocker) = plan.blocker {
+            out.push(IssueBlockerEntry {
+                issue_number: n,
+                blocker,
+            });
+        }
+    }
+    Ok(out)
 }
 
 /// A worker task of the issue, with its profile.
@@ -80,6 +277,9 @@ pub struct TaskRow {
     pub worker_role: String,
     /// QA verdict of a testing task (`pass | fail | error`).
     pub qa_verdict: Option<String>,
+    /// What the agent asked through ask_user, while waiting for the user.
+    pub pending_question: Option<String>,
+    pub failure_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -320,11 +520,14 @@ pub async fn load_issue_plan(
     issue_number: i64,
     issue_closed: bool,
     issue_body: Option<&str>,
+    max_rounds: i64,
+    stuck_minutes: i64,
 ) -> Result<IssuePlanResponse, sqlx::Error> {
     const TASK_COLUMNS: &str =
         "t.id, t.status, t.kind, t.workspace_id, t.created_at, t.completed_at,
             t.result_summary, t.failure_reason, t.cost_usd_total,
-            w.name AS worker_name, w.role AS worker_role, t.qa_verdict";
+            w.name AS worker_name, w.role AS worker_role, t.qa_verdict,
+            t.pending_question, t.failure_kind";
     let tasks: Vec<TaskRow> = sqlx::query_as(&format!(
         "SELECT {TASK_COLUMNS}
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
@@ -433,6 +636,25 @@ pub async fn load_issue_plan(
         .collect();
     }
 
+    let blocker = if issue_closed {
+        None
+    } else {
+        let since = match last_running(&phases).and_then(|i| phases[i].workspace_id) {
+            Some(ws) => running_since(pool, ws, stuck_minutes).await?,
+            None => None,
+        };
+        let all: Vec<&TaskRow> = tasks.iter().chain(&reviewers).chain(&qa_tests).collect();
+        pick_blocker(
+            &mut phases,
+            &all,
+            pr.as_ref(),
+            &rounds,
+            max_rounds,
+            since,
+            stuck_minutes,
+        )
+    };
+
     Ok(IssuePlanResponse {
         template: match template {
             Some(t) if t.tdd => TEMPLATE_TDD,
@@ -443,6 +665,7 @@ pub async fn load_issue_plan(
         pr_url: pr.as_ref().map(|p| p.url.clone()),
         pr_number: pr.as_ref().map(|p| p.number),
         phases,
+        blocker,
     })
 }
 
@@ -464,6 +687,8 @@ mod tests {
             worker_name: "Fullstack".to_string(),
             worker_role: role.to_string(),
             qa_verdict: None,
+            pending_question: None,
+            failure_kind: None,
         }
     }
 
@@ -630,6 +855,120 @@ mod tests {
         assert_eq!(
             kinds(&build_phases(&[t], &[], &[], None, false))[1],
             s("dev", 1, "stuck")
+        );
+    }
+    fn blocker_of(
+        tasks: &[TaskRow],
+        rounds: &[RoundRow],
+        reviewers: &[TaskRow],
+        pr: Option<&PrInfo>,
+        running: Option<&str>,
+    ) -> (Option<IssueBlocker>, Vec<IssuePhase>) {
+        let mut phases = build_phases(tasks, rounds, reviewers, pr, false);
+        let all: Vec<&TaskRow> = tasks.iter().chain(reviewers).collect();
+        let b = pick_blocker(
+            &mut phases,
+            &all,
+            pr,
+            rounds,
+            3,
+            running.map(str::to_string),
+            30,
+        );
+        (b, phases)
+    }
+
+    fn open_pr() -> PrInfo {
+        PrInfo {
+            number: 7,
+            url: "u".into(),
+            merged: false,
+        }
+    }
+
+    #[test]
+    fn no_blocker_while_things_move() {
+        let t = task(ROLE_DEVELOPER, None, "in_progress");
+        assert!(blocker_of(&[t], &[], &[], None, None).0.is_none());
+    }
+
+    #[test]
+    fn blocker_question() {
+        let mut t = task(ROLE_DEVELOPER, None, "waiting_user");
+        t.pending_question = Some(r#"{"question":"¿Postgres o SQLite?","options":[]}"#.into());
+        let (b, _) = blocker_of(&[t.clone()], &[], &[], None, None);
+        let b = b.unwrap();
+        assert_eq!(b.kind, "question");
+        assert_eq!(b.message, "¿Postgres o SQLite?");
+        assert_eq!(b.phase.as_deref(), Some("dev-1"));
+        assert_eq!(b.task_id, Some(t.id));
+        assert!(b.question.is_some());
+    }
+
+    #[test]
+    fn blocker_credential() {
+        let mut t = task(ROLE_DEVELOPER, None, "failed");
+        t.failure_kind = Some(db::models::worker_task::FAILURE_KIND_PROVIDER.into());
+        t.failure_reason = Some("Claude no tiene sesión".into());
+        let b = blocker_of(&[t], &[], &[], None, None).0.unwrap();
+        assert_eq!(
+            (b.kind.as_str(), b.message.as_str()),
+            ("credential", "Claude no tiene sesión")
+        );
+    }
+
+    #[test]
+    fn blocker_failed() {
+        let mut t = task(ROLE_DEVELOPER, None, "failed");
+        t.failure_reason = Some("exit 1".into());
+        let b = blocker_of(&[t], &[], &[], None, None).0.unwrap();
+        assert_eq!((b.kind.as_str(), b.message.as_str()), ("failed", "exit 1"));
+    }
+
+    #[test]
+    fn blocker_review_cap() {
+        let dev = task(ROLE_DEVELOPER, None, "in_review");
+        let changes = || round("review", "submitted", Some("request_changes"), None);
+        let fix = || round("remediation", "submitted", None, None);
+        let rounds = vec![changes(), fix(), changes(), fix(), changes()];
+        let pr = open_pr();
+        let (b, phases) = blocker_of(&[dev.clone()], &rounds, &[], Some(&pr), None);
+        assert_eq!(b.unwrap().kind, "review_cap");
+        assert!(
+            phases
+                .iter()
+                .any(|p| p.kind == "review" && p.round == 3 && p.state == "stuck")
+        );
+        // Rounds left: not blocked.
+        assert!(
+            blocker_of(&[dev], &rounds[..3], &[], Some(&pr), None)
+                .0
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn blocker_no_progress() {
+        let t = task(ROLE_DEVELOPER, None, "in_progress");
+        let (b, phases) = blocker_of(&[t], &[], &[], None, Some("2026-10-01 09:00:00"));
+        let b = b.unwrap();
+        assert_eq!(b.kind, "no_progress");
+        assert_eq!(b.since.as_deref(), Some("2026-10-01 09:00:00"));
+        assert_eq!(phases[1].state, "stuck");
+    }
+
+    #[test]
+    fn a_question_wins_over_a_failure() {
+        let mut failed = task(ROLE_DESIGNER, None, "failed");
+        failed.failure_reason = Some("x".into());
+        let mut asking = task(ROLE_DEVELOPER, None, "waiting_user");
+        asking.pending_question = Some("texto plano".into());
+        let b = blocker_of(&[failed, asking], &[], &[], None, None)
+            .0
+            .unwrap();
+        assert_eq!(
+            (b.kind.as_str(), b.message.as_str()),
+            ("question", "texto plano")
         );
     }
 }

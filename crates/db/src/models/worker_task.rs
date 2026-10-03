@@ -38,6 +38,10 @@ pub fn is_valid_status(value: &str) -> bool {
 /// the CLI died on an API error (rate limit, model not available, auth).
 /// These do not consume review rounds and are retried with backoff.
 pub const FAILURE_KIND_INFRA: &str = "infra";
+/// The worker's agent has no login on this machine (fluke v2, #694): the
+/// person has to connect the provider, so the issue reads as blocked on a
+/// credential rather than as a plain failure.
+pub const FAILURE_KIND_PROVIDER: &str = "provider";
 
 /// `kind` value for author fix tasks dispatched by the orchestrator on a
 /// changes-requested review. These jump to the front of the author's queue

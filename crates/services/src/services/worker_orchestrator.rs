@@ -822,7 +822,13 @@ pub async fn try_take_next(
             // Fail the task instead of leaving it queued: claim first so
             // a concurrent start cannot pick it up in between.
             if WorkerTask::try_claim(pool, task.id, worker_id).await? {
-                WorkerTask::set_failed(pool, task.id, &reason).await?;
+                WorkerTask::set_failed_with_kind(
+                    pool,
+                    task.id,
+                    &reason,
+                    Some(worker_task::FAILURE_KIND_PROVIDER),
+                )
+                .await?;
             }
             warn!(worker_id = %worker_id, task_id = %task.id, "{reason}");
             return Err(StartError::ProviderDisconnected(reason));
@@ -3819,6 +3825,7 @@ pub async fn dispatch_review_task(
             rounds,
             max_rounds,
         );
+        notify_review_cap(db, container, repo_id, pr_number).await;
         return Ok(());
     }
 
@@ -4197,6 +4204,45 @@ pub async fn kickstart_stuck_worker_queues(
     }
 
     Ok(())
+}
+
+/// Push once per PR (per server run) when its review rounds run out (#694):
+/// the issue now needs a person.
+async fn notify_review_cap(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    repo_id: Uuid,
+    pr_number: i64,
+) {
+    static NOTIFIED: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<(Uuid, i64)>>> =
+        std::sync::OnceLock::new();
+    let first = NOTIFIED
+        .get_or_init(Default::default)
+        .lock()
+        .map(|mut set| set.insert((repo_id, pr_number)))
+        .unwrap_or(false);
+    let Some(web_push) = container.web_push() else {
+        return;
+    };
+    if !first {
+        return;
+    }
+    let issue = match PullRequest::find_latest_workspace_for_pr(&db.pool, repo_id, pr_number).await
+    {
+        Ok(Some(ws)) => WorkerTask::find_by_workspace(&db.pool, ws)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|t| t.issue_number),
+        _ => None,
+    };
+    let payload = crate::services::web_push::PushEventPayload {
+        title: "El review necesita una persona".to_string(),
+        body: format!("El PR #{pr_number} agotó las rondas de review automáticas."),
+        tag: format!("review-cap-{repo_id}-{pr_number}"),
+        deeplink_path: issue.map(|n| format!("/issues/{n}?repo={repo_id}")),
+    };
+    crate::services::web_push::spawn_notify(web_push.clone(), payload);
 }
 
 /// Cancel any other pending reviewer rounds pinned to the same PR head as
