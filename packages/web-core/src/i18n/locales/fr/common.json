@@ -1148,7 +1148,6 @@
         "branch": "Branche",
         "noTask": "Cette issue n'a pas encore de tâche.",
         "templateLine": "Modèle",
-        "soon": "Bientôt disponible",
         "tabs": {
           "plan": "Plan",
           "code": "Code",
@@ -1222,6 +1221,20 @@
           "decision": "Votre décision",
           "baseTemplate": "…modèle de base"
         }
+      },
+      "code": {
+        "changes": "Changements de l'issue",
+        "terminal": "Terminal · workspace de l'issue",
+        "terminalHint": "partagé par toutes les phases",
+        "noTerminal": "Le terminal est disponible tant que le workspace de l'issue est actif."
+      },
+      "sessions": {
+        "empty": "Aucune phase n'a encore tourné.",
+        "onePerPhase": "Une session par phase",
+        "live": "en direct",
+        "readOnly": "terminée · lecture seule",
+        "waitingYou": "attend votre réponse",
+        "discarded": "L'instance a été supprimée. La session reste comme trace de ce qu'elle a fait dans cette phase."
       }
     }
   },

@@ -23,6 +23,8 @@ import { PM_DECISION_LABEL } from '@/features/issues/lib/milestonePlan';
 import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
 import { IssuePlanTab } from './plan/IssuePlanTab';
+import { IssueCodeTab } from './plan/IssueCodeTab';
+import { IssueSessionsTab } from './plan/IssueSessionsTab';
 
 /**
  * Issue page, `/issues/$issueNumber` (#667). Header and breadcrumb follow the
@@ -66,7 +68,8 @@ export function IssuePage() {
   const { tasks } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
   const { theme } = useTheme();
-  const [tab, setTab] = useState<'plan' | 'code'>('plan');
+  const [tab, setTab] = useState<'plan' | 'code' | 'sessions'>('plan');
+  const [sessionKey, setSessionKey] = useState<string | null>(null);
   const { data: plan } = useIssuePlan(repoId, issueNumber);
 
   const task = useMemo(() => {
@@ -81,6 +84,15 @@ export function IssuePage() {
         (ws) => ws.id === task.workspace_id
       )?.branch
     : undefined;
+  // Code tab: the workspace of the latest development round (the follow-up
+  // fixes run in it too), else the task's.
+  const codeWorkspaceId =
+    [...(plan?.phases ?? [])]
+      .reverse()
+      .find((p) => p.kind === 'dev' && p.workspace_id)?.workspace_id ??
+    task?.workspace_id ??
+    null;
+  const sessionCount = plan?.phases.filter((p) => p.workspace_id).length ?? 0;
 
   const goBack = () => appNavigation.goToIssues(repoId);
 
@@ -236,26 +248,47 @@ export function IssuePage() {
                 type="button"
                 role="tab"
                 aria-selected={tab === key}
-                disabled={key === 'sessions'}
-                title={
-                  key === 'sessions'
-                    ? t('issues.plan.issuePage.soon')
-                    : undefined
-                }
-                onClick={() => key !== 'sessions' && setTab(key)}
+                onClick={() => setTab(key)}
                 className={cn(
-                  '-mb-px border-b-2 border-transparent px-3.5 py-2 text-[13.5px] text-normal hover:text-high disabled:cursor-default disabled:opacity-50 disabled:hover:text-normal',
+                  '-mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-3.5 py-2 text-[13.5px] text-normal hover:text-high',
                   tab === key && 'border-md-primary text-high'
                 )}
               >
                 {t(`issues.plan.issuePage.tabs.${key}`)}
+                {key === 'sessions' && sessionCount > 0 && (
+                  <span className="rounded-full border border-md-outline-variant bg-md-surface-container-high px-[7px] font-mono text-[11px] text-normal">
+                    {sessionCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
+          {tab === 'sessions' && plan && (
+            <IssueSessionsTab
+              phases={plan.phases}
+              selected={sessionKey}
+              onSelect={setSessionKey}
+            />
+          )}
+
+          {tab === 'code' && codeWorkspaceId && (
+            <IssueCodeTab
+              workspaceId={codeWorkspaceId}
+              branch={branch}
+              prUrl={plan?.pr_url}
+            />
+          )}
+
           {tab === 'plan' &&
             (plan ? (
-              <IssuePlanTab plan={plan} />
+              <IssuePlanTab
+                plan={plan}
+                onOpenSession={(key) => {
+                  setSessionKey(key);
+                  setTab('sessions');
+                }}
+              />
             ) : (
               <div className="flex items-center gap-2 py-6 text-normal">
                 <MaterialIcon

@@ -1163,7 +1163,6 @@
         "branch": "Branch",
         "noTask": "This issue has no task yet.",
         "templateLine": "Template",
-        "soon": "Coming soon",
         "tabs": {
           "plan": "Plan",
           "code": "Code",
@@ -1237,6 +1236,20 @@
           "decision": "Your decision",
           "baseTemplate": "…base template"
         }
+      },
+      "code": {
+        "changes": "Changes in the issue",
+        "terminal": "Terminal · issue workspace",
+        "terminalHint": "shared by every phase",
+        "noTerminal": "The terminal is available while the issue workspace is active."
+      },
+      "sessions": {
+        "empty": "No phase has run yet.",
+        "onePerPhase": "One session per phase",
+        "live": "live",
+        "readOnly": "finished · read only",
+        "waitingYou": "waiting for your answer",
+        "discarded": "The instance was discarded. The session stays as a record of what it did in this phase."
       }
     }
   },

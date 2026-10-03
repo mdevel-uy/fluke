@@ -1144,7 +1144,6 @@
         "branch": "分支",
         "noTask": "此 issue 還沒有任務。",
         "templateLine": "範本",
-        "soon": "即將推出",
         "tabs": {
           "plan": "計畫",
           "code": "程式碼",
@@ -1218,6 +1217,20 @@
           "decision": "你的決定",
           "baseTemplate": "…基礎範本"
         }
+      },
+      "code": {
+        "changes": "issue 的變更",
+        "terminal": "終端機 · issue 工作區",
+        "terminalHint": "所有階段共用",
+        "noTerminal": "僅在 issue 工作區處於使用中時可用終端機。"
+      },
+      "sessions": {
+        "empty": "還沒有階段執行過。",
+        "onePerPhase": "每個階段一個工作階段",
+        "live": "即時",
+        "readOnly": "已結束 · 唯讀",
+        "waitingYou": "等待你的回答",
+        "discarded": "該實例已丟棄。工作階段作為它在此階段所做工作的紀錄保留。"
       }
     }
   },

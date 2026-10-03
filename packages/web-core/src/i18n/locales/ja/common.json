@@ -1144,7 +1144,6 @@
         "branch": "ブランチ",
         "noTask": "この issue にはまだタスクがありません。",
         "templateLine": "テンプレート",
-        "soon": "近日公開",
         "tabs": {
           "plan": "プラン",
           "code": "コード",
@@ -1218,6 +1217,20 @@
           "decision": "あなたの判断",
           "baseTemplate": "…基本テンプレート"
         }
+      },
+      "code": {
+        "changes": "issue の変更",
+        "terminal": "ターミナル · issue のワークスペース",
+        "terminalHint": "全フェーズで共有",
+        "noTerminal": "ターミナルは issue のワークスペースが有効な間だけ使えます。"
+      },
+      "sessions": {
+        "empty": "まだ実行されたフェーズはありません。",
+        "onePerPhase": "フェーズごとに 1 セッション",
+        "live": "ライブ",
+        "readOnly": "終了 · 読み取り専用",
+        "waitingYou": "あなたの回答待ち",
+        "discarded": "インスタンスは破棄されました。セッションはこのフェーズの記録として残ります。"
       }
     }
   },
