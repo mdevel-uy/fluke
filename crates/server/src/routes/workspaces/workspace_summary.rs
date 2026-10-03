@@ -440,12 +440,20 @@ mod tests {
     /// scanner ever drift apart again (they shipped out of sync once: the
     /// scanner read `value.entry_type` while ops carry
     /// `value.content.entry_type`, and every summary reported null usage).
+    /// Newest hit of each signal, as the live-store path computes it.
+    fn scan(msgs: &[LogMsg]) -> AgentLogSignals {
+        AgentLogSignals {
+            usage: msgs.iter().rev().find_map(token_usage_from_log_msg),
+            last_activity: msgs.iter().rev().find_map(tool_activity_from_log_msg),
+        }
+    }
+
     fn patch_msg(entry: NormalizedEntry) -> LogMsg {
         LogMsg::JsonPatch(ConversationPatch::add_normalized_entry(3, entry))
     }
 
     #[test]
-    fn scan_signals_extracts_usage_and_activity_from_real_patches() {
+    fn signals_extract_usage_and_activity_from_real_patches() {
         let msgs = vec![
             patch_msg(NormalizedEntry {
                 timestamp: None,
@@ -471,7 +479,7 @@ mod tests {
             }),
         ];
 
-        let signals = scan_signals(msgs.iter().rev());
+        let signals = scan(&msgs);
         let usage = signals.usage.expect("token usage must be extracted");
         assert_eq!(usage.total_tokens, 112_000);
         assert_eq!(usage.model_context_window, 200_000);
@@ -479,12 +487,12 @@ mod tests {
     }
 
     #[test]
-    fn scan_signals_ignores_non_entry_patches() {
+    fn signals_ignore_non_entry_patches() {
         let msgs = vec![
             LogMsg::Stdout("plain output".to_string()),
             LogMsg::JsonPatch(ConversationPatch::add_stdout(0, "raw".to_string())),
         ];
-        let signals = scan_signals(msgs.iter().rev());
+        let signals = scan(&msgs);
         assert!(signals.usage.is_none());
         assert!(signals.last_activity.is_none());
     }

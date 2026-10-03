@@ -58,6 +58,9 @@ fn configure_user(repo: &Repository) {
     let mut cfg = repo.config().unwrap();
     cfg.set_str("user.name", "Test User").unwrap();
     cfg.set_str("user.email", "test@example.com").unwrap();
+    // Checkouts must write the bytes the tests compare, whatever the
+    // machine's global core.autocrlf says.
+    cfg.set_bool("core.autocrlf", false).unwrap();
 }
 
 fn push_ref(repo: &Repository, local: &str, remote: &str) {
