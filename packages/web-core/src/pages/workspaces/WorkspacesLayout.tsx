@@ -297,20 +297,17 @@ export function WorkspacesLayout() {
 
   // Left sidebar now lives in the shell (SHELL-SPEC R9): the page contributes
   // its content through the shell sidebar portal and keeps the scroll wiring.
-  // The rail's Editor item switches it to the file explorer of the selected
-  // workspace (VSCode activity-bar style).
+  // With the editor tab focused it follows the editor (worktree explorer +
+  // commit snapshots), like the aside does.
   const workspacesSidebarMode = useUiPreferencesStore(
     (s) => s.workspacesSidebarMode
   );
 
-  // Explorer/search need a selected workspace (their worktree). Landing on
-  // the section without one — e.g. clicking the rail's Editor item from the
-  // welcome view — auto-opens the first active workspace so the sidebar
-  // matches the rail state instead of silently falling back to the list.
+  // Search needs a selected workspace (its worktree): without one, auto-open
+  // the first active workspace instead of silently falling back to the list.
   useEffect(() => {
     if (
-      (workspacesSidebarMode === 'explorer' ||
-        workspacesSidebarMode === 'search') &&
+      workspacesSidebarMode === 'search' &&
       !workspaceId &&
       !isWorkspacesListLoading &&
       activeWorkspaces.length > 0
@@ -363,16 +360,13 @@ export function WorkspacesLayout() {
 
   const sidebarPortal = (
     <ShellSidebarPortal>
-      {workspacesSidebarMode === 'explorer' ? (
-        <EditorSidebarContainer
-          key={workspaceId ?? 'no-workspace'}
-          workspaceId={workspaceId}
-        />
-      ) : workspacesSidebarMode === 'search' && workspaceId ? (
+      {workspacesSidebarMode === 'search' && workspaceId ? (
         <WorkspaceSearchSidebarContainer
           key={workspaceId}
           workspaceId={workspaceId}
         />
+      ) : isEditorFocused && workspaceId ? (
+        <EditorSidebarContainer key={workspaceId} workspaceId={workspaceId} />
       ) : (
         <WorkspacesSidebarContainer onScrollToBottom={handleScrollToBottom} />
       )}
