@@ -30,3 +30,14 @@ export function normalizeCurrency(
   if (typeof raw === 'string' && raw.trim().length > 0) return raw;
   return fallback;
 }
+
+/** Man-hours a resolved ticket is credited with until the config loads. */
+export const DEFAULT_HOURS_PER_TASK = 4;
+
+/** Guard rails so a typo cannot produce a nonsensical figure. */
+export const MIN_HOURS_PER_TASK = 0.5;
+export const MAX_HOURS_PER_TASK = 80;
+
+/** Working hours in a month (8 h x 20 days), to translate hours into FTE. */
+export const MIN_HOURS_PER_FTE_MONTH = 40;
+export const MAX_HOURS_PER_FTE_MONTH = 320;

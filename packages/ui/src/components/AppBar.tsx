@@ -211,17 +211,6 @@ export function AppBar({
     showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
-    // Every request enters through Fluke (fluke v2, #701): first in the rail.
-    if (showFlukeButton && onFlukeClick) {
-      localItems.push({
-        key: 'local-fluke',
-        kind: 'icon-button',
-        label: t('director.name'),
-        lucideIcon: Brain,
-        isActive: isFlukeActive,
-        onClick: onFlukeClick,
-      });
-    }
     if (showDashboardButton && onDashboardClick) {
       localItems.push({
         key: 'local-dashboard',
@@ -230,6 +219,18 @@ export function AppBar({
         lucideIcon: LayoutGrid,
         isActive: isDashboardActive,
         onClick: onDashboardClick,
+      });
+    }
+    // Every request enters through Fluke (fluke v2, #701), right after the
+    // dashboard, which opens the rail (Dani, 03-oct).
+    if (showFlukeButton && onFlukeClick) {
+      localItems.push({
+        key: 'local-fluke',
+        kind: 'icon-button',
+        label: t('director.name'),
+        lucideIcon: Brain,
+        isActive: isFlukeActive,
+        onClick: onFlukeClick,
       });
     }
     if (showWorkspacesButton) {

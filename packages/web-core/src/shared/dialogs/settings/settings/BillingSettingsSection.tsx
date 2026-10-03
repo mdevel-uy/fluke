@@ -7,7 +7,7 @@ import {
   MAX_HOURS_PER_TASK,
   MIN_HOURS_PER_FTE_MONTH,
   MIN_HOURS_PER_TASK,
-} from '@/features/dashboard/model/useValueGeneratedSettingsStore';
+} from '@/features/dashboard/model/valueDefaults';
 import {
   DEFAULT_CURRENCY,
   DEFAULT_HOURLY_RATE,

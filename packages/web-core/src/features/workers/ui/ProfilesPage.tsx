@@ -1,3 +1,4 @@
+import { ROLE_COLOR, initials } from '@/features/workers/model/profileAvatar';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { WorkerResponse } from 'shared/types';
@@ -24,33 +25,6 @@ import { WorkerFormDialog } from './WorkerFormDialog';
  */
 
 const ACTIVE = new Set(['queued', 'in_progress', 'waiting_user', 'in_review']);
-
-const INITIALS: Record<string, string> = {
-  fullstack: 'FS',
-  frontend: 'FE',
-  backend: 'BE',
-  analyst: 'AN',
-  reviewer: 'RV',
-  designer: 'DS',
-  qa: 'QA',
-};
-
-const ROLE_COLOR: Record<string, string> = {
-  developer: 'bg-md-primary text-md-on-primary',
-  analyst: 'bg-warning text-warning-foreground',
-  reviewer: 'bg-violet-500 text-white',
-  designer: 'bg-pink-400 text-white',
-  qa: 'bg-success text-success-foreground',
-};
-
-function initials(name: string) {
-  const key = name.trim().toLowerCase();
-  if (INITIALS[key]) return INITIALS[key];
-  const words = key.split(/\s+/).filter(Boolean);
-  return (
-    words.length > 1 ? words[0][0] + words[1][0] : key.slice(0, 2)
-  ).toUpperCase();
-}
 
 function executorLabel(executor: string | null | undefined) {
   if (!executor) return null;

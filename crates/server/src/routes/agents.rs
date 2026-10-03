@@ -1,36 +1,59 @@
 use std::{
+    process::Stdio,
     sync::{LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
 use axum::{Router, extract::State, response::Json as ResponseJson, routing::get};
 use deployment::Deployment;
-use executors::executors::BaseCodingAgent;
+use executors::{
+    executors::{AvailabilityInfo, BaseCodingAgent, StandardCodingAgentExecutor},
+    profile::{ExecutorConfigs, ExecutorProfileId},
+};
 use serde::Serialize;
+use tokio::process::Command;
 use ts_rs::TS;
-use utils::{claude_credentials, response::ApiResponse};
+use utils::{
+    claude_credentials, command_ext::NoWindowExt, response::ApiResponse,
+    shell::resolve_executable_path,
+};
 
 use crate::{DeploymentImpl, error::ApiError};
 
-/// One plan-usage window: session (5h), weekly across models, weekly Opus.
+/// One plan-usage window of a provider.
 #[derive(Debug, Clone, Serialize, TS)]
-pub struct ClaudeUsageMeter {
-    /// `session`, `week_all` or `week_opus`.
+pub struct UsageMeter {
+    /// Claude: `session`, `week_all`, `week_opus`. Copilot: `premium`,
+    /// `chat`, `completions`.
     pub key: String,
     /// 0-100.
     pub used_percent: f32,
-    /// RFC3339, when Claude reported a reset time.
+    /// RFC3339, when the provider reported a reset time.
     pub resets_at: Option<String>,
+    /// Absolute figures, for quotas counted in requests (Copilot).
+    pub used: Option<f64>,
+    pub limit: Option<f64>,
 }
 
-/// Account-level Claude plan limits. Global, not per worker.
+/// Plan limits of one provider with a login on this machine.
 #[derive(Debug, Clone, Serialize, TS)]
-pub struct ClaudeUsageResponse {
-    /// Human plan label derived from the stored credentials (e.g. "Max 20x").
+pub struct ProviderUsage {
+    pub agent: BaseCodingAgent,
+    /// Human plan label (e.g. "Max 20x").
     pub plan: Option<String>,
-    pub meters: Vec<ClaudeUsageMeter>,
-    /// Workers whose active workspace runs Claude Code.
-    pub workers_on_claude: i64,
+    /// Empty when the provider does not publish its usage.
+    pub meters: Vec<UsageMeter>,
+    /// Coding agents running on this provider right now.
+    pub running: i64,
+    /// API-equivalent cost of the coding agents run on it, last 30 days.
+    pub cost_30d: f64,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct ProvidersUsageResponse {
+    pub providers: Vec<ProviderUsage>,
+    /// Agents fluke supports that have no login here.
+    pub without_login: Vec<BaseCodingAgent>,
 }
 
 /// Same source as the CLI's `/usage` command. The stream-json
@@ -42,13 +65,15 @@ const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 /// for a little under the frontend's 60s polling interval.
 const CACHE_TTL: Duration = Duration::from_secs(45);
 
-/// Timestamped answer; the inner `Option` is "no usage available" (not logged
-/// in, request failed), which is worth caching too.
-type CachedUsage = Option<(Instant, Option<ClaudeUsageResponse>)>;
+/// Plan and meters of one provider.
+type Limits = (BaseCodingAgent, Option<String>, Vec<UsageMeter>);
+
+/// Limits per provider, timestamped. Failed requests are cached too.
+type CachedUsage = Option<(Instant, Vec<Limits>)>;
 
 static USAGE_CACHE: LazyLock<Mutex<CachedUsage>> = LazyLock::new(|| Mutex::new(None));
 
-fn cached() -> Option<Option<ClaudeUsageResponse>> {
+fn cached() -> Option<Vec<Limits>> {
     let guard = USAGE_CACHE.lock().unwrap();
     let (stamped, value) = guard.as_ref()?;
     (stamped.elapsed() < CACHE_TTL).then(|| value.clone())
@@ -165,7 +190,7 @@ fn percent_from_limits(payload: &serde_json::Value, limit_kind: &str) -> Option<
 ///
 /// Windows the account does not have come back as `null` (`seven_day_opus`
 /// above) and are skipped, so fewer than three meters is normal.
-fn meters_from_usage(payload: &serde_json::Value) -> Vec<ClaudeUsageMeter> {
+fn meters_from_usage(payload: &serde_json::Value) -> Vec<UsageMeter> {
     // window key, meter key, matching `limits[].kind`
     const WINDOWS: [(&str, &str, &str); 3] = [
         ("five_hour", "session", "session"),
@@ -183,10 +208,12 @@ fn meters_from_usage(payload: &serde_json::Value) -> Vec<ClaudeUsageMeter> {
         else {
             continue;
         };
-        meters.push(ClaudeUsageMeter {
+        meters.push(UsageMeter {
             key: meter_key.to_string(),
             used_percent: used_percent.clamp(0.0, 100.0) as f32,
             resets_at: window.get("resets_at").and_then(reset_to_rfc3339),
+            used: None,
+            limit: None,
         });
     }
     meters
@@ -235,48 +262,185 @@ async fn fetch_usage_payload(access_token: &str) -> Option<serde_json::Value> {
     response.json().await.ok()
 }
 
-async fn get_claude_usage(
+/// Every provider with a login on this machine, with the plan limits the ones
+/// that publish them report. Claude and Copilot do; the rest show no meters.
+async fn get_providers_usage(
     State(deployment): State<DeploymentImpl>,
-) -> Result<ResponseJson<ApiResponse<Option<ClaudeUsageResponse>>>, ApiError> {
-    if let Some(hit) = cached() {
-        return Ok(ResponseJson(ApiResponse::success(hit)));
-    }
-
-    let workers_on_claude: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(DISTINCT w.worker_id)
-           FROM workspaces w
-           JOIN sessions s ON s.workspace_id = w.id
-           WHERE w.archived = FALSE
-             AND w.worker_id IS NOT NULL
-             AND s.executor = ?"#,
+) -> Result<ResponseJson<ApiResponse<ProvidersUsageResponse>>, ApiError> {
+    let running: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT s.executor, COUNT(*) FROM execution_processes ep
+           JOIN sessions s ON s.id = ep.session_id
+          WHERE ep.status = 'running' AND ep.run_reason = 'codingagent'
+          GROUP BY s.executor",
     )
-    .bind(BaseCodingAgent::ClaudeCode.to_string())
-    .fetch_one(&deployment.db().pool)
-    .await
-    .unwrap_or(0);
+    .fetch_all(&deployment.db().pool)
+    .await?;
+    let cost_30d: Vec<(String, f64)> = sqlx::query_as(
+        "SELECT s.executor, COALESCE(SUM(ep.cost_usd), 0.0) FROM execution_processes ep
+           JOIN sessions s ON s.id = ep.session_id
+          WHERE ep.cost_usd IS NOT NULL AND ep.started_at >= datetime('now', '-30 days')
+          GROUP BY s.executor",
+    )
+    .fetch_all(&deployment.db().pool)
+    .await?;
 
-    let mut response = None;
-    if let Some(creds) = read_claude_credentials().await
-        && let Some(payload) = fetch_usage_payload(&creds.access_token).await
-    {
-        let meters = meters_from_usage(&payload);
-        if meters.is_empty() {
-            tracing::warn!("claude usage payload had no known windows: {payload}");
-        } else {
-            response = Some(ClaudeUsageResponse {
-                plan: creds.plan,
-                meters,
-                workers_on_claude,
-            });
+    let usage = match cached() {
+        Some(hit) => hit,
+        None => {
+            let configs = ExecutorConfigs::get_cached();
+            let mut agents: Vec<BaseCodingAgent> = configs.executors.keys().copied().collect();
+            agents.sort_by_key(|a| a.to_string());
+            let mut usage = Vec::new();
+            for agent in agents {
+                let available = configs
+                    .get_coding_agent(&ExecutorProfileId::new(agent))
+                    .map(|a| a.get_availability_info())
+                    .unwrap_or(AvailabilityInfo::NotFound);
+                if !matches!(available, AvailabilityInfo::LoginDetected { .. }) {
+                    continue;
+                }
+                let (plan, meters) = match agent {
+                    BaseCodingAgent::ClaudeCode => claude_usage().await,
+                    BaseCodingAgent::Copilot => copilot_usage().await,
+                    _ => (None, Vec::new()),
+                };
+                usage.push((agent, plan, meters));
+            }
+            // Providers that report limits first.
+            usage.sort_by_key(|(_, _, meters)| meters.is_empty());
+            *USAGE_CACHE.lock().unwrap() = Some((Instant::now(), usage.clone()));
+            usage
+        }
+    };
+
+    let logged: Vec<BaseCodingAgent> = usage.iter().map(|(a, _, _)| *a).collect();
+    let mut without_login: Vec<BaseCodingAgent> = ExecutorConfigs::get_cached()
+        .executors
+        .keys()
+        .filter(|a| !logged.contains(a))
+        .copied()
+        .collect();
+    without_login.sort_by_key(|a| a.to_string());
+    let providers = usage
+        .into_iter()
+        .map(|(agent, plan, meters)| ProviderUsage {
+            running: running
+                .iter()
+                .find(|(e, _)| *e == agent.to_string())
+                .map_or(0, |(_, n)| *n),
+            cost_30d: cost_30d
+                .iter()
+                .find(|(e, _)| *e == agent.to_string())
+                .map_or(0.0, |(_, c)| *c),
+            agent,
+            plan,
+            meters,
+        })
+        .collect();
+    Ok(ResponseJson(ApiResponse::success(ProvidersUsageResponse {
+        providers,
+        without_login,
+    })))
+}
+
+/// Claude plan and meters, from the CLI's OAuth credentials.
+async fn claude_usage() -> (Option<String>, Vec<UsageMeter>) {
+    let Some(creds) = read_claude_credentials().await else {
+        return (None, Vec::new());
+    };
+    let meters = match fetch_usage_payload(&creds.access_token).await {
+        Some(payload) => {
+            let meters = meters_from_usage(&payload);
+            if meters.is_empty() {
+                tracing::warn!("claude usage payload had no known windows: {payload}");
+            }
+            meters
+        }
+        None => Vec::new(),
+    };
+    (creds.plan, meters)
+}
+
+/// Copilot quotas, from the endpoint its own clients read, through `gh`.
+async fn copilot_usage() -> (Option<String>, Vec<UsageMeter>) {
+    let Some(gh) = resolve_executable_path("gh").await else {
+        return (None, Vec::new());
+    };
+    let output = Command::new(&gh)
+        .args(["api", "copilot_internal/user"])
+        .stdin(Stdio::null())
+        .no_window()
+        .output()
+        .await;
+    match output {
+        Ok(out) if out.status.success() => serde_json::from_slice(&out.stdout)
+            .map(|payload| copilot_from_payload(&payload))
+            .unwrap_or_default(),
+        Ok(out) => {
+            tracing::warn!(
+                "copilot usage request failed: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            );
+            (None, Vec::new())
+        }
+        Err(err) => {
+            tracing::warn!("copilot usage request failed: {err}");
+            (None, Vec::new())
         }
     }
+}
 
-    *USAGE_CACHE.lock().unwrap() = Some((Instant::now(), response.clone()));
-    Ok(ResponseJson(ApiResponse::success(response)))
+/// `{"access_type_sku":"free_limited_copilot","copilot_plan":"individual",
+///   "quota_reset_date_utc":"2026-11-01T00:00:00.000Z",
+///   "quota_snapshots":{"premium_interactions":{"entitlement":300,
+///   "remaining":180,"percent_remaining":60.0,"unlimited":false},..}}`
+fn copilot_from_payload(payload: &serde_json::Value) -> (Option<String>, Vec<UsageMeter>) {
+    let sku = payload
+        .get("access_type_sku")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let plan = if sku.contains("free") {
+        Some("Free".to_string())
+    } else {
+        payload
+            .get("copilot_plan")
+            .and_then(|v| v.as_str())
+            .map(|p| match p {
+                "individual" => "Pro".to_string(),
+                other => plan_label(None, Some(other)).unwrap_or_default(),
+            })
+    };
+    let resets_at = payload
+        .get("quota_reset_date_utc")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let mut meters = Vec::new();
+    for (snapshot, key) in [
+        ("premium_interactions", "premium"),
+        ("chat", "chat"),
+        ("completions", "completions"),
+    ] {
+        let Some(q) = payload.get("quota_snapshots").and_then(|s| s.get(snapshot)) else {
+            continue;
+        };
+        let limit = q.get("entitlement").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if q.get("unlimited").and_then(|v| v.as_bool()) == Some(true) || limit <= 0.0 {
+            continue;
+        }
+        let remaining = q.get("remaining").and_then(|v| v.as_f64()).unwrap_or(limit);
+        meters.push(UsageMeter {
+            key: key.to_string(),
+            used_percent: ((limit - remaining) / limit * 100.0).clamp(0.0, 100.0) as f32,
+            resets_at: resets_at.clone(),
+            used: Some(limit - remaining),
+            limit: Some(limit),
+        });
+    }
+    (plan, meters)
 }
 
 pub fn router() -> Router<DeploymentImpl> {
-    Router::new().route("/agents/claude/usage", get(get_claude_usage))
+    Router::new().route("/agents/usage", get(get_providers_usage))
 }
 
 #[cfg(test)]
@@ -361,6 +525,28 @@ mod tests {
             meters[0].resets_at.as_deref(),
             Some("2026-07-25T18:00:00+00:00")
         );
+    }
+
+    /// Trimmed from a live free-plan response: premium has no entitlement.
+    #[test]
+    fn copilot_quotas_from_the_live_payload() {
+        let payload = json!({
+            "access_type_sku": "free_limited_copilot",
+            "copilot_plan": "individual",
+            "quota_reset_date_utc": "2026-11-01T00:00:00.000Z",
+            "quota_snapshots": {
+                "chat": { "entitlement": 200, "remaining": 150, "percent_remaining": 75.0, "unlimited": false },
+                "completions": { "entitlement": 2000, "remaining": 2000, "unlimited": false },
+                "premium_interactions": { "entitlement": 0, "remaining": 0, "unlimited": false }
+            }
+        });
+        let (plan, meters) = copilot_from_payload(&payload);
+        assert_eq!(plan.as_deref(), Some("Free"));
+        let keys: Vec<_> = meters.iter().map(|m| m.key.as_str()).collect();
+        assert_eq!(keys, ["chat", "completions"]);
+        assert!((meters[0].used_percent - 25.0).abs() < 0.01);
+        assert_eq!(meters[0].used, Some(50.0));
+        assert_eq!(meters[0].limit, Some(200.0));
     }
 
     #[test]
