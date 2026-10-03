@@ -1106,6 +1106,7 @@
     "drawer": {
       "title": "Detalle del issue",
       "close": "Cerrar",
+      "back": "Volver",
       "openOnGitHub": "Abrir en GitHub",
       "stateOpen": "abierto",
       "stateClosed": "cerrado",
