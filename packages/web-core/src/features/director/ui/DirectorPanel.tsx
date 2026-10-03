@@ -175,14 +175,16 @@ export function FlukeMissionsSidebar({
   const { t } = useTranslation('common');
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
+      {/* The header fills the column and lays out its children below. */}
       <CollapsibleSectionHeader
         title={t('director.missions')}
         collapsible={false}
         headerExtra={<NewMissionButton />}
-      />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <MissionsList selectedId={selectedId} />
-      </div>
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <MissionsList selectedId={selectedId} />
+        </div>
+      </CollapsibleSectionHeader>
     </div>
   );
 }
