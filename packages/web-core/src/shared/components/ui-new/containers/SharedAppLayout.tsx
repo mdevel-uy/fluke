@@ -362,6 +362,11 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
               <div className="flex min-h-0 overflow-hidden">
                 {/* Desktop AppBar sidebar. */}
                 <AppBar
+                  // fluke v2 (#689): the workspace and the source control of
+                  // an issue live in its page (Código / Sesiones). Their
+                  // routes stay for direct links.
+                  showWorkspacesButton={false}
+                  showSourceControlButton={false}
                   onWorkspacesClick={handleWorkspacesClick}
                   onEditorClick={handleEditorClick}
                   onSearchClick={handleSearchClick}

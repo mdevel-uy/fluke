@@ -1163,7 +1163,6 @@
         "branch": "Rama",
         "noTask": "Este issue todavía no tiene una tarea.",
         "templateLine": "Plantilla",
-        "soon": "Disponible próximamente",
         "tabs": {
           "plan": "Plan",
           "code": "Código",
@@ -1234,6 +1233,20 @@
           "decision": "Tu decisión",
           "baseTemplate": "…plantilla base"
         }
+      },
+      "code": {
+        "changes": "Cambios en el issue",
+        "terminal": "Terminal · workspace del issue",
+        "terminalHint": "compartida por todas las fases",
+        "noTerminal": "La terminal está disponible mientras el workspace del issue esté activo."
+      },
+      "sessions": {
+        "empty": "Todavía no corrió ninguna fase.",
+        "onePerPhase": "Una sesión por fase",
+        "live": "en vivo",
+        "readOnly": "terminada · solo lectura",
+        "waitingYou": "esperando tu respuesta",
+        "discarded": "La instancia ya se descartó. La sesión queda como registro de lo que hizo en esta fase."
       }
     }
   },

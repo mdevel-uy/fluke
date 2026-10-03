@@ -1144,7 +1144,6 @@
         "branch": "分支",
         "noTask": "此 issue 还没有任务。",
         "templateLine": "模板",
-        "soon": "即将推出",
         "tabs": {
           "plan": "计划",
           "code": "代码",
@@ -1215,6 +1214,20 @@
           "decision": "你的决定",
           "baseTemplate": "…基础模板"
         }
+      },
+      "code": {
+        "changes": "issue 的改动",
+        "terminal": "终端 · issue 工作区",
+        "terminalHint": "所有阶段共用",
+        "noTerminal": "仅在 issue 工作区处于活动状态时可用终端。"
+      },
+      "sessions": {
+        "empty": "还没有阶段运行过。",
+        "onePerPhase": "每个阶段一个会话",
+        "live": "实时",
+        "readOnly": "已结束 · 只读",
+        "waitingYou": "等待你的回答",
+        "discarded": "该实例已丢弃。会话作为它在此阶段所做工作的记录保留。"
       }
     }
   },

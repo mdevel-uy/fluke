@@ -1144,7 +1144,6 @@
         "branch": "브랜치",
         "noTask": "이 이슈에는 아직 작업이 없습니다.",
         "templateLine": "템플릿",
-        "soon": "곧 제공",
         "tabs": {
           "plan": "플랜",
           "code": "코드",
@@ -1215,6 +1214,20 @@
           "decision": "결정",
           "baseTemplate": "…기본 템플릿"
         }
+      },
+      "code": {
+        "changes": "이슈의 변경 사항",
+        "terminal": "터미널 · 이슈 워크스페이스",
+        "terminalHint": "모든 단계에서 공유",
+        "noTerminal": "터미널은 이슈 워크스페이스가 활성화된 동안 사용할 수 있습니다."
+      },
+      "sessions": {
+        "empty": "아직 실행된 단계가 없습니다.",
+        "onePerPhase": "단계별 세션 1개",
+        "live": "실시간",
+        "readOnly": "완료 · 읽기 전용",
+        "waitingYou": "답변 대기 중",
+        "discarded": "인스턴스는 폐기되었습니다. 세션은 이 단계에서 한 일의 기록으로 남습니다."
       }
     }
   },

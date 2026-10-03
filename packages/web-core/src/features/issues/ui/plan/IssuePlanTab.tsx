@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { IssuePhase, IssuePlanResponse } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
-import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { instanceLabel } from '@/features/workers/model/instance';
 import { PhaseGraph, phaseKey, usePhaseLabel } from './PhaseGraph';
 
@@ -50,9 +49,15 @@ function defaultSelection(phases: IssuePhase[]) {
   return done ? phaseKey(done) : null;
 }
 
-export function IssuePlanTab({ plan }: { plan: IssuePlanResponse }) {
+export function IssuePlanTab({
+  plan,
+  onOpenSession,
+}: {
+  plan: IssuePlanResponse;
+  /** Opens the phase's session in the Sesiones tab (#689). */
+  onOpenSession: (phaseKey: string) => void;
+}) {
   const { t } = useTranslation('common');
-  const appNavigation = useAppNavigation();
   const label = usePhaseLabel(plan.phases);
   const [selected, setSelected] = useState<string | null>(() =>
     defaultSelection(plan.phases)
@@ -139,9 +144,7 @@ export function IssuePlanTab({ plan }: { plan: IssuePlanResponse }) {
                 {phase.workspace_id && (
                   <button
                     type="button"
-                    onClick={() =>
-                      appNavigation.goToWorkspace(phase.workspace_id!)
-                    }
+                    onClick={() => onOpenSession(phaseKey(phase))}
                     className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
                   >
                     {t('issues.plan.phases.viewSession')}
