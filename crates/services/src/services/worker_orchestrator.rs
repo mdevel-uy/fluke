@@ -152,8 +152,8 @@ When you finish the work above, commit your changes with clear messages and \
 do NOT install dependencies or run typechecks, builds, lints or tests \
 (`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`...): this \
 worktree has no `node_modules` nor build cache, so any of them takes many \
-minutes and saturates the machine. CI validates the PR, and failures come \
-back to you as review feedback. \
+minutes and saturates the machine. Checks run outside your session, as \
+the user configured them (the repo's CI and/or its post script). \
 The system will push the branch and open the pull request against \
 `{target_branch}` automatically once your run ends — do NOT create the PR \
 yourself. \

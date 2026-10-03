@@ -48,7 +48,7 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Lint: `pnpm run lint` (runs web/ui ESLint + `cargo clippy` for all backend Rust workspaces)
 
 ## Agents in fluke worktrees
-Worktrees start without `node_modules` or a build cache, so the commands above take many minutes and saturate the machine. Agents do NOT install dependencies or run typechecks, builds, lints or tests; CI validates every PR. Before committing, format only the files you touched: `rustfmt --edition 2024 <files>` and `npx prettier --write <files>`.
+Worktrees start without `node_modules` or a build cache, so the commands above take many minutes and saturate the machine. Agents do NOT install dependencies or run typechecks, builds, lints or tests; checks run outside the agent session (CI and/or the repo's post script, as configured in fluke). Before committing, format only the files you touched: `rustfmt --edition 2024 <files>` and `npx prettier --write <files>`.
 
 ## Coding Style & Naming Conventions
 - Rust: `rustfmt` enforced (`rustfmt.toml`); group imports by crate; snake_case modules, PascalCase types.

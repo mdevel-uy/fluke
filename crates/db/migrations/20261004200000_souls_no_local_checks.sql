@@ -1,10 +1,10 @@
 -- Agents no longer run checks in their worktrees (no node_modules nor build
 -- cache there; a cold `pnpm run check` took 15+ min and saturated the
--- machine). CI validates every PR. Only the exact seeded phrases are
+-- machine). Checks are the user's call: CI and/or the repo post script. Only the exact seeded phrases are
 -- replaced, so customised souls are left alone.
 UPDATE workers SET soul = replace(soul,
     'Build/typecheck pasando (`pnpm run check` o `cargo check` según corresponda).',
-    'Sin correr checks locales (typecheck, build, tests): los valida el CI del PR.')
+    'Sin correr checks locales (typecheck, build, tests): corren fuera de tu sesión (CI o post script del repo).')
 WHERE soul LIKE '%Build/typecheck pasando (`pnpm run check`%';
 
 UPDATE workers SET soul = replace(soul,
