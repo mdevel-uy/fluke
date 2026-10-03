@@ -70,6 +70,22 @@ Verificado el 02-oct en `main`:
 
 Orden por dependencias y por valor sin voz: F0 y F1 ya rinden en texto. Tamaños: S (una corrida corta), M (una corrida), L (partir en dos).
 
+### J0 — Jarvis sin voz (paso intermedio, 03-oct)
+
+Decisión de Dani: antes del Jarvis completo, un corte que haga a Fluke "Jarvis por dentro" (siempre despierto, enterado de todo, con iniciativa, con estado a mano, seguro) **sin voz y sin UI nueva**: todo corre sobre el panel actual, y donde hace falta algo visible se reusa lo que ya existe. Milestone "Fluke Jarvis · J0 (sin voz)".
+
+| Orden | Issue | Toma de | Tamaño | Sin UI nueva |
+|---|---|---|---|---|
+| J0.1 | Proceso persistente | F0.1 | L | Nada visible; ~1.5 s por turno. |
+| J0.2 | Bus de eventos | F1.0 | L | Tabla + `emit()` + instrumentación; stream para la UI queda listo pero sin columna nueva. |
+| J0.3 | Conversación de guardia + eventos a Fluke | F1.1 + parte de F0.5 | M | Una misión fija "Fluke", primera en las pestañas actuales; ahí entran los lotes `[EVENTS]`. Las misiones normales siguen igual; `focus_mission` y la UI de foco quedan para F0.5. |
+| J0.4 | Snapshot precargado + `status_snapshot` | F0.2 | M | Nada visible. |
+| J0.5 | Confirmaciones en código | F0.3 | M | Reusa `pending_questions`: lo peligroso aparece como pregunta con chips "Sí, …" / "Cancelar". |
+| J0.6 | Nombres en `app_api` + directorio vacío | F0.4 | S | Nada visible. |
+| J0.7 | Notificación nativa con deeplink | F1.2 | S | La notificación de Tauri existente, al chat de Fluke. |
+
+Fuera de J0: voz (F0.6, F3), serie E, memoria (F2, necesita control plane), preguntas de workers por Fluke (F1.3, depende de #662), seguimiento al merge (F4, depende de v2).
+
 ### F0 — Cerebro despierto
 
 | Wave | Issue | Tamaño | Notas |
