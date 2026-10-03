@@ -107,7 +107,7 @@ export interface ActionExecutorContext {
 }
 
 // Top-level app view derived from the current route. Standalone pages
-// (sprint, issues, dashboard, workers, analyst-desk, export, onboarding, root)
+// (sprint, issues, dashboard, workers, export, onboarding, root)
 // have layoutMode === 'none', so this field is the way to gate actions to a
 // specific page.
 export type CurrentView = AppDestination['kind'] | null;

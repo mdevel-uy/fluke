@@ -44,7 +44,6 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.GoToDashboard },
           { type: 'action', action: Actions.GoToPilotReport },
           { type: 'action', action: Actions.GoToWorkers },
-          { type: 'action', action: Actions.GoToAnalystDesk },
         ],
       },
       {
@@ -176,7 +175,6 @@ export const Pages: Record<StaticPageId, CommandBarPage> = {
           { type: 'action', action: Actions.GoToDashboard },
           { type: 'action', action: Actions.GoToPilotReport },
           { type: 'action', action: Actions.GoToWorkers },
-          { type: 'action', action: Actions.GoToAnalystDesk },
         ],
       },
     ],

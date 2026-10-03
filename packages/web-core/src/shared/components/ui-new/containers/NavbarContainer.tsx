@@ -269,14 +269,7 @@ export function NavbarContainer({
                     label: t('appBar.dashboard', { defaultValue: 'Dashboard' }),
                     goTo: () => appNavigation.goToDashboard(),
                   }
-                : kind === 'analyst-desk'
-                  ? {
-                      label: t('appBar.analystDesk', {
-                        defaultValue: 'Analyst Desk',
-                      }),
-                      goTo: () => appNavigation.goToAnalystDesk(),
-                    }
-                  : null;
+                : null;
     if (!section) return undefined;
 
     const items: NavbarBreadcrumbItem[] = [];

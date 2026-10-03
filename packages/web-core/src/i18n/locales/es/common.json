@@ -664,7 +664,6 @@
     "issues": "Issues",
     "workers": "Perfiles",
     "sprint": "Kanban",
-    "analystDesk": "Mesa de analistas",
     "ciPipelines": "Pipelines de CI",
     "collapseSidebar": "Contraer barra lateral",
     "expandSidebar": "Expandir barra lateral",
@@ -1516,70 +1515,6 @@
       "purgeAllSuccess": "{{count}} workers archivados eliminados definitivamente.",
       "purgeAllError": "No se pudieron eliminar los workers archivados: {{message}}",
       "dismiss": "Cerrar"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "Adjuntar diseño",
-      "pendingCount": "{{n}} sin tomar",
-      "searchPlaceholder": "Buscar por título o diseñador…",
-      "empty": "No hay diseños sin tomar",
-      "attachedHint": "El orquestador agrega la referencia, el resumen y la receta de fetch al prompt.",
-      "remove": "Quitar diseño",
-      "notePlaceholder": "Indicaciones del PM (opcional): prioridades, restricciones…"
-    },
-    "title": "Mesa de analistas",
-    "repoLabel": "Repositorio",
-    "analystsLabel": "Analista",
-    "skillsPicker": "Skills",
-    "skillsEmpty": "No hay skills instaladas.",
-    "requestLabel": "Pedido",
-    "promptPlaceholder": "Describí qué necesitás del analista. Ej.: descomponé el epic de notificaciones en issues chicos con criterios de aceptación.",
-    "hint": "Se despacha al instante si el analista está libre; si no, entra a su cola.",
-    "submit": "Enviar pedido",
-    "loading": "Cargando...",
-    "loadError": "No se pudieron cargar los analistas.",
-    "noAnalystsTitle": "Todavía no hay analistas",
-    "noAnalystsDescription": "Creá un worker con rol Analista para empezar a enviarle pedidos.",
-    "goToWorkers": "Ir a Workers",
-    "historyTitle": "Pedidos a {{worker}}",
-    "historyEmpty": "Todavía no hay pedidos. Acá van a aparecer tus pedidos y sus resultados.",
-    "openWorkspace": "Ver ejecución",
-    "retry": "Reintentar",
-    "stop": "Detener",
-    "remove": "Quitar de cola",
-    "stopConfirmMessage": "¿Detener este pedido? Se para el contenedor y se elimina el pedido.",
-    "removeConfirmMessage": "¿Quitar este pedido de la cola del analista?",
-    "cancelConfirm": "Cancelar",
-    "stopConfirm": "Detener",
-    "removeConfirm": "Quitar",
-    "dismiss": "Cerrar",
-    "status": {
-      "queued": "En cola",
-      "queuedAhead": "En cola · {{ahead}} adelante",
-      "inProgress": "En progreso",
-      "done": "Completado",
-      "failed": "Falló",
-      "waitingUser": "Esperando respuesta"
-    },
-    "toast": {
-      "started": "{{worker}} empezó con tu pedido.",
-      "queued": "Pedido encolado para {{worker}}.",
-      "error": "No se pudo enviar el pedido: {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "Arrastrá imágenes acá, hacé clic para agregar o pegá",
-      "addMore": "Agregar más imágenes",
-      "removeAria": "Quitar {{name}}",
-      "uploading": "Subiendo",
-      "errorLabel": "Falló la carga",
-      "uploadError": "No se pudo subir '{{name}}': {{message}}",
-      "tooLarge": "El archivo supera el tamaño máximo permitido."
-    },
-    "labelsInput": {
-      "title": "Labels de issues",
-      "placeholder": "Ej: design, bug",
-      "removeAria": "Quitar label {{label}}"
     }
   },
   "ciPipelines": {

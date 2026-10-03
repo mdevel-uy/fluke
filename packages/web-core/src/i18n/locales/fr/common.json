@@ -649,7 +649,6 @@
     "issues": "Tickets",
     "workers": "Profils",
     "sprint": "Kanban",
-    "analystDesk": "Bureau des analystes",
     "ciPipelines": "Pipelines CI",
     "collapseSidebar": "Réduire la barre latérale",
     "expandSidebar": "Étendre la barre latérale",
@@ -1501,70 +1500,6 @@
       "purgeAllSuccess": "{{count}} workers archivés supprimés définitivement.",
       "purgeAllError": "Échec de la suppression des workers archivés : {{message}}",
       "dismiss": "Fermer"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "Joindre un design",
-      "pendingCount": "{{n}} non pris",
-      "searchPlaceholder": "Rechercher par titre ou designer…",
-      "empty": "Aucun design non pris",
-      "attachedHint": "L'orchestrateur ajoute la référence, le résumé et la recette de fetch au prompt.",
-      "remove": "Retirer le design",
-      "notePlaceholder": "Consignes du PM (optionnel) : priorités, contraintes…"
-    },
-    "title": "Bureau des analystes",
-    "repoLabel": "Dépôt",
-    "analystsLabel": "Analyste",
-    "skillsPicker": "Skills",
-    "skillsEmpty": "Aucune skill installée.",
-    "requestLabel": "Demande",
-    "promptPlaceholder": "Décrivez ce dont vous avez besoin de l'analyste. Ex. : découper l'epic notifications en petites issues avec critères d'acceptation.",
-    "hint": "Envoyée immédiatement si l'analyste est libre ; sinon elle rejoint sa file.",
-    "submit": "Envoyer la demande",
-    "loading": "Chargement...",
-    "loadError": "Impossible de charger les analystes.",
-    "noAnalystsTitle": "Aucun analyste pour l'instant",
-    "noAnalystsDescription": "Créez un worker avec le rôle Analyste pour commencer à envoyer des demandes.",
-    "goToWorkers": "Aller aux Workers",
-    "historyTitle": "Demandes à {{worker}}",
-    "historyEmpty": "Aucune demande pour l'instant. Vos demandes et leurs résultats apparaîtront ici.",
-    "openWorkspace": "Voir l'exécution",
-    "retry": "Réessayer",
-    "stop": "Arrêter",
-    "remove": "Retirer",
-    "stopConfirmMessage": "Arrêter cette demande ? Le conteneur sera arrêté et la demande supprimée.",
-    "removeConfirmMessage": "Retirer cette demande de la file de l'analyste ?",
-    "cancelConfirm": "Annuler",
-    "stopConfirm": "Arrêter",
-    "removeConfirm": "Retirer",
-    "dismiss": "Fermer",
-    "status": {
-      "queued": "En file",
-      "queuedAhead": "En file · {{ahead}} devant",
-      "inProgress": "En cours",
-      "done": "Terminée",
-      "failed": "Échouée",
-      "waitingUser": "En attente de réponse"
-    },
-    "toast": {
-      "started": "{{worker}} a commencé votre demande.",
-      "queued": "Demande mise en file pour {{worker}}.",
-      "error": "Échec de l'envoi de la demande : {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "Glissez des images ici, cliquez pour ajouter ou collez",
-      "addMore": "Ajouter d'autres images",
-      "removeAria": "Retirer {{name}}",
-      "uploading": "Envoi en cours",
-      "errorLabel": "Échec de l'envoi",
-      "uploadError": "Impossible d'envoyer « {{name}} » : {{message}}",
-      "tooLarge": "Le fichier dépasse la taille maximale autorisée."
-    },
-    "labelsInput": {
-      "title": "Labels d'issues",
-      "placeholder": "Ex. : design, bug",
-      "removeAria": "Retirer le label {{label}}"
     }
   },
   "ciPipelines": {

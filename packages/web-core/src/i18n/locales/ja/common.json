@@ -647,7 +647,6 @@
     "issues": "課題",
     "workers": "プロフィール",
     "sprint": "カンバン",
-    "analystDesk": "アナリストデスク",
     "ciPipelines": "CIパイプライン",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
@@ -1495,70 +1494,6 @@
       "purgeAllSuccess": "アーカイブ済みのワーカー {{count}} 件を完全に削除しました。",
       "purgeAllError": "アーカイブ済みワーカーの削除に失敗しました：{{message}}",
       "dismiss": "閉じる"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "デザインを添付",
-      "pendingCount": "未着手 {{n}} 件",
-      "searchPlaceholder": "タイトルまたはデザイナーで検索…",
-      "empty": "未着手のデザインはありません",
-      "attachedHint": "オーケストレーターが参照・要約・fetch手順をプロンプトに追加します。",
-      "remove": "デザインを外す",
-      "notePlaceholder": "PM指示(任意):優先度、制約…"
-    },
-    "title": "アナリストデスク",
-    "repoLabel": "リポジトリ",
-    "analystsLabel": "アナリスト",
-    "skillsPicker": "スキル",
-    "skillsEmpty": "インストール済みのスキルはありません。",
-    "requestLabel": "依頼",
-    "promptPlaceholder": "アナリストに依頼したい内容を記述してください。例: 通知エピックを受け入れ基準付きの小さなissueに分解する。",
-    "hint": "アナリストが空いていれば即時実行、作業中ならキューに追加されます。",
-    "submit": "依頼を送信",
-    "loading": "読み込み中...",
-    "loadError": "アナリストを読み込めませんでした。",
-    "noAnalystsTitle": "アナリストがいません",
-    "noAnalystsDescription": "Analystロールのワーカーを作成すると依頼を送れます。",
-    "goToWorkers": "Workersへ",
-    "historyTitle": "{{worker}} への依頼",
-    "historyEmpty": "まだ依頼はありません。依頼と結果がここに表示されます。",
-    "openWorkspace": "実行を見る",
-    "retry": "再試行",
-    "stop": "停止",
-    "remove": "削除",
-    "stopConfirmMessage": "この依頼を停止しますか？コンテナが停止し、依頼が削除されます。",
-    "removeConfirmMessage": "この依頼をアナリストのキューから削除しますか？",
-    "cancelConfirm": "キャンセル",
-    "stopConfirm": "停止",
-    "removeConfirm": "削除",
-    "dismiss": "閉じる",
-    "status": {
-      "queued": "待機中",
-      "queuedAhead": "待機中 · 前に {{ahead}} 件",
-      "inProgress": "実行中",
-      "done": "完了",
-      "failed": "失敗",
-      "waitingUser": "回答待ち"
-    },
-    "toast": {
-      "started": "{{worker}} が依頼に着手しました。",
-      "queued": "{{worker}} のキューに追加しました。",
-      "error": "依頼を送信できませんでした: {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "画像をここにドラッグ、クリックして追加、または貼り付け",
-      "addMore": "画像を追加",
-      "removeAria": "{{name}} を削除",
-      "uploading": "アップロード中",
-      "errorLabel": "アップロードに失敗しました",
-      "uploadError": "'{{name}}' をアップロードできませんでした: {{message}}",
-      "tooLarge": "ファイルサイズが上限を超えています。"
-    },
-    "labelsInput": {
-      "title": "Issue ラベル",
-      "placeholder": "例: design, bug",
-      "removeAria": "ラベル {{label}} を削除"
     }
   },
   "ciPipelines": {

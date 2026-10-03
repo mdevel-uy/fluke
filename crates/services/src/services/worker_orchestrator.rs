@@ -6182,14 +6182,14 @@ mod tests {
                 issue_number: None,
                 skills: Vec::new(),
                 issue_labels: Vec::new(),
-                source: worker_task::SOURCE_DESK.to_string(),
+                source: worker_task::SOURCE_MISSION.to_string(),
                 territory_globs: Vec::new(),
             },
         )
         .await
         .unwrap();
 
-        assert_eq!(task.source, worker_task::SOURCE_DESK);
+        assert_eq!(task.source, worker_task::SOURCE_MISSION);
         assert_eq!(task.status, worker_task::STATUS_QUEUED);
     }
 
