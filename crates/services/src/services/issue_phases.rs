@@ -387,7 +387,7 @@ pub fn build_phases(
 
     let mut review_round = 0;
     let mut last_verdict: Option<&str> = None;
-    for r in rounds {
+    for (i, r) in rounds.iter().enumerate() {
         if r.kind == "review" {
             review_round += 1;
             let reviewer = r
@@ -427,14 +427,19 @@ pub fn build_phases(
                     p
                 }
             };
+            // The remediation row is only the dispatch claim and stays
+            // pending: a later round means the fix already ran.
+            let next = rounds.get(i + 1);
             phase.state = match r.status.as_str() {
                 "submitted" => "done",
                 "failed" => "stuck",
+                _ if next.is_some() => "done",
                 _ => "active",
             }
             .to_string();
             if phase.state == "done" && phase.finished_at.is_none() {
-                phase.finished_at = Some(r.updated_at.clone());
+                phase.finished_at =
+                    Some(next.map_or(&r.updated_at, |n| &n.created_at).clone());
             }
             phases.push(phase);
         }
@@ -761,6 +766,24 @@ mod tests {
                 s("dev", 2, "active"),
                 s("review", 2, "pending"),
                 s("merge", 1, "pending"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_fix_followed_by_a_new_review_is_done() {
+        let dev = task(ROLE_DEVELOPER, None, "in_review");
+        let rounds = vec![
+            round("review", "submitted", Some("request_changes"), None),
+            round("remediation", "pending", None, None),
+            round("review", "submitted", Some("approve"), None),
+        ];
+        assert_eq!(
+            kinds(&build_phases(&[dev], &rounds, &[], None, false))[3..].to_vec(),
+            vec![
+                s("dev", 2, "done"),
+                s("review", 2, "done"),
+                s("merge", 1, "pending")
             ]
         );
     }
