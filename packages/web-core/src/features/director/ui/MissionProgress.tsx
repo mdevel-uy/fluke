@@ -15,7 +15,6 @@ import {
   proposalMilestones,
   readyToRun,
 } from '../lib/missionSteps';
-import { useDirectorStore } from '../model/useDirectorStore';
 
 /**
  * Mission progress (fluke v2, #700), as in "1 · Fluke" of
@@ -120,14 +119,12 @@ export function MissionStepper({ detail }: { detail: MissionDetail }) {
 /** "Ver milestone": the Plan view of Issues with the mission's bands open. */
 function useShowMilestones(detail: MissionDetail) {
   const appNavigation = useAppNavigation();
-  const setView = useDirectorStore((s) => s.setView);
   return () => {
     const { collapsed, toggle } = usePlanCollapseStore.getState();
     for (const m of proposalMilestones(detail)) {
       if (collapsed.includes(m)) toggle(m);
     }
     rememberIssuesView('plan');
-    if (useDirectorStore.getState().view === 'expanded') setView('panel');
     appNavigation.goToIssues(detail.mission.repo_id ?? undefined);
   };
 }

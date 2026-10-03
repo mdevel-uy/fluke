@@ -7,6 +7,9 @@ import { cn } from '@/shared/lib/utils';
 import { isMac } from '@/shared/lib/platform';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
+import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
+import { isFlukeDestination } from '@/shared/lib/routes/appNavigation';
 import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
 import {
   isWaitingForUser,
@@ -28,8 +31,8 @@ import { FlukeMark } from './FlukeMark';
 
 /**
  * The Director ("Fluke" in the UI), mounted once in the app shell: a floating
- * bubble that opens a panel, anchors as a column in the right aside, or
- * expands to a full-screen view with the live brief. Its state lives in
+ * bubble that opens a panel or anchors as a column in the right aside; the
+ * full view is the /fluke page (`FlukePage`). Its state lives in
  * `useDirectorStore`, so it survives navigation and repo changes.
  */
 export function DirectorRoot() {
@@ -69,12 +72,10 @@ export function DirectorRoot() {
     (s) => s.isRightSidebarVisible
   );
 
-  if (view === 'expanded') {
-    return createPortal(
-      <DirectorExpanded context={context} missionId={missionId} />,
-      document.body
-    );
-  }
+  // On /fluke the page is the assistant: no second copy floating or docked.
+  const onFlukePage = isFlukeDestination(useCurrentAppDestination());
+
+  if (onFlukePage) return null;
   if (view === 'panel' && pinned && isRightSidebarVisible) {
     return (
       <ShellAsidePortal className="order-last">
@@ -108,18 +109,19 @@ export function DirectorRoot() {
   );
 }
 
-function DirectorExpanded({
-  context,
-  missionId,
-}: {
-  context: string;
-  missionId: string | null;
-}) {
+/**
+ * The /fluke page: Fluke's own place in the app (rail item and the panel's
+ * expand button), with the conversation and the live brief side by side.
+ */
+export function FlukePage() {
   const { t } = useTranslation('common');
+  const activeTab = useDirectorStore((s) => s.activeTab);
+  const missionId = activeTab === MISSIONS_TAB ? null : activeTab;
+  const context = useDirectorUiContext();
   const { data: detail } = useMission(missionId);
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-primary">
-      <DirectorHeader context={context} />
+    <div className="flex h-full min-h-0 flex-col bg-primary">
+      <DirectorHeader context={context} page />
       <MissionTabs />
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-hidden border-r border-md-outline-variant">
@@ -162,6 +164,7 @@ function DirectorBubble() {
   const setView = useDirectorStore((s) => s.setView);
   const dismissed = useDirectorStore((s) => s.dismissed);
   const dismiss = useDirectorStore((s) => s.dismiss);
+  const appNavigation = useAppNavigation();
 
   const waiting = missions.filter(isWaitingForUser);
   const notice = waiting.find((m) => !dismissed.includes(noticeKey(m)));
@@ -200,7 +203,11 @@ function DirectorBubble() {
             type="button"
             onClick={() => {
               openMission(notice.mission.id);
-              if (notice.mission.status === 'brief_ready') setView('expanded');
+              // The brief needs room: review it on Fluke's page.
+              if (notice.mission.status === 'brief_ready') {
+                setView('bubble');
+                appNavigation.goToFluke();
+              }
             }}
             className="self-end rounded-md bg-brand px-2 py-1 text-xs font-medium text-on-brand hover:bg-brand-hover"
           >

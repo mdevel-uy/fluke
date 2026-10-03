@@ -20,6 +20,7 @@ import { Route as AppSourceControlRouteImport } from './routes/_app.source-contr
 import { Route as AppPilotReportRouteImport } from './routes/_app.pilot-report'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppIssuesRouteImport } from './routes/_app.issues'
+import { Route as AppFlukeRouteImport } from './routes/_app.fluke'
 import { Route as AppExportRouteImport } from './routes/_app.export'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCiPipelinesRouteImport } from './routes/_app.ci-pipelines'
@@ -84,6 +85,11 @@ const AppIssuesRoute = AppIssuesRouteImport.update({
   path: '/issues',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFlukeRoute = AppFlukeRouteImport.update({
+  id: '/fluke',
+  path: '/fluke',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
+  '/fluke': typeof AppFlukeRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
   '/pilot-report': typeof AppPilotReportRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
+  '/fluke': typeof AppFlukeRoute
   '/issues': typeof AppIssuesRoute
   '/notifications': typeof AppNotificationsRoute
   '/pilot-report': typeof AppPilotReportRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_app/ci-pipelines': typeof AppCiPipelinesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/export': typeof AppExportRoute
+  '/_app/fluke': typeof AppFlukeRoute
   '/_app/issues': typeof AppIssuesRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/pilot-report': typeof AppPilotReportRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
+    | '/fluke'
     | '/issues'
     | '/notifications'
     | '/pilot-report'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
+    | '/fluke'
     | '/issues'
     | '/notifications'
     | '/pilot-report'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/_app/ci-pipelines'
     | '/_app/dashboard'
     | '/_app/export'
+    | '/_app/fluke'
     | '/_app/issues'
     | '/_app/notifications'
     | '/_app/pilot-report'
@@ -355,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIssuesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/fluke': {
+      id: '/_app/fluke'
+      path: '/fluke'
+      fullPath: '/fluke'
+      preLoaderRoute: typeof AppFlukeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/export': {
       id: '/_app/export'
       path: '/export'
@@ -425,6 +444,7 @@ interface AppRouteChildren {
   AppCiPipelinesRoute: typeof AppCiPipelinesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppExportRoute: typeof AppExportRoute
+  AppFlukeRoute: typeof AppFlukeRoute
   AppIssuesRoute: typeof AppIssuesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPilotReportRoute: typeof AppPilotReportRoute
@@ -442,6 +462,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCiPipelinesRoute: AppCiPipelinesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppExportRoute: AppExportRoute,
+  AppFlukeRoute: AppFlukeRoute,
   AppIssuesRoute: AppIssuesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPilotReportRoute: AppPilotReportRoute,

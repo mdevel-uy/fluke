@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
-  ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
   MinusIcon,
   PlusIcon,
@@ -14,6 +13,7 @@ import type { MissionSummary } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
 import {
@@ -29,13 +29,19 @@ import { FlukeMark } from './FlukeMark';
 import { QuickReplies } from './QuickReplies';
 import { ProposalMessage } from './MissionProgress';
 
-export function DirectorHeader({ context }: { context: string }) {
+/** `page`: the /fluke route, which has no window controls of its own. */
+export function DirectorHeader({
+  context,
+  page = false,
+}: {
+  context: string;
+  page?: boolean;
+}) {
   const { t } = useTranslation('common');
-  const view = useDirectorStore((s) => s.view);
   const pinned = useDirectorStore((s) => s.pinned);
   const setView = useDirectorStore((s) => s.setView);
   const setPinned = useDirectorStore((s) => s.setPinned);
-  const expanded = view === 'expanded';
+  const appNavigation = useAppNavigation();
 
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b border-md-outline-variant px-3">
@@ -53,28 +59,28 @@ export function DirectorHeader({ context }: { context: string }) {
           {context}
         </span>
       )}
-      <div className="ml-auto flex shrink-0 items-center gap-0.5">
-        {!expanded && (
+      {!page && (
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <HeaderButton
             label={t(pinned ? 'director.unpin' : 'director.pin')}
             onClick={() => setPinned(!pinned)}
           >
             {pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
           </HeaderButton>
-        )}
-        <HeaderButton
-          label={t(expanded ? 'director.collapse' : 'director.expand')}
-          onClick={() => setView(expanded ? 'panel' : 'expanded')}
-        >
-          {expanded ? <ArrowsInSimpleIcon /> : <ArrowsOutSimpleIcon />}
-        </HeaderButton>
-        <HeaderButton
-          label={t('director.minimize')}
-          onClick={() => setView('bubble')}
-        >
-          <MinusIcon />
-        </HeaderButton>
-      </div>
+          <HeaderButton
+            label={t('director.expand')}
+            onClick={() => appNavigation.goToFluke()}
+          >
+            <ArrowsOutSimpleIcon />
+          </HeaderButton>
+          <HeaderButton
+            label={t('director.minimize')}
+            onClick={() => setView('bubble')}
+          >
+            <MinusIcon />
+          </HeaderButton>
+        </div>
+      )}
     </div>
   );
 }
