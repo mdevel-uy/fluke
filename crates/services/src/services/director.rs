@@ -438,8 +438,10 @@ Doing things (most requests):
 stop a run, report status, and so on.
 - Find the endpoint and the body shape with app_api_reference (search a keyword such as \
 \"workers\", \"reassign\", \"issues\"; an empty query lists every endpoint).
-- Resolve names to ids with GET calls first (for example list the workers to find \"Dani\"). \
-If a name matches more than one thing, ask with ask_user and short options.
+- Profiles (workers) and repos can be named instead of their id: in the path \
+(/api/workers/Backend/tasks) and in worker_id, target_worker_id and repo_id of the body, the app \
+swaps the name for the id. For anything else, resolve names to ids with a GET first. If a name \
+matches more than one thing, ask with ask_user and short options.
 - Make the call with app_api and confirm what changed in one short sentence. If it fails, \
 read the error, fix the call and retry once before telling the user.
 - Destructive or hard-to-undo calls (DELETE, archive, remove, merge, approve, stop, send...) are \
@@ -928,6 +930,81 @@ fn api_call(args: &Value) -> Result<(reqwest::Method, String), String> {
     Ok((method, path.to_string()))
 }
 
+/// Campos del body que la UI llena con ids y que Fluke puede dar por nombre.
+const NAME_KEYS: &[(&str, &str)] = &[
+    ("worker_id", "workers"),
+    ("target_worker_id", "workers"),
+    ("repo_id", "repos"),
+];
+
+/// Nombres de perfiles y repos (en la ruta o en el body) cambiados por su id,
+/// así Fluke no necesita un GET previo para cada orden (J0.6). Un tramo de
+/// ruta que no coincide con ningún nombre queda como está (puede ser una
+/// ruta literal); un campo del body que no coincide es un error.
+async fn resolve_names(pool: &Pool, args: &Value) -> Result<Value, String> {
+    let db_err = |e: sqlx::Error| format!("internal error: {e}");
+    let mut names: Vec<(&str, String, String)> = Vec::new();
+    for w in Worker::list_all(pool).await.map_err(db_err)? {
+        names.push(("workers", w.name.to_lowercase(), w.id.to_string()));
+    }
+    for r in Repo::list_all(pool).await.map_err(db_err)? {
+        names.push(("repos", r.name.to_lowercase(), r.id.to_string()));
+        names.push(("repos", r.display_name.to_lowercase(), r.id.to_string()));
+    }
+    let lookup = |collection: &str, value: &str| -> Result<Option<String>, String> {
+        if Uuid::parse_str(value).is_ok() {
+            return Ok(None);
+        }
+        let needle = value.trim().to_lowercase();
+        let mut ids: Vec<&String> = names
+            .iter()
+            .filter(|(c, n, _)| *c == collection && *n == needle)
+            .map(|(_, _, id)| id)
+            .collect();
+        ids.dedup();
+        match ids.as_slice() {
+            [] => Ok(None),
+            [id] => Ok(Some((*id).clone())),
+            _ => Err(format!(
+                "'{value}' matches more than one in {collection}: use the id"
+            )),
+        }
+    };
+
+    let mut args = args.clone();
+    if let Some(path) = args.get("path").and_then(Value::as_str) {
+        let (route, query) = path.split_once('?').map_or((path, None), |(r, q)| (r, Some(q)));
+        let mut parts: Vec<String> = route.split('/').map(str::to_string).collect();
+        for i in 1..parts.len() {
+            let collection = parts[i - 1].clone();
+            if (collection == "workers" || collection == "repos") && !parts[i].is_empty() {
+                let decoded = parts[i].replace("%20", " ");
+                if let Some(id) = lookup(&collection, &decoded)? {
+                    parts[i] = id;
+                }
+            }
+        }
+        let mut path = parts.join("/");
+        if let Some(q) = query {
+            path = format!("{path}?{q}");
+        }
+        args["path"] = Value::String(path);
+    }
+    if let Some(body) = args.get_mut("body").and_then(Value::as_object_mut) {
+        for (key, collection) in NAME_KEYS {
+            if let Some(Value::String(value)) = body.get(*key).cloned() {
+                if Uuid::parse_str(&value).is_err() {
+                    let id = lookup(collection, &value)?.ok_or_else(|| {
+                        format!("unknown {} '{value}' in {key}", &collection[..collection.len() - 1])
+                    })?;
+                    body.insert((*key).to_string(), Value::String(id));
+                }
+            }
+        }
+    }
+    Ok(args)
+}
+
 /// Llama al backend local como lo haría la UI (mismo proceso, loopback).
 async fn app_api(args: &Value) -> Result<String, String> {
     let (method, path) = api_call(args)?;
@@ -1171,6 +1248,7 @@ pub async fn call_tool(
             args.get("query").and_then(Value::as_str).unwrap_or(""),
         )),
         "app_api" => {
+            let args = &resolve_names(pool, args).await?;
             let (method, path) = api_call(args)?;
             if !confirmations::is_dangerous(&method, &path) {
                 return app_api(args).await;
@@ -1268,6 +1346,52 @@ mod tests {
         assert!(s.contains("Running:\n- #664 Vista Plan (developer)"), "{s}");
         assert!(s.contains("- #663 Vista Plan (developer): asks"), "{s}");
         assert!(s.contains("#675 (CI passing"), "{s}");
+    }
+
+    #[tokio::test]
+    async fn names_become_ids_in_path_and_body() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        let backend = Uuid::new_v4();
+        sqlx::query("INSERT INTO workers (id, name, emoji, soul, role) VALUES (?, 'Backend', '', '', 'developer')")
+            .bind(backend)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let repo = Uuid::new_v4();
+        sqlx::query("INSERT INTO repos (id, path, name, display_name) VALUES (?, '/r/fluke', 'fluke', 'Fluke app')")
+            .bind(repo)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let out = resolve_names(
+            &pool,
+            &json!({
+                "method": "POST",
+                "path": "/api/workers/backend/tasks?x=1",
+                "body": { "repo_id": "Fluke app", "target_worker_id": backend.to_string() }
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(out["path"], format!("/api/workers/{backend}/tasks?x=1"));
+        assert_eq!(out["body"]["repo_id"], repo.to_string());
+        assert_eq!(out["body"]["target_worker_id"], backend.to_string());
+
+        // A literal route segment stays; an unknown name in the body is an error.
+        let out = resolve_names(&pool, &json!({ "path": "/api/workers/archived" }))
+            .await
+            .unwrap();
+        assert_eq!(out["path"], "/api/workers/archived");
+        let err = resolve_names(&pool, &json!({ "path": "/api/x", "body": { "worker_id": "Nadie" } }))
+            .await
+            .unwrap_err();
+        assert!(err.contains("unknown worker 'Nadie'"), "{err}");
     }
 
     #[test]
