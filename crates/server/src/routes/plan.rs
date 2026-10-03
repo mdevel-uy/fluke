@@ -99,6 +99,9 @@ async fn mcp(
                 &args,
             )
             .await;
+            if name == "ask_user" && out.is_ok() {
+                notify_question(&deployment, workspace_id, &args).await;
+            }
             Ok(match out {
                 Ok(text) => json!({ "content": [{ "type": "text", "text": text }] }),
                 Err(text) => {
@@ -351,4 +354,32 @@ async fn answer(
     .await
     .map_err(ApiError::Conflict)?;
     Ok(ok())
+}
+
+/// Push when a coding agent asks something (fluke v2, #694): the issue is
+/// waiting for a person. Links to the issue page.
+async fn notify_question(deployment: &DeploymentImpl, workspace_id: Uuid, args: &Value) {
+    use services::services::container::ContainerService;
+    let Some(web_push) = deployment.container().web_push() else {
+        return;
+    };
+    let task =
+        db::models::worker_task::WorkerTask::find_by_workspace(&deployment.db().pool, workspace_id)
+            .await
+            .ok()
+            .flatten();
+    let question = args
+        .get("question")
+        .and_then(Value::as_str)
+        .unwrap_or("El agente necesita una definición para seguir.");
+    let payload = services::services::web_push::PushEventPayload {
+        title: "El agente necesita tu respuesta".to_string(),
+        body: question.chars().take(180).collect(),
+        tag: format!("agent-question-{workspace_id}"),
+        deeplink_path: task.and_then(|t| {
+            t.issue_number
+                .map(|n| format!("/issues/{n}?repo={}", t.repo_id))
+        }),
+    };
+    services::services::web_push::spawn_notify(web_push.clone(), payload);
 }
