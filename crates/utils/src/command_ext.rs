@@ -43,32 +43,17 @@ impl NoWindowExt for tokio::process::Command {
     }
 }
 
-#[cfg(windows)]
-const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x00004000;
-
-/// Adds a `.group_spawn_no_window()` helper for command-group spawns (coding
-/// agents and repo scripts) that suppresses the console window on Windows and
-/// runs the group below normal priority. Every descendant inherits it, so the
-/// builds and tests agents launch yield to the user's own apps instead of
-/// freezing the machine.
+/// Adds a `.group_spawn_no_window()` helper for command-group spawns that
+/// suppresses the console window on Windows. No-op on other platforms.
 pub trait GroupSpawnNoWindowExt {
     fn group_spawn_no_window(&mut self) -> std::io::Result<AsyncGroupChild>;
 }
 
 impl GroupSpawnNoWindowExt for tokio::process::Command {
     fn group_spawn_no_window(&mut self) -> std::io::Result<AsyncGroupChild> {
-        #[cfg(unix)]
-        // SAFETY: nice(2) is async-signal-safe; failure just keeps the
-        // inherited priority.
-        unsafe {
-            self.pre_exec(|| {
-                nix::libc::nice(10);
-                Ok(())
-            });
-        }
         let mut group = self.group();
         #[cfg(windows)]
-        group.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
+        group.creation_flags(CREATE_NO_WINDOW);
         group.spawn()
     }
 }
