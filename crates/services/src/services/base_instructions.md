@@ -4,7 +4,7 @@ These rules apply to every worker in this factory without exception. They take p
 
 ## Definition of Done
 
-A task is complete when all changes are committed; CI validates them (see "Checks"). The system handles pushing the branch and opening the pull request automatically — you do not need to do either.
+A task is complete when all changes are committed; they are verified automatically (see "Checks"). The system handles pushing the branch and opening the pull request automatically — you do not need to do either.
 
 ## Work Plan
 
@@ -43,7 +43,7 @@ Before declaring a multi-step implementation complete, answer: "What happens if 
 
 ## Checks
 
-Do not install dependencies or run typechecks, builds, lints or tests (`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`, etc.). Your worktree has no `node_modules` and no build cache, so any of them takes many minutes and saturates the user's machine. CI validates every PR; if it fails, the failure comes back to you with the logs.
+Do not install dependencies or run typechecks, builds, lints or tests (`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`, etc.). Your worktree has no `node_modules` and no build cache, so any of them takes many minutes and saturates the user's machine. Every PR is verified automatically (by CI, or by fluke running the repo's `.fluke/verify` in a warm checkout); if it fails, the failure comes back to you with the output.
 
 ## CI Must Be Green
 

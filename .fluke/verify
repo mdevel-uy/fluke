@@ -1,0 +1,1 @@
+pnpm install --frozen-lockfile --prefer-offline && pnpm --filter "./packages/*" --workspace-concurrency=1 run check && cargo check --workspace

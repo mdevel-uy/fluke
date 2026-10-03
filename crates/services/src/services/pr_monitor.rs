@@ -29,6 +29,7 @@ use crate::services::{
     analytics::AnalyticsContext,
     config::Config,
     container::ContainerService,
+    local_verify,
     remote_client::{RemoteClient, RemoteClientError},
     milestone_runs, remote_sync, worker_orchestrator,
 };
@@ -679,6 +680,11 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
     ) -> CiGate {
         match git_host.get_pr_ci_status(pr_url).await {
             Ok(ci_status) => {
+                let ci_status = if ci_status == "none" {
+                    Self::local_verify_status(git_host, db, pr_url, pr_number).await
+                } else {
+                    ci_status
+                };
                 if let Err(e) = PullRequest::update_ci_status(&db.pool, pr_url, &ci_status).await {
                     warn!("Failed to persist CI status for PR #{}: {}", pr_number, e);
                 }
@@ -692,6 +698,39 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
                 CiGate::Pending
             }
         }
+    }
+
+    /// CI status for a PR whose repo has no GitHub checks: the result of the
+    /// local verification (see [`local_verify`]), or `"none"` when the repo
+    /// does not define one. Unknown head or PR record → `"pending"`/`"none"`
+    /// with the same conservatism as `evaluate_ci_gate`.
+    async fn local_verify_status(
+        git_host: &GitHostService,
+        db: &DBService,
+        pr_url: &str,
+        pr_number: i64,
+    ) -> String {
+        let repo = match PullRequest::find_by_url(&db.pool, pr_url).await {
+            Ok(Some(PullRequest {
+                repo_id: Some(repo_id),
+                ..
+            })) => Repo::find_by_id(&db.pool, repo_id).await.ok().flatten(),
+            _ => None,
+        };
+        let Some(repo) = repo else {
+            return "none".to_string();
+        };
+        let head_sha = match git_host.get_pr_head_sha(pr_url).await {
+            Ok(Some(sha)) if !sha.is_empty() => sha,
+            _ => return "pending".to_string(),
+        };
+        match local_verify::gate(&repo.path, repo.id, pr_number, &head_sha).await {
+            local_verify::Gate::NotConfigured => "none",
+            local_verify::Gate::Pending => "pending",
+            local_verify::Gate::Passed => "passing",
+            local_verify::Gate::Failed(_) => "failing",
+        }
+        .to_string()
     }
 
     /// Check the status of a single open PR and handle state changes.

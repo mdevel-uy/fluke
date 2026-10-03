@@ -152,8 +152,8 @@ When you finish the work above, commit your changes with clear messages and \
 do NOT install dependencies or run typechecks, builds, lints or tests \
 (`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`...): this \
 worktree has no `node_modules` nor build cache, so any of them takes many \
-minutes and saturates the machine. CI validates the PR, and failures come \
-back to you as review feedback. \
+minutes and saturates the machine. The PR is verified automatically (CI or \
+fluke's local verification) and failures come back to you as feedback. \
 The system will push the branch and open the pull request against \
 `{target_branch}` automatically once your run ends — do NOT create the PR \
 yourself. \
@@ -5023,7 +5023,21 @@ pub async fn dispatch_author_fix_task(
 /// contract (worktree already on the PR head, system pushes and does not
 /// create a new PR) but is dispatched by the pr_monitor CI gate (issue #367)
 /// instead of a reviewer verdict.
-fn build_ci_fix_prompt(pr_number: i64) -> String {
+fn build_ci_fix_prompt(pr_number: i64, local_failure: Option<&str>) -> String {
+    if let Some(log) = local_failure {
+        return format!(
+            "La verificación del PR #{pr_number} falló (el comando de \
+             `{verify}`, corrido por fluke sobre el head del PR). Tu worktree \
+             ya está posicionado sobre ese head — no hace falta hacer fetch, \
+             checkout, ni reset. Final de la salida:\n\n```\n{log}\n```\n\n\
+             Arreglá la causa y commiteá; no corras el comando vos (el \
+             worktree no tiene dependencias ni caché de build): fluke lo \
+             vuelve a correr sobre el nuevo head. El sistema pushea tus \
+             commits a la rama del PR al finalizar la corrida: no pushees a \
+             mano ni crees un PR nuevo — el PR ya existe.",
+            verify = super::local_verify::VERIFY_FILE,
+        );
+    }
     format!(
         "El CI del PR #{pr_number} está fallando. \
          Tu worktree ya está posicionado sobre el head del PR — no hace \
@@ -5158,7 +5172,8 @@ pub async fn dispatch_ci_fix_task(
         return Ok(());
     }
 
-    let task_prompt = build_ci_fix_prompt(pr_number);
+    let local_failure = super::local_verify::failure_log(&head_sha);
+    let task_prompt = build_ci_fix_prompt(pr_number, local_failure.as_deref());
 
     // Primary path: dispatch the CI-fix as a system follow-up on the author's
     // ORIGINAL in_review workspace, same as the reviewer-changes remediation.
@@ -5699,7 +5714,7 @@ mod tests {
     /// already exists — none of that git bookkeeping belongs in the prompt.
     #[test]
     fn ci_fix_prompt_has_no_git_plumbing_and_names_the_pr() {
-        let prompt = build_ci_fix_prompt(507);
+        let prompt = build_ci_fix_prompt(507, None);
         assert!(
             prompt.contains("PR #507"),
             "CI-fix prompt must reference the PR number"

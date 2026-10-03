@@ -20,6 +20,7 @@ pub mod filesystem;
 pub mod filesystem_watcher;
 pub mod heartbeat;
 pub mod issue_phases;
+pub mod local_verify;
 pub mod licensing;
 pub mod milestone_runs;
 pub mod notification;
