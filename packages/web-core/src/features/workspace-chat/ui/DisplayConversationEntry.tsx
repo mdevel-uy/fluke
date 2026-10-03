@@ -31,6 +31,11 @@ import { useTheme } from '@/shared/hooks/useTheme';
 import WYSIWYGEditor from '@/shared/components/WYSIWYGEditor';
 import { useMessageEditContext } from '../model/contexts/MessageEditContext';
 import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import {
+  eventLines,
+  isEventsBatch,
+  isSilentReply,
+} from '@/features/director/lib/events';
 import { BRIEF_TOOLS } from '../model/deriveConversationTimeline';
 import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
 import { useChangesViewActions } from '@/shared/hooks/useChangesView';
@@ -460,6 +465,23 @@ function DisplayConversationEntry(props: Props) {
       return renderToolUseEntry(entryType, entry, props, t, assistant);
 
     case 'user_message':
+      // Fluke's standing conversation: a batch of app events is not the
+      // user talking, it renders as a compact, collapsed log line.
+      if (assistant && isEventsBatch(entry.content)) {
+        const lines = eventLines(entry.content);
+        return (
+          <details className="text-xs text-low">
+            <summary className="cursor-pointer select-none">
+              {t('director.eventsBatch', { count: lines.length })}
+            </summary>
+            <ul className="mt-1 grid gap-0.5 pl-4 font-mono">
+              {lines.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </details>
+        );
+      }
       return (
         <UserMessageEntry
           content={entry.content}
@@ -476,6 +498,8 @@ function DisplayConversationEntry(props: Props) {
     case 'assistant_message':
       // Leading/trailing newlines render as blank lines (pre-wrap).
       if (assistant && !entry.content.trim()) return null;
+      // Fluke saw the events and chose not to bother the user.
+      if (assistant && isSilentReply(entry.content)) return null;
       return (
         <AssistantMessageEntry
           content={assistant ? entry.content.trim() : entry.content}

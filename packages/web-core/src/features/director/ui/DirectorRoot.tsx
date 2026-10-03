@@ -177,7 +177,11 @@ export function FlukePage() {
           maxSize="70%"
           className="overflow-y-auto"
         >
-          {detail ? (
+          {detail?.is_guard ? (
+            <p className="p-base text-xs text-low">
+              {t('director.guard.noBrief')}
+            </p>
+          ) : detail ? (
             <div className="grid gap-3 p-base">
               <MissionStepper detail={detail} />
               <ProposalPanel detail={detail} />
@@ -213,9 +217,10 @@ function DirectorBubble() {
 
   const waiting = missions.filter(isWaitingForUser);
   const notice = waiting.find((m) => !dismissed.includes(noticeKey(m)));
+  // The guard reading app events is not work worth a pill.
   const working = missions.find(
     (m) =>
-      m.agent_running ||
+      (m.agent_running && !m.is_guard) ||
       (['planning', 'executing'].includes(m.mission.status) &&
         m.issues_total > 0)
   );

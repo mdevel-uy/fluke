@@ -76,6 +76,69 @@ impl FlukeEvent {
     }
 }
 
+/// La conversación de guardia de Fluke (J0.3): una misión fija donde entran
+/// los eventos. Una sola fila en `fluke_guard`.
+#[derive(Debug, Clone, FromRow)]
+pub struct FlukeGuard {
+    pub mission_id: Uuid,
+    pub event_cursor: i64,
+    /// Segundos desde la última entrega a Fluke; `None` si nunca hubo.
+    pub secs_since_delivery: Option<i64>,
+}
+
+impl FlukeGuard {
+    pub async fn get(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
+        sqlx::query_as::<_, Self>(
+            "SELECT mission_id, event_cursor, \
+                    CAST(strftime('%s', 'now') - strftime('%s', last_delivery_at) AS INTEGER) \
+                        AS secs_since_delivery \
+               FROM fluke_guard WHERE id = 1",
+        )
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Fija la misión de guardia. Arranca desde el último evento: el pasado
+    /// no se le manda.
+    pub async fn set(pool: &SqlitePool, mission_id: Uuid) -> Result<(), sqlx::Error> {
+        let cursor = FlukeEvent::last_id(pool).await?;
+        sqlx::query(
+            "INSERT INTO fluke_guard (id, mission_id, event_cursor) VALUES (1, ?1, ?2) \
+             ON CONFLICT(id) DO UPDATE SET mission_id = ?1, event_cursor = ?2",
+        )
+        .bind(mission_id)
+        .bind(cursor)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Eventos procesados hasta `cursor`; `delivered` marca que Fluke recibió
+    /// un lote ahora.
+    pub async fn advance(
+        pool: &SqlitePool,
+        cursor: i64,
+        delivered: bool,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE fluke_guard SET event_cursor = MAX(event_cursor, ?1), \
+                    last_delivery_at = CASE WHEN ?2 THEN datetime('now') ELSE last_delivery_at END \
+              WHERE id = 1",
+        )
+        .bind(cursor)
+        .bind(delivered)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn is_guard(pool: &SqlitePool, mission_id: Uuid) -> Result<bool, sqlx::Error> {
+        Ok(Self::get(pool)
+            .await?
+            .is_some_and(|g| g.mission_id == mission_id))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

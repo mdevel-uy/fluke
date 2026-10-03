@@ -1797,6 +1797,11 @@
     "error": "操作を完了できませんでした: {{message}}"
   },
   "director": {
+    "eventsBatch_one": "アプリのイベント {{count}} 件",
+    "eventsBatch_other": "アプリのイベント {{count}} 件",
+    "guard": {
+      "noBrief": "Fluke の常設の会話です。アプリで起きたことがここに届きます。ブリーフはなく、新しい開発作業はミッションとして始まります。"
+    },
     "name": "Fluke",
     "open": "Open Fluke",
     "pin": "Anchor as a column",

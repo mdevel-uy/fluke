@@ -178,11 +178,13 @@ impl Mission {
         Ok(row.map(Into::into))
     }
 
-    /// Todas las misiones de la instalación (el Director es global), las
-    /// abiertas primero y luego por actividad.
+    /// Todas las misiones de la instalación (el Director es global): la
+    /// guardia de Fluke primero, después las abiertas y luego por actividad.
     pub async fn list(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         let rows = sqlx::query_as::<_, MissionRow>(&format!(
-            "{MISSION_SELECT} ORDER BY (m.status = 'closed'), m.updated_at DESC"
+            "{MISSION_SELECT} \
+             ORDER BY m.id IS (SELECT mission_id FROM fluke_guard WHERE id = 1) DESC, \
+                      (m.status = 'closed'), m.updated_at DESC"
         ))
         .fetch_all(pool)
         .await?;
