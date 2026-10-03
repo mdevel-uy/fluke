@@ -36,6 +36,9 @@ import {
 import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
+import { useTerminal } from '@/shared/hooks/useTerminal';
+import { hasShellSidebar } from '@/shared/lib/routes/appNavigation';
+import { useShellAsideHasContent } from '@/shared/components/ui-new/shell/ShellAside';
 import { getRemoteAuthDegradedMessage } from '@/shared/lib/auth/remoteAuthDegraded';
 
 /**
@@ -168,49 +171,61 @@ export function NavbarContainer({
   const isDirectorOpen = useDirectorStore((s) => s.view !== 'bubble');
   const toggleDirector = useDirectorStore((s) => s.toggle);
 
+  // A panel toggle only shows where that panel can open (decisión Dani 03-oct).
+  const canOpenLeft = hasShellSidebar(destination);
+  // Pinned Fluke docks in the aside, so keep the toggle to re-dock it.
+  const flukePinned = useDirectorStore((s) => s.pinned && s.view === 'panel');
+  const canOpenRight = useShellAsideHasContent() || flukePinned;
+  const { getAllTabs } = useTerminal();
+  const canOpenTerminal =
+    isTerminalVisible ||
+    getAllTabs().length > 0 ||
+    !!selectedWorkspace?.container_ref;
+
   const layoutToggleItems: NavbarSectionItem[] = useMemo(
-    () => [
-      {
-        type: 'action',
-        id: 'toggle-director',
-        lucideIcon: Brain,
-        isActive: isDirectorOpen,
-        tooltip: t('navbar.layout.toggleDirector', {
-          defaultValue: 'Fluke',
-        }),
-        onClick: toggleDirector,
-      },
-      {
-        type: 'action',
-        id: 'toggle-left-sidebar',
-        lucideIcon: PanelLeft,
-        isActive: isLeftSidebarVisible,
-        tooltip: t('navbar.layout.toggleSidebar', {
-          defaultValue: 'Toggle sidebar',
-        }),
-        onClick: toggleLeftSidebar,
-      },
-      {
-        type: 'action',
-        id: 'toggle-terminal',
-        lucideIcon: PanelBottom,
-        isActive: isTerminalVisible,
-        tooltip: t('navbar.layout.toggleTerminal', {
-          defaultValue: 'Toggle terminal',
-        }),
-        onClick: toggleTerminal,
-      },
-      {
-        type: 'action',
-        id: 'toggle-right-sidebar',
-        lucideIcon: PanelRight,
-        isActive: isRightSidebarVisible,
-        tooltip: t('navbar.layout.toggleRightPanel', {
-          defaultValue: 'Toggle right panel',
-        }),
-        onClick: toggleRightSidebar,
-      },
-    ],
+    () =>
+      [
+        {
+          type: 'action',
+          id: 'toggle-director',
+          lucideIcon: Brain,
+          isActive: isDirectorOpen,
+          tooltip: t('navbar.layout.toggleDirector', {
+            defaultValue: 'Fluke',
+          }),
+          onClick: toggleDirector,
+        },
+        canOpenLeft && {
+          type: 'action',
+          id: 'toggle-left-sidebar',
+          lucideIcon: PanelLeft,
+          isActive: isLeftSidebarVisible,
+          tooltip: t('navbar.layout.toggleSidebar', {
+            defaultValue: 'Toggle sidebar',
+          }),
+          onClick: toggleLeftSidebar,
+        },
+        canOpenTerminal && {
+          type: 'action',
+          id: 'toggle-terminal',
+          lucideIcon: PanelBottom,
+          isActive: isTerminalVisible,
+          tooltip: t('navbar.layout.toggleTerminal', {
+            defaultValue: 'Toggle terminal',
+          }),
+          onClick: toggleTerminal,
+        },
+        canOpenRight && {
+          type: 'action',
+          id: 'toggle-right-sidebar',
+          lucideIcon: PanelRight,
+          isActive: isRightSidebarVisible,
+          tooltip: t('navbar.layout.toggleRightPanel', {
+            defaultValue: 'Toggle right panel',
+          }),
+          onClick: toggleRightSidebar,
+        },
+      ].filter(Boolean) as NavbarSectionItem[],
     [
       t,
       isLeftSidebarVisible,
@@ -221,6 +236,9 @@ export function NavbarContainer({
       toggleRightSidebar,
       isDirectorOpen,
       toggleDirector,
+      canOpenLeft,
+      canOpenRight,
+      canOpenTerminal,
     ]
   );
 

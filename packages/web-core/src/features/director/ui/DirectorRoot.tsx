@@ -1,5 +1,11 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from 'react-resizable-panels';
 import { useTranslation } from 'react-i18next';
 import { XIcon } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
@@ -124,6 +130,11 @@ export function FlukePage() {
     activeTab !== MISSIONS_TAB ? activeTab : (missions[0]?.mission.id ?? null);
   const context = useDirectorUiContext();
   const { data: detail } = useMission(missionId);
+  const { defaultLayout, onLayoutChange } = useDefaultLayout({
+    storage: localStorage,
+    debounceSaveMs: 150,
+    id: 'fluke-page',
+  });
 
   // Picking or creating a mission opens the floating panel (openMission);
   // here that must not leak: leaving the page restores the previous view.
@@ -138,15 +149,31 @@ export function FlukePage() {
         <FlukeMissionsSidebar selectedId={missionId} />
       </ShellSidebarPortal>
       <DirectorHeader context={context} page />
-      <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-hidden border-r border-md-outline-variant">
+      {/* Chat | brief, resizable; the split is remembered across visits. */}
+      <Group
+        orientation="horizontal"
+        className="min-h-0 flex-1"
+        defaultLayout={defaultLayout}
+        onLayoutChange={onLayoutChange}
+      >
+        <Panel id="fluke-chat" minSize="360px" className="min-w-0">
           {missionId ? (
             <MissionConversation missionId={missionId} />
           ) : (
             <DirectorBody />
           )}
-        </div>
-        <div className="w-[420px] shrink-0 overflow-y-auto">
+        </Panel>
+        <Separator
+          id="fluke-separator"
+          className="w-1 border-l border-md-outline-variant bg-transparent transition-colors hover:bg-brand/50 cursor-col-resize"
+        />
+        <Panel
+          id="fluke-brief"
+          defaultSize="420px"
+          minSize="280px"
+          maxSize="70%"
+          className="overflow-y-auto"
+        >
           {detail ? (
             <div className="grid gap-3 p-base">
               <MissionStepper detail={detail} />
@@ -158,8 +185,8 @@ export function FlukePage() {
               {t('director.brief.pickMission')}
             </p>
           )}
-        </div>
-      </div>
+        </Panel>
+      </Group>
     </div>
   );
 }
