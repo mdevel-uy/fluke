@@ -907,6 +907,13 @@
     },
     "plan": {
       "tabsLabel": "보기",
+      "milestoneFilter": {
+        "label": "마일스톤",
+        "unfinished": "미완료",
+        "active": "진행 중",
+        "finished": "완료",
+        "empty": "이 필터에 해당하는 마일스톤이 없습니다."
+      },
       "tabs": {
         "list": "목록",
         "groups": "그룹",

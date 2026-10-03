@@ -99,9 +99,9 @@ export function buildMilestonePlan(
   }
 
   const bands: MilestoneBand[] = [];
+  // Finished milestones (every issue closed) stay in: the Plan sidebar
+  // decides whether to show them.
   for (const [milestone, list] of byMilestone) {
-    if (!list.some((i) => i.state === 'open')) continue;
-
     const raw = list.map((issue) => {
       const task = taskByIssueNumber.get(issue.number);
       const taskState = task ? TASK_STATE[task.status] : undefined;
@@ -171,11 +171,13 @@ export function buildMilestonePlan(
     });
   }
 
-  // Bands with something ready to start come first.
+  // Bands with something ready to start come first, finished ones last.
   const hasReady = (b: MilestoneBand) =>
     b.waves.some((w) => w.cards.some((c) => c.state === 'ready'));
+  const finished = (b: MilestoneBand) => b.done === b.total;
   bands.sort(
     (a, b) =>
+      Number(finished(a)) - Number(finished(b)) ||
       Number(hasReady(b)) - Number(hasReady(a)) ||
       a.milestone.localeCompare(b.milestone)
   );

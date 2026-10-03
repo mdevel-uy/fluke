@@ -27,7 +27,7 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { useWorkspaces } from '@/shared/hooks/useWorkspaces';
 import { IssuesGroup } from './IssuesGroup';
-import { PlanView } from './plan/PlanView';
+import { PlanView, type PlanMilestoneFilter } from './plan/PlanView';
 import {
   IssuesViewTabs,
   PlanHeaderActions,
@@ -59,6 +59,8 @@ import { IssueDetailDrawer } from './IssueDetailDrawer';
 
 type RawSearch = {
   repo?: string;
+  /** Plan view's milestone filter; `unfinished` stays out of the URL. */
+  ms?: PlanMilestoneFilter;
   q?: string;
   state?: IssueStateFilter;
   priority?: string;
@@ -292,6 +294,7 @@ export function IssuesPage() {
 
   const filters = useMemo(() => filtersFromUrl(search), [search]);
   const isPlan = filters.groupBy === 'plan';
+  const milestoneFilter = search.ms ?? 'unfinished';
   const selectedIssueNumber = search.issue;
 
   const { repos, isLoadingRepos } = useRepos();
@@ -621,6 +624,10 @@ export function IssuesPage() {
           filters={filters}
           availableLabels={availableLabels}
           onChange={handleFilterChange}
+          milestoneFilter={isPlan ? milestoneFilter : undefined}
+          onMilestoneFilterChange={(ms) =>
+            updateUrl({ ms: ms === 'unfinished' ? undefined : ms })
+          }
         />
       </ShellSidebarPortal>
       {hasIssues && !isPlan && (
@@ -680,6 +687,7 @@ export function IssuesPage() {
             onSelectIssue={handleOpenIssuePage}
             onDecide={handleDecide}
             onUnstick={handleUnstick}
+            milestoneFilter={milestoneFilter}
           />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">

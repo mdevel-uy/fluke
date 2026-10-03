@@ -1126,6 +1126,13 @@
     },
     "plan": {
       "tabsLabel": "Vista",
+      "milestoneFilter": {
+        "label": "Milestones",
+        "unfinished": "Sin finalizar",
+        "active": "Activos",
+        "finished": "Finalizados",
+        "empty": "No hay milestones en este filtro."
+      },
       "tabs": {
         "list": "Lista",
         "groups": "Grupos",

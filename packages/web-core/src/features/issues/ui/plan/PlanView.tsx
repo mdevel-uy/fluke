@@ -36,7 +36,11 @@ export interface PlanViewProps {
   onDecide?: (issue: RepoIssue, context: DecisionContext) => void;
   /** Destrabar on a stuck card (#696). */
   onUnstick?: (issue: RepoIssue) => void;
+  /** Which milestones the sidebar asks for. */
+  milestoneFilter: PlanMilestoneFilter;
 }
+
+export type PlanMilestoneFilter = 'unfinished' | 'active' | 'finished';
 
 const TASK_TO_CARD: Record<string, PlanCardState> = {
   queued: 'queued',
@@ -64,15 +68,34 @@ export function PlanView({
   onSelectIssue,
   onDecide,
   onUnstick,
+  milestoneFilter,
 }: PlanViewProps) {
   const { t } = useTranslation('common');
   const blockers = useIssueBlockers(repoId);
-  const plan = useMemo(
-    () =>
-      buildMilestonePlan(issues, taskByIssueNumber, new Set(blockers.keys())),
-    [issues, taskByIssueNumber, blockers]
-  );
   const { data: runs = [] } = useMilestoneRuns(repoId);
+  const plan = useMemo(() => {
+    const full = buildMilestonePlan(
+      issues,
+      taskByIssueNumber,
+      new Set(blockers.keys())
+    );
+    const isActive = (b: (typeof full.bands)[number]) => {
+      const run = runs.find((r) => r.milestone === b.milestone)?.status;
+      return (
+        b.status.kind === 'running' || run === 'running' || run === 'waiting'
+      );
+    };
+    const bands = full.bands.filter((b) =>
+      milestoneFilter === 'finished'
+        ? b.done === b.total
+        : milestoneFilter === 'active'
+          ? b.done < b.total && isActive(b)
+          : b.done < b.total
+    );
+    // Loose issues are open work: they only belong next to unfinished milestones.
+    const loose = milestoneFilter === 'unfinished' ? full.loose : [];
+    return { ...full, bands, loose };
+  }, [issues, taskByIssueNumber, blockers, runs, milestoneFilter]);
   const actions = useMilestoneRunActions(repoId);
   const stepMode = usePlanStepModeStore((s) => s.stepMode);
   const busy =
@@ -92,7 +115,9 @@ export function PlanView({
     <div className="mx-auto grid w-full max-w-[1240px] gap-4 px-4 py-5">
       {plan.bands.length === 0 ? (
         <div className="px-4 py-10 text-center text-body-md text-normal">
-          {t('issues.plan.empty')}
+          {milestoneFilter === 'unfinished'
+            ? t('issues.plan.empty')
+            : t('issues.plan.milestoneFilter.empty')}
         </div>
       ) : (
         <div className="grid gap-3.5">

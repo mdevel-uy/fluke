@@ -130,7 +130,7 @@ describe('buildMilestonePlan', () => {
     expect(plan.bands[0].status).toEqual({ kind: 'decision', issueNumber: 1 });
   });
 
-  it('hides milestones without open issues and puts bands with ready work first', () => {
+  it('puts bands with ready work first and finished milestones last', () => {
     const plan = buildMilestonePlan(
       [
         issue(1, 'A-done', ['wave:0'], 'closed'),
@@ -139,7 +139,11 @@ describe('buildMilestonePlan', () => {
       ],
       noTasks
     );
-    expect(plan.bands.map((b) => b.milestone)).toEqual(['C-ready', 'B-gate']);
+    expect(plan.bands.map((b) => b.milestone)).toEqual([
+      'C-ready',
+      'B-gate',
+      'A-done',
+    ]);
   });
 
   it('keeps closed issues out of the loose bucket', () => {
