@@ -119,7 +119,6 @@ fn generate_types_content() -> String {
         server::routes::github::GithubPatLoginRequest::decl(),
         server::routes::github::GithubPatLoginResponse::decl(),
         server::routes::github::GithubCliInstallResponse::decl(),
-        server::routes::codegraph::CodegraphStatus::decl(),
         db::models::plan::Plan::decl(),
         db::models::plan::PlanStep::decl(),
         db::models::plan::NewPlanStep::decl(),
