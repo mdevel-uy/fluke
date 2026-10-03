@@ -1464,6 +1464,34 @@ mod tests {
     }
 
     #[test]
+    fn events_message_lists_one_line_per_event() {
+        use db::models::fluke_event::FlukeEvent;
+        let event = |kind: &str, severity: &str, issue, pr, title: Option<&str>, detail: Option<&str>| {
+            FlukeEvent {
+                id: 1,
+                created_at: "2026-10-03 09:31:07.123".into(),
+                kind: kind.into(),
+                severity: severity.into(),
+                subject_id: None,
+                repo_id: None,
+                issue_number: issue,
+                pr_number: pr,
+                title: title.map(str::to_string),
+                detail: detail.map(str::to_string),
+            }
+        };
+        let msg = events_message(&[
+            event("task.failed", "alert", Some(710), None, Some("#710 Volver"), Some("developer · infra: 404")),
+            event("pr.ci_failing", "alert", None, Some(725), None, Some("")),
+        ]);
+        assert_eq!(
+            msg,
+            "[EVENTS]\n- 09:31 task.failed [alert] issue #710 \"#710 Volver\": developer · infra: 404\n- 09:31 pr.ci_failing [alert] PR #725"
+        );
+        assert!(msg.starts_with(EVENTS_PREFIX));
+    }
+
+    #[test]
     fn dangerous_calls_need_the_users_own_yes() {
         use reqwest::Method;
         assert!(confirmations::is_dangerous(&Method::DELETE, "/api/workers/x"));
