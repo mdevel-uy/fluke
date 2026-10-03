@@ -271,9 +271,9 @@ pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
          1. Tu worktree ya está posicionado sobre `{head_sha}` — el sistema \
             hizo el fetch y el checkout por vos al materializar el workspace, \
             así que trabajás sobre exactamente el commit que el sistema va a \
-            usar para someter el veredicto. NO uses `gh pr checkout`, \
-            `gh pr view`, `gh pr diff` ni `gh pr review`: todo va por git \
-            local; el sistema somete la review por vos.\n\
+            usar para someter el veredicto. NO uses ningún comando `gh pr` \
+            (ni para posicionarte, ni para ver el diff, ni para someter la \
+            review): todo va por git local; el sistema somete la review por vos.\n\
          2. Mirá el diff contra la rama base con \
             `git diff $(git merge-base HEAD {head_sha}) {head_sha}` \
             (o directamente `git log --stat {head_sha}` para el resumen). \
@@ -489,8 +489,8 @@ pub fn parse_owner_repo_from_pr_url(pr_url: &str) -> Option<String> {
     let owner = segments.next()?;
     let repo = segments.next()?;
     let kind = segments.next()?;
-    segments.next()?;
-    if kind != "pull" || owner.is_empty() || repo.is_empty() {
+    let number = segments.next()?;
+    if kind != "pull" || owner.is_empty() || repo.is_empty() || number.is_empty() {
         return None;
     }
     Some(format!("{owner}/{repo}"))

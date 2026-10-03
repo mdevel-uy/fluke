@@ -3224,6 +3224,8 @@ mod tests {
         assert_eq!(result, "*.js");
     }
 
+    // POSIX worktree paths: on Windows they are not absolute.
+    #[cfg(unix)]
     #[test]
     fn test_ls_tool_content_extraction() {
         // Test LS with path
@@ -3241,6 +3243,8 @@ mod tests {
         assert_eq!(result, "List directory: components");
     }
 
+    // POSIX worktree paths: on Windows they are not absolute.
+    #[cfg(unix)]
     #[test]
     fn test_path_relative_conversion() {
         // Test with relative path (should remain unchanged)
@@ -3322,6 +3326,8 @@ mod tests {
         );
     }
 
+    // POSIX worktree paths: on Windows they are not absolute.
+    #[cfg(unix)]
     #[test]
     fn test_amp_tool_aliases_create_file_and_edit_file() {
         // Amp "create_file" should deserialize into Write with alias field "path"
