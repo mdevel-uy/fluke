@@ -529,7 +529,7 @@ async fn deliver_events(deployment: &DeploymentImpl) -> Result<(), ApiError> {
     let worker = director::ensure_orchestrator(pool).await?;
     let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
         .map_err(ApiError::BadRequest)?;
-    crate::routes::sessions::follow_up(
+    let _process = crate::routes::sessions::follow_up(
         axum::Extension(session),
         State(deployment.clone()),
         Json(crate::routes::sessions::CreateFollowUpAttempt {
