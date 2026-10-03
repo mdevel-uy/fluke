@@ -548,7 +548,7 @@
         },
         "cleanup": {
           "label": "Script de Limpieza",
-          "helper": "Este script se ejecuta desde dentro del worktree después de la ejecución del agente de codificación, solo si se realizaron cambios. Úsalo para tareas de garantía de calidad como ejecutar linters, formateadores, pruebas u otros pasos de validación."
+          "helper": "Este script se ejecuta desde dentro del worktree después de la ejecución del agente de codificación, solo si se realizaron cambios. Úsalo para tareas de garantía de calidad como ejecutar linters, formateadores, pruebas u otros pasos de validación. En una tarea de worker, si falla su salida vuelve al agente para que lo corrija (hasta 2 veces) antes de abrir el PR."
         },
         "archive": {
           "label": "Script de Archivo",

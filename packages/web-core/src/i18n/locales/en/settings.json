@@ -555,7 +555,7 @@
         },
         "cleanup": {
           "label": "Cleanup Script",
-          "helper": "This script runs from within the worktree after coding agent execution, only if changes were made. Use it for quality assurance tasks like running linters, formatters, tests, or other validation steps."
+          "helper": "This script runs from within the worktree after coding agent execution, only if changes were made. Use it for quality assurance tasks like running linters, formatters, tests, or other validation steps. On a worker task, if it fails its output goes back to the agent to fix (up to 2 times) before the PR is opened."
         },
         "archive": {
           "label": "Archive Script",
