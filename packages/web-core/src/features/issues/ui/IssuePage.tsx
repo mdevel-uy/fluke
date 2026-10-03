@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
@@ -20,13 +20,15 @@ import {
   waveNumber,
 } from '@/features/issues/lib/executionLabels';
 import { PM_DECISION_LABEL } from '@/features/issues/lib/milestonePlan';
+import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
+import { IssuePlanTab } from './plan/IssuePlanTab';
 
 /**
  * Issue page, `/issues/$issueNumber` (#667). Header and breadcrumb follow the
- * "3 · Issue" screen of design/mockups/fluke-v2/pantallas.html. In F1 the body
- * is the issue text plus its task with a link to the workspace; the Plan /
- * Código / Sesiones tabs of the mockup arrive with F3.
+ * "3 · Issue" screen of design/mockups/fluke-v2/pantallas.html. The Plan tab
+ * shows the phase plan (#686); Código holds the task and a link to its
+ * workspace until the embedded workbench and Sesiones arrive (#689).
  */
 
 const ACTIVE = new Set([
@@ -64,6 +66,8 @@ export function IssuePage() {
   const { tasks } = useAllWorkerTasks(workers);
   const { workspaces, archivedWorkspaces } = useWorkspaces();
   const { theme } = useTheme();
+  const [tab, setTab] = useState<'plan' | 'code'>('plan');
+  const { data: plan } = useIssuePlan(repoId, issueNumber);
 
   const task = useMemo(() => {
     const own = tasks.filter(
@@ -196,61 +200,120 @@ export function IssuePage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-md-outline-variant bg-md-surface-container-low px-3 py-2.5 text-[13px] text-normal">
-            {task ? (
-              <>
-                <span
-                  className="size-[7px] flex-none rounded-full bg-md-primary"
-                  aria-hidden
-                />
-                <span>
-                  <b className="font-medium text-high">
-                    {t(`issues.taskStatus.${task.status}`, {
-                      defaultValue: task.status,
-                    })}
-                  </b>
-                  {workerName && <> · {workerName}</>}
-                </span>
-                <span className="flex-1" />
-                {task.workspace_id && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      appNavigation.goToWorkspace(task.workspace_id!)
-                    }
-                    className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
-                  >
-                    {t('issues.taskLinked.openWorkspace')}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <span>{t('issues.plan.issuePage.noTask')}</span>
-                <span className="flex-1" />
-                {repoId && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void AssignToAgentDialog.show({ issue, repoId })
-                    }
-                    className="inline-flex h-8 items-center rounded-md bg-md-primary px-3 text-[13px] font-medium text-md-on-primary"
-                  >
-                    {t('issues.assignToAgent')}
-                  </button>
-                )}
-              </>
-            )}
+          <div className="flex flex-wrap items-center gap-2.5 rounded-lg border border-md-outline-variant bg-md-surface-container-low px-3 py-[9px] text-[12.5px] text-normal">
+            <i
+              className="size-[7px] flex-none rounded-full bg-md-primary"
+              aria-hidden
+            />
+            <span>
+              {t('issues.plan.issuePage.templateLine')}{' '}
+              <b className="font-medium text-high">
+                {t(`issues.plan.templates.names.${plan?.template ?? 'no_tdd'}`)}
+              </b>
+            </span>
           </div>
 
-          {issue.body.trim() && (
-            <div className="rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
+          <div
+            role="tablist"
+            className="flex gap-0.5 border-b border-md-outline-variant"
+          >
+            {(['plan', 'code', 'sessions'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                disabled={key === 'sessions'}
+                title={
+                  key === 'sessions'
+                    ? t('issues.plan.issuePage.soon')
+                    : undefined
+                }
+                onClick={() => key !== 'sessions' && setTab(key)}
+                className={cn(
+                  '-mb-px border-b-2 border-transparent px-3.5 py-2 text-[13.5px] text-normal hover:text-high disabled:cursor-default disabled:opacity-50 disabled:hover:text-normal',
+                  tab === key && 'border-md-primary text-high'
+                )}
+              >
+                {t(`issues.plan.issuePage.tabs.${key}`)}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'plan' &&
+            (plan ? (
+              <IssuePlanTab plan={plan} />
+            ) : (
+              <div className="flex items-center gap-2 py-6 text-normal">
+                <MaterialIcon
+                  name="progress_activity"
+                  size="base"
+                  className="animate-spin text-md-primary"
+                />
+                <span className="text-body-md">{t('issues.loading')}</span>
+              </div>
+            ))}
+
+          {tab === 'code' && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-md-outline-variant bg-md-surface-container-low px-3 py-2.5 text-[13px] text-normal">
+              {task ? (
+                <>
+                  <span
+                    className="size-[7px] flex-none rounded-full bg-md-primary"
+                    aria-hidden
+                  />
+                  <span>
+                    <b className="font-medium text-high">
+                      {t(`issues.taskStatus.${task.status}`, {
+                        defaultValue: task.status,
+                      })}
+                    </b>
+                    {workerName && <> · {workerName}</>}
+                  </span>
+                  <span className="flex-1" />
+                  {task.workspace_id && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        appNavigation.goToWorkspace(task.workspace_id!)
+                      }
+                      className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
+                    >
+                      {t('issues.taskLinked.openWorkspace')}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span>{t('issues.plan.issuePage.noTask')}</span>
+                  <span className="flex-1" />
+                  {repoId && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void AssignToAgentDialog.show({ issue, repoId })
+                      }
+                      className="inline-flex h-8 items-center rounded-md bg-md-primary px-3 text-[13px] font-medium text-md-on-primary"
+                    >
+                      {t('issues.assignToAgent')}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === 'plan' && issue.body.trim() && (
+            <details className="rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3">
+              <summary className="cursor-pointer text-[13px] text-high">
+                {t('issues.plan.issuePage.description')}
+              </summary>
               <MarkdownPreview
                 content={issue.body}
                 theme={getResolvedTheme(theme)}
-                className="text-sm"
+                className="mt-2 text-sm"
               />
-            </div>
+            </details>
           )}
         </div>
       </div>

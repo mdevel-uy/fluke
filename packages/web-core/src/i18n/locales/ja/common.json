@@ -1142,10 +1142,77 @@
         "backToIssues": "Issues に戻る",
         "viewPr": "PR を見る",
         "branch": "ブランチ",
-        "noTask": "この issue にはまだタスクがありません。"
+        "noTask": "この issue にはまだタスクがありません。",
+        "templateLine": "テンプレート",
+        "soon": "近日公開",
+        "tabs": {
+          "plan": "プラン",
+          "code": "コード",
+          "sessions": "セッション"
+        },
+        "description": "issue の説明"
       },
       "pause": "マイルストーンを一時停止",
-      "reset": "リセット"
+      "reset": "リセット",
+      "phases": {
+        "origin": "起点",
+        "end": "終了",
+        "loop": "戻り",
+        "phaseN": "フェーズ {{n}}",
+        "loopLabel": "変更依頼 · ラウンド {{n}} → 同じブランチで戻る",
+        "round": "ラウンド {{n}}",
+        "mergeSub": "人の判断: あなたがマージします",
+        "state": {
+          "done": "完了",
+          "active": "進行中",
+          "changes": "変更依頼",
+          "stuck": "停止中",
+          "pending": "保留"
+        },
+        "kind": {
+          "origin": "issue 作成",
+          "design": "デザイン",
+          "dev": "開発",
+          "review": "レビュー",
+          "merge": "マージ"
+        },
+        "profile": "プロフィール",
+        "instance": "インスタンス",
+        "ephemeral": "(一時的)",
+        "status": "状態",
+        "duration": "所要時間",
+        "cost": "コスト",
+        "output": "出力",
+        "viewSession": "エージェントのセッションを見る",
+        "viewPrComments": "PR のコメントを見る",
+        "selectHint": "フェーズを選ぶと詳細が表示されます。"
+      },
+      "templates": {
+        "title": "フェーズのテンプレート",
+        "hint": "Fluke が brief で選びます: デザインが必要か、TDD を使うか（意味がある場合は確認します）。Analyst はフェーズを変えず、issue 間の流れを組み立てます。",
+        "names": {
+          "tdd": "TDD あり",
+          "no_tdd": "TDD なし",
+          "design": "デザインあり",
+          "bug": "バグ",
+          "decision": "判断あり"
+        },
+        "phases": {
+          "tdd": "テスト先行",
+          "dev": "開発",
+          "test": "テスト",
+          "review": "レビュー",
+          "merge": "マージ",
+          "design": "デザイン",
+          "approval": "あなたの OK",
+          "withOrWithoutTdd": "…TDD の有無",
+          "reproduce": "再現",
+          "failingTest": "失敗するテスト",
+          "fix": "修正",
+          "decision": "あなたの判断",
+          "baseTemplate": "…基本テンプレート"
+        }
+      }
     }
   },
   "workers": {

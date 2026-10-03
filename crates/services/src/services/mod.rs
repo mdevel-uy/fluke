@@ -19,6 +19,7 @@ pub mod file_search;
 pub mod filesystem;
 pub mod filesystem_watcher;
 pub mod heartbeat;
+pub mod issue_phases;
 pub mod licensing;
 pub mod milestone_runs;
 pub mod notification;

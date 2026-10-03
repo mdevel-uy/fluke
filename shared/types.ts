@@ -383,6 +383,40 @@ export type PlayAllMilestonesRequest = { milestones: Array<string>, step_mode: b
 
 export type StepModeRequest = { step_mode: boolean, };
 
+export type IssuePhaseStep = { n: number, title: string, 
+/**
+ * `pending | active | done | cut`.
+ */
+state: string, };
+
+export type IssuePhase = { 
+/**
+ * `origin | design | dev | review | merge`.
+ */
+kind: string, 
+/**
+ * 1-based round for `dev` and `review`; 1 for the rest.
+ */
+round: number, 
+/**
+ * `pending | active | done | changes | stuck`.
+ */
+state: string, 
+/**
+ * Profile that ran (or runs) the phase.
+ */
+profile: string | null, role: string | null, workspace_id: string | null, task_id: string | null, started_at: string | null, finished_at: string | null, cost_usd: number | null, 
+/**
+ * Task summary, review reasons or failure reason.
+ */
+output: string | null, 
+/**
+ * The developer's own plan for this phase (plan MCP steps).
+ */
+steps: Array<IssuePhaseStep>, };
+
+export type IssuePlanResponse = { template: string, pr_url: string | null, pr_number: number | null, phases: Array<IssuePhase>, };
+
 export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 
 export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };

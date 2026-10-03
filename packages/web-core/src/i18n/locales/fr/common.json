@@ -1146,10 +1146,77 @@
         "backToIssues": "Retour aux issues",
         "viewPr": "Voir la PR",
         "branch": "Branche",
-        "noTask": "Cette issue n'a pas encore de tâche."
+        "noTask": "Cette issue n'a pas encore de tâche.",
+        "templateLine": "Modèle",
+        "soon": "Bientôt disponible",
+        "tabs": {
+          "plan": "Plan",
+          "code": "Code",
+          "sessions": "Sessions"
+        },
+        "description": "Description de l'issue"
       },
       "pause": "Mettre le jalon en pause",
-      "reset": "Réinitialiser"
+      "reset": "Réinitialiser",
+      "phases": {
+        "origin": "Origine",
+        "end": "Fin",
+        "loop": "Retour",
+        "phaseN": "Phase {{n}}",
+        "loopLabel": "changements demandés · tour {{n}} → le retour utilise la même branche",
+        "round": "Tour {{n}}",
+        "mergeSub": "Validation humaine : vous fusionnez",
+        "state": {
+          "done": "fait",
+          "active": "en cours",
+          "changes": "changements",
+          "stuck": "bloquée",
+          "pending": "en attente"
+        },
+        "kind": {
+          "origin": "Issue créée",
+          "design": "Design",
+          "dev": "Développement",
+          "review": "Revue",
+          "merge": "Fusion"
+        },
+        "profile": "Profil",
+        "instance": "Instance",
+        "ephemeral": "(éphémère)",
+        "status": "État",
+        "duration": "Durée",
+        "cost": "Coût",
+        "output": "Sortie",
+        "viewSession": "Voir la session de l'agent",
+        "viewPrComments": "Voir les commentaires de la PR",
+        "selectHint": "Choisissez une phase pour voir son détail."
+      },
+      "templates": {
+        "title": "Modèles de phases",
+        "hint": "Fluke le choisit dans le brief : s'il faut du design et du TDD (quand c'est pertinent, il vous le demande). L'Analyst ne change pas les phases : il organise le flux entre issues.",
+        "names": {
+          "tdd": "Avec TDD",
+          "no_tdd": "Sans TDD",
+          "design": "Avec design",
+          "bug": "Bug",
+          "decision": "Avec décision"
+        },
+        "phases": {
+          "tdd": "Tests d'abord",
+          "dev": "Développement",
+          "test": "Tests",
+          "review": "Revue",
+          "merge": "Fusion",
+          "design": "Design",
+          "approval": "Votre OK",
+          "withOrWithoutTdd": "…avec ou sans TDD",
+          "reproduce": "Reproduire",
+          "failingTest": "Test en échec",
+          "fix": "Correctif",
+          "decision": "Votre décision",
+          "baseTemplate": "…modèle de base"
+        }
+      }
     }
   },
   "workers": {
