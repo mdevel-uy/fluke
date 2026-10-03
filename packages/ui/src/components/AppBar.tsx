@@ -7,7 +7,6 @@ import {
   Boxes,
   FileCode,
   GitBranch,
-  Headphones,
   Kanban,
   LayoutGrid,
   ListChecks,
@@ -41,7 +40,6 @@ interface AppBarProps {
   onSprintClick?: () => void;
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
-  onAnalystDeskClick?: () => void;
   onCiPipelinesClick?: () => void;
   onHostClick?: (hostId: string, status: AppBarHostStatus) => void;
   showWorkspacesButton?: boolean;
@@ -52,7 +50,6 @@ interface AppBarProps {
   showSprintButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
-  showAnalystDeskButton?: boolean;
   showCiPipelinesButton?: boolean;
   isWorkspacesActive: boolean;
   isEditorActive?: boolean;
@@ -64,7 +61,6 @@ interface AppBarProps {
   isSprintActive?: boolean;
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
-  isAnalystDeskActive?: boolean;
   isCiPipelinesActive?: boolean;
   isExportActive?: boolean;
   isSignedIn?: boolean;
@@ -173,7 +169,6 @@ export function AppBar({
   onSprintClick,
   onIssuesClick,
   onWorkersClick,
-  onAnalystDeskClick,
   onCiPipelinesClick,
   onHostClick,
   showWorkspacesButton = true,
@@ -184,7 +179,6 @@ export function AppBar({
   showSprintButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
-  showAnalystDeskButton = true,
   showCiPipelinesButton = true,
   isWorkspacesActive,
   isEditorActive = false,
@@ -195,7 +189,6 @@ export function AppBar({
   isSprintActive = false,
   isIssuesActive = false,
   isWorkersActive = false,
-  isAnalystDeskActive = false,
   isCiPipelinesActive = false,
   isExportActive = false,
   isSignedIn,
@@ -216,7 +209,6 @@ export function AppBar({
     showSprintButton ||
     showIssuesButton ||
     showWorkersButton ||
-    showAnalystDeskButton ||
     showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
@@ -291,16 +283,6 @@ export function AppBar({
         lucideIcon: Users,
         isActive: isWorkersActive,
         onClick: onWorkersClick,
-      });
-    }
-    if (showAnalystDeskButton && onAnalystDeskClick) {
-      localItems.push({
-        key: 'local-analyst-desk',
-        kind: 'icon-button',
-        label: t('appBar.analystDesk'),
-        lucideIcon: Headphones,
-        isActive: isAnalystDeskActive,
-        onClick: onAnalystDeskClick,
       });
     }
     if (showCiPipelinesButton && onCiPipelinesClick) {

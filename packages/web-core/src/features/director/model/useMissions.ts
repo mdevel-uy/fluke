@@ -120,7 +120,6 @@ const SECTION_KEYS: Record<string, string> = {
   sprint: 'appBar.sprint',
   issues: 'appBar.issues',
   workers: 'appBar.workers',
-  'analyst-desk': 'appBar.analystDesk',
   'ci-pipelines': 'appBar.ciPipelines',
   'source-control': 'appBar.sourceControl',
 };

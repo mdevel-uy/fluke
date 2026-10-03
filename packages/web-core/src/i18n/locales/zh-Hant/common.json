@@ -647,7 +647,6 @@
     "issues": "問題",
     "workers": "設定檔",
     "sprint": "看板",
-    "analystDesk": "分析師工作台",
     "ciPipelines": "CI 流水線",
     "collapseSidebar": "收合側邊欄",
     "expandSidebar": "展開側邊欄",
@@ -1495,70 +1494,6 @@
       "purgeAllSuccess": "已永久刪除 {{count}} 位封存的工作者。",
       "purgeAllError": "刪除封存的工作者失敗：{{message}}",
       "dismiss": "關閉"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "附加設計",
-      "pendingCount": "{{n}} 個未認領",
-      "searchPlaceholder": "依標題或設計師搜尋…",
-      "empty": "沒有未認領的設計",
-      "attachedHint": "編排器會把引用、摘要與 fetch 步驟加入提示詞。",
-      "remove": "移除設計",
-      "notePlaceholder": "PM 指示(選填):優先順序、限制…"
-    },
-    "title": "分析師工作台",
-    "repoLabel": "儲存庫",
-    "analystsLabel": "分析師",
-    "skillsPicker": "技能",
-    "skillsEmpty": "沒有已安裝的技能。",
-    "requestLabel": "請求",
-    "promptPlaceholder": "描述你需要分析師做什麼。例如：將通知 epic 拆分為帶驗收標準的小 issue。",
-    "hint": "分析師空閒時立即執行，否則加入其佇列。",
-    "submit": "送出請求",
-    "loading": "載入中...",
-    "loadError": "無法載入分析師。",
-    "noAnalystsTitle": "還沒有分析師",
-    "noAnalystsDescription": "建立一個 Analyst 角色的 worker 即可開始送出請求。",
-    "goToWorkers": "前往 Workers",
-    "historyTitle": "發給 {{worker}} 的請求",
-    "historyEmpty": "還沒有請求。你的請求及其結果將顯示在這裡。",
-    "openWorkspace": "查看執行",
-    "retry": "重試",
-    "stop": "停止",
-    "remove": "移除",
-    "stopConfirmMessage": "確定停止該請求嗎？容器將被停止，請求也會被刪除。",
-    "removeConfirmMessage": "確定要從分析師佇列中移除該請求嗎？",
-    "cancelConfirm": "取消",
-    "stopConfirm": "停止",
-    "removeConfirm": "移除",
-    "dismiss": "關閉",
-    "status": {
-      "queued": "排隊中",
-      "queuedAhead": "排隊中 · 前面還有 {{ahead}} 個",
-      "inProgress": "進行中",
-      "done": "已完成",
-      "failed": "失敗",
-      "waitingUser": "等待回答"
-    },
-    "toast": {
-      "started": "{{worker}} 已開始處理你的請求。",
-      "queued": "請求已加入 {{worker}} 的佇列。",
-      "error": "請求送出失敗：{{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "將圖片拖到此處、點擊新增或貼上",
-      "addMore": "新增更多圖片",
-      "removeAria": "移除 {{name}}",
-      "uploading": "上傳中",
-      "errorLabel": "上傳失敗",
-      "uploadError": "無法上傳 '{{name}}'：{{message}}",
-      "tooLarge": "檔案超過允許的最大大小。"
-    },
-    "labelsInput": {
-      "title": "Issue 標籤",
-      "placeholder": "例如：design, bug",
-      "removeAria": "移除標籤 {{label}}"
     }
   },
   "ciPipelines": {

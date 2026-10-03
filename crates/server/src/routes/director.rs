@@ -12,7 +12,7 @@ use db::models::{
     mission::{self, AUTONOMY_VALUES, Mission},
     session::{CreateSession, Session},
     worker::{ROLE_ANALYST, Worker},
-    worker_task::{CreateWorkerTask, SOURCE_DESK, WorkerTask},
+    worker_task::{CreateWorkerTask, SOURCE_MISSION, WorkerTask},
     workspace::{Workspace, WorkspaceContext},
 };
 use deployment::Deployment;
@@ -209,7 +209,7 @@ async fn approve_brief(
             repo_id,
             title: d.mission.title.chars().take(80).collect(),
             prompt: director::analyst_request_prompt(&d, version),
-            source: SOURCE_DESK.to_string(),
+            source: SOURCE_MISSION.to_string(),
             ..Default::default()
         },
     )
@@ -217,7 +217,7 @@ async fn approve_brief(
     Mission::set_analyst_task(pool, id, task.id).await?;
     Mission::set_status(pool, id, mission::STATUS_PLANNING).await?;
 
-    // Igual que el Analyst Desk: si el analista está libre arranca ya; si no,
+    // Si el analista está libre arranca ya; si no,
     // la request queda en su cola.
     if let Err(e) = worker_orchestrator::try_take_next(
         deployment.config(),

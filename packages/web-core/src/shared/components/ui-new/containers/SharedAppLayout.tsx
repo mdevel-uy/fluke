@@ -19,7 +19,6 @@ import {
   Users,
   AlertCircle,
   Zap,
-  ClipboardList,
   Workflow,
 } from 'lucide-react';
 import { SyncErrorProvider } from '@/shared/providers/SyncErrorProvider';
@@ -40,7 +39,6 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useFleetConflictCount } from '@/shared/hooks/useFleetConflictCount';
 import {
-  isAnalystDeskDestination,
   isCiPipelinesDestination,
   isDashboardDestination,
   isIssuesDestination,
@@ -150,7 +148,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
-  const isAnalystDeskActive = isAnalystDeskDestination(currentDestination);
   const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
@@ -217,10 +214,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     else appNavigation.goToWorkers();
   }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
 
-  const handleAnalystDeskClick = useCallback(() => {
-    if (isAnalystDeskActive) toggleLeftSidebar();
-    else appNavigation.goToAnalystDesk();
-  }, [isAnalystDeskActive, toggleLeftSidebar, appNavigation]);
 
   const handleCiPipelinesClick = useCallback(() => {
     if (isCiPipelinesActive) toggleLeftSidebar();
@@ -297,7 +290,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     isIssuesActive ||
     isWorkersActive ||
     isDashboardActive ||
-    isAnalystDeskActive ||
     isCiPipelinesActive;
   const showShellSidebar = sectionHasSidebar && isLeftSidebarVisible;
   // The horizontal split is intentionally NOT persisted: stored proportions
@@ -375,7 +367,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   onSprintClick={handleSprintClick}
                   onIssuesClick={handleIssuesClick}
                   onWorkersClick={handleWorkersClick}
-                  onAnalystDeskClick={handleAnalystDeskClick}
                   onCiPipelinesClick={handleCiPipelinesClick}
                   isWorkspacesActive={
                     isWorkspacesActive && workspacesSidebarMode === 'workspaces'
@@ -388,7 +379,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   isSprintActive={isSprintActive}
                   isIssuesActive={isIssuesActive}
                   isWorkersActive={isWorkersActive}
-                  isAnalystDeskActive={isAnalystDeskActive}
                   isCiPipelinesActive={isCiPipelinesActive}
                   updateVersion={updateVersion}
                   onUpdateClick={restartForUpdate ?? undefined}
@@ -563,18 +553,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                 >
                   <Users className="h-4 w-4" strokeWidth={2} />
                   {t('appBar.workers')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleAnalystDeskClick();
-                    setIsDrawerOpen(false);
-                  }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-normal hover:bg-secondary hover:text-high transition-colors cursor-pointer"
-                >
-                  <ClipboardList className="h-4 w-4" strokeWidth={2} />
-                  {t('appBar.analystDesk')}
                 </button>
 
                 <button

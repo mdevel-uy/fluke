@@ -29,7 +29,7 @@ export interface CreateDesignHandoffInput {
   /** Optional PM guidance layered on top of the server-side template. */
   note?: string;
   /** Entry point: designer done card or Analyst Desk picker. */
-  source: 'kanban' | 'desk';
+  source: 'kanban';
 }
 
 export interface CreateDesignHandoffResult {

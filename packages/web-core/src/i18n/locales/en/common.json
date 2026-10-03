@@ -668,7 +668,6 @@
     "issues": "Issues",
     "workers": "Profiles",
     "sprint": "Kanban",
-    "analystDesk": "Analyst Desk",
     "ciPipelines": "CI Pipelines",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -1516,70 +1515,6 @@
       "purgeAllSuccess": "{{count}} archived workers permanently deleted.",
       "purgeAllError": "Failed to delete archived workers: {{message}}",
       "dismiss": "Dismiss"
-    }
-  },
-  "analystDesk": {
-    "designs": {
-      "trigger": "Attach design",
-      "pendingCount": "{{n}} untaken",
-      "searchPlaceholder": "Search by title or designer…",
-      "empty": "No untaken designs",
-      "attachedHint": "The orchestrator adds the reference, summary and fetch recipe to the prompt.",
-      "remove": "Remove design",
-      "notePlaceholder": "PM guidance (optional): priorities, constraints…"
-    },
-    "title": "Analyst Desk",
-    "repoLabel": "Repository",
-    "analystsLabel": "Analyst",
-    "skillsPicker": "Skills",
-    "skillsEmpty": "No skills installed.",
-    "requestLabel": "Request",
-    "promptPlaceholder": "Describe what you need from the analyst. E.g. break the notifications epic into small issues with acceptance criteria.",
-    "hint": "Dispatches immediately if the analyst is free; otherwise it joins their queue.",
-    "submit": "Send request",
-    "loading": "Loading...",
-    "loadError": "Failed to load analysts.",
-    "noAnalystsTitle": "No analysts yet",
-    "noAnalystsDescription": "Create a worker with the Analyst role to start sending requests.",
-    "goToWorkers": "Go to Workers",
-    "historyTitle": "Requests to {{worker}}",
-    "historyEmpty": "No requests yet. Your requests and their results will show up here.",
-    "openWorkspace": "View run",
-    "retry": "Retry",
-    "stop": "Stop",
-    "remove": "Remove",
-    "stopConfirmMessage": "Stop this analyst request? The container will be stopped and the request removed.",
-    "removeConfirmMessage": "Remove this queued request from the analyst's queue?",
-    "cancelConfirm": "Cancel",
-    "stopConfirm": "Stop",
-    "removeConfirm": "Remove",
-    "dismiss": "Dismiss",
-    "status": {
-      "queued": "Queued",
-      "queuedAhead": "Queued · {{ahead}} ahead",
-      "inProgress": "In progress",
-      "done": "Done",
-      "failed": "Failed",
-      "waitingUser": "Waiting for answer"
-    },
-    "toast": {
-      "started": "{{worker}} started your request.",
-      "queued": "Request queued for {{worker}}.",
-      "error": "Failed to send the request: {{message}}"
-    },
-    "attachments": {
-      "dropzoneLabel": "Drag images here, click to add, or paste",
-      "addMore": "Add more images",
-      "removeAria": "Remove {{name}}",
-      "uploading": "Uploading",
-      "errorLabel": "Upload failed",
-      "uploadError": "Couldn't upload '{{name}}': {{message}}",
-      "tooLarge": "The file exceeds the maximum allowed size."
-    },
-    "labelsInput": {
-      "title": "Issue labels",
-      "placeholder": "e.g. design, bug",
-      "removeAria": "Remove label {{label}}"
     }
   },
   "ciPipelines": {

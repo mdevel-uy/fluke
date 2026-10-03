@@ -120,7 +120,7 @@ pub struct WorkerTaskResponse {
     pub pr_state: Option<String>,
     /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
-    /// Origin of the task: `"kanban"` or `"desk"`.
+    /// Origin of the task: `"kanban"`, `"mission"` or `"milestone"`.
     pub source: String,
     /// TL reviewer's verdict: "approved" | "changes_requested" | null.
     /// Set by pr_monitor when the PR review state is detected.
@@ -437,8 +437,7 @@ pub struct CreateWorkerTaskRequest {
     #[serde(default)]
     #[ts(optional)]
     pub force_duplicate: Option<bool>,
-    /// Origin of the task: `"kanban"` (default) or `"desk"` for Analyst Desk
-    /// requests.
+    /// Origin of the task: `"kanban"` (default), `"mission"` or `"milestone"`.
     #[serde(default)]
     #[ts(optional)]
     pub source: Option<String>,
@@ -499,8 +498,7 @@ pub struct CreateDesignHandoffRequest {
     /// (priorities, business constraints). Never replaces the template.
     #[ts(optional)]
     pub note: Option<String>,
-    /// Origin of the handoff: `"kanban"` (designer card) or `"desk"`
-    /// (Analyst Desk picker). Defaults to kanban.
+    /// Origin of the handoff: `"kanban"` (designer card). Defaults to kanban.
     #[serde(default)]
     #[ts(optional)]
     pub source: Option<String>,

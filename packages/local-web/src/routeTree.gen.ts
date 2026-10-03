@@ -23,7 +23,6 @@ import { Route as AppIssuesRouteImport } from './routes/_app.issues'
 import { Route as AppExportRouteImport } from './routes/_app.export'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCiPipelinesRouteImport } from './routes/_app.ci-pipelines'
-import { Route as AppAnalystDeskRouteImport } from './routes/_app.analyst-desk'
 import { Route as WorkspacesWorkspaceIdVscodeRouteImport } from './routes/workspaces.$workspaceId.vscode'
 import { Route as AppWorkspacesWorkspaceIdRouteImport } from './routes/_app.workspaces_.$workspaceId'
 import { Route as AppIssuesIssueNumberRouteImport } from './routes/_app.issues_.$issueNumber'
@@ -100,11 +99,6 @@ const AppCiPipelinesRoute = AppCiPipelinesRouteImport.update({
   path: '/ci-pipelines',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAnalystDeskRoute = AppAnalystDeskRouteImport.update({
-  id: '/analyst-desk',
-  path: '/analyst-desk',
-  getParentRoute: () => AppRoute,
-} as any)
 const WorkspacesWorkspaceIdVscodeRoute =
   WorkspacesWorkspaceIdVscodeRouteImport.update({
     id: '/workspaces/$workspaceId/vscode',
@@ -144,7 +138,6 @@ const AppHostsHostIdWorkspacesWorkspaceIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
-  '/analyst-desk': typeof AppAnalystDeskRoute
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
@@ -166,7 +159,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
-  '/analyst-desk': typeof AppAnalystDeskRoute
   '/ci-pipelines': typeof AppCiPipelinesRoute
   '/dashboard': typeof AppDashboardRoute
   '/export': typeof AppExportRoute
@@ -190,7 +182,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/onboarding': typeof OnboardingRoute
-  '/_app/analyst-desk': typeof AppAnalystDeskRoute
   '/_app/ci-pipelines': typeof AppCiPipelinesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/export': typeof AppExportRoute
@@ -214,7 +205,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
-    | '/analyst-desk'
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
@@ -236,7 +226,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding'
-    | '/analyst-desk'
     | '/ci-pipelines'
     | '/dashboard'
     | '/export'
@@ -259,7 +248,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/onboarding'
-    | '/_app/analyst-desk'
     | '/_app/ci-pipelines'
     | '/_app/dashboard'
     | '/_app/export'
@@ -388,13 +376,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCiPipelinesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/analyst-desk': {
-      id: '/_app/analyst-desk'
-      path: '/analyst-desk'
-      fullPath: '/analyst-desk'
-      preLoaderRoute: typeof AppAnalystDeskRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/workspaces/$workspaceId/vscode': {
       id: '/workspaces/$workspaceId/vscode'
       path: '/workspaces/$workspaceId/vscode'
@@ -441,7 +422,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
-  AppAnalystDeskRoute: typeof AppAnalystDeskRoute
   AppCiPipelinesRoute: typeof AppCiPipelinesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppExportRoute: typeof AppExportRoute
@@ -459,7 +439,6 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAnalystDeskRoute: AppAnalystDeskRoute,
   AppCiPipelinesRoute: AppCiPipelinesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppExportRoute: AppExportRoute,

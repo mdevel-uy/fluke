@@ -60,13 +60,13 @@ pub const KIND_QA_TEST: &str = "qa_test";
 
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
-/// Ad-hoc request submitted from the Analyst Desk screen.
-pub const SOURCE_DESK: &str = "desk";
+/// Analyst breakdown started by a Fluke mission (fluke v2, #701).
+pub const SOURCE_MISSION: &str = "mission";
 /// Dispatched by a milestone run (fluke v2, #666).
 pub const SOURCE_MILESTONE: &str = "milestone";
 
 pub fn is_valid_source(value: &str) -> bool {
-    matches!(value, SOURCE_KANBAN | SOURCE_DESK | SOURCE_MILESTONE)
+    matches!(value, SOURCE_KANBAN | SOURCE_MISSION | SOURCE_MILESTONE)
 }
 
 /// Encode territory globs for storage: `None` for an empty vector (issue
