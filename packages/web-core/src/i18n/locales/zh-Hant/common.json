@@ -1193,6 +1193,30 @@
           "canceledIssue": "#{{n}} 已取消；wave 繼續進行",
           "fluke": "Fluke 帶著卡住的背景開啟關於 #{{n}} 的對話"
         }
+      },
+      "star": "加上星號",
+      "unstar": "移除星號",
+      "reorder": "拖曳以重新排序（或使用方向鍵）",
+      "actions": "里程碑操作",
+      "archive": "封存里程碑",
+      "archiveHint": "在 GitHub 上關閉並從計畫中隱藏。不會更動 issue。",
+      "openOnGithub": "在 GitHub 上開啟",
+      "showIssues": "在清單中檢視 issue",
+      "archived": "里程碑已封存",
+      "archivedOpenIssues_other": "已封存 · GitHub 上仍有 {{count}} 個未關閉的 issue",
+      "undo": "復原",
+      "restore": "還原",
+      "archivedSection": "已封存",
+      "archivedOn": "封存於 {{date}}",
+      "stillOpen_other": "{{count}} 個 issue 未關閉",
+      "archiveFailed": "無法在 GitHub 上修改里程碑。請確認 gh 已登入。",
+      "starred": "星號",
+      "milestones": "里程碑",
+      "milestoneCount_other": "{{count}} 個里程碑",
+      "density": {
+        "label": "密度",
+        "bands": "條帶",
+        "compact": "精簡"
       }
     }
   },

@@ -1193,6 +1193,30 @@
           "canceledIssue": "#{{n}} をキャンセル。wave はそれなしで続きます",
           "fluke": "Fluke が #{{n}} について停止の状況を踏まえて会話を開きます"
         }
+      },
+      "star": "スターを付ける",
+      "unstar": "スターを外す",
+      "reorder": "ドラッグで並べ替え（矢印キーも可）",
+      "actions": "マイルストーンの操作",
+      "archive": "マイルストーンをアーカイブ",
+      "archiveHint": "GitHub でクローズし、Plan から外します。Issue は変更しません。",
+      "openOnGithub": "GitHub で開く",
+      "showIssues": "リストで Issue を表示",
+      "archived": "マイルストーンをアーカイブしました",
+      "archivedOpenIssues_other": "アーカイブしました · GitHub で {{count}} 件の Issue が未完了",
+      "undo": "元に戻す",
+      "restore": "復元",
+      "archivedSection": "アーカイブ済み",
+      "archivedOn": "{{date}} にアーカイブ",
+      "stillOpen_other": "{{count}} 件の Issue が未完了",
+      "archiveFailed": "GitHub のマイルストーンを変更できませんでした。gh のログインを確認してください。",
+      "starred": "スター付き",
+      "milestones": "マイルストーン",
+      "milestoneCount_other": "{{count}} 件のマイルストーン",
+      "density": {
+        "label": "表示密度",
+        "bands": "バンド",
+        "compact": "コンパクト"
       }
     }
   },

@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronRight, Rows2, Rows4 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
@@ -14,7 +15,22 @@ import {
   useMilestoneRuns,
   usePlanStepModeStore,
 } from '@/features/issues/model/useMilestoneRuns';
+import {
+  arrangeMilestones,
+  moveMilestone,
+} from '@/features/issues/lib/milestoneOrder';
+import { milestoneTags } from '@/features/issues/lib/milestoneTags';
+import {
+  useRepoMilestones,
+  useSetMilestoneOpen,
+} from '@/features/issues/model/useRepoMilestones';
+import {
+  usePlanPrefsStore,
+  type PlanDensity,
+} from '@/features/issues/model/usePlanPrefsStore';
 import { MilestoneBand } from './MilestoneBand';
+import { CompactMilestoneRow } from './CompactMilestoneRow';
+import { MilestoneTagChips, type MilestoneActions } from './MilestoneControls';
 import type { DecisionContext } from './DecisionDrawer';
 import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
@@ -38,6 +54,45 @@ export interface PlanViewProps {
   onUnstick?: (issue: RepoIssue) => void;
   /** Which milestones the sidebar asks for. */
   milestoneFilter: PlanMilestoneFilter;
+  /** "Show issues in list" from a milestone's menu. */
+  onShowIssues?: (milestone: string) => void;
+}
+
+function DensityToggle({
+  value,
+  onChange,
+}: {
+  value: PlanDensity;
+  onChange: (value: PlanDensity) => void;
+}) {
+  const { t } = useTranslation('common');
+  const options: { v: PlanDensity; icon: typeof Rows2 }[] = [
+    { v: 'bands', icon: Rows2 },
+    { v: 'compact', icon: Rows4 },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label={t('issues.plan.density.label')}
+      className="ml-auto flex overflow-hidden rounded-md border border-md-outline-variant"
+    >
+      {options.map(({ v, icon: Icon }) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={value === v}
+          onClick={() => onChange(v)}
+          className={cn(
+            'inline-flex h-7 items-center gap-1.5 px-2.5 text-xs text-normal hover:text-high focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-md-primary',
+            value === v && 'bg-md-primary/15 text-high'
+          )}
+        >
+          <Icon className="size-3.5" />
+          {t(`issues.plan.density.${v}`)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export type PlanMilestoneFilter = 'unfinished' | 'active' | 'finished';
@@ -69,16 +124,29 @@ export function PlanView({
   onDecide,
   onUnstick,
   milestoneFilter,
+  onShowIssues,
 }: PlanViewProps) {
   const { t } = useTranslation('common');
   const blockers = useIssueBlockers(repoId);
   const { data: runs = [] } = useMilestoneRuns(repoId);
+  const { data: ghMilestones = [] } = useRepoMilestones(repoId);
+  const setOpen = useSetMilestoneOpen(repoId);
+  const prefs = usePlanPrefsStore();
+  const ghByTitle = useMemo(
+    () => new Map(ghMilestones.map((m) => [m.title, m])),
+    [ghMilestones]
+  );
   const plan = useMemo(() => {
-    const full = buildMilestonePlan(
+    const all = buildMilestonePlan(
       issues,
       taskByIssueNumber,
       new Set(blockers.keys())
     );
+    // A milestone closed on GitHub is archived: out of the plan, listed below.
+    const isArchived = (b: (typeof all.bands)[number]) =>
+      ghByTitle.get(b.milestone)?.state === 'closed';
+    const full = { ...all, bands: all.bands.filter((b) => !isArchived(b)) };
+    const archived = all.bands.filter(isArchived);
     const isActive = (b: (typeof full.bands)[number]) => {
       const run = runs.find((r) => r.milestone === b.milestone)?.status;
       return (
@@ -94,8 +162,13 @@ export function PlanView({
     );
     // Loose issues are open work: they only belong next to unfinished milestones.
     const loose = milestoneFilter === 'unfinished' ? full.loose : [];
-    return { ...full, bands, loose };
-  }, [issues, taskByIssueNumber, blockers, runs, milestoneFilter]);
+    return { ...full, bands, loose, archived };
+  }, [issues, taskByIssueNumber, blockers, runs, milestoneFilter, ghByTitle]);
+  const sections = useMemo(
+    () => arrangeMilestones(plan.bands, prefs.starred, prefs.order),
+    [plan.bands, prefs.starred, prefs.order]
+  );
+  const shown = [...sections.starred, ...sections.rest].map((b) => b.milestone);
   const actions = useMilestoneRunActions(repoId);
   const stepMode = usePlanStepModeStore((s) => s.stepMode);
   const busy =
@@ -105,14 +178,168 @@ export function PlanView({
   const collapsed = usePlanCollapseStore((s) => s.collapsed);
   const toggle = usePlanCollapseStore((s) => s.toggle);
   const setVisible = usePlanCollapseStore((s) => s.setVisible);
-  // Serialized so the effect only fires when the set of bands changes.
-  const milestones = JSON.stringify(plan.bands.map((b) => b.milestone));
+  // Serialized so the effect only fires when the set of bands changes. In
+  // screen order, so "Ejecutar todas" follows the user's arrangement.
+  const milestones = JSON.stringify(shown);
   useEffect(() => {
     setVisible(JSON.parse(milestones) as string[]);
   }, [milestones, setVisible]);
 
+  const [drag, setDrag] = useState<{ from: string; over?: string } | null>(
+    null
+  );
+  // Compact view: the one milestone opened as a full band.
+  const [opened, setOpened] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; number: number } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const sameSection = (a: string, b: string) =>
+    prefs.starred.includes(a) === prefs.starred.includes(b);
+  const move = (from: string, to: string) => {
+    if (sameSection(from, to)) {
+      prefs.setOrder(moveMilestone(prefs.order, shown, from, to));
+    }
+  };
+
+  const archive = (band: (typeof plan.bands)[number], number: number) => {
+    const open = band.total - band.done;
+    setOpen.mutate({ number, open: false });
+    setOpened(null);
+    setToast({
+      text: open
+        ? t('issues.plan.archivedOpenIssues', { count: open })
+        : t('issues.plan.archived'),
+      number,
+    });
+  };
+
+  const actionsFor = (band: (typeof plan.bands)[number]): MilestoneActions => {
+    const m = band.milestone;
+    const gh = ghByTitle.get(m);
+    const i = shown.indexOf(m);
+    return {
+      starred: prefs.starred.includes(m),
+      onToggleStar: () => prefs.toggleStar(m),
+      tags: milestoneTags(
+        band.waves.flatMap((w) => w.cards.map((c) => c.issue))
+      ),
+      onArchive: gh ? () => archive(band, gh.number) : undefined,
+      githubUrl: gh?.html_url,
+      onShowIssues: onShowIssues ? () => onShowIssues(m) : undefined,
+      reorder: {
+        dragging: drag?.from === m,
+        over: !!drag && drag.over === m && drag.from !== m,
+        onDragStart: (e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', m);
+          setDrag({ from: m });
+        },
+        onDragEnd: () => setDrag(null),
+        onDragOver: (e) => {
+          if (!drag || !sameSection(drag.from, m)) return;
+          e.preventDefault();
+          if (drag.over !== m) setDrag({ ...drag, over: m });
+        },
+        onDrop: (e) => {
+          e.preventDefault();
+          if (drag) move(drag.from, m);
+          setDrag(null);
+        },
+        onMove: (step) => {
+          const to = shown[i + step];
+          if (to) move(m, to);
+        },
+      },
+    };
+  };
+
+  const renderBand = (band: (typeof plan.bands)[number]) => {
+    const run = runs.find((r) => r.milestone === band.milestone);
+    const common = {
+      run,
+      onPlay: () =>
+        actions.play.mutate({ milestone: band.milestone, stepMode }),
+      onPause: () => actions.pause.mutate(band.milestone),
+      busy,
+      onDecide,
+      actions: actionsFor(band),
+    };
+    if (prefs.density === 'compact' && opened !== band.milestone) {
+      return (
+        <CompactMilestoneRow
+          key={band.milestone}
+          band={band}
+          onOpen={() => setOpened(band.milestone)}
+          {...common}
+        />
+      );
+    }
+    const compact = prefs.density === 'compact';
+    return (
+      <div key={band.milestone} className={cn(compact && 'my-1.5 px-1.5')}>
+        <MilestoneBand
+          band={band}
+          columnCount={plan.columnCount}
+          taskByIssueNumber={taskByIssueNumber}
+          workerNameById={workerNameById}
+          selectedIssueId={selectedIssueId}
+          onSelectIssue={onSelectIssue}
+          collapsed={!compact && collapsed.includes(band.milestone)}
+          onToggle={
+            compact ? () => setOpened(null) : () => toggle(band.milestone)
+          }
+          onReset={() => actions.reset.mutate(band.milestone)}
+          blockers={blockers}
+          onUnstick={onUnstick}
+          {...common}
+        />
+      </div>
+    );
+  };
+
+  const renderSection = (
+    title: string | null,
+    bands: (typeof plan.bands)[number][]
+  ) =>
+    bands.length > 0 && (
+      <section className="grid gap-2">
+        {title && (
+          <h3 className="m-0 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-low">
+            {title}
+          </h3>
+        )}
+        <div
+          className={cn(
+            prefs.density === 'compact'
+              ? 'overflow-hidden rounded-[10px] border border-md-outline-variant bg-md-surface-container-low'
+              : 'grid gap-3.5'
+          )}
+        >
+          {bands.map(renderBand)}
+        </div>
+      </section>
+    );
+
   return (
     <div className="mx-auto grid w-full max-w-[1240px] gap-4 px-4 py-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs text-normal">
+          {t('issues.plan.milestoneCount', { count: plan.bands.length })}
+        </span>
+        <DensityToggle
+          value={prefs.density}
+          onChange={(d) => {
+            prefs.setDensity(d);
+            setOpened(null);
+          }}
+        />
+      </div>
       {plan.bands.length === 0 ? (
         <div className="px-4 py-10 text-center text-body-md text-normal">
           {milestoneFilter === 'unfinished'
@@ -120,30 +347,15 @@ export function PlanView({
             : t('issues.plan.milestoneFilter.empty')}
         </div>
       ) : (
-        <div className="grid gap-3.5">
-          {plan.bands.map((band) => (
-            <MilestoneBand
-              key={band.milestone}
-              band={band}
-              columnCount={plan.columnCount}
-              taskByIssueNumber={taskByIssueNumber}
-              workerNameById={workerNameById}
-              selectedIssueId={selectedIssueId}
-              onSelectIssue={onSelectIssue}
-              onDecide={onDecide}
-              collapsed={collapsed.includes(band.milestone)}
-              onToggle={() => toggle(band.milestone)}
-              run={runs.find((r) => r.milestone === band.milestone)}
-              onPlay={() =>
-                actions.play.mutate({ milestone: band.milestone, stepMode })
-              }
-              onPause={() => actions.pause.mutate(band.milestone)}
-              onReset={() => actions.reset.mutate(band.milestone)}
-              busy={busy}
-              blockers={blockers}
-              onUnstick={onUnstick}
-            />
-          ))}
+        <div className="grid gap-5">
+          {renderSection(
+            sections.starred.length ? t('issues.plan.starred') : null,
+            sections.starred
+          )}
+          {renderSection(
+            sections.starred.length ? t('issues.plan.milestones') : null,
+            sections.rest
+          )}
         </div>
       )}
 
@@ -183,6 +395,102 @@ export function PlanView({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {plan.archived.length > 0 && (
+        <section className="rounded-[10px] border border-dashed border-md-outline-variant">
+          <button
+            type="button"
+            onClick={prefs.toggleArchived}
+            aria-expanded={prefs.showArchived}
+            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-[13px] text-normal hover:text-high focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-md-primary"
+          >
+            <ChevronRight
+              className={cn(
+                'size-3.5 transition-transform motion-reduce:transition-none',
+                prefs.showArchived && 'rotate-90'
+              )}
+            />
+            <span className="font-semibold text-high">
+              {t('issues.plan.archivedSection')}
+            </span>
+            <span className="font-mono text-[11px]">
+              {plan.archived.length}
+            </span>
+          </button>
+          {prefs.showArchived &&
+            plan.archived.map((band) => {
+              const gh = ghByTitle.get(band.milestone)!;
+              const open = band.total - band.done;
+              return (
+                <div
+                  key={band.milestone}
+                  className="flex flex-wrap items-center gap-3 border-t border-md-outline-variant/60 px-4 py-2.5"
+                >
+                  <span className="font-medium text-normal">
+                    {band.milestone}
+                  </span>
+                  <MilestoneTagChips
+                    tags={milestoneTags(
+                      band.waves.flatMap((w) => w.cards.map((c) => c.issue))
+                    )}
+                    max={2}
+                  />
+                  <span className="text-xs text-low">
+                    {gh.closed_at &&
+                      t('issues.plan.archivedOn', {
+                        date: new Date(gh.closed_at).toLocaleDateString(
+                          undefined,
+                          { day: 'numeric', month: 'short' }
+                        ),
+                      })}
+                    {open > 0 &&
+                      ` · ${t('issues.plan.stillOpen', { count: open })}`}
+                  </span>
+                  <span className="ml-auto font-mono text-[11px] tabular-nums text-normal">
+                    {t('issues.plan.merged', {
+                      done: band.done,
+                      total: band.total,
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={setOpen.isPending}
+                    onClick={() =>
+                      setOpen.mutate({ number: gh.number, open: true })
+                    }
+                    className="inline-flex h-7 items-center rounded-md border border-md-outline-variant px-3 text-xs text-high hover:border-md-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60"
+                  >
+                    {t('issues.plan.restore')}
+                  </button>
+                </div>
+              );
+            })}
+        </section>
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-3.5 rounded-lg border border-md-outline-variant bg-md-surface-container-high py-2.5 pl-4 pr-3 text-[13px] text-high shadow-lg"
+        >
+          <span>{toast.text}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen.mutate({ number: toast.number, open: true });
+              setToast(null);
+            }}
+            className="inline-flex h-7 items-center rounded-md border border-md-outline-variant px-3 text-xs hover:border-md-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
+          >
+            {t('issues.plan.undo')}
+          </button>
+        </div>
+      )}
+      {setOpen.isError && (
+        <div role="alert" className="text-xs text-md-error">
+          {t('issues.plan.archiveFailed')}
         </div>
       )}
 

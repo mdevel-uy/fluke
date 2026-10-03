@@ -489,6 +489,21 @@ export function IssuesPage() {
     [filters, updateUrl]
   );
 
+  // A milestone's "Show issues in list": the list view filtered to it.
+  const handleShowMilestoneIssues = useCallback(
+    (milestone: string) => {
+      rememberIssuesView('none');
+      updateUrl(
+        filtersToUrlParams({
+          ...filters,
+          groupBy: 'none',
+          milestones: [milestone],
+        })
+      );
+    },
+    [filters, updateUrl]
+  );
+
   // Confirmation line after a decision (mockup's toast), cleared after 3.5 s.
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -702,6 +717,7 @@ export function IssuesPage() {
             onDecide={handleDecide}
             onUnstick={handleUnstick}
             milestoneFilter={milestoneFilter}
+            onShowIssues={handleShowMilestoneIssues}
           />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">

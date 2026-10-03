@@ -24,7 +24,8 @@ use serde::{Deserialize, Serialize};
 use services::services::{
     file_search::SearchQuery,
     repo_issues::{
-        RepoIssuesError, RepoIssuesService, StoredLabel, derive_priority, parse_stored_labels,
+        RepoIssuesError, RepoIssuesService, GithubMilestone, StoredLabel, derive_priority,
+        parse_stored_labels,
     },
 };
 use ts_rs::TS;
@@ -878,6 +879,36 @@ pub async fn comment_issue(
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
+pub async fn list_repo_milestones(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<GithubMilestone>>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let milestones = RepoIssuesService::new()
+        .list_milestones(&pool, deployment.git(), repo_id)
+        .await?;
+    Ok(ResponseJson(ApiResponse::success(milestones)))
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct SetMilestoneStateRequest {
+    pub open: bool,
+}
+
+/// Archive (`open: false`) or restore a milestone: closes or reopens it on
+/// GitHub, leaving its issues as they are.
+pub async fn set_repo_milestone_state(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, number)): Path<(Uuid, i64)>,
+    ResponseJson(payload): ResponseJson<SetMilestoneStateRequest>,
+) -> Result<ResponseJson<ApiResponse<GithubMilestone>>, ApiError> {
+    let pool = deployment.db().pool.clone();
+    let milestone = RepoIssuesService::new()
+        .set_milestone_open(&pool, deployment.git(), repo_id, number, payload.open)
+        .await?;
+    Ok(ResponseJson(ApiResponse::success(milestone)))
+}
+
 impl From<RepoIssuesError> for ApiError {
     fn from(err: RepoIssuesError) -> Self {
         match err {
@@ -968,5 +999,10 @@ pub fn router() -> Router<DeploymentImpl> {
         .route(
             "/repos/{repo_id}/issues/{issue_number}/close",
             post(close_issue),
+        )
+        .route("/repos/{repo_id}/milestones", get(list_repo_milestones))
+        .route(
+            "/repos/{repo_id}/milestones/{number}/state",
+            put(set_repo_milestone_state),
         )
 }

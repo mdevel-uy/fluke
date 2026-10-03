@@ -1416,6 +1416,33 @@
           "canceledIssue": "#{{n}} cancelado; la wave sigue sin él",
           "fluke": "Fluke abre una conversación sobre #{{n}} con el contexto de la traba"
         }
+      },
+      "star": "Marcar como favorito",
+      "unstar": "Quitar de favoritos",
+      "reorder": "Arrastrar para reordenar (o usar las flechas)",
+      "actions": "Acciones del milestone",
+      "archive": "Archivar milestone",
+      "archiveHint": "Lo cierra en GitHub y lo saca del Plan. Los issues no se tocan.",
+      "openOnGithub": "Abrir en GitHub",
+      "showIssues": "Ver issues en la lista",
+      "archived": "Milestone archivado",
+      "archivedOpenIssues_one": "Milestone archivado · {{count}} issue sigue abierto en GitHub",
+      "archivedOpenIssues_other": "Milestone archivado · {{count}} issues siguen abiertos en GitHub",
+      "undo": "Deshacer",
+      "restore": "Restaurar",
+      "archivedSection": "Archivados",
+      "archivedOn": "archivado el {{date}}",
+      "stillOpen_one": "{{count}} issue sigue abierto",
+      "stillOpen_other": "{{count}} issues siguen abiertos",
+      "archiveFailed": "No se pudo cambiar el milestone en GitHub. Verificá que gh tenga sesión iniciada.",
+      "starred": "Favoritos",
+      "milestones": "Milestones",
+      "milestoneCount_one": "{{count}} milestone",
+      "milestoneCount_other": "{{count}} milestones",
+      "density": {
+        "label": "Densidad",
+        "bands": "Bandas",
+        "compact": "Compacta"
       }
     }
   },

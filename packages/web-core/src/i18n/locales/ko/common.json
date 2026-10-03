@@ -1193,6 +1193,30 @@
           "canceledIssue": "#{{n}} 취소됨. wave는 그것 없이 계속됩니다",
           "fluke": "Fluke가 멈춤 맥락과 함께 #{{n}}에 대한 대화를 엽니다"
         }
+      },
+      "star": "즐겨찾기",
+      "unstar": "즐겨찾기 해제",
+      "reorder": "드래그하여 순서 변경 (화살표 키 가능)",
+      "actions": "마일스톤 작업",
+      "archive": "마일스톤 보관",
+      "archiveHint": "GitHub에서 닫고 Plan에서 숨깁니다. 이슈는 변경되지 않습니다.",
+      "openOnGithub": "GitHub에서 열기",
+      "showIssues": "목록에서 이슈 보기",
+      "archived": "마일스톤을 보관했습니다",
+      "archivedOpenIssues_other": "보관됨 · GitHub에 열린 이슈 {{count}}개",
+      "undo": "실행 취소",
+      "restore": "복원",
+      "archivedSection": "보관됨",
+      "archivedOn": "{{date}} 보관",
+      "stillOpen_other": "열린 이슈 {{count}}개",
+      "archiveFailed": "GitHub에서 마일스톤을 변경할 수 없습니다. gh 로그인을 확인하세요.",
+      "starred": "즐겨찾기",
+      "milestones": "마일스톤",
+      "milestoneCount_other": "마일스톤 {{count}}개",
+      "density": {
+        "label": "밀도",
+        "bands": "밴드",
+        "compact": "간결"
       }
     }
   },

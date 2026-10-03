@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use thiserror::Error;
 use tokio::process::Command;
+use ts_rs::TS;
 use utils::{command_ext::NoWindowExt, shell::resolve_executable_path};
 use uuid::Uuid;
 
@@ -61,6 +62,20 @@ pub enum RepoIssuesError {
     IssueNotFound,
     #[error("Invalid priority value: {0}")]
     InvalidPriority(String),
+}
+
+/// A GitHub milestone of the repo. The Plan view uses `state` to tell the
+/// archived milestones (closed on GitHub) from the open ones.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct GithubMilestone {
+    #[ts(type = "number")]
+    pub number: i64,
+    pub title: String,
+    /// `open` or `closed`.
+    pub state: String,
+    pub html_url: String,
+    #[ts(type = "string | null")]
+    pub closed_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -378,6 +393,63 @@ impl RepoIssuesService {
         }
 
         Ok(())
+    }
+
+    /// Every milestone of the repo, open and closed, straight from GitHub.
+    pub async fn list_milestones(
+        &self,
+        pool: &SqlitePool,
+        git: &GitService,
+        repo_id: Uuid,
+    ) -> Result<Vec<GithubMilestone>, RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+        let nwo = get_github_nwo(git, &repo.path)?;
+        // `--jq '.[]'` prints one object per line, so pages concatenate cleanly.
+        let out = gh_api(
+            &repo.path,
+            &[
+                "--paginate",
+                &format!("repos/{nwo}/milestones?state=all&per_page=100"),
+                "--jq",
+                ".[]",
+            ],
+        )
+        .await?;
+        out.lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| serde_json::from_str(l).map_err(Into::into))
+            .collect()
+    }
+
+    /// Close (archive) or reopen a milestone on GitHub. Its issues are not
+    /// touched.
+    pub async fn set_milestone_open(
+        &self,
+        pool: &SqlitePool,
+        git: &GitService,
+        repo_id: Uuid,
+        number: i64,
+        open: bool,
+    ) -> Result<GithubMilestone, RepoIssuesError> {
+        let repo = Repo::find_by_id(pool, repo_id)
+            .await?
+            .ok_or(RepoIssuesError::RepoNotFound)?;
+        let nwo = get_github_nwo(git, &repo.path)?;
+        let state = if open { "state=open" } else { "state=closed" };
+        let out = gh_api(
+            &repo.path,
+            &[
+                "-X",
+                "PATCH",
+                &format!("repos/{nwo}/milestones/{number}"),
+                "-f",
+                state,
+            ],
+        )
+        .await?;
+        Ok(serde_json::from_str(out.trim())?)
     }
 
     /// Close an issue via `gh issue close` and update the local DB state.
@@ -736,6 +808,21 @@ mod tests {
             .await;
         assert!(result.is_ok(), "expected no-op Ok, got {:?}", result);
     }
+}
+
+async fn gh_api(repo_path: &Path, args: &[&str]) -> Result<String, RepoIssuesError> {
+    let gh = resolve_executable_path("gh")
+        .await
+        .ok_or(RepoIssuesError::GhCliNotAvailable)?;
+    let mut cmd = Command::new(gh);
+    cmd.current_dir(repo_path).arg("api").args(args);
+    cmd.no_window();
+    let out = cmd.output().await?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(RepoIssuesError::GhCommandFailed(stderr));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 async fn fetch_issues(repo_path: &Path, nwo: &str) -> Result<Vec<GhIssue>, RepoIssuesError> {
