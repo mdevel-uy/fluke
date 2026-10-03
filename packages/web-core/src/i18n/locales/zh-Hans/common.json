@@ -645,7 +645,7 @@
     "dashboard": "仪表盘",
     "workspaces": "工作区",
     "issues": "问题",
-    "workers": "工作者",
+    "workers": "配置",
     "sprint": "看板",
     "analystDesk": "分析师工作台",
     "ciPipelines": "CI 流水线",
@@ -1149,7 +1149,7 @@
     }
   },
   "workers": {
-    "title": "工作者",
+    "title": "配置",
     "newWorker": "新建工作者",
     "loading": "正在加载工作者...",
     "loadError": "加载工作者失败。",
@@ -1850,5 +1850,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "新建配置",
+    "newHint": "设置角色、代理、模型和指令",
+    "bannerStart": "配置是模板。每当一个阶段开始，就会创建配置的一个",
+    "bannerInstance": "临时实例",
+    "bannerEnd": "，它在 issue 的工作区中工作，完成后丢弃。没有名字，也没有自己的队列。配置的所有实例都使用它的 PAT（没有则用你的）。",
+    "slots": "全局槽位 {{used}}/{{limit}}",
+    "adjustInSettings": "在 Settings 中调整",
+    "baseRole": "基础角色：{{role}}",
+    "agent": "代理",
+    "github": "GitHub",
+    "ownPat": "自有 PAT · @{{login}}",
+    "userPat": "用户的 PAT",
+    "migratedFrom": "迁移自",
+    "instancesNow": "当前实例",
+    "none": "无",
+    "defaultAgent": "默认代理",
+    "defaultModel": "默认模型"
   }
 }

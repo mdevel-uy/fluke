@@ -645,7 +645,7 @@
     "dashboard": "ダッシュボード",
     "workspaces": "ワークスペース",
     "issues": "課題",
-    "workers": "ワーカー",
+    "workers": "プロフィール",
     "sprint": "カンバン",
     "analystDesk": "アナリストデスク",
     "ciPipelines": "CIパイプライン",
@@ -1149,7 +1149,7 @@
     }
   },
   "workers": {
-    "title": "ワーカー",
+    "title": "プロフィール",
     "newWorker": "新しいワーカー",
     "loading": "ワーカーを読み込み中...",
     "loadError": "ワーカーの読み込みに失敗しました。",
@@ -1850,5 +1850,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "新しいプロフィール",
+    "newHint": "ロール、エージェント、モデル、指示を設定",
+    "bannerStart": "プロフィールはテンプレートです。フェーズが始まるたびに、プロフィールの",
+    "bannerInstance": "一時的なインスタンス",
+    "bannerEnd": "が作られ、issue のワークスペースで作業し、終わると破棄されます。名前も専用キューもありません。プロフィールの全インスタンスはその PAT（なければあなたの PAT）を使います。",
+    "slots": "グローバルスロット {{used}}/{{limit}}",
+    "adjustInSettings": "Settings で調整",
+    "baseRole": "基本ロール: {{role}}",
+    "agent": "エージェント",
+    "github": "GitHub",
+    "ownPat": "専用 PAT · @{{login}}",
+    "userPat": "ユーザーの PAT",
+    "migratedFrom": "移行元",
+    "instancesNow": "現在のインスタンス",
+    "none": "なし",
+    "defaultAgent": "デフォルトのエージェント",
+    "defaultModel": "デフォルトのモデル"
   }
 }

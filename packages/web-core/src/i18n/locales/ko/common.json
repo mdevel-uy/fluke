@@ -645,7 +645,7 @@
     "dashboard": "대시보드",
     "workspaces": "워크스페이스",
     "issues": "이슈",
-    "workers": "워커",
+    "workers": "프로필",
     "sprint": "칸반",
     "analystDesk": "분석가 데스크",
     "ciPipelines": "CI 파이프라인",
@@ -1149,7 +1149,7 @@
     }
   },
   "workers": {
-    "title": "워커",
+    "title": "프로필",
     "newWorker": "새 워커",
     "loading": "워커를 불러오는 중...",
     "loadError": "워커를 불러오지 못했습니다.",
@@ -1850,5 +1850,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "새 프로필",
+    "newHint": "역할, 에이전트, 모델, 지침 설정",
+    "bannerStart": "프로필은 템플릿입니다. 단계가 시작될 때마다 프로필의",
+    "bannerInstance": "임시 인스턴스",
+    "bannerEnd": "가 생성되어 이슈 워크스페이스에서 작업하고 끝나면 폐기됩니다. 이름도 전용 대기열도 없습니다. 프로필의 모든 인스턴스는 그 PAT(없으면 사용자의 PAT)를 사용합니다.",
+    "slots": "전역 슬롯 {{used}}/{{limit}}",
+    "adjustInSettings": "Settings에서 조정",
+    "baseRole": "기본 역할: {{role}}",
+    "agent": "에이전트",
+    "github": "GitHub",
+    "ownPat": "전용 PAT · @{{login}}",
+    "userPat": "사용자 PAT",
+    "migratedFrom": "이전 이름",
+    "instancesNow": "현재 인스턴스",
+    "none": "없음",
+    "defaultAgent": "기본 에이전트",
+    "defaultModel": "기본 모델"
   }
 }

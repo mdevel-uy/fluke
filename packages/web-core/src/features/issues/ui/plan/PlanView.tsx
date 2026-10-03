@@ -15,6 +15,7 @@ import {
 } from '@/features/issues/model/useMilestoneRuns';
 import { MilestoneBand } from './MilestoneBand';
 import type { DecisionContext } from './DecisionDrawer';
+import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
 
 /**
@@ -129,7 +130,12 @@ export function PlanView({
                   state={state ?? 'manual'}
                   currentWave={null}
                   workerName={
-                    task ? workerNameById.get(task.worker_id) : undefined
+                    task && workerNameById.get(task.worker_id)
+                      ? instanceLabel(
+                          workerNameById.get(task.worker_id)!,
+                          task.workspace_id
+                        )
+                      : undefined
                   }
                   selected={issue.id === selectedIssueId}
                   onSelect={onSelectIssue}

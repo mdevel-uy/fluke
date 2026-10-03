@@ -647,7 +647,7 @@
     "dashboard": "Tableau de bord",
     "workspaces": "Espaces de travail",
     "issues": "Tickets",
-    "workers": "Workers",
+    "workers": "Profils",
     "sprint": "Kanban",
     "analystDesk": "Bureau des analystes",
     "ciPipelines": "Pipelines CI",
@@ -1153,7 +1153,7 @@
     }
   },
   "workers": {
-    "title": "Workers",
+    "title": "Profils",
     "newWorker": "Nouveau worker",
     "loading": "Chargement des workers...",
     "loadError": "Échec du chargement des workers.",
@@ -1856,5 +1856,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "Nouveau profil",
+    "newHint": "Définissez rôle, agent, modèle et instructions",
+    "bannerStart": "Les profils sont des modèles. Chaque fois qu’une phase démarre, une",
+    "bannerInstance": "instance éphémère",
+    "bannerEnd": "du profil est créée, travaille dans le workspace de l'issue et est supprimée à la fin. Sans noms, sans files propres. Toutes les instances d'un profil utilisent son PAT (ou le vôtre s'il n'en a pas).",
+    "slots": "Slots globaux {{used}}/{{limit}}",
+    "adjustInSettings": "Régler dans Settings",
+    "baseRole": "Rôle de base : {{role}}",
+    "agent": "Agent",
+    "github": "GitHub",
+    "ownPat": "PAT propre · @{{login}}",
+    "userPat": "PAT de l'utilisateur",
+    "migratedFrom": "Migré depuis",
+    "instancesNow": "Instances en cours",
+    "none": "aucune",
+    "defaultAgent": "Agent par défaut",
+    "defaultModel": "modèle par défaut"
   }
 }

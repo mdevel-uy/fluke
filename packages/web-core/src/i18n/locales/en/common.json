@@ -666,7 +666,7 @@
     "dashboard": "Dashboard",
     "workspaces": "Workspaces",
     "issues": "Issues",
-    "workers": "Workers",
+    "workers": "Profiles",
     "sprint": "Kanban",
     "analystDesk": "Analyst Desk",
     "ciPipelines": "CI Pipelines",
@@ -1168,7 +1168,7 @@
     }
   },
   "workers": {
-    "title": "Workers",
+    "title": "Profiles",
     "newWorker": "New worker",
     "loading": "Loading workers...",
     "loadError": "Failed to load workers.",
@@ -1871,5 +1871,24 @@
       "optional": "optional",
       "pickMission": "Open a mission to see its brief."
     }
+  },
+  "profiles": {
+    "new": "New profile",
+    "newHint": "Set role, agent, model and instructions",
+    "bannerStart": "Profiles are templates. Every time a phase starts, an",
+    "bannerInstance": "ephemeral instance",
+    "bannerEnd": "of the profile is created, works in the issue workspace and is discarded when done. No names, no queues of their own. Every instance of a profile uses its PAT (or yours if it has none).",
+    "slots": "Global slots {{used}}/{{limit}}",
+    "adjustInSettings": "Adjust in Settings",
+    "baseRole": "Base role: {{role}}",
+    "agent": "Agent",
+    "github": "GitHub",
+    "ownPat": "Own PAT · @{{login}}",
+    "userPat": "User's PAT",
+    "migratedFrom": "Migrated from",
+    "instancesNow": "Instances now",
+    "none": "none",
+    "defaultAgent": "Default agent",
+    "defaultModel": "default model"
   }
 }
