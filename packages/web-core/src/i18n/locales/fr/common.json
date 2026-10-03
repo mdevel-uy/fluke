@@ -1154,7 +1154,10 @@
           "code": "Code",
           "sessions": "Sessions"
         },
-        "description": "Description de l'issue"
+        "description": "Description de l'issue",
+        "originBy": "choisi par",
+        "originFlow": "flux entre issues organisé par l’",
+        "originSteps": "étapes de développement organisées par le"
       },
       "pause": "Mettre le jalon en pause",
       "reset": "Réinitialiser",
@@ -1907,7 +1910,8 @@
       "acceptance": "Acceptance criteria",
       "goal": "Goal",
       "scope": "Scope",
-      "reference": "Reference"
+      "reference": "Reference",
+      "tdd": "TDD"
     },
     "autonomy": {
       "label": "Autonomy",

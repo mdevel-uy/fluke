@@ -208,8 +208,21 @@ export function IssuePage() {
             <span>
               {t('issues.plan.issuePage.templateLine')}{' '}
               <b className="font-medium text-high">
-                {t(`issues.plan.templates.names.${plan?.template ?? 'no_tdd'}`)}
+                {t(`issues.plan.templates.names.${plan?.template ?? 'none'}`)}
               </b>
+              {plan && plan.template !== 'none' && (
+                <>
+                  {' '}
+                  {t('issues.plan.issuePage.originBy')}{' '}
+                  <b className="font-medium text-high">Fluke</b> ·{' '}
+                  {t('issues.plan.issuePage.originFlow')}{' '}
+                  <b className="font-medium text-high">Analyst</b>
+                  {wave !== null &&
+                    ` (${t('issues.plan.wave', { n: wave }).toLowerCase()})`}{' '}
+                  · {t('issues.plan.issuePage.originSteps')}{' '}
+                  <b className="font-medium text-high">dev</b>
+                </>
+              )}
             </span>
           </div>
 

@@ -1150,7 +1150,10 @@
           "code": "코드",
           "sessions": "세션"
         },
-        "description": "이슈 설명"
+        "description": "이슈 설명",
+        "originBy": "선택:",
+        "originFlow": "이슈 간 흐름:",
+        "originSteps": "개발 단계:"
       },
       "pause": "마일스톤 일시 정지",
       "reset": "초기화",
@@ -1901,7 +1904,8 @@
       "acceptance": "Acceptance criteria",
       "goal": "Goal",
       "scope": "Scope",
-      "reference": "Reference"
+      "reference": "Reference",
+      "tdd": "TDD"
     },
     "autonomy": {
       "label": "Autonomy",

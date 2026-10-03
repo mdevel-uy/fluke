@@ -41,11 +41,13 @@ const BUG_FIELDS: &[FieldSpec] = &[
     ("symptom", true, "Síntoma"),
     ("steps", true, "Pasos para reproducir"),
     ("acceptance", true, "Criterio de aceptación"),
+    ("tdd", true, "TDD"),
 ];
 const FEATURE_FIELDS: &[FieldSpec] = &[
     ("goal", true, "Objetivo"),
     ("scope", true, "Alcance"),
     ("acceptance", true, "Criterio de aceptación"),
+    ("tdd", true, "TDD"),
 ];
 const DESIGN_FIELDS: &[FieldSpec] = &[
     ("goal", true, "Objetivo"),
@@ -232,7 +234,12 @@ pub fn analyst_request_prompt(d: &MissionDetail, version: i64) -> String {
          Partí cada ítem del brief en issues chicos y asignables. En el cuerpo de cada \
          issue agregá una sección \"## Brief\" que diga \"Misión: {title} (brief v{version})\" \
          y copie los campos del ítem del que sale. No cambies el alcance del brief: si algo \
-         no cierra, listalo como pregunta abierta.",
+         no cierra, listalo como pregunta abierta.\n\n\
+         Plan de fases (fluke v2): al final del cuerpo de cada issue que salga de un bug o \
+         una feature agregá en una línea sola el bloque \
+         <!-- fluke:plan {{\"template\":\"tdd\"}} --> si el campo TDD del ítem es \"sí\", o \
+         <!-- fluke:plan {{\"template\":\"no_tdd\"}} --> si es \"no\" o \"no aplica\". \
+         Los issues de ítems de diseño no llevan el bloque.",
         title = d.mission.title.trim(),
         md = render_markdown(d),
     )
@@ -309,6 +316,10 @@ The tool answers with what is still missing: the code, not you, decides when the
 - Ask only for what is missing. Use ask_user with at most 3 questions per turn, each with short \
 answer options the user can click; then end your turn and wait. Do not repeat the questions in \
 your text reply.
+- Every bug and feature has a \"tdd\" field: whether QA writes the tests before the code. When \
+the item is testable logic, ask the user (options \"Con TDD\" / \"Sin TDD\") and record \"sí\" or \
+\"no\". When test-first makes no sense (purely visual change, configuration, a bug that cannot \
+be reproduced), record \"no aplica\" yourself without asking.
 - You may read the code of the current repo (Read, Grep, Glob) to understand the request or \
 propose likely files, but you never write code, edit files or run commands.
 - When the brief is complete, give a 2-3 line summary and tell the user to review it and press \
@@ -626,8 +637,20 @@ mod tests {
         let bug = item("bug", &[("symptom", "crashes"), ("steps", "  ")]);
         assert_eq!(
             missing(&mission("Taller", true), &[bug]),
-            vec!["item:1:steps", "item:1:acceptance"]
+            vec!["item:1:steps", "item:1:acceptance", "item:1:tdd"]
         );
+
+        // TDD has to be decided (#688): "sí", "no" or "no aplica".
+        let feature = item(
+            "feature",
+            &[
+                ("goal", "g"),
+                ("scope", "s"),
+                ("acceptance", "a"),
+                ("tdd", "no aplica"),
+            ],
+        );
+        assert!(missing(&mission("Taller", true), &[feature]).is_empty());
 
         // reference is optional for design
         let design = item("design", &[("goal", "g"), ("scope", "mobile too")]);

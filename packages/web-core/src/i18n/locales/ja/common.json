@@ -1150,7 +1150,10 @@
           "code": "コード",
           "sessions": "セッション"
         },
-        "description": "issue の説明"
+        "description": "issue の説明",
+        "originBy": "選択:",
+        "originFlow": "issue 間の流れ:",
+        "originSteps": "開発の手順:"
       },
       "pause": "マイルストーンを一時停止",
       "reset": "リセット",
@@ -1901,7 +1904,8 @@
       "acceptance": "Acceptance criteria",
       "goal": "Goal",
       "scope": "Scope",
-      "reference": "Reference"
+      "reference": "Reference",
+      "tdd": "TDD"
     },
     "autonomy": {
       "label": "Autonomy",
