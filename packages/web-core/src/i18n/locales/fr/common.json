@@ -1034,6 +1034,13 @@
     },
     "plan": {
       "tabsLabel": "Vue",
+      "milestoneFilter": {
+        "label": "Jalons",
+        "unfinished": "Non terminés",
+        "active": "Actifs",
+        "finished": "Terminés",
+        "empty": "Aucun jalon ne correspond à ce filtre."
+      },
       "tabs": {
         "list": "Liste",
         "groups": "Groupes",

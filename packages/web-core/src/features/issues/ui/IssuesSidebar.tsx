@@ -15,6 +15,13 @@ import type {
   IssueStateFilter,
   IssueTaskStatusFilter,
 } from './IssuesToolbar';
+import type { PlanMilestoneFilter } from './plan/PlanView';
+
+const MILESTONE_FILTERS: PlanMilestoneFilter[] = [
+  'unfinished',
+  'active',
+  'finished',
+];
 
 const VIEW_STATES: IssueStateFilter[] = ['open', 'all', 'closed'];
 const TASK_STATES: IssueTaskStatusFilter[] = [
@@ -27,6 +34,9 @@ interface IssuesSidebarProps {
   filters: IssueFilters;
   availableLabels: IssueLabel[];
   onChange: (filters: IssueFilters) => void;
+  /** Set in the Plan view: milestones replace the issue-state views. */
+  milestoneFilter?: PlanMilestoneFilter;
+  onMilestoneFilterChange?: (filter: PlanMilestoneFilter) => void;
 }
 
 /**
@@ -38,6 +48,8 @@ export function IssuesSidebar({
   filters,
   availableLabels,
   onChange,
+  milestoneFilter,
+  onMilestoneFilterChange,
 }: IssuesSidebarProps) {
   const { t } = useTranslation('common');
 
@@ -63,17 +75,17 @@ export function IssuesSidebar({
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
       <div className="flex-none">
-      <CollapsibleSectionHeader
-        title={t('issues.title', { defaultValue: 'Issues' })}
-        collapsible={false}
-        headerExtra={
-          <SidebarSectionsMenu
-            sections={menuSections}
-            hidden={hidden}
-            onToggle={toggleSection}
-          />
-        }
-      />
+        <CollapsibleSectionHeader
+          title={t('issues.title', { defaultValue: 'Issues' })}
+          collapsible={false}
+          headerExtra={
+            <SidebarSectionsMenu
+              sections={menuSections}
+              hidden={hidden}
+              onToggle={toggleSection}
+            />
+          }
+        />
       </div>
       <div className="px-base py-half flex-none">
         <InputField
@@ -84,21 +96,39 @@ export function IssuesSidebar({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {!hidden.views && (
-        <SidebarSection
-          persistKey="issues-sidebar-views"
-          title={t('issues.filters.stateLabel')}
-        >
-          {[...VIEW_STATES, ...TASK_STATES].map((state) => (
-            <SidebarRow
-              key={state}
-              selected={filters.state === state}
-              onClick={() => onChange({ ...filters, state })}
-            >
-              <span className="truncate">{stateLabel(state)}</span>
-            </SidebarRow>
-          ))}
-        </SidebarSection>
+        {!hidden.views && milestoneFilter && (
+          <SidebarSection
+            persistKey="issues-sidebar-milestones"
+            title={t('issues.plan.milestoneFilter.label')}
+          >
+            {MILESTONE_FILTERS.map((ms) => (
+              <SidebarRow
+                key={ms}
+                selected={milestoneFilter === ms}
+                onClick={() => onMilestoneFilterChange?.(ms)}
+              >
+                <span className="truncate">
+                  {t(`issues.plan.milestoneFilter.${ms}`)}
+                </span>
+              </SidebarRow>
+            ))}
+          </SidebarSection>
+        )}
+        {!hidden.views && !milestoneFilter && (
+          <SidebarSection
+            persistKey="issues-sidebar-views"
+            title={t('issues.filters.stateLabel')}
+          >
+            {[...VIEW_STATES, ...TASK_STATES].map((state) => (
+              <SidebarRow
+                key={state}
+                selected={filters.state === state}
+                onClick={() => onChange({ ...filters, state })}
+              >
+                <span className="truncate">{stateLabel(state)}</span>
+              </SidebarRow>
+            ))}
+          </SidebarSection>
         )}
         {!hidden.labels && availableLabels.length > 0 && (
           <SidebarSection

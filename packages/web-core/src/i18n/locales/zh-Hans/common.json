@@ -1032,6 +1032,13 @@
     },
     "plan": {
       "tabsLabel": "视图",
+      "milestoneFilter": {
+        "label": "里程碑",
+        "unfinished": "未完成",
+        "active": "进行中",
+        "finished": "已完成",
+        "empty": "没有符合此筛选条件的里程碑。"
+      },
       "tabs": {
         "list": "列表",
         "groups": "分组",

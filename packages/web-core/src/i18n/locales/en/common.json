@@ -1049,6 +1049,13 @@
     },
     "plan": {
       "tabsLabel": "View",
+      "milestoneFilter": {
+        "label": "Milestones",
+        "unfinished": "Unfinished",
+        "active": "Active",
+        "finished": "Finished",
+        "empty": "No milestones match this filter."
+      },
       "tabs": {
         "list": "List",
         "groups": "Groups",

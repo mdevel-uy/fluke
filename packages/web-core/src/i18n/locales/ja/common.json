@@ -1032,6 +1032,13 @@
     },
     "plan": {
       "tabsLabel": "表示",
+      "milestoneFilter": {
+        "label": "マイルストーン",
+        "unfinished": "未完了",
+        "active": "進行中",
+        "finished": "完了",
+        "empty": "このフィルターに該当するマイルストーンはありません。"
+      },
       "tabs": {
         "list": "リスト",
         "groups": "グループ",
