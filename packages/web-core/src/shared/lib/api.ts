@@ -128,6 +128,7 @@ import {
   IssueBlockerEntry,
   UnstickRequest,
   IssuePlanResponse,
+  GithubMilestone,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -1975,6 +1976,24 @@ export const repoIssuesApi = {
       { method: 'POST' }
     );
     return handleApiResponse<RepoIssue>(response);
+  },
+  listMilestones: async (repoId: string): Promise<GithubMilestone[]> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestones`
+    );
+    return handleApiResponse<GithubMilestone[]>(response);
+  },
+  /** Archive (`open: false`) or restore a milestone on GitHub. */
+  setMilestoneOpen: async (
+    repoId: string,
+    number: number,
+    open: boolean
+  ): Promise<GithubMilestone> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/milestones/${number}/state`,
+      { method: 'PUT', body: JSON.stringify({ open }) }
+    );
+    return handleApiResponse<GithubMilestone>(response);
   },
   comment: async (
     repoId: string,

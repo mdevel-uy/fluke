@@ -489,6 +489,21 @@ export function IssuesPage() {
     [filters, updateUrl]
   );
 
+  // A milestone's "Show issues in list": the list view filtered to it.
+  const handleShowMilestoneIssues = useCallback(
+    (milestone: string) => {
+      rememberIssuesView('none');
+      updateUrl(
+        filtersToUrlParams({
+          ...filters,
+          groupBy: 'none',
+          milestones: [milestone],
+        })
+      );
+    },
+    [filters, updateUrl]
+  );
+
   // Confirmation line after a decision (mockup's toast), cleared after 3.5 s.
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -560,6 +575,20 @@ export function IssuesPage() {
   const handleCloseDrawer = useCallback(() => {
     updateUrl({ issue: undefined });
   }, [updateUrl]);
+
+  // Back: same as closing (the URL keeps groupBy and filters), plus scrolling
+  // the group the issue came from into view. If the issue is no longer listed
+  // (archived, filtered out, direct link) there is no group and we only close.
+  const handleBackFromDrawer = useCallback(() => {
+    const originKey =
+      selectedIssue &&
+      groups.find((g) => g.issues.some((i) => i.id === selectedIssue.id))?.key;
+    handleCloseDrawer();
+    if (originKey == null) return;
+    document
+      .querySelector(`[data-group-key="${CSS.escape(originKey)}"]`)
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [selectedIssue, groups, handleCloseDrawer]);
 
   const handleAddLabel = useCallback(
     async (issueNumber: number, label: string, color?: string) => {
@@ -688,6 +717,7 @@ export function IssuesPage() {
             onDecide={handleDecide}
             onUnstick={handleUnstick}
             milestoneFilter={milestoneFilter}
+            onShowIssues={handleShowMilestoneIssues}
           />
         ) : filteredIssues.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-body-md text-md-on-surface-variant">
@@ -699,6 +729,7 @@ export function IssuesPage() {
               group.issues.length > 0 ? (
                 <IssuesGroup
                   key={group.key}
+                  groupKey={group.key}
                   title={group.title}
                   count={group.issues.length}
                   issues={group.issues}
@@ -733,6 +764,7 @@ export function IssuesPage() {
         availableLabels={availableLabels}
         linkedTask={selectedIssueLinkedTask}
         onClose={handleCloseDrawer}
+        onBack={handleBackFromDrawer}
         onAddLabel={handleAddLabel}
         onRemoveLabel={handleRemoveLabel}
         onArchiveIssue={handleCloseIssue}

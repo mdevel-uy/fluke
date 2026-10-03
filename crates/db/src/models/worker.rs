@@ -134,7 +134,7 @@ impl Worker {
     /// The Director worker, archived or not (there is at most one).
     pub async fn find_orchestrator(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, Worker>(
-            "SELECT id, name, emoji, soul, role, model, github_pat, github_login, plan_mode, archived, created_at
+            "SELECT id, name, emoji, soul, role, executor, model, github_pat, github_login, plan_mode, archived, created_at
                FROM workers
                WHERE role = ?1",
         )

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan compact view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#161b26}
+a{color:#a5a8ff}a:hover{color:#c7c9ff}
+.seg{display:inline-flex;border:1px solid #3d4457;border-radius:6px;overflow:hidden}
+.seg button{height:28px;padding:0 10px;border:0;background:transparent;color:#aab2c5;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.seg button.on{background:rgba(124,127,240,.2);color:#fff}
+.list{border:1px solid #343a4c;border-radius:10px;overflow:hidden;background:#121722}
+.item{border-top:1px solid #262c3b}
+.item.dragging{opacity:.4}
+.item.over{box-shadow:inset 0 3px 0 0 #7c7ff0}
+.item.open{background:#171c29;box-shadow:inset 3px 0 0 0 #7c7ff0;margin:6px 0;border:1px solid #3d4457;border-radius:8px}
+.row{display:grid;grid-template-columns:14px 24px 24px minmax(0,1fr) auto 150px;align-items:center;gap:8px;height:40px;padding:0 12px 0 6px}
+.item:not(.open) .row:hover{background:#1c2230}
+.item.attn .ttl{font-weight:600;color:#fff}
+.main{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;height:40px;border:0;background:transparent;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ttl{color:#cfd5e2;font-weight:400;white-space:nowrap;font-size:13px}
+.item.open .ttl{font-weight:600;color:#fff;font-size:14px}
+.snip{color:#8a93a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;border:1px solid #3d4457;border-radius:9px;font-size:10.5px;font-weight:500;color:#cfd5e2;background:#1b2030;white-space:nowrap;flex:none}
+.chip i{display:block;width:6px;height:6px;border-radius:50%}
+.chip.pri{border-color:transparent;font-family:'IBM Plex Mono',monospace;color:#fff}
+.grip{display:grid;place-items:center;height:28px;color:transparent;cursor:grab}
+.row:hover .grip{color:#7d8599}
+.star{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:0;background:transparent;color:#6b7387;fill:none;cursor:pointer;padding:0}
+.star:hover{color:#f5c542}
+.star.on{color:#f5c542;fill:#f5c542}
+.play{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1px solid #7c7ff0;color:#7c7ff0;background:transparent;padding:0;cursor:pointer}
+.blk{display:inline-block;width:10px;height:6px;border-radius:2px;margin-left:2px}
+.b-done{background:#2f9e5f}.b-todo{background:#4a5163}.b-dec{border:1px dashed #f5c542;height:4px;width:8px}
+.pill{height:20px;padding:0 8px;border-radius:10px;border:0;background:#f5c542;color:#2a2205;font:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.meta{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.acts{display:none;align-items:center;justify-content:flex-end;gap:2px}
+.item:not(.open) .row:hover .meta{display:none}
+.item:not(.open) .row:hover .acts,.item.open .acts{display:flex}
+.item.open .meta{display:none}
+.icbtn{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:#aab2c5;cursor:pointer;padding:0}
+.icbtn:hover{background:rgba(255,255,255,.09);color:#fff}
+.ghost{height:28px;padding:0 10px;border-radius:5px;border:1px solid #3d4457;background:transparent;color:#e8eaf0;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ghost:hover{border-color:#7c7ff0}
+.sect{display:flex;align-items:center;gap:8px;height:30px;padding:0 12px 0 20px;border-top:1px solid #343a4c;background:#171c28;color:#8a93a6;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.body{padding:4px 16px 16px 90px;display:flex;flex-direction:column;gap:12px}
+.waves{display:flex;align-items:stretch;gap:10px;overflow-x:auto;padding-bottom:2px}
+.wave{flex:0 0 250px;display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #343a4c;border-radius:8px;background:#121722}
+.wave.cur{border-color:rgba(124,127,240,.5)}
+.wh{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8a93a6}
+.card{display:grid;grid-template-columns:8px minmax(0,1fr);gap:8px;align-items:start;padding:7px 8px;border-radius:6px;background:#1e2333;border:1px solid #2e3446;text-align:left;font:inherit;color:#e8eaf0;cursor:pointer;width:100%}
+.card:hover{border-color:#5d6578}
+.card i{display:block;width:8px;height:8px;border-radius:50%;margin-top:4px}
+.card small{display:block;color:#8a93a6;font-size:11px;margin-top:2px}
+.arrow{align-self:center;color:#5d6578;flex:none}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 760px; padding: 24px 28px 40px; background: #161b26; color: #e8eaf0; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px">
+<div style="max-width: 1210px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<span style="font-size: 12px; color: #9aa3b5">{{openCount}} milestones</span>
+<div class="seg" role="group" aria-label="Density" style="margin-left: auto">
+<button type="button" aria-pressed="false"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="4.5" rx="1"/><rect x="2" y="9" width="12" height="4.5" rx="1"/></svg>Bands</button>
+<button type="button" class="on" aria-pressed="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12"/></svg>Compact</button>
+</div>
+</div>
+
+<div class="list">
+
+<sc-for list="{{open}}" as="m" hint-placeholder-count="6">
+<sc-if value="{{m.section}}" hint-placeholder-val="{{false}}"><div class="sect">{{m.section}}</div></sc-if>
+<div class="item {{m.cls}}" onDragOver="{{m.dragOver}}" onDrop="{{m.drop}}">
+<div class="row">
+<span class="grip" draggable="true" title="Drag to reorder" aria-label="Drag to reorder" onDragStart="{{m.dragStart}}" onDragEnd="{{m.dragEnd}}"><svg viewBox="0 0 16 16" width="12" height="16" fill="currentColor"><circle cx="5.5" cy="4" r="1.2"/><circle cx="10.5" cy="4" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12" r="1.2"/><circle cx="10.5" cy="12" r="1.2"/></svg></span>
+<button type="button" class="star {{m.starCls}}" aria-label="{{m.starLabel}}" aria-pressed="{{m.starPressed}}" onClick="{{m.toggleStar}}"><svg viewBox="0 0 16 16" width="16" height="16" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg></button>
+<button type="button" class="play" aria-label="Play milestone"><svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg></button>
+<button type="button" class="main" aria-expanded="{{m.expanded}}" onClick="{{m.toggleOpen}}">
+<span class="ttl">{{m.title}}</span>
+<sc-for list="{{m.tags}}" as="tg" hint-placeholder-count="2">
+<span class="chip {{tg.cls}}" style="{{tg.style}}"><i style="background: {{tg.color}}"></i>{{tg.name}}</span>
+</sc-for>
+<sc-if value="{{m.closed}}" hint-placeholder-val="{{true}}"><span class="snip">— {{m.sub}}</span></sc-if>
+</button>
+<div style="display: flex; align-items: center; gap: 10px">
+<sc-if value="{{m.closed}}" hint-placeholder-val="{{true}}">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; display: inline-flex; align-items: center; gap: 4px">
+<sc-for list="{{m.waves}}" as="w" hint-placeholder-count="2"><span><sc-for list="{{w.blocks}}" as="b" hint-placeholder-count="1"><span class="blk {{b}}"></span></sc-for></span></sc-for>
+</span>
+</sc-if>
+<sc-if value="{{m.decide}}" hint-placeholder-val="{{false}}"><button type="button" class="pill">Decide {{m.decide}}</button></sc-if>
+</div>
+<div class="meta">
+<div style="width: 56px; height: 4px; border-radius: 2px; background: #3a4052; overflow: hidden"><i style="display: block; height: 100%; background: #2fbf71; width: {{m.pct}}"></i></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aab2c5; width: 28px; text-align: right">{{m.done}}/{{m.total}}</span>
+</div>
+<div class="acts">
+<button type="button" class="icbtn" aria-label="Archive milestone" title="Archive" onClick="{{m.archive}}"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="3" rx="1"/><path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 9h3"/></svg></button>
+<button type="button" class="icbtn" aria-label="Open on GitHub" title="Open on GitHub"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"/></svg></button>
+<button type="button" class="icbtn" aria-label="More actions" title="More"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><circle cx="8" cy="3.5" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="12.5" r="1.4"/></svg></button>
+</div>
+</div>
+<sc-if value="{{m.expanded}}" hint-placeholder-val="{{false}}">
+<div class="body">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; font-size: 12px; color: #cfd5e2">
+<span style="color: #aab2c5"><b style="color: #e8eaf0; font-weight: 600">Ready to run</b> · {{m.sub}}</span>
+<div style="display: flex; align-items: center; gap: 8px; margin-left: auto">
+<div style="width: 120px; height: 5px; border-radius: 3px; background: #3a4052; overflow: hidden"><i style="display: block; height: 100%; background: #2fbf71; width: {{m.pct}}"></i></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aab2c5">{{m.done}}/{{m.total}} merged</span>
+</div>
+</div>
+<div class="waves">
+<sc-for list="{{m.waves}}" as="w" hint-placeholder-count="2">
+<sc-if value="{{w.arrow}}" hint-placeholder-val="{{false}}"><svg class="arrow" viewBox="0 0 24 16" width="24" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h18M15 3l5 5-5 5"/></svg></sc-if>
+<div class="wave {{w.cls}}">
+<div class="wh"><span>Wave {{w.n}}</span><span>{{w.count}}</span></div>
+<sc-for list="{{w.cards}}" as="c" hint-placeholder-count="1">
+<button type="button" class="card"><i style="background: {{c.color}}"></i><span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8fb0ff">#{{c.n}}</span> {{c.t}}<small>{{c.st}}</small></span></button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<div class="sect">Archived <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 400">{{archivedCount}}</span></div>
+<sc-for list="{{archived}}" as="a" hint-placeholder-count="2">
+<div class="item" style="opacity: .7">
+<div class="row">
+<span></span><span></span><span></span>
+<div class="main" style="cursor: default"><span class="ttl">{{a.title}}</span><span class="snip">— {{a.meta}}</span></div>
+<span></span>
+<div style="display: flex; justify-content: flex-end"><button type="button" class="ghost" onClick="{{a.restore}}">Restore</button></div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+var COLORS = { bug: '#d73a4a', enhancement: '#5fc8cf', design: '#9b87ff', 'tech-debt': '#e0703a', ui: '#e8a898', backend: '#4a9be0', infra: '#3fb36b' };
+var PRI = { P0: '#b60205', P1: '#c2410c', P2: '#8a6d00', P3: '#16723a' };
+var ST = { done: ['#2fbf71', 'Merged'], todo: ['#6b7387', 'To do'], dec: ['#f5c542', 'Waiting for your decision'] };
+var MILESTONES = [
+  { id: 'm1', title: 'Fluke detecta errores de la app y propone issue en GitHub', sub: '3 waves, 4 issues · 4 to do', done: 0, total: 4, pri: 'P1', labels: ['enhancement', 'backend'],
+    waves: [[[701, 'Captura de errores del frontend', 'todo']], [[702, 'Endpoint de reporte en el server', 'todo'], [703, 'Deduplicar errores repetidos', 'todo']], [[704, 'Proponer issue en GitHub desde el chat', 'todo']]] },
+  { id: 'm2', title: 'Issues agrupado por milestone por defecto', sub: '2 waves, 2 issues · 2 to do', done: 0, total: 2, labels: ['enhancement', 'ui'],
+    waves: [[[688, 'Agrupar por milestone en el listado', 'todo']], [[689, 'Recordar el agrupamiento elegido', 'todo']]] },
+  { id: 'm3', title: 'Volver de la vista de issue a la vista de milestone', sub: '1 wave, 1 issue · 1 to do', done: 0, total: 1, labels: ['bug', 'ui'],
+    waves: [[[692, 'Breadcrumb de vuelta al milestone', 'todo']]] },
+  { id: 'm4', title: 'Advanced settings como collapsable', sub: 'waiting for your decision on #651', done: 0, total: 1, pri: 'P3', labels: ['design'], decide: '#651',
+    waves: [[[651, 'Settings avanzados plegables', 'dec']]] },
+  { id: 'm5', title: 'Brief: "Team needed" muestra el plantel total, no lo necesario', sub: 'waiting for your decision on #654', done: 0, total: 1, pri: 'P2', labels: ['bug'], decide: '#654',
+    waves: [[[654, 'Calcular el equipo necesario por fase', 'dec']]] },
+  { id: 'm6', title: 'Rediseño de tabs de brief del panel Fluke', sub: '1 merged · 1 decision pending · 1 to do', done: 1, total: 3, labels: ['design', 'ui'], decide: '#647',
+    waves: [[[647, 'Definir tabs del brief', 'dec'], [648, 'Extraer componente de tabs', 'done']], [[649, 'Aplicar tabs nuevos al panel', 'todo']]] },
+  { id: 'a1', title: 'Quitar panel de phase templates', meta: 'archived 1 Oct · 2/2 merged', labels: [], waves: [] },
+  { id: 'a2', title: 'Enter para enviar en el chat', meta: 'archived 28 Sep · 1 issue still open', labels: [], waves: [] }
+];
+var BLK = { done: 'b-done', todo: 'b-todo', dec: 'b-dec' };
+function tagsOf(m) {
+  var t = [];
+  if (m.pri) t.push({ name: m.pri, cls: 'pri', color: 'transparent', style: 'background:' + PRI[m.pri] });
+  m.labels.slice(0, 2).forEach(function (l) { t.push({ name: l, cls: '', color: COLORS[l] || '#8a93a6', style: '' }); });
+  return t;
+}
+function byId(id) { return MILESTONES.find(function (m) { return m.id === id; }); }
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { archived: ['a1', 'a2'], stars: ['m5', 'm6'], expanded: 'm6',
+    order: MILESTONES.map(function (m) { return m.id; }), drag: null, over: null }; }
+  move(from, to) {
+    if (!from || from === to) return this.setState({ drag: null, over: null });
+    var o = this.state.order.filter(function (x) { return x !== from; });
+    o.splice(o.indexOf(to), 0, from);
+    this.setState({ order: o, drag: null, over: null });
+  }
+  renderVals() {
+    var s = this.state, self = this;
+    var isArch = function (m) { return s.archived.indexOf(m.id) >= 0; };
+    var starred = function (m) { return s.stars.indexOf(m.id) >= 0; };
+    var live = s.order.map(byId).filter(function (m) { return !isArch(m); });
+    live = live.filter(starred).concat(live.filter(function (m) { return !starred(m); }));
+    var open = live.map(function (m, i) {
+      var st = starred(m), ex = s.expanded === m.id;
+      var cur = m.waves.findIndex(function (w) { return w.some(function (c) { return c[2] !== 'done'; }); });
+      return {
+        title: m.title, sub: m.sub, done: m.done, total: m.total, pct: (100 * m.done / m.total) + '%',
+        tags: tagsOf(m), decide: m.decide || '', expanded: ex, closed: !ex,
+        section: i === 0 ? (st ? 'Starred' : 'Milestones') : (!st && starred(live[i - 1]) ? 'Milestones' : ''),
+        cls: [m.decide ? 'attn' : '', ex ? 'open' : '', s.drag === m.id ? 'dragging' : '', s.over === m.id && s.drag !== m.id ? 'over' : ''].join(' '),
+        waves: m.waves.map(function (w, k) {
+          return { n: k, arrow: k > 0, cls: k === cur ? 'cur' : '', count: w.filter(function (c) { return c[2] === 'done'; }).length + '/' + w.length,
+            blocks: w.map(function (c) { return BLK[c[2]]; }),
+            cards: w.map(function (c) { return { n: c[0], t: c[1], color: ST[c[2]][0], st: ST[c[2]][1] }; }) };
+        }),
+        starCls: st ? 'on' : '', starPressed: st ? 'true' : 'false', starLabel: st ? 'Unstar milestone' : 'Star milestone',
+        toggleStar: function () { self.setState({ stars: st ? s.stars.filter(function (x) { return x !== m.id; }) : s.stars.concat(m.id) }); },
+        toggleOpen: function () { self.setState({ expanded: ex ? null : m.id }); },
+        archive: function () { self.setState({ archived: [m.id].concat(s.archived), expanded: ex ? null : s.expanded }); },
+        dragStart: function (e) { if (e && e.dataTransfer) e.dataTransfer.setData('text/plain', m.id); self.setState({ drag: m.id }); },
+        dragOver: function (e) { if (e) e.preventDefault(); if (s.over !== m.id) self.setState({ over: m.id }); },
+        drop: function (e) { if (e) e.preventDefault(); self.move(s.drag, m.id); },
+        dragEnd: function () { self.setState({ drag: null, over: null }); }
+      };
+    });
+    var archived = s.archived.map(byId).map(function (m) {
+      return { title: m.title, meta: m.meta || 'archived just now',
+        restore: function () { self.setState({ archived: s.archived.filter(function (x) { return x !== m.id; }) }); } };
+    });
+    return {
+      open: open, archived: archived, archivedCount: archived.length, openCount: live.length
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -56,8 +56,8 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Keep functions small, add `Debug`/`Serialize`/`Deserialize` where useful.
 
 ## Testing Guidelines
-- Rust: prefer unit tests alongside code (`#[cfg(test)]`), run `cargo test --workspace`. Add tests for new logic and edge cases.
-- Web app: ensure `pnpm run check` and `pnpm run lint` pass. If adding runtime logic, include lightweight tests (e.g., Vitest) in the same directory.
+- Rust: prefer unit tests alongside code (`#[cfg(test)]`), run `cargo test -p <crate>` for the crates you touched. Add tests for new logic and edge cases.
+- Web app: run `pnpm --filter <package> run check` for the packages you touched. Full `pnpm run check` and `--workspace` commands also cold-build every Rust crate; in a fresh worktree leave them to CI. If adding runtime logic, include lightweight tests (e.g., Vitest) in the same directory.
 
 ## Security & Config Tips
 - Use `.env` for local overrides; never commit secrets. Key envs: `FRONTEND_PORT`, `BACKEND_PORT`, `HOST` 

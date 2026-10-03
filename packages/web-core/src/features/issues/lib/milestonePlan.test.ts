@@ -101,7 +101,7 @@ describe('buildMilestonePlan', () => {
     expect(stateOf(plan, 2)).toBe('running');
     expect(stateOf(plan, 3)).toBe('running');
     expect(stateOf(plan, 4)).toBe('review');
-    expect(stateOf(plan, 5)).toBe('review');
+    expect(stateOf(plan, 5)).toBe('approved');
     expect(stateOf(plan, 6)).toBe('done');
     // A failed task reads as no task: back to waiting for a dispatch.
     expect(stateOf(plan, 7)).toBe('ready');
@@ -120,6 +120,18 @@ describe('buildMilestonePlan', () => {
     );
     expect(plan.bands[0].currentWave).toBe(1);
     expect(stateOf(plan, 2)).toBe('ready');
+  });
+
+  it('reports approved PRs waiting for a merge once nothing else moves', () => {
+    const plan = buildMilestonePlan(
+      [issue(1, 'M1', ['wave:0']), issue(2, 'M1', ['wave:1'])],
+      new Map([[1, { status: 'approved' }]])
+    );
+    expect(plan.bands[0].status).toEqual({
+      kind: 'merge',
+      issueNumber: 1,
+      count: 1,
+    });
   });
 
   it('reports a band that can only start with a decision', () => {

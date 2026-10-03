@@ -889,6 +889,7 @@
     "drawer": {
       "title": "Détail de l'issue",
       "close": "Fermer",
+      "back": "Retour",
       "openOnGitHub": "Ouvrir sur GitHub",
       "stateOpen": "ouvert",
       "stateClosed": "fermé",
@@ -950,7 +951,10 @@
         "doneTitle": "Jalon terminé",
         "doneDetail": "toutes les PR fusionnées",
         "stuckTitle": "#{{n}} a besoin de vous",
-        "stuckDetail": "le reste de la wave continue"
+        "stuckDetail": "le reste de la wave continue",
+        "mergeTitle_one": "{{count}} PR prête à fusionner",
+        "mergeTitle_other": "{{count}} PR prêtes à fusionner",
+        "mergeDetail": "relisez et fusionnez #{{n}} sur GitHub"
       },
       "card": {
         "ready": "● prêt",
@@ -969,7 +973,9 @@
         "waitingYou": "{{name}} · attend votre réponse",
         "ago": "il y a {{age}}",
         "unstick": "Débloquer",
-        "stuck": "⚠ bloqué"
+        "stuck": "⚠ bloqué",
+        "approved": "✓ approuvé",
+        "prApproved": "{{name}} · approuvé, prêt à fusionner"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
       "legend": {
@@ -978,7 +984,8 @@
         "review": "En revue",
         "gate": "Décision du PM",
         "queued": "En file (aucun slot libre)",
-        "blocked": "Attend la vague précédente"
+        "blocked": "Attend la vague précédente",
+        "approved": "Approuvé, prêt à fusionner"
       },
       "empty": "Aucune issue ouverte avec jalon et vague à planifier.",
       "expand": "Développer le jalon",
@@ -993,7 +1000,8 @@
         "decide": "Décider #{{n}}",
         "stuck_one": "{{count}} a besoin de vous",
         "stuck_other": "{{count}} ont besoin de vous",
-        "unstick": "Débloquer #{{n}}"
+        "unstick": "Débloquer #{{n}}",
+        "approved": "{{count}} prêts à fusionner"
       },
       "decision": {
         "eyebrow": "Décision en attente",
@@ -1198,6 +1206,33 @@
           "canceledIssue": "#{{n}} annulé ; la wave continue sans lui",
           "fluke": "Fluke ouvre une conversation sur #{{n}} avec le contexte du blocage"
         }
+      },
+      "star": "Ajouter aux favoris",
+      "unstar": "Retirer des favoris",
+      "reorder": "Glisser pour réordonner (ou flèches)",
+      "actions": "Actions du jalon",
+      "archive": "Archiver le jalon",
+      "archiveHint": "Le ferme sur GitHub et le retire du Plan. Les issues ne changent pas.",
+      "openOnGithub": "Ouvrir sur GitHub",
+      "showIssues": "Voir les issues dans la liste",
+      "archived": "Jalon archivé",
+      "archivedOpenIssues_one": "Jalon archivé · {{count}} issue encore ouverte sur GitHub",
+      "archivedOpenIssues_other": "Jalon archivé · {{count}} issues encore ouvertes sur GitHub",
+      "undo": "Annuler",
+      "restore": "Restaurer",
+      "archivedSection": "Archivés",
+      "archivedOn": "archivé le {{date}}",
+      "stillOpen_one": "{{count}} issue encore ouverte",
+      "stillOpen_other": "{{count}} issues encore ouvertes",
+      "archiveFailed": "Impossible de modifier le jalon sur GitHub. Vérifiez que gh est connecté.",
+      "starred": "Favoris",
+      "milestones": "Jalons",
+      "milestoneCount_one": "{{count}} jalon",
+      "milestoneCount_other": "{{count}} jalons",
+      "density": {
+        "label": "Densité",
+        "bands": "Bandes",
+        "compact": "Compacte"
       }
     }
   },

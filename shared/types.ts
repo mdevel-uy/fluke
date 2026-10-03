@@ -17,6 +17,12 @@ closed_at: Date | null, };
 
 export type IssueLabel = { name: string, color: string, };
 
+export type GithubMilestone = { number: number, title: string, 
+/**
+ * `open` or `closed`.
+ */
+state: string, html_url: string, closed_at: string | null, };
+
 export type UpdateRepo = { display_name?: string | null, setup_script?: string | null, cleanup_script?: string | null, archive_script?: string | null, copy_files?: string | null, parallel_setup_script?: boolean | null, dev_server_script?: string | null, default_target_branch?: string | null, default_working_dir?: string | null, };
 
 export type SearchResult = { path: string, is_file: boolean, match_type: SearchMatchType, 
