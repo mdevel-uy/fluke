@@ -7,28 +7,9 @@ import { PhaseGraph, phaseKey, usePhaseLabel } from './PhaseGraph';
 
 /**
  * "Plan" tab of the issue page (#686): phase graph, detail of the selected
- * phase and the phase templates, as in "3 · Issue" of
+ * phase and, when stuck, the stuck kinds, as in "3 · Issue" of
  * design/mockups/fluke-v2/pantallas.html.
  */
-
-const TEMPLATES: { key: string; phases: string[]; gates?: string[] }[] = [
-  { key: 'tdd', phases: ['tdd', 'dev', 'test', 'review', 'merge'] },
-  { key: 'no_tdd', phases: ['dev', 'test', 'review', 'merge'] },
-  {
-    key: 'design',
-    phases: ['design', 'approval', 'withOrWithoutTdd'],
-    gates: ['approval'],
-  },
-  {
-    key: 'bug',
-    phases: ['reproduce', 'failingTest', 'fix', 'review', 'merge'],
-  },
-  {
-    key: 'decision',
-    phases: ['decision', 'baseTemplate'],
-    gates: ['decision'],
-  },
-];
 
 function duration(p: IssuePhase) {
   if (!p.started_at) return null;
@@ -86,7 +67,12 @@ export function IssuePlanTab({
         selected={selected}
         onSelect={setSelected}
       />
-      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div
+        className={cn(
+          'grid gap-3.5',
+          plan.blocker && 'lg:grid-cols-[minmax(0,1fr)_300px]'
+        )}
+      >
         <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
           {phase ? (
             <>
@@ -188,7 +174,7 @@ export function IssuePlanTab({
           )}
         </div>
 
-        {plan.blocker ? (
+        {plan.blocker && (
           <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
             <h3 className="m-0 text-[15px] font-semibold text-high">
               {t('issues.plan.stuck.kindsTitle')}
@@ -208,47 +194,6 @@ export function IssuePlanTab({
             <p className="m-0 text-xs text-normal">
               {t('issues.plan.stuck.kindsNote')}
             </p>
-          </div>
-        ) : (
-          <div className="grid content-start gap-2.5 rounded-[10px] border border-md-outline-variant bg-md-surface-container-low px-4 py-3.5">
-            <h3 className="m-0 text-[15px] font-semibold text-high">
-              {t('issues.plan.templates.title')}
-            </h3>
-            <p className="m-0 text-xs text-normal">
-              {t('issues.plan.templates.hint')}
-            </p>
-            <div className="grid gap-1.5">
-              {TEMPLATES.map((tpl) => (
-                <div
-                  key={tpl.key}
-                  className="flex flex-wrap items-center gap-1 text-xs"
-                >
-                  <b
-                    className={cn(
-                      'w-full text-[12.5px] font-medium',
-                      tpl.key === plan.template
-                        ? 'text-md-primary'
-                        : 'text-high'
-                    )}
-                  >
-                    {t(`issues.plan.templates.names.${tpl.key}`)}
-                  </b>
-                  {tpl.phases.map((ph) => (
-                    <span
-                      key={ph}
-                      className={cn(
-                        'rounded border px-[5px] py-px font-mono text-[10.5px]',
-                        tpl.gates?.includes(ph)
-                          ? 'border-warning text-warning'
-                          : 'border-md-outline-variant text-normal'
-                      )}
-                    >
-                      {t(`issues.plan.templates.phases.${ph}`)}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>

@@ -1199,8 +1199,6 @@
         "selectHint": "選擇一個階段檢視詳情。"
       },
       "templates": {
-        "title": "階段範本",
-        "hint": "Fluke 在 brief 中選擇：是否需要設計、是否使用 TDD（有意義時會問你）。Analyst 不改階段，只安排 issue 之間的流程。",
         "names": {
           "tdd": "含 TDD",
           "no_tdd": "不含 TDD",
@@ -1208,21 +1206,6 @@
           "bug": "Bug",
           "decision": "含決定",
           "none": "目前流程（無計畫）"
-        },
-        "phases": {
-          "tdd": "測試先行",
-          "dev": "開發",
-          "test": "測試",
-          "review": "審查",
-          "merge": "合併",
-          "design": "設計",
-          "approval": "你的確認",
-          "withOrWithoutTdd": "…有無 TDD",
-          "reproduce": "重現",
-          "failingTest": "失敗的測試",
-          "fix": "修正",
-          "decision": "你的決定",
-          "baseTemplate": "…基礎範本"
         }
       },
       "code": {

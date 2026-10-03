@@ -1219,8 +1219,6 @@
         "selectHint": "Pick a phase to see its details."
       },
       "templates": {
-        "title": "Phase templates",
-        "hint": "Fluke picks it in the brief: whether it needs design and whether it uses TDD (when it makes sense, it asks you). The Analyst does not change the phases: it lays out the flow between issues.",
         "names": {
           "tdd": "With TDD",
           "no_tdd": "Without TDD",
@@ -1228,21 +1226,6 @@
           "bug": "Bug",
           "decision": "With decision",
           "none": "Current flow (no plan)"
-        },
-        "phases": {
-          "tdd": "Tests first",
-          "dev": "Development",
-          "test": "Testing",
-          "review": "Review",
-          "merge": "Merge",
-          "design": "Design",
-          "approval": "Your OK",
-          "withOrWithoutTdd": "…with or without TDD",
-          "reproduce": "Reproduce",
-          "failingTest": "Failing test",
-          "fix": "Fix",
-          "decision": "Your decision",
-          "baseTemplate": "…base template"
         }
       },
       "code": {
