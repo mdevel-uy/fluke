@@ -126,6 +126,7 @@ import {
   MissionSummary,
   UpdateMissionRequest,
   MilestoneRun,
+  IssuePlanResponse,
 } from 'shared/types';
 import type { Project as RemoteProject } from 'shared/remote-types';
 import type { RepoIssue } from '@/features/issues/types';
@@ -2978,5 +2979,18 @@ export const milestoneRunsApi = {
       { method: 'POST', body: JSON.stringify({ step_mode: stepMode }) }
     );
     await handleApiResponse<void>(response);
+  },
+};
+
+// Plan de fases del issue (fluke v2, #686).
+export const issuePhasesApi = {
+  get: async (
+    repoId: string,
+    issueNumber: number
+  ): Promise<IssuePlanResponse> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/issues/${issueNumber}/phases`
+    );
+    return handleApiResponse<IssuePlanResponse>(response);
   },
 };

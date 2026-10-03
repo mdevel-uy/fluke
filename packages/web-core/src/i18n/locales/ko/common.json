@@ -1142,10 +1142,77 @@
         "backToIssues": "Issues로 돌아가기",
         "viewPr": "PR 보기",
         "branch": "브랜치",
-        "noTask": "이 이슈에는 아직 작업이 없습니다."
+        "noTask": "이 이슈에는 아직 작업이 없습니다.",
+        "templateLine": "템플릿",
+        "soon": "곧 제공",
+        "tabs": {
+          "plan": "플랜",
+          "code": "코드",
+          "sessions": "세션"
+        },
+        "description": "이슈 설명"
       },
       "pause": "마일스톤 일시 정지",
-      "reset": "초기화"
+      "reset": "초기화",
+      "phases": {
+        "origin": "시작",
+        "end": "끝",
+        "loop": "되돌림",
+        "phaseN": "단계 {{n}}",
+        "loopLabel": "변경 요청 · 라운드 {{n}} → 같은 브랜치에서 되돌림",
+        "round": "라운드 {{n}}",
+        "mergeSub": "사람의 판단: 직접 병합합니다",
+        "state": {
+          "done": "완료",
+          "active": "진행 중",
+          "changes": "변경 요청",
+          "stuck": "막힘",
+          "pending": "대기"
+        },
+        "kind": {
+          "origin": "이슈 생성",
+          "design": "디자인",
+          "dev": "개발",
+          "review": "리뷰",
+          "merge": "병합"
+        },
+        "profile": "프로필",
+        "instance": "인스턴스",
+        "ephemeral": "(임시)",
+        "status": "상태",
+        "duration": "소요 시간",
+        "cost": "비용",
+        "output": "출력",
+        "viewSession": "에이전트 세션 보기",
+        "viewPrComments": "PR 코멘트 보기",
+        "selectHint": "단계를 선택하면 자세히 볼 수 있습니다."
+      },
+      "templates": {
+        "title": "단계 템플릿",
+        "hint": "Fluke가 brief에서 고릅니다: 디자인이 필요한지, TDD를 쓸지(의미가 있으면 물어봅니다). Analyst는 단계를 바꾸지 않고 이슈 간 흐름을 짭니다.",
+        "names": {
+          "tdd": "TDD 포함",
+          "no_tdd": "TDD 없음",
+          "design": "디자인 포함",
+          "bug": "버그",
+          "decision": "결정 포함"
+        },
+        "phases": {
+          "tdd": "테스트 먼저",
+          "dev": "개발",
+          "test": "테스트",
+          "review": "리뷰",
+          "merge": "병합",
+          "design": "디자인",
+          "approval": "승인",
+          "withOrWithoutTdd": "…TDD 유무",
+          "reproduce": "재현",
+          "failingTest": "실패하는 테스트",
+          "fix": "수정",
+          "decision": "결정",
+          "baseTemplate": "…기본 템플릿"
+        }
+      }
     }
   },
   "workers": {

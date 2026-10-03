@@ -1142,10 +1142,77 @@
         "backToIssues": "返回 Issues",
         "viewPr": "查看 PR",
         "branch": "分支",
-        "noTask": "此 issue 还没有任务。"
+        "noTask": "此 issue 还没有任务。",
+        "templateLine": "模板",
+        "soon": "即将推出",
+        "tabs": {
+          "plan": "计划",
+          "code": "代码",
+          "sessions": "会话"
+        },
+        "description": "issue 描述"
       },
       "pause": "暂停里程碑",
-      "reset": "重置"
+      "reset": "重置",
+      "phases": {
+        "origin": "起点",
+        "end": "结束",
+        "loop": "返工",
+        "phaseN": "阶段 {{n}}",
+        "loopLabel": "要求修改 · 第 {{n}} 轮 → 返工使用同一分支",
+        "round": "第 {{n}} 轮",
+        "mergeSub": "人工关卡：由你合并",
+        "state": {
+          "done": "完成",
+          "active": "进行中",
+          "changes": "要求修改",
+          "stuck": "卡住",
+          "pending": "待开始"
+        },
+        "kind": {
+          "origin": "issue 创建",
+          "design": "设计",
+          "dev": "开发",
+          "review": "评审",
+          "merge": "合并"
+        },
+        "profile": "配置",
+        "instance": "实例",
+        "ephemeral": "（临时）",
+        "status": "状态",
+        "duration": "耗时",
+        "cost": "成本",
+        "output": "输出",
+        "viewSession": "查看代理会话",
+        "viewPrComments": "查看 PR 评论",
+        "selectHint": "选择一个阶段查看详情。"
+      },
+      "templates": {
+        "title": "阶段模板",
+        "hint": "Fluke 在 brief 中选择：是否需要设计、是否使用 TDD（有意义时会问你）。Analyst 不改阶段，只安排 issue 之间的流程。",
+        "names": {
+          "tdd": "含 TDD",
+          "no_tdd": "不含 TDD",
+          "design": "含设计",
+          "bug": "Bug",
+          "decision": "含决定"
+        },
+        "phases": {
+          "tdd": "测试先行",
+          "dev": "开发",
+          "test": "测试",
+          "review": "评审",
+          "merge": "合并",
+          "design": "设计",
+          "approval": "你的确认",
+          "withOrWithoutTdd": "…有无 TDD",
+          "reproduce": "复现",
+          "failingTest": "失败的测试",
+          "fix": "修复",
+          "decision": "你的决定",
+          "baseTemplate": "…基础模板"
+        }
+      }
     }
   },
   "workers": {

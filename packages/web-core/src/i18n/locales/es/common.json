@@ -1161,10 +1161,77 @@
         "backToIssues": "Volver a Issues",
         "viewPr": "Ver PR",
         "branch": "Rama",
-        "noTask": "Este issue todavía no tiene una tarea."
+        "noTask": "Este issue todavía no tiene una tarea.",
+        "templateLine": "Plantilla",
+        "soon": "Disponible próximamente",
+        "tabs": {
+          "plan": "Plan",
+          "code": "Código",
+          "sessions": "Sesiones"
+        },
+        "description": "Descripción del issue"
       },
       "pause": "Pausar milestone",
-      "reset": "Reiniciar"
+      "reset": "Reiniciar",
+      "phases": {
+        "origin": "Origen",
+        "end": "Fin",
+        "loop": "Vuelta",
+        "phaseN": "Fase {{n}}",
+        "loopLabel": "cambios pedidos · ronda {{n}} → la vuelta usa la misma rama",
+        "round": "Ronda {{n}}",
+        "mergeSub": "Compuerta humana: lo mergeás vos",
+        "state": {
+          "done": "done",
+          "active": "en curso",
+          "changes": "cambios",
+          "stuck": "trancada",
+          "pending": "pendiente"
+        },
+        "kind": {
+          "origin": "Issue creado",
+          "design": "Diseño",
+          "dev": "Desarrollo",
+          "review": "Review",
+          "merge": "Merge"
+        },
+        "profile": "Perfil",
+        "instance": "Instancia",
+        "ephemeral": "(efímera)",
+        "status": "Estado",
+        "duration": "Duración",
+        "cost": "Costo",
+        "output": "Salida",
+        "viewSession": "Ver sesión del agente",
+        "viewPrComments": "Ver comentarios en el PR",
+        "selectHint": "Elegí una fase para ver su detalle."
+      },
+      "templates": {
+        "title": "Plantillas de fases",
+        "hint": "Fluke la elige en el brief: si lleva diseño, y si lleva TDD (cuando tiene sentido, te lo pregunta). El Analyst no cambia las fases: arma el flujo entre issues.",
+        "names": {
+          "tdd": "Con TDD",
+          "no_tdd": "Sin TDD",
+          "design": "Con diseño",
+          "bug": "Bug",
+          "decision": "Con decisión"
+        },
+        "phases": {
+          "tdd": "Tests primero",
+          "dev": "Desarrollo",
+          "test": "Testing",
+          "review": "Review",
+          "merge": "Merge",
+          "design": "Diseño",
+          "approval": "Tu OK",
+          "withOrWithoutTdd": "…con o sin TDD",
+          "reproduce": "Reproducir",
+          "failingTest": "Test que falla",
+          "fix": "Fix",
+          "decision": "Tu decisión",
+          "baseTemplate": "…plantilla base"
+        }
+      }
     }
   },
   "workers": {

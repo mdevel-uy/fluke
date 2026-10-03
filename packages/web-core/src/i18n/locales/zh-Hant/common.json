@@ -1142,10 +1142,77 @@
         "backToIssues": "返回 Issues",
         "viewPr": "檢視 PR",
         "branch": "分支",
-        "noTask": "此 issue 還沒有任務。"
+        "noTask": "此 issue 還沒有任務。",
+        "templateLine": "範本",
+        "soon": "即將推出",
+        "tabs": {
+          "plan": "計畫",
+          "code": "程式碼",
+          "sessions": "工作階段"
+        },
+        "description": "issue 描述"
       },
       "pause": "暫停里程碑",
-      "reset": "重設"
+      "reset": "重設",
+      "phases": {
+        "origin": "起點",
+        "end": "結束",
+        "loop": "返工",
+        "phaseN": "階段 {{n}}",
+        "loopLabel": "要求修改 · 第 {{n}} 輪 → 返工使用同一分支",
+        "round": "第 {{n}} 輪",
+        "mergeSub": "人工關卡：由你合併",
+        "state": {
+          "done": "完成",
+          "active": "進行中",
+          "changes": "要求修改",
+          "stuck": "卡住",
+          "pending": "待開始"
+        },
+        "kind": {
+          "origin": "issue 建立",
+          "design": "設計",
+          "dev": "開發",
+          "review": "審查",
+          "merge": "合併"
+        },
+        "profile": "設定檔",
+        "instance": "實例",
+        "ephemeral": "（臨時）",
+        "status": "狀態",
+        "duration": "耗時",
+        "cost": "成本",
+        "output": "輸出",
+        "viewSession": "檢視代理工作階段",
+        "viewPrComments": "檢視 PR 留言",
+        "selectHint": "選擇一個階段檢視詳情。"
+      },
+      "templates": {
+        "title": "階段範本",
+        "hint": "Fluke 在 brief 中選擇：是否需要設計、是否使用 TDD（有意義時會問你）。Analyst 不改階段，只安排 issue 之間的流程。",
+        "names": {
+          "tdd": "含 TDD",
+          "no_tdd": "不含 TDD",
+          "design": "含設計",
+          "bug": "Bug",
+          "decision": "含決定"
+        },
+        "phases": {
+          "tdd": "測試先行",
+          "dev": "開發",
+          "test": "測試",
+          "review": "審查",
+          "merge": "合併",
+          "design": "設計",
+          "approval": "你的確認",
+          "withOrWithoutTdd": "…有無 TDD",
+          "reproduce": "重現",
+          "failingTest": "失敗的測試",
+          "fix": "修正",
+          "decision": "你的決定",
+          "baseTemplate": "…基礎範本"
+        }
+      }
     }
   },
   "workers": {

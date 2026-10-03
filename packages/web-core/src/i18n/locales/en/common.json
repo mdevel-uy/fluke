@@ -1161,10 +1161,77 @@
         "backToIssues": "Back to Issues",
         "viewPr": "View PR",
         "branch": "Branch",
-        "noTask": "This issue has no task yet."
+        "noTask": "This issue has no task yet.",
+        "templateLine": "Template",
+        "soon": "Coming soon",
+        "tabs": {
+          "plan": "Plan",
+          "code": "Code",
+          "sessions": "Sessions"
+        },
+        "description": "Issue description"
       },
       "pause": "Pause milestone",
-      "reset": "Reset"
+      "reset": "Reset",
+      "phases": {
+        "origin": "Origin",
+        "end": "End",
+        "loop": "Loop",
+        "phaseN": "Phase {{n}}",
+        "loopLabel": "changes requested · round {{n}} → the loop uses the same branch",
+        "round": "Round {{n}}",
+        "mergeSub": "Human gate: you merge it",
+        "state": {
+          "done": "done",
+          "active": "in progress",
+          "changes": "changes",
+          "stuck": "stuck",
+          "pending": "pending"
+        },
+        "kind": {
+          "origin": "Issue created",
+          "design": "Design",
+          "dev": "Development",
+          "review": "Review",
+          "merge": "Merge"
+        },
+        "profile": "Profile",
+        "instance": "Instance",
+        "ephemeral": "(ephemeral)",
+        "status": "Status",
+        "duration": "Duration",
+        "cost": "Cost",
+        "output": "Output",
+        "viewSession": "View agent session",
+        "viewPrComments": "View PR comments",
+        "selectHint": "Pick a phase to see its details."
+      },
+      "templates": {
+        "title": "Phase templates",
+        "hint": "Fluke picks it in the brief: whether it needs design and whether it uses TDD (when it makes sense, it asks you). The Analyst does not change the phases: it lays out the flow between issues.",
+        "names": {
+          "tdd": "With TDD",
+          "no_tdd": "Without TDD",
+          "design": "With design",
+          "bug": "Bug",
+          "decision": "With decision"
+        },
+        "phases": {
+          "tdd": "Tests first",
+          "dev": "Development",
+          "test": "Testing",
+          "review": "Review",
+          "merge": "Merge",
+          "design": "Design",
+          "approval": "Your OK",
+          "withOrWithoutTdd": "…with or without TDD",
+          "reproduce": "Reproduce",
+          "failingTest": "Failing test",
+          "fix": "Fix",
+          "decision": "Your decision",
+          "baseTemplate": "…base template"
+        }
+      }
     }
   },
   "workers": {
