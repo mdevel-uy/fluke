@@ -4,7 +4,7 @@ These rules apply to every worker in this factory without exception. They take p
 
 ## Definition of Done
 
-A task is complete only when all changes are committed and the build/typecheck passes. The system handles pushing the branch and opening the pull request automatically — you do not need to do either.
+A task is complete when all changes are committed (see "Checks"). The system handles pushing the branch and opening the pull request automatically — you do not need to do either.
 
 ## Work Plan
 
@@ -41,9 +41,9 @@ Do not regenerate `Cargo.lock`. The container does not have a Rust toolchain. If
 
 Before declaring a multi-step implementation complete, answer: "What happens if this fails halfway?" Validate preconditions before creating resources, ensure rollback or self-repair paths exist, and test the sad path, not just the happy path.
 
-## Build and Typecheck
+## Checks
 
-The typecheck of what you changed must pass before you finish. Run `pnpm --filter <package> run check` for each frontend package you touched, and `cargo check -p <crate>` for each Rust crate you touched. Never run `pnpm run check`, `cargo check --workspace` or builds/tests of code you did not touch: your worktree starts with no Rust build cache, a full build takes 15+ minutes and saturates the machine, and CI validates the rest.
+Do not install dependencies or run typechecks, builds, lints or tests (`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`, etc.). Your worktree has no `node_modules` and no build cache, so any of them takes many minutes and saturates the user's machine. Checks run outside your session, as the user configured them: the repo's CI and/or its post script (cleanup script).
 
 ## CI Must Be Green
 

@@ -54,7 +54,7 @@ use db::{
     models::{
         agent_action::{self, AgentAction},
         coding_agent_turn::CodingAgentTurn,
-        execution_process::{ExecutionProcess, ExecutionProcessRunReason},
+        execution_process::{ExecutionProcess, ExecutionProcessRunReason, ExecutionProcessStatus},
         pull_request::PullRequest,
         repo::Repo,
         requests::WorkspaceRepoInput,
@@ -149,12 +149,11 @@ impl Drop for FinalizingGuard {
 /// handles push and PR creation automatically on run completion.
 pub const WORKER_FINAL_INSTRUCTION_TEMPLATE: &str = "\
 When you finish the work above, commit your changes with clear messages and \
-verify only what you touched: `pnpm --filter <package> run check` for each \
-frontend package you changed, `cargo check -p <crate>` for each Rust crate \
-you changed. Do NOT run `pnpm run check`, `cargo check --workspace` or \
-builds/tests of code you did not touch: this worktree starts with no Rust \
-build cache, a full build takes 15+ minutes and saturates the machine, and \
-CI validates everything else. \
+do NOT install dependencies or run typechecks, builds, lints or tests \
+(`pnpm i`, `pnpm run check`, `tsc`, `cargo check/build/test`...): this \
+worktree has no `node_modules` nor build cache, so any of them takes many \
+minutes and saturates the machine. Checks run outside your session, as \
+the user configured them (the repo's CI and/or its post script). \
 The system will push the branch and open the pull request against \
 `{target_branch}` automatically once your run ends — do NOT create the PR \
 yourself. \
@@ -4675,8 +4674,43 @@ pub(crate) async fn dispatch_remediation_follow_up(
         return Ok(true);
     }
 
+    // Deliberately do NOT clear `review_result` here: while the follow-up
+    // runs, `compute_loop_state` uses "review_result=changes_requested AND
+    // developer_agent_running" as its signal for the `fixing` badge (the
+    // remediation now runs on the developer's workspace, not on a separate
+    // `review_fix` task, so the old fix-task activity signal is absent).
+    // The next reviewer round overwrites `review_result` with the fresh
+    // verdict via `pr_monitor` when the new head is reviewed.
+    match start_agent_follow_up(db, container, &workspace, prompt).await? {
+        Some(process_id) => {
+            info!(
+                author_worker_id = %author_worker_id,
+                author_task_id = %dev_task.id,
+                workspace_id = %workspace_id,
+                execution_process_id = %process_id,
+                pr_number,
+                "Remediation dispatched as follow-up on the author's original task"
+            );
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
+/// Start `prompt` as a CodingAgent follow-up that resumes the agent's own
+/// conversation on `workspace`. Like a follow-up typed by the user, the
+/// repo's post script (cleanup script), if configured, is chained after it.
+/// `None` when the workspace has no resumable session or the start failed.
+async fn start_agent_follow_up(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace: &Workspace,
+    prompt: &str,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let pool = &db.pool;
+    let workspace_id = workspace.id;
     let Some(session) = Session::find_latest_by_workspace_id(pool, workspace_id).await? else {
-        return Ok(false);
+        return Ok(None);
     };
 
     // Take the executor config from the most recent CodingAgent process on
@@ -4690,15 +4724,15 @@ pub(crate) async fn dispatch_remediation_follow_up(
     )
     .await?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     let executor_config = match latest_process.executor_action() {
         Ok(action) => match &action.typ {
             ExecutorActionType::CodingAgentInitialRequest(req) => req.executor_config.clone(),
             ExecutorActionType::CodingAgentFollowUpRequest(req) => req.executor_config.clone(),
-            _ => return Ok(false),
+            _ => return Ok(None),
         },
-        Err(_) => return Ok(false),
+        Err(_) => return Ok(None),
     };
 
     let Some(session_info) = CodingAgentTurn::find_latest_session_info_for_executor(
@@ -4708,7 +4742,7 @@ pub(crate) async fn dispatch_remediation_follow_up(
     )
     .await?
     else {
-        return Ok(false);
+        return Ok(None);
     };
 
     let working_dir = session
@@ -4717,6 +4751,7 @@ pub(crate) async fn dispatch_remediation_follow_up(
         .filter(|dir| !dir.is_empty())
         .cloned();
 
+    let repos = WorkspaceRepo::find_repos_for_workspace(pool, workspace_id).await?;
     let action = ExecutorAction::new(
         ExecutorActionType::CodingAgentFollowUpRequest(CodingAgentFollowUpRequest {
             prompt: prompt.to_string(),
@@ -4725,48 +4760,118 @@ pub(crate) async fn dispatch_remediation_follow_up(
             executor_config,
             working_dir,
         }),
-        None,
+        container.cleanup_actions_for_repos(&repos).map(Box::new),
     );
-
-    // Deliberately do NOT clear `review_result` here: while the follow-up
-    // runs, `compute_loop_state` uses "review_result=changes_requested AND
-    // developer_agent_running" as its signal for the `fixing` badge (the
-    // remediation now runs on the developer's workspace, not on a separate
-    // `review_fix` task, so the old fix-task activity signal is absent).
-    // The next reviewer round overwrites `review_result` with the fresh
-    // verdict via `pr_monitor` when the new head is reviewed.
 
     match container
         .start_execution(
-            &workspace,
+            workspace,
             &session,
             &action,
             &ExecutionProcessRunReason::CodingAgent,
         )
         .await
     {
-        Ok(process) => {
-            info!(
-                author_worker_id = %author_worker_id,
-                author_task_id = %dev_task.id,
-                workspace_id = %workspace_id,
-                session_id = %session.id,
-                execution_process_id = %process.id,
-                pr_number,
-                "Remediation dispatched as follow-up on the author's original task"
-            );
-            Ok(true)
-        }
+        Ok(process) => Ok(Some(process.id)),
         Err(e) => {
             warn!(
-                pr_number,
                 workspace_id = %workspace_id,
-                "Failed to start remediation follow-up on original workspace: {}",
+                "Failed to start agent follow-up: {}",
                 e
             );
-            Ok(false)
+            Ok(None)
         }
     }
+}
+
+/// How many times in a row a failed post script is handed back to the agent
+/// before the run moves on (push + PR) with the failure left as a warning.
+const MAX_POST_SCRIPT_RETRIES: usize = 2;
+const POST_SCRIPT_LOG_TAIL_BYTES: usize = 8 * 1024;
+
+/// The repo's post script (cleanup script) failed after a worker's agent run:
+/// hand its output back to the same agent as a follow-up, which chains the
+/// script again. `Ok(true)` when the follow-up started, so the caller must
+/// not finalize the run yet; `Ok(false)` for non-worker workspaces, after
+/// [`MAX_POST_SCRIPT_RETRIES`] consecutive failures, or when no follow-up
+/// can start, and then the run is finalized as before.
+pub(crate) async fn retry_after_failed_post_script(
+    db: &DBService,
+    container: &(impl ContainerService + Send + Sync),
+    workspace: &Workspace,
+    session_id: Uuid,
+    script_process_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let pool = &db.pool;
+    if WorkerTask::find_by_workspace(pool, workspace.id)
+        .await?
+        .is_none()
+    {
+        return Ok(false);
+    }
+    let processes = ExecutionProcess::find_by_session_id(pool, session_id, false).await?;
+    let consecutive_failures =
+        consecutive_post_script_failures(processes.iter().map(|p| (&p.run_reason, &p.status)));
+    if consecutive_failures > MAX_POST_SCRIPT_RETRIES {
+        warn!(
+            workspace_id = %workspace.id,
+            consecutive_failures,
+            "Post script keeps failing — finalizing the run with the failure as a warning"
+        );
+        return Ok(false);
+    }
+
+    let output: String =
+        crate::services::execution_process::load_raw_log_messages(pool, script_process_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|msg| match msg {
+                utils::log_msg::LogMsg::Stdout(s) | utils::log_msg::LogMsg::Stderr(s) => Some(s),
+                _ => None,
+            })
+            .collect();
+    let prompt = format!(
+        "El post script del repo (el script de limpieza que configuró el usuario \
+         en fluke) falló después de tu corrida. Final de la salida:\n\n```\n{}\n```\n\n\
+         Arreglá la causa y commiteá. No corras el script vos: fluke lo vuelve a \
+         correr cuando termine esta corrida.",
+        tail_bytes(&output, POST_SCRIPT_LOG_TAIL_BYTES)
+    );
+    let started = start_agent_follow_up(db, container, workspace, &prompt)
+        .await?
+        .is_some();
+    if started {
+        info!(
+            workspace_id = %workspace.id,
+            attempt = consecutive_failures,
+            "Post script failed — handed its output back to the agent"
+        );
+    }
+    Ok(started)
+}
+
+/// Failed post-script runs at the end of a session's history (oldest first),
+/// counted back until the last one that passed.
+fn consecutive_post_script_failures<'a>(
+    processes: impl DoubleEndedIterator<
+        Item = (&'a ExecutionProcessRunReason, &'a ExecutionProcessStatus),
+    >,
+) -> usize {
+    processes
+        .rev()
+        .filter(|(reason, _)| matches!(reason, ExecutionProcessRunReason::CleanupScript))
+        .take_while(|(_, status)| matches!(status, ExecutionProcessStatus::Failed))
+        .count()
+}
+
+/// Last `max` bytes of `s`, cut at a char boundary.
+fn tail_bytes(s: &str, max: usize) -> &str {
+    let mut start = s.len().saturating_sub(max);
+    while !s.is_char_boundary(start) {
+        start += 1;
+    }
+    &s[start..]
 }
 
 /// Dispatch a fix task to the PR author worker when a reviewer requests changes.
@@ -5692,6 +5797,35 @@ mod tests {
                 "remediation prompt must not emit `-R <full-url>`"
             );
         }
+    }
+
+    #[test]
+    fn post_script_failures_count_back_to_the_last_pass() {
+        use ExecutionProcessRunReason::{CleanupScript, CodingAgent};
+        use ExecutionProcessStatus::{Completed, Failed};
+        let count = |h: &[(ExecutionProcessRunReason, ExecutionProcessStatus)]| {
+            consecutive_post_script_failures(h.iter().map(|(r, s)| (r, s)))
+        };
+        assert_eq!(count(&[]), 0);
+        assert_eq!(
+            count(&[(CodingAgent, Completed), (CleanupScript, Failed)]),
+            1
+        );
+        // Agent runs in between do not reset the streak; a passing script does.
+        assert_eq!(
+            count(&[
+                (CleanupScript, Completed),
+                (CleanupScript, Failed),
+                (CodingAgent, Completed),
+                (CleanupScript, Failed),
+            ]),
+            2
+        );
+        assert_eq!(
+            count(&[(CleanupScript, Failed), (CleanupScript, Completed)]),
+            0
+        );
+        assert_eq!(tail_bytes("xéz", 2), "z");
     }
 
     /// Issue #367: the CI-fix prompt is a sibling of the reviewer-changes

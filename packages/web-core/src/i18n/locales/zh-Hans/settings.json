@@ -361,24 +361,6 @@
         "description": "这将从 {{executorType}} 执行器中永久删除\"{{configName}}\"。此操作无法撤销。"
       }
     },
-    "codegraph": {
-      "title": "代码图谱 (codegraph)",
-      "description": "智能体通过 MCP 查询的本地代码索引，可减少文件读取和 token 用量。仅在本应用启动的智能体会话中启用，不会修改你的个人智能体配置。",
-      "status": {
-        "installed": "已安装",
-        "notInstalled": "未安装",
-        "loading": "检查中..."
-      },
-      "notInstalledHelp": "没有 codegraph 时智能体照常通过读取文件工作。安装会将官方独立版本下载到你的用户目录，无需管理员权限。",
-      "indexingNote": "每个仓库的第一个工作区会在后台建立索引，之后的工作区启动时索引即已就绪。",
-      "actions": {
-        "install": "安装 codegraph",
-        "installing": "安装中..."
-      },
-      "errors": {
-        "installFailed": "无法安装 codegraph"
-      }
-    },
     "mcp": {
       "title": "MCP 服务器配置",
       "description": "配置模型上下文协议服务器，使用自定义工具和资源扩展编码代理功能。",

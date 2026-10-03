@@ -11,7 +11,6 @@ pub mod agents;
 pub mod approvals;
 pub mod attachments;
 pub mod ci_studio;
-pub mod codegraph;
 pub mod config;
 pub mod containers;
 pub mod dashboard;
@@ -66,7 +65,6 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(organizations::router())
         .merge(filesystem::router())
         .merge(github::router())
-        .merge(codegraph::router())
         .merge(plan::router())
         .merge(director::router())
         .merge(milestone_runs::router())

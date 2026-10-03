@@ -47,8 +47,8 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Format code: `pnpm run format` (runs `cargo fmt` for all backend Rust workspaces + web-core/web Prettier)
 - Lint: `pnpm run lint` (runs web/ui ESLint + `cargo clippy` for all backend Rust workspaces)
 
-## Before Completing a Task
-- Run `pnpm run format` to format all Rust workspaces and web code.
+## Agents in fluke worktrees
+Worktrees start without `node_modules` or a build cache, so the commands above take many minutes and saturate the machine. Agents do NOT install dependencies or run typechecks, builds, lints or tests; checks run outside the agent session (CI and/or the repo's post script, as configured in fluke). Before committing, format only the files you touched: `rustfmt --edition 2024 <files>` and `npx prettier --write <files>`.
 
 ## Coding Style & Naming Conventions
 - Rust: `rustfmt` enforced (`rustfmt.toml`); group imports by crate; snake_case modules, PascalCase types.
@@ -56,8 +56,8 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Keep functions small, add `Debug`/`Serialize`/`Deserialize` where useful.
 
 ## Testing Guidelines
-- Rust: prefer unit tests alongside code (`#[cfg(test)]`), run `cargo test -p <crate>` for the crates you touched. Add tests for new logic and edge cases.
-- Web app: run `pnpm --filter <package> run check` for the packages you touched. Full `pnpm run check` and `--workspace` commands also cold-build every Rust crate; in a fresh worktree leave them to CI. If adding runtime logic, include lightweight tests (e.g., Vitest) in the same directory.
+- Rust: prefer unit tests alongside code (`#[cfg(test)]`). Add tests for new logic and edge cases.
+- Web app: if adding runtime logic, include lightweight tests (e.g., Vitest) in the same directory.
 
 ## Security & Config Tips
 - Use `.env` for local overrides; never commit secrets. Key envs: `FRONTEND_PORT`, `BACKEND_PORT`, `HOST` 

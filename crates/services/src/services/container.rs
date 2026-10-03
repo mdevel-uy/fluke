@@ -368,19 +368,37 @@ pub trait ContainerService {
         // Worker tasks reconcile (push + PR + transition) when their agent
         // chain ends. That end is either the CodingAgent itself (no cleanup
         // configured) or the CleanupScript that was chained as its
-        // `next_action`. Cleanup is housekeeping: its own status must not
-        // gate the PR — we always reconcile using the parent CodingAgent's
-        // status and id.
+        // `next_action`. The cleanup script is the user's post-run check: when
+        // it fails, its output goes back to the agent as a follow-up (which
+        // chains the script again) and the run is not finalized yet. Past
+        // the retry cap it only warns, and we reconcile using the parent
+        // CodingAgent's status and id.
         if matches!(
             ctx.execution_process.run_reason,
             ExecutionProcessRunReason::CleanupScript
         ) && matches!(ctx.execution_process.status, ExecutionProcessStatus::Failed)
         {
-            tracing::warn!(
-                workspace_id = %ctx.workspace.id,
-                cleanup_process_id = %ctx.execution_process.id,
-                "Cleanup script failed — treating as housekeeping warning, not a task failure"
-            );
+            match worker_orchestrator::retry_after_failed_post_script(
+                self.db(),
+                self,
+                &ctx.workspace,
+                ctx.session.id,
+                ctx.execution_process.id,
+            )
+            .await
+            {
+                Ok(true) => return,
+                Ok(false) => tracing::warn!(
+                    workspace_id = %ctx.workspace.id,
+                    cleanup_process_id = %ctx.execution_process.id,
+                    "Cleanup script failed — finalizing the run with it as a warning"
+                ),
+                Err(e) => tracing::warn!(
+                    workspace_id = %ctx.workspace.id,
+                    "Failed to hand the cleanup script failure back to the agent: {}",
+                    e
+                ),
+            }
         }
 
         let reconcile = match ctx.execution_process.run_reason {
@@ -715,6 +733,16 @@ pub trait ContainerService {
         // servers). Runs before try_run_archive_script so the archive script
         // itself, spawned right after, is not swept away by this cleanup.
         self.try_stop(&workspace, true).await;
+
+        // Archived = done: drop the worktree now instead of waiting for the
+        // periodic cleanup. The branch stays, and anything that reopens the
+        // workspace recreates the worktree via ensure_container_exists. An
+        // archive script needs the worktree, so then the periodic cleanup
+        // takes it later.
+        let repos = WorkspaceRepo::find_repos_for_workspace(pool, workspace_id).await?;
+        if self.archive_actions_for_repos(&repos).is_none() {
+            return self.delete(&workspace).await;
+        }
 
         // Run archive script (silently skips if not configured)
         if let Err(e) = self.try_run_archive_script(workspace_id).await {

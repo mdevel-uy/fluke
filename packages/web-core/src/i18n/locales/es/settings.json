@@ -373,24 +373,6 @@
         "description": "Esto eliminará permanentemente \"{{configName}}\" del ejecutor {{executorType}}. Esta acción no se puede deshacer."
       }
     },
-    "codegraph": {
-      "title": "Grafo de código (codegraph)",
-      "description": "Índice local del código que los agentes consultan por MCP para responder con menos lecturas de archivos y menos tokens. Solo se activa en las sesiones de agentes que lanza esta app; tu configuración personal del agente no se modifica.",
-      "status": {
-        "installed": "Instalado",
-        "notInstalled": "No instalado",
-        "loading": "Verificando..."
-      },
-      "notInstalledHelp": "Sin codegraph los agentes funcionan igual, leyendo archivos. La instalación descarga la versión oficial autocontenida en tu carpeta de usuario, sin permisos de administrador.",
-      "indexingNote": "El primer workspace de cada repositorio lo indexa en segundo plano; los siguientes arrancan con el índice listo.",
-      "actions": {
-        "install": "Instalar codegraph",
-        "installing": "Instalando..."
-      },
-      "errors": {
-        "installFailed": "No se pudo instalar codegraph"
-      }
-    },
     "mcp": {
       "title": "Configuración de Servidor MCP",
       "description": "Configura los servidores del Protocolo de Contexto de Modelos (MCP) para ampliar las capacidades del agente de codificación con herramientas y recursos personalizados.",
@@ -548,7 +530,7 @@
         },
         "cleanup": {
           "label": "Script de Limpieza",
-          "helper": "Este script se ejecuta desde dentro del worktree después de la ejecución del agente de codificación, solo si se realizaron cambios. Úsalo para tareas de garantía de calidad como ejecutar linters, formateadores, pruebas u otros pasos de validación."
+          "helper": "Este script se ejecuta desde dentro del worktree después de la ejecución del agente de codificación, solo si se realizaron cambios. Úsalo para tareas de garantía de calidad como ejecutar linters, formateadores, pruebas u otros pasos de validación. En una tarea de worker, si falla su salida vuelve al agente para que lo corrija (hasta 2 veces) antes de abrir el PR."
         },
         "archive": {
           "label": "Script de Archivo",

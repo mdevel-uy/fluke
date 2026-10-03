@@ -309,6 +309,15 @@ pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx
     })
 }
 
+/// Editar los ítems de un brief ya enviado abre una revisión: la misión
+/// vuelve a armarse y el user tiene que aprobar la versión nueva.
+async fn reopen_if_sent(pool: &Pool, mission: &Mission) -> Result<(), sqlx::Error> {
+    if mission.status == mission::STATUS_PLANNING {
+        Mission::set_status(pool, mission.id, mission::STATUS_CLARIFYING).await?;
+    }
+    Ok(())
+}
+
 /// Mientras se arma el brief, el estado lo deriva el código: completo →
 /// `brief_ready`, si no → `clarifying`. Después del traspaso no se toca.
 pub async fn refresh_status(pool: &Pool, mission_id: Uuid) -> Result<MissionDetail, sqlx::Error> {
@@ -359,10 +368,20 @@ pub fn render_markdown(d: &MissionDetail) -> String {
 
 /// Prompt de la request que recibe el Analista al aprobar el brief.
 pub fn analyst_request_prompt(d: &MissionDetail, version: i64) -> String {
+    let revision = if d.issue_numbers.is_empty() {
+        String::new()
+    } else {
+        let list: Vec<String> = d.issue_numbers.iter().map(|n| format!("#{n}")).collect();
+        format!(
+            "Revisión: las versiones anteriores del brief ya se partieron en {}. \
+             Creá issues solo para lo nuevo o lo que cambió; no dupliques los existentes.\n\n",
+            list.join(", ")
+        )
+    };
     format!(
         "Brief de la misión \"{title}\" (versión {version}), aprobado por el user.\n\n\
          {md}\n---\n\
-         Partí cada ítem del brief en issues chicos y asignables. En el cuerpo de cada \
+         {revision}Partí cada ítem del brief en issues chicos y asignables. En el cuerpo de cada \
          issue agregá una sección \"## Brief\" que diga \"Misión: {title} (brief v{version})\" \
          y copie los campos del ítem del que sale. No cambies el alcance del brief: si algo \
          no cierra, listalo como pregunta abierta.\n\n\
@@ -1449,6 +1468,12 @@ pub async fn call_tool(
                     sqlx::Error::RowNotFound => "unknown item_id".to_string(),
                     e => db_err(e),
                 })?;
+            // With the one thread the brief edited is the mission in focus.
+            let brief = Mission::find_by_id(pool, id_for_brief)
+                .await
+                .map_err(db_err)?
+                .ok_or("mission not found")?;
+            reopen_if_sent(pool, &brief).await.map_err(db_err)?;
             let d = refresh_status(pool, id_for_brief).await.map_err(db_err)?;
             Ok(status_text(&d))
         }
@@ -1464,6 +1489,12 @@ pub async fn call_tool(
             {
                 return Err("unknown item_id".into());
             }
+            // With the one thread the brief edited is the mission in focus.
+            let brief = Mission::find_by_id(pool, id_for_brief)
+                .await
+                .map_err(db_err)?
+                .ok_or("mission not found")?;
+            reopen_if_sent(pool, &brief).await.map_err(db_err)?;
             let d = refresh_status(pool, id_for_brief).await.map_err(db_err)?;
             Ok(status_text(&d))
         }
@@ -1597,6 +1628,45 @@ mod tests {
         assert!(s.contains("Running:\n- #664 Vista Plan (developer)"), "{s}");
         assert!(s.contains("- #663 Vista Plan (developer): asks"), "{s}");
         assert!(s.contains("#675 (CI passing"), "{s}");
+    }
+
+    #[tokio::test]
+    async fn editing_a_sent_brief_asks_for_approval_again() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let session = Uuid::new_v4();
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES (?, ?)")
+            .bind(session)
+            .bind(Uuid::new_v4())
+            .execute(&pool)
+            .await
+            .unwrap();
+        let m = Mission::create(&pool, session, Some(Uuid::new_v4()))
+            .await
+            .unwrap();
+        Mission::set_title(&pool, m.id, "Advanced settings")
+            .await
+            .unwrap();
+        Mission::set_status(&pool, m.id, mission::STATUS_PLANNING)
+            .await
+            .unwrap();
+
+        let args = json!({ "kind": "feature", "title": "Implementar", "fields": {
+            "goal": "g", "scope": "s", "acceptance": "a", "tdd": "sí" } });
+        call_tool(&pool, session, "upsert_item", &args)
+            .await
+            .unwrap();
+
+        let m = Mission::find_by_id(&pool, m.id).await.unwrap().unwrap();
+        assert_eq!(m.status, mission::STATUS_BRIEF_READY);
     }
 
     #[tokio::test]
