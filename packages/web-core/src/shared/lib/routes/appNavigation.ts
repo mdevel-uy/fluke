@@ -12,6 +12,7 @@ export type AppDestination =
   | { kind: 'issues'; repoId?: string }
   | { kind: 'issue'; issueNumber: number; repoId?: string }
   | { kind: 'workers' }
+  | { kind: 'fluke' }
   | { kind: 'ci-pipelines' }
   | { kind: 'sprint'; repoId?: string }
   | { kind: 'project'; projectId: string }
@@ -61,6 +62,7 @@ export interface AppNavigation {
     transition?: NavigationTransition
   ): void;
   goToWorkers(transition?: NavigationTransition): void;
+  goToFluke(transition?: NavigationTransition): void;
   goToCiPipelines(transition?: NavigationTransition): void;
   goToSprint(repoId?: string, transition?: NavigationTransition): void;
   goToProject(projectId: string, transition?: NavigationTransition): void;
@@ -213,12 +215,17 @@ export function isSourceControlDestination(
   return destination?.kind === 'source-control';
 }
 
+export function isFlukeDestination(
+  destination: AppDestination | null
+): destination is Extract<AppDestination, { kind: 'fluke' }> {
+  return destination?.kind === 'fluke';
+}
+
 export function isWorkersDestination(
   destination: AppDestination | null
 ): destination is Extract<AppDestination, { kind: 'workers' }> {
   return destination?.kind === 'workers';
 }
-
 
 export function isCiPipelinesDestination(
   destination: AppDestination | null

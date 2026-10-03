@@ -264,12 +264,19 @@ export function NavbarContainer({
                   label: t('appBar.workers', { defaultValue: 'Workers' }),
                   goTo: () => appNavigation.goToWorkers(),
                 }
-              : kind === 'dashboard'
+              : kind === 'fluke'
                 ? {
-                    label: t('appBar.dashboard', { defaultValue: 'Dashboard' }),
-                    goTo: () => appNavigation.goToDashboard(),
+                    label: t('director.name'),
+                    goTo: () => appNavigation.goToFluke(),
                   }
-                : null;
+                : kind === 'dashboard'
+                  ? {
+                      label: t('appBar.dashboard', {
+                        defaultValue: 'Dashboard',
+                      }),
+                      goTo: () => appNavigation.goToDashboard(),
+                    }
+                  : null;
     if (!section) return undefined;
 
     const items: NavbarBreadcrumbItem[] = [];

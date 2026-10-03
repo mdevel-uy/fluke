@@ -1929,7 +1929,6 @@
     "pin": "Anclar como columna",
     "unpin": "Volver a flotante",
     "expand": "Expandir",
-    "collapse": "Volver al panel",
     "minimize": "Minimizar",
     "dismiss": "Descartar",
     "missions": "Misiones",
@@ -2035,6 +2034,10 @@
       "message": "El Analyst propone {{issues}} issues en {{waves}} waves. Armó el flujo entre los issues sobre la plantilla que elegí. Cada dev va a armar el plan interno de su issue al empezar. Ya está el milestone en Issues para que le des play.",
       "viewMilestone": "Ver milestone",
       "runNow": "Ejecutar ahora"
+    },
+    "chat": {
+      "reasoning": "Razonamiento",
+      "briefUpdated": "Brief actualizado"
     }
   },
   "profiles": {

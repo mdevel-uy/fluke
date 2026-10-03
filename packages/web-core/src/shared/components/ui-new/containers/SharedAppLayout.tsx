@@ -40,6 +40,7 @@ import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestinatio
 import {
   isCiPipelinesDestination,
   isDashboardDestination,
+  isFlukeDestination,
   isIssuesDestination,
   isLocalWorkspacesDestination,
   isSourceControlDestination,
@@ -147,6 +148,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
   const isSprintActive = isSprintDestination(currentDestination);
   const isIssuesActive = isIssuesDestination(currentDestination);
   const isWorkersActive = isWorkersDestination(currentDestination);
+  const isFlukeActive = isFlukeDestination(currentDestination);
   const isCiPipelinesActive = isCiPipelinesDestination(currentDestination);
 
   // VSCode behavior: clicking the ACTIVE rail item toggles the sidebar;
@@ -204,7 +206,6 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
     if (isWorkersActive) toggleLeftSidebar();
     else appNavigation.goToWorkers();
   }, [isWorkersActive, toggleLeftSidebar, appNavigation]);
-
 
   const handleCiPipelinesClick = useCallback(() => {
     if (isCiPipelinesActive) toggleLeftSidebar();
@@ -354,6 +355,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   onSearchClick={handleSearchClick}
                   onDashboardClick={handleDashboardClick}
                   onSprintClick={handleSprintClick}
+                  onFlukeClick={() => appNavigation.goToFluke()}
                   onIssuesClick={handleIssuesClick}
                   onWorkersClick={handleWorkersClick}
                   onCiPipelinesClick={handleCiPipelinesClick}
@@ -364,6 +366,7 @@ export function SharedAppLayout({ topBanner }: { topBanner?: ReactNode } = {}) {
                   isSearchActive={isSearchActive}
                   isDashboardActive={isDashboardActive}
                   isSprintActive={isSprintActive}
+                  isFlukeActive={isFlukeActive}
                   isIssuesActive={isIssuesActive}
                   isWorkersActive={isWorkersActive}
                   isCiPipelinesActive={isCiPipelinesActive}

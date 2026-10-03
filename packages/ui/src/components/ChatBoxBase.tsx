@@ -136,7 +136,11 @@ export function ChatBoxBase({
 
       {/* Editor area */}
       <div className="flex flex-col gap-plusfifty px-base py-base rounded-md">
-        {editor}
+        {/* Own border and fill so the field reads against the card (>= 3:1,
+            design/director-spacing-contrast-mock.html). */}
+        <div className="min-h-14 rounded-md border border-md-outline bg-md-surface-container-low px-3 py-2 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+          {editor}
+        </div>
 
         {/* Footer - Controls */}
         <div className="flex items-end justify-between gap-base">

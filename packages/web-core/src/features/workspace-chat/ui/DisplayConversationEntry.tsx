@@ -30,6 +30,8 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useTheme } from '@/shared/hooks/useTheme';
 import WYSIWYGEditor from '@/shared/components/WYSIWYGEditor';
 import { useMessageEditContext } from '../model/contexts/MessageEditContext';
+import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import { BRIEF_TOOLS } from '../model/deriveConversationTimeline';
 import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
 import { useChangesViewActions } from '@/shared/hooks/useChangesView';
 import { useLogsPanelActions } from '@/shared/hooks/useLogsPanel';
@@ -172,7 +174,8 @@ function renderToolUseEntry(
   entryType: Extract<NormalizedEntry['entry_type'], { type: 'tool_use' }>,
   entry: NormalizedEntry,
   props: Props,
-  t: TFunction<'common'>
+  t: TFunction<'common'>,
+  assistant: boolean
 ): React.ReactNode {
   const { expansionKey, executionProcessId, workspaceWithSession, repos } =
     props;
@@ -251,6 +254,8 @@ function renderToolUseEntry(
     action_type.action === 'command_run' &&
     scriptToolNames.includes(entryType.tool_name)
   ) {
+    // Fluke is not a coding agent: workspace scripts mean nothing there.
+    if (assistant) return null;
     const exitCode =
       action_type.result?.exit_status?.type === 'exit_code'
         ? action_type.result.exit_status.code
@@ -308,6 +313,19 @@ function renderToolUseEntry(
   // Generic tool calls (MCP and the like) only show the raw tool name: noise
   // for the user, so they are hidden (#636).
   if (action_type.action === 'tool' || action_type.action === 'other') {
+    // Except Fluke's brief edits, which the user should see happen.
+    if (
+      assistant &&
+      action_type.action === 'tool' &&
+      BRIEF_TOOLS.test(entryType.tool_name)
+    ) {
+      const args = action_type.arguments as { title?: unknown } | null;
+      return (
+        <BriefUpdatedEvent
+          title={typeof args?.title === 'string' ? args.title : null}
+        />
+      );
+    }
     return null;
   }
 
@@ -325,8 +343,71 @@ function renderToolUseEntry(
   );
 }
 
+function BriefUpdatedEvent({ title }: { title: string | null }) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="flex w-fit max-w-full items-center gap-2 rounded-md border border-md-outline-variant bg-secondary/60 px-3 py-1.5 text-xs text-low">
+      <FileTextIcon className="size-icon-sm shrink-0" />
+      <span className="truncate">
+        {t('director.chat.briefUpdated')}
+        {title && <span className="text-normal">: {title}</span>}
+      </span>
+    </div>
+  );
+}
+
+/** Reasoning folded into one labelled line; hidden when it says nothing. */
+function AssistantThinking({
+  content,
+  expansionKey,
+  workspaceId,
+  sessionId,
+}: {
+  content: string;
+  expansionKey: string;
+  workspaceId: string | undefined;
+  sessionId: string | undefined;
+}) {
+  const { t } = useTranslation('common');
+  const [expanded, toggle] = usePersistedExpanded(
+    `entry:thinking:${expansionKey}`,
+    false
+  );
+  if (!content.trim()) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => toggle()}
+        aria-expanded={expanded}
+        className="flex w-fit items-center gap-1.5 text-xs text-low hover:text-normal"
+      >
+        <CaretDownIcon
+          className={cn(
+            'size-3 transition-transform',
+            !expanded && '-rotate-90'
+          )}
+        />
+        {t('director.chat.reasoning')}
+      </button>
+      {expanded && (
+        <div className="pl-[18px] text-low">
+          <AppChatMarkdown
+            content={content.trim()}
+            workspaceId={workspaceId}
+            sessionId={sessionId}
+            className="text-sm"
+            maxWidth={undefined}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DisplayConversationEntry(props: Props) {
   const { t } = useTranslation('common');
+  const assistant = useIsAssistantChat();
   const { capabilities } = useUserSystem();
   const {
     entry,
@@ -376,7 +457,7 @@ function DisplayConversationEntry(props: Props) {
 
   switch (entryType.type) {
     case 'tool_use':
-      return renderToolUseEntry(entryType, entry, props, t);
+      return renderToolUseEntry(entryType, entry, props, t, assistant);
 
     case 'user_message':
       return (
@@ -388,13 +469,16 @@ function DisplayConversationEntry(props: Props) {
           executionProcessId={executionProcessId}
           executorCanFork={executorCanFork}
           resetAction={resetAction}
+          variant={assistant ? 'bubble' : 'card'}
         />
       );
 
     case 'assistant_message':
+      // Leading/trailing newlines render as blank lines (pre-wrap).
+      if (assistant && !entry.content.trim()) return null;
       return (
         <AssistantMessageEntry
-          content={entry.content}
+          content={assistant ? entry.content.trim() : entry.content}
           workspaceId={workspaceWithSession?.id}
           sessionId={sessionId}
         />
@@ -407,6 +491,15 @@ function DisplayConversationEntry(props: Props) {
       return null;
 
     case 'thinking':
+      if (assistant)
+        return (
+          <AssistantThinking
+            content={entry.content}
+            expansionKey={expansionKey}
+            workspaceId={workspaceWithSession?.id}
+            sessionId={sessionId}
+          />
+        );
       return (
         <ChatThinkingMessage
           content={entry.content}
@@ -730,6 +823,7 @@ function UserMessageEntry({
   executionProcessId,
   executorCanFork,
   resetAction,
+  variant,
 }: {
   content: string;
   expansionKey: string;
@@ -738,6 +832,7 @@ function UserMessageEntry({
   executionProcessId: string | undefined;
   executorCanFork: boolean;
   resetAction: UseResetProcessResult;
+  variant: 'card' | 'bubble';
 }) {
   const [expanded, toggle] = usePersistedExpanded(`user:${expansionKey}`, true);
   const { startEdit, isEntryGreyed, isInEditMode } = useMessageEditContext();
@@ -774,6 +869,7 @@ function UserMessageEntry({
       onEdit={canEdit ? handleEdit : undefined}
       onReset={canReset ? handleReset : undefined}
       isGreyed={isGreyed}
+      variant={variant}
       renderMarkdown={({ content, workspaceId }) => (
         <AppChatMarkdown
           content={content}
@@ -1565,7 +1661,7 @@ const DisplayConversationEntrySpaced = (props: Props) => {
   return (
     <div
       className={cn(
-        'py-base px-double',
+        'py-base px-double empty:hidden',
         isGreyed && 'opacity-50 pointer-events-none'
       )}
     >

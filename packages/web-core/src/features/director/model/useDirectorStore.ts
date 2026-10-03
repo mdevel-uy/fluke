@@ -5,7 +5,8 @@ import { persist } from 'zustand/middleware';
 // page so the conversation and the selected mission survive navigation and
 // repo changes; persisted so a reload keeps the same view.
 
-export type DirectorView = 'bubble' | 'panel' | 'expanded';
+// Full screen is a route (/fluke), not a view of the floating assistant.
+export type DirectorView = 'bubble' | 'panel';
 
 /** Tab of the panel: a mission id, or the global missions list. */
 export const MISSIONS_TAB = 'missions';
@@ -57,6 +58,15 @@ export const useDirectorStore = create<DirectorState>()(
       dismiss: (key) =>
         set((s) => ({ dismissed: [...s.dismissed.slice(-50), key] })),
     }),
-    { name: 'director' }
+    {
+      name: 'director',
+      version: 1,
+      // v0 had an 'expanded' overlay view, now the /fluke page.
+      migrate: (state) => {
+        const s = state as DirectorState;
+        if ((s.view as string) === 'expanded') s.view = 'panel';
+        return s;
+      },
+    }
   )
 );

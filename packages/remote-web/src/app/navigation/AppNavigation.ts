@@ -146,8 +146,9 @@ function destinationToRemoteTarget(
     case "issue":
       // No dedicated issues route on the remote web; fall back to root.
       return { to: "/" } as const;
+    case "fluke":
     case "workers":
-      // No dedicated workers route on the remote web; fall back to root.
+      // No dedicated route on the remote web; fall back to root.
       return { to: "/" } as const;
     case "dashboard":
       // No dedicated dashboard route on the remote web; fall back to root.
@@ -243,6 +244,7 @@ export function createRemoteHostAppNavigation(hostId: string): AppNavigation {
         transition,
       ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToFluke: (transition) => navigateTo({ kind: "fluke" }, transition),
     goToCiPipelines: (transition) =>
       navigateTo({ kind: "ci-pipelines" }, transition),
     goToSprint: (repoId, transition) =>
@@ -326,6 +328,7 @@ function createRemoteFallbackAppNavigation(): AppNavigation {
         transition,
       ),
     goToWorkers: (transition) => navigateTo({ kind: "workers" }, transition),
+    goToFluke: (transition) => navigateTo({ kind: "fluke" }, transition),
     goToCiPipelines: (transition) =>
       navigateTo({ kind: "ci-pipelines" }, transition),
     goToSprint: (repoId, transition) =>

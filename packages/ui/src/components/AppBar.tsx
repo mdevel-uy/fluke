@@ -9,6 +9,7 @@ import {
   Kanban,
   LayoutGrid,
   ListChecks,
+  Sparkles,
   Search,
   Settings as SettingsIcon,
   Users,
@@ -36,6 +37,7 @@ interface AppBarProps {
   onSearchClick?: () => void;
   onDashboardClick?: () => void;
   onSprintClick?: () => void;
+  onFlukeClick?: () => void;
   onIssuesClick?: () => void;
   onWorkersClick?: () => void;
   onCiPipelinesClick?: () => void;
@@ -45,6 +47,7 @@ interface AppBarProps {
   showSearchButton?: boolean;
   showDashboardButton?: boolean;
   showSprintButton?: boolean;
+  showFlukeButton?: boolean;
   showIssuesButton?: boolean;
   showWorkersButton?: boolean;
   showCiPipelinesButton?: boolean;
@@ -54,6 +57,7 @@ interface AppBarProps {
   /** Nº of fleet branches stopped on conflicts (SHELL-SPEC R34 badge). */
   isDashboardActive?: boolean;
   isSprintActive?: boolean;
+  isFlukeActive?: boolean;
   isIssuesActive?: boolean;
   isWorkersActive?: boolean;
   isCiPipelinesActive?: boolean;
@@ -161,6 +165,7 @@ export function AppBar({
   onSearchClick,
   onDashboardClick,
   onSprintClick,
+  onFlukeClick,
   onIssuesClick,
   onWorkersClick,
   onCiPipelinesClick,
@@ -170,6 +175,7 @@ export function AppBar({
   showSearchButton = true,
   showDashboardButton = true,
   showSprintButton = true,
+  showFlukeButton = true,
   showIssuesButton = true,
   showWorkersButton = true,
   showCiPipelinesButton = true,
@@ -178,6 +184,7 @@ export function AppBar({
   isSearchActive = false,
   isDashboardActive = false,
   isSprintActive = false,
+  isFlukeActive = false,
   isIssuesActive = false,
   isWorkersActive = false,
   isCiPipelinesActive = false,
@@ -195,6 +202,7 @@ export function AppBar({
   const sections: AppBarSection[] = [];
 
   if (
+    showFlukeButton ||
     showWorkspacesButton ||
     showDashboardButton ||
     showSprintButton ||
@@ -203,6 +211,17 @@ export function AppBar({
     showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
+    // Every request enters through Fluke (fluke v2, #701): first in the rail.
+    if (showFlukeButton && onFlukeClick) {
+      localItems.push({
+        key: 'local-fluke',
+        kind: 'icon-button',
+        label: t('director.name'),
+        lucideIcon: Sparkles,
+        isActive: isFlukeActive,
+        onClick: onFlukeClick,
+      });
+    }
     if (showDashboardButton && onDashboardClick) {
       localItems.push({
         key: 'local-dashboard',

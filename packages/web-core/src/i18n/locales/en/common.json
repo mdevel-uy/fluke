@@ -1929,7 +1929,6 @@
     "pin": "Anchor as a column",
     "unpin": "Float the panel",
     "expand": "Expand",
-    "collapse": "Back to the panel",
     "minimize": "Minimize",
     "dismiss": "Dismiss",
     "missions": "Missions",
@@ -2035,6 +2034,10 @@
       "message": "The Analyst proposes {{issues}} issues in {{waves}} waves. It built the flow between the issues on the template I picked. Each dev will lay out the internal plan of their issue when they start. The milestone is ready in Issues for you to press play.",
       "viewMilestone": "View milestone",
       "runNow": "Run now"
+    },
+    "chat": {
+      "reasoning": "Reasoning",
+      "briefUpdated": "Brief updated"
     }
   },
   "profiles": {
