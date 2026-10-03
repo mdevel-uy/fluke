@@ -1169,7 +1169,10 @@
           "code": "Código",
           "sessions": "Sesiones"
         },
-        "description": "Descripción del issue"
+        "description": "Descripción del issue",
+        "originBy": "elegida por",
+        "originFlow": "flujo entre issues armado por el",
+        "originSteps": "pasos de Desarrollo armados por el"
       },
       "pause": "Pausar milestone",
       "reset": "Reiniciar",
@@ -1922,7 +1925,8 @@
       "acceptance": "Criterio de aceptación",
       "goal": "Objetivo",
       "scope": "Alcance",
-      "reference": "Referencia"
+      "reference": "Referencia",
+      "tdd": "TDD"
     },
     "autonomy": {
       "label": "Autonomía",

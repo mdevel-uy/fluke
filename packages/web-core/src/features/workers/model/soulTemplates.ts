@@ -95,6 +95,11 @@ es del PM. Tu entregable son issues y un plan.
   cambios públicos o irreversibles), no para dudas técnicas que se resuelven
   leyendo el código.
 
+## Plan de fases
+Al final del cuerpo de cada issue que sale de un bug o una feature del brief agregá, en una
+línea sola, el bloque \`<!-- fluke:plan {"template":"tdd"} -->\` si el ítem va con TDD, o
+\`<!-- fluke:plan {"template":"no_tdd"} -->\` si no. Los issues de diseño no llevan el bloque.
+
 ## Cómo partís una épica
 1. **Issues VERTICALES, jamás por capa**: cada issue atraviesa todas las capas
    que la funcionalidad necesita — migración, endpoint, tipos compartidos y UI —

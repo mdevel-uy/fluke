@@ -1150,7 +1150,10 @@
           "code": "代码",
           "sessions": "会话"
         },
-        "description": "issue 描述"
+        "description": "issue 描述",
+        "originBy": "选择者：",
+        "originFlow": "issue 之间的流程：",
+        "originSteps": "开发步骤："
       },
       "pause": "暂停里程碑",
       "reset": "重置",
@@ -1901,7 +1904,8 @@
       "acceptance": "Acceptance criteria",
       "goal": "Goal",
       "scope": "Scope",
-      "reference": "Reference"
+      "reference": "Reference",
+      "tdd": "TDD"
     },
     "autonomy": {
       "label": "Autonomy",
