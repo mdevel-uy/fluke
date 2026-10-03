@@ -89,9 +89,18 @@ fn read_clipboard_text() -> Result<String, String> {
 impl PushNotifier for TauriNotifier {
     async fn send(&self, title: &str, message: &str, workspace_id: Option<Uuid>) {
         let deeplink_path = workspace_id.map(|id| format!("/workspaces/{id}"));
+        self.show(title, message, deeplink_path.as_deref());
+    }
 
+    async fn send_link(&self, title: &str, message: &str, deeplink_path: &str) {
+        self.show(title, message, Some(deeplink_path));
+    }
+}
+
+impl TauriNotifier {
+    fn show(&self, title: &str, message: &str, deeplink_path: Option<&str>) {
         if use_native_notifications() {
-            show_native_notification(title, message, deeplink_path.as_deref());
+            show_native_notification(title, message, deeplink_path);
             return;
         }
 

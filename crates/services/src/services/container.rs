@@ -63,6 +63,22 @@ use crate::services::{
 };
 pub type ContainerRef = String;
 
+const FLUKE_NOTIFICATION_MAX: usize = 240;
+
+/// Body of the notification for a Fluke turn: its final reply, shortened.
+/// `None` when it said nothing or chose to stay silent about app events.
+fn fluke_notification_body(reply: &str) -> Option<String> {
+    let reply = reply.trim();
+    if reply.is_empty() || reply == crate::services::director::SILENT_REPLY {
+        return None;
+    }
+    if reply.chars().count() <= FLUKE_NOTIFICATION_MAX {
+        return Some(reply.to_string());
+    }
+    let cut: String = reply.chars().take(FLUKE_NOTIFICATION_MAX - 1).collect();
+    Some(format!("{}…", cut.trim_end()))
+}
+
 #[derive(Debug, Error)]
 pub enum ContainerError {
     #[error(transparent)]
@@ -267,6 +283,32 @@ pub trait ContainerService {
     {
         // Skip notification if process was intentionally killed by user
         if matches!(ctx.execution_process.status, ExecutionProcessStatus::Killed) {
+            return;
+        }
+
+        // A Fluke turn (mission session) does not "complete a workspace" and
+        // has no worker task to reconcile: the user hears what Fluke said,
+        // unless it chose to stay silent about a batch of events (J0.7).
+        if let Ok(Some(_)) =
+            db::models::mission::Mission::find_by_session_id(&self.db().pool, ctx.session.id).await
+        {
+            if ctx.execution_process.status != ExecutionProcessStatus::Completed {
+                return;
+            }
+            let reply = CodingAgentTurn::find_by_execution_process_id(
+                &self.db().pool,
+                ctx.execution_process.id,
+            )
+            .await
+            .ok()
+            .flatten()
+            .and_then(|turn| turn.summary)
+            .unwrap_or_default();
+            if let Some(body) = fluke_notification_body(&reply) {
+                self.notification_service()
+                    .notify_link("Fluke", &body, "/fluke")
+                    .await;
+            }
             return;
         }
 
@@ -1568,5 +1610,23 @@ pub trait ContainerService {
 
         tracing::debug!("Started next action: {:?}", next_action);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fluke_notification_body;
+
+    #[test]
+    fn fluke_notification_skips_silence_and_shortens() {
+        assert_eq!(fluke_notification_body("  SILENT\n"), None);
+        assert_eq!(fluke_notification_body(" "), None);
+        assert_eq!(
+            fluke_notification_body("El PR #675 está listo para mergear.").as_deref(),
+            Some("El PR #675 está listo para mergear.")
+        );
+        let long = fluke_notification_body(&"ñ".repeat(500)).unwrap();
+        assert_eq!(long.chars().count(), 240);
+        assert!(long.ends_with('…'));
     }
 }

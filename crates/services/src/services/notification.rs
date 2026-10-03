@@ -12,6 +12,12 @@ use crate::services::config::{Config, SoundFile};
 #[async_trait]
 pub trait PushNotifier: Send + Sync + 'static {
     async fn send(&self, title: &str, message: &str, workspace_id: Option<Uuid>);
+
+    /// Like `send`, opening `deeplink_path` on click. Notifiers without click
+    /// handling just show it.
+    async fn send_link(&self, title: &str, message: &str, _deeplink_path: &str) {
+        self.send(title, message, None).await;
+    }
 }
 
 /// Global push notifier set before server startup (e.g., by the Tauri app).
@@ -88,6 +94,21 @@ impl NotificationService {
 
         if config.push_enabled {
             self.push_notifier.send(title, message, workspace_id).await;
+        }
+    }
+
+    /// Like `notify`, opening `deeplink_path` (an app route) on click.
+    pub async fn notify_link(&self, title: &str, message: &str, deeplink_path: &str) {
+        let config = self.config.read().await.notifications.clone();
+
+        if config.sound_enabled {
+            Self::play_sound_notification(&config.sound_file).await;
+        }
+
+        if config.push_enabled {
+            self.push_notifier
+                .send_link(title, message, deeplink_path)
+                .await;
         }
     }
 
