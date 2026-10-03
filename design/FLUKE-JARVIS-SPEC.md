@@ -1,5 +1,5 @@
 ---
-scope: Fluke como Jarvis (solo desarrollo) — cerebro siempre despierto, conversación permanente con foco, iniciativa por eventos, memoria (Honcho self-hosted), voz (ElevenLabs + app móvil EAS)
+scope: Fluke como Jarvis (solo desarrollo) — cerebro siempre despierto, conversación permanente con foco, iniciativa por eventos, memoria (Honcho central nuestro), voz (ElevenLabs + app móvil EAS); Claude BYOK, el resto servicio nuestro
 slug: fluke-jarvis
 status: draft — pendiente de aprobación por Dani
 approved_by: (pendiente)
@@ -27,7 +27,7 @@ operar fluke. Jarvis "dev wise".
 | 1 | Cada mensaje relanza el CLI de Claude (~4 s hasta el primer token) | **Proceso persistente**: el CLI de la conversación de Fluke queda vivo; los mensajes entran por stdin (~1.4 s medido). |
 | 2 | Una sesión por misión; sin hilo entre misiones | **Una conversación permanente** con una misión "en foco". Las misiones son ítems dentro de la conversación, no conversaciones aparte. |
 | 3 | Fluke solo habla cuando el usuario escribe | **Iniciativa**: los eventos del sistema (tarea terminada o fallida, PR listo, CI en rojo, pregunta de un worker) le llegan a Fluke, que decide si avisar. Notificación nativa con deeplink. |
-| 4 | Sin memoria entre sesiones | **Honcho self-hosted**: cada turno se espeja; antes de responder, Fluke recibe lo que Honcho sabe del usuario y del tema. |
+| 4 | Sin memoria entre sesiones | **Honcho** (central, nuestro): cada turno se espeja; antes de responder, Fluke recibe lo que Honcho sabe del usuario y del tema. |
 | 5 | La regla "confirmá antes de borrar" vive en el prompt | **Confirmaciones en código**: `app_api` sabe qué endpoints son peligrosos y exige confirmación; el modelo no puede saltearla. |
 | 6 | Solo texto, solo en la app | **Voz** con ElevenLabs (agente con LLM propio = Fluke) desde la app de escritorio y desde una **app móvil** (Expo + EAS Build, iOS primero). Desde el auto por Bluetooth, sin app de CarPlay. |
 
@@ -47,17 +47,19 @@ Verificado el 02-oct en `main`:
 1. **Cerebro (D1)**: CLI de Claude Code persistente. Usa la suscripción del usuario y no reescribe nada. El loop sobre Messages API queda como salida de emergencia si el prompt real de Fluke empuja el primer token por arriba de 3 s.
 2. **Conversación (D2)**: una sola conversación permanente por instalación, con **foco explícito** en una misión. El código sabe cuál está en foco (herramienta `focus_mission`); las herramientas del brief operan sobre esa. Fluke nombra el tema cuando cambia ("Sobre el bug del login: ..."); si hay ambigüedad, `ask_user` con las misiones candidatas. Para el modelo no es un contexto infinito: cada turno se arma con memoria + snapshot + brief en foco + historial reciente (compactación del CLI).
 3. **Canal móvil (D3)**: app móvil propia con Expo + EAS Build (hay cuenta de Apple Developer). Sin app de CarPlay: el audio va por Bluetooth del teléfono.
-4. **Memoria (D4)**: Honcho self-hosted (Postgres + Honcho en docker compose local).
-5. **Nube**: no por ahora. Los workers necesitan repo, claves y CPU y se quedan en la PC. Si aparece la razón (PC apagada, varios usuarios) se levanta **solo el cerebro**; la PC se conecta saliente como "manos". Ver F5.
+4. **Memoria (D4)**: Honcho self-hosted **por nosotros**, central: un Honcho en nuestro VPS, un workspace por cliente, con nuestra API key. El cliente no instala nada.
+5. **Nube**: el cerebro y los workers se quedan en la PC del cliente (necesitan repo, claves, CPU y la suscripción de Claude). Lo que vive en nuestro lado es un **control plane liviano**: Honcho, tokens efímeros de ElevenLabs, topes y cobro. Ver F5.
+6. **Modelo de negocio (03-oct)**: **Claude es BYOK** (la suscripción es personal; revenderla viola los términos de Anthropic y pagar los tokens de los workers por API es la variante "IA incluida" ya descartada). **Todo lo demás es servicio nuestro**: voz (una cuenta de ElevenLabs nuestra, un agente por cliente), memoria (Honcho central), celular (una app nuestra en App Store). Se cobra como add-on fijo por tiers (minutos de voz incluidos), nunca pass-through de uso: "sin sorpresas" para el cliente y tope conocido para nosotros. El margen del pasamanos es simbólico; el valor es que el cliente no abre tres cuentas. Puede ser el centro del modelo comercial; ver sección 7.
 
 ## 4. Decisiones pendientes (confirmar antes de la fase correspondiente)
 
 | # | Decisión | Propuesta | Bloquea |
 |---|----------|-----------|---------|
-| D5 | **Qué se expone y cómo se autentica** para que ElevenLabs y el celular lleguen a Fluke. | Tailscale: el celular entra a la tailnet (nada público). Para ElevenLabs, que necesita URL pública, Tailscale Funnel solo sobre `/api/director/turn` con bearer token generado en Settings. | F3 |
+| D5 | **Qué se expone y cómo se autentica** para que ElevenLabs y el celular lleguen a Fluke. | Tailscale: el celular entra a la tailnet (nada público). Para ElevenLabs, que necesita URL pública, Tailscale Funnel solo sobre `/api/director/turn` con bearer token. El agente de ElevenLabs lo crea el control plane apuntando a esa URL. | F3 |
 | D6 | **Política de silencio** ante eventos: qué avisa siempre, qué nunca. | Siempre: falla, pregunta de un worker, PR listo para merge, CI en rojo. Nunca: progreso intermedio. Lo demás lo decide Fluke. Configurable después si molesta. | F1 |
 | D7 | **Vida del proceso persistente**. | Un solo proceso (la conversación permanente). Se mata tras 30 min sin uso; el próximo mensaje lo levanta con `--resume`, como hoy. | F0 |
-| D8 | **Qué guarda Honcho** del lado de Fluke. | Todo el diálogo usuario↔Fluke. No los eventos del sistema ni las respuestas de `app_api` (ruido). | F2 |
+| D8 | **Qué guarda Honcho** del lado de Fluke. | Todo el diálogo usuario↔Fluke. No los eventos del sistema ni las respuestas de `app_api` (ruido). Nota: el diálogo del cliente pasa por nuestro VPS; va en los términos. | F2 |
+| D9 | **Tiers del add-on Jarvis**: cuántos minutos de voz y a qué precio. | Un tier chico y uno grande, precio redondo por encima del peor caso (todos los minutos usados). Se fija con los costos reales de ElevenLabs al momento de F3. | F3 |
 
 ## 5. Fases
 
@@ -68,10 +70,11 @@ Orden por dependencias y por valor sin voz: F0 y F1 ya rinden en texto. Tamaños
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
 | 0 | **F0.1 Proceso persistente para la conversación de Fluke** | L | El follow-up de una sesión de Fluke escribe en el stdin del proceso vivo en vez de relanzar. Idle timeout (D7). Los mecanismos de "exit signal" del review loop (PR #501) no aplican a esta sesión. Medir primer token con el prompt real; si >3 s, abrir la salida de emergencia (Messages API). |
-| 0 | **F0.2 `status_snapshot`** | M | Una herramienta, una llamada: corriendo, bloqueado, esperando OK del usuario, PRs abiertos y su CI, preguntas pendientes. Reemplaza cadenas de `app_api` para "¿cómo vamos?". |
+| 0 | **F0.2 Estado precargado** | M | El código arma un resumen (corriendo, bloqueado, esperando OK del usuario, PRs abiertos y su CI, preguntas pendientes) y lo inyecta en cada turno como bloque `[STATUS]`, igual que `[APP CONTEXT]`. "¿Cómo vamos?" pasa a cero herramientas. La misma función queda expuesta como herramienta `status_snapshot` para cuando Fluke quiera refrescarlo. |
 | 0 | **F0.3 Confirmaciones en código** | M | Lista de endpoints peligrosos (DELETE, archive, merge, approve, send). `app_api` responde `needs_confirmation` + token en vez de ejecutar; `confirm_action` ejecuta con el token. El chat muestra botón; por voz se lee la pregunta. |
-| 1 | **F0.4 Conversación permanente con foco** | L | Una conversación de guardia por instalación (sesión fija); las misiones siguen existiendo pero se crean y se enfocan desde adentro (`focus_mission`, `list_missions`). `[APP CONTEXT]` suma `focus`. UI: un chat, chip con la misión en foco, lista lateral de misiones como índice. Migración: las misiones viejas quedan como historial. |
-| 1 | **F0.5 Endpoint de turno** `POST /api/director/turn` | M | Entrada única para todos los canales: `{text, channel: chat\|voice}` → stream SSE de texto. Con `channel: voice` el prompt pide respuestas más cortas y `ask_user` sin chips. El chat actual puede seguir por sesiones hasta que F3 lo necesite. |
+| 0 | **F0.4 Menos round trips** | S | `app_api` acepta nombres donde la UI usa ids (`worker`, `repo`, `profile`) y los resuelve en el backend: le saca un GET a casi toda orden. Fluke corre en un directorio vacío, no en el scratch del repo: no carga AGENTS.md ni nada del repo (no edita código). |
+| 1 | **F0.5 Conversación permanente con foco** | L | Una conversación de guardia por instalación (sesión fija); las misiones siguen existiendo pero se crean y se enfocan desde adentro (`focus_mission`, `list_missions`). `[APP CONTEXT]` suma `focus`. UI: un chat, chip con la misión en foco, lista lateral de misiones como índice. Migración: las misiones viejas quedan como historial. |
+| 1 | **F0.6 Endpoint de turno** `POST /api/director/turn` | M | Entrada única para todos los canales: `{text, channel: chat\|voice}` → stream SSE de texto. Con `channel: voice` el prompt pide respuestas más cortas, `ask_user` sin chips, y la regla **anunciar, hacer, confirmar**: para una orden, primero una frase con lo que va a hacer, después la herramienta, después "Listo". La espera por la herramienta queda tapada por audio. El chat actual puede seguir por sesiones hasta que F3 lo necesite. |
 
 ### F1 — Iniciativa
 
@@ -81,33 +84,52 @@ Orden por dependencias y por valor sin voz: F0 y F1 ya rinden en texto. Tamaños
 | 0 | **F1.2 Notificación nativa** | S | Si Fluke habla por un evento y la ventana no está al frente, `NotificationService` con deeplink al chat de Fluke. |
 | 1 | **F1.3 Preguntas de workers por Fluke** | M | Depende de #662 (`waiting_user`). La pregunta del worker llega como evento; Fluke la traduce; la respuesta del usuario vuelve al worker por `app_api`. Un solo interlocutor. |
 
-### F2 — Memoria (Honcho self-hosted)
+### F2 — Memoria (Honcho central) y control plane
 
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
-| 0 | **F2.1 Honcho local** | S | `docker compose` con Postgres + Honcho; Settings → Fluke: URL y API key. Si no está configurado, Fluke funciona sin memoria. |
-| 1 | **F2.2 Espejo de la conversación** | M | Cada turno usuario↔Fluke se manda a una sesión de Honcho (peers `user` y `fluke`), por REST desde el backend. Qué entra: D8. |
-| 1 | **F2.3 Contexto por turno** | M | Antes de cada turno, consulta a Honcho con el mensaje del usuario (API dialéctica / contexto de sesión) → bloque `[MEMORY]` en el system prompt. "Acordate que..." no necesita herramienta: es un mensaje más que Honcho modela. |
+| 0 | **F2.1 Control plane mínimo** | M | Servicio nuestro en el VPS, sobre la licencia + heartbeat ya planeados (LICENSING-SPEC): la app se autentica con su licencia y recibe lo que necesita (URL y credencial de Honcho, más adelante tokens efímeros de ElevenLabs). Topes por cliente viven acá. Nuestras keys nunca viajan en la app. |
+| 0 | **F2.2 Honcho central** | S | Un Honcho (Postgres + Honcho) en nuestro VPS, con nuestra API key de Anthropic; un workspace por cliente, provisionado por el control plane. Sin licencia activa, Fluke funciona sin memoria. |
+| 1 | **F2.3 Espejo de la conversación** | M | Cada turno usuario↔Fluke se manda a una sesión de Honcho (peers `user` y `fluke`), por REST desde el backend de la app. Qué entra: D8. |
+| 1 | **F2.4 Contexto por turno** | M | Antes de cada turno, consulta a Honcho con el mensaje del usuario (API dialéctica / contexto de sesión) → bloque `[MEMORY]` en el system prompt. "Acordate que..." no necesita herramienta: es un mensaje más que Honcho modela. |
 
 ### F3 — Voz (ElevenLabs + app móvil)
 
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
-| 0 | **F3.1 Exposición y auth** | S | Según D5. Token en Settings; el túnel solo ve `/api/director/turn`. Nada más de la API sale de la PC. |
-| 0 | **F3.2 Adaptador custom-LLM** | M | Endpoint compatible con chat-completions con streaming que envuelve F0.5: toma el último mensaje del usuario, lo manda al proceso de Fluke, devuelve los deltas. ElevenLabs hace STT, turnos, interrupciones y TTS; solo ve texto. Las herramientas son nuestras. **Acuse inmediato**: emite un "Dale." / "A ver." apenas llega el mensaje, antes del primer token de Fluke, para que el silencio percibido sea ~1 s. |
-| 1 | **F3.3 Voz en la app de escritorio** | S | Botón de hablar en el panel de Fluke con el SDK web de ElevenLabs. |
-| 1 | **F3.4 App móvil** | L | Expo + EAS Build, iOS primero. Una pantalla: hablar con Fluke (SDK React Native de ElevenLabs) y el transcript. Entra a la PC por Tailscale. CarPlay = Bluetooth del teléfono, sin app propia de CarPlay. |
-| 2 | **F3.5 Push al celular** | M | Los eventos de F1 que Fluke decide contar llegan al celular (Expo push) cuando la app de escritorio no está al frente. |
+| 0 | **F3.1 Exposición y auth** | S | Según D5. Token generado por la app; el túnel solo ve `/api/director/turn`. Nada más de la API sale de la PC. |
+| 0 | **F3.2 Agente por cliente** | M | El control plane crea el agente en nuestra cuenta de ElevenLabs (API de agentes, custom LLM = la URL del túnel del cliente) y le entrega a la app tokens efímeros de conversación. Contador de minutos y tope por tier (D9): al llegar, Fluke avisa y la voz se pausa. |
+| 0 | **F3.3 Adaptador custom-LLM** | M | Endpoint compatible con chat-completions con streaming que envuelve F0.5: toma el último mensaje del usuario, lo manda al proceso de Fluke, devuelve los deltas. ElevenLabs hace STT, turnos, interrupciones y TTS; solo ve texto. Las herramientas son nuestras. **Acuse inmediato**: emite un "Dale." / "A ver." apenas llega el mensaje, antes del primer token de Fluke, para que el silencio percibido sea ~1 s. |
+| 1 | **F3.4 Voz en la app de escritorio** | S | Botón de hablar en el panel de Fluke con el SDK web de ElevenLabs. |
+| 1 | **F3.5 App móvil** | L | Expo + EAS Build, iOS primero; una app nuestra en App Store para todos los clientes. Una pantalla: hablar con Fluke (SDK React Native de ElevenLabs) y el transcript. Entra a la PC del cliente por su Tailscale. CarPlay = Bluetooth del teléfono, sin app propia de CarPlay. |
+| 2 | **F3.6 Push al celular** | M | Los eventos de F1 que Fluke decide contar llegan al celular (Expo push) cuando la app de escritorio no está al frente. |
 
 ### F4 — Seguimiento hasta el merge
 
 Depende de fluke v2 (plan de fases por issue). Fluke sigue el plan de cada issue y empuja los pasos siguientes; el merge sigue siendo humano (REVIEW-LOOP-SPEC), pero puede ser un "sí" dicho por voz: Fluke pregunta, el usuario confirma (F0.3), Fluke mergea por `app_api`.
 
-### F5 — Nube (solo si aparece la razón)
+### F5 — Cerebro en la nube (solo si aparece la razón)
 
-Levantar únicamente el cerebro (proceso de Fluke + Honcho + adaptador ElevenLabs) en un host siempre encendido; la PC se conecta saliente y expone `app_api` por esa conexión. Costo real: en la nube no corre la suscripción de Claude Code, el cerebro pasa a Messages API por token. No se planifica hasta que haga falta.
+El control plane de F2 ya es "nube". Lo que **no** se mueve es el cerebro ni los workers: viven en la PC del cliente, con su suscripción de Claude. Mover el cerebro a un host siempre encendido (para que Fluke conteste con la PC apagada) obligaría a Messages API por token, pagado por alguien. No se planifica hasta que haga falta.
 
-## 6. Presupuesto de latencia por voz
+## 7. Cuentas y costos
+
+Regla: **Claude BYOK; el resto es servicio nuestro**, cobrado como add-on fijo por tiers.
+
+| Servicio | Quién paga | Cómo entra |
+|---|---|---|
+| Claude Code (cerebro de Fluke y workers) | El cliente, su suscripción | Ya existe: Settings → Agentes |
+| Honcho + su LLM | Nosotros (VPS + API key de Anthropic) | Control plane, invisible para el cliente |
+| ElevenLabs (ASR, turnos, TTS) | Nosotros, una cuenta Business; un agente por cliente | Control plane entrega tokens efímeros; minutos incluidos por tier |
+| App móvil | Nosotros (Apple Developer, EAS Build) | Una app en App Store, cero costo por cliente |
+| Tailscale | Gratis para el cliente (plan personal, Funnel incluido) | Instalar + login; la app detecta y arma el Funnel |
+| Push al celular | Gratis (Expo push) | — |
+
+Para el cliente, Settings → Fluke muestra dos cosas: su login de Claude Code y su licencia de fluke. Nada más. Si no tiene licencia activa, Fluke anda por texto sin memoria ni voz, y Fluke mismo le dice qué le falta.
+
+Para nosotros: topes por cliente en el control plane (minutos de voz, llamadas de Honcho) porque absorbemos la varianza; precio de tier por encima del peor caso; cobro con suscripción fija (Stripe), nunca por uso.
+
+## 8. Presupuesto de latencia por voz
 
 Desde que el usuario termina de hablar hasta el primer audio de respuesta (cifras típicas de ElevenLabs Agents; Fish Audio similar en TTS):
 
@@ -120,9 +142,9 @@ Desde que el usuario termina de hablar hasta el primer audio de respuesta (cifra
 | TTS: primer audio (Flash) + red | 0.2–0.4 s |
 | **Total** | **2.5–4.5 s** |
 
-Cada herramienta que Fluke llama antes de contestar suma 1–3 s más; por eso `status_snapshot` (F0.2) y el acuse inmediato (F3.2), que baja el silencio percibido a ~1 s. El TTS no es el término grande: cambiar de proveedor no mueve la aguja; el cerebro sí.
+Cada herramienta que Fluke llama antes de contestar suma 1–3 s más; por eso el estado precargado (F0.2), los nombres en `app_api` y el directorio vacío (F0.4), la regla anunciar-hacer-confirmar (F0.6) y el acuse inmediato (F3.3), que bajan el silencio percibido a ~1 s. El TTS no es el término grande: cambiar de proveedor no mueve la aguja; el cerebro sí. Piso con todo eso y CLI persistente: ~2–3 s reales; con Messages API + prompt caching: ~1.5–2 s.
 
-## 7. Riesgos
+## 9. Riesgos
 
 - **Latencia con el prompt real**: la medición fue con prompt trivial y sin herramientas. F0.1 mide con el prompt de Fluke; el umbral es 3 s al primer token. Si se supera, la salida de emergencia es un modelo rápido por Messages API solo para el canal de voz.
 - **SDKs de terceros**: la forma exacta de la API de Honcho (dialéctica, contexto) y del SDK React Native de ElevenLabs (WebRTC) se verifica al implementar F2.2 y F3.4, no antes.
