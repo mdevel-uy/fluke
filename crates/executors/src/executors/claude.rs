@@ -210,9 +210,6 @@ impl ClaudeCode {
         }
         // --mcp-config is variadic: one flag with every config file.
         let mut mcp_configs = Vec::new();
-        if let Some(path) = workspace_utils::codegraph::mcp_config_file().await {
-            mcp_configs.push(path.to_string_lossy().to_string());
-        }
         if let Some(url) = env.get(workspace_utils::plan_mcp::PLAN_MCP_URL_ENV)
             && let Some(path) = workspace_utils::plan_mcp::mcp_config_file(url).await
         {
@@ -227,7 +224,12 @@ impl ClaudeCode {
             builder = builder.extend_params(["--mcp-config".to_string()]);
             builder = builder.extend_params(mcp_configs);
         }
+        // Skip the user's ~/.claude/settings.json: its plugins and hooks
+        // (each hook spawns a node process per tool batch) are personal, not
+        // the agent's. MCP servers configured from fluke live in
+        // ~/.claude.json and still load.
         builder = builder.extend_params([
+            "--setting-sources=project,local",
             "--verbose",
             "--output-format=stream-json",
             "--input-format=stream-json",
@@ -791,7 +793,15 @@ impl ClaudeCode {
             .stderr(Stdio::piped())
             .current_dir(current_dir)
             .env("NPM_CONFIG_LOGLEVEL", "error")
+            // No claude.ai connectors (Figma, Docs...) in agent sessions.
+            .env("ENABLE_CLAUDEAI_MCP_SERVERS", "false")
             .args(&args);
+        // The auto concurrency limit is cores/2, so each agent's fair share
+        // is 2 cores; without this every cargo build grabs all of them.
+        // The profile env (applied below) can override it.
+        if std::env::var_os("CARGO_BUILD_JOBS").is_none() {
+            command.env("CARGO_BUILD_JOBS", "2");
+        }
 
         env.clone()
             .with_profile(&self.cmd)

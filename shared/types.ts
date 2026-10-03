@@ -329,8 +329,6 @@ export type GithubLoginResponse = { user_code: string, verification_uri: string,
 
 export type GithubCliInstallResponse = { version: string | null, path: string, };
 
-export type CodegraphStatus = { installed: boolean, path: string | null, };
-
 export type Plan = { workspace_id: string, status: string, pause_requested: boolean, };
 
 export type PlanStep = { id: string, n: number, title: string, summary: string, files: Array<string>, verify: string | null, depends_on: Array<number>, state: string, version: number, has_checkpoint: boolean, started_at: string | null, finished_at: string | null, };

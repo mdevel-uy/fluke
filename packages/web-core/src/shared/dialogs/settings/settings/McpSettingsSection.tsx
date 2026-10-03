@@ -20,7 +20,6 @@ import {
   SettingsSaveBar,
   SettingsTextarea,
 } from './SettingsComponents';
-import { CodegraphSettingsCard } from './CodegraphSettingsCard';
 import { useSettingsDirty } from './SettingsDirtyContext';
 import { useSettingsMachineClient } from './SettingsHostContext';
 
@@ -268,8 +267,6 @@ export function McpSettingsSection() {
           {t('settings.mcp.save.successMessage')}
         </div>
       )}
-
-      <CodegraphSettingsCard />
 
       {/* MCP Configuration */}
       <SettingsCard
