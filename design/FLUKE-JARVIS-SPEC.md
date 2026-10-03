@@ -49,17 +49,20 @@ Verificado el 02-oct en `main`:
 3. **Canal móvil (D3)**: app móvil propia con Expo + EAS Build (hay cuenta de Apple Developer). Sin app de CarPlay: el audio va por Bluetooth del teléfono.
 4. **Memoria (D4)**: Honcho self-hosted **por nosotros**, central: un Honcho en nuestro VPS, un workspace por cliente, con nuestra API key. El cliente no instala nada.
 5. **Nube**: el cerebro y los workers se quedan en la PC del cliente (necesitan repo, claves, CPU y la suscripción de Claude). Lo que vive en nuestro lado es un **control plane liviano**: Honcho, tokens efímeros de ElevenLabs, topes y cobro. Ver F5.
+7. **Acceso remoto (ex D5, 03-oct)**: **relay nuestro**, sin Tailscale. La PC abre un WebSocket saliente al control plane con su licencia y lo mantiene vivo; el celular y ElevenLabs hablan con el control plane, que reenvía por ese socket. Por el relay pasa solo texto (los turnos de Fluke); el audio va directo celular↔ElevenLabs por WebRTC. La PC no expone nada. PC apagada → el relay responde que está apagada.
+8. **Identidad del celular (03-oct)**: **emparejamiento**, no cuenta. La licencia de la instalación ya es la identidad. Settings → Fluke → "Vincular celular" muestra un QR (token de un solo uso emitido por el control plane); la app lo escanea y recibe un token de dispositivo de larga duración atado a esa instalación. Dispositivos vinculados visibles y revocables desde la PC. Sin usuario ni contraseña; Sign in with Apple no aplica.
 6. **Modelo de negocio (03-oct)**: **Claude es BYOK** (la suscripción es personal; revenderla viola los términos de Anthropic y pagar los tokens de los workers por API es la variante "IA incluida" ya descartada). **Todo lo demás es servicio nuestro**: voz (una cuenta de ElevenLabs nuestra, un agente por cliente), memoria (Honcho central), celular (una app nuestra en App Store). Se cobra como add-on fijo por tiers (minutos de voz incluidos), nunca pass-through de uso: "sin sorpresas" para el cliente y tope conocido para nosotros. El margen del pasamanos es simbólico; el valor es que el cliente no abre tres cuentas. Puede ser el centro del modelo comercial; ver sección 7.
 
 ## 4. Decisiones pendientes (confirmar antes de la fase correspondiente)
 
 | # | Decisión | Propuesta | Bloquea |
 |---|----------|-----------|---------|
-| D5 | **Qué se expone y cómo se autentica** para que ElevenLabs y el celular lleguen a Fluke. | Tailscale: el celular entra a la tailnet (nada público). Para ElevenLabs, que necesita URL pública, Tailscale Funnel solo sobre `/api/director/turn` con bearer token. El agente de ElevenLabs lo crea el control plane apuntando a esa URL. | F3 |
+| ~~D5~~ | ~~Qué se expone y cómo se autentica~~ | Resuelta: relay nuestro (decisión 7). | — |
 | D6 | **Política de silencio** ante eventos: qué avisa siempre, qué nunca. | Siempre: falla, pregunta de un worker, PR listo para merge, CI en rojo. Nunca: progreso intermedio. Lo demás lo decide Fluke. Configurable después si molesta. | F1 |
 | D7 | **Vida del proceso persistente**. | Un solo proceso (la conversación permanente). Se mata tras 30 min sin uso; el próximo mensaje lo levanta con `--resume`, como hoy. | F0 |
 | D8 | **Qué guarda Honcho** del lado de Fluke. | Todo el diálogo usuario↔Fluke. No los eventos del sistema ni las respuestas de `app_api` (ruido). Nota: el diálogo del cliente pasa por nuestro VPS; va en los términos. | F2 |
 | D9 | **Tiers del add-on Jarvis**: cuántos minutos de voz y a qué precio. | Un tier chico y uno grande, precio redondo por encima del peor caso (todos los minutos usados). Se fija con los costos reales de ElevenLabs al momento de F3. | F3 |
+| D10 | **Cuenta con email** (varias personas por licencia, recuperación sin la PC). | No por ahora: el emparejamiento por QR cubre un usuario por instalación. Si hace falta, magic link al email del cliente de Stripe; nunca contraseña. | — |
 
 ## 5. Fases
 
@@ -89,19 +92,20 @@ Orden por dependencias y por valor sin voz: F0 y F1 ya rinden en texto. Tamaños
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
 | 0 | **F2.1 Control plane mínimo** | M | Servicio nuestro en el VPS, sobre la licencia + heartbeat ya planeados (LICENSING-SPEC): la app se autentica con su licencia y recibe lo que necesita (URL y credencial de Honcho, más adelante tokens efímeros de ElevenLabs). Topes por cliente viven acá. Nuestras keys nunca viajan en la app. |
-| 0 | **F2.2 Honcho central** | S | Un Honcho (Postgres + Honcho) en nuestro VPS, con nuestra API key de Anthropic; un workspace por cliente, provisionado por el control plane. Sin licencia activa, Fluke funciona sin memoria. |
-| 1 | **F2.3 Espejo de la conversación** | M | Cada turno usuario↔Fluke se manda a una sesión de Honcho (peers `user` y `fluke`), por REST desde el backend de la app. Qué entra: D8. |
-| 1 | **F2.4 Contexto por turno** | M | Antes de cada turno, consulta a Honcho con el mensaje del usuario (API dialéctica / contexto de sesión) → bloque `[MEMORY]` en el system prompt. "Acordate que..." no necesita herramienta: es un mensaje más que Honcho modela. |
+| 0 | **F2.2 Relay** | M | En el control plane: la PC mantiene un WebSocket saliente autenticado con su licencia; `POST /relay/{instalación}/turn` (auth: token de dispositivo o secreto del agente de ElevenLabs) se reenvía por ese socket al endpoint de turno de la PC (F0.6) y streamea la respuesta de vuelta. Solo texto. PC desconectada → 503 con mensaje "la PC está apagada". Cuando entra, el chat de la PC sigue sin relay. |
+| 0 | **F2.3 Honcho central** | S | Un Honcho (Postgres + Honcho) en nuestro VPS, con nuestra API key de Anthropic; un workspace por cliente, provisionado por el control plane. Sin licencia activa, Fluke funciona sin memoria. |
+| 1 | **F2.4 Espejo de la conversación** | M | Cada turno usuario↔Fluke se manda a una sesión de Honcho (peers `user` y `fluke`), por REST desde el backend de la app. Qué entra: D8. |
+| 1 | **F2.5 Contexto por turno** | M | Antes de cada turno, consulta a Honcho con el mensaje del usuario (API dialéctica / contexto de sesión) → bloque `[MEMORY]` en el system prompt. "Acordate que..." no necesita herramienta: es un mensaje más que Honcho modela. |
 
 ### F3 — Voz (ElevenLabs + app móvil)
 
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
-| 0 | **F3.1 Exposición y auth** | S | Según D5. Token generado por la app; el túnel solo ve `/api/director/turn`. Nada más de la API sale de la PC. |
-| 0 | **F3.2 Agente por cliente** | M | El control plane crea el agente en nuestra cuenta de ElevenLabs (API de agentes, custom LLM = la URL del túnel del cliente) y le entrega a la app tokens efímeros de conversación. Contador de minutos y tope por tier (D9): al llegar, Fluke avisa y la voz se pausa. |
+| 0 | **F3.1 Emparejamiento del celular** | M | Settings → Fluke → "Vincular celular": QR con token de un solo uso del control plane; la app móvil lo canjea por un token de dispositivo atado a la instalación. Lista de dispositivos vinculados con revocar. Es la única identidad del celular (decisión 8). |
+| 0 | **F3.2 Agente por cliente** | M | El control plane crea el agente en nuestra cuenta de ElevenLabs (API de agentes, custom LLM = `relay/{instalación}/turn` con su secreto) y le entrega a la app tokens efímeros de conversación. Contador de minutos y tope por tier (D9): al llegar, Fluke avisa y la voz se pausa. |
 | 0 | **F3.3 Adaptador custom-LLM** | M | Endpoint compatible con chat-completions con streaming que envuelve F0.5: toma el último mensaje del usuario, lo manda al proceso de Fluke, devuelve los deltas. ElevenLabs hace STT, turnos, interrupciones y TTS; solo ve texto. Las herramientas son nuestras. **Acuse inmediato**: emite un "Dale." / "A ver." apenas llega el mensaje, antes del primer token de Fluke, para que el silencio percibido sea ~1 s. |
 | 1 | **F3.4 Voz en la app de escritorio** | S | Botón de hablar en el panel de Fluke con el SDK web de ElevenLabs. |
-| 1 | **F3.5 App móvil** | L | Expo + EAS Build, iOS primero; una app nuestra en App Store para todos los clientes. Una pantalla: hablar con Fluke (SDK React Native de ElevenLabs) y el transcript. Entra a la PC del cliente por su Tailscale. CarPlay = Bluetooth del teléfono, sin app propia de CarPlay. |
+| 1 | **F3.5 App móvil** | L | Expo + EAS Build, iOS primero; una app nuestra en App Store para todos los clientes. Una pantalla: hablar con Fluke (SDK React Native de ElevenLabs) y el transcript (texto por el relay). Primer uso: escanear el QR (F3.1). CarPlay = Bluetooth del teléfono, sin app propia de CarPlay. |
 | 2 | **F3.6 Push al celular** | M | Los eventos de F1 que Fluke decide contar llegan al celular (Expo push) cuando la app de escritorio no está al frente. |
 
 ### F4 — Seguimiento hasta el merge
@@ -122,10 +126,10 @@ Regla: **Claude BYOK; el resto es servicio nuestro**, cobrado como add-on fijo p
 | Honcho + su LLM | Nosotros (VPS + API key de Anthropic) | Control plane, invisible para el cliente |
 | ElevenLabs (ASR, turnos, TTS) | Nosotros, una cuenta Business; un agente por cliente | Control plane entrega tokens efímeros; minutos incluidos por tier |
 | App móvil | Nosotros (Apple Developer, EAS Build) | Una app en App Store, cero costo por cliente |
-| Tailscale | Gratis para el cliente (plan personal, Funnel incluido) | Instalar + login; la app detecta y arma el Funnel |
+| Relay | Nosotros (parte del control plane; solo texto, un VPS chico alcanza) | Invisible: la PC se conecta sola |
 | Push al celular | Gratis (Expo push) | — |
 
-Para el cliente, Settings → Fluke muestra dos cosas: su login de Claude Code y su licencia de fluke. Nada más. Si no tiene licencia activa, Fluke anda por texto sin memoria ni voz, y Fluke mismo le dice qué le falta.
+El cliente no instala nada más que fluke y la app móvil. Settings → Fluke muestra tres cosas: su login de Claude Code, su licencia de fluke y los celulares vinculados. Nada más. Si no tiene licencia activa, Fluke anda por texto sin memoria ni voz, y Fluke mismo le dice qué le falta.
 
 Para nosotros: topes por cliente en el control plane (minutos de voz, llamadas de Honcho) porque absorbemos la varianza; precio de tier por encima del peor caso; cobro con suscripción fija (Stripe), nunca por uso.
 
@@ -137,7 +141,7 @@ Desde que el usuario termina de hablar hasta el primer audio de respuesta (cifra
 |---|---|
 | Detección de fin de turno (VAD) | 0.3–0.6 s |
 | ASR: cierre de la transcripción (streaming) | 0.2–0.4 s |
-| Red ElevenLabs → túnel → PC → vuelta | 0.2–0.4 s |
+| Red ElevenLabs → relay → PC → vuelta | 0.2–0.4 s (relay al lado de ElevenLabs: neutro) |
 | Fluke: primer token (CLI persistente) | 1.5–3 s |
 | TTS: primer audio (Flash) + red | 0.2–0.4 s |
 | **Total** | **2.5–4.5 s** |
@@ -148,5 +152,5 @@ Cada herramienta que Fluke llama antes de contestar suma 1–3 s más; por eso e
 
 - **Latencia con el prompt real**: la medición fue con prompt trivial y sin herramientas. F0.1 mide con el prompt de Fluke; el umbral es 3 s al primer token. Si se supera, la salida de emergencia es un modelo rápido por Messages API solo para el canal de voz.
 - **SDKs de terceros**: la forma exacta de la API de Honcho (dialéctica, contexto) y del SDK React Native de ElevenLabs (WebRTC) se verifica al implementar F2.2 y F3.4, no antes.
-- **Superficie expuesta**: F3.1 es una frontera de confianza. Solo el endpoint de turno, solo con token, y las confirmaciones de F0.3 en código para que una orden mal entendida por voz no borre nada.
+- **Superficie expuesta**: el relay (F2.2) es una frontera de confianza. La PC no abre puertos; el relay solo reenvía al endpoint de turno, solo con token de dispositivo o secreto del agente, y las confirmaciones de F0.3 en código para que una orden mal entendida por voz no borre nada. Nuestra disponibilidad pasa a ser dependencia de la voz y el celular; el chat en la PC no depende del relay.
 - **Confusión de tema** en la conversación permanente: mitigada por foco explícito + nombrar el tema + `ask_user` ante ambigüedad. Si en la práctica no alcanza, el fallback es volver a una conversación por misión con la de guardia solo para eventos.
