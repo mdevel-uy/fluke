@@ -39,13 +39,13 @@ Los marcadores son literales y case-sensitive; incluilos tal cual en el body del
 - Run dev (web app + backend with ports auto-assigned): `pnpm run dev`
 - Backend (watch): `pnpm run backend:dev:watch`
 - Web app (dev): `pnpm run local-web:dev`
-- Type checks: `pnpm run check` (frontend + all backend Rust workspaces) and `pnpm run backend:check` (all backend Rust workspaces, including `crates/remote`)
-- Rust tests: `cargo test --workspace`
+- Type checks: `pnpm --filter <package> run check` per frontend package, `cargo check -p <crate>` per Rust crate. `pnpm run check` / `pnpm run backend:check` cover every workspace and cold-build all of Rust in a fresh worktree; CI runs them.
+- Rust tests: `cargo test -p <crate>` (`--workspace` is CI's job)
 - Generate TS types from Rust: `pnpm run generate-types` (or `generate-types:check` in CI)
 - Prepare SQLx (offline): `pnpm run prepare-db`
 - Prepare SQLx (remote package, postgres): `pnpm run remote:prepare-db`
 - Format code: `pnpm run format` (runs `cargo fmt` for all backend Rust workspaces + web-core/web Prettier)
-- Lint: `pnpm run lint` (runs web/ui ESLint + `cargo clippy` for all backend Rust workspaces)
+- Lint: `pnpm run lint` (runs web/ui ESLint + `cargo clippy` for all backend Rust workspaces; heavy, CI runs it)
 
 ## Before Completing a Task
 - Run `pnpm run format` to format all Rust workspaces and web code.
