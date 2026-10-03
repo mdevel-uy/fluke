@@ -471,6 +471,9 @@ without that confirmation. For other blocks, explain them and point the user to 
 button of the issue.
 - [APP CONTEXT] below tells you the screen, repo and selection the user is looking at right now. \
 Use it to resolve references like \"this screen\", \"this task\" or \"this bug\".
+- [STATUS] below is the state of the app when this turn started: answer \"how are we doing\" \
+or \"what's running\" from it without calling tools. Call status_snapshot only if you need it \
+fresher within the same turn.
 - Reply in the user's language. Be brief: short sentences that also work read aloud.";
 
 /// Se arma en cada turno (cada mensaje relanza el CLI), así lleva el soul y
@@ -483,10 +486,186 @@ pub async fn system_prompt(pool: &Pool, mission: &Mission) -> Result<String, sql
         .map(str::trim)
         .filter(|c| !c.is_empty())
         .unwrap_or("unknown");
+    let status = status_snapshot(pool).await?;
     Ok(format!(
-        "{SYSTEM_PROMPT}\n\n[DIRECTOR SOUL]\n{}\n\n[APP CONTEXT]\n{ctx}",
+        "{SYSTEM_PROMPT}\n\n[DIRECTOR SOUL]\n{}\n\n[APP CONTEXT]\n{ctx}\n\n[STATUS]\n{status}",
         worker.soul
     ))
+}
+
+// ---------------------------------------------------------------------------
+// Estado de la app (J0.4): lo que Fluke sabe sin preguntar
+// ---------------------------------------------------------------------------
+
+const SNAPSHOT_LIST_MAX: i64 = 6;
+
+/// Resumen del estado actual, armado por el código en cada turno: qué corre,
+/// qué está trancado, qué espera al usuario y cómo están los PRs. Así "¿cómo
+/// vamos?" no necesita herramientas. Sale de las tablas (estado), no del bus
+/// de eventos (deltas).
+pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
+    use sqlx::Row;
+
+    let counts = sqlx::query(
+        "SELECT status, COUNT(*) AS n FROM worker_tasks \
+          WHERE status IN ('queued', 'in_progress', 'waiting_user', 'in_review', 'approved') \
+          GROUP BY status",
+    )
+    .fetch_all(pool)
+    .await?;
+    let count = |s: &str| -> i64 {
+        counts
+            .iter()
+            .find(|r| r.get::<String, _>("status") == s)
+            .map(|r| r.get::<i64, _>("n"))
+            .unwrap_or(0)
+    };
+    let failed_24h: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM worker_tasks WHERE status = 'failed' \
+           AND completed_at > datetime('now', '-1 day')",
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let mut out = format!(
+        "Tasks: {} running, {} queued, {} in review, {} approved, {} waiting for the user, {} failed in the last 24 h.",
+        count("in_progress"),
+        count("queued"),
+        count("in_review"),
+        count("approved"),
+        count("waiting_user"),
+        failed_24h,
+    );
+
+    let task_line = |r: &sqlx::sqlite::SqliteRow, extra: &str| {
+        let issue = r
+            .get::<Option<i64>, _>("issue_number")
+            .map(|n| format!("#{n} "))
+            .unwrap_or_default();
+        let title = r.get::<String, _>("title");
+        format!(
+            "\n- {}{} ({}){extra}",
+            issue,
+            title.trim_start_matches(issue.as_str()).trim(),
+            r.get::<Option<String>, _>("role").unwrap_or_default(),
+        )
+    };
+
+    let running = sqlx::query(
+        "SELECT t.issue_number, t.title, w.role FROM worker_tasks t \
+           LEFT JOIN workers w ON w.id = t.worker_id \
+          WHERE t.status = 'in_progress' ORDER BY t.created_at LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?;
+    if !running.is_empty() {
+        out.push_str("\nRunning:");
+        for r in &running {
+            out.push_str(&task_line(r, ""));
+        }
+    }
+
+    let mut waiting = Vec::new();
+    for r in sqlx::query(
+        "SELECT t.issue_number, t.title, w.role, t.pending_question FROM worker_tasks t \
+           LEFT JOIN workers w ON w.id = t.worker_id \
+          WHERE t.status = 'waiting_user' ORDER BY t.created_at LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?
+    {
+        let question = r
+            .get::<Option<String>, _>("pending_question")
+            .map(|q| format!(": asks {}", truncate(q, 200)))
+            .unwrap_or_default();
+        waiting.push(task_line(&r, &question));
+    }
+    for r in sqlx::query(
+        "SELECT title, status FROM missions \
+          WHERE status = 'brief_ready' OR (status <> 'closed' AND pending_questions <> '[]') \
+          ORDER BY updated_at DESC LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?
+    {
+        let what = if r.get::<String, _>("status") == mission::STATUS_BRIEF_READY {
+            "brief ready to approve"
+        } else {
+            "has open questions for the user"
+        };
+        waiting.push(format!(
+            "\n- mission \"{}\": {what}",
+            r.get::<String, _>("title")
+        ));
+    }
+    for r in sqlx::query(
+        "SELECT milestone, status, waiting_reason FROM milestone_runs \
+          WHERE status NOT IN ('running', 'done') ORDER BY updated_at DESC LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?
+    {
+        waiting.push(format!(
+            "\n- milestone run \"{}\" {}{}",
+            r.get::<String, _>("milestone"),
+            r.get::<String, _>("status"),
+            r.get::<Option<String>, _>("waiting_reason")
+                .map(|w| format!(": {w}"))
+                .unwrap_or_default(),
+        ));
+    }
+    if !waiting.is_empty() {
+        out.push_str("\nWaiting for the user:");
+        out.extend(waiting);
+    }
+
+    let failed = sqlx::query(
+        "SELECT t.issue_number, t.title, w.role, t.failure_kind FROM worker_tasks t \
+           LEFT JOIN workers w ON w.id = t.worker_id \
+          WHERE t.status = 'failed' AND t.completed_at > datetime('now', '-1 day') \
+          ORDER BY t.completed_at DESC LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?;
+    if !failed.is_empty() {
+        out.push_str("\nFailed (24 h):");
+        for r in &failed {
+            let kind = r
+                .get::<Option<String>, _>("failure_kind")
+                .map(|k| format!(": {k}"))
+                .unwrap_or_default();
+            out.push_str(&task_line(r, &kind));
+        }
+    }
+
+    let prs = sqlx::query(
+        "SELECT pr_number, pr_ci_status, pr_mergeable FROM pull_requests \
+          WHERE pr_status = 'open' ORDER BY pr_number DESC LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX * 2)
+    .fetch_all(pool)
+    .await?;
+    if prs.is_empty() {
+        out.push_str("\nOpen PRs: none.");
+    } else {
+        out.push_str("\nOpen PRs:");
+        for r in &prs {
+            out.push_str(&format!(
+                " #{} (CI {}, mergeable {});",
+                r.get::<i64, _>("pr_number"),
+                r.get::<Option<String>, _>("pr_ci_status")
+                    .unwrap_or_else(|| "none".into()),
+                r.get::<Option<String>, _>("pr_mergeable")
+                    .unwrap_or_else(|| "unknown".into()),
+            ));
+        }
+    }
+    Ok(out)
 }
 
 // ---------------------------------------------------------------------------
@@ -561,6 +740,11 @@ pub fn tool_definitions() -> Value {
                 },
                 "required": ["issue_number", "answer"]
             }
+        },
+        {
+            "name": "status_snapshot",
+            "description": "Fresh summary of the app right now: running, queued and failed tasks, what waits for the user (worker questions, briefs to approve, paused milestone runs), open PRs and their CI. The same summary comes in [STATUS] at the start of each turn; call this only to refresh it mid-turn.",
+            "inputSchema": { "type": "object", "properties": {} }
         },
         {
             "name": "app_api_reference",
@@ -854,6 +1038,7 @@ pub async fn call_tool(
                 .map_err(db_err)?;
             Ok("Questions shown to the user. End your turn now and wait for the answer.".into())
         }
+        "status_snapshot" => status_snapshot(pool).await.map_err(db_err),
         "app_api_reference" => Ok(api_reference(
             args.get("query").and_then(Value::as_str).unwrap_or(""),
         )),
@@ -865,6 +1050,59 @@ pub async fn call_tool(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn status_snapshot_reports_running_waiting_and_prs() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let dev = Uuid::new_v4();
+        sqlx::query("INSERT INTO workers (id, name, emoji, soul, role) VALUES (?, 'Dev', '', '', 'developer')")
+            .bind(dev)
+            .execute(&pool)
+            .await
+            .unwrap();
+        for (n, status, question) in [
+            (664, "in_progress", None),
+            (663, "waiting_user", Some("¿Qué hacemos con los issues sin milestone?")),
+        ] {
+            sqlx::query(
+                "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, issue_number, status, pending_question) \
+                 VALUES (?, ?, ?, 1, ?, 'p', ?, ?, ?)",
+            )
+            .bind(Uuid::new_v4())
+            .bind(dev)
+            .bind(Uuid::new_v4())
+            .bind(format!("#{n} Vista Plan"))
+            .bind(n)
+            .bind(status)
+            .bind(question)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        sqlx::query(
+            "INSERT INTO pull_requests (id, repo_id, pr_url, pr_number, pr_status, target_branch_name, pr_ci_status) \
+             VALUES ('pr1', ?, 'u', 675, 'open', 'main', 'passing')",
+        )
+        .bind(Uuid::new_v4())
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let s = status_snapshot(&pool).await.unwrap();
+        assert!(s.starts_with("Tasks: 1 running, 0 queued"), "{s}");
+        assert!(s.contains("Running:\n- #664 Vista Plan (developer)"), "{s}");
+        assert!(s.contains("- #663 Vista Plan (developer): asks"), "{s}");
+        assert!(s.contains("#675 (CI passing"), "{s}");
+    }
 
     #[test]
     fn api_reference_finds_endpoints_and_types() {
