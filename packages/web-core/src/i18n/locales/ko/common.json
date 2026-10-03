@@ -887,6 +887,7 @@
     "drawer": {
       "title": "이슈 상세",
       "close": "닫기",
+      "back": "뒤로",
       "openOnGitHub": "GitHub에서 열기",
       "stateOpen": "열림",
       "stateClosed": "닫힘",

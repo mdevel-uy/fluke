@@ -887,6 +887,7 @@
     "drawer": {
       "title": "Issue 詳細",
       "close": "閉じる",
+      "back": "戻る",
       "openOnGitHub": "GitHub で開く",
       "stateOpen": "オープン",
       "stateClosed": "クローズ",

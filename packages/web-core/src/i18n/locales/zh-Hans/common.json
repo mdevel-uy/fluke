@@ -887,6 +887,7 @@
     "drawer": {
       "title": "Issue 详情",
       "close": "关闭",
+      "back": "返回",
       "openOnGitHub": "在 GitHub 上打开",
       "stateOpen": "打开",
       "stateClosed": "已关闭",

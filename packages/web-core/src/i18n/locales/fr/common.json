@@ -889,6 +889,7 @@
     "drawer": {
       "title": "Détail de l'issue",
       "close": "Fermer",
+      "back": "Retour",
       "openOnGitHub": "Ouvrir sur GitHub",
       "stateOpen": "ouvert",
       "stateClosed": "fermé",

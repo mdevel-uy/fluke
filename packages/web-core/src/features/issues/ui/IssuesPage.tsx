@@ -561,6 +561,20 @@ export function IssuesPage() {
     updateUrl({ issue: undefined });
   }, [updateUrl]);
 
+  // Back: same as closing (the URL keeps groupBy and filters), plus scrolling
+  // the group the issue came from into view. If the issue is no longer listed
+  // (archived, filtered out, direct link) there is no group and we only close.
+  const handleBackFromDrawer = useCallback(() => {
+    const originKey =
+      selectedIssue &&
+      groups.find((g) => g.issues.some((i) => i.id === selectedIssue.id))?.key;
+    handleCloseDrawer();
+    if (originKey == null) return;
+    document
+      .querySelector(`[data-group-key="${CSS.escape(originKey)}"]`)
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [selectedIssue, groups, handleCloseDrawer]);
+
   const handleAddLabel = useCallback(
     async (issueNumber: number, label: string, color?: string) => {
       await addLabelMutation.mutateAsync({ issueNumber, label, color });
@@ -699,6 +713,7 @@ export function IssuesPage() {
               group.issues.length > 0 ? (
                 <IssuesGroup
                   key={group.key}
+                  groupKey={group.key}
                   title={group.title}
                   count={group.issues.length}
                   issues={group.issues}
@@ -733,6 +748,7 @@ export function IssuesPage() {
         availableLabels={availableLabels}
         linkedTask={selectedIssueLinkedTask}
         onClose={handleCloseDrawer}
+        onBack={handleBackFromDrawer}
         onAddLabel={handleAddLabel}
         onRemoveLabel={handleRemoveLabel}
         onArchiveIssue={handleCloseIssue}
