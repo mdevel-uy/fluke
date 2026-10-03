@@ -9,7 +9,7 @@ import {
   Kanban,
   LayoutGrid,
   ListChecks,
-  Sparkles,
+  Brain,
   Search,
   Settings as SettingsIcon,
   Users,
@@ -217,7 +217,7 @@ export function AppBar({
         key: 'local-fluke',
         kind: 'icon-button',
         label: t('director.name'),
-        lucideIcon: Sparkles,
+        lucideIcon: Brain,
         isActive: isFlukeActive,
         onClick: onFlukeClick,
       });

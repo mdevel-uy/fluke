@@ -6,6 +6,7 @@ import type { MissionSummary } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { isMac } from '@/shared/lib/platform';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
+import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
@@ -23,6 +24,7 @@ import { MissionStepper, ProposalPanel } from './MissionProgress';
 import {
   DirectorBody,
   DirectorHeader,
+  FlukeMissionsSidebar,
   MissionConversation,
   MissionTabs,
   missionLabel,
@@ -116,13 +118,26 @@ export function DirectorRoot() {
 export function FlukePage() {
   const { t } = useTranslation('common');
   const activeTab = useDirectorStore((s) => s.activeTab);
-  const missionId = activeTab === MISSIONS_TAB ? null : activeTab;
+  const { data: missions = [] } = useMissionList();
+  // No tab here: with the list in the aside, show the latest mission.
+  const missionId =
+    activeTab !== MISSIONS_TAB ? activeTab : (missions[0]?.mission.id ?? null);
   const context = useDirectorUiContext();
   const { data: detail } = useMission(missionId);
+
+  // Picking or creating a mission opens the floating panel (openMission);
+  // here that must not leak: leaving the page restores the previous view.
+  useEffect(() => {
+    const { view, setView } = useDirectorStore.getState();
+    return () => setView(view);
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary">
+      <ShellSidebarPortal>
+        <FlukeMissionsSidebar selectedId={missionId} />
+      </ShellSidebarPortal>
       <DirectorHeader context={context} page />
-      <MissionTabs />
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-hidden border-r border-md-outline-variant">
           {missionId ? (

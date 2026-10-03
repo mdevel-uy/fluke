@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PanelLeft, PanelBottom, PanelRight, Sparkles } from 'lucide-react';
+import { PanelLeft, PanelBottom, PanelRight, Brain } from 'lucide-react';
 import { useDirectorStore } from '@/features/director';
 import { useWorkspaceContext } from '@/shared/hooks/useWorkspaceContext';
 import { useActions } from '@/shared/hooks/useActions';
@@ -173,7 +173,7 @@ export function NavbarContainer({
       {
         type: 'action',
         id: 'toggle-director',
-        lucideIcon: Sparkles,
+        lucideIcon: Brain,
         isActive: isDirectorOpen,
         tooltip: t('navbar.layout.toggleDirector', {
           defaultValue: 'Fluke',
