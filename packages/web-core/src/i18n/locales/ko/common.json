@@ -1174,7 +1174,9 @@
           "design": "디자인",
           "dev": "개발",
           "review": "리뷰",
-          "merge": "병합"
+          "merge": "병합",
+          "tdd": "테스트 먼저",
+          "test": "테스트"
         },
         "profile": "프로필",
         "instance": "인스턴스",
@@ -1195,7 +1197,8 @@
           "no_tdd": "TDD 없음",
           "design": "디자인 포함",
           "bug": "버그",
-          "decision": "결정 포함"
+          "decision": "결정 포함",
+          "none": "현재 흐름 (플랜 없음)"
         },
         "phases": {
           "tdd": "테스트 먼저",
@@ -1355,7 +1358,9 @@
       "reviewerDescription": "코드를 검토하고 피드백을 제공합니다",
       "designerDescription": "Claude 아티팩트로 디자인 제안을 생성합니다",
       "orchestrator": "Orchestrator",
-      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "코드보다 먼저 테스트를 작성하고 리뷰 전에 PR을 검증합니다"
     },
     "toast": {
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",

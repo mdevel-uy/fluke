@@ -40,6 +40,7 @@ const ROLE_COLOR: Record<string, string> = {
   analyst: 'bg-warning text-warning-foreground',
   reviewer: 'bg-violet-500 text-white',
   designer: 'bg-pink-400 text-white',
+  qa: 'bg-success text-success-foreground',
 };
 
 function initials(name: string) {

@@ -26,6 +26,7 @@ pub mod notification;
 pub mod oauth_credentials;
 pub mod plan;
 pub mod pr_monitor;
+pub mod qa_phases;
 pub mod quick_action_prompts;
 pub mod review_verdict;
 pub mod stuck_task_detector;

@@ -63,6 +63,7 @@ export const WORKER_ROLES = [
   'analyst',
   'reviewer',
   'designer',
+  'qa',
 ] as const;
 export type WorkerRole = (typeof WORKER_ROLES)[number];
 

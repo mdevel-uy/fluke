@@ -1193,7 +1193,9 @@
           "design": "Diseño",
           "dev": "Desarrollo",
           "review": "Review",
-          "merge": "Merge"
+          "merge": "Merge",
+          "tdd": "Tests primero",
+          "test": "Testing"
         },
         "profile": "Perfil",
         "instance": "Instancia",
@@ -1214,7 +1216,8 @@
           "no_tdd": "Sin TDD",
           "design": "Con diseño",
           "bug": "Bug",
-          "decision": "Con decisión"
+          "decision": "Con decisión",
+          "none": "Flujo actual (sin plan)"
         },
         "phases": {
           "tdd": "Tests primero",
@@ -1374,7 +1377,9 @@
       "reviewerDescription": "Revisa código y brinda retroalimentación",
       "designerDescription": "Produce propuestas de diseño como artefactos de Claude",
       "orchestrator": "Orquestador",
-      "orchestratorDescription": "Fluke, el director: conversa con usted y arma los briefs para el Analista. No toma tareas de la cola."
+      "orchestratorDescription": "Fluke, el director: conversa con usted y arma los briefs para el Analista. No toma tareas de la cola.",
+      "qa": "QA",
+      "qaDescription": "Escribe los tests antes del código y valida los PRs antes del review"
     },
     "toast": {
       "startSuccess": "{{worker}} arrancó con \"{{title}}\".",
