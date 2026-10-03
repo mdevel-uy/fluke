@@ -31,7 +31,7 @@ const EXIT_AFTER_RESULT_GRACE: std::time::Duration = std::time::Duration::from_s
 /// container should record if the CLI has to be reaped. `is_error: true`
 /// (or an unreadable flag) marks the run failed; absent defaults to success
 /// because every healthy result carries `is_error: false`.
-fn exit_result_from_payload(payload: &serde_json::Value) -> ExecutorExitResult {
+pub(crate) fn exit_result_from_payload(payload: &serde_json::Value) -> ExecutorExitResult {
     match payload.get("is_error").and_then(|v| v.as_bool()) {
         Some(true) => ExecutorExitResult::Failure,
         _ => ExecutorExitResult::Success,
@@ -40,7 +40,7 @@ fn exit_result_from_payload(payload: &serde_json::Value) -> ExecutorExitResult {
 
 /// `Some(alive)` for a `background_tasks_changed` system message (the CLI
 /// sends the full live set on every change), `None` for anything else.
-fn background_tasks_alive(message: &serde_json::Value) -> Option<bool> {
+pub(crate) fn background_tasks_alive(message: &serde_json::Value) -> Option<bool> {
     if message.get("subtype")?.as_str()? != "background_tasks_changed" {
         return None;
     }
@@ -59,6 +59,14 @@ pub struct ProtocolPeer {
 }
 
 impl ProtocolPeer {
+    /// Only the writing side: the caller runs its own read loop (the
+    /// persistent CLI of `persistent.rs`, which outlives a single turn).
+    pub(crate) fn writer(stdin: ChildStdin) -> Self {
+        Self {
+            stdin: Arc::new(Mutex::new(stdin)),
+        }
+    }
+
     pub fn spawn(
         stdin: ChildStdin,
         stdout: ChildStdout,
@@ -178,7 +186,7 @@ impl ProtocolPeer {
         Ok(())
     }
 
-    async fn handle_control_request(
+    pub(crate) async fn handle_control_request(
         &self,
         client: &Arc<ClaudeAgentClient>,
         request_id: String,

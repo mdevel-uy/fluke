@@ -2007,6 +2007,11 @@ impl ContainerService for LocalContainerService {
                         services::services::director::system_prompt(&self.db.pool, &mission)
                             .await?,
                     );
+                    env.insert(
+                        utils::plan_mcp::DIRECTOR_CONTEXT_ENV,
+                        services::services::director::turn_context(&self.db.pool, &mission)
+                            .await?,
+                    );
                 }
             } else if let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
             {
