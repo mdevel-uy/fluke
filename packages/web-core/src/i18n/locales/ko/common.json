@@ -947,7 +947,9 @@
         "doneTitle": "마일스톤 완료",
         "doneDetail": "모든 PR 병합됨",
         "stuckTitle": "#{{n}}에 도움이 필요합니다",
-        "stuckDetail": "wave의 나머지는 계속 실행됩니다"
+        "stuckDetail": "wave의 나머지는 계속 실행됩니다",
+        "mergeTitle_other": "PR {{count}}개 병합 가능",
+        "mergeDetail": "GitHub에서 #{{n}} 검토 후 병합"
       },
       "card": {
         "ready": "● 준비됨",
@@ -966,7 +968,9 @@
         "waitingYou": "{{name}} · 답변 대기 중",
         "ago": "{{age}} 전",
         "unstick": "해결하기",
-        "stuck": "⚠ 멈춤"
+        "stuck": "⚠ 멈춤",
+        "approved": "✓ 승인됨",
+        "prApproved": "{{name}} · 승인됨, 병합 가능"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
       "legend": {
@@ -975,7 +979,8 @@
         "review": "리뷰 중",
         "gate": "PM 결정",
         "queued": "대기열 (빈 슬롯 없음)",
-        "blocked": "이전 웨이브 대기"
+        "blocked": "이전 웨이브 대기",
+        "approved": "승인됨, 병합 가능"
       },
       "empty": "마일스톤과 웨이브가 있는 열린 이슈가 없습니다.",
       "expand": "마일스톤 펼치기",
@@ -989,7 +994,8 @@
         "working": "작업 중",
         "decide": "#{{n}} 결정",
         "stuck_other": "{{count}}개가 도움 필요",
-        "unstick": "#{{n}} 해결하기"
+        "unstick": "#{{n}} 해결하기",
+        "approved": "{{count}}개 병합 가능"
       },
       "decision": {
         "eyebrow": "결정 대기",

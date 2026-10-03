@@ -23,6 +23,7 @@ const CARD_STATE_CLASS: Record<PlanCardState | 'manual', string> = {
   queued: 'border-dashed border-md-on-surface-variant',
   running: 'border-md-primary shadow-[0_0_0_1px_hsl(var(--md-primary)/0.3)]',
   review: 'border-violet-600 dark:border-violet-400',
+  approved: 'border-success shadow-[0_0_0_2px_hsl(var(--_success)/0.35)]',
   stuck:
     'border-md-error shadow-[0_0_0_1px_hsl(var(--md-error)/0.35),0_6px_20px_-10px_hsl(var(--md-error))]',
   done: 'opacity-65',
@@ -34,6 +35,7 @@ const STATE_TEXT_CLASS: Partial<Record<PlanCardState, string>> = {
   gate: 'text-warning',
   running: 'text-md-primary',
   review: 'text-violet-600 dark:text-violet-400',
+  approved: 'text-success',
   stuck: 'text-md-error',
   done: 'text-success',
 };
@@ -160,14 +162,16 @@ export function PlanCard({
           ))}
         </div>
       )}
-      {busy && workerName && (
+      {(busy || state === 'approved') && workerName && (
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-normal">
           <span className="grid size-4 place-items-center rounded-full bg-md-primary font-sans text-[9px] font-semibold text-md-on-primary">
             {workerName[0]?.toUpperCase()}
           </span>
-          {state === 'review'
-            ? t('issues.plan.card.prReview', { name: workerName })
-            : t('issues.plan.card.workerBranch', { name: workerName })}
+          {state === 'approved'
+            ? t('issues.plan.card.prApproved', { name: workerName })
+            : state === 'review'
+              ? t('issues.plan.card.prReview', { name: workerName })
+              : t('issues.plan.card.workerBranch', { name: workerName })}
         </div>
       )}
       {state === 'stuck' && workerName && (

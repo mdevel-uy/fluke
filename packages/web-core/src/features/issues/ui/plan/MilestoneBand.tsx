@@ -58,7 +58,10 @@ type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
 const EDGE_TONE = (state: PlanCardState): Edge['tone'] =>
   state === 'done'
     ? 'done'
-    : state === 'running' || state === 'review' || state === 'queued'
+    : state === 'running' ||
+        state === 'review' ||
+        state === 'approved' ||
+        state === 'queued'
       ? 'active'
       : 'blocked';
 
@@ -165,6 +168,19 @@ export function MilestoneBand({
   const runActive = run?.status === 'running' || run?.status === 'waiting';
   const running = run?.status === 'running' || band.status.kind === 'running';
   const waiting = run?.status === 'waiting';
+  // Play circle tone: red on error, amber when a person must act (decision,
+  // merge), green while agents work.
+  const failed = waiting && run?.waiting_reason?.startsWith('failed');
+  const tone =
+    hasStuck || failed
+      ? 'border-md-error bg-md-error/20 text-md-error'
+      : waiting ||
+          band.status.kind === 'merge' ||
+          band.status.kind === 'decision'
+        ? 'border-warning bg-warning/20 text-warning'
+        : running
+          ? 'border-success bg-success/20 text-success'
+          : null;
   const decide = onDecide
     ? (issue: RepoIssue) => onDecide(issue, decisionContext(band, issue))
     : undefined;
@@ -216,9 +232,12 @@ export function MilestoneBand({
           onClick={runActive ? onPause : onPlay}
           aria-label={t(runActive ? 'issues.plan.pause' : 'issues.plan.play')}
           className={cn(
-            'grid size-[34px] flex-none place-items-center rounded-full border border-md-primary text-md-primary hover:bg-md-primary/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
-            runActive && 'bg-md-primary text-md-on-primary hover:bg-md-primary',
-            run?.status === 'done' && 'border-success text-success'
+            // No twMerge in cn(): base color classes must not overlap the
+            // tone ones, or CSS order decides (the pause icon went invisible).
+            'grid size-[34px] flex-none place-items-center rounded-full border hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
+            run?.status === 'done'
+              ? 'border-success text-success'
+              : (tone ?? 'border-md-primary text-md-primary')
           )}
         >
           <PlayIcon
@@ -463,6 +482,13 @@ export function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
     );
   }
   const s = band.status;
+  if (s.kind === 'merge') {
+    return line(
+      t('issues.plan.status.mergeTitle', { count: s.count }),
+      t('issues.plan.status.mergeDetail', { n: s.issueNumber }),
+      'text-warning'
+    );
+  }
   if (run?.status === 'running' || s.kind === 'running') {
     return line(
       t('issues.plan.status.runningTitle', { n: wave }),

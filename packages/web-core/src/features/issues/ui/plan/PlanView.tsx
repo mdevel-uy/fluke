@@ -102,13 +102,14 @@ const TASK_TO_CARD: Record<string, PlanCardState> = {
   in_progress: 'running',
   waiting_user: 'running',
   in_review: 'review',
-  approved: 'review',
+  approved: 'approved',
 };
 
 const LEGEND: { key: string; className: string }[] = [
   { key: 'ready', className: 'border-success' },
   { key: 'running', className: 'border-md-primary' },
   { key: 'review', className: 'border-violet-600 dark:border-violet-400' },
+  { key: 'approved', className: 'border-2 border-success' },
   { key: 'gate', className: 'border-dashed border-warning' },
   { key: 'queued', className: 'border-dashed border-md-on-surface-variant' },
   { key: 'blocked', className: 'border-md-outline' },
@@ -150,7 +151,10 @@ export function PlanView({
     const isActive = (b: (typeof full.bands)[number]) => {
       const run = runs.find((r) => r.milestone === b.milestone)?.status;
       return (
-        b.status.kind === 'running' || run === 'running' || run === 'waiting'
+        b.status.kind === 'running' ||
+        b.status.kind === 'merge' ||
+        run === 'running' ||
+        run === 'waiting'
       );
     };
     const bands = full.bands.filter((b) =>
