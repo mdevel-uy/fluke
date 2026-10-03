@@ -2021,6 +2021,14 @@
     "chat": {
       "reasoning": "Reasoning",
       "briefUpdated": "Brief updated"
+    },
+    "archive": {
+      "action": "Archive",
+      "title": "Archive mission",
+      "message": "\"{{title}}\" leaves the list. Its brief, issues and conversation are kept.",
+      "cancel": "Cancel",
+      "show": "Archived ({{count}})",
+      "hide": "Hide archived"
     }
   },
   "profiles": {

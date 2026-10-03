@@ -127,7 +127,10 @@ export function FlukePage() {
   const { data: missions = [] } = useMissionList();
   // No tab here: with the list in the aside, show the latest mission.
   const missionId =
-    activeTab !== MISSIONS_TAB ? activeTab : (missions[0]?.mission.id ?? null);
+    activeTab !== MISSIONS_TAB
+      ? activeTab
+      : (missions.find((m) => m.mission.status !== 'closed')?.mission.id ??
+        null);
   const context = useDirectorUiContext();
   const { data: detail } = useMission(missionId);
   const { defaultLayout, onLayoutChange } = useDefaultLayout({
