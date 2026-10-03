@@ -21,6 +21,11 @@ pub const DIRECTOR_MCP_URL_ENV: &str = "FLUKE_DIRECTOR_MCP_URL";
 /// Env var con el system prompt del Director (instrucciones + soul).
 pub const DIRECTOR_PROMPT_ENV: &str = "FLUKE_DIRECTOR_PROMPT";
 
+/// Env var con el contexto del turno del Director (pantalla y estado de la
+/// app): va al principio del mensaje, no en el system prompt, porque el CLI
+/// de Fluke sigue vivo entre turnos y su system prompt queda fijo.
+pub const DIRECTOR_CONTEXT_ENV: &str = "FLUKE_DIRECTOR_CONTEXT";
+
 static SERVER_ADDR: OnceLock<SocketAddr> = OnceLock::new();
 
 pub fn set_server_addr(addr: SocketAddr) {

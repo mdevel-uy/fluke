@@ -489,17 +489,36 @@ what the user says into a concrete answer (one of the agent's option keys, or a 
 confirm it with the user through ask_user before calling answer_agent. Never answer the agent \
 without that confirmation. For other blocks, explain them and point the user to the Destrabar \
 button of the issue.
-- [APP CONTEXT] below tells you the screen, repo and selection the user is looking at right now. \
-Use it to resolve references like \"this screen\", \"this task\" or \"this bug\".
-- [STATUS] below is the state of the app when this turn started: answer \"how are we doing\" \
-or \"what's running\" from it without calling tools. Call status_snapshot only if you need it \
-fresher within the same turn.
+- Every message starts with a <fluke-context> block written by the app, not by the user. Its \
+[APP CONTEXT] tells you the screen, repo and selection the user is looking at right now: use it \
+to resolve references like \"this screen\", \"this task\" or \"this bug\". Its [STATUS] is the \
+state of the app at that moment: answer \"how are we doing\" or \"what's running\" from it \
+without calling tools. Call status_snapshot only if you need it fresher within the same turn. \
+Never mention the block itself.
 - Reply in the user's language. Be brief: short sentences that also work read aloud.";
 
-/// Se arma en cada turno (cada mensaje relanza el CLI), así lleva el soul y
-/// el contexto de la app vigentes.
+/// Apertura y cierre del bloque de contexto de cada turno. La UI lo oculta.
+pub const CONTEXT_OPEN: &str = "<fluke-context>";
+pub const CONTEXT_CLOSE: &str = "</fluke-context>";
+
+/// Lo estable de Fluke: instrucciones, guardia y soul. Va al system prompt
+/// del CLI, que con el proceso persistente (J0.1) dura muchos turnos.
 pub async fn system_prompt(pool: &Pool, mission: &Mission) -> Result<String, sqlx::Error> {
     let worker = ensure_orchestrator(pool).await?;
+    let guard = if FlukeGuard::is_guard(pool, mission.id).await? {
+        GUARD_PROMPT
+    } else {
+        ""
+    };
+    Ok(format!(
+        "{SYSTEM_PROMPT}{guard}\n\n[DIRECTOR SOUL]\n{}",
+        worker.soul
+    ))
+}
+
+/// Lo que cambia en cada turno (pantalla y estado de la app): va al
+/// principio del mensaje, dentro de `<fluke-context>`.
+pub async fn turn_context(pool: &Pool, mission: &Mission) -> Result<String, sqlx::Error> {
     let ctx = mission
         .ui_context
         .as_deref()
@@ -507,14 +526,8 @@ pub async fn system_prompt(pool: &Pool, mission: &Mission) -> Result<String, sql
         .filter(|c| !c.is_empty())
         .unwrap_or("unknown");
     let status = status_snapshot(pool).await?;
-    let guard = if FlukeGuard::is_guard(pool, mission.id).await? {
-        GUARD_PROMPT
-    } else {
-        ""
-    };
     Ok(format!(
-        "{SYSTEM_PROMPT}{guard}\n\n[DIRECTOR SOUL]\n{}\n\n[APP CONTEXT]\n{ctx}\n\n[STATUS]\n{status}",
-        worker.soul
+        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
 }
 
@@ -530,7 +543,7 @@ pub const SILENT_REPLY: &str = "SILENT";
 const GUARD_PROMPT: &str = "
 
 This is your standing conversation, the first tab, always open. Besides the user, the app writes \
-here: a message that starts with [EVENTS] lists what just happened (tasks, reviews, PRs and CI, \
+here: a message whose text (after the context block) starts with [EVENTS] lists what just happened (tasks, reviews, PRs and CI, \
 missions, milestone runs). It is not the user talking. For an [EVENTS] message:
 - If something deserves the user's attention (a failure, a question from a worker, a PR ready to \
 merge, red CI, a run that stopped), tell them in one or two short sentences: what happened and \

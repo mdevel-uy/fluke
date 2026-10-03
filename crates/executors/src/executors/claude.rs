@@ -1,5 +1,6 @@
 // SDK submodules
 pub mod client;
+pub mod persistent;
 pub mod models;
 pub mod protocol;
 pub mod slash_commands;
@@ -494,6 +495,21 @@ impl StandardCodingAgentExecutor for ClaudeCode {
         }
 
         let command_parts = command_builder.build_follow_up(&args)?;
+
+        // Fluke keeps its CLI alive between turns (J0.1). A reset rewrites
+        // the history, so the live CLI no longer matches: drop it.
+        if env
+            .get(workspace_utils::plan_mcp::DIRECTOR_MCP_URL_ENV)
+            .is_some()
+        {
+            if reset_to_message_id.is_some() {
+                persistent::evict(session_id).await;
+            } else {
+                return self
+                    .spawn_persistent(current_dir, prompt, session_id, command_parts, env)
+                    .await;
+            }
+        }
         self.spawn_internal(current_dir, prompt, command_parts, env)
             .await
     }
@@ -773,16 +789,14 @@ impl StandardCodingAgentExecutor for ClaudeCode {
 }
 
 impl ClaudeCode {
-    async fn spawn_internal(
+    /// The CLI process, configured but not spawned.
+    async fn command(
         &self,
         current_dir: &Path,
-        prompt: &str,
         command_parts: CommandParts,
         env: &ExecutionEnv,
-    ) -> Result<SpawnedChild, ExecutorError> {
+    ) -> Result<Command, ExecutorError> {
         let (program_path, args) = command_parts.into_resolved().await?;
-        let combined_prompt = self.append_prompt.combine_prompt(prompt);
-
         let mut command = Command::new(program_path);
         command
             .kill_on_drop(true)
@@ -803,6 +817,77 @@ impl ClaudeCode {
             command.env_remove("ANTHROPIC_API_KEY");
             tracing::info!("ANTHROPIC_API_KEY removed from environment");
         }
+        Ok(command)
+    }
+
+    /// The prompt as the CLI receives it: Fluke's per-turn context block
+    /// first (director sessions only), then the user's text.
+    fn turn_prompt(&self, prompt: &str, env: &ExecutionEnv) -> String {
+        let prompt = match env.get(workspace_utils::plan_mcp::DIRECTOR_CONTEXT_ENV) {
+            Some(context) if !context.is_empty() => format!("{context}\n\n{prompt}"),
+            _ => prompt.to_string(),
+        };
+        self.append_prompt.combine_prompt(&prompt)
+    }
+
+    /// A Fluke turn on the session's live CLI (J0.1): the CLI starts once
+    /// and stays alive between turns, so a turn skips its startup. Each turn
+    /// is still its own execution process: the container gets a placeholder
+    /// child whose stdout carries this turn's logs, and the turn ends at the
+    /// CLI's `result`.
+    async fn spawn_persistent(
+        &self,
+        current_dir: &Path,
+        prompt: &str,
+        session_id: &str,
+        command_parts: CommandParts,
+        env: &ExecutionEnv,
+    ) -> Result<SpawnedChild, ExecutorError> {
+        let host = match persistent::claim(session_id) {
+            Some(host) => host,
+            None => {
+                let mut child = self
+                    .command(current_dir, command_parts, env)
+                    .await?
+                    .group_spawn_no_window()?;
+                let host = persistent::Host::start(session_id, &mut child)?;
+                host.attach_child(child).await;
+                let hooks = self.get_hooks(false);
+                if let Err(e) = host.peer().initialize(hooks).await {
+                    persistent::evict(session_id).await;
+                    return Err(e);
+                }
+                if let Err(e) = host.peer().set_permission_mode(self.permission_mode()).await {
+                    tracing::warn!("Failed to set permission mode on Fluke's live CLI: {e}");
+                }
+                host
+            }
+        };
+
+        let (mut spawned, writer) = crate::stdout_dup::spawn_local_output_process()?;
+        let cancel = CancellationToken::new();
+        let (exit_tx, exit_rx) = tokio::sync::oneshot::channel();
+        let client = ClaudeAgentClient::new(
+            LogWriter::new(writer),
+            self.approvals_service.clone(),
+            cancel.clone(),
+        );
+        host.run_turn(client, exit_tx, cancel.clone(), self.turn_prompt(prompt, env))
+            .await;
+        spawned.exit_signal = Some(exit_rx);
+        spawned.cancel = Some(cancel);
+        Ok(spawned)
+    }
+
+    async fn spawn_internal(
+        &self,
+        current_dir: &Path,
+        prompt: &str,
+        command_parts: CommandParts,
+        env: &ExecutionEnv,
+    ) -> Result<SpawnedChild, ExecutorError> {
+        let combined_prompt = self.turn_prompt(prompt, env);
+        let mut command = self.command(current_dir, command_parts, env).await?;
 
         let mut child = command.group_spawn_no_window()?;
         let child_stdout = child.inner().stdout.take().ok_or_else(|| {

@@ -35,6 +35,7 @@ import {
   eventLines,
   isEventsBatch,
   isSilentReply,
+  stripFlukeContext,
 } from '@/features/director/lib/events';
 import { BRIEF_TOOLS } from '../model/deriveConversationTimeline';
 import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
@@ -464,11 +465,15 @@ function DisplayConversationEntry(props: Props) {
     case 'tool_use':
       return renderToolUseEntry(entryType, entry, props, t, assistant);
 
-    case 'user_message':
+    case 'user_message': {
+      // Fluke's messages carry the app's per-turn context first: hide it.
+      const content = assistant
+        ? stripFlukeContext(entry.content)
+        : entry.content;
       // Fluke's standing conversation: a batch of app events is not the
       // user talking, it renders as a compact, collapsed log line.
-      if (assistant && isEventsBatch(entry.content)) {
-        const lines = eventLines(entry.content);
+      if (assistant && isEventsBatch(content)) {
+        const lines = eventLines(content);
         return (
           <details className="text-xs text-low">
             <summary className="cursor-pointer select-none">
@@ -484,7 +489,7 @@ function DisplayConversationEntry(props: Props) {
       }
       return (
         <UserMessageEntry
-          content={entry.content}
+          content={content}
           expansionKey={expansionKey}
           workspaceId={workspaceWithSession?.id}
           sessionId={sessionId}
@@ -494,6 +499,7 @@ function DisplayConversationEntry(props: Props) {
           variant={assistant ? 'bubble' : 'card'}
         />
       );
+    }
 
     case 'assistant_message':
       // Leading/trailing newlines render as blank lines (pre-wrap).

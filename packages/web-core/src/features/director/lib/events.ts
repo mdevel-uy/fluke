@@ -20,3 +20,12 @@ export const eventLines = (content: string) =>
     .split('\n')
     .map((line) => line.replace(/^- /, '').trim())
     .filter(Boolean);
+
+/**
+ * Every message to Fluke starts with a `<fluke-context>` block (screen and
+ * app status for that turn, J0.1): written by the app, never shown.
+ */
+const CONTEXT_BLOCK = /^\s*<fluke-context>[\s\S]*?<\/fluke-context>\s*/;
+
+export const stripFlukeContext = (content: string) =>
+  content.replace(CONTEXT_BLOCK, '');
