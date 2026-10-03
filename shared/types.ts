@@ -359,6 +359,16 @@ export type Mission = { id: string, title: string, status: string, autonomy: str
 
 export type PendingQuestion = { question: string, options: Array<string>, };
 
+export type FlukeEvent = { id: number, created_at: string, 
+/**
+ * `task.failed`, `review.approve`, `pr.ci_failing`, `mission.brief_ready`…
+ */
+kind: string, 
+/**
+ * `progress` | `info` | `ask` | `alert`
+ */
+severity: string, subject_id: string | null, repo_id: string | null, issue_number: number | null, pr_number: number | null, title: string | null, detail: string | null, };
+
 export type MissionItem = { id: string, mission_id: string, position: number, kind: string, title: string, fields: { [key in string]?: string }, worker_id: string | null, model: string | null, route_reason: string | null, };
 
 export type MissionBrief = { mission_id: string, version: number, markdown: string, created_at: string, };
