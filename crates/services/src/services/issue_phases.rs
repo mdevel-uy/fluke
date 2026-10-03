@@ -15,8 +15,13 @@ use sqlx::{FromRow, SqlitePool};
 use ts_rs::TS;
 use uuid::Uuid;
 
-/// Template used until the QA phases exist (#687): Desarrollo → Review → Merge.
+use crate::services::qa_phases::{self, PlanTemplate};
+
+/// Phase templates (#687). `none`: the issue has no `fluke:plan` block and
+/// keeps today's flow (Desarrollo → Review → Merge).
+pub const TEMPLATE_TDD: &str = "tdd";
 pub const TEMPLATE_NO_TDD: &str = "no_tdd";
+pub const TEMPLATE_NONE: &str = "none";
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct IssuePhaseStep {
@@ -29,7 +34,7 @@ pub struct IssuePhaseStep {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct IssuePhase {
-    /// `origin | design | dev | review | merge`.
+    /// `origin | design | tdd | dev | test | review | merge`.
     pub kind: String,
     /// 1-based round for `dev` and `review`; 1 for the rest.
     #[ts(type = "number")]
@@ -73,6 +78,8 @@ pub struct TaskRow {
     pub cost_usd_total: Option<f64>,
     pub worker_name: String,
     pub worker_role: String,
+    /// QA verdict of a testing task (`pass | fail | error`).
+    pub qa_verdict: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -249,16 +256,75 @@ pub fn build_phases(
     phases
 }
 
+/// Insert the QA phases (#687): tests first right before development, and
+/// every testing run before the review that followed it. When the plan asks
+/// for testing and the next review is still pending, a pending testing phase
+/// goes in front of it.
+pub fn add_qa_phases(
+    mut phases: Vec<IssuePhase>,
+    template: Option<PlanTemplate>,
+    tdd: Option<&TaskRow>,
+    tests: &[TaskRow],
+) -> Vec<IssuePhase> {
+    let tdd_phase = match tdd {
+        Some(t) => Some(phase_from_task("tdd", 1, t)),
+        None if template.is_some_and(|t| t.tdd) => Some(pending("tdd", 1)),
+        None => None,
+    };
+    if let Some(p) = tdd_phase {
+        let at = phases.iter().position(|q| q.kind == "dev").unwrap_or(1);
+        phases.insert(at, p);
+    }
+
+    for (i, t) in tests.iter().enumerate() {
+        let mut p = phase_from_task("test", i as i64 + 1, t);
+        if t.status == "done" {
+            p.state = match t.qa_verdict.as_deref() {
+                Some(qa_phases::VERDICT_PASS) => "done",
+                Some(qa_phases::VERDICT_FAIL) => "changes",
+                _ => "stuck",
+            }
+            .to_string();
+        }
+        let at = phases
+            .iter()
+            .position(|q| {
+                q.kind == "review"
+                    && q.started_at
+                        .as_deref()
+                        .is_some_and(|s| s >= t.created_at.as_str())
+            })
+            .or_else(|| {
+                phases
+                    .iter()
+                    .position(|q| q.kind == "review" && q.state == "pending")
+            })
+            .unwrap_or(phases.len() - 1);
+        phases.insert(at, p);
+    }
+
+    if template.is_some_and(|t| t.testing)
+        && let Some(at) = phases
+            .iter()
+            .position(|q| q.kind == "review" && q.state == "pending")
+        && (at == 0 || phases[at - 1].kind != "test")
+    {
+        phases.insert(at, pending("test", tests.len() as i64 + 1));
+    }
+    phases
+}
+
 pub async fn load_issue_plan(
     pool: &SqlitePool,
     repo_id: Uuid,
     issue_number: i64,
     issue_closed: bool,
+    issue_body: Option<&str>,
 ) -> Result<IssuePlanResponse, sqlx::Error> {
     const TASK_COLUMNS: &str =
         "t.id, t.status, t.kind, t.workspace_id, t.created_at, t.completed_at,
             t.result_summary, t.failure_reason, t.cost_usd_total,
-            w.name AS worker_name, w.role AS worker_role";
+            w.name AS worker_name, w.role AS worker_role, t.qa_verdict";
     let tasks: Vec<TaskRow> = sqlx::query_as(&format!(
         "SELECT {TASK_COLUMNS}
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
@@ -322,6 +388,28 @@ pub async fn load_issue_plan(
 
     let mut phases = build_phases(&tasks, &rounds, &reviewers, pr.as_ref(), issue_closed);
 
+    let template = qa_phases::plan_template(issue_body);
+    let tdd = tasks
+        .iter()
+        .rev()
+        .find(|t| t.kind.as_deref() == Some(db::models::worker_task::KIND_QA_TDD));
+    let qa_tests: Vec<TaskRow> = match &pr {
+        Some(p) => {
+            sqlx::query_as(&format!(
+                "SELECT {TASK_COLUMNS}
+                   FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
+                  WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND t.kind = 'qa_test'
+                  ORDER BY t.created_at ASC"
+            ))
+            .bind(repo_id)
+            .bind(p.number)
+            .fetch_all(pool)
+            .await?
+        }
+        None => Vec::new(),
+    };
+    phases = add_qa_phases(phases, template, tdd, &qa_tests);
+
     // The developer's own plan (plan MCP) for each dev phase. A follow-up fix
     // shares the original workspace, so only the latest dev phase of a
     // workspace gets its steps.
@@ -346,7 +434,12 @@ pub async fn load_issue_plan(
     }
 
     Ok(IssuePlanResponse {
-        template: TEMPLATE_NO_TDD.to_string(),
+        template: match template {
+            Some(t) if t.tdd => TEMPLATE_TDD,
+            Some(_) => TEMPLATE_NO_TDD,
+            None => TEMPLATE_NONE,
+        }
+        .to_string(),
         pr_url: pr.as_ref().map(|p| p.url.clone()),
         pr_number: pr.as_ref().map(|p| p.number),
         phases,
@@ -370,6 +463,7 @@ mod tests {
             cost_usd_total: None,
             worker_name: "Fullstack".to_string(),
             worker_role: role.to_string(),
+            qa_verdict: None,
         }
     }
 
@@ -474,6 +568,58 @@ mod tests {
                 s("dev", 1, "done"),
                 s("review", 1, "done"),
                 s("merge", 1, "done")
+            ]
+        );
+    }
+
+    #[test]
+    fn qa_phases_wrap_development() {
+        let mut dev = task(ROLE_DEVELOPER, None, "in_review");
+        dev.created_at = "2026-10-01 10:00:00".into();
+        let mut tdd = task("qa", Some("qa_tdd"), "done");
+        tdd.created_at = "2026-10-01 09:00:00".into();
+        let mut test = task("qa", Some("qa_test"), "done");
+        test.created_at = "2026-10-01 10:30:00".into();
+        test.qa_verdict = Some("pass".into());
+        let rounds = vec![round("review", "pending", None, None)];
+        let base = build_phases(&[tdd.clone(), dev], &rounds, &[], None, false);
+        let template = Some(PlanTemplate {
+            tdd: true,
+            testing: true,
+        });
+        let phases = add_qa_phases(base, template, Some(&tdd), &[test]);
+        assert_eq!(
+            kinds(&phases),
+            vec![
+                s("origin", 1, "done"),
+                s("tdd", 1, "done"),
+                s("dev", 1, "done"),
+                s("test", 1, "done"),
+                s("review", 1, "active"),
+                s("merge", 1, "pending"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_plan_with_testing_shows_it_pending_before_review() {
+        let dev = task(ROLE_DEVELOPER, None, "in_progress");
+        let base = build_phases(&[dev], &[], &[], None, false);
+        let phases = add_qa_phases(
+            base,
+            Some(PlanTemplate {
+                tdd: false,
+                testing: true,
+            }),
+            None,
+            &[],
+        );
+        assert_eq!(
+            kinds(&phases)[2..].to_vec(),
+            vec![
+                s("test", 1, "pending"),
+                s("review", 1, "pending"),
+                s("merge", 1, "pending")
             ]
         );
     }

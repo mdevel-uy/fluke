@@ -27,9 +27,15 @@ async fn get_issue_phases(
     Path((repo_id, issue_number)): Path<(Uuid, i64)>,
 ) -> Result<ResponseJson<ApiResponse<IssuePlanResponse>>, ApiError> {
     let pool = &deployment.db().pool;
-    let issue_closed = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
-        .await?
-        .is_some_and(|i| i.state != "open");
-    let plan = issue_phases::load_issue_plan(pool, repo_id, issue_number, issue_closed).await?;
+    let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number).await?;
+    let issue_closed = issue.as_ref().is_some_and(|i| i.state != "open");
+    let plan = issue_phases::load_issue_plan(
+        pool,
+        repo_id,
+        issue_number,
+        issue_closed,
+        issue.as_ref().and_then(|i| i.body.as_deref()),
+    )
+    .await?;
     Ok(ResponseJson(ApiResponse::success(plan)))
 }

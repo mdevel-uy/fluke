@@ -49,6 +49,10 @@ pub const KIND_REVIEW_FIX: &str = "review_fix";
 /// designer's deliverable into an analyst's input. Carries `source_task_id`
 /// pointing at the designer task.
 pub const KIND_DESIGN_HANDOFF: &str = "design_handoff";
+/// QA phases of an issue (fluke v2, #687): tests first, and testing of the
+/// PR before review.
+pub const KIND_QA_TDD: &str = "qa_tdd";
+pub const KIND_QA_TEST: &str = "qa_test";
 
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
@@ -1501,5 +1505,95 @@ impl WorkerTask {
         Self::find_by_id(pool, id)
             .await?
             .ok_or(sqlx::Error::RowNotFound)
+    }
+}
+
+/// QA phases (fluke v2, #687). Kept apart from the main impl so the many
+/// SELECTs that build WorkerTask stay as they are.
+impl WorkerTask {
+    pub async fn set_kind(pool: &SqlitePool, id: Uuid, kind: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET kind = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(kind)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Branch the task starts from instead of the repo's target branch.
+    pub async fn set_start_ref(
+        pool: &SqlitePool,
+        id: Uuid,
+        start_ref: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE worker_tasks SET start_ref = ?2 WHERE id = ?1")
+            .bind(id)
+            .bind(start_ref)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn start_ref(pool: &SqlitePool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT start_ref FROM worker_tasks WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .map(Option::flatten)
+    }
+
+    /// Head commit a testing task validates, and later its verdict.
+    pub async fn set_qa_result(
+        pool: &SqlitePool,
+        id: Uuid,
+        head_sha: Option<&str>,
+        verdict: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE worker_tasks
+                SET qa_head_sha = COALESCE(?2, qa_head_sha),
+                    qa_verdict = COALESCE(?3, qa_verdict)
+              WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(head_sha)
+        .bind(verdict)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Latest testing task of a PR: (id, status, head it validated, verdict).
+    pub async fn latest_qa_test_for_pr(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+    ) -> Result<Option<(Uuid, String, Option<String>, Option<String>)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT id, status, qa_head_sha, qa_verdict FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_test'
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(pr_number)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Latest tests-first task of an issue: (id, status, pushed branch).
+    pub async fn latest_qa_tdd_for_issue(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<(Uuid, String, Option<String>)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT id, status, deliverable_ref FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_tdd'
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .fetch_optional(pool)
+        .await
     }
 }

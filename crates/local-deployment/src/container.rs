@@ -265,6 +265,32 @@ impl LocalContainerService {
         let Some(task) = WorkerTask::find_by_workspace(&self.db.pool, workspace_id).await? else {
             return Ok(inputs);
         };
+
+        // A task with a start_ref (fluke v2, #687) starts from that branch:
+        // the developer of a TDD issue continues on QA's tests.
+        if let Some(start_ref) = WorkerTask::start_ref(&self.db.pool, task.id).await? {
+            for input in inputs.iter_mut() {
+                let repo_path = input.repo.path.clone();
+                let git = self.git.clone();
+                let branch = start_ref.clone();
+                let sha =
+                    tokio::task::spawn_blocking(move || git.fetch_branch_tip(&repo_path, &branch))
+                        .await
+                        .map_err(|e| {
+                            ContainerError::Other(anyhow!("fetch_branch_tip join error: {e}"))
+                        })?
+                        .map_err(|e| {
+                            ContainerError::Other(anyhow!(
+                                "No pude traer la rama {start_ref} (repo {}): {e}",
+                                input.repo.name
+                            ))
+                        })?;
+                tracing::info!(workspace_id = %workspace_id, start_ref = %start_ref, sha = %sha, "Anchoring workspace branch on start_ref");
+                input.starting_point = Some(sha);
+            }
+            return Ok(inputs);
+        }
+
         let Some(pr_number) = task.issue_number else {
             return Ok(inputs);
         };

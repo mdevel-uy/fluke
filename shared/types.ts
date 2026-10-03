@@ -391,7 +391,7 @@ state: string, };
 
 export type IssuePhase = { 
 /**
- * `origin | design | dev | review | merge`.
+ * `origin | design | tdd | dev | test | review | merge`.
  */
 kind: string, 
 /**

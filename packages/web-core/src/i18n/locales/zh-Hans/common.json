@@ -1174,7 +1174,9 @@
           "design": "设计",
           "dev": "开发",
           "review": "评审",
-          "merge": "合并"
+          "merge": "合并",
+          "tdd": "测试先行",
+          "test": "测试"
         },
         "profile": "配置",
         "instance": "实例",
@@ -1195,7 +1197,8 @@
           "no_tdd": "不含 TDD",
           "design": "含设计",
           "bug": "Bug",
-          "decision": "含决定"
+          "decision": "含决定",
+          "none": "当前流程（无计划）"
         },
         "phases": {
           "tdd": "测试先行",
@@ -1355,7 +1358,9 @@
       "reviewerDescription": "审查代码并提供反馈",
       "designerDescription": "以 Claude 制品的形式产出设计方案",
       "orchestrator": "Orchestrator",
-      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "先于代码编写测试，并在评审前验证 PR"
     },
     "toast": {
       "startSuccess": "{{worker}} 已开始“{{title}}”。",

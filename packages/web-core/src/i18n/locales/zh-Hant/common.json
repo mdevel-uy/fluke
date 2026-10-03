@@ -1174,7 +1174,9 @@
           "design": "設計",
           "dev": "開發",
           "review": "審查",
-          "merge": "合併"
+          "merge": "合併",
+          "tdd": "測試先行",
+          "test": "測試"
         },
         "profile": "設定檔",
         "instance": "實例",
@@ -1195,7 +1197,8 @@
           "no_tdd": "不含 TDD",
           "design": "含設計",
           "bug": "Bug",
-          "decision": "含決定"
+          "decision": "含決定",
+          "none": "目前流程（無計畫）"
         },
         "phases": {
           "tdd": "測試先行",
@@ -1355,7 +1358,9 @@
       "reviewerDescription": "審查程式碼並提供回饋",
       "designerDescription": "以 Claude 產物的形式產出設計方案",
       "orchestrator": "Orchestrator",
-      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "先於程式碼撰寫測試，並在審查前驗證 PR"
     },
     "toast": {
       "startSuccess": "{{worker}} 已開始「{{title}}」。",

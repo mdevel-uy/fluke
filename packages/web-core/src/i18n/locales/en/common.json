@@ -1193,7 +1193,9 @@
           "design": "Design",
           "dev": "Development",
           "review": "Review",
-          "merge": "Merge"
+          "merge": "Merge",
+          "tdd": "Tests first",
+          "test": "Testing"
         },
         "profile": "Profile",
         "instance": "Instance",
@@ -1214,7 +1216,8 @@
           "no_tdd": "Without TDD",
           "design": "With design",
           "bug": "Bug",
-          "decision": "With decision"
+          "decision": "With decision",
+          "none": "Current flow (no plan)"
         },
         "phases": {
           "tdd": "Tests first",
@@ -1374,7 +1377,9 @@
       "reviewerDescription": "Reviews code and provides feedback",
       "designerDescription": "Produces design proposals as Claude artifacts",
       "orchestrator": "Orchestrator",
-      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "Writes tests before the code and validates PRs before review"
     },
     "toast": {
       "startSuccess": "{{worker}} started \"{{title}}\".",

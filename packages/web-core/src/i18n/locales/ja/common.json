@@ -1174,7 +1174,9 @@
           "design": "デザイン",
           "dev": "開発",
           "review": "レビュー",
-          "merge": "マージ"
+          "merge": "マージ",
+          "tdd": "テスト先行",
+          "test": "テスト"
         },
         "profile": "プロフィール",
         "instance": "インスタンス",
@@ -1195,7 +1197,8 @@
           "no_tdd": "TDD なし",
           "design": "デザインあり",
           "bug": "バグ",
-          "decision": "判断あり"
+          "decision": "判断あり",
+          "none": "現在のフロー（プランなし）"
         },
         "phases": {
           "tdd": "テスト先行",
@@ -1355,7 +1358,9 @@
       "reviewerDescription": "コードをレビューしてフィードバックを提供します",
       "designerDescription": "Claude のアーティファクトとしてデザイン提案を作成します",
       "orchestrator": "Orchestrator",
-      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks."
+      "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
+      "qa": "QA",
+      "qaDescription": "コードより先にテストを書き、レビュー前に PR を検証します"
     },
     "toast": {
       "startSuccess": "{{worker}} が「{{title}}」を開始しました。",

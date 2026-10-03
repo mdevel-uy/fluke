@@ -27,7 +27,8 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::services::{
-    config::Config, container::ContainerService, execution_labels, territory, worker_orchestrator,
+    config::Config, container::ContainerService, execution_labels, qa_phases, territory,
+    worker_orchestrator,
 };
 
 pub const PM_DECISION_LABEL: &str = "pm:decision";
@@ -158,8 +159,17 @@ async fn load_issues(
         let Some(wave) = labels.iter().find_map(|l| execution_labels::wave_number(l)) else {
             continue;
         };
-        let task = match WorkerTask::find_latest_by_issue(pool, repo_id, issue.number).await? {
+        let latest = WorkerTask::find_latest_by_issue(pool, repo_id, issue.number).await?;
+        let tests_first = match &latest {
+            Some(t) => {
+                WorkerTask::kind(pool, t.id).await?.as_deref() == Some(worker_task::KIND_QA_TDD)
+            }
+            None => false,
+        };
+        let task = match latest {
             None => TaskState::None,
+            // QA's tests are in: the developer still has to be dispatched.
+            Some(t) if tests_first && t.status == worker_task::STATUS_DONE => TaskState::None,
             Some(t) if t.status == worker_task::STATUS_DONE => TaskState::Done,
             Some(t) if t.status == worker_task::STATUS_FAILED => TaskState::Failed,
             Some(_) => TaskState::Active,
@@ -218,12 +228,47 @@ pub async fn advance_run(
                 {
                     continue;
                 }
+                // Tests first (#687): QA writes the tests, then the developer
+                // starts from the branch QA pushed.
+                let mut start_ref = None;
+                if qa_phases::plan_template(issue.body.as_deref()).is_some_and(|t| t.tdd)
+                    && let Some(qa) = qa_phases::qa_profile(pool).await?
+                {
+                    match WorkerTask::latest_qa_tdd_for_issue(pool, run.repo_id, number).await? {
+                        None => {
+                            let task = WorkerTask::append(
+                                pool,
+                                qa.id,
+                                &CreateWorkerTask {
+                                    repo_id: run.repo_id,
+                                    title: format!("Tests #{} {}", number, issue.title),
+                                    prompt: qa_phases::tdd_prompt(
+                                        number,
+                                        &issue.title,
+                                        issue.body.as_deref(),
+                                    ),
+                                    issue_number: Some(number),
+                                    skills: Vec::new(),
+                                    issue_labels: Vec::new(),
+                                    source: worker_task::SOURCE_MILESTONE.to_string(),
+                                    territory_globs: Vec::new(),
+                                },
+                            )
+                            .await?;
+                            WorkerTask::set_kind(pool, task.id, worker_task::KIND_QA_TDD).await?;
+                            info!(milestone = %run.milestone, issue = number, "Milestone run dispatched tests first");
+                            kicked.push(qa.id);
+                            continue;
+                        }
+                        Some((_, _, pushed)) => start_ref = pushed,
+                    }
+                }
                 let Some(worker_id) = pick_developer(pool).await? else {
                     warn!(milestone = %run.milestone, "Milestone run: no active developer to dispatch to");
                     break;
                 };
                 let prompt = issue_prompt(number, &issue.title, issue.body.as_deref());
-                WorkerTask::append(
+                let dev_task = WorkerTask::append(
                     pool,
                     worker_id,
                     &CreateWorkerTask {
@@ -238,6 +283,9 @@ pub async fn advance_run(
                     },
                 )
                 .await?;
+                if let Some(start_ref) = &start_ref {
+                    WorkerTask::set_start_ref(pool, dev_task.id, start_ref).await?;
+                }
                 info!(milestone = %run.milestone, issue = number, %worker_id, "Milestone run dispatched issue");
                 kicked.push(worker_id);
             }

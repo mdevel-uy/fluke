@@ -15,7 +15,7 @@ use db::models::{
     repo::Repo,
     review_round::ReviewRound,
     worker::{
-        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR,
+        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR, ROLE_QA,
         ROLE_REVIEWER, UpdateWorker, Worker,
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, PendingDesignHandoff, WorkerTask},
@@ -641,7 +641,7 @@ pub async fn list_pending_design_handoffs(
 fn is_valid_role(role: &str) -> bool {
     matches!(
         role,
-        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER
+        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER | ROLE_QA
     )
 }
 

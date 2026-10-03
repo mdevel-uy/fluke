@@ -8,6 +8,8 @@ pub const ROLE_DEVELOPER: &str = "developer";
 pub const ROLE_ANALYST: &str = "analyst";
 pub const ROLE_REVIEWER: &str = "reviewer";
 pub const ROLE_DESIGNER: &str = "designer";
+/// QA profile (fluke v2, #687): writes tests first and validates PRs.
+pub const ROLE_QA: &str = "qa";
 /// El Director (en la UI, "Fluke"): uno solo por instalación, lo crea fluke
 /// y nunca toma tareas de la cola.
 pub const ROLE_ORCHESTRATOR: &str = "orchestrator";

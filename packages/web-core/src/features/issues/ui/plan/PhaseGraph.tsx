@@ -100,7 +100,8 @@ export function PhaseGraph({
     }
     // Arc from a review that asked for changes back to the round it sent back.
     phases.forEach((p, i) => {
-      if (p.kind !== 'review' || p.state !== 'changes') return;
+      if ((p.kind !== 'review' && p.kind !== 'test') || p.state !== 'changes')
+        return;
       const back = [...phases.slice(0, i)]
         .reverse()
         .find((q) => q.kind === 'dev');
