@@ -85,6 +85,26 @@ export function useArchiveMission() {
   });
 }
 
+/**
+ * Delete a mission for good. The tab closes and the mission leaves the list
+ * only once the server confirms; on error both stay as they were.
+ */
+export function useDeleteMission() {
+  const queryClient = useQueryClient();
+  const closeTab = useDirectorStore((s) => s.closeMissionTab);
+  return useMutation({
+    mutationFn: (id: string) => missionsApi.delete(id),
+    onSuccess: (_, id) => {
+      closeTab(id);
+      queryClient.setQueryData<MissionSummary[]>(missionKeys.list(), (list) =>
+        list?.filter((m) => m.mission.id !== id)
+      );
+      queryClient.removeQueries({ queryKey: missionKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: missionKeys.list() });
+    },
+  });
+}
+
 export function useUpdateMission(id: string) {
   const store = useStoreDetail();
   return useMutation({

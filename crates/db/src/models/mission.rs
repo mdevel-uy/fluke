@@ -395,6 +395,28 @@ impl Mission {
         Ok(res.rows_affected() > 0)
     }
 
+    /// Borra la misión. Items, versiones del brief y links a issues caen por
+    /// cascada; los issues en GitHub (y su espejo `repo_issues`) no se tocan.
+    /// La sesión queda: es del workspace scratch, no de la misión.
+    /// Devuelve `false` si la misión no existía.
+    pub async fn delete(pool: &SqlitePool, id: Uuid) -> Result<bool, sqlx::Error> {
+        let mut tx = pool.begin().await?;
+        sqlx::query("UPDATE fluke_guard SET focus_mission_id = NULL WHERE focus_mission_id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("DELETE FROM fluke_turn_focus WHERE mission_id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        let res = sqlx::query("DELETE FROM missions WHERE id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(res.rows_affected() > 0)
+    }
+
     // ----- versiones del brief ---------------------------------------------
 
     pub async fn add_brief_version(

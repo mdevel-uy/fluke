@@ -14,6 +14,7 @@ import {
 } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
+import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { missionsApi, sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
@@ -26,6 +27,7 @@ import {
   missionKeys,
   useArchiveMission,
   useCreateMission,
+  useDeleteMission,
   useMission,
   useMissionList,
   useMissionWorkspace,
@@ -120,9 +122,9 @@ export function MissionTabs() {
   const activeTab = useDirectorStore((s) => s.activeTab);
   const openIds = useDirectorStore((s) => s.openMissionIds);
   const setActiveTab = useDirectorStore((s) => s.setActiveTab);
-  const closeTab = useDirectorStore((s) => s.closeMissionTab);
   const { data: missions = [] } = useMissionList();
   const byId = new Map(missions.map((m) => [m.mission.id, m]));
+  const confirmDelete = useConfirmDeleteMission();
 
   return (
     <div className="flex h-8 shrink-0 items-stretch gap-0.5 overflow-x-auto border-b border-md-outline-variant px-2">
@@ -138,7 +140,12 @@ export function MissionTabs() {
             key={id}
             active={activeTab === id}
             onClick={() => setActiveTab(id)}
-            onClose={() => closeTab(id)}
+            onClose={
+              byId.get(id)!.is_guard
+                ? undefined
+                : () => void confirmDelete(byId.get(id)!)
+            }
+            closeLabel={t('director.delete.action')}
             label={missionLabel(byId.get(id)!, t('director.newMission'))}
             attention={isWaitingForUser(byId.get(id)!)}
           />
@@ -146,6 +153,52 @@ export function MissionTabs() {
       <NewMissionButton className="ml-1 self-center" />
     </div>
   );
+}
+
+/**
+ * The tab's X (#647): confirm, then delete the mission. Blocked while Fluke
+ * is answering in it; issues already created are kept and the dialog says
+ * so. On error the tab and the mission stay.
+ */
+function useConfirmDeleteMission() {
+  const { t } = useTranslation('common');
+  const remove = useDeleteMission();
+  return async (m: MissionSummary) => {
+    if (m.agent_running) {
+      await ConfirmDialog.show({
+        title: t('director.delete.busyTitle'),
+        message: t('director.delete.busy'),
+        confirmText: t('ok'),
+        showCancelButton: false,
+        variant: 'info',
+      });
+      return;
+    }
+    const issues = m.issue_numbers.map((n) => `#${n}`).join(', ');
+    const result = await ConfirmDialog.show({
+      title: t('director.delete.title', {
+        name: missionLabel(m, t('director.newMission')),
+      }),
+      message: issues
+        ? t('director.delete.messageWithIssues', { issues })
+        : t('director.delete.message'),
+      confirmText: t('director.delete.confirm'),
+      variant: 'destructive',
+    });
+    if (result !== 'confirmed') return;
+    try {
+      await remove.mutateAsync(m.mission.id);
+    } catch (error) {
+      await ConfirmDialog.show({
+        title: t('error'),
+        message: t('director.delete.error', {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+        confirmText: t('ok'),
+        showCancelButton: false,
+      });
+    }
+  };
 }
 
 function NewMissionButton({ className }: { className?: string }) {
@@ -198,12 +251,14 @@ function Tab({
   label,
   onClick,
   onClose,
+  closeLabel,
   attention = false,
 }: {
   active: boolean;
   label: string;
   onClick: () => void;
   onClose?: () => void;
+  closeLabel?: string;
   attention?: boolean;
 }) {
   return (
@@ -215,7 +270,13 @@ function Tab({
           : 'border-transparent text-low hover:text-normal'
       )}
     >
-      <button type="button" onClick={onClick} className="truncate">
+      {/* min-w-0: the label shrinks first, so the X never gets clipped. */}
+      <button
+        type="button"
+        onClick={onClick}
+        className="min-w-0 truncate"
+        title={label}
+      >
         {label}
       </button>
       {attention && (
@@ -225,8 +286,9 @@ function Tab({
         <button
           type="button"
           onClick={onClose}
-          className="opacity-0 group-hover:opacity-100"
-          aria-label="close"
+          className="flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand group-focus-within:opacity-100 group-hover:opacity-100"
+          aria-label={closeLabel}
+          title={closeLabel}
         >
           <XIcon className="size-icon-2xs" />
         </button>
