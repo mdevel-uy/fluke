@@ -1800,7 +1800,7 @@
     "eventsBatch_one": "앱 이벤트 {{count}}건",
     "eventsBatch_other": "앱 이벤트 {{count}}건",
     "guard": {
-      "noBrief": "Fluke의 상시 대화입니다. 앱에서 일어난 일이 여기에 도착합니다. 브리프는 없으며, 새 개발 작업은 미션으로 시작합니다."
+      "noBrief": "포커스된 미션이 없습니다. Fluke에게 새 작업을 요청하거나 미션 이름을 말하면 여기에 브리프가 표시됩니다."
     },
     "name": "Fluke",
     "open": "Open Fluke",

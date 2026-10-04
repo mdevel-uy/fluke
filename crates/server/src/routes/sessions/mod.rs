@@ -130,6 +130,7 @@ pub async fn follow_up(
 
     // A mission session talks to the Director: its model is fixed, the
     // composer's executor selection does not apply.
+    let mut guard_turn = false;
     if let Some(mission) =
         db::models::mission::Mission::find_by_session_id(pool, session.id).await?
     {
@@ -139,6 +140,7 @@ pub async fn follow_up(
             director::executor_config(&*deployment.config().read().await, &worker)
                 .map_err(ApiError::BadRequest)?;
         director::on_user_message(pool, &mission, &payload.prompt).await?;
+        guard_turn = db::models::fluke_event::FlukeGuard::is_guard(pool, mission.id).await?;
     }
 
     // Load workspace from session
@@ -236,6 +238,12 @@ pub async fn follow_up(
             &ExecutionProcessRunReason::CodingAgent,
         )
         .await?;
+
+    // The one thread (J1.2): a turn of Fluke's standing conversation is about
+    // the mission in focus when it starts.
+    if guard_turn {
+        db::models::fluke_event::FlukeGuard::tag_turn(pool, execution_process.id).await?;
+    }
 
     // Clear the draft follow-up scratch on successful spawn
     // This ensures the scratch is wiped even if the user navigates away quickly

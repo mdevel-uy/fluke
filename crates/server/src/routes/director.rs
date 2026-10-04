@@ -34,6 +34,8 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/missions", get(list_missions).post(create_mission))
         .route("/missions/{id}", get(get_mission).patch(update_mission))
         .route("/missions/{id}/approve", post(approve_brief))
+        .route("/missions/{id}/focus", post(focus_mission))
+        .route("/missions/{id}/turns", get(mission_turns))
         .route("/missions/{id}/workspace", get(get_mission_workspace))
 }
 
@@ -97,12 +99,19 @@ async fn create_mission(
     State(deployment): State<DeploymentImpl>,
     Json(payload): Json<CreateMissionRequest>,
 ) -> Result<ResponseJson<ApiResponse<MissionDetail>>, ApiError> {
+    let mission = new_mission_in(&deployment, payload.repo_id).await?;
+    Ok(ResponseJson(ApiResponse::success(
+        director::detail(&deployment.db().pool, mission).await?,
+    )))
+}
+
+/// A mission in a repo: its session runs in the repo's scratch worktree.
+async fn new_mission_in(deployment: &DeploymentImpl, repo_id: Uuid) -> Result<Mission, ApiError> {
     let pool = &deployment.db().pool;
     let worker = director::ensure_orchestrator(pool).await?;
     let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
         .map_err(ApiError::BadRequest)?;
-
-    let workspace = scratch::ensure_scratch_workspace(&deployment, payload.repo_id).await?;
+    let workspace = scratch::ensure_scratch_workspace(deployment, repo_id).await?;
     let session = Session::create(
         pool,
         &CreateSession {
@@ -113,10 +122,65 @@ async fn create_mission(
         workspace.id,
     )
     .await?;
-    let mission = Mission::create(pool, session.id, Some(payload.repo_id)).await?;
-    Ok(ResponseJson(ApiResponse::success(
-        director::detail(pool, mission).await?,
-    )))
+    Ok(Mission::create(pool, session.id, Some(repo_id)).await?)
+}
+
+/// `new_mission` from Fluke's standing conversation (J1.2): it needs the
+/// scratch workspace, so it lives here and not in the services crate.
+async fn new_mission_tool(deployment: &DeploymentImpl, session_id: Uuid, args: &Value) -> Result<String, String> {
+    use db::models::fluke_event::FlukeGuard;
+    let pool = &deployment.db().pool;
+    let db_err = |e: sqlx::Error| format!("internal error: {e}");
+    let mission = Mission::find_by_session_id(pool, session_id)
+        .await
+        .map_err(db_err)?
+        .ok_or("this session has no mission")?;
+    if !FlukeGuard::is_guard(pool, mission.id).await.map_err(db_err)? {
+        return Err("new missions start from your standing conversation".into());
+    }
+    let repo = args
+        .get("repo")
+        .and_then(Value::as_str)
+        .ok_or("missing repo")?;
+    let repo = director::resolve_repo(pool, repo).await?;
+    let created = new_mission_in(deployment, repo.id)
+        .await
+        .map_err(|e| format!("could not start the mission: {e}"))?;
+    if let Some(title) = args.get("title").and_then(Value::as_str).map(str::trim).filter(|t| !t.is_empty()) {
+        Mission::set_title(pool, created.id, title).await.map_err(db_err)?;
+    }
+    FlukeGuard::set_focus(pool, Some(created.id)).await.map_err(db_err)?;
+    let d = director::refresh_status(pool, created.id).await.map_err(db_err)?;
+    Ok(format!(
+        "Mission started and in focus (id {}). Missing: {}",
+        created.id,
+        d.missing.join(", ")
+    ))
+}
+
+/// The user opened a mission (J1.2): what they write next is about it.
+async fn focus_mission(
+    State(deployment): State<DeploymentImpl>,
+    Path(id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let pool = &deployment.db().pool;
+    load(&deployment, id).await?;
+    let guard = db::models::fluke_event::FlukeGuard::get(pool).await?;
+    // The standing conversation itself is not a focus.
+    let focus = guard.filter(|g| g.mission_id != id).map(|_| id);
+    if focus.is_some() {
+        db::models::fluke_event::FlukeGuard::set_focus(pool, focus).await?;
+    }
+    Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// The turns of the one thread that had this mission in focus (J1.2).
+async fn mission_turns(
+    State(deployment): State<DeploymentImpl>,
+    Path(id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<Vec<Uuid>>>, ApiError> {
+    let turns = db::models::fluke_event::FlukeGuard::turns_of(&deployment.db().pool, id).await?;
+    Ok(ResponseJson(ApiResponse::success(turns)))
 }
 
 async fn load(deployment: &DeploymentImpl, id: Uuid) -> Result<Mission, ApiError> {
@@ -313,6 +377,7 @@ async fn mcp(
                 "get_stuck_issues" | "answer_agent" => {
                     unstick_tool(&deployment, session_id, name, &args).await
                 }
+                "new_mission" => new_mission_tool(&deployment, session_id, &args).await,
                 _ => director::call_tool(&deployment.db().pool, session_id, name, &args).await,
             };
             Ok(match out {
@@ -510,21 +575,7 @@ async fn ensure_guard(
     let Some(repo) = Repo::list_all(pool).await?.into_iter().next() else {
         return Ok(None);
     };
-    let worker = director::ensure_orchestrator(pool).await?;
-    let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
-        .map_err(ApiError::BadRequest)?;
-    let workspace = scratch::ensure_scratch_workspace(deployment, repo.id).await?;
-    let session = Session::create(
-        pool,
-        &CreateSession {
-            executor: Some(executor_config.executor.to_string()),
-            name: Some("Fluke".to_string()),
-        },
-        Uuid::new_v4(),
-        workspace.id,
-    )
-    .await?;
-    let mission = Mission::create(pool, session.id, Some(repo.id)).await?;
+    let mission = new_mission_in(deployment, repo.id).await?;
     Mission::set_title(pool, mission.id, "Fluke").await?;
     FlukeGuard::set(pool, mission.id).await?;
     Ok(FlukeGuard::get(pool).await?)
