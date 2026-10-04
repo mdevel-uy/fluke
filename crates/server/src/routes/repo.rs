@@ -23,6 +23,7 @@ use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, Pull
 use serde::{Deserialize, Serialize};
 use services::services::{
     file_search::SearchQuery,
+    repo::{PublishToGithubRequest, RepoVisibility},
     repo_issues::{
         RepoIssuesError, RepoIssuesService, GithubMilestone, StoredLabel, derive_priority,
         parse_stored_labels,
@@ -32,6 +33,7 @@ use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
+use super::github::GhRepoCreator;
 use crate::{DeploymentImpl, error::ApiError};
 
 #[derive(serde::Deserialize)]
@@ -77,6 +79,69 @@ pub async fn register_repo(
         .await?;
 
     Ok(ResponseJson(ApiResponse::success(repo)))
+}
+
+/// Body for `POST /api/repos/{repo_id}/github`.
+#[derive(Debug, Deserialize, TS)]
+pub struct PublishRepoToGithubRequest {
+    /// User or organization login (one of `GET /api/github/owners`).
+    pub owner: String,
+    /// Name of the repository to create on GitHub.
+    pub name: String,
+    pub visibility: RepoVisibility,
+}
+
+/// Response of `POST /api/repos/{repo_id}/github`.
+#[derive(Debug, Serialize, TS)]
+pub struct PublishRepoToGithubResponse {
+    /// Web URL of the created repository.
+    pub url: String,
+    pub owner: String,
+    pub name: String,
+    /// Local branch pushed as the initial content.
+    pub branch: String,
+}
+
+/// Create the repository on GitHub for a registered local repo, add it as
+/// `origin` and push the current branch. Works on any registered repo
+/// without `origin`, not only right after init/register. A retry after a
+/// partial failure reuses the (still empty) GitHub repo.
+pub async fn publish_repo_to_github(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    ResponseJson(payload): ResponseJson<PublishRepoToGithubRequest>,
+) -> Result<(StatusCode, ResponseJson<ApiResponse<PublishRepoToGithubResponse>>), ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+    let pat = super::github::configured_pat(&deployment).await;
+    let push_token = deployment.config().read().await.github.token();
+    let git = deployment.git().clone();
+    let service = deployment.repo().clone();
+    let request = PublishToGithubRequest {
+        owner: payload.owner,
+        name: payload.name,
+        visibility: payload.visibility,
+        token: push_token,
+    };
+
+    let published = tokio::task::spawn_blocking(move || {
+        let creator = GhRepoCreator::new(pat);
+        service.publish_to_github(&git, &creator, &repo.path, &request)
+    })
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("publish task join failed: {e}")))??;
+
+    Ok((
+        StatusCode::CREATED,
+        ResponseJson(ApiResponse::success(PublishRepoToGithubResponse {
+            url: published.html_url,
+            owner: published.owner,
+            name: published.name,
+            branch: published.branch,
+        })),
+    ))
 }
 
 pub async fn init_repo(
@@ -974,6 +1039,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_repo_commit_file_diff),
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
+        .route("/repos/{repo_id}/github", post(publish_repo_to_github))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route(
             "/repos/{repo_id}/pull-requests/{number}/merge",

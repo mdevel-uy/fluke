@@ -40,8 +40,10 @@ use std::{
     sync::Mutex,
 };
 
-use git::GitService;
-use git2::Repository;
+use git::{
+    GitService,
+    git2::{self, Repository},
+};
 use services::services::repo::{
     GithubCreateError, GithubRepoCreator, GithubRepoInfo, PublishToGithubRequest, RepoError,
     RepoService, RepoVisibility,

@@ -578,6 +578,45 @@ impl From<RepoServiceError> for ApiError {
             RepoServiceError::InvalidFolderName(name) => {
                 ApiError::BadRequest(format!("Invalid folder name: {}", name))
             }
+            RepoServiceError::GithubSessionRequired => ApiError::BadRequest(
+                "No GitHub session: log in to GitHub in Settings > GitHub (device login or \
+                 token) and try again."
+                    .to_string(),
+            ),
+            RepoServiceError::GithubRepoNameTaken { owner, name } => ApiError::Conflict(format!(
+                "A repository named {owner}/{name} already exists on GitHub. Choose another name."
+            )),
+            RepoServiceError::GithubOwnerForbidden { owner, message } => {
+                ApiError::Forbidden(format!(
+                    "Your GitHub session is not allowed to create repositories under {owner}: \
+                     {message}"
+                ))
+            }
+            RepoServiceError::GithubOwnerNotAvailable(owner) => ApiError::BadRequest(format!(
+                "GitHub owner '{owner}' is not available for this session; use your user or \
+                 one of your organizations."
+            )),
+            RepoServiceError::InvalidGithubRepoName(name) => ApiError::BadRequest(format!(
+                "Invalid GitHub repository name '{name}': use only letters, digits, '.', '_' \
+                 or '-' (max 100 characters)."
+            )),
+            RepoServiceError::NoCommits => ApiError::BadRequest(
+                "The local repository has no commits yet; make a first commit before creating \
+                 it on GitHub."
+                    .to_string(),
+            ),
+            RepoServiceError::OriginAlreadyConfigured { url } => ApiError::Conflict(format!(
+                "The local repository already has an origin remote ({url})."
+            )),
+            RepoServiceError::GithubRequestFailed(msg) => {
+                ApiError::BadGateway(format!("GitHub request failed: {msg}"))
+            }
+            RepoServiceError::GithubPublishIncomplete { html_url, message } => {
+                ApiError::BadGateway(format!(
+                    "The repository was created on GitHub ({html_url}) but publishing did not \
+                     finish: {message}"
+                ))
+            }
         }
     }
 }
