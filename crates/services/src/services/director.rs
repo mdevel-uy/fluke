@@ -900,6 +900,17 @@ the workers' job.
 - When the brief is complete, give a 2-3 line summary and tell the user to review it and press \
 \"Approve brief and send to the Analyst\". Approve it yourself (app_api) only when the user \
 explicitly asks you to, and never create the issues yourself: that is the Analyst's job.
+- Work for another mission: when the user asks for development work that is not this \
+conversation's mission (another repo, or a separate piece of work in the same repo), do not ask \
+them to open a new chat and dictate it again. Check list_missions first: if an open mission \
+already covers it, use its id. Otherwise call new_mission with its repo (list_repos) and a short \
+title; it answers with the new mission's id. Then, in the same turn, record each item with \
+upsert_item passing that mission_id, and finish with get_brief and that mission_id to see what \
+is missing. Ask for the missing facts here with ask_user and record the answers with the same \
+mission_id. If new_mission fails after naming a mission id, the mission exists: carry on with \
+that mission_id and never call new_mission again for the same work. Approve that brief only \
+when the user explicitly asks, with app_api POST /api/missions/{id}/approve and its id (the app \
+asks the user to confirm).
 - Unblocking: when the user talks about a stuck issue (a coding agent waiting for an answer, a \
 failed phase), call get_stuck_issues to see why it is stuck. If the agent asked a question, turn \
 what the user says into a concrete answer (one of the agent's option keys, or a short text) and \
@@ -1125,7 +1136,8 @@ This is also your only conversation with the user: missions are not separate cha
 the pieces of work you follow (brief, approval, breakdown, execution). [FOCUS] in the context \
 block says which mission you are talking about; the brief tools (set_mission, upsert_item, \
 remove_item, get_brief) act on it.
-- New development work: new_mission with its repo (and a short title); it comes into focus.
+- New development work: new_mission with its repo (and a short title); here, in your standing \
+conversation, it comes into focus, so the brief tools act on it without mission_id.
 - The user talks about another mission: focus_mission with its title or id (list_missions shows \
 the open ones). If it is ambiguous, ask with ask_user.
 - When you switch, name the topic in your reply (\"Sobre el login con GitHub: ...\").
@@ -1530,7 +1542,7 @@ pub fn tool_definitions() -> Value {
         },
         {
             "name": "new_mission",
-            "description": "Start a mission for new development work in a repo and bring it into focus.",
+            "description": "Start a mission for new development work in a repo, from any conversation. Answers with the new mission's id: pass it as mission_id to set_mission, upsert_item, remove_item and get_brief to fill its brief. In your standing conversation it also comes into focus; anywhere else this conversation keeps its own mission. Check list_missions first so you do not duplicate an open one.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1701,6 +1713,82 @@ pub async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
                 || r.display_name.eq_ignore_ascii_case(needle)
         })
         .ok_or_else(|| format!("unknown repo '{needle}': use an id or name from list_repos"))
+}
+
+/// `new_mission` from any conversation (#779). `create` makes the session and
+/// the mission in the repo's scratch worktree (the server owns that); the repo
+/// is resolved before, so an unknown repo creates nothing. Only the standing
+/// conversation moves its focus to the new mission: anywhere else Fluke keeps
+/// talking about its own mission and loads the new brief with `mission_id`.
+pub async fn new_mission<F, Fut>(
+    pool: &Pool,
+    session_id: Uuid,
+    args: &Value,
+    create: F,
+) -> Result<String, String>
+where
+    F: FnOnce(Uuid) -> Fut,
+    Fut: std::future::Future<Output = Result<Mission, String>>,
+{
+    let db_err = |e: sqlx::Error| format!("internal error: {e}");
+    let mission = Mission::find_by_session_id(pool, session_id)
+        .await
+        .map_err(db_err)?
+        .ok_or("this session has no mission")?;
+    let repo = args
+        .get("repo")
+        .and_then(Value::as_str)
+        .ok_or("missing repo")?;
+    let repo = resolve_repo(pool, repo).await?;
+    let is_guard = FlukeGuard::is_guard(pool, mission.id)
+        .await
+        .map_err(db_err)?;
+    let created = create(repo.id)
+        .await
+        .map_err(|e| format!("could not start the mission: {e}"))?;
+    // From here on the mission exists: a failure names it so Fluke carries on
+    // with mission_id instead of starting a duplicate.
+    let after = |e: sqlx::Error| {
+        format!(
+            "mission {} was created but {e}: do not call new_mission again, continue with mission_id {}",
+            created.id, created.id
+        )
+    };
+    if let Some(title) = args
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        Mission::set_title(pool, created.id, title)
+            .await
+            .map_err(after)?;
+    }
+    if is_guard {
+        FlukeGuard::set_focus(pool, Some(created.id))
+            .await
+            .map_err(after)?;
+    }
+    let d = refresh_status(pool, created.id).await.map_err(after)?;
+    let missing = if d.missing.is_empty() {
+        "nothing".to_string()
+    } else {
+        d.missing.join(", ")
+    };
+    Ok(if is_guard {
+        format!(
+            "Mission started (id {}) in {} and in focus. Missing: {missing}",
+            created.id, repo.display_name
+        )
+    } else {
+        format!(
+            "Mission started (id {id}) in {}. This conversation stays on its own mission: pass \
+             mission_id {id} to set_mission, upsert_item, remove_item and get_brief to fill the \
+             new brief. Missing: {missing}",
+            repo.display_name,
+            id = created.id
+        )
+    })
 }
 
 /// Endpoints del cliente (líneas con `/api/`), o los fragmentos de cliente y
@@ -2550,6 +2638,158 @@ mod tests {
             .unwrap();
         Mission::set_title(pool, m.id, title).await.unwrap();
         (session, m)
+    }
+
+    /// What the server does for `new_mission`, minus the scratch worktree.
+    async fn create_in(pool: &sqlx::SqlitePool, repo_id: Uuid) -> Result<Mission, String> {
+        let session = Uuid::new_v4();
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES (?, ?)")
+            .bind(session)
+            .bind(Uuid::new_v4())
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        Mission::create(pool, session, Some(repo_id))
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    async fn web_repo(pool: &sqlx::SqlitePool) -> Uuid {
+        let repo = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO repos (id, path, name, display_name) VALUES (?, '/r/web', 'web', 'Web')",
+        )
+        .bind(repo)
+        .execute(pool)
+        .await
+        .unwrap();
+        repo
+    }
+
+    /// The id that `new_mission` answers with.
+    fn started_id(out: &str) -> Uuid {
+        let rest = out
+            .strip_prefix("Mission started (id ")
+            .unwrap_or_else(|| panic!("{out}"));
+        Uuid::parse_str(&rest[..36]).unwrap()
+    }
+
+    #[tokio::test]
+    async fn new_mission_from_a_mission_conversation_keeps_focus_and_own_mission() {
+        let pool = brief_pool().await;
+        let repo = web_repo(&pool).await;
+        let (here, own) = conversation(&pool, "Landing").await;
+        let (_, guard) = conversation(&pool, "Fluke").await;
+        let (_, focused) = conversation(&pool, "Export").await;
+        FlukeGuard::set(&pool, guard.id).await.unwrap();
+        FlukeGuard::set_focus(&pool, Some(focused.id)).await.unwrap();
+
+        let out = new_mission(&pool, here, &json!({ "repo": "web", "title": "Login" }), |r| {
+            create_in(&pool, r)
+        })
+        .await
+        .unwrap();
+        let id = started_id(&out);
+        assert!(out.contains(&format!("mission_id {id}")) && out.contains("Missing:"), "{out}");
+        assert!(!out.contains("in focus"), "{out}");
+        let created = Mission::find_by_id(&pool, id).await.unwrap().unwrap();
+        assert_eq!((created.title.as_str(), created.repo_id), ("Login", Some(repo)));
+
+        // The standing conversation's focus and this conversation's mission stay.
+        let g = FlukeGuard::get(&pool).await.unwrap().unwrap();
+        assert_eq!((g.mission_id, g.focus_mission_id), (guard.id, Some(focused.id)));
+        let m = Mission::find_by_session_id(&pool, here).await.unwrap().unwrap();
+        assert_eq!(m.id, own.id);
+
+        // Without a title it still starts.
+        let out = new_mission(&pool, here, &json!({ "repo": repo.to_string() }), |r| {
+            create_in(&pool, r)
+        })
+        .await
+        .unwrap();
+        started_id(&out);
+    }
+
+    #[tokio::test]
+    async fn new_mission_from_the_standing_conversation_comes_into_focus() {
+        let pool = brief_pool().await;
+        web_repo(&pool).await;
+        let (guard_session, guard) = conversation(&pool, "Fluke").await;
+        FlukeGuard::set(&pool, guard.id).await.unwrap();
+
+        let out = new_mission(&pool, guard_session, &json!({ "repo": "Web", "title": "Login" }), |r| {
+            create_in(&pool, r)
+        })
+        .await
+        .unwrap();
+        let id = started_id(&out);
+        assert!(out.contains("in focus"), "{out}");
+        let g = FlukeGuard::get(&pool).await.unwrap().unwrap();
+        assert_eq!(g.focus_mission_id, Some(id));
+
+        // The brief tools without mission_id act on it, as before.
+        call_tool(&pool, guard_session, "upsert_item", &json!({ "kind": "bug", "title": "x" }))
+            .await
+            .unwrap();
+        assert_eq!(Mission::items(&pool, id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn new_mission_with_an_unknown_repo_creates_nothing() {
+        let pool = brief_pool().await;
+        web_repo(&pool).await;
+        let (here, _) = conversation(&pool, "Landing").await;
+        let before = Mission::list(&pool).await.unwrap().len();
+        let mut called = false;
+        let err = new_mission(&pool, here, &json!({ "repo": "nope" }), |r| {
+            called = true;
+            create_in(&pool, r)
+        })
+        .await
+        .unwrap_err();
+        assert!(err.contains("unknown repo 'nope'"), "{err}");
+        assert!(!called);
+        assert_eq!(Mission::list(&pool).await.unwrap().len(), before);
+    }
+
+    #[tokio::test]
+    async fn new_mission_then_items_by_id_leaves_the_brief_loaded() {
+        let pool = brief_pool().await;
+        web_repo(&pool).await;
+        let (here, own) = conversation(&pool, "Landing").await;
+
+        let out = new_mission(&pool, here, &json!({ "repo": "web", "title": "Login" }), |r| {
+            create_in(&pool, r)
+        })
+        .await
+        .unwrap();
+        let id = started_id(&out);
+        let target = id.to_string();
+        for (kind, title) in [("feature", "Login con GitHub"), ("bug", "Logout no limpia sesión")] {
+            call_tool(
+                &pool,
+                here,
+                "upsert_item",
+                &json!({ "mission_id": target, "kind": kind, "title": title,
+                         "fields": { "goal": "g" } }),
+            )
+            .await
+            .unwrap();
+        }
+        call_tool(&pool, here, "get_brief", &json!({ "mission_id": target }))
+            .await
+            .unwrap();
+
+        // Opening the new mission shows both items; this conversation's brief is untouched.
+        let titles: Vec<String> = Mission::items(&pool, id)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|i| i.title)
+            .collect();
+        assert_eq!(titles.len(), 2, "{titles:?}");
+        assert!(titles.iter().any(|t| t == "Login con GitHub"), "{titles:?}");
+        assert!(Mission::items(&pool, own.id).await.unwrap().is_empty());
     }
 
     #[tokio::test]
