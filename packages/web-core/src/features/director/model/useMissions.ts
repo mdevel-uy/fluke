@@ -20,12 +20,12 @@ export const missionKeys = {
   workspace: (id: string) => ['missions', 'workspace', id] as const,
 };
 
-// ponytail: polling; switch to a msg_store stream if the latency shows.
+// No polling (J6.1): useFlukeEventsLive refreshes these when something
+// happens in the app.
 export function useMissionList() {
   return useQuery({
     queryKey: missionKeys.list(),
     queryFn: () => missionsApi.list(),
-    refetchInterval: 4_000,
   });
 }
 
@@ -34,7 +34,6 @@ export function useMission(id: string | null) {
     queryKey: missionKeys.detail(id ?? ''),
     queryFn: () => missionsApi.get(id!),
     enabled: !!id,
-    refetchInterval: 2_000,
   });
 }
 

@@ -36,6 +36,7 @@ import {
   missionLabel,
 } from './DirectorPanel';
 import { FlukeMark } from './FlukeMark';
+import { useFlukeEventsLive } from '../model/useFlukeEventsLive';
 
 /**
  * The Director ("Fluke" in the UI), mounted once in the app shell: a floating
@@ -44,6 +45,8 @@ import { FlukeMark } from './FlukeMark';
  * `useDirectorStore`, so it survives navigation and repo changes.
  */
 export function DirectorRoot() {
+  // Mounted once in the shell: Fluke's views follow the app's events.
+  useFlukeEventsLive();
   const view = useDirectorStore((s) => s.view);
   const pinned = useDirectorStore((s) => s.pinned);
   const activeTab = useDirectorStore((s) => s.activeTab);

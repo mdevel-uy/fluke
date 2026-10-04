@@ -589,20 +589,29 @@ async fn get_mission_workspace(
 // Conversación de guardia (J0.3): los eventos del bus le llegan a Fluke
 // ---------------------------------------------------------------------------
 
-/// Cada cuánto se mira el bus.
-const EVENT_POLL: std::time::Duration = std::time::Duration::from_secs(10);
-/// Como mucho un lote por minuto: cada lote es un turno de Fluke.
-// ponytail: fixed gap; make it a setting if a busy factory needs faster alerts.
-const MIN_DELIVERY_GAP_SECS: i64 = 60;
+/// Lo que llega en esta ventana va en un solo lote (J6.1): Fluke reacciona
+/// en segundos, pero no una vez por evento.
+const EVENT_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(3);
+/// Red de seguridad: si una señal del bus se pierde, el próximo repaso la
+/// encuentra (los eventos se leen de la tabla desde el cursor).
+const EVENT_SAFETY_NET: std::time::Duration = std::time::Duration::from_secs(120);
 const EVENTS_PER_BATCH: i64 = 100;
 
-/// Arranca el watcher de la guardia: lee `fluke_events` y le manda a la
-/// misión fija de Fluke lo que no es progreso puro, en lotes.
+/// Arranca el watcher de la guardia: se despierta con cada evento nuevo del
+/// bus (J6.1), junta los de unos segundos y le manda a la misión fija de
+/// Fluke lo que no es progreso puro. Cuando Fluke termina un turno, su propio
+/// evento lo despierta otra vez, así lo que esperaba sale enseguida.
 pub fn spawn_event_watcher(deployment: DeploymentImpl) {
     tokio::spawn(async move {
-        let mut tick = tokio::time::interval(EVENT_POLL);
+        let mut wake = services::services::events::fluke_events_bus().subscribe();
         loop {
-            tick.tick().await;
+            let woke = tokio::time::timeout(EVENT_SAFETY_NET, wake.recv()).await;
+            if matches!(woke, Ok(Err(tokio::sync::broadcast::error::RecvError::Closed))) {
+                return;
+            }
+            tokio::time::sleep(EVENT_DEBOUNCE).await;
+            // Everything that arrived meanwhile is in this same batch.
+            while wake.try_recv().is_ok() {}
             if let Err(e) = deliver_events(&deployment).await {
                 tracing::debug!("Fluke event watcher: {e}");
             }
@@ -640,12 +649,6 @@ async fn deliver_events(deployment: &DeploymentImpl) -> Result<(), ApiError> {
     let Some(guard) = ensure_guard(deployment).await? else {
         return Ok(());
     };
-    if guard
-        .secs_since_delivery
-        .is_some_and(|s| s < MIN_DELIVERY_GAP_SECS)
-    {
-        return Ok(());
-    }
     let events = FlukeEvent::list_after(pool, guard.event_cursor, EVENTS_PER_BATCH).await?;
     let Some(last) = events.last().map(|e| e.id) else {
         return Ok(());

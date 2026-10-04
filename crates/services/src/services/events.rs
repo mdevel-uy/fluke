@@ -118,6 +118,13 @@ impl EventService {
                 });
 
                 handle.set_update_hook(move |hook: sqlx::sqlite::UpdateHookResult<'_>| {
+                    // A domain event was written (J6.1): wake its consumers.
+                    if hook.table == "fluke_events"
+                        && matches!(hook.operation, SqliteOperation::Insert)
+                    {
+                        let _ = fluke_events_bus().send(hook.rowid);
+                        return;
+                    }
                     let runtime_handle = runtime_handle.clone();
                     let entry_count_for_hook = entry_count_for_hook.clone();
                     let msg_store_for_hook = msg_store_for_hook.clone();
@@ -326,5 +333,58 @@ impl EventService {
 
     pub fn msg_store(&self) -> &Arc<MsgStore> {
         &self.msg_store
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Domain events in real time (J6.1)
+// ---------------------------------------------------------------------------
+
+/// New rows of `fluke_events`, as their id, the moment SQLite writes them.
+/// The SQLite update hook fires before the commit, so this only says "there
+/// is something new": consumers read the committed rows from their cursor
+/// (`FlukeEvent::list_after`), which keeps them correct if a signal is lost.
+pub fn fluke_events_bus() -> &'static tokio::sync::broadcast::Sender<i64> {
+    static BUS: std::sync::OnceLock<tokio::sync::broadcast::Sender<i64>> =
+        std::sync::OnceLock::new();
+    BUS.get_or_init(|| tokio::sync::broadcast::channel(256).0)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    /// The bus relies on SQLite's update hook firing for rows that triggers
+    /// insert (every fluke_events row comes from a trigger).
+    #[tokio::test]
+    async fn update_hook_sees_rows_inserted_by_triggers() {
+        let seen: std::sync::Arc<Mutex<Vec<String>>> = Default::default();
+        let seen_hook = seen.clone();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .after_connect(move |conn, _| {
+                let seen = seen_hook.clone();
+                Box::pin(async move {
+                    let mut handle = conn.lock_handle().await?;
+                    handle.set_update_hook(move |hook: sqlx::sqlite::UpdateHookResult<'_>| {
+                        seen.lock().unwrap().push(hook.table.to_string());
+                    });
+                    Ok(())
+                })
+            })
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        for sql in [
+            "CREATE TABLE a (x INTEGER)",
+            "CREATE TABLE b (y INTEGER)",
+            "CREATE TRIGGER t AFTER INSERT ON a BEGIN INSERT INTO b (y) VALUES (new.x); END",
+            "INSERT INTO a (x) VALUES (1)",
+        ] {
+            sqlx::query(sql).execute(&pool).await.unwrap();
+        }
+        let seen = seen.lock().unwrap().clone();
+        assert!(seen.contains(&"a".to_string()), "{seen:?}");
+        assert!(seen.contains(&"b".to_string()), "trigger insert not seen: {seen:?}");
     }
 }
