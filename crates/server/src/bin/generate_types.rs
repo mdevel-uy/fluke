@@ -148,6 +148,7 @@ fn generate_types_content() -> String {
         services::services::director::MissionItemView::decl(),
         services::services::director::MissionDetail::decl(),
         services::services::director::MissionProposalIssue::decl(),
+        services::services::director::UpsertMissionItemRequest::decl(),
         server::routes::director::MissionSummary::decl(),
         server::routes::director::CreateMissionRequest::decl(),
         server::routes::director::DirectorTurnRequest::decl(),

@@ -2331,6 +2331,30 @@ export const missionsApi = {
     const response = await makeRequest(`/api/missions/${id}/turns`);
     return handleApiResponse<string[]>(response);
   },
+  /** Brief items of mission `id`: create one (no item_id) or update it.
+   * Fields are merged; an empty string clears one (UpsertMissionItemRequest). */
+  upsertItem: async (
+    id: string,
+    data: {
+      item_id?: string | null;
+      kind: string;
+      title?: string | null;
+      fields?: { [key: string]: string };
+    }
+  ): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}/items`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
+  /** Remove a brief item of mission `id`. */
+  removeItem: async (id: string, itemId: string): Promise<MissionDetail> => {
+    const response = await makeRequest(`/api/missions/${id}/items/${itemId}`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<MissionDetail>(response);
+  },
 };
 
 // Plan de trabajo del agente (grafo + control de ejecución).
