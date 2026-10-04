@@ -6,6 +6,16 @@ import { IssueBadge, taskDisplayTitle } from './IssueBadge';
 import { SkillChips } from './SkillChips';
 import { AgentActionsSection } from './AgentActionsSection';
 
+// Visible part of the failure reason; the full text stays in the tooltip.
+const REASON_SUMMARY_MAX = 240;
+
+/** The reason on one line, bounded to `REASON_SUMMARY_MAX` characters. */
+function summarizeReason(reason: string): string {
+  const flat = reason.replace(/\s+/g, ' ').trim();
+  if (flat.length <= REASON_SUMMARY_MAX) return flat;
+  return `${flat.slice(0, REASON_SUMMARY_MAX).trimEnd()}…`;
+}
+
 interface FailedTaskCardProps {
   task: WorkerTask;
   isBusy: boolean;
@@ -53,10 +63,10 @@ export function FailedTaskCard({
       </p>
       {failureReason && (
         <p
-          className="text-body-sm text-md-error line-clamp-3"
+          className="text-body-sm text-md-error line-clamp-3 break-words"
           title={failureReason}
         >
-          {failureReason}
+          {summarizeReason(failureReason)}
         </p>
       )}
       <AgentActionsSection task={task} eager />

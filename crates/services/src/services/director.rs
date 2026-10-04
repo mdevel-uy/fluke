@@ -795,6 +795,25 @@ pub fn events_message(events: &[db::models::fluke_event::FlukeEvent]) -> String 
 // ---------------------------------------------------------------------------
 
 const SNAPSHOT_LIST_MAX: i64 = 6;
+/// Tope del motivo de falla por tarea en el snapshot: alcanza para el error
+/// resumido sin inflar el prompt.
+const SNAPSHOT_REASON_MAX: usize = 200;
+
+/// `s` en una sola línea (espacios y saltos colapsados) y acotado a `max`
+/// caracteres; `None` si queda vacío.
+fn one_line(s: &str, max: usize) -> Option<String> {
+    let flat = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.is_empty() {
+        return None;
+    }
+    if flat.chars().count() <= max {
+        return Some(flat);
+    }
+    let mut cut: String = flat.chars().take(max).collect();
+    cut.truncate(cut.trim_end().len());
+    cut.push('…');
+    Some(cut)
+}
 
 /// Resumen del estado actual, armado por el código en cada turno: qué corre,
 /// qué está trancado, qué espera al usuario y cómo están los PRs. Así "¿cómo
@@ -968,7 +987,7 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
     }
 
     let failed = sqlx::query(
-        "SELECT t.issue_number, t.title, w.role, t.failure_kind FROM worker_tasks t \
+        "SELECT t.issue_number, t.title, w.role, t.failure_kind, t.failure_reason FROM worker_tasks t \
            LEFT JOIN workers w ON w.id = t.worker_id \
           WHERE t.status = 'failed' AND t.completed_at > datetime('now', '-1 day') \
           ORDER BY t.completed_at DESC LIMIT ?",
@@ -979,11 +998,21 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
     if !failed.is_empty() {
         out.push_str("\nFailed (24 h):");
         for r in &failed {
-            let kind = r
-                .get::<Option<String>, _>("failure_kind")
-                .map(|k| format!(": {k}"))
-                .unwrap_or_default();
-            out.push_str(&task_line(r, &kind));
+            // "kind · motivo", cada parte sólo si existe; sin ninguna, nada.
+            let parts: Vec<String> = [
+                r.get::<Option<String>, _>("failure_kind"),
+                r.get::<Option<String>, _>("failure_reason"),
+            ]
+            .into_iter()
+            .flatten()
+            .filter_map(|s| one_line(&s, SNAPSHOT_REASON_MAX))
+            .collect();
+            let extra = if parts.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", parts.join(" · "))
+            };
+            out.push_str(&task_line(r, &extra));
         }
     }
 
