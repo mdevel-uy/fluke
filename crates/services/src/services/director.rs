@@ -528,7 +528,9 @@ button of the issue.
 to resolve references like \"this screen\", \"this task\" or \"this bug\". Its [STATUS] is the \
 state of the app at that moment: answer \"how are we doing\" or \"what's running\" from it \
 without calling tools. Call status_snapshot only if you need it fresher within the same turn. \
-Never mention the block itself.
+Its [MEMORY], when present, is what you have learned about the user across past conversations \
+(preferences, decisions, how they work): use it to fit your answer, do not recite it, and the \
+user's words in this conversation win over it. Never mention the block itself.
 - Reply in the user's language. Be brief: short sentences that also work read aloud.";
 
 /// Apertura y cierre del bloque de contexto de cada turno. La UI lo oculta.
@@ -552,7 +554,11 @@ pub async fn system_prompt(pool: &Pool, mission: &Mission) -> Result<String, sql
 
 /// Lo que cambia en cada turno (pantalla y estado de la app): va al
 /// principio del mensaje, dentro de `<fluke-context>`.
-pub async fn turn_context(pool: &Pool, mission: &Mission) -> Result<String, sqlx::Error> {
+pub async fn turn_context(
+    pool: &Pool,
+    mission: &Mission,
+    user_text: Option<&str>,
+) -> Result<String, sqlx::Error> {
     let ctx = mission
         .ui_context
         .as_deref()
@@ -590,8 +596,17 @@ pub async fn turn_context(pool: &Pool, mission: &Mission) -> Result<String, sqlx
     } else {
         ""
     };
+    // What Fluke has learned about the user that matters for this message
+    // (J3). An event batch is not the user: no recall for it.
+    let memory = match user_text.filter(|t| !t.starts_with(EVENTS_PREFIX)) {
+        Some(text) => crate::services::memory::recall(text)
+            .await
+            .map(|m| format!("\n\n[MEMORY]\n{m}"))
+            .unwrap_or_default(),
+        None => String::new(),
+    };
     Ok(format!(
-        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}{channel}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
+        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}{channel}{memory}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
 }
 

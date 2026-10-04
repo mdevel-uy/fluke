@@ -2007,10 +2007,22 @@ impl ContainerService for LocalContainerService {
                         services::services::director::system_prompt(&self.db.pool, &mission)
                             .await?,
                     );
+                    // The user's message searches Fluke's memory (J3).
+                    let user_text = match executor_action.typ() {
+                        ExecutorActionType::CodingAgentInitialRequest(r) => Some(r.prompt.as_str()),
+                        ExecutorActionType::CodingAgentFollowUpRequest(r) => {
+                            Some(r.prompt.as_str())
+                        }
+                        _ => None,
+                    };
                     env.insert(
                         utils::plan_mcp::DIRECTOR_CONTEXT_ENV,
-                        services::services::director::turn_context(&self.db.pool, &mission)
-                            .await?,
+                        services::services::director::turn_context(
+                            &self.db.pool,
+                            &mission,
+                            user_text,
+                        )
+                        .await?,
                     );
                 }
             } else if let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
