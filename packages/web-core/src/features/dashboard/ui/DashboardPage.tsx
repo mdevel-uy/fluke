@@ -12,6 +12,7 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { LiveChip } from './parts/LiveChip';
 import { KpiStrip } from './KpiStrip';
 import { AttentionPanel, useAttentionItems } from './AttentionPanel';
+import { MergeGatePanel } from './MergeGatePanel';
 import { ReposPanel } from './ReposPanel';
 import { RunningPanel } from './RunningPanel';
 import { ProvidersPanel } from './ProvidersPanel';
@@ -81,6 +82,7 @@ export function DashboardPage() {
               hoursPerTicket={hoursPerTicket}
             />
             <AttentionPanel items={attention.items} />
+            <MergeGatePanel tickets={data.tickets} />
             <ReposPanel repos={data.overview.repos} />
             <RunningPanel
               overview={data.overview}

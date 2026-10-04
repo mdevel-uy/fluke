@@ -7,6 +7,13 @@
 //! ticket must add all of them up. Review, QA-test and review-fix tasks are
 //! keyed by the PR number instead of the issue, so they are mapped back
 //! through the PR's workspace.
+//!
+//! A developer task whose PR the reviewer approved (`approved`) is finished
+//! work waiting for the human merge: it counts as completed on the date it
+//! was approved (`approved_at`, kept when the PR merges) and its ticket shows
+//! in the merge gate until the merge. If the approval goes away before the
+//! merge (changes requested, failure) or the PR is closed unmerged, it stops
+//! counting.
 
 use std::collections::{HashMap, HashSet};
 
@@ -55,6 +62,8 @@ pub struct TaskLite {
     pub workspace_id: Option<Uuid>,
     pub created_at: String,
     pub completed_at: Option<String>,
+    /// When the reviewer approved the task's PR; kept once it merges.
+    pub approved_at: Option<String>,
     pub cost_usd_total: Option<f64>,
     pub hours_saved_override: Option<f64>,
     /// Title of the issue `issue_number` names (meaningless for PR-keyed rows).
@@ -71,10 +80,11 @@ impl TaskLite {
             )
     }
 
+    /// Approved is not live: the agents are done, only the merge is left.
     fn is_live(&self) -> bool {
         !matches!(
             self.status.as_str(),
-            worker_task::STATUS_DONE | worker_task::STATUS_FAILED
+            worker_task::STATUS_DONE | worker_task::STATUS_FAILED | worker_task::STATUS_APPROVED
         )
     }
 }
@@ -85,6 +95,18 @@ pub struct PrLink {
     pub repo_id: Option<Uuid>,
     pub pr_number: i64,
     pub workspace_id: Option<Uuid>,
+    /// `open | merged | closed`.
+    pub pr_status: Option<String>,
+}
+
+/// An approved PR waiting for the human merge.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct MergeGate {
+    #[ts(type = "number | null")]
+    pub pr_number: Option<i64>,
+    pub workspace_id: Option<Uuid>,
+    /// When the reviewer approved it. SQLite datetime string (UTC).
+    pub approved_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -96,18 +118,21 @@ pub struct Ticket {
     pub issue_number: Option<i64>,
     pub is_pr: bool,
     pub title: String,
-    /// When the last task finished, once nothing of the ticket is live and at
-    /// least one task is done. SQLite datetime string (UTC).
+    /// When the last task was completed (done, or approved and waiting for
+    /// the merge: its approval date), once nothing of the ticket is live and
+    /// its latest issue task is completed. SQLite datetime string (UTC).
     pub resolved_at: Option<String>,
     /// Sum over every task of the ticket, retries and failures included.
     pub cost_usd: f64,
     #[ts(type = "number")]
     pub tasks: i64,
-    /// Override of the most recent done task that has one.
+    /// Override of the most recent completed task that has one.
     pub hours_override: Option<f64>,
-    /// Task that takes a new override: the latest done one.
+    /// Task that takes a new override: the latest completed one.
     pub edit_task_id: Option<Uuid>,
     pub edit_worker_id: Option<Uuid>,
+    /// Set while a resolved ticket's PR is approved and not merged yet.
+    pub merge_gate: Option<MergeGate>,
 }
 
 /// (repo, PR number) → issue, through the workspace the PR was opened from.
@@ -125,9 +150,50 @@ pub fn issue_of_pr(tasks: &[TaskLite], prs: &[PrLink]) -> HashMap<(Uuid, i64), i
         .collect()
 }
 
+/// Latest PR opened from each workspace.
+fn pr_of_workspace(prs: &[PrLink]) -> HashMap<Uuid, &PrLink> {
+    let mut map: HashMap<Uuid, &PrLink> = HashMap::new();
+    for p in prs {
+        let Some(ws) = p.workspace_id else { continue };
+        match map.get(&ws) {
+            Some(prev) if prev.pr_number >= p.pr_number => {}
+            _ => {
+                map.insert(ws, p);
+            }
+        }
+    }
+    map
+}
+
+/// When a task counts as completed, if it does. Done: its approval date when
+/// it went through one (the merge does not move it), else its completion.
+/// Approved: its approval date (created_at for legacy rows without one),
+/// unless its PR was closed without merging.
+fn completed_on(t: &TaskLite, pr: Option<&PrLink>) -> Option<String> {
+    match t.status.as_str() {
+        worker_task::STATUS_DONE => t.approved_at.clone().or_else(|| t.completed_at.clone()),
+        worker_task::STATUS_APPROVED
+            if pr.is_some_and(|p| p.pr_status.as_deref() == Some("closed")) =>
+        {
+            None
+        }
+        worker_task::STATUS_APPROVED => Some(
+            t.approved_at
+                .clone()
+                .unwrap_or_else(|| t.created_at.clone()),
+        ),
+        _ => None,
+    }
+}
+
 /// Group tasks into tickets. Pure: tested below.
 pub fn group_tickets(tasks: &[TaskLite], prs: &[PrLink]) -> Vec<Ticket> {
     let issue_of_pr = issue_of_pr(tasks, prs);
+    let pr_of_ws = pr_of_workspace(prs);
+    let pr_of = |t: &TaskLite| {
+        let p = *pr_of_ws.get(&t.workspace_id?)?;
+        p.repo_id.is_none_or(|r| r == t.repo_id).then_some(p)
+    };
 
     let mut order: Vec<String> = Vec::new();
     let mut groups: HashMap<String, Vec<&TaskLite>> = HashMap::new();
@@ -165,17 +231,40 @@ pub fn group_tickets(tasks: &[TaskLite], prs: &[PrLink]) -> Vec<Ticket> {
                 .and_then(|t| t.issue_title.clone())
                 .or_else(|| primary.map(|t| t.title.clone()))
                 .unwrap_or_else(|| first.title.clone());
-            let mut done: Vec<&&TaskLite> = rows
+            let mut done: Vec<(&TaskLite, String)> = rows
                 .iter()
-                .filter(|t| t.status == worker_task::STATUS_DONE && t.completed_at.is_some())
+                .filter_map(|&t| Some((t, completed_on(t, pr_of(t))?)))
                 .collect();
-            done.sort_by(|a, b| a.completed_at.cmp(&b.completed_at));
-            let resolved_at = if rows.iter().any(|t| t.is_live()) {
+            done.sort_by(|a, b| a.1.cmp(&b.1));
+            // The issue's own latest task (developer, designer...) decides: a
+            // done review does not resolve an issue whose developer failed or
+            // lost its approval.
+            let deciding = rows
+                .iter()
+                .rev()
+                .find(|t| !t.keyed_by_pr())
+                .or(rows.last())
+                .copied();
+            let resolved_at = if rows.iter().any(|t| t.is_live())
+                || deciding.and_then(|t| completed_on(t, pr_of(t))).is_none()
+            {
                 None
             } else {
-                done.last().and_then(|t| t.completed_at.clone())
+                done.last().map(|(_, at)| at.clone())
             };
-            let hours_override = done.iter().rev().find_map(|t| t.hours_saved_override);
+            let merge_gate = resolved_at
+                .as_ref()
+                .and_then(|_| {
+                    done.iter()
+                        .rev()
+                        .find(|(t, _)| t.status == worker_task::STATUS_APPROVED)
+                })
+                .map(|(t, at)| MergeGate {
+                    pr_number: pr_of(*t).map(|p| p.pr_number),
+                    workspace_id: t.workspace_id,
+                    approved_at: at.clone(),
+                });
+            let hours_override = done.iter().rev().find_map(|(t, _)| t.hours_saved_override);
             Ticket {
                 repo_id: first.repo_id,
                 issue_number,
@@ -185,8 +274,9 @@ pub fn group_tickets(tasks: &[TaskLite], prs: &[PrLink]) -> Vec<Ticket> {
                 cost_usd: rows.iter().filter_map(|t| t.cost_usd_total).sum(),
                 tasks: rows.len() as i64,
                 hours_override,
-                edit_task_id: done.last().map(|t| t.id),
-                edit_worker_id: done.last().map(|t| t.worker_id),
+                edit_task_id: done.last().map(|(t, _)| t.id),
+                edit_worker_id: done.last().map(|(t, _)| t.worker_id),
+                merge_gate,
                 key,
             }
         })
@@ -196,7 +286,8 @@ pub fn group_tickets(tasks: &[TaskLite], prs: &[PrLink]) -> Vec<Ticket> {
 async fn load_tasks(pool: &SqlitePool) -> Result<Vec<TaskLite>, sqlx::Error> {
     sqlx::query_as(
         "SELECT t.id, t.worker_id, t.repo_id, t.issue_number, t.kind, w.role, t.status,
-                t.title, t.workspace_id, t.created_at, t.completed_at, t.cost_usd_total,
+                t.title, t.workspace_id, t.created_at, t.completed_at, t.approved_at,
+                t.cost_usd_total,
                 t.hours_saved_override, ri.title AS issue_title
            FROM worker_tasks t
            JOIN workers w ON w.id = t.worker_id
@@ -209,7 +300,8 @@ async fn load_tasks(pool: &SqlitePool) -> Result<Vec<TaskLite>, sqlx::Error> {
 
 async fn load_prs(pool: &SqlitePool) -> Result<Vec<PrLink>, sqlx::Error> {
     sqlx::query_as(
-        "SELECT repo_id, pr_number, workspace_id FROM pull_requests WHERE workspace_id IS NOT NULL",
+        "SELECT repo_id, pr_number, workspace_id, pr_status
+           FROM pull_requests WHERE workspace_id IS NOT NULL",
     )
     .fetch_all(pool)
     .await
@@ -672,6 +764,7 @@ mod tests {
             workspace_id: (ws != 0).then(|| Uuid::from_u128(ws)),
             created_at: "2026-10-01 10:00:00".into(),
             completed_at: (status == "done").then(|| "2026-10-02 10:00:00".into()),
+            approved_at: (status == "approved").then(|| "2026-10-03 09:00:00".into()),
             cost_usd_total: Some(1.0),
             hours_saved_override: None,
             issue_title: Some(format!("Issue {issue}")),
@@ -692,6 +785,7 @@ mod tests {
             repo_id: Some(Uuid::nil()),
             pr_number: 40,
             workspace_id: Some(Uuid::from_u128(1)),
+            pr_status: Some("merged".into()),
         }];
         let tickets = group_tickets(&tasks, &prs);
         assert_eq!(tickets.len(), 2);
@@ -712,5 +806,79 @@ mod tests {
         assert_eq!(tickets.len(), 1);
         assert!(tickets[0].resolved_at.is_none());
     }
-}
 
+    const APPROVED_AT: &str = "2026-10-03 09:00:00";
+
+    /// Issue 50: design, development (workspace 5, PR 60), review and QA.
+    fn gate_case(dev: TaskLite, pr_status: &str) -> Vec<Ticket> {
+        let tasks = vec![
+            task("designer", Some("design_handoff"), 50, "done", 4),
+            dev,
+            task("reviewer", None, 60, "done", 0),
+            task("qa", Some("qa_test"), 60, "done", 0),
+        ];
+        let prs = vec![PrLink {
+            repo_id: Some(Uuid::nil()),
+            pr_number: 60,
+            workspace_id: Some(Uuid::from_u128(5)),
+            pr_status: Some(pr_status.into()),
+        }];
+        group_tickets(&tasks, &prs)
+    }
+
+    #[test]
+    fn an_approved_pr_without_merge_is_completed_and_waits_for_the_gate() {
+        let tickets = gate_case(task("developer", None, 50, "approved", 5), "open");
+        // Four tasks of one issue: one ticket, counted once.
+        assert_eq!(tickets.len(), 1);
+        assert_eq!(tickets[0].tasks, 4);
+        assert_eq!(tickets[0].resolved_at.as_deref(), Some(APPROVED_AT));
+        let gate = tickets[0].merge_gate.as_ref().expect("waits for the merge");
+        assert_eq!(gate.pr_number, Some(60));
+        assert_eq!(gate.workspace_id, Some(Uuid::from_u128(5)));
+        assert_eq!(gate.approved_at, APPROVED_AT);
+    }
+
+    #[test]
+    fn the_merge_leaves_the_gate_and_keeps_the_approval_date() {
+        let mut dev = task("developer", None, 50, "done", 5);
+        dev.approved_at = Some(APPROVED_AT.into());
+        dev.completed_at = Some("2026-10-05 12:00:00".into());
+        let tickets = gate_case(dev, "merged");
+        assert_eq!(tickets.len(), 1);
+        assert_eq!(tickets[0].resolved_at.as_deref(), Some(APPROVED_AT));
+        assert!(tickets[0].merge_gate.is_none());
+    }
+
+    #[test]
+    fn losing_the_approval_before_the_merge_stops_counting() {
+        // Changes requested: back to review, the approval date is cleared.
+        for status in ["in_review", "in_progress", "failed"] {
+            let tickets = gate_case(task("developer", None, 50, status, 5), "open");
+            assert_eq!(tickets.len(), 1);
+            assert!(tickets[0].resolved_at.is_none(), "{status}");
+            assert!(tickets[0].merge_gate.is_none(), "{status}");
+        }
+    }
+
+    #[test]
+    fn an_approved_pr_closed_without_merge_does_not_count() {
+        let tickets = gate_case(task("developer", None, 50, "approved", 5), "closed");
+        assert!(tickets[0].resolved_at.is_none());
+        assert!(tickets[0].merge_gate.is_none());
+    }
+
+    #[test]
+    fn an_approved_task_without_approval_date_uses_its_creation() {
+        let mut dev = task("developer", None, 50, "approved", 5);
+        dev.approved_at = None;
+        dev.created_at = "2026-10-02 08:00:00".into();
+        let tickets = gate_case(dev, "open");
+        // The review finished later: the ticket resolves then.
+        assert_eq!(
+            tickets[0].resolved_at.as_deref(),
+            Some("2026-10-02 10:00:00")
+        );
+        assert!(tickets[0].merge_gate.is_some());
+    }
+}

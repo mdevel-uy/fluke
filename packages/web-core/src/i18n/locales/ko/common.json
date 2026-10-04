@@ -657,6 +657,15 @@
     }
   },
   "dashboard": {
+    "mergeGate": {
+      "title": "머지 대기",
+      "subtitle": "리뷰어 승인 완료, 해결됨으로 집계",
+      "approved": "승인됨",
+      "pr": "PR #{{number}}",
+      "waiting": "{{time}} 전 승인",
+      "viewIssue": "이슈 보기",
+      "viewPr": "PR 보기"
+    },
     "title": "대시보드",
     "autoIngest": "자동 수집",
     "openPilotReport": "파일럿 리포트 열기",
