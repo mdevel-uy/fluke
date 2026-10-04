@@ -2125,6 +2125,15 @@
       "noGithubRemote": "El repo no tiene remoto en GitHub. El Analista necesita un repo en GitHub para crear issues y PRs, por eso el brief todavía no se puede aprobar.",
       "remoteCheckFailed": "No se pudo verificar si el repo tiene remoto en GitHub. La aprobación queda bloqueada hasta poder verificarlo.",
       "checkingRemote": "Verificando el remoto de GitHub del repo...",
+      "connectGithub": "Conectar a GitHub",
+      "connectGithubDialog": {
+        "title": "Conectar el repo a GitHub",
+        "description": "Crea {{repo}} en GitHub, lo agrega como remoto origin y sube la rama actual. El brief se puede aprobar una vez configurado el remoto.",
+        "noSession": "No hay sesión de GitHub. Inicia sesión en Configuración > GitHub y vuelve a comprobar.",
+        "failed": "No se pudo conectar el repo a GitHub. La aprobación sigue bloqueada; puedes reintentar sin crear un repositorio duplicado.",
+        "confirm": "Crear en GitHub y conectar",
+        "connecting": "Conectando..."
+      },
       "sent": "Brief v{{version}} enviado al Analista.",
       "issues": "Issues: {{list}}",
       "optional": "opcional",

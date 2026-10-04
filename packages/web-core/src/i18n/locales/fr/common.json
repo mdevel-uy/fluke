@@ -1899,6 +1899,15 @@
       "noGithubRemote": "The repo has no GitHub remote. The Analyst needs a repo on GitHub to create issues and PRs, so the brief cannot be approved yet.",
       "remoteCheckFailed": "Could not check whether the repo has a GitHub remote. Approval stays blocked until it can be verified.",
       "checkingRemote": "Checking the repo GitHub remote...",
+      "connectGithub": "Connect to GitHub",
+      "connectGithubDialog": {
+        "title": "Connect the repo to GitHub",
+        "description": "Creates {{repo}} on GitHub, adds it as the origin remote and pushes the current branch. The brief can be approved once the remote is configured.",
+        "noSession": "You are not signed in to GitHub. Sign in from Settings > GitHub, then check again.",
+        "failed": "The repo could not be connected to GitHub. Approval stays blocked; you can retry without creating a duplicate repository.",
+        "confirm": "Create on GitHub and connect",
+        "connecting": "Connecting..."
+      },
       "sent": "Brief v{{version}} sent to the Analyst.",
       "issues": "Issues: {{list}}",
       "optional": "optional",
