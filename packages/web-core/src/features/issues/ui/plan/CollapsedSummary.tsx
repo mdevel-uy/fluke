@@ -5,21 +5,22 @@ import { instanceLabel } from '@/features/workers/model/instance';
 import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
 import type {
+  BandCardState,
   MilestoneBand,
-  PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 
 /**
  * What a collapsed band shows under its header (#664, mockup `.sum`): a mini
  * map of waves with one segment per issue painted by state, the counts, the
  * workers on it right now and "Decidir #n" when a decision is pending.
+ * Approved PRs are not in the band (#759), so they are neither painted nor
+ * counted here.
  */
 
-export const SEGMENT: Record<PlanCardState, string> = {
+export const SEGMENT: Record<BandCardState, string> = {
   done: 'bg-success',
   running: 'bg-md-primary',
   review: 'bg-violet-600 dark:bg-violet-400',
-  approved: 'bg-success',
   stuck: 'bg-md-error',
   gate: 'border border-dashed border-warning',
   queued: 'border border-dashed border-md-on-surface-variant',
@@ -27,7 +28,7 @@ export const SEGMENT: Record<PlanCardState, string> = {
   blocked: 'bg-md-outline/50',
 };
 
-const COUNTS: { key: string; states: PlanCardState[]; dot: string }[] = [
+const COUNTS: { key: string; states: BandCardState[]; dot: string }[] = [
   { key: 'done', states: ['done'], dot: 'bg-success' },
   { key: 'running', states: ['running'], dot: 'bg-md-primary' },
   {
@@ -35,7 +36,6 @@ const COUNTS: { key: string; states: PlanCardState[]; dot: string }[] = [
     states: ['review'],
     dot: 'bg-violet-600 dark:bg-violet-400',
   },
-  { key: 'approved', states: ['approved'], dot: 'bg-success' },
   { key: 'stuck', states: ['stuck'], dot: 'bg-md-error' },
   { key: 'queued', states: ['queued'], dot: 'bg-md-on-surface-variant' },
   { key: 'gate', states: ['gate'], dot: 'bg-warning' },

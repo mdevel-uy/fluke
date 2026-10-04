@@ -101,15 +101,18 @@ describe('buildMilestonePlan', () => {
     expect(stateOf(plan, 2)).toBe('running');
     expect(stateOf(plan, 3)).toBe('running');
     expect(stateOf(plan, 4)).toBe('review');
-    expect(stateOf(plan, 5)).toBe('approved');
+    // An approved PR leaves the band for the "waiting on you" section.
+    expect(stateOf(plan, 5)).toBeUndefined();
+    expect(plan.awaitingMerge.map((a) => a.issue.number)).toEqual([5]);
     expect(stateOf(plan, 6)).toBe('done');
     // A failed task reads as no task: back to waiting for a dispatch.
     expect(stateOf(plan, 7)).toBe('ready');
     expect(plan.bands[0].done).toBe(1);
+    expect(plan.bands[0].total).toBe(7);
     expect(plan.bands[0].status).toEqual({
       kind: 'running',
       wave: 0,
-      count: 7,
+      count: 6,
     });
   });
 
@@ -122,16 +125,12 @@ describe('buildMilestonePlan', () => {
     expect(stateOf(plan, 2)).toBe('ready');
   });
 
-  it('reports approved PRs waiting for a merge once nothing else moves', () => {
+  it('points at the waiting-on-you section once only merges are left', () => {
     const plan = buildMilestonePlan(
       [issue(1, 'M1', ['wave:0']), issue(2, 'M1', ['wave:1'])],
       new Map([[1, { status: 'approved' }]])
     );
-    expect(plan.bands[0].status).toEqual({
-      kind: 'merge',
-      issueNumber: 1,
-      count: 1,
-    });
+    expect(plan.bands[0].status).toEqual({ kind: 'awaitingYou', count: 1 });
   });
 
   it('reports a band that can only start with a decision', () => {
@@ -188,46 +187,108 @@ describe('buildMilestonePlan', () => {
       expect(plan.loose.map((i) => i.number)).toEqual([4]);
     });
 
-    it('no longer counts an approved PR as ready', () => {
-      const plan = buildMilestonePlan(
-        [issue(1, 'M1', ['wave:0'])],
-        new Map([[1, { status: 'approved' }]])
-      );
-      expect(stateOf(plan, 1)).toBe('approved');
-      const cards = plan.bands[0].waves.flatMap((w) => w.cards);
-      expect(cards.filter((c) => c.state === 'ready')).toEqual([]);
-      expect(plan.bands[0].status.kind).toBe('merge');
+    const tasks = (entries: [number, string][]) =>
+      new Map(entries.map(([n, status]) => [n, { status }]));
+    // Every card the band draws, which is also what its collapsed summary
+    // and compact row paint and count.
+    const bandCards = (plan: ReturnType<typeof buildMilestonePlan>) =>
+      plan.bands.flatMap((b) => b.waves.flatMap((w) => w.cards));
+
+    it('takes an approved PR out of its band: not drawn, not counted, not ready', () => {
+      const issues = [
+        issue(1, 'M1', ['wave:0']),
+        issue(2, 'M1', ['wave:0']),
+        issue(3, 'M1', ['wave:1']),
+      ];
+      const ready = (plan: ReturnType<typeof buildMilestonePlan>) =>
+        bandCards(plan).filter((c) => c.state === 'ready').length;
+      expect(ready(buildMilestonePlan(issues, noTasks))).toBe(2);
+
+      const plan = buildMilestonePlan(issues, tasks([[1, 'approved']]));
+      expect(ready(plan)).toBe(1);
+      expect(awaiting(plan)).toEqual([[1, 'M1']]);
+      expect(bandCards(plan).map((c) => c.issue.number)).toEqual([2, 3]);
+      expect(bandCards(plan).map((c) => c.state)).toEqual(['ready', 'blocked']);
+      // Not merged yet: it still holds wave 0 and the milestone total.
+      expect(plan.bands[0].currentWave).toBe(0);
+      expect(plan.bands[0].done).toBe(0);
+      expect(plan.bands[0].total).toBe(3);
+      // There is still work to start in wave 0: the band reads as ready.
+      expect(plan.bands[0].status).toEqual({ kind: 'ready' });
     });
 
-    it('drops the PR once merged: issue closed or task done', () => {
-      const closed = buildMilestonePlan(
-        [issue(1, 'M1', ['wave:0'], 'closed'), issue(2, null, [], 'closed')],
-        new Map([
-          [1, { status: 'approved' }],
-          [2, { status: 'approved' }],
+    it('keeps an approved-only wave from advancing and drops its column', () => {
+      const plan = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0']), issue(2, 'M1', ['wave:1'])],
+        tasks([[1, 'approved']])
+      );
+      expect(plan.bands[0].waves.map((w) => w.wave)).toEqual([1]);
+      expect(stateOf(plan, 2)).toBe('blocked');
+      expect(plan.bands[0].status).toEqual({ kind: 'awaitingYou', count: 1 });
+      // The milestone is not finished while the PR is unmerged.
+      expect(plan.bands[0].done).toBeLessThan(plan.bands[0].total);
+    });
+
+    it('drops the PR once merged and the band moves on', () => {
+      const issues = [issue(1, 'M1', ['wave:0']), issue(2, 'M1', ['wave:1'])];
+      const approved = buildMilestonePlan(issues, tasks([[1, 'approved']]));
+      expect(awaiting(approved)).toEqual([[1, 'M1']]);
+
+      const merged = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0'], 'closed'), issue(2, 'M1', ['wave:1'])],
+        tasks([[1, 'approved']])
+      );
+      expect(merged.awaitingMerge).toEqual([]);
+      expect(stateOf(merged, 1)).toBe('done');
+      expect(merged.bands[0].currentWave).toBe(1);
+      expect(stateOf(merged, 2)).toBe('ready');
+
+      const looseMerged = buildMilestonePlan(
+        [issue(3, null, [], 'closed')],
+        tasks([[3, 'approved']])
+      );
+      expect(looseMerged.awaitingMerge).toEqual([]);
+      expect(looseMerged.loose).toEqual([]);
+    });
+
+    it('drops the PR merged without "Closes #n": issue open, task done', () => {
+      const plan = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0']), issue(2, null, [])],
+        tasks([
+          [1, 'done'],
+          [2, 'done'],
         ])
       );
-      expect(closed.awaitingMerge).toEqual([]);
-      expect(stateOf(closed, 1)).toBe('done');
-
-      // Merged without "Closes #n": the issue stays open, the task is done.
-      const openIssue = buildMilestonePlan(
-        [issue(1, 'M1', ['wave:0'])],
-        new Map([[1, { status: 'done' }]])
-      );
-      expect(openIssue.awaitingMerge).toEqual([]);
-      expect(stateOf(openIssue, 1)).toBe('done');
+      expect(plan.awaitingMerge).toEqual([]);
+      expect(stateOf(plan, 1)).toBe('done');
+      // A loose open issue with a merged task is back in the loose bucket.
+      expect(plan.loose.map((i) => i.number)).toEqual([2]);
     });
 
     it('drops the PR when the review asks for changes again', () => {
       const plan = buildMilestonePlan(
         [issue(1, 'M1', ['wave:0']), issue(2, null, [])],
-        new Map([
-          [1, { status: 'in_progress' }],
-          [2, { status: 'in_review' }],
+        tasks([
+          [1, 'in_progress'],
+          [2, 'in_review'],
         ])
       );
       expect(plan.awaitingMerge).toEqual([]);
+      expect(stateOf(plan, 1)).toBe('running');
+      expect(plan.loose.map((i) => i.number)).toEqual([2]);
+    });
+
+    it('leaves a stuck approved PR where the user unsticks it', () => {
+      const plan = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0']), issue(2, null, [])],
+        tasks([
+          [1, 'approved'],
+          [2, 'approved'],
+        ]),
+        new Set([1, 2])
+      );
+      expect(plan.awaitingMerge).toEqual([]);
+      expect(stateOf(plan, 1)).toBe('stuck');
       expect(plan.loose.map((i) => i.number)).toEqual([2]);
     });
   });

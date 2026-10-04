@@ -954,7 +954,7 @@
         "stuckDetail": "le reste de la wave continue",
         "mergeTitle_one": "{{count}} PR prête à fusionner",
         "mergeTitle_other": "{{count}} PR prêtes à fusionner",
-        "mergeDetail": "relisez et fusionnez #{{n}} sur GitHub"
+        "mergeDetail": "fusionnez-les dans En attente de vous"
       },
       "card": {
         "ready": "● prêt",
@@ -1001,8 +1001,7 @@
         "decide": "Décider #{{n}}",
         "stuck_one": "{{count}} a besoin de vous",
         "stuck_other": "{{count}} ont besoin de vous",
-        "unstick": "Débloquer #{{n}}",
-        "approved": "{{count}} prêts à fusionner"
+        "unstick": "Débloquer #{{n}}"
       },
       "decision": {
         "eyebrow": "Décision en attente",

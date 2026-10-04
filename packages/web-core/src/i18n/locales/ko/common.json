@@ -949,7 +949,7 @@
         "stuckTitle": "#{{n}}에 도움이 필요합니다",
         "stuckDetail": "wave의 나머지는 계속 실행됩니다",
         "mergeTitle_other": "PR {{count}}개 병합 가능",
-        "mergeDetail": "GitHub에서 #{{n}} 검토 후 병합"
+        "mergeDetail": "내 처리 대기에서 병합"
       },
       "card": {
         "ready": "● 준비됨",
@@ -995,8 +995,7 @@
         "working": "작업 중",
         "decide": "#{{n}} 결정",
         "stuck_other": "{{count}}개가 도움 필요",
-        "unstick": "#{{n}} 해결하기",
-        "approved": "{{count}}개 병합 가능"
+        "unstick": "#{{n}} 해결하기"
       },
       "decision": {
         "eyebrow": "결정 대기",

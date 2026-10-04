@@ -1171,7 +1171,7 @@
         "stuckDetail": "the rest of the wave keeps running",
         "mergeTitle_one": "{{count}} PR ready to merge",
         "mergeTitle_other": "{{count}} PRs ready to merge",
-        "mergeDetail": "review and merge #{{n}} on GitHub"
+        "mergeDetail": "merge from Waiting on you"
       },
       "card": {
         "ready": "● ready",
@@ -1218,8 +1218,7 @@
         "decide": "Decide #{{n}}",
         "stuck_one": "{{count}} needs your help",
         "stuck_other": "{{count}} need your help",
-        "unstick": "Unblock #{{n}}",
-        "approved": "{{count}} ready to merge"
+        "unstick": "Unblock #{{n}}"
       },
       "decision": {
         "eyebrow": "Pending decision",

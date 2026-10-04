@@ -152,7 +152,8 @@ export function PlanView({
       const run = runs.find((r) => r.milestone === b.milestone)?.status;
       return (
         b.status.kind === 'running' ||
-        b.status.kind === 'merge' ||
+        // An approved PR waiting for its merge keeps the milestone active.
+        all.awaitingMerge.some((a) => a.milestone === b.milestone) ||
         run === 'running' ||
         run === 'waiting'
       );
@@ -166,16 +167,15 @@ export function PlanView({
     );
     // Loose issues are open work: they only belong next to unfinished milestones.
     const loose = milestoneFilter === 'unfinished' ? full.loose : [];
-    // Approved PRs waiting for a person to merge them (#759): pending work of
-    // the user, so they also only show under "Sin finalizar".
-    const awaitingMerge =
-      milestoneFilter === 'unfinished'
-        ? full.awaitingMerge.filter(
-            (a) =>
-              a.milestone === null ||
-              ghByTitle.get(a.milestone)?.state !== 'closed'
-          )
-        : [];
+    // Approved PRs waiting for a person to merge them (#759). They are not in
+    // any band, so the section follows the bands shown (an unmerged PR keeps
+    // its milestone unfinished) and, like the loose bucket, loose ones only
+    // show under "Sin finalizar".
+    const awaitingMerge = full.awaitingMerge.filter((a) =>
+      a.milestone === null
+        ? milestoneFilter === 'unfinished'
+        : bands.some((b) => b.milestone === a.milestone)
+    );
     return { ...full, bands, loose, awaitingMerge, archived };
   }, [issues, taskByIssueNumber, blockers, runs, milestoneFilter, ghByTitle]);
   const sections = useMemo(
