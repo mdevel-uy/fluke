@@ -1,4 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -33,8 +39,10 @@ import {
   useMissionWorkspace,
   useSendToDirector,
 } from '../model/useMissions';
+import { layoutTabs } from '../lib/tabLayout';
 import { DirectorChat } from './DirectorChat';
 import { FlukeMark } from './FlukeMark';
+import { MissionTabsMenu, type MissionTabEntry } from './MissionTabsMenu';
 import { QuickReplies } from './QuickReplies';
 import { ProposalMessage } from './MissionProgress';
 
@@ -116,7 +124,11 @@ function HeaderButton({
   );
 }
 
-/** "Missions" tab plus one tab per open mission, and "new mission". */
+/**
+ * "Missions" tab, the open mission tabs that fit, an overflow menu with every
+ * open tab, and "new mission" pinned to the right (spec #648). Nothing in
+ * the bar scrolls; the active tab is always among the visible ones.
+ */
 export function MissionTabs() {
   const { t } = useTranslation('common');
   const activeTab = useDirectorStore((s) => s.activeTab);
@@ -125,34 +137,96 @@ export function MissionTabs() {
   const { data: missions = [] } = useMissionList();
   const byId = new Map(missions.map((m) => [m.mission.id, m]));
   const confirmDelete = useConfirmDeleteMission();
+  const [zoneRef, zoneWidth] = useMeasuredWidth<HTMLDivElement>();
+
+  const entries: MissionTabEntry[] = openIds.flatMap((id) => {
+    const m = byId.get(id);
+    if (!m) return [];
+    return [
+      {
+        id,
+        label: missionLabel(m, t('director.newMission')),
+        attention: isWaitingForUser(m),
+        running: m.agent_running,
+        closable: !m.is_guard,
+      },
+    ];
+  });
+  const entryById = new Map(entries.map((e) => [e.id, e]));
+  const { visible, hidden } = layoutTabs(
+    entries.map((e) => e.id),
+    activeTab,
+    zoneWidth
+  );
+  const deleteLabel = t('director.delete.action');
+  const remove = (id: string) => {
+    const m = byId.get(id);
+    if (m && !m.is_guard) void confirmDelete(m);
+  };
 
   return (
-    <div className="flex h-8 shrink-0 items-stretch gap-0.5 overflow-x-auto border-b border-md-outline-variant px-2">
+    <div className="flex h-8 shrink-0 items-stretch gap-0.5 overflow-hidden border-b border-md-outline-variant px-2">
       <Tab
         active={activeTab === MISSIONS_TAB}
         onClick={() => setActiveTab(MISSIONS_TAB)}
         label={t('director.missions')}
       />
-      {openIds
-        .filter((id) => byId.has(id))
-        .map((id) => (
-          <Tab
-            key={id}
-            active={activeTab === id}
-            onClick={() => setActiveTab(id)}
-            onClose={
-              byId.get(id)!.is_guard
-                ? undefined
-                : () => void confirmDelete(byId.get(id)!)
-            }
-            closeLabel={t('director.delete.action')}
-            label={missionLabel(byId.get(id)!, t('director.newMission'))}
-            attention={isWaitingForUser(byId.get(id)!)}
+      {/* Measured zone: strip + overflow button. Its width doesn't depend
+          on whether the button is shown, so the layout can't oscillate. */}
+      <div ref={zoneRef} className="flex min-w-0 flex-1 gap-0.5">
+        <div className="flex min-w-0 flex-1 gap-0.5 overflow-hidden">
+          {visible.map((id) => {
+            const e = entryById.get(id)!;
+            return (
+              <Tab
+                key={id}
+                mission
+                squeezed={visible.length === 1}
+                active={activeTab === id}
+                onClick={() => setActiveTab(id)}
+                onClose={e.closable ? () => remove(id) : undefined}
+                closeLabel={deleteLabel}
+                label={e.label}
+                attention={e.attention}
+              />
+            );
+          })}
+        </div>
+        {hidden.length > 0 && (
+          <MissionTabsMenu
+            entries={entries}
+            hiddenIds={hidden}
+            activeId={activeTab}
+            onSelect={setActiveTab}
+            onDelete={remove}
+            deleteLabel={deleteLabel}
           />
-        ))}
-      <NewMissionButton className="ml-1 self-center" />
+        )}
+      </div>
+      <NewMissionButton
+        className="flex size-6 shrink-0 items-center justify-center self-center p-0"
+      />
     </div>
   );
+}
+
+/** Width of an element, kept up to date with a ResizeObserver. */
+function useMeasuredWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+  // Layout effect: measure before the first paint, so the bar doesn't
+  // flash with a single tab.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) =>
+      setWidth(entry.contentRect.width)
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width] as const;
 }
 
 /**
@@ -246,6 +320,11 @@ export function FlukeMissionsSidebar({
   );
 }
 
+/**
+ * `mission`: a mission tab, which shares the strip with the others (equal
+ * widths between 96px and 160px); otherwise the fixed "Missions" tab.
+ * `squeezed`: the only visible mission tab, allowed below the minimum.
+ */
 function Tab({
   active,
   label,
@@ -253,6 +332,8 @@ function Tab({
   onClose,
   closeLabel,
   attention = false,
+  mission = false,
+  squeezed = false,
 }: {
   active: boolean;
   label: string;
@@ -260,11 +341,19 @@ function Tab({
   onClose?: () => void;
   closeLabel?: string;
   attention?: boolean;
+  mission?: boolean;
+  squeezed?: boolean;
 }) {
   return (
     <div
       className={cn(
-        'group flex max-w-[140px] shrink-0 items-center gap-1 border-b-2 px-2 text-xs',
+        'group flex items-center gap-1 border-b-2 px-2 text-xs',
+        mission
+          ? cn(
+              'max-w-[160px] flex-[1_1_0]',
+              squeezed ? 'min-w-0' : 'min-w-[96px]'
+            )
+          : 'shrink-0',
         active
           ? 'border-brand text-high'
           : 'border-transparent text-low hover:text-normal'
@@ -274,7 +363,7 @@ function Tab({
       <button
         type="button"
         onClick={onClick}
-        className="min-w-0 truncate"
+        className="min-w-0 flex-1 truncate text-left"
         title={label}
       >
         {label}
@@ -283,10 +372,15 @@ function Tab({
         <span className="size-1.5 shrink-0 rounded-full bg-warning" />
       )}
       {onClose && (
+        // Its slot is always reserved; without hover (touch) the active
+        // tab's X stays visible.
         <button
           type="button"
           onClick={onClose}
-          className="flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand group-focus-within:opacity-100 group-hover:opacity-100"
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand group-focus-within:opacity-100 group-hover:opacity-100',
+            active && '[@media(hover:none)]:opacity-100'
+          )}
           aria-label={closeLabel}
           title={closeLabel}
         >
