@@ -219,6 +219,19 @@
         "customPrompt": {
           "useCustom": "使用自定义提示",
           "helper": "生成PR描述时AI代理使用的自定义提示。使用{pr_number}和{pr_url}作为占位符。"
+        },
+        "mergeMethod": {
+          "label": "合并方式",
+          "helper": "fluke 在 GitHub 上合并已批准 PR 的方式（来自界面，或 Fluke 按请求合并时）。",
+          "options": {
+            "merge": "合并提交",
+            "squash": "压缩合并",
+            "rebase": "变基合并"
+          }
+        },
+        "deleteBranchAfterMerge": {
+          "label": "合并后删除分支",
+          "helper": "合并成功后删除 GitHub 上的 PR 分支。"
         }
       },
       "autoReview": {

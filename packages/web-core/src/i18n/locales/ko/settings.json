@@ -219,6 +219,19 @@
         "customPrompt": {
           "useCustom": "사용자 정의 프롬프트 사용",
           "helper": "PR 설명 생성 시 AI 에이전트용 사용자 정의 프롬프트. {pr_number}와 {pr_url}을 플레이스홀더로 사용하세요."
+        },
+        "mergeMethod": {
+          "label": "병합 방식",
+          "helper": "fluke가 승인된 PR을 GitHub에서 병합하는 방식(UI에서 또는 Fluke가 요청에 따라 병합할 때).",
+          "options": {
+            "merge": "병합 커밋",
+            "squash": "스쿼시 후 병합",
+            "rebase": "리베이스 후 병합"
+          }
+        },
+        "deleteBranchAfterMerge": {
+          "label": "병합 후 브랜치 삭제",
+          "helper": "병합이 완료되면 GitHub에서 PR 브랜치를 삭제합니다."
         }
       },
       "autoReview": {
