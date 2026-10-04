@@ -924,6 +924,8 @@
         "label": "Jalons",
         "unfinished": "Non terminés",
         "active": "Actifs",
+        "running": "En cours",
+        "stopped": "En attente de vous",
         "finished": "Terminés",
         "empty": "Aucun jalon ne correspond à ce filtre."
       },

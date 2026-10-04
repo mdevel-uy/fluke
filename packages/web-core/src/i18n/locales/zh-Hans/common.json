@@ -922,6 +922,8 @@
         "label": "里程碑",
         "unfinished": "未完成",
         "active": "进行中",
+        "running": "运行中",
+        "stopped": "待处理",
         "finished": "已完成",
         "empty": "没有符合此筛选条件的里程碑。"
       },

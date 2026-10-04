@@ -1141,6 +1141,8 @@
         "label": "Milestones",
         "unfinished": "Unfinished",
         "active": "Active",
+        "running": "Running",
+        "stopped": "Needs you",
         "finished": "Finished",
         "empty": "No milestones match this filter."
       },

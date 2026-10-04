@@ -20,6 +20,8 @@ import type { PlanMilestoneFilter } from './plan/PlanView';
 const MILESTONE_FILTERS: PlanMilestoneFilter[] = [
   'unfinished',
   'active',
+  'running',
+  'stopped',
   'finished',
 ];
 

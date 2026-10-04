@@ -14,7 +14,7 @@ const issuesSearchSchema = z.object({
   labels: z.coerce.string().optional(),
   milestones: z.coerce.string().optional(),
   // Plan view's milestone filter (IssuesSidebar); 'unfinished' is the default.
-  ms: z.enum(['unfinished', 'active', 'finished']).optional(),
+  ms: z.enum(['unfinished', 'active', 'running', 'stopped', 'finished']).optional(),
   // 'plan' is the default and stays out of the URL; 'execution' is the
   // pre-v2 name and still opens the Plan view (#663).
   groupBy: z

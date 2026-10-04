@@ -922,6 +922,8 @@
         "label": "マイルストーン",
         "unfinished": "未完了",
         "active": "進行中",
+        "running": "実行中",
+        "stopped": "対応待ち",
         "finished": "完了",
         "empty": "このフィルターに該当するマイルストーンはありません。"
       },
