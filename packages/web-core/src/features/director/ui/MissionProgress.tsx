@@ -12,6 +12,7 @@ import {
   STEPS,
   briefTemplate,
   currentStep,
+  missionDelivery,
   proposalMilestones,
   readyToRun,
 } from '../lib/missionSteps';
@@ -48,7 +49,16 @@ export function MissionStepper({ detail }: { detail: MissionDetail }) {
   const milestones = proposalMilestones(detail);
   const waves = new Set(detail.proposal.map((i) => i.wave)).size;
 
+  const delivery = missionDelivery(detail);
+
   const sub = (step: (typeof STEPS)[number], done: boolean) => {
+    // A merged mock is not the feature (#758): say which one is ready.
+    if (step === 'run' && delivery === 'design_ready') {
+      return t('director.steps.run.designReady');
+    }
+    if (step === 'run' && done && delivery === 'implemented') {
+      return t('director.steps.run.implemented');
+    }
     if (!done) return t(`director.steps.${step}.todo`);
     switch (step) {
       case 'brief':

@@ -1915,7 +1915,9 @@
       "run": {
         "title": "実行",
         "todo": "Issues の milestone を play で実行",
-        "done": "milestone 完了"
+        "done": "milestone 完了",
+        "designReady": "デザイン完了、実装待ち",
+        "implemented": "機能を実装済み"
       },
       "template": {
         "tddDesign": "TDD とデザインあり",

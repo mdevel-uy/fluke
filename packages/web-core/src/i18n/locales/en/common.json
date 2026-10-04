@@ -2153,7 +2153,9 @@
       "run": {
         "title": "Execution",
         "todo": "Milestone in Issues, with play",
-        "done": "Milestone complete"
+        "done": "Milestone complete",
+        "designReady": "Design ready, implementation pending",
+        "implemented": "Feature implemented"
       },
       "template": {
         "tddDesign": "with TDD and design",

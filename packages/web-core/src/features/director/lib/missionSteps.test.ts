@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { MissionDetail } from 'shared/types';
-import { briefTemplate, currentStep, readyToRun } from './missionSteps';
+import {
+  briefTemplate,
+  currentStep,
+  missionDelivery,
+  readyToRun,
+} from './missionSteps';
 
 function detail(over: Partial<MissionDetail> & { status?: string }) {
   const { status = 'planning', ...rest } = over;
@@ -22,6 +27,7 @@ const issue = (state = 'open') =>
     milestone: 'M',
     wave: 0,
     decision: false,
+    design: false,
   }) as const;
 
 describe('currentStep', () => {
@@ -67,5 +73,65 @@ describe('briefTemplate', () => {
       ],
     } as never);
     expect(briefTemplate(d)).toEqual({ tdd: true, design: false });
+  });
+});
+
+describe('design ready vs. feature implemented (#758)', () => {
+  const design = { ...issue('closed'), number: 2, design: true };
+
+  it('a merged mock with no implementation yet is design ready, not done', () => {
+    const d = detail({
+      analyst_status: 'done',
+      proposal: [design],
+      delivery: 'design_ready',
+    });
+    expect(missionDelivery(d)).toBe('design_ready');
+    expect(currentStep(d)).toBe(2);
+    expect(readyToRun(d)).toBe(false);
+  });
+
+  it('a closed design with the implementation open waits for the play', () => {
+    const d = detail({
+      analyst_status: 'done',
+      proposal: [design, issue()],
+      delivery: 'design_ready',
+    });
+    expect(currentStep(d)).toBe(2);
+    expect(readyToRun(d)).toBe(true);
+  });
+
+  it('follows the implementation while it runs', () => {
+    const d = detail({
+      analyst_status: 'done',
+      proposal: [design, issue()],
+      execution: 'running',
+      delivery: 'implementing',
+    });
+    expect(missionDelivery(d)).toBe('implementing');
+    expect(currentStep(d)).toBe(4);
+  });
+
+  it('is done once the implementation closes', () => {
+    const d = detail({
+      analyst_status: 'done',
+      proposal: [design, issue('closed')],
+      execution: 'running',
+      delivery: 'implemented',
+    });
+    expect(missionDelivery(d)).toBe('implemented');
+    expect(currentStep(d)).toBe(5);
+  });
+
+  it('keeps the usual reading without design issues', () => {
+    const open = detail({ analyst_status: 'done', proposal: [issue()] });
+    expect(missionDelivery(open)).toBeNull();
+    expect(currentStep(open)).toBe(2);
+    const closed = detail({
+      analyst_status: 'done',
+      proposal: [issue('closed')],
+      delivery: null,
+    });
+    expect(missionDelivery(closed)).toBeNull();
+    expect(currentStep(closed)).toBe(5);
   });
 });

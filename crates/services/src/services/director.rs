@@ -169,6 +169,10 @@ pub struct MissionDetail {
     /// `none` (nothing dispatched), `planning` (devs started, no plan steps
     /// yet) or `running` (at least one dev submitted its plan).
     pub execution: String,
+    /// Where the feature stands once its design is closed (#758):
+    /// `design_ready`, `implementing` or `implemented`. `None` without design
+    /// issues or while one is still open: the stepper keeps its usual reading.
+    pub delivery: Option<String>,
     /// Fluke's standing conversation (J0.3): app events land here, no brief.
     pub is_guard: bool,
     /// In the standing conversation: the mission it is about now (J1.2).
@@ -190,6 +194,8 @@ pub struct MissionProposalIssue {
     pub wave: Option<i64>,
     /// Carries `pm:decision`: it waits for the user.
     pub decision: bool,
+    /// Carries the design label (#756): the Designer's mock, not code.
+    pub design: bool,
 }
 
 /// Issues of the mission as the Analyst left them on GitHub.
@@ -216,9 +222,37 @@ async fn proposal(
                 .iter()
                 .find_map(|l| crate::services::execution_labels::wave_number(l)),
             decision: labels.iter().any(|l| l == "pm:decision"),
+            design: crate::services::milestone_runs::is_design_issue(&labels),
         });
     }
     Ok(out)
+}
+
+/// Design ready vs. feature implemented (#758). Only missions with design
+/// issues, all of them closed, get a reading; issues without the label
+/// (missions from before it) count as implementation. `issue_count` is how
+/// many issues the mission has: one missing from the local mirror may still be
+/// open, so the mission is never `implemented` with gaps.
+fn delivery(
+    proposal: &[MissionProposalIssue],
+    issue_count: usize,
+    execution: &str,
+) -> Option<&'static str> {
+    let mut designs = proposal.iter().filter(|i| i.design).peekable();
+    designs.peek()?;
+    if designs.any(|i| i.state == "open") {
+        return None;
+    }
+    let implementation: Vec<&MissionProposalIssue> =
+        proposal.iter().filter(|i| !i.design).collect();
+    let open = implementation.iter().any(|i| i.state == "open");
+    if !implementation.is_empty() && !open && proposal.len() >= issue_count {
+        Some("implemented")
+    } else if open && execution != "none" {
+        Some("implementing")
+    } else {
+        Some("design_ready")
+    }
 }
 
 /// How far the execution of the mission's issues went (see `execution`).
@@ -285,15 +319,16 @@ pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx
     .bind(mission.session_id)
     .fetch_one(pool)
     .await?;
+    let proposal = proposal(pool, mission.repo_id, &issue_numbers).await?;
+    let execution = execution(pool, mission.repo_id, &issue_numbers).await?;
     Ok(MissionDetail {
+        delivery: delivery(&proposal, issue_numbers.len(), execution).map(str::to_string),
         focus_mission_id: guard.filter(|_| is_guard).and_then(|g| g.focus_mission_id),
         has_own_chat,
         is_guard,
         briefs: Mission::briefs(pool, mission.id).await?,
-        proposal: proposal(pool, mission.repo_id, &issue_numbers).await?,
-        execution: execution(pool, mission.repo_id, &issue_numbers)
-            .await?
-            .to_string(),
+        proposal,
+        execution: execution.to_string(),
         analyst_status,
         issue_numbers,
         complete: missing.is_empty(),
@@ -2987,6 +3022,40 @@ mod tests {
             model: None,
             route_reason: None,
         })
+    }
+
+    fn proposed(number: i64, state: &str, design: bool) -> MissionProposalIssue {
+        MissionProposalIssue {
+            number,
+            title: "t".into(),
+            state: state.into(),
+            milestone: Some("M".into()),
+            wave: Some(0),
+            decision: false,
+            design,
+        }
+    }
+
+    #[test]
+    fn delivery_tells_design_ready_from_implemented() {
+        // No design issues (or missions from before the label): no reading.
+        assert_eq!(delivery(&[proposed(1, "closed", false)], 1, "none"), None);
+        // Design still open: not ready yet.
+        let open_design = [proposed(1, "open", true), proposed(2, "open", false)];
+        assert_eq!(delivery(&open_design, 2, "none"), None);
+        // Design closed, no implementation issue yet.
+        let only_design = [proposed(1, "closed", true)];
+        assert_eq!(delivery(&only_design, 1, "none"), Some("design_ready"));
+        // Design closed, implementation open: ready until it is dispatched.
+        let pending = [proposed(1, "closed", true), proposed(2, "open", false)];
+        assert_eq!(delivery(&pending, 2, "none"), Some("design_ready"));
+        assert_eq!(delivery(&pending, 2, "planning"), Some("implementing"));
+        assert_eq!(delivery(&pending, 2, "running"), Some("implementing"));
+        // Implementation closed.
+        let done = [proposed(1, "closed", true), proposed(2, "closed", false)];
+        assert_eq!(delivery(&done, 2, "running"), Some("implemented"));
+        // An issue missing from the mirror is never read as implemented.
+        assert_eq!(delivery(&done, 3, "running"), Some("design_ready"));
     }
 
     #[test]
