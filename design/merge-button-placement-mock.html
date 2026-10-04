@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Propuesta #796 - Botón «Mergear» para PRs aprobados</title>
+<style>
+/* Tokens: design/UI-SPEC.md v3 (Slate & Signal). Zinc + un solo indigo; semánticos solo para estado. */
+:root {
+  --ground: #F4F4F5; --card: #FFFFFF; --rail: #FAFAFA; --hover: #F4F4F5; --pressed: #E4E4E7;
+  --sel: #EEF2FF; --border: #E4E4E7; --border-strong: #D4D4D8;
+  --high: #18181B; --normal: #3F3F46; --low: #71717A;
+  --brand: #4F46E5; --on-brand: #FFFFFF; --brand-text: #4F46E5;
+  --success: #16A34A; --warning: #B45309; --error: #DC2626; --info: #0284C7; --merged: #7C3AED;
+  --shadow-soft: 0 1px 2px rgba(24,24,27,.06); --shadow-overlay: 0 12px 32px -8px rgba(24,24,27,.28);
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+:root.dark {
+  --ground: #09090B; --card: #18181B; --rail: #101012; --hover: #27272A; --pressed: #3F3F46;
+  --sel: #312E81; --border: #3F3F46; --border-strong: #52525B;
+  --high: #FAFAFA; --normal: #D4D4D8; --low: #A1A1AA;
+  --brand: #6366F1; --brand-text: #818CF8;
+  --success: #4ADE80; --warning: #FBBF24; --error: #F87171; --info: #38BDF8; --merged: #A78BFA;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.4); --shadow-overlay: 0 12px 32px -8px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--normal); font: 13px/1.5 var(--sans); }
+button { font: inherit; color: inherit; }
+a { color: var(--brand-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.mono { font-family: var(--mono); font-size: 12px; }
+:focus-visible { outline: 1px solid var(--brand); outline-offset: 1px; }
+
+/* Documento */
+.doc { max-width: 1240px; margin: 0 auto; padding: 24px 20px 64px; display: grid; gap: 28px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+h1 { font-size: 20px; font-weight: 600; color: var(--high); margin: 0; }
+h2 { font-size: 15px; font-weight: 600; color: var(--high); margin: 0 0 4px; }
+h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--low); margin: 0 0 8px; }
+p { margin: 0 0 8px; }
+.sub { color: var(--low); }
+.box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-soft); }
+.lead { border-left: 3px solid var(--brand); }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+.grid-states { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+.cap { font-size: 12px; color: var(--low); margin-top: 6px; }
+.cap b { color: var(--high); font-weight: 600; }
+.verdict { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 1px 8px; border-radius: 999px; border: 1px solid; }
+.v-yes { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+.v-mid { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, transparent); }
+.v-no { color: var(--low); border-color: var(--border-strong); }
+ul.tight { margin: 4px 0 0; padding-left: 18px; }
+ul.tight li { margin: 2px 0; }
+table.spec { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.spec th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--low); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.spec td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.spec td:first-child { white-space: nowrap; color: var(--high); font-weight: 600; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: var(--card); }
+.seg button { border: 0; background: transparent; padding: 4px 10px; height: 26px; cursor: pointer; color: var(--normal); }
+.seg button[aria-pressed="true"] { background: var(--sel); color: var(--brand-text); font-weight: 600; }
+.seg button + button { border-left: 1px solid var(--border); }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--rail); }
+
+/* Botones (Button de @vibe/ui: 26px, radio 6px, sin sombras ni scale) */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--card); color: var(--high); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.btn.primary:hover { background: color-mix(in srgb, var(--brand) 88%, #000); }
+.btn[disabled], .btn[aria-disabled="true"] { cursor: not-allowed; background: var(--hover); border-color: var(--border); color: var(--low); font-weight: 400; transform: none; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--normal); }
+.btn.ghost:hover { background: var(--hover); }
+.btn .ico { width: 14px; height: 14px; flex: none; }
+.spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: sp .8s linear infinite; flex: none; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* PlanCard aprobado (PlanCard.tsx, state="approved") + bloque de merge propuesto */
+.plan-section { display: grid; gap: 10px; border: 1px solid color-mix(in srgb, var(--success) 60%, transparent); border-radius: 10px; padding: 14px 16px; background: var(--card); }
+.plan-section h4 { margin: 0; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--high); display: flex; gap: 8px; }
+.plan-section h4 span { color: var(--normal); font-weight: 400; }
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.pcard { position: relative; display: grid; gap: 6px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 35%, transparent); background: var(--rail); cursor: pointer; }
+.pcard.st-merged { border-color: color-mix(in srgb, var(--merged) 70%, transparent); box-shadow: none; }
+.pcard.st-blocked { border-color: var(--border-strong); box-shadow: none; }
+.pcard.st-error { border-color: var(--error); box-shadow: 0 0 0 1px color-mix(in srgb, var(--error) 35%, transparent); }
+.pc-head { display: flex; gap: 8px; align-items: center; }
+.pc-num { font: 500 12px var(--mono); color: var(--normal); }
+.pc-state { margin-left: auto; font-size: 11px; color: var(--success); display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+.pc-title { font-size: 13px; line-height: 1.35; color: var(--high); }
+.pc-worker { display: flex; gap: 6px; align-items: center; font: 11px var(--mono); color: var(--normal); }
+.pc-av { width: 16px; height: 16px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font: 600 9px var(--sans); }
+.merge { display: grid; gap: 6px; border-top: 1px dashed var(--border-strong); padding-top: 8px; margin-top: 2px; }
+.merge-row { display: flex; align-items: center; gap: 8px; }
+.merge-row .btn { margin-left: auto; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--normal); }
+.fact { display: inline-flex; align-items: center; gap: 4px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--low); }
+.dot.ok { background: var(--success); } .dot.warn { background: var(--warning); } .dot.err { background: var(--error); } .dot.mute { background: transparent; border: 1px solid var(--low); }
+.reason { font-size: 12px; line-height: 1.4; color: var(--high); border-radius: 4px; padding: 6px 8px; }
+.reason small { display: block; color: var(--normal); font-size: 11px; }
+.reason.err { background: color-mix(in srgb, var(--error) 10%, transparent); }
+.reason.warn { background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.reason.ok { background: color-mix(in srgb, var(--merged) 10%, transparent); }
+.reason .links { margin-top: 4px; display: flex; gap: 12px; font-size: 11px; }
+.merged-line { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--merged); font-weight: 600; }
+
+/* Mini mocks de candidatos */
+.cand { display: grid; gap: 12px; align-content: start; }
+.cand .frame { background: var(--ground); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.ir-card { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: var(--card); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; border: 1px solid; }
+.chip.ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 25%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.chip.err { color: var(--error); border-color: color-mix(in srgb, var(--error) 25%, transparent); background: color-mix(in srgb, var(--error) 10%, transparent); }
+.chip.open { color: var(--success); border-color: color-mix(in srgb, var(--success) 25%, transparent); }
+.ir-actions { display: flex; justify-content: flex-end; gap: 4px; opacity: .35; }
+.ir-actions .hoverhint { font-size: 10px; color: var(--low); margin-right: auto; align-self: center; }
+.mg-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.mg-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.mg-head b { color: var(--high); font-size: 13px; }
+.mg-head .cnt { font-size: 11px; border-radius: 999px; background: var(--sel); color: var(--brand-text); padding: 0 6px; font-weight: 600; }
+.mg-head .aside { margin-left: auto; color: var(--low); font-size: 11px; }
+.mg-body { display: grid; gap: 8px; padding: 12px; }
+.mg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--hover) 40%, transparent); padding: 8px 12px; }
+.mg-tag { font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: .04em; border: 1px solid var(--success); color: var(--success); border-radius: 4px; padding: 0 6px; }
+.mg-title { flex: 1 1 260px; min-width: 0; font-size: 13px; }
+.mg-title b { font-family: var(--mono); color: var(--high); }
+.mg-title .pr { font-family: var(--mono); color: var(--low); }
+.mg-time { font: 11px var(--mono); color: var(--low); }
+.mg-reason { flex-basis: 100%; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+
+/* Desktop / mobile */
+.devices { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 24px; align-items: start; }
+@media (max-width: 1000px) { .devices { grid-template-columns: 1fr; } }
+.desk { border: 1px solid var(--border-strong); border-radius: 12px; overflow: hidden; background: var(--ground); position: relative; }
+.desk-bar { height: 36px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--card); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--low); }
+.desk-bar b { color: var(--high); }
+.desk-body { padding: 16px; display: grid; gap: 14px; min-height: 520px; }
+.band-ghost { border: 1px solid var(--border); border-radius: 10px; background: var(--card); height: 120px; display: grid; place-items: center; color: var(--low); font-size: 12px; }
+.phone { width: 375px; justify-self: center; border: 10px solid #27272A; border-radius: 34px; overflow: hidden; background: var(--ground); position: relative; height: 760px; display: flex; flex-direction: column; }
+.phone-bar { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--card); border-bottom: 1px solid var(--border); font-size: 13px; }
+.phone-bar b { color: var(--high); }
+.phone-body { padding: 12px; display: grid; gap: 12px; align-content: start; overflow: auto; flex: 1; }
+.phone .plan-grid { grid-template-columns: 1fr; }
+.phone .merge-row { flex-wrap: wrap; }
+.phone .merge-row .btn { margin-left: 0; width: 100%; height: 40px; font-size: 14px; }
+.phone .reason .links a { padding: 6px 0; }
+
+/* Diálogo de confirmación */
+.scrim { position: absolute; inset: 0; background: rgba(9,9,11,.45); display: none; z-index: 5; }
+.scrim.open { display: grid; place-items: center; }
+.dialog { width: min(460px, calc(100% - 32px)); background: var(--card); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-overlay); display: grid; }
+.dialog header { padding: 16px 16px 4px; }
+.dialog header h5 { margin: 0; font-size: 15px; font-weight: 600; color: var(--high); }
+.dialog .dbody { padding: 8px 16px 12px; display: grid; gap: 10px; }
+.dl { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 12.5px; margin: 0; }
+.dl dt { color: var(--low); }
+.dl dd { margin: 0; color: var(--high); min-width: 0; overflow-wrap: anywhere; }
+.dl dd .sub { font-size: 11px; }
+.irrev { font-size: 12px; color: var(--normal); }
+.dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.phone .scrim.open { place-items: end stretch; }
+.phone .dialog { width: 100%; border-radius: 14px 14px 0 0; border-bottom: 0; }
+.phone .dialog .dl { grid-template-columns: 1fr; gap: 0 0; }
+.phone .dialog .dl dt { margin-top: 6px; }
+.phone .dialog footer { flex-direction: column-reverse; }
+.phone .dialog footer .btn { height: 40px; font-size: 14px; width: 100%; }
+.grabber { width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 8px auto 0; display: none; }
+.phone .grabber { display: block; }
+.toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--card); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-overlay); padding: 8px 12px; font-size: 12px; display: none; z-index: 6; white-space: nowrap; }
+.toast.on { display: block; }
+.sim { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--low); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="top">
+  <div>
+    <h1>Botón «Mergear» para PRs aprobados</h1>
+    <div class="sub">Propuesta de diseño para el issue #796 · Misión «Merge de PRs aprobados desde la UI de fluke» · Sistema visual: <span class="mono">design/UI-SPEC.md</span> v3 (DESIGN-DIRECTION.md está deprecado y lo reemplaza UI-SPEC)</div>
+  </div>
+  <div class="seg" role="group" aria-label="Tema">
+    <button type="button" aria-pressed="true" data-theme="light">Claro</button>
+    <button type="button" aria-pressed="false" data-theme="dark">Oscuro</button>
+  </div>
+</div>
+
+<!-- ===================== RESUMEN ===================== -->
+<section class="box lead">
+  <h2>Recomendación</h2>
+  <p><b>Ubicación principal: la tarjeta aprobada de la sección «Pendiente de vos» de la vista Plan.</b> Es el único lugar de la app cuyo propósito ya es «esto espera una acción tuya»; las tarjetas <span class="mono">stuck</span> y <span class="mono">gate</span> del mismo componente ya tienen su botón de acción visible (Destrabar, Decidir ahora), así que el merge sigue un patrón existente en vez de inventar uno.</p>
+  <p><b>Ubicación secundaria: la fila de «Esperando tu merge» (MergeGatePanel) del dashboard</b>, con el mismo bloque de estado y el mismo diálogo. Ese panel ya existe para el mismo conjunto de PRs y hoy obliga a salir a «Ver PR» para resolverlo: agregar el botón ahí cierra el circuito sin pantallas nuevas.</p>
+  <p><b>InReviewTaskCard del sprint: sin botón.</b> Sus acciones solo aparecen al hover (no funcionan en táctil ni cumplen «el motivo se lee sin hover») y ya conviven con «Desasignar»; sumar una acción irreversible ahí aumenta el riesgo de clic equivocado. Solo se le agrega un enlace de texto «Mergear desde Plan» cuando la tarea está aprobada.</p>
+  <p class="sub">Las dos ubicaciones usan un solo componente compartido (<span class="mono">MergePrAction</span> + <span class="mono">MergePrConfirmDialog</span>): misma lógica de estados, mismo copy, misma confirmación. Ver la especificación al final.</p>
+</section>
+
+<!-- ===================== CANDIDATOS ===================== -->
+<section>
+  <h3>1 · Los tres candidatos con el botón aplicado</h3>
+  <div class="grid3">
+
+    <div class="box cand">
+      <div><span class="verdict v-yes">Principal</span></div>
+      <h2>Plan · «Pendiente de vos»</h2>
+      <div class="frame">
+        <div class="plan-section">
+          <h4>Pendiente de vos <span>2</span></h4>
+          <div class="plan-grid" style="grid-template-columns:1fr" data-cards="cand"></div>
+        </div>
+      </div>
+      <ul class="tight">
+        <li>Propósito de la sección = gate humano; el botón responde exactamente a la pregunta que plantea.</li>
+        <li>Visible sin hover, funciona igual en táctil (la grilla ya pasa a una columna en angosto).</li>
+        <li>Al mergear, la tarjeta sale de la sección y el contador baja: feedback de «resuelto» inmediato.</li>
+        <li>Costo: la tarjeta crece unos 40px; aceptable porque la sección rara vez tiene más de 3-4 PRs.</li>
+      </ul>
+    </div>
+
+    <div class="box cand">
+      <div><span class="verdict v-mid">Secundaria</span></div>
+      <h2>Dashboard · MergeGatePanel</h2>
+      <div class="frame">
+        <div class="mg-panel">
+          <div class="mg-head"><b>Esperando tu merge</b><span class="cnt">2</span><span class="aside">aprobados por el reviewer</span></div>
+          <div class="mg-body" data-rows="cand"></div>
+        </div>
+      </div>
+      <ul class="tight">
+        <li>Mismo conjunto de PRs que «Pendiente de vos» (cubre todos los repos, no solo el de la vista).</li>
+        <li>El botón reemplaza a «Ver PR» como acción principal; «Ver issue» queda como secundaria.</li>
+        <li>No es principal porque el dashboard se mira para el estado general, no para decidir; y no muestra el contexto del milestone.</li>
+      </ul>
+    </div>
+
+    <div class="box cand">
+      <div><span class="verdict v-no">Descartado</span></div>
+      <h2>Sprint · InReviewTaskCard</h2>
+      <div class="frame">
+        <div class="ir-card">
+          <div style="display:flex;gap:8px"><span class="mono" style="color:var(--low)">#781</span><span style="color:var(--high);font-weight:500">Settings: tipo de merge y borrado de la rama</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span class="chip ok">Aprobado</span>
+            <a href="#" onclick="return false" class="mono" style="font-size:11px">github.com/mdevel-uy/fluke/pull/812</a>
+            <span class="chip open">open</span>
+          </div>
+          <div class="ir-actions"><span class="hoverhint">acciones al hover</span><span class="btn ghost">Volver a pedir review</span><span class="btn ghost">Desasignar</span></div>
+          <div style="font-size:12px;border-top:1px dashed var(--border-strong);padding-top:8px">Aprobado, listo para mergear · <a href="#plan" >Mergear desde Plan</a></div>
+        </div>
+      </div>
+      <ul class="tight">
+        <li>Acciones solo al hover: en táctil no existen y el motivo de bloqueo no se leería sin hover.</li>
+        <li>Convive con «Desasignar» y «Volver a pedir review»: tres acciones de peso muy distinto en la misma fila.</li>
+        <li>El sprint es la vista del trabajo de los workers; el merge es una decisión del user, no del flujo del worker.</li>
+        <li>Propuesta mínima: un enlace de texto visible (no al hover) que lleva a la tarjeta en Plan.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===================== ESTADOS ===================== -->
+<section class="box" id="estados">
+  <h3>2 · Todos los estados en la ubicación recomendada</h3>
+  <p class="sub">Regla: <b>el motivo siempre está escrito en la tarjeta</b>, nunca solo en un tooltip. El botón deshabilitado no lleva <span class="mono">title</span>; lleva <span class="mono">aria-describedby</span> apuntando al texto del motivo.</p>
+  <div class="grid-states" data-cards="all"></div>
+</section>
+
+<!-- ===================== DESKTOP / MOBILE ===================== -->
+<section id="plan">
+  <h3>3 · Desktop y mobile (interactivo)</h3>
+  <div class="box" style="margin-bottom:16px">
+    <div class="sim">
+      <span>Simular el resultado del merge:</span>
+      <div class="seg" role="group" aria-label="Resultado simulado">
+        <button type="button" aria-pressed="true" data-sim="ok">Éxito</button>
+        <button type="button" aria-pressed="false" data-sim="error">Error de GitHub</button>
+        <button type="button" aria-pressed="false" data-sim="branch">Mergeado, falla el borrado de la rama</button>
+      </div>
+      <button type="button" class="btn" id="reset">Reiniciar</button>
+      <span>Probar con teclado: <kbd>Tab</kbd> hasta «Mergear», <kbd>Enter</kbd>, <kbd>Esc</kbd> para cancelar.</span>
+    </div>
+  </div>
+  <div class="devices">
+    <div>
+      <div class="desk" id="desk">
+        <div class="desk-bar"><b>Issues</b><span>/</span><span>Plan</span><span style="margin-left:auto" class="mono">fluke · mdev</span></div>
+        <div class="desk-body">
+          <div class="plan-section">
+            <h4>Pendiente de vos <span data-count>3</span></h4>
+            <div class="plan-grid" data-cards="live"></div>
+          </div>
+          <div class="band-ghost">Bandas de milestones (sin cambios)</div>
+        </div>
+        <div class="scrim" data-scrim></div>
+        <div class="toast" data-toast role="status" aria-live="polite"></div>
+      </div>
+      <p class="cap"><b>Desktop:</b> el botón queda a la derecha de la línea de estado, alineado al borde de la tarjeta. Diálogo modal centrado de 460px.</p>
+    </div>
+    <div>
+      <div class="phone" id="phone">
+        <div class="phone-bar"><span aria-hidden="true">≡</span><b>Plan</b><span class="mono" style="margin-left:auto;color:var(--low)">fluke</span></div>
+        <div class="phone-body">
+          <div class="plan-section">
+            <h4>Pendiente de vos <span data-count>3</span></h4>
+            <div class="plan-grid" data-cards="live"></div>
+          </div>
+          <div class="band-ghost">Bandas de milestones</div>
+        </div>
+        <div class="scrim" data-scrim></div>
+        <div class="toast" data-toast role="status" aria-live="polite"></div>
+      </div>
+      <p class="cap" style="text-align:center"><b>Mobile / ancho angosto (&lt; 640px):</b> una columna, botón a ancho completo de 40px de alto (objetivo táctil), confirmación como hoja inferior con botones apilados.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CONFIRMACIÓN ===================== -->
+<section class="box">
+  <h3>4 · Confirmación previa al merge</h3>
+  <p>Es una acción irreversible y sale del repo hacia GitHub, así que siempre pide confirmación con un diálogo modal (no confirmación inline como la de «Desasignar»: el diálogo garantiza que los datos del merge se lean antes de aceptar). Se puede probar en la sección 3.</p>
+  <table class="spec">
+    <tr><th>Elemento</th><th>Contenido</th></tr>
+    <tr><td>Título</td><td>«¿Mergear el PR #812 en mdev?» (número del PR y rama base: es lo que el user verifica primero)</td></tr>
+    <tr><td>PR</td><td>Título del PR (no el del issue) + enlace «Abrir en GitHub» que abre en pestaña nueva sin cerrar el diálogo.</td></tr>
+    <tr><td>Ramas</td><td><span class="mono">flk/8b51-781-settings</span> → <span class="mono">mdev</span> (mono, 12px; se corta con elipsis en el medio si no entra).</td></tr>
+    <tr><td>Tipo de merge</td><td>El configurado en Settings (issue de wave 0): «Squash and merge», «Merge commit» o «Rebase and merge», con el nombre que usa GitHub. Al lado, enlace «Cambiar en Configuración». No se cambia desde el diálogo: un solo lugar de verdad.</td></tr>
+    <tr><td>Rama</td><td>«Se borra la rama en GitHub al terminar» o «La rama se conserva», según Settings.</td></tr>
+    <tr><td>Review</td><td>«Aprobado por el reviewer hace 2 h» (dato de <span class="mono">merge_gate.approved_at</span>).</td></tr>
+    <tr><td>CI</td><td>Verde: «9 checks en verde». Pendiente / sin checks / no disponible: bloque de aviso ámbar con el motivo (ver sección 5). Roja o conflictos nunca llegan al diálogo porque el botón está deshabilitado.</td></tr>
+    <tr><td>Aviso</td><td>«Esta acción no se puede deshacer desde fluke.» (patrón destructivo del UI-SPEC)</td></tr>
+    <tr><td>Botones</td><td>«Cancelar» (secundario) y «Mergear PR #812» (primario, indigo). El primario repite el número para que el verbo no sea ambiguo. No se usa rojo: mergear es la acción esperada, no una destrucción.</td></tr>
+    <tr><td>Foco y teclado</td><td>
+      <ul class="tight">
+        <li>Al abrir, el foco va a «Cancelar» (default seguro en acción irreversible: un <kbd>Enter</kbd> impulsivo no mergea).</li>
+        <li><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> quedan atrapados dentro del diálogo (Abrir en GitHub, Cambiar en Configuración, Cancelar, Mergear).</li>
+        <li><kbd>Esc</kbd> y clic en el fondo cancelan. Al cerrar, el foco vuelve al botón «Mergear» de la tarjeta.</li>
+        <li><kbd>Enter</kbd> activa el botón con foco; no hay atajo global para mergear.</li>
+        <li><span class="mono">role="alertdialog"</span>, <span class="mono">aria-labelledby</span> al título y <span class="mono">aria-describedby</span> al aviso de irreversibilidad.</li>
+      </ul>
+    </td></tr>
+    <tr><td>Al confirmar</td><td>El diálogo se cierra de inmediato y el progreso se muestra en la tarjeta («Mergeando…»). Así el user puede seguir con otra tarjeta; el resultado (éxito o error) queda en la tarjeta y se anuncia por <span class="mono">aria-live</span>. Doble envío imposible: la tarjeta queda en «Mergeando» hasta la respuesta.</td></tr>
+    <tr><td>Mobile</td><td>Hoja inferior a ancho completo, datos en una sola columna (etiqueta arriba del valor), botones apilados de 40px con «Mergear» arriba y «Cancelar» abajo (Cancelar queda junto al borde inferior, donde cae el pulgar por reflejo; el foco inicial sigue siendo Cancelar).</td></tr>
+  </table>
+</section>
+
+<!-- ===================== CI ===================== -->
+<section class="box">
+  <h3>5 · CI pendiente, sin checks o no disponible</h3>
+  <p>Se adopta la recomendación del plan (pregunta abierta 2): <b>solo bloquean la CI en rojo y los conflictos</b>. Los casos inciertos dejan mergear, pero el motivo se ve en la tarjeta y se repite en la confirmación con un aviso ámbar.</p>
+  <table class="spec">
+    <tr><th>Caso</th><th>Botón</th><th>Línea en la tarjeta</th><th>Aviso en la confirmación</th></tr>
+    <tr><td>CI pendiente</td><td>Habilitado</td><td>Punto ámbar · «CI en curso: 3 de 9 checks pendientes»</td><td>«La CI todavía está corriendo. Si mergeas ahora, el resultado de los checks no se tiene en cuenta.»</td></tr>
+    <tr><td>Sin checks</td><td>Habilitado</td><td>Punto vacío gris · «El repo no tiene checks de CI»</td><td>Sin bloque ámbar: es un estado normal del repo, no un riesgo nuevo. Solo la fila «CI: sin checks configurados».</td></tr>
+    <tr><td>CI no disponible</td><td>Habilitado</td><td>Punto ámbar · «No se pudo leer el estado de la CI»</td><td>«fluke no pudo leer la CI de este PR. Revísala en GitHub antes de mergear.» + enlace «Ver checks en GitHub».</td></tr>
+    <tr><td>Conflictos aún sin calcular (<span class="mono">pr_mergeable = unknown</span>)</td><td>Habilitado</td><td>Punto gris · «GitHub todavía está calculando los conflictos»</td><td>Fila «Conflictos: todavía sin calcular». Si GitHub rechaza por conflictos, cae al estado de error con el motivo.</td></tr>
+  </table>
+  <p class="cap">Nota: #609 trata hoy la CI no disponible como roja dentro del review loop. Para el merge se separan a propósito: el loop decide automáticamente (conviene ser conservador), el merge lo decide una persona que ve el aviso.</p>
+</section>
+
+<!-- ===================== SPEC ===================== -->
+<section class="box">
+  <h3>6 · Especificación para implementar (wave 1)</h3>
+  <table class="spec">
+    <tr><th>Tema</th><th>Definición</th></tr>
+    <tr><td>Componentes</td><td><span class="mono">MergePrAction</span> (línea de estado + botón + bloque de motivo) y <span class="mono">MergePrConfirmDialog</span>, en <span class="mono">features/issues/ui/merge/</span> o similar. Lo usan <span class="mono">PlanCard</span> cuando <span class="mono">state="approved"</span> y <span class="mono">MergeGatePanel</span> por fila.</td></tr>
+    <tr><td>Prioridad de estados</td><td>mergeado &gt; mergeando &gt; error del último intento &gt; conflictos &gt; CI roja &gt; CI pendiente / no disponible / sin checks / conflictos sin calcular (habilitado con aviso) &gt; mergeable. Se muestra un solo motivo, el de mayor prioridad; si hay conflictos y CI roja a la vez, se escribe «Conflictos con mdev y CI en rojo».</td></tr>
+    <tr><td>Datos que faltan</td><td><span class="mono">pr_ci_status</span> (y, si es posible, conteo de checks fallados/pendientes con sus nombres) tiene que llegar a <span class="mono">RepoIssue</span>/plan y a <span class="mono">Ticket.merge_gate</span>. Sin el conteo, el texto cae a «CI en rojo» / «CI en curso» sin números.</td></tr>
+    <tr><td>Botón</td><td><span class="mono">Button</span> <span class="mono">size="xs"</span>, variante primaria con ícono <span class="mono">GitMerge</span> (lucide 14px). Texto «Mergear». En PlanCard el clic no abre el drawer: PlanCard ya ignora clics en <span class="mono">button</span>; mantenerlo.</td></tr>
+    <tr><td>Deshabilitado</td><td><span class="mono">aria-disabled="true"</span> (no <span class="mono">disabled</span>) para que siga siendo enfocable y el lector de pantalla lea el motivo vía <span class="mono">aria-describedby</span>.</td></tr>
+    <tr><td>Mergeado</td><td>Respuesta OK del endpoint: la tarjeta pasa a «Mergeado en mdev · a1b2c3d» (color <span class="mono">merged</span>) y se queda 6 s; luego sale de la sección con una transición de opacidad de 200 ms y el contador baja. No espera al poll de <span class="mono">pr_monitor</span>: la UI hace optimistic update y el poll lo confirma.</td></tr>
+    <tr><td>Error de GitHub</td><td>Bloque rojo con prefijo propio + mensaje de GitHub textual en <span class="mono">small</span>. El botón pasa a «Reintentar» (secundario). Errores típicos: rama base modificada, protección de rama, permisos del token, red. Si el error es de conflictos o checks, la tarjeta se refresca al estado bloqueado correspondiente en el próximo poll.</td></tr>
+    <tr><td>Merge hecho, rama no borrada</td><td>Estado mergeado + nota gris «La rama no se pudo borrar en GitHub» con enlace «Ver rama». Nunca se muestra como error (pregunta abierta 4 del plan).</td></tr>
+    <tr><td>Responsive</td><td>&lt; 640px: botón <span class="mono">w-full h-10 text-sm</span>; diálogo como hoja inferior (mismo patrón de Sheet que use la app en mobile).</td></tr>
+    <tr><td>Strings (i18n, <span class="mono">common</span>)</td><td><span class="mono">merge.action</span> «Mergear» · <span class="mono">merge.merging</span> «Mergeando…» · <span class="mono">merge.retry</span> «Reintentar» · <span class="mono">merge.merged</span> «Mergeado en {{base}} · {{sha}}» · <span class="mono">merge.blocked.conflicts</span> «Hay conflictos con {{base}}. Resolverlos antes de mergear.» · <span class="mono">merge.blocked.ciFailing</span> «CI en rojo: {{failed}} de {{total}} checks fallaron» · <span class="mono">merge.ci.ok</span> «CI en verde» · <span class="mono">merge.ci.pending</span> · <span class="mono">merge.ci.none</span> · <span class="mono">merge.ci.unavailable</span> · <span class="mono">merge.error.prefix</span> «GitHub rechazó el merge» · <span class="mono">merge.confirm.*</span> (título, filas, aviso, botones). Tuteo neutro.</td></tr>
+  </table>
+</section>
+
+<!-- ===================== PREGUNTAS ===================== -->
+<section class="box">
+  <h3>7 · Decisiones tomadas y preguntas abiertas</h3>
+  <h2>Decidido en esta propuesta</h2>
+  <ul class="tight">
+    <li>Pregunta 1 del plan: el tercer candidato es <span class="mono">MergeGatePanel</span>; queda como ubicación secundaria.</li>
+    <li>Pregunta 5 del plan: la confirmación sí muestra tipo de merge y borrado de rama (solo lectura, con enlace a Settings).</li>
+    <li>Pregunta 2 del plan: se diseña con la recomendación (bloquean solo CI roja y conflictos).</li>
+  </ul>
+  <h2 style="margin-top:12px">Necesitan respuesta antes de implementar</h2>
+  <ol class="tight">
+    <li><b>CI pendiente:</b> ¿se confirma que se puede mergear con CI en curso (con aviso), o se bloquea también? El diseño soporta ambos: bloquear solo cambia el botón a deshabilitado con el mismo texto.</li>
+    <li><b>Enlace en InReviewTaskCard:</b> ¿agregamos el enlace «Mergear desde Plan» o el sprint queda sin cambios?</li>
+    <li><b>Mergear varios:</b> con 3 o más PRs aprobados, ¿interesa «Mergear todos los que están en verde»? Fuera de alcance de esta propuesta; si interesa, va como follow-up con su propia confirmación.</li>
+    <li><b>Conflictos:</b> además de «Abrir PR», ¿la tarjeta debería ofrecer «Pedir al developer que los resuelva» (follow-up automático)? Hoy no lo incluyo para no mezclar alcance.</li>
+  </ol>
+</section>
+
+</div>
+
+<script>
+(function () {
+  var ICON_MERGE = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>';
+  var ICON_RETRY = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+
+  var PRS = {
+    812: { issue: 781, pr: 812, worker: 'Bea', title: 'Settings: tipo de merge y borrado de la rama aplicados al mergear un PR', prTitle: 'feat(settings): tipo de merge y borrado de rama', head: 'flk/8b51-781-settings-merge', approved: 'hace 2 h' },
+    815: { issue: 788, pr: 815, worker: 'Ciro', title: 'Refresco del estado del PR tras el merge', prTitle: 'fix(pr-monitor): refresco tras merge', head: 'flk/2c10-788-refresh', approved: 'hace 40 min' },
+    817: { issue: 790, pr: 817, worker: 'Ada', title: 'Motivo de bloqueo legible en el brief', prTitle: 'feat(director): motivo de bloqueo', head: 'flk/77ad-790-motivo', approved: 'hace 15 min' },
+    820: { issue: 793, pr: 820, worker: 'Bea', title: 'Exportar métricas de impacto a CSV', prTitle: 'feat(dashboard): export CSV', head: 'flk/91be-793-csv', approved: 'hace 1 h' }
+  };
+
+  // Estados: ok | conflicts | ciFailing | ciPending | ciNone | ciUnavailable | merging | merged | mergedBranchKept | error
+  var STATES = [
+    { s: 'ok', label: 'Mergeable', note: 'Botón primario habilitado. Línea de hechos: CI y conflictos en verde.' },
+    { s: 'conflicts', label: 'Con conflictos', note: 'Deshabilitado. Motivo escrito + enlace al PR.' },
+    { s: 'ciFailing', label: 'CI en rojo', note: 'Deshabilitado. Nombra los checks que fallaron.' },
+    { s: 'ciPending', label: 'CI pendiente', note: 'Habilitado con aviso ámbar; el aviso se repite en la confirmación.' },
+    { s: 'ciNone', label: 'Sin checks', note: 'Habilitado; dato neutro, no es un aviso.' },
+    { s: 'ciUnavailable', label: 'CI no disponible', note: 'Habilitado con aviso ámbar y enlace a GitHub.' },
+    { s: 'merging', label: 'Mergeando', note: 'Spinner en el botón, tarjeta sin otras acciones de merge.' },
+    { s: 'merged', label: 'Mergeado', note: 'Color merged; sale de la sección a los 6 s.' },
+    { s: 'mergedBranchKept', label: 'Mergeado, rama sin borrar', note: 'Sigue siendo éxito; la rama es una nota, no un error.' },
+    { s: 'error', label: 'Error de GitHub', note: 'Mensaje propio + texto de GitHub; botón «Reintentar».' }
+  ];
+
+  function facts(st) {
+    var ci = { ok: ['ok', 'CI en verde'], ciFailing: ['err', 'CI en rojo'], ciPending: ['warn', 'CI en curso'], ciNone: ['mute', 'Sin checks'], ciUnavailable: ['warn', 'CI no disponible'] }[st] || ['ok', 'CI en verde'];
+    var cf = st === 'conflicts' ? ['err', 'Con conflictos'] : ['ok', 'Sin conflictos'];
+    return '<div class="facts"><span class="fact"><i class="dot ' + ci[0] + '"></i>' + ci[1] + '</span><span class="fact"><i class="dot ' + cf[0] + '"></i>' + cf[1] + '</span><span class="fact mono" style="font-size:11px">PR #' + '{pr}' + ' → mdev</span></div>';
+  }
+
+  function mergeBlock(p, st, uid) {
+    var rid = 'r-' + uid;
+    var btnOk = '<button type="button" class="btn primary" data-merge="' + p.pr + '" aria-describedby="' + rid + '">' + ICON_MERGE + 'Mergear</button>';
+    var btnOff = '<button type="button" class="btn" aria-disabled="true" aria-describedby="' + rid + '">' + ICON_MERGE + 'Mergear</button>';
+    var f = facts(st).replace('{pr}', p.pr);
+    switch (st) {
+      case 'ok':
+        return '<div class="merge">' + '<div class="merge-row">' + f + btnOk + '</div><span id="' + rid + '" hidden>Listo para mergear</span></div>';
+      case 'conflicts':
+        return '<div class="merge"><div class="merge-row">' + f + btnOff + '</div><div class="reason err" id="' + rid + '">Hay conflictos con mdev. Resolverlos antes de mergear.<div class="links"><a href="#" onclick="return false">Abrir PR en GitHub</a></div></div></div>';
+      case 'ciFailing':
+        return '<div class="merge"><div class="merge-row">' + f + btnOff + '</div><div class="reason err" id="' + rid + '">CI en rojo: 2 de 9 checks fallaron.<small class="mono">lint-frontend, test-backend</small><div class="links"><a href="#" onclick="return false">Ver checks</a></div></div></div>';
+      case 'ciPending':
+        return '<div class="merge"><div class="merge-row">' + f + btnOk + '</div><div class="reason warn" id="' + rid + '">CI en curso: 3 de 9 checks pendientes. Se puede mergear igual.</div></div>';
+      case 'ciNone':
+        return '<div class="merge"><div class="merge-row">' + f + btnOk + '</div><span id="' + rid + '" class="cap" style="margin:0">El repo no tiene checks de CI.</span></div>';
+      case 'ciUnavailable':
+        return '<div class="merge"><div class="merge-row">' + f + btnOk + '</div><div class="reason warn" id="' + rid + '">No se pudo leer el estado de la CI. Revisarla en GitHub antes de mergear.<div class="links"><a href="#" onclick="return false">Ver checks en GitHub</a></div></div></div>';
+      case 'merging':
+        return '<div class="merge"><div class="merge-row">' + f + '<button type="button" class="btn primary" aria-disabled="true" aria-busy="true" style="opacity:.85;cursor:progress"><i class="spin" aria-hidden="true"></i>Mergeando…</button></div></div>';
+      case 'merged':
+        return '<div class="merge"><div class="merged-line">' + ICON_MERGE + 'Mergeado en mdev · <span class="mono">a1b2c3d</span></div><div class="cap" style="margin:0">Rama borrada en GitHub · el issue pasa a hecho</div></div>';
+      case 'mergedBranchKept':
+        return '<div class="merge"><div class="merged-line">' + ICON_MERGE + 'Mergeado en mdev · <span class="mono">a1b2c3d</span></div><div class="cap" style="margin:0">La rama no se pudo borrar en GitHub. <a href="#" onclick="return false">Ver rama</a></div></div>';
+      case 'error':
+        return '<div class="merge"><div class="merge-row">' + f + '<button type="button" class="btn" data-merge="' + p.pr + '" aria-describedby="' + rid + '">' + ICON_RETRY + 'Reintentar</button></div><div class="reason err" id="' + rid + '" role="alert">GitHub rechazó el merge.<small class="mono">Base branch was modified. Review and try the merge again.</small><div class="links"><a href="#" onclick="return false">Abrir PR en GitHub</a></div></div></div>';
+    }
+  }
+
+  var uidc = 0;
+  function card(p, st) {
+    uidc++;
+    var cls = 'pcard';
+    if (st === 'merged' || st === 'mergedBranchKept') cls += ' st-merged';
+    else if (st === 'conflicts' || st === 'ciFailing') cls += ' st-blocked';
+    else if (st === 'error') cls += ' st-error';
+    var stateText = (st === 'merged' || st === 'mergedBranchKept') ? '<span class="pc-state" style="color:var(--merged)">mergeado</span>' : '<span class="pc-state">aprobado</span>';
+    return '<div class="' + cls + '" data-pr="' + p.pr + '" role="link" tabindex="0" aria-label="Abrir issue #' + p.issue + '">' +
+      '<div class="pc-head"><span class="pc-num">#' + p.issue + '</span>' + stateText + '</div>' +
+      '<div class="pc-title">' + p.title + '</div>' +
+      '<div class="pc-worker"><span class="pc-av">' + p.worker[0] + '</span>' + p.worker + ' · aprobado, listo para mergear</div>' +
+      mergeBlock(p, st, uidc) + '</div>';
+  }
+
+  // Candidatos
+  document.querySelectorAll('[data-cards="cand"]').forEach(function (el) {
+    el.innerHTML = card(PRS[812], 'ok') + card(PRS[815], 'conflicts');
+  });
+  function mgRow(p, st) {
+    var btn = st === 'ok' ? '<span class="btn primary">' + ICON_MERGE + 'Mergear</span>' : '<span class="btn" aria-disabled="true">' + ICON_MERGE + 'Mergear</span>';
+    var reason = st === 'ok' ? '<div class="mg-reason"><i class="dot ok"></i>CI en verde · sin conflictos</div>' : '<div class="mg-reason" style="color:var(--error)"><i class="dot err"></i>Hay conflictos con mdev. Resolverlos antes de mergear.</div>';
+    return '<div class="mg-row"><span class="mg-tag">Aprobado</span><div class="mg-title"><b>#' + p.issue + ' </b><span class="pr">PR #' + p.pr + ' · </span>' + p.title + '</div><span class="mg-time">' + p.approved + '</span><span class="btn ghost">Ver issue</span>' + btn + reason + '</div>';
+  }
+  document.querySelectorAll('[data-rows="cand"]').forEach(function (el) {
+    el.innerHTML = mgRow(PRS[812], 'ok') + mgRow(PRS[815], 'conflicts');
+  });
+
+  // Matriz de estados
+  var all = document.querySelector('[data-cards="all"]');
+  all.innerHTML = STATES.map(function (x) {
+    return '<div>' + card(PRS[812], x.s) + '<p class="cap"><b>' + x.label + '.</b> ' + x.note + '</p></div>';
+  }).join('');
+  all.querySelectorAll('[data-merge]').forEach(function (b) { b.removeAttribute('data-merge'); });
+
+  // Interactivo
+  var sim = 'ok';
+  var live = {};
+  function resetLive() { live = { 812: 'ok', 817: 'ciPending', 815: 'conflicts' }; render(); }
+  function render() {
+    var keys = Object.keys(live).filter(function (k) { return live[k] !== 'gone'; });
+    document.querySelectorAll('[data-cards="live"]').forEach(function (el) {
+      el.innerHTML = keys.map(function (k) { return card(PRS[k], live[k]); }).join('');
+    });
+    document.querySelectorAll('[data-count]').forEach(function (c) {
+      c.textContent = keys.filter(function (k) { return live[k] !== 'merged' && live[k] !== 'mergedBranchKept'; }).length;
+    });
+  }
+
+  var lastTrigger = null;
+  function closeDialog(scope) {
+    var scrim = scope.querySelector('[data-scrim]');
+    scrim.classList.remove('open');
+    scrim.innerHTML = '';
+    document.removeEventListener('keydown', trap, true);
+    if (lastTrigger) {
+      var again = scope.querySelector('[data-merge="' + lastTrigger + '"]');
+      if (again) again.focus();
+    }
+  }
+  var openScope = null;
+  function trap(e) {
+    if (!openScope) return;
+    var dlg = openScope.querySelector('.dialog');
+    if (!dlg) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeDialog(openScope); openScope = null; return; }
+    if (e.key !== 'Tab') return;
+    var f = Array.prototype.slice.call(dlg.querySelectorAll('a,button'));
+    var i = f.indexOf(document.activeElement);
+    e.preventDefault();
+    var n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+    f[n].focus();
+  }
+
+  function openDialog(scope, pr) {
+    var p = PRS[pr];
+    var st = live[pr];
+    lastTrigger = pr;
+    openScope = scope;
+    var ciRow = { ok: '9 checks en verde', ciPending: 'En curso: 3 de 9 pendientes', ciNone: 'Sin checks configurados', ciUnavailable: 'No disponible', error: '9 checks en verde' }[st] || '9 checks en verde';
+    var warn = '';
+    if (st === 'ciPending') warn = '<div class="reason warn">La CI todavía está corriendo. Si mergeas ahora, el resultado de los checks no se tiene en cuenta.</div>';
+    if (st === 'ciUnavailable') warn = '<div class="reason warn">fluke no pudo leer la CI de este PR. Revísala en GitHub antes de mergear.</div>';
+    var scrim = scope.querySelector('[data-scrim]');
+    scrim.innerHTML =
+      '<div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dt-' + pr + '" aria-describedby="dd-' + pr + '">' +
+      '<div class="grabber"></div>' +
+      '<header><h5 id="dt-' + pr + '">¿Mergear el PR #' + p.pr + ' en mdev?</h5></header>' +
+      '<div class="dbody">' +
+      '<dl class="dl">' +
+      '<dt>PR</dt><dd>' + p.prTitle + ' <a href="#" onclick="return false" class="sub">Abrir en GitHub</a></dd>' +
+      '<dt>Ramas</dt><dd class="mono">' + p.head + ' → mdev</dd>' +
+      '<dt>Tipo de merge</dt><dd>Squash and merge <a href="#" onclick="return false" class="sub">Cambiar en Configuración</a></dd>' +
+      '<dt>Rama</dt><dd>Se borra en GitHub al terminar</dd>' +
+      '<dt>Review</dt><dd>Aprobado por el reviewer ' + p.approved + '</dd>' +
+      '<dt>CI</dt><dd>' + ciRow + '</dd>' +
+      '</dl>' + warn +
+      '<p class="irrev" id="dd-' + pr + '">Esta acción no se puede deshacer desde fluke.</p>' +
+      '</div>' +
+      '<footer><button type="button" class="btn" data-cancel>Cancelar</button><button type="button" class="btn primary" data-confirm>' + ICON_MERGE + 'Mergear PR #' + p.pr + '</button></footer>' +
+      '</div>';
+    scrim.classList.add('open');
+    scrim.querySelector('[data-cancel]').focus();
+    document.addEventListener('keydown', trap, true);
+    scrim.onclick = function (e) {
+      if (e.target === scrim || e.target.closest('[data-cancel]')) { closeDialog(scope); openScope = null; }
+      if (e.target.closest('[data-confirm]')) {
+        lastTrigger = null;
+        closeDialog(scope); openScope = null;
+        doMerge(scope, pr);
+      }
+    };
+  }
+
+  function toast(scope, msg) {
+    scope.querySelectorAll('[data-toast]').forEach(function (t) {
+      t.textContent = msg; t.classList.add('on');
+      setTimeout(function () { t.classList.remove('on'); }, 2400);
+    });
+  }
+
+  function doMerge(scope, pr) {
+    live[pr] = 'merging'; render();
+    setTimeout(function () {
+      if (sim === 'error') { live[pr] = 'error'; render(); toast(scope, 'No se pudo mergear el PR #' + pr); var b = scope.querySelector('[data-merge="' + pr + '"]'); if (b) b.focus(); return; }
+      live[pr] = sim === 'branch' ? 'mergedBranchKept' : 'merged'; render();
+      toast(scope, 'PR #' + pr + ' mergeado en mdev');
+      setTimeout(function () { if (live[pr] === 'merged' || live[pr] === 'mergedBranchKept') { live[pr] = 'gone'; render(); } }, 6000);
+    }, 1600);
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-merge]');
+    if (b) {
+      e.stopPropagation();
+      if (b.getAttribute('aria-disabled') === 'true') return;
+      var scope = b.closest('#desk, #phone');
+      if (scope) openDialog(scope, b.getAttribute('data-merge'));
+      return;
+    }
+    var s = e.target.closest('[data-sim]');
+    if (s) {
+      sim = s.getAttribute('data-sim');
+      document.querySelectorAll('[data-sim]').forEach(function (x) { x.setAttribute('aria-pressed', x === s ? 'true' : 'false'); });
+    }
+    var th = e.target.closest('[data-theme]');
+    if (th) {
+      document.documentElement.classList.toggle('dark', th.getAttribute('data-theme') === 'dark');
+      document.querySelectorAll('[data-theme]').forEach(function (x) { x.setAttribute('aria-pressed', x === th ? 'true' : 'false'); });
+    }
+  });
+  document.getElementById('reset').addEventListener('click', resetLive);
+  resetLive();
+})();
+</script>
+</body>
+</html>
