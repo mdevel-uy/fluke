@@ -973,6 +973,7 @@
         "prApproved": "{{name}} · 已批准，可合并"
       },
       "loose": "无里程碑或无波次 · 逐个分配",
+      "awaitingYou": "等待你处理",
       "legend": {
         "ready": "就绪",
         "running": "运行中",

@@ -978,6 +978,7 @@
         "prApproved": "{{name}} · approuvé, prêt à fusionner"
       },
       "loose": "Sans jalon ou sans vague · traités un par un",
+      "awaitingYou": "En attente de vous",
       "legend": {
         "ready": "Prêt",
         "running": "En cours",

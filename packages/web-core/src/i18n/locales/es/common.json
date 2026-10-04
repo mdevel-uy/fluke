@@ -1195,6 +1195,7 @@
         "prApproved": "{{name}} · aprobado, listo para mergear"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
+      "awaitingYou": "Pendiente de vos",
       "legend": {
         "ready": "Listo",
         "running": "Ejecutando",

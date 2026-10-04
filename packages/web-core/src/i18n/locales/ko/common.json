@@ -973,6 +973,7 @@
         "prApproved": "{{name}} · 승인됨, 병합 가능"
       },
       "loose": "마일스톤 또는 웨이브 없음 · 하나씩 배정",
+      "awaitingYou": "내 처리 대기",
       "legend": {
         "ready": "준비됨",
         "running": "실행 중",

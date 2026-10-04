@@ -973,6 +973,7 @@
         "prApproved": "{{name}} · 承認済み、マージ可能"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
+      "awaitingYou": "あなたの対応待ち",
       "legend": {
         "ready": "準備完了",
         "running": "実行中",

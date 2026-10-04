@@ -1195,6 +1195,7 @@
         "prApproved": "{{name}} · approved, ready to merge"
       },
       "loose": "No milestone or no wave · dispatched one at a time",
+      "awaitingYou": "Waiting on you",
       "legend": {
         "ready": "Ready",
         "running": "Running",

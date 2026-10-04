@@ -162,4 +162,73 @@ describe('buildMilestonePlan', () => {
     const plan = buildMilestonePlan([issue(1, null, [], 'closed')], noTasks);
     expect(plan.loose).toEqual([]);
   });
+
+  describe('awaiting merge (#759)', () => {
+    const awaiting = (plan: ReturnType<typeof buildMilestonePlan>) =>
+      plan.awaitingMerge.map((a) => [a.issue.number, a.milestone]);
+
+    it('lists unmerged approved PRs from bands and loose issues', () => {
+      const plan = buildMilestonePlan(
+        [
+          issue(1, 'M1', ['wave:0']),
+          issue(2, 'M1', ['wave:0']),
+          issue(3, null, []),
+          issue(4, null, []),
+        ],
+        new Map([
+          [1, { status: 'approved' }],
+          [3, { status: 'approved' }],
+        ])
+      );
+      expect(awaiting(plan)).toEqual([
+        [1, 'M1'],
+        [3, null],
+      ]);
+      // A loose approved issue leaves the loose bucket.
+      expect(plan.loose.map((i) => i.number)).toEqual([4]);
+    });
+
+    it('no longer counts an approved PR as ready', () => {
+      const plan = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0'])],
+        new Map([[1, { status: 'approved' }]])
+      );
+      expect(stateOf(plan, 1)).toBe('approved');
+      const cards = plan.bands[0].waves.flatMap((w) => w.cards);
+      expect(cards.filter((c) => c.state === 'ready')).toEqual([]);
+      expect(plan.bands[0].status.kind).toBe('merge');
+    });
+
+    it('drops the PR once merged: issue closed or task done', () => {
+      const closed = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0'], 'closed'), issue(2, null, [], 'closed')],
+        new Map([
+          [1, { status: 'approved' }],
+          [2, { status: 'approved' }],
+        ])
+      );
+      expect(closed.awaitingMerge).toEqual([]);
+      expect(stateOf(closed, 1)).toBe('done');
+
+      // Merged without "Closes #n": the issue stays open, the task is done.
+      const openIssue = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0'])],
+        new Map([[1, { status: 'done' }]])
+      );
+      expect(openIssue.awaitingMerge).toEqual([]);
+      expect(stateOf(openIssue, 1)).toBe('done');
+    });
+
+    it('drops the PR when the review asks for changes again', () => {
+      const plan = buildMilestonePlan(
+        [issue(1, 'M1', ['wave:0']), issue(2, null, [])],
+        new Map([
+          [1, { status: 'in_progress' }],
+          [2, { status: 'in_review' }],
+        ])
+      );
+      expect(plan.awaitingMerge).toEqual([]);
+      expect(plan.loose.map((i) => i.number)).toEqual([2]);
+    });
+  });
 });

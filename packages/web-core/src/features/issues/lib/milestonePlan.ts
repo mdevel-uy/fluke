@@ -55,10 +55,26 @@ export interface MilestoneBand {
   status: PlanBandStatus;
 }
 
+/** An approved PR that waits for a person to merge it (#759). */
+export interface AwaitingMergeItem {
+  issue: RepoIssue;
+  /** Null for a loose issue (no milestone or no usable `wave:`). */
+  milestone: string | null;
+}
+
 export interface MilestonePlan {
   bands: MilestoneBand[];
-  /** Open issues without a milestone or without a usable `wave:`. */
+  /**
+   * Open issues without a milestone or without a usable `wave:`. Loose
+   * issues with an approved PR are not here: they live in `awaitingMerge`.
+   */
   loose: RepoIssue[];
+  /**
+   * Every approved PR not merged yet, from all bands and the loose bucket,
+   * ordered by issue number. Merging the PR closes the issue or moves the
+   * task to `done`, which takes it out of here.
+   */
+  awaitingMerge: AwaitingMergeItem[];
   /** Columns every band draws: highest wave + 1. */
   columnCount: number;
 }
@@ -89,12 +105,19 @@ export function buildMilestonePlan(
   stuck: ReadonlySet<number> = new Set()
 ): MilestonePlan {
   const loose: RepoIssue[] = [];
+  const awaitingMerge: AwaitingMergeItem[] = [];
   const byMilestone = new Map<string, RepoIssue[]>();
 
   for (const issue of issues) {
     const wave = waveNumber(issue.labels);
     if (!issue.milestone || wave === null) {
-      if (issue.state === 'open') loose.push(issue);
+      if (issue.state !== 'open') continue;
+      const task = taskByIssueNumber.get(issue.number);
+      if (task?.status === 'approved' && !stuck.has(issue.number)) {
+        awaitingMerge.push({ issue, milestone: null });
+      } else {
+        loose.push(issue);
+      }
       continue;
     }
     const list = byMilestone.get(issue.milestone);
@@ -158,6 +181,7 @@ export function buildMilestonePlan(
         c.state === 'queued' || c.state === 'running' || c.state === 'review'
     );
     const approved = cards.filter((c) => c.state === 'approved');
+    for (const c of approved) awaitingMerge.push({ issue: c.issue, milestone });
     const status: PlanBandStatus =
       active && currentWave !== null
         ? { kind: 'running', wave: currentWave, count: current.length }
@@ -198,5 +222,10 @@ export function buildMilestonePlan(
     ...bands.flatMap((b) => b.waves.map((w) => w.wave))
   );
 
-  return { bands, loose: loose.sort(byNumber), columnCount: maxWave + 1 };
+  return {
+    bands,
+    loose: loose.sort(byNumber),
+    awaitingMerge: awaitingMerge.sort((a, b) => byNumber(a.issue, b.issue)),
+    columnCount: maxWave + 1,
+  };
 }
