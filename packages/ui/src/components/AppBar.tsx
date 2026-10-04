@@ -207,7 +207,6 @@ export function AppBar({
     showDashboardButton ||
     showSprintButton ||
     showIssuesButton ||
-    showWorkersButton ||
     showCiPipelinesButton
   ) {
     const localItems: AppBarSectionItem[] = [];
@@ -273,16 +272,6 @@ export function AppBar({
         lucideIcon: ListChecks,
         isActive: isIssuesActive,
         onClick: onIssuesClick,
-      });
-    }
-    if (showWorkersButton && onWorkersClick) {
-      localItems.push({
-        key: 'local-workers',
-        kind: 'icon-button',
-        label: t('appBar.workers'),
-        lucideIcon: Users,
-        isActive: isWorkersActive,
-        onClick: onWorkersClick,
       });
     }
     if (showCiPipelinesButton && onCiPipelinesClick) {
@@ -478,6 +467,22 @@ export function AppBar({
               aria-label={t('appBar.search', { defaultValue: 'Search' })}
             >
               <Search size={22} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
+        )}
+        {/* Workers is rarely used, so it lives at the foot of the rail next
+            to Settings instead of the daily navigation group (#764). */}
+        {showWorkersButton && onWorkersClick && (
+          <Tooltip content={t('appBar.workers')} side="right">
+            <button
+              type="button"
+              onClick={onWorkersClick}
+              className={getStandardAppBarButtonClassName({
+                isActive: isWorkersActive,
+              })}
+              aria-label={t('appBar.workers')}
+            >
+              <Users size={22} strokeWidth={1.5} />
             </button>
           </Tooltip>
         )}
