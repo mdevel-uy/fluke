@@ -442,6 +442,14 @@ export function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
 
   if (run?.status === 'waiting') {
     const [kind, num] = (run.waiting_reason ?? '').split(':');
+    // A design issue with no active Designer to take it (#756).
+    if (kind === 'designer') {
+      return line(
+        t('issues.plan.status.waitingDesignerTitle'),
+        t('issues.plan.status.waitingDesignerDetail', { n: num }),
+        'text-warning'
+      );
+    }
     return kind === 'failed'
       ? line(
           t('issues.plan.status.waitingTitle'),

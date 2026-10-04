@@ -30,7 +30,7 @@ import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
 import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
 import { extractSkillLabelNames } from '@/features/sprint/lib/skillLabels';
-import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
+import { buildAssignToAgentPrompt, isDesignIssue } from './assignToAgentPrompt';
 import { WorkerSelectItem } from './WorkerSelectItem';
 
 export interface AssignToAgentDialogProps {
@@ -47,6 +47,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
     const queryClient = useQueryClient();
 
     const prompt = useMemo(() => buildAssignToAgentPrompt(issue), [issue]);
+    const design = isDesignIssue(issue);
     const [workers, setWorkers] = useState<WorkerResponse[]>([]);
     const [loadingWorkers, setLoadingWorkers] = useState(true);
     const [workerLoadError, setWorkerLoadError] = useState(false);
@@ -87,8 +88,11 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         .list()
         .then((data) => {
           if (cancelled) return;
-          setWorkers(data);
-          if (data.length > 0) setSelectedWorkerId(data[0].id);
+          const usable = design
+            ? data.filter((w) => w.role === 'designer')
+            : data;
+          setWorkers(usable);
+          if (usable.length > 0) setSelectedWorkerId(usable[0].id);
         })
         .catch(() => {
           if (cancelled) return;
@@ -101,7 +105,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       return () => {
         cancelled = true;
       };
-    }, []);
+    }, [design]);
 
     useEffect(() => {
       let cancelled = false;
@@ -237,7 +241,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                   <Alert variant="destructive" className="mt-1">
                     {workerLoadError
                       ? t('issues.assignDialog.workerLoadError')
-                      : t('issues.assignDialog.noWorkers')}
+                      : design
+                        ? t('issues.assignDialog.noDesigners')
+                        : t('issues.assignDialog.noWorkers')}
                   </Alert>
                 ) : (
                   <Select

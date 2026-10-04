@@ -26,7 +26,8 @@ pub struct MilestoneRun {
     /// Wave being worked on; `None` before the first sweep.
     #[ts(type = "number | null")]
     pub current_wave: Option<i64>,
-    /// Why a `waiting` run is stopped: `decision:<n>` or `failed:<n>`.
+    /// Why a `waiting` run is stopped: `decision:<n>`, `failed:<n>` or
+    /// `designer:<n>` (design issue with no active Designer).
     pub waiting_reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

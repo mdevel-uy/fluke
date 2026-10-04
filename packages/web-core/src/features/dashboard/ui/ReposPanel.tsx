@@ -44,7 +44,7 @@ const STATE_CLASS: Record<
   idle: { card: 'border-border', text: 'text-low', dot: 'bg-md-outline' },
 };
 
-/** `decision:12` / `failed:12` → the issue that stops the run. */
+/** `decision:12` / `failed:12` / `designer:12` → the issue that stops the run. */
 function waitingIssue(reason: string | null): string | null {
   const n = reason?.split(':')[1];
   return n ? `#${n}` : null;

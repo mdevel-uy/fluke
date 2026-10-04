@@ -389,9 +389,13 @@ pub fn analyst_request_prompt(d: &MissionDetail, version: i64) -> String {
          una feature agregá en una línea sola el bloque \
          <!-- fluke:plan {{\"template\":\"tdd\"}} --> si el campo TDD del ítem es \"sí\", o \
          <!-- fluke:plan {{\"template\":\"no_tdd\"}} --> si es \"no\" o \"no aplica\". \
-         Los issues de ítems de diseño no llevan el bloque.",
+         Los issues de ítems de diseño no llevan el bloque.\n\n\
+         Issues de diseño: todo issue que salga de un ítem de diseño lleva la label \
+         `{design}` (además de `feature:` y `wave:`); así se despacha al Designer y nunca \
+         a un developer. Ningún otro issue la lleva.",
         title = d.mission.title.trim(),
         md = render_markdown(d),
+        design = crate::services::milestone_runs::DESIGN_LABEL,
     )
 }
 
