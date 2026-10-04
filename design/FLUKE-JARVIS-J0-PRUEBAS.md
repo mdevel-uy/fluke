@@ -149,3 +149,17 @@ La memoria va dentro de la app (SQLite), sin servicios ni keys extra.
 | "Olvidate de lo de device flow" | Lo borra (`forget`); en el siguiente pedido de login ya no lo asume. |
 | "Ahora prefiero OAuth con redirect" | Reemplaza el recuerdo viejo por el nuevo. |
 | Lotes de eventos de la app | No generan ni consumen recuerdos. |
+
+---
+
+# J6 · Fluke en tiempo real — cómo probarlo
+
+## 12. Sin polling
+
+| Paso | Resultado esperado |
+|---|---|
+| Con /fluke abierto, en la consola del navegador (pestaña Network) | Hay una sola conexión abierta a `/api/fluke-events/stream`; no aparecen pedidos repetidos a `/api/missions` cada pocos segundos. |
+| Pedirle a Fluke algo para el brief de la misión abierta | El panel del brief se actualiza solo apenas Fluke escribe cada ítem. |
+| Provocar un evento que valga aviso (una tarea que falla, un worker que pregunta) | Fluke avisa en la guardia en unos 3 a 5 segundos (antes hasta 1 minuto). |
+| Varios eventos seguidos | Llegan juntos en un solo lote, no un mensaje por evento. |
+| Reiniciar el server con /fluke abierto | La UI se reconecta sola en 2 segundos y se pone al día. |

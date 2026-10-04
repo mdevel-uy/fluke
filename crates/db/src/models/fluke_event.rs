@@ -174,6 +174,14 @@ mod tests {
             "fluke_events_plan_status",
             "fluke_events_profile_insert",
             "fluke_events_profile_archived",
+            "fluke_events_mission_item_insert",
+            "fluke_events_mission_item_update",
+            "fluke_events_mission_item_delete",
+            "fluke_events_mission_fields",
+            "fluke_events_mission_agent_insert",
+            "fluke_events_mission_agent_status",
+            "fluke_events_issue_insert",
+            "fluke_events_issue_state",
         ] {
             assert!(
                 triggers.iter().any(|t| t == expected),
