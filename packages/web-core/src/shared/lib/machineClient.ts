@@ -2,6 +2,7 @@ import type {
   Config,
   GetMcpServerResponse,
   GitBranch,
+  GithubStatusResponse,
   McpServerQuery,
   Repo,
   UpdateMcpServersBody,
@@ -10,6 +11,12 @@ import type {
 } from 'shared/types';
 import type { AppRuntime } from '@/shared/hooks/useAppRuntime';
 import { handleApiResponse } from './api';
+import type {
+  GithubOwner,
+  GithubPublishClient,
+  PublishRepoToGithubRequest,
+  PublishRepoToGithubResponse,
+} from './githubPublish';
 import {
   makeLocalApiRequest,
   type LocalApiRequestOptions,
@@ -42,6 +49,12 @@ export interface MachineClient {
     display_name?: string;
   }) => Promise<Repo>;
   getRepoBranches: (repoId: string) => Promise<GitBranch[]>;
+  getGithubStatus: () => Promise<GithubStatusResponse>;
+  listGithubOwners: () => Promise<GithubOwner[]>;
+  publishRepoToGithub: (
+    repoId: string,
+    data: PublishRepoToGithubRequest
+  ) => Promise<PublishRepoToGithubResponse>;
   loadProfiles: () => Promise<{ content: string; path: string }>;
   saveProfiles: (content: string) => Promise<string>;
   loadMcpServers: (query: McpServerQuery) => Promise<GetMcpServerResponse>;
@@ -146,6 +159,26 @@ export function createMachineClient(
           `/api/repos/${repoId}/branches`
         )
       ),
+    getGithubStatus: async () =>
+      handleApiResponse<GithubStatusResponse>(
+        await makeMachineRequest(runtime, target, '/api/github/status')
+      ),
+    listGithubOwners: async () =>
+      handleApiResponse<GithubOwner[]>(
+        await makeMachineRequest(runtime, target, '/api/github/owners')
+      ),
+    publishRepoToGithub: async (repoId, data) =>
+      handleApiResponse<PublishRepoToGithubResponse>(
+        await makeMachineRequest(
+          runtime,
+          target,
+          `/api/repos/${repoId}/github`,
+          {
+            method: 'POST',
+            body: JSON.stringify(data),
+          }
+        )
+      ),
     loadProfiles: async () =>
       handleApiResponse<{ content: string; path: string }>(
         await makeMachineRequest(runtime, target, '/api/profiles')
@@ -184,5 +217,17 @@ export function createMachineClient(
         )
       );
     },
+  };
+}
+
+/** "Create on GitHub too" against the machine selected in Settings. */
+export function machineGithubPublishClient(
+  client: MachineClient
+): GithubPublishClient {
+  return {
+    queryScopeKey: client.queryScopeKey,
+    getStatus: client.getGithubStatus,
+    listOwners: client.listGithubOwners,
+    publish: client.publishRepoToGithub,
   };
 }

@@ -12,6 +12,7 @@ import { getProjectRepoDefaults } from '@/shared/hooks/useProjectRepoDefaults';
 import { reposQueryKey as globalReposQueryKey } from '@/shared/hooks/useRepos';
 import { ApiError } from '@/shared/lib/api';
 import { defineModal } from '@/shared/lib/modals';
+import { machineGithubPublishClient } from '@/shared/lib/machineClient';
 import type { Repo, UpdateRepo } from 'shared/types';
 import { SearchableDropdownContainer } from '@/shared/components/ui-new/containers/SearchableDropdownContainer';
 import { AddRepoDialog } from '@/shared/dialogs/settings/AddRepoDialog';
@@ -317,17 +318,30 @@ export function ReposSettingsSection({
 
   // Handle adding a new repo (local folder path or GitHub clone)
   const handleAddRepo = useCallback(async () => {
+    if (!machineClient) {
+      return;
+    }
+
     try {
-      const result = await AddRepoDialog.show({});
+      const result = await AddRepoDialog.show({
+        onRegister: (path) => machineClient.registerRepo({ path }),
+        github: machineGithubPublishClient(machineClient),
+      });
       if (!result) return;
 
-      if (!machineClient) {
-        return;
-      }
-
-      const repo = await machineClient.registerRepo({ path: result.path });
+      const repo =
+        result.repo ??
+        (await machineClient.registerRepo({ path: result.path }));
       await queryClient.invalidateQueries({ queryKey: globalReposQueryKey });
       setSelectedRepoId(repo.id);
+      if (result.githubError) {
+        // Registered locally, but not on GitHub: never report success.
+        setError(
+          t('common:githubPublish.registeredWithoutGithub', {
+            message: result.githubError.message,
+          })
+        );
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('settings.repos.addRepo.error')

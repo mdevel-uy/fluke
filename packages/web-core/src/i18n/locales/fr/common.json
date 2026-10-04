@@ -1965,5 +1965,46 @@
     "none": "aucune",
     "defaultAgent": "Agent par défaut",
     "defaultModel": "modèle par défaut"
+  },
+  "githubPublish": {
+    "checkbox": "Créer aussi sur GitHub",
+    "checkboxHelper": "Crée le dépôt sur GitHub, l'ajoute comme remote origin et pousse la branche actuelle.",
+    "checkingSession": "Vérification de la session GitHub...",
+    "noSession": "Vous n'êtes pas connecté à GitHub. Connectez-vous dans Paramètres > GitHub, puis vérifiez à nouveau.",
+    "openGithubSettings": "Ouvrir les paramètres GitHub",
+    "checkAgain": "Vérifier à nouveau",
+    "loadingOwners": "Chargement des comptes GitHub...",
+    "nameLabel": "Nom du dépôt GitHub",
+    "namePlaceholder": "mon-projet",
+    "ownerLabel": "Propriétaire",
+    "ownerPlaceholder": "Sélectionnez un compte",
+    "ownerKind": {
+      "user": "utilisateur",
+      "organization": "organisation"
+    },
+    "visibilityLabel": "Visibilité",
+    "visibility": {
+      "private": "Privé",
+      "public": "Public"
+    },
+    "githubFailed": "Le dépôt n'a pas pu être créé sur GitHub.",
+    "localDoneGithubFailed": "Le dépôt a été créé en local, mais sa création sur GitHub a échoué. Vous pouvez réessayer la partie GitHub ou continuer sans.",
+    "continueWithoutGithub": "Continuer sans GitHub",
+    "retry": "Réessayer sur GitHub",
+    "registeredWithoutGithub": "Le dépôt a été ajouté en local, mais il n'a pas été créé sur GitHub : {{message}}",
+    "errors": {
+      "statusFailed": "Impossible de vérifier la session GitHub.",
+      "ownersFailed": "Impossible de charger vos comptes GitHub.",
+      "invalidName": "Utilisez uniquement des lettres, chiffres, '.', '_' ou '-' (100 caractères maximum).",
+      "no_session": "Aucune session GitHub. Connectez-vous dans Paramètres > GitHub.",
+      "name_taken": "Un dépôt portant ce nom existe déjà pour ce propriétaire.",
+      "origin_exists": "Le dépôt local a déjà un remote origin.",
+      "forbidden": "Votre session GitHub ne peut pas créer de dépôts pour ce propriétaire.",
+      "owner_unavailable": "Ce propriétaire n'est pas disponible pour votre session GitHub.",
+      "invalid_name": "Le nom du dépôt GitHub n'est pas valide.",
+      "no_commits": "Le dépôt local n'a encore aucun commit.",
+      "incomplete": "Le dépôt a été créé sur GitHub, mais l'ajout du remote ou le push n'a pas abouti. Réessayer le termine.",
+      "other": "GitHub a renvoyé une erreur."
+    }
   }
 }

@@ -2212,5 +2212,46 @@
     "none": "ninguna",
     "defaultAgent": "Agente por defecto",
     "defaultModel": "modelo por defecto"
+  },
+  "githubPublish": {
+    "checkbox": "Crear también en GitHub",
+    "checkboxHelper": "Crea el repositorio en GitHub, lo agrega como remoto origin y sube la rama actual.",
+    "checkingSession": "Comprobando la sesión de GitHub...",
+    "noSession": "No hay una sesión de GitHub iniciada. Inicia sesión en Configuración > GitHub y vuelve a comprobar.",
+    "openGithubSettings": "Abrir configuración de GitHub",
+    "checkAgain": "Volver a comprobar",
+    "loadingOwners": "Cargando cuentas de GitHub...",
+    "nameLabel": "Nombre del repositorio en GitHub",
+    "namePlaceholder": "mi-proyecto",
+    "ownerLabel": "Propietario",
+    "ownerPlaceholder": "Selecciona una cuenta",
+    "ownerKind": {
+      "user": "usuario",
+      "organization": "organización"
+    },
+    "visibilityLabel": "Visibilidad",
+    "visibility": {
+      "private": "Privado",
+      "public": "Público"
+    },
+    "githubFailed": "No se pudo crear el repositorio en GitHub.",
+    "localDoneGithubFailed": "El repositorio se creó en local, pero falló su creación en GitHub. Puedes reintentar la parte de GitHub o continuar sin ella.",
+    "continueWithoutGithub": "Continuar sin GitHub",
+    "retry": "Reintentar en GitHub",
+    "registeredWithoutGithub": "El repositorio se agregó en local, pero no se creó en GitHub: {{message}}",
+    "errors": {
+      "statusFailed": "No se pudo comprobar la sesión de GitHub.",
+      "ownersFailed": "No se pudieron cargar tus cuentas de GitHub.",
+      "invalidName": "Usa solo letras, dígitos, '.', '_' o '-' (hasta 100 caracteres).",
+      "no_session": "No hay sesión de GitHub. Inicia sesión en Configuración > GitHub.",
+      "name_taken": "Ya existe un repositorio con ese nombre para este propietario.",
+      "origin_exists": "El repositorio local ya tiene un remoto origin.",
+      "forbidden": "Tu sesión de GitHub no puede crear repositorios para este propietario.",
+      "owner_unavailable": "Ese propietario no está disponible para tu sesión de GitHub.",
+      "invalid_name": "El nombre del repositorio en GitHub no es válido.",
+      "no_commits": "El repositorio local todavía no tiene commits.",
+      "incomplete": "El repositorio se creó en GitHub, pero no se terminó de agregar el remoto o de subir la rama. Al reintentar se completa.",
+      "other": "GitHub devolvió un error."
+    }
   }
 }

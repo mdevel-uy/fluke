@@ -23,22 +23,54 @@ import {
   ButtonGroup,
   ButtonGroupItem,
 } from '@vibe/ui/components/IconButtonGroup';
-import { githubApi, ApiError } from '@/shared/lib/api';
+import {
+  githubApi,
+  ApiError,
+  localGithubPublishClient,
+} from '@/shared/lib/api';
 import { defineModal } from '@/shared/lib/modals';
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
-import type { GitHubRepoSummary } from 'shared/types';
+import type { GitHubRepoSummary, Repo } from 'shared/types';
+import type { GithubPublishClient } from '@/shared/lib/githubPublish';
+import {
+  useCreateOnGithub,
+  type LocalRepoDialogOutcome,
+} from '@/shared/hooks/useCreateOnGithub';
+import { CreateOnGithubOption } from '@/shared/components/CreateOnGithubOption';
 
 export interface AddRepoDialogProps {
   title?: string;
   description?: string;
+  /**
+   * Registers the chosen path from inside the dialog. Required for the
+   * "Create on GitHub too" option: a GitHub failure keeps the registered
+   * repo and lets the user retry only the GitHub part.
+   */
+  onRegister?: (path: string) => Promise<Repo>;
+  /** Enables "Create on GitHub too" on the local folder tab. */
+  github?: GithubPublishClient;
+  /** Opens Settings > GitHub; the dialog closes first. */
+  onOpenGithubSettings?: () => void;
+  /** Show the "From GitHub" (clone) tab. Defaults to true. */
+  allowClone?: boolean;
 }
 
-export type AddRepoDialogResult = { path: string } | null;
+/** With `onRegister` the dialog also resolves the registered repo. */
+export type AddRepoDialogResult =
+  | ({ path: string } & Partial<LocalRepoDialogOutcome>)
+  | null;
 
 type Mode = 'folder' | 'github';
 
 const AddRepoDialogImpl = create<AddRepoDialogProps>(
-  ({ title, description }) => {
+  ({
+    title,
+    description,
+    onRegister,
+    github: githubClient,
+    onOpenGithubSettings,
+    allowClone = true,
+  }) => {
     const modal = useModal();
     const { t } = useTranslation(['settings', 'common']);
 
@@ -46,6 +78,14 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
 
     const [manualPath, setManualPath] = useState('');
     const [folderError, setFolderError] = useState<string | null>(null);
+
+    const githubEnabled = !!githubClient && !!onRegister;
+    const github = useCreateOnGithub(
+      githubClient ?? localGithubPublishClient,
+      manualPath
+    );
+    const registered = github.repo;
+    const registering = github.submitting;
 
     const handleBrowse = useCallback(async () => {
       const picked = await FolderPickerDialog.show({
@@ -58,15 +98,39 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
       }
     }, [manualPath, t]);
 
-    const handleSubmitFolder = useCallback(() => {
+    const handleSubmitFolder = useCallback(async () => {
       const trimmed = manualPath.trim();
       if (!trimmed) {
         setFolderError(t('settings.repos.addRepo.errors.pathRequired'));
         return;
       }
-      modal.resolve({ path: trimmed } as AddRepoDialogResult);
-      modal.hide();
-    }, [manualPath, modal, t]);
+      if (registering || (githubEnabled && github.blocker !== null)) return;
+      if (!onRegister) {
+        modal.resolve({ path: trimmed } as AddRepoDialogResult);
+        modal.hide();
+        return;
+      }
+
+      setFolderError(null);
+      try {
+        const outcome = await github.submit(() => onRegister(trimmed));
+        if (outcome.status === 'done') {
+          modal.resolve({
+            path: trimmed,
+            repo: outcome.repo,
+            published: outcome.published,
+            githubError: null,
+          } as AddRepoDialogResult);
+          modal.hide();
+        }
+        // 'github_failed': stay open; the option shows the error and the
+        // submit button retries only the GitHub part.
+      } catch (err) {
+        setFolderError(
+          err instanceof Error ? err.message : t('settings.repos.addRepo.error')
+        );
+      }
+    }, [github, githubEnabled, manualPath, modal, onRegister, registering, t]);
 
     const [search, setSearch] = useState('');
     const [cloning, setCloning] = useState<string | null>(null);
@@ -100,7 +164,16 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
           const result = await githubApi.clone({
             name_with_owner: repo.nameWithOwner,
           });
-          modal.resolve({ path: result.path } as AddRepoDialogResult);
+          // A clone already has its GitHub origin: only register it.
+          const registeredRepo = onRegister
+            ? await onRegister(result.path)
+            : undefined;
+          modal.resolve({
+            path: result.path,
+            repo: registeredRepo,
+            published: null,
+            githubError: null,
+          } as AddRepoDialogResult);
           modal.hide();
         } catch (err) {
           setGhError(
@@ -112,14 +185,40 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
           setCloning(null);
         }
       },
-      [cloning, modal, t]
+      [cloning, modal, onRegister, t]
     );
 
     const handleCancel = useCallback(() => {
-      if (cloning) return;
-      modal.resolve(null);
+      if (cloning || registering) return;
+      // Once registered, closing keeps the repo (GitHub part not done).
+      modal.resolve(
+        registered
+          ? ({
+              path: manualPath.trim(),
+              repo: registered,
+              published: null,
+              githubError: github.publishError,
+            } as AddRepoDialogResult)
+          : null
+      );
       modal.hide();
-    }, [cloning, modal]);
+    }, [
+      cloning,
+      github.publishError,
+      manualPath,
+      modal,
+      registered,
+      registering,
+    ]);
+
+    const handleOpenGithubSettings = onOpenGithubSettings
+      ? () => {
+          handleCancel();
+          onOpenGithubSettings();
+        }
+      : undefined;
+
+    const locked = !!cloning || registering || registered !== null;
 
     const handleOpenChange = useCallback(
       (open: boolean) => {
@@ -150,24 +249,26 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-2">
-            <ButtonGroup className="self-start">
-              <ButtonGroupItem
-                icon={FolderSimpleIcon}
-                active={mode === 'folder'}
-                onClick={() => setMode('folder')}
-                disabled={!!cloning}
-              >
-                {t('settings.repos.addRepo.tabs.folder')}
-              </ButtonGroupItem>
-              <ButtonGroupItem
-                icon={GithubLogoIcon}
-                active={mode === 'github'}
-                onClick={() => setMode('github')}
-                disabled={!!cloning}
-              >
-                {t('settings.repos.addRepo.tabs.github')}
-              </ButtonGroupItem>
-            </ButtonGroup>
+            {allowClone && (
+              <ButtonGroup className="self-start">
+                <ButtonGroupItem
+                  icon={FolderSimpleIcon}
+                  active={mode === 'folder'}
+                  onClick={() => setMode('folder')}
+                  disabled={locked}
+                >
+                  {t('settings.repos.addRepo.tabs.folder')}
+                </ButtonGroupItem>
+                <ButtonGroupItem
+                  icon={GithubLogoIcon}
+                  active={mode === 'github'}
+                  onClick={() => setMode('github')}
+                  disabled={locked}
+                >
+                  {t('settings.repos.addRepo.tabs.github')}
+                </ButtonGroupItem>
+              </ButtonGroup>
+            )}
 
             {mode === 'folder' ? (
               <div className="flex flex-col gap-3">
@@ -186,12 +287,14 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
                     )}
                     onCommandEnter={handleSubmitFolder}
                     className="flex-1"
+                    disabled={locked}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     onClick={handleBrowse}
+                    disabled={locked}
                     aria-label={t('settings.repos.addRepo.folder.browse')}
                   >
                     <FolderSimpleIcon className="h-4 w-4" weight="fill" />
@@ -200,6 +303,14 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
                 <p className="text-xs text-low">
                   {t('settings.repos.addRepo.folder.helper')}
                 </p>
+                {githubEnabled && (
+                  <CreateOnGithubOption
+                    github={github}
+                    fallbackName={manualPath}
+                    disabled={registering}
+                    onOpenGithubSettings={handleOpenGithubSettings}
+                  />
+                )}
                 {folderError && (
                   <p className="text-sm text-destructive">{folderError}</p>
                 )}
@@ -333,16 +444,27 @@ const AddRepoDialogImpl = create<AddRepoDialogProps>(
             <Button
               variant="outline"
               onClick={handleCancel}
-              disabled={!!cloning}
+              disabled={!!cloning || registering}
             >
-              {t('common:buttons.cancel')}
+              {registered
+                ? t('common:githubPublish.continueWithoutGithub')
+                : t('common:buttons.cancel')}
             </Button>
             {mode === 'folder' && (
               <Button
                 onClick={handleSubmitFolder}
-                disabled={!manualPath.trim()}
+                disabled={
+                  !manualPath.trim() ||
+                  registering ||
+                  (githubEnabled && github.blocker !== null)
+                }
               >
-                {t('settings.repos.addRepo.folder.submit')}
+                {registering && (
+                  <SpinnerIcon className="h-4 w-4 animate-spin mr-2" />
+                )}
+                {registered
+                  ? t('common:githubPublish.retry')
+                  : t('settings.repos.addRepo.folder.submit')}
               </Button>
             )}
           </DialogFooter>

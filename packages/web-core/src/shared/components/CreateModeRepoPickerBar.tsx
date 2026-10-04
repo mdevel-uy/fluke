@@ -11,13 +11,15 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { Repo } from 'shared/types';
 import type { BranchItem, RepoItem } from '@/shared/types/selectionItems';
-import { repoApi } from '@/shared/lib/api';
+import { localGithubPublishClient, repoApi } from '@/shared/lib/api';
 import { cn } from '@/shared/lib/utils';
 import { useCreateMode } from '@/features/create-mode/model/useCreateMode';
+import type { GithubPublishFailure } from '@/shared/hooks/useCreateOnGithub';
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
+import { InitRepoDialog } from '@/shared/dialogs/shared/InitRepoDialog';
+import { AddRepoDialog } from '@/shared/dialogs/settings/AddRepoDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
-import { CreateRepoDialog } from '@vibe/ui/components/CreateRepoDialog';
 import {
   SelectionDialog,
   type SelectionPage,
@@ -184,48 +186,73 @@ export function CreateModeRepoPickerBar({
     );
   }, [addRepoWithBranchSelection, runPickerAction, selectedRepoIds]);
 
+  const openGithubSettings = useCallback(() => {
+    void SettingsDialog.show({ initialSection: 'github' });
+  }, []);
+
+  // The repo exists locally but not on GitHub: keep it, never report success.
+  const reportGithubFailure = useCallback(
+    (githubError: GithubPublishFailure | null | undefined) => {
+      if (!githubError) return;
+      setPickerError(
+        t('githubPublish.registeredWithoutGithub', {
+          message: githubError.message,
+        })
+      );
+    },
+    [t]
+  );
+
   const handleBrowseRepo = useCallback(async () => {
     await runPickerAction(
       'browse',
       async () => {
-        const selectedPath = await FolderPickerDialog.show({
+        const result = await AddRepoDialog.show({
           title: t('dialogs.selectGitRepository'),
           description: t('dialogs.chooseExistingRepo'),
+          allowClone: false,
+          onRegister: (path) => repoApi.register({ path }),
+          github: localGithubPublishClient,
+          onOpenGithubSettings: openGithubSettings,
         });
-        if (!selectedPath) return;
+        if (!result?.repo) return;
 
-        const repo = await repoApi.register({ path: selectedPath });
         queryClient.invalidateQueries({ queryKey: ['repos'] });
-        await addRepoWithBranchSelection(repo);
+        reportGithubFailure(result.githubError);
+        await addRepoWithBranchSelection(result.repo);
       },
       'Failed to register repository'
     );
-  }, [addRepoWithBranchSelection, runPickerAction, t]);
+  }, [addRepoWithBranchSelection, reportGithubFailure, runPickerAction, t]);
 
   const handleCreateRepo = useCallback(async () => {
     await runPickerAction(
       'create',
       async () => {
-        await CreateRepoDialog.show({
+        const result = await InitRepoDialog.show({
           onBrowseForPath: async (currentPath) =>
             FolderPickerDialog.show({
               title: t('git.createRepo.browseDialog.title'),
               description: t('git.createRepo.browseDialog.description'),
               value: currentPath,
             }),
-          onCreateRepo: async ({ parentPath, folderName }) => {
-            const repo = await repoApi.init({
+          initRepo: ({ parentPath, folderName }) =>
+            repoApi.init({
               parent_path: parentPath,
               folder_name: folderName,
-            });
-            queryClient.invalidateQueries({ queryKey: ['repos'] });
-            await addRepoWithBranchSelection(repo);
-          },
+            }),
+          github: localGithubPublishClient,
+          onOpenGithubSettings: openGithubSettings,
         });
+        if (!result) return;
+
+        queryClient.invalidateQueries({ queryKey: ['repos'] });
+        reportGithubFailure(result.githubError);
+        await addRepoWithBranchSelection(result.repo);
       },
       'Failed to create repository'
     );
-  }, [addRepoWithBranchSelection, runPickerAction, t]);
+  }, [addRepoWithBranchSelection, reportGithubFailure, runPickerAction, t]);
 
   const handleChangeBranch = useCallback(
     async (repo: Repo) => {
