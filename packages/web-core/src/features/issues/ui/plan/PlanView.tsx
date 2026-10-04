@@ -483,6 +483,7 @@ export function PlanView({
                   onSelect={onSelectIssue}
                   blocker={blocker}
                   onUnstick={onUnstick}
+                  task={task}
                 />
               );
             })}
