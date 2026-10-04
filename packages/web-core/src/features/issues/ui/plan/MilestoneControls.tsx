@@ -6,6 +6,7 @@ import {
   ExternalLink,
   GripVertical,
   List,
+  MessageSquare,
   Star,
 } from 'lucide-react';
 import {
@@ -31,6 +32,7 @@ export interface MilestoneActions {
   onArchive?: () => void;
   githubUrl?: string;
   onShowIssues?: () => void;
+  onReviewWithFluke?: () => void;
   reorder: ReorderHandlers;
 }
 
@@ -199,6 +201,20 @@ export function MilestoneMenu({
           <DropdownMenuItem onSelect={actions.onShowIssues}>
             <List />
             {t('issues.plan.showIssues')}
+          </DropdownMenuItem>
+        )}
+        {actions.onReviewWithFluke && (
+          <DropdownMenuItem
+            onSelect={actions.onReviewWithFluke}
+            className="items-start"
+          >
+            <MessageSquare className="mt-0.5" />
+            <span>
+              {t('issues.plan.reviewWithFluke')}
+              <small className="mt-0.5 block text-xs text-low">
+                {t('issues.plan.reviewWithFlukeHint')}
+              </small>
+            </span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

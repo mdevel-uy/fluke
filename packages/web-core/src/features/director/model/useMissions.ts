@@ -183,6 +183,48 @@ export function useSendToDirector(mission: MissionDetail['mission'] | null) {
   });
 }
 
+/**
+ * Talks to Fluke about some issues from outside its panel: reuses the open
+ * mission those issues came from (#702), otherwise starts a new one, opens
+ * its tab and sends the prompt.
+ */
+export function useTalkToFluke() {
+  const createMission = useCreateMission();
+  const openMission = useDirectorStore((s) => s.openMission);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      repoId,
+      issueNumbers,
+      prompt,
+    }: {
+      repoId: string;
+      issueNumbers: number[];
+      prompt: string;
+    }) => {
+      const own = (await missionsApi.list()).find(
+        (m) =>
+          m.mission.status !== 'closed' &&
+          m.mission.repo_id === repoId &&
+          m.issue_numbers.some((n) => issueNumbers.includes(n))
+      )?.mission;
+      if (own) openMission(own.id);
+      const sessionId =
+        own?.session_id ??
+        (await createMission.mutateAsync(repoId)).mission.session_id;
+      await sessionsApi.followUp(sessionId, {
+        prompt,
+        executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
+        retry_process_id: null,
+        force_when_dirty: null,
+        perform_git_reset: null,
+      });
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: missionKeys.all }),
+  });
+}
+
 /** The mission needs the user: the brief is ready (G1) or questions wait. */
 export function isWaitingForUser(m: MissionSummary): boolean {
   if (m.agent_running) return false;
