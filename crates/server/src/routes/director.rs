@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use db::models::{
     mission::{self, AUTONOMY_VALUES, Mission},
@@ -41,6 +41,11 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/missions/{id}/focus", post(focus_mission))
         .route("/missions/{id}/turns", get(mission_turns))
         .route("/missions/{id}/workspace", get(get_mission_workspace))
+        .route("/missions/{id}/items", post(upsert_mission_item))
+        .route(
+            "/missions/{id}/items/{item_id}",
+            delete(remove_mission_item),
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +269,46 @@ async fn update_mission(
     Ok(ResponseJson(ApiResponse::success(
         director::refresh_status(pool, id).await?,
     )))
+}
+
+fn brief_error(e: director::BriefEditError) -> ApiError {
+    match e {
+        director::BriefEditError::Invalid(msg) => ApiError::BadRequest(msg),
+        director::BriefEditError::Conflict(msg) => ApiError::Conflict(msg),
+        director::BriefEditError::Db(e) => ApiError::Database(e),
+    }
+}
+
+/// Crea o actualiza un ítem del brief de la misión `id`, con las mismas
+/// reglas que la herramienta `upsert_item` de Fluke.
+async fn upsert_mission_item(
+    State(deployment): State<DeploymentImpl>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<director::UpsertMissionItemRequest>,
+) -> Result<ResponseJson<ApiResponse<MissionDetail>>, ApiError> {
+    let pool = &deployment.db().pool;
+    director::brief_target(pool, id, true)
+        .await
+        .map_err(brief_error)?;
+    let d = director::upsert_item(pool, id, &payload)
+        .await
+        .map_err(brief_error)?;
+    Ok(ResponseJson(ApiResponse::success(d)))
+}
+
+/// Quita un ítem del brief de la misión `id`.
+async fn remove_mission_item(
+    State(deployment): State<DeploymentImpl>,
+    Path((id, item_id)): Path<(Uuid, Uuid)>,
+) -> Result<ResponseJson<ApiResponse<MissionDetail>>, ApiError> {
+    let pool = &deployment.db().pool;
+    director::brief_target(pool, id, true)
+        .await
+        .map_err(brief_error)?;
+    let d = director::remove_item(pool, id, item_id)
+        .await
+        .map_err(brief_error)?;
+    Ok(ResponseJson(ApiResponse::success(d)))
 }
 
 /// Borra la misión (#647). Se bloquea mientras su agente responde, ya sea su

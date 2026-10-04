@@ -338,6 +338,118 @@ pub async fn refresh_status(pool: &Pool, mission_id: Uuid) -> Result<MissionDeta
     Ok(d)
 }
 
+// ---------------------------------------------------------------------------
+// Edición de ítems del brief: la usan la herramienta `upsert_item` /
+// `remove_item` y los endpoints `/missions/{id}/items`, así las reglas no
+// divergen.
+// ---------------------------------------------------------------------------
+
+/// Crear (sin `item_id`) o actualizar un ítem del brief. Los campos se
+/// fusionan con los existentes; un string vacío borra el campo.
+#[derive(Debug, Clone, Deserialize, TS)]
+pub struct UpsertMissionItemRequest {
+    pub item_id: Option<Uuid>,
+    pub kind: String,
+    pub title: Option<String>,
+    #[serde(default)]
+    pub fields: BTreeMap<String, String>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BriefEditError {
+    /// El pedido no es válido (kind, campo, ítem o misión).
+    #[error("{0}")]
+    Invalid(String),
+    /// La misión existe pero su brief no se puede editar ahora.
+    #[error("{0}")]
+    Conflict(String),
+    #[error("internal error: {0}")]
+    Db(#[from] sqlx::Error),
+}
+
+/// La misión `id` como destino del brief: tiene que existir y no ser la
+/// conversación de guardia (no tiene brief). Para editar, además, no puede
+/// estar cerrada; leer el brief de una cerrada sí se puede.
+pub async fn brief_target(pool: &Pool, id: Uuid, edit: bool) -> Result<Mission, BriefEditError> {
+    let mission = Mission::find_by_id(pool, id).await?.ok_or_else(|| {
+        BriefEditError::Invalid(format!(
+            "no mission with id {id}: use an id from list_missions or new_mission"
+        ))
+    })?;
+    if FlukeGuard::is_guard(pool, id).await? {
+        return Err(BriefEditError::Invalid(format!(
+            "mission {id} is your standing conversation, which has no brief: use a mission id from list_missions"
+        )));
+    }
+    if edit && mission.status == mission::STATUS_CLOSED {
+        return Err(BriefEditError::Conflict(format!(
+            "mission '{}' is closed: restore it before editing its brief",
+            mission.title
+        )));
+    }
+    Ok(mission)
+}
+
+/// Valida todo antes de escribir (un pedido inválido no deja el ítem a
+/// medias), guarda, reabre el brief si ya se había enviado y devuelve el
+/// detalle con el estado recalculado.
+pub async fn upsert_item(
+    pool: &Pool,
+    mission_id: Uuid,
+    req: &UpsertMissionItemRequest,
+) -> Result<MissionDetail, BriefEditError> {
+    if !KINDS.contains(&req.kind.as_str()) {
+        return Err(BriefEditError::Invalid(format!(
+            "kind must be one of {KINDS:?}"
+        )));
+    }
+    let allowed: Vec<&str> = kind_fields(&req.kind).iter().map(|f| f.0).collect();
+    if let Some(bad) = req.fields.keys().find(|k| !allowed.contains(&k.as_str())) {
+        return Err(BriefEditError::Invalid(format!(
+            "unknown field '{bad}' for a {}: use {allowed:?}",
+            req.kind
+        )));
+    }
+    let brief = Mission::find_by_id(pool, mission_id)
+        .await?
+        .ok_or_else(|| BriefEditError::Invalid("mission not found".into()))?;
+    if let Some(item_id) = req.item_id
+        && !Mission::items(pool, mission_id)
+            .await?
+            .iter()
+            .any(|i| i.id == item_id)
+    {
+        return Err(BriefEditError::Invalid("unknown item_id".into()));
+    }
+    Mission::upsert_item(
+        pool,
+        mission_id,
+        req.item_id,
+        &req.kind,
+        req.title.as_deref(),
+        &req.fields,
+    )
+    .await?;
+    reopen_if_sent(pool, &brief).await?;
+    Ok(refresh_status(pool, mission_id).await?)
+}
+
+/// Quita un ítem del brief; `unknown item_id` si no es de esta misión.
+pub async fn remove_item(
+    pool: &Pool,
+    mission_id: Uuid,
+    item_id: Uuid,
+) -> Result<MissionDetail, BriefEditError> {
+    let brief = Mission::find_by_id(pool, mission_id)
+        .await?
+        .ok_or_else(|| BriefEditError::Invalid("mission not found".into()))?;
+    if !Mission::remove_item(pool, mission_id, item_id).await? {
+        return Err(BriefEditError::Invalid("unknown item_id".into()));
+    }
+    reopen_if_sent(pool, &brief).await?;
+    Ok(refresh_status(pool, mission_id).await?)
+}
+
 pub fn render_markdown(d: &MissionDetail) -> String {
     let mut md = format!("# {}\n\n", d.mission.title.trim());
     md.push_str(&format!(
@@ -1250,6 +1362,10 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
 
 pub fn tool_definitions() -> Value {
     let kinds = json!(KINDS);
+    let mission_id = json!({
+        "type": "string",
+        "description": "Id of the mission whose brief to act on (list_missions, new_mission). Optional: without it, this conversation's mission (in your standing conversation, the one in focus)."
+    });
     json!([
         {
             "name": "list_repos",
@@ -1263,10 +1379,11 @@ pub fn tool_definitions() -> Value {
         },
         {
             "name": "set_mission",
-            "description": "Set the mission title and/or its repo (repo id or name from list_repos). Returns the brief status.",
+            "description": "Set the mission title and/or its repo (repo id or name from list_repos). The repo can't change once the brief was sent to the Analyst. Returns the brief status.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "mission_id": mission_id,
                     "title": { "type": "string" },
                     "repo": { "type": "string" }
                 }
@@ -1278,6 +1395,7 @@ pub fn tool_definitions() -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "mission_id": mission_id,
                     "item_id": { "type": "string" },
                     "kind": { "type": "string", "enum": kinds },
                     "title": { "type": "string" },
@@ -1291,14 +1409,20 @@ pub fn tool_definitions() -> Value {
             "description": "Remove an item from the brief.",
             "inputSchema": {
                 "type": "object",
-                "properties": { "item_id": { "type": "string" } },
+                "properties": {
+                    "mission_id": mission_id,
+                    "item_id": { "type": "string" }
+                },
                 "required": ["item_id"]
             }
         },
         {
             "name": "get_brief",
             "description": "Return the current brief as markdown, its items with ids, and what is missing.",
-            "inputSchema": { "type": "object", "properties": {} }
+            "inputSchema": {
+                "type": "object",
+                "properties": { "mission_id": mission_id }
+            }
         },
         {
             "name": "remember",
@@ -1434,15 +1558,6 @@ pub fn tool_definitions() -> Value {
     ])
 }
 
-#[derive(Deserialize)]
-struct UpsertArgs {
-    item_id: Option<Uuid>,
-    kind: String,
-    title: Option<String>,
-    #[serde(default)]
-    fields: BTreeMap<String, String>,
-}
-
 fn status_text(d: &MissionDetail) -> String {
     let items: Vec<Value> = d
         .items
@@ -1459,6 +1574,7 @@ fn status_text(d: &MissionDetail) -> String {
         })
         .collect();
     json!({
+        "mission_id": d.mission.id,
         "title": d.mission.title,
         "repo": d.repo_name,
         "items": items,
@@ -1813,8 +1929,30 @@ pub async fn call_tool(
         .await
         .map_err(db_err)?
         .filter(|g| g.mission_id == id);
-    let id_for_brief = match (&guard, name) {
-        (Some(g), "set_mission" | "upsert_item" | "remove_item" | "get_brief") => g
+    // An explicit mission_id wins over both: Fluke edits another mission's
+    // brief without leaving this conversation.
+    let brief_tool = matches!(
+        name,
+        "set_mission" | "upsert_item" | "remove_item" | "get_brief"
+    );
+    let explicit = args
+        .get("mission_id")
+        .filter(|v| brief_tool && !v.is_null() && v.as_str().is_none_or(|s| !s.trim().is_empty()));
+    let id_for_brief = match (explicit, &guard) {
+        (Some(v), _) => {
+            let raw = v
+                .as_str()
+                .ok_or("mission_id must be a string: the mission's id")?
+                .trim();
+            let target = Uuid::parse_str(raw).map_err(|_| {
+                format!("invalid mission_id '{raw}': use the id from list_missions or new_mission")
+            })?;
+            brief_target(pool, target, name != "get_brief")
+                .await
+                .map_err(|e| e.to_string())?
+                .id
+        }
+        (None, Some(g)) if brief_tool => g
             .focus_mission_id
             .ok_or("no mission in focus: call focus_mission, or new_mission for new work")?,
         _ => id,
@@ -1929,13 +2067,27 @@ pub async fn call_tool(
             Ok(Value::Array(out).to_string())
         }
         "set_mission" => {
+            // Validate the repo before writing anything; same rule as the
+            // PATCH: once the brief was sent the repo can't change.
+            let repo = match args.get("repo").and_then(Value::as_str) {
+                Some(repo) => Some(resolve_repo(pool, repo).await?),
+                None => None,
+            };
+            if let Some(repo) = &repo {
+                let current = Mission::find_by_id(pool, id_for_brief)
+                    .await
+                    .map_err(db_err)?
+                    .ok_or("mission not found")?;
+                if current.analyst_task_id.is_some() && current.repo_id != Some(repo.id) {
+                    return Err("the brief was already sent; the repo can't change".into());
+                }
+            }
             if let Some(title) = args.get("title").and_then(Value::as_str) {
                 Mission::set_title(pool, id_for_brief, title.trim())
                     .await
                     .map_err(db_err)?;
             }
-            if let Some(repo) = args.get("repo").and_then(Value::as_str) {
-                let repo = resolve_repo(pool, repo).await?;
+            if let Some(repo) = repo {
                 Mission::set_repo(pool, id_for_brief, Some(repo.id))
                     .await
                     .map_err(db_err)?;
@@ -1944,31 +2096,11 @@ pub async fn call_tool(
             Ok(status_text(&d))
         }
         "upsert_item" => {
-            let a: UpsertArgs = serde_json::from_value(args.clone())
+            let a: UpsertMissionItemRequest = serde_json::from_value(args.clone())
                 .map_err(|e| format!("invalid arguments: {e}"))?;
-            if !KINDS.contains(&a.kind.as_str()) {
-                return Err(format!("kind must be one of {KINDS:?}"));
-            }
-            let allowed: Vec<&str> = kind_fields(&a.kind).iter().map(|f| f.0).collect();
-            if let Some(bad) = a.fields.keys().find(|k| !allowed.contains(&k.as_str())) {
-                return Err(format!(
-                    "unknown field '{bad}' for a {}: use {allowed:?}",
-                    a.kind
-                ));
-            }
-            Mission::upsert_item(pool, id_for_brief, a.item_id, &a.kind, a.title.as_deref(), &a.fields)
+            let d = upsert_item(pool, id_for_brief, &a)
                 .await
-                .map_err(|e| match e {
-                    sqlx::Error::RowNotFound => "unknown item_id".to_string(),
-                    e => db_err(e),
-                })?;
-            // With the one thread the brief edited is the mission in focus.
-            let brief = Mission::find_by_id(pool, id_for_brief)
-                .await
-                .map_err(db_err)?
-                .ok_or("mission not found")?;
-            reopen_if_sent(pool, &brief).await.map_err(db_err)?;
-            let d = refresh_status(pool, id_for_brief).await.map_err(db_err)?;
+                .map_err(|e| e.to_string())?;
             Ok(status_text(&d))
         }
         "remove_item" => {
@@ -1977,19 +2109,9 @@ pub async fn call_tool(
                 .and_then(Value::as_str)
                 .and_then(|s| Uuid::parse_str(s).ok())
                 .ok_or("missing item_id")?;
-            if !Mission::remove_item(pool, id_for_brief, item_id)
+            let d = remove_item(pool, id_for_brief, item_id)
                 .await
-                .map_err(db_err)?
-            {
-                return Err("unknown item_id".into());
-            }
-            // With the one thread the brief edited is the mission in focus.
-            let brief = Mission::find_by_id(pool, id_for_brief)
-                .await
-                .map_err(db_err)?
-                .ok_or("mission not found")?;
-            reopen_if_sent(pool, &brief).await.map_err(db_err)?;
-            let d = refresh_status(pool, id_for_brief).await.map_err(db_err)?;
+                .map_err(|e| e.to_string())?;
             Ok(status_text(&d))
         }
         "get_brief" => {
@@ -2195,6 +2317,298 @@ mod tests {
         assert_eq!(m.status, mission::STATUS_BRIEF_READY);
     }
 
+    async fn brief_pool() -> sqlx::SqlitePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        pool
+    }
+
+    /// A mission with its own conversation: (session id, mission).
+    async fn conversation(pool: &sqlx::SqlitePool, title: &str) -> (Uuid, Mission) {
+        let session = Uuid::new_v4();
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES (?, ?)")
+            .bind(session)
+            .bind(Uuid::new_v4())
+            .execute(pool)
+            .await
+            .unwrap();
+        let m = Mission::create(pool, session, Some(Uuid::new_v4()))
+            .await
+            .unwrap();
+        Mission::set_title(pool, m.id, title).await.unwrap();
+        (session, m)
+    }
+
+    #[tokio::test]
+    async fn brief_tools_act_on_another_mission_by_id() {
+        let pool = brief_pool().await;
+        let (here, own) = conversation(&pool, "Landing").await;
+        let (_, other) = conversation(&pool, "Login").await;
+        let target = other.id.to_string();
+
+        // Created in the other mission's brief, not in this conversation's.
+        let out = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "kind": "feature", "title": "Login con GitHub",
+                     "fields": { "goal": "g", "scope": "s" } }),
+        )
+        .await
+        .unwrap();
+        assert!(out.contains(&target) && out.contains("acceptance"), "{out}");
+        assert!(Mission::items(&pool, own.id).await.unwrap().is_empty());
+        let items = Mission::items(&pool, other.id).await.unwrap();
+        assert_eq!(items.len(), 1);
+        let item_id = items[0].id;
+
+        // Update by id: fields merge and an empty string clears one.
+        call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "item_id": item_id, "kind": "feature",
+                     "fields": { "scope": "", "acceptance": "a", "tdd": "no" } }),
+        )
+        .await
+        .unwrap();
+        let item = Mission::items(&pool, other.id).await.unwrap().remove(0);
+        assert_eq!(item.fields.get("goal").map(String::as_str), Some("g"));
+        assert_eq!(item.fields.get("acceptance").map(String::as_str), Some("a"));
+        assert!(!item.fields.contains_key("scope"));
+
+        // set_mission and get_brief with mission_id.
+        call_tool(
+            &pool,
+            here,
+            "set_mission",
+            &json!({ "mission_id": target, "title": "Login nuevo" }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            Mission::find_by_id(&pool, other.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .title,
+            "Login nuevo"
+        );
+        assert_eq!(
+            Mission::find_by_id(&pool, own.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .title,
+            "Landing"
+        );
+        let brief = call_tool(&pool, here, "get_brief", &json!({ "mission_id": target }))
+            .await
+            .unwrap();
+        assert!(
+            brief.contains("Login nuevo") && brief.contains("scope"),
+            "{brief}"
+        );
+
+        // remove_item with mission_id.
+        call_tool(
+            &pool,
+            here,
+            "remove_item",
+            &json!({ "mission_id": target, "item_id": item_id }),
+        )
+        .await
+        .unwrap();
+        assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn brief_tools_without_mission_id_keep_their_mission() {
+        let pool = brief_pool().await;
+        let (here, own) = conversation(&pool, "Landing").await;
+        let (_, other) = conversation(&pool, "Login").await;
+        call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "kind": "bug", "title": "Botón roto" }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(Mission::items(&pool, own.id).await.unwrap().len(), 1);
+        assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
+
+        // The standing conversation: the mission in focus, or the error.
+        let (guard_session, guard) = conversation(&pool, "Fluke").await;
+        FlukeGuard::set(&pool, guard.id).await.unwrap();
+        let err = call_tool(&pool, guard_session, "get_brief", &json!({}))
+            .await
+            .unwrap_err();
+        assert!(err.contains("no mission in focus"), "{err}");
+        FlukeGuard::set_focus(&pool, Some(other.id)).await.unwrap();
+        call_tool(
+            &pool,
+            guard_session,
+            "upsert_item",
+            &json!({ "kind": "design", "title": "Logo" }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(Mission::items(&pool, other.id).await.unwrap().len(), 1);
+        // An explicit id wins over the focus.
+        call_tool(
+            &pool,
+            guard_session,
+            "upsert_item",
+            &json!({ "mission_id": own.id.to_string(), "kind": "design", "title": "Hero" }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(Mission::items(&pool, own.id).await.unwrap().len(), 2);
+        assert_eq!(Mission::items(&pool, other.id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn brief_tools_reject_bad_targets_and_items() {
+        let pool = brief_pool().await;
+        let (here, own) = conversation(&pool, "Landing").await;
+        let (_, other) = conversation(&pool, "Login").await;
+        let target = other.id.to_string();
+        call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "kind": "bug", "title": "Propio" }),
+        )
+        .await
+        .unwrap();
+        let own_item = Mission::items(&pool, own.id).await.unwrap()[0].id;
+
+        // An item of another mission is unknown here, and nothing is written.
+        let err = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "item_id": own_item, "kind": "bug", "title": "x" }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err, "unknown item_id");
+        let err = call_tool(
+            &pool,
+            here,
+            "remove_item",
+            &json!({ "mission_id": target, "item_id": own_item }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err, "unknown item_id");
+        assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
+        assert_eq!(
+            Mission::items(&pool, own.id).await.unwrap()[0].title,
+            "Propio"
+        );
+
+        // Invalid kind or field: rejected before writing.
+        let err = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "kind": "epic" }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.starts_with("kind must be one of"), "{err}");
+        let err = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "kind": "bug", "fields": { "goal": "g" } }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("unknown field 'goal'"), "{err}");
+        assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
+
+        // Invalid, unknown, standing-conversation and closed missions.
+        let err = call_tool(&pool, here, "get_brief", &json!({ "mission_id": "login" }))
+            .await
+            .unwrap_err();
+        assert!(err.contains("invalid mission_id"), "{err}");
+        let err = call_tool(
+            &pool,
+            here,
+            "get_brief",
+            &json!({ "mission_id": Uuid::new_v4().to_string() }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("no mission with id"), "{err}");
+        let (_, guard) = conversation(&pool, "Fluke").await;
+        FlukeGuard::set(&pool, guard.id).await.unwrap();
+        let err = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": guard.id.to_string(), "kind": "bug" }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("standing conversation"), "{err}");
+        Mission::set_status(&pool, other.id, mission::STATUS_CLOSED)
+            .await
+            .unwrap();
+        let err = call_tool(
+            &pool,
+            here,
+            "upsert_item",
+            &json!({ "mission_id": target, "kind": "bug" }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("closed"), "{err}");
+        call_tool(&pool, here, "get_brief", &json!({ "mission_id": target }))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn set_mission_keeps_the_repo_of_a_sent_brief() {
+        let pool = brief_pool().await;
+        let (here, _) = conversation(&pool, "Landing").await;
+        let (_, other) = conversation(&pool, "Login").await;
+        let repo = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO repos (id, path, name, display_name) VALUES (?, '/r/web', 'web', 'Web')",
+        )
+        .bind(repo)
+        .execute(&pool)
+        .await
+        .unwrap();
+        Mission::set_analyst_task(&pool, other.id, Uuid::new_v4())
+            .await
+            .unwrap();
+        let err = call_tool(
+            &pool,
+            here,
+            "set_mission",
+            &json!({ "mission_id": other.id.to_string(), "repo": "web", "title": "Otro" }),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("repo can't change"), "{err}");
+        let m = Mission::find_by_id(&pool, other.id).await.unwrap().unwrap();
+        assert_eq!((m.title.as_str(), m.repo_id), ("Login", other.repo_id));
+    }
+
     #[tokio::test]
     async fn names_become_ids_in_path_and_body() {
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
@@ -2362,6 +2776,11 @@ mod tests {
         let hit = api_reference("ReassignWorkerTaskRequest");
         assert!(hit.contains("--- api.ts:") && hit.contains("reassign"));
         assert!(api_reference("zz-no-such-thing").starts_with("nothing matches"));
+        let items = api_reference("items");
+        assert!(
+            items.contains("/api/missions/${id}/items`") && items.contains("'DELETE'"),
+            "{items}"
+        );
         assert!(truncate("ñandú".repeat(10), 7).starts_with("ñand"));
     }
 
