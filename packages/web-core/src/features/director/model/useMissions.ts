@@ -7,7 +7,7 @@ import {
   type MissionSummary,
   type UpdateMissionRequest,
 } from 'shared/types';
-import { missionsApi, sessionsApi } from '@/shared/lib/api';
+import { missionsApi, repoApi, sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
@@ -121,6 +121,49 @@ export function useApproveBrief(id: string) {
       missionsApi.approve(id, analystWorkerId),
     onSuccess: store,
   });
+}
+
+/**
+ * Whether the mission's repo has a GitHub remote. The Analyst opens issues
+ * and PRs with `gh`, so any other provider counts as `missing`. The query key
+ * is shared with the other remote views, so invalidating
+ * `['repo-remotes', repoId]` (e.g. after connecting a remote) re-evaluates
+ * this without a reload; a different `repoId` is simply a different query.
+ */
+export type GithubRemoteState =
+  | 'no_repo'
+  | 'loading'
+  | 'github'
+  | 'missing'
+  | 'error';
+
+export function useRepoGithubRemote(
+  repoId: string | null | undefined
+): GithubRemoteState {
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['repo-remotes', repoId ?? ''],
+    queryFn: () => repoApi.listRemotes(repoId!),
+    enabled: !!repoId,
+    staleTime: 30_000,
+  });
+  if (!repoId) return 'no_repo';
+  if (isError) return 'error';
+  if (isPending || !data) return 'loading';
+  return data.some((r) => isGithubUrl(r.url)) ? 'github' : 'missing';
+}
+
+/** Same rules as `detect_provider_from_url` in `crates/git-host`. */
+function isGithubUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  if (u.includes('github.com')) return true;
+  if (
+    u.includes('dev.azure.com') ||
+    u.includes('.visualstudio.com') ||
+    u.includes('/_git/')
+  ) {
+    return false;
+  }
+  return u.includes('github.');
 }
 
 /** Sends a user message to the mission's Director session. */

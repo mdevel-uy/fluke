@@ -13,7 +13,11 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { useWorkers } from '@/features/workers/model/useWorkers';
 import { useRepos } from '@/shared/hooks/useRepos';
-import { useApproveBrief, useUpdateMission } from '../model/useMissions';
+import {
+  useApproveBrief,
+  useRepoGithubRemote,
+  useUpdateMission,
+} from '../model/useMissions';
 
 const AUTONOMY = ['step', 'brief_pr', 'autopilot'] as const;
 
@@ -32,7 +36,13 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
   const { repos } = useRepos();
   const [analystId, setAnalystId] = useState<string | undefined>(undefined);
 
-  const canApprove = detail.complete && mission.status === 'brief_ready';
+  // The Analyst creates issues and PRs on GitHub: a repo without a GitHub
+  // remote blocks approval. Unknown (loading or failed check) also blocks,
+  // with its own notice, instead of enabling the button as if all was well.
+  const remote = useRepoGithubRemote(mission.repo_id);
+  const remoteOk = remote === 'github' || remote === 'no_repo';
+  const briefReady = detail.complete && mission.status === 'brief_ready';
+  const canApprove = briefReady && remoteOk;
   const missingTitle = detail.missing.includes('title');
   const missingRepo = detail.missing.includes('repo');
 
@@ -168,8 +178,23 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
             onClick={() => approve.mutate(analystId)}
             value={t('director.brief.approve')}
           />
-          {!canApprove && (
+          {!briefReady && (
             <p className="text-xs text-low">{t('director.brief.incomplete')}</p>
+          )}
+          {remote === 'missing' && (
+            <p className="text-xs text-warning">
+              {t('director.brief.noGithubRemote')}
+            </p>
+          )}
+          {remote === 'error' && (
+            <p className="text-xs text-danger">
+              {t('director.brief.remoteCheckFailed')}
+            </p>
+          )}
+          {remote === 'loading' && (
+            <p className="text-xs text-low">
+              {t('director.brief.checkingRemote')}
+            </p>
           )}
           {approve.error && (
             <p className="text-xs text-danger">{approve.error.message}</p>
