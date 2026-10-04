@@ -30,7 +30,7 @@ import type { WorkerResponse } from 'shared/types';
 import type { RepoIssue } from '@/features/issues/types';
 import { SkillsPicker } from '@/features/sprint/ui/SkillsPicker';
 import { extractSkillLabelNames } from '@/features/sprint/lib/skillLabels';
-import { buildAssignToAgentPrompt } from './assignToAgentPrompt';
+import { buildAssignToAgentPrompt, isDesignIssue } from './assignToAgentPrompt';
 import { WorkerSelectItem } from './WorkerSelectItem';
 
 export interface AssignToAgentDialogProps {
@@ -39,16 +39,6 @@ export interface AssignToAgentDialogProps {
 }
 
 export type AssignToAgentResult = 'created' | 'canceled';
-
-/** Marker of a design issue (#756), same label the milestone run reads. */
-const DESIGN_LABEL = 'kind:design';
-
-/** Design issues go only to a Designer, never to a developer (#756). */
-function isDesignIssue(issue: RepoIssue): boolean {
-  return issue.labels.some(
-    (l) => l.name.trim().toLowerCase() === DESIGN_LABEL
-  );
-}
 
 const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
   ({ issue, repoId }) => {

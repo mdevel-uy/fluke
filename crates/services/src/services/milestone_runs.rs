@@ -90,7 +90,8 @@ pub enum Step {
     /// A wave just finished and the run is in step mode.
     Paused { wave: i64 },
     /// Work on `wave`: dispatch `dispatch`; `waiting` explains why the run
-    /// is stopped when nothing can move (`decision:<n>` / `failed:<n>`).
+    /// is stopped when nothing can move (`decision:<n>` / `failed:<n>`;
+    /// `advance_run` adds `designer:<n>`, see `waiting_after_dispatch`).
     Work {
         wave: i64,
         dispatch: Vec<i64>,
@@ -143,6 +144,29 @@ pub fn decide(issues: &[IssueInfo], previous_wave: Option<i64>, step_mode: bool)
     }
 }
 
+/// Why the run waits once `advance_run` went through `dispatch`. A design
+/// issue left without a designer (`no_designer`) stops the run only when
+/// nothing else moves in the wave: nothing was just dispatched and no task
+/// of the wave is running. Same contract as `decision:` / `failed:`.
+pub fn waiting_after_dispatch(
+    issues: &[IssueInfo],
+    wave: i64,
+    waiting: Option<String>,
+    dispatched_any: bool,
+    no_designer: Option<i64>,
+) -> Option<String> {
+    if waiting.is_some() {
+        return waiting;
+    }
+    let active = issues
+        .iter()
+        .any(|i| i.wave == wave && !i.closed && i.task == TaskState::Active);
+    if dispatched_any || active {
+        return None;
+    }
+    no_designer.map(no_designer_reason)
+}
+
 #[derive(Deserialize)]
 struct LabelRow {
     name: String,
@@ -154,16 +178,30 @@ fn label_names(raw: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Same text the UI's "Assign to agent" builds (assignToAgentPrompt.ts).
-pub fn issue_prompt(number: i64, title: &str, body: Option<&str>) -> String {
+fn body_section(body: Option<&str>) -> String {
     let body = body.map(str::trim).unwrap_or("");
-    let body_section = if body.is_empty() {
+    if body.is_empty() {
         String::new()
     } else {
         format!("{body}\n\n")
-    };
+    }
+}
+
+/// Same text the UI's "Assign to agent" builds (assignToAgentPrompt.ts).
+pub fn issue_prompt(number: i64, title: &str, body: Option<&str>) -> String {
+    let body_section = body_section(body);
     format!(
         "Resolvé el issue #{number}: {title}\n\n{body_section}Antes de empezar, corré `gh issue view {number} --comments` para leer la discusión completa. Cuando el trabajo esté listo, el PR debe incluir 'Closes #{number}' en su descripción."
+    )
+}
+
+/// Prompt for a design issue (#756), same text the UI builds for
+/// `kind:design`. No PR and no "Closes": the designer never opens one, the
+/// issue is done when the user approves the design.
+pub fn design_issue_prompt(number: i64, title: &str, body: Option<&str>) -> String {
+    let body_section = body_section(body);
+    format!(
+        "Diseñá el issue #{number}: {title}\n\n{body_section}Antes de empezar, corré `gh issue view {number} --comments` para leer la discusión completa. Entregá el diseño commiteado en `design/`, sin abrir un PR: el issue queda resuelto cuando el user aprueba el diseño."
     )
 }
 
@@ -248,9 +286,10 @@ pub async fn advance_run(
         Step::Work {
             wave,
             dispatch,
-            mut waiting,
+            waiting,
         } => {
             let mut kicked = Vec::new();
+            let mut no_designer = None;
             for number in dispatch {
                 let Some(issue) = by_number.get(&number) else {
                     continue;
@@ -300,16 +339,20 @@ pub async fn advance_run(
                     }
                 }
                 // Design issues go only to a designer (#756): with none
-                // active the run waits on the issue, never falls back.
+                // active the issue stays undispatched, never falls back.
                 let role = dispatch_role(design);
                 let Some(worker_id) = pick_worker(pool, role).await? else {
                     warn!(milestone = %run.milestone, issue = number, role, "Milestone run: no active profile to dispatch to");
-                    if design && waiting.is_none() {
-                        waiting = Some(no_designer_reason(number));
+                    if design && no_designer.is_none() {
+                        no_designer = Some(number);
                     }
                     continue;
                 };
-                let prompt = issue_prompt(number, &issue.title, issue.body.as_deref());
+                let prompt = if design {
+                    design_issue_prompt(number, &issue.title, issue.body.as_deref())
+                } else {
+                    issue_prompt(number, &issue.title, issue.body.as_deref())
+                };
                 let dev_task = WorkerTask::append(
                     pool,
                     worker_id,
@@ -331,6 +374,8 @@ pub async fn advance_run(
                 info!(milestone = %run.milestone, issue = number, %worker_id, "Milestone run dispatched issue");
                 kicked.push(worker_id);
             }
+            let waiting =
+                waiting_after_dispatch(&issues, wave, waiting, !kicked.is_empty(), no_designer);
             let status = if waiting.is_some() {
                 milestone_run::STATUS_WAITING
             } else {
@@ -486,11 +531,54 @@ mod tests {
     }
 
     #[test]
+    fn no_designer_waits_only_when_nothing_moves() {
+        let mut design = issue(1, 0);
+        design.design = true;
+        let mut running = issue(2, 0);
+        running.task = TaskState::Active;
+        // Developers just dispatched or still running: the run keeps going.
+        assert_eq!(
+            waiting_after_dispatch(&[design.clone(), issue(2, 0)], 0, None, true, Some(1)),
+            None
+        );
+        assert_eq!(
+            waiting_after_dispatch(&[design.clone(), running], 0, None, false, Some(1)),
+            None
+        );
+        // Only the design issue is left: the run waits on it.
+        let mut merged = issue(2, 0);
+        merged.task = TaskState::Done;
+        assert_eq!(
+            waiting_after_dispatch(&[design.clone(), merged], 0, None, false, Some(1)),
+            Some("designer:1".into())
+        );
+        // A task running in another wave does not count.
+        let mut other = issue(3, 1);
+        other.task = TaskState::Active;
+        assert_eq!(
+            waiting_after_dispatch(&[design, other], 0, None, false, Some(1)),
+            Some("designer:1".into())
+        );
+        // `decide`'s own reason wins; no design issue left, no reason.
+        assert_eq!(
+            waiting_after_dispatch(&[], 0, Some("failed:4".into()), false, Some(1)),
+            Some("failed:4".into())
+        );
+        assert_eq!(waiting_after_dispatch(&[], 0, None, false, None), None);
+    }
+
+    #[test]
     fn prompt_matches_the_ui() {
         assert_eq!(
             issue_prompt(7, "T", None),
             "Resolvé el issue #7: T\n\nAntes de empezar, corré `gh issue view 7 --comments` para leer la discusión completa. Cuando el trabajo esté listo, el PR debe incluir 'Closes #7' en su descripción."
         );
         assert!(issue_prompt(7, "T", Some(" cuerpo ")).contains("T\n\ncuerpo\n\nAntes"));
+        let design = design_issue_prompt(7, "T", None);
+        assert_eq!(
+            design,
+            "Diseñá el issue #7: T\n\nAntes de empezar, corré `gh issue view 7 --comments` para leer la discusión completa. Entregá el diseño commiteado en `design/`, sin abrir un PR: el issue queda resuelto cuando el user aprueba el diseño."
+        );
+        assert!(!design.contains("Closes"));
     }
 }
