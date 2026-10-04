@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircleIcon, CircleIcon } from '@phosphor-icons/react';
 import type { MissionDetail } from 'shared/types';
+import { Button } from '@vibe/ui/components/Button';
 import { PrimaryButton } from '@vibe/ui/components/PrimaryButton';
 import {
   Select,
@@ -18,6 +19,7 @@ import {
   useRepoGithubRemote,
   useUpdateMission,
 } from '../model/useMissions';
+import { ConnectGithubDialog } from './ConnectGithubDialog';
 
 const AUTONOMY = ['step', 'brief_pr', 'autopilot'] as const;
 
@@ -43,6 +45,7 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
   const remoteOk = remote === 'github' || remote === 'no_repo';
   const briefReady = detail.complete && mission.status === 'brief_ready';
   const canApprove = briefReady && remoteOk;
+  const missionRepo = repos.find((r) => r.id === mission.repo_id);
   const missingTitle = detail.missing.includes('title');
   const missingRepo = detail.missing.includes('repo');
 
@@ -182,9 +185,23 @@ export function BriefView({ detail }: { detail: MissionDetail }) {
             <p className="text-xs text-low">{t('director.brief.incomplete')}</p>
           )}
           {remote === 'missing' && (
-            <p className="text-xs text-warning">
-              {t('director.brief.noGithubRemote')}
-            </p>
+            <div className="flex flex-col items-start gap-1">
+              <p className="text-xs text-warning">
+                {t('director.brief.noGithubRemote')}
+              </p>
+              {missionRepo && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void ConnectGithubDialog.show({ repo: missionRepo })
+                  }
+                >
+                  {t('director.brief.connectGithub')}
+                </Button>
+              )}
+            </div>
           )}
           {remote === 'error' && (
             <p className="text-xs text-danger">
