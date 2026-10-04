@@ -908,9 +908,17 @@ title; it answers with the new mission's id. Then, in the same turn, record each
 upsert_item passing that mission_id, and finish with get_brief and that mission_id to see what \
 is missing. Ask for the missing facts here with ask_user and record the answers with the same \
 mission_id. If new_mission fails after naming a mission id, the mission exists: carry on with \
-that mission_id and never call new_mission again for the same work. Approve that brief only \
-when the user explicitly asks, with app_api POST /api/missions/{id}/approve and its id (the app \
-asks the user to confirm).
+that mission_id and never call new_mission again for the same work.
+- Approving another mission's brief from here: only when the user explicitly asks for it, never \
+on your own. Call app_api POST /api/missions/{id}/approve with that mission's id, body {} and a \
+summary that names the mission by its title and says it goes to the Analyst (\"aprobar el brief \
+de <title> y mandarlo al Analyst\"); then end your turn and wait for the user's yes before \
+confirm_action. This conversation's own mission does not change. If approve answers that the \
+brief is not complete, do not retry: call get_brief with that mission_id and tell the user what \
+is missing. If it says there is no Analyst worker, tell the user plainly that the team needs an \
+Analyst before the brief can be sent. Only one confirmation waits at a time: asking for another \
+gated action cancels the previous one, so say so if that happens; after an app restart a pending \
+confirmation is gone and the user has to ask again.
 - Unblocking: when the user talks about a stuck issue (a coding agent waiting for an answer, a \
 failed phase), call get_stuck_issues to see why it is stuck. If the agent asked a question, turn \
 what the user says into a concrete answer (one of the agent's option keys, or a short text) and \
@@ -1147,7 +1155,9 @@ Following the work through: after the brief you keep each mission moving until i
 always offering the next step instead of waiting to be asked. [STATUS] under \"Waiting for the \
 user\" tells you what is ready.
 - A brief ready to approve: summarize it in two lines and offer to approve it. If the user says \
-yes, call app_api POST /api/missions/{id}/approve (the app asks them to confirm).
+yes, call app_api POST /api/missions/{id}/approve with body {} and a summary naming the \
+mission by its title (the app asks them to confirm). The same goes for a mission that is not in \
+focus: pass its id, and the focus does not change.
 - A breakdown ready with nothing running: say how many issues and waves, and offer to run the \
 milestone. Ask with ask_user (\"Ejecutar ahora\" / \"Paso a paso\" / \"Después\"); on yes call \
 app_api POST /api/repos/{repo_id}/milestone-runs/play with that milestone (step_mode true for \
@@ -2049,6 +2059,30 @@ mod confirmations {
     }
 }
 
+/// La misión cuyo brief aprueba la llamada (`POST /api/missions/{id}/approve`).
+fn approve_target(method: &reqwest::Method, path: &str) -> Option<Uuid> {
+    if *method != reqwest::Method::POST {
+        return None;
+    }
+    let path = path.split('?').next().unwrap_or(path).trim_end_matches('/');
+    match path.split('/').collect::<Vec<_>>().as_slice() {
+        ["", "api", "missions", id, "approve"] => Uuid::parse_str(id).ok(),
+        _ => None,
+    }
+}
+
+/// Texto de la confirmación. Si aprueba el brief de otra misión, nombra esa
+/// misión y que va al Analyst aunque el resumen del modelo no lo haga.
+fn approve_summary(summary: Option<String>, target_title: Option<&str>, label: &str) -> String {
+    match (summary, target_title) {
+        (Some(s), Some(title)) if s.to_lowercase().contains(&title.to_lowercase()) => s,
+        (Some(s), Some(title)) => format!("{s} (brief de «{title}», al Analyst)"),
+        (None, Some(title)) => format!("aprobar el brief de «{title}» y mandarlo al Analyst"),
+        (Some(s), None) => s,
+        (None, None) => label.to_string(),
+    }
+}
+
 /// Texto corto de la acción para el chip: "DELETE /api/workers/…".
 fn action_label(method: &reqwest::Method, path: &str) -> String {
     let path = path.split('?').next().unwrap_or(path);
@@ -2309,8 +2343,18 @@ pub async fn call_tool(
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .unwrap_or_else(|| label.clone());
+                .map(str::to_string);
+            // Approving another mission's brief from here (#780): the user must
+            // see which mission goes to the Analyst, whatever the model wrote.
+            let target_title = match approve_target(&method, &path).filter(|t| *t != id) {
+                Some(target) => Mission::find_by_id(pool, target)
+                    .await
+                    .map_err(db_err)?
+                    .map(|m| m.title.trim().to_string())
+                    .filter(|t| !t.is_empty()),
+                None => None,
+            };
+            let summary = approve_summary(summary, target_title.as_deref(), &label);
             let token = confirmations::hold(id, args.clone());
             Mission::set_pending_questions(
                 pool,
@@ -3212,6 +3256,64 @@ mod tests {
         assert_eq!(
             action_label(&Method::DELETE, "/api/workers/3f6c1b4e-8d2a-4c1e-9f0a-1b2c3d4e5f60?x=1"),
             "DELETE workers"
+        );
+    }
+
+    /// #780: approving another mission's brief from this conversation goes
+    /// through the same gate, held under the conversation's mission.
+    #[test]
+    fn approving_another_missions_brief_waits_for_the_users_yes() {
+        use reqwest::Method;
+        let conversation = Uuid::new_v4();
+        let other = Uuid::new_v4();
+        let path = format!("/api/missions/{other}/approve");
+        assert!(confirmations::is_dangerous(&Method::POST, &path));
+        assert_eq!(approve_target(&Method::POST, &path), Some(other));
+        assert_eq!(approve_target(&Method::POST, &format!("{path}/?x=1")), Some(other));
+        assert_eq!(approve_target(&Method::GET, &path), None);
+        assert_eq!(approve_target(&Method::POST, "/api/missions/x/approve"), None);
+        assert_eq!(approve_target(&Method::POST, &format!("/api/missions/{other}")), None);
+
+        // The confirmation names the target mission and the Analyst.
+        assert_eq!(
+            approve_summary(None, Some("Landing"), "POST missions approve"),
+            "aprobar el brief de «Landing» y mandarlo al Analyst"
+        );
+        assert_eq!(
+            approve_summary(Some("aprobar el brief".into()), Some("Landing"), "x"),
+            "aprobar el brief (brief de «Landing», al Analyst)"
+        );
+        assert_eq!(
+            approve_summary(Some("mandar landing al Analyst".into()), Some("Landing"), "x"),
+            "mandar landing al Analyst"
+        );
+        assert_eq!(approve_summary(None, None, "POST missions approve"), "POST missions approve");
+
+        // Hold -> the user's yes -> the held call targets the other mission.
+        let call = json!({"method": "POST", "path": path, "body": {}});
+        let token = confirmations::hold(conversation, call.clone());
+        assert!(confirmations::take_approved(conversation, token).is_err());
+        // A pending call is not reachable through the target mission's id.
+        confirmations::on_user_message(other, "sí");
+        assert!(confirmations::take_approved(other, token).is_err());
+        confirmations::on_user_message(conversation, "sí, mandalo");
+        assert!(confirmations::take_approved(conversation, Uuid::new_v4()).is_err());
+        assert_eq!(confirmations::take_approved(conversation, token).unwrap(), call);
+        assert!(confirmations::take_approved(conversation, token).is_err());
+
+        // Anything but a yes cancels it.
+        let token = confirmations::hold(conversation, call.clone());
+        confirmations::on_user_message(conversation, "mejor no");
+        assert!(confirmations::take_approved(conversation, token).is_err());
+
+        // A second gated call replaces the first one.
+        let first = confirmations::hold(conversation, call.clone());
+        let second = confirmations::hold(conversation, json!({"method": "DELETE", "path": "/api/workers/x"}));
+        confirmations::on_user_message(conversation, "sí");
+        assert!(confirmations::take_approved(conversation, first).is_err());
+        assert_eq!(
+            confirmations::take_approved(conversation, second).unwrap()["method"],
+            "DELETE"
         );
     }
 
