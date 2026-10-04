@@ -11,6 +11,26 @@ import {
   usdFormatter,
 } from '@/features/dashboard/model/dashboardMetrics';
 import { Panel, PanelEmpty, meterTone } from './parts/primitives';
+import { Tooltip } from '@vibe/ui/components/Tooltip';
+import {
+  useAllWorkerTasks,
+  useWorkers,
+} from '@/features/sprint/model/useWorkers';
+
+/** Hover text of a queued task: its title plus the start of its prompt. The
+ *  prompt's first line repeats the title, so it is skipped. */
+function queuedSummary(title: string, prompt: string | undefined) {
+  const body = (prompt ?? '')
+    .split('\n')
+    .slice(1)
+    .join('\n')
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (!body) return title;
+  return `${title}\n\n${body.length > 420 ? `${body.slice(0, 420).trimEnd()}…` : body}`;
+}
 
 const PHASE_KINDS = ['design', 'tdd', 'dev', 'test', 'review', 'merge'];
 
@@ -164,6 +184,9 @@ export function RunningPanel({
 }) {
   const { t } = useTranslation('common');
   const { running, queued, slots_used, slots_limit } = overview;
+  const { data: workers } = useWorkers();
+  const { tasks } = useAllWorkerTasks(queued.length > 0 ? workers : []);
+  const promptById = new Map(tasks.map((task) => [task.id, task.prompt]));
   const columns = [
     'profile',
     'issue',
@@ -227,12 +250,19 @@ export function RunningPanel({
             {t('dashboard.runningPanel.queue')}
           </span>
           {queued.map((q) => (
-            <span key={q.task_id}>
-              {q.issue_number != null && (
-                <b className="font-mono text-high">#{q.issue_number} </b>
-              )}
-              {q.repo_name} · {q.profile}
-            </span>
+            <Tooltip
+              key={q.task_id}
+              side="top"
+              content={queuedSummary(q.title, promptById.get(q.task_id))}
+              className="max-w-[420px] whitespace-pre-line"
+            >
+              <span tabIndex={0} className="cursor-help hover:text-high">
+                {q.issue_number != null && (
+                  <b className="font-mono text-high">#{q.issue_number} </b>
+                )}
+                {q.repo_name} · {q.profile}
+              </span>
+            </Tooltip>
           ))}
           <span className="ml-auto">
             {t('dashboard.runningPanel.queueHint')}
