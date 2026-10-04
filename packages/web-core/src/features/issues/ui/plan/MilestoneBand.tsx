@@ -395,6 +395,7 @@ export function MilestoneBand({
                         onDecide={decide}
                         blocker={blockers?.get(card.issue.number)}
                         onUnstick={onUnstick}
+                        task={task}
                       />
                     );
                   })}
