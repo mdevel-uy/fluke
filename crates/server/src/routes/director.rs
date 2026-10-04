@@ -336,6 +336,24 @@ async fn approve_brief(
         ApiError::BadRequest("There is no Analyst worker to send the brief to".into())
     })?;
 
+    // Design issues already closed by their mock get an implementation issue
+    // instead of being reused (#757). The issues the last run created only
+    // reach the local mirror on a sync, so refresh it first; if that fails the
+    // prompt asks the Analyst to check the unmirrored ones itself.
+    if !d.issue_numbers.is_empty()
+        && let Err(e) = services::services::repo_issues::RepoIssuesService::new()
+            .sync(pool, deployment.git(), repo_id)
+            .await
+    {
+        tracing::warn!(mission_id = %id, "issue mirror sync before the brief revision failed: {e}");
+    }
+    let closed_designs = director::closed_design_issues(
+        pool,
+        Some(deployment.git()),
+        d.mission.repo_id,
+        &d.issue_numbers,
+    )
+    .await?;
     let markdown = director::render_markdown(&d);
     let version = Mission::add_brief_version(pool, id, &markdown).await?;
     let task = WorkerTask::append(
@@ -344,7 +362,7 @@ async fn approve_brief(
         &CreateWorkerTask {
             repo_id,
             title: d.mission.title.chars().take(80).collect(),
-            prompt: director::analyst_request_prompt(&d, version),
+            prompt: director::analyst_request_prompt(&d, version, &closed_designs),
             source: SOURCE_MISSION.to_string(),
             ..Default::default()
         },
