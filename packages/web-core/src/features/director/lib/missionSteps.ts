@@ -14,14 +14,35 @@ export const STEPS = [
   'run',
 ] as const;
 
+export type MissionDelivery = 'design_ready' | 'implementing' | 'implemented';
+
+/**
+ * Where the feature stands once its design is closed (#758): a merged mock
+ * is "design ready", not a finished mission. `null` without design issues.
+ */
+export function missionDelivery(detail: MissionDetail): MissionDelivery | null {
+  switch (detail.delivery) {
+    case 'design_ready':
+    case 'implementing':
+    case 'implemented':
+      return detail.delivery;
+    default:
+      return null;
+  }
+}
+
 export function currentStep(detail: MissionDetail): number {
   const { status } = detail.mission;
   const proposal = detail.proposal;
+  const delivery = missionDelivery(detail);
   if (status === 'draft' || status === 'clarifying') return 0;
   if (status === 'brief_ready') return 1;
   if (
     status === 'closed' ||
-    (proposal.length > 0 && proposal.every((i) => i.state !== 'open'))
+    delivery === 'implemented' ||
+    (delivery === null &&
+      proposal.length > 0 &&
+      proposal.every((i) => i.state !== 'open'))
   ) {
     return STEPS.length;
   }

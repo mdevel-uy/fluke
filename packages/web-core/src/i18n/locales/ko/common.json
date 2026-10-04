@@ -1912,7 +1912,9 @@
       "run": {
         "title": "실행",
         "todo": "Issues의 milestone을 play로 실행",
-        "done": "milestone 완료"
+        "done": "milestone 완료",
+        "designReady": "디자인 완료, 구현 대기",
+        "implemented": "기능 구현 완료"
       },
       "template": {
         "tddDesign": "TDD와 디자인 포함",

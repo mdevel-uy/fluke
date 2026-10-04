@@ -1912,7 +1912,9 @@
       "run": {
         "title": "执行",
         "todo": "Issues 中的 milestone，可 play",
-        "done": "milestone 已完成"
+        "done": "milestone 已完成",
+        "designReady": "设计已完成，待实现",
+        "implemented": "功能已实现"
       },
       "template": {
         "tddDesign": "含 TDD 和设计",
