@@ -18,6 +18,7 @@ export const missionKeys = {
   list: () => ['missions', 'list'] as const,
   detail: (id: string) => ['missions', 'detail', id] as const,
   workspace: (id: string) => ['missions', 'workspace', id] as const,
+  turns: (id: string) => ['missions', 'turns', id] as const,
 };
 
 // ponytail: polling; switch to a msg_store stream if the latency shows.

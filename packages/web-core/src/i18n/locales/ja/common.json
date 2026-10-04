@@ -1800,7 +1800,7 @@
     "eventsBatch_one": "アプリのイベント {{count}} 件",
     "eventsBatch_other": "アプリのイベント {{count}} 件",
     "guard": {
-      "noBrief": "Fluke の常設の会話です。アプリで起きたことがここに届きます。ブリーフはなく、新しい開発作業はミッションとして始まります。"
+      "noBrief": "フォーカス中のミッションはありません。Fluke に新しい作業を頼むかミッション名を伝えると、ここにブリーフが表示されます。"
     },
     "name": "Fluke",
     "open": "Open Fluke",

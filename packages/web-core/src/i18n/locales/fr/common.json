@@ -1812,7 +1812,7 @@
     "eventsBatch_one": "{{count}} événement de l'app",
     "eventsBatch_other": "{{count}} événements de l'app",
     "guard": {
-      "noBrief": "Conversation permanente de Fluke : ce qui se passe dans l'app arrive ici. Elle n'a pas de brief ; un nouveau travail de développement démarre une mission."
+      "noBrief": "Aucune mission au premier plan. Demandez un nouveau travail à Fluke ou nommez une mission : son brief s'affiche ici."
     },
     "name": "Fluke",
     "open": "Open Fluke",

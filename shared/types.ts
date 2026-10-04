@@ -488,7 +488,16 @@ execution: string,
 /**
  * Fluke's standing conversation (J0.3): app events land here, no brief.
  */
-is_guard: boolean, };
+is_guard: boolean,
+/**
+ * In the standing conversation: the mission it is about now (J1.2).
+ */
+focus_mission_id: string | null,
+/**
+ * The mission has its own conversation (missions from before the one
+ * thread, J1.2); otherwise it lives in Fluke's thread.
+ */
+has_own_chat: boolean, };
 
 export type MissionProposalIssue = { number: number, title: string, state: string, milestone: string | null, wave: number | null, 
 /**
