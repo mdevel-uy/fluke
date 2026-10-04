@@ -134,37 +134,16 @@ async fn new_mission_in(deployment: &DeploymentImpl, repo_id: Uuid) -> Result<Mi
     Ok(Mission::create(pool, session.id, Some(repo_id)).await?)
 }
 
-/// `new_mission` from Fluke's standing conversation (J1.2): it needs the
-/// scratch workspace, so it lives here and not in the services crate.
+/// `new_mission` from any conversation (J1.2, #779): creating the session
+/// needs the scratch workspace, so that part lives here and the rest in the
+/// services crate.
 async fn new_mission_tool(deployment: &DeploymentImpl, session_id: Uuid, args: &Value) -> Result<String, String> {
-    use db::models::fluke_event::FlukeGuard;
-    let pool = &deployment.db().pool;
-    let db_err = |e: sqlx::Error| format!("internal error: {e}");
-    let mission = Mission::find_by_session_id(pool, session_id)
-        .await
-        .map_err(db_err)?
-        .ok_or("this session has no mission")?;
-    if !FlukeGuard::is_guard(pool, mission.id).await.map_err(db_err)? {
-        return Err("new missions start from your standing conversation".into());
-    }
-    let repo = args
-        .get("repo")
-        .and_then(Value::as_str)
-        .ok_or("missing repo")?;
-    let repo = director::resolve_repo(pool, repo).await?;
-    let created = new_mission_in(deployment, repo.id)
-        .await
-        .map_err(|e| format!("could not start the mission: {e}"))?;
-    if let Some(title) = args.get("title").and_then(Value::as_str).map(str::trim).filter(|t| !t.is_empty()) {
-        Mission::set_title(pool, created.id, title).await.map_err(db_err)?;
-    }
-    FlukeGuard::set_focus(pool, Some(created.id)).await.map_err(db_err)?;
-    let d = director::refresh_status(pool, created.id).await.map_err(db_err)?;
-    Ok(format!(
-        "Mission started and in focus (id {}). Missing: {}",
-        created.id,
-        d.missing.join(", ")
-    ))
+    director::new_mission(&deployment.db().pool, session_id, args, |repo_id| async move {
+        new_mission_in(deployment, repo_id)
+            .await
+            .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 /// The user opened a mission (J1.2): what they write next is about it.
