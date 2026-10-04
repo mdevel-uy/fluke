@@ -7,6 +7,9 @@ const INITIALS: Record<string, string> = {
   reviewer: 'RV',
   designer: 'DS',
   qa: 'QA',
+  devops: 'DO',
+  docs: 'DC',
+  security: 'SC',
 };
 
 export const ROLE_COLOR: Record<string, string> = {
@@ -15,6 +18,11 @@ export const ROLE_COLOR: Record<string, string> = {
   reviewer: 'bg-violet-500 text-white',
   designer: 'bg-pink-400 text-white',
   qa: 'bg-success text-success-foreground',
+  devops: 'bg-sky-600 text-white',
+  architect: 'bg-indigo-500 text-white',
+  docs: 'bg-teal-600 text-white',
+  quality: 'bg-amber-600 text-white',
+  security: 'bg-red-600 text-white',
 };
 
 export function initials(name: string) {

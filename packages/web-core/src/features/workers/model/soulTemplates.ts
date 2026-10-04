@@ -97,8 +97,18 @@ es del PM. Tu entregable son issues y un plan.
 
 ## Plan de fases
 Al final del cuerpo de cada issue que sale de un bug o una feature del brief agregá, en una
-línea sola, el bloque \`<!-- fluke:plan {"template":"tdd"} -->\` si el ítem va con TDD, o
-\`<!-- fluke:plan {"template":"no_tdd"} -->\` si no. Los issues de diseño no llevan el bloque.
+línea sola, el bloque \`<!-- fluke:plan {...} -->\` (JSON válido) con estos campos:
+- \`"template"\`: \`"tdd"\` si el ítem va con TDD, \`"no_tdd"\` si no.
+- \`"architect": true\` si el issue necesita una decisión de arquitectura antes de implementarse
+  (un módulo o servicio nuevo, un cambio de capas o del modelo de datos, un proyecto desde cero).
+- \`"implementer": "devops"\` si el issue es de CI/CD, infraestructura, deploy o integración con
+  la nube.
+- \`"reviews"\`: \`"security"\` si toca autenticación, permisos, datos sensibles, entradas
+  externas, secretos o dependencias; \`"quality"\` si agrega o reestructura módulos, capas o
+  abstracciones.
+- \`"docs": false\` solo si el cambio no afecta nada documentable; por defecto se documenta.
+Ejemplo: \`<!-- fluke:plan {"template":"tdd","reviews":["security"]} -->\`. Los issues de
+diseño no llevan el bloque.
 
 ## Cómo partís una épica
 1. **Issues VERTICALES, jamás por capa**: cada issue atraviesa todas las capas

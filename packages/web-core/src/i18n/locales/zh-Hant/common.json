@@ -1088,7 +1088,11 @@
           "review": "審查",
           "merge": "合併",
           "tdd": "測試先行",
-          "test": "測試"
+          "test": "測試",
+          "arch": "架構",
+          "docs": "文件",
+          "quality": "程式碼品質",
+          "security": "安全性"
         },
         "profile": "設定檔",
         "instance": "實例",
@@ -1382,7 +1386,17 @@
       "orchestrator": "Orchestrator",
       "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
       "qa": "QA",
-      "qaDescription": "先於程式碼撰寫測試，並在審查前驗證 PR"
+      "qaDescription": "先於程式碼撰寫測試，並在審查前驗證 PR",
+      "devops": "DevOps",
+      "devopsDescription": "實作 CI/CD、基礎架構與雲端整合相關的 issue",
+      "architect": "架構師",
+      "architectDescription": "在開發前撰寫架構提案 (ADR)",
+      "docs": "文件",
+      "docsDescription": "在審查前更新 PR 中的文件",
+      "quality": "程式碼品質",
+      "qualityDescription": "從 SOLID、DRY、整潔架構與設計模式的角度審查 PR",
+      "security": "安全性",
+      "securityDescription": "以 OWASP 為參考審查 PR 中的漏洞"
     },
     "toast": {
       "startSuccess": "{{worker}} 已開始「{{title}}」。",
@@ -1868,7 +1882,11 @@
       "goal": "Goal",
       "scope": "Scope",
       "reference": "Reference",
-      "tdd": "TDD"
+      "tdd": "TDD",
+      "architect": "Architecture",
+      "implementer": "Implemented by",
+      "reviews": "Extra reviews",
+      "docs": "Documentation"
     },
     "autonomy": {
       "label": "Autonomy",

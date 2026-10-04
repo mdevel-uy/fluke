@@ -57,12 +57,20 @@ const BUG_FIELDS: &[FieldSpec] = &[
     ("steps", true, "Pasos para reproducir"),
     ("acceptance", true, "Criterio de aceptación"),
     ("tdd", true, "TDD"),
+    ("architect", true, "Arquitectura"),
+    ("implementer", true, "Implementa"),
+    ("reviews", true, "Revisiones extra"),
+    ("docs", true, "Documentación"),
 ];
 const FEATURE_FIELDS: &[FieldSpec] = &[
     ("goal", true, "Objetivo"),
     ("scope", true, "Alcance"),
     ("acceptance", true, "Criterio de aceptación"),
     ("tdd", true, "TDD"),
+    ("architect", true, "Arquitectura"),
+    ("implementer", true, "Implementa"),
+    ("reviews", true, "Revisiones extra"),
+    ("docs", true, "Documentación"),
 ];
 const DESIGN_FIELDS: &[FieldSpec] = &[
     ("goal", true, "Objetivo"),
@@ -265,7 +273,7 @@ async fn execution(
             "SELECT COUNT(*),
                     COALESCE(SUM(EXISTS (SELECT 1 FROM plan_steps p WHERE p.workspace_id = t.workspace_id)), 0)
                FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
-              WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND w.role = 'developer'",
+              WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND w.role IN ('developer', 'devops')",
         )
         .bind(repo_id)
         .bind(n)
@@ -752,9 +760,24 @@ pub fn analyst_request_prompt(
          y copie los campos del ítem del que sale. No cambies el alcance del brief: si algo \
          no cierra, listalo como pregunta abierta.\n\n\
          Plan de fases (fluke v2): al final del cuerpo de cada issue que salga de un bug o \
-         una feature agregá en una línea sola el bloque \
-         <!-- fluke:plan {{\"template\":\"tdd\"}} --> si el campo TDD del ítem es \"sí\", o \
-         <!-- fluke:plan {{\"template\":\"no_tdd\"}} --> si es \"no\" o \"no aplica\". \
+         una feature agregá en una línea sola el bloque <!-- fluke:plan {{...}} --> con estos \
+         campos (JSON válido):\n\
+         - \"template\": \"tdd\" si el campo TDD del ítem es \"sí\", \"no_tdd\" si es \"no\" o \
+         \"no aplica\".\n\
+         - \"architect\": true si el campo Arquitectura del ítem es \"sí\".\n\
+         - \"implementer\": \"devops\" si el campo Implementa es \"devops\"; omitilo si es \
+         \"developer\".\n\
+         - \"reviews\": [\"quality\"], [\"security\"] o [\"quality\",\"security\"] según el \
+         campo Revisiones extra (calidad, seguridad); omitilo si es \"ninguna\".\n\
+         - \"docs\": false si el campo Documentación es \"no\"; omitilo si es \"sí\".\n\
+         Esos campos son la decisión del user: respetalos en todos los issues que salen del \
+         ítem. Si un ítem no los tiene (brief anterior a estos campos), decidí vos: \
+         arquitectura para un módulo o servicio nuevo, un cambio de capas o del modelo de \
+         datos; devops para CI/CD, infraestructura, deploy o nube; seguridad si toca \
+         autenticación, permisos, datos sensibles, entradas externas, secretos o \
+         dependencias; calidad si agrega o reestructura módulos o abstracciones; documentación \
+         salvo que no haya nada documentable.\n\
+         Ejemplo: <!-- fluke:plan {{\"template\":\"tdd\",\"reviews\":[\"security\"]}} -->. \
          Los issues de ítems de diseño no llevan el bloque.\n\n\
          Issues de diseño: todo issue que salga de un ítem de diseño lleva la label \
          `{design}` (además de `feature:` y `wave:`); así se despacha al Designer y nunca \
@@ -881,6 +904,23 @@ your text reply.
 the item is testable logic, ask the user (options \"Con TDD\" / \"Sin TDD\") and record \"sí\" or \
 \"no\". When test-first makes no sense (purely visual change, configuration, a bug that cannot \
 be reproduced), record \"no aplica\" yourself without asking.
+- Every bug and feature also records the optional steps of its plan, which are the user's call:\n\
+  \"architect\": \"sí\" when an architect writes an ADR before the code (a new module or \
+service, a change of layers or of the data model, a project from scratch), otherwise \"no\".\n\
+  \"implementer\": \"devops\" when the work is CI/CD, infrastructure, deploy or cloud \
+integration, otherwise \"developer\".\n\
+  \"reviews\": extra reviews before the general one: \"seguridad\", \"calidad\", \"calidad y \
+seguridad\" or \"ninguna\". Security fits items that touch authentication, permissions, \
+sensitive data, external input, secrets or dependencies; code quality fits items that add or \
+restructure modules, layers or abstractions.\n\
+  \"docs\": \"sí\" when the documentation is updated on the PR (the default), \"no\" when the \
+change affects nothing documentable.\n\
+  Fill them from what the user said and from their standing preferences in [MEMORY] (e.g. \
+\"always a security review\"); then propose the rest yourself and confirm with one ask_user \
+question per item whose options are your recommended combination and its alternatives (e.g. \
+\"Seguridad + docs (recomendado)\" / \"Solo docs\" / \"Arquitectura + seguridad + docs\"). \
+Do not ask what is obvious (a typo fix needs no architect). When the user states a preference \
+that should hold for future briefs, save it to your memory.
 - You may read the code of the current repo (Read, Grep, Glob) to understand the request or \
 propose likely files, but you never write code, edit files or run commands: development is \
 the workers' job.
@@ -2572,7 +2612,8 @@ mod tests {
             .unwrap();
 
         let args = json!({ "kind": "feature", "title": "Implementar", "fields": {
-            "goal": "g", "scope": "s", "acceptance": "a", "tdd": "sí" } });
+            "goal": "g", "scope": "s", "acceptance": "a", "tdd": "sí", "architect": "no",
+            "implementer": "developer", "reviews": "seguridad", "docs": "sí" } });
         call_tool(&pool, session, "upsert_item", &args)
             .await
             .unwrap();
@@ -3426,10 +3467,19 @@ mod tests {
         let bug = item("bug", &[("symptom", "crashes"), ("steps", "  ")]);
         assert_eq!(
             missing(&mission("Taller", true), &[bug]),
-            vec!["item:1:steps", "item:1:acceptance", "item:1:tdd"]
+            vec![
+                "item:1:steps",
+                "item:1:acceptance",
+                "item:1:tdd",
+                "item:1:architect",
+                "item:1:implementer",
+                "item:1:reviews",
+                "item:1:docs"
+            ]
         );
 
-        // TDD has to be decided (#688): "sí", "no" or "no aplica".
+        // TDD has to be decided (#688): "sí", "no" or "no aplica"; so do
+        // the optional steps of the plan.
         let feature = item(
             "feature",
             &[
@@ -3437,6 +3487,10 @@ mod tests {
                 ("scope", "s"),
                 ("acceptance", "a"),
                 ("tdd", "no aplica"),
+                ("architect", "no"),
+                ("implementer", "devops"),
+                ("reviews", "ninguna"),
+                ("docs", "no"),
             ],
         );
         assert!(missing(&mission("Taller", true), &[feature]).is_empty());

@@ -812,7 +812,11 @@
         "dev": "Desarrollo",
         "test": "QA",
         "review": "Review",
-        "merge": "Merge"
+        "merge": "Merge",
+        "arch": "Arquitectura",
+        "docs": "Documentación",
+        "quality": "Calidad",
+        "security": "Seguridad"
       },
       "phaseShort": {
         "design": "Dis",
@@ -820,7 +824,11 @@
         "dev": "Dev",
         "test": "QA",
         "review": "Rev",
-        "merge": "Mrg"
+        "merge": "Mrg",
+        "arch": "Arq",
+        "docs": "Doc",
+        "quality": "Cal",
+        "security": "Seg"
       }
     },
     "providers": {
@@ -1311,7 +1319,11 @@
           "review": "Review",
           "merge": "Merge",
           "tdd": "Tests primero",
-          "test": "Testing"
+          "test": "Testing",
+          "arch": "Arquitectura",
+          "docs": "Documentación",
+          "quality": "Calidad",
+          "security": "Seguridad"
         },
         "profile": "Perfil",
         "instance": "Instancia",
@@ -1618,7 +1630,17 @@
       "orchestrator": "Orquestador",
       "orchestratorDescription": "Fluke, el director: conversa con usted y arma los briefs para el Analista. No toma tareas de la cola.",
       "qa": "QA",
-      "qaDescription": "Escribe los tests antes del código y valida los PRs antes del review"
+      "qaDescription": "Escribe los tests antes del código y valida los PRs antes del review",
+      "devops": "DevOps",
+      "devopsDescription": "Implementa issues de CI/CD, infraestructura e integración con la nube",
+      "architect": "Arquitecto",
+      "architectDescription": "Escribe la propuesta de arquitectura (ADR) antes del desarrollo",
+      "docs": "Documentación",
+      "docsDescription": "Actualiza la documentación en el PR antes del review",
+      "quality": "Calidad de código",
+      "qualityDescription": "Revisa los PRs según SOLID, DRY, arquitectura limpia y patrones de diseño",
+      "security": "Seguridad",
+      "securityDescription": "Revisa los PRs en busca de vulnerabilidades, con OWASP como referencia"
     },
     "toast": {
       "startSuccess": "{{worker}} arrancó con \"{{title}}\".",
@@ -2106,7 +2128,11 @@
       "goal": "Objetivo",
       "scope": "Alcance",
       "reference": "Referencia",
-      "tdd": "TDD"
+      "tdd": "TDD",
+      "architect": "Arquitectura",
+      "implementer": "Implementa",
+      "reviews": "Revisiones extra",
+      "docs": "Documentación"
     },
     "autonomy": {
       "label": "Autonomía",

@@ -1088,7 +1088,11 @@
           "review": "评审",
           "merge": "合并",
           "tdd": "测试先行",
-          "test": "测试"
+          "test": "测试",
+          "arch": "架构",
+          "docs": "文档",
+          "quality": "代码质量",
+          "security": "安全"
         },
         "profile": "配置",
         "instance": "实例",
@@ -1382,7 +1386,17 @@
       "orchestrator": "Orchestrator",
       "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
       "qa": "QA",
-      "qaDescription": "先于代码编写测试，并在评审前验证 PR"
+      "qaDescription": "先于代码编写测试，并在评审前验证 PR",
+      "devops": "DevOps",
+      "devopsDescription": "实现 CI/CD、基础设施和云集成相关的 issue",
+      "architect": "架构师",
+      "architectDescription": "在开发前编写架构提案 (ADR)",
+      "docs": "文档",
+      "docsDescription": "在评审前更新 PR 中的文档",
+      "quality": "代码质量",
+      "qualityDescription": "从 SOLID、DRY、整洁架构和设计模式的角度评审 PR",
+      "security": "安全",
+      "securityDescription": "以 OWASP 为参考评审 PR 中的漏洞"
     },
     "toast": {
       "startSuccess": "{{worker}} 已开始“{{title}}”。",
@@ -1868,7 +1882,11 @@
       "goal": "Goal",
       "scope": "Scope",
       "reference": "Reference",
-      "tdd": "TDD"
+      "tdd": "TDD",
+      "architect": "Architecture",
+      "implementer": "Implemented by",
+      "reviews": "Extra reviews",
+      "docs": "Documentation"
     },
     "autonomy": {
       "label": "Autonomy",

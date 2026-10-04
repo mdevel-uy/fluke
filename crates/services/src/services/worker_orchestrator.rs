@@ -60,7 +60,9 @@ use db::{
         requests::WorkspaceRepoInput,
         review_round::{self, CreateReviewRound, ReviewRound},
         session::Session,
-        worker::{ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_QA, ROLE_REVIEWER, Worker},
+        worker::{
+            self, ROLE_ANALYST, ROLE_ARCHITECT, ROLE_DESIGNER, ROLE_QA, ROLE_REVIEWER, Worker,
+        },
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -878,7 +880,7 @@ pub async fn try_take_next(
     // use an explicit local:head refspec and the finish handler adopts the
     // existing PR instead of opening a new one. The local branch stays
     // unique, so the author's own worktree never loses its checkout.
-    if worker.role == ROLE_DEVELOPER
+    if worker::is_implementer(&worker.role)
         && let Some(pr_number) = task.issue_number
     {
         match PullRequest::find_latest_workspace_for_pr(pool, repo.id, pr_number).await {
@@ -1363,7 +1365,7 @@ pub async fn on_pr_open(db: &DBService, workspace_id: Uuid) -> Result<bool, sqlx
     let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
         return Ok(false);
     };
-    if worker.role != ROLE_DEVELOPER {
+    if !worker::is_implementer(&worker.role) {
         warn!(
             worker_id = %worker_id,
             workspace_id = %workspace_id,
@@ -1414,7 +1416,7 @@ pub async fn on_pr_merged(
     let Some(worker) = Worker::find_by_id(pool, worker_id).await? else {
         return Ok(false);
     };
-    if worker.role != ROLE_DEVELOPER {
+    if !worker::is_implementer(&worker.role) {
         warn!(
             worker_id = %worker_id,
             workspace_id = %workspace_id,
@@ -1629,7 +1631,7 @@ pub async fn on_agent_finished(
         None => match WorkerTask::find_by_workspace(pool, workspace_id).await? {
             Some(t) if succeeded && t.status == worker_task::STATUS_FAILED => {
                 match Worker::find_by_id(pool, t.worker_id).await? {
-                    Some(w) if w.role == ROLE_DEVELOPER => {
+                    Some(w) if worker::is_implementer(&w.role) => {
                         Worker::attach_workspace(pool, w.id, workspace_id).await?;
                         w.id
                     }
@@ -1643,7 +1645,7 @@ pub async fn on_agent_finished(
         return Ok(());
     };
 
-    if worker.role == ROLE_DEVELOPER {
+    if worker::is_implementer(&worker.role) {
         return on_developer_agent_finished(
             config,
             db,
@@ -1715,14 +1717,23 @@ pub async fn on_agent_finished(
 
     let mut infra_failure = false;
     let mut actions_failed_task = false;
-    // Testing phase (#687): QA's verdict, read before the worktree goes.
-    let mut qa_testing: Option<(String, String)> = None;
+    // Gates before the review (#687): the verdict, or Docs' push, happen
+    // before the worktree goes.
+    let gate = qa_phases::Gate::from_kind(WorkerTask::kind(pool, task.id).await?.as_deref())
+        .filter(|g| g.role() == worker.role);
+    let mut gate_verdict: Option<(String, String)> = None;
+    let mut docs_outcome = None;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
-        if worker.role == ROLE_QA
-            && WorkerTask::kind(pool, task.id).await?.as_deref() == Some(worker_task::KIND_QA_TEST)
-        {
-            qa_testing = qa_phases::read_testing_verdict(pool, workspace_id, &task).await;
+        match gate {
+            Some(qa_phases::Gate::Docs) => {
+                docs_outcome =
+                    Some(qa_phases::finish_docs(db, container, workspace_id, &task, &worker).await);
+            }
+            Some(g) => {
+                gate_verdict = qa_phases::read_gate_verdict(pool, workspace_id, &task, g).await;
+            }
+            None => {}
         }
         // Persist what the run left behind BEFORE archiving the worktree:
         // the agent's final message for every non-developer role, plus — for
@@ -1781,12 +1792,36 @@ pub async fn on_agent_finished(
         archive_and_detach(db, container, workspace_id).await;
     }
 
-    // Testing passed → review; failed → back to the developer (#687).
-    if let Some((verdict, reasons)) = &qa_testing
+    // Gate passed → next gate or review; failed → back to the developer.
+    if let (Some(g), Some((verdict, reasons))) = (gate, &gate_verdict)
         && let Err(e) =
-            qa_phases::after_testing(config, db, container, &task, verdict, reasons).await
+            qa_phases::after_gate(config, db, container, &task, g, verdict, reasons).await
     {
-        warn!(task_id = %task.id, "Failed to act on the QA verdict: {}", e);
+        warn!(task_id = %task.id, "Failed to act on the gate verdict: {}", e);
+    }
+    // Docs pushed → the PR monitor resumes the gates on the new head once its
+    // CI is green; nothing to document → resume them now.
+    match &docs_outcome {
+        Some(qa_phases::DocsOutcome::Failed(reason)) => {
+            warn!(task_id = %task.id, "Docs phase failed: {}", reason);
+            WorkerTask::set_failed_with_kind(pool, task.id, reason, None).await?;
+        }
+        Some(qa_phases::DocsOutcome::Unchanged) => {
+            if let Err(e) = qa_phases::after_gate(
+                config,
+                db,
+                container,
+                &task,
+                qa_phases::Gate::Docs,
+                qa_phases::VERDICT_PASS,
+                "",
+            )
+            .await
+            {
+                warn!(task_id = %task.id, "Failed to resume the gates after Docs: {}", e);
+            }
+        }
+        _ => {}
     }
 
     // Auto-start the next queued task for this worker.
@@ -2546,18 +2581,15 @@ async fn persist_non_developer_deliverable(
     let pool = &db.pool;
     let summary = agent_result_text(pool, execution_id).await;
 
+    let kind = WorkerTask::kind(pool, task.id).await.ok().flatten();
     let deliverable_ref = if worker.role == ROLE_DESIGNER {
         push_design_ref(db, container, workspace_id, task, worker, "design").await
-    } else if worker.role == ROLE_QA
-        && WorkerTask::kind(pool, task.id)
-            .await
-            .ok()
-            .flatten()
-            .as_deref()
-            == Some(worker_task::KIND_QA_TDD)
-    {
+    } else if worker.role == ROLE_QA && kind.as_deref() == Some(worker_task::KIND_QA_TDD) {
         // Tests first (#687): QA's tests become the developer's start_ref.
         push_design_ref(db, container, workspace_id, task, worker, "tdd").await
+    } else if worker.role == ROLE_ARCHITECT && kind.as_deref() == Some(worker_task::KIND_ARCH) {
+        // The ADR is the start_ref of the next phase, like tests first.
+        push_design_ref(db, container, workspace_id, task, worker, "arch").await
     } else {
         None
     };
@@ -5400,7 +5432,7 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
     let base = crate::services::base_instructions::effective_base_instructions();
     let soul = soul.trim();
     let task_prompt = task_prompt.trim();
-    let final_instruction = if role == ROLE_DEVELOPER {
+    let final_instruction = if worker::is_implementer(role) {
         WORKER_FINAL_INSTRUCTION_TEMPLATE.replace("{target_branch}", target_branch)
     } else if role == ROLE_ANALYST {
         ANALYST_ROLE_INSTRUCTION.to_string()
@@ -5440,7 +5472,11 @@ mod tests {
     use std::path::PathBuf;
 
     use chrono::TimeZone;
-    use db::models::{repo::Repo, worker::CreateWorker, worker_task::CreateWorkerTask};
+    use db::models::{
+        repo::Repo,
+        worker::{CreateWorker, ROLE_DEVELOPER},
+        worker_task::CreateWorkerTask,
+    };
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
@@ -6096,7 +6132,7 @@ mod tests {
         full.run(&pool).await.expect("run consolidation");
 
         let profiles: Vec<(Uuid, String, String, Option<String>, Option<String>)> = sqlx::query_as(
-            "SELECT id, role, name, migrated_from, github_login FROM workers WHERE role <> 'qa' ORDER BY role",
+            "SELECT id, role, name, migrated_from, github_login FROM workers WHERE role IN ('developer', 'analyst', 'reviewer', 'designer') ORDER BY role",
         )
         .fetch_all(&pool)
         .await
@@ -6138,15 +6174,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn testing_gate_runs_qa_once_per_head_before_review() {
-        // #687: an issue with a phase plan is tested by QA before the review,
-        // once per PR head. The migration creates the QA profile.
+    async fn gates_run_in_order_before_review() {
+        // #687: an issue with a phase plan goes through its gates before the
+        // review: Docs once per PR, Testing, Quality and Security once per
+        // head. The migrations create the profiles.
         use db::models::repo_issue::{RepoIssue, UpsertRepoIssue};
 
-        use crate::services::qa_phases::{self, TestingGate};
+        use crate::services::qa_phases::{self, Gate, GateStep};
 
         let db = setup_test_db().await;
-        let qa = qa_phases::qa_profile(&db.pool)
+        let qa = qa_phases::profile_for(&db.pool, db::models::worker::ROLE_QA)
             .await
             .unwrap()
             .expect("the migration creates the QA profile");
@@ -6204,69 +6241,97 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(
-            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+            qa_phases::next_gate(&db.pool, repo.id, 50, "sha1")
                 .await
                 .unwrap(),
-            TestingGate::Proceed
+            GateStep::Proceed
         ));
 
+        // A plan block asks for Docs and Testing; Quality and Security only
+        // when listed in `reviews`.
         RepoIssue::upsert(
             &db.pool,
             repo.id,
-            &issue("<!-- fluke:plan {\"template\":\"no_tdd\"} -->"),
+            &issue("<!-- fluke:plan {\"template\":\"no_tdd\",\"reviews\":[\"quality\",\"security\"]} -->"),
         )
         .await
         .unwrap();
-        let TestingGate::Dispatch(profile) = qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
-            .await
-            .unwrap()
-        else {
-            panic!("first look at a head dispatches testing");
+        // Runs `gate` on `head` to `verdict` and returns the task.
+        let run = |gate: Gate, head: &'static str, verdict: Option<&'static str>| {
+            let pool = db.pool.clone();
+            async move {
+                let GateStep::Dispatch(next, profile) =
+                    qa_phases::next_gate(&pool, repo.id, 50, head)
+                        .await
+                        .unwrap()
+                else {
+                    panic!("{gate:?} should be dispatched on {head}");
+                };
+                assert_eq!(next, gate);
+                assert_eq!(profile.role, gate.role(), "each gate goes to its profile");
+                let task =
+                    qa_phases::queue_gate(&pool, gate, &profile, repo.id, 50, "feature", head)
+                        .await
+                        .unwrap();
+                assert!(matches!(
+                    qa_phases::next_gate(&pool, repo.id, 50, head)
+                        .await
+                        .unwrap(),
+                    GateStep::Hold
+                ));
+                WorkerTask::set_status(&pool, task.id, worker_task::STATUS_DONE)
+                    .await
+                    .unwrap();
+                if let Some(v) = verdict {
+                    WorkerTask::set_qa_result(&pool, task.id, None, Some(v))
+                        .await
+                        .unwrap();
+                }
+                task
+            }
         };
-        let testing = qa_phases::queue_testing(&db.pool, &profile, repo.id, 50, "feature", "sha1")
-            .await
-            .unwrap();
-        assert!(matches!(
-            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
-                .await
-                .unwrap(),
-            TestingGate::Hold
-        ));
 
-        WorkerTask::set_status(&db.pool, testing.id, worker_task::STATUS_DONE)
-            .await
-            .unwrap();
-        WorkerTask::set_qa_result(&db.pool, testing.id, None, Some(qa_phases::VERDICT_FAIL))
-            .await
-            .unwrap();
+        run(Gate::Docs, "sha1", None).await;
+        let testing = run(Gate::Testing, "sha1", Some(qa_phases::VERDICT_FAIL)).await;
         assert!(
             matches!(
-                qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+                qa_phases::next_gate(&db.pool, repo.id, 50, "sha1")
                     .await
                     .unwrap(),
-                TestingGate::Hold
+                GateStep::Hold
             ),
             "a failed head waits for the developer's fix"
         );
-
         WorkerTask::set_qa_result(&db.pool, testing.id, None, Some(qa_phases::VERDICT_PASS))
             .await
             .unwrap();
+        run(Gate::Quality, "sha1", Some(qa_phases::VERDICT_PASS)).await;
+        run(Gate::Security, "sha1", Some(qa_phases::VERDICT_PASS)).await;
         assert!(matches!(
-            qa_phases::testing_gate(&db.pool, repo.id, 50, "sha1")
+            qa_phases::next_gate(&db.pool, repo.id, 50, "sha1")
                 .await
                 .unwrap(),
-            TestingGate::Proceed
+            GateStep::Proceed
         ));
-        assert!(
-            matches!(
-                qa_phases::testing_gate(&db.pool, repo.id, 50, "sha2")
-                    .await
-                    .unwrap(),
-                TestingGate::Dispatch(_)
-            ),
-            "a new head is tested again"
-        );
+
+        // A new head: Docs ran once per PR, the verdict gates run again.
+        run(Gate::Testing, "sha2", Some(qa_phases::VERDICT_PASS)).await;
+
+        // After MAX_GATE_FAILURES failures the loop stops for a person.
+        let heads = ["sha2", "sha3", "sha4"];
+        for (i, head) in heads.into_iter().enumerate() {
+            if i > 0 {
+                run(Gate::Testing, head, Some(qa_phases::VERDICT_PASS)).await;
+            }
+            run(Gate::Quality, head, Some(qa_phases::VERDICT_FAIL)).await;
+        }
+        run(Gate::Testing, "sha5", Some(qa_phases::VERDICT_PASS)).await;
+        assert!(matches!(
+            qa_phases::next_gate(&db.pool, repo.id, 50, "sha5")
+                .await
+                .unwrap(),
+            GateStep::Hold
+        ));
     }
 
     #[tokio::test]

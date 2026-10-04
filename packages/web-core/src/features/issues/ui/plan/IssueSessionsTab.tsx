@@ -18,6 +18,9 @@ const STATE_TEXT: Record<string, string> = {
   stuck: 'text-md-error',
 };
 
+/** Phases that can run more than once. */
+const ROUND_KINDS = ['dev', 'review', 'test', 'quality', 'security'];
+
 export function IssueSessionsTab({
   phases,
   selected,
@@ -62,10 +65,7 @@ export function IssueSessionsTab({
             >
               <b className="text-[13px] font-medium text-high">
                 {t(`issues.plan.phases.kind.${p.kind}`)}
-                {(p.kind === 'dev' ||
-                  p.kind === 'review' ||
-                  p.kind === 'test') &&
-                  ` · r${p.round}`}
+                {ROUND_KINDS.includes(p.kind) && ` · r${p.round}`}
               </b>
               <span
                 className={cn('text-[11px] text-normal', STATE_TEXT[p.state])}

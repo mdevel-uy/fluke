@@ -816,7 +816,11 @@
         "dev": "Development",
         "test": "QA",
         "review": "Review",
-        "merge": "Merge"
+        "merge": "Merge",
+        "arch": "Architecture",
+        "docs": "Docs",
+        "quality": "Code quality",
+        "security": "Security"
       },
       "phaseShort": {
         "design": "Des",
@@ -824,7 +828,11 @@
         "dev": "Dev",
         "test": "QA",
         "review": "Rev",
-        "merge": "Mrg"
+        "merge": "Mrg",
+        "arch": "Arch",
+        "docs": "Doc",
+        "quality": "Qlt",
+        "security": "Sec"
       }
     },
     "providers": {
@@ -1311,7 +1319,11 @@
           "review": "Review",
           "merge": "Merge",
           "tdd": "Tests first",
-          "test": "Testing"
+          "test": "Testing",
+          "arch": "Architecture",
+          "docs": "Docs",
+          "quality": "Code quality",
+          "security": "Security"
         },
         "profile": "Profile",
         "instance": "Instance",
@@ -1618,7 +1630,17 @@
       "orchestrator": "Orchestrator",
       "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
       "qa": "QA",
-      "qaDescription": "Writes tests before the code and validates PRs before review"
+      "qaDescription": "Writes tests before the code and validates PRs before review",
+      "devops": "DevOps",
+      "devopsDescription": "Implements CI/CD, infrastructure and cloud integration issues",
+      "architect": "Architect",
+      "architectDescription": "Writes the architecture proposal (ADR) before development",
+      "docs": "Docs",
+      "docsDescription": "Updates the documentation on the PR before review",
+      "quality": "Code quality",
+      "qualityDescription": "Reviews PRs for SOLID, DRY, clean architecture and design patterns",
+      "security": "Security",
+      "securityDescription": "Reviews PRs for vulnerabilities, with OWASP as the reference"
     },
     "toast": {
       "startSuccess": "{{worker}} started \"{{title}}\".",
@@ -2106,7 +2128,11 @@
       "goal": "Goal",
       "scope": "Scope",
       "reference": "Reference",
-      "tdd": "TDD"
+      "tdd": "TDD",
+      "architect": "Architecture",
+      "implementer": "Implemented by",
+      "reviews": "Extra reviews",
+      "docs": "Documentation"
     },
     "autonomy": {
       "label": "Autonomy",

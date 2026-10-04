@@ -71,13 +71,10 @@ pub struct TaskLite {
 }
 
 impl TaskLite {
-    /// Review, QA-test and review-fix tasks carry the PR number.
+    /// Review, review-fix and gate (testing, docs, quality, security) tasks
+    /// carry the PR number.
     fn keyed_by_pr(&self) -> bool {
-        self.role == worker::ROLE_REVIEWER
-            || matches!(
-                self.kind.as_deref(),
-                Some(worker_task::KIND_REVIEW_FIX) | Some(worker_task::KIND_QA_TEST)
-            )
+        self.role == worker::ROLE_REVIEWER || worker_task::is_pr_keyed_kind(self.kind.as_deref())
     }
 
     /// Approved is not live: the agents are done, only the merge is left.
@@ -464,7 +461,9 @@ pub struct DashboardOverview {
     pub slots_limit: i64,
 }
 
-const PHASE_KINDS: [&str; 6] = ["design", "tdd", "dev", "test", "review", "merge"];
+const PHASE_KINDS: [&str; 10] = [
+    "design", "arch", "tdd", "dev", "docs", "test", "quality", "security", "review", "merge",
+];
 
 /// One chip per phase kind: the state of the latest phase of that kind.
 fn phase_chips(phases: &[issue_phases::IssuePhase]) -> Vec<PhaseChip> {

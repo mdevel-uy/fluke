@@ -48,6 +48,22 @@
       "GRAFANA_SERVICE_ACCOUNT_TOKEN": "YOUR_TOKEN"
     }
   },
+  "semgrep": {
+    "command": "uvx",
+    "args": [
+      "semgrep-mcp"
+    ]
+  },
+  "snyk": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "snyk@latest",
+      "mcp",
+      "-t",
+      "stdio"
+    ]
+  },
   "meta": {
     "github": {
       "name": "GitHub",
@@ -95,6 +111,16 @@
       "name": "Grafana",
       "description": "Query dashboards, metrics, logs and alerts from your Grafana instance",
       "url": "https://github.com/grafana/mcp-grafana"
+    },
+    "semgrep": {
+      "name": "Semgrep",
+      "description": "Free local static analysis (OWASP Top 10 rules) for security reviews; no account needed, requires uv",
+      "url": "https://github.com/semgrep/mcp"
+    },
+    "snyk": {
+      "name": "Snyk",
+      "description": "Code, dependency, IaC and container scans; requires a Snyk account (run snyk auth once)",
+      "url": "https://docs.snyk.io/agent-security/agentic-security-with-snyk-studio/getting-started-with-snyk-studio"
     }
   }
 }

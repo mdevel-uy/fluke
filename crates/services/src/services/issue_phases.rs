@@ -9,13 +9,16 @@
 //! `build_phases` is the pure part (tested below); `load_issue_plan` fetches
 //! the rows.
 
-use db::models::worker::{ROLE_DESIGNER, ROLE_DEVELOPER};
+use db::models::{
+    worker::{self, ROLE_DESIGNER},
+    worker_task,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::services::qa_phases::{self, PlanTemplate};
+use crate::services::qa_phases::{self, Gate, PlanTemplate};
 
 /// Phase templates (#687). `none`: the issue has no `fluke:plan` block and
 /// keeps today's flow (Desarrollo → Review → Merge).
@@ -34,9 +37,10 @@ pub struct IssuePhaseStep {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct IssuePhase {
-    /// `origin | design | tdd | dev | test | review | merge`.
+    /// `origin | design | arch | tdd | dev | docs | test | quality |
+    /// security | review | merge`.
     pub kind: String,
-    /// 1-based round for `dev` and `review`; 1 for the rest.
+    /// 1-based round for `dev`, `review` and the gates; 1 for the rest.
     #[ts(type = "number")]
     pub round: i64,
     /// `pending | active | done | changes | stuck`.
@@ -250,13 +254,15 @@ pub async fn list_blockers(
     max_rounds: i64,
     stuck_minutes: i64,
 ) -> Result<Vec<IssueBlockerEntry>, sqlx::Error> {
-    let candidates: Vec<i64> = sqlx::query_scalar(
+    // Gate tasks carry the PR number, not the issue's.
+    let candidates: Vec<i64> = sqlx::query_scalar(&format!(
         "SELECT DISTINCT t.issue_number
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
           WHERE t.repo_id = ?1 AND t.issue_number IS NOT NULL
-            AND w.role <> 'reviewer' AND (t.kind IS NULL OR t.kind <> 'qa_test')
+            AND w.role <> 'reviewer' AND (t.kind IS NULL OR t.kind NOT IN ({}))
             AND t.status IN ('in_progress', 'waiting_user', 'failed', 'in_review', 'approved')",
-    )
+        worker_task::PR_GATE_KINDS_SQL
+    ))
     .bind(repo_id)
     .fetch_all(pool)
     .await?;
@@ -400,7 +406,7 @@ pub fn build_phases(
 
     let dev_tasks: Vec<&TaskRow> = tasks
         .iter()
-        .filter(|t| t.worker_role == ROLE_DEVELOPER)
+        .filter(|t| worker::is_implementer(&t.worker_role))
         .collect();
     let first_dev = dev_tasks
         .iter()
@@ -493,32 +499,49 @@ pub fn build_phases(
     phases
 }
 
-/// Insert the QA phases (#687): tests first right before development, and
-/// every testing run before the review that followed it. When the plan asks
-/// for testing and the next review is still pending, a pending testing phase
-/// goes in front of it.
+/// Insert the phases of the plan (#687): architecture and tests first right
+/// before development, and every gate run (docs, testing, quality, security)
+/// before the review that followed it. When the next review is still
+/// pending, the gates the plan asks for that are not in front of it yet go
+/// there, pending.
 pub fn add_qa_phases(
     mut phases: Vec<IssuePhase>,
     template: Option<PlanTemplate>,
+    arch: Option<&TaskRow>,
     tdd: Option<&TaskRow>,
-    tests: &[TaskRow],
+    gates: &[TaskRow],
 ) -> Vec<IssuePhase> {
-    let tdd_phase = match tdd {
-        Some(t) => Some(phase_from_task("tdd", 1, t)),
-        None if template.is_some_and(|t| t.tdd) => Some(pending("tdd", 1)),
-        None => None,
-    };
-    if let Some(p) = tdd_phase {
+    for (kind, task, wanted) in [
+        ("arch", arch, template.is_some_and(|t| t.architect)),
+        ("tdd", tdd, template.is_some_and(|t| t.tdd)),
+    ] {
+        let phase = match task {
+            Some(t) => phase_from_task(kind, 1, t),
+            None if wanted => pending(kind, 1),
+            None => continue,
+        };
         let at = phases.iter().position(|q| q.kind == "dev").unwrap_or(1);
-        phases.insert(at, p);
+        phases.insert(at, phase);
     }
 
-    for (i, t) in tests.iter().enumerate() {
-        let mut p = phase_from_task("test", i as i64 + 1, t);
-        if t.status == "done" {
+    for t in gates {
+        let Some(gate) = Gate::from_kind(t.kind.as_deref()) else {
+            continue;
+        };
+        let kind = gate.phase_kind();
+        let round = phases.iter().filter(|q| q.kind == kind).count() as i64 + 1;
+        let mut p = phase_from_task(kind, round, t);
+        if t.status == "done" && gate.verdict_path().is_some() {
+            let same: Vec<&TaskRow> = gates.iter().filter(|g| g.kind == t.kind).collect();
+            let failures = same
+                .iter()
+                .filter(|g| g.qa_verdict.as_deref() == Some(qa_phases::VERDICT_FAIL))
+                .count() as i64;
+            let capped = failures >= qa_phases::MAX_GATE_FAILURES
+                && same.last().is_some_and(|g| g.id == t.id);
             p.state = match t.qa_verdict.as_deref() {
                 Some(qa_phases::VERDICT_PASS) => "done",
-                Some(qa_phases::VERDICT_FAIL) => "changes",
+                Some(qa_phases::VERDICT_FAIL) if !capped => "changes",
                 _ => "stuck",
             }
             .to_string();
@@ -540,13 +563,29 @@ pub fn add_qa_phases(
         phases.insert(at, p);
     }
 
-    if template.is_some_and(|t| t.testing)
-        && let Some(at) = phases
+    if let Some(template) = template
+        && let Some(mut at) = phases
             .iter()
             .position(|q| q.kind == "review" && q.state == "pending")
-        && (at == 0 || phases[at - 1].kind != "test")
     {
-        phases.insert(at, pending("test", tests.len() as i64 + 1));
+        let is_gate = |kind: &str| Gate::ORDER.iter().any(|g| g.phase_kind() == kind);
+        let start = phases[..at]
+            .iter()
+            .rposition(|q| !is_gate(&q.kind))
+            .map_or(0, |i| i + 1);
+        let ahead: Vec<String> = phases[start..at].iter().map(|q| q.kind.clone()).collect();
+        for gate in Gate::ORDER.into_iter().filter(|g| g.enabled(&template)) {
+            let kind = gate.phase_kind();
+            // Docs runs once per PR.
+            let docs_ran =
+                gate == Gate::Docs && gates.iter().any(|t| t.kind.as_deref() == Some(gate.kind()));
+            if docs_ran || ahead.iter().any(|k| k == kind) {
+                continue;
+            }
+            let round = phases.iter().filter(|q| q.kind == kind).count() as i64 + 1;
+            phases.insert(at, pending(kind, round));
+            at += 1;
+        }
     }
     phases
 }
@@ -632,17 +671,19 @@ pub async fn load_issue_plan(
     let mut phases = build_phases(&tasks, &rounds, &reviewers, pr.as_ref(), issue_closed);
 
     let template = qa_phases::plan_template(issue_body);
-    let tdd = tasks
-        .iter()
-        .rev()
-        .find(|t| t.kind.as_deref() == Some(db::models::worker_task::KIND_QA_TDD));
-    let qa_tests: Vec<TaskRow> = match &pr {
+    let latest_of = |kind: &str| tasks.iter().rev().find(|t| t.kind.as_deref() == Some(kind));
+    let arch = latest_of(worker_task::KIND_ARCH);
+    let tdd = latest_of(worker_task::KIND_QA_TDD);
+    // Gate tasks carry the PR number.
+    let gate_tasks: Vec<TaskRow> = match &pr {
         Some(p) => {
             sqlx::query_as(&format!(
                 "SELECT {TASK_COLUMNS}
                    FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
-                  WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND t.kind = 'qa_test'
-                  ORDER BY t.created_at ASC"
+                  WHERE t.repo_id = ?1 AND t.issue_number = ?2
+                    AND t.kind IN ({})
+                  ORDER BY t.created_at ASC",
+                worker_task::PR_GATE_KINDS_SQL
             ))
             .bind(repo_id)
             .bind(p.number)
@@ -651,7 +692,7 @@ pub async fn load_issue_plan(
         }
         None => Vec::new(),
     };
-    phases = add_qa_phases(phases, template, tdd, &qa_tests);
+    phases = add_qa_phases(phases, template, arch, tdd, &gate_tasks);
 
     // The developer's own plan (plan MCP) for each dev phase. A follow-up fix
     // shares the original workspace, so only the latest dev phase of a
@@ -683,7 +724,7 @@ pub async fn load_issue_plan(
             Some(ws) => running_since(pool, ws, stuck_minutes).await?,
             None => None,
         };
-        let all: Vec<&TaskRow> = tasks.iter().chain(&reviewers).chain(&qa_tests).collect();
+        let all: Vec<&TaskRow> = tasks.iter().chain(&reviewers).chain(&gate_tasks).collect();
         pick_blocker(
             &mut phases,
             &all,
@@ -711,6 +752,8 @@ pub async fn load_issue_plan(
 
 #[cfg(test)]
 mod tests {
+    use db::models::worker::ROLE_DEVELOPER;
+
     use super::*;
 
     fn task(role: &str, kind: Option<&str>, status: &str) -> TaskRow {
@@ -870,8 +913,9 @@ mod tests {
         let template = Some(PlanTemplate {
             tdd: true,
             testing: true,
+            ..Default::default()
         });
-        let phases = add_qa_phases(base, template, Some(&tdd), &[test]);
+        let phases = add_qa_phases(base, template, None, Some(&tdd), &[test]);
         assert_eq!(
             kinds(&phases),
             vec![
@@ -892,9 +936,10 @@ mod tests {
         let phases = add_qa_phases(
             base,
             Some(PlanTemplate {
-                tdd: false,
                 testing: true,
+                ..Default::default()
             }),
+            None,
             None,
             &[],
         );
@@ -905,6 +950,73 @@ mod tests {
                 s("review", 1, "pending"),
                 s("merge", 1, "pending")
             ]
+        );
+    }
+
+    #[test]
+    fn specialist_phases_go_in_plan_order() {
+        // DevOps implements: its task is the dev phase.
+        let dev = task("devops", None, "in_progress");
+        let base = build_phases(&[dev], &[], &[], None, false);
+        let template = qa_phases::plan_template(Some(
+            "<!-- fluke:plan {\"template\":\"tdd\",\"architect\":true,\
+             \"implementer\":\"devops\",\"reviews\":[\"quality\",\"security\"]} -->",
+        ));
+        let phases = add_qa_phases(base, template, None, None, &[]);
+        assert_eq!(
+            kinds(&phases),
+            vec![
+                s("origin", 1, "done"),
+                s("arch", 1, "pending"),
+                s("tdd", 1, "pending"),
+                s("dev", 1, "active"),
+                s("docs", 1, "pending"),
+                s("test", 1, "pending"),
+                s("quality", 1, "pending"),
+                s("security", 1, "pending"),
+                s("review", 1, "pending"),
+                s("merge", 1, "pending"),
+            ]
+        );
+    }
+
+    #[test]
+    fn docs_runs_once_and_a_capped_gate_is_stuck() {
+        let dev = task(ROLE_DEVELOPER, None, "in_review");
+        let base = build_phases(&[dev], &[], &[], None, false);
+        let template = Some(PlanTemplate {
+            testing: true,
+            docs: true,
+            quality: true,
+            ..Default::default()
+        });
+        let mut docs = task("docs", Some("docs"), "done");
+        docs.created_at = "2026-10-01 10:10:00".into();
+        let mut gates = vec![docs];
+        for minute in ["20", "30", "40"] {
+            let mut test = task("qa", Some("qa_test"), "done");
+            test.created_at = format!("2026-10-01 10:{minute}:00");
+            test.qa_verdict = Some("pass".into());
+            let mut quality = task("quality", Some("quality"), "done");
+            quality.created_at = format!("2026-10-01 10:{minute}:30");
+            quality.qa_verdict = Some("fail".into());
+            gates.push(test);
+            gates.push(quality);
+        }
+        let phases = add_qa_phases(base, template, None, None, &gates);
+        let gate_states: Vec<_> = kinds(&phases)
+            .into_iter()
+            .filter(|(k, _, _)| k == "docs" || k == "quality")
+            .collect();
+        assert_eq!(
+            gate_states,
+            vec![
+                s("docs", 1, "done"),
+                s("quality", 1, "changes"),
+                s("quality", 2, "changes"),
+                s("quality", 3, "stuck"),
+            ],
+            "Docs is not asked for again and the third failure stops the loop"
         );
     }
 

@@ -10,6 +10,20 @@ pub const ROLE_REVIEWER: &str = "reviewer";
 pub const ROLE_DESIGNER: &str = "designer";
 /// QA profile (fluke v2, #687): writes tests first and validates PRs.
 pub const ROLE_QA: &str = "qa";
+/// Specialist profiles. DevOps implements like a developer (opens the PR);
+/// the Analyst picks it per issue in the plan block. The Architect writes an
+/// ADR before development; Docs, Quality and Security are gates before the
+/// review.
+pub const ROLE_DEVOPS: &str = "devops";
+pub const ROLE_ARCHITECT: &str = "architect";
+pub const ROLE_DOCS: &str = "docs";
+pub const ROLE_QUALITY: &str = "quality";
+pub const ROLE_SECURITY: &str = "security";
+
+/// Roles that implement an issue end to end and open its PR.
+pub fn is_implementer(role: &str) -> bool {
+    role == ROLE_DEVELOPER || role == ROLE_DEVOPS
+}
 /// El Director (en la UI, "Fluke"): uno solo por instalación, lo crea fluke
 /// y nunca toma tareas de la cola.
 pub const ROLE_ORCHESTRATOR: &str = "orchestrator";

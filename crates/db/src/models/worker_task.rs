@@ -57,6 +57,25 @@ pub const KIND_DESIGN_HANDOFF: &str = "design_handoff";
 /// PR before review.
 pub const KIND_QA_TDD: &str = "qa_tdd";
 pub const KIND_QA_TEST: &str = "qa_test";
+/// Architecture phase: the Architect writes an ADR before development and
+/// its branch is the next phase's `start_ref`, like tests first.
+pub const KIND_ARCH: &str = "arch";
+/// Gates before the review: documentation (once per PR), code quality and
+/// security (per PR head, with a verdict like QA's testing).
+pub const KIND_DOCS: &str = "docs";
+pub const KIND_QUALITY: &str = "quality";
+pub const KIND_SECURITY: &str = "security";
+
+/// Kinds whose `issue_number` holds the PR number, not the issue's.
+pub fn is_pr_keyed_kind(kind: Option<&str>) -> bool {
+    matches!(
+        kind,
+        Some(KIND_REVIEW_FIX | KIND_QA_TEST | KIND_DOCS | KIND_QUALITY | KIND_SECURITY)
+    )
+}
+
+/// The gate kinds above as an SQL list, for `kind IN (...)` filters.
+pub const PR_GATE_KINDS_SQL: &str = "'qa_test', 'docs', 'quality', 'security'";
 
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
@@ -1528,36 +1547,60 @@ impl WorkerTask {
         Ok(())
     }
 
-    /// Latest testing task of a PR: (id, status, head it validated, verdict).
-    pub async fn latest_qa_test_for_pr(
+    /// Latest gate task of `kind` (testing, quality, security, docs) for a
+    /// PR: (id, status, head it validated, verdict).
+    pub async fn latest_gate_for_pr(
         pool: &SqlitePool,
         repo_id: Uuid,
         pr_number: i64,
+        kind: &str,
     ) -> Result<Option<(Uuid, String, Option<String>, Option<String>)>, sqlx::Error> {
         sqlx::query_as(
             "SELECT id, status, qa_head_sha, qa_verdict FROM worker_tasks
-              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_test'
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = ?3
               ORDER BY created_at DESC LIMIT 1",
         )
         .bind(repo_id)
         .bind(pr_number)
+        .bind(kind)
         .fetch_optional(pool)
         .await
     }
 
-    /// Latest tests-first task of an issue: (id, status, pushed branch).
-    pub async fn latest_qa_tdd_for_issue(
+    /// How many gate tasks of `kind` failed a PR.
+    pub async fn count_failed_gates_for_pr(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        pr_number: i64,
+        kind: &str,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT COUNT(*) FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = ?3 AND qa_verdict = 'fail'",
+        )
+        .bind(repo_id)
+        .bind(pr_number)
+        .bind(kind)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// Latest pre-development task of `kind` (tests first, architecture) of
+    /// an issue: (id, status, pushed branch).
+    pub async fn latest_pre_dev_for_issue(
         pool: &SqlitePool,
         repo_id: Uuid,
         issue_number: i64,
+        kind: &str,
     ) -> Result<Option<(Uuid, String, Option<String>)>, sqlx::Error> {
         sqlx::query_as(
             "SELECT id, status, deliverable_ref FROM worker_tasks
-              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = 'qa_tdd'
+              WHERE repo_id = ?1 AND issue_number = ?2 AND kind = ?3
               ORDER BY created_at DESC LIMIT 1",
         )
         .bind(repo_id)
         .bind(issue_number)
+        .bind(kind)
         .fetch_optional(pool)
         .await
     }
