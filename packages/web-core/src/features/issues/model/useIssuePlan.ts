@@ -8,5 +8,7 @@ export function useIssuePlan(repoId: string | undefined, issueNumber: number) {
     queryFn: () => issuePhasesApi.get(repoId!, issueNumber),
     enabled: !!repoId && Number.isInteger(issueNumber),
     refetchInterval: 15_000,
+    // Live view: refetch on mount instead of showing the cached snapshot.
+    staleTime: 0,
   });
 }
