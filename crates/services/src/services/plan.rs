@@ -159,6 +159,31 @@ pub fn tool_definitions() -> Value {
                 },
                 "required": ["question", "options", "recommended", "why"]
             }
+        },
+        {
+            "name": "ask_fluke",
+            "description": "Ask Fluke, the orchestrator, instead of the user: it knows every mission and brief, the other issues and workers, past decisions and the user's preferences. Use it for any doubt you cannot settle from the code or the task: Fluke answers itself, hands the work to another worker, or asks the user when it is a product, scope or design decision. Same shape as ask_user: one question, short options (key + text), the one you recommend and why. The task waits: after calling it, end your turn; the answer arrives as your next message.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "question": { "type": "string" },
+                    "options": {
+                        "type": "array",
+                        "maxItems": MAX_OPTIONS,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": { "type": "string" },
+                                "text": { "type": "string" }
+                            },
+                            "required": ["key", "text"]
+                        }
+                    },
+                    "recommended": { "type": "string", "description": "key of the option you recommend" },
+                    "why": { "type": "string", "description": "why you recommend it" }
+                },
+                "required": ["question", "options", "recommended", "why"]
+            }
         }
     ])
 }
@@ -178,6 +203,10 @@ struct AskUserQuestion {
     options: Vec<AskOption>,
     recommended: String,
     why: String,
+    /// `fluke` when the worker asked Fluke (`ask_fluke`, J6.2) instead of
+    /// the user: Fluke decides whether to answer, hand it off or escalate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    to: Option<String>,
 }
 
 fn parse_question(args: &Value) -> Result<AskUserQuestion, String> {
@@ -333,8 +362,11 @@ pub async fn call_tool(
                 }
             }
         }
-        "ask_user" => {
-            let q = parse_question(args)?;
+        "ask_user" | "ask_fluke" => {
+            let mut q = parse_question(args)?;
+            if name == "ask_fluke" {
+                q.to = Some("fluke".into());
+            }
             let task = WorkerTask::find_by_workspace(pool, workspace_id)
                 .await
                 .map_err(db_err)?
@@ -362,11 +394,14 @@ pub async fn call_tool(
                     task.status
                 ));
             }
-            return Ok(
+            return Ok(if name == "ask_fluke" {
+                "Question sent to Fluke. End your turn now without further work; the answer \
+                 (from Fluke or from the user) will arrive as your next message."
+            } else {
                 "Question shown to the user. End your turn now without further work; the \
                  answer will arrive as your next message."
-                    .into(),
-            );
+            }
+            .into());
         }
         other => return Err(format!("unknown tool {other}")),
     };
@@ -1528,6 +1563,53 @@ mod tests {
         PlanStepRevision::ack_for_step(&pool, ws, 1).await.unwrap();
         let revs = PlanStepRevision::list(&pool, ws).await.unwrap();
         assert_eq!(revs[0].status, plan::REV_ACKED);
+    }
+
+    /// ask_fluke (J6.2): misma espera que ask_user, con la pregunta marcada
+    /// para Fluke, que decide si responde, despacha o escala.
+    #[tokio::test]
+    async fn ask_fluke_parks_the_task_with_the_question_for_fluke() {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let store = MsgStore::new();
+        let ws = Uuid::new_v4();
+        let task_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, status, workspace_id)
+             VALUES (?1, ?2, ?3, 0, 't', 'p', 'in_progress', ?4)",
+        )
+        .bind(task_id)
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+        let q = json!({
+            "question": "¿El endpoint nuevo va en /api/v2?",
+            "options": [{ "key": "v1", "text": "Seguir en /api" }, { "key": "v2", "text": "Abrir /api/v2" }],
+            "recommended": "v1",
+            "why": "no hay versión 2 todavía"
+        });
+        let out = call_tool(&pool, &store, ws, "ask_fluke", &q).await.unwrap();
+        assert!(out.contains("sent to Fluke"), "{out}");
+        let task = WorkerTask::find_by_id(&pool, task_id).await.unwrap().unwrap();
+        assert_eq!(task.status, worker_task::STATUS_WAITING_USER);
+        let pending = super::pending_question(&pool, ws).await.unwrap().unwrap();
+        assert_eq!(pending["to"], "fluke");
+
+        // ask_user no lleva la marca.
+        call_tool(&pool, &store, ws, "ask_user", &q).await.unwrap();
+        let pending = super::pending_question(&pool, ws).await.unwrap().unwrap();
+        assert!(pending.get("to").is_none());
     }
 
     /// ask_user: la tarea pasa a waiting_user con la pregunta, una segunda

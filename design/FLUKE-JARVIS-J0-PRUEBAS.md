@@ -163,3 +163,13 @@ La memoria va dentro de la app (SQLite), sin servicios ni keys extra.
 | Provocar un evento que valga aviso (una tarea que falla, un worker que pregunta) | Fluke avisa en la guardia en unos 3 a 5 segundos (antes hasta 1 minuto). |
 | Varios eventos seguidos | Llegan juntos en un solo lote, no un mensaje por evento. |
 | Reiniciar el server con /fluke abierto | La UI se reconecta sola en 2 segundos y se pone al día. |
+
+## 13. Fluke como nexo entre workers (autonomía B)
+
+| Paso | Resultado esperado |
+|---|---|
+| Un worker con una duda técnica chica (naming, dónde va algo, cómo encaja con otro issue) | Usa `ask_fluke`; en segundos Fluke le contesta solo y te avisa en una línea en la guardia: qué respondió y por qué. El worker sigue. |
+| Un worker que necesita algo de otro rol (un asset de diseño) | Fluke crea la tarea para el Designer, le dice al worker qué hacer mientras tanto y te avisa. |
+| Un worker con una decisión de producto o alcance | Fluke te la pregunta con su recomendación primero; con tu respuesta, se la pasa al worker. |
+| Un worker que usa `ask_user` (decisión que sabe que es tuya) | Fluke te la trae tal cual, sin decidir por vos. |
+| En ningún caso | Fluke se queda callado ante una pregunta de un worker. |
