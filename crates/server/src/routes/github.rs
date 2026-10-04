@@ -27,6 +27,9 @@
 //!   repos from every org they belong to.
 //! - `POST /api/github/clone` — clones `<owner>/<repo>` into the local
 //!   repos directory, ready to be used as a project path.
+//! - `GET  /api/github/owners` — accounts the session can create repos
+//!   under: the user first, then their organizations. Creating the repo
+//!   for a local one is `POST /api/repos/{repo_id}/github` (routes/repo.rs).
 
 use std::{
     collections::HashSet,
@@ -46,7 +49,13 @@ use axum::{
 use chrono::{DateTime, Utc};
 use deployment::Deployment;
 use serde::{Deserialize, Serialize};
-use services::services::config::save_config_to_file;
+use services::services::{
+    config::save_config_to_file,
+    repo::{
+        GithubCreateError, GithubRepoCreator, GithubRepoInfo, RepoError as RepoServiceError,
+        RepoVisibility,
+    },
+};
 use tokio::{io::AsyncWriteExt, process::Command, sync::Mutex, task};
 use ts_rs::TS;
 use utils::{
@@ -72,6 +81,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/github/cli/install", post(install_gh_cli))
         .route("/github/repos", get(list_github_repos))
         .route("/github/clone", post(clone_github_repo))
+        .route("/github/owners", get(list_github_owners))
 }
 
 // ============================================================================
@@ -1086,7 +1096,7 @@ fn collect_all_repos_blocking(pat: Option<&str>) -> Result<Vec<GitHubRepoSummary
 /// Reads the currently configured PAT (if any) from the app config so it
 /// can be injected as `GH_TOKEN` when calling out to `gh`. Trimmed and
 /// filtered so an empty string is treated the same as "no token".
-async fn configured_pat(deployment: &DeploymentImpl) -> Option<String> {
+pub(crate) async fn configured_pat(deployment: &DeploymentImpl) -> Option<String> {
     deployment
         .config()
         .read()
@@ -1274,6 +1284,265 @@ fn classify_gh_failure(exit_code: Option<i32>, stderr: &str) -> ApiError {
 }
 
 // ============================================================================
+// Repository creation (owners + `gh api` backed creator)
+// ============================================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(rename_all = "lowercase")]
+pub enum GithubOwnerKind {
+    User,
+    Organization,
+}
+
+/// An account the current session can create repositories under.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct GithubOwner {
+    pub login: String,
+    pub kind: GithubOwnerKind,
+}
+
+async fn list_github_owners(
+    State(deployment): State<DeploymentImpl>,
+) -> Result<ResponseJson<ApiResponse<Vec<GithubOwner>>>, ApiError> {
+    let creator = GhRepoCreator::new(configured_pat(&deployment).await);
+    let owners = task::spawn_blocking(move || creator.owners())
+        .await
+        .map_err(|e| ApiError::BadGateway(format!("gh task join failed: {e}")))?
+        .map_err(gh_create_error_to_api)?;
+    Ok(ResponseJson(ApiResponse::success(owners)))
+}
+
+fn gh_create_error_to_api(err: GithubCreateError) -> ApiError {
+    ApiError::from(match err {
+        GithubCreateError::NoSession => RepoServiceError::GithubSessionRequired,
+        GithubCreateError::NameTaken => {
+            RepoServiceError::GithubRequestFailed("name already exists".to_string())
+        }
+        GithubCreateError::PermissionDenied(msg) | GithubCreateError::Other(msg) => {
+            RepoServiceError::GithubRequestFailed(msg)
+        }
+    })
+}
+
+/// The user first, then their organizations; blank lines and duplicates
+/// (logins are case-insensitive) dropped.
+fn parse_github_owners(user_login: &str, orgs_raw: &str) -> Vec<GithubOwner> {
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut owners = Vec::new();
+    let user = user_login.trim();
+    if !user.is_empty() && seen.insert(user.to_ascii_lowercase()) {
+        owners.push(GithubOwner {
+            login: user.to_string(),
+            kind: GithubOwnerKind::User,
+        });
+    }
+    for org in orgs_raw.lines().map(str::trim).filter(|s| !s.is_empty()) {
+        if seen.insert(org.to_ascii_lowercase()) {
+            owners.push(GithubOwner {
+                login: org.to_string(),
+                kind: GithubOwnerKind::Organization,
+            });
+        }
+    }
+    owners
+}
+
+/// Classifies a failed `gh api` call made while creating a repository.
+fn classify_gh_repo_create_failure(exit_code: Option<i32>, stderr: &str) -> GithubCreateError {
+    let lower = stderr.to_ascii_lowercase();
+
+    if exit_code == Some(4)
+        || lower.contains("gh auth login")
+        || lower.contains("must authenticate")
+        || lower.contains("authentication failed")
+        || lower.contains("bad credentials")
+        || lower.contains("http 401")
+    {
+        return GithubCreateError::NoSession;
+    }
+
+    if lower.contains("name already exists") {
+        return GithubCreateError::NameTaken;
+    }
+
+    if lower.contains("does not have the correct permissions")
+        || lower.contains("resource not accessible")
+        || lower.contains("http 403")
+        || lower.contains("forbidden")
+    {
+        return GithubCreateError::PermissionDenied(stderr.to_string());
+    }
+
+    GithubCreateError::Other(if stderr.is_empty() {
+        format!("gh exited with code {exit_code:?}")
+    } else {
+        stderr.to_string()
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct GhApiRepoOwner {
+    login: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GhApiRepo {
+    name: String,
+    html_url: String,
+    clone_url: String,
+    owner: GhApiRepoOwner,
+}
+
+/// [`GithubRepoCreator`] backed by `gh api`, authenticated like the rest of
+/// this module (the configured PAT as `GH_TOKEN`, else `gh`'s own login).
+pub struct GhRepoCreator {
+    pat: Option<String>,
+    user_login: OnceLock<String>,
+}
+
+impl GhRepoCreator {
+    pub fn new(pat: Option<String>) -> Self {
+        Self {
+            pat,
+            user_login: OnceLock::new(),
+        }
+    }
+
+    fn gh(&self, args: &[&str]) -> Result<String, GithubCreateError> {
+        let gh = resolve_executable_path_blocking("gh").ok_or_else(|| {
+            GithubCreateError::Other(
+                "GitHub CLI (`gh`) not found. Install it from Settings → GitHub and sign in."
+                    .to_string(),
+            )
+        })?;
+        let mut cmd = std::process::Command::new(&gh);
+        if let Some(t) = self.pat.as_deref().filter(|t| !t.trim().is_empty()) {
+            cmd.env("GH_TOKEN", t);
+        }
+        cmd.args(args);
+        let output = cmd
+            .no_window()
+            .output()
+            .map_err(|e| GithubCreateError::Other(format!("Failed to spawn gh: {e}")))?;
+        if output.status.success() {
+            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+        }
+        // `gh api` prints a short error on stderr and the response body
+        // (with GitHub's detailed `errors[].message`) on stdout.
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let detail = if stdout.is_empty() {
+            stderr
+        } else {
+            format!("{stderr}\n{stdout}")
+        };
+        Err(classify_gh_repo_create_failure(
+            output.status.code(),
+            &detail,
+        ))
+    }
+
+    fn user_login(&self) -> Result<String, GithubCreateError> {
+        if let Some(login) = self.user_login.get() {
+            return Ok(login.clone());
+        }
+        let login = self.gh(&["api", "user", "--jq", ".login"])?.trim().to_string();
+        if login.is_empty() {
+            return Err(GithubCreateError::NoSession);
+        }
+        Ok(self.user_login.get_or_init(|| login).clone())
+    }
+
+    pub fn owners(&self) -> Result<Vec<GithubOwner>, GithubCreateError> {
+        let login = self.user_login()?;
+        let orgs = self.gh(&["api", "user/orgs", "--paginate", "--jq", ".[].login"])?;
+        Ok(parse_github_owners(&login, &orgs))
+    }
+
+    fn parse_repo(raw: &str) -> Result<GhApiRepo, GithubCreateError> {
+        serde_json::from_str(raw.trim()).map_err(|e| {
+            GithubCreateError::Other(format!("Failed to parse GitHub repository response: {e}"))
+        })
+    }
+}
+
+impl GithubRepoCreator for GhRepoCreator {
+    fn list_owners(&self) -> Result<Vec<String>, GithubCreateError> {
+        Ok(self.owners()?.into_iter().map(|o| o.login).collect())
+    }
+
+    fn create_repo(
+        &self,
+        owner: &str,
+        name: &str,
+        visibility: RepoVisibility,
+    ) -> Result<GithubRepoInfo, GithubCreateError> {
+        let endpoint = if owner.eq_ignore_ascii_case(&self.user_login()?) {
+            "user/repos".to_string()
+        } else {
+            format!("orgs/{owner}/repos")
+        };
+        let name_field = format!("name={name}");
+        let private_field = format!(
+            "private={}",
+            matches!(visibility, RepoVisibility::Private)
+        );
+        let raw = self.gh(&[
+            "api",
+            "-X",
+            "POST",
+            &endpoint,
+            "-f",
+            &name_field,
+            "-F",
+            &private_field,
+        ])?;
+        let repo = Self::parse_repo(&raw)?;
+        Ok(GithubRepoInfo {
+            owner: repo.owner.login,
+            name: repo.name,
+            html_url: repo.html_url,
+            clone_url: repo.clone_url,
+            is_empty: true,
+        })
+    }
+
+    fn find_repo(
+        &self,
+        owner: &str,
+        name: &str,
+    ) -> Result<Option<GithubRepoInfo>, GithubCreateError> {
+        let path = format!("repos/{owner}/{name}");
+        let raw = match self.gh(&["api", &path]) {
+            Ok(raw) => raw,
+            Err(GithubCreateError::Other(msg))
+                if msg.contains("404") || msg.to_ascii_lowercase().contains("not found") =>
+            {
+                return Ok(None);
+            }
+            Err(e) => return Err(e),
+        };
+        let repo = Self::parse_repo(&raw)?;
+        // A repository without branches has never been pushed to.
+        let branches_path = format!("repos/{owner}/{name}/branches");
+        let is_empty = match self.gh(&["api", &branches_path, "--jq", "length"]) {
+            Ok(count) => count.trim() == "0",
+            // GitHub answers 409 "Git Repository is empty" for some endpoints.
+            Err(GithubCreateError::Other(msg)) if msg.contains("409") => true,
+            Err(e) => return Err(e),
+        };
+        Ok(Some(GithubRepoInfo {
+            owner: repo.owner.login,
+            name: repo.name,
+            html_url: repo.html_url,
+            clone_url: repo.clone_url,
+            is_empty,
+        }))
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1403,5 +1672,125 @@ github.com
             "fatal: destination path 'foo' already exists and is not an empty directory.",
         );
         assert!(matches!(err, ApiError::Conflict(_)));
+    }
+}
+
+// ============================================================================
+// Tests: crear repo en GitHub (issue #774)
+//
+// Contrato esperado en este módulo:
+// - `classify_gh_repo_create_failure(exit_code, stderr) -> GithubCreateError`
+//   (de `services::services::repo`), para `gh repo create` / `gh api`.
+// - `parse_github_owners(user_login, orgs_raw) -> Vec<GithubOwner>` con
+//   `GithubOwner { login: String, kind: GithubOwnerKind }`,
+//   `GithubOwnerKind::{User, Organization}` serializado en minúsculas
+//   (`"user"` / `"organization"`): primero el usuario, luego las orgs.
+// ============================================================================
+
+#[cfg(test)]
+mod create_repo_tests {
+    use services::services::repo::GithubCreateError;
+
+    use super::*;
+
+    #[test]
+    fn create_failure_without_session_is_no_session() {
+        let by_exit = classify_gh_repo_create_failure(Some(4), "");
+        assert!(matches!(by_exit, GithubCreateError::NoSession), "{by_exit:?}");
+
+        let by_text = classify_gh_repo_create_failure(
+            Some(1),
+            "To get started with GitHub CLI, please run:  gh auth login",
+        );
+        assert!(matches!(by_text, GithubCreateError::NoSession), "{by_text:?}");
+
+        let bad_token = classify_gh_repo_create_failure(Some(1), "HTTP 401: Bad credentials");
+        assert!(matches!(bad_token, GithubCreateError::NoSession), "{bad_token:?}");
+    }
+
+    #[test]
+    fn create_failure_name_already_exists_is_name_taken() {
+        let err = classify_gh_repo_create_failure(
+            Some(1),
+            "GraphQL: Name already exists on this account (createRepository)",
+        );
+        assert!(matches!(err, GithubCreateError::NameTaken), "{err:?}");
+
+        let rest = classify_gh_repo_create_failure(
+            Some(1),
+            "HTTP 422: Repository creation failed.: name already exists on this account",
+        );
+        assert!(matches!(rest, GithubCreateError::NameTaken), "{rest:?}");
+    }
+
+    #[test]
+    fn create_failure_org_permissions_is_permission_denied() {
+        let graphql = classify_gh_repo_create_failure(
+            Some(1),
+            "GraphQL: acme does not have the correct permissions to execute `CreateRepository`",
+        );
+        assert!(
+            matches!(graphql, GithubCreateError::PermissionDenied(_)),
+            "{graphql:?}"
+        );
+
+        let rest = classify_gh_repo_create_failure(
+            Some(1),
+            "HTTP 403: Resource not accessible by personal access token",
+        );
+        assert!(
+            matches!(rest, GithubCreateError::PermissionDenied(_)),
+            "{rest:?}"
+        );
+    }
+
+    #[test]
+    fn create_failure_unknown_keeps_stderr_for_the_user() {
+        let err = classify_gh_repo_create_failure(Some(1), "something unexpected exploded");
+        match err {
+            GithubCreateError::Other(msg) => {
+                assert!(msg.contains("something unexpected exploded"))
+            }
+            other => panic!("se esperaba Other, llegó {other:?}"),
+        }
+    }
+
+    #[test]
+    fn owners_list_has_user_first_then_organizations() {
+        let owners = parse_github_owners("octocat", "acme\nglobex\n");
+
+        let logins: Vec<&str> = owners.iter().map(|o| o.login.as_str()).collect();
+        assert_eq!(logins, vec!["octocat", "acme", "globex"]);
+        assert!(matches!(owners[0].kind, GithubOwnerKind::User));
+        assert!(matches!(owners[1].kind, GithubOwnerKind::Organization));
+        assert!(matches!(owners[2].kind, GithubOwnerKind::Organization));
+    }
+
+    #[test]
+    fn owners_list_ignores_blank_lines_and_duplicates() {
+        let owners = parse_github_owners("octocat", "\n acme \n\nacme\noctocat\n");
+
+        let logins: Vec<&str> = owners.iter().map(|o| o.login.as_str()).collect();
+        assert_eq!(logins, vec!["octocat", "acme"]);
+    }
+
+    #[test]
+    fn owners_list_without_orgs_is_just_the_user() {
+        let owners = parse_github_owners("octocat", "");
+
+        assert_eq!(owners.len(), 1);
+        assert_eq!(owners[0].login, "octocat");
+    }
+
+    #[test]
+    fn owner_kind_serializes_lowercase_for_the_ui() {
+        let json = serde_json::to_value(GithubOwner {
+            login: "acme".into(),
+            kind: GithubOwnerKind::Organization,
+        })
+        .unwrap();
+
+        assert_eq!(json["login"], "acme");
+        assert_eq!(json["kind"], "organization");
     }
 }

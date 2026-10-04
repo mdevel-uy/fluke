@@ -23,6 +23,7 @@ use git_host::{GitHostError, GitHostProvider, GitHostService, ProviderKind, Pull
 use serde::{Deserialize, Serialize};
 use services::services::{
     file_search::SearchQuery,
+    repo::{PublishToGithubRequest, RepoVisibility},
     repo_issues::{
         RepoIssuesError, RepoIssuesService, GithubMilestone, StoredLabel, derive_priority,
         parse_stored_labels,
@@ -32,6 +33,7 @@ use ts_rs::TS;
 use utils::response::ApiResponse;
 use uuid::Uuid;
 
+use super::github::GhRepoCreator;
 use crate::{DeploymentImpl, error::ApiError};
 
 #[derive(serde::Deserialize)]
@@ -77,6 +79,69 @@ pub async fn register_repo(
         .await?;
 
     Ok(ResponseJson(ApiResponse::success(repo)))
+}
+
+/// Body for `POST /api/repos/{repo_id}/github`.
+#[derive(Debug, Deserialize, TS)]
+pub struct PublishRepoToGithubRequest {
+    /// User or organization login (one of `GET /api/github/owners`).
+    pub owner: String,
+    /// Name of the repository to create on GitHub.
+    pub name: String,
+    pub visibility: RepoVisibility,
+}
+
+/// Response of `POST /api/repos/{repo_id}/github`.
+#[derive(Debug, Serialize, TS)]
+pub struct PublishRepoToGithubResponse {
+    /// Web URL of the created repository.
+    pub url: String,
+    pub owner: String,
+    pub name: String,
+    /// Local branch pushed as the initial content.
+    pub branch: String,
+}
+
+/// Create the repository on GitHub for a registered local repo, add it as
+/// `origin` and push the current branch. Works on any registered repo
+/// without `origin`, not only right after init/register. A retry after a
+/// partial failure reuses the (still empty) GitHub repo.
+pub async fn publish_repo_to_github(
+    State(deployment): State<DeploymentImpl>,
+    Path(repo_id): Path<Uuid>,
+    ResponseJson(payload): ResponseJson<PublishRepoToGithubRequest>,
+) -> Result<(StatusCode, ResponseJson<ApiResponse<PublishRepoToGithubResponse>>), ApiError> {
+    let repo = deployment
+        .repo()
+        .get_by_id(&deployment.db().pool, repo_id)
+        .await?;
+    let pat = super::github::configured_pat(&deployment).await;
+    let push_token = deployment.config().read().await.github.token();
+    let git = deployment.git().clone();
+    let service = deployment.repo().clone();
+    let request = PublishToGithubRequest {
+        owner: payload.owner,
+        name: payload.name,
+        visibility: payload.visibility,
+        token: push_token,
+    };
+
+    let published = tokio::task::spawn_blocking(move || {
+        let creator = GhRepoCreator::new(pat);
+        service.publish_to_github(&git, &creator, &repo.path, &request)
+    })
+    .await
+    .map_err(|e| ApiError::BadGateway(format!("publish task join failed: {e}")))??;
+
+    Ok((
+        StatusCode::CREATED,
+        ResponseJson(ApiResponse::success(PublishRepoToGithubResponse {
+            url: published.html_url,
+            owner: published.owner,
+            name: published.name,
+            branch: published.branch,
+        })),
+    ))
 }
 
 pub async fn init_repo(
@@ -974,6 +1039,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(get_repo_commit_file_diff),
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
+        .route("/repos/{repo_id}/github", post(publish_repo_to_github))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
         .route(
             "/repos/{repo_id}/pull-requests/{number}/merge",
@@ -1035,4 +1101,148 @@ async fn merge_pull_request(
         .map_err(|e| ApiError::BadRequest(e.to_string()))?
         .map_err(|e| ApiError::BadRequest(format!("gh could not merge PR #{number}: {e}")))?;
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+// ============================================================================
+// Tests: crear repo en GitHub (issue #774)
+//
+// Contrato esperado en este módulo:
+// - `PublishRepoToGithubRequest { owner, name, visibility }` (Deserialize),
+//   con `visibility` = `"public"` | `"private"` (`RepoVisibility` del servicio).
+// - `PublishRepoToGithubResponse { url, owner, name, branch }` (Serialize).
+// - Cada variante nueva de `services::repo::RepoError` se mapea a un
+//   `ApiError` con mensaje legible y propio (nunca el genérico
+//   «Unauthorized. Please sign in again.» para la sesión de GitHub).
+// ============================================================================
+
+#[cfg(test)]
+mod publish_to_github_tests {
+    use std::collections::HashSet;
+
+    use services::services::repo::{RepoError as RepoServiceError, RepoVisibility};
+
+    use super::*;
+
+    #[test]
+    fn request_accepts_owner_name_and_visibility() {
+        let req: PublishRepoToGithubRequest =
+            serde_json::from_str(r#"{"owner":"acme","name":"widgets","visibility":"private"}"#)
+                .unwrap();
+
+        assert_eq!(req.owner, "acme");
+        assert_eq!(req.name, "widgets");
+        assert!(matches!(req.visibility, RepoVisibility::Private));
+
+        let public: PublishRepoToGithubRequest =
+            serde_json::from_str(r#"{"owner":"octocat","name":"demo","visibility":"public"}"#)
+                .unwrap();
+        assert!(matches!(public.visibility, RepoVisibility::Public));
+    }
+
+    #[test]
+    fn request_rejects_unknown_visibility_and_missing_fields() {
+        for body in [
+            r#"{"owner":"acme","name":"widgets","visibility":"internal"}"#,
+            r#"{"owner":"acme","visibility":"private"}"#,
+            r#"{"owner":"acme","name":"widgets"}"#,
+            r#"{"name":"widgets","visibility":"private"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<PublishRepoToGithubRequest>(body).is_err(),
+                "debía rechazar: {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn response_carries_the_created_repo_url() {
+        let json = serde_json::to_value(PublishRepoToGithubResponse {
+            url: "https://github.com/acme/widgets".into(),
+            owner: "acme".into(),
+            name: "widgets".into(),
+            branch: "main".into(),
+        })
+        .unwrap();
+
+        assert_eq!(json["url"], "https://github.com/acme/widgets");
+        assert_eq!(json["owner"], "acme");
+        assert_eq!(json["name"], "widgets");
+    }
+
+    #[test]
+    fn missing_github_session_error_is_clear_and_mentions_github() {
+        let msg = ApiError::from(RepoServiceError::GithubSessionRequired).to_string();
+
+        assert!(msg.to_lowercase().contains("github"), "{msg}");
+        assert!(!msg.contains("sign in again"), "{msg}");
+    }
+
+    #[test]
+    fn predictable_failures_map_to_distinguishable_messages() {
+        let errors = vec![
+            RepoServiceError::GithubSessionRequired,
+            RepoServiceError::GithubRepoNameTaken {
+                owner: "acme".into(),
+                name: "widgets".into(),
+            },
+            RepoServiceError::GithubOwnerForbidden {
+                owner: "acme".into(),
+                message: "no permissions".into(),
+            },
+            RepoServiceError::GithubOwnerNotAvailable("not-mine".into()),
+            RepoServiceError::InvalidGithubRepoName("bad name".into()),
+            RepoServiceError::NoCommits,
+            RepoServiceError::OriginAlreadyConfigured {
+                url: "https://github.com/someone/else.git".into(),
+            },
+        ];
+
+        let messages: Vec<String> = errors
+            .into_iter()
+            .map(|e| ApiError::from(e).to_string())
+            .collect();
+        let unique: HashSet<&String> = messages.iter().collect();
+        assert_eq!(
+            unique.len(),
+            messages.len(),
+            "mensajes repetidos: {messages:?}"
+        );
+
+        assert!(messages[1].contains("acme") && messages[1].contains("widgets"));
+        assert!(messages[2].contains("acme"));
+        assert!(messages[3].contains("not-mine"));
+        assert!(messages[6].contains("someone/else"));
+    }
+
+    #[test]
+    fn partial_publish_error_reports_the_created_url_and_local_state() {
+        let msg = ApiError::from(RepoServiceError::GithubPublishIncomplete {
+            html_url: "https://github.com/acme/widgets".into(),
+            message: "push failed; local repo has no origin; retry to finish".into(),
+        })
+        .to_string();
+
+        assert!(msg.contains("https://github.com/acme/widgets"), "{msg}");
+        assert!(msg.contains("no origin"), "{msg}");
+    }
+
+    #[test]
+    fn precondition_failures_are_client_errors_not_server_errors() {
+        for err in [
+            RepoServiceError::NoCommits,
+            RepoServiceError::OriginAlreadyConfigured {
+                url: "https://github.com/x/y.git".into(),
+            },
+            RepoServiceError::InvalidGithubRepoName("a/b".into()),
+        ] {
+            let api = ApiError::from(err);
+            assert!(
+                !matches!(
+                    api,
+                    ApiError::BadGateway(_) | ApiError::Database(_) | ApiError::Io(_)
+                ),
+                "{api:?}"
+            );
+        }
+    }
 }

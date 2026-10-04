@@ -15,6 +15,9 @@ mod validation;
 
 use cli::{ChangeType, StatusDiffEntry, StatusDiffOptions};
 pub use cli::{GitCli, GitCliError, StatusEntry, WorktreeStatus};
+/// Re-exported so dependents (and their tests) can use git2 without adding
+/// it as a direct dependency.
+pub use git2;
 pub use utils::path::ALWAYS_SKIP_DIRS;
 pub use validation::is_valid_branch_prefix;
 
@@ -52,6 +55,10 @@ pub enum GitServiceError {
     WorktreeDirty(String, String),
     #[error("Rebase in progress; resolve or abort it before retrying")]
     RebaseInProgress,
+    #[error("Remote '{0}' already exists")]
+    RemoteAlreadyExists(String),
+    #[error("Repository has no commits yet")]
+    NoCommits,
 }
 
 impl GitServiceError {
@@ -1939,6 +1946,99 @@ impl GitService {
                 "Remote '{remote_name}' for branch '{branch_name}' not found"
             ))
         })
+    }
+
+    /// Add a remote named `name` pointing at `url`. Never overwrites an
+    /// existing remote: fails with [`GitServiceError::RemoteAlreadyExists`].
+    pub fn add_remote(
+        &self,
+        repo_path: &Path,
+        name: &str,
+        url: &str,
+    ) -> Result<(), GitServiceError> {
+        if !Remote::is_valid_name(name) {
+            return Err(GitServiceError::InvalidRepository(format!(
+                "Invalid remote name: {name}"
+            )));
+        }
+        let repo = self.open_repo(repo_path)?;
+        if repo.find_remote(name).is_ok() {
+            return Err(GitServiceError::RemoteAlreadyExists(name.to_string()));
+        }
+        repo.remote(name, url).map_err(|e| {
+            if e.code() == git2::ErrorCode::Exists {
+                GitServiceError::RemoteAlreadyExists(name.to_string())
+            } else {
+                GitServiceError::Git(e)
+            }
+        })?;
+        Ok(())
+    }
+
+    /// Delete the remote `name` (its config and remote-tracking refs).
+    pub fn remove_remote(&self, repo_path: &Path, name: &str) -> Result<(), GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        repo.remote_delete(name)?;
+        Ok(())
+    }
+
+    /// First push of the checked-out branch to `remote_name` (typically a
+    /// remote that was just added for a freshly created GitHub repo).
+    /// Returns the branch name. Without commits it fails with
+    /// [`GitServiceError::NoCommits`] before touching anything; the upstream
+    /// is only configured once the push succeeded. Re-running it after a
+    /// successful push is a no-op, so a retry can complete a pending push.
+    pub fn push_initial(
+        &self,
+        repo_path: &Path,
+        remote_name: &str,
+        token: Option<&str>,
+    ) -> Result<String, GitServiceError> {
+        let repo = self.open_repo(repo_path)?;
+        let head = match repo.head() {
+            Ok(head) => head,
+            Err(e)
+                if matches!(
+                    e.code(),
+                    git2::ErrorCode::UnbornBranch | git2::ErrorCode::NotFound
+                ) =>
+            {
+                return Err(GitServiceError::NoCommits);
+            }
+            Err(e) => return Err(e.into()),
+        };
+        if !head.is_branch() {
+            return Err(GitServiceError::InvalidRepository(
+                "HEAD is detached; check out a branch before publishing".to_string(),
+            ));
+        }
+        let branch = head
+            .shorthand()
+            .ok_or_else(|| {
+                GitServiceError::InvalidRepository("Current branch name is not UTF-8".to_string())
+            })?
+            .to_string();
+
+        let url = {
+            let remote = repo.find_remote(remote_name).map_err(|_| {
+                GitServiceError::InvalidRepository(format!("Remote '{remote_name}' not found"))
+            })?;
+            remote
+                .url()
+                .ok_or_else(|| {
+                    GitServiceError::InvalidRepository(format!(
+                        "Remote '{remote_name}' has no URL"
+                    ))
+                })?
+                .to_string()
+        };
+
+        GitCli::new().push_with_token(repo_path, &url, &branch, &branch, false, token)?;
+
+        if let Err(e) = Self::update_tracking_after_push(&repo, &branch, remote_name, &branch) {
+            tracing::warn!("Pushed '{branch}' but could not update tracking ref/upstream: {e}");
+        }
+        Ok(branch)
     }
 
     pub fn push_to_remote(
