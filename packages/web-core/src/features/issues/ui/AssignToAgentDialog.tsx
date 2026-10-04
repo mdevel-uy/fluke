@@ -40,6 +40,16 @@ export interface AssignToAgentDialogProps {
 
 export type AssignToAgentResult = 'created' | 'canceled';
 
+/** Marker of a design issue (#756), same label the milestone run reads. */
+const DESIGN_LABEL = 'kind:design';
+
+/** Design issues go only to a Designer, never to a developer (#756). */
+function isDesignIssue(issue: RepoIssue): boolean {
+  return issue.labels.some(
+    (l) => l.name.trim().toLowerCase() === DESIGN_LABEL
+  );
+}
+
 const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
   ({ issue, repoId }) => {
     const modal = useModal();
@@ -47,6 +57,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
     const queryClient = useQueryClient();
 
     const prompt = useMemo(() => buildAssignToAgentPrompt(issue), [issue]);
+    const design = isDesignIssue(issue);
     const [workers, setWorkers] = useState<WorkerResponse[]>([]);
     const [loadingWorkers, setLoadingWorkers] = useState(true);
     const [workerLoadError, setWorkerLoadError] = useState(false);
@@ -87,8 +98,11 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
         .list()
         .then((data) => {
           if (cancelled) return;
-          setWorkers(data);
-          if (data.length > 0) setSelectedWorkerId(data[0].id);
+          const usable = design
+            ? data.filter((w) => w.role === 'designer')
+            : data;
+          setWorkers(usable);
+          if (usable.length > 0) setSelectedWorkerId(usable[0].id);
         })
         .catch(() => {
           if (cancelled) return;
@@ -101,7 +115,7 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
       return () => {
         cancelled = true;
       };
-    }, []);
+    }, [design]);
 
     useEffect(() => {
       let cancelled = false;
@@ -237,7 +251,9 @@ const AssignToAgentDialogImpl = create<AssignToAgentDialogProps>(
                   <Alert variant="destructive" className="mt-1">
                     {workerLoadError
                       ? t('issues.assignDialog.workerLoadError')
-                      : t('issues.assignDialog.noWorkers')}
+                      : design
+                        ? t('issues.assignDialog.noDesigners')
+                        : t('issues.assignDialog.noWorkers')}
                   </Alert>
                 ) : (
                   <Select

@@ -7,6 +7,10 @@
 //! are closed (PR merged with "Closes #n") or their latest task is `done`.
 //! Merging is always a human decision: the run only waits for it.
 //!
+//! Design issues (#756) carry the `kind:design` label and go to a profile
+//! with the designer role, never to a developer. Without an active designer
+//! the run waits (`designer:<n>`) instead of falling back.
+//!
 //! `decide` is the pure part (tested below); `advance_run` applies it.
 
 use std::{collections::HashMap, sync::Arc};
@@ -33,6 +37,33 @@ use crate::services::{
 
 pub const PM_DECISION_LABEL: &str = "pm:decision";
 
+/// Marks an issue as a design issue (#756): the Analyst adds it to issues
+/// that come from `design` items of a brief. Issues without it (including
+/// design issues created before the label existed) go to a developer.
+pub const DESIGN_LABEL: &str = "kind:design";
+
+/// Whether `labels` mark the issue as a design issue. Compared trimmed and
+/// case-insensitively, like the execution labels.
+pub fn is_design_issue(labels: &[String]) -> bool {
+    labels
+        .iter()
+        .any(|l| l.trim().eq_ignore_ascii_case(DESIGN_LABEL))
+}
+
+/// Role of the profile an issue is dispatched to.
+pub fn dispatch_role(design: bool) -> &'static str {
+    if design {
+        worker::ROLE_DESIGNER
+    } else {
+        worker::ROLE_DEVELOPER
+    }
+}
+
+/// Why the run waits when a design issue has no designer to go to.
+pub fn no_designer_reason(number: i64) -> String {
+    format!("designer:{number}")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskState {
     None,
@@ -47,6 +78,8 @@ pub struct IssueInfo {
     pub wave: i64,
     pub closed: bool,
     pub decision: bool,
+    /// Carries `kind:design`: dispatched to a designer (#756).
+    pub design: bool,
     pub task: TaskState,
 }
 
@@ -134,13 +167,13 @@ pub fn issue_prompt(number: i64, title: &str, body: Option<&str>) -> String {
     )
 }
 
-/// The developer profile a milestone run hands issues to (#680): profiles
-/// run several tasks at once, so the first active developer is enough.
-async fn pick_developer(pool: &SqlitePool) -> Result<Option<Uuid>, sqlx::Error> {
+/// The profile with `role` a milestone run hands issues to (#680): profiles
+/// run several tasks at once, so the first active one is enough.
+async fn pick_worker(pool: &SqlitePool, role: &str) -> Result<Option<Uuid>, sqlx::Error> {
     Ok(Worker::list_all(pool)
         .await?
         .into_iter()
-        .find(|w| w.role == worker::ROLE_DEVELOPER)
+        .find(|w| w.role == role)
         .map(|w| w.id))
 }
 
@@ -179,6 +212,7 @@ pub async fn load_issues(
             wave,
             closed: issue.state != "open",
             decision: labels.iter().any(|l| l == PM_DECISION_LABEL),
+            design: is_design_issue(&labels),
             task,
         });
         by_number.insert(issue.number, issue);
@@ -214,13 +248,14 @@ pub async fn advance_run(
         Step::Work {
             wave,
             dispatch,
-            waiting,
+            mut waiting,
         } => {
             let mut kicked = Vec::new();
             for number in dispatch {
                 let Some(issue) = by_number.get(&number) else {
                     continue;
                 };
+                let design = issues.iter().any(|i| i.number == number && i.design);
                 // Someone may have assigned it by hand since load_issues.
                 if WorkerTask::find_active_by_issue(pool, run.repo_id, number)
                     .await?
@@ -229,9 +264,10 @@ pub async fn advance_run(
                     continue;
                 }
                 // Tests first (#687): QA writes the tests, then the developer
-                // starts from the branch QA pushed.
+                // starts from the branch QA pushed. Design issues have no tests.
                 let mut start_ref = None;
-                if qa_phases::plan_template(issue.body.as_deref()).is_some_and(|t| t.tdd)
+                if !design
+                    && qa_phases::plan_template(issue.body.as_deref()).is_some_and(|t| t.tdd)
                     && let Some(qa) = qa_phases::qa_profile(pool).await?
                 {
                     match WorkerTask::latest_qa_tdd_for_issue(pool, run.repo_id, number).await? {
@@ -263,9 +299,15 @@ pub async fn advance_run(
                         Some((_, _, pushed)) => start_ref = pushed,
                     }
                 }
-                let Some(worker_id) = pick_developer(pool).await? else {
-                    warn!(milestone = %run.milestone, "Milestone run: no active developer to dispatch to");
-                    break;
+                // Design issues go only to a designer (#756): with none
+                // active the run waits on the issue, never falls back.
+                let role = dispatch_role(design);
+                let Some(worker_id) = pick_worker(pool, role).await? else {
+                    warn!(milestone = %run.milestone, issue = number, role, "Milestone run: no active profile to dispatch to");
+                    if design && waiting.is_none() {
+                        waiting = Some(no_designer_reason(number));
+                    }
+                    continue;
                 };
                 let prompt = issue_prompt(number, &issue.title, issue.body.as_deref());
                 let dev_task = WorkerTask::append(
@@ -332,6 +374,7 @@ mod tests {
             wave,
             closed: false,
             decision: false,
+            design: false,
             task: TaskState::None,
         }
     }
@@ -427,6 +470,19 @@ mod tests {
         a.closed = true;
         assert_eq!(decide(&[a], Some(0), false), Step::Done);
         assert_eq!(decide(&[], None, false), Step::Done);
+    }
+
+    #[test]
+    fn design_issues_go_to_a_designer() {
+        let labels = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(is_design_issue(&labels(&["feature:x", "kind:design"])));
+        assert!(is_design_issue(&labels(&[" Kind:Design "])));
+        assert!(!is_design_issue(&labels(&["feature:x", "wave:0"])));
+        // Older design issues without the label stay with developers.
+        assert!(!is_design_issue(&labels(&["design"])));
+        assert_eq!(dispatch_role(true), worker::ROLE_DESIGNER);
+        assert_eq!(dispatch_role(false), worker::ROLE_DEVELOPER);
+        assert_eq!(no_designer_reason(9), "designer:9");
     }
 
     #[test]
