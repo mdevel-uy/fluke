@@ -70,7 +70,7 @@ pub struct IssuePlanResponse {
 /// tasks, review rounds and running processes; nothing is stored.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct IssueBlocker {
-    /// `question | credential | failed | review_cap | no_progress`.
+    /// `question | credential | failed | review_cap | conflict | no_progress`.
     pub kind: String,
     /// Phase that is stuck, as `<kind>-<round>`.
     pub phase: Option<String>,
@@ -108,7 +108,7 @@ fn blocker_at(kind: &str, phase: &IssuePhase, message: String) -> IssueBlocker {
 
 /// The issue's blocker, checked in order of what the person can act on
 /// first: a question, a missing credential, a failure, the review rounds
-/// ran out, the agent running for too long. `tasks` are every task behind
+/// ran out, the PR conflicts with its base, the agent running for too long. `tasks` are every task behind
 /// the phases; `running_since` is when the agent of the last active phase
 /// started, if it has been running past the threshold. Marks the phase it
 /// points at as stuck.
@@ -174,7 +174,22 @@ pub fn pick_blocker(
             return Some(blocker_at("review_cap", &phases[i], msg));
         }
     }
-    // 5. The agent has been running past the threshold.
+    // 5. The PR conflicts with its base and nobody is fixing it (the server
+    // already tried a clean merge when it turned conflicting).
+    if let Some(pr) = pr.filter(|p| !p.merged)
+        && let Some(ws) = pr.conflict_ws
+        && let Some(i) = phases.iter().rposition(|p| p.kind == "merge")
+    {
+        let msg = format!(
+            "El PR #{} tiene conflictos con la rama base y el merge automático no pudo resolverlos.",
+            pr.number
+        );
+        phases[i].state = "stuck".to_string();
+        let mut b = blocker_at("conflict", &phases[i], msg);
+        b.workspace_id = Some(ws);
+        return Some(b);
+    }
+    // 6. The agent has been running past the threshold.
     if let Some(since) = running_since
         && let Some(i) = last_running(phases)
     {
@@ -192,6 +207,18 @@ fn last_running(phases: &[IssuePhase]) -> Option<usize> {
     phases
         .iter()
         .rposition(|p| p.state == "active" && p.workspace_id.is_some())
+}
+
+/// Whether any process is running in the workspace.
+async fn agent_running(pool: &SqlitePool, workspace_id: Uuid) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM execution_processes ep
+           JOIN sessions s ON s.id = ep.session_id
+          WHERE s.workspace_id = ?1 AND ep.status = 'running')",
+    )
+    .bind(workspace_id)
+    .fetch_one(pool)
+    .await
 }
 
 /// When the coding agent of `workspace_id` started, if it is still running
@@ -300,6 +327,9 @@ pub struct PrInfo {
     pub number: i64,
     pub url: String,
     pub merged: bool,
+    /// Workspace of the PR while GitHub reports it conflicting with its base
+    /// and no agent is working there.
+    pub conflict_ws: Option<Uuid>,
 }
 
 fn task_state(status: &str) -> &'static str {
@@ -550,18 +580,21 @@ pub async fn load_issue_plan(
     let mut pr: Option<PrInfo> = None;
     for t in tasks.iter().rev() {
         let Some(ws) = t.workspace_id else { continue };
-        let row: Option<(i64, String, String)> = sqlx::query_as(
-            "SELECT pr_number, pr_url, pr_status FROM pull_requests
+        let row: Option<(i64, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT pr_number, pr_url, pr_status, pr_mergeable FROM pull_requests
               WHERE workspace_id = ?1 ORDER BY created_at DESC LIMIT 1",
         )
         .bind(ws)
         .fetch_optional(pool)
         .await?;
-        if let Some((number, url, status)) = row {
+        if let Some((number, url, status, mergeable)) = row {
+            let conflicting = status == "open" && mergeable.as_deref() == Some("conflicting");
+            let busy = conflicting && agent_running(pool, ws).await?;
             pr = Some(PrInfo {
                 number,
                 url,
                 merged: status == "merged",
+                conflict_ws: (conflicting && !busy).then_some(ws),
             });
             break;
         }
@@ -810,6 +843,7 @@ mod tests {
             number: 1,
             url: "u".into(),
             merged: true,
+            conflict_ws: None,
         };
         assert_eq!(
             kinds(&build_phases(&[dev], &rounds, &[], Some(&pr), true)),
@@ -908,6 +942,7 @@ mod tests {
             number: 7,
             url: "u".into(),
             merged: false,
+            conflict_ws: None,
         }
     }
 
@@ -948,6 +983,27 @@ mod tests {
         t.failure_reason = Some("exit 1".into());
         let b = blocker_of(&[t], &[], &[], None, None).0.unwrap();
         assert_eq!((b.kind.as_str(), b.message.as_str()), ("failed", "exit 1"));
+    }
+
+    #[test]
+    fn blocker_conflict() {
+        let dev = task(ROLE_DEVELOPER, None, "approved");
+        let rounds = vec![round("review", "submitted", Some("approve"), None)];
+        let ws = Uuid::new_v4();
+        let pr = PrInfo {
+            conflict_ws: Some(ws),
+            ..open_pr()
+        };
+        let (b, phases) = blocker_of(&[dev.clone()], &rounds, &[], Some(&pr), None);
+        let b = b.unwrap();
+        assert_eq!((b.kind.as_str(), b.workspace_id), ("conflict", Some(ws)));
+        assert_eq!(phases.last().unwrap().state, "stuck");
+        // Mergeable, or an agent already on it: not blocked.
+        assert!(
+            blocker_of(&[dev], &rounds, &[], Some(&open_pr()), None)
+                .0
+                .is_none()
+        );
     }
 
     #[test]

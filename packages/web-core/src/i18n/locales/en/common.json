@@ -1368,6 +1368,10 @@
           "credential": {
             "title": "A credential or permission is missing",
             "hint": "Expired PAT, missing secret."
+          },
+          "conflict": {
+            "title": "The PR conflicts with its base branch",
+            "hint": "Another PR landed first and the automatic merge was not enough."
           }
         }
       },
@@ -1389,6 +1393,10 @@
         "notePlaceholder": "For example: keep it consistent with what we decided in another issue",
         "alternatives": "Other ways to unblock",
         "alt": {
+          "resolve": {
+            "title": "Have the worker resolve the conflicts",
+            "hint": "Continues in its own session; a clean merge needs no agent"
+          },
           "fluke": {
             "title": "Talk it over with Fluke",
             "hint": "Explain it in your words; Fluke translates it for the agent"
@@ -1422,6 +1430,7 @@
         "toast": {
           "answered": "Answer sent · #{{n}} continues",
           "retried": "#{{n}} is back in the queue",
+          "resolving": "#{{n}}: the worker is resolving the conflicts",
           "backToTests": "#{{n}} goes back to tests first",
           "canceledIssue": "#{{n}} canceled; the wave goes on without it",
           "fluke": "Fluke opens a conversation about #{{n}} with the context of the block"

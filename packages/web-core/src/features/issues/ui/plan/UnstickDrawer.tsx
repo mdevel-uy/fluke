@@ -11,6 +11,7 @@ import {
   missionsApi,
   planApi,
   sessionsApi,
+  workspacesApi,
 } from '@/shared/lib/api';
 import { useDirectorStore } from '@/features/director/model/useDirectorStore';
 import type { RepoIssue } from '@/features/issues/types';
@@ -35,6 +36,7 @@ export type UnstickDrawerResult =
   | 'canceled'
   | 'answered'
   | 'retried'
+  | 'resolving'
   | 'backToTests'
   | 'canceledIssue'
   | 'fluke'
@@ -218,7 +220,18 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
     show: boolean;
     warn?: boolean;
     onClick: () => void;
+    primary?: boolean;
   }[] = [
+    {
+      key: 'resolve',
+      show: blocker?.kind === 'conflict' && !!workspaceId,
+      primary: true,
+      onClick: () =>
+        run(async () => {
+          const r = await workspacesApi.resolveMergeConflicts(workspaceId!);
+          if (!r.success) throw new Error(r.message ?? String(r.error));
+        }, 'resolving'),
+    },
     { key: 'fluke', show: true, onClick: talkToFluke },
     {
       key: 'session',
@@ -478,7 +491,10 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
                           type="button"
                           disabled={busy}
                           onClick={a.onClick}
-                          className="grid gap-0.5 rounded-lg border border-md-outline-variant bg-md-surface-container-high px-3 py-[9px] text-left hover:border-md-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-md-primary disabled:opacity-50"
+                          className={cn(
+                            'grid gap-0.5 rounded-lg border border-md-outline-variant bg-md-surface-container-high px-3 py-[9px] text-left hover:border-md-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-md-primary disabled:opacity-50',
+                            a.primary && 'border-md-primary bg-md-primary/10'
+                          )}
                         >
                           <b
                             className={cn(

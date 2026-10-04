@@ -74,7 +74,12 @@ export function useAttentionItems(data: DashboardData) {
         onAction: () => nav.goToWorkspace(ws.id),
       });
     }
+    // An issue's conflicting PR already shows as its `conflict` blocker.
+    const blocked = new Set(
+      (data.overview?.blockers ?? []).map((b) => b.blocker.workspace_id)
+    );
     for (const ws of data.conflictingPrs) {
+      if (blocked.has(ws.id)) continue;
       items.push({
         key: `conflict-${ws.id}`,
         kind: 'conflict',

@@ -1368,6 +1368,10 @@
           "credential": {
             "title": "Falta una credencial o un permiso",
             "hint": "PAT vencido, secreto que no existe."
+          },
+          "conflict": {
+            "title": "El PR tiene conflictos con la rama base",
+            "hint": "Entró otro PR antes y el merge automático no alcanzó."
           }
         }
       },
@@ -1389,6 +1393,10 @@
         "notePlaceholder": "Por ejemplo: mantenelo consistente con lo que decidimos en otro issue",
         "alternatives": "Otras formas de destrabar",
         "alt": {
+          "resolve": {
+            "title": "Que el worker resuelva los conflictos",
+            "hint": "Sigue en su misma sesión; si el merge entra limpio, ni hace falta"
+          },
           "fluke": {
             "title": "Hablarlo con Fluke",
             "hint": "Explicale en tus palabras; Fluke le traduce al agente"
@@ -1422,6 +1430,7 @@
         "toast": {
           "answered": "Respuesta enviada · #{{n}} sigue",
           "retried": "#{{n}} vuelve a la cola",
+          "resolving": "#{{n}}: el worker está resolviendo los conflictos",
           "backToTests": "#{{n}} vuelve a Tests primero",
           "canceledIssue": "#{{n}} cancelado; la wave sigue sin él",
           "fluke": "Fluke abre una conversación sobre #{{n}} con el contexto de la traba"

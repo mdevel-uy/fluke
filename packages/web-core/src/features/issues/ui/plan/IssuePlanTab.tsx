@@ -36,6 +36,7 @@ const STUCK_KINDS = [
   'review_cap',
   'no_progress',
   'credential',
+  'conflict',
 ] as const;
 
 export function IssuePlanTab({
