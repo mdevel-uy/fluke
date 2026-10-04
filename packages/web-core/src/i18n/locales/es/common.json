@@ -674,6 +674,15 @@
     }
   },
   "dashboard": {
+    "mergeGate": {
+      "title": "Esperando tu merge",
+      "subtitle": "aprobados por el reviewer, ya cuentan como resueltos",
+      "approved": "Aprobado",
+      "pr": "PR #{{number}}",
+      "waiting": "aprobado hace {{time}}",
+      "viewIssue": "Ver issue",
+      "viewPr": "Ver PR"
+    },
     "title": "Dashboard",
     "autoIngest": "Auto-ingesta",
     "openPilotReport": "Abrir reporte del piloto",

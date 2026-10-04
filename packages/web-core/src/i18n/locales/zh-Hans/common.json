@@ -657,6 +657,15 @@
     }
   },
   "dashboard": {
+    "mergeGate": {
+      "title": "等待你合并",
+      "subtitle": "审核者已批准，已计入已解决",
+      "approved": "已批准",
+      "pr": "PR #{{number}}",
+      "waiting": "{{time}}前批准",
+      "viewIssue": "查看 Issue",
+      "viewPr": "查看 PR"
+    },
     "title": "仪表盘",
     "autoIngest": "自动摄取",
     "openPilotReport": "打开试点报告",

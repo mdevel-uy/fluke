@@ -657,6 +657,15 @@
     }
   },
   "dashboard": {
+    "mergeGate": {
+      "title": "マージ待ち",
+      "subtitle": "レビュアー承認済み、解決済みとして集計",
+      "approved": "承認済み",
+      "pr": "PR #{{number}}",
+      "waiting": "{{time}}前に承認",
+      "viewIssue": "Issue を表示",
+      "viewPr": "PR を表示"
+    },
     "title": "ダッシュボード",
     "autoIngest": "自動取り込み",
     "openPilotReport": "パイロットレポートを開く",
