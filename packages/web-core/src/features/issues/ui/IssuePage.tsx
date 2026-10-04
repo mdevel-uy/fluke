@@ -188,6 +188,17 @@ export function IssuePage() {
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto grid w-full max-w-[1240px] content-start gap-3.5 px-[18px] py-4">
+          <button
+            type="button"
+            onClick={() =>
+              window.history.length > 1 ? window.history.back() : goBack()
+            }
+            aria-label={t('commandBar.back')}
+            title={t('commandBar.back')}
+            className="-mb-1.5 grid size-8 place-items-center justify-self-start rounded-md text-normal hover:bg-md-surface-container-high hover:text-high"
+          >
+            <MaterialIcon name="arrow_back" size="base" />
+          </button>
           <div className="grid gap-1.5">
             <h1 className="m-0 text-lg font-semibold text-high [text-wrap:balance]">
               #{issue.number} {issue.title}

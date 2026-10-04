@@ -249,6 +249,7 @@ fn generate_types_content() -> String {
         server::routes::agents::UsageMeter::decl(),
         server::routes::agents::ProviderUsage::decl(),
         server::routes::agents::ProvidersUsageResponse::decl(),
+        server::routes::dashboard::MergeGate::decl(),
         server::routes::dashboard::Ticket::decl(),
         server::routes::dashboard::TicketsResponse::decl(),
         server::routes::dashboard::WaveCell::decl(),

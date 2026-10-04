@@ -657,6 +657,15 @@
     }
   },
   "dashboard": {
+    "mergeGate": {
+      "title": "等待你合併",
+      "subtitle": "審查者已核准，已計入已解決",
+      "approved": "已核准",
+      "pr": "PR #{{number}}",
+      "waiting": "{{time}}前核准",
+      "viewIssue": "查看 Issue",
+      "viewPr": "查看 PR"
+    },
     "title": "儀表板",
     "autoIngest": "自動擷取",
     "openPilotReport": "開啟試點報告",

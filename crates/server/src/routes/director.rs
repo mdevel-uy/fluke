@@ -32,7 +32,10 @@ pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/director-mcp/{session_id}", post(mcp).get(mcp_get))
         .route("/missions", get(list_missions).post(create_mission))
-        .route("/missions/{id}", get(get_mission).patch(update_mission))
+        .route(
+            "/missions/{id}",
+            get(get_mission).patch(update_mission).delete(delete_mission),
+        )
         .route("/director/turn", post(director_turn))
         .route("/missions/{id}/approve", post(approve_brief))
         .route("/missions/{id}/focus", post(focus_mission))
@@ -306,6 +309,40 @@ async fn remove_mission_item(
         .await
         .map_err(brief_error)?;
     Ok(ResponseJson(ApiResponse::success(d)))
+}
+
+/// Borra la misión (#647). Se bloquea mientras su agente responde, ya sea su
+/// propia sesión o la conversación de Fluke con la misión en foco: borrarla
+/// no detiene al agente. Los issues ya creados no se borran, sólo el link.
+async fn delete_mission(
+    State(deployment): State<DeploymentImpl>,
+    Path(id): Path<Uuid>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    use db::models::fluke_event::FlukeGuard;
+    let pool = &deployment.db().pool;
+    load(&deployment, id).await?;
+    let guard = FlukeGuard::get(pool).await?;
+    if guard.as_ref().is_some_and(|g| g.mission_id == id) {
+        return Err(ApiError::Conflict(
+            "Fluke's standing conversation can't be deleted".to_string(),
+        ));
+    }
+    let guard_busy_on_it = match &guard {
+        Some(g) if g.focus_mission_id == Some(id) => {
+            Mission::agent_running(pool, g.mission_id).await?
+        }
+        _ => false,
+    };
+    if guard_busy_on_it || Mission::agent_running(pool, id).await? {
+        return Err(ApiError::Conflict(
+            "Fluke is still working on this mission; wait for it to finish before deleting it"
+                .to_string(),
+        ));
+    }
+    if !Mission::delete(pool, id).await? {
+        return Err(ApiError::BadRequest("Mission not found".into()));
+    }
+    Ok(ResponseJson(ApiResponse::success(())))
 }
 
 #[derive(Debug, Deserialize, TS)]

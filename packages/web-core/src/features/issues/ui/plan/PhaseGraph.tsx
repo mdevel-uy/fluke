@@ -201,14 +201,38 @@ export function PhaseGraph({
               data-phase={key}
               onClick={() => onSelect(key)}
               className={cn(
-                'relative z-[1] grid w-[158px] cursor-pointer gap-[5px] rounded-[10px] border border-md-outline-variant bg-md-surface-container-high px-3 py-2.5 text-left',
+                'relative z-[1] grid w-max min-w-[158px] max-w-[320px] cursor-pointer gap-[5px] rounded-[10px] border border-md-outline-variant bg-md-surface-container-high px-3 py-2.5 text-left',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary',
                 PHASE_STATE_CLASS[p.state],
                 selected === key &&
                   'outline outline-2 outline-offset-[3px] outline-md-on-surface'
               )}
             >
-              <span className="flex items-center justify-between font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-normal">
+              {p.state === 'active' && (
+                <svg
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-[5px] size-[calc(100%+10px)] overflow-visible motion-reduce:hidden"
+                >
+                  <rect
+                    width="100%"
+                    height="100%"
+                    rx={14}
+                    fill="none"
+                    stroke="hsl(var(--md-primary))"
+                    strokeWidth={1.5}
+                    strokeDasharray="6 4"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from="0"
+                      to="-20"
+                      dur="0.8s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                </svg>
+              )}
+              <span className="flex items-center justify-between gap-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-normal">
                 {label(p)}
                 <span
                   className={cn(
@@ -237,7 +261,7 @@ export function PhaseGraph({
                   {p.steps.map((s) => (
                     <span
                       key={s.n}
-                      className="flex items-center gap-1.5 text-[11px] text-normal"
+                      className="flex min-w-0 items-center gap-1.5 text-[11px] text-normal"
                     >
                       <i
                         className={cn(

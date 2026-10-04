@@ -103,6 +103,22 @@ export function bucketTicketsByDay(
   return buckets;
 }
 
+/**
+ * Resolved tickets whose PR is approved and waits for the human merge,
+ * longest waiting first. They already count as resolved on their approval
+ * date; the merge only takes them out of this list.
+ */
+export function awaitingMergeTickets(tickets: Ticket[]): Ticket[] {
+  return tickets
+    .flatMap((ticket) =>
+      ticket.resolved_at && ticket.merge_gate
+        ? [{ ticket, at: ticket.merge_gate.approved_at }]
+        : []
+    )
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map(({ ticket }) => ticket);
+}
+
 export type TicketMonth = {
   /** Local month, "YYYY-MM". */
   key: string;

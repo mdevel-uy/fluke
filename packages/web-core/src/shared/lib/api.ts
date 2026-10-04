@@ -2305,6 +2305,13 @@ export const missionsApi = {
     });
     return handleApiResponse<MissionDetail>(response);
   },
+  /** Deletes the mission; issues it already created are kept. */
+  delete: async (id: string): Promise<void> => {
+    const response = await makeRequest(`/api/missions/${id}`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<void>(response);
+  },
   approve: async (
     id: string,
     analystWorkerId?: string
