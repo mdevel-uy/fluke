@@ -2061,6 +2061,10 @@
     "dismiss": "Dismiss",
     "missions": "Missions",
     "newMission": "New mission",
+    "openTabs_one": "{{count}} more open mission",
+    "openTabs_other": "{{count}} more open missions",
+    "openTabsWaiting_one": "{{count}} more open mission ({{waiting}} waiting for you)",
+    "openTabsWaiting_other": "{{count}} more open missions ({{waiting}} waiting for you)",
     "loading": "Preparing the conversation…",
     "thinking": "thinking",
     "noRepo": "Add a repository to start a mission.",
@@ -2175,6 +2179,7 @@
     },
     "delete": {
       "action": "Delete mission",
+      "actionNamed": "Delete mission \"{{name}}\"",
       "title": "Delete \"{{name}}\"?",
       "message": "The mission, its conversation and its brief are deleted. This can't be undone.",
       "messageWithIssues": "The mission, its conversation and its brief are deleted. The issues it already created ({{issues}}) are kept on GitHub; only their link to the mission is removed. This can't be undone.",
