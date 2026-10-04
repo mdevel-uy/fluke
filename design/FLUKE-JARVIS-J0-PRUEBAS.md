@@ -108,3 +108,25 @@ Después de J0, con #751 y #754 mergeados y el server reiniciado (corre la migra
 | Abrir una misión vieja (de antes de J1) | Muestra su conversación propia de siempre; se sigue pudiendo usar. |
 | "¿Cómo vamos?" en el medio | Responde sin cambiar el foco. |
 | Botón "Nueva misión" de la lista | La misión nueva se abre como vista del hilo de Fluke, ya en foco. |
+
+---
+
+# J2 · Canal de turno — cómo probarlo
+
+Con el PR del endpoint mergeado y el server reiniciado. No hay UI nueva: se prueba con `curl` (es la puerta que van a usar la voz, el celular y el relay).
+
+## 9. POST /api/director/turn
+
+```
+curl -N -X POST http://127.0.0.1:<puerto>/api/director/turn \
+  -H "Content-Type: application/json" \
+  -d '{"text":"¿cómo vamos?"}'
+```
+
+| Paso | Resultado esperado |
+|---|---|
+| El `curl` de arriba | Llegan eventos `event: delta` con pedazos de la respuesta mientras Fluke escribe, y al final un `event: done` con `{"text": "...", "is_error": false}`. El stream se cierra solo. |
+| Mirar la guardia "Fluke" en la app | El mensaje y la respuesta quedan en el hilo, como si se hubieran escrito en el chat. |
+| Repetir con `"channel":"voice"` y una orden ("reasigná la tarea X a Backend") | Respuesta corta, sin markdown ni listas, con la forma "Dale, …" → hace → "Listo". Si pregunta algo, lee las opciones en voz alta en el texto. |
+| Mandar otro turno mientras Fluke todavía responde | `409 Conflict: Fluke is still answering`. |
+| `"text":""` | `400`. |

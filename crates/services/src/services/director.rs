@@ -585,9 +585,78 @@ pub async fn turn_context(pool: &Pool, mission: &Mission) -> Result<String, sqlx
         }
         _ => String::new(),
     };
+    let channel = if take_voice_turn(mission.id) {
+        VOICE_CHANNEL
+    } else {
+        ""
+    };
     Ok(format!(
-        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
+        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}{channel}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
+}
+
+// ---------------------------------------------------------------------------
+// Canal de turno (J2.1): chat o voz, y la respuesta en streaming
+// ---------------------------------------------------------------------------
+
+const VOICE_CHANNEL: &str = "\n\n[CHANNEL]\nvoice: the user hears your reply and may not see \
+the screen. Answer in one to three short spoken sentences, no markdown, no lists, no ids or \
+paths. For an order: first say in a few words what you are about to do, then do it, then say \
+it is done. Read questions aloud with their options (the recommended one first); chips may not \
+be visible.";
+
+fn voice_turns() -> &'static std::sync::Mutex<std::collections::HashSet<Uuid>> {
+    static VOICE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<Uuid>>> =
+        std::sync::OnceLock::new();
+    VOICE.get_or_init(Default::default)
+}
+
+/// The next turn of this mission comes by voice: its context says so.
+pub fn mark_voice_turn(mission_id: Uuid) {
+    if let Ok(mut set) = voice_turns().lock() {
+        set.insert(mission_id);
+    }
+}
+
+fn take_voice_turn(mission_id: Uuid) -> bool {
+    voice_turns()
+        .lock()
+        .map(|mut set| set.remove(&mission_id))
+        .unwrap_or(false)
+}
+
+/// What a channel needs from one line of the CLI's stream-json output.
+#[derive(Debug, PartialEq)]
+pub enum TurnEvent {
+    /// A piece of Fluke's reply, as it is written.
+    Delta(String),
+    /// The turn ended; the full final reply.
+    Done { text: String, is_error: bool },
+}
+
+pub fn turn_event(line: &str) -> Option<TurnEvent> {
+    let v: Value = serde_json::from_str(line.trim()).ok()?;
+    match v.get("type")?.as_str()? {
+        "stream_event" => {
+            let event = v.get("event")?;
+            if event.get("type")?.as_str()? != "content_block_delta" {
+                return None;
+            }
+            let delta = event.get("delta")?;
+            (delta.get("type")?.as_str()? == "text_delta")
+                .then(|| delta.get("text")?.as_str().map(|t| TurnEvent::Delta(t.to_string())))
+                .flatten()
+        }
+        "result" => Some(TurnEvent::Done {
+            text: v
+                .get("result")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            is_error: v.get("is_error").and_then(Value::as_bool).unwrap_or(false),
+        }),
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1713,6 +1782,31 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("unknown worker 'Nadie'"), "{err}");
+    }
+
+    #[test]
+    fn turn_events_from_the_cli_stream() {
+        assert_eq!(
+            turn_event(r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Dale, "}}}"#),
+            Some(TurnEvent::Delta("Dale, ".into()))
+        );
+        // Thinking and tool input deltas are not the reply.
+        assert_eq!(
+            turn_event(r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"input_json_delta","partial_json":"{"}}}"#),
+            None
+        );
+        assert_eq!(
+            turn_event(r#"{"type":"result","subtype":"success","is_error":false,"result":"Listo."}"#),
+            Some(TurnEvent::Done { text: "Listo.".into(), is_error: false })
+        );
+        assert_eq!(turn_event(r#"{"type":"assistant","message":{}}"#), None);
+        assert_eq!(turn_event("not json"), None);
+
+        let mission = Uuid::new_v4();
+        assert!(!take_voice_turn(mission));
+        mark_voice_turn(mission);
+        assert!(take_voice_turn(mission));
+        assert!(!take_voice_turn(mission), "only the next turn");
     }
 
     #[test]
