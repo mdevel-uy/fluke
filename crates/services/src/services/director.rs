@@ -175,11 +175,6 @@ pub struct MissionDetail {
     pub delivery: Option<String>,
     /// Fluke's standing conversation (J0.3): app events land here, no brief.
     pub is_guard: bool,
-    /// In the standing conversation: the mission it is about now (J1.2).
-    pub focus_mission_id: Option<Uuid>,
-    /// The mission has its own conversation (missions from before the one
-    /// thread, J1.2); otherwise it lives in Fluke's thread.
-    pub has_own_chat: bool,
 }
 
 /// An issue of the Analyst's breakdown, for the mission stepper (#700).
@@ -313,18 +308,10 @@ pub async fn detail(pool: &Pool, mission: Mission) -> Result<MissionDetail, sqlx
     };
     let guard = FlukeGuard::get(pool).await?;
     let is_guard = guard.as_ref().is_some_and(|g| g.mission_id == mission.id);
-    let has_own_chat: bool = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM execution_processes WHERE session_id = ?1)",
-    )
-    .bind(mission.session_id)
-    .fetch_one(pool)
-    .await?;
     let proposal = proposal(pool, mission.repo_id, &issue_numbers).await?;
     let execution = execution(pool, mission.repo_id, &issue_numbers).await?;
     Ok(MissionDetail {
         delivery: delivery(&proposal, issue_numbers.len(), execution).map(str::to_string),
-        focus_mission_id: guard.filter(|_| is_guard).and_then(|g| g.focus_mission_id),
-        has_own_chat,
         is_guard,
         briefs: Mission::briefs(pool, mission.id).await?,
         proposal,
@@ -924,7 +911,10 @@ state of the app at that moment: answer \"how are we doing\" or \"what's running
 without calling tools. Call status_snapshot only if you need it fresher within the same turn. \
 Its [MEMORY], when present, is what you have learned about the user across past conversations \
 (preferences, decisions, how they work): use it to fit your answer, do not recite it, and the \
-user's words in this conversation win over it. Never mention the block itself.
+user's words in this conversation win over it. Its [MISSIONS] lists every open mission with its \
+id: you are the same Fluke in every chat, you know them all and can act on any of them with \
+mission_id. In a mission's own chat, talk about that mission unless the user brings up another. \
+Never mention the block itself.
 - Your memory is yours to keep: when the user tells you a preference, a decision or a fact about \
 how they work that will matter in future conversations, save it with remember (one short \
 sentence in their language). Do not save what only matters for the task at hand. If something \
@@ -965,31 +955,8 @@ pub async fn turn_context(
         .filter(|c| !c.is_empty())
         .unwrap_or("unknown");
     let status = status_snapshot(pool).await?;
-    // The one thread (J1.2): which mission the conversation is about now.
-    let focus = match FlukeGuard::get(pool).await? {
-        Some(g) if g.mission_id == mission.id => {
-            let focused = match g.focus_mission_id {
-                Some(id) => Mission::find_by_id(pool, id).await?,
-                None => None,
-            };
-            match focused {
-                Some(m) => {
-                    let d = detail(pool, m).await?;
-                    let missing = if d.complete {
-                        "brief complete".to_string()
-                    } else {
-                        format!("missing: {}", d.missing.join(", "))
-                    };
-                    format!(
-                        "\n\n[FOCUS]\nMission \"{}\" ({}, {missing}).",
-                        d.mission.title, d.mission.status
-                    )
-                }
-                None => "\n\n[FOCUS]\nNo mission in focus.".to_string(),
-            }
-        }
-        _ => String::new(),
-    };
+    // One chat per mission, one Fluke for all: every chat knows every mission.
+    let missions = missions_block(pool, mission.id).await?;
     let channel = if take_voice_turn(mission.id) {
         VOICE_CHANNEL
     } else {
@@ -997,8 +964,53 @@ pub async fn turn_context(
     };
     let memory = memory_block(pool, user_text).await?;
     Ok(format!(
-        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}{channel}{memory}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
+        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{missions}{channel}{memory}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
+}
+
+/// `[MISSIONS]` for a turn: every open mission with its id and where its
+/// brief stands, so the same Fluke knows them all from any chat.
+const MISSIONS_BLOCK_MAX: usize = 20;
+
+async fn missions_block(pool: &Pool, this: Uuid) -> Result<String, sqlx::Error> {
+    let guard = FlukeGuard::get(pool).await?.map(|g| g.mission_id);
+    let mut lines = Vec::new();
+    for m in Mission::list(pool).await? {
+        if m.status == mission::STATUS_CLOSED || Some(m.id) == guard {
+            continue;
+        }
+        if lines.len() == MISSIONS_BLOCK_MAX {
+            lines.push("- ... (more: list_missions)".to_string());
+            break;
+        }
+        let here = if m.id == this { ", this chat" } else { "" };
+        let d = detail(pool, m).await?;
+        let brief = if d.complete {
+            "brief complete".to_string()
+        } else {
+            format!("missing: {}", d.missing.join(", "))
+        };
+        let title = if d.mission.title.trim().is_empty() {
+            "(untitled)"
+        } else {
+            d.mission.title.trim()
+        };
+        lines.push(format!(
+            "- \"{title}\" (id {}, {}, {brief}{here})",
+            d.mission.id, d.mission.status
+        ));
+    }
+    if lines.is_empty() {
+        return Ok("
+
+[MISSIONS]
+No open missions.".to_string());
+    }
+    Ok(format!("
+
+[MISSIONS]
+{}", lines.join("
+")))
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,16 +1144,13 @@ get_stuck_issues to read its question and options, explain it in one sentence, a
 with ask_user using the agent's options (the recommended one first). When the user answers, call \
 answer_agent with that issue, its repo and the chosen option: the worker carries on.
 
-This is also your only conversation with the user: missions are not separate chats, they are \
-the pieces of work you follow (brief, approval, breakdown, execution). [FOCUS] in the context \
-block says which mission you are talking about; the brief tools (set_mission, upsert_item, \
-remove_item, get_brief) act on it.
-- New development work: new_mission with its repo (and a short title); here, in your standing \
-conversation, it comes into focus, so the brief tools act on it without mission_id.
-- The user talks about another mission: focus_mission with its title or id (list_missions shows \
-the open ones). If it is ambiguous, ask with ask_user.
-- When you switch, name the topic in your reply (\"Sobre el login con GitHub: ...\").
-- Status questions and orders about the app do not need a focus.
+Each mission has its own chat (a tab) where the user works on it, and several can run at the \
+same time. This standing conversation is for the app as a whole: events, status, orders and \
+starting missions.
+- New development work asked here: new_mission with its repo and a short title, fill in what \
+you already know with its mission_id, and tell the user to continue in the mission's tab.
+- To act on a mission from here (its brief, approving it, running it), pass its mission_id: in \
+this conversation the brief tools need it.
 
 Following the work through: after the brief you keep each mission moving until it is merged, \
 always offering the next step instead of waiting to be asked. [STATUS] under \"Waiting for the \
@@ -1440,7 +1449,7 @@ pub fn tool_definitions() -> Value {
     let kinds = json!(KINDS);
     let mission_id = json!({
         "type": "string",
-        "description": "Id of the mission whose brief to act on (list_missions, new_mission). Optional: without it, this conversation's mission (in your standing conversation, the one in focus)."
+        "description": "Id of the mission whose brief to act on (list_missions, new_mission). Optional in a mission's chat (default: that mission); required in your standing conversation."
     });
     json!([
         {
@@ -1528,21 +1537,12 @@ pub fn tool_definitions() -> Value {
         },
         {
             "name": "list_missions",
-            "description": "The open missions (pieces of work you follow): id, title, status, repo and which one is in focus.",
+            "description": "The open missions (pieces of work you follow): id, title, status and repo. [MISSIONS] in the context block already lists them.",
             "inputSchema": { "type": "object", "properties": {} }
         },
         {
-            "name": "focus_mission",
-            "description": "Talk about this mission from now on: the brief tools act on it. Pass its title or id.",
-            "inputSchema": {
-                "type": "object",
-                "properties": { "mission": { "type": "string" } },
-                "required": ["mission"]
-            }
-        },
-        {
             "name": "new_mission",
-            "description": "Start a mission for new development work in a repo, from any conversation. Answers with the new mission's id: pass it as mission_id to set_mission, upsert_item, remove_item and get_brief to fill its brief. In your standing conversation it also comes into focus; anywhere else this conversation keeps its own mission. Check list_missions first so you do not duplicate an open one.",
+            "description": "Start a mission for new development work in a repo, from any conversation. Answers with the new mission's id: pass it as mission_id to set_mission, upsert_item, remove_item and get_brief to fill its brief. The mission gets its own chat (tab), where the user continues. Check list_missions first so you do not duplicate an open one.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1660,46 +1660,6 @@ fn status_text(d: &MissionDetail) -> String {
     .to_string()
 }
 
-/// An open mission (not the standing conversation) by id or title: an exact
-/// title first, else the only one whose title contains it.
-async fn find_mission(pool: &Pool, value: &str) -> Result<Mission, String> {
-    let db_err = |e: sqlx::Error| format!("internal error: {e}");
-    let guard = FlukeGuard::get(pool)
-        .await
-        .map_err(db_err)?
-        .map(|g| g.mission_id);
-    let open: Vec<Mission> = Mission::list(pool)
-        .await
-        .map_err(db_err)?
-        .into_iter()
-        .filter(|m| m.status != mission::STATUS_CLOSED && Some(m.id) != guard)
-        .collect();
-    let needle = value.trim().to_lowercase();
-    if let Some(m) = open
-        .iter()
-        .find(|m| m.id.to_string() == needle || m.title.to_lowercase() == needle)
-    {
-        return Ok(m.clone());
-    }
-    let mut hits: Vec<&Mission> = open
-        .iter()
-        .filter(|m| m.title.to_lowercase().contains(&needle))
-        .collect();
-    match hits.len() {
-        1 => Ok(hits.remove(0).clone()),
-        0 => Err(format!(
-            "no open mission matches '{value}': see list_missions, or new_mission for new work"
-        )),
-        _ => Err(format!(
-            "'{value}' matches more than one mission ({}): ask the user which",
-            hits.iter()
-                .map(|m| m.title.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-    }
-}
-
 pub async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
     let repos = Repo::list_all(pool)
         .await
@@ -1717,9 +1677,8 @@ pub async fn resolve_repo(pool: &Pool, value: &str) -> Result<Repo, String> {
 
 /// `new_mission` from any conversation (#779). `create` makes the session and
 /// the mission in the repo's scratch worktree (the server owns that); the repo
-/// is resolved before, so an unknown repo creates nothing. Only the standing
-/// conversation moves its focus to the new mission: anywhere else Fluke keeps
-/// talking about its own mission and loads the new brief with `mission_id`.
+/// is resolved before, so an unknown repo creates nothing. The new mission
+/// gets its own chat; Fluke fills in what it knows with `mission_id`.
 pub async fn new_mission<F, Fut>(
     pool: &Pool,
     session_id: Uuid,
@@ -1731,7 +1690,7 @@ where
     Fut: std::future::Future<Output = Result<Mission, String>>,
 {
     let db_err = |e: sqlx::Error| format!("internal error: {e}");
-    let mission = Mission::find_by_session_id(pool, session_id)
+    Mission::find_by_session_id(pool, session_id)
         .await
         .map_err(db_err)?
         .ok_or("this session has no mission")?;
@@ -1740,9 +1699,6 @@ where
         .and_then(Value::as_str)
         .ok_or("missing repo")?;
     let repo = resolve_repo(pool, repo).await?;
-    let is_guard = FlukeGuard::is_guard(pool, mission.id)
-        .await
-        .map_err(db_err)?;
     let created = create(repo.id)
         .await
         .map_err(|e| format!("could not start the mission: {e}"))?;
@@ -1764,31 +1720,19 @@ where
             .await
             .map_err(after)?;
     }
-    if is_guard {
-        FlukeGuard::set_focus(pool, Some(created.id))
-            .await
-            .map_err(after)?;
-    }
     let d = refresh_status(pool, created.id).await.map_err(after)?;
     let missing = if d.missing.is_empty() {
         "nothing".to_string()
     } else {
         d.missing.join(", ")
     };
-    Ok(if is_guard {
-        format!(
-            "Mission started (id {}) in {} and in focus. Missing: {missing}",
-            created.id, repo.display_name
-        )
-    } else {
-        format!(
-            "Mission started (id {id}) in {}. This conversation stays on its own mission: pass \
-             mission_id {id} to set_mission, upsert_item, remove_item and get_brief to fill the \
-             new brief. Missing: {missing}",
-            repo.display_name,
-            id = created.id
-        )
-    })
+    Ok(format!(
+        "Mission started (id {id}) in {}: it has its own tab, where the user continues. Pass \
+         mission_id {id} to set_mission, upsert_item, remove_item and get_brief to fill in what \
+         you already know. Missing: {missing}",
+        repo.display_name,
+        id = created.id
+    ))
 }
 
 /// Endpoints del cliente (líneas con `/api/`), o los fragmentos de cliente y
@@ -2075,8 +2019,8 @@ pub async fn call_tool(
         .ok_or("this session has no mission")?;
     let id = mission.id;
 
-    // One thread (J1.2): in the standing conversation the brief tools act on
-    // the mission in focus; anywhere else, on the conversation's own mission.
+    // The brief tools act on the conversation's own mission; the standing
+    // conversation has none, so there they need a mission_id.
     let guard = FlukeGuard::get(pool)
         .await
         .map_err(db_err)?
@@ -2104,9 +2048,11 @@ pub async fn call_tool(
                 .map_err(|e| e.to_string())?
                 .id
         }
-        (None, Some(g)) if brief_tool => g
-            .focus_mission_id
-            .ok_or("no mission in focus: call focus_mission, or new_mission for new work")?,
+        (None, Some(_)) if brief_tool => {
+            return Err("in your standing conversation the brief tools need mission_id: see \
+                        [MISSIONS] or list_missions, or new_mission for new work"
+                .into());
+        }
         _ => id,
     };
 
@@ -2159,7 +2105,6 @@ pub async fn call_tool(
                 .join("\n"))
         }
         "list_missions" => {
-            let focus = guard.as_ref().and_then(|g| g.focus_mission_id);
             let mut out = Vec::new();
             for m in Mission::list(pool).await.map_err(db_err)? {
                 if m.status == mission::STATUS_CLOSED
@@ -2179,27 +2124,9 @@ pub async fn call_tool(
                     "title": m.title,
                     "status": m.status,
                     "repo": repo,
-                    "in_focus": focus == Some(m.id),
                 }));
             }
             Ok(Value::Array(out).to_string())
-        }
-        "focus_mission" => {
-            if guard.is_none() {
-                return Err("only your standing conversation has a focus".into());
-            }
-            let wanted = args
-                .get("mission")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .ok_or("missing mission (id or title)")?;
-            let target = find_mission(pool, wanted).await?;
-            FlukeGuard::set_focus(pool, Some(target.id))
-                .await
-                .map_err(db_err)?;
-            let d = refresh_status(pool, target.id).await.map_err(db_err)?;
-            Ok(format!("In focus now. {}", status_text(&d)))
         }
         "list_repos" => {
             let repos = Repo::list_all(pool).await.map_err(db_err)?;
@@ -2675,14 +2602,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn new_mission_from_a_mission_conversation_keeps_focus_and_own_mission() {
+    async fn new_mission_from_a_mission_conversation_keeps_its_own_mission() {
         let pool = brief_pool().await;
         let repo = web_repo(&pool).await;
         let (here, own) = conversation(&pool, "Landing").await;
-        let (_, guard) = conversation(&pool, "Fluke").await;
-        let (_, focused) = conversation(&pool, "Export").await;
-        FlukeGuard::set(&pool, guard.id).await.unwrap();
-        FlukeGuard::set_focus(&pool, Some(focused.id)).await.unwrap();
 
         let out = new_mission(&pool, here, &json!({ "repo": "web", "title": "Login" }), |r| {
             create_in(&pool, r)
@@ -2691,13 +2614,11 @@ mod tests {
         .unwrap();
         let id = started_id(&out);
         assert!(out.contains(&format!("mission_id {id}")) && out.contains("Missing:"), "{out}");
-        assert!(!out.contains("in focus"), "{out}");
+        assert!(out.contains("its own tab"), "{out}");
         let created = Mission::find_by_id(&pool, id).await.unwrap().unwrap();
         assert_eq!((created.title.as_str(), created.repo_id), ("Login", Some(repo)));
 
-        // The standing conversation's focus and this conversation's mission stay.
-        let g = FlukeGuard::get(&pool).await.unwrap().unwrap();
-        assert_eq!((g.mission_id, g.focus_mission_id), (guard.id, Some(focused.id)));
+        // This conversation keeps its mission.
         let m = Mission::find_by_session_id(&pool, here).await.unwrap().unwrap();
         assert_eq!(m.id, own.id);
 
@@ -2711,7 +2632,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn new_mission_from_the_standing_conversation_comes_into_focus() {
+    async fn new_mission_from_the_standing_conversation_is_filled_by_id() {
         let pool = brief_pool().await;
         web_repo(&pool).await;
         let (guard_session, guard) = conversation(&pool, "Fluke").await;
@@ -2723,14 +2644,22 @@ mod tests {
         .await
         .unwrap();
         let id = started_id(&out);
-        assert!(out.contains("in focus"), "{out}");
-        let g = FlukeGuard::get(&pool).await.unwrap().unwrap();
-        assert_eq!(g.focus_mission_id, Some(id));
 
-        // The brief tools without mission_id act on it, as before.
-        call_tool(&pool, guard_session, "upsert_item", &json!({ "kind": "bug", "title": "x" }))
-            .await
-            .unwrap();
+        // From the standing conversation the brief tools need its id.
+        assert!(
+            call_tool(&pool, guard_session, "upsert_item", &json!({ "kind": "bug", "title": "x" }))
+                .await
+                .unwrap_err()
+                .contains("need mission_id")
+        );
+        call_tool(
+            &pool,
+            guard_session,
+            "upsert_item",
+            &json!({ "mission_id": id.to_string(), "kind": "bug", "title": "x" }),
+        )
+        .await
+        .unwrap();
         assert_eq!(Mission::items(&pool, id).await.unwrap().len(), 1);
     }
 
@@ -2765,13 +2694,16 @@ mod tests {
         .unwrap();
         let id = started_id(&out);
         let target = id.to_string();
-        for (kind, title) in [("feature", "Login con GitHub"), ("bug", "Logout no limpia sesión")] {
+        for (kind, title, field) in [
+            ("feature", "Login con GitHub", "goal"),
+            ("bug", "Logout no limpia sesión", "symptom"),
+        ] {
             call_tool(
                 &pool,
                 here,
                 "upsert_item",
                 &json!({ "mission_id": target, "kind": kind, "title": title,
-                         "fields": { "goal": "g" } }),
+                         "fields": { field: "g" } }),
             )
             .await
             .unwrap();
@@ -2875,6 +2807,29 @@ mod tests {
         assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
     }
 
+    /// One chat per mission, one Fluke for all: every chat sees every open
+    /// mission, marks its own, and never lists the standing conversation.
+    #[tokio::test]
+    async fn every_chat_knows_every_mission() {
+        let pool = brief_pool().await;
+        let (_, landing) = conversation(&pool, "Landing").await;
+        let (_, login) = conversation(&pool, "Login").await;
+        let (_, guard) = conversation(&pool, "Fluke").await;
+        FlukeGuard::set(&pool, guard.id).await.unwrap();
+
+        let block = missions_block(&pool, landing.id).await.unwrap();
+        assert!(block.starts_with("\n\n[MISSIONS]\n"), "{block}");
+        assert!(block.contains(&format!("\"Landing\" (id {}", landing.id)), "{block}");
+        assert!(block.contains(", this chat)"), "{block}");
+        assert!(block.contains(&format!("\"Login\" (id {}", login.id)), "{block}");
+        assert!(!block.contains("\"Fluke\""), "{block}");
+        assert_eq!(block.matches("this chat").count(), 1);
+
+        // From the standing conversation none is "this chat".
+        let block = missions_block(&pool, guard.id).await.unwrap();
+        assert!(!block.contains("this chat"), "{block}");
+    }
+
     #[tokio::test]
     async fn brief_tools_without_mission_id_keep_their_mission() {
         let pool = brief_pool().await;
@@ -2891,24 +2846,23 @@ mod tests {
         assert_eq!(Mission::items(&pool, own.id).await.unwrap().len(), 1);
         assert!(Mission::items(&pool, other.id).await.unwrap().is_empty());
 
-        // The standing conversation: the mission in focus, or the error.
+        // The standing conversation has no mission of its own: it needs an id.
         let (guard_session, guard) = conversation(&pool, "Fluke").await;
         FlukeGuard::set(&pool, guard.id).await.unwrap();
         let err = call_tool(&pool, guard_session, "get_brief", &json!({}))
             .await
             .unwrap_err();
-        assert!(err.contains("no mission in focus"), "{err}");
-        FlukeGuard::set_focus(&pool, Some(other.id)).await.unwrap();
+        assert!(err.contains("need mission_id"), "{err}");
         call_tool(
             &pool,
             guard_session,
             "upsert_item",
-            &json!({ "kind": "design", "title": "Logo" }),
+            &json!({ "mission_id": other.id.to_string(), "kind": "design", "title": "Logo" }),
         )
         .await
         .unwrap();
         assert_eq!(Mission::items(&pool, other.id).await.unwrap().len(), 1);
-        // An explicit id wins over the focus.
+        // Any chat can act on any mission with its id.
         call_tool(
             &pool,
             guard_session,

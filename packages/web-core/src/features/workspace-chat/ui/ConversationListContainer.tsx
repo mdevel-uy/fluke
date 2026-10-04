@@ -54,11 +54,6 @@ interface ConversationListProps {
   repos?: RepoWithTargetBranch[];
   onAtBottomChange?: (atBottom: boolean) => void;
   sessionScopeId?: string;
-  /**
-   * Show only the turns of these execution processes (Fluke's one thread,
-   * filtered to a mission). Undefined: every turn.
-   */
-  onlyProcessIds?: ReadonlySet<string>;
 }
 
 export interface ConversationListHandle {
@@ -199,19 +194,11 @@ export const ConversationList = forwardRef<
   ConversationListHandle,
   ConversationListProps
 >(function ConversationList(
-  {
-    attempt,
-    repos: reposProp = [],
-    onAtBottomChange,
-    sessionScopeId,
-    onlyProcessIds,
-  },
+{ attempt, repos: reposProp = [], onAtBottomChange, sessionScopeId },
   ref
 ) {
   const { t } = useTranslation('common');
   const repos = reposProp;
-  const onlyProcessIdsRef = useRef(onlyProcessIds);
-  onlyProcessIdsRef.current = onlyProcessIds;
   const resetAction = useResetProcess(attempt.id, attempt.session?.id);
   const conversationScopeKey = `${attempt.id}:${sessionScopeId ?? attempt.session?.id ?? 'new'}`;
   const [filteredEntries, setFilteredEntries] = useState<DisplayEntry[]>([]);
@@ -405,13 +392,8 @@ export const ConversationList = forwardRef<
     setHasRunningProcess(derivedEntries.hasRunningProcess);
     setTokenUsageInfo(derivedEntries.latestTokenUsageInfo);
 
-    const only = onlyProcessIdsRef.current;
-    const visibleEntries = only
-      ? derivedEntries.entries.filter((e) => only.has(e.executionProcessId))
-      : derivedEntries.entries;
-
     const derivedTimeline = deriveConversationTimeline(
-      visibleEntries,
+      derivedEntries.entries,
       prevEntriesRef.current,
       prevRowsRef.current
     );
@@ -447,14 +429,6 @@ export const ConversationList = forwardRef<
     }
   };
 
-  // The set of visible turns changed (a new turn of the thread was tagged):
-  // derive the rows again from the last data received.
-  useEffect(() => {
-    if (pendingUpdateRef.current && rafIdRef.current === null) {
-      rafIdRef.current = requestAnimationFrame(flushPendingUpdate);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onlyProcessIds]);
 
   const { isFirstTurn, isLoadingHistory } = useConversationHistory({
     attempt,

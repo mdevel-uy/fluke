@@ -2326,18 +2326,6 @@ export const missionsApi = {
     const response = await makeRequest(`/api/missions/${id}/workspace`);
     return handleApiResponse<WorkspaceContext>(response);
   },
-  /** One thread (J1.2): what the user writes next is about this mission. */
-  focus: async (id: string): Promise<void> => {
-    const response = await makeRequest(`/api/missions/${id}/focus`, {
-      method: 'POST',
-    });
-    return handleApiResponse<void>(response);
-  },
-  /** The turns of Fluke's thread that had this mission in focus (J1.2). */
-  turns: async (id: string): Promise<string[]> => {
-    const response = await makeRequest(`/api/missions/${id}/turns`);
-    return handleApiResponse<string[]>(response);
-  },
   /** Brief items of mission `id`: create one (no item_id) or update it.
    * Fields are merged; an empty string clears one (UpsertMissionItemRequest). */
   upsertItem: async (

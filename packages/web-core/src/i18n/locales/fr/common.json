@@ -1824,7 +1824,7 @@
     "eventsBatch_one": "{{count}} événement de l'app",
     "eventsBatch_other": "{{count}} événements de l'app",
     "guard": {
-      "noBrief": "Aucune mission au premier plan. Demandez un nouveau travail à Fluke ou nommez une mission : son brief s'affiche ici."
+      "noBrief": "Conversation générale de Fluke : événements de l'app, état et ordres. Chaque mission a son onglet avec son brief, et Fluke les connaît toutes."
     },
     "name": "Fluke",
     "open": "Open Fluke",

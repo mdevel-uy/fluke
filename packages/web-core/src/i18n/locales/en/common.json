@@ -2050,7 +2050,7 @@
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",
     "guard": {
-      "noBrief": "No mission in focus. Ask Fluke for new work or name a mission, and its brief shows here."
+      "noBrief": "This is Fluke's general conversation: app events, status and orders. Each mission has its own tab with its brief, and Fluke knows them all."
     },
     "name": "Fluke",
     "open": "Open Fluke",

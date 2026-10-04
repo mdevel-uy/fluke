@@ -181,7 +181,7 @@ export type ExecutionProcess = { id: string, session_id: string, run_reason: Exe
  */
 dropped: boolean, started_at: string, completed_at: string | null, created_at: string, updated_at: string, };
 
-export enum ExecutionProcessStatus { running = "running", completed = "completed", failed = "failed", killed = "killed" }
+export enum ExecutionProcessStatus { queued = "queued", running = "running", completed = "completed", failed = "failed", killed = "killed" }
 
 export type ExecutionProcessRunReason = "setupscript" | "cleanupscript" | "archivescript" | "codingagent" | "devserver";
 
@@ -277,6 +277,14 @@ export type UpdateMemberRoleRequest = { role: MemberRole, };
 
 export type UpdateMemberRoleResponse = { user_id: string, role: MemberRole, };
 
+export type ConcurrencyStatus = { limit: number, used: number, queued: Array<QueuedExecutionSummary>, };
+
+export type QueuedExecutionSummary = { id: string, session_id: string, workspace_id: string, 
+/**
+ * 1-based position in the FIFO queue (1 = next to run).
+ */
+position: number, };
+
 export type RegisterRepoRequest = { path: string, display_name: string | null, };
 
 export type InitRepoRequest = { parent_path: string, folder_name: string, };
@@ -291,6 +299,32 @@ ownerOrg: string | null, };
 export type CloneRepoRequest = { name_with_owner: string, };
 
 export type CloneRepoResponse = { path: string, };
+
+export type GithubOwnerKind = "user" | "organization";
+
+export type GithubOwner = { login: string, kind: GithubOwnerKind, };
+
+export type RepoVisibility = "public" | "private";
+
+export type PublishRepoToGithubRequest = { 
+/**
+ * User or organization login (one of `GET /api/github/owners`).
+ */
+owner: string, 
+/**
+ * Name of the repository to create on GitHub.
+ */
+name: string, visibility: RepoVisibility, };
+
+export type PublishRepoToGithubResponse = { 
+/**
+ * Web URL of the created repository.
+ */
+url: string, owner: string, name: string, 
+/**
+ * Local branch pushed as the initial content.
+ */
+branch: string, };
 
 export type TagSearchParams = { search: string | null, };
 
@@ -324,14 +358,30 @@ export type GithubLoginState = "pending" | "completed" | "failed";
 
 export type GithubLoginProgress = { state: GithubLoginState, user_code: string | null, verification_uri: string | null, error: string | null, };
 
-export type GithubStatusResponse = { authenticated: boolean, username: string | null,
+export type GithubAuthMethod = "pat" | "gh_cli";
+
+export type GithubStatusResponse = { authenticated: boolean, username: string | null, 
 /**
  * Whether the `gh` binary was found on PATH. Login works without it,
  * but PRs, issue sync and reviews still require it.
  */
-cli_available: boolean, login: GithubLoginProgress | null, };
+cli_available: boolean, 
+/**
+ * Whether a Personal Access Token is stored in the app config. The
+ * token value itself is never returned.
+ */
+has_pat: boolean, 
+/**
+ * Which credential the current authenticated session is using, or
+ * `None` if the user is not authenticated.
+ */
+auth_method: GithubAuthMethod | null, login: GithubLoginProgress | null, };
 
 export type GithubLoginResponse = { user_code: string, verification_uri: string, };
+
+export type GithubPatLoginRequest = { pat: string, };
+
+export type GithubPatLoginResponse = { username: string, };
 
 export type GithubCliInstallResponse = { version: string | null, path: string, };
 
@@ -385,17 +435,10 @@ step_mode: boolean,
  */
 current_wave: number | null, 
 /**
- * Why a `waiting` run is stopped: `decision:<n>` or `failed:<n>`.
+ * Why a `waiting` run is stopped: `decision:<n>`, `failed:<n>` or
+ * `designer:<n>` (design issue with no active Designer).
  */
 waiting_reason: string | null, created_at: string, updated_at: string, };
-
-export type PlayMilestoneRequest = { milestone: string, step_mode: boolean, };
-
-export type MilestoneRequest = { milestone: string, };
-
-export type PlayAllMilestonesRequest = { milestones: Array<string>, step_mode: boolean, };
-
-export type StepModeRequest = { step_mode: boolean, };
 
 export type IssuePhaseStep = { n: number, title: string, 
 /**
@@ -437,7 +480,7 @@ blocker: IssueBlocker | null, };
 
 export type IssueBlocker = { 
 /**
- * `question | credential | failed | review_cap | no_progress`.
+ * `question | credential | failed | review_cap | conflict | no_progress`.
  */
 kind: string, 
 /**
@@ -467,6 +510,14 @@ action: string,
  */
 note?: string, };
 
+export type PlayMilestoneRequest = { milestone: string, step_mode: boolean, };
+
+export type MilestoneRequest = { milestone: string, };
+
+export type PlayAllMilestonesRequest = { milestones: Array<string>, step_mode: boolean, };
+
+export type StepModeRequest = { step_mode: boolean, };
+
 export type FieldCheck = { key: string, required: boolean, filled: boolean, };
 
 export type MissionItemView = { item: MissionItem, checklist: Array<FieldCheck>, };
@@ -484,32 +535,35 @@ proposal: Array<MissionProposalIssue>,
  * `none` (nothing dispatched), `planning` (devs started, no plan steps
  * yet) or `running` (at least one dev submitted its plan).
  */
-execution: string,
+execution: string, 
+/**
+ * Where the feature stands once its design is closed (#758):
+ * `design_ready`, `implementing` or `implemented`. `None` without design
+ * issues or while one is still open: the stepper keeps its usual reading.
+ */
+delivery: string | null, 
 /**
  * Fluke's standing conversation (J0.3): app events land here, no brief.
  */
-is_guard: boolean,
-/**
- * In the standing conversation: the mission it is about now (J1.2).
- */
-focus_mission_id: string | null,
-/**
- * The mission has its own conversation (missions from before the one
- * thread, J1.2); otherwise it lives in Fluke's thread.
- */
-has_own_chat: boolean, };
+is_guard: boolean, };
 
 export type MissionProposalIssue = { number: number, title: string, state: string, milestone: string | null, wave: number | null, 
 /**
  * Carries `pm:decision`: it waits for the user.
  */
-decision: boolean, };
+decision: boolean, 
+/**
+ * Carries the design label (#756): the Designer's mock, not code.
+ */
+design: boolean, };
+
+export type UpsertMissionItemRequest = { item_id: string | null, kind: string, title: string | null, fields: { [key in string]?: string }, };
 
 export type MissionSummary = { mission: Mission, repo_name: string | null, agent_running: boolean, issues_total: number, issues_closed: number, 
 /**
  * Issues the Analyst created for the mission.
  */
-issue_numbers: Array<number>,
+issue_numbers: Array<number>, 
 /**
  * Fluke's standing conversation (J0.3): app events land here, no brief.
  */
@@ -522,18 +576,18 @@ export type CreateMissionRequest = {
  */
 repo_id: string, };
 
-export type DirectorTurnRequest = { text: string,
+export type DirectorTurnRequest = { text: string, 
 /**
  * `chat` (default) or `voice`: a voice turn asks Fluke for short spoken
  * replies.
  */
 channel: string | null, };
 
-export type UpdateMissionRequest = { title: string | null, autonomy: string | null,
+export type UpdateMissionRequest = { title: string | null, autonomy: string | null, 
 /**
  * Repo de la misión; sólo editable antes de mandar el brief al Analyst.
  */
-repo_id: string | null,
+repo_id: string | null, 
 /**
  * Dónde está el user en la app; va en el system prompt de cada turno.
  */
@@ -548,6 +602,69 @@ export type ApproveBriefRequest = {
  * Analista que recibe la request; sin él, el primero del equipo.
  */
 analyst_worker_id: string | null, };
+
+export type AgentAuthProvider = "codex" | "gemini" | "claude_code";
+
+export type AgentLoginState = "pending" | "completed" | "failed";
+
+export type AgentLoginProgress = { state: AgentLoginState, verification_uri: string | null, user_code: string | null, error: string | null, };
+
+export type AgentAuthProviderStatus = { provider: AgentAuthProvider, 
+/**
+ * Whether the CLI binary was found on PATH. When `false`, Settings hides
+ * the card entirely — nothing to connect to.
+ */
+cli_available: boolean, 
+/**
+ * Whether an auth artifact for this provider exists (e.g.
+ * `~/.codex/auth.json` or a stored `GEMINI_API_KEY`).
+ */
+connected: boolean, 
+/**
+ * Epoch seconds of the last modification to the auth artifact, when
+ * available.
+ */
+last_auth_at: bigint | null, login: AgentLoginProgress | null, };
+
+export type AgentAuthStatusResponse = { providers: Array<AgentAuthProviderStatus>, };
+
+export type AgentLoginRequest = { api_key: string | null, };
+
+export type AgentLoginSubmitRequest = { code: string, };
+
+export type AgentLoginResponse = { verification_uri: string | null, user_code: string | null, 
+/**
+ * True when the login already completed synchronously (used by the
+ * API-key flow: the write finishes before this endpoint returns).
+ */
+completed: boolean, };
+
+export type SetupStatusResponse = { 
+/**
+ * A GitHub credential is on file (PAT, OAuth token, or authenticated
+ * `gh` CLI). Does not perform a network round trip.
+ */
+github_connected: boolean, 
+/**
+ * At least one repository is registered in the local DB.
+ */
+repo_added: boolean, 
+/**
+ * At least one coding-agent CLI is reachable AND has usable credentials
+ * (same check as `GET /api/agents/auth`).
+ */
+agent_connected: boolean, 
+/**
+ * At least one worker task has been enqueued. Reflects "the user has
+ * actually pushed something into the pipeline", which is the last hop
+ * before an agent produces a PR.
+ */
+task_created: boolean, 
+/**
+ * True iff all four signals above are `true`. Frontend can hide the
+ * wizard as soon as this flips.
+ */
+is_complete: boolean, };
 
 export type StartSpake2EnrollmentRequest = { enrollment_code: string, client_message_b64: string, };
 
@@ -726,6 +843,11 @@ export type WorkerTaskResponse = { id: string, worker_id: string, repo_id: strin
  */
 skills: Array<string>, 
 /**
+ * GitHub labels to apply to every issue the analyst creates as part of
+ * this task (stored as JSON array, exposed as array).
+ */
+issue_labels: Array<string>, 
+/**
  * URL of the most recent pull request tracked for this task's workspace,
  * or `null` when no PR has been created yet.
  */
@@ -740,96 +862,59 @@ pr_state: string | null,
  */
 pr_mergeable: string | null, 
 /**
- * Origin of the task: `"kanban"` or `"desk"`.
+ * Origin of the task: `"kanban"`, `"mission"` or `"milestone"`.
  */
 source: string, 
 /**
  * TL reviewer's verdict: "approved" | "changes_requested" | null.
  * Set by pr_monitor when the PR review state is detected.
  */
-review_result: string | null,
+review_result: string | null, 
 /**
  * Live state of the review loop for an `in_review` task with an open PR:
  * "review_queued" | "reviewing" | "fix_queued" | "fixing" |
- * "awaiting_review" | "stalled", or null when the loop has nothing
- * pending (e.g. approved and waiting for a human merge, or the task is
- * not in review). "stalled" means no round is active, no fix is pending,
- * there is no approval, and nothing has moved for over five minutes —
- * the board's way of saying "nothing visible" must never hide "broken".
+ * "awaiting_review" | "stalled" | "developer_running", or null when the
+ * loop has nothing pending (e.g. approved and waiting for a human merge,
+ * or the task is not in review). "stalled" means no round is active, no
+ * fix is pending, there is no approval, and nothing has moved for over
+ * five minutes — the board's way of saying "nothing visible" must never
+ * hide "broken". "developer_running" means the task was approved and the
+ * developer's own coding agent is running a manual follow-up on the
+ * workspace (issue #471): the "approved" badge stays, this state adds
+ * the "in-flight" signal next to it.
  */
-loop_state: string | null,
+loop_state: string | null, 
 /**
  * Why the task failed, when status == "failed". Recorded by the
  * orchestrator at the moment of failure; null otherwise.
  */
-failure_reason: string | null,
+failure_reason: string | null, 
 /**
  * Per-task override for the estimated man-hours saved. `null` = use the
  * installation default; a number replaces the default for aggregation
  * (see `value_generated_summary`).
  */
-hours_saved_override: number | null,
+hours_saved_override: number | null, 
 /**
  * The agent's final message, captured when a non-developer task
  * finished OK. Abstract of the deliverable; null otherwise.
  */
-result_summary: string | null,
+result_summary: string | null, 
 /**
  * Remote ref (`design/<n>-<slug>`) holding a designer deliverable, or
  * null when the run produced no commits / for non-designer tasks.
  */
-deliverable_ref: string | null,
+deliverable_ref: string | null, 
 /**
  * On a design-handoff task: the designer task whose deliverable this
  * task consumes.
  */
-source_task_id: string | null,
+source_task_id: string | null, 
 /**
  * On a designer task whose deliverable was handed off: where it went.
  * Powers the "sent to X" state and the double-handoff guard client-side.
  */
 handoff?: HandoffTaskInfo | null, created_at: Date, };
-
-/**
- * The handoff task consuming a designer deliverable, as exposed on the
- * source task's response.
- */
-export type HandoffTaskInfo = { task_id: string, worker_id: string, worker_name: string, status: string, };
-
-/**
- * Hand a finished designer deliverable to an analyst. The prompt is
- * composed server-side from the handoff template — the caller only picks
- * the destination and optionally adds human guidance on top.
- */
-export type CreateDesignHandoffRequest = {
-/**
- * The designer task whose deliverable is being handed off.
- */
-source_task_id: string,
-/**
- * Target analyst worker.
- */
-worker_id: string,
-/**
- * Optional PM guidance appended to the orchestrator's template
- * (priorities, business constraints). Never replaces the template.
- */
-note?: string,
-/**
- * Origin of the handoff: `"kanban"` (designer card) or `"desk"`
- * (Analyst Desk picker). Defaults to kanban.
- */
-source?: string, };
-
-/**
- * A finished designer deliverable no analyst has taken yet, as served to
- * the Analyst Desk picker and the sprint board.
- */
-/**
- * HTML artifacts a designer task committed under `design/`, as repo-relative
- * paths the client turns into `/api/workspaces/{id}/preview/{path}` links.
- */
-export type DesignArtifactsResponse = { files: Array<string>, };
 
 export type CreateWorkerRequest = { name: string, emoji: string, soul: string, role?: string, 
 /**
@@ -876,12 +961,19 @@ export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: 
  */
 skills?: Array<string>, 
 /**
+ * GitHub labels that the analyst must apply to every issue created as
+ * part of this request. Empty / whitespace-only entries are dropped
+ * server-side; the surviving list is both persisted and appended to the
+ * prompt as an instruction so the agent uses `add_label` after creating
+ * each issue.
+ */
+issue_labels?: Array<string>, 
+/**
  * When true, skip the duplicate-assignment guard and create the task anyway.
  */
 force_duplicate?: boolean, 
 /**
- * Origin of the task: `"kanban"` (default) or `"desk"` for Analyst Desk
- * requests.
+ * Origin of the task: `"kanban"` (default), `"mission"` or `"milestone"`.
  */
 source?: string, 
 /**
@@ -890,7 +982,9 @@ source?: string,
  */
 attachment_ids?: Array<string>, };
 
-export type UpdateWorkerTaskRequest = { position?: number | null, status?: string,
+export type DesignArtifactsResponse = { files: Array<string>, };
+
+export type UpdateWorkerTaskRequest = { position?: number | null, status?: string, 
 /**
  * Per-task override for the estimated man-hours saved by this task.
  * Three-state PATCH: `undefined` = don't touch, `null` = clear back to
@@ -909,22 +1003,43 @@ export type StartAllWorkersResponse = { results: Array<StartAllWorkersItemRespon
 
 export type ActiveIssueTaskInfo = { task_id: string, worker_id: string, worker_name: string, worker_emoji: string, status: string, };
 
-export type CompletedWorkerTask = {
+export type HandoffTaskInfo = { task_id: string, worker_id: string, worker_name: string, status: string, };
+
+export type CreateDesignHandoffRequest = { 
+/**
+ * The designer task whose deliverable is being handed off.
+ */
+source_task_id: string, 
+/**
+ * Target analyst worker.
+ */
+worker_id: string, 
+/**
+ * Optional PM guidance appended to the orchestrator's template
+ * (priorities, business constraints). Never replaces the template.
+ */
+note?: string, 
+/**
+ * Origin of the handoff: `"kanban"` (designer card). Defaults to kanban.
+ */
+source?: string, };
+
+export type CompletedWorkerTask = { 
 /**
  * Task UUID. Exposed so callers can PATCH the task (e.g. to set a
  * per-task `hours_saved_override` from the value-generated panel).
  */
-id: string, worker_id: string, title: string, issue_number: number | null,
+id: string, worker_id: string, title: string, issue_number: number | null, 
 /**
  * "done" | "failed"
  */
-status: string,
+status: string, 
 /**
  * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
  */
-completed_at: string,
+completed_at: string, 
 /**
- * Per-task man-hours override (`null` = use the installation default).
+ * Per-task man-hours override (`NULL` = use the installation default).
  * Kept on the response so the value-generated panel can render the
  * current value inline without a second round-trip per task.
  */
@@ -932,19 +1047,23 @@ hours_saved_override: number | null, };
 
 export type CompletedWorkerTasksResponse = { tasks: Array<CompletedWorkerTask>, };
 
-export type CiPipelineFile = {
+export type CiPipelineFile = { 
 /**
  * Repo-relative path; must live under `.github/workflows/`.
  */
 rel_path: string, content: string, };
 
-export type CreateCiPipelinePrRequest = { repo_id: string, files: Array<CiPipelineFile>, branch_name: string,
+export type CreateCiPipelinePrRequest = { repo_id: string, files: Array<CiPipelineFile>, branch_name: string, 
 /**
  * Defaults to the repo's default target branch.
  */
 base_branch: string | null, commit_message: string, pr_title: string, pr_body: string | null, };
 
 export type CreateCiPipelinePrResponse = { pr_url: string, branch: string, commit: string, };
+
+export type SkillInfo = { name: string, description: string, };
+
+export type InstallSkillRequest = { url: string, };
 
 export type UsageMeter = { 
 /**
@@ -989,14 +1108,21 @@ export type ProvidersUsageResponse = { providers: Array<ProviderUsage>,
  */
 without_login: Array<BaseCodingAgent>, };
 
+export type MergeGate = { pr_number: number | null, workspace_id: string | null, 
+/**
+ * When the reviewer approved it. SQLite datetime string (UTC).
+ */
+approved_at: string, };
+
 export type Ticket = { key: string, repo_id: string, 
 /**
  * The issue, or the PR when the ticket is a review of a PR without one.
  */
 issue_number: number | null, is_pr: boolean, title: string, 
 /**
- * When the last task finished, once nothing of the ticket is live and at
- * least one task is done. SQLite datetime string (UTC).
+ * When the last task was completed (done, or approved and waiting for
+ * the merge: its approval date), once nothing of the ticket is live and
+ * its latest issue task is completed. SQLite datetime string (UTC).
  */
 resolved_at: string | null, 
 /**
@@ -1004,13 +1130,17 @@ resolved_at: string | null,
  */
 cost_usd: number, tasks: number, 
 /**
- * Override of the most recent done task that has one.
+ * Override of the most recent completed task that has one.
  */
 hours_override: number | null, 
 /**
- * Task that takes a new override: the latest done one.
+ * Task that takes a new override: the latest completed one.
  */
-edit_task_id: string | null, edit_worker_id: string | null, };
+edit_task_id: string | null, edit_worker_id: string | null, 
+/**
+ * Set while a resolved ticket's PR is approved and not merged yet.
+ */
+merge_gate: MergeGate | null, };
 
 export type TicketsResponse = { 
 /**
@@ -1072,25 +1202,70 @@ export type DashboardOverview = { repos: Array<RepoOverview>, running: Array<Run
  */
 slots_used: number, slots_limit: number, };
 
-export type AgentGuidelines = { content: string,
+export type AgentGuidelines = { content: string, 
 /**
  * RFC3339 mtime of the file; `None` when the file doesn't exist yet.
  * Echoed back on save for optimistic concurrency.
  */
-modified_at: string | null, exists: boolean,
+modified_at: string | null, exists: boolean, 
 /**
  * Template offered by "restore defaults" in the UI.
  */
 default_content: string, };
 
-export type SaveAgentGuidelinesRequest = { content: string,
+export type SaveAgentGuidelinesRequest = { content: string, 
 /**
  * `modified_at` from the last read. Save is rejected with 409 when the
  * file changed since (concurrent edit over SSH or another client).
  */
 expected_modified_at: string | null, };
 
+export type PilotReportTask = { worker_id: string, title: string, issue_number: number | null, 
+/**
+ * "done" | "failed"
+ */
+status: string, 
+/**
+ * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
+ */
+completed_at: string, 
+/**
+ * Per-task hours-saved override, when the viewer pinned an explicit
+ * figure on the value-generated panel. `None` means "use the
+ * installation default" (`Config.default_hours_saved_per_task`).
+ * Kept aligned with the value-generated panel formula so both surfaces
+ * tell the same story for the same month.
+ */
+hours_saved_override: number | null, 
+/**
+ * Rolled-up LLM cost across every execution that ran under this task.
+ * `None` when the task never had any usage recorded (older tasks,
+ * executors that don't emit `total_cost_usd` yet). Kept nullable so the
+ * frontend can flag partial coverage ("≥") instead of inventing zeros.
+ */
+cost_usd: number | null, input_tokens: number | null, output_tokens: number | null, cache_creation_tokens: number | null, cache_read_tokens: number | null, };
+
+export type PilotReportMergedPr = { pr_number: number, pr_url: string, target_branch_name: string, 
+/**
+ * SQLite datetime string (UTC): "YYYY-MM-DD HH:MM:SS.SSS"
+ */
+merged_at: string, };
+
+export type PilotReportResponse = { 
+/**
+ * Lower bound (inclusive) that was actually queried, echoed back so
+ * the client can render the window it received rather than the one
+ * it asked for (they can drift when the query is clamped).
+ */
+from: string, 
+/**
+ * Upper bound (exclusive) that was actually queried.
+ */
+to: string, completed_tasks: Array<PilotReportTask>, merged_prs: Array<PilotReportMergedPr>, };
+
 export type ListPrsError = { "type": "cli_not_installed", provider: ProviderKind, } | { "type": "auth_failed", message: string, } | { "type": "unsupported_provider" };
+
+export type DeleteRepoConflict = { message: string, workspaces: Array<string>, };
 
 export type LinkPrToIssueRequest = { pr_url: string, pr_number: number, base_branch: string, };
 
@@ -1190,7 +1365,27 @@ pr_created_at?: string,
 /**
  * When the latest PR was merged, if it was
  */
-pr_merged_at?: string, };
+pr_merged_at?: string, 
+/**
+ * Review-loop activity for the open PR: "queued" (reviewer task waiting
+ * in the reviewer's queue) | "running" (reviewer working right now) |
+ * null (no active reviewer task). Lets the UI distinguish "loop working"
+ * from silence before a verdict exists.
+ */
+pr_review_activity?: string, 
+/**
+ * The open PR spent every review round (`max_review_rounds`): the loop
+ * stops dispatching reviews and author fixes, so it is waiting on a human.
+ */
+pr_review_rounds_exhausted: boolean, 
+/**
+ * True while the orchestrator is publishing this developer worker's PR
+ * (push + adopt/create + `on_pr_open`). During this window the task is
+ * still `in_progress` in the DB but the agent has already stopped, so
+ * the frontend uses this flag to suppress the "stalled" badge that would
+ * otherwise flash between "agent done" and "in review" (issue #494).
+ */
+is_finalizing: boolean, };
 
 export type WorkspaceSummaryResponse = { summaries: Array<WorkspaceSummary>, };
 
@@ -1202,7 +1397,40 @@ export type DirectoryListResponse = { entries: Array<DirectoryEntry>, current_pa
 
 export type SearchMode = "taskform" | "settings";
 
-export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, commit_reminder_enabled: boolean, commit_reminder_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, max_review_rounds: number, agent_concurrency_limit: number, default_hours_saved_per_task: number, default_hours_per_fte_month: number, default_hourly_rate: number, default_currency: string, default_savings_fee_rate: number, };
+export type Config = { config_version: string, theme: ThemeMode, executor_profile: ExecutorProfileId, disclaimer_acknowledged: boolean, onboarding_acknowledged: boolean, remote_onboarding_acknowledged: boolean, notifications: NotificationConfig, editor: EditorConfig, github: GitHubConfig, analytics_enabled: boolean, workspace_dir: string | null, last_app_version: string | null, show_release_notes: boolean, language: UiLanguage, git_branch_prefix: string, showcases: ShowcaseState, pr_auto_description_enabled: boolean, pr_auto_description_prompt: string | null, send_message_shortcut: SendMessageShortcut, relay_enabled: boolean, host_nickname: string | null, max_review_rounds: number, agent_concurrency_limit: number, 
+/**
+ * Installation-wide default for the man-hours the "value generated"
+ * panel credits to a completed task that carries no per-task override.
+ * Persisted server-side so every viewer sees the same authoritative
+ * figure — the number that anchors the pricing conversation must not
+ * diverge per browser.
+ */
+default_hours_saved_per_task: number, 
+/**
+ * Installation-wide default for the working hours in a month used to
+ * translate hours saved into the FTE equivalent shown in the value
+ * generated panel.
+ */
+default_hours_per_fte_month: number, 
+/**
+ * Installation-wide default hourly rate used to monetise the hours
+ * saved (pilot report, value-generated panel). Kept server-side so the
+ * pricing figure quoted to a CTO does not diverge per browser.
+ */
+default_hourly_rate: number, 
+/**
+ * Installation-wide ISO-4217 currency code paired with
+ * `default_hourly_rate`. Kept as a string so a new currency does not
+ * require a schema migration; frontends render it via `Intl.NumberFormat`.
+ */
+default_currency: string, 
+/**
+ * Fraction (0..=1) of the net savings billed to the customer — the
+ * "10% of what you save" figure in the pricing model. Server-side for
+ * the same reason as the hourly rate: the fee quoted must not depend on
+ * which browser opened the report.
+ */
+default_savings_fee_rate: number, };
 
 export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
 
@@ -1427,7 +1655,21 @@ export type NormalizedEntry = { timestamp: string | null, entry_type: Normalized
 
 export type NormalizedEntryType = { "type": "user_message" } | { "type": "user_feedback", denied_tool: string, } | { "type": "assistant_message" } | { "type": "tool_use", tool_name: string, action_type: ActionType, status: ToolStatus, } | { "type": "system_message" } | { "type": "error_message", error_type: NormalizedEntryError, } | { "type": "thinking" } | { "type": "loading" } | { "type": "next_action", failed: boolean, execution_processes: number, needs_setup: boolean, } | { "type": "token_usage_info" } & TokenUsageInfo | { "type": "user_answered_questions", answers: Array<AnsweredQuestion>, };
 
-export type TokenUsageInfo = { total_tokens: number, model_context_window: number, input_tokens: bigint | null, output_tokens: bigint | null, cache_creation_input_tokens: bigint | null, cache_read_input_tokens: bigint | null,
+export type TokenUsageInfo = { total_tokens: number, model_context_window: number, input_tokens: bigint | null, output_tokens: bigint | null, cache_creation_input_tokens: bigint | null, cache_read_input_tokens: bigint | null, 
+/**
+ * Vendor-reported dollar cost for the run so far. Only Claude Code
+ * populates it today, via its `result` message's `total_cost_usd`; for
+ * other executors this is `None` and the persistence layer estimates
+ * cost from the token counts and a Rust-side pricing table.
+ */
+total_cost_usd: number | null, 
+/**
+ * Best-known model identifier for this run. Included so the exit
+ * monitor can look up pricing without having to re-derive the model
+ * from the executor action. `None` means the executor did not surface
+ * the model with the usage report.
+ */
+model: string | null, 
 /**
  * Anthropic prompt-cache TTL (300 or 3600) seen on this run's cache
  * writes. `None` when the executor doesn't report it.
@@ -1603,5 +1845,3 @@ sdp: string,
 session_id: string, };
 
 export const DEFAULT_PR_DESCRIPTION_PROMPT = "Update the PR that was just created with a better title and description.\nThe PR number is #{pr_number} and the URL is {pr_url}.\n\nAnalyze the changes in this branch and write:\n1. A concise, descriptive title that summarizes the changes, postfixed with \"(fluke)\"\n2. A detailed description that explains:\n   - What changes were made\n   - Why they were made (based on the task context)\n   - Any important implementation details\n   - At the end, include a note: \"This PR was written using fluke\"\n\nUse the appropriate CLI tool to update the PR (gh pr edit for GitHub, az repos pr update for Azure DevOps).";
-
-export const DEFAULT_COMMIT_REMINDER_PROMPT = "There are uncommitted changes. Please stage and commit them now with a descriptive commit message.";

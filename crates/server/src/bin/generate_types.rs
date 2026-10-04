@@ -236,6 +236,7 @@ fn generate_types_content() -> String {
         server::routes::workers::CreateWorkerRequest::decl(),
         server::routes::workers::UpdateWorkerRequest::decl(),
         server::routes::workers::CreateWorkerTaskRequest::decl(),
+        server::routes::workers::DesignArtifactsResponse::decl(),
         server::routes::workers::UpdateWorkerTaskRequest::decl(),
         server::routes::workers::ReassignWorkerTaskRequest::decl(),
         server::routes::workers::StartWorkerResponse::decl(),

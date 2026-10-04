@@ -38,8 +38,6 @@ pub fn router() -> Router<DeploymentImpl> {
         )
         .route("/director/turn", post(director_turn))
         .route("/missions/{id}/approve", post(approve_brief))
-        .route("/missions/{id}/focus", post(focus_mission))
-        .route("/missions/{id}/turns", get(mission_turns))
         .route("/missions/{id}/workspace", get(get_mission_workspace))
         .route("/missions/{id}/items", post(upsert_mission_item))
         .route(
@@ -146,30 +144,7 @@ async fn new_mission_tool(deployment: &DeploymentImpl, session_id: Uuid, args: &
     .await
 }
 
-/// The user opened a mission (J1.2): what they write next is about it.
-async fn focus_mission(
-    State(deployment): State<DeploymentImpl>,
-    Path(id): Path<Uuid>,
-) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
-    let pool = &deployment.db().pool;
-    load(&deployment, id).await?;
-    let guard = db::models::fluke_event::FlukeGuard::get(pool).await?;
-    // The standing conversation itself is not a focus.
-    let focus = guard.filter(|g| g.mission_id != id).map(|_| id);
-    if focus.is_some() {
-        db::models::fluke_event::FlukeGuard::set_focus(pool, focus).await?;
-    }
-    Ok(ResponseJson(ApiResponse::success(())))
-}
 
-/// The turns of the one thread that had this mission in focus (J1.2).
-async fn mission_turns(
-    State(deployment): State<DeploymentImpl>,
-    Path(id): Path<Uuid>,
-) -> Result<ResponseJson<ApiResponse<Vec<Uuid>>>, ApiError> {
-    let turns = db::models::fluke_event::FlukeGuard::turns_of(&deployment.db().pool, id).await?;
-    Ok(ResponseJson(ApiResponse::success(turns)))
-}
 
 async fn load(deployment: &DeploymentImpl, id: Uuid) -> Result<Mission, ApiError> {
     Mission::find_by_id(&deployment.db().pool, id)
@@ -306,13 +281,7 @@ async fn delete_mission(
             "Fluke's standing conversation can't be deleted".to_string(),
         ));
     }
-    let guard_busy_on_it = match &guard {
-        Some(g) if g.focus_mission_id == Some(id) => {
-            Mission::agent_running(pool, g.mission_id).await?
-        }
-        _ => false,
-    };
-    if guard_busy_on_it || Mission::agent_running(pool, id).await? {
+    if Mission::agent_running(pool, id).await? {
         return Err(ApiError::Conflict(
             "Fluke is still working on this mission; wait for it to finish before deleting it"
                 .to_string(),

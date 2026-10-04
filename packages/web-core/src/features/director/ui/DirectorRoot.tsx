@@ -132,12 +132,7 @@ export function FlukePage() {
       : (missions.find((m) => m.mission.status !== 'closed')?.mission.id ??
         null);
   const context = useDirectorUiContext();
-  const { data: openDetail } = useMission(missionId);
-  // In Fluke's thread the brief shown is the mission in focus (J1.2).
-  const { data: focusDetail } = useMission(
-    openDetail?.is_guard ? openDetail.focus_mission_id : null
-  );
-  const detail = openDetail?.is_guard ? focusDetail : openDetail;
+  const { data: detail } = useMission(missionId);
   const { defaultLayout, onLayoutChange } = useDefaultLayout({
     storage: localStorage,
     debounceSaveMs: 150,
@@ -182,7 +177,7 @@ export function FlukePage() {
           maxSize="70%"
           className="overflow-y-auto"
         >
-          {openDetail?.is_guard && !detail ? (
+          {detail?.is_guard ? (
             <p className="p-base text-xs text-low">
               {t('director.guard.noBrief')}
             </p>
