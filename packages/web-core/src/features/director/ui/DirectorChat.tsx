@@ -36,8 +36,6 @@ interface DirectorChatProps {
   selectedSession: Session;
   /** Rendered between the transcript and the composer (quick replies). */
   aboveComposer?: ReactNode;
-  /** Only these turns of the thread (a mission's view of it, J1.2). */
-  onlyProcessIds?: ReadonlySet<string>;
 }
 
 const noop = () => {};
@@ -46,7 +44,6 @@ export function DirectorChat({
   workspaceContext,
   selectedSession,
   aboveComposer,
-  onlyProcessIds,
 }: DirectorChatProps) {
   const sessions = useMemo(() => [selectedSession], [selectedSession]);
   const { t } = useTranslation('common');
@@ -150,7 +147,6 @@ export function DirectorChat({
                         repos={repos}
                         onAtBottomChange={handleAtBottomChange}
                         sessionScopeId={selectedSession.id}
-                        onlyProcessIds={onlyProcessIds}
                       />
                     </RetryUiProvider>
                   </div>

@@ -97,17 +97,18 @@ Después de J0, con #751 y #754 mergeados y el server reiniciado (corre la migra
 | Elegir una opción | Fluke le responde al worker; la tarea sale de `waiting_user` y sigue. |
 | Dos repos con el mismo número de issue esperando | Fluke pide aclarar el repo en vez de responder a ciegas. |
 
-## 8. Un solo hilo con misión en foco (J1.2)
+## 8. Un chat por misión, un solo Fluke
+
+(J1.2 probó un solo hilo con foco y se volvió a un chat por misión: no dejaba trabajar varias misiones en paralelo.)
 
 | Paso | Resultado esperado |
 |---|---|
-| En la guardia "Fluke", pedir trabajo nuevo ("quiero un botón de exportar en métricas") | Fluke crea una misión nueva (`new_mission`), queda en foco y arma el brief **en la misma conversación**. En /fluke, el panel derecho muestra el brief de esa misión. |
-| Pedir otra cosa nueva en el mismo hilo | Crea otra misión, cambia el foco y lo dice ("Sobre …:"). El panel derecho cambia de brief. |
-| "Volvamos a lo de exportar" | Fluke enfoca esa misión (`focus_mission`) y sigue su brief. |
-| Abrir una de esas misiones desde la lista | Se ve el hilo de Fluke filtrado: solo los turnos que fueron sobre esa misión. Lo que se escribe ahí entra con esa misión en foco. |
-| Abrir una misión vieja (de antes de J1) | Muestra su conversación propia de siempre; se sigue pudiendo usar. |
-| "¿Cómo vamos?" en el medio | Responde sin cambiar el foco. |
-| Botón "Nueva misión" de la lista | La misión nueva se abre como vista del hilo de Fluke, ya en foco. |
+| Abrir dos misiones en pestañas distintas y escribir en las dos sin esperar | Las dos responden a la vez: cada misión tiene su propio chat. |
+| En el chat de la misión A preguntar "¿cómo va la de exportar?" (otra misión) | Fluke la conoce (`[MISSIONS]`) y responde con su estado. |
+| En el chat de A, "agregale a la de exportar un criterio: …" | Fluke edita el brief de la otra misión (con su id), sin cambiar de chat. |
+| En la guardia "Fluke", pedir trabajo nuevo | Crea la misión (`new_mission`), carga lo que ya sabe y te dice que sigas en su pestaña, que aparece en la lista. |
+| En la guardia, pedir algo del brief sin nombrar misión | Pregunta de cuál misión se trata (la guardia no tiene brief propio). |
+| Abrir /fluke en la guardia | El panel derecho explica que es la conversación general; el brief está en la pestaña de cada misión. |
 
 ---
 

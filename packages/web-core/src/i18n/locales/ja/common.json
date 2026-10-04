@@ -1814,7 +1814,7 @@
     "eventsBatch_one": "アプリのイベント {{count}} 件",
     "eventsBatch_other": "アプリのイベント {{count}} 件",
     "guard": {
-      "noBrief": "フォーカス中のミッションはありません。Fluke に新しい作業を頼むかミッション名を伝えると、ここにブリーフが表示されます。"
+      "noBrief": "Fluke の全体用の会話です。アプリの通知、状況、指示はここで。各ミッションにはブリーフ付きのタブがあり、Fluke はすべて把握しています。"
     },
     "name": "Fluke",
     "open": "Open Fluke",

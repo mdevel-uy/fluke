@@ -2052,7 +2052,7 @@
     "eventsBatch_one": "{{count}} evento de la app",
     "eventsBatch_other": "{{count}} eventos de la app",
     "guard": {
-      "noBrief": "No hay misión en foco. Pedile trabajo nuevo a Fluke o nombrá una misión, y su brief aparece acá."
+      "noBrief": "Esta es la conversación general de Fluke: avisos de la app, estado y órdenes. Cada misión tiene su pestaña con su brief, y Fluke las conoce todas."
     },
     "name": "Fluke",
     "open": "Abrir Fluke",

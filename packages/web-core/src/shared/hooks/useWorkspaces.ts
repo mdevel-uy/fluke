@@ -29,7 +29,7 @@ export interface SidebarWorkspace {
   hasRunningDevServer?: boolean;
   hasUnseenActivity?: boolean;
   latestProcessCompletedAt?: string;
-  latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
+  latestProcessStatus?: 'queued' | 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
   prNumber?: number;
   prUrl?: string;

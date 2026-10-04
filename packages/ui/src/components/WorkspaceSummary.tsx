@@ -63,7 +63,7 @@ export interface WorkspaceSummaryProps {
   hasRunningDevServer?: boolean;
   hasUnseenActivity?: boolean;
   latestProcessCompletedAt?: string;
-  latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
+  latestProcessStatus?: 'queued' | 'running' | 'completed' | 'failed' | 'killed';
   prStatus?: 'open' | 'merged' | 'closed' | 'unknown';
   /** Context window usage of the agent session, if known */
   contextUsage?: WorkspaceContextUsage | null;

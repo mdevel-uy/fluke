@@ -42,7 +42,7 @@ export interface WorkspaceWithStats {
   hasRunningDevServer?: boolean;
   hasUnseenActivity?: boolean;
   latestProcessCompletedAt?: string;
-  latestProcessStatus?: 'running' | 'completed' | 'failed' | 'killed';
+  latestProcessStatus?: 'queued' | 'running' | 'completed' | 'failed' | 'killed';
   /**
    * Issue #346 · If this workspace has a coding-agent execution
    * waiting in the concurrency queue, its 1-based position (1 = next

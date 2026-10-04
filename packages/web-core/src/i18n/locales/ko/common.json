@@ -1814,7 +1814,7 @@
     "eventsBatch_one": "앱 이벤트 {{count}}건",
     "eventsBatch_other": "앱 이벤트 {{count}}건",
     "guard": {
-      "noBrief": "포커스된 미션이 없습니다. Fluke에게 새 작업을 요청하거나 미션 이름을 말하면 여기에 브리프가 표시됩니다."
+      "noBrief": "Fluke의 전체 대화입니다. 앱 알림, 상태, 지시는 여기서. 각 미션은 브리프가 있는 자체 탭이 있고, Fluke는 모두 알고 있습니다."
     },
     "name": "Fluke",
     "open": "Open Fluke",

@@ -1,7 +1,5 @@
 import {
-  useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -22,7 +20,7 @@ import type { MissionSummary } from 'shared/types';
 import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
-import { missionsApi, sessionsApi } from '@/shared/lib/api';
+import { sessionsApi } from '@/shared/lib/api';
 import { useRepos } from '@/shared/hooks/useRepos';
 import { SidebarSection } from '@/shared/components/ui-new/shell/SidebarPrimitives';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
@@ -30,7 +28,6 @@ import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
 import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
 import {
   isWaitingForUser,
-  missionKeys,
   useArchiveMission,
   useCreateMission,
   useDeleteMission,
@@ -556,50 +553,8 @@ function MissionRow({ m, selected }: { m: MissionSummary; selected: boolean }) {
 
 /** Chat of one mission, with the Director's open questions as chips. */
 export function MissionConversation({ missionId }: { missionId: string }) {
-  const { data: detail } = useMission(missionId);
-  const { data: missions = [] } = useMissionList();
-  const guardId = missions.find((m) => m.is_guard)?.mission.id ?? null;
-  // One thread (J1.2): a mission without a chat of its own is Fluke's thread
-  // filtered to its turns, and opening it puts it in focus. Missions from
-  // before keep their own conversation.
-  const threaded =
-    !!detail && !detail.is_guard && !detail.has_own_chat && !!guardId;
-  useEffect(() => {
-    if (threaded) void missionsApi.focus(missionId);
-  }, [threaded, missionId]);
-  const { data: turns } = useQuery({
-    queryKey: missionKeys.turns(missionId),
-    queryFn: () => missionsApi.turns(missionId),
-    enabled: threaded,
-    refetchInterval: 3000,
-  });
-  const onlyProcessIds = useMemo(
-    () => (threaded ? new Set(turns ?? []) : undefined),
-    [threaded, turns]
-  );
-  return (
-    <MissionChat
-      chatMissionId={threaded && guardId ? guardId : missionId}
-      briefMissionId={missionId}
-      onlyProcessIds={onlyProcessIds}
-    />
-  );
-}
-
-/** The chat of `chatMissionId`'s session, with `briefMissionId`'s proposal. */
-function MissionChat({
-  chatMissionId,
-  briefMissionId,
-  onlyProcessIds,
-}: {
-  chatMissionId: string;
-  briefMissionId: string;
-  onlyProcessIds?: ReadonlySet<string>;
-}) {
   const { t } = useTranslation('common');
-  const missionId = chatMissionId;
   const { data: detail, error } = useMission(missionId);
-  const { data: briefDetail } = useMission(briefMissionId);
   const { data: workspaceContext } = useMissionWorkspace(missionId);
   const sessionId = detail?.mission.session_id;
   const { data: session } = useQuery({
@@ -620,7 +575,7 @@ function MissionChat({
       </Centered>
     );
   }
-  if (!detail || !briefDetail || !workspaceContext || !session) {
+  if (!detail || !workspaceContext || !session) {
     return (
       <Centered>
         <SpinnerIcon className="size-icon-base animate-spin text-low" />
@@ -632,10 +587,9 @@ function MissionChat({
     <DirectorChat
       workspaceContext={workspaceContext}
       selectedSession={session}
-      onlyProcessIds={onlyProcessIds}
       aboveComposer={
         <>
-          <ProposalMessage detail={briefDetail} />
+          <ProposalMessage detail={detail} />
           <QuickReplies
             key={detail.mission.pending_questions
               .map((q) => q.question)
