@@ -1340,15 +1340,14 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
         })?
     };
 
-    // Write the code and a carriage return: the CLI treats CR as "enter" on
-    // its Ink prompt, so this submits the value the same way a keyboard
-    // paste would. The write runs inside `spawn_blocking` because
-    // `pty.writer` is a synchronous `Write` (portable_pty does not expose an
-    // async writer) and we would otherwise stall the async runtime while
-    // the pipe drains. Payload is ~20 bytes so it should complete in
-    // microseconds, but the wrapping keeps the runtime honest.
-    let mut payload = code.as_bytes().to_vec();
-    payload.push(b'\r');
+    // Write the code, then a carriage return as a separate keystroke. On a
+    // Unix PTY (macOS/Linux) `code\r` in one write reaches Ink as a single
+    // pasted chunk: the CR is swallowed as text instead of firing "enter",
+    // so the prompt never submits and the card spins forever. ConPTY on
+    // Windows splits input into key events, which is why one write worked
+    // there. The writes run inside `spawn_blocking` because `pty.writer` is
+    // a synchronous `Write` (portable_pty does not expose an async writer).
+    let payload = code.as_bytes().to_vec();
 
     // A retry after "code rejected" starts clean; the reader re-flags it if
     // the CLI rejects this code too.
@@ -1357,6 +1356,10 @@ async fn submit_claude_code(code: &str) -> Result<ResponseJson<ApiResponse<()>>,
     let write_result = tokio::task::spawn_blocking(move || {
         let mut writer = writer;
         writer.write_all(&payload)?;
+        writer.flush()?;
+        // Let Ink render the pasted text before the enter arrives.
+        std::thread::sleep(Duration::from_millis(300));
+        writer.write_all(b"\r")?;
         writer.flush()?;
         Ok::<_, std::io::Error>(writer)
     })
