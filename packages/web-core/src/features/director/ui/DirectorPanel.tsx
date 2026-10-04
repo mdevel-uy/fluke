@@ -158,7 +158,8 @@ export function MissionTabs() {
     activeTab,
     zoneWidth
   );
-  const deleteLabel = t('director.delete.action');
+  const deleteLabel = (name: string) =>
+    t('director.delete.actionNamed', { name });
   const remove = (id: string) => {
     const m = byId.get(id);
     if (m && !m.is_guard) void confirmDelete(m);
@@ -185,7 +186,7 @@ export function MissionTabs() {
                 active={activeTab === id}
                 onClick={() => setActiveTab(id)}
                 onClose={e.closable ? () => remove(id) : undefined}
-                closeLabel={deleteLabel}
+                closeLabel={deleteLabel(e.label)}
                 label={e.label}
                 attention={e.attention}
               />
@@ -204,7 +205,7 @@ export function MissionTabs() {
         )}
       </div>
       <NewMissionButton
-        className="flex size-6 shrink-0 items-center justify-center self-center p-0"
+        className="flex size-6 shrink-0 items-center justify-center self-center"
       />
     </div>
   );

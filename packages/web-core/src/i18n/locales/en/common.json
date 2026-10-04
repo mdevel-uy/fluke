@@ -2179,6 +2179,7 @@
     },
     "delete": {
       "action": "Delete mission",
+      "actionNamed": "Delete mission \"{{name}}\"",
       "title": "Delete \"{{name}}\"?",
       "message": "The mission, its conversation and its brief are deleted. This can't be undone.",
       "messageWithIssues": "The mission, its conversation and its brief are deleted. The issues it already created ({{issues}}) are kept on GitHub; only their link to the mission is removed. This can't be undone.",

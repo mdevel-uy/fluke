@@ -2179,6 +2179,7 @@
     },
     "delete": {
       "action": "Borrar misión",
+      "actionNamed": "Borrar la misión \"{{name}}\"",
       "title": "¿Borrar \"{{name}}\"?",
       "message": "Se borran la misión, su conversación y su brief. No se puede deshacer.",
       "messageWithIssues": "Se borran la misión, su conversación y su brief. Los issues que ya creó ({{issues}}) se conservan en GitHub; sólo se quita su vínculo con la misión. No se puede deshacer.",

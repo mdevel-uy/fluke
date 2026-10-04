@@ -40,7 +40,8 @@ export function MissionTabsMenu({
   activeId: string;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  deleteLabel: string;
+  /** Label of the X for a tab, from its title. */
+  deleteLabel: (label: string) => string;
 }) {
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
@@ -114,18 +115,21 @@ export function MissionTabsMenu({
               {e.running && <SpinnerIcon className="animate-spin text-low" />}
               {e.closable && (
                 // Always visible: on touch it's the only way to close a
-                // hidden tab. It must not select the item.
+                // hidden tab. It must not select the item: Radix's MenuItem
+                // clicks itself on a pointerup that had no pointerdown on
+                // it, so all three events stop here.
                 <button
                   type="button"
                   tabIndex={-1}
                   onPointerDown={(ev) => ev.stopPropagation()}
+                  onPointerUp={(ev) => ev.stopPropagation()}
                   onClick={(ev) => {
                     ev.preventDefault();
                     ev.stopPropagation();
                     remove(e.id);
                   }}
-                  aria-label={deleteLabel}
-                  title={deleteLabel}
+                  aria-label={deleteLabel(e.label)}
+                  title={deleteLabel(e.label)}
                   className="flex size-4 shrink-0 items-center justify-center rounded-sm text-low hover:bg-secondary/60 hover:text-high"
                 >
                   <XIcon />
