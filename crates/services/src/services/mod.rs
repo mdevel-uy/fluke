@@ -21,7 +21,6 @@ pub mod filesystem_watcher;
 pub mod heartbeat;
 pub mod issue_phases;
 pub mod licensing;
-pub mod memory;
 pub mod milestone_runs;
 pub mod notification;
 pub mod oauth_credentials;

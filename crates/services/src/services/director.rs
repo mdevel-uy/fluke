@@ -531,6 +531,11 @@ without calling tools. Call status_snapshot only if you need it fresher within t
 Its [MEMORY], when present, is what you have learned about the user across past conversations \
 (preferences, decisions, how they work): use it to fit your answer, do not recite it, and the \
 user's words in this conversation win over it. Never mention the block itself.
+- Your memory is yours to keep: when the user tells you a preference, a decision or a fact about \
+how they work that will matter in future conversations, save it with remember (one short \
+sentence in their language). Do not save what only matters for the task at hand. If something \
+in [MEMORY] is no longer true, forget it (and remember the new version). When the user asks you \
+to forget something, use forget; when they ask what you remember, use list_memories.
 - Reply in the user's language. Be brief: short sentences that also work read aloud.";
 
 /// Apertura y cierre del bloque de contexto de cada turno. La UI lo oculta.
@@ -596,18 +601,52 @@ pub async fn turn_context(
     } else {
         ""
     };
-    // What Fluke has learned about the user that matters for this message
-    // (J3). An event batch is not the user: no recall for it.
-    let memory = match user_text.filter(|t| !t.starts_with(EVENTS_PREFIX)) {
-        Some(text) => crate::services::memory::recall(text)
-            .await
-            .map(|m| format!("\n\n[MEMORY]\n{m}"))
-            .unwrap_or_default(),
-        None => String::new(),
-    };
+    let memory = memory_block(pool, user_text).await?;
     Ok(format!(
         "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{focus}{channel}{memory}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
+}
+
+// ---------------------------------------------------------------------------
+// Memoria (J3): embebida en SQLite, la escribe Fluke mismo
+// ---------------------------------------------------------------------------
+
+/// Up to this many memories, all of them go into every turn.
+const MEMORY_ALL_MAX: i64 = 30;
+const MEMORY_RELEVANT: i64 = 12;
+const MEMORY_MOST_USED: i64 = 5;
+
+/// `[MEMORY]` for a turn: everything while memory is small; past that, the
+/// memories that match the user's message plus the most used ones. An event
+/// batch is not the user: it gets no memory.
+async fn memory_block(pool: &Pool, user_text: Option<&str>) -> Result<String, sqlx::Error> {
+    use db::models::fluke_memory::FlukeMemory;
+    let Some(text) = user_text.filter(|t| !t.starts_with(EVENTS_PREFIX)) else {
+        return Ok(String::new());
+    };
+    let total = FlukeMemory::count(pool).await?;
+    if total == 0 {
+        return Ok(String::new());
+    }
+    let mut memories = if total <= MEMORY_ALL_MAX {
+        FlukeMemory::list(pool).await?
+    } else {
+        let mut m = FlukeMemory::relevant(pool, text, MEMORY_RELEVANT).await?;
+        for used in FlukeMemory::most_used(pool, MEMORY_MOST_USED).await? {
+            if !m.iter().any(|x| x.id == used.id) {
+                m.push(used);
+            }
+        }
+        m
+    };
+    memories.sort_by_key(|m| m.id);
+    let ids: Vec<i64> = memories.iter().map(|m| m.id).collect();
+    FlukeMemory::mark_used(pool, &ids).await?;
+    let lines: Vec<String> = memories
+        .iter()
+        .map(|m| format!("- #{} ({}) {}", m.id, m.kind, m.fact))
+        .collect();
+    Ok(format!("\n\n[MEMORY]\n{}", lines.join("\n")))
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,6 +1062,32 @@ pub fn tool_definitions() -> Value {
         {
             "name": "get_brief",
             "description": "Return the current brief as markdown, its items with ids, and what is missing.",
+            "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "remember",
+            "description": "Save something about the user that will matter in future conversations: a preference, a decision or a fact about how they work. One short sentence in their language. Saving the same fact twice is harmless.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "fact": { "type": "string" },
+                    "kind": { "type": "string", "enum": db::models::fluke_memory::KINDS }
+                },
+                "required": ["fact"]
+            }
+        },
+        {
+            "name": "forget",
+            "description": "Delete a memory by its id (the #n in [MEMORY] or list_memories).",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "memory_id": { "type": "integer" } },
+                "required": ["memory_id"]
+            }
+        },
+        {
+            "name": "list_memories",
+            "description": "Everything you remember about the user, with ids.",
             "inputSchema": { "type": "object", "properties": {} }
         },
         {
@@ -1520,6 +1585,53 @@ pub async fn call_tool(
     };
 
     match name {
+        "remember" => {
+            use db::models::fluke_memory::{FlukeMemory, KINDS};
+            let fact = args
+                .get("fact")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|f| !f.is_empty())
+                .ok_or("missing fact")?;
+            if fact.chars().count() > 500 {
+                return Err("keep a memory to one short sentence".into());
+            }
+            let kind = args.get("kind").and_then(Value::as_str).unwrap_or("fact");
+            if !KINDS.contains(&kind) {
+                return Err(format!("kind must be one of {KINDS:?}"));
+            }
+            let id = FlukeMemory::remember(pool, fact, kind)
+                .await
+                .map_err(db_err)?;
+            Ok(format!("Remembered as #{id}."))
+        }
+        "forget" => {
+            let id = args
+                .get("memory_id")
+                .and_then(Value::as_i64)
+                .ok_or("missing memory_id")?;
+            if db::models::fluke_memory::FlukeMemory::forget(pool, id)
+                .await
+                .map_err(db_err)?
+            {
+                Ok(format!("Forgot #{id}."))
+            } else {
+                Err(format!("no memory #{id}"))
+            }
+        }
+        "list_memories" => {
+            let all = db::models::fluke_memory::FlukeMemory::list(pool)
+                .await
+                .map_err(db_err)?;
+            if all.is_empty() {
+                return Ok("You do not remember anything about the user yet.".into());
+            }
+            Ok(all
+                .iter()
+                .map(|m| format!("#{} ({}) {}", m.id, m.kind, m.fact))
+                .collect::<Vec<_>>()
+                .join("\n"))
+        }
         "list_missions" => {
             let focus = guard.as_ref().and_then(|g| g.focus_mission_id);
             let mut out = Vec::new();
@@ -1891,6 +2003,33 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("unknown worker 'Nadie'"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn memory_reaches_the_turn_but_not_event_batches() {
+        use db::models::fluke_memory::FlukeMemory;
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+
+        assert_eq!(memory_block(&pool, Some("hola")).await.unwrap(), "");
+        let id = FlukeMemory::remember(&pool, "Prefiere device flow para los logins", "preference")
+            .await
+            .unwrap();
+        let block = memory_block(&pool, Some("armemos el login")).await.unwrap();
+        assert_eq!(
+            block,
+            format!("\n\n[MEMORY]\n- #{id} (preference) Prefiere device flow para los logins")
+        );
+        assert_eq!(FlukeMemory::list(&pool).await.unwrap()[0].uses, 1);
+        assert_eq!(
+            memory_block(&pool, Some("[EVENTS]\n- 09:31 task.failed")).await.unwrap(),
+            ""
+        );
+        assert_eq!(memory_block(&pool, None).await.unwrap(), "");
     }
 
     #[test]

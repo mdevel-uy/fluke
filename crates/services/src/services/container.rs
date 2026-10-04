@@ -295,23 +295,16 @@ pub trait ContainerService {
             if ctx.execution_process.status != ExecutionProcessStatus::Completed {
                 return;
             }
-            let turn = CodingAgentTurn::find_by_execution_process_id(
+            let reply = CodingAgentTurn::find_by_execution_process_id(
                 &self.db().pool,
                 ctx.execution_process.id,
             )
             .await
             .ok()
-            .flatten();
-            let prompt = turn.as_ref().and_then(|t| t.prompt.clone()).unwrap_or_default();
-            let reply = turn.and_then(|t| t.summary).unwrap_or_default();
+            .flatten()
+            .and_then(|turn| turn.summary)
+            .unwrap_or_default();
             if let Some(body) = fluke_notification_body(&reply) {
-                // Fluke's memory (J3): the user's exchanges, not event
-                // batches (D8); a silent turn has no body and is skipped.
-                if !prompt.trim().is_empty()
-                    && !prompt.starts_with(crate::services::director::EVENTS_PREFIX)
-                {
-                    crate::services::memory::remember(prompt, reply.trim().to_string());
-                }
                 self.notification_service()
                     .notify_link("Fluke", &body, "/fluke")
                     .await;
