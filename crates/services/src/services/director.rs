@@ -206,11 +206,7 @@ async fn proposal(
         let Some(issue) = RepoIssue::find_by_repo_and_number(pool, repo_id, n).await? else {
             continue;
         };
-        let labels: Vec<String> = serde_json::from_str::<Vec<serde_json::Value>>(&issue.labels)
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|l| l.get("name")?.as_str().map(str::to_string))
-            .collect();
+        let labels = issue_labels(&issue);
         out.push(MissionProposalIssue {
             number: n,
             title: issue.title,
@@ -366,8 +362,221 @@ pub fn render_markdown(d: &MissionDetail) -> String {
     md
 }
 
+/// Marca que el Analista deja en el issue de implementación de un diseño
+/// cerrado (#757); con ella una corrida repetida sabe que ya existe.
+pub fn implements_design_marker(design_issue: i64) -> String {
+    format!("<!-- fluke:implements-design #{design_issue} -->")
+}
+
+/// Un PR del workspace del designer que entregó el mock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MockPr {
+    pub number: i64,
+    pub url: String,
+    pub merged: bool,
+}
+
+/// Un issue de diseño de la misión ya cerrado, con lo que se sabe del mock
+/// que lo cerró (#757).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ClosedDesignIssue {
+    pub number: i64,
+    pub title: String,
+    pub wave: Option<i64>,
+    pub prs: Vec<MockPr>,
+    /// Rama `design/*` pusheada con el deliverable.
+    pub deliverable_ref: Option<String>,
+    /// Rutas de los mocks bajo `design/`.
+    pub paths: Vec<String>,
+    /// Issues de la misión que ya implementan este diseño (llevan la marca).
+    pub implemented_by: Vec<i64>,
+}
+
+/// Los issues de diseño de la misión que ya están cerrados. Un issue es de
+/// diseño si lleva la label de diseño (#756) o si lo tomó un designer (los
+/// creados antes de la label). Sin git (o si falla), las rutas quedan vacías.
+pub async fn closed_design_issues(
+    pool: &Pool,
+    git: Option<&git::GitService>,
+    repo_id: Option<Uuid>,
+    numbers: &[i64],
+) -> Result<Vec<ClosedDesignIssue>, sqlx::Error> {
+    let Some(repo_id) = repo_id else {
+        return Ok(Vec::new());
+    };
+    let repo = Repo::find_by_id(pool, repo_id).await?;
+    let mut issues = Vec::new();
+    for &n in numbers {
+        if let Some(issue) = RepoIssue::find_by_repo_and_number(pool, repo_id, n).await? {
+            issues.push(issue);
+        }
+    }
+    let mut out = Vec::new();
+    for issue in &issues {
+        if !issue.state.eq_ignore_ascii_case("closed") {
+            continue;
+        }
+        let labels = issue_labels(issue);
+        let task_ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT t.id FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
+              WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND w.role = ?3
+              ORDER BY t.created_at DESC",
+        )
+        .bind(repo_id)
+        .bind(issue.number)
+        .bind(db::models::worker::ROLE_DESIGNER)
+        .fetch_all(pool)
+        .await?;
+        let mut designer_tasks = Vec::new();
+        for id in task_ids {
+            if let Some(task) = db::models::worker_task::WorkerTask::find_by_id(pool, id).await? {
+                designer_tasks.push(task);
+            }
+        }
+        if !crate::services::milestone_runs::is_design_issue(&labels) && designer_tasks.is_empty()
+        {
+            continue;
+        }
+        let mut closed = ClosedDesignIssue {
+            number: issue.number,
+            title: issue.title.clone(),
+            wave: labels
+                .iter()
+                .find_map(|l| crate::services::execution_labels::wave_number(l)),
+            ..Default::default()
+        };
+        for task in &designer_tasks {
+            if let Some(workspace_id) = task.workspace_id {
+                for pr in
+                    db::models::pull_request::PullRequest::find_by_workspace_id(pool, workspace_id)
+                        .await?
+                {
+                    if closed.prs.iter().all(|p| p.number != pr.pr_number) {
+                        closed.prs.push(MockPr {
+                            number: pr.pr_number,
+                            url: pr.pr_url,
+                            merged: matches!(
+                                pr.pr_status,
+                                db::models::merge::MergeStatus::Merged
+                            ),
+                        });
+                    }
+                }
+            }
+            if closed.deliverable_ref.is_none() {
+                closed.deliverable_ref = task.deliverable_ref.clone();
+            }
+            if closed.paths.is_empty()
+                && let (Some(git), Some(repo)) = (git, repo.as_ref())
+            {
+                match crate::services::design_artifacts::list_artifacts(pool, git, repo, task).await
+                {
+                    Ok(Some((_, paths))) => closed.paths = paths,
+                    Ok(None) => {}
+                    Err(e) => tracing::warn!(
+                        task_id = %task.id,
+                        "Failed to list the design artifacts for the Analyst: {e}"
+                    ),
+                }
+            }
+        }
+        let marker = implements_design_marker(issue.number);
+        closed.implemented_by = issues
+            .iter()
+            .filter(|i| i.number != issue.number)
+            .filter(|i| i.body.as_deref().is_some_and(|b| b.contains(&marker)))
+            .map(|i| i.number)
+            .collect();
+        out.push(closed);
+    }
+    Ok(out)
+}
+
+fn issue_labels(issue: &RepoIssue) -> Vec<String> {
+    serde_json::from_str::<Vec<serde_json::Value>>(&issue.labels)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|l| l.get("name")?.as_str().map(str::to_string))
+        .collect()
+}
+
+/// Qué tiene que hacer el Analista con los diseños ya cerrados de la misión:
+/// nunca tocarlos y, si falta, abrir el issue de implementación (#757).
+fn closed_designs_section(closed: &[ClosedDesignIssue]) -> String {
+    if closed.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "Diseños ya cerrados: estos issues de diseño están cerrados porque su mock ya se \
+         entregó. No los edites, no los comentes, no les agregues labels ni los reabras, y no \
+         los vuelvas a crear: el diseño está listo, lo que falta es implementarlo.\n",
+    );
+    for c in closed {
+        out.push_str(&format!("\n- #{} \"{}\"", c.number, c.title.trim()));
+        if let Some(wave) = c.wave {
+            out.push_str(&format!(" (wave:{wave})"));
+        }
+        out.push('\n');
+        if !c.implemented_by.is_empty() {
+            let list: Vec<String> = c.implemented_by.iter().map(|n| format!("#{n}")).collect();
+            out.push_str(&format!(
+                "  Ya tiene issue de implementación: {}. No crees otro; tratalo como los demás \
+                 issues existentes.\n",
+                list.join(", ")
+            ));
+            continue;
+        }
+        let merged: Vec<&MockPr> = c.prs.iter().filter(|p| p.merged).collect();
+        for pr in &merged {
+            out.push_str(&format!("  Mock mergeado en el PR #{} ({}).\n", pr.number, pr.url));
+        }
+        if !c.paths.is_empty() {
+            let paths: Vec<String> = c.paths.iter().map(|p| format!("`{p}`")).collect();
+            out.push_str(&format!("  Archivos del mock: {}.\n", paths.join(", ")));
+        }
+        if merged.is_empty() {
+            let mut known = Vec::new();
+            for pr in &c.prs {
+                known.push(format!("PR #{} sin mergear", pr.number));
+            }
+            if let Some(r) = &c.deliverable_ref {
+                known.push(format!("rama `{r}`"));
+            }
+            let known = if known.is_empty() {
+                "no hay PR ni rama registrados".to_string()
+            } else {
+                known.join(", ")
+            };
+            out.push_str(&format!(
+                "  No hay un mock mergeado localizable ({known}): no inventes la referencia; \
+                 en el issue de implementación dejalo como pregunta abierta.\n"
+            ));
+        }
+        let next_wave = c
+            .wave
+            .map(|w| format!("`wave:{}` o posterior", w + 1))
+            .unwrap_or_else(|| "una wave posterior a la del diseño".to_string());
+        out.push_str(&format!(
+            "  Creá un issue nuevo de implementación para este diseño: con `feature:` y \
+             {next_wave}, sin la label `{design}` (lo toma un developer), y en el cuerpo \
+             enlazá #{n} y el mock de arriba (PR y rutas). Agregá en una línea sola la marca \
+             {marker} para que una corrida repetida no lo duplique.\n",
+            design = crate::services::milestone_runs::DESIGN_LABEL,
+            n = c.number,
+            marker = implements_design_marker(c.number),
+        ));
+    }
+    out.push('\n');
+    out
+}
+
 /// Prompt de la request que recibe el Analista al aprobar el brief.
-pub fn analyst_request_prompt(d: &MissionDetail, version: i64) -> String {
+/// `closed_designs` sale de [`closed_design_issues`].
+pub fn analyst_request_prompt(
+    d: &MissionDetail,
+    version: i64,
+    closed_designs: &[ClosedDesignIssue],
+) -> String {
     let revision = if d.issue_numbers.is_empty() {
         String::new()
     } else {
@@ -378,10 +587,11 @@ pub fn analyst_request_prompt(d: &MissionDetail, version: i64) -> String {
             list.join(", ")
         )
     };
+    let closed = closed_designs_section(closed_designs);
     format!(
         "Brief de la misión \"{title}\" (versión {version}), aprobado por el user.\n\n\
          {md}\n---\n\
-         {revision}Partí cada ítem del brief en issues chicos y asignables. En el cuerpo de cada \
+         {revision}{closed}Partí cada ítem del brief en issues chicos y asignables. En el cuerpo de cada \
          issue agregá una sección \"## Brief\" que diga \"Misión: {title} (brief v{version})\" \
          y copie los campos del ítem del que sale. No cambies el alcance del brief: si algo \
          no cierra, listalo como pregunta abierta.\n\n\
@@ -2166,6 +2376,53 @@ mod tests {
             model: None,
             route_reason: None,
         })
+    }
+
+    #[test]
+    fn closed_design_gets_an_implementation_issue_once() {
+        let merged = ClosedDesignIssue {
+            number: 12,
+            title: "Mock del carrito".into(),
+            wave: Some(0),
+            prs: vec![MockPr {
+                number: 30,
+                url: "https://github.com/o/r/pull/30".into(),
+                merged: true,
+            }],
+            deliverable_ref: Some("design/12-carrito".into()),
+            paths: vec!["design/carrito.html".into()],
+            implemented_by: vec![],
+        };
+        let s = closed_designs_section(std::slice::from_ref(&merged));
+        assert!(s.contains("#12") && s.contains("No los edites"));
+        assert!(s.contains("PR #30") && s.contains("`design/carrito.html`"));
+        assert!(s.contains("`wave:1` o posterior"));
+        assert!(s.contains(&implements_design_marker(12)));
+        assert!(!s.contains("pregunta abierta"));
+
+        // Already implemented: no new issue is asked for.
+        let done = ClosedDesignIssue {
+            implemented_by: vec![40],
+            ..merged.clone()
+        };
+        let s = closed_designs_section(&[done]);
+        assert!(s.contains("#40") && s.contains("No crees otro"));
+        assert!(!s.contains("Creá un issue nuevo"));
+
+        // No merged mock: the reference stays an open question.
+        let lost = ClosedDesignIssue {
+            prs: vec![MockPr {
+                merged: false,
+                ..merged.prs[0].clone()
+            }],
+            paths: vec![],
+            ..merged
+        };
+        let s = closed_designs_section(&[lost]);
+        assert!(s.contains("PR #30 sin mergear") && s.contains("pregunta abierta"));
+        assert!(!s.contains("Mock mergeado"));
+
+        assert!(closed_designs_section(&[]).is_empty());
     }
 
     #[test]

@@ -299,6 +299,15 @@ async fn approve_brief(
         ApiError::BadRequest("There is no Analyst worker to send the brief to".into())
     })?;
 
+    // Design issues already closed by their mock get an implementation issue
+    // instead of being reused (#757).
+    let closed_designs = director::closed_design_issues(
+        pool,
+        Some(deployment.git()),
+        d.mission.repo_id,
+        &d.issue_numbers,
+    )
+    .await?;
     let markdown = director::render_markdown(&d);
     let version = Mission::add_brief_version(pool, id, &markdown).await?;
     let task = WorkerTask::append(
@@ -307,7 +316,7 @@ async fn approve_brief(
         &CreateWorkerTask {
             repo_id,
             title: d.mission.title.chars().take(80).collect(),
-            prompt: director::analyst_request_prompt(&d, version),
+            prompt: director::analyst_request_prompt(&d, version, &closed_designs),
             source: SOURCE_MISSION.to_string(),
             ..Default::default()
         },

@@ -252,6 +252,19 @@ pub async fn drain_with_executor<E: ActionExecutor + ?Sized>(
     let mut by_seq: std::collections::HashMap<i64, AgentAction> =
         all_rows.into_iter().map(|r| (r.seq, r)).collect();
 
+    // An issue created in an earlier drain that died before linking it to its
+    // mission gets linked now (idempotent), so a retry converges without
+    // re-creating it (#757).
+    for row in by_seq.values() {
+        if row.kind == "create_issue"
+            && row.status == agent_action::STATUS_DONE
+            && let Some(number) = row.result_number
+        {
+            db::models::mission::Mission::link_issue_for_task(pool, task_id, row.repo_id, number)
+                .await?;
+        }
+    }
+
     let pending = AgentAction::find_pending_or_failed_for_task(pool, task_id).await?;
     for row in pending {
         // Cache repo lookups per row — cheap and keeps the loop straight.
