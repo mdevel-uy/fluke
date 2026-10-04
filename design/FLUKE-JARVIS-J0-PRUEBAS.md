@@ -135,28 +135,16 @@ curl -N -X POST http://127.0.0.1:<puerto>/api/director/turn \
 
 # J3 · Memoria — cómo probarlo
 
-Necesita una key de OpenAI para Honcho (ver `docker/honcho/README.md`).
+La memoria va dentro de la app (SQLite), sin servicios ni keys extra.
 
-## 10. Memoria con Honcho local
-
-| Paso | Resultado esperado |
-|---|---|
-| Levantar Honcho según `docker/honcho/README.md` y `curl -s http://127.0.0.1:8000/health` | Responde OK. |
-| Sin Honcho levantado, hablar con Fluke | Funciona igual, sin demoras extra (la memoria es opcional). |
-| Con Honcho, decirle a Fluke algo de cómo trabajás ("siempre prefiero device flow para logins", "los PRs de UI los reviso yo") y charlar un par de turnos | Nada visible todavía; Honcho procesa en segundo plano. |
-| Reiniciar el server de fluke (Fluke arranca de cero) y pedir algo relacionado ("armemos el login de la app de escritorio") | Fluke usa lo que aprendió (propone device flow sin que lo digas). |
-| Ver qué aprendió: `curl -s -X POST http://127.0.0.1:8000/v3/workspaces/fluke/peers/user/representation -H "Content-Type: application/json" -d '{"max_conclusions":30}'` | Las conclusiones sobre vos (preferencias, decisiones). |
-| Mandar eventos o respuestas SILENT | No aparecen en Honcho: solo se guarda el diálogo con vos. |
-| `FLUKE_HONCHO_URL=off` al arrancar el server | Sin memoria, sin llamadas a Honcho. |
-# J4 · Seguimiento hasta el merge — cómo probarlo
-
-## 11. Fluke ofrece el paso siguiente
+## 10. Fluke recuerda
 
 | Paso | Resultado esperado |
 |---|---|
-| Completar un brief con Fluke | Fluke lo resume en dos líneas y ofrece aprobarlo. Con "sí", aparece la confirmación "¿Confirmás? …" y recién con "Sí, …" se aprueba. |
-| Esperar a que el Analyst termine el despiece | Fluke dice cuántos issues y waves salieron y pregunta "Ejecutar ahora" / "Paso a paso" / "Después". Con "Ejecutar ahora" arranca el milestone run (se ve en Issues). |
-| Una tarea queda aprobada con su PR abierto | Fluke dice qué hace en una línea y ofrece mergearlo. Con "sí", confirmación "¿Confirmás? mergear el PR #n" → "Sí, …" → el PR queda mergeado en GitHub con tu usuario de `gh`. |
-| Responder "no" o cualquier otra cosa a la confirmación de merge | No se mergea nada. |
-| Termina una wave o un milestone | Una línea con lo hecho y lo que sigue. |
-| En ningún caso | Fluke ejecuta, aprueba ni mergea por su cuenta. |
+| Decirle a Fluke algo de cómo trabajás ("siempre prefiero device flow para los logins", "los PRs de UI los reviso yo") | Fluke lo guarda (`remember`) y lo dice en una frase o sigue de largo. |
+| Algo que solo importa para la tarea de ahora ("este botón que sea azul") | No lo guarda como recuerdo. |
+| "¿Qué recordás de mí?" | Lista los recuerdos con su número. |
+| Reiniciar el server de fluke (Fluke arranca de cero) y pedir algo relacionado ("armemos el login de la app de escritorio") | Fluke usa lo que recuerda (propone device flow sin que lo digas). |
+| "Olvidate de lo de device flow" | Lo borra (`forget`); en el siguiente pedido de login ya no lo asume. |
+| "Ahora prefiero OAuth con redirect" | Reemplaza el recuerdo viejo por el nuevo. |
+| Lotes de eventos de la app | No generan ni consumen recuerdos. |
