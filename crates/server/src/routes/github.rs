@@ -1405,3 +1405,123 @@ github.com
         assert!(matches!(err, ApiError::Conflict(_)));
     }
 }
+
+// ============================================================================
+// Tests: crear repo en GitHub (issue #774)
+//
+// Contrato esperado en este módulo:
+// - `classify_gh_repo_create_failure(exit_code, stderr) -> GithubCreateError`
+//   (de `services::services::repo`), para `gh repo create` / `gh api`.
+// - `parse_github_owners(user_login, orgs_raw) -> Vec<GithubOwner>` con
+//   `GithubOwner { login: String, kind: GithubOwnerKind }`,
+//   `GithubOwnerKind::{User, Organization}` serializado en minúsculas
+//   (`"user"` / `"organization"`): primero el usuario, luego las orgs.
+// ============================================================================
+
+#[cfg(test)]
+mod create_repo_tests {
+    use services::services::repo::GithubCreateError;
+
+    use super::*;
+
+    #[test]
+    fn create_failure_without_session_is_no_session() {
+        let by_exit = classify_gh_repo_create_failure(Some(4), "");
+        assert!(matches!(by_exit, GithubCreateError::NoSession), "{by_exit:?}");
+
+        let by_text = classify_gh_repo_create_failure(
+            Some(1),
+            "To get started with GitHub CLI, please run:  gh auth login",
+        );
+        assert!(matches!(by_text, GithubCreateError::NoSession), "{by_text:?}");
+
+        let bad_token = classify_gh_repo_create_failure(Some(1), "HTTP 401: Bad credentials");
+        assert!(matches!(bad_token, GithubCreateError::NoSession), "{bad_token:?}");
+    }
+
+    #[test]
+    fn create_failure_name_already_exists_is_name_taken() {
+        let err = classify_gh_repo_create_failure(
+            Some(1),
+            "GraphQL: Name already exists on this account (createRepository)",
+        );
+        assert!(matches!(err, GithubCreateError::NameTaken), "{err:?}");
+
+        let rest = classify_gh_repo_create_failure(
+            Some(1),
+            "HTTP 422: Repository creation failed.: name already exists on this account",
+        );
+        assert!(matches!(rest, GithubCreateError::NameTaken), "{rest:?}");
+    }
+
+    #[test]
+    fn create_failure_org_permissions_is_permission_denied() {
+        let graphql = classify_gh_repo_create_failure(
+            Some(1),
+            "GraphQL: acme does not have the correct permissions to execute `CreateRepository`",
+        );
+        assert!(
+            matches!(graphql, GithubCreateError::PermissionDenied(_)),
+            "{graphql:?}"
+        );
+
+        let rest = classify_gh_repo_create_failure(
+            Some(1),
+            "HTTP 403: Resource not accessible by personal access token",
+        );
+        assert!(
+            matches!(rest, GithubCreateError::PermissionDenied(_)),
+            "{rest:?}"
+        );
+    }
+
+    #[test]
+    fn create_failure_unknown_keeps_stderr_for_the_user() {
+        let err = classify_gh_repo_create_failure(Some(1), "something unexpected exploded");
+        match err {
+            GithubCreateError::Other(msg) => {
+                assert!(msg.contains("something unexpected exploded"))
+            }
+            other => panic!("se esperaba Other, llegó {other:?}"),
+        }
+    }
+
+    #[test]
+    fn owners_list_has_user_first_then_organizations() {
+        let owners = parse_github_owners("octocat", "acme\nglobex\n");
+
+        let logins: Vec<&str> = owners.iter().map(|o| o.login.as_str()).collect();
+        assert_eq!(logins, vec!["octocat", "acme", "globex"]);
+        assert!(matches!(owners[0].kind, GithubOwnerKind::User));
+        assert!(matches!(owners[1].kind, GithubOwnerKind::Organization));
+        assert!(matches!(owners[2].kind, GithubOwnerKind::Organization));
+    }
+
+    #[test]
+    fn owners_list_ignores_blank_lines_and_duplicates() {
+        let owners = parse_github_owners("octocat", "\n acme \n\nacme\noctocat\n");
+
+        let logins: Vec<&str> = owners.iter().map(|o| o.login.as_str()).collect();
+        assert_eq!(logins, vec!["octocat", "acme"]);
+    }
+
+    #[test]
+    fn owners_list_without_orgs_is_just_the_user() {
+        let owners = parse_github_owners("octocat", "");
+
+        assert_eq!(owners.len(), 1);
+        assert_eq!(owners[0].login, "octocat");
+    }
+
+    #[test]
+    fn owner_kind_serializes_lowercase_for_the_ui() {
+        let json = serde_json::to_value(GithubOwner {
+            login: "acme".into(),
+            kind: GithubOwnerKind::Organization,
+        })
+        .unwrap();
+
+        assert_eq!(json["login"], "acme");
+        assert_eq!(json["kind"], "organization");
+    }
+}
