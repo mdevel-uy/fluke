@@ -2,7 +2,7 @@
 #
 # Targets:
 #   - Windows x64: cargo-xwin + NSIS cross-compile from ubuntu (as upstream did)
-#   - macOS arm64 + x64: native build on macos runners, .dmg
+#   - macOS arm64: native build on a macos runner, .dmg (no Intel build)
 #
 # macOS signing: if the APPLE_* secrets exist the app is signed with the
 # Developer ID and notarized; otherwise it is ad-hoc signed (opens after
@@ -62,10 +62,6 @@ jobs:
             os: macos-15
             target: aarch64-apple-darwin
             arch: aarch64
-          - platform: darwin-x86_64
-            os: macos-15
-            target: x86_64-apple-darwin
-            arch: x64
     defaults:
       run:
         shell: bash
@@ -242,7 +238,7 @@ jobs:
           cat > notes.md <<'EOF'
           Instalación:
           - Windows x64: `fluke_*_x64-setup.exe` (sin firma: en SmartScreen elegir "Más información" > "Ejecutar de todas formas").
-          - macOS Apple Silicon: `fluke_*_aarch64.dmg`. macOS Intel: `fluke_*_x64.dmg`.
+          - macOS Apple Silicon: `fluke_*_aarch64.dmg` (no hay build para Intel).
             Si macOS indica que no puede verificar la app: Configuración del Sistema > Privacidad y seguridad > "Abrir igualmente".
 
           Si tenés instalada una versión anterior al rename a fluke (identificador `uy.mdevel.mkanban`): desinstalarla e instalar esta.

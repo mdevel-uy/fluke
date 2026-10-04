@@ -23,7 +23,9 @@ const CARD_STATE_CLASS: Record<PlanCardState | 'manual', string> = {
   queued: 'border-dashed border-md-on-surface-variant',
   running: 'border-md-primary shadow-[0_0_0_1px_hsl(var(--md-primary)/0.3)]',
   review: 'border-violet-600 dark:border-violet-400',
-  approved: 'border-success shadow-[0_0_0_2px_hsl(var(--_success)/0.35)]',
+  /* `\_` escapa el underscore: en un valor arbitrario Tailwind convierte
+     `_` en espacio, y `var(-- success)` rompe la minificación CSS. */
+  approved: 'border-success shadow-[0_0_0_2px_hsl(var(--\\_success)/0.35)]',
   stuck:
     'border-md-error shadow-[0_0_0_1px_hsl(var(--md-error)/0.35),0_6px_20px_-10px_hsl(var(--md-error))]',
   done: 'opacity-65',
