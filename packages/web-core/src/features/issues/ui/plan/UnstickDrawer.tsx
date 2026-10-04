@@ -3,23 +3,15 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BaseCodingAgent } from 'shared/types';
 import { defineModal } from '@/shared/lib/modals';
 import { cn } from '@/shared/lib/utils';
-import {
-  issuePhasesApi,
-  missionsApi,
-  planApi,
-  sessionsApi,
-  workspacesApi,
-} from '@/shared/lib/api';
-import { useDirectorStore } from '@/features/director/model/useDirectorStore';
+import { issuePhasesApi, planApi, workspacesApi } from '@/shared/lib/api';
 import type { RepoIssue } from '@/features/issues/types';
 import { useIssuePlan } from '@/features/issues/model/useIssuePlan';
 import { useCloseIssue } from '@/features/issues/model/useRepoIssues';
 import { blockerAge, blockerPhaseKind } from '@/features/issues/lib/blocker';
 import { instanceLabel } from '@/features/workers/model/instance';
-import { useCreateMission } from '@/features/director/model/useMissions';
+import { useTalkToFluke } from '@/features/director/model/useMissions';
 
 /**
  * "Destrabar" drawer (#696): what happened to a stuck issue, the agent's
@@ -70,8 +62,7 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
   const queryClient = useQueryClient();
   const { data: plan } = useIssuePlan(repoId, issue.number);
   const closeIssue = useCloseIssue(repoId);
-  const createMission = useCreateMission();
-  const openMission = useDirectorStore((st) => st.openMission);
+  const talk = useTalkToFluke();
   const blocker = plan?.blocker ?? null;
   const question = useMemo(
     () => parseQuestion(blocker?.question ?? null),
@@ -172,32 +163,20 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
   };
 
   const talkToFluke = () =>
-    run(async () => {
-      // The mission the issue came from, when it is still open (#702);
-      // otherwise a new one.
-      const own = (await missionsApi.list()).find(
-        (m) =>
-          m.mission.status !== 'closed' &&
-          m.mission.repo_id === repoId &&
-          m.issue_numbers.includes(issue.number)
-      )?.mission;
-      if (own) openMission(own.id);
-      const sessionId =
-        own?.session_id ??
-        (await createMission.mutateAsync(repoId)).mission.session_id;
-      await sessionsApi.followUp(sessionId, {
-        prompt: t('issues.plan.unstick.flukeMessage', {
-          n: issue.number,
-          title: issue.title,
-          phase: phaseName,
-          message: blocker?.message ?? '',
+    run(
+      () =>
+        talk.mutateAsync({
+          repoId,
+          issueNumbers: [issue.number],
+          prompt: t('issues.plan.unstick.flukeMessage', {
+            n: issue.number,
+            title: issue.title,
+            phase: phaseName,
+            message: blocker?.message ?? '',
+          }),
         }),
-        executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
-        retry_process_id: null,
-        force_when_dirty: null,
-        perform_git_reset: null,
-      });
-    }, 'fluke');
+      'fluke'
+    );
 
   const unstick = (action: string, result: UnstickDrawerResult) =>
     run(

@@ -34,6 +34,7 @@ import { MilestoneTagChips, type MilestoneActions } from './MilestoneControls';
 import type { DecisionContext } from './DecisionDrawer';
 import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
+import { useTalkToFluke } from '@/features/director/model/useMissions';
 
 /**
  * Plan view of the Issues page (fluke v2, #663): one band per GitHub
@@ -137,6 +138,7 @@ export function PlanView({
   const { data: runs = [] } = useMilestoneRuns(repoId);
   const { data: ghMilestones = [] } = useRepoMilestones(repoId);
   const setOpen = useSetMilestoneOpen(repoId);
+  const talkToFluke = useTalkToFluke();
   const prefs = usePlanPrefsStore();
   const ghByTitle = useMemo(
     () => new Map(ghMilestones.map((m) => [m.title, m])),
@@ -268,6 +270,19 @@ export function PlanView({
       onArchive: gh ? () => archive(band, gh.number) : undefined,
       githubUrl: gh?.html_url,
       onShowIssues: onShowIssues ? () => onShowIssues(m) : undefined,
+      onReviewWithFluke: () => {
+        const nums = band.waves.flatMap((w) =>
+          w.cards.map((c) => c.issue.number)
+        );
+        talkToFluke.mutate({
+          repoId,
+          issueNumbers: nums,
+          prompt: t('issues.plan.reviewWithFlukeMessage', {
+            milestone: m,
+            issues: nums.map((n) => `#${n}`).join(', '),
+          }),
+        });
+      },
       reorder: {
         dragging: drag?.from === m,
         over: !!drag && drag.over === m && drag.from !== m,
