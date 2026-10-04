@@ -461,7 +461,7 @@ pub struct ActiveIssueTaskInfo {
 }
 
 #[derive(Debug, Deserialize)]
-struct ActiveIssueTaskQuery {
+pub struct ActiveIssueTaskQuery {
     pub repo_id: Uuid,
     pub issue_number: i64,
 }
