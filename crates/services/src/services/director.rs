@@ -1139,6 +1139,25 @@ pub fn events_message(events: &[db::models::fluke_event::FlukeEvent]) -> String 
 // ---------------------------------------------------------------------------
 
 const SNAPSHOT_LIST_MAX: i64 = 6;
+/// Tope del motivo de falla por tarea en el snapshot: alcanza para el error
+/// resumido sin inflar el prompt.
+const SNAPSHOT_REASON_MAX: usize = 200;
+
+/// `s` en una sola línea (espacios y saltos colapsados) y acotado a `max`
+/// caracteres; `None` si queda vacío.
+fn one_line(s: &str, max: usize) -> Option<String> {
+    let flat = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.is_empty() {
+        return None;
+    }
+    if flat.chars().count() <= max {
+        return Some(flat);
+    }
+    let mut cut: String = flat.chars().take(max).collect();
+    cut.truncate(cut.trim_end().len());
+    cut.push('…');
+    Some(cut)
+}
 
 /// Resumen del estado actual, armado por el código en cada turno: qué corre,
 /// qué está trancado, qué espera al usuario y cómo están los PRs. Así "¿cómo
@@ -1312,7 +1331,7 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
     }
 
     let failed = sqlx::query(
-        "SELECT t.issue_number, t.title, w.role, t.failure_kind FROM worker_tasks t \
+        "SELECT t.issue_number, t.title, w.role, t.failure_kind, t.failure_reason FROM worker_tasks t \
            LEFT JOIN workers w ON w.id = t.worker_id \
           WHERE t.status = 'failed' AND t.completed_at > datetime('now', '-1 day') \
           ORDER BY t.completed_at DESC LIMIT ?",
@@ -1323,11 +1342,21 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
     if !failed.is_empty() {
         out.push_str("\nFailed (24 h):");
         for r in &failed {
-            let kind = r
-                .get::<Option<String>, _>("failure_kind")
-                .map(|k| format!(": {k}"))
-                .unwrap_or_default();
-            out.push_str(&task_line(r, &kind));
+            // "kind · motivo", cada parte sólo si existe; sin ninguna, nada.
+            let parts: Vec<String> = [
+                r.get::<Option<String>, _>("failure_kind"),
+                r.get::<Option<String>, _>("failure_reason"),
+            ]
+            .into_iter()
+            .flatten()
+            .filter_map(|s| one_line(&s, SNAPSHOT_REASON_MAX))
+            .collect();
+            let extra = if parts.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", parts.join(" · "))
+            };
+            out.push_str(&task_line(r, &extra));
         }
     }
 
@@ -2276,6 +2305,147 @@ mod tests {
             s.contains("- #666 Play por milestone (developer): approved, PR #690 in fluke ready to merge"),
             "{s}"
         );
+    }
+
+    /// In-memory DB with one developer worker, for the failed-task snapshot tests.
+    async fn failed_snapshot_pool() -> (sqlx::SqlitePool, Uuid) {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("../db/migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let dev = Uuid::new_v4();
+        sqlx::query("INSERT INTO workers (id, name, emoji, soul, role) VALUES (?, 'Dev', '', '', 'developer')")
+            .bind(dev)
+            .execute(&pool)
+            .await
+            .unwrap();
+        (pool, dev)
+    }
+
+    /// A task that failed just now (inside the "Failed (24 h)" window).
+    async fn insert_failed_task(
+        pool: &sqlx::SqlitePool,
+        dev: Uuid,
+        n: i64,
+        title: &str,
+        reason: Option<&str>,
+        kind: Option<&str>,
+    ) {
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, issue_number, status, failure_reason, failure_kind, completed_at) \
+             VALUES (?, ?, ?, 1, ?, 'p', ?, 'failed', ?, ?, datetime('now'))",
+        )
+        .bind(Uuid::new_v4())
+        .bind(dev)
+        .bind(Uuid::new_v4())
+        .bind(format!("#{n} {title}"))
+        .bind(n)
+        .bind(reason)
+        .bind(kind)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
+    /// The task lines listed under "Failed (24 h):", in snapshot order.
+    fn failed_section(snapshot: &str) -> Vec<&str> {
+        snapshot
+            .lines()
+            .skip_while(|l| !l.starts_with("Failed (24 h):"))
+            .skip(1)
+            .take_while(|l| l.starts_with("- "))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn status_snapshot_includes_failure_reason_next_to_each_failed_task() {
+        let (pool, dev) = failed_snapshot_pool().await;
+        insert_failed_task(
+            &pool,
+            dev,
+            777,
+            "Implementar advanced settings colapsable en la tarjeta de provider",
+            Some("El agente terminó con error: cargo test falló en provider_card"),
+            None,
+        )
+        .await;
+        insert_failed_task(
+            &pool,
+            dev,
+            778,
+            "Otra tarea",
+            Some("Error de API (529): overloaded"),
+            Some("infra"),
+        )
+        .await;
+
+        let s = status_snapshot(&pool).await.unwrap();
+        let failed = failed_section(&s);
+        assert_eq!(failed.len(), 2, "{s}");
+        let first = failed.iter().find(|l| l.contains("#777")).expect(&s);
+        assert!(
+            first.contains("El agente terminó con error: cargo test falló en provider_card"),
+            "{s}"
+        );
+        // The kind (already shown today) must survive next to the reason.
+        let second = failed.iter().find(|l| l.contains("#778")).expect(&s);
+        assert!(second.contains("infra"), "{s}");
+        assert!(second.contains("Error de API (529): overloaded"), "{s}");
+    }
+
+    #[tokio::test]
+    async fn status_snapshot_failure_reason_is_one_bounded_line() {
+        let (pool, dev) = failed_snapshot_pool().await;
+        let long_multiline = format!(
+            "Primera línea del error\n\n{}\nSENTINEL_TAIL",
+            "x".repeat(4000)
+        );
+        insert_failed_task(&pool, dev, 780, "Con motivo largo", Some(&long_multiline), None).await;
+        insert_failed_task(&pool, dev, 781, "Con motivo corto", Some("falló el build"), None).await;
+
+        let s = status_snapshot(&pool).await.unwrap();
+        let failed = failed_section(&s);
+        // Newlines in the reason must not split the entry into extra lines,
+        // otherwise the list format breaks.
+        assert_eq!(failed.len(), 2, "{s}");
+        let long_line = failed.iter().find(|l| l.contains("#780")).expect(&s);
+        assert!(long_line.contains("Primera línea del error"), "{s}");
+        assert!(!s.contains("SENTINEL_TAIL"), "reason not truncated: {s}");
+        assert!(
+            long_line.chars().count() <= 500,
+            "reason not bounded ({} chars): {s}",
+            long_line.chars().count()
+        );
+        let short_line = failed.iter().find(|l| l.contains("#781")).expect(&s);
+        assert!(short_line.contains("falló el build"), "{s}");
+        assert!(s.lines().any(|l| l.starts_with("Open PRs")), "{s}");
+    }
+
+    #[tokio::test]
+    async fn status_snapshot_failed_task_without_reason_stays_clean() {
+        let (pool, dev) = failed_snapshot_pool().await;
+        insert_failed_task(&pool, dev, 790, "Sin motivo nulo", None, None).await;
+        insert_failed_task(&pool, dev, 791, "Sin motivo vacío", Some(""), None).await;
+        insert_failed_task(&pool, dev, 792, "Sin motivo en blanco", Some("  \n "), Some("infra")).await;
+
+        let s = status_snapshot(&pool).await.unwrap();
+        let failed = failed_section(&s);
+        assert_eq!(failed.len(), 3, "{s}");
+        assert!(!s.contains("null"), "{s}");
+        assert!(!s.contains("None"), "{s}");
+        for line in failed {
+            let line = line.trim_end();
+            assert!(
+                !line.ends_with(':') && !line.ends_with(" -"),
+                "dangling separator in {line:?}"
+            );
+        }
     }
 
     #[tokio::test]
