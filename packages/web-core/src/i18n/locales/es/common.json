@@ -1174,7 +1174,7 @@
         "stuckDetail": "el resto de la wave sigue corriendo",
         "mergeTitle_one": "{{count}} PR listo para mergear",
         "mergeTitle_other": "{{count}} PRs listos para mergear",
-        "mergeDetail": "revisar y mergear #{{n}} en GitHub"
+        "mergeDetail": "mergear desde Pendiente de vos"
       },
       "card": {
         "ready": "● listo",
@@ -1198,6 +1198,7 @@
         "prApproved": "{{name}} · aprobado, listo para mergear"
       },
       "loose": "Sin milestone o sin wave · se despachan de a uno",
+      "awaitingYou": "Pendiente de vos",
       "legend": {
         "ready": "Listo",
         "running": "Ejecutando",
@@ -1220,8 +1221,7 @@
         "decide": "Decidir #{{n}}",
         "stuck_one": "{{count}} necesita tu ayuda",
         "stuck_other": "{{count}} necesitan tu ayuda",
-        "unstick": "Destrabar #{{n}}",
-        "approved": "{{count}} listos para mergear"
+        "unstick": "Destrabar #{{n}}"
       },
       "decision": {
         "eyebrow": "Decisión pendiente",

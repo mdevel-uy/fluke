@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
 import type {
+  BandCardState,
   MilestoneBand as Band,
-  PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 import type { WorkerTask } from '@/features/sprint/types';
 import type { MilestoneRun } from 'shared/types';
@@ -55,13 +55,10 @@ export interface MilestoneBandProps {
 
 type Edge = { d: string; tone: 'done' | 'active' | 'blocked' };
 
-const EDGE_TONE = (state: PlanCardState): Edge['tone'] =>
+const EDGE_TONE = (state: BandCardState): Edge['tone'] =>
   state === 'done'
     ? 'done'
-    : state === 'running' ||
-        state === 'review' ||
-        state === 'approved' ||
-        state === 'queued'
+    : state === 'running' || state === 'review' || state === 'queued'
       ? 'active'
       : 'blocked';
 
@@ -102,7 +99,7 @@ export function playTone(band: Band, run?: MilestoneRun): string {
     return 'border-md-error bg-md-error/20 text-md-error';
   if (
     waiting ||
-    band.status.kind === 'merge' ||
+    band.status.kind === 'awaitingYou' ||
     band.status.kind === 'decision'
   )
     return 'border-warning bg-warning/20 text-warning';
@@ -498,10 +495,11 @@ export function BandStatus({ band, run }: { band: Band; run?: MilestoneRun }) {
     );
   }
   const s = band.status;
-  if (s.kind === 'merge') {
+  if (s.kind === 'awaitingYou') {
+    // The PRs are not in the band: the line points at the section.
     return line(
       t('issues.plan.status.mergeTitle', { count: s.count }),
-      t('issues.plan.status.mergeDetail', { n: s.issueNumber }),
+      t('issues.plan.status.mergeDetail'),
       'text-warning'
     );
   }

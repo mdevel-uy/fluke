@@ -952,7 +952,7 @@
         "stuckTitle": "#{{n}} 需要你处理",
         "stuckDetail": "wave 的其余部分继续运行",
         "mergeTitle_other": "{{count}} 个 PR 可合并",
-        "mergeDetail": "在 GitHub 上审阅并合并 #{{n}}"
+        "mergeDetail": "在“等待你处理”中合并"
       },
       "card": {
         "ready": "● 就绪",
@@ -976,6 +976,7 @@
         "prApproved": "{{name}} · 已批准，可合并"
       },
       "loose": "无里程碑或无波次 · 逐个分配",
+      "awaitingYou": "等待你处理",
       "legend": {
         "ready": "就绪",
         "running": "运行中",
@@ -997,8 +998,7 @@
         "working": "工作中",
         "decide": "决定 #{{n}}",
         "stuck_other": "{{count}} 个需要你处理",
-        "unstick": "解除 #{{n}}",
-        "approved": "{{count}} 个可合并"
+        "unstick": "解除 #{{n}}"
       },
       "decision": {
         "eyebrow": "待决定",

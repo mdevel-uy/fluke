@@ -952,7 +952,7 @@
         "stuckTitle": "#{{n}} が対応を待っています",
         "stuckDetail": "wave の残りは実行を続けます",
         "mergeTitle_other": "{{count}} 件の PR がマージ可能",
-        "mergeDetail": "GitHub で #{{n}} を確認してマージ"
+        "mergeDetail": "「あなたの対応待ち」でマージ"
       },
       "card": {
         "ready": "● 準備完了",
@@ -976,6 +976,7 @@
         "prApproved": "{{name}} · 承認済み、マージ可能"
       },
       "loose": "マイルストーンまたはウェーブなし · 1 件ずつ割り当て",
+      "awaitingYou": "あなたの対応待ち",
       "legend": {
         "ready": "準備完了",
         "running": "実行中",
@@ -997,8 +998,7 @@
         "working": "作業中",
         "decide": "#{{n}} を判断",
         "stuck_other": "{{count}} 件が対応待ち",
-        "unstick": "#{{n}} を解除",
-        "approved": "{{count}} 件マージ可能"
+        "unstick": "#{{n}} を解除"
       },
       "decision": {
         "eyebrow": "判断待ち",

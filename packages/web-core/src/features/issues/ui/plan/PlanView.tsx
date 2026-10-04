@@ -152,7 +152,8 @@ export function PlanView({
       const run = runs.find((r) => r.milestone === b.milestone)?.status;
       return (
         b.status.kind === 'running' ||
-        b.status.kind === 'merge' ||
+        // An approved PR waiting for its merge keeps the milestone active.
+        all.awaitingMerge.some((a) => a.milestone === b.milestone) ||
         run === 'running' ||
         run === 'waiting'
       );
@@ -166,7 +167,16 @@ export function PlanView({
     );
     // Loose issues are open work: they only belong next to unfinished milestones.
     const loose = milestoneFilter === 'unfinished' ? full.loose : [];
-    return { ...full, bands, loose, archived };
+    // Approved PRs waiting for a person to merge them (#759). They are not in
+    // any band, so the section follows the bands shown (an unmerged PR keeps
+    // its milestone unfinished) and, like the loose bucket, loose ones only
+    // show under "Sin finalizar".
+    const awaitingMerge = full.awaitingMerge.filter((a) =>
+      a.milestone === null
+        ? milestoneFilter === 'unfinished'
+        : bands.some((b) => b.milestone === a.milestone)
+    );
+    return { ...full, bands, loose, awaitingMerge, archived };
   }, [issues, taskByIssueNumber, blockers, runs, milestoneFilter, ghByTitle]);
   const sections = useMemo(
     () => arrangeMilestones(plan.bands, prefs.starred, prefs.order),
@@ -307,6 +317,14 @@ export function PlanView({
     );
   };
 
+  const workerNameFor = (issue: RepoIssue) => {
+    const task = taskByIssueNumber.get(issue.number);
+    const profile = task ? workerNameById.get(task.worker_id) : undefined;
+    return task && profile
+      ? instanceLabel(profile, task.workspace_id)
+      : undefined;
+  };
+
   const renderSection = (
     title: string | null,
     bands: (typeof plan.bands)[number][]
@@ -344,6 +362,29 @@ export function PlanView({
           }}
         />
       </div>
+      {plan.awaitingMerge.length > 0 && (
+        <section className="grid gap-2.5 rounded-[10px] border border-success/60 px-4 py-3.5">
+          <h3 className="m-0 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-high">
+            {t('issues.plan.awaitingYou')}
+            <span className="tabular-nums text-normal">
+              {plan.awaitingMerge.length}
+            </span>
+          </h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5">
+            {plan.awaitingMerge.map(({ issue }) => (
+              <PlanCard
+                key={issue.id}
+                issue={issue}
+                state="approved"
+                currentWave={null}
+                workerName={workerNameFor(issue)}
+                selected={issue.id === selectedIssueId}
+                onSelect={onSelectIssue}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       {plan.bands.length === 0 ? (
         <div className="px-4 py-10 text-center text-body-md text-normal">
           {milestoneFilter === 'unfinished'
@@ -383,14 +424,7 @@ export function PlanView({
                   issue={issue}
                   state={state ?? 'manual'}
                   currentWave={null}
-                  workerName={
-                    task && workerNameById.get(task.worker_id)
-                      ? instanceLabel(
-                          workerNameById.get(task.worker_id)!,
-                          task.workspace_id
-                        )
-                      : undefined
-                  }
+                  workerName={workerNameFor(issue)}
                   selected={issue.id === selectedIssueId}
                   onSelect={onSelectIssue}
                   blocker={blocker}

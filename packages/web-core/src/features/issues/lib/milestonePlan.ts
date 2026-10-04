@@ -24,10 +24,16 @@ export type PlanCardState =
   | 'stuck'
   | 'done';
 
+/**
+ * States a card can have inside a band. Approved PRs are never drawn in a
+ * band (#759): they only show in the "waiting on you" section.
+ */
+export type BandCardState = Exclude<PlanCardState, 'approved'>;
+
 export interface PlanCard {
   issue: RepoIssue;
   wave: number;
-  state: PlanCardState;
+  state: BandCardState;
 }
 
 export interface PlanWave {
@@ -38,8 +44,12 @@ export interface PlanWave {
 export type PlanBandStatus =
   | { kind: 'ready' }
   | { kind: 'decision'; issueNumber: number }
-  /** Nothing else is moving: approved PRs wait for a person to merge. */
-  | { kind: 'merge'; issueNumber: number; count: number }
+  /**
+   * Nothing else is moving and the current wave only waits for approved PRs
+   * to be merged. Points at the "waiting on you" section; the PRs themselves
+   * are not in the band.
+   */
+  | { kind: 'awaitingYou'; count: number }
   | { kind: 'running'; wave: number; count: number };
 
 export interface MilestoneBand {
@@ -48,17 +58,41 @@ export interface MilestoneBand {
   waves: PlanWave[];
   /** Number of populated waves ("N waves" in the band status line). */
   waveCount: number;
-  /** Lowest wave that still has something not merged; null when all are. */
+  /**
+   * Lowest wave that still has something not merged; null when all are. An
+   * approved PR is not merged yet, so it holds its wave as current.
+   */
   currentWave: number | null;
+  /** Merged issues of the milestone. */
   done: number;
+  /**
+   * Every issue of the milestone, approved PRs included: "done of total
+   * merged" and the finished check must not treat an unmerged PR as merged.
+   */
   total: number;
   status: PlanBandStatus;
 }
 
+/** An approved PR that waits for a person to merge it (#759). */
+export interface AwaitingMergeItem {
+  issue: RepoIssue;
+  /** Null for a loose issue (no milestone or no usable `wave:`). */
+  milestone: string | null;
+}
+
 export interface MilestonePlan {
   bands: MilestoneBand[];
-  /** Open issues without a milestone or without a usable `wave:`. */
+  /**
+   * Open issues without a milestone or without a usable `wave:`. Loose
+   * issues with an approved PR are not here: they live in `awaitingMerge`.
+   */
   loose: RepoIssue[];
+  /**
+   * Every approved PR not merged yet, from all bands and the loose bucket,
+   * ordered by issue number. Merging the PR closes the issue or moves the
+   * task to `done`, which takes it out of here.
+   */
+  awaitingMerge: AwaitingMergeItem[];
   /** Columns every band draws: highest wave + 1. */
   columnCount: number;
 }
@@ -89,12 +123,19 @@ export function buildMilestonePlan(
   stuck: ReadonlySet<number> = new Set()
 ): MilestonePlan {
   const loose: RepoIssue[] = [];
+  const awaitingMerge: AwaitingMergeItem[] = [];
   const byMilestone = new Map<string, RepoIssue[]>();
 
   for (const issue of issues) {
     const wave = waveNumber(issue.labels);
     if (!issue.milestone || wave === null) {
-      if (issue.state === 'open') loose.push(issue);
+      if (issue.state !== 'open') continue;
+      const task = taskByIssueNumber.get(issue.number);
+      if (task?.status === 'approved' && !stuck.has(issue.number)) {
+        awaitingMerge.push({ issue, milestone: null });
+      } else {
+        loose.push(issue);
+      }
       continue;
     }
     const list = byMilestone.get(issue.milestone);
@@ -126,17 +167,29 @@ export function buildMilestonePlan(
       ? Math.min(...open.map((c) => c.wave))
       : null;
 
-    const cards: PlanCard[] = raw.map((c) => ({
-      issue: c.issue,
-      wave: c.wave,
-      state:
-        c.taskState ??
-        (c.wave !== currentWave
-          ? 'blocked'
-          : c.issue.labels.some((l) => l.name === PM_DECISION_LABEL)
-            ? 'gate'
-            : 'ready'),
-    }));
+    // Approved PRs leave the band: they wait for the user's merge in the
+    // "waiting on you" section, not as work of their wave.
+    const cards: PlanCard[] = [];
+    let approved = 0;
+    for (const c of raw) {
+      const taskState = c.taskState;
+      if (taskState === 'approved') {
+        approved++;
+        awaitingMerge.push({ issue: c.issue, milestone });
+        continue;
+      }
+      cards.push({
+        issue: c.issue,
+        wave: c.wave,
+        state:
+          taskState ??
+          (c.wave !== currentWave
+            ? 'blocked'
+            : c.issue.labels.some((l) => l.name === PM_DECISION_LABEL)
+              ? 'gate'
+              : 'ready'),
+      });
+    }
 
     const waveMap = new Map<number, PlanCard[]>();
     for (const card of cards) {
@@ -157,16 +210,11 @@ export function buildMilestonePlan(
       (c) =>
         c.state === 'queued' || c.state === 'running' || c.state === 'review'
     );
-    const approved = cards.filter((c) => c.state === 'approved');
     const status: PlanBandStatus =
       active && currentWave !== null
         ? { kind: 'running', wave: currentWave, count: current.length }
-        : approved.length > 0
-          ? {
-              kind: 'merge',
-              issueNumber: approved[0].issue.number,
-              count: approved.length,
-            }
+        : pending.length === 0 && approved > 0
+          ? { kind: 'awaitingYou', count: approved }
           : pending.length > 0 && pending.every((c) => c.state === 'gate')
             ? { kind: 'decision', issueNumber: pending[0].issue.number }
             : { kind: 'ready' };
@@ -177,7 +225,7 @@ export function buildMilestonePlan(
       waveCount: waves.length,
       currentWave,
       done: cards.filter((c) => c.state === 'done').length,
-      total: cards.length,
+      total: raw.length,
       status,
     });
   }
@@ -198,5 +246,10 @@ export function buildMilestonePlan(
     ...bands.flatMap((b) => b.waves.map((w) => w.wave))
   );
 
-  return { bands, loose: loose.sort(byNumber), columnCount: maxWave + 1 };
+  return {
+    bands,
+    loose: loose.sort(byNumber),
+    awaitingMerge: awaitingMerge.sort((a, b) => byNumber(a.issue, b.issue)),
+    columnCount: maxWave + 1,
+  };
 }
