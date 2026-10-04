@@ -33,6 +33,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/director-mcp/{session_id}", post(mcp).get(mcp_get))
         .route("/missions", get(list_missions).post(create_mission))
         .route("/missions/{id}", get(get_mission).patch(update_mission))
+        .route("/director/turn", post(director_turn))
         .route("/missions/{id}/approve", post(approve_brief))
         .route("/missions/{id}/focus", post(focus_mission))
         .route("/missions/{id}/turns", get(mission_turns))
@@ -635,4 +636,115 @@ async fn deliver_events(deployment: &DeploymentImpl) -> Result<(), ApiError> {
     .await?;
     FlukeGuard::advance(pool, last, true).await?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Canal de turno (J2.1): una entrada para chat, voz, celular y relay
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize, TS)]
+pub struct DirectorTurnRequest {
+    pub text: String,
+    /// `chat` (default) or `voice`: a voice turn asks Fluke for short spoken
+    /// replies.
+    pub channel: Option<String>,
+}
+
+/// Send `text` to Fluke's thread and stream its reply as SSE: `delta`
+/// events with the text as it is written, then one `done` (`{text,
+/// is_error}`). 409 while Fluke is still answering the previous turn.
+async fn director_turn(
+    State(deployment): State<DeploymentImpl>,
+    Json(req): Json<DirectorTurnRequest>,
+) -> Result<
+    axum::response::sse::Sse<
+        impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+    >,
+    ApiError,
+> {
+    use axum::response::sse::{Event, KeepAlive, Sse};
+    use futures_util::StreamExt;
+    use services::services::container::ContainerService;
+    use utils::log_msg::LogMsg;
+
+    let text = req.text.trim().to_string();
+    if text.is_empty() {
+        return Err(ApiError::BadRequest("empty text".into()));
+    }
+    let pool = &deployment.db().pool;
+    let guard = ensure_guard(&deployment)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("register a repo first".into()))?;
+    if Mission::agent_running(pool, guard.mission_id).await? {
+        return Err(ApiError::Conflict("Fluke is still answering".into()));
+    }
+    let mission = load(&deployment, guard.mission_id).await?;
+    let session = Session::find_by_id(pool, mission.session_id)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest("Fluke's session not found".into()))?;
+    if req.channel.as_deref() == Some("voice") {
+        director::mark_voice_turn(mission.id);
+    }
+    let worker = director::ensure_orchestrator(pool).await?;
+    let executor_config = director::executor_config(&*deployment.config().read().await, &worker)
+        .map_err(ApiError::BadRequest)?;
+    let process = crate::routes::sessions::follow_up(
+        axum::Extension(session),
+        State(deployment.clone()),
+        Json(crate::routes::sessions::CreateFollowUpAttempt {
+            prompt: text,
+            executor_config,
+            retry_process_id: None,
+            force_when_dirty: None,
+            perform_git_reset: None,
+        }),
+    )
+    .await?
+    .0
+    .into_data()
+    .ok_or_else(|| ApiError::BadRequest("the turn did not start".into()))?;
+    let store = deployment
+        .container()
+        .get_msg_store_by_id(&process.id)
+        .await
+        .ok_or_else(|| ApiError::BadRequest("the turn has no output".into()))?;
+
+    // Stdout arrives in chunks, not lines: split them before parsing.
+    let events = store
+        .history_plus_stream()
+        .scan(String::new(), |buf: &mut String, msg: Result<LogMsg, std::io::Error>| {
+            let mut out: Vec<Event> = Vec::new();
+            let mut finished = false;
+            match msg {
+                Ok(LogMsg::Stdout(chunk)) => {
+                    buf.push_str(&chunk);
+                    while let Some(end) = buf.find('\n') {
+                        let line: String = buf.drain(..=end).collect();
+                        match director::turn_event(&line) {
+                            Some(director::TurnEvent::Delta(t)) => {
+                                out.push(Event::default().event("delta").data(t));
+                            }
+                            Some(director::TurnEvent::Done { text, is_error }) => {
+                                out.push(Event::default().event("done").data(
+                                    json!({ "text": text, "is_error": is_error }).to_string(),
+                                ));
+                                finished = true;
+                            }
+                            None => {}
+                        }
+                    }
+                }
+                Ok(LogMsg::Finished) | Err(_) => finished = true,
+                _ => {}
+            }
+            futures_util::future::ready((!(finished && out.is_empty())).then_some((out, finished)))
+        })
+        .scan(false, |ended, (out, finished)| {
+            // Stop right after the turn's last events.
+            let emit = if *ended { None } else { Some(out) };
+            *ended |= finished;
+            futures_util::future::ready(emit)
+        })
+        .flat_map(|out: Vec<Event>| futures_util::stream::iter(out.into_iter().map(Ok)));
+    Ok(Sse::new(events).keep_alive(KeepAlive::default()))
 }

@@ -522,6 +522,13 @@ export type CreateMissionRequest = {
  */
 repo_id: string, };
 
+export type DirectorTurnRequest = { text: string,
+/**
+ * `chat` (default) or `voice`: a voice turn asks Fluke for short spoken
+ * replies.
+ */
+channel: string | null, };
+
 export type UpdateMissionRequest = { title: string | null, autonomy: string | null,
 /**
  * Repo de la misión; sólo editable antes de mandar el brief al Analyst.

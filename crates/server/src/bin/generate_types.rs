@@ -150,6 +150,7 @@ fn generate_types_content() -> String {
         services::services::director::MissionProposalIssue::decl(),
         server::routes::director::MissionSummary::decl(),
         server::routes::director::CreateMissionRequest::decl(),
+        server::routes::director::DirectorTurnRequest::decl(),
         server::routes::director::UpdateMissionRequest::decl(),
         server::routes::director::ApproveBriefRequest::decl(),
         server::routes::agent_auth::AgentAuthProvider::decl(),
