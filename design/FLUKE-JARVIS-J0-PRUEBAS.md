@@ -133,6 +133,21 @@ curl -N -X POST http://127.0.0.1:<puerto>/api/director/turn \
 
 ---
 
+# J3 · Memoria — cómo probarlo
+
+Necesita una key de OpenAI para Honcho (ver `docker/honcho/README.md`).
+
+## 10. Memoria con Honcho local
+
+| Paso | Resultado esperado |
+|---|---|
+| Levantar Honcho según `docker/honcho/README.md` y `curl -s http://127.0.0.1:8000/health` | Responde OK. |
+| Sin Honcho levantado, hablar con Fluke | Funciona igual, sin demoras extra (la memoria es opcional). |
+| Con Honcho, decirle a Fluke algo de cómo trabajás ("siempre prefiero device flow para logins", "los PRs de UI los reviso yo") y charlar un par de turnos | Nada visible todavía; Honcho procesa en segundo plano. |
+| Reiniciar el server de fluke (Fluke arranca de cero) y pedir algo relacionado ("armemos el login de la app de escritorio") | Fluke usa lo que aprendió (propone device flow sin que lo digas). |
+| Ver qué aprendió: `curl -s -X POST http://127.0.0.1:8000/v3/workspaces/fluke/peers/user/representation -H "Content-Type: application/json" -d '{"max_conclusions":30}'` | Las conclusiones sobre vos (preferencias, decisiones). |
+| Mandar eventos o respuestas SILENT | No aparecen en Honcho: solo se guarda el diálogo con vos. |
+| `FLUKE_HONCHO_URL=off` al arrancar el server | Sin memoria, sin llamadas a Honcho. |
 # J4 · Seguimiento hasta el merge — cómo probarlo
 
 ## 11. Fluke ofrece el paso siguiente
