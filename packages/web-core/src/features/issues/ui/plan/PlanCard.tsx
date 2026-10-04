@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IssueBlocker } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { blockerAge, blockerPhaseKind } from '@/features/issues/lib/blocker';
@@ -8,6 +10,10 @@ import {
   type PlanCardState,
 } from '@/features/issues/lib/milestonePlan';
 import { isExecutionLabel } from '@/features/issues/lib/executionLabels';
+import type { WorkerTask } from '@/features/sprint/types';
+import { DesignArtifactLinks } from '@/features/sprint/ui/DesignArtifactLinks';
+import { workersKeys } from '@/features/workers';
+import { workersApi } from '@/shared/lib/api';
 
 /**
  * One issue inside a wave column of the Plan view
@@ -55,6 +61,8 @@ export interface PlanCardProps {
   /** Why the issue needs a person (#694), when `state` is `stuck`. */
   blocker?: IssueBlocker;
   onUnstick?: (issue: RepoIssue) => void;
+  /** The issue's worker task; a designer one in review gets the approval gate. */
+  task?: WorkerTask;
 }
 
 function Spinner() {
@@ -76,6 +84,7 @@ export function PlanCard({
   onDecide,
   blocker,
   onUnstick,
+  task,
 }: PlanCardProps) {
   const { t } = useTranslation('common');
   const tags = issue.labels
@@ -91,6 +100,11 @@ export function PlanCard({
         : t(`issues.plan.card.${state}`);
 
   const busy = state === 'running' || state === 'review';
+  // Designers never open a PR: their exit from review is the user's approval.
+  const designTask =
+    state === 'review' && task?.deliverable_ref?.startsWith('design/')
+      ? task
+      : undefined;
   const phaseKind = blocker ? blockerPhaseKind(blocker) : null;
   const age = blocker ? blockerAge(blocker.since) : null;
 
@@ -101,7 +115,7 @@ export function PlanCard({
       aria-label={t('issues.plan.card.open', { n: issue.number })}
       data-n={issue.number}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('button, a')) return;
         onSelect?.(issue);
       }}
       onKeyDown={(e) => {
@@ -171,11 +185,14 @@ export function PlanCard({
           </span>
           {state === 'approved'
             ? t('issues.plan.card.prApproved', { name: workerName })
-            : state === 'review'
-              ? t('issues.plan.card.prReview', { name: workerName })
-              : t('issues.plan.card.workerBranch', { name: workerName })}
+            : designTask
+              ? `${workerName} · ${t('sprint.designReview.awaitingApproval')}`
+              : state === 'review'
+                ? t('issues.plan.card.prReview', { name: workerName })
+                : t('issues.plan.card.workerBranch', { name: workerName })}
         </div>
       )}
+      {designTask && <DesignApproval task={designTask} />}
       {state === 'stuck' && workerName && (
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-normal">
           <span className="grid size-4 place-items-center rounded-full bg-md-primary font-sans text-[9px] font-semibold text-md-on-primary">
@@ -221,6 +238,57 @@ export function PlanCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Artifact links + approve (with confirmation) for a designer in review. */
+function DesignApproval({ task }: { task: WorkerTask }) {
+  const { t } = useTranslation('common');
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const approve = useMutation({
+    mutationFn: () => workersApi.approveDesign(task.worker_id, task.id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: workersKeys.all }),
+  });
+
+  return (
+    <div className="grid gap-1.5">
+      <DesignArtifactLinks task={task} />
+      {approve.error && (
+        <p className="m-0 text-xs text-md-error">
+          {t('sprint.toast.designApproveError', {
+            message: approve.error.message,
+          })}
+        </p>
+      )}
+      {confirming && (
+        <p className="m-0 text-xs text-high">
+          {t('sprint.designReview.approveConfirmMessage')}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {confirming && (
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="inline-flex items-center rounded-md border border-md-outline-variant bg-md-surface-container px-2.5 py-1 text-xs text-high hover:border-md-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-md-primary"
+          >
+            {t('buttons.cancel')}
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={approve.isPending}
+          onClick={() => (confirming ? approve.mutate() : setConfirming(true))}
+          className="inline-flex items-center rounded-md border border-success bg-success px-2.5 py-1 text-xs font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60"
+        >
+          {confirming
+            ? t('sprint.designReview.approveConfirm')
+            : t('sprint.designReview.approve')}
+        </button>
+      </div>
     </div>
   );
 }
