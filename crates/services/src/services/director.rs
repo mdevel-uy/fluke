@@ -390,6 +390,9 @@ pub struct ClosedDesignIssue {
     pub paths: Vec<String>,
     /// Issues de la misión que ya implementan este diseño (llevan la marca).
     pub implemented_by: Vec<i64>,
+    /// Issues de la misión que no están en el espejo local: no se sabe si
+    /// llevan la marca, así que el Analista los verifica antes de crear otro.
+    pub unverified: Vec<i64>,
 }
 
 /// Los issues de diseño de la misión que ya están cerrados. Un issue es de
@@ -406,9 +409,11 @@ pub async fn closed_design_issues(
     };
     let repo = Repo::find_by_id(pool, repo_id).await?;
     let mut issues = Vec::new();
+    let mut unverified = Vec::new();
     for &n in numbers {
-        if let Some(issue) = RepoIssue::find_by_repo_and_number(pool, repo_id, n).await? {
-            issues.push(issue);
+        match RepoIssue::find_by_repo_and_number(pool, repo_id, n).await? {
+            Some(issue) => issues.push(issue),
+            None => unverified.push(n),
         }
     }
     let mut out = Vec::new();
@@ -443,6 +448,7 @@ pub async fn closed_design_issues(
             wave: labels
                 .iter()
                 .find_map(|l| crate::services::execution_labels::wave_number(l)),
+            unverified: unverified.clone(),
             ..Default::default()
         };
         for task in &designer_tasks {
@@ -526,21 +532,37 @@ fn closed_designs_section(closed: &[ClosedDesignIssue]) -> String {
             ));
             continue;
         }
+        if !c.unverified.is_empty() {
+            let list: Vec<String> = c.unverified.iter().map(|n| format!("#{n}")).collect();
+            out.push_str(&format!(
+                "  Antes de crearle el issue de implementación, mirá con `gh issue view` {} \
+                 (son de la misión pero no están en el espejo local): si alguno lleva la marca \
+                 {}, ya existe y no crees otro.\n",
+                list.join(", "),
+                implements_design_marker(c.number),
+            ));
+        }
+        // The designer never opens a PR: its deliverable is the pushed
+        // `design/*` ref, so the mock is found by a merged PR or by the
+        // artifacts that ref still holds.
         let merged: Vec<&MockPr> = c.prs.iter().filter(|p| p.merged).collect();
         for pr in &merged {
             out.push_str(&format!("  Mock mergeado en el PR #{} ({}).\n", pr.number, pr.url));
         }
         if !c.paths.is_empty() {
+            if let Some(r) = &c.deliverable_ref {
+                out.push_str(&format!("  Mock entregado en la rama `{r}`.\n"));
+            }
             let paths: Vec<String> = c.paths.iter().map(|p| format!("`{p}`")).collect();
             out.push_str(&format!("  Archivos del mock: {}.\n", paths.join(", ")));
         }
-        if merged.is_empty() {
+        if merged.is_empty() && c.paths.is_empty() {
             let mut known = Vec::new();
             for pr in &c.prs {
                 known.push(format!("PR #{} sin mergear", pr.number));
             }
             if let Some(r) = &c.deliverable_ref {
-                known.push(format!("rama `{r}`"));
+                known.push(format!("rama `{r}` sin archivos del mock"));
             }
             let known = if known.is_empty() {
                 "no hay PR ni rama registrados".to_string()
@@ -548,8 +570,8 @@ fn closed_designs_section(closed: &[ClosedDesignIssue]) -> String {
                 known.join(", ")
             };
             out.push_str(&format!(
-                "  No hay un mock mergeado localizable ({known}): no inventes la referencia; \
-                 en el issue de implementación dejalo como pregunta abierta.\n"
+                "  No se encuentra el mock ({known}): no inventes la referencia; en el issue \
+                 de implementación dejalo como pregunta abierta.\n"
             ));
         }
         let next_wave = c
@@ -559,7 +581,7 @@ fn closed_designs_section(closed: &[ClosedDesignIssue]) -> String {
         out.push_str(&format!(
             "  Creá un issue nuevo de implementación para este diseño: con `feature:` y \
              {next_wave}, sin la label `{design}` (lo toma un developer), y en el cuerpo \
-             enlazá #{n} y el mock de arriba (PR y rutas). Agregá en una línea sola la marca \
+             enlazá #{n} y el mock de arriba (PR, rama y rutas que haya). Agregá en una línea sola la marca \
              {marker} para que una corrida repetida no lo duplique.\n",
             design = crate::services::milestone_runs::DESIGN_LABEL,
             n = c.number,
@@ -2380,47 +2402,64 @@ mod tests {
 
     #[test]
     fn closed_design_gets_an_implementation_issue_once() {
-        let merged = ClosedDesignIssue {
+        // The normal flow: the designer opens no PR, the mock lives in the
+        // pushed `design/*` ref.
+        let delivered = ClosedDesignIssue {
             number: 12,
             title: "Mock del carrito".into(),
             wave: Some(0),
+            deliverable_ref: Some("design/12-carrito".into()),
+            paths: vec!["design/carrito.html".into()],
+            ..Default::default()
+        };
+        let s = closed_designs_section(std::slice::from_ref(&delivered));
+        assert!(s.contains("#12") && s.contains("No los edites"));
+        assert!(s.contains("rama `design/12-carrito`") && s.contains("`design/carrito.html`"));
+        assert!(s.contains("`wave:1` o posterior"));
+        assert!(s.contains(&implements_design_marker(12)));
+        assert!(!s.contains("pregunta abierta") && !s.contains("PR #"));
+
+        // A merged PR is linked too.
+        let merged = ClosedDesignIssue {
             prs: vec![MockPr {
                 number: 30,
                 url: "https://github.com/o/r/pull/30".into(),
                 merged: true,
             }],
-            deliverable_ref: Some("design/12-carrito".into()),
-            paths: vec!["design/carrito.html".into()],
-            implemented_by: vec![],
+            ..delivered.clone()
         };
         let s = closed_designs_section(std::slice::from_ref(&merged));
-        assert!(s.contains("#12") && s.contains("No los edites"));
-        assert!(s.contains("PR #30") && s.contains("`design/carrito.html`"));
-        assert!(s.contains("`wave:1` o posterior"));
-        assert!(s.contains(&implements_design_marker(12)));
-        assert!(!s.contains("pregunta abierta"));
+        assert!(s.contains("Mock mergeado en el PR #30") && !s.contains("pregunta abierta"));
 
         // Already implemented: no new issue is asked for.
         let done = ClosedDesignIssue {
             implemented_by: vec![40],
-            ..merged.clone()
+            ..delivered.clone()
         };
         let s = closed_designs_section(&[done]);
         assert!(s.contains("#40") && s.contains("No crees otro"));
         assert!(!s.contains("Creá un issue nuevo"));
 
-        // No merged mock: the reference stays an open question.
+        // Mission issues missing from the mirror are checked before creating.
+        let stale = ClosedDesignIssue {
+            unverified: vec![41],
+            ..delivered.clone()
+        };
+        let s = closed_designs_section(&[stale]);
+        assert!(s.contains("`gh issue view` #41") && s.contains("Creá un issue nuevo"));
+
+        // No merged PR and no artifacts (ref deleted): open question.
         let lost = ClosedDesignIssue {
             prs: vec![MockPr {
                 merged: false,
                 ..merged.prs[0].clone()
             }],
             paths: vec![],
-            ..merged
+            ..delivered
         };
         let s = closed_designs_section(&[lost]);
         assert!(s.contains("PR #30 sin mergear") && s.contains("pregunta abierta"));
-        assert!(!s.contains("Mock mergeado"));
+        assert!(!s.contains("Mock mergeado") && !s.contains("Archivos del mock"));
 
         assert!(closed_designs_section(&[]).is_empty());
     }

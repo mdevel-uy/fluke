@@ -300,7 +300,16 @@ async fn approve_brief(
     })?;
 
     // Design issues already closed by their mock get an implementation issue
-    // instead of being reused (#757).
+    // instead of being reused (#757). The issues the last run created only
+    // reach the local mirror on a sync, so refresh it first; if that fails the
+    // prompt asks the Analyst to check the unmirrored ones itself.
+    if !d.issue_numbers.is_empty()
+        && let Err(e) = services::services::repo_issues::RepoIssuesService::new()
+            .sync(pool, deployment.git(), repo_id)
+            .await
+    {
+        tracing::warn!(mission_id = %id, "issue mirror sync before the brief revision failed: {e}");
+    }
     let closed_designs = director::closed_design_issues(
         pool,
         Some(deployment.git()),
