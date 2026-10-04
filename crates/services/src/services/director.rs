@@ -707,7 +707,22 @@ remove_item, get_brief) act on it.
 - The user talks about another mission: focus_mission with its title or id (list_missions shows \
 the open ones). If it is ambiguous, ask with ask_user.
 - When you switch, name the topic in your reply (\"Sobre el login con GitHub: ...\").
-- Status questions and orders about the app do not need a focus.";
+- Status questions and orders about the app do not need a focus.
+
+Following the work through: after the brief you keep each mission moving until it is merged, \
+always offering the next step instead of waiting to be asked. [STATUS] under \"Waiting for the \
+user\" tells you what is ready.
+- A brief ready to approve: summarize it in two lines and offer to approve it. If the user says \
+yes, call app_api POST /api/missions/{id}/approve (the app asks them to confirm).
+- A breakdown ready with nothing running: say how many issues and waves, and offer to run the \
+milestone. Ask with ask_user (\"Ejecutar ahora\" / \"Paso a paso\" / \"Después\"); on yes call \
+app_api POST /api/repos/{repo_id}/milestone-runs/play with that milestone (step_mode true for \
+paso a paso).
+- An approved task with its PR ready to merge: say what it does in one line and offer to merge \
+it. To merge, call app_api POST /api/repos/{repo_id}/pull-requests/{number}/merge with a summary \
+like \"mergear el PR #675\": the app shows the user the confirmation; the merge is always theirs.
+- A wave or a milestone that finished: one line on what is done and what comes next.
+Never run, approve or merge on your own: offer, and act only on the user's yes.";
 
 /// El lote de eventos que se le manda a la guardia, una línea por evento.
 pub fn events_message(events: &[db::models::fluke_event::FlukeEvent]) -> String {
@@ -856,6 +871,53 @@ pub async fn status_snapshot(pool: &Pool) -> Result<String, sqlx::Error> {
                 .map(|w| format!(": {w}"))
                 .unwrap_or_default(),
         ));
+    }
+    // Following the work through (J4): what is ready for the user's next
+    // step, so Fluke can offer it.
+    for r in sqlx::query(
+        "SELECT t.issue_number, t.title, w.role, \
+                (SELECT p.pr_number FROM pull_requests p \
+                  WHERE p.workspace_id = t.workspace_id AND p.pr_status = 'open' \
+                  ORDER BY p.created_at DESC LIMIT 1) AS pr_number, \
+                (SELECT r.name FROM repos r WHERE r.id = t.repo_id) AS repo \
+           FROM worker_tasks t LEFT JOIN workers w ON w.id = t.worker_id \
+          WHERE t.status = 'approved' ORDER BY t.completed_at LIMIT ?",
+    )
+    .bind(SNAPSHOT_LIST_MAX)
+    .fetch_all(pool)
+    .await?
+    {
+        let pr = match (
+            r.get::<Option<i64>, _>("pr_number"),
+            r.get::<Option<String>, _>("repo"),
+        ) {
+            (Some(n), Some(repo)) => format!(": approved, PR #{n} in {repo} ready to merge"),
+            _ => ": approved, ready to merge".to_string(),
+        };
+        waiting.push(task_line(&r, &pr));
+    }
+    for m in Mission::list(pool).await? {
+        if m.status == mission::STATUS_CLOSED {
+            continue;
+        }
+        let title = m.title.clone();
+        let d = detail(pool, m).await?;
+        let open: Vec<&str> = d
+            .proposal
+            .iter()
+            .filter(|i| i.state == "open")
+            .filter_map(|i| i.milestone.as_deref())
+            .collect();
+        if d.analyst_status.as_deref() == Some("done") && !open.is_empty() && d.execution == "none"
+        {
+            let mut milestones = open.clone();
+            milestones.sort_unstable();
+            milestones.dedup();
+            waiting.push(format!(
+                "\n- mission \"{title}\": breakdown ready, nothing running (milestones: {})",
+                milestones.join(", ")
+            ));
+        }
     }
     if !waiting.is_empty() {
         out.push_str("\nWaiting for the user:");
@@ -1707,11 +1769,43 @@ mod tests {
         .await
         .unwrap();
 
+        // An approved task whose PR is open: ready to merge (J4).
+        let (repo, ws) = (Uuid::new_v4(), Uuid::new_v4());
+        sqlx::query("INSERT INTO repos (id, path, name, display_name) VALUES (?, '/r/fluke', 'fluke', 'Fluke')")
+            .bind(repo)
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO worker_tasks (id, worker_id, repo_id, position, title, prompt, issue_number, status, workspace_id) \
+             VALUES (?, ?, ?, 1, '#666 Play por milestone', 'p', 666, 'approved', ?)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(dev)
+        .bind(repo)
+        .bind(ws)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO pull_requests (id, workspace_id, repo_id, pr_url, pr_number, pr_status, target_branch_name) \
+             VALUES ('pr2', ?, ?, 'u2', 690, 'open', 'main')",
+        )
+        .bind(ws)
+        .bind(repo)
+        .execute(&pool)
+        .await
+        .unwrap();
+
         let s = status_snapshot(&pool).await.unwrap();
         assert!(s.starts_with("Tasks: 1 running, 0 queued"), "{s}");
         assert!(s.contains("Running:\n- #664 Vista Plan (developer)"), "{s}");
         assert!(s.contains("- #663 Vista Plan (developer): asks"), "{s}");
         assert!(s.contains("#675 (CI passing"), "{s}");
+        assert!(
+            s.contains("- #666 Play por milestone (developer): approved, PR #690 in fluke ready to merge"),
+            "{s}"
+        );
     }
 
     #[tokio::test]

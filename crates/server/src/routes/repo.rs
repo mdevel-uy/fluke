@@ -975,6 +975,10 @@ pub fn router() -> Router<DeploymentImpl> {
         )
         .route("/repos/{repo_id}/remotes", get(get_repo_remotes))
         .route("/repos/{repo_id}/prs", get(list_open_prs))
+        .route(
+            "/repos/{repo_id}/pull-requests/{number}/merge",
+            post(merge_pull_request),
+        )
         .route("/repos/pr-info", get(get_pr_info))
         .route("/repos/{repo_id}/search", get(search_repo))
         .route("/repos/{repo_id}/open-editor", post(open_repo_in_editor))
@@ -1005,4 +1009,30 @@ pub fn router() -> Router<DeploymentImpl> {
             "/repos/{repo_id}/milestones/{number}/state",
             put(set_repo_milestone_state),
         )
+}
+
+/// Merge one of the repo's pull requests with a merge commit, as the user
+/// (the machine's `gh` login). Fluke offers it when a PR is ready (J4); the
+/// path contains `merge`, so Fluke can only call it after the user confirmed
+/// (J0.5). The merge stays a human decision.
+async fn merge_pull_request(
+    State(deployment): State<DeploymentImpl>,
+    Path((repo_id, number)): Path<(Uuid, i64)>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    let pr = db::models::pull_request::PullRequest::find_by_repo_and_number(
+        &deployment.db().pool,
+        repo_id,
+        number,
+    )
+    .await?
+    .ok_or_else(|| ApiError::BadRequest(format!("PR #{number} not found in this repo")))?;
+    if !matches!(pr.pr_status, db::models::merge::MergeStatus::Open) {
+        return Err(ApiError::Conflict(format!("PR #{number} is not open")));
+    }
+    let url = pr.pr_url.clone();
+    tokio::task::spawn_blocking(move || git_host::github::GhCli::new().merge_pr(&url))
+        .await
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?
+        .map_err(|e| ApiError::BadRequest(format!("gh could not merge PR #{number}: {e}")))?;
+    Ok(ResponseJson(ApiResponse::success(())))
 }
