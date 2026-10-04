@@ -2214,5 +2214,46 @@
     "none": "none",
     "defaultAgent": "Default agent",
     "defaultModel": "default model"
+  },
+  "githubPublish": {
+    "checkbox": "Create on GitHub too",
+    "checkboxHelper": "Creates the repository on GitHub, adds it as the origin remote and pushes the current branch.",
+    "checkingSession": "Checking the GitHub session...",
+    "noSession": "You are not signed in to GitHub. Sign in from Settings > GitHub, then check again.",
+    "openGithubSettings": "Open GitHub settings",
+    "checkAgain": "Check again",
+    "loadingOwners": "Loading GitHub accounts...",
+    "nameLabel": "GitHub repository name",
+    "namePlaceholder": "my-project",
+    "ownerLabel": "Owner",
+    "ownerPlaceholder": "Select an account",
+    "ownerKind": {
+      "user": "user",
+      "organization": "organization"
+    },
+    "visibilityLabel": "Visibility",
+    "visibility": {
+      "private": "Private",
+      "public": "Public"
+    },
+    "githubFailed": "The repository could not be created on GitHub.",
+    "localDoneGithubFailed": "The repository was created locally, but creating it on GitHub failed. You can retry the GitHub part or continue without it.",
+    "continueWithoutGithub": "Continue without GitHub",
+    "retry": "Retry on GitHub",
+    "registeredWithoutGithub": "The repository was added locally, but it was not created on GitHub: {{message}}",
+    "errors": {
+      "statusFailed": "Could not check the GitHub session.",
+      "ownersFailed": "Could not load your GitHub accounts.",
+      "invalidName": "Use only letters, digits, '.', '_' or '-' (up to 100 characters).",
+      "no_session": "There is no GitHub session. Sign in from Settings > GitHub.",
+      "name_taken": "A repository with that name already exists for this owner.",
+      "origin_exists": "The local repository already has an origin remote.",
+      "forbidden": "Your GitHub session cannot create repositories for this owner.",
+      "owner_unavailable": "That owner is not available for your GitHub session.",
+      "invalid_name": "The GitHub repository name is not valid.",
+      "no_commits": "The local repository has no commits yet.",
+      "incomplete": "The repository was created on GitHub, but adding the remote or pushing did not finish. Retrying completes it.",
+      "other": "GitHub returned an error."
+    }
   }
 }

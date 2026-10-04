@@ -1955,5 +1955,46 @@
     "none": "なし",
     "defaultAgent": "デフォルトのエージェント",
     "defaultModel": "デフォルトのモデル"
+  },
+  "githubPublish": {
+    "checkbox": "GitHub にも作成する",
+    "checkboxHelper": "GitHub にリポジトリを作成し、origin リモートとして追加して現在のブランチをプッシュします。",
+    "checkingSession": "GitHub のセッションを確認しています...",
+    "noSession": "GitHub にサインインしていません。設定 > GitHub でサインインしてから再確認してください。",
+    "openGithubSettings": "GitHub 設定を開く",
+    "checkAgain": "再確認",
+    "loadingOwners": "GitHub アカウントを読み込んでいます...",
+    "nameLabel": "GitHub リポジトリ名",
+    "namePlaceholder": "my-project",
+    "ownerLabel": "オーナー",
+    "ownerPlaceholder": "アカウントを選択",
+    "ownerKind": {
+      "user": "ユーザー",
+      "organization": "組織"
+    },
+    "visibilityLabel": "公開範囲",
+    "visibility": {
+      "private": "プライベート",
+      "public": "パブリック"
+    },
+    "githubFailed": "GitHub にリポジトリを作成できませんでした。",
+    "localDoneGithubFailed": "リポジトリはローカルに作成されましたが、GitHub での作成に失敗しました。GitHub の処理を再試行するか、GitHub なしで続行できます。",
+    "continueWithoutGithub": "GitHub なしで続行",
+    "retry": "GitHub で再試行",
+    "registeredWithoutGithub": "リポジトリはローカルに追加されましたが、GitHub には作成されませんでした: {{message}}",
+    "errors": {
+      "statusFailed": "GitHub のセッションを確認できませんでした。",
+      "ownersFailed": "GitHub アカウントを読み込めませんでした。",
+      "invalidName": "英数字、'.'、'_'、'-' のみ使用できます（最大 100 文字）。",
+      "no_session": "GitHub のセッションがありません。設定 > GitHub でサインインしてください。",
+      "name_taken": "このオーナーには同じ名前のリポジトリが既に存在します。",
+      "origin_exists": "ローカルリポジトリには既に origin リモートがあります。",
+      "forbidden": "この GitHub セッションでは、このオーナーにリポジトリを作成できません。",
+      "owner_unavailable": "このオーナーは現在の GitHub セッションでは利用できません。",
+      "invalid_name": "GitHub リポジトリ名が無効です。",
+      "no_commits": "ローカルリポジトリにはまだコミットがありません。",
+      "incomplete": "GitHub にリポジトリは作成されましたが、リモートの追加またはプッシュが完了しませんでした。再試行すると完了します。",
+      "other": "GitHub がエラーを返しました。"
+    }
   }
 }

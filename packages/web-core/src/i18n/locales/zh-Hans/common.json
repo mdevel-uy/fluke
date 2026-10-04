@@ -1955,5 +1955,46 @@
     "none": "无",
     "defaultAgent": "默认代理",
     "defaultModel": "默认模型"
+  },
+  "githubPublish": {
+    "checkbox": "同时在 GitHub 上创建",
+    "checkboxHelper": "在 GitHub 上创建仓库，将其添加为 origin 远程并推送当前分支。",
+    "checkingSession": "正在检查 GitHub 会话...",
+    "noSession": "尚未登录 GitHub。请在 设置 > GitHub 中登录，然后重新检查。",
+    "openGithubSettings": "打开 GitHub 设置",
+    "checkAgain": "重新检查",
+    "loadingOwners": "正在加载 GitHub 账户...",
+    "nameLabel": "GitHub 仓库名称",
+    "namePlaceholder": "my-project",
+    "ownerLabel": "所有者",
+    "ownerPlaceholder": "选择账户",
+    "ownerKind": {
+      "user": "用户",
+      "organization": "组织"
+    },
+    "visibilityLabel": "可见性",
+    "visibility": {
+      "private": "私有",
+      "public": "公开"
+    },
+    "githubFailed": "无法在 GitHub 上创建仓库。",
+    "localDoneGithubFailed": "仓库已在本地创建，但在 GitHub 上创建失败。你可以重试 GitHub 部分，或不使用 GitHub 继续。",
+    "continueWithoutGithub": "不使用 GitHub 继续",
+    "retry": "在 GitHub 上重试",
+    "registeredWithoutGithub": "仓库已在本地添加，但未在 GitHub 上创建：{{message}}",
+    "errors": {
+      "statusFailed": "无法检查 GitHub 会话。",
+      "ownersFailed": "无法加载你的 GitHub 账户。",
+      "invalidName": "只能使用字母、数字、'.'、'_' 或 '-'（最多 100 个字符）。",
+      "no_session": "没有 GitHub 会话。请在 设置 > GitHub 中登录。",
+      "name_taken": "该所有者下已存在同名仓库。",
+      "origin_exists": "本地仓库已有 origin 远程。",
+      "forbidden": "你的 GitHub 会话无法为该所有者创建仓库。",
+      "owner_unavailable": "该所有者对你的 GitHub 会话不可用。",
+      "invalid_name": "GitHub 仓库名称无效。",
+      "no_commits": "本地仓库还没有提交。",
+      "incomplete": "仓库已在 GitHub 上创建，但添加远程或推送未完成。重试即可完成。",
+      "other": "GitHub 返回了错误。"
+    }
   }
 }

@@ -1955,5 +1955,46 @@
     "none": "없음",
     "defaultAgent": "기본 에이전트",
     "defaultModel": "기본 모델"
+  },
+  "githubPublish": {
+    "checkbox": "GitHub에도 생성",
+    "checkboxHelper": "GitHub에 저장소를 만들고 origin 원격으로 추가한 뒤 현재 브랜치를 푸시합니다.",
+    "checkingSession": "GitHub 세션을 확인하는 중...",
+    "noSession": "GitHub에 로그인되어 있지 않습니다. 설정 > GitHub에서 로그인한 뒤 다시 확인하세요.",
+    "openGithubSettings": "GitHub 설정 열기",
+    "checkAgain": "다시 확인",
+    "loadingOwners": "GitHub 계정을 불러오는 중...",
+    "nameLabel": "GitHub 저장소 이름",
+    "namePlaceholder": "my-project",
+    "ownerLabel": "소유자",
+    "ownerPlaceholder": "계정 선택",
+    "ownerKind": {
+      "user": "사용자",
+      "organization": "조직"
+    },
+    "visibilityLabel": "공개 범위",
+    "visibility": {
+      "private": "비공개",
+      "public": "공개"
+    },
+    "githubFailed": "GitHub에 저장소를 만들 수 없습니다.",
+    "localDoneGithubFailed": "저장소가 로컬에 생성되었지만 GitHub에서 생성하지 못했습니다. GitHub 작업을 다시 시도하거나 GitHub 없이 계속할 수 있습니다.",
+    "continueWithoutGithub": "GitHub 없이 계속",
+    "retry": "GitHub에서 다시 시도",
+    "registeredWithoutGithub": "저장소가 로컬에 추가되었지만 GitHub에는 생성되지 않았습니다: {{message}}",
+    "errors": {
+      "statusFailed": "GitHub 세션을 확인할 수 없습니다.",
+      "ownersFailed": "GitHub 계정을 불러올 수 없습니다.",
+      "invalidName": "문자, 숫자, '.', '_', '-'만 사용할 수 있습니다(최대 100자).",
+      "no_session": "GitHub 세션이 없습니다. 설정 > GitHub에서 로그인하세요.",
+      "name_taken": "이 소유자에게 같은 이름의 저장소가 이미 있습니다.",
+      "origin_exists": "로컬 저장소에 이미 origin 원격이 있습니다.",
+      "forbidden": "현재 GitHub 세션으로는 이 소유자에게 저장소를 만들 수 없습니다.",
+      "owner_unavailable": "이 소유자는 현재 GitHub 세션에서 사용할 수 없습니다.",
+      "invalid_name": "GitHub 저장소 이름이 올바르지 않습니다.",
+      "no_commits": "로컬 저장소에 아직 커밋이 없습니다.",
+      "incomplete": "GitHub에 저장소는 생성되었지만 원격 추가 또는 푸시가 완료되지 않았습니다. 다시 시도하면 완료됩니다.",
+      "other": "GitHub에서 오류를 반환했습니다."
+    }
   }
 }

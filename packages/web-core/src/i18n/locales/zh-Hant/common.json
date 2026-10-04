@@ -1955,5 +1955,46 @@
     "none": "無",
     "defaultAgent": "預設代理",
     "defaultModel": "預設模型"
+  },
+  "githubPublish": {
+    "checkbox": "同時在 GitHub 上建立",
+    "checkboxHelper": "在 GitHub 上建立儲存庫，將其新增為 origin 遠端並推送目前分支。",
+    "checkingSession": "正在檢查 GitHub 工作階段...",
+    "noSession": "尚未登入 GitHub。請在 設定 > GitHub 中登入，然後重新檢查。",
+    "openGithubSettings": "開啟 GitHub 設定",
+    "checkAgain": "重新檢查",
+    "loadingOwners": "正在載入 GitHub 帳戶...",
+    "nameLabel": "GitHub 儲存庫名稱",
+    "namePlaceholder": "my-project",
+    "ownerLabel": "擁有者",
+    "ownerPlaceholder": "選擇帳戶",
+    "ownerKind": {
+      "user": "使用者",
+      "organization": "組織"
+    },
+    "visibilityLabel": "可見性",
+    "visibility": {
+      "private": "私人",
+      "public": "公開"
+    },
+    "githubFailed": "無法在 GitHub 上建立儲存庫。",
+    "localDoneGithubFailed": "儲存庫已在本機建立，但在 GitHub 上建立失敗。你可以重試 GitHub 部分，或不使用 GitHub 繼續。",
+    "continueWithoutGithub": "不使用 GitHub 繼續",
+    "retry": "在 GitHub 上重試",
+    "registeredWithoutGithub": "儲存庫已在本機新增，但未在 GitHub 上建立：{{message}}",
+    "errors": {
+      "statusFailed": "無法檢查 GitHub 工作階段。",
+      "ownersFailed": "無法載入你的 GitHub 帳戶。",
+      "invalidName": "只能使用字母、數字、'.'、'_' 或 '-'（最多 100 個字元）。",
+      "no_session": "沒有 GitHub 工作階段。請在 設定 > GitHub 中登入。",
+      "name_taken": "該擁有者下已存在同名儲存庫。",
+      "origin_exists": "本機儲存庫已有 origin 遠端。",
+      "forbidden": "你的 GitHub 工作階段無法為該擁有者建立儲存庫。",
+      "owner_unavailable": "該擁有者對你的 GitHub 工作階段不可用。",
+      "invalid_name": "GitHub 儲存庫名稱無效。",
+      "no_commits": "本機儲存庫還沒有提交。",
+      "incomplete": "儲存庫已在 GitHub 上建立，但新增遠端或推送未完成。重試即可完成。",
+      "other": "GitHub 傳回了錯誤。"
+    }
   }
 }

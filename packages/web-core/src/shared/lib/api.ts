@@ -136,6 +136,12 @@ import { createWorkspaceWithSession } from '@/shared/types/attempt';
 import { resolveHostRequestScope } from '@/shared/lib/hostRequestScope';
 import { makeRequest as makeRemoteRequest } from '@/shared/lib/remoteApi';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
+import type {
+  GithubOwner,
+  GithubPublishClient,
+  PublishRepoToGithubRequest,
+  PublishRepoToGithubResponse,
+} from '@/shared/lib/githubPublish';
 
 /** Info about an existing active worker task for a given issue. */
 export interface ActiveIssueTaskInfo {
@@ -1378,6 +1384,18 @@ export const repoApi = {
     );
   },
 
+  /** Create the repo on GitHub, add it as `origin` and push (#774). */
+  publishToGithub: async (
+    repoId: string,
+    data: PublishRepoToGithubRequest
+  ): Promise<PublishRepoToGithubResponse> => {
+    const response = await makeRequest(`/api/repos/${repoId}/github`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<PublishRepoToGithubResponse>(response);
+  },
+
   listRemotes: async (repoId: string): Promise<GitRemote[]> => {
     const response = await makeRequest(`/api/repos/${repoId}/remotes`);
     return handleApiResponse<GitRemote[]>(response);
@@ -2264,6 +2282,12 @@ export const githubApi = {
     return handleApiResponse<GithubCliInstallResponse>(response);
   },
 
+  /** Accounts the session can create repos under: user first, then orgs. */
+  listOwners: async (): Promise<GithubOwner[]> => {
+    const response = await makeRequest('/api/github/owners');
+    return handleApiResponse<GithubOwner[]>(response);
+  },
+
   listRepos: async (): Promise<GitHubRepoSummary[]> => {
     const response = await makeRequest('/api/github/repos');
     return handleApiResponse<GitHubRepoSummary[]>(response);
@@ -2276,6 +2300,14 @@ export const githubApi = {
     });
     return handleApiResponse<CloneRepoResponse>(response);
   },
+};
+
+/** "Create on GitHub too" against the local backend. */
+export const localGithubPublishClient: GithubPublishClient = {
+  queryScopeKey: ['machine', 'local'],
+  getStatus: () => githubApi.getStatus(),
+  listOwners: () => githubApi.listOwners(),
+  publish: (repoId, request) => repoApi.publishToGithub(repoId, request),
 };
 
 // Misiones del Director (en la UI, "Fluke").
