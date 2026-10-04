@@ -130,3 +130,18 @@ curl -N -X POST http://127.0.0.1:<puerto>/api/director/turn \
 | Repetir con `"channel":"voice"` y una orden ("reasigná la tarea X a Backend") | Respuesta corta, sin markdown ni listas, con la forma "Dale, …" → hace → "Listo". Si pregunta algo, lee las opciones en voz alta en el texto. |
 | Mandar otro turno mientras Fluke todavía responde | `409 Conflict: Fluke is still answering`. |
 | `"text":""` | `400`. |
+
+---
+
+# J4 · Seguimiento hasta el merge — cómo probarlo
+
+## 11. Fluke ofrece el paso siguiente
+
+| Paso | Resultado esperado |
+|---|---|
+| Completar un brief con Fluke | Fluke lo resume en dos líneas y ofrece aprobarlo. Con "sí", aparece la confirmación "¿Confirmás? …" y recién con "Sí, …" se aprueba. |
+| Esperar a que el Analyst termine el despiece | Fluke dice cuántos issues y waves salieron y pregunta "Ejecutar ahora" / "Paso a paso" / "Después". Con "Ejecutar ahora" arranca el milestone run (se ve en Issues). |
+| Una tarea queda aprobada con su PR abierto | Fluke dice qué hace en una línea y ofrece mergearlo. Con "sí", confirmación "¿Confirmás? mergear el PR #n" → "Sí, …" → el PR queda mergeado en GitHub con tu usuario de `gh`. |
+| Responder "no" o cualquier otra cosa a la confirmación de merge | No se mergea nada. |
+| Termina una wave o un milestone | Una línea con lo hecho y lo que sigue. |
+| En ningún caso | Fluke ejecuta, aprueba ni mergea por su cuenta. |

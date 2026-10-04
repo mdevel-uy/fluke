@@ -445,6 +445,12 @@ impl GhCli {
         Ok(())
     }
 
+    /// Merge a pull request with a merge commit, as the authenticated user.
+    pub fn merge_pr(&self, pr_url: &str) -> Result<(), GhCliError> {
+        self.run(["pr", "merge", pr_url, "--merge"], None)?;
+        Ok(())
+    }
+
     /// Return the mergeable state of a pull request: "mergeable", "conflicting", or "unknown".
     pub fn get_pr_mergeable(&self, pr_url: &str) -> Result<String, GhCliError> {
         let raw = self.run(["pr", "view", pr_url, "--json", "mergeable"], None)?;
