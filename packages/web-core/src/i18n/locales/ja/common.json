@@ -2026,5 +2026,61 @@
       "incomplete": "GitHub にリポジトリは作成されましたが、リモートの追加またはプッシュが完了しませんでした。再試行すると完了します。",
       "other": "GitHub がエラーを返しました。"
     }
+  },
+  "mergePr": {
+    "action": "マージ",
+    "merging": "マージ中…",
+    "retry": "再試行",
+    "merged": "PR #{{number}} をマージしました",
+    "mergedNote": "タスクは完了になります。",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "GitHub で開く",
+    "ci": {
+      "ok": "CI 成功",
+      "failing": "CI 失敗",
+      "pending": "CI 実行中",
+      "none": "チェックなし",
+      "unavailable": "CI 取得不可"
+    },
+    "conflicts": {
+      "yes": "コンフリクトあり",
+      "no": "コンフリクトなし",
+      "unknown": "コンフリクト未計算"
+    },
+    "blocked": {
+      "conflicts": "ベースブランチとのコンフリクトがあります。マージ前に解消してください。",
+      "ciFailing": "CI が失敗しています。マージ前に失敗したチェックを修正してください。",
+      "both": "ベースブランチとのコンフリクトがあり、CI も失敗しています。"
+    },
+    "notice": {
+      "ciPending": "CI は実行中です。このままマージできます。",
+      "ciUnavailable": "CI の状態を取得できませんでした。マージ前に GitHub で確認してください。",
+      "mergeableUnknown": "GitHub がまだコンフリクトを計算しています。",
+      "ciNone": "このリポジトリには CI チェックがありません。"
+    },
+    "error": {
+      "github": "GitHub がマージを拒否しました。",
+      "refused": "現在この PR はマージできません。"
+    },
+    "method": {
+      "merge": "マージコミット",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "PR #{{number}} をマージしますか？",
+      "pr": "PR",
+      "method": "マージ方法",
+      "changeInSettings": "設定で変更",
+      "branch": "ブランチ",
+      "branchDeleted": "完了後に GitHub で削除",
+      "branchKept": "保持",
+      "ci": "CI",
+      "warnPending": "CI はまだ実行中です。今マージすると、チェックの結果は考慮されません。",
+      "warnUnavailable": "fluke はこの PR の CI を取得できませんでした。マージ前に GitHub で確認してください。",
+      "irreversible": "この操作は fluke から元に戻せません。",
+      "cancel": "キャンセル",
+      "submit": "PR #{{number}} をマージ"
+    }
   }
 }

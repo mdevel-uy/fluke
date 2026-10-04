@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { IssueBlocker } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
@@ -55,6 +56,8 @@ export interface PlanCardProps {
   /** Why the issue needs a person (#694), when `state` is `stuck`. */
   blocker?: IssueBlocker;
   onUnstick?: (issue: RepoIssue) => void;
+  /** Bottom block: the merge action of an approved PR (#798). */
+  footer?: ReactNode;
 }
 
 function Spinner() {
@@ -76,6 +79,7 @@ export function PlanCard({
   onDecide,
   blocker,
   onUnstick,
+  footer,
 }: PlanCardProps) {
   const { t } = useTranslation('common');
   const tags = issue.labels
@@ -119,12 +123,15 @@ export function PlanCard({
         selected && 'ring-1 ring-md-on-surface'
       )}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-2 right-2.5 text-[11px] text-normal opacity-0 transition-opacity duration-150 group-hover/card:opacity-100 group-focus-visible/card:opacity-100 motion-reduce:transition-none"
-      >
-        {t('issues.plan.card.openHint')}
-      </span>
+      {/* The footer's button sits where the hint would go. */}
+      {!footer && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-2 right-2.5 text-[11px] text-normal opacity-0 transition-opacity duration-150 group-hover/card:opacity-100 group-focus-visible/card:opacity-100 motion-reduce:transition-none"
+        >
+          {t('issues.plan.card.openHint')}
+        </span>
+      )}
       <div className="flex items-center gap-2">
         <span className="font-mono text-xs font-medium text-normal">
           #{issue.number}
@@ -221,6 +228,7 @@ export function PlanCard({
           </button>
         </div>
       )}
+      {footer}
     </div>
   );
 }
