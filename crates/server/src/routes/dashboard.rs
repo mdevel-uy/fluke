@@ -94,6 +94,10 @@ pub struct PrLink {
     pub workspace_id: Option<Uuid>,
     /// `open | merged | closed`.
     pub pr_status: Option<String>,
+    /// `mergeable | conflicting | unknown`, or null when not polled yet.
+    pub pr_mergeable: Option<String>,
+    /// `passing | failing | pending | none | unknown`, or null.
+    pub pr_ci_status: Option<String>,
 }
 
 /// An approved PR waiting for the human merge.
@@ -104,6 +108,13 @@ pub struct MergeGate {
     pub workspace_id: Option<Uuid>,
     /// When the reviewer approved it. SQLite datetime string (UTC).
     pub approved_at: String,
+    /// The PR's mergeable state, so the merge button can say why it is
+    /// disabled (#798).
+    #[ts(optional, type = "string | null")]
+    pub pr_mergeable: Option<String>,
+    /// The PR's CI rollup, same purpose.
+    #[ts(optional, type = "string | null")]
+    pub pr_ci_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -256,10 +267,15 @@ pub fn group_tickets(tasks: &[TaskLite], prs: &[PrLink]) -> Vec<Ticket> {
                         .rev()
                         .find(|(t, _)| t.status == worker_task::STATUS_APPROVED)
                 })
-                .map(|(t, at)| MergeGate {
-                    pr_number: pr_of(*t).map(|p| p.pr_number),
-                    workspace_id: t.workspace_id,
-                    approved_at: at.clone(),
+                .map(|(t, at)| {
+                    let pr = pr_of(*t);
+                    MergeGate {
+                        pr_number: pr.map(|p| p.pr_number),
+                        workspace_id: t.workspace_id,
+                        approved_at: at.clone(),
+                        pr_mergeable: pr.and_then(|p| p.pr_mergeable.clone()),
+                        pr_ci_status: pr.and_then(|p| p.pr_ci_status.clone()),
+                    }
                 });
             let hours_override = done.iter().rev().find_map(|(t, _)| t.hours_saved_override);
             Ticket {
@@ -297,7 +313,7 @@ async fn load_tasks(pool: &SqlitePool) -> Result<Vec<TaskLite>, sqlx::Error> {
 
 async fn load_prs(pool: &SqlitePool) -> Result<Vec<PrLink>, sqlx::Error> {
     sqlx::query_as(
-        "SELECT repo_id, pr_number, workspace_id, pr_status
+        "SELECT repo_id, pr_number, workspace_id, pr_status, pr_mergeable, pr_ci_status
            FROM pull_requests WHERE workspace_id IS NOT NULL",
     )
     .fetch_all(pool)
@@ -785,6 +801,8 @@ mod tests {
             pr_number: 40,
             workspace_id: Some(Uuid::from_u128(1)),
             pr_status: Some("merged".into()),
+            pr_mergeable: None,
+            pr_ci_status: None,
         }];
         let tickets = group_tickets(&tasks, &prs);
         assert_eq!(tickets.len(), 2);
@@ -821,6 +839,8 @@ mod tests {
             pr_number: 60,
             workspace_id: Some(Uuid::from_u128(5)),
             pr_status: Some(pr_status.into()),
+            pr_mergeable: None,
+            pr_ci_status: None,
         }];
         group_tickets(&tasks, &prs)
     }

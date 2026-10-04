@@ -1082,34 +1082,166 @@ pub fn router() -> Router<DeploymentImpl> {
 /// offers it when a PR is ready (J4); the path contains `merge`, so Fluke can
 /// only call it after the user confirmed (J0.5). The merge stays a human
 /// decision.
+///
+/// Preconditions are checked against what fluke last polled, before calling
+/// GitHub: the PR must be open, its task (if it has one) approved, without
+/// conflicts and without red CI; otherwise 409 with the reason and nothing
+/// changes. A rejection from GitHub returns its message and changes nothing
+/// either. On success the PR is marked merged and the task reconciled right
+/// away (same path as the poll), so the response already reflects the merge.
 async fn merge_pull_request(
     State(deployment): State<DeploymentImpl>,
     Path((repo_id, number)): Path<(Uuid, i64)>,
 ) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
-    let pr = db::models::pull_request::PullRequest::find_by_repo_and_number(
-        &deployment.db().pool,
-        repo_id,
-        number,
-    )
-    .await?
-    .ok_or_else(|| ApiError::BadRequest(format!("PR #{number} not found in this repo")))?;
-    if !matches!(pr.pr_status, db::models::merge::MergeStatus::Open) {
-        return Err(ApiError::Conflict(format!("PR #{number} is not open")));
+    use db::models::{merge::MergeStatus, pull_request::PullRequest, worker_task};
+
+    let pool = &deployment.db().pool;
+    // One merge per PR at a time: a double click or Fluke and the user at
+    // once get a 409 instead of a second `gh pr merge`.
+    let _guard = MergeGuard::acquire(repo_id, number)
+        .ok_or_else(|| ApiError::Conflict(format!("PR #{number} is already being merged")))?;
+
+    let pr = PullRequest::find_by_repo_and_number(pool, repo_id, number)
+        .await?
+        .ok_or_else(|| ApiError::BadRequest(format!("PR #{number} not found in this repo")))?;
+    match pr.pr_status {
+        MergeStatus::Open => {}
+        MergeStatus::Merged => {
+            return Err(ApiError::Conflict(format!(
+                "PR #{number} is already merged"
+            )));
+        }
+        _ => return Err(ApiError::Conflict(format!("PR #{number} is not open"))),
     }
-    let url = pr.pr_url.clone();
+    // PRs without a task (opened outside fluke) keep merging as before; a
+    // task's PR waits for the reviewer's approval.
+    if let Some(workspace_id) = pr.workspace_id
+        && let Some(task) = worker_task::WorkerTask::find_by_workspace(pool, workspace_id).await?
+        && task.status != worker_task::STATUS_APPROVED
+    {
+        return Err(ApiError::Conflict(format!(
+            "PR #{number} is not approved yet (task is {})",
+            task.status
+        )));
+    }
+    let conflicting = pr.pr_mergeable.as_deref() == Some("conflicting");
+    let ci_failing = PullRequest::get_ci_status(pool, &pr.pr_url)
+        .await?
+        .as_deref()
+        == Some("failing");
+    match (conflicting, ci_failing) {
+        (true, true) => {
+            return Err(ApiError::Conflict(format!(
+                "PR #{number} has merge conflicts and failing CI"
+            )));
+        }
+        (true, false) => {
+            return Err(ApiError::Conflict(format!(
+                "PR #{number} has merge conflicts with {}",
+                pr.target_branch_name
+            )));
+        }
+        (false, true) => {
+            return Err(ApiError::Conflict(format!("PR #{number} has failing CI")));
+        }
+        (false, false) => {}
+    }
+
     // Merge method and branch deletion come from Settings, so the UI button
     // and Fluke merge the same way.
     let (method, delete_branch) = {
         let config = deployment.config().read().await;
         (config.pr_merge_method, config.pr_delete_branch_after_merge)
     };
-    tokio::task::spawn_blocking(move || {
-        git_host::github::GhCli::new().merge_pr(&url, method, delete_branch)
+    let url = pr.pr_url.clone();
+    let (merge_result, detail) = tokio::task::spawn_blocking(move || {
+        let gh = git_host::github::GhCli::new();
+        let result = gh.merge_pr(&url, method, delete_branch);
+        // Read the PR back either way: on success for the merge commit, on
+        // failure to tell "GitHub refused" from "it was already merged".
+        (result, gh.view_pr(&url).ok())
     })
     .await
-    .map_err(|e| ApiError::BadRequest(e.to_string()))?
-    .map_err(|e| ApiError::BadRequest(format!("gh could not merge PR #{number}: {e}")))?;
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+
+    let merged_on_github = detail
+        .as_ref()
+        .is_some_and(|d| matches!(d.status, MergeStatus::Merged));
+    if let Err(e) = merge_result
+        && !merged_on_github
+    {
+        return Err(ApiError::BadRequest(format!(
+            "gh could not merge PR #{number}: {e}"
+        )));
+    }
+    let Some(detail) = detail.filter(|_| merged_on_github) else {
+        // gh accepted the merge but GitHub does not show it merged yet (merge
+        // queue, auto-merge): the poll records it when it lands.
+        deployment.trigger_pr_poll();
+        return Ok(ResponseJson(ApiResponse::success(())));
+    };
+
+    // The merge happened: from here on local failures are logged, never
+    // returned, and the poll would reconcile what is left (the PR stays
+    // open in the DB until `update_status` succeeds).
+    let merged_at = detail.merged_at.unwrap_or_else(Utc::now);
+    match PullRequest::update_status(
+        pool,
+        &pr.pr_url,
+        &MergeStatus::Merged,
+        Some(merged_at),
+        detail.merge_commit_sha.clone(),
+    )
+    .await
+    {
+        Ok(()) => {
+            if let Err(e) = services::services::pr_monitor::reconcile_merged_pr(
+                deployment.config(),
+                deployment.db(),
+                deployment.container(),
+                None,
+                &pr,
+            )
+            .await
+            {
+                tracing::warn!(
+                    pr_number = number,
+                    "Merged, but local reconcile failed: {e}"
+                );
+            }
+            deployment.trigger_pr_sync();
+        }
+        Err(e) => {
+            tracing::warn!(pr_number = number, "Merged, but recording it failed: {e}");
+            deployment.trigger_pr_poll();
+        }
+    }
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// In-flight merges, keyed by (repo, PR number). Released on drop.
+struct MergeGuard(Uuid, i64);
+
+fn merges_in_flight() -> &'static Mutex<std::collections::HashSet<(Uuid, i64)>> {
+    static IN_FLIGHT: OnceLock<Mutex<std::collections::HashSet<(Uuid, i64)>>> = OnceLock::new();
+    IN_FLIGHT.get_or_init(Default::default)
+}
+
+impl MergeGuard {
+    fn acquire(repo_id: Uuid, number: i64) -> Option<Self> {
+        let mut set = merges_in_flight().lock().unwrap_or_else(|e| e.into_inner());
+        set.insert((repo_id, number))
+            .then_some(MergeGuard(repo_id, number))
+    }
+}
+
+impl Drop for MergeGuard {
+    fn drop(&mut self) {
+        merges_in_flight()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&(self.0, self.1));
+    }
 }
 
 // ============================================================================
