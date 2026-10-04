@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 import type { RepoIssue } from '@/features/issues/types';
 import type { MilestoneBand as Band } from '@/features/issues/lib/milestonePlan';
 import type { DecisionContext } from './DecisionDrawer';
-import { BandStatus, decisionContext } from './MilestoneBand';
+import { BandStatus, decisionContext, playTone } from './MilestoneBand';
 import { SEGMENT } from './CollapsedSummary';
 import {
   DragHandle,
@@ -79,8 +79,8 @@ export function CompactMilestoneRow({
         onClick={runActive ? onPause : onPlay}
         aria-label={t(runActive ? 'issues.plan.pause' : 'issues.plan.play')}
         className={cn(
-          'grid size-6 place-items-center rounded-full border border-md-primary text-md-primary hover:bg-md-primary/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
-          runActive && 'bg-md-primary text-md-on-primary'
+          'grid size-6 place-items-center rounded-full border hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
+          playTone(band, run)
         )}
       >
         <svg viewBox="0 0 16 16" className="size-2.5 fill-current" aria-hidden>

@@ -86,6 +86,31 @@ function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
+/**
+ * Color classes of the play/pause circle: red on error, amber when a person
+ * must act (decision, merge), green while agents work. No twMerge in cn():
+ * base classes must not carry colors, or CSS order decides (the pause icon
+ * went invisible once).
+ */
+export function playTone(band: Band, run?: MilestoneRun): string {
+  if (run?.status === 'done') return 'border-success text-success';
+  const waiting = run?.status === 'waiting';
+  const stuck = band.waves.some((w) =>
+    w.cards.some((c) => c.state === 'stuck')
+  );
+  if (stuck || (waiting && run?.waiting_reason?.startsWith('failed')))
+    return 'border-md-error bg-md-error/20 text-md-error';
+  if (
+    waiting ||
+    band.status.kind === 'merge' ||
+    band.status.kind === 'decision'
+  )
+    return 'border-warning bg-warning/20 text-warning';
+  if (run?.status === 'running' || band.status.kind === 'running')
+    return 'border-success bg-success/20 text-success';
+  return 'border-md-primary text-md-primary';
+}
+
 function PlayIcon({ kind }: { kind: 'play' | 'pause' | 'done' }) {
   return (
     <svg viewBox="0 0 16 16" className="size-3.5 fill-current" aria-hidden>
@@ -168,19 +193,6 @@ export function MilestoneBand({
   const runActive = run?.status === 'running' || run?.status === 'waiting';
   const running = run?.status === 'running' || band.status.kind === 'running';
   const waiting = run?.status === 'waiting';
-  // Play circle tone: red on error, amber when a person must act (decision,
-  // merge), green while agents work.
-  const failed = waiting && run?.waiting_reason?.startsWith('failed');
-  const tone =
-    hasStuck || failed
-      ? 'border-md-error bg-md-error/20 text-md-error'
-      : waiting ||
-          band.status.kind === 'merge' ||
-          band.status.kind === 'decision'
-        ? 'border-warning bg-warning/20 text-warning'
-        : running
-          ? 'border-success bg-success/20 text-success'
-          : null;
   const decide = onDecide
     ? (issue: RepoIssue) => onDecide(issue, decisionContext(band, issue))
     : undefined;
@@ -232,12 +244,8 @@ export function MilestoneBand({
           onClick={runActive ? onPause : onPlay}
           aria-label={t(runActive ? 'issues.plan.pause' : 'issues.plan.play')}
           className={cn(
-            // No twMerge in cn(): base color classes must not overlap the
-            // tone ones, or CSS order decides (the pause icon went invisible).
             'grid size-[34px] flex-none place-items-center rounded-full border hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary disabled:opacity-60',
-            run?.status === 'done'
-              ? 'border-success text-success'
-              : (tone ?? 'border-md-primary text-md-primary')
+            playTone(band, run)
           )}
         >
           <PlayIcon
