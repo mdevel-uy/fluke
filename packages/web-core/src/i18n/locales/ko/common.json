@@ -922,6 +922,8 @@
         "label": "마일스톤",
         "unfinished": "미완료",
         "active": "진행 중",
+        "running": "실행 중",
+        "stopped": "확인 필요",
         "finished": "완료",
         "empty": "이 필터에 해당하는 마일스톤이 없습니다."
       },

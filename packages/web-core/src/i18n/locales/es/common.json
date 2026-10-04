@@ -1141,6 +1141,8 @@
         "label": "Milestones",
         "unfinished": "Sin finalizar",
         "active": "Activos",
+        "running": "En ejecución",
+        "stopped": "Esperando por vos",
         "finished": "Finalizados",
         "empty": "No hay milestones en este filtro."
       },

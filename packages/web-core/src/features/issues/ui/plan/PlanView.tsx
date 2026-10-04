@@ -95,7 +95,12 @@ function DensityToggle({
   );
 }
 
-export type PlanMilestoneFilter = 'unfinished' | 'active' | 'finished';
+export type PlanMilestoneFilter =
+  | 'unfinished'
+  | 'active'
+  | 'running'
+  | 'stopped'
+  | 'finished';
 
 const TASK_TO_CARD: Record<string, PlanCardState> = {
   queued: 'queued',
@@ -158,12 +163,29 @@ export function PlanView({
         run === 'waiting'
       );
     };
+    const runOf = (b: (typeof full.bands)[number]) =>
+      runs.find((r) => r.milestone === b.milestone)?.status;
+    const isRunning = (b: (typeof full.bands)[number]) =>
+      b.status.kind === 'running' || runOf(b) === 'running';
+    // Held by a person: a stuck card (conflict, question, failure...), a
+    // pm:decision gate, a run waiting on the user or a PR waiting for merge.
+    const isStopped = (b: (typeof full.bands)[number]) =>
+      b.waves.some((w) =>
+        w.cards.some((c) => c.state === 'stuck' || c.state === 'gate')
+      ) ||
+      runOf(b) === 'waiting' ||
+      all.awaitingMerge.some((a) => a.milestone === b.milestone);
     const bands = full.bands.filter((b) =>
       milestoneFilter === 'finished'
         ? b.done === b.total
-        : milestoneFilter === 'active'
-          ? b.done < b.total && isActive(b)
-          : b.done < b.total
+        : b.done < b.total &&
+          (milestoneFilter === 'active'
+            ? isActive(b)
+            : milestoneFilter === 'running'
+              ? isRunning(b)
+              : milestoneFilter === 'stopped'
+                ? isStopped(b)
+                : true)
     );
     // Loose issues are open work: they only belong next to unfinished milestones.
     const loose = milestoneFilter === 'unfinished' ? full.loose : [];
