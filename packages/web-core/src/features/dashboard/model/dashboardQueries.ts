@@ -30,6 +30,9 @@ export function useDashboardOverview(): DashboardOverview | null {
     queryKey: ['dashboard', 'overview', hostId],
     queryFn: () => getData<DashboardOverview>(`${basePath}/dashboard/overview`),
     refetchInterval: 10000,
+    // Live view: the global 5 min staleTime would show the cached snapshot
+    // on mount until the first interval tick.
+    staleTime: 0,
   });
   return data;
 }

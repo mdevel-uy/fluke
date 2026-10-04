@@ -13,6 +13,7 @@ export function useIssueBlockers(repoId: string | undefined) {
     queryFn: () => issuePhasesApi.blockers(repoId!),
     enabled: !!repoId,
     refetchInterval: 15_000,
+    staleTime: 0,
   });
   return useMemo(
     () =>
