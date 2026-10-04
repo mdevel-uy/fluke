@@ -219,6 +219,19 @@
         "customPrompt": {
           "useCustom": "カスタムプロンプトを使用",
           "helper": "PR説明生成時のAIエージェント用カスタムプロンプト。{pr_number}と{pr_url}をプレースホルダーとして使用できます。"
+        },
+        "mergeMethod": {
+          "label": "マージ方法",
+          "helper": "fluke が承認済みの PR を GitHub でマージする方法（UI から、または Fluke が依頼に応じてマージする場合）。",
+          "options": {
+            "merge": "マージコミット",
+            "squash": "スカッシュしてマージ",
+            "rebase": "リベースしてマージ"
+          }
+        },
+        "deleteBranchAfterMerge": {
+          "label": "マージ後にブランチを削除",
+          "helper": "マージが成功したら GitHub 上の PR ブランチを削除します。"
         }
       },
       "autoReview": {

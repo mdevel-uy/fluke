@@ -59,6 +59,14 @@ import { useSettingsDirty } from './SettingsDirtyContext';
 // once the field appears in the generated `Config`.
 type ConfigWithReview = Config & { max_review_rounds?: number };
 
+// Same situation for the PR merge settings added to Config v10 (#797):
+// remove once `PrMergeMethod` and these fields are in `shared/types.ts`.
+type PrMergeMethod = 'merge' | 'squash' | 'rebase';
+type ConfigWithMerge = Config & {
+  pr_merge_method?: PrMergeMethod;
+  pr_delete_branch_after_merge?: boolean;
+};
+
 export function GeneralSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
   const { setDirty: setContextDirty } = useSettingsDirty();
@@ -322,6 +330,22 @@ export function GeneralSettingsSection() {
       </div>
     );
   }
+
+  const mergeMethodOptions: { value: PrMergeMethod; label: string }[] = [
+    {
+      value: 'merge',
+      label: t('settings.general.pullRequests.mergeMethod.options.merge'),
+    },
+    {
+      value: 'squash',
+      label: t('settings.general.pullRequests.mergeMethod.options.squash'),
+    },
+    {
+      value: 'rebase',
+      label: t('settings.general.pullRequests.mergeMethod.options.rebase'),
+    },
+  ];
+  const mergeDraft = draft as ConfigWithMerge | null;
 
   const themeOptions = Object.values(ThemeMode).map((theme) => ({
     value: theme,
@@ -615,6 +639,37 @@ export function GeneralSettingsSection() {
             disabled={draft?.pr_auto_description_prompt == null}
           />
         </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.pullRequests.mergeMethod.label')}
+          description={t('settings.general.pullRequests.mergeMethod.helper')}
+        >
+          <SettingsSelect
+            value={mergeDraft?.pr_merge_method ?? 'merge'}
+            options={mergeMethodOptions}
+            onChange={(value: PrMergeMethod) =>
+              updateDraft({
+                pr_merge_method: value,
+              } as Partial<ConfigWithMerge>)
+            }
+          />
+        </SettingsField>
+
+        <SettingsCheckbox
+          id="pr-delete-branch-after-merge"
+          label={t(
+            'settings.general.pullRequests.deleteBranchAfterMerge.label'
+          )}
+          description={t(
+            'settings.general.pullRequests.deleteBranchAfterMerge.helper'
+          )}
+          checked={mergeDraft?.pr_delete_branch_after_merge ?? true}
+          onChange={(checked) =>
+            updateDraft({
+              pr_delete_branch_after_merge: checked,
+            } as Partial<ConfigWithMerge>)
+          }
+        />
       </SettingsCard>
 
       {/* Auto Review */}

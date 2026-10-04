@@ -20,9 +20,20 @@ use url::Url;
 use utils::{command_ext::NoWindowExt, shell::resolve_executable_path_blocking};
 
 use crate::types::{
-    CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrFailedCheck, PrReviewComment,
-    PullRequestDetail, ReviewCommentUser, SubmitPrReviewRequest, SubmitPrReviewResponse,
+    CreatePrRequest, LatestPrReview, PrComment, PrCommentAuthor, PrFailedCheck, PrMergeMethod,
+    PrReviewComment, PullRequestDetail, ReviewCommentUser, SubmitPrReviewRequest,
+    SubmitPrReviewResponse,
 };
+
+/// Head branch of a PR, located in the repo that holds it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PrHeadRef {
+    owner: String,
+    repo: String,
+    branch: String,
+    /// `None` for github.com, `Some(host)` for GitHub Enterprise.
+    hostname: Option<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct GitHubRepoInfo {
@@ -445,10 +456,129 @@ impl GhCli {
         Ok(())
     }
 
-    /// Merge a pull request with a merge commit, as the authenticated user.
-    pub fn merge_pr(&self, pr_url: &str) -> Result<(), GhCliError> {
-        self.run(["pr", "merge", pr_url, "--merge"], None)?;
+    /// Merge a pull request with `method`, as the authenticated user, and
+    /// optionally delete its head branch on the remote afterwards.
+    ///
+    /// The branch is NOT deleted with `gh pr merge --delete-branch`: that
+    /// flag also touches the local checkout of whatever repo the process
+    /// runs in and fails the whole command when the branch is in use by a
+    /// worktree — after the merge already happened. Instead the remote ref
+    /// is deleted in a separate best-effort step: a failure there is logged
+    /// as a warning and the merge is still reported as successful.
+    pub fn merge_pr(
+        &self,
+        pr_url: &str,
+        method: PrMergeMethod,
+        delete_branch: bool,
+    ) -> Result<(), GhCliError> {
+        // Resolve the head ref before merging: it is only needed for the
+        // deletion, so a failure here skips the deletion, not the merge.
+        let head = if delete_branch {
+            match self.get_pr_head_ref(pr_url) {
+                Ok(head) => head,
+                Err(e) => {
+                    tracing::warn!("Could not resolve head branch of {pr_url}: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        self.run(Self::merge_pr_args(pr_url, method), None)?;
+
+        if let Some(head) = head
+            && let Err(e) = self.delete_remote_branch(&head)
+        {
+            tracing::warn!(
+                "PR {pr_url} merged, but branch {} could not be deleted: {e}",
+                head.branch
+            );
+        }
         Ok(())
+    }
+
+    fn merge_pr_args(pr_url: &str, method: PrMergeMethod) -> Vec<String> {
+        vec![
+            "pr".to_string(),
+            "merge".to_string(),
+            pr_url.to_string(),
+            method.gh_flag().to_string(),
+        ]
+    }
+
+    /// Head branch of a PR and the repo it lives in (the fork for cross-repo
+    /// PRs). `None` when the URL is not a GitHub PR URL or the head repo is
+    /// gone (deleted fork).
+    fn get_pr_head_ref(&self, pr_url: &str) -> Result<Option<PrHeadRef>, GhCliError> {
+        let Some((_, _, _, hostname)) = Self::parse_github_pr_url_parts(pr_url) else {
+            return Ok(None);
+        };
+        let raw = self.run(
+            [
+                "pr",
+                "view",
+                pr_url,
+                "--json",
+                "headRefName,headRepository,headRepositoryOwner",
+            ],
+            None,
+        )?;
+
+        #[derive(serde::Deserialize)]
+        struct Named {
+            name: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Owner {
+            login: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct HeadInfo {
+            head_ref_name: Option<String>,
+            head_repository: Option<Named>,
+            head_repository_owner: Option<Owner>,
+        }
+
+        let info: HeadInfo = serde_json::from_str(raw.trim()).map_err(|e| {
+            GhCliError::UnexpectedOutput(format!("Failed to parse PR head info: {e}; raw: {raw}"))
+        })?;
+        let (Some(branch), Some(repo), Some(owner)) = (
+            info.head_ref_name,
+            info.head_repository.and_then(|r| r.name),
+            info.head_repository_owner.and_then(|o| o.login),
+        ) else {
+            return Ok(None);
+        };
+        Ok(Some(PrHeadRef {
+            owner,
+            repo,
+            branch,
+            hostname,
+        }))
+    }
+
+    fn delete_remote_branch(&self, head: &PrHeadRef) -> Result<(), GhCliError> {
+        self.run(Self::delete_branch_args(head), None)?;
+        Ok(())
+    }
+
+    fn delete_branch_args(head: &PrHeadRef) -> Vec<String> {
+        let mut args = vec![
+            "api".to_string(),
+            "-X".to_string(),
+            "DELETE".to_string(),
+            format!(
+                "repos/{}/{}/git/refs/heads/{}",
+                head.owner, head.repo, head.branch
+            ),
+        ];
+        if let Some(host) = &head.hostname {
+            args.push("--hostname".to_string());
+            args.push(host.clone());
+        }
+        args
     }
 
     /// Return the mergeable state of a pull request: "mergeable", "conflicting", or "unknown".
@@ -1456,5 +1586,52 @@ mod tests {
         assert!(
             GhCli::parse_github_pr_url_parts("https://github.com/owner/repo/pull/abc").is_none()
         );
+    }
+
+    #[test]
+    fn merge_pr_args_use_the_configured_method() {
+        let url = "https://github.com/owner/repo/pull/7";
+        for (method, flag) in [
+            (PrMergeMethod::Merge, "--merge"),
+            (PrMergeMethod::Squash, "--squash"),
+            (PrMergeMethod::Rebase, "--rebase"),
+        ] {
+            assert_eq!(
+                GhCli::merge_pr_args(url, method),
+                vec!["pr", "merge", url, flag]
+            );
+        }
+    }
+
+    #[test]
+    fn merge_pr_args_never_delete_the_branch_through_gh() {
+        let args = GhCli::merge_pr_args("https://github.com/o/r/pull/1", PrMergeMethod::Squash);
+        assert!(!args.iter().any(|a| a == "--delete-branch" || a == "-d"));
+    }
+
+    #[test]
+    fn delete_branch_args_target_the_head_repo() {
+        let head = PrHeadRef {
+            owner: "fork-owner".to_string(),
+            repo: "repo".to_string(),
+            branch: "flk/abcd-feature".to_string(),
+            hostname: None,
+        };
+        assert_eq!(
+            GhCli::delete_branch_args(&head),
+            vec![
+                "api",
+                "-X",
+                "DELETE",
+                "repos/fork-owner/repo/git/refs/heads/flk/abcd-feature"
+            ]
+        );
+
+        let enterprise = PrHeadRef {
+            hostname: Some("ghe.example.com".to_string()),
+            ..head
+        };
+        let args = GhCli::delete_branch_args(&enterprise);
+        assert_eq!(&args[args.len() - 2..], ["--hostname", "ghe.example.com"]);
     }
 }

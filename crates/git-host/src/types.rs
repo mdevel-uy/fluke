@@ -22,6 +22,28 @@ impl std::fmt::Display for ProviderKind {
     }
 }
 
+/// How a pull request is merged on the host (`gh pr merge --merge|--squash|--rebase`).
+/// Chosen installation-wide in Settings; merge commit is the default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum PrMergeMethod {
+    #[default]
+    Merge,
+    Squash,
+    Rebase,
+}
+
+impl PrMergeMethod {
+    /// The `gh pr merge` flag selecting this method.
+    pub fn gh_flag(self) -> &'static str {
+        match self {
+            PrMergeMethod::Merge => "--merge",
+            PrMergeMethod::Squash => "--squash",
+            PrMergeMethod::Rebase => "--rebase",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CreatePrRequest {
     pub title: String,

@@ -1,6 +1,7 @@
 use anyhow::Error;
 use executors::{executors::BaseCodingAgent, profile::ExecutorProfileId};
-use serde::{Deserialize, Serialize};
+use git_host::PrMergeMethod;
+use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use ts_rs::TS;
 pub use v9::{
     EditorConfig, EditorType, GitHubConfig, NotificationConfig, SendMessageShortcut, ShowcaseState,
@@ -63,6 +64,37 @@ fn default_currency() -> String {
 /// only negotiable lever, so it is configurable per installation.
 fn default_savings_fee_rate() -> f64 {
     0.10
+}
+
+fn default_pr_delete_branch_after_merge() -> bool {
+    true
+}
+
+/// Reads a config field, falling back to `default` when the stored value does
+/// not parse (e.g. a merge method this build does not know). A bad value in
+/// one setting must not discard the whole config.json.
+fn value_or_default<'de, D, T>(deserializer: D, default: fn() -> T) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(raw.clone()).unwrap_or_else(|e| {
+        tracing::warn!("Invalid config value {raw}: {e}; using the default");
+        default()
+    }))
+}
+
+fn deserialize_pr_merge_method<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<PrMergeMethod, D::Error> {
+    value_or_default(deserializer, PrMergeMethod::default)
+}
+
+fn deserialize_pr_delete_branch_after_merge<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<bool, D::Error> {
+    value_or_default(deserializer, default_pr_delete_branch_after_merge)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -129,6 +161,15 @@ pub struct Config {
     /// which browser opened the report.
     #[serde(default = "default_savings_fee_rate")]
     pub default_savings_fee_rate: f64,
+    /// How the "merge" action (UI and Fluke) merges an approved PR on GitHub.
+    #[serde(default, deserialize_with = "deserialize_pr_merge_method")]
+    pub pr_merge_method: PrMergeMethod,
+    /// Delete the PR head branch on the remote once the merge succeeded.
+    #[serde(
+        default = "default_pr_delete_branch_after_merge",
+        deserialize_with = "deserialize_pr_delete_branch_after_merge"
+    )]
+    pub pr_delete_branch_after_merge: bool,
 }
 
 impl Config {
@@ -162,6 +203,8 @@ impl Config {
             default_hourly_rate: default_hourly_rate(),
             default_currency: default_currency(),
             default_savings_fee_rate: default_savings_fee_rate(),
+            pr_merge_method: PrMergeMethod::default(),
+            pr_delete_branch_after_merge: default_pr_delete_branch_after_merge(),
         }
     }
 
@@ -241,6 +284,8 @@ impl Default for Config {
             default_hourly_rate: default_hourly_rate(),
             default_currency: default_currency(),
             default_savings_fee_rate: default_savings_fee_rate(),
+            pr_merge_method: PrMergeMethod::default(),
+            pr_delete_branch_after_merge: default_pr_delete_branch_after_merge(),
         }
     }
 }
@@ -269,6 +314,63 @@ mod tests {
         };
         let raw = serde_json::to_string(&v9_config).unwrap();
         assert_eq!(Config::from(raw).git_branch_prefix, "mk");
+    }
+
+    #[test]
+    fn merge_settings_default_to_merge_commit_and_branch_deletion() {
+        let fresh = Config::default();
+        assert_eq!(fresh.pr_merge_method, PrMergeMethod::Merge);
+        assert!(fresh.pr_delete_branch_after_merge);
+
+        // A v10 config.json written before these fields existed.
+        let mut raw: serde_json::Value = serde_json::to_value(Config {
+            git_branch_prefix: "mk".to_string(),
+            ..Config::default()
+        })
+        .unwrap();
+        let obj = raw.as_object_mut().unwrap();
+        obj.remove("pr_merge_method");
+        obj.remove("pr_delete_branch_after_merge");
+        let loaded = Config::from(raw.to_string());
+        assert_eq!(loaded.pr_merge_method, PrMergeMethod::Merge);
+        assert!(loaded.pr_delete_branch_after_merge);
+        assert_eq!(loaded.git_branch_prefix, "mk");
+
+        // Migrated from v9.
+        let raw = serde_json::to_string(&v9::Config::default()).unwrap();
+        let migrated = Config::from(raw);
+        assert_eq!(migrated.pr_merge_method, PrMergeMethod::Merge);
+        assert!(migrated.pr_delete_branch_after_merge);
+    }
+
+    #[test]
+    fn merge_settings_round_trip() {
+        let existing = Config {
+            pr_merge_method: PrMergeMethod::Squash,
+            pr_delete_branch_after_merge: false,
+            ..Config::default()
+        };
+        let raw = serde_json::to_string(&existing).unwrap();
+        assert!(raw.contains(r#""pr_merge_method":"squash""#));
+        let loaded = Config::from(raw);
+        assert_eq!(loaded.pr_merge_method, PrMergeMethod::Squash);
+        assert!(!loaded.pr_delete_branch_after_merge);
+    }
+
+    #[test]
+    fn invalid_merge_settings_fall_back_to_defaults_keeping_the_rest() {
+        let mut raw: serde_json::Value = serde_json::to_value(Config {
+            git_branch_prefix: "mk".to_string(),
+            ..Config::default()
+        })
+        .unwrap();
+        let obj = raw.as_object_mut().unwrap();
+        obj.insert("pr_merge_method".into(), "fast_forward".into());
+        obj.insert("pr_delete_branch_after_merge".into(), "yes".into());
+        let loaded = Config::from(raw.to_string());
+        assert_eq!(loaded.pr_merge_method, PrMergeMethod::Merge);
+        assert!(loaded.pr_delete_branch_after_merge);
+        assert_eq!(loaded.git_branch_prefix, "mk");
     }
 
     #[test]

@@ -219,6 +219,19 @@
         "customPrompt": {
           "useCustom": "Utiliser un prompt personnalisé",
           "helper": "Prompt personnalisé pour l'agent IA lors de la génération des descriptions de PR. Utilisez {pr_number} et {pr_url} comme variables."
+        },
+        "mergeMethod": {
+          "label": "Méthode de merge",
+          "helper": "Comment fluke merge une PR approuvée sur GitHub, depuis l'interface ou quand Fluke merge sur demande.",
+          "options": {
+            "merge": "Commit de merge",
+            "squash": "Squash and merge",
+            "rebase": "Rebase and merge"
+          }
+        },
+        "deleteBranchAfterMerge": {
+          "label": "Supprimer la branche après le merge",
+          "helper": "Supprime la branche de la PR sur GitHub une fois le merge réussi."
         }
       },
       "autoReview": {

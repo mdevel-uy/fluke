@@ -1077,10 +1077,11 @@ pub fn router() -> Router<DeploymentImpl> {
         )
 }
 
-/// Merge one of the repo's pull requests with a merge commit, as the user
-/// (the machine's `gh` login). Fluke offers it when a PR is ready (J4); the
-/// path contains `merge`, so Fluke can only call it after the user confirmed
-/// (J0.5). The merge stays a human decision.
+/// Merge one of the repo's pull requests as the user (the machine's `gh`
+/// login), with the merge method and branch deletion set in Settings. Fluke
+/// offers it when a PR is ready (J4); the path contains `merge`, so Fluke can
+/// only call it after the user confirmed (J0.5). The merge stays a human
+/// decision.
 async fn merge_pull_request(
     State(deployment): State<DeploymentImpl>,
     Path((repo_id, number)): Path<(Uuid, i64)>,
@@ -1096,10 +1097,18 @@ async fn merge_pull_request(
         return Err(ApiError::Conflict(format!("PR #{number} is not open")));
     }
     let url = pr.pr_url.clone();
-    tokio::task::spawn_blocking(move || git_host::github::GhCli::new().merge_pr(&url))
-        .await
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?
-        .map_err(|e| ApiError::BadRequest(format!("gh could not merge PR #{number}: {e}")))?;
+    // Merge method and branch deletion come from Settings, so the UI button
+    // and Fluke merge the same way.
+    let (method, delete_branch) = {
+        let config = deployment.config().read().await;
+        (config.pr_merge_method, config.pr_delete_branch_after_merge)
+    };
+    tokio::task::spawn_blocking(move || {
+        git_host::github::GhCli::new().merge_pr(&url, method, delete_branch)
+    })
+    .await
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?
+    .map_err(|e| ApiError::BadRequest(format!("gh could not merge PR #{number}: {e}")))?;
     Ok(ResponseJson(ApiResponse::success(())))
 }
 
