@@ -96,7 +96,7 @@ async fn unstick_issue(
     let pool = &deployment.db().pool;
     let kick = match req.action.as_str() {
         "retry" => {
-            let id: Uuid = sqlx::query_scalar(
+            let id: Option<Uuid> = sqlx::query_scalar(
                 "SELECT t.id FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
                   WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND t.status = 'failed'
                     AND w.role <> 'reviewer'
@@ -105,7 +105,29 @@ async fn unstick_issue(
             .bind(repo_id)
             .bind(issue_number)
             .fetch_optional(pool)
-            .await?
+            .await?;
+            // The gates before the review run on the issue's PR: their tasks
+            // carry the PR number.
+            let id = match id {
+                Some(id) => Some(id),
+                None => {
+                    sqlx::query_scalar(&format!(
+                        "SELECT t.id FROM worker_tasks t
+                      WHERE t.repo_id = ?1 AND t.status = 'failed'
+                        AND t.kind IN ({})
+                        AND t.issue_number IN (
+                            SELECT pr.pr_number FROM pull_requests pr
+                              JOIN worker_tasks d ON d.workspace_id = pr.workspace_id
+                             WHERE d.repo_id = ?1 AND d.issue_number = ?2)
+                      ORDER BY t.created_at DESC LIMIT 1",
+                        worker_task::PR_GATE_KINDS_SQL
+                    ))
+                    .bind(repo_id)
+                    .bind(issue_number)
+                    .fetch_optional(pool)
+                    .await?
+                }
+            }
             .ok_or_else(|| ApiError::Conflict("No hay una fase fallida para reintentar".into()))?;
             let task = WorkerTask::set_status(pool, id, worker_task::STATUS_QUEUED).await?;
             vec![task.worker_id]
@@ -114,7 +136,7 @@ async fn unstick_issue(
             let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)
                 .await?
                 .ok_or_else(|| ApiError::BadRequest("Issue not found".into()))?;
-            let qa = qa_phases::qa_profile(pool)
+            let qa = qa_phases::profile_for(pool, db::models::worker::ROLE_QA)
                 .await?
                 .ok_or_else(|| ApiError::Conflict("No hay un perfil QA activo".into()))?;
             let mut kick = drop_open_tasks(&deployment, repo_id, issue_number).await?;
@@ -140,6 +162,17 @@ async fn unstick_issue(
             )
             .await?;
             WorkerTask::set_kind(pool, task.id, worker_task::KIND_QA_TDD).await?;
+            // The tests go on top of the Architect's ADR, if the plan had one.
+            if let Some((_, _, Some(arch_ref))) = WorkerTask::latest_pre_dev_for_issue(
+                pool,
+                repo_id,
+                issue_number,
+                worker_task::KIND_ARCH,
+            )
+            .await?
+            {
+                WorkerTask::set_start_ref(pool, task.id, &arch_ref).await?;
+            }
             kick.push(qa.id);
             kick
         }

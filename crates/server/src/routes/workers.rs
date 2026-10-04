@@ -15,8 +15,9 @@ use db::models::{
     repo::Repo,
     review_round::ReviewRound,
     worker::{
-        CreateWorker, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_ORCHESTRATOR, ROLE_QA,
-        ROLE_REVIEWER, UpdateWorker, Worker,
+        CreateWorker, ROLE_ANALYST, ROLE_ARCHITECT, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_DEVOPS,
+        ROLE_DOCS, ROLE_ORCHESTRATOR, ROLE_QA, ROLE_QUALITY, ROLE_REVIEWER, ROLE_SECURITY,
+        UpdateWorker, Worker,
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, WorkerTask},
     workspace::Workspace,
@@ -595,7 +596,16 @@ pub async fn create_design_handoff(
 fn is_valid_role(role: &str) -> bool {
     matches!(
         role,
-        ROLE_DEVELOPER | ROLE_ANALYST | ROLE_REVIEWER | ROLE_DESIGNER | ROLE_QA
+        ROLE_DEVELOPER
+            | ROLE_ANALYST
+            | ROLE_REVIEWER
+            | ROLE_DESIGNER
+            | ROLE_QA
+            | ROLE_DEVOPS
+            | ROLE_ARCHITECT
+            | ROLE_DOCS
+            | ROLE_QUALITY
+            | ROLE_SECURITY
     )
 }
 

@@ -50,10 +50,13 @@ pub fn is_design_issue(labels: &[String]) -> bool {
         .any(|l| l.trim().eq_ignore_ascii_case(DESIGN_LABEL))
 }
 
-/// Role of the profile an issue is dispatched to.
-pub fn dispatch_role(design: bool) -> &'static str {
+/// Role of the profile an issue is dispatched to. `devops`: the plan asks
+/// for DevOps to implement it.
+pub fn dispatch_role(design: bool, devops: bool) -> &'static str {
     if design {
         worker::ROLE_DESIGNER
+    } else if devops {
+        worker::ROLE_DEVOPS
     } else {
         worker::ROLE_DEVELOPER
     }
@@ -231,16 +234,20 @@ pub async fn load_issues(
             continue;
         };
         let latest = WorkerTask::find_latest_by_issue(pool, repo_id, issue.number).await?;
-        let tests_first = match &latest {
+        let pre_dev = match &latest {
             Some(t) => {
-                WorkerTask::kind(pool, t.id).await?.as_deref() == Some(worker_task::KIND_QA_TDD)
+                matches!(
+                    WorkerTask::kind(pool, t.id).await?.as_deref(),
+                    Some(worker_task::KIND_QA_TDD | worker_task::KIND_ARCH)
+                )
             }
             None => false,
         };
         let task = match latest {
             None => TaskState::None,
-            // QA's tests are in: the developer still has to be dispatched.
-            Some(t) if tests_first && t.status == worker_task::STATUS_DONE => TaskState::None,
+            // A phase before development is done: the next one, or the
+            // developer, still has to be dispatched.
+            Some(t) if pre_dev && t.status == worker_task::STATUS_DONE => TaskState::None,
             Some(t) if t.status == worker_task::STATUS_DONE => TaskState::Done,
             Some(t) if t.status == worker_task::STATUS_FAILED => TaskState::Failed,
             Some(_) => TaskState::Active,
@@ -302,26 +309,66 @@ pub async fn advance_run(
                 {
                     continue;
                 }
-                // Tests first (#687): QA writes the tests, then the developer
-                // starts from the branch QA pushed. Design issues have no tests.
-                let mut start_ref = None;
-                if !design
-                    && qa_phases::plan_template(issue.body.as_deref()).is_some_and(|t| t.tdd)
-                    && let Some(qa) = qa_phases::qa_profile(pool).await?
-                {
-                    match WorkerTask::latest_qa_tdd_for_issue(pool, run.repo_id, number).await? {
+                // Phases before development (#687): the Architect's ADR, then
+                // QA's tests, each one starting from the branch the previous
+                // one pushed; the developer starts from the last. Design
+                // issues have neither.
+                let plan = if design {
+                    None
+                } else {
+                    qa_phases::plan_template(issue.body.as_deref())
+                };
+                let mut start_ref: Option<String> = None;
+                let mut pre_dev_dispatched = false;
+                for (enabled, role, kind) in [
+                    (
+                        plan.is_some_and(|t| t.architect),
+                        worker::ROLE_ARCHITECT,
+                        worker_task::KIND_ARCH,
+                    ),
+                    (
+                        plan.is_some_and(|t| t.tdd),
+                        worker::ROLE_QA,
+                        worker_task::KIND_QA_TDD,
+                    ),
+                ] {
+                    if !enabled {
+                        continue;
+                    }
+                    let Some(profile) = qa_phases::profile_for(pool, role).await? else {
+                        warn!(milestone = %run.milestone, issue = number, role, "Milestone run: no active profile for a phase of the plan; skipping it");
+                        continue;
+                    };
+                    match WorkerTask::latest_pre_dev_for_issue(pool, run.repo_id, number, kind)
+                        .await?
+                    {
                         None => {
-                            let task = WorkerTask::append(
-                                pool,
-                                qa.id,
-                                &CreateWorkerTask {
-                                    repo_id: run.repo_id,
-                                    title: format!("Tests #{} {}", number, issue.title),
-                                    prompt: qa_phases::tdd_prompt(
+                            let (title, prompt) = if kind == worker_task::KIND_ARCH {
+                                (
+                                    format!("Arquitectura #{} {}", number, issue.title),
+                                    qa_phases::arch_prompt(
                                         number,
                                         &issue.title,
                                         issue.body.as_deref(),
                                     ),
+                                )
+                            } else {
+                                (
+                                    format!("Tests #{} {}", number, issue.title),
+                                    qa_phases::tdd_prompt(
+                                        number,
+                                        &issue.title,
+                                        issue.body.as_deref(),
+                                    ),
+                                )
+                            };
+                            let task = WorkerTask::append(
+                                pool,
+                                profile.id,
+                                &CreateWorkerTask {
+                                    repo_id: run.repo_id,
+                                    title,
+                                    prompt,
                                     issue_number: Some(number),
                                     skills: Vec::new(),
                                     issue_labels: Vec::new(),
@@ -330,17 +377,29 @@ pub async fn advance_run(
                                 },
                             )
                             .await?;
-                            WorkerTask::set_kind(pool, task.id, worker_task::KIND_QA_TDD).await?;
-                            info!(milestone = %run.milestone, issue = number, "Milestone run dispatched tests first");
-                            kicked.push(qa.id);
-                            continue;
+                            WorkerTask::set_kind(pool, task.id, kind).await?;
+                            if let Some(start_ref) = &start_ref {
+                                WorkerTask::set_start_ref(pool, task.id, start_ref).await?;
+                            }
+                            info!(milestone = %run.milestone, issue = number, kind, "Milestone run dispatched a phase before development");
+                            kicked.push(profile.id);
+                            pre_dev_dispatched = true;
+                            break;
                         }
-                        Some((_, _, pushed)) => start_ref = pushed,
+                        Some((_, _, pushed)) => start_ref = pushed.or(start_ref),
                     }
+                }
+                if pre_dev_dispatched {
+                    continue;
                 }
                 // Design issues go only to a designer (#756): with none
                 // active the issue stays undispatched, never falls back.
-                let role = dispatch_role(design);
+                // DevOps falls back to a developer: the plan only prefers it.
+                let mut role = dispatch_role(design, plan.is_some_and(|t| t.devops));
+                if role == worker::ROLE_DEVOPS && pick_worker(pool, role).await?.is_none() {
+                    warn!(milestone = %run.milestone, issue = number, "Milestone run: no active DevOps profile; dispatching to a developer");
+                    role = worker::ROLE_DEVELOPER;
+                }
                 let Some(worker_id) = pick_worker(pool, role).await? else {
                     warn!(milestone = %run.milestone, issue = number, role, "Milestone run: no active profile to dispatch to");
                     if design && no_designer.is_none() {
@@ -525,8 +584,10 @@ mod tests {
         assert!(!is_design_issue(&labels(&["feature:x", "wave:0"])));
         // Older design issues without the label stay with developers.
         assert!(!is_design_issue(&labels(&["design"])));
-        assert_eq!(dispatch_role(true), worker::ROLE_DESIGNER);
-        assert_eq!(dispatch_role(false), worker::ROLE_DEVELOPER);
+        assert_eq!(dispatch_role(true, false), worker::ROLE_DESIGNER);
+        assert_eq!(dispatch_role(true, true), worker::ROLE_DESIGNER);
+        assert_eq!(dispatch_role(false, true), worker::ROLE_DEVOPS);
+        assert_eq!(dispatch_role(false, false), worker::ROLE_DEVELOPER);
         assert_eq!(no_designer_reason(9), "designer:9");
     }
 

@@ -32,7 +32,20 @@ function queuedSummary(title: string, prompt: string | undefined) {
   return `${title}\n\n${body.length > 420 ? `${body.slice(0, 420).trimEnd()}…` : body}`;
 }
 
-const PHASE_KINDS = ['design', 'tdd', 'dev', 'test', 'review', 'merge'];
+const PHASE_KINDS = [
+  'design',
+  'arch',
+  'tdd',
+  'dev',
+  'docs',
+  'test',
+  'quality',
+  'security',
+  'review',
+  'merge',
+];
+/** Always shown; the specialist phases only when the issue's plan has them. */
+const CORE_PHASE_KINDS = ['design', 'tdd', 'dev', 'test', 'review', 'merge'];
 
 const PHASE_CLASS: Record<string, string> = {
   done: 'border-success/45 bg-success/15 text-success',
@@ -59,7 +72,11 @@ function RunningRow({
 }) {
   const { t } = useTranslation('common');
   const nav = useAppNavigation();
-  const phases = PHASE_KINDS.map((kind) => ({
+  const phases = PHASE_KINDS.filter(
+    (kind) =>
+      CORE_PHASE_KINDS.includes(kind) ||
+      task.phases.some((p) => p.kind === kind)
+  ).map((kind) => ({
     kind,
     state: task.phases.find((p) => p.kind === kind)?.state ?? 'skip',
   }));

@@ -1088,7 +1088,11 @@
           "review": "리뷰",
           "merge": "병합",
           "tdd": "테스트 먼저",
-          "test": "테스트"
+          "test": "테스트",
+          "arch": "아키텍처",
+          "docs": "문서",
+          "quality": "코드 품질",
+          "security": "보안"
         },
         "profile": "프로필",
         "instance": "인스턴스",
@@ -1382,7 +1386,17 @@
       "orchestrator": "Orchestrator",
       "orchestratorDescription": "Fluke, the director: talks with you and prepares briefs for the Analyst. It does not take queue tasks.",
       "qa": "QA",
-      "qaDescription": "코드보다 먼저 테스트를 작성하고 리뷰 전에 PR을 검증합니다"
+      "qaDescription": "코드보다 먼저 테스트를 작성하고 리뷰 전에 PR을 검증합니다",
+      "devops": "DevOps",
+      "devopsDescription": "CI/CD, 인프라, 클라우드 연동 이슈를 구현합니다",
+      "architect": "아키텍트",
+      "architectDescription": "개발 전에 아키텍처 제안(ADR)을 작성합니다",
+      "docs": "문서",
+      "docsDescription": "리뷰 전에 PR의 문서를 업데이트합니다",
+      "quality": "코드 품질",
+      "qualityDescription": "SOLID, DRY, 클린 아키텍처, 디자인 패턴 관점에서 PR을 리뷰합니다",
+      "security": "보안",
+      "securityDescription": "OWASP를 기준으로 PR의 취약점을 리뷰합니다"
     },
     "toast": {
       "startSuccess": "{{worker}}가 \"{{title}}\"을(를) 시작했습니다.",
@@ -1868,7 +1882,11 @@
       "goal": "Goal",
       "scope": "Scope",
       "reference": "Reference",
-      "tdd": "TDD"
+      "tdd": "TDD",
+      "architect": "Architecture",
+      "implementer": "Implemented by",
+      "reviews": "Extra reviews",
+      "docs": "Documentation"
     },
     "autonomy": {
       "label": "Autonomy",
