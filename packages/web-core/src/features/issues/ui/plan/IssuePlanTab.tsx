@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import type { IssuePhase, IssuePlanResponse } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { instanceLabel } from '@/features/workers/model/instance';
@@ -78,7 +79,7 @@ export function IssuePlanTab({
           {phase ? (
             <>
               <h3 className="m-0 text-[15px] font-semibold text-high">
-                {label(phase)} · {t(`issues.plan.phases.kind.${phase.kind}`)}
+                {label(phase)} · {phaseKindLabel(t, phase.kind, phase.profile)}
               </h3>
               <dl className="m-0 grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
                 <dt className="text-normal">

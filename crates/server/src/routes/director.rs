@@ -348,6 +348,7 @@ async fn approve_brief(
     )
     .await?;
     let markdown = director::render_markdown(&d);
+    let flow = services::services::qa_phases::flow_catalog(pool).await?;
     let version = Mission::add_brief_version(pool, id, &markdown).await?;
     let task = WorkerTask::append(
         pool,
@@ -355,7 +356,7 @@ async fn approve_brief(
         &CreateWorkerTask {
             repo_id,
             title: d.mission.title.chars().take(80).collect(),
-            prompt: director::analyst_request_prompt(&d, version, &closed_designs),
+            prompt: director::analyst_request_prompt(&d, version, &closed_designs, &flow),
             source: SOURCE_MISSION.to_string(),
             ..Default::default()
         },

@@ -114,7 +114,7 @@ async fn unstick_issue(
                     sqlx::query_scalar(&format!(
                         "SELECT t.id FROM worker_tasks t
                       WHERE t.repo_id = ?1 AND t.status = 'failed'
-                        AND t.kind IN ({})
+                        AND {}
                         AND t.issue_number IN (
                             SELECT pr.pr_number FROM pull_requests pr
                               JOIN worker_tasks d ON d.workspace_id = pr.workspace_id
@@ -162,16 +162,12 @@ async fn unstick_issue(
             )
             .await?;
             WorkerTask::set_kind(pool, task.id, worker_task::KIND_QA_TDD).await?;
-            // The tests go on top of the Architect's ADR, if the plan had one.
-            if let Some((_, _, Some(arch_ref))) = WorkerTask::latest_pre_dev_for_issue(
-                pool,
-                repo_id,
-                issue_number,
-                worker_task::KIND_ARCH,
-            )
-            .await?
+            // The tests go on top of the phases before them (the Architect's
+            // ADR or another profile's), if the plan had any.
+            if let Some(pre_ref) =
+                WorkerTask::latest_pre_dev_ref(pool, repo_id, issue_number).await?
             {
-                WorkerTask::set_start_ref(pool, task.id, &arch_ref).await?;
+                WorkerTask::set_start_ref(pool, task.id, &pre_ref).await?;
             }
             kick.push(qa.id);
             kick

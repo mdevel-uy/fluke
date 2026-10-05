@@ -107,6 +107,8 @@ línea sola, el bloque \`<!-- fluke:plan {...} -->\` (JSON válido) con estos ca
   externas, secretos o dependencias; \`"quality"\` si agrega o reestructura módulos, capas o
   abstracciones.
 - \`"docs": false\` solo si el cambio no afecta nada documentable; por defecto se documenta.
+- Los perfiles que el user agregó al flujo van por su slug: \`"pre"\` (antes del desarrollo),
+  \`"implementer"\` o \`"reviews"\`. La request del brief lista los perfiles y sus slugs.
 Ejemplo: \`<!-- fluke:plan {"template":"tdd","reviews":["security"]} -->\`. Los issues de
 diseño no llevan el bloque.
 

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IssueBlocker } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
@@ -212,7 +213,7 @@ export function PlanCard({
           {(phaseKind || age) && (
             <small className="mb-0.5 block text-[11px] text-normal">
               {[
-                phaseKind && t(`issues.plan.phases.kind.${phaseKind}`),
+                phaseKind && phaseKindLabel(t, phaseKind),
                 age && t('issues.plan.card.ago', { age }),
               ]
                 .filter(Boolean)

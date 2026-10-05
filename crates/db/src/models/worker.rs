@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use executors::executors::BaseCodingAgent;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
+use ts_rs::TS;
 use uuid::Uuid;
 
 pub const ROLE_DEVELOPER: &str = "developer";
@@ -23,6 +24,72 @@ pub const ROLE_SECURITY: &str = "security";
 /// Roles that implement an issue end to end and open its PR.
 pub fn is_implementer(role: &str) -> bool {
     role == ROLE_DEVELOPER || role == ROLE_DEVOPS
+}
+
+/// Where a profile joins the flow of an issue: before development (commits
+/// on a branch the next phase starts from), as the implementer, or as a gate
+/// on the PR before the review.
+pub const STAGE_PRE_DEV: &str = "pre_dev";
+pub const STAGE_IMPLEMENT: &str = "implement";
+pub const STAGE_GATE: &str = "gate";
+
+/// Whether a profile of `role` can join `stage`. Phases before development
+/// and gates run through the non-developer path (no PR of their own); the
+/// implementer is the one that opens it.
+pub fn can_join_stage(role: &str, stage: &str) -> bool {
+    match stage {
+        STAGE_IMPLEMENT => is_implementer(role),
+        STAGE_PRE_DEV | STAGE_GATE => matches!(
+            role,
+            ROLE_QA | ROLE_ARCHITECT | ROLE_DOCS | ROLE_QUALITY | ROLE_SECURITY
+        ),
+        _ => false,
+    }
+}
+
+/// A profile's place in the flow of an issue. `stage: None` = the profile
+/// is not in the flow (Fluke and loose tasks can still use it).
+#[derive(Debug, Clone, Default, PartialEq, Eq, FromRow, Serialize, Deserialize, TS)]
+pub struct ProfileFlow {
+    /// How `fluke:plan` names the profile. Set the first time the profile
+    /// joins the flow and never changed, so plans already written keep
+    /// pointing at it.
+    pub slug: Option<String>,
+    pub stage: Option<String>,
+    /// Runs on every issue with a plan, without the plan asking for it.
+    pub always: bool,
+    /// Position inside its stage, ascending.
+    #[ts(type = "number")]
+    pub order: i64,
+    /// When Fluke offers the profile in a brief.
+    pub offer_when: Option<String>,
+}
+
+/// `name` as a slug: lowercase ASCII letters and digits joined by `-`.
+pub fn slugify(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.to_lowercase().chars() {
+        let c = match c {
+            'á' | 'à' | 'ä' | 'â' => 'a',
+            'é' | 'è' | 'ë' | 'ê' => 'e',
+            'í' | 'ì' | 'ï' | 'î' => 'i',
+            'ó' | 'ò' | 'ö' | 'ô' => 'o',
+            'ú' | 'ù' | 'ü' | 'û' => 'u',
+            'ñ' => 'n',
+            c => c,
+        };
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else if !out.is_empty() && !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let out = out.trim_end_matches('-').to_string();
+    if out.is_empty() {
+        "perfil".to_string()
+    } else {
+        out
+    }
 }
 /// El Director (en la UI, "Fluke"): uno solo por instalación, lo crea fluke
 /// y nunca toma tareas de la cola.
@@ -359,6 +426,113 @@ impl Worker {
             .map(Option::flatten)
     }
 
+    /// The profile's place in the flow. Read on its own, like
+    /// `migrated_from`, so the `SELECT`s that build `Worker` stay as they are.
+    pub async fn flow(pool: &SqlitePool, worker_id: Uuid) -> Result<ProfileFlow, sqlx::Error> {
+        Ok(sqlx::query_as::<_, ProfileFlow>(
+            "SELECT flow_slug AS slug, flow_stage AS stage, flow_always AS always,
+                    flow_order AS \"order\", flow_offer_when AS offer_when
+               FROM workers WHERE id = ?1",
+        )
+        .bind(worker_id)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or_default())
+    }
+
+    /// Put the profile in `stage` (`None` takes it out of the flow). The
+    /// slug is derived from the name the first time and kept afterwards; a
+    /// profile that changes stage goes last in the new one.
+    pub async fn set_flow(
+        pool: &SqlitePool,
+        worker_id: Uuid,
+        stage: Option<&str>,
+        always: bool,
+        offer_when: Option<&str>,
+    ) -> Result<ProfileFlow, sqlx::Error> {
+        let worker = Self::find_by_id(pool, worker_id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)?;
+        let current = Self::flow(pool, worker_id).await?;
+        let slug = match (&current.slug, stage) {
+            (Some(slug), _) => Some(slug.clone()),
+            (None, Some(_)) => Some(Self::free_slug(pool, &slugify(&worker.name)).await?),
+            (None, None) => None,
+        };
+        let order = if stage.is_some() && current.stage.as_deref() != stage {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT COALESCE(MAX(flow_order), 0) + 10 FROM workers WHERE flow_stage = ?1",
+            )
+            .bind(stage)
+            .fetch_one(pool)
+            .await?
+        } else {
+            current.order
+        };
+        sqlx::query(
+            "UPDATE workers
+                SET flow_slug = ?2, flow_stage = ?3, flow_always = ?4,
+                    flow_order = ?5, flow_offer_when = ?6
+              WHERE id = ?1",
+        )
+        .bind(worker_id)
+        .bind(&slug)
+        .bind(stage)
+        .bind(always)
+        .bind(order)
+        .bind(offer_when.map(str::trim).filter(|s| !s.is_empty()))
+        .execute(pool)
+        .await?;
+        Self::flow(pool, worker_id).await
+    }
+
+    /// `base`, or `base-2`, `base-3`… whichever no profile uses yet.
+    async fn free_slug(pool: &SqlitePool, base: &str) -> Result<String, sqlx::Error> {
+        let taken: Vec<String> =
+            sqlx::query_scalar("SELECT flow_slug FROM workers WHERE flow_slug IS NOT NULL")
+                .fetch_all(pool)
+                .await?;
+        let mut slug = base.to_string();
+        let mut n = 2;
+        while taken.contains(&slug) {
+            slug = format!("{base}-{n}");
+            n += 1;
+        }
+        Ok(slug)
+    }
+
+    /// Active profiles in the flow, by stage and then by their order there.
+    pub async fn list_flow(pool: &SqlitePool) -> Result<Vec<(Self, ProfileFlow)>, sqlx::Error> {
+        let ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM workers
+              WHERE archived = 0 AND flow_stage IS NOT NULL
+              ORDER BY flow_stage, flow_order, created_at",
+        )
+        .fetch_all(pool)
+        .await?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(worker) = Self::find_by_id(pool, id).await? {
+                let flow = Self::flow(pool, id).await?;
+                out.push((worker, flow));
+            }
+        }
+        Ok(out)
+    }
+
+    /// Order the profiles of a stage as `worker_ids` lists them.
+    pub async fn set_flow_order(pool: &SqlitePool, worker_ids: &[Uuid]) -> Result<(), sqlx::Error> {
+        let mut tx = pool.begin().await?;
+        for (i, id) in worker_ids.iter().enumerate() {
+            sqlx::query("UPDATE workers SET flow_order = ?2 WHERE id = ?1")
+                .bind(id)
+                .bind((i as i64 + 1) * 10)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await
+    }
+
     pub async fn queued_task_count(pool: &SqlitePool, worker_id: Uuid) -> Result<i64, sqlx::Error> {
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*)
@@ -535,5 +709,26 @@ impl Worker {
         .bind(workspace_id)
         .fetch_optional(pool)
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slugs_and_stages() {
+        assert_eq!(slugify("Performance"), "performance");
+        assert_eq!(
+            slugify("  Revisión de Seguridad! "),
+            "revision-de-seguridad"
+        );
+        assert_eq!(slugify("Data model v2"), "data-model-v2");
+        assert_eq!(slugify("🤖"), "perfil");
+        assert!(can_join_stage(ROLE_QUALITY, STAGE_GATE));
+        assert!(can_join_stage(ROLE_DEVOPS, STAGE_IMPLEMENT));
+        assert!(!can_join_stage(ROLE_DEVELOPER, STAGE_GATE));
+        assert!(!can_join_stage(ROLE_SECURITY, STAGE_IMPLEMENT));
+        assert!(!can_join_stage(ROLE_REVIEWER, STAGE_PRE_DEV));
     }
 }

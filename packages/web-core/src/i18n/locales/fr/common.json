@@ -1385,7 +1385,34 @@
       "sectionIntegration": "Intégration",
       "sectionSoul": "Âme",
       "ghWriteWarningTitle": "Cette âme écrit directement sur GitHub",
-      "ghWriteWarningBody": "Déclarez ces actions dans .vk/actions.json pour que le système les exécute avec relances et journal. La sauvegarde reste autorisée pour une migration progressive."
+      "ghWriteWarningBody": "Déclarez ces actions dans .vk/actions.json pour que le système les exécute avec relances et journal. La sauvegarde reste autorisée pour une migration progressive.",
+      "flow": {
+        "section": "Dans le flux des issues",
+        "stage": {
+          "pre_dev": "Avant le développement",
+          "implement": "Implémentation",
+          "gate": "Porte"
+        },
+        "stageHelp": {
+          "pre_dev": "Commite sur une branche dont part le développeur",
+          "implement": "Écrit le code de l'issue et ouvre la PR",
+          "gate": "Revoit la PR et l’approuve ou la renvoie"
+        },
+        "roleCannot": "Indisponible pour le rôle {{role}}",
+        "none": "Aucun point d’entrée : le profil reste disponible pour Fluke et les tâches ponctuelles.",
+        "when": "Quand il intervient",
+        "always": "Sur toutes les issues",
+        "onDemand": "Quand le plan le demande",
+        "offerWhen": "Fluke le propose quand…",
+        "offerWhenHelp": "Fluke s’en sert pour décider s’il propose l’étape dans le brief. Sans cela, un profil optionnel n’intervient que si vous le demandez.",
+        "offerWhenPlaceholder": "l’issue touche des requêtes, des endpoints sollicités ou le bundle front",
+        "contract": {
+          "pre_dev": "Commite sur sa branche avant le développement ; la phase suivante et le développeur partent de là.",
+          "implement": "Le plan de l’issue le choisit à la place du développeur ; il ouvre la PR comme tout implémenteur.",
+          "gate": "À la fin, il écrit son verdict (pass ou fail, avec les raisons) ; un fail renvoie les raisons au développeur. Fluke ajoute cette consigne au prompt."
+        },
+        "slug": "Le plan l’appelle « {{slug}} »."
+      }
     },
     "roles": {
       "developer": "Développeur",
@@ -1901,7 +1928,8 @@
       "architect": "Architecture",
       "implementer": "Implemented by",
       "reviews": "Extra reviews",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "pre": "Phases préalables"
     },
     "autonomy": {
       "label": "Autonomy",
@@ -1996,7 +2024,35 @@
     "instancesNow": "Instances en cours",
     "none": "aucune",
     "defaultAgent": "Agent par défaut",
-    "defaultModel": "modèle par défaut"
+    "defaultModel": "modèle par défaut",
+    "tabs": {
+      "profiles": "Profils",
+      "flow": "Flux"
+    },
+    "inFlow": "Dans le flux",
+    "flow": {
+      "preDev": "Avant le développement",
+      "preDevHint": "Dans cet ordre, chacun sur la branche du précédent",
+      "implement": "Implémentation",
+      "implementHint": "Un par issue",
+      "pr": "PR + CI",
+      "prText": "L’implémenteur ouvre la PR ; les portes attendent une CI verte.",
+      "gates": "Portes",
+      "gatesHint": "Dans cet ordre, sur le head de la PR. 3 échecs arrêtent la boucle.",
+      "review": "Review → Merge",
+      "reviewText": "Reviewer, puis merge humain.",
+      "fixed": "Fixe",
+      "tdd": "{{name}} · tests d’abord",
+      "testing": "{{name}} · tests",
+      "tagTdd": "si le plan demande le TDD",
+      "tagDefault": "par défaut",
+      "tagDocs": "toujours",
+      "tagWithPlan": "toujours avec un plan",
+      "tagAlways": "toujours",
+      "tagIfPlan": "si le plan le demande",
+      "drag": "Déplacer {{name}}",
+      "howToAdd": "Pour ajouter un profil au flux, ouvrez-le et choisissez son point d’entrée dans « Dans le flux des issues »."
+    }
   },
   "githubPublish": {
     "checkbox": "Créer aussi sur GitHub",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import { MaterialIcon } from '@vibe/ui/components/MaterialIcon';
 import { cn } from '@/shared/lib/utils';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
@@ -298,9 +299,7 @@ export function IssuePage() {
                       ? 'issues.plan.stuck.banner'
                       : 'issues.plan.stuck.bannerNoAge',
                     {
-                      phase: blockerKind
-                        ? t(`issues.plan.phases.kind.${blockerKind}`)
-                        : '',
+                      phase: blockerKind ? phaseKindLabel(t, blockerKind) : '',
                       age: blockerSince,
                     }
                   )}
