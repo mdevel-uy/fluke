@@ -143,7 +143,8 @@ export function CompactMilestoneRow({
           {band.done}/{band.total}
         </span>
       </div>
-      <div className="hidden items-center justify-end gap-0.5 group-focus-within:flex group-hover:flex">
+      {/* Stays visible while the menu is open: a hidden trigger anchors the menu at 0,0. */}
+      <div className="hidden items-center justify-end gap-0.5 group-focus-within:flex group-hover:flex has-[[data-state=open]]:flex">
         <MilestoneQuickActions actions={actions} />
       </div>
     </div>
