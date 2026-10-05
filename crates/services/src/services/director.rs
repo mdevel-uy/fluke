@@ -891,12 +891,20 @@ stop a run, report status, and so on.
 swaps the name for the id. For anything else, resolve names to ids with a GET first. If a name \
 matches more than one thing, ask with ask_user and short options.
 - Make the call with app_api and confirm what changed in one short sentence. If it fails, \
-read the error, fix the call and retry once before telling the user.
+read the error, fix the call and retry once before telling the user (except a refused merge: \
+see below).
 - Destructive or hard-to-undo calls (DELETE, archive, remove, merge, approve, stop, send...) are \
 gated by the app, even when the user asked for them: app_api answers needs_confirmation and shows \
 the user 'Sí' / 'Cancelar'. Pass a short summary in the user's words, say in one sentence what \
 you are about to do and end your turn. When the user's next message confirms, call confirm_action \
 with the token; if they say anything else, the action is cancelled.
+- Merging a PR (\"mergeá el PR de #N\", or when you offer it): find the issue's repo and its open \
+PR in [STATUS] (\"PR #n in repo\", or status_snapshot; otherwise look it up with app_api), and call app_api POST \
+/api/repos/{repo}/pull-requests/{number}/merge with no body (merge method and branch deletion \
+come from Settings) and a summary like \"mergear el PR #675 (#N)\". It always needs the user's \
+yes. If the merge is refused (HTTP 409: conflicts, red CI, task not approved, PR already merged \
+or closed; or GitHub's own error), tell the user the exact reason in one line and stop: never \
+retry it, never merge another way (gh, git, another endpoint). If it was already merged, say so.
 - These never create brief items. Give the conversation a short title with set_mission.
 
 New development work (a bug, a feature or a design change that needs code written) is the one \
@@ -1243,8 +1251,9 @@ milestone. Ask with ask_user (\"Ejecutar ahora\" / \"Paso a paso\" / \"Después\
 app_api POST /api/repos/{repo_id}/milestone-runs/play with that milestone (step_mode true for \
 paso a paso).
 - An approved task with its PR ready to merge: say what it does in one line and offer to merge \
-it. To merge, call app_api POST /api/repos/{repo_id}/pull-requests/{number}/merge with a summary \
-like \"mergear el PR #675\": the app shows the user the confirmation; the merge is always theirs.
+it. To merge, call app_api POST /api/repos/{repo}/pull-requests/{number}/merge with a summary \
+like \"mergear el PR #675\": the app shows the user the confirmation; the merge is always theirs. \
+If it is refused, give the reason in one line and do not retry.
 - A wave or a milestone that finished: one line on what is done and what comes next.
 Never run, approve or merge on your own: offer, and act only on the user's yes.";
 
@@ -3283,6 +3292,35 @@ mod tests {
             action_label(&Method::DELETE, "/api/workers/3f6c1b4e-8d2a-4c1e-9f0a-1b2c3d4e5f60?x=1"),
             "DELETE workers"
         );
+    }
+
+    /// #799: Fluke merges a PR only through the endpoint the button uses, and
+    /// only after the user's own yes.
+    #[test]
+    fn merging_a_pr_waits_for_the_users_yes() {
+        use reqwest::Method;
+        let repo = Uuid::new_v4();
+        let path = format!("/api/repos/{repo}/pull-requests/675/merge");
+        assert!(confirmations::is_dangerous(&Method::POST, &path));
+        assert!(confirmations::is_dangerous(&Method::POST, "/api/repos/fluke/pull-requests/675/merge"));
+        assert!(!confirmations::is_dangerous(&Method::GET, &path));
+
+        // Cancelled: nothing is left to run later.
+        let mission = Uuid::new_v4();
+        let args = json!({"method": "POST", "path": path, "summary": "mergear el PR #675"});
+        let token = confirmations::hold(mission, args.clone());
+        confirmations::on_user_message(mission, "Cancelar");
+        assert!(confirmations::take_approved(mission, token).is_err());
+
+        // Confirmed: the held call runs once. If the endpoint then refuses
+        // the merge, the confirmation is already spent and nothing retries it.
+        let token = confirmations::hold(mission, args);
+        confirmations::on_user_message(mission, "Sí, mergear el PR #675");
+        assert_eq!(confirmations::take_approved(mission, token).unwrap()["path"], path);
+        assert!(confirmations::take_approved(mission, token).is_err());
+
+        assert!(SYSTEM_PROMPT.contains("/pull-requests/{number}/merge"));
+        assert!(SYSTEM_PROMPT.contains("never retry it"));
     }
 
     /// #780: approving another mission's brief from this conversation goes
