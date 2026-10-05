@@ -385,6 +385,32 @@ export const ConversationList = forwardRef<
 
   // ---- TanStack Virtual plumbing ----
   const tanstackScrollRef = useRef<HTMLDivElement | null>(null);
+  const assistant = useIsAssistantChat();
+
+  // Fluke's chat: right after loading, rows measure themselves and the list
+  // re-pins to the bottom each time, which reads as the text scrolling up
+  // and down. Keep it invisible until its height holds still (or 1s), then
+  // fade it in.
+  const [settledScope, setSettledScope] = useState<string | null>(null);
+  const settled = !assistant || settledScope === conversationScopeKey;
+  useEffect(() => {
+    if (!assistant || loading || settledScope === conversationScopeKey) return;
+    const el = tanstackScrollRef.current;
+    const start = performance.now();
+    let lastHeight = -1;
+    let stableFrames = 0;
+    let frame = 0;
+    const tick = () => {
+      const height = el?.scrollHeight ?? 0;
+      stableFrames = height === lastHeight ? stableFrames + 1 : 0;
+      lastHeight = height;
+      if (!el || stableFrames >= 6 || performance.now() - start > 1000) {
+        setSettledScope(conversationScopeKey);
+      } else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [assistant, loading, conversationScopeKey, settledScope]);
 
   const clearPendingInteractionAnchor = useCallback(() => {
     if (pendingInteractionAnchorFrameRef.current !== null) {
@@ -523,7 +549,6 @@ export const ConversationList = forwardRef<
     [filteredEntries]
   );
 
-  const assistant = useIsAssistantChat();
   // Fluke's chat: which rows open a turn, which runs of app-event batches
   // merge into one telemetry line, and where the latest turn starts.
   const flukeLayout = useMemo(() => {
@@ -1000,7 +1025,10 @@ export const ConversationList = forwardRef<
         )}
         <div
           ref={tanstackScrollRef}
-          className="h-full overflow-y-auto scrollbar-none"
+          className={cn(
+            'h-full overflow-y-auto scrollbar-none transition-opacity duration-200',
+            !settled && 'opacity-0'
+          )}
           style={{ overflowAnchor: 'none', contain: 'strict' }}
           onClickCapture={handleConversationClickCapture}
         >
