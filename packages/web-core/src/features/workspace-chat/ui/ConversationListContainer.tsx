@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -33,6 +34,7 @@ import { FlukeOrbParts } from '@/features/director/ui/MissionRing';
 import { FlukeTelemetry } from '@/features/director/ui/FlukeTelemetry';
 import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
+import { ExecutionProcessesContext } from '@/shared/hooks/useExecutionProcessesContext';
 import { useEntriesActions } from '../model/contexts/EntriesContext';
 import {
   useResetProcess,
@@ -387,31 +389,6 @@ export const ConversationList = forwardRef<
   const tanstackScrollRef = useRef<HTMLDivElement | null>(null);
   const assistant = useIsAssistantChat();
 
-  // Fluke's chat: right after loading, rows measure themselves and the list
-  // re-pins to the bottom each time, which reads as the text scrolling up
-  // and down. Keep it invisible until its height holds still (or 1s), then
-  // fade it in.
-  const [settledScope, setSettledScope] = useState<string | null>(null);
-  const settled = !assistant || settledScope === conversationScopeKey;
-  useEffect(() => {
-    if (!assistant || loading || settledScope === conversationScopeKey) return;
-    const el = tanstackScrollRef.current;
-    const start = performance.now();
-    let lastHeight = -1;
-    let stableFrames = 0;
-    let frame = 0;
-    const tick = () => {
-      const height = el?.scrollHeight ?? 0;
-      stableFrames = height === lastHeight ? stableFrames + 1 : 0;
-      lastHeight = height;
-      if (!el || stableFrames >= 6 || performance.now() - start > 1000) {
-        setSettledScope(conversationScopeKey);
-      } else frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [assistant, loading, conversationScopeKey, settledScope]);
-
   const clearPendingInteractionAnchor = useCallback(() => {
     if (pendingInteractionAnchorFrameRef.current !== null) {
       cancelAnimationFrame(pendingInteractionAnchorFrameRef.current);
@@ -544,49 +521,96 @@ export const ConversationList = forwardRef<
 
   const prevEntriesRef = useRef<DisplayEntry[]>([]);
   const prevRowsRef = useRef<ConversationRow[]>([]);
-  const conversationRows = useMemo(
-    () => prevRowsRef.current,
-    [filteredEntries]
-  );
+  // Fluke's chat: Fluke's silent replies to app events and every batch of
+  // events after the first in a run render nothing, but the virtualizer
+  // reserves an estimated height for each, then measures 0: the list keeps
+  // resizing and re-pinning to the bottom on open. Drop them here; a run's
+  // lines go with the first batch.
+  const processesById = useContext(
+    ExecutionProcessesContext
+  )?.executionProcessesByIdAll;
+  const flukeRows = useMemo(() => {
+    const rows = prevRowsRef.current;
+    const runLines = new Map<ConversationRow, string[]>();
+    if (!assistant) return { rows, runLines };
+    const kept: ConversationRow[] = [];
+    let head: ConversationRow | null = null;
+    for (const row of rows) {
+      const e = row.entry;
+      if (
+        e.type === 'NORMALIZED_ENTRY' &&
+        e.content.entry_type.type === 'assistant_message' &&
+        isSilentReply(e.content.content)
+      )
+        continue;
+      const lines = eventsBatchLines(e);
+      if (lines && head && kept[kept.length - 1] === head) {
+        runLines.get(head)!.push(...lines);
+        continue;
+      }
+      if (lines) {
+        head = row;
+        runLines.set(row, [...lines]);
+      }
+      kept.push(row);
+    }
+    return { rows: kept, runLines };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows live in a ref refreshed with filteredEntries
+  }, [filteredEntries, assistant]);
+  const conversationRows = flukeRows.rows;
+
+  // Fluke's chat: history arrives in steps (an empty list, the first
+  // entries, then older ones in batches). While the first entries render,
+  // the list flips between heights and re-pins to the bottom, which reads as
+  // the text scrolling up and down. Older batches only grow it above the
+  // pinned bottom, which doesn't show. So keep it invisible until its height
+  // stops shrinking for ~12 frames once it started changing (1.2s if it never
+  // changes, as in a short conversation; 4s at most), then fade it in.
+  const [settledScope, setSettledScope] = useState<string | null>(null);
+  const settled = !assistant || settledScope === conversationScopeKey;
+  const hasRows = conversationRows.length > 0;
+  useEffect(() => {
+    if (!assistant || settled || loading || !hasRows) return;
+    const el = tanstackScrollRef.current;
+    const start = performance.now();
+    let lastHeight = -1;
+    let changed = false;
+    let calmFrames = 0;
+    let frame = 0;
+    const tick = () => {
+      const height = el?.scrollHeight ?? 0;
+      if (lastHeight >= 0 && height !== lastHeight) changed = true;
+      calmFrames = height < lastHeight ? 0 : calmFrames + 1;
+      lastHeight = height;
+      const elapsed = performance.now() - start;
+      if (
+        !el ||
+        (calmFrames >= 12 && (changed || elapsed > 1200)) ||
+        elapsed > 4000
+      ) {
+        setSettledScope(conversationScopeKey);
+      } else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [assistant, settled, loading, hasRows, conversationScopeKey]);
 
   // Fluke's chat: which rows open a turn, which runs of app-event batches
   // merge into one telemetry line, and where the latest turn starts.
   const flukeLayout = useMemo(() => {
     const turnStarts = new Set<number>();
     const events = new Map<number, string[]>();
-    const merged = new Set<number>();
-    // Per turn: when it was asked (user message or events) and when its last
-    // row landed, to show how long Fluke took to answer.
-    const tookMs = new Map<number, number>();
     let latestFrom = Infinity;
-    if (!assistant) return { turnStarts, events, merged, latestFrom, tookMs };
+    if (!assistant) return { turnStarts, events, latestFrom };
     let pending = true;
-    let runHead = -1;
-    let askedAt: number | null = null;
-    let turn = -1;
     conversationRows.forEach((row, i) => {
-      const ts = entryTimestamp(row.entry);
-      const at = ts ? new Date(ts).getTime() : null;
-      const lines = eventsBatchLines(row.entry);
-      if (lines || row.isUserMessage) {
-        askedAt = at ?? askedAt;
-        turn = -1;
-      } else if (turn >= 0 && at !== null && askedAt !== null) {
-        tookMs.set(turn, at - askedAt);
-      }
+      const lines = flukeRows.runLines.get(row);
       if (lines) {
-        if (runHead >= 0) {
-          events.get(runHead)!.push(...lines);
-          merged.add(i);
-        } else {
-          runHead = i;
-          events.set(i, [...lines]);
-        }
+        events.set(i, lines);
         pending = true;
         return;
       }
       const opens = opensAssistantTurn(row.entry);
-      if (row.isUserMessage || opens) runHead = -1;
       if (row.isUserMessage) {
         pending = true;
         latestFrom = Infinity;
@@ -594,12 +618,10 @@ export const ConversationList = forwardRef<
         turnStarts.add(i);
         pending = false;
         latestFrom = i;
-        turn = i;
-        if (at !== null && askedAt !== null) tookMs.set(i, at - askedAt);
       }
     });
-    return { turnStarts, events, merged, latestFrom, tookMs };
-  }, [assistant, conversationRows]);
+    return { turnStarts, events, latestFrom };
+  }, [assistant, conversationRows, flukeRows]);
 
   // Assistant chat: fixed rhythm (28px between turns, 10px inside one);
   // rows that render nothing collapse instead of leaving gaps. Option C:
@@ -607,12 +629,23 @@ export const ConversationList = forwardRef<
   const renderRow = (row: ConversationRow, index: number) => {
     if (!assistant)
       return renderRowContent(row.entry, attempt, resetAction, repos);
-    const { turnStarts, events, merged, latestFrom, tookMs } = flukeLayout;
-    if (merged.has(index)) return <div className="hidden" />;
+    const { turnStarts, events, latestFrom } = flukeLayout;
     const lines = events.get(index);
     const opensTurn = turnStarts.has(index);
     const isUser = row.isUserMessage && !lines;
     const now = index >= latestFrom;
+    // Times come from the process behind the row: a message is its prompt,
+    // so it was sent when the process started; Fluke's answer landed when
+    // it completed, and that span is how long Fluke took.
+    const process = processesById?.[row.entry.executionProcessId];
+    const done = process?.completed_at ?? null;
+    const timestamp =
+      (isUser ? process?.started_at : (done ?? process?.started_at)) ??
+      entryTimestamp(row.entry);
+    const tookMs =
+      opensTurn && process && done
+        ? new Date(done).getTime() - new Date(process.started_at).getTime()
+        : undefined;
     return (
       <div
         className={cn(
@@ -623,16 +656,11 @@ export const ConversationList = forwardRef<
         <div>
           {(isUser || opensTurn) && (
             <TurnMargin
-              timestamp={entryTimestamp(row.entry)}
+              timestamp={timestamp}
               you={isUser}
               now={opensTurn && now}
               live={hasRunningProcess}
-              // While Fluke still answers the latest turn, it isn't done.
-              tookMs={
-                opensTurn && !(now && hasRunningProcess)
-                  ? tookMs.get(index)
-                  : undefined
-              }
+              tookMs={tookMs}
             />
           )}
         </div>
