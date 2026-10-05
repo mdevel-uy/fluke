@@ -196,6 +196,28 @@ export function useConversationVirtualizer({
   });
 
   // -------------------------------------------------------------------------
+  // Rows inserted above (older history arriving in batches) push down what
+  // the reader is looking at: unless pinned to the bottom, shift the scroll
+  // by the space they take, so the text in view stays put. Their later
+  // measurement is a size change above the viewport, handled below.
+  // -------------------------------------------------------------------------
+
+  const prevFirstKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const firstKey = rows[0]?.semanticKey ?? null;
+    const prevKey = prevFirstKeyRef.current;
+    prevFirstKeyRef.current = firstKey;
+    if (prevKey === null || prevKey === firstKey || bottomLockedRef.current)
+      return;
+    const el = scrollContainerRef.current;
+    const index = rows.findIndex((row) => row.semanticKey === prevKey);
+    if (!el || index <= 0) return;
+    // Fresh: the render that took the new rows read getVirtualItems().
+    const inserted = virtualizer.measurementsCache[index]?.start ?? 0;
+    if (inserted > 0) el.scrollTop += inserted;
+  }, [rows, scrollContainerRef, virtualizer]);
+
+  // -------------------------------------------------------------------------
   // shouldAdjustScrollPositionOnItemSizeChange
   //
   // Preserve the reader's position only when a row fully above the viewport

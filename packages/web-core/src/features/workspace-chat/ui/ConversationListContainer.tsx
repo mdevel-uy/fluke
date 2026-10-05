@@ -1106,7 +1106,9 @@ export const ConversationList = forwardRef<
             )}
           </div>
 
-          {isLoadingHistory && !showLoader && (
+          {/* Not in Fluke's chat: it sits above the rows and its 74px come and
+              go while the reader is scrolled up, moving the text. */}
+          {isLoadingHistory && !showLoader && !assistant && (
             <div className="flex flex-col items-center gap-2 px-double py-3">
               <div className="flex w-full max-w-md flex-col gap-1.5">
                 <div className="flex items-center gap-2">
