@@ -567,7 +567,9 @@ export const ConversationList = forwardRef<
         <div
           className={cn(
             'min-w-0',
-            !isUser && !lines && (now ? 'fluke-tx-now' : 'fluke-tx-past')
+            isUser
+              ? 'fluke-tx-you'
+              : !lines && (now ? 'fluke-tx-now' : 'fluke-tx-past')
           )}
         >
           {lines ? (
