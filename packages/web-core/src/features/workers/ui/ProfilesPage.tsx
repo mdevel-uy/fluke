@@ -1,5 +1,5 @@
 import { ROLE_COLOR, initials } from '@/features/workers/model/profileAvatar';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { WorkerResponse } from 'shared/types';
 import { PageHeader } from '@vibe/ui/components/PageHeader';
@@ -13,6 +13,7 @@ import {
 } from '@/features/sprint/model/useWorkers';
 import type { WorkerTask } from '@/features/sprint/types';
 import { instanceLabel } from '../model/instance';
+import { FlowBoard } from './FlowBoard';
 import { WorkerFormDialog } from './WorkerFormDialog';
 
 /**
@@ -51,6 +52,7 @@ export function ProfilesPage() {
   const { data: workers } = useWorkers();
   const { tasks } = useAllWorkerTasks(workers);
   const { data: concurrency } = useConcurrencyStatus();
+  const [tab, setTab] = useState<'profiles' | 'flow'>('profiles');
 
   const profiles = useMemo(
     () =>
@@ -122,23 +124,50 @@ export function ProfilesPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
-            {profiles.map((p) => (
-              <ProfileCard
-                key={p.id}
-                profile={p}
-                instances={tasksByWorker.get(p.id) ?? []}
-              />
+          <div
+            role="tablist"
+            className="flex gap-0.5 border-b border-md-outline-variant text-[13.5px]"
+          >
+            {(['profiles', 'flow'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+                className={cn(
+                  '-mb-px border-b-2 px-3 py-1.5',
+                  tab === id
+                    ? 'border-md-primary font-medium text-high'
+                    : 'border-transparent text-normal hover:text-high'
+                )}
+              >
+                {t(`profiles.tabs.${id}`)}
+              </button>
             ))}
-            <button
-              type="button"
-              onClick={() => void WorkerFormDialog.show({})}
-              className="grid min-h-[200px] place-content-center gap-1 rounded-[10px] border border-dashed border-md-outline-variant p-3.5 text-center text-[13px] text-normal hover:border-md-on-surface-variant"
-            >
-              <b className="text-sm text-high">{t('profiles.new')}</b>
-              <span>{t('profiles.newHint')}</span>
-            </button>
           </div>
+
+          {tab === 'flow' ? (
+            <FlowBoard profiles={profiles} />
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+              {profiles.map((p) => (
+                <ProfileCard
+                  key={p.id}
+                  profile={p}
+                  instances={tasksByWorker.get(p.id) ?? []}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => void WorkerFormDialog.show({})}
+                className="grid min-h-[200px] place-content-center gap-1 rounded-[10px] border border-dashed border-md-outline-variant p-3.5 text-center text-[13px] text-normal hover:border-md-on-surface-variant"
+              >
+                <b className="text-sm text-high">{t('profiles.new')}</b>
+                <span>{t('profiles.newHint')}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -199,6 +228,20 @@ function ProfileCard({
             ? t('profiles.ownPat', { login: profile.github_login ?? '' })
             : t('profiles.userPat')}
         </dd>
+        {profile.flow.stage && (
+          <>
+            <dt className="text-normal">{t('profiles.inFlow')}</dt>
+            <dd className="m-0 min-w-0 text-high">
+              {t(`workers.form.flow.stage.${profile.flow.stage}`)}
+              {profile.flow.stage !== 'implement' &&
+                ` · ${
+                  profile.flow.always
+                    ? t('profiles.flow.tagAlways')
+                    : t('profiles.flow.tagIfPlan')
+                }`}
+            </dd>
+          </>
+        )}
         {profile.migrated_from && (
           <>
             <dt className="text-normal">{t('profiles.migratedFrom')}</dt>

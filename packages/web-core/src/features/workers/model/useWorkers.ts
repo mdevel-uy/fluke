@@ -123,6 +123,16 @@ export function useDuplicateWorker() {
   });
 }
 
+export function useSetFlowOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workerIds: string[]) => workersApi.setFlowOrder(workerIds),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: workersKeys.all });
+    },
+  });
+}
+
 export function useStartNextWorkerTask() {
   const queryClient = useQueryClient();
   return useMutation({

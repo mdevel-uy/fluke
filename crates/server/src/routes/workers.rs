@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson, Response},
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use chrono::{DateTime, Utc};
 use db::models::{
@@ -15,9 +15,10 @@ use db::models::{
     repo::Repo,
     review_round::ReviewRound,
     worker::{
-        CreateWorker, ROLE_ANALYST, ROLE_ARCHITECT, ROLE_DESIGNER, ROLE_DEVELOPER, ROLE_DEVOPS,
-        ROLE_DOCS, ROLE_ORCHESTRATOR, ROLE_QA, ROLE_QUALITY, ROLE_REVIEWER, ROLE_SECURITY,
-        UpdateWorker, Worker,
+        CreateWorker, ProfileFlow, ROLE_ANALYST, ROLE_ARCHITECT, ROLE_DESIGNER, ROLE_DEVELOPER,
+        ROLE_DEVOPS, ROLE_DOCS, ROLE_ORCHESTRATOR, ROLE_QA, ROLE_QUALITY, ROLE_REVIEWER,
+        ROLE_SECURITY, STAGE_GATE, STAGE_IMPLEMENT, STAGE_PRE_DEV, UpdateWorker, Worker,
+        can_join_stage,
     },
     worker_task::{self, CreateWorkerTask, HandoffInfo, WorkerTask},
     workspace::Workspace,
@@ -81,6 +82,8 @@ pub struct WorkerResponse {
     pub active_workspace_ids: Vec<Uuid>,
     /// Name the worker had before becoming a profile (#681), if migrated.
     pub migrated_from: Option<String>,
+    /// Where the profile joins the flow of an issue, if it does.
+    pub flow: ProfileFlow,
     #[ts(type = "number")]
     pub queued_count: i64,
     #[ts(type = "number")]
@@ -375,6 +378,42 @@ pub struct CreateWorkerRequest {
     /// `true` = force plan mode on; `false` = force plan mode off.
     #[ts(optional, type = "boolean | null")]
     pub plan_mode: Option<bool>,
+    /// Where the profile joins the flow of an issue; omitted = nowhere.
+    #[ts(optional)]
+    pub flow: Option<ProfileFlowInput>,
+}
+
+/// A profile's place in the flow, as the user sets it. The slug and the
+/// order are the server's.
+#[derive(Debug, Deserialize, TS)]
+pub struct ProfileFlowInput {
+    /// `pre_dev | implement | gate`, or `null` to leave the flow.
+    pub stage: Option<String>,
+    #[serde(default)]
+    pub always: bool,
+    pub offer_when: Option<String>,
+}
+
+#[derive(Debug, Deserialize, TS)]
+pub struct SetFlowOrderRequest {
+    /// The profiles of one stage, in their new order.
+    pub worker_ids: Vec<Uuid>,
+}
+
+/// Whether `role` can join the stage of `flow`, or why not.
+fn check_flow(role: &str, stage: Option<&str>) -> Result<(), ApiError> {
+    let Some(stage) = stage else {
+        return Ok(());
+    };
+    if ![STAGE_PRE_DEV, STAGE_IMPLEMENT, STAGE_GATE].contains(&stage) {
+        return Err(ApiError::BadRequest(format!("Invalid stage: {stage}")));
+    }
+    if !can_join_stage(role, stage) {
+        return Err(ApiError::BadRequest(format!(
+            "A profile with role {role} cannot join the {stage} stage"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -402,6 +441,9 @@ pub struct UpdateWorkerRequest {
     #[serde(default, deserialize_with = "deserialize_double_option")]
     #[ts(optional, type = "boolean | null")]
     pub plan_mode: Option<Option<bool>>,
+    /// `undefined` = don't touch; otherwise the profile's place in the flow.
+    #[ts(optional)]
+    pub flow: Option<ProfileFlowInput>,
 }
 
 /// Distinguish a missing field from an explicit `null` for `Option<Option<T>>`.
@@ -613,6 +655,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
     let active_workspace_ids = Worker::active_workspace_ids(pool, worker.id).await?;
     let active_workspace_id = active_workspace_ids.first().copied();
     let migrated_from = Worker::migrated_from(pool, worker.id).await?;
+    let flow = Worker::flow(pool, worker.id).await?;
     let queued_count = Worker::queued_task_count(pool, worker.id).await?;
     let completed_count = Worker::completed_task_count(pool, worker.id).await?;
     let gh_write_warning = utils::text::has_gh_write_patterns(&worker.soul);
@@ -632,6 +675,7 @@ async fn to_response(pool: &sqlx::SqlitePool, worker: Worker) -> Result<WorkerRe
         active_workspace_id,
         active_workspace_ids,
         migrated_from,
+        flow,
         queued_count,
         completed_count,
         gh_write_warning,
@@ -678,6 +722,12 @@ pub async fn create_worker(
             return Err(ApiError::BadRequest(format!("Invalid role: {role}")));
         }
     }
+    if let Some(flow) = &payload.flow {
+        check_flow(
+            payload.role.as_deref().unwrap_or(ROLE_DEVELOPER),
+            flow.stage.as_deref(),
+        )?;
+    }
 
     // Validate the PAT before touching the DB. Empty string is treated as
     // "no token" (same as omitted).
@@ -718,9 +768,28 @@ pub async fn create_worker(
         },
     )
     .await?;
+    if let Some(flow) = &payload.flow {
+        Worker::set_flow(
+            pool,
+            worker.id,
+            flow.stage.as_deref(),
+            flow.always,
+            flow.offer_when.as_deref(),
+        )
+        .await?;
+    }
 
     let response = to_response(pool, worker).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
+}
+
+/// Order the profiles of one stage of the flow.
+pub async fn set_flow_order(
+    State(deployment): State<DeploymentImpl>,
+    Json(payload): Json<SetFlowOrderRequest>,
+) -> Result<ResponseJson<ApiResponse<()>>, ApiError> {
+    Worker::set_flow_order(&deployment.db().pool, &payload.worker_ids).await?;
+    Ok(ResponseJson(ApiResponse::success(())))
 }
 
 pub async fn get_worker(
@@ -769,6 +838,12 @@ pub async fn update_worker(
             ));
         }
     }
+    // The role and the stage it ends up with have to fit, whichever changed.
+    let stage = match &payload.flow {
+        Some(flow) => flow.stage.clone(),
+        None => Worker::flow(pool, worker_id).await?.stage,
+    };
+    check_flow(role.as_deref().unwrap_or(&existing.role), stage.as_deref())?;
 
     // Normalize model: Some(Some("")) → Some(None) (empty string clears the override)
     let model = payload.model.map(|m| m.filter(|s| !s.is_empty()));
@@ -823,6 +898,16 @@ pub async fn update_worker(
         },
     )
     .await?;
+    if let Some(flow) = &payload.flow {
+        Worker::set_flow(
+            pool,
+            worker_id,
+            flow.stage.as_deref(),
+            flow.always,
+            flow.offer_when.as_deref(),
+        )
+        .await?;
+    }
 
     let response = to_response(pool, worker).await?;
     Ok(ResponseJson(ApiResponse::success(response)))
@@ -2247,6 +2332,7 @@ pub fn router() -> Router<DeploymentImpl> {
         .route("/workers/design-handoffs", post(create_design_handoff))
         .route("/workers/completed-tasks", get(list_completed_worker_tasks))
         .route("/workers/failed-tasks", delete(delete_all_failed_tasks))
+        .route("/workers/flow-order", put(set_flow_order))
         .route(
             "/workers/archived",
             get(list_archived_workers).delete(delete_all_archived_workers),

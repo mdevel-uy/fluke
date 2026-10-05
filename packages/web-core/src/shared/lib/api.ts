@@ -115,6 +115,7 @@ import {
   CloneRepoRequest,
   CloneRepoResponse,
   WorkerResponse,
+  ProfileFlowInput,
   WorkerTaskResponse,
   CreateWorkerTaskRequest,
   UpdateWorkerTaskRequest,
@@ -2584,6 +2585,8 @@ export interface CreateWorkerRequest {
    * mode off for this worker.
    */
   plan_mode?: boolean | null;
+  /** Where the profile joins the flow of an issue. */
+  flow?: ProfileFlowInput;
 }
 
 export type UpdateWorkerRequest = Partial<CreateWorkerRequest>;
@@ -2670,6 +2673,15 @@ export const workersApi = {
       method: 'DELETE',
     });
     return handleApiResponse<{ deleted: number }>(response);
+  },
+
+  /** Order the profiles of one stage of the issue flow. */
+  setFlowOrder: async (workerIds: string[]): Promise<void> => {
+    const response = await makeRequest('/api/workers/flow-order', {
+      method: 'PUT',
+      body: JSON.stringify({ worker_ids: workerIds }),
+    });
+    return handleApiResponse<void>(response);
   },
 
   duplicate: async (workerId: string): Promise<WorkerResponse> => {

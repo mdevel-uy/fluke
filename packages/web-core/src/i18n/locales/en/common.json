@@ -1619,7 +1619,34 @@
       "sectionIntegration": "Integration",
       "sectionSoul": "Soul",
       "ghWriteWarningTitle": "This soul writes to GitHub directly",
-      "ghWriteWarningBody": "Declare those actions in .vk/actions.json so the system executes them with retries and audit trail. Saving is still allowed for gradual migration."
+      "ghWriteWarningBody": "Declare those actions in .vk/actions.json so the system executes them with retries and audit trail. Saving is still allowed for gradual migration.",
+      "flow": {
+        "section": "In the issue flow",
+        "stage": {
+          "pre_dev": "Before development",
+          "implement": "Implementation",
+          "gate": "Gate"
+        },
+        "stageHelp": {
+          "pre_dev": "Commits on a branch the developer starts from",
+          "implement": "Writes the issue's code and opens the PR",
+          "gate": "Reviews the PR and approves or sends it back"
+        },
+        "roleCannot": "Not available for the {{role}} role",
+        "none": "No entry point: the profile stays available to Fluke and one-off tasks.",
+        "when": "When it runs",
+        "always": "On every issue",
+        "onDemand": "When the plan asks for it",
+        "offerWhen": "Fluke offers it when…",
+        "offerWhenHelp": "Fluke reads this to decide whether to propose the step in the brief. Without it, an optional profile only runs when you ask for it.",
+        "offerWhenPlaceholder": "the issue touches queries, hot endpoints or the front-end bundle",
+        "contract": {
+          "pre_dev": "Commits on its branch before development; the next phase and the developer start from there.",
+          "implement": "The issue's plan picks it instead of the developer; it opens the PR like any implementer.",
+          "gate": "When done, it writes its verdict (pass or fail, with reasons); a fail sends the reasons back to the developer. Fluke adds that instruction to the prompt."
+        },
+        "slug": "The plan calls it \"{{slug}}\"."
+      }
     },
     "roles": {
       "developer": "Developer",
@@ -2135,7 +2162,8 @@
       "architect": "Architecture",
       "implementer": "Implemented by",
       "reviews": "Extra reviews",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "pre": "Phases before development"
     },
     "autonomy": {
       "label": "Autonomy",
@@ -2251,7 +2279,35 @@
     "instancesNow": "Instances now",
     "none": "none",
     "defaultAgent": "Default agent",
-    "defaultModel": "default model"
+    "defaultModel": "default model",
+    "tabs": {
+      "profiles": "Profiles",
+      "flow": "Flow"
+    },
+    "inFlow": "In the flow",
+    "flow": {
+      "preDev": "Before development",
+      "preDevHint": "In this order, each on the previous one's branch",
+      "implement": "Implementation",
+      "implementHint": "One per issue",
+      "pr": "PR + CI",
+      "prText": "The implementer opens the PR; the gates wait for green CI.",
+      "gates": "Gates",
+      "gatesHint": "In this order, on the PR's head. 3 failures stop the loop.",
+      "review": "Review → Merge",
+      "reviewText": "Reviewer, then a human merge.",
+      "fixed": "Fixed",
+      "tdd": "{{name}} · tests first",
+      "testing": "{{name}} · testing",
+      "tagTdd": "if the plan asks for TDD",
+      "tagDefault": "default",
+      "tagDocs": "always",
+      "tagWithPlan": "always with a plan",
+      "tagAlways": "always",
+      "tagIfPlan": "if the plan asks",
+      "drag": "Move {{name}}",
+      "howToAdd": "To add a profile to the flow, open it and pick its entry point under \"In the issue flow\"."
+    }
   },
   "githubPublish": {
     "checkbox": "Create on GitHub too",

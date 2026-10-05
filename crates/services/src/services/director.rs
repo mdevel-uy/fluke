@@ -58,6 +58,7 @@ const BUG_FIELDS: &[FieldSpec] = &[
     ("acceptance", true, "Criterio de aceptación"),
     ("tdd", true, "TDD"),
     ("architect", true, "Arquitectura"),
+    ("pre", false, "Fases previas"),
     ("implementer", true, "Implementa"),
     ("reviews", true, "Revisiones extra"),
     ("docs", true, "Documentación"),
@@ -68,6 +69,7 @@ const FEATURE_FIELDS: &[FieldSpec] = &[
     ("acceptance", true, "Criterio de aceptación"),
     ("tdd", true, "TDD"),
     ("architect", true, "Arquitectura"),
+    ("pre", false, "Fases previas"),
     ("implementer", true, "Implementa"),
     ("reviews", true, "Revisiones extra"),
     ("docs", true, "Documentación"),
@@ -735,11 +737,13 @@ fn closed_designs_section(closed: &[ClosedDesignIssue]) -> String {
 }
 
 /// Prompt de la request que recibe el Analista al aprobar el brief.
-/// `closed_designs` sale de [`closed_design_issues`].
+/// `closed_designs` sale de [`closed_design_issues`]; `flow`, de
+/// [`qa_phases::flow_catalog`](crate::services::qa_phases::flow_catalog).
 pub fn analyst_request_prompt(
     d: &MissionDetail,
     version: i64,
     closed_designs: &[ClosedDesignIssue],
+    flow: &str,
 ) -> String {
     let revision = if d.issue_numbers.is_empty() {
         String::new()
@@ -752,6 +756,11 @@ pub fn analyst_request_prompt(
         )
     };
     let closed = closed_designs_section(closed_designs);
+    let flow = if flow.trim().is_empty() {
+        "(ninguno)"
+    } else {
+        flow
+    };
     format!(
         "Brief de la misión \"{title}\" (versión {version}), aprobado por el user.\n\n\
          {md}\n---\n\
@@ -765,11 +774,14 @@ pub fn analyst_request_prompt(
          - \"template\": \"tdd\" si el campo TDD del ítem es \"sí\", \"no_tdd\" si es \"no\" o \
          \"no aplica\".\n\
          - \"architect\": true si el campo Arquitectura del ítem es \"sí\".\n\
-         - \"implementer\": \"devops\" si el campo Implementa es \"devops\"; omitilo si es \
-         \"developer\".\n\
-         - \"reviews\": [\"quality\"], [\"security\"] o [\"quality\",\"security\"] según el \
-         campo Revisiones extra (calidad, seguridad); omitilo si es \"ninguna\".\n\
+         - \"pre\": los slugs de los perfiles que nombra el campo Fases previas \
+         (ej. [\"data-model\"]); omitilo si está vacío.\n\
+         - \"implementer\": el slug del perfil que nombra el campo Implementa (ej. \
+         \"devops\"); omitilo si es \"developer\".\n\
+         - \"reviews\": los slugs de los perfiles que nombra el campo Revisiones extra (ej. \
+         [\"quality\",\"security\"]); omitilo si es \"ninguna\".\n\
          - \"docs\": false si el campo Documentación es \"no\"; omitilo si es \"sí\".\n\
+         Perfiles del flujo y sus slugs (usá solo estos):\n{flow}\n\
          Esos campos son la decisión del user: respetalos en todos los issues que salen del \
          ítem. Si un ítem no los tiene (brief anterior a estos campos), decidí vos: \
          arquitectura para un módulo o servicio nuevo, un cambio de capas o del modelo de \
@@ -907,12 +919,14 @@ be reproduced), record \"no aplica\" yourself without asking.
 - Every bug and feature also records the optional steps of its plan, which are the user's call:\n\
   \"architect\": \"sí\" when an architect writes an ADR before the code (a new module or \
 service, a change of layers or of the data model, a project from scratch), otherwise \"no\".\n\
-  \"implementer\": \"devops\" when the work is CI/CD, infrastructure, deploy or cloud \
-integration, otherwise \"developer\".\n\
-  \"reviews\": extra reviews before the general one: \"seguridad\", \"calidad\", \"calidad y \
-seguridad\" or \"ninguna\". Security fits items that touch authentication, permissions, \
-sensitive data, external input, secrets or dependencies; code quality fits items that add or \
-restructure modules, layers or abstractions.\n\
+  \"pre\" (optional): other profiles that work before development, by name, from [FLOW \
+PROFILES]; leave it empty when none fits.\n\
+  \"implementer\": the profile that implements, from [FLOW PROFILES] (e.g. \"devops\" when \
+the work is CI/CD, infrastructure, deploy or cloud integration), otherwise \"developer\".\n\
+  \"reviews\": extra reviews before the general one, by the names of the gate profiles in \
+[FLOW PROFILES] (e.g. \"seguridad\", \"calidad y seguridad\"), or \"ninguna\".\n\
+  [FLOW PROFILES] lists the profiles the user put in the flow and when to offer each one; a \
+profile that runs always needs no field.\n\
   \"docs\": \"sí\" when the documentation is updated on the PR (the default), \"no\" when the \
 change affects nothing documentable.\n\
   Fill them from what the user said and from their standing preferences in [MEMORY] (e.g. \
@@ -1011,8 +1025,12 @@ pub async fn turn_context(
         ""
     };
     let memory = memory_block(pool, user_text).await?;
+    let flow = match crate::services::qa_phases::flow_catalog(pool).await? {
+        f if f.is_empty() => String::new(),
+        f => format!("\n\n[FLOW PROFILES]\n{f}"),
+    };
     Ok(format!(
-        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{missions}{channel}{memory}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
+        "{CONTEXT_OPEN}\n[APP CONTEXT]\n{ctx}{missions}{channel}{memory}{flow}\n\n[STATUS]\n{status}\n{CONTEXT_CLOSE}"
     ))
 }
 

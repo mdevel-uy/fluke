@@ -66,16 +66,45 @@ pub const KIND_DOCS: &str = "docs";
 pub const KIND_QUALITY: &str = "quality";
 pub const KIND_SECURITY: &str = "security";
 
+/// Phases of profiles in the flow (configurable flow): `gate:<slug>` on the
+/// PR, `pre:<slug>` before development. The profiles that existed before
+/// keep their kinds (`quality`, `security`, `arch`), so their history reads
+/// the same.
+pub const GATE_KIND_PREFIX: &str = "gate:";
+pub const PRE_DEV_KIND_PREFIX: &str = "pre:";
+
+/// Kind of the gate task of the profile `slug`.
+pub fn gate_kind(slug: &str) -> String {
+    match slug {
+        KIND_QUALITY | KIND_SECURITY => slug.to_string(),
+        _ => format!("{GATE_KIND_PREFIX}{slug}"),
+    }
+}
+
+/// Kind of the pre-development task of the profile `slug`.
+pub fn pre_dev_kind(slug: &str) -> String {
+    match slug {
+        "architect" => KIND_ARCH.to_string(),
+        _ => format!("{PRE_DEV_KIND_PREFIX}{slug}"),
+    }
+}
+
+/// Phases that run before development and hand their branch to the next.
+pub fn is_pre_dev_kind(kind: Option<&str>) -> bool {
+    kind.is_some_and(|k| k == KIND_QA_TDD || k == KIND_ARCH || k.starts_with(PRE_DEV_KIND_PREFIX))
+}
+
 /// Kinds whose `issue_number` holds the PR number, not the issue's.
 pub fn is_pr_keyed_kind(kind: Option<&str>) -> bool {
     matches!(
         kind,
         Some(KIND_REVIEW_FIX | KIND_QA_TEST | KIND_DOCS | KIND_QUALITY | KIND_SECURITY)
-    )
+    ) || kind.is_some_and(|k| k.starts_with(GATE_KIND_PREFIX))
 }
 
-/// The gate kinds above as an SQL list, for `kind IN (...)` filters.
-pub const PR_GATE_KINDS_SQL: &str = "'qa_test', 'docs', 'quality', 'security'";
+/// SQL condition on `t.kind` matching the gate kinds above.
+pub const PR_GATE_KINDS_SQL: &str =
+    "(t.kind IN ('qa_test', 'docs', 'quality', 'security') OR t.kind LIKE 'gate:%')";
 
 /// Task created from the kanban board or by the orchestrator itself.
 pub const SOURCE_KANBAN: &str = "kanban";
@@ -1582,6 +1611,26 @@ impl WorkerTask {
         .bind(pr_number)
         .bind(kind)
         .fetch_one(pool)
+        .await
+    }
+
+    /// Branch pushed by the latest phase before development other than
+    /// tests first (the Architect's ADR or another profile's), if any.
+    pub async fn latest_pre_dev_ref(
+        pool: &SqlitePool,
+        repo_id: Uuid,
+        issue_number: i64,
+    ) -> Result<Option<String>, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT deliverable_ref FROM worker_tasks
+              WHERE repo_id = ?1 AND issue_number = ?2 AND deliverable_ref IS NOT NULL
+                AND (kind = ?3 OR kind LIKE 'pre:%')
+              ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(issue_number)
+        .bind(KIND_ARCH)
+        .fetch_optional(pool)
         .await
     }
 

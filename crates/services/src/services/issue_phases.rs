@@ -18,7 +18,7 @@ use sqlx::{FromRow, SqlitePool};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::services::qa_phases::{self, Gate, PlanTemplate};
+use crate::services::qa_phases::{self, Gate};
 
 /// Phase templates (#687). `none`: the issue has no `fluke:plan` block and
 /// keeps today's flow (Desarrollo → Review → Merge).
@@ -259,7 +259,7 @@ pub async fn list_blockers(
         "SELECT DISTINCT t.issue_number
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
           WHERE t.repo_id = ?1 AND t.issue_number IS NOT NULL
-            AND w.role <> 'reviewer' AND (t.kind IS NULL OR t.kind NOT IN ({}))
+            AND w.role <> 'reviewer' AND (t.kind IS NULL OR NOT {})
             AND t.status IN ('in_progress', 'waiting_user', 'failed', 'in_review', 'approved')",
         worker_task::PR_GATE_KINDS_SQL
     ))
@@ -474,8 +474,7 @@ pub fn build_phases(
             }
             .to_string();
             if phase.state == "done" && phase.finished_at.is_none() {
-                phase.finished_at =
-                    Some(next.map_or(&r.updated_at, |n| &n.created_at).clone());
+                phase.finished_at = Some(next.map_or(&r.updated_at, |n| &n.created_at).clone());
             }
             phases.push(phase);
         }
@@ -499,36 +498,32 @@ pub fn build_phases(
     phases
 }
 
-/// Insert the phases of the plan (#687): architecture and tests first right
-/// before development, and every gate run (docs, testing, quality, security)
-/// before the review that followed it. When the next review is still
-/// pending, the gates the plan asks for that are not in front of it yet go
-/// there, pending.
+/// Insert the phases of the plan (#687): the phases before development
+/// (`pre`, in order, each with its task if it ran) right before it, and
+/// every gate run before the review that followed it. When the next review
+/// is still pending, the gates of the plan (`plan_gates`, in order) that are
+/// not in front of it yet go there, pending.
 pub fn add_qa_phases(
     mut phases: Vec<IssuePhase>,
-    template: Option<PlanTemplate>,
-    arch: Option<&TaskRow>,
-    tdd: Option<&TaskRow>,
+    pre: &[(String, Option<&TaskRow>)],
+    plan_gates: Option<&[Gate]>,
     gates: &[TaskRow],
 ) -> Vec<IssuePhase> {
-    for (kind, task, wanted) in [
-        ("arch", arch, template.is_some_and(|t| t.architect)),
-        ("tdd", tdd, template.is_some_and(|t| t.tdd)),
-    ] {
+    for (kind, task) in pre {
         let phase = match task {
             Some(t) => phase_from_task(kind, 1, t),
-            None if wanted => pending(kind, 1),
-            None => continue,
+            None => pending(kind, 1),
         };
         let at = phases.iter().position(|q| q.kind == "dev").unwrap_or(1);
         phases.insert(at, phase);
     }
 
     for t in gates {
-        let Some(gate) = Gate::from_kind(t.kind.as_deref()) else {
+        let Some(gate) = Gate::from_kind(t.kind.as_deref(), &t.worker_name) else {
             continue;
         };
         let kind = gate.phase_kind();
+        let kind = kind.as_str();
         let round = phases.iter().filter(|q| q.kind == kind).count() as i64 + 1;
         let mut p = phase_from_task(kind, round, t);
         if t.status == "done" && gate.verdict_path().is_some() {
@@ -563,31 +558,77 @@ pub fn add_qa_phases(
         phases.insert(at, p);
     }
 
-    if let Some(template) = template
+    if let Some(plan_gates) = plan_gates
         && let Some(mut at) = phases
             .iter()
             .position(|q| q.kind == "review" && q.state == "pending")
     {
-        let is_gate = |kind: &str| Gate::ORDER.iter().any(|g| g.phase_kind() == kind);
         let start = phases[..at]
             .iter()
-            .rposition(|q| !is_gate(&q.kind))
+            .rposition(|q| !qa_phases::is_gate_phase(&q.kind))
             .map_or(0, |i| i + 1);
         let ahead: Vec<String> = phases[start..at].iter().map(|q| q.kind.clone()).collect();
-        for gate in Gate::ORDER.into_iter().filter(|g| g.enabled(&template)) {
+        for gate in plan_gates {
             let kind = gate.phase_kind();
             // Docs runs once per PR.
-            let docs_ran =
-                gate == Gate::Docs && gates.iter().any(|t| t.kind.as_deref() == Some(gate.kind()));
-            if docs_ran || ahead.iter().any(|k| k == kind) {
+            let docs_ran = *gate == Gate::Docs
+                && gates
+                    .iter()
+                    .any(|t| t.kind.as_deref() == Some(worker_task::KIND_DOCS));
+            if docs_ran || ahead.contains(&kind) {
                 continue;
             }
             let round = phases.iter().filter(|q| q.kind == kind).count() as i64 + 1;
-            phases.insert(at, pending(kind, round));
+            let mut p = pending(&kind, round);
+            if let Gate::Review { label, .. } = gate {
+                p.profile = Some(label.clone());
+            }
+            phases.insert(at, p);
             at += 1;
         }
     }
     phases
+}
+
+/// Phase kind of a task before development in the issue plan.
+fn pre_dev_phase_kind(kind: &str) -> &str {
+    match kind {
+        worker_task::KIND_ARCH => "arch",
+        worker_task::KIND_QA_TDD => "tdd",
+        k => k,
+    }
+}
+
+/// The phases before development of the issue, in order: the ones its plan
+/// asks for (with their task if they ran), then any other that ran anyway.
+fn pre_dev_rows<'a>(
+    wanted: &[qa_phases::PreDevPhase],
+    tasks: &'a [TaskRow],
+) -> Vec<(String, Option<&'a TaskRow>)> {
+    let latest = |kind: &str| tasks.iter().rev().find(|t| t.kind.as_deref() == Some(kind));
+    let mut out: Vec<(String, Option<&TaskRow>)> = wanted
+        .iter()
+        .map(|p| (pre_dev_phase_kind(&p.kind).to_string(), latest(&p.kind)))
+        .collect();
+    for t in tasks {
+        let Some(kind) = t
+            .kind
+            .as_deref()
+            .filter(|k| worker_task::is_pre_dev_kind(Some(k)))
+        else {
+            continue;
+        };
+        let phase = pre_dev_phase_kind(kind);
+        if !out.iter().any(|(k, _)| k == phase) {
+            out.push((phase.to_string(), latest(kind)));
+        }
+    }
+    // Tests first goes right before the code, whatever ran before it.
+    if let Some(i) = out.iter().position(|(k, _)| k == "tdd") {
+        let tdd = out.remove(i);
+        out.push(tdd);
+    }
+    out
 }
 
 pub async fn load_issue_plan(
@@ -671,9 +712,20 @@ pub async fn load_issue_plan(
     let mut phases = build_phases(&tasks, &rounds, &reviewers, pr.as_ref(), issue_closed);
 
     let template = qa_phases::plan_template(issue_body);
-    let latest_of = |kind: &str| tasks.iter().rev().find(|t| t.kind.as_deref() == Some(kind));
-    let arch = latest_of(worker_task::KIND_ARCH);
-    let tdd = latest_of(worker_task::KIND_QA_TDD);
+    let (wanted_pre, plan_gates) = match &template {
+        Some(plan) => (
+            qa_phases::pre_dev_phases(pool, plan).await?,
+            Some(
+                qa_phases::plan_gates(pool, plan)
+                    .await?
+                    .into_iter()
+                    .map(|(g, _)| g)
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        None => (Vec::new(), None),
+    };
+    let pre = pre_dev_rows(&wanted_pre, &tasks);
     // Gate tasks carry the PR number.
     let gate_tasks: Vec<TaskRow> = match &pr {
         Some(p) => {
@@ -681,7 +733,7 @@ pub async fn load_issue_plan(
                 "SELECT {TASK_COLUMNS}
                    FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
                   WHERE t.repo_id = ?1 AND t.issue_number = ?2
-                    AND t.kind IN ({})
+                    AND {}
                   ORDER BY t.created_at ASC",
                 worker_task::PR_GATE_KINDS_SQL
             ))
@@ -692,7 +744,7 @@ pub async fn load_issue_plan(
         }
         None => Vec::new(),
     };
-    phases = add_qa_phases(phases, template, arch, tdd, &gate_tasks);
+    phases = add_qa_phases(phases, &pre, plan_gates.as_deref(), &gate_tasks);
 
     // The developer's own plan (plan MCP) for each dev phase. A follow-up fix
     // shares the original workspace, so only the latest dev phase of a
@@ -910,12 +962,12 @@ mod tests {
         test.qa_verdict = Some("pass".into());
         let rounds = vec![round("review", "pending", None, None)];
         let base = build_phases(&[tdd.clone(), dev], &rounds, &[], None, false);
-        let template = Some(PlanTemplate {
-            tdd: true,
-            testing: true,
-            ..Default::default()
-        });
-        let phases = add_qa_phases(base, template, None, Some(&tdd), &[test]);
+        let phases = add_qa_phases(
+            base,
+            &[("tdd".to_string(), Some(&tdd))],
+            Some(&[Gate::Testing][..]),
+            &[test],
+        );
         assert_eq!(
             kinds(&phases),
             vec![
@@ -933,16 +985,7 @@ mod tests {
     fn a_plan_with_testing_shows_it_pending_before_review() {
         let dev = task(ROLE_DEVELOPER, None, "in_progress");
         let base = build_phases(&[dev], &[], &[], None, false);
-        let phases = add_qa_phases(
-            base,
-            Some(PlanTemplate {
-                testing: true,
-                ..Default::default()
-            }),
-            None,
-            None,
-            &[],
-        );
+        let phases = add_qa_phases(base, &[], Some(&[Gate::Testing][..]), &[]);
         assert_eq!(
             kinds(&phases)[2..].to_vec(),
             vec![
@@ -954,42 +997,72 @@ mod tests {
     }
 
     #[test]
-    fn specialist_phases_go_in_plan_order() {
+    fn specialist_phases_go_in_flow_order() {
         // DevOps implements: its task is the dev phase.
         let dev = task("devops", None, "in_progress");
         let base = build_phases(&[dev], &[], &[], None, false);
-        let template = qa_phases::plan_template(Some(
-            "<!-- fluke:plan {\"template\":\"tdd\",\"architect\":true,\
-             \"implementer\":\"devops\",\"reviews\":[\"quality\",\"security\"]} -->",
-        ));
-        let phases = add_qa_phases(base, template, None, None, &[]);
+        let pre = [
+            ("arch".to_string(), None),
+            ("pre:data-model".to_string(), None),
+            ("tdd".to_string(), None),
+        ];
+        let gates = [
+            Gate::Docs,
+            Gate::Testing,
+            Gate::review("quality", "Code Quality"),
+            Gate::review("security", "Security"),
+            Gate::review("performance", "Performance"),
+        ];
+        let phases = add_qa_phases(base, &pre, Some(&gates[..]), &[]);
         assert_eq!(
             kinds(&phases),
             vec![
                 s("origin", 1, "done"),
                 s("arch", 1, "pending"),
+                s("pre:data-model", 1, "pending"),
                 s("tdd", 1, "pending"),
                 s("dev", 1, "active"),
                 s("docs", 1, "pending"),
                 s("test", 1, "pending"),
                 s("quality", 1, "pending"),
                 s("security", 1, "pending"),
+                s("gate:performance", 1, "pending"),
                 s("review", 1, "pending"),
                 s("merge", 1, "pending"),
             ]
         );
+        // A pending gate of a profile carries its name, for the label.
+        let perf = phases
+            .iter()
+            .find(|p| p.kind == "gate:performance")
+            .unwrap();
+        assert_eq!(perf.profile.as_deref(), Some("Performance"));
+    }
+
+    #[test]
+    fn pre_dev_rows_keep_what_ran_and_put_tests_last() {
+        let mut arch = task("architect", Some("arch"), "done");
+        arch.created_at = "2026-10-01 08:00:00".into();
+        let mut tdd = task("qa", Some("qa_tdd"), "done");
+        tdd.created_at = "2026-10-01 09:00:00".into();
+        // The plan asks for nothing before development anymore, but the
+        // phases that ran still show, tests first last.
+        let tasks = [tdd, arch];
+        let rows = pre_dev_rows(&[], &tasks);
+        let kinds: Vec<&str> = rows.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(kinds, vec!["arch", "tdd"]);
+        assert!(rows.iter().all(|(_, t)| t.is_some()));
     }
 
     #[test]
     fn docs_runs_once_and_a_capped_gate_is_stuck() {
         let dev = task(ROLE_DEVELOPER, None, "in_review");
         let base = build_phases(&[dev], &[], &[], None, false);
-        let template = Some(PlanTemplate {
-            testing: true,
-            docs: true,
-            quality: true,
-            ..Default::default()
-        });
+        let plan_gates = [
+            Gate::Docs,
+            Gate::Testing,
+            Gate::review("quality", "Code Quality"),
+        ];
         let mut docs = task("docs", Some("docs"), "done");
         docs.created_at = "2026-10-01 10:10:00".into();
         let mut gates = vec![docs];
@@ -1003,7 +1076,7 @@ mod tests {
             gates.push(test);
             gates.push(quality);
         }
-        let phases = add_qa_phases(base, template, None, None, &gates);
+        let phases = add_qa_phases(base, &[], Some(&plan_gates[..]), &gates);
         let gate_states: Vec<_> = kinds(&phases)
             .into_iter()
             .filter(|(k, _, _)| k == "docs" || k == "quality")

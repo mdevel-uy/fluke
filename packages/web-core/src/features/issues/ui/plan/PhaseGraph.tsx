@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import type { IssuePhase } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 
@@ -244,7 +245,7 @@ export function PhaseGraph({
                 </span>
               </span>
               <b className="text-[13.5px] font-semibold text-high">
-                {t(`issues.plan.phases.kind.${p.kind}`)}
+                {phaseKindLabel(t, p.kind, p.profile)}
               </b>
               {p.profile && (
                 <span className="font-mono text-[11px] text-normal">

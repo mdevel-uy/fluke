@@ -1375,7 +1375,34 @@
       "sectionIntegration": "連携",
       "sectionSoul": "ソウル",
       "ghWriteWarningTitle": "このソウルは GitHub に直接書き込みます",
-      "ghWriteWarningBody": "これらの操作は .vk/actions.json に宣言し、リトライと監査ログ付きでシステムに実行させてください。段階的な移行のため、保存はブロックされません。"
+      "ghWriteWarningBody": "これらの操作は .vk/actions.json に宣言し、リトライと監査ログ付きでシステムに実行させてください。段階的な移行のため、保存はブロックされません。",
+      "flow": {
+        "section": "Issue のフロー",
+        "stage": {
+          "pre_dev": "開発前",
+          "implement": "実装",
+          "gate": "ゲート"
+        },
+        "stageHelp": {
+          "pre_dev": "開発者が起点にするブランチにコミットする",
+          "implement": "Issue のコードを書き PR を作成する",
+          "gate": "PR をレビューし承認または差し戻す"
+        },
+        "roleCannot": "{{role}} ロールでは使えません",
+        "none": "エントリーポイントなし: Fluke と単発タスクからは引き続き使えます。",
+        "when": "実行タイミング",
+        "always": "すべての Issue",
+        "onDemand": "プランが求めたとき",
+        "offerWhen": "Fluke が提案する条件…",
+        "offerWhenHelp": "Fluke はこれを読んでブリーフでこのステップを提案するか決めます。空の場合、任意のプロファイルは依頼したときだけ実行されます。",
+        "offerWhenPlaceholder": "クエリ、高負荷のエンドポイント、フロントのバンドルに触れる場合",
+        "contract": {
+          "pre_dev": "開発前に自分のブランチへコミットし、次のフェーズと開発者はそこから始めます。",
+          "implement": "Issue のプランが開発者の代わりに選び、他の実装者と同様に PR を作成します。",
+          "gate": "終了時に判定 (pass または fail と理由) を書きます。fail の場合は理由が開発者に戻ります。Fluke がこの指示をプロンプトに加えます。"
+        },
+        "slug": "プランでの名前は「{{slug}}」です。"
+      }
     },
     "roles": {
       "developer": "開発者",
@@ -1889,7 +1916,8 @@
       "architect": "Architecture",
       "implementer": "Implemented by",
       "reviews": "Extra reviews",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "pre": "開発前のフェーズ"
     },
     "autonomy": {
       "label": "Autonomy",
@@ -1984,7 +2012,35 @@
     "instancesNow": "現在のインスタンス",
     "none": "なし",
     "defaultAgent": "デフォルトのエージェント",
-    "defaultModel": "デフォルトのモデル"
+    "defaultModel": "デフォルトのモデル",
+    "tabs": {
+      "profiles": "プロファイル",
+      "flow": "フロー"
+    },
+    "inFlow": "フロー内",
+    "flow": {
+      "preDev": "開発前",
+      "preDevHint": "この順で、それぞれ前のブランチの上で実行",
+      "implement": "実装",
+      "implementHint": "Issue ごとに 1 つ",
+      "pr": "PR + CI",
+      "prText": "実装者が PR を作成し、ゲートは CI の成功を待ちます。",
+      "gates": "ゲート",
+      "gatesHint": "この順で PR の head に対して実行。3 回失敗で停止。",
+      "review": "レビュー → マージ",
+      "reviewText": "レビュアーの後、人がマージします。",
+      "fixed": "固定",
+      "tdd": "{{name}} · テスト先行",
+      "testing": "{{name}} · テスト",
+      "tagTdd": "プランが TDD を求めたとき",
+      "tagDefault": "デフォルト",
+      "tagDocs": "常に",
+      "tagWithPlan": "プランがあれば常に",
+      "tagAlways": "常に",
+      "tagIfPlan": "プランが求めたとき",
+      "drag": "{{name}} を移動",
+      "howToAdd": "プロファイルをフローに加えるには、開いて「Issue のフロー」でエントリーポイントを選びます。"
+    }
   },
   "githubPublish": {
     "checkbox": "GitHub にも作成する",
