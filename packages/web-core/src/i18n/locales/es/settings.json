@@ -740,6 +740,13 @@
       "cancel": "Cancelar",
       "retry": "Reintentar",
       "reconnect": "Reconectar",
+      "test": {
+        "action": "Probar conexión",
+        "running": "Probando…",
+        "ok": "{{name}} respondió: funciona.",
+        "failed": "{{name}} no respondió.",
+        "hint": "Manda un mensaje corto con el mismo CLI y modelo que usan tus agentes."
+      },
       "models": {
         "label": "Modelos ({{count}})",
         "loading": "Cargando modelos…",

@@ -130,7 +130,13 @@ impl Codex {
             Some(_) => self.build_command_builder()?.build_follow_up(&[])?,
             None => self.build_command_builder()?.build_initial()?,
         };
-        let combined_prompt = self.append_prompt.combine_prompt(prompt);
+        // Fluke's per-turn context block goes first (Director sessions only),
+        // as with Claude.
+        let prompt = match env.get(workspace_utils::plan_mcp::DIRECTOR_CONTEXT_ENV) {
+            Some(context) if !context.is_empty() => format!("{context}\n\n{prompt}"),
+            _ => prompt.to_string(),
+        };
+        let combined_prompt = self.append_prompt.combine_prompt(&prompt);
         let action = super::CodexSessionAction::Chat {
             prompt: combined_prompt,
         };

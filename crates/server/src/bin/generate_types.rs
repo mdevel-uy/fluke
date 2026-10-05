@@ -167,6 +167,8 @@ fn generate_types_content() -> String {
         server::routes::agent_auth::AgentLoginRequest::decl(),
         server::routes::agent_auth::AgentLoginSubmitRequest::decl(),
         server::routes::agent_auth::AgentLoginResponse::decl(),
+        server::routes::agent_auth::AgentTestRequest::decl(),
+        server::routes::agent_auth::AgentTestResponse::decl(),
         server::routes::setup_status::SetupStatusResponse::decl(),
         relay_types::StartSpake2EnrollmentRequest::decl(),
         relay_types::FinishSpake2EnrollmentRequest::decl(),

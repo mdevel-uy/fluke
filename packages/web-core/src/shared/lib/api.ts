@@ -1999,10 +1999,7 @@ export const repoIssuesApi = {
    * Merge an approved PR on GitHub (#798). Method and branch deletion come
    * from Settings on the server; a 409 carries the reason it was refused.
    */
-  mergePullRequest: async (
-    repoId: string,
-    prNumber: number
-  ): Promise<void> => {
+  mergePullRequest: async (repoId: string, prNumber: number): Promise<void> => {
     const response = await makeRequest(
       `/api/repos/${encodeURIComponent(repoId)}/pull-requests/${prNumber}/merge`,
       { method: 'POST' }
@@ -2495,6 +2492,15 @@ export interface AgentLoginResponse {
   completed: boolean;
 }
 
+export interface AgentTestRequest {
+  model?: string | null;
+}
+
+export interface AgentTestResponse {
+  ok: boolean;
+  detail: string | null;
+}
+
 export const agentAuthApi = {
   getStatus: async (): Promise<AgentAuthStatusResponse> => {
     const response = await makeRequest('/api/agents/auth');
@@ -2539,6 +2545,17 @@ export const agentAuthApi = {
       method: 'POST',
     });
     await handleApiResponse<void>(response);
+  },
+
+  test: async (
+    provider: AgentAuthProvider,
+    body: AgentTestRequest = {}
+  ): Promise<AgentTestResponse> => {
+    const response = await makeRequest(`/api/agents/auth/${provider}/test`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return handleApiResponse<AgentTestResponse>(response);
   },
 };
 

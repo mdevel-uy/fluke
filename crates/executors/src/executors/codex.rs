@@ -32,6 +32,28 @@ pub(crate) fn resolve_model(model: Option<&str>) -> (Option<&str>, bool) {
     }
 }
 
+/// A Fluke (Director) session gets what Claude gets through its flags: the
+/// Director's MCP tools, its system prompt, and no file edits — it converses
+/// and acts through its tools only.
+fn apply_director_session(params: &mut ThreadStartParams, env: &ExecutionEnv) {
+    use workspace_utils::plan_mcp::{DIRECTOR_MCP_URL_ENV, DIRECTOR_PROMPT_ENV};
+    let Some(url) = env.get(DIRECTOR_MCP_URL_ENV) else {
+        return;
+    };
+    params.config.get_or_insert_with(HashMap::new).insert(
+        "mcp_servers.fluke_director.url".to_string(),
+        Value::String(url.clone()),
+    );
+    if let Some(prompt) = env.get(DIRECTOR_PROMPT_ENV) {
+        params.developer_instructions = Some(match params.developer_instructions.take() {
+            Some(own) => format!("{own}\n\n{prompt}"),
+            None => prompt.clone(),
+        });
+    }
+    params.sandbox = Some(V2SandboxMode::ReadOnly);
+    params.approval_policy = Some(V2AskForApproval::Never);
+}
+
 pub(crate) fn fork_params_from(thread_id: String, params: ThreadStartParams) -> ThreadForkParams {
     ThreadForkParams {
         thread_id,
@@ -381,11 +403,58 @@ impl StandardCodingAgentExecutor for Codex {
             ],
             ..Default::default()
         };
-        options.loading_models = fetch_target.is_some();
+        // ChatGPT login (no API key, OpenAI provider): Codex itself lists the
+        // account's models.
+        let app_server = if fetch_target.is_none() && self.uses_openai_catalog() {
+            match self.build_command_builder().and_then(|b| b.build_initial()) {
+                Ok(parts) => Some(parts),
+                Err(e) => {
+                    tracing::warn!("Codex model list: could not build the app-server command: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        options.loading_models = fetch_target.is_some() || app_server.is_some();
         let initial_patch = patch::executor_discovered_options(options.clone());
 
+        if let Some(parts) = app_server {
+            let discovery_stream = async_stream::stream! {
+                options.loading_models = false;
+                let fetched = match parts.into_resolved().await {
+                    Ok((program, args)) => models::fetch_app_server_models(program, args).await,
+                    Err(e) => Err(models::ModelsFetchError::Http(e.to_string())),
+                };
+                match fetched {
+                    Ok(fetched) if !fetched.is_empty() => {
+                        options.model_selector.models = fetched.clone();
+                        cache.put(cache_key, options);
+                        yield patch::update_models(fetched);
+                        yield patch::models_loaded();
+                    }
+                    other => {
+                        let reason = match other {
+                            Err(e) => e.to_string(),
+                            Ok(_) => "no models".to_string(),
+                        };
+                        tracing::warn!("Codex model/list failed, using built-in list: {reason}");
+                        let error = format!(
+                            "Could not load models from Codex ({reason}). Using built-in list."
+                        );
+                        options.error = Some(error.clone());
+                        cache.put(cache_key, options);
+                        yield patch::models_error(error);
+                    }
+                }
+            };
+            return Ok(Box::pin(
+                futures::stream::once(async move { initial_patch }).chain(discovery_stream),
+            ));
+        }
+
         let Some((api_key, base_url)) = fetch_target else {
-            // ChatGPT login / OSS / custom provider: the built-in list is final.
+            // OSS / custom provider: the built-in list is final.
             return Ok(Box::pin(futures::stream::once(
                 async move { initial_patch },
             )));
@@ -444,21 +513,31 @@ impl StandardCodingAgentExecutor for Codex {
 }
 
 impl Codex {
+    /// Floor version: `codex-protocol` / `codex-app-server-protocol` in
+    /// Cargo.toml are built from the same tag. A newer installed Codex is
+    /// used instead (its app-server protocol grows additively).
+    pub const PINNED_COMMAND: &'static str = "npx -y @openai/codex@0.124.0";
+
     pub fn base_command() -> &'static str {
-        "npx -y @openai/codex@0.124.0"
+        static CMD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        super::utils::installed_or_pinned(&CMD, "codex", Self::PINNED_COMMAND)
     }
 
     /// API key and optional base URL (`OPENAI_BASE_URL`, as honored by the
     /// Codex CLI) for listing models. `None` when models can't come from the
     /// OpenAI API: OSS mode, a non-OpenAI `model_provider`, or no API key in
     /// env nor `auth.json` (ChatGPT login) — the built-in list is used silently.
-    fn openai_models_target(&self) -> Option<(String, Option<String>)> {
-        if self.oss.unwrap_or(false)
-            || self
+    /// OpenAI models apply: not OSS mode nor a non-OpenAI `model_provider`.
+    fn uses_openai_catalog(&self) -> bool {
+        !self.oss.unwrap_or(false)
+            && !self
                 .model_provider
                 .as_deref()
                 .is_some_and(|p| !p.eq_ignore_ascii_case("openai"))
-        {
+    }
+
+    fn openai_models_target(&self) -> Option<(String, Option<String>)> {
+        if !self.uses_openai_catalog() {
             return None;
         }
         let var = |name: &str| {
@@ -607,7 +686,8 @@ impl Codex {
         resume_session: Option<&str>,
         env: &ExecutionEnv,
     ) -> Result<SpawnedChild, ExecutorError> {
-        let params = self.build_thread_start_params(current_dir);
+        let mut params = self.build_thread_start_params(current_dir);
+        apply_director_session(&mut params, env);
         let resume_session = resume_session.map(|s| s.to_string());
 
         self.spawn_app_server(

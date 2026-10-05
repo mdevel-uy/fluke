@@ -202,6 +202,23 @@ impl Mission {
         Ok(())
     }
 
+    /// Point the mission at another session (the agent changed: a CLI session
+    /// can't switch agents, so the mission continues on a new one).
+    pub async fn set_session(
+        pool: &SqlitePool,
+        id: Uuid,
+        session_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE missions SET session_id = ?2, updated_at = datetime('now', 'subsec') WHERE id = ?1",
+        )
+        .bind(id)
+        .bind(session_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn set_title(pool: &SqlitePool, id: Uuid, title: &str) -> Result<(), sqlx::Error> {
         sqlx::query(
             "UPDATE missions SET title = ?2, updated_at = datetime('now', 'subsec') WHERE id = ?1",

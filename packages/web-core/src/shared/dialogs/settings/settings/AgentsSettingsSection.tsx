@@ -443,6 +443,13 @@ function ProviderCard({
   const [submitted, setSubmitted] = useState<{ error: string | null } | null>(
     null
   );
+  // "Connected" only means a credential is on disk; a test sends one real
+  // message through the agent's CLI and model.
+  const [test, setTest] = useState<
+    | { state: 'running' }
+    | { state: 'done'; ok: boolean; detail: string | null }
+    | null
+  >(null);
 
   const login = status.login;
   const pending = login?.state === 'pending';
@@ -523,6 +530,20 @@ function ProviderCard({
       'settings.providers.errors.cancelFailed',
       resetFlow
     );
+
+  const runTest = async () => {
+    setTest({ state: 'running' });
+    try {
+      const res = await agentAuthApi.test(id, { model: baseModel });
+      setTest({ state: 'done', ok: res.ok, detail: res.detail });
+    } catch (err) {
+      setTest({
+        state: 'done',
+        ok: false,
+        detail: errorText(err, t('settings.providers.test.failed', { name })),
+      });
+    }
+  };
 
   const openUrl = (url: string | null | undefined) => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -860,6 +881,38 @@ function ProviderCard({
           </div>
         )}
         {flow}
+        {connected && (
+          <Row label={t('settings.providers.connection')}>
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                variant="tertiary"
+                onClick={() => void runTest()}
+                disabled={test?.state === 'running'}
+                actionIcon={test?.state === 'running' ? 'spinner' : undefined}
+                value={t(
+                  test?.state === 'running'
+                    ? 'settings.providers.test.running'
+                    : 'settings.providers.test.action'
+                )}
+              />
+              {test?.state === 'done' && test.ok && (
+                <span className="text-xs text-success">
+                  {t('settings.providers.test.ok', { name })}
+                </span>
+              )}
+            </div>
+            {test?.state === 'done' && !test.ok ? (
+              <p role="alert" className="mt-1.5 text-xs text-error">
+                <b>{t('settings.providers.test.failed', { name })}</b>{' '}
+                {test.detail && <code>{test.detail}</code>}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-low">
+                {t('settings.providers.test.hint')}
+              </p>
+            )}
+          </Row>
+        )}
         <Row
           label={t('settings.providers.models.label', {
             count: modelList.length,
