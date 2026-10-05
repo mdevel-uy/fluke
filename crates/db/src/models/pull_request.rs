@@ -235,6 +235,20 @@ impl PullRequest {
         Ok(rows.into_iter().collect())
     }
 
+    /// CI rollup state of one PR, if recorded. Runtime query (see
+    /// `update_ci_status`).
+    pub async fn get_ci_status(
+        pool: &SqlitePool,
+        pr_url: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT pr_ci_status FROM pull_requests WHERE pr_url = ?")
+                .bind(pr_url)
+                .fetch_optional(pool)
+                .await?;
+        Ok(row.and_then(|r| r.0))
+    }
+
     pub async fn update_status(
         pool: &SqlitePool,
         pr_url: &str,

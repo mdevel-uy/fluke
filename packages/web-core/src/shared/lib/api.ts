@@ -1995,6 +1995,20 @@ export const repoIssuesApi = {
     );
     return handleApiResponse<RepoIssue>(response);
   },
+  /**
+   * Merge an approved PR on GitHub (#798). Method and branch deletion come
+   * from Settings on the server; a 409 carries the reason it was refused.
+   */
+  mergePullRequest: async (
+    repoId: string,
+    prNumber: number
+  ): Promise<void> => {
+    const response = await makeRequest(
+      `/api/repos/${encodeURIComponent(repoId)}/pull-requests/${prNumber}/merge`,
+      { method: 'POST' }
+    );
+    return handleApiResponse<void>(response);
+  },
   listMilestones: async (repoId: string): Promise<GithubMilestone[]> => {
     const response = await makeRequest(
       `/api/repos/${encodeURIComponent(repoId)}/milestones`

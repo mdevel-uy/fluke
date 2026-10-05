@@ -2349,5 +2349,61 @@
       "incomplete": "El repositorio se creó en GitHub, pero no se terminó de agregar el remoto o de subir la rama. Al reintentar se completa.",
       "other": "GitHub devolvió un error."
     }
+  },
+  "mergePr": {
+    "action": "Mergear",
+    "merging": "Mergeando…",
+    "retry": "Reintentar",
+    "merged": "PR #{{number}} mergeado",
+    "mergedNote": "La tarea pasa a hecha.",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "Abrir en GitHub",
+    "ci": {
+      "ok": "CI en verde",
+      "failing": "CI en rojo",
+      "pending": "CI en curso",
+      "none": "Sin checks",
+      "unavailable": "CI no disponible"
+    },
+    "conflicts": {
+      "yes": "Con conflictos",
+      "no": "Sin conflictos",
+      "unknown": "Conflictos sin calcular"
+    },
+    "blocked": {
+      "conflicts": "Hay conflictos con la rama base. Resolverlos antes de mergear.",
+      "ciFailing": "CI en rojo. Corregir los checks que fallan antes de mergear.",
+      "both": "Hay conflictos con la rama base y la CI está en rojo."
+    },
+    "notice": {
+      "ciPending": "CI en curso. Se puede mergear igual.",
+      "ciUnavailable": "No se pudo leer el estado de la CI. Revisarla en GitHub antes de mergear.",
+      "mergeableUnknown": "GitHub todavía está calculando los conflictos.",
+      "ciNone": "El repo no tiene checks de CI."
+    },
+    "error": {
+      "github": "GitHub rechazó el merge.",
+      "refused": "El PR no se puede mergear en este momento."
+    },
+    "method": {
+      "merge": "Merge commit",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "¿Mergear el PR #{{number}}?",
+      "pr": "PR",
+      "method": "Tipo de merge",
+      "changeInSettings": "Cambiar en Configuración",
+      "branch": "Rama",
+      "branchDeleted": "Se borra en GitHub al terminar",
+      "branchKept": "Se conserva",
+      "ci": "CI",
+      "warnPending": "La CI todavía está corriendo. Si mergeas ahora, el resultado de los checks no se tiene en cuenta.",
+      "warnUnavailable": "fluke no pudo leer la CI de este PR. Revísala en GitHub antes de mergear.",
+      "irreversible": "Esta acción no se puede deshacer desde fluke.",
+      "cancel": "Cancelar",
+      "submit": "Mergear PR #{{number}}"
+    }
   }
 }

@@ -34,6 +34,7 @@ import { MilestoneTagChips, type MilestoneActions } from './MilestoneControls';
 import type { DecisionContext } from './DecisionDrawer';
 import { instanceLabel } from '@/features/workers/model/instance';
 import { PlanCard } from './PlanCard';
+import { MergePrAction } from '../merge/MergePrAction';
 import { useTalkToFluke } from '@/features/director/model/useMissions';
 
 /**
@@ -408,17 +409,33 @@ export function PlanView({
             </span>
           </h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2.5">
-            {plan.awaitingMerge.map(({ issue }) => (
-              <PlanCard
-                key={issue.id}
-                issue={issue}
-                state="approved"
-                currentWave={null}
-                workerName={workerNameFor(issue)}
-                selected={issue.id === selectedIssueId}
-                onSelect={onSelectIssue}
-              />
-            ))}
+            {plan.awaitingMerge.map(({ issue }) => {
+              const task = taskByIssueNumber.get(issue.number);
+              const prNumber = task?.pr_number;
+              return (
+                <PlanCard
+                  key={issue.id}
+                  issue={issue}
+                  state="approved"
+                  currentWave={null}
+                  workerName={workerNameFor(issue)}
+                  selected={issue.id === selectedIssueId}
+                  onSelect={onSelectIssue}
+                  footer={
+                    task && prNumber != null && task.pr_state === 'open' ? (
+                      <MergePrAction
+                        repoId={task.repo_id}
+                        prNumber={prNumber}
+                        prUrl={task.pr_url}
+                        title={issue.title}
+                        mergeable={task.pr_mergeable}
+                        ciStatus={task.pr_ci_status}
+                      />
+                    ) : undefined
+                  }
+                />
+              );
+            })}
           </div>
         </section>
       )}

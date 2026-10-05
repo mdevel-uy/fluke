@@ -8,6 +8,8 @@ export type Worker = WorkerResponse;
 export type WorkerTask = WorkerTaskResponse & {
   skills?: string[];
   pr_mergeable?: string | null;
+  pr_number?: number | null;
+  pr_ci_status?: string | null;
   source?: string;
   review_result?: string | null;
   loop_state?: string | null;

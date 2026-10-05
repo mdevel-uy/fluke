@@ -2349,5 +2349,61 @@
       "incomplete": "The repository was created on GitHub, but adding the remote or pushing did not finish. Retrying completes it.",
       "other": "GitHub returned an error."
     }
+  },
+  "mergePr": {
+    "action": "Merge",
+    "merging": "Merging…",
+    "retry": "Retry",
+    "merged": "PR #{{number}} merged",
+    "mergedNote": "The task moves to done.",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "Open on GitHub",
+    "ci": {
+      "ok": "CI green",
+      "failing": "CI red",
+      "pending": "CI running",
+      "none": "No checks",
+      "unavailable": "CI unavailable"
+    },
+    "conflicts": {
+      "yes": "Has conflicts",
+      "no": "No conflicts",
+      "unknown": "Conflicts not computed yet"
+    },
+    "blocked": {
+      "conflicts": "The PR has conflicts with its base branch. Resolve them before merging.",
+      "ciFailing": "CI is red. Fix the failing checks before merging.",
+      "both": "The PR has conflicts with its base branch and CI is red."
+    },
+    "notice": {
+      "ciPending": "CI is still running. You can merge anyway.",
+      "ciUnavailable": "Could not read the CI status. Check it on GitHub before merging.",
+      "mergeableUnknown": "GitHub is still computing conflicts.",
+      "ciNone": "The repo has no CI checks."
+    },
+    "error": {
+      "github": "GitHub rejected the merge.",
+      "refused": "The PR cannot be merged right now."
+    },
+    "method": {
+      "merge": "Create a merge commit",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "Merge PR #{{number}}?",
+      "pr": "PR",
+      "method": "Merge method",
+      "changeInSettings": "Change in Settings",
+      "branch": "Branch",
+      "branchDeleted": "Deleted on GitHub when done",
+      "branchKept": "Kept",
+      "ci": "CI",
+      "warnPending": "CI is still running. If you merge now, the result of the checks is not taken into account.",
+      "warnUnavailable": "fluke could not read the CI of this PR. Check it on GitHub before merging.",
+      "irreversible": "This action cannot be undone from fluke.",
+      "cancel": "Cancel",
+      "submit": "Merge PR #{{number}}"
+    }
   }
 }

@@ -1,13 +1,21 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Ticket } from 'shared/types';
+import type { MergeGate, Ticket } from 'shared/types';
 import { Button } from '@vibe/ui/components/Button';
+import { MergePrAction } from '@/features/issues/ui/merge/MergePrAction';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import {
   awaitingMergeTickets,
   formatDurationSince,
 } from '@/features/dashboard/model/dashboardMetrics';
 import { Panel } from './parts/primitives';
+
+// The PR state fields (#798) are not in `shared/types.ts` yet: remove once
+// they are generated.
+type MergeGateWithState = MergeGate & {
+  pr_mergeable?: string | null;
+  pr_ci_status?: string | null;
+};
 
 /**
  * Work the agents finished whose PR is approved and waits for a person to
@@ -27,7 +35,7 @@ export function MergeGatePanel({ tickets }: { tickets: Ticket[] }) {
     >
       <div className="flex flex-col gap-2 p-3">
         {waiting.map((ticket) => {
-          const gate = ticket.merge_gate;
+          const gate = ticket.merge_gate as MergeGateWithState | null;
           const workspaceId = gate?.workspace_id;
           const issueNumber = ticket.is_pr ? null : ticket.issue_number;
           return (
@@ -78,6 +86,16 @@ export function MergeGatePanel({ tickets }: { tickets: Ticket[] }) {
                 >
                   {t('dashboard.mergeGate.viewPr')}
                 </Button>
+              )}
+              {gate?.pr_number != null && (
+                <MergePrAction
+                  className="basis-full"
+                  repoId={ticket.repo_id}
+                  prNumber={gate.pr_number}
+                  title={ticket.title}
+                  mergeable={gate.pr_mergeable}
+                  ciStatus={gate.pr_ci_status}
+                />
               )}
             </div>
           );

@@ -2082,5 +2082,61 @@
       "incomplete": "儲存庫已在 GitHub 上建立，但新增遠端或推送未完成。重試即可完成。",
       "other": "GitHub 傳回了錯誤。"
     }
+  },
+  "mergePr": {
+    "action": "合併",
+    "merging": "正在合併…",
+    "retry": "重試",
+    "merged": "PR #{{number}} 已合併",
+    "mergedNote": "任務將變為已完成。",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "在 GitHub 中開啟",
+    "ci": {
+      "ok": "CI 通過",
+      "failing": "CI 失敗",
+      "pending": "CI 執行中",
+      "none": "無檢查",
+      "unavailable": "CI 無法取得"
+    },
+    "conflicts": {
+      "yes": "有衝突",
+      "no": "無衝突",
+      "unknown": "衝突尚未計算"
+    },
+    "blocked": {
+      "conflicts": "PR 與基礎分支有衝突。請在合併前解決。",
+      "ciFailing": "CI 失敗。請在合併前修正失敗的檢查。",
+      "both": "PR 與基礎分支有衝突，且 CI 失敗。"
+    },
+    "notice": {
+      "ciPending": "CI 仍在執行。仍然可以合併。",
+      "ciUnavailable": "無法讀取 CI 狀態。請在合併前到 GitHub 上查看。",
+      "mergeableUnknown": "GitHub 仍在計算衝突。",
+      "ciNone": "此儲存庫沒有 CI 檢查。"
+    },
+    "error": {
+      "github": "GitHub 拒絕了合併。",
+      "refused": "此 PR 目前無法合併。"
+    },
+    "method": {
+      "merge": "合併提交",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "合併 PR #{{number}}？",
+      "pr": "PR",
+      "method": "合併方式",
+      "changeInSettings": "在設定中變更",
+      "branch": "分支",
+      "branchDeleted": "完成後在 GitHub 上刪除",
+      "branchKept": "保留",
+      "ci": "CI",
+      "warnPending": "CI 仍在執行。如果現在合併，將不考慮檢查結果。",
+      "warnUnavailable": "fluke 無法讀取此 PR 的 CI。請在合併前到 GitHub 上查看。",
+      "irreversible": "此操作無法在 fluke 中復原。",
+      "cancel": "取消",
+      "submit": "合併 PR #{{number}}"
+    }
   }
 }

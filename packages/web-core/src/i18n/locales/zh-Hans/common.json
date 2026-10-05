@@ -2082,5 +2082,61 @@
       "incomplete": "仓库已在 GitHub 上创建，但添加远程或推送未完成。重试即可完成。",
       "other": "GitHub 返回了错误。"
     }
+  },
+  "mergePr": {
+    "action": "合并",
+    "merging": "正在合并…",
+    "retry": "重试",
+    "merged": "PR #{{number}} 已合并",
+    "mergedNote": "任务将变为已完成。",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "在 GitHub 中打开",
+    "ci": {
+      "ok": "CI 通过",
+      "failing": "CI 失败",
+      "pending": "CI 运行中",
+      "none": "无检查",
+      "unavailable": "CI 不可用"
+    },
+    "conflicts": {
+      "yes": "有冲突",
+      "no": "无冲突",
+      "unknown": "冲突尚未计算"
+    },
+    "blocked": {
+      "conflicts": "PR 与基础分支存在冲突。请在合并前解决。",
+      "ciFailing": "CI 失败。请在合并前修复失败的检查。",
+      "both": "PR 与基础分支存在冲突，且 CI 失败。"
+    },
+    "notice": {
+      "ciPending": "CI 仍在运行。仍然可以合并。",
+      "ciUnavailable": "无法读取 CI 状态。请在合并前到 GitHub 上查看。",
+      "mergeableUnknown": "GitHub 仍在计算冲突。",
+      "ciNone": "该仓库没有 CI 检查。"
+    },
+    "error": {
+      "github": "GitHub 拒绝了合并。",
+      "refused": "该 PR 目前无法合并。"
+    },
+    "method": {
+      "merge": "合并提交",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "合并 PR #{{number}}？",
+      "pr": "PR",
+      "method": "合并方式",
+      "changeInSettings": "在设置中更改",
+      "branch": "分支",
+      "branchDeleted": "完成后在 GitHub 上删除",
+      "branchKept": "保留",
+      "ci": "CI",
+      "warnPending": "CI 仍在运行。如果现在合并，将不考虑检查结果。",
+      "warnUnavailable": "fluke 无法读取此 PR 的 CI。请在合并前到 GitHub 上查看。",
+      "irreversible": "此操作无法在 fluke 中撤销。",
+      "cancel": "取消",
+      "submit": "合并 PR #{{number}}"
+    }
   }
 }

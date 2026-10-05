@@ -2094,5 +2094,61 @@
       "incomplete": "Le dépôt a été créé sur GitHub, mais l'ajout du remote ou le push n'a pas abouti. Réessayer le termine.",
       "other": "GitHub a renvoyé une erreur."
     }
+  },
+  "mergePr": {
+    "action": "Fusionner",
+    "merging": "Fusion…",
+    "retry": "Réessayer",
+    "merged": "PR #{{number}} fusionnée",
+    "mergedNote": "La tâche passe à terminée.",
+    "prNumber": "PR #{{number}}",
+    "openOnGithub": "Ouvrir sur GitHub",
+    "ci": {
+      "ok": "CI au vert",
+      "failing": "CI en échec",
+      "pending": "CI en cours",
+      "none": "Aucun check",
+      "unavailable": "CI indisponible"
+    },
+    "conflicts": {
+      "yes": "Conflits",
+      "no": "Aucun conflit",
+      "unknown": "Conflits pas encore calculés"
+    },
+    "blocked": {
+      "conflicts": "La PR a des conflits avec sa branche de base. Résolvez-les avant de fusionner.",
+      "ciFailing": "La CI est en échec. Corrigez les checks avant de fusionner.",
+      "both": "La PR a des conflits avec sa branche de base et la CI est en échec."
+    },
+    "notice": {
+      "ciPending": "La CI est en cours. Vous pouvez fusionner quand même.",
+      "ciUnavailable": "Impossible de lire l'état de la CI. Vérifiez-la sur GitHub avant de fusionner.",
+      "mergeableUnknown": "GitHub calcule encore les conflits.",
+      "ciNone": "Le dépôt n'a pas de checks de CI."
+    },
+    "error": {
+      "github": "GitHub a refusé la fusion.",
+      "refused": "La PR ne peut pas être fusionnée pour le moment."
+    },
+    "method": {
+      "merge": "Commit de fusion",
+      "squash": "Squash and merge",
+      "rebase": "Rebase and merge"
+    },
+    "confirm": {
+      "title": "Fusionner la PR #{{number}} ?",
+      "pr": "PR",
+      "method": "Type de fusion",
+      "changeInSettings": "Modifier dans les paramètres",
+      "branch": "Branche",
+      "branchDeleted": "Supprimée sur GitHub à la fin",
+      "branchKept": "Conservée",
+      "ci": "CI",
+      "warnPending": "La CI est encore en cours. Si vous fusionnez maintenant, le résultat des checks n'est pas pris en compte.",
+      "warnUnavailable": "fluke n'a pas pu lire la CI de cette PR. Vérifiez-la sur GitHub avant de fusionner.",
+      "irreversible": "Cette action ne peut pas être annulée depuis fluke.",
+      "cancel": "Annuler",
+      "submit": "Fusionner la PR #{{number}}"
+    }
   }
 }

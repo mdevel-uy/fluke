@@ -124,6 +124,13 @@ pub struct WorkerTaskResponse {
     pub pr_state: Option<String>,
     /// Mergeable state: "mergeable", "conflicting", "unknown", or null.
     pub pr_mergeable: Option<String>,
+    /// Number of the most recent PR, or null when there is none.
+    #[ts(optional, type = "number | null")]
+    pub pr_number: Option<i64>,
+    /// CI rollup of the PR while it is open: "passing" | "failing" |
+    /// "pending" | "none" | "unknown", or null when not polled yet.
+    #[ts(optional, type = "string | null")]
+    pub pr_ci_status: Option<String>,
     /// Origin of the task: `"kanban"`, `"mission"` or `"milestone"`.
     pub source: String,
     /// TL reviewer's verdict: "approved" | "changes_requested" | null.
@@ -191,7 +198,7 @@ async fn worker_task_to_response(
     pool: &sqlx::SqlitePool,
     task: WorkerTask,
 ) -> Result<WorkerTaskResponse, ApiError> {
-    let (pr_url, pr_state, pr_mergeable, open_pr_number) = match task.workspace_id {
+    let (pr_url, pr_state, pr_mergeable, pr_number, open_pr_number) = match task.workspace_id {
         Some(workspace_id) => {
             let prs = PullRequest::find_by_workspace_id(pool, workspace_id).await?;
             match prs.into_iter().next() {
@@ -202,13 +209,19 @@ async fn worker_task_to_response(
                         Some(pr.pr_url),
                         Some(merge_status_str(&pr.pr_status)),
                         pr.pr_mergeable,
+                        Some(pr.pr_number),
                         open_pr_number,
                     )
                 }
-                None => (None, None, None, None),
+                None => (None, None, None, None, None),
             }
         }
-        None => (None, None, None, None),
+        None => (None, None, None, None, None),
+    };
+    // CI only matters while the PR is open (the merge button's gate, #798).
+    let pr_ci_status = match (&pr_url, open_pr_number) {
+        (Some(url), Some(_)) => PullRequest::get_ci_status(pool, url).await?,
+        _ => None,
     };
 
     // Live loop state, only where it means something: an in_review or approved
@@ -273,6 +286,8 @@ async fn worker_task_to_response(
         pr_url,
         pr_state,
         pr_mergeable,
+        pr_number,
+        pr_ci_status,
         source: task.source,
         review_result: task.review_result,
         loop_state,

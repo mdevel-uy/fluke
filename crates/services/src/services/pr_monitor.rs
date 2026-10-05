@@ -1006,50 +1006,33 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         )
         .await?;
 
-        // A merged or closed PR invalidates any queued review/fix tasks that
-        // reference it — drop them before any worker picks them up.
-        if matches!(&status.status, MergeStatus::Merged | MergeStatus::Closed)
-            && let Some(repo_id) = pr.repo_id
-        {
-            if let Err(e) =
-                worker_orchestrator::cancel_stale_pr_tasks(&self.db, pr.pr_number, repo_id).await
-            {
-                warn!(
-                    pr_number = pr.pr_number,
-                    "Failed to remove stale PR tasks: {}", e
-                );
-            }
-        }
-
-        // If this is a workspace PR and it was merged, try to archive
-        if matches!(&status.status, MergeStatus::Merged)
-            && let Some(workspace_id) = pr.workspace_id
-        {
-            self.try_archive_workspace(workspace_id, pr.pr_number)
+        match &status.status {
+            // Same reconciliation as a merge done from fluke (#798).
+            MergeStatus::Merged => {
+                reconcile_merged_pr(
+                    &self.config,
+                    &self.db,
+                    &self.container,
+                    self.analytics.as_ref(),
+                    pr,
+                )
                 .await?;
-
-            // Reconcile worker orchestration: task → done, then try to take
-            // the next queued task for the worker. Errors here are logged
-            // but never bubbled up: PR bookkeeping already succeeded.
-            match worker_orchestrator::on_pr_merged(
-                &self.config,
-                &self.db,
-                &self.container,
-                workspace_id,
-            )
-            .await
-            {
-                Ok(true) => info!(
-                    workspace_id = %workspace_id,
-                    "Worker took next task after PR merge",
-                ),
-                Ok(false) => {}
-                Err(e) => warn!(
-                    workspace_id = %workspace_id,
-                    "Failed to reconcile worker task on PR merge: {}",
-                    e
-                ),
             }
+            // A closed PR invalidates any queued review/fix tasks that
+            // reference it — drop them before any worker picks them up.
+            MergeStatus::Closed => {
+                if let Some(repo_id) = pr.repo_id
+                    && let Err(e) =
+                        worker_orchestrator::cancel_stale_pr_tasks(&self.db, pr.pr_number, repo_id)
+                            .await
+                {
+                    warn!(
+                        pr_number = pr.pr_number,
+                        "Failed to remove stale PR tasks: {}", e
+                    );
+                }
+            }
+            _ => {}
         }
 
         info!("PR #{} status changed to {:?}", pr.pr_number, status.status);
@@ -1244,40 +1227,14 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
         workspace_id: uuid::Uuid,
         pr_number: i64,
     ) -> Result<(), PrMonitorError> {
-        let Some(workspace) = Workspace::find_by_id(&self.db.pool, workspace_id).await? else {
-            return Ok(());
-        };
-
-        let open_pr_count =
-            PullRequest::count_open_for_workspace(&self.db.pool, workspace_id).await?;
-
-        if open_pr_count == 0 {
-            info!(
-                "PR #{} was merged, archiving workspace {}",
-                pr_number, workspace.id
-            );
-            if !workspace.pinned
-                && let Err(e) = self.container.archive_workspace(workspace.id).await
-            {
-                error!("Failed to archive workspace {}: {}", workspace.id, e);
-            }
-
-            if let Some(analytics) = &self.analytics {
-                analytics.analytics_service.track_event(
-                    &analytics.user_id,
-                    "pr_merged",
-                    Some(json!({
-                        "workspace_id": workspace.id.to_string(),
-                    })),
-                );
-            }
-        } else {
-            info!(
-                "PR #{} was merged, leaving workspace {} active with {} open PR(s)",
-                pr_number, workspace.id, open_pr_count
-            );
-        }
-
+        archive_workspace_if_done(
+            &self.db,
+            &self.container,
+            self.analytics.as_ref(),
+            workspace_id,
+            pr_number,
+        )
+        .await?;
         Ok(())
     }
 
@@ -1360,6 +1317,101 @@ impl<C: ContainerService + Send + Sync + 'static> PrMonitorService<C> {
             }
         }
     }
+}
+
+/// Local side effects of a PR already marked merged in the DB: drop the
+/// queued review/fix tasks that reference it, archive its workspace when no
+/// other PR keeps it open, move the worker task to done and offer the worker
+/// its next task. Shared by the poll and by the merge endpoint (#798), so a
+/// merge done from fluke and one done on GitHub end in the same state.
+/// Idempotent: the task only moves when it is not done yet, and a PR already
+/// marked merged is no longer polled.
+///
+/// Only DB errors reading the workspace bubble up; the rest is logged because
+/// the merge itself already happened.
+pub async fn reconcile_merged_pr<C: ContainerService + Send + Sync>(
+    config: &Arc<RwLock<Config>>,
+    db: &DBService,
+    container: &C,
+    analytics: Option<&AnalyticsContext>,
+    pr: &PullRequest,
+) -> Result<(), SqlxError> {
+    // Drop stale queued review/fix tasks before the worker chains into its
+    // next task.
+    if let Some(repo_id) = pr.repo_id
+        && let Err(e) = worker_orchestrator::cancel_stale_pr_tasks(db, pr.pr_number, repo_id).await
+    {
+        warn!(
+            pr_number = pr.pr_number,
+            "Failed to remove stale PR tasks: {}", e
+        );
+    }
+
+    let Some(workspace_id) = pr.workspace_id else {
+        return Ok(());
+    };
+    archive_workspace_if_done(db, container, analytics, workspace_id, pr.pr_number).await?;
+
+    // Reconcile worker orchestration: task → done, then try to take the next
+    // queued task for the worker. Errors here are logged but never bubbled
+    // up: PR bookkeeping already succeeded.
+    match worker_orchestrator::on_pr_merged(config, db, container, workspace_id).await {
+        Ok(true) => info!(
+            workspace_id = %workspace_id,
+            "Worker took next task after PR merge",
+        ),
+        Ok(false) => {}
+        Err(e) => warn!(
+            workspace_id = %workspace_id,
+            "Failed to reconcile worker task on PR merge: {}",
+            e
+        ),
+    }
+    Ok(())
+}
+
+/// Archive the workspace if all its PRs are merged/closed.
+async fn archive_workspace_if_done<C: ContainerService + Send + Sync>(
+    db: &DBService,
+    container: &C,
+    analytics: Option<&AnalyticsContext>,
+    workspace_id: Uuid,
+    pr_number: i64,
+) -> Result<(), SqlxError> {
+    let Some(workspace) = Workspace::find_by_id(&db.pool, workspace_id).await? else {
+        return Ok(());
+    };
+
+    let open_pr_count = PullRequest::count_open_for_workspace(&db.pool, workspace_id).await?;
+
+    if open_pr_count == 0 {
+        info!(
+            "PR #{} was merged, archiving workspace {}",
+            pr_number, workspace.id
+        );
+        if !workspace.pinned
+            && let Err(e) = container.archive_workspace(workspace.id).await
+        {
+            error!("Failed to archive workspace {}: {}", workspace.id, e);
+        }
+
+        if let Some(analytics) = analytics {
+            analytics.analytics_service.track_event(
+                &analytics.user_id,
+                "pr_merged",
+                Some(json!({
+                    "workspace_id": workspace.id.to_string(),
+                })),
+            );
+        }
+    } else {
+        info!(
+            "PR #{} was merged, leaving workspace {} active with {} open PR(s)",
+            pr_number, workspace.id, open_pr_count
+        );
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
