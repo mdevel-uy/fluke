@@ -11,7 +11,7 @@ El flujo completo:
 1. Los issues del repositorio se sincronizan al **backlog** del sprint board.
 2. Se asigna un issue a un worker; el worker abre un workspace (worktree + contenedor) y trabaja con su CLI de agente (Claude Code, Codex, Gemini CLI, etc.).
 3. El worker abre un PR. Un **reviewer** automático lo revisa por rondas, con gate de CI: el pipeline del repo es el único punto de verdad para validar el código generado.
-4. Con veredicto aprobado y CI verde, una persona hace el merge. El tablero refleja cada estado: backlog → queued → in progress → in review → done / failed.
+4. Con veredicto aprobado y CI verde, una persona hace el merge, en GitHub o con el botón **Mergear** de fluke. El tablero refleja cada estado: backlog → queued → in progress → in review → done / failed.
 
 ## Características
 
@@ -19,6 +19,7 @@ El flujo completo:
 - **Workers con roles** — developer, reviewer, analyst y designer; cada uno con memoria persistente entre tareas y habilidades (skills) configurables.
 - **Review loop** — rondas de revisión por PR con veredicto (approve / request changes), re-review automático cuando llegan commits nuevos, backoff ante fallas de infraestructura y tope de rondas por PR.
 - **Integración GitHub** — sincronización de issues por repo, PRs vinculados a workspaces, autenticación del CLI `gh` por device flow desde Settings.
+- **Merge desde la UI** — el botón **Mergear** (vista Plan y panel de merge del dashboard) mergea el PR de una tarea aprobada tras una confirmación. Queda deshabilitado, con el motivo visible, si el PR tiene conflictos o CI roja. El tipo de merge (merge commit por defecto, squash o rebase) y el borrado de la rama salen de Settings. Al terminar, el PR figura merged y la tarea pasa a done sin esperar al siguiente poll; si GitHub rechaza el merge se muestra su mensaje y nada cambia de estado. Lo mismo hace `POST /api/repos/{repo_id}/pull-requests/{number}/merge` (sin body; responde 409 con el motivo si el PR no está abierto, su tarea no está aprobada, o hay conflictos o CI roja), que Fluke solo usa tras confirmación humana.
 - **Workspaces** — diffs, logs del agente, editor embebido y terminal, sobre worktrees que se limpian solos al archivar.
 - **Panel de analyst** — pedidos ad-hoc a un worker sin pasar por el tablero.
 - **Observabilidad** — métricas Prometheus (`fluke_*`), dashboards y reglas de alerta listos en [`ops/observability/`](ops/observability/).
