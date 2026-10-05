@@ -60,9 +60,7 @@ use db::{
         requests::WorkspaceRepoInput,
         review_round::{self, CreateReviewRound, ReviewRound},
         session::Session,
-        worker::{
-            self, ROLE_ANALYST, ROLE_ARCHITECT, ROLE_DESIGNER, ROLE_QA, ROLE_REVIEWER, Worker,
-        },
+        worker::{self, ROLE_ANALYST, ROLE_DESIGNER, ROLE_DOCS, ROLE_QA, ROLE_REVIEWER, Worker},
         worker_task::{self, CreateWorkerTask, WorkerTask},
         workspace::{CreateWorkspace, Workspace},
         workspace_repo::WorkspaceRepo,
@@ -1719,13 +1717,20 @@ pub async fn on_agent_finished(
     let mut actions_failed_task = false;
     // Gates before the review (#687): the verdict, or Docs' push, happen
     // before the worktree goes.
-    let gate = qa_phases::Gate::from_kind(WorkerTask::kind(pool, task.id).await?.as_deref())
-        .filter(|g| g.role() == worker.role);
+    let gate = qa_phases::Gate::from_kind(
+        WorkerTask::kind(pool, task.id).await?.as_deref(),
+        &worker.name,
+    )
+    .filter(|g| match g {
+        qa_phases::Gate::Docs => worker.role == ROLE_DOCS,
+        qa_phases::Gate::Testing => worker.role == ROLE_QA,
+        qa_phases::Gate::Review { .. } => true,
+    });
     let mut gate_verdict: Option<(String, String)> = None;
     let mut docs_outcome = None;
     if succeeded {
         WorkerTask::set_status(pool, task.id, new_status).await?;
-        match gate {
+        match &gate {
             Some(qa_phases::Gate::Docs) => {
                 docs_outcome =
                     Some(qa_phases::finish_docs(db, container, workspace_id, &task, &worker).await);
@@ -1793,7 +1798,7 @@ pub async fn on_agent_finished(
     }
 
     // Gate passed → next gate or review; failed → back to the developer.
-    if let (Some(g), Some((verdict, reasons))) = (gate, &gate_verdict)
+    if let (Some(g), Some((verdict, reasons))) = (&gate, &gate_verdict)
         && let Err(e) =
             qa_phases::after_gate(config, db, container, &task, g, verdict, reasons).await
     {
@@ -1812,7 +1817,7 @@ pub async fn on_agent_finished(
                 db,
                 container,
                 &task,
-                qa_phases::Gate::Docs,
+                &qa_phases::Gate::Docs,
                 qa_phases::VERDICT_PASS,
                 "",
             )
@@ -2587,9 +2592,23 @@ async fn persist_non_developer_deliverable(
     } else if worker.role == ROLE_QA && kind.as_deref() == Some(worker_task::KIND_QA_TDD) {
         // Tests first (#687): QA's tests become the developer's start_ref.
         push_design_ref(db, container, workspace_id, task, worker, "tdd").await
-    } else if worker.role == ROLE_ARCHITECT && kind.as_deref() == Some(worker_task::KIND_ARCH) {
+    } else if kind.as_deref() == Some(worker_task::KIND_ARCH) {
         // The ADR is the start_ref of the next phase, like tests first.
         push_design_ref(db, container, workspace_id, task, worker, "arch").await
+    } else if let Some(slug) = kind
+        .as_deref()
+        .and_then(|k| k.strip_prefix(worker_task::PRE_DEV_KIND_PREFIX))
+    {
+        // Any other phase before development hands its branch on the same way.
+        push_design_ref(
+            db,
+            container,
+            workspace_id,
+            task,
+            worker,
+            &format!("pre/{slug}"),
+        )
+        .await
     } else {
         None
     };
@@ -6247,15 +6266,45 @@ mod tests {
             GateStep::Proceed
         ));
 
-        // A plan block asks for Docs and Testing; Quality and Security only
-        // when listed in `reviews`.
-        RepoIssue::upsert(
+        // A profile the user created joins the gates of the flow (configurable
+        // flow) after the ones the migration put there.
+        let perf = Worker::create(
             &db.pool,
-            repo.id,
-            &issue("<!-- fluke:plan {\"template\":\"no_tdd\",\"reviews\":[\"quality\",\"security\"]} -->"),
+            &db::models::worker::CreateWorker {
+                name: "Performance".to_string(),
+                emoji: String::new(),
+                soul: "Revisás regresiones de rendimiento.".to_string(),
+                role: Some(db::models::worker::ROLE_QUALITY.to_string()),
+                executor: None,
+                model: None,
+                github_pat: None,
+                github_login: None,
+                plan_mode: None,
+            },
         )
         .await
         .unwrap();
+        let flow = Worker::set_flow(
+            &db.pool,
+            perf.id,
+            Some(db::models::worker::STAGE_GATE),
+            false,
+            Some("toca queries"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(flow.slug.as_deref(), Some("performance"));
+
+        // A plan block asks for Docs and Testing; the gate profiles only when
+        // listed in `reviews`.
+        RepoIssue::upsert(
+            &db.pool,
+            repo.id,
+            &issue("<!-- fluke:plan {\"template\":\"no_tdd\",\"reviews\":[\"performance\",\"quality\",\"security\"]} -->"),
+        )
+        .await
+        .unwrap();
+        let quality = || Gate::review("quality", "Code Quality");
         // Runs `gate` on `head` to `verdict` and returns the task.
         let run = |gate: Gate, head: &'static str, verdict: Option<&'static str>| {
             let pool = db.pool.clone();
@@ -6268,9 +6317,8 @@ mod tests {
                     panic!("{gate:?} should be dispatched on {head}");
                 };
                 assert_eq!(next, gate);
-                assert_eq!(profile.role, gate.role(), "each gate goes to its profile");
                 let task =
-                    qa_phases::queue_gate(&pool, gate, &profile, repo.id, 50, "feature", head)
+                    qa_phases::queue_gate(&pool, &gate, &profile, repo.id, 50, "feature", head)
                         .await
                         .unwrap();
                 assert!(matches!(
@@ -6305,8 +6353,28 @@ mod tests {
         WorkerTask::set_qa_result(&db.pool, testing.id, None, Some(qa_phases::VERDICT_PASS))
             .await
             .unwrap();
-        run(Gate::Quality, "sha1", Some(qa_phases::VERDICT_PASS)).await;
-        run(Gate::Security, "sha1", Some(qa_phases::VERDICT_PASS)).await;
+        // In the order of the flow, not of the plan block.
+        run(quality(), "sha1", Some(qa_phases::VERDICT_PASS)).await;
+        run(
+            Gate::review("security", "Security"),
+            "sha1",
+            Some(qa_phases::VERDICT_PASS),
+        )
+        .await;
+        let perf_task = run(
+            Gate::review("performance", "Performance"),
+            "sha1",
+            Some(qa_phases::VERDICT_PASS),
+        )
+        .await;
+        assert_eq!(perf_task.worker_id, perf.id);
+        assert_eq!(
+            WorkerTask::kind(&db.pool, perf_task.id)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("gate:performance")
+        );
         assert!(matches!(
             qa_phases::next_gate(&db.pool, repo.id, 50, "sha1")
                 .await
@@ -6323,7 +6391,7 @@ mod tests {
             if i > 0 {
                 run(Gate::Testing, head, Some(qa_phases::VERDICT_PASS)).await;
             }
-            run(Gate::Quality, head, Some(qa_phases::VERDICT_FAIL)).await;
+            run(quality(), head, Some(qa_phases::VERDICT_FAIL)).await;
         }
         run(Gate::Testing, "sha5", Some(qa_phases::VERDICT_PASS)).await;
         assert!(matches!(

@@ -448,11 +448,12 @@ state: string, };
 
 export type IssuePhase = { 
 /**
- * `origin | design | tdd | dev | test | review | merge`.
+ * `origin | design | arch | tdd | dev | docs | test | quality |
+ * security | review | merge`.
  */
 kind: string, 
 /**
- * 1-based round for `dev` and `review`; 1 for the rest.
+ * 1-based round for `dev`, `review` and the gates; 1 for the rest.
  */
 round: number, 
 /**
@@ -788,6 +789,8 @@ export type UnifiedPrComment = { "comment_type": "general", id: string, author: 
 
 export type ProviderKind = "git_hub" | "azure_dev_ops" | "unknown";
 
+export type PrMergeMethod = "merge" | "squash" | "rebase";
+
 export type PullRequestDetail = { number: bigint, url: string, status: MergeStatus, merged_at: string | null, merge_commit_sha: string | null, title: string, base_branch: string, head_branch: string, };
 
 export type GitRemote = { name: string, url: string, };
@@ -827,7 +830,11 @@ active_workspace_ids: Array<string>,
 /**
  * Name the worker had before becoming a profile (#681), if migrated.
  */
-migrated_from: string | null, queued_count: number, completed_count: number, 
+migrated_from: string | null, 
+/**
+ * Where the profile joins the flow of an issue, if it does.
+ */
+flow: ProfileFlow, queued_count: number, completed_count: number, 
 /**
  * `true` when the current `soul` contains direct GitHub CLI write
  * invocations (`gh pr|issue create|close|comment|review`,
@@ -931,7 +938,11 @@ github_pat?: string,
  * Per-worker override for plan mode. Omitted or `null` = follow global;
  * `true` = force plan mode on; `false` = force plan mode off.
  */
-plan_mode?: boolean | null, };
+plan_mode?: boolean | null, 
+/**
+ * Where the profile joins the flow of an issue; omitted = nowhere.
+ */
+flow?: ProfileFlowInput, };
 
 export type UpdateWorkerRequest = { name: string | null, emoji: string | null, soul: string | null, role?: string, 
 /**
@@ -951,7 +962,43 @@ github_pat?: string | null,
  * `undefined` = don't touch; `null` = clear the override (follow global);
  * `true` / `false` = force plan mode on/off for this worker.
  */
-plan_mode?: boolean | null, };
+plan_mode?: boolean | null, 
+/**
+ * `undefined` = don't touch; otherwise the profile's place in the flow.
+ */
+flow?: ProfileFlowInput, };
+
+export type ProfileFlowInput = { 
+/**
+ * `pre_dev | implement | gate`, or `null` to leave the flow.
+ */
+stage: string | null, always: boolean, offer_when: string | null, };
+
+export type SetFlowOrderRequest = { 
+/**
+ * The profiles of one stage, in their new order.
+ */
+worker_ids: Array<string>, };
+
+export type ProfileFlow = { 
+/**
+ * How `fluke:plan` names the profile. Set the first time the profile
+ * joins the flow and never changed, so plans already written keep
+ * pointing at it.
+ */
+slug: string | null, stage: string | null, 
+/**
+ * Runs on every issue with a plan, without the plan asking for it.
+ */
+always: boolean, 
+/**
+ * Position inside its stage, ascending.
+ */
+order: number, 
+/**
+ * When Fluke offers the profile in a brief.
+ */
+offer_when: string | null, };
 
 export type CreateWorkerTaskRequest = { repo_id: string, title: string, prompt: string, issue_number?: number | null, 
 /**
@@ -1430,7 +1477,15 @@ default_currency: string,
  * the same reason as the hourly rate: the fee quoted must not depend on
  * which browser opened the report.
  */
-default_savings_fee_rate: number, };
+default_savings_fee_rate: number, 
+/**
+ * How the "merge" action (UI and Fluke) merges an approved PR on GitHub.
+ */
+pr_merge_method: PrMergeMethod, 
+/**
+ * Delete the PR head branch on the remote once the merge succeeded.
+ */
+pr_delete_branch_after_merge: boolean, };
 
 export type NotificationConfig = { sound_enabled: boolean, push_enabled: boolean, sound_file: SoundFile, };
 

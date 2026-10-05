@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { defineModal } from '@/shared/lib/modals';
@@ -127,7 +128,7 @@ const UnstickDrawerImpl = create<UnstickDrawerProps>(({ issue, repoId }) => {
   };
 
   const phaseKind = blocker ? blockerPhaseKind(blocker) : null;
-  const phaseName = phaseKind ? t(`issues.plan.phases.kind.${phaseKind}`) : '';
+  const phaseName = phaseKind ? phaseKindLabel(t, phaseKind) : '';
   const age = blocker ? blockerAge(blocker.since) : null;
   const phase = plan?.phases.find(
     (p) => `${p.kind}-${p.round}` === blocker?.phase

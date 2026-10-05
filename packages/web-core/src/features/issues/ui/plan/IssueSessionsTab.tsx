@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import type { IssuePhase } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
 import { instanceLabel } from '@/features/workers/model/instance';
@@ -18,7 +19,7 @@ const STATE_TEXT: Record<string, string> = {
   stuck: 'text-md-error',
 };
 
-/** Phases that can run more than once. */
+/** Phases that can run more than once, besides the gates of profiles. */
 const ROUND_KINDS = ['dev', 'review', 'test', 'quality', 'security'];
 
 export function IssueSessionsTab({
@@ -64,8 +65,9 @@ export function IssueSessionsTab({
               )}
             >
               <b className="text-[13px] font-medium text-high">
-                {t(`issues.plan.phases.kind.${p.kind}`)}
-                {ROUND_KINDS.includes(p.kind) && ` · r${p.round}`}
+                {phaseKindLabel(t, p.kind, p.profile)}
+                {(ROUND_KINDS.includes(p.kind) || p.kind.startsWith('gate:')) &&
+                  ` · r${p.round}`}
               </b>
               <span
                 className={cn('text-[11px] text-normal', STATE_TEXT[p.state])}
@@ -82,7 +84,8 @@ export function IssueSessionsTab({
       <div className="flex min-h-0 min-w-0 flex-col">
         <div className="flex flex-wrap items-center gap-2.5 border-b border-md-outline-variant bg-md-surface-container px-4 py-2.5 text-[13px]">
           <b className="font-semibold text-high">
-            {label(current)} · {t(`issues.plan.phases.kind.${current.kind}`)}
+            {label(current)} ·{' '}
+            {phaseKindLabel(t, current.kind, current.profile)}
           </b>
           {current.profile && (
             <code className="rounded border border-md-outline-variant bg-md-surface-container-lowest px-1 font-mono text-xs">

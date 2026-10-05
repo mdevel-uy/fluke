@@ -1375,7 +1375,34 @@
       "sectionIntegration": "整合",
       "sectionSoul": "靈魂",
       "ghWriteWarningTitle": "此靈魂會直接寫入 GitHub",
-      "ghWriteWarningBody": "請在 .vk/actions.json 中宣告這些動作，讓系統以重試與稽核記錄執行。仍可儲存以支援漸進式遷移。"
+      "ghWriteWarningBody": "請在 .vk/actions.json 中宣告這些動作，讓系統以重試與稽核記錄執行。仍可儲存以支援漸進式遷移。",
+      "flow": {
+        "section": "在 Issue 流程中",
+        "stage": {
+          "pre_dev": "開發前",
+          "implement": "實作",
+          "gate": "關卡"
+        },
+        "stageHelp": {
+          "pre_dev": "提交到開發者起步的分支",
+          "implement": "撰寫 Issue 的程式碼並建立 PR",
+          "gate": "審查 PR 並核准或退回"
+        },
+        "roleCannot": "{{role}} 角色無法使用",
+        "none": "沒有入口：此設定仍可供 Fluke 與零散任務使用。",
+        "when": "何時執行",
+        "always": "所有 Issue",
+        "onDemand": "計畫要求時",
+        "offerWhen": "Fluke 在以下情況提議…",
+        "offerWhenHelp": "Fluke 依此決定是否在簡報中提議此步驟。留空時，選用設定只在你要求時執行。",
+        "offerWhenPlaceholder": "Issue 涉及查詢、高負載端點或前端打包",
+        "contract": {
+          "pre_dev": "在開發前提交到自己的分支；下一階段與開發者從那裡開始。",
+          "implement": "Issue 的計畫會選它取代開發者；它像其他實作者一樣建立 PR。",
+          "gate": "完成後寫下結論（pass 或 fail 及原因）；fail 時原因會退回給開發者。Fluke 會把這項指示加入提示詞。"
+        },
+        "slug": "計畫中的名稱是「{{slug}}」。"
+      }
     },
     "roles": {
       "developer": "開發者",
@@ -1889,7 +1916,8 @@
       "architect": "Architecture",
       "implementer": "Implemented by",
       "reviews": "Extra reviews",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "pre": "開發前階段"
     },
     "autonomy": {
       "label": "Autonomy",
@@ -1984,7 +2012,35 @@
     "instancesNow": "目前實例",
     "none": "無",
     "defaultAgent": "預設代理",
-    "defaultModel": "預設模型"
+    "defaultModel": "預設模型",
+    "tabs": {
+      "profiles": "設定檔",
+      "flow": "流程"
+    },
+    "inFlow": "在流程中",
+    "flow": {
+      "preDev": "開發前",
+      "preDevHint": "依此順序，每個都基於上一個的分支",
+      "implement": "實作",
+      "implementHint": "每個 Issue 一個",
+      "pr": "PR + CI",
+      "prText": "實作者建立 PR；關卡等待 CI 通過。",
+      "gates": "關卡",
+      "gatesHint": "依此順序在 PR 的 head 上執行。失敗 3 次即停止。",
+      "review": "審查 → 合併",
+      "reviewText": "審查者之後由人工合併。",
+      "fixed": "固定",
+      "tdd": "{{name}} · 測試先行",
+      "testing": "{{name}} · 測試",
+      "tagTdd": "計畫要求 TDD 時",
+      "tagDefault": "預設",
+      "tagDocs": "一律",
+      "tagWithPlan": "有計畫時一律",
+      "tagAlways": "一律",
+      "tagIfPlan": "計畫要求時",
+      "drag": "移動 {{name}}",
+      "howToAdd": "要把設定檔加入流程，請開啟它並在「在 Issue 流程中」選擇入口。"
+    }
   },
   "githubPublish": {
     "checkbox": "同時在 GitHub 上建立",

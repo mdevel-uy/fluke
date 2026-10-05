@@ -57,6 +57,7 @@ import {
 } from '@/features/workers/model/soulTemplates';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useModelSelectorConfig } from '@/shared/hooks/useExecutorDiscovery';
+import { cn } from '@/shared/lib/utils';
 
 export const WORKER_ROLES = [
   'developer',
@@ -71,6 +72,23 @@ export const WORKER_ROLES = [
   'security',
 ] as const;
 export type WorkerRole = (typeof WORKER_ROLES)[number];
+
+// Where a profile joins the flow of an issue. Mirror of
+// `worker::can_join_stage`: phases before development and gates run as
+// specialists (no PR of their own); the implementer opens the PR.
+const FLOW_STAGES = ['pre_dev', 'implement', 'gate'] as const;
+type FlowStage = (typeof FLOW_STAGES)[number];
+const SPECIALIST_ROLES: readonly string[] = [
+  'qa',
+  'architect',
+  'docs',
+  'quality',
+  'security',
+];
+const canJoinStage = (role: string, stage: FlowStage): boolean =>
+  stage === 'implement'
+    ? role === 'developer' || role === 'devops'
+    : SPECIALIST_ROLES.includes(role);
 
 // Temporary augmentation: the backend now returns `has_github_pat: boolean`,
 // `plan_mode: boolean | null` and `gh_write_warning: boolean`, but
@@ -212,6 +230,13 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
   const [planMode, setPlanMode] = useState<PlanModeChoice>(
     planModeToChoice(readPlanMode(worker))
   );
+  const [flowStage, setFlowStage] = useState<FlowStage | null>(
+    (worker?.flow?.stage as FlowStage | null) ?? null
+  );
+  const [flowAlways, setFlowAlways] = useState(worker?.flow?.always ?? false);
+  const [flowOfferWhen, setFlowOfferWhen] = useState(
+    worker?.flow?.offer_when ?? ''
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // PAT field state.
@@ -297,6 +322,9 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
     setExecutor(worker?.executor ?? null);
     setModel(worker?.model ?? null);
     setPlanMode(planModeToChoice(readPlanMode(worker)));
+    setFlowStage((worker?.flow?.stage as FlowStage | null) ?? null);
+    setFlowAlways(worker?.flow?.always ?? false);
+    setFlowOfferWhen(worker?.flow?.offer_when ?? '');
     setGithubPat(null);
     setClearPat(false);
     setPatValidation({ status: 'idle' });
@@ -306,13 +334,29 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
 
   useEffect(() => {
     setErrorMessage(null);
-  }, [name, soul, role, executor, model, planMode, githubPat, clearPat]);
+  }, [
+    name,
+    soul,
+    role,
+    executor,
+    model,
+    planMode,
+    githubPat,
+    clearPat,
+    flowStage,
+  ]);
+
+  // A role that cannot join the chosen stage takes the profile out of it.
+  const changeRole = (next: WorkerRole) => {
+    setRole(next);
+    if (flowStage && !canJoinStage(next, flowStage)) setFlowStage(null);
+  };
 
   const applyTemplate = (templateId: SoulTemplateId) => {
     const template = SOUL_TEMPLATES.find((tpl) => tpl.id === templateId);
     if (!template) return;
     setSoul(template.soul);
-    if (template.role) setRole(template.role);
+    if (template.role) changeRole(template.role);
   };
 
   const handleCancel = () => {
@@ -373,6 +417,16 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
       model: model ?? null,
       plan_mode: choiceToPlanMode(planMode),
       ...(github_pat === undefined ? {} : { github_pat }),
+      ...(isEdit || flowStage
+        ? {
+            flow: {
+              stage: flowStage,
+              // The implementer is chosen per issue; "always" means nothing there.
+              always: flowStage !== 'implement' && flowAlways,
+              offer_when: flowOfferWhen.trim() || null,
+            },
+          }
+        : {}),
     };
 
     try {
@@ -483,7 +537,7 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               />
               <Select
                 value={role}
-                onValueChange={(v) => setRole(v as WorkerRole)}
+                onValueChange={(v) => changeRole(v as WorkerRole)}
               >
                 <SelectTrigger id="worker-role" className="mt-1">
                   <SelectValue />
@@ -643,6 +697,109 @@ const WorkerFormDialogImpl = create<WorkerFormDialogProps>(({ worker }) => {
               </SelectContent>
             </Select>
           </div>
+
+          {worker?.role !== 'orchestrator' && (
+            <>
+              <SectionHeader>{t('workers.form.flow.section')}</SectionHeader>
+              <div
+                role="radiogroup"
+                aria-label={t('workers.form.flow.section')}
+                className="grid gap-1.5 sm:grid-cols-3"
+              >
+                {FLOW_STAGES.map((stage) => {
+                  const allowed = canJoinStage(role, stage);
+                  const on = flowStage === stage;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={!allowed}
+                      // Clicking the chosen stage again takes the profile out.
+                      onClick={() => setFlowStage(on ? null : stage)}
+                      className={cn(
+                        'grid content-start gap-0.5 rounded-md border px-2.5 py-2 text-left',
+                        on
+                          ? 'border-brand ring-1 ring-brand'
+                          : 'border-border hover:border-low',
+                        !allowed && 'cursor-not-allowed opacity-50'
+                      )}
+                    >
+                      <b className="text-sm font-semibold text-high">
+                        {t(`workers.form.flow.stage.${stage}`)}
+                      </b>
+                      <span className="text-xs leading-snug text-low">
+                        {allowed
+                          ? t(`workers.form.flow.stageHelp.${stage}`)
+                          : t('workers.form.flow.roleCannot', {
+                              role: t(`workers.roles.${role}`),
+                            })}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!flowStage ? (
+                <p className="text-xs text-low">
+                  {t('workers.form.flow.none')}
+                </p>
+              ) : (
+                <>
+                  {flowStage !== 'implement' && (
+                    <div
+                      role="radiogroup"
+                      aria-label={t('workers.form.flow.when')}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+                    >
+                      <span className="text-xs font-medium text-normal">
+                        {t('workers.form.flow.when')}
+                      </span>
+                      {[false, true].map((always) => (
+                        <label
+                          key={String(always)}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <input
+                            type="radio"
+                            name="worker-flow-when"
+                            checked={flowAlways === always}
+                            onChange={() => setFlowAlways(always)}
+                          />
+                          {always
+                            ? t('workers.form.flow.always')
+                            : t('workers.form.flow.onDemand')}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {!(flowStage !== 'implement' && flowAlways) && (
+                    <div>
+                      <LabelWithHelp
+                        htmlFor="worker-flow-offer"
+                        label={t('workers.form.flow.offerWhen')}
+                        help={t('workers.form.flow.offerWhenHelp')}
+                      />
+                      <Input
+                        id="worker-flow-offer"
+                        value={flowOfferWhen}
+                        onChange={(e) => setFlowOfferWhen(e.target.value)}
+                        placeholder={t(
+                          'workers.form.flow.offerWhenPlaceholder'
+                        )}
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-low">
+                    {t(`workers.form.flow.contract.${flowStage}`)}
+                    {worker?.flow?.slug &&
+                      ` ${t('workers.form.flow.slug', { slug: worker.flow.slug })}`}
+                  </p>
+                </>
+              )}
+            </>
+          )}
 
           <SectionHeader>{t('workers.form.sectionIntegration')}</SectionHeader>
 

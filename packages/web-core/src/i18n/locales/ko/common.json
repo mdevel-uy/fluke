@@ -1375,7 +1375,34 @@
       "sectionIntegration": "연동",
       "sectionSoul": "소울",
       "ghWriteWarningTitle": "이 소울은 GitHub에 직접 씁니다",
-      "ghWriteWarningBody": ".vk/actions.json 에 해당 액션을 선언해 재시도와 감사 로그와 함께 시스템이 실행하도록 하세요. 단계적 이전을 위해 저장은 계속 허용됩니다."
+      "ghWriteWarningBody": ".vk/actions.json 에 해당 액션을 선언해 재시도와 감사 로그와 함께 시스템이 실행하도록 하세요. 단계적 이전을 위해 저장은 계속 허용됩니다.",
+      "flow": {
+        "section": "이슈 흐름",
+        "stage": {
+          "pre_dev": "개발 전",
+          "implement": "구현",
+          "gate": "게이트"
+        },
+        "stageHelp": {
+          "pre_dev": "개발자가 시작할 브랜치에 커밋합니다",
+          "implement": "이슈의 코드를 작성하고 PR을 엽니다",
+          "gate": "PR을 검토하고 승인하거나 돌려보냅니다"
+        },
+        "roleCannot": "{{role}} 역할에서는 사용할 수 없습니다",
+        "none": "진입 지점 없음: Fluke와 단발성 작업에서는 계속 사용할 수 있습니다.",
+        "when": "실행 시점",
+        "always": "모든 이슈",
+        "onDemand": "플랜이 요청할 때",
+        "offerWhen": "Fluke가 제안하는 경우…",
+        "offerWhenHelp": "Fluke는 이 내용을 보고 브리프에서 이 단계를 제안할지 정합니다. 비어 있으면 선택 프로필은 요청할 때만 실행됩니다.",
+        "offerWhenPlaceholder": "쿼리, 부하가 큰 엔드포인트, 프런트엔드 번들을 건드리는 경우",
+        "contract": {
+          "pre_dev": "개발 전에 자신의 브랜치에 커밋하며, 다음 단계와 개발자는 거기서 시작합니다.",
+          "implement": "이슈의 플랜이 개발자 대신 선택하며, 다른 구현자처럼 PR을 엽니다.",
+          "gate": "끝나면 판정(pass 또는 fail과 이유)을 남기며, fail이면 이유가 개발자에게 돌아갑니다. Fluke가 이 지시를 프롬프트에 추가합니다."
+        },
+        "slug": "플랜에서는 \"{{slug}}\"(으)로 부릅니다."
+      }
     },
     "roles": {
       "developer": "개발자",
@@ -1889,7 +1916,8 @@
       "architect": "Architecture",
       "implementer": "Implemented by",
       "reviews": "Extra reviews",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "pre": "개발 전 단계"
     },
     "autonomy": {
       "label": "Autonomy",
@@ -1984,7 +2012,35 @@
     "instancesNow": "현재 인스턴스",
     "none": "없음",
     "defaultAgent": "기본 에이전트",
-    "defaultModel": "기본 모델"
+    "defaultModel": "기본 모델",
+    "tabs": {
+      "profiles": "프로필",
+      "flow": "흐름"
+    },
+    "inFlow": "흐름",
+    "flow": {
+      "preDev": "개발 전",
+      "preDevHint": "이 순서대로, 각각 이전 단계의 브랜치 위에서",
+      "implement": "구현",
+      "implementHint": "이슈당 하나",
+      "pr": "PR + CI",
+      "prText": "구현자가 PR을 열고, 게이트는 CI 통과를 기다립니다.",
+      "gates": "게이트",
+      "gatesHint": "이 순서대로 PR head에서 실행. 3번 실패하면 멈춥니다.",
+      "review": "리뷰 → 병합",
+      "reviewText": "리뷰어 다음에 사람이 병합합니다.",
+      "fixed": "고정",
+      "tdd": "{{name}} · 테스트 먼저",
+      "testing": "{{name}} · 테스트",
+      "tagTdd": "플랜이 TDD를 요청하면",
+      "tagDefault": "기본",
+      "tagDocs": "항상",
+      "tagWithPlan": "플랜이 있으면 항상",
+      "tagAlways": "항상",
+      "tagIfPlan": "플랜이 요청하면",
+      "drag": "{{name}} 이동",
+      "howToAdd": "프로필을 흐름에 추가하려면 프로필을 열고 \"이슈 흐름\"에서 진입 지점을 고르세요."
+    }
   },
   "githubPublish": {
     "checkbox": "GitHub에도 생성",
