@@ -745,8 +745,43 @@ export const ConversationList = forwardRef<
     [conversationRows, firstUnvirtualizedRowIndex]
   );
 
+  // Fluke's chat lays rows out its own way (margin column, small type,
+  // telemetry lines). The generic estimates, tuned for the task chat, were
+  // off by hundreds of px (an events batch was estimated by all its lines
+  // but renders as one 44px telemetry line), so the list kept correcting
+  // its scroll as rows came into view.
+  const estimateFlukeRow = useCallback(
+    (row: ConversationRow, width: number | null) => {
+      if (!assistant) return undefined;
+      if (flukeRows.runLines.has(row)) return 44;
+      if (row.rowFamily === 'thinking') return 40;
+      if (
+        row.rowFamily !== 'user_message' &&
+        row.rowFamily !== 'assistant_message'
+      )
+        return undefined;
+      const text =
+        row.entry.type === 'NORMALIZED_ENTRY' ? row.entry.content.content : '';
+      if (!text || !width) return undefined;
+      // Row padding, margin column and gap; ~6.4px per char at 13-14px.
+      const charsPerLine = Math.max(
+        20,
+        Math.floor(Math.max(120, width - 104) / 6.4)
+      );
+      const lines = text
+        .split('\n')
+        .reduce(
+          (n, line) => n + Math.max(1, Math.ceil(line.length / charsPerLine)),
+          0
+        );
+      return 36 + lines * 21;
+    },
+    [assistant, flukeRows]
+  );
+
   const conversationVirtualizer = useConversationVirtualizer({
     rows: virtualizedRows,
+    estimateRow: estimateFlukeRow,
     totalRowCount: conversationRows.length,
     scrollContainerRef: tanstackScrollRef,
     onAtBottomChange,
