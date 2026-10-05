@@ -789,7 +789,7 @@ html {
 /* Fluke's chat, option C: the latest turn reads large, earlier ones step
    back (and come forward on hover); PR / issue links read as chips. */
 .fluke-tx-now .wysiwyg {
-  font-size: 16px;
+  font-size: 14.5px;
   line-height: 1.6;
   color: hsl(var(--text-high));
 }
@@ -802,8 +802,8 @@ html {
 }
 .fluke-tx-past .wysiwyg,
 .fluke-tx-you .wysiwyg {
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.6;
 }
 :is(.fluke-tx-now, .fluke-tx-past) a[href^='https://github.com/']
 {
