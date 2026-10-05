@@ -8,3 +8,8 @@ import { createContext, useContext } from 'react';
 export const AssistantChatContext = createContext(false);
 
 export const useIsAssistantChat = () => useContext(AssistantChatContext);
+
+/** Fluke's chat: the mission repo ("owner/name"), to link PRs and issues. */
+export const FlukeRepoSlugContext = createContext<string | null>(null);
+
+export const useFlukeRepoSlug = () => useContext(FlukeRepoSlugContext);

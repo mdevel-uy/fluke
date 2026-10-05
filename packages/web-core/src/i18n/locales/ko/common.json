@@ -368,7 +368,6 @@
       "moveUp": "위로 이동",
       "moveLeft": "왼쪽으로 이동",
       "moveRight": "오른쪽으로 이동",
-      "openCommandBar": "명령 바 열기",
       "toggleTerminal": "터미널 표시/숨기기",
       "formatInlineCode": "Format inline code",
       "sendMessage": "메시지 보내기",
@@ -404,6 +403,8 @@
       "run-setup-script": "설정 스크립트 실행",
       "run-cleanup-script": "정리 스크립트 실행",
       "run-archive-script": "보관 스크립트 실행",
+      "flukeFocus": "Change Fluke’s focus",
+      "flukeNewMission": "New Fluke mission",
       "toggleDirector": "Open or close Fluke"
     }
   },
@@ -1858,7 +1859,8 @@
     "eventsBatch_one": "앱 이벤트 {{count}}건",
     "eventsBatch_other": "앱 이벤트 {{count}}건",
     "guard": {
-      "noBrief": "Fluke의 전체 대화입니다. 앱 알림, 상태, 지시는 여기서. 각 미션은 브리프가 있는 자체 탭이 있고, Fluke는 모두 알고 있습니다."
+      "noBrief": "Fluke의 전체 대화입니다. 앱 알림, 상태, 지시는 여기서. 각 미션은 자체 대화와 브리프가 있고, Fluke는 모두 알고 있습니다.",
+      "status": "General · app notices"
     },
     "name": "Fluke",
     "open": "Open Fluke",
@@ -1869,10 +1871,15 @@
     "dismiss": "Dismiss",
     "missions": "Missions",
     "newMission": "New mission",
-    "openTabs_one": "{{count}} more open mission",
-    "openTabs_other": "{{count}} more open missions",
-    "openTabsWaiting_one": "{{count}} more open mission ({{waiting}} waiting for you)",
-    "openTabsWaiting_other": "{{count}} more open missions ({{waiting}} waiting for you)",
+    "focus": {
+      "placeholder": "Search a mission…",
+      "empty": "No mission matches",
+      "waiting": "Waiting for you",
+      "active": "In progress",
+      "always": "Always",
+      "general": "Fluke (general)",
+      "change": "Change focus"
+    },
     "loading": "Preparing the conversation…",
     "thinking": "thinking",
     "noRepo": "Add a repository to start a mission.",
@@ -1993,7 +2000,38 @@
       "message": "Analyst가 issue {{issues}}개를 wave {{waves}}개로 제안합니다. 내가 고른 템플릿 위에 issue 사이의 흐름을 만들었습니다. 각 dev는 시작할 때 자기 issue의 내부 계획을 만듭니다. Issues에 milestone이 준비됐으니 play를 누르세요.",
       "viewMilestone": "milestone 보기",
       "runNow": "지금 실행"
-    }
+    },
+    "backToPanel": "Back to the floating panel",
+    "resolve": {
+      "title": "To resolve",
+      "briefReady": "The brief is ready for your approval"
+    },
+    "strip": {
+      "working_one": "{{count}} more working",
+      "working_other": "{{count}} more working",
+      "total_one": "{{count}} in total",
+      "total_other": "{{count}} in total"
+    },
+    "welcome": {
+      "badgeMission": "Online · new mission",
+      "badgeGeneral": "Online · Fluke general",
+      "title": "What do you want to achieve?",
+      "titleGeneral": "How can I help?",
+      "description": "Tell me the goal. I write the brief, ask what is missing and put the team to work.",
+      "descriptionGeneral": "Here I report what happens in the app and take one-off orders. For something new, start a mission.",
+      "suggestions": {
+        "plan": "Propose the plan for this mission",
+        "brief": "What is the brief missing?",
+        "catchUp": "Summarize what happened while I was away",
+        "status": "Summarize the missions’ status",
+        "waiting": "What is waiting for me?"
+      }
+    },
+    "now": "Now",
+    "you": "You",
+    "telemetry_one": "Telemetry · {{count}} event",
+    "telemetry_other": "Telemetry · {{count}} events",
+    "tookTitle": "Fluke took {{took}} to answer"
   },
   "profiles": {
     "new": "새 프로필",

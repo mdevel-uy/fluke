@@ -1,11 +1,13 @@
 import {
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent,
 } from 'react';
 import { SpinnerIcon } from '@phosphor-icons/react';
@@ -22,10 +24,17 @@ import { useScrollCommandExecutor } from '../model/useScrollCommandExecutor';
 
 import DisplayConversationEntry from './DisplayConversationEntry';
 import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
-import { isSilentReply } from '@/features/director/lib/events';
-import { FlukeMark } from '@/features/director/ui/FlukeMark';
+import {
+  eventLines,
+  isEventsBatch,
+  isSilentReply,
+  stripFlukeContext,
+} from '@/features/director/lib/events';
+import { FlukeOrbParts } from '@/features/director/ui/MissionRing';
+import { FlukeTelemetry } from '@/features/director/ui/FlukeTelemetry';
 import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
+import { ExecutionProcessesContext } from '@/shared/hooks/useExecutionProcessesContext';
 import { useEntriesActions } from '../model/contexts/EntriesContext';
 import {
   useResetProcess,
@@ -54,6 +63,8 @@ interface ConversationListProps {
   repos?: RepoWithTargetBranch[];
   onAtBottomChange?: (atBottom: boolean) => void;
   sessionScopeId?: string;
+  /** Replaces the default empty state (Fluke greets instead). */
+  emptyState?: React.ReactNode;
 }
 
 export interface ConversationListHandle {
@@ -168,24 +179,90 @@ function entryTimestamp(entry: DisplayEntry): string | null {
   return entry.type === 'NORMALIZED_ENTRY' ? entry.content.timestamp : null;
 }
 
-function AssistantTurnHeader({ timestamp }: { timestamp: string | null }) {
+/** A batch of app events Fluke received: its lines, else null. */
+function eventsBatchLines(entry: DisplayEntry): string[] | null {
+  if (
+    entry.type !== 'NORMALIZED_ENTRY' ||
+    entry.content.entry_type.type !== 'user_message'
+  )
+    return null;
+  const content = stripFlukeContext(entry.content.content);
+  return isEventsBatch(content) ? eventLines(content) : null;
+}
+
+/** "12s", "4m 05s", "1h 02m": short enough for the margin. */
+function formatTook(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * Fluke's chat (design option C, "transmisión"): who, when and how long
+ * Fluke took sit in a margin column. The latest turn adds the live orb and
+ * "now".
+ */
+
+function TurnMargin({
+  timestamp,
+  you = false,
+  now = false,
+  live = false,
+  tookMs,
+}: {
+  timestamp: string | null;
+  you?: boolean;
+  now?: boolean;
+  live?: boolean;
+  /** How long Fluke took to answer this turn. */
+  tookMs?: number;
+}) {
   const { t } = useTranslation('common');
+  const time =
+    timestamp &&
+    new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const took = tookMs !== undefined && (
+    <span
+      className="text-low/60"
+      title={t('director.tookTitle', { took: formatTook(tookMs) })}
+    >
+      {formatTook(tookMs)}
+    </span>
+  );
+  if (now) {
+    return (
+      <div className="flex flex-col items-end gap-1.5 pt-0.5">
+        <span
+          className="fluke-orb"
+          data-state={live ? 'working' : 'idle'}
+          style={{ '--orb-size': '26px' } as CSSProperties}
+        >
+          <FlukeOrbParts markSize={11} />
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-brand-on-surface">
+          {t('director.now')}
+        </span>
+        <span className="flex flex-col items-end gap-1 font-mono text-[10.5px] leading-none">
+          {time && <span className="text-low/80">{time}</span>}
+          {took}
+        </span>
+      </div>
+    );
+  }
   return (
-    <div className="mb-2.5 flex items-center gap-2">
-      <span className="flex size-6 items-center justify-center rounded-full bg-brand text-on-brand">
-        <FlukeMark size={12} />
-      </span>
-      <span className="text-sm font-semibold text-high">
-        {t('director.name')}
-      </span>
-      {timestamp && (
-        <span className="text-xs text-low">
-          {new Date(timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+    <div className="flex flex-col items-end gap-1 pt-1 font-mono text-[10.5px] leading-none">
+      {you && (
+        <span className="uppercase tracking-[0.1em] text-brand-on-surface">
+          {t('director.you')}
         </span>
       )}
+      {time && <span className="text-low/80">{time}</span>}
+      {took}
     </div>
   );
 }
@@ -194,7 +271,13 @@ export const ConversationList = forwardRef<
   ConversationListHandle,
   ConversationListProps
 >(function ConversationList(
-{ attempt, repos: reposProp = [], onAtBottomChange, sessionScopeId },
+  {
+    attempt,
+    repos: reposProp = [],
+    onAtBottomChange,
+    sessionScopeId,
+    emptyState,
+  },
   ref
 ) {
   const { t } = useTranslation('common');
@@ -304,6 +387,7 @@ export const ConversationList = forwardRef<
 
   // ---- TanStack Virtual plumbing ----
   const tanstackScrollRef = useRef<HTMLDivElement | null>(null);
+  const assistant = useIsAssistantChat();
 
   const clearPendingInteractionAnchor = useCallback(() => {
     if (pendingInteractionAnchorFrameRef.current !== null) {
@@ -429,7 +513,6 @@ export const ConversationList = forwardRef<
     }
   };
 
-
   const { isFirstTurn, isLoadingHistory } = useConversationHistory({
     attempt,
     onTimelineUpdated,
@@ -438,43 +521,163 @@ export const ConversationList = forwardRef<
 
   const prevEntriesRef = useRef<DisplayEntry[]>([]);
   const prevRowsRef = useRef<ConversationRow[]>([]);
-  const conversationRows = useMemo(
-    () => prevRowsRef.current,
-    [filteredEntries]
-  );
+  // Fluke's chat: Fluke's silent replies to app events and every batch of
+  // events after the first in a run render nothing, but the virtualizer
+  // reserves an estimated height for each, then measures 0: the list keeps
+  // resizing and re-pinning to the bottom on open. Drop them here; a run's
+  // lines go with the first batch.
+  const processesById = useContext(
+    ExecutionProcessesContext
+  )?.executionProcessesByIdAll;
+  const flukeRows = useMemo(() => {
+    const rows = prevRowsRef.current;
+    const runLines = new Map<ConversationRow, string[]>();
+    if (!assistant) return { rows, runLines };
+    const kept: ConversationRow[] = [];
+    let head: ConversationRow | null = null;
+    for (const row of rows) {
+      const e = row.entry;
+      if (
+        e.type === 'NORMALIZED_ENTRY' &&
+        e.content.entry_type.type === 'assistant_message' &&
+        isSilentReply(e.content.content)
+      )
+        continue;
+      const lines = eventsBatchLines(e);
+      if (lines && head && kept[kept.length - 1] === head) {
+        runLines.get(head)!.push(...lines);
+        continue;
+      }
+      if (lines) {
+        head = row;
+        runLines.set(row, [...lines]);
+      }
+      kept.push(row);
+    }
+    return { rows: kept, runLines };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows live in a ref refreshed with filteredEntries
+  }, [filteredEntries, assistant]);
+  const conversationRows = flukeRows.rows;
 
-  const assistant = useIsAssistantChat();
-  const turnStarts = useMemo(() => {
-    const starts = new Set<number>();
-    if (!assistant) return starts;
+  // Fluke's chat: history arrives in steps (an empty list, the first
+  // entries, then older ones in batches). While the first entries render,
+  // the list flips between heights and re-pins to the bottom, which reads as
+  // the text scrolling up and down. Older batches only grow it above the
+  // pinned bottom, which doesn't show. So keep it invisible until its height
+  // stops shrinking for ~12 frames once it started changing (1.2s if it never
+  // changes, as in a short conversation; 4s at most), then fade it in.
+  const [settledScope, setSettledScope] = useState<string | null>(null);
+  const settled = !assistant || settledScope === conversationScopeKey;
+  const hasRows = conversationRows.length > 0;
+  useEffect(() => {
+    if (!assistant || settled || loading || !hasRows) return;
+    const el = tanstackScrollRef.current;
+    const start = performance.now();
+    let lastHeight = -1;
+    let changed = false;
+    let calmFrames = 0;
+    let frame = 0;
+    const tick = () => {
+      const height = el?.scrollHeight ?? 0;
+      if (lastHeight >= 0 && height !== lastHeight) changed = true;
+      calmFrames = height < lastHeight ? 0 : calmFrames + 1;
+      lastHeight = height;
+      const elapsed = performance.now() - start;
+      if (
+        !el ||
+        (calmFrames >= 12 && (changed || elapsed > 1200)) ||
+        elapsed > 4000
+      ) {
+        setSettledScope(conversationScopeKey);
+      } else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [assistant, settled, loading, hasRows, conversationScopeKey]);
+
+  // Fluke's chat: which rows open a turn, which runs of app-event batches
+  // merge into one telemetry line, and where the latest turn starts.
+  const flukeLayout = useMemo(() => {
+    const turnStarts = new Set<number>();
+    const events = new Map<number, string[]>();
+    let latestFrom = Infinity;
+    if (!assistant) return { turnStarts, events, latestFrom };
     let pending = true;
     conversationRows.forEach((row, i) => {
-      if (row.isUserMessage) pending = true;
-      else if (pending && opensAssistantTurn(row.entry)) {
-        starts.add(i);
+      const lines = flukeRows.runLines.get(row);
+      if (lines) {
+        events.set(i, lines);
+        pending = true;
+        return;
+      }
+      const opens = opensAssistantTurn(row.entry);
+      if (row.isUserMessage) {
+        pending = true;
+        latestFrom = Infinity;
+      } else if (pending && opens) {
+        turnStarts.add(i);
         pending = false;
+        latestFrom = i;
       }
     });
-    return starts;
-  }, [assistant, conversationRows]);
+    return { turnStarts, events, latestFrom };
+  }, [assistant, conversationRows, flukeRows]);
 
   // Assistant chat: fixed rhythm (28px between turns, 10px inside one);
-  // rows that render nothing collapse instead of leaving gaps.
+  // rows that render nothing collapse instead of leaving gaps. Option C:
+  // a margin column, the latest turn large, earlier ones faded.
   const renderRow = (row: ConversationRow, index: number) => {
-    const content = renderRowContent(row.entry, attempt, resetAction, repos);
-    if (!assistant) return content;
+    if (!assistant)
+      return renderRowContent(row.entry, attempt, resetAction, repos);
+    const { turnStarts, events, latestFrom } = flukeLayout;
+    const lines = events.get(index);
     const opensTurn = turnStarts.has(index);
+    const isUser = row.isUserMessage && !lines;
+    const now = index >= latestFrom;
+    // Times come from the process behind the row: a message is its prompt,
+    // so it was sent when the process started; Fluke's answer landed when
+    // it completed, and that span is how long Fluke took.
+    const process = processesById?.[row.entry.executionProcessId];
+    const done = process?.completed_at ?? null;
+    const timestamp =
+      (isUser ? process?.started_at : (done ?? process?.started_at)) ??
+      entryTimestamp(row.entry);
+    const tookMs =
+      opensTurn && process && done
+        ? new Date(done).getTime() - new Date(process.started_at).getTime()
+        : undefined;
     return (
       <div
         className={cn(
-          'px-4 [&:has(>div:empty)]:hidden',
-          row.isUserMessage || opensTurn ? 'pt-7' : 'pt-2.5'
+          'grid grid-cols-[56px_minmax(0,1fr)] gap-x-4 px-4 [&:has(>div:last-child>div:empty)]:hidden',
+          isUser || opensTurn || lines ? 'pt-7' : 'pt-2.5'
         )}
       >
-        {opensTurn && (
-          <AssistantTurnHeader timestamp={entryTimestamp(row.entry)} />
-        )}
-        {content}
+        <div>
+          {(isUser || opensTurn) && (
+            <TurnMargin
+              timestamp={timestamp}
+              you={isUser}
+              now={opensTurn && now}
+              live={hasRunningProcess}
+              tookMs={tookMs}
+            />
+          )}
+        </div>
+        <div
+          className={cn(
+            'min-w-0',
+            isUser
+              ? 'fluke-tx-you'
+              : !lines && (now ? 'fluke-tx-now' : 'fluke-tx-past')
+          )}
+        >
+          {lines ? (
+            <FlukeTelemetry lines={lines} />
+          ) : (
+            renderRowContent(row.entry, attempt, resetAction, repos)
+          )}
+        </div>
       </div>
     );
   };
@@ -542,8 +745,43 @@ export const ConversationList = forwardRef<
     [conversationRows, firstUnvirtualizedRowIndex]
   );
 
+  // Fluke's chat lays rows out its own way (margin column, small type,
+  // telemetry lines). The generic estimates, tuned for the task chat, were
+  // off by hundreds of px (an events batch was estimated by all its lines
+  // but renders as one 44px telemetry line), so the list kept correcting
+  // its scroll as rows came into view.
+  const estimateFlukeRow = useCallback(
+    (row: ConversationRow, width: number | null) => {
+      if (!assistant) return undefined;
+      if (flukeRows.runLines.has(row)) return 44;
+      if (row.rowFamily === 'thinking') return 40;
+      if (
+        row.rowFamily !== 'user_message' &&
+        row.rowFamily !== 'assistant_message'
+      )
+        return undefined;
+      const text =
+        row.entry.type === 'NORMALIZED_ENTRY' ? row.entry.content.content : '';
+      if (!text || !width) return undefined;
+      // Row padding, margin column and gap; ~6.4px per char at 13-14px.
+      const charsPerLine = Math.max(
+        20,
+        Math.floor(Math.max(120, width - 104) / 6.4)
+      );
+      const lines = text
+        .split('\n')
+        .reduce(
+          (n, line) => n + Math.max(1, Math.ceil(line.length / charsPerLine)),
+          0
+        );
+      return 36 + lines * 21;
+    },
+    [assistant, flukeRows]
+  );
+
   const conversationVirtualizer = useConversationVirtualizer({
     rows: virtualizedRows,
+    estimateRow: estimateFlukeRow,
     totalRowCount: conversationRows.length,
     scrollContainerRef: tanstackScrollRef,
     onAtBottomChange,
@@ -838,6 +1076,11 @@ export const ConversationList = forwardRef<
   return (
     <ApprovalFormProvider>
       <div className="relative h-full overflow-hidden">
+        {/* Fluke's empty state is a fixed layer over the list, not part of
+            the scroll: nothing to move with the wheel. */}
+        {showEmptyState && emptyState && (
+          <div className="absolute inset-0 overflow-hidden">{emptyState}</div>
+        )}
         {showLoader && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <SpinnerIcon className="size-6 animate-spin text-low" />
@@ -845,7 +1088,10 @@ export const ConversationList = forwardRef<
         )}
         <div
           ref={tanstackScrollRef}
-          className="h-full overflow-y-auto scrollbar-none"
+          className={cn(
+            'h-full overflow-y-auto scrollbar-none transition-opacity duration-200',
+            !settled && 'opacity-0'
+          )}
           style={{ overflowAnchor: 'none', contain: 'strict' }}
           onClickCapture={handleConversationClickCapture}
         >
@@ -860,7 +1106,9 @@ export const ConversationList = forwardRef<
             )}
           </div>
 
-          {isLoadingHistory && !showLoader && (
+          {/* Not in Fluke's chat: it sits above the rows and its 74px come and
+              go while the reader is scrolled up, moving the text. */}
+          {isLoadingHistory && !showLoader && !assistant && (
             <div className="flex flex-col items-center gap-2 px-double py-3">
               <div className="flex w-full max-w-md flex-col gap-1.5">
                 <div className="flex items-center gap-2">
@@ -884,7 +1132,7 @@ export const ConversationList = forwardRef<
             </div>
           )}
 
-          {showEmptyState && (
+          {showEmptyState && !emptyState && (
             <div className="flex min-h-full items-center justify-center px-double py-12">
               <ChatEmptyState
                 title={t('conversation.emptyTitle', {

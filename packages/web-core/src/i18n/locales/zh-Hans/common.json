@@ -368,7 +368,6 @@
       "moveUp": "向上移动",
       "moveLeft": "向左移动",
       "moveRight": "向右移动",
-      "openCommandBar": "打开命令栏",
       "toggleTerminal": "切换终端",
       "formatInlineCode": "Format inline code",
       "sendMessage": "发送消息",
@@ -404,6 +403,8 @@
       "run-setup-script": "运行设置脚本",
       "run-cleanup-script": "运行清理脚本",
       "run-archive-script": "运行归档脚本",
+      "flukeFocus": "Change Fluke’s focus",
+      "flukeNewMission": "New Fluke mission",
       "toggleDirector": "Open or close Fluke"
     }
   },
@@ -1858,7 +1859,8 @@
     "eventsBatch_one": "{{count}} 个应用事件",
     "eventsBatch_other": "{{count}} 个应用事件",
     "guard": {
-      "noBrief": "这是 Fluke 的总对话：应用通知、状态和指令。每个任务都有自己的标签页和简报，Fluke 了解所有任务。"
+      "noBrief": "这是 Fluke 的总对话：应用通知、状态和指令。每个任务都有自己的对话和简报，Fluke 了解所有任务。",
+      "status": "General · app notices"
     },
     "name": "Fluke",
     "open": "Open Fluke",
@@ -1869,10 +1871,15 @@
     "dismiss": "Dismiss",
     "missions": "Missions",
     "newMission": "New mission",
-    "openTabs_one": "{{count}} more open mission",
-    "openTabs_other": "{{count}} more open missions",
-    "openTabsWaiting_one": "{{count}} more open mission ({{waiting}} waiting for you)",
-    "openTabsWaiting_other": "{{count}} more open missions ({{waiting}} waiting for you)",
+    "focus": {
+      "placeholder": "Search a mission…",
+      "empty": "No mission matches",
+      "waiting": "Waiting for you",
+      "active": "In progress",
+      "always": "Always",
+      "general": "Fluke (general)",
+      "change": "Change focus"
+    },
     "loading": "Preparing the conversation…",
     "thinking": "thinking",
     "noRepo": "Add a repository to start a mission.",
@@ -1993,7 +2000,38 @@
       "message": "Analyst 提议 {{issues}} 个 issue，分 {{waves}} 个 wave。它在我选的模板上搭建了 issue 之间的流程。每个 dev 开始时会制定自己 issue 的内部计划。milestone 已在 Issues 中，等你按 play。",
       "viewMilestone": "查看 milestone",
       "runNow": "立即执行"
-    }
+    },
+    "backToPanel": "Back to the floating panel",
+    "resolve": {
+      "title": "To resolve",
+      "briefReady": "The brief is ready for your approval"
+    },
+    "strip": {
+      "working_one": "{{count}} more working",
+      "working_other": "{{count}} more working",
+      "total_one": "{{count}} in total",
+      "total_other": "{{count}} in total"
+    },
+    "welcome": {
+      "badgeMission": "Online · new mission",
+      "badgeGeneral": "Online · Fluke general",
+      "title": "What do you want to achieve?",
+      "titleGeneral": "How can I help?",
+      "description": "Tell me the goal. I write the brief, ask what is missing and put the team to work.",
+      "descriptionGeneral": "Here I report what happens in the app and take one-off orders. For something new, start a mission.",
+      "suggestions": {
+        "plan": "Propose the plan for this mission",
+        "brief": "What is the brief missing?",
+        "catchUp": "Summarize what happened while I was away",
+        "status": "Summarize the missions’ status",
+        "waiting": "What is waiting for me?"
+      }
+    },
+    "now": "Now",
+    "you": "You",
+    "telemetry_one": "Telemetry · {{count}} event",
+    "telemetry_other": "Telemetry · {{count}} events",
+    "tookTitle": "Fluke took {{took}} to answer"
   },
   "profiles": {
     "new": "新建配置",

@@ -30,13 +30,17 @@ import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useTheme } from '@/shared/hooks/useTheme';
 import WYSIWYGEditor from '@/shared/components/WYSIWYGEditor';
 import { useMessageEditContext } from '../model/contexts/MessageEditContext';
-import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
+import {
+  useFlukeRepoSlug,
+  useIsAssistantChat,
+} from '../model/contexts/AssistantChatContext';
 import {
   eventLines,
   isEventsBatch,
   isSilentReply,
   stripFlukeContext,
 } from '@/features/director/lib/events';
+import { linkRefs } from '@/features/director/lib/refs';
 import { BRIEF_TOOLS } from '../model/deriveConversationTimeline';
 import type { UseResetProcessResult } from '../model/hooks/useResetProcess';
 import { useChangesViewActions } from '@/shared/hooks/useChangesView';
@@ -414,6 +418,7 @@ function AssistantThinking({
 function DisplayConversationEntry(props: Props) {
   const { t } = useTranslation('common');
   const assistant = useIsAssistantChat();
+  const repoSlug = useFlukeRepoSlug();
   const { capabilities } = useUserSystem();
   const {
     entry,
@@ -496,7 +501,7 @@ function DisplayConversationEntry(props: Props) {
           executionProcessId={executionProcessId}
           executorCanFork={executorCanFork}
           resetAction={resetAction}
-          variant={assistant ? 'bubble' : 'card'}
+          variant={assistant ? 'line' : 'card'}
         />
       );
     }
@@ -508,7 +513,9 @@ function DisplayConversationEntry(props: Props) {
       if (assistant && isSilentReply(entry.content)) return null;
       return (
         <AssistantMessageEntry
-          content={assistant ? entry.content.trim() : entry.content}
+          content={
+            assistant ? linkRefs(entry.content.trim(), repoSlug) : entry.content
+          }
           workspaceId={workspaceWithSession?.id}
           sessionId={sessionId}
         />
@@ -862,7 +869,7 @@ function UserMessageEntry({
   executionProcessId: string | undefined;
   executorCanFork: boolean;
   resetAction: UseResetProcessResult;
-  variant: 'card' | 'bubble';
+  variant: 'card' | 'bubble' | 'line';
 }) {
   const [expanded, toggle] = usePersistedExpanded(`user:${expansionKey}`, true);
   const { startEdit, isEntryGreyed, isInEditMode } = useMessageEditContext();

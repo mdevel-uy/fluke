@@ -33,7 +33,6 @@ import {
   useMobileActiveTab,
   useUiPreferencesStore,
 } from '@/shared/stores/useUiPreferencesStore';
-import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useTerminal } from '@/shared/hooks/useTerminal';
@@ -320,10 +319,6 @@ export function NavbarContainer({
   ]);
 
   // Mobile-specific callbacks
-  const handleOpenCommandBar = useCallback(() => {
-    CommandBarDialog.show();
-  }, []);
-
   const handleNavigateBack = useCallback(() => {
     appNavigation.goToWorkspaces();
   }, [appNavigation]);
@@ -354,7 +349,6 @@ export function NavbarContainer({
       rightItems={rightItems}
       syncErrors={syncErrors}
       mobileMode={mobileMode}
-      onOpenCommandBar={handleOpenCommandBar}
       onNavigateBack={handleNavigateBack}
       onOpenDrawer={onOpenDrawer}
       mobileActiveTab={mobileActiveTab as MobileTabId}

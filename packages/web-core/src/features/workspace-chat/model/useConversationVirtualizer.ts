@@ -68,6 +68,15 @@ export interface ConversationVirtualizerOptions {
   onAtBottomChange?: (atBottom: boolean) => void;
 
   shouldSuppressSizeAdjustment?: () => boolean;
+
+  /**
+   * A shell's own estimate for a row (its layout differs from the task
+   * chat's); undefined falls back to the generic one.
+   */
+  estimateRow?: (
+    row: ConversationRow,
+    containerWidthPx: number | null
+  ) => number | undefined;
 }
 
 export interface ConversationVirtualizerResult {
@@ -151,6 +160,7 @@ export function useConversationVirtualizer({
   scrollContainerRef,
   onAtBottomChange,
   shouldSuppressSizeAdjustment,
+  estimateRow,
 }: ConversationVirtualizerOptions): ConversationVirtualizerResult {
   const bottomLockedRef = useRef(false);
   const smoothScrollDeadlineRef = useRef(0);
@@ -171,7 +181,10 @@ export function useConversationVirtualizer({
       const row = rows[index];
       if (!row) return SIZE_ESTIMATE_PX.medium;
       const containerWidth = scrollContainerRef.current?.clientWidth ?? null;
-      return estimateSizeForRow(row, containerWidth);
+      return (
+        estimateRow?.(row, containerWidth) ??
+        estimateSizeForRow(row, containerWidth)
+      );
     },
     getItemKey: (index) => {
       const row = rows[index];
@@ -181,6 +194,28 @@ export function useConversationVirtualizer({
     measureElement: defaultMeasureElement,
     useAnimationFrameWithResizeObserver: false,
   });
+
+  // -------------------------------------------------------------------------
+  // Rows inserted above (older history arriving in batches) push down what
+  // the reader is looking at: unless pinned to the bottom, shift the scroll
+  // by the space they take, so the text in view stays put. Their later
+  // measurement is a size change above the viewport, handled below.
+  // -------------------------------------------------------------------------
+
+  const prevFirstKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const firstKey = rows[0]?.semanticKey ?? null;
+    const prevKey = prevFirstKeyRef.current;
+    prevFirstKeyRef.current = firstKey;
+    if (prevKey === null || prevKey === firstKey || bottomLockedRef.current)
+      return;
+    const el = scrollContainerRef.current;
+    const index = rows.findIndex((row) => row.semanticKey === prevKey);
+    if (!el || index <= 0) return;
+    // Fresh: the render that took the new rows read getVirtualItems().
+    const inserted = virtualizer.measurementsCache[index]?.start ?? 0;
+    if (inserted > 0) el.scrollTop += inserted;
+  }, [rows, scrollContainerRef, virtualizer]);
 
   // -------------------------------------------------------------------------
   // shouldAdjustScrollPositionOnItemSizeChange
@@ -260,6 +295,18 @@ export function useConversationVirtualizer({
 
     prevScrollTopRef.current = el.scrollTop;
 
+    // Only the user scrolls up on purpose. Content above shrinking (an
+    // estimated row measuring smaller) also moves scrollTop up, and must
+    // not release the bottom lock: it showed the read-navigation arrows for
+    // a frame at a time while history loaded.
+    let lastUserInput = -Infinity;
+    const markUserInput = () => {
+      lastUserInput = performance.now();
+    };
+    const inputEvents = ['wheel', 'touchmove', 'keydown', 'pointerdown'];
+    for (const type of inputEvents)
+      el.addEventListener(type, markUserInput, { passive: true });
+
     const handleScroll = () => {
       const currentScrollTop = el.scrollTop;
 
@@ -271,6 +318,7 @@ export function useConversationVirtualizer({
       if (
         bottomLockedRef.current &&
         prevScrollTopRef.current - currentScrollTop > 5 &&
+        performance.now() - lastUserInput < 1000 &&
         performance.now() > smoothScrollDeadlineRef.current &&
         !shouldSuppressSizeAdjustment?.()
       ) {
@@ -286,6 +334,8 @@ export function useConversationVirtualizer({
 
     return () => {
       el.removeEventListener('scroll', handleScroll);
+      for (const type of inputEvents)
+        el.removeEventListener(type, markUserInput);
     };
   }, [scrollContainerRef, shouldSuppressSizeAdjustment, syncIsAtBottom]);
 

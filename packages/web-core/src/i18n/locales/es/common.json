@@ -383,7 +383,6 @@
       "moveUp": "Mover arriba",
       "moveLeft": "Mover a la izquierda",
       "moveRight": "Mover a la derecha",
-      "openCommandBar": "Abrir barra de comandos",
       "toggleTerminal": "Mostrar/ocultar terminal",
       "formatInlineCode": "Format inline code",
       "sendMessage": "Enviar mensaje",
@@ -419,6 +418,8 @@
       "run-setup-script": "Ejecutar script de configuración",
       "run-cleanup-script": "Ejecutar script de limpieza",
       "run-archive-script": "Ejecutar script de archivado",
+      "flukeFocus": "Cambiar el foco de Fluke",
+      "flukeNewMission": "Nueva misión de Fluke",
       "toggleDirector": "Abrir o cerrar Fluke"
     }
   },
@@ -2104,7 +2105,8 @@
     "eventsBatch_one": "{{count}} evento de la app",
     "eventsBatch_other": "{{count}} eventos de la app",
     "guard": {
-      "noBrief": "Esta es la conversación general de Fluke: avisos de la app, estado y órdenes. Cada misión tiene su pestaña con su brief, y Fluke las conoce todas."
+      "noBrief": "Esta es la conversación general de Fluke: avisos de la app, estado y órdenes. Cada misión tiene su propia conversación y su brief, y Fluke las conoce todas.",
+      "status": "General · avisos de la app"
     },
     "name": "Fluke",
     "open": "Abrir Fluke",
@@ -2115,10 +2117,15 @@
     "dismiss": "Descartar",
     "missions": "Misiones",
     "newMission": "Nueva misión",
-    "openTabs_one": "{{count}} misión abierta más",
-    "openTabs_other": "{{count}} misiones abiertas más",
-    "openTabsWaiting_one": "{{count}} misión abierta más ({{waiting}} esperando tu respuesta)",
-    "openTabsWaiting_other": "{{count}} misiones abiertas más ({{waiting}} esperando tu respuesta)",
+    "focus": {
+      "placeholder": "Buscar una misión…",
+      "empty": "Ninguna misión coincide",
+      "waiting": "Lo esperan",
+      "active": "En curso",
+      "always": "Siempre",
+      "general": "Fluke (general)",
+      "change": "Cambiar foco"
+    },
     "loading": "Preparando la conversación…",
     "thinking": "pensando",
     "noRepo": "Agregue un repositorio para iniciar una misión.",
@@ -2260,7 +2267,38 @@
       "busyTitle": "Fluke sigue trabajando",
       "busy": "Espere a que Fluke termine de responder en esta misión antes de borrarla.",
       "error": "No se pudo borrar la misión: {{message}}"
-    }
+    },
+    "backToPanel": "Volver al panel flotante",
+    "resolve": {
+      "title": "Para resolver",
+      "briefReady": "El brief está listo para su aprobación"
+    },
+    "strip": {
+      "working_one": "{{count}} más trabajando",
+      "working_other": "{{count}} más trabajando",
+      "total_one": "{{count}} en total",
+      "total_other": "{{count}} en total"
+    },
+    "welcome": {
+      "badgeMission": "En línea · misión nueva",
+      "badgeGeneral": "En línea · Fluke general",
+      "title": "¿Qué quiere lograr?",
+      "titleGeneral": "¿En qué lo ayudo?",
+      "description": "Cuénteme el objetivo. Yo armo el brief, pregunto lo que falte y pongo a trabajar al equipo.",
+      "descriptionGeneral": "Acá le aviso lo que pasa en la app y recibo órdenes sueltas. Para algo nuevo, empiece una misión.",
+      "suggestions": {
+        "plan": "Proponga el plan para esta misión",
+        "brief": "¿Qué le falta al brief?",
+        "catchUp": "Resuma lo que pasó mientras no estaba",
+        "status": "Resuma el estado de las misiones",
+        "waiting": "¿Qué me está esperando?"
+      }
+    },
+    "now": "Ahora",
+    "you": "Usted",
+    "telemetry_one": "Telemetría · {{count}} evento",
+    "telemetry_other": "Telemetría · {{count}} eventos",
+    "tookTitle": "Fluke tardó {{took}} en responder"
   },
   "profiles": {
     "new": "Nuevo perfil",

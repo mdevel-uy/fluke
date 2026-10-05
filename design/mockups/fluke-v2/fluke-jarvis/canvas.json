@@ -1,0 +1,234 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AltDock.dc.html": {
+      "h": 720,
+      "title": "C · Dock horizontal sobre el composer",
+      "w": 440,
+      "x": 1040,
+      "y": 4460
+    },
+    "AltRail.dc.html": {
+      "h": 720,
+      "title": "A · Riel curado: sólo lo que importa + \"+N\"",
+      "w": 440,
+      "x": 0,
+      "y": 4460
+    },
+    "AltTitulo.dc.html": {
+      "h": 720,
+      "title": "B · Sin riel: el título elige y una franja avisa",
+      "w": 440,
+      "x": 520,
+      "y": 4460
+    },
+    "AltTituloLista.dc.html": {
+      "h": 720,
+      "title": "B · \"14 en total\" abierto: lista dentro del panel",
+      "w": 440,
+      "x": 1560,
+      "y": 4460
+    },
+    "ChatBitacora.dc.html": {
+      "h": 900,
+      "title": "A · Bitácora: línea de tiempo y eventos agrupados",
+      "w": 980,
+      "x": 0,
+      "y": 6800
+    },
+    "ChatTarjetas.dc.html": {
+      "h": 900,
+      "title": "B · Tarjetas de señal con acciones",
+      "w": 980,
+      "x": 1060,
+      "y": 6800
+    },
+    "ChatTransmision.dc.html": {
+      "h": 900,
+      "title": "C · Transmisión: lo último en grande, telemetría",
+      "w": 980,
+      "x": 2120,
+      "y": 6800
+    },
+    "Foco.dc.html": {
+      "h": 720,
+      "title": "Cambiar foco (Ctrl K, global)",
+      "w": 440,
+      "x": 520,
+      "y": 760
+    },
+    "Main.dc.html": {
+      "h": 460,
+      "title": "Botón de Fluke: estados animados",
+      "w": 1240,
+      "x": 0,
+      "y": 0
+    },
+    "Page.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "title": "Página completa: misiones, chat, plan y brief",
+      "w": 1440,
+      "x": 1360,
+      "y": 1900
+    },
+    "PageVacio.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "title": "A en página completa: misión nueva",
+      "w": 1440,
+      "x": 1560,
+      "y": 5520
+    },
+    "PageVoz.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "title": "Voz · página: orbe central y plan en vivo",
+      "w": 1440,
+      "x": 1880,
+      "y": 3180
+    },
+    "Panel.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "title": "Panel: riel + foco en el título",
+      "w": 440,
+      "x": 0,
+      "y": 760
+    },
+    "PanelVoz.dc.html": {
+      "h": 720,
+      "title": "Voz · flotante: escuchando + confirmación",
+      "w": 440,
+      "x": 0,
+      "y": 3180
+    },
+    "Pinned.dc.html": {
+      "expand": "fill",
+      "h": 800,
+      "title": "Anclado: columna con riel",
+      "w": 1280,
+      "x": 0,
+      "y": 1900
+    },
+    "PinnedVoz.dc.html": {
+      "expand": "fill",
+      "h": 800,
+      "title": "Voz · anclado: Fluke hablando, interrumpible",
+      "w": 1280,
+      "x": 520,
+      "y": 3180
+    },
+    "VacioArranque.dc.html": {
+      "h": 600,
+      "title": "B · Secuencia de arranque tipo HUD",
+      "w": 440,
+      "x": 520,
+      "y": 5520
+    },
+    "VacioOrbe.dc.html": {
+      "h": 600,
+      "title": "A · Orbe en espera: saludo + próximos pasos",
+      "w": 440,
+      "x": 0,
+      "y": 5520
+    },
+    "VacioRadar.dc.html": {
+      "h": 600,
+      "title": "C · Radar con las señales de la misión",
+      "w": 440,
+      "x": 1040,
+      "y": 5520
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-04T15:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 1240,
+      "text": "Fluke sin tabs · look Jarvis",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 960,
+      "text": "Una conversación, un foco",
+      "w": 240,
+      "x": 0,
+      "y": 500
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 2800,
+      "text": "Anclado y página completa",
+      "w": 240,
+      "x": 0,
+      "y": 1640
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 3320,
+      "text": "Versiones de voz",
+      "w": 240,
+      "x": 0,
+      "y": 2920
+    },
+    "t5": {
+      "kind": "title1",
+      "maxW": 2000,
+      "text": "Muchas misiones: flotante y anclado",
+      "w": 240,
+      "x": 0,
+      "y": 4200
+    },
+    "t6": {
+      "kind": "title1",
+      "maxW": 3000,
+      "text": "Conversación vacía",
+      "w": 240,
+      "x": 0,
+      "y": 5260
+    },
+    "t7": {
+      "kind": "title1",
+      "maxW": 3100,
+      "text": "La conversación",
+      "w": 240,
+      "x": 0,
+      "y": 6540
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Panel.dc.html",
+    "Foco.dc.html",
+    "Pinned.dc.html",
+    "Page.dc.html",
+    "PanelVoz.dc.html",
+    "PinnedVoz.dc.html",
+    "PageVoz.dc.html",
+    "AltRail.dc.html",
+    "AltTitulo.dc.html",
+    "AltDock.dc.html",
+    "AltTituloLista.dc.html",
+    "VacioOrbe.dc.html",
+    "VacioArranque.dc.html",
+    "VacioRadar.dc.html",
+    "PageVacio.dc.html",
+    "ChatBitacora.dc.html",
+    "ChatTarjetas.dc.html",
+    "ChatTransmision.dc.html"
+  ],
+  "pages": [],
+  "title": "Fluke sin tabs"
+}

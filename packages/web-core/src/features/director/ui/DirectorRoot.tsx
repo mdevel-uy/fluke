@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Group,
@@ -9,7 +9,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { XIcon } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
-import { cn } from '@/shared/lib/utils';
 import { isMac } from '@/shared/lib/platform';
 import { ShellAsidePortal } from '@/shared/components/ui-new/shell/ShellAside';
 import { ShellSidebarPortal } from '@/shared/components/ui-new/shell/ShellSidebar';
@@ -17,25 +16,29 @@ import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { isFlukeDestination } from '@/shared/lib/routes/appNavigation';
-import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
+import { useDirectorStore } from '../model/useDirectorStore';
 import {
   isWaitingForUser,
+  missionLabel,
   useDirectorUiContext,
+  useFocusedMission,
   useMission,
   useMissionList,
+  useNewMission,
   useSyncUiContext,
 } from '../model/useMissions';
 import { BriefView } from './BriefView';
 import { MissionStepper, ProposalPanel } from './MissionProgress';
 import {
-  DirectorBody,
-  DirectorHeader,
+  consumeKeepViewOnLeave,
+  FlukeHeader,
   FlukeMissionsSidebar,
+  FlukePanel,
   MissionConversation,
-  MissionTabs,
-  missionLabel,
+  NoMissions,
 } from './DirectorPanel';
-import { FlukeMark } from './FlukeMark';
+import { FlukeFocusDialog } from './FlukeFocusDialog';
+import { FlukeOrbParts } from './MissionRing';
 import { useFlukeEventsLive } from '../model/useFlukeEventsLive';
 
 /**
@@ -49,21 +52,49 @@ export function DirectorRoot() {
   useFlukeEventsLive();
   const view = useDirectorStore((s) => s.view);
   const pinned = useDirectorStore((s) => s.pinned);
-  const activeTab = useDirectorStore((s) => s.activeTab);
   const context = useDirectorUiContext();
-  const missionId = activeTab === MISSIONS_TAB ? null : activeTab;
-  useSyncUiContext(missionId, context);
+  const { summary } = useFocusedMission();
+  useSyncUiContext(summary?.mission.id ?? null, context);
 
-  // Ctrl/Cmd+Shift+I, as in VS Code's chat. Capture phase so xterm or the
-  // editor can't swallow it first (same as Ctrl+J for the terminal).
+  // On /fluke the page is the assistant: no second copy floating or docked.
+  const onFlukePage = isFlukeDestination(useCurrentAppDestination());
+  // With the panel open, Ctrl/Cmd+K drops its mission list; elsewhere it
+  // opens the picker centered.
+  const panelShownRef = useRef(false);
+  useEffect(() => {
+    panelShownRef.current = view === 'panel' && !onFlukePage;
+  }, [view, onFlukePage]);
+  // Ctrl/Cmd+Shift+N: a new mission in the selected repo, opened in Fluke.
+  const { repoId, create } = useNewMission();
+  const newMissionRef = useRef(() => {});
+  useEffect(() => {
+    newMissionRef.current = () => {
+      if (repoId && !create.isPending) create.mutate(repoId);
+    };
+  }, [repoId, create]);
+
+  // Ctrl/Cmd+Shift+I, as in VS Code's chat, toggles Fluke; Ctrl/Cmd+K picks
+  // its focus; Ctrl/Cmd+Shift+N starts a new mission. Capture phase so xterm or the editor can't swallow them first
+  // (same as Ctrl+J for the terminal).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const modifier = isMac() ? event.metaKey : event.ctrlKey;
-      if (!modifier || !event.shiftKey || event.altKey) return;
-      if (event.key.toLowerCase() !== 'i') return;
+      if (!modifier || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (!event.shiftKey && key === 'k') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (panelShownRef.current) {
+          const { picker, setPicker } = useDirectorStore.getState();
+          setPicker(picker ? null : 'all');
+        } else void FlukeFocusDialog.show();
+        return;
+      }
+      if (!event.shiftKey || (key !== 'i' && key !== 'n')) return;
       event.preventDefault();
       event.stopPropagation();
-      useDirectorStore.getState().toggle();
+      if (key === 'n') newMissionRef.current();
+      else useDirectorStore.getState().toggle();
     };
     window.addEventListener('keydown', onKeyDown, { capture: true });
     return () =>
@@ -83,19 +114,12 @@ export function DirectorRoot() {
     (s) => s.isRightSidebarVisible
   );
 
-  // On /fluke the page is the assistant: no second copy floating or docked.
-  const onFlukePage = isFlukeDestination(useCurrentAppDestination());
-
   if (onFlukePage) return null;
   if (view === 'panel' && pinned && isRightSidebarVisible) {
     return (
       <ShellAsidePortal className="order-last">
-        <div className="flex h-full min-h-0 flex-col bg-primary">
-          <DirectorHeader context={context} />
-          <MissionTabs />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <DirectorBody />
-          </div>
+        <div className="flex h-full min-h-0 flex-col border-l border-brand/30 bg-primary shadow-[-12px_0_30px_hsl(var(--brand)/0.08)]">
+          <FlukePanel mode="pinned" />
         </div>
       </ShellAsidePortal>
     );
@@ -105,13 +129,9 @@ export function DirectorRoot() {
       <aside
         role="complementary"
         aria-label="Fluke"
-        className="fixed bottom-[34px] right-4 z-[80] flex h-[min(640px,calc(100vh-120px))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-md-outline-variant bg-primary shadow-overlay"
+        className="fixed bottom-[42px] right-7 z-[80] flex h-[min(680px,calc(100vh-128px))] w-[420px] max-w-[calc(100vw-3.5rem)] flex-col overflow-hidden rounded-[14px] border border-md-outline-variant bg-primary shadow-overlay ring-1 ring-brand/15"
       >
-        <DirectorHeader context={context} />
-        <MissionTabs />
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <DirectorBody />
-        </div>
+        <FlukePanel mode="floating" />
       </aside>
     ) : (
       <DirectorBubble />
@@ -126,14 +146,8 @@ export function DirectorRoot() {
  */
 export function FlukePage() {
   const { t } = useTranslation('common');
-  const activeTab = useDirectorStore((s) => s.activeTab);
-  const { data: missions = [] } = useMissionList();
-  // No tab here: with the list in the aside, show the latest mission.
-  const missionId =
-    activeTab !== MISSIONS_TAB
-      ? activeTab
-      : (missions.find((m) => m.mission.status !== 'closed')?.mission.id ??
-        null);
+  const { summary, isLoading } = useFocusedMission();
+  const missionId = summary?.mission.id ?? null;
   const context = useDirectorUiContext();
   const { data: detail } = useMission(missionId);
   const { defaultLayout, onLayoutChange } = useDefaultLayout({
@@ -142,11 +156,14 @@ export function FlukePage() {
     id: 'fluke-page',
   });
 
-  // Picking or creating a mission opens the floating panel (openMission);
-  // here that must not leak: leaving the page restores the previous view.
+  // Creating a mission or Ctrl+K opens the floating panel (openMission); here
+  // that must not leak: leaving the page restores the previous view, unless
+  // the header's pin / back-to-panel buttons picked one.
   useEffect(() => {
     const { view, setView } = useDirectorStore.getState();
-    return () => setView(view);
+    return () => {
+      if (!consumeKeepViewOnLeave()) setView(view);
+    };
   }, []);
 
   return (
@@ -154,7 +171,7 @@ export function FlukePage() {
       <ShellSidebarPortal>
         <FlukeMissionsSidebar selectedId={missionId} />
       </ShellSidebarPortal>
-      <DirectorHeader context={context} page />
+      <FlukeHeader mode="page" summary={summary} context={context} />
       {/* Chat | brief, resizable; the split is remembered across visits. */}
       <Group
         orientation="horizontal"
@@ -164,9 +181,9 @@ export function FlukePage() {
       >
         <Panel id="fluke-chat" minSize="360px" className="min-w-0">
           {missionId ? (
-            <MissionConversation missionId={missionId} />
+            <MissionConversation missionId={missionId} mode="page" />
           ) : (
-            <DirectorBody />
+            <NoMissions loading={isLoading} />
           )}
         </Panel>
         <Separator
@@ -205,8 +222,8 @@ const noticeKey = (m: MissionSummary) =>
   `${m.mission.id}:${m.mission.status}:${m.mission.pending_questions.length}`;
 
 /**
- * Collapsed Director. Rest: the app's mark. Working: a pill with the mission
- * and its progress. Notice: amber counter plus a short card with actions.
+ * Collapsed Director: the app's mark, with an amber counter of missions
+ * waiting on the user and a short card with actions.
  */
 function DirectorBubble() {
   const { t } = useTranslation('common');
@@ -220,17 +237,11 @@ function DirectorBubble() {
 
   const waiting = missions.filter(isWaitingForUser);
   const notice = waiting.find((m) => !dismissed.includes(noticeKey(m)));
-  // The guard reading app events is not work worth a pill.
-  const working = missions.find(
-    (m) =>
-      (m.agent_running && !m.is_guard) ||
-      (['planning', 'executing'].includes(m.mission.status) &&
-        m.issues_total > 0)
-  );
+  const working = missions.some((m) => m.agent_running);
   const label = t('director.open');
 
   return (
-    <div className="fixed bottom-[34px] right-4 z-[80] flex flex-col items-end gap-2">
+    <div className="fixed bottom-[42px] right-7 z-[80] flex flex-col items-end gap-2">
       {notice && (
         <div className="flex w-[280px] flex-col gap-2 rounded-lg border border-md-outline-variant bg-primary p-3 shadow-overlay">
           <div className="flex items-start gap-2">
@@ -270,64 +281,21 @@ function DirectorBubble() {
           </button>
         </div>
       )}
-      {working && !notice ? (
-        <button
-          type="button"
-          onClick={() => openMission(working.mission.id)}
-          aria-label={label}
-          title={label}
-          className="flex max-w-[320px] flex-col gap-1 rounded-full border border-md-outline-variant bg-primary px-3 py-1.5 text-left shadow-overlay"
-        >
-          <span className="flex items-center gap-2 text-xs text-normal">
-            <span className="text-brand-on-surface">
-              <FlukeMark size={12} />
-            </span>
-            <span className="truncate">
-              {[
-                missionLabel(working, t('director.newMission')),
-                working.agent_running
-                  ? t('director.thinking')
-                  : t(`director.status.${working.mission.status}`),
-                working.issues_total > 0 &&
-                  t('director.progress', {
-                    done: working.issues_closed,
-                    total: working.issues_total,
-                  }),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={label}
+        title={`${label} (Ctrl Shift I)`}
+        data-state={waiting.length > 0 ? 'alert' : working ? 'working' : 'idle'}
+        className="fluke-orb focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <FlukeOrbParts markSize={18} />
+        {waiting.length > 0 && (
+          <span className="absolute -right-1 -top-1 z-[2] flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1 font-mono tabular-nums text-[10px] font-semibold text-black/85 shadow-[0_0_0_2px_hsl(var(--md-background))]">
+            {waiting.length}
           </span>
-          {working.issues_total > 0 && (
-            <span className="flex gap-0.5">
-              {Array.from({ length: working.issues_total }, (_, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    'h-1 flex-1 rounded-full',
-                    i < working.issues_closed ? 'bg-brand' : 'bg-secondary'
-                  )}
-                />
-              ))}
-            </span>
-          )}
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={label}
-          title={`${label} (Ctrl Shift I)`}
-          className="relative flex size-11 items-center justify-center rounded-full bg-brand text-on-brand shadow-overlay hover:bg-brand-hover"
-        >
-          <FlukeMark size={18} />
-          {waiting.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-warning text-[10px] font-semibold text-warning-foreground">
-              {waiting.length}
-            </span>
-          )}
-        </button>
-      )}
+        )}
+      </button>
     </div>
   );
 }

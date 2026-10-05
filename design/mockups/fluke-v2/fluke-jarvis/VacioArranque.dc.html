@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vacío: secuencia de arranque</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'JetBrains Mono',monospace}
+.chip{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:1px solid #2b3550;border-radius:10px;background:#0f1828;color:#d6dbe5;font-size:13px;text-align:left}
+.chip:hover{border-color:#4f52c9;background:#151c3a;color:#fff}
+.chip svg{flex-shrink:0;color:#818CF8}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{transform:scale(1);box-shadow:0 0 0 1px rgba(165,180,252,.35),0 0 28px rgba(99,102,241,.5)}50%{transform:scale(1.05);box-shadow:0 0 0 1px rgba(165,180,252,.55),0 0 52px rgba(99,102,241,.8)}}
+@keyframes blink{50%{opacity:0}}
+
+.ln{display:flex;gap:10px;font:400 12px/1.9 'JetBrains Mono',monospace;color:#8b93a7;opacity:0;animation:in .4s ease-out forwards}
+.ln b{font-weight:500;color:#818CF8;min-width:74px}
+.ln .ok{color:#34d399}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.caret{display:inline-block;width:8px;height:15px;background:#a5b4fc;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(99,102,241,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.06) 1px,transparent 1px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse at 50% 40%,#000 30%,transparent 75%);mask-image:radial-gradient(ellipse at 50% 40%,#000 30%,transparent 75%)}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 440px; height: 600px; box-sizing: border-box; display: flex; flex-direction: column; background: #0e1525; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0; border: 1px solid #2b3550; border-radius: 14px; overflow: hidden">
+<div style="position: relative; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 28px 26px">
+<div class="grid"></div>
+<div style="position: relative; display: flex; flex-direction: column">
+<div class="ln" style="animation-delay: .1s"><b>FLUKE</b><span>en línea <span class="ok">●</span></span></div>
+<div class="ln" style="animation-delay: .5s"><b>MISIÓN</b><span style="color: #e2e8f0">Merge de PRs aprobados desde la UI</span></div>
+<div class="ln" style="animation-delay: .9s"><b>REPO</b><span>fluke · main</span></div>
+<div class="ln" style="animation-delay: 1.3s"><b>EQUIPO</b><span>Analyst · Designer · 3 workers libres</span></div>
+<div class="ln" style="animation-delay: 1.7s"><b>ESTADO</b><span>sin brief todavía</span></div>
+</div>
+<div class="ln" style="position: relative; animation-delay: 2.2s; font-size: 15px; color: #f8fafc">Esperando instrucciones <span class="caret"></span></div>
+<div style="position: relative"><div style="display: flex; flex-direction: column; gap: 8px; width: 100%">
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Proponga el plan para esta misión</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>¿Qué le falta al brief?</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Resuma lo que pasó mientras no estaba</button>
+</div></div>
+</div>
+<div style="padding: 8px 12px 12px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid #4f52c9; border-radius: 10px; background: #0b1220; box-shadow: 0 0 0 3px rgba(99,102,241,.15)">
+<span style="flex-grow: 1; font-size: 13.5px; line-height: 30px; color: #6b7389">Escríbale a Fluke…</span>
+<button aria-label="Enviar" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: #6366F1; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

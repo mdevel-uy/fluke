@@ -72,28 +72,28 @@ export function useCreateMission() {
  */
 export function useArchiveMission() {
   const store = useStoreDetail();
-  const closeTab = useDirectorStore((s) => s.closeMissionTab);
+  const unfocus = useDirectorStore((s) => s.unfocus);
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
       missionsApi.update(id, { close: archived }),
     onSuccess: (detail, { archived }) => {
       store(detail);
-      if (archived) closeTab(detail.mission.id);
+      if (archived) unfocus(detail.mission.id);
     },
   });
 }
 
 /**
- * Delete a mission for good. The tab closes and the mission leaves the list
+ * Delete a mission for good. The focus drops and the mission leaves the list
  * only once the server confirms; on error both stay as they were.
  */
 export function useDeleteMission() {
   const queryClient = useQueryClient();
-  const closeTab = useDirectorStore((s) => s.closeMissionTab);
+  const unfocus = useDirectorStore((s) => s.unfocus);
   return useMutation({
     mutationFn: (id: string) => missionsApi.delete(id),
     onSuccess: (_, id) => {
-      closeTab(id);
+      unfocus(id);
       queryClient.setQueryData<MissionSummary[]>(missionKeys.list(), (list) =>
         list?.filter((m) => m.mission.id !== id)
       );
@@ -231,6 +231,34 @@ export function isWaitingForUser(m: MissionSummary): boolean {
     m.mission.status === 'brief_ready' ||
     (m.mission.status !== 'closed' && m.mission.pending_questions.length > 0)
   );
+}
+
+export const isArchived = (m: MissionSummary) => m.mission.status === 'closed';
+
+export function missionLabel(m: MissionSummary, fallback: string): string {
+  return m.mission.title || m.repo_name || fallback;
+}
+
+/** Repo a new mission starts in: the selected one, else the first. */
+export function useNewMission() {
+  const { repos } = useRepos();
+  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
+  const repoId = repos.find((r) => r.id === selectedRepoId)?.id ?? repos[0]?.id;
+  return { repoId, create: useCreateMission() };
+}
+
+/**
+ * The mission Fluke's views show: the focused one, else Fluke's general
+ * conversation (the guard), else the first mission still open.
+ */
+export function useFocusedMission() {
+  const focusId = useDirectorStore((s) => s.focusId);
+  const { data: missions = [], isLoading } = useMissionList();
+  const summary =
+    missions.find((m) => m.mission.id === focusId) ??
+    missions.find((m) => m.is_guard) ??
+    missions.find((m) => !isArchived(m));
+  return { summary, missions, isLoading };
 }
 
 const SECTION_KEYS: Record<string, string> = {

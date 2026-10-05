@@ -64,7 +64,7 @@ function useShortcutGroups(): ShortcutGroup[] {
       shortcuts: [
         {
           keys: [mod, 'K'],
-          description: t('shortcuts.actions.openCommandBar'),
+          description: t('shortcuts.actions.flukeFocus'),
         },
         {
           keys: [mod, 'J'],
@@ -73,6 +73,10 @@ function useShortcutGroups(): ShortcutGroup[] {
         {
           keys: [mod, 'Shift', 'I'],
           description: t('shortcuts.actions.toggleDirector'),
+        },
+        {
+          keys: [mod, 'Shift', 'N'],
+          description: t('shortcuts.actions.flukeNewMission'),
         },
         {
           keys: [mod, 'E'],
