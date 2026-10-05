@@ -2014,7 +2014,8 @@
     "now": "Now",
     "you": "You",
     "telemetry_one": "Telemetry · {{count}} event",
-    "telemetry_other": "Telemetry · {{count}} events"
+    "telemetry_other": "Telemetry · {{count}} events",
+    "tookTitle": "Fluke took {{took}} to answer"
   },
   "profiles": {
     "new": "Nouveau profil",

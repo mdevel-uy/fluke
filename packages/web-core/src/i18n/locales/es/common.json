@@ -2269,7 +2269,8 @@
     "now": "Ahora",
     "you": "Usted",
     "telemetry_one": "Telemetría · {{count}} evento",
-    "telemetry_other": "Telemetría · {{count}} eventos"
+    "telemetry_other": "Telemetría · {{count}} eventos",
+    "tookTitle": "Fluke tardó {{took}} en responder"
   },
   "profiles": {
     "new": "Nuevo perfil",

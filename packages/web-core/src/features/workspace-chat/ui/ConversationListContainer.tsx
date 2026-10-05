@@ -188,22 +188,50 @@ function eventsBatchLines(entry: DisplayEntry): string[] | null {
   return isEventsBatch(content) ? eventLines(content) : null;
 }
 
+/** "12s", "4m 05s", "1h 02m": short enough for the margin. */
+function formatTook(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
 /**
- * Fluke's chat (design option C, "transmisión"): who and when sit in a
- * margin column. The latest turn shows the live orb and "now" instead.
+ * Fluke's chat (design option C, "transmisión"): who, when and how long
+ * Fluke took sit in a margin column. The latest turn adds the live orb and
+ * "now".
  */
+
 function TurnMargin({
   timestamp,
   you = false,
   now = false,
   live = false,
+  tookMs,
 }: {
   timestamp: string | null;
   you?: boolean;
   now?: boolean;
   live?: boolean;
+  /** How long Fluke took to answer this turn. */
+  tookMs?: number;
 }) {
   const { t } = useTranslation('common');
+  const time =
+    timestamp &&
+    new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const took = tookMs !== undefined && (
+    <span
+      className="text-low/60"
+      title={t('director.tookTitle', { took: formatTook(tookMs) })}
+    >
+      {formatTook(tookMs)}
+    </span>
+  );
   if (now) {
     return (
       <div className="flex flex-col items-end gap-1.5 pt-0.5">
@@ -217,6 +245,10 @@ function TurnMargin({
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-brand-on-surface">
           {t('director.now')}
         </span>
+        <span className="flex flex-col items-end gap-1 font-mono text-[10.5px] leading-none">
+          {time && <span className="text-low/80">{time}</span>}
+          {took}
+        </span>
       </div>
     );
   }
@@ -227,14 +259,8 @@ function TurnMargin({
           {t('director.you')}
         </span>
       )}
-      {timestamp && (
-        <span className="text-low/80">
-          {new Date(timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      )}
+      {time && <span className="text-low/80">{time}</span>}
+      {took}
     </div>
   );
 }
@@ -504,12 +530,25 @@ export const ConversationList = forwardRef<
     const turnStarts = new Set<number>();
     const events = new Map<number, string[]>();
     const merged = new Set<number>();
+    // Per turn: when it was asked (user message or events) and when its last
+    // row landed, to show how long Fluke took to answer.
+    const tookMs = new Map<number, number>();
     let latestFrom = Infinity;
-    if (!assistant) return { turnStarts, events, merged, latestFrom };
+    if (!assistant) return { turnStarts, events, merged, latestFrom, tookMs };
     let pending = true;
     let runHead = -1;
+    let askedAt: number | null = null;
+    let turn = -1;
     conversationRows.forEach((row, i) => {
+      const ts = entryTimestamp(row.entry);
+      const at = ts ? new Date(ts).getTime() : null;
       const lines = eventsBatchLines(row.entry);
+      if (lines || row.isUserMessage) {
+        askedAt = at ?? askedAt;
+        turn = -1;
+      } else if (turn >= 0 && at !== null && askedAt !== null) {
+        tookMs.set(turn, at - askedAt);
+      }
       if (lines) {
         if (runHead >= 0) {
           events.get(runHead)!.push(...lines);
@@ -530,9 +569,11 @@ export const ConversationList = forwardRef<
         turnStarts.add(i);
         pending = false;
         latestFrom = i;
+        turn = i;
+        if (at !== null && askedAt !== null) tookMs.set(i, at - askedAt);
       }
     });
-    return { turnStarts, events, merged, latestFrom };
+    return { turnStarts, events, merged, latestFrom, tookMs };
   }, [assistant, conversationRows]);
 
   // Assistant chat: fixed rhythm (28px between turns, 10px inside one);
@@ -541,7 +582,7 @@ export const ConversationList = forwardRef<
   const renderRow = (row: ConversationRow, index: number) => {
     if (!assistant)
       return renderRowContent(row.entry, attempt, resetAction, repos);
-    const { turnStarts, events, merged, latestFrom } = flukeLayout;
+    const { turnStarts, events, merged, latestFrom, tookMs } = flukeLayout;
     if (merged.has(index)) return <div className="hidden" />;
     const lines = events.get(index);
     const opensTurn = turnStarts.has(index);
@@ -561,6 +602,12 @@ export const ConversationList = forwardRef<
               you={isUser}
               now={opensTurn && now}
               live={hasRunningProcess}
+              // While Fluke still answers the latest turn, it isn't done.
+              tookMs={
+                opensTurn && !(now && hasRunningProcess)
+                  ? tookMs.get(index)
+                  : undefined
+              }
             />
           )}
         </div>
