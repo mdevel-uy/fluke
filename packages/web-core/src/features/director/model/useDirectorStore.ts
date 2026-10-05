@@ -2,30 +2,35 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // Global state of the Director bubble ("Fluke" in the UI). Lives outside any
-// page so the conversation and the selected mission survive navigation and
+// page so the conversation and the focused mission survive navigation and
 // repo changes; persisted so a reload keeps the same view.
 
 // Full screen is a route (/fluke), not a view of the floating assistant.
 export type DirectorView = 'bubble' | 'panel';
 
-/** Tab of the panel: a mission id, or the global missions list. */
-export const MISSIONS_TAB = 'missions';
+/** Missions the panel's dropdown lists: all open ones, or one group. */
+export type PickerFilter = 'all' | 'waiting' | 'working';
 
 interface DirectorState {
   view: DirectorView;
   /** Panel anchored as a column in the shell's right aside. */
   pinned: boolean;
-  activeTab: string;
-  /** Mission tabs open in the panel (ids), most recent last. */
-  openMissionIds: string[];
+  /** Mission the panel shows; null falls back to Fluke's general one. */
+  focusId: string | null;
+  /** Mission list dropped from the panel header; not persisted. */
+  picker: PickerFilter | null;
   /** Notices the user dismissed, keyed by `${missionId}:${reason}`. */
   dismissed: string[];
   toggle: () => void;
   setView: (view: DirectorView) => void;
   setPinned: (pinned: boolean) => void;
+  /** Focus a mission without opening the panel (rail, /fluke page). */
+  focus: (missionId: string) => void;
+  /** Focus a mission and open the panel if it was collapsed. */
   openMission: (missionId: string) => void;
-  closeMissionTab: (missionId: string) => void;
-  setActiveTab: (tab: string) => void;
+  /** Drop the focus if it is on this mission (archived or deleted). */
+  unfocus: (missionId: string) => void;
+  setPicker: (picker: PickerFilter | null) => void;
   dismiss: (key: string) => void;
 }
 
@@ -34,37 +39,44 @@ export const useDirectorStore = create<DirectorState>()(
     (set) => ({
       view: 'bubble',
       pinned: false,
-      activeTab: MISSIONS_TAB,
-      openMissionIds: [],
+      focusId: null,
+      picker: null,
       dismissed: [],
       toggle: () =>
         set((s) => ({ view: s.view === 'bubble' ? 'panel' : 'bubble' })),
       setView: (view) => set({ view }),
       setPinned: (pinned) => set({ pinned }),
-      openMission: (missionId) =>
+      focus: (focusId) => set({ focusId, picker: null }),
+      openMission: (focusId) =>
         set((s) => ({
           view: s.view === 'bubble' ? 'panel' : s.view,
-          activeTab: missionId,
-          openMissionIds: s.openMissionIds.includes(missionId)
-            ? s.openMissionIds
-            : [...s.openMissionIds, missionId],
+          focusId,
+          picker: null,
         })),
-      closeMissionTab: (missionId) =>
-        set((s) => ({
-          openMissionIds: s.openMissionIds.filter((id) => id !== missionId),
-          activeTab: s.activeTab === missionId ? MISSIONS_TAB : s.activeTab,
-        })),
-      setActiveTab: (activeTab) => set({ activeTab }),
+      unfocus: (missionId) =>
+        set((s) => (s.focusId === missionId ? { focusId: null } : s)),
+      setPicker: (picker) => set({ picker }),
       dismiss: (key) =>
         set((s) => ({ dismissed: [...s.dismissed.slice(-50), key] })),
     }),
     {
       name: 'director',
-      version: 1,
-      // v0 had an 'expanded' overlay view, now the /fluke page.
-      migrate: (state) => {
-        const s = state as DirectorState;
+      partialize: ({ picker: _picker, ...rest }) => rest,
+      version: 2,
+      // v0 had an 'expanded' overlay view, now the /fluke page; v1 had tabs
+      // (activeTab + openMissionIds), now a single focus.
+      migrate: (state, version) => {
+        const s = state as DirectorState & {
+          activeTab?: string;
+          openMissionIds?: string[];
+        };
         if ((s.view as string) === 'expanded') s.view = 'panel';
+        if (version < 2) {
+          s.focusId =
+            s.activeTab && s.activeTab !== 'missions' ? s.activeTab : null;
+          delete s.activeTab;
+          delete s.openMissionIds;
+        }
         return s;
       },
     }

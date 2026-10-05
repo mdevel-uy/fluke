@@ -1,101 +1,208 @@
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   ArchiveIcon,
   ArrowCounterClockwiseIcon,
+  ArrowsInSimpleIcon,
   ArrowsOutSimpleIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  MagnifyingGlassIcon,
   MinusIcon,
   PlusIcon,
   PushPinIcon,
   PushPinSlashIcon,
   SpinnerIcon,
-  XIcon,
+  TrashIcon,
 } from '@phosphor-icons/react';
 import type { MissionSummary } from 'shared/types';
-import { CollapsibleSectionHeader } from '@vibe/ui/components/CollapsibleSectionHeader';
 import { ConfirmDialog } from '@vibe/ui/components/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { sessionsApi } from '@/shared/lib/api';
-import { useRepos } from '@/shared/hooks/useRepos';
-import { SidebarSection } from '@/shared/components/ui-new/shell/SidebarPrimitives';
+import { getModifierKey } from '@/shared/lib/platform';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
-import { useSelectedRepoStore } from '@/shared/stores/useSelectedRepoStore';
-import { MISSIONS_TAB, useDirectorStore } from '../model/useDirectorStore';
+import { useDirectorStore, type PickerFilter } from '../model/useDirectorStore';
 import {
+  isArchived,
   isWaitingForUser,
+  missionLabel,
   useArchiveMission,
-  useCreateMission,
   useDeleteMission,
+  useFocusedMission,
   useMission,
   useMissionList,
   useMissionWorkspace,
+  useNewMission,
   useSendToDirector,
 } from '../model/useMissions';
-import { layoutTabs } from '../lib/tabLayout';
 import { DirectorChat } from './DirectorChat';
+import { FlukeFocusDialog, MissionPicker } from './FlukeFocusDialog';
 import { FlukeMark } from './FlukeMark';
-import { MissionTabsMenu, type MissionTabEntry } from './MissionTabsMenu';
+import { FlukeWelcome } from './FlukeWelcome';
+import { FlukeOrbParts, MissionRing, useStatusLine } from './MissionRing';
 import { QuickReplies } from './QuickReplies';
 import { ProposalMessage } from './MissionProgress';
 
-/** `page`: the /fluke route, which has no window controls of its own. */
-export function DirectorHeader({
-  context,
-  page = false,
+/**
+ * Fluke without tabs (design/mockups/fluke-v2/fluke-jarvis): one focused
+ * mission at a time, switched from the panel's title or with Ctrl/Cmd+K.
+ * `floating` and `pinned` share the panel (header, strip, conversation);
+ * `page` is the /fluke route, which lists every mission, archived included.
+ */
+export type FlukeMode = 'floating' | 'pinned' | 'page';
+
+// Leaving /fluke from its header keeps the view the user picked there; any
+// other exit restores the one from before the page (see FlukePage).
+let keepViewOnLeave = false;
+export function consumeKeepViewOnLeave() {
+  const keep = keepViewOnLeave;
+  keepViewOnLeave = false;
+  return keep;
+}
+
+export function FlukeHeader({
+  mode,
+  summary,
+  context = '',
+  pickerOpen = false,
+  onTitleClick,
 }: {
-  context: string;
-  page?: boolean;
+  mode: FlukeMode;
+  summary: MissionSummary | undefined;
+  context?: string;
+  /** In the panel the title drops the mission list. */
+  pickerOpen?: boolean;
+  onTitleClick?: () => void;
 }) {
   const { t } = useTranslation('common');
-  const pinned = useDirectorStore((s) => s.pinned);
   const setView = useDirectorStore((s) => s.setView);
   const setPinned = useDirectorStore((s) => s.setPinned);
   const appNavigation = useAppNavigation();
+  const statusLine = useStatusLine();
+  const page = mode === 'page';
+  const title =
+    summary && !summary.is_guard
+      ? missionLabel(summary, t('director.newMission'))
+      : t('director.name');
+
+  const leavePage = (pinned: boolean) => {
+    keepViewOnLeave = true;
+    useDirectorStore.setState({ view: 'panel', pinned });
+    if (window.history.length > 1) window.history.back();
+    else appNavigation.goToWorkspaces();
+  };
 
   return (
-    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-md-outline-variant px-3">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand">
-        <FlukeMark size={12} />
+    <header
+      className={cn(
+        'fluke-scan flex shrink-0 items-center border-b border-md-outline-variant',
+        page ? 'gap-3.5 px-5 py-4' : 'gap-2.5 py-2.5 pl-3 pr-2'
+      )}
+    >
+      <span
+        className="fluke-orb shrink-0"
+        data-state={summary?.agent_running ? 'working' : 'idle'}
+        style={{ '--orb-size': page ? '48px' : '32px' } as CSSProperties}
+      >
+        <FlukeOrbParts markSize={page ? 15 : 12} />
       </span>
-      <span className="shrink-0 text-sm font-medium text-high">
-        {t('director.name')}
-      </span>
-      {context && !page && (
-        <span
-          className="min-w-0 truncate rounded-full bg-secondary px-2 py-0.5 text-xs text-low"
-          title={context}
-        >
-          {context}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {page ? (
+          <h1 className="m-0 truncate text-lg font-semibold text-high">
+            {title}
+          </h1>
+        ) : (
+          <button
+            type="button"
+            onClick={onTitleClick}
+            aria-expanded={pickerOpen}
+            title={t('director.focus.change')}
+            className="flex min-w-0 items-center gap-1.5 self-start text-left text-sm font-semibold text-high hover:text-brand-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+          >
+            <span className="truncate">{title}</span>
+            <CaretDownIcon
+              weight="bold"
+              className={cn(
+                'size-3 shrink-0 text-brand-on-surface transition-transform',
+                pickerOpen && 'rotate-180'
+              )}
+            />
+          </button>
+        )}
+        <span className="flex min-w-0 items-center gap-2 font-mono text-[10px] uppercase leading-none tracking-[0.12em] text-brand-on-surface">
+          <span className="truncate">
+            {[summary && statusLine(summary), page && context]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <button
+            type="button"
+            onClick={onTitleClick ?? (() => void FlukeFocusDialog.show())}
+            title={t('director.focus.change')}
+            className="shrink-0 rounded border border-md-outline-variant bg-md-surface-container-low px-1 py-0.5 text-[9.5px] normal-case tracking-normal text-low hover:text-high"
+          >
+            {getModifierKey()} K
+          </button>
         </span>
-      )}
-      {!page && (
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <HeaderButton
-            label={t(pinned ? 'director.unpin' : 'director.pin')}
-            onClick={() => setPinned(!pinned)}
-          >
-            {pinned ? <PushPinSlashIcon /> : <PushPinIcon />}
-          </HeaderButton>
-          <HeaderButton
-            label={t('director.expand')}
-            onClick={() => appNavigation.goToFluke()}
-          >
-            <ArrowsOutSimpleIcon />
-          </HeaderButton>
-          <HeaderButton
-            label={t('director.minimize')}
-            onClick={() => setView('bubble')}
-          >
-            <MinusIcon />
-          </HeaderButton>
-        </div>
-      )}
-    </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        {mode === 'floating' && (
+          <>
+            <HeaderButton
+              label={t('director.pin')}
+              onClick={() => setPinned(true)}
+            >
+              <PushPinIcon />
+            </HeaderButton>
+            <HeaderButton
+              label={t('director.expand')}
+              onClick={() => appNavigation.goToFluke()}
+            >
+              <ArrowsOutSimpleIcon />
+            </HeaderButton>
+            <HeaderButton
+              label={t('director.minimize')}
+              onClick={() => setView('bubble')}
+            >
+              <MinusIcon />
+            </HeaderButton>
+          </>
+        )}
+        {mode === 'pinned' && (
+          <>
+            <HeaderButton
+              label={t('director.unpin')}
+              onClick={() => setPinned(false)}
+            >
+              <PushPinSlashIcon />
+            </HeaderButton>
+            <HeaderButton
+              label={t('director.expand')}
+              onClick={() => appNavigation.goToFluke()}
+            >
+              <ArrowsOutSimpleIcon />
+            </HeaderButton>
+          </>
+        )}
+        {page && (
+          <>
+            <HeaderButton
+              label={t('director.pin')}
+              onClick={() => leavePage(true)}
+            >
+              <PushPinIcon />
+            </HeaderButton>
+            <HeaderButton
+              label={t('director.backToPanel')}
+              onClick={() => leavePage(false)}
+            >
+              <ArrowsInSimpleIcon />
+            </HeaderButton>
+          </>
+        )}
+      </div>
+    </header>
   );
 }
 
@@ -106,7 +213,7 @@ function HeaderButton({
 }: {
   label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -114,123 +221,222 @@ function HeaderButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded-md p-1 text-low transition-colors hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand [&>svg]:size-icon-xs"
+      className="rounded-md p-1.5 text-low transition-colors hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand [&>svg]:size-icon-xs"
     >
       {children}
     </button>
   );
 }
 
-/**
- * "Missions" tab, the open mission tabs that fit, an overflow menu with every
- * open tab, and "new mission" pinned to the right (spec #648). Nothing in
- * the bar scrolls; the active tab is always among the visible ones.
- */
-export function MissionTabs() {
-  const { t } = useTranslation('common');
-  const activeTab = useDirectorStore((s) => s.activeTab);
-  const openIds = useDirectorStore((s) => s.openMissionIds);
-  const setActiveTab = useDirectorStore((s) => s.setActiveTab);
-  const { data: missions = [] } = useMissionList();
-  const byId = new Map(missions.map((m) => [m.mission.id, m]));
-  const confirmDelete = useConfirmDeleteMission();
-  const [zoneRef, zoneWidth] = useMeasuredWidth<HTMLDivElement>();
-
-  const entries: MissionTabEntry[] = openIds.flatMap((id) => {
-    const m = byId.get(id);
-    if (!m) return [];
-    return [
-      {
-        id,
-        label: missionLabel(m, t('director.newMission')),
-        attention: isWaitingForUser(m),
-        running: m.agent_running,
-        closable: !m.is_guard,
-      },
-    ];
-  });
-  const entryById = new Map(entries.map((e) => [e.id, e]));
-  const { visible, hidden } = layoutTabs(
-    entries.map((e) => e.id),
-    activeTab,
-    zoneWidth
-  );
-  const deleteLabel = (name: string) =>
-    t('director.delete.actionNamed', { name });
-  const remove = (id: string) => {
-    const m = byId.get(id);
-    if (m && !m.is_guard) void confirmDelete(m);
-  };
-
+/** One segment per issue of the plan, lit as they close. */
+function ProgressSegments({ m }: { m: MissionSummary }) {
+  if (m.issues_total === 0) return null;
   return (
-    <div className="flex h-8 shrink-0 items-stretch gap-0.5 overflow-hidden border-b border-md-outline-variant px-2">
-      <Tab
-        active={activeTab === MISSIONS_TAB}
-        onClick={() => setActiveTab(MISSIONS_TAB)}
-        label={t('director.missions')}
-      />
-      {/* Measured zone: strip + overflow button. Its width doesn't depend
-          on whether the button is shown, so the layout can't oscillate. */}
-      <div ref={zoneRef} className="flex min-w-0 flex-1 gap-0.5">
-        <div className="flex min-w-0 flex-1 gap-0.5 overflow-hidden">
-          {visible.map((id) => {
-            const e = entryById.get(id)!;
-            return (
-              <Tab
-                key={id}
-                mission
-                squeezed={visible.length === 1}
-                active={activeTab === id}
-                onClick={() => setActiveTab(id)}
-                onClose={e.closable ? () => remove(id) : undefined}
-                closeLabel={deleteLabel(e.label)}
-                label={e.label}
-                attention={e.attention}
-              />
-            );
-          })}
-        </div>
-        {hidden.length > 0 && (
-          <MissionTabsMenu
-            entries={entries}
-            hiddenIds={hidden}
-            activeId={activeTab}
-            onSelect={setActiveTab}
-            onDelete={remove}
-            deleteLabel={deleteLabel}
-          />
-        )}
-      </div>
-      <NewMissionButton
-        className="flex size-6 shrink-0 items-center justify-center self-center"
-      />
+    <div aria-hidden className="flex h-[3px] shrink-0 gap-[3px] px-3">
+      {Array.from({ length: m.issues_total }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            'flex-1 rounded-full',
+            i < m.issues_closed
+              ? 'bg-brand-on-surface shadow-[0_0_6px_hsl(var(--brand-on-surface))]'
+              : 'bg-md-outline-variant'
+          )}
+        />
+      ))}
     </div>
   );
 }
 
-/** Width of an element, kept up to date with a ResizeObserver. */
-function useMeasuredWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  // Layout effect: measure before the first paint, so the bar doesn't
-  // flash with a single tab.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(el.getBoundingClientRect().width);
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(entry.contentRect.width)
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width] as const;
+/**
+ * Floating and pinned Fluke: the focused mission's header (its title drops
+ * the mission list), a strip with what needs attention, and the focused
+ * conversation. Archived missions only show on /fluke.
+ */
+export function FlukePanel({ mode }: { mode: 'floating' | 'pinned' }) {
+  const { t } = useTranslation('common');
+  const { summary, isLoading } = useFocusedMission();
+  const picker = useDirectorStore((s) => s.picker);
+  const setPicker = useDirectorStore((s) => s.setPicker);
+  const focus = useDirectorStore((s) => s.focus);
+  const { repoId, create } = useNewMission();
+  return (
+    <>
+      <FlukeHeader
+        mode={mode}
+        summary={summary}
+        pickerOpen={picker !== null}
+        onTitleClick={() => setPicker(picker ? null : 'all')}
+      />
+      {summary && <ProgressSegments m={summary} />}
+      <MissionStrip focusedId={summary?.mission.id ?? null} />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {summary && <ResolveCard m={summary} />}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {summary ? (
+            <MissionConversation missionId={summary.mission.id} mode={mode} />
+          ) : (
+            <NoMissions loading={isLoading} />
+          )}
+        </div>
+        {picker && (
+          <div
+            className="absolute inset-0 z-10 flex flex-col"
+            onKeyDown={(e) => e.key === 'Escape' && setPicker(null)}
+          >
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={t('close')}
+              onClick={() => setPicker(null)}
+              className="absolute inset-0 cursor-default bg-black/50"
+            />
+            <div className="relative mx-2 flex max-h-full min-h-0 flex-col overflow-hidden rounded-b-xl border border-t-0 border-brand/40 shadow-overlay">
+              <MissionPicker
+                filter={picker}
+                onPick={focus}
+                onNew={() => {
+                  setPicker(null);
+                  if (repoId) create.mutate(repoId);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
 
 /**
- * The tab's X (#647): confirm, then delete the mission. Blocked while Fluke
- * is answering in it; issues already created are kept and the dialog says
- * so. On error the tab and the mission stay.
+ * Under the header: missions waiting on the user, other missions Fluke is
+ * working on, and the total. Each opens the mission list on its group.
+ */
+function MissionStrip({ focusedId }: { focusedId: string | null }) {
+  const { t } = useTranslation('common');
+  const { data: missions = [] } = useMissionList();
+  const picker = useDirectorStore((s) => s.picker);
+  const setPicker = useDirectorStore((s) => s.setPicker);
+  const open = missions.filter((m) => !isArchived(m));
+  const waiting = open.filter((m) => !m.is_guard && isWaitingForUser(m));
+  const working = open.filter(
+    (m) => !m.is_guard && m.agent_running && m.mission.id !== focusedId
+  );
+  if (open.length === 0) return null;
+  const toggle = (filter: PickerFilter) =>
+    setPicker(picker === filter ? null : filter);
+
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-md-outline-variant px-3 py-2">
+      {waiting.length > 0 && (
+        <StripChip
+          missions={waiting}
+          label={t('director.waiting', { count: waiting.length })}
+          active={picker === 'waiting'}
+          onClick={() => toggle('waiting')}
+          className="border-warning/40 bg-warning/10 text-high"
+        />
+      )}
+      {working.length > 0 && (
+        <StripChip
+          missions={working}
+          label={t('director.strip.working', { count: working.length })}
+          active={picker === 'working'}
+          onClick={() => toggle('working')}
+          className="border-md-outline-variant bg-md-surface-container-low text-brand-on-surface"
+        />
+      )}
+      <span className="flex-1" />
+      <button
+        type="button"
+        aria-pressed={picker === 'all'}
+        onClick={() => toggle('all')}
+        className={cn(
+          'shrink-0 rounded-md px-2 py-1 font-mono text-[11px]',
+          picker === 'all'
+            ? 'bg-brand/15 text-high ring-1 ring-inset ring-brand/50'
+            : 'text-low hover:text-high'
+        )}
+      >
+        {t('director.strip.total', { count: open.length })}
+      </button>
+    </div>
+  );
+}
+
+function StripChip({
+  missions,
+  label,
+  active,
+  onClick,
+  className,
+}: {
+  missions: MissionSummary[];
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'flex min-w-0 items-center gap-2 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs',
+        active && 'ring-1 ring-brand/60',
+        className
+      )}
+    >
+      <span className="flex shrink-0">
+        {missions.slice(0, 3).map((m, i) => (
+          <span
+            key={m.mission.id}
+            className={cn(
+              'rounded-full shadow-[0_0_0_2px_hsl(var(--md-surface-container-lowest))]',
+              i > 0 && '-ml-1.5'
+            )}
+          >
+            <MissionRing m={m} size={20} />
+          </span>
+        ))}
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/** The focused mission's brief waits for approval: review it on /fluke. */
+function ResolveCard({ m }: { m: MissionSummary }) {
+  const { t } = useTranslation('common');
+  const appNavigation = useAppNavigation();
+  if (m.mission.status !== 'brief_ready') return null;
+  return (
+    <div className="flex flex-col gap-2 px-3 pt-3">
+      <span className="font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-warning">
+        {t('director.resolve.title')}
+      </span>
+      <div className="flex items-center gap-2.5 rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-2">
+        <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+        <span className="flex-1 text-xs text-high">
+          {t('director.resolve.briefReady')}
+        </span>
+        <button
+          type="button"
+          onClick={() => appNavigation.goToFluke()}
+          className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-on-brand hover:bg-brand-hover"
+        >
+          {t('director.notice.review')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Delete from the missions list: confirm, then delete the mission. Blocked
+ * while Fluke is answering in it; issues already created are kept and the
+ * dialog says so. On error the mission stays.
  */
 function useConfirmDeleteMission() {
   const { t } = useTranslation('common');
@@ -273,7 +479,7 @@ function useConfirmDeleteMission() {
   };
 }
 
-function NewMissionButton({ className }: { className?: string }) {
+function NewMissionButton() {
   const { t } = useTranslation('common');
   const { repoId, create } = useNewMission();
   return (
@@ -283,10 +489,7 @@ function NewMissionButton({ className }: { className?: string }) {
       onClick={() => repoId && create.mutate(repoId)}
       aria-label={t('director.newMission')}
       title={t('director.newMission')}
-      className={cn(
-        'rounded-md p-1 text-low hover:bg-secondary/60 hover:text-high disabled:opacity-40',
-        className
-      )}
+      className="flex shrink-0 items-center justify-center rounded-md p-1 text-low hover:bg-secondary/60 hover:text-high disabled:opacity-40"
     >
       {create.isPending ? (
         <SpinnerIcon className="size-icon-xs animate-spin" />
@@ -297,203 +500,149 @@ function NewMissionButton({ className }: { className?: string }) {
   );
 }
 
-/** Missions of the /fluke page, in the shell sidebar instead of a tab. */
+/**
+ * Missions of the /fluke page, in the shell sidebar: the ones waiting on the
+ * user, the ones in progress, Fluke's general conversation, and the archived
+ * ones (only here) in a collapsed section.
+ */
 export function FlukeMissionsSidebar({
   selectedId,
 }: {
   selectedId: string | null;
 }) {
   const { t } = useTranslation('common');
+  const { data: missions = [], isLoading } = useMissionList();
+  const open = missions.filter((m) => !m.is_guard && !isArchived(m));
+  const waiting = open.filter(isWaitingForUser);
+  const active = open.filter((m) => !isWaitingForUser(m));
+  const guard = missions.find((m) => m.is_guard);
+  const archived = missions.filter((m) => !m.is_guard && isArchived(m));
+  const row = (m: MissionSummary) => (
+    <MissionRow
+      key={m.mission.id}
+      m={m}
+      selected={m.mission.id === selectedId}
+    />
+  );
+
   return (
-    <div className="flex h-full w-full min-h-0 flex-col bg-md-surface-container-low">
-      {/* The header fills the column and lays out its children below. */}
-      <CollapsibleSectionHeader
-        title={t('director.missions')}
-        collapsible={false}
-        headerExtra={<NewMissionButton />}
+    <div className="flex h-full min-h-0 w-full flex-col bg-md-surface-container-low">
+      <div className="flex items-center gap-2 px-3.5 pb-1.5 pt-3">
+        <span className="flex-1 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-on-surface">
+          {t('director.missions')}
+        </span>
+        <NewMissionButton />
+      </div>
+      <button
+        type="button"
+        onClick={() => void FlukeFocusDialog.show()}
+        className="mx-3 flex items-center gap-2 rounded-lg border border-md-outline-variant bg-primary px-2.5 py-1.5 text-xs text-low hover:text-normal"
       >
-        <MissionsList selectedId={selectedId} />
-      </CollapsibleSectionHeader>
+        <MagnifyingGlassIcon className="size-icon-xs" />
+        <span className="flex-1 text-left">{t('director.focus.change')}</span>
+        <kbd className="font-mono text-[10px]">{getModifierKey()} K</kbd>
+      </button>
+      {missions.length === 0 ? (
+        <NoMissions loading={isLoading} />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+          {waiting.length > 0 && (
+            <ListGroup
+              title={t('director.focus.waiting')}
+              className="text-warning"
+            >
+              {waiting.map(row)}
+            </ListGroup>
+          )}
+          {active.length > 0 && (
+            <ListGroup
+              title={t('director.focus.active')}
+              className="text-brand-on-surface"
+            >
+              {active.map(row)}
+            </ListGroup>
+          )}
+          {guard && (
+            <ListGroup title={t('director.focus.always')} className="text-low">
+              {row(guard)}
+            </ListGroup>
+          )}
+        </div>
+      )}
+      {archived.length > 0 && (
+        <ArchivedDrawer count={archived.length}>
+          {archived.map(row)}
+        </ArchivedDrawer>
+      )}
     </div>
   );
 }
 
 /**
- * `mission`: a mission tab, which shares the strip with the others (equal
- * widths between 96px and 160px); otherwise the fixed "Missions" tab.
- * `squeezed`: the only visible mission tab, allowed below the minimum.
+ * Archived missions, docked at the bottom of the /fluke list and dimmed:
+ * there when needed, out of the way otherwise. Collapsed by default.
  */
-function Tab({
-  active,
-  label,
-  onClick,
-  onClose,
-  closeLabel,
-  attention = false,
-  mission = false,
-  squeezed = false,
+function ArchivedDrawer({
+  count,
+  children,
 }: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  onClose?: () => void;
-  closeLabel?: string;
-  attention?: boolean;
-  mission?: boolean;
-  squeezed?: boolean;
+  count: number;
+  children: ReactNode;
 }) {
+  const { t } = useTranslation('common');
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      className={cn(
-        'group flex items-center gap-1 border-b-2 px-2 text-xs',
-        mission
-          ? cn(
-              'max-w-[160px] flex-[1_1_0]',
-              squeezed ? 'min-w-0' : 'min-w-[96px]'
-            )
-          : 'shrink-0',
-        active
-          ? 'border-brand text-high'
-          : 'border-transparent text-low hover:text-normal'
-      )}
-    >
-      {/* min-w-0: the label shrinks first, so the X never gets clipped. */}
+    <div className="flex max-h-[45%] shrink-0 flex-col border-t border-md-outline-variant">
       <button
         type="button"
-        onClick={onClick}
-        className="min-w-0 flex-1 truncate text-left"
-        title={label}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-low/70 hover:text-low"
       >
-        {label}
+        <CaretRightIcon
+          weight="bold"
+          className={cn('size-2.5 transition-transform', open && 'rotate-90')}
+        />
+        {t('director.archive.archived')} · {count}
       </button>
-      {attention && (
-        <span className="size-1.5 shrink-0 rounded-full bg-warning" />
-      )}
-      {onClose && (
-        // Its slot is always reserved; without hover (touch) the active
-        // tab's X stays visible.
-        <button
-          type="button"
-          onClick={onClose}
-          className={cn(
-            'flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 hover:bg-secondary/60 hover:text-high focus:outline-none focus-visible:ring-1 focus-visible:ring-brand group-focus-within:opacity-100 group-hover:opacity-100',
-            active && '[@media(hover:none)]:opacity-100'
-          )}
-          aria-label={closeLabel}
-          title={closeLabel}
-        >
-          <XIcon className="size-icon-2xs" />
-        </button>
+      {open && (
+        <div className="min-h-0 overflow-y-auto px-2 pb-2">{children}</div>
       )}
     </div>
   );
 }
 
-const isArchived = (m: MissionSummary) => m.mission.status === 'closed';
-
-export function missionLabel(m: MissionSummary, fallback: string): string {
-  return m.mission.title || m.repo_name || fallback;
-}
-
-function useNewMission() {
-  const { repos } = useRepos();
-  const selectedRepoId = useSelectedRepoStore((s) => s.selectedRepoId);
-  const repoId = repos.find((r) => r.id === selectedRepoId)?.id ?? repos[0]?.id;
-  return { repoId, create: useCreateMission() };
-}
-
-/** Body of the panel for the active tab. */
-export function DirectorBody() {
-  const activeTab = useDirectorStore((s) => s.activeTab);
-  return activeTab === MISSIONS_TAB ? (
-    <MissionsList />
-  ) : (
-    <MissionConversation missionId={activeTab} />
-  );
-}
-
-/** Every mission of every repo (the Director is global). */
-function MissionsList({ selectedId = null }: { selectedId?: string | null }) {
-  const { t } = useTranslation('common');
-  const { data: missions = [], isLoading } = useMissionList();
-  const { repoId, create } = useNewMission();
-
-  if (isLoading)
-    return (
-      <Centered>
-        <SpinnerIcon className="size-icon-base animate-spin text-low" />
-      </Centered>
-    );
-  if (missions.length === 0) {
-    return (
-      <Centered>
-        <span className="flex size-10 items-center justify-center rounded-full bg-brand text-on-brand">
-          <FlukeMark size={18} />
-        </span>
-        <p className="text-sm font-medium text-high">
-          {t('director.empty.title')}
-        </p>
-        <p className="max-w-[260px] text-xs text-low">
-          {repoId ? t('director.empty.description') : t('director.noRepo')}
-        </p>
-        {repoId && (
-          <button
-            type="button"
-            onClick={() => create.mutate(repoId)}
-            disabled={create.isPending}
-            className="mt-1 rounded-md border border-md-outline-variant px-3 py-1.5 text-xs font-medium text-high hover:bg-secondary/60"
-          >
-            {t('director.newMission')}
-          </button>
-        )}
-        {create.error && (
-          <p className="text-xs text-danger">{create.error.message}</p>
-        )}
-      </Centered>
-    );
-  }
-  const open = missions.filter((m) => !isArchived(m));
-  const archived = missions.filter(isArchived);
+function ListGroup({
+  title,
+  className,
+  children,
+}: {
+  title: string;
+  className: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-      <SidebarSection
-        persistKey="fluke-missions-open"
-        title={t('director.archive.open')}
-        count={open.length}
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={cn(
+          'px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-medium uppercase leading-none tracking-[0.14em]',
+          className
+        )}
       >
-        {open.map((m) => (
-          <MissionRow
-            key={m.mission.id}
-            m={m}
-            selected={m.mission.id === selectedId}
-          />
-        ))}
-      </SidebarSection>
-      {archived.length > 0 && (
-        <SidebarSection
-          persistKey="fluke-missions-archived"
-          title={t('director.archive.archived')}
-          count={archived.length}
-          defaultOpen={false}
-        >
-          {archived.map((m) => (
-            <MissionRow
-              key={m.mission.id}
-              m={m}
-              selected={m.mission.id === selectedId}
-            />
-          ))}
-        </SidebarSection>
-      )}
+        {title}
+      </span>
+      {children}
     </div>
   );
 }
 
-/** SidebarRow look plus a hover archive/restore action (a SidebarRow is a button, so it can't nest one). */
+/** A mission of the /fluke list, with hover archive/restore and delete. */
 function MissionRow({ m, selected }: { m: MissionSummary; selected: boolean }) {
   const { t } = useTranslation('common');
-  const openMission = useDirectorStore((s) => s.openMission);
+  const focus = useDirectorStore((s) => s.focus);
   const archive = useArchiveMission();
+  const confirmDelete = useConfirmDeleteMission();
+  const statusLine = useStatusLine();
   const archivedMission = isArchived(m);
   const actionLabel = t(
     archivedMission ? 'director.archive.restore' : 'director.archive.action'
@@ -501,58 +650,114 @@ function MissionRow({ m, selected }: { m: MissionSummary; selected: boolean }) {
   return (
     <div
       className={cn(
-        'group relative mx-1.5 flex h-[22px] items-center rounded-[4px] text-sm',
+        'group relative flex items-center rounded-lg',
         selected
-          ? 'bg-sel text-high before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-[2px] before:rounded-full before:bg-brand-on-surface'
-          : 'text-normal hover:bg-secondary'
+          ? 'bg-brand/15 text-high before:absolute before:-left-1.5 before:bottom-2 before:top-2 before:w-[3px] before:rounded-full before:bg-brand-on-surface before:shadow-[0_0_8px_hsl(var(--brand-on-surface))]'
+          : 'text-normal hover:bg-secondary',
+        archivedMission && !m.is_guard && !selected && 'opacity-60'
       )}
     >
       <button
         type="button"
-        onClick={() => openMission(m.mission.id)}
+        onClick={() => focus(m.mission.id)}
         aria-current={selected || undefined}
-        title={[m.repo_name, t(`director.status.${m.mission.status}`)]
-          .filter(Boolean)
-          .join(' · ')}
-        className="flex h-full min-w-0 flex-1 items-center gap-2 pl-4 pr-1 text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+        title={m.repo_name ?? undefined}
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-brand"
       >
-        <span className="min-w-0 flex-1 truncate">
-          {missionLabel(m, t('director.newMission'))}
+        <MissionRing m={m} size={26} selected={selected} />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm">
+            {m.is_guard
+              ? t('director.focus.general')
+              : missionLabel(m, t('director.newMission'))}
+          </span>
+          <span className="truncate font-mono text-[10.5px] text-low">
+            {statusLine(m)}
+          </span>
         </span>
         {isWaitingForUser(m) && (
-          <span className="size-1.5 shrink-0 rounded-full bg-warning" />
-        )}
-        {m.agent_running && (
-          <SpinnerIcon className="size-icon-2xs shrink-0 animate-spin text-low" />
-        )}
-        {m.issues_total > 0 && (
-          <span className="shrink-0 text-xs text-low group-hover:hidden">
-            {m.issues_closed}/{m.issues_total}
-          </span>
+          <span className="size-1.5 shrink-0 rounded-full bg-warning shadow-[0_0_8px_hsl(var(--warning))] group-hover:hidden" />
         )}
       </button>
-      {/* Archive is one click: restoring is as easy (no confirm). */}
-      <button
-        type="button"
-        onClick={() =>
-          archive.mutate({ id: m.mission.id, archived: !archivedMission })
-        }
-        aria-label={actionLabel}
-        title={actionLabel}
-        className="mr-1 hidden shrink-0 rounded p-0.5 text-low hover:text-high focus-visible:flex group-hover:flex"
-      >
-        {archivedMission ? (
-          <ArrowCounterClockwiseIcon className="size-icon-2xs" />
-        ) : (
-          <ArchiveIcon className="size-icon-2xs" />
-        )}
-      </button>
+      {!m.is_guard && (
+        <>
+          {/* Archive is one click: restoring is as easy (no confirm). */}
+          <button
+            type="button"
+            onClick={() =>
+              archive.mutate({ id: m.mission.id, archived: !archivedMission })
+            }
+            aria-label={actionLabel}
+            title={actionLabel}
+            className="mr-1 hidden shrink-0 rounded p-1 text-low hover:text-high focus-visible:flex group-hover:flex"
+          >
+            {archivedMission ? (
+              <ArrowCounterClockwiseIcon className="size-icon-2xs" />
+            ) : (
+              <ArchiveIcon className="size-icon-2xs" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmDelete(m)}
+            aria-label={t('director.delete.action')}
+            title={t('director.delete.action')}
+            className="mr-1.5 hidden shrink-0 rounded p-1 text-low hover:text-high focus-visible:flex group-hover:flex"
+          >
+            <TrashIcon className="size-icon-2xs" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
+/** No mission yet: invite to start one (or say a repo is needed first). */
+export function NoMissions({ loading }: { loading: boolean }) {
+  const { t } = useTranslation('common');
+  const { repoId, create } = useNewMission();
+  if (loading)
+    return (
+      <Centered>
+        <SpinnerIcon className="size-icon-base animate-spin text-low" />
+      </Centered>
+    );
+  return (
+    <Centered>
+      <span className="flex size-10 items-center justify-center rounded-full bg-brand text-on-brand">
+        <FlukeMark size={18} />
+      </span>
+      <p className="text-sm font-medium text-high">
+        {t('director.empty.title')}
+      </p>
+      <p className="max-w-[260px] text-xs text-low">
+        {repoId ? t('director.empty.description') : t('director.noRepo')}
+      </p>
+      {repoId && (
+        <button
+          type="button"
+          onClick={() => create.mutate(repoId)}
+          disabled={create.isPending}
+          className="mt-1 rounded-md border border-md-outline-variant px-3 py-1.5 text-xs font-medium text-high hover:bg-secondary/60"
+        >
+          {t('director.newMission')}
+        </button>
+      )}
+      {create.error && (
+        <p className="text-xs text-danger">{create.error.message}</p>
+      )}
+    </Centered>
+  );
+}
+
 /** Chat of one mission, with the Director's open questions as chips. */
-export function MissionConversation({ missionId }: { missionId: string }) {
+export function MissionConversation({
+  missionId,
+  mode,
+}: {
+  missionId: string;
+  mode: FlukeMode;
+}) {
   const { t } = useTranslation('common');
   const { data: detail, error } = useMission(missionId);
   const { data: workspaceContext } = useMissionWorkspace(missionId);
@@ -565,8 +770,8 @@ export function MissionConversation({ missionId }: { missionId: string }) {
   });
   const send = useSendToDirector(detail?.mission ?? null);
   const { data: missions = [] } = useMissionList();
-  const running =
-    missions.find((m) => m.mission.id === missionId)?.agent_running ?? false;
+  const summary = missions.find((m) => m.mission.id === missionId);
+  const running = summary?.agent_running ?? false;
 
   if (error) {
     return (
@@ -587,6 +792,16 @@ export function MissionConversation({ missionId }: { missionId: string }) {
     <DirectorChat
       workspaceContext={workspaceContext}
       selectedSession={session}
+      emptyState={
+        <FlukeWelcome
+          m={summary}
+          page={mode === 'page'}
+          // The floating panel is too short for them.
+          suggestions={mode !== 'floating'}
+          disabled={running || send.isPending}
+          onSend={(text) => send.mutate(text)}
+        />
+      }
       aboveComposer={
         <>
           <ProposalMessage detail={detail} />
@@ -604,7 +819,7 @@ export function MissionConversation({ missionId }: { missionId: string }) {
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
+function Centered({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       {children}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dock de misiones</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'JetBrains Mono',monospace}
+.hdr-orb{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-orb .core{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8b8ff8 0%,#6366F1 55%,#4338CA 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(99,102,241,.6)}
+.hdr-orb .arc{position:absolute;inset:0;border-radius:50%;border:2px solid transparent;border-top-color:#818CF8;animation:spin 1.1s cubic-bezier(.5,.1,.5,.9) infinite}
+.icon-btn{width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#8b93a7;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{background:#1b2540;color:#e2e8f0}
+.ring{position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring i{border-radius:50%;background:#0e1525;display:flex;align-items:center;justify-content:center;font:500 9px/1 'JetBrains Mono',monospace;font-style:normal;color:#c7cdda}
+.live::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:1.5px solid transparent;border-top-color:#a5b4fc;animation:spin 1.4s linear infinite}
+.dot{position:absolute;top:0;right:0;width:9px;height:9px;border-radius:50%;background:#FBBF24;box-shadow:0 0 0 2px #0b1220,0 0 8px rgba(251,191,36,.8)}
+.scan{position:relative;overflow:hidden}
+.scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#818CF8,transparent);animation:scan 3.5s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes scan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 440px; height: 720px; box-sizing: border-box; background: #0C1424; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0; display: flex">
+<aside aria-label="Fluke" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1525; border: 1px solid #2b3550; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px rgba(99,102,241,.12), 0 24px 60px rgba(0,0,0,.5)"><header class="scan" style="display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 12px; border-bottom: 1px solid #1f2940">
+<div class="hdr-orb"><div class="arc"></div><div class="core"><svg viewBox="0 0 100 100" width="12" height="12" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></div></div>
+<div style="display: flex; flex-direction: column; gap: 5px; min-width: 0; flex-grow: 1">
+<span style="font-size: 14px; font-weight: 600; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Merge de PRs aprobados desde la UI</span>
+<span class="mono" style="display: flex; align-items: center; gap: 8px; font-size: 10px; line-height: 1; letter-spacing: .12em; color: #818CF8">EJECUTANDO · 2 DE 4<kbd class="mono" style="font-size: 9.5px; letter-spacing: 0; padding: 2px 4px; border: 1px solid #2b3550; border-radius: 4px; color: #8b93a7; background: #0b1220">Ctrl K</kbd></span>
+</div>
+<button class="icon-btn" aria-label="Anclar como columna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 10.76V6h6v4.76l2 3.24H7z"></path><path d="M8 3h8"></path></svg></button>
+<button class="icon-btn" aria-label="Expandir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg></button>
+<button class="icon-btn" aria-label="Minimizar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+</header>
+<div aria-hidden="true" style="display: flex; gap: 3px; padding: 0 12px; height: 3px; margin-top: -1px"><span style="flex: 1; border-radius: 2px; background: #818CF8; box-shadow: 0 0 6px rgba(129,140,248,.7)"></span><span style="flex: 1; border-radius: 2px; background: #818CF8; box-shadow: 0 0 6px rgba(129,140,248,.7)"></span><span style="flex: 1; border-radius: 2px; background: #26304a"></span><span style="flex: 1; border-radius: 2px; background: #26304a"></span></div><div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; padding: 16px 14px 8px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="mono" style="font-size: 10px; color: #818CF8; letter-spacing: .1em">FLUKE · 14:09</span>
+<p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #d6dbe5">Los dos primeros issues ya están mergeados. Sigo con el endpoint de merge; le aviso cuando el PR esté listo para revisión.</p>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; margin: 4px 12px 0; padding: 6px 10px; border: 1px solid #1f2940; border-radius: 22px; background: #0b1220">
+<button aria-label="Fluke (general)" title="Fluke (general)" style="border: 0; padding: 0; background: transparent"><span style="width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #8b8ff8, #6366F1 55%, #4338CA); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg viewBox="0 0 100 100" width="12" height="12" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span></button>
+<span aria-hidden="true" style="width: 1px; height: 20px; background: #26304a"></span>
+<button aria-label="Botón Mergear en la card" title="Botón Mergear en la card" style="position: relative; width: 32px; height: 32px; border: 0; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><span class="ring" style="width: 32px; height: 32px; background: conic-gradient(#818CF8 0 60%, #2f3a55 0)"><i style="width: 26px; height: 26px">BM</i></span><span class="dot"></span></button><button aria-label="Vista de diff lado a lado" title="Vista de diff lado a lado" style="position: relative; width: 32px; height: 32px; border: 0; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><span class="ring" style="width: 32px; height: 32px; background: conic-gradient(#818CF8 0 0%, #2f3a55 0)"><i style="width: 26px; height: 26px">VD</i></span><span class="dot"></span></button><button aria-label="Merge de PRs aprobados desde la UI" title="Merge de PRs aprobados desde la UI" style="position: relative; width: 40px; height: 40px; border: 0; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 16px rgba(99,102,241,.45)"><span class="ring live" style="width: 40px; height: 40px; background: conic-gradient(#818CF8 0 50%, #3b4766 0)"><i style="width: 34px; height: 34px; background: #1e2650; color: #fff">MD</i></span></button><button aria-label="Indicador de agentes activos" title="Indicador de agentes activos" style="position: relative; width: 32px; height: 32px; border: 0; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><span class="ring live" style="width: 32px; height: 32px; background: conic-gradient(#818CF8 0 25%, #2f3a55 0)"><i style="width: 26px; height: 26px">IA</i></span></button>
+<span style="flex-grow: 1"></span>
+<button class="mono" aria-label="9 misiones más · Ctrl K" style="height: 28px; padding: 0 10px; border: 1px solid #2f3a55; border-radius: 14px; background: #111a2c; color: #a5b4fc; font-size: 11px">+9</button>
+</div>
+<div style="padding: 8px 12px 12px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid #4f52c9; border-radius: 10px; background: #0b1220; box-shadow: 0 0 0 3px rgba(99,102,241,.15)">
+<span style="flex-grow: 1; font-size: 13.5px; line-height: 30px; color: #6b7389">Escríbale a Fluke…</span>
+<button aria-label="Enviar" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: #6366F1; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></button>
+</div>
+</div></aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vacío: radar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'JetBrains Mono',monospace}
+.chip{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:1px solid #2b3550;border-radius:10px;background:#0f1828;color:#d6dbe5;font-size:13px;text-align:left}
+.chip:hover{border-color:#4f52c9;background:#151c3a;color:#fff}
+.chip svg{flex-shrink:0;color:#818CF8}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{transform:scale(1);box-shadow:0 0 0 1px rgba(165,180,252,.35),0 0 28px rgba(99,102,241,.5)}50%{transform:scale(1.05);box-shadow:0 0 0 1px rgba(165,180,252,.55),0 0 52px rgba(99,102,241,.8)}}
+@keyframes blink{50%{opacity:0}}
+
+.radar{position:relative;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.10) 0%,transparent 70%)}
+.radar .c{position:absolute;border-radius:50%;border:1px solid rgba(129,140,248,.18)}
+.radar .ax{position:absolute;background:rgba(129,140,248,.12)}
+.radar .sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(129,140,248,.45),rgba(129,140,248,0) 70deg,transparent 360deg);animation:spin 4s linear infinite;-webkit-mask-image:radial-gradient(circle,#000 69%,transparent 70%);mask-image:radial-gradient(circle,#000 69%,transparent 70%)}
+.radar .core{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8b8ff8 0%,#6366F1 55%,#4338CA 100%);color:#fff;display:flex;align-items:center;justify-content:center;animation:breathe 4s ease-in-out infinite}
+.blip{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#a5b4fc;box-shadow:0 0 10px #818CF8;animation:ping 4s ease-out infinite}
+.blip.w{background:#FBBF24;box-shadow:0 0 10px #FBBF24}
+.blab{position:absolute;font:400 9.5px/1 'JetBrains Mono',monospace;color:#8b93a7;white-space:nowrap}
+@keyframes ping{0%,100%{opacity:.35}8%{opacity:1}40%{opacity:.6}}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 440px; height: 600px; box-sizing: border-box; display: flex; flex-direction: column; background: #0e1525; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0; border: 1px solid #2b3550; border-radius: 14px; overflow: hidden">
+<div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px 24px">
+<div class="radar">
+<div class="c" style="inset: 0"></div><div class="c" style="inset: 40px"></div><div class="c" style="inset: 80px"></div>
+<div class="ax" style="left: 50%; top: 0; bottom: 0; width: 1px"></div><div class="ax" style="top: 50%; left: 0; right: 0; height: 1px"></div>
+<div class="sweep"></div>
+<span class="blip" style="left: 74%; top: 26%; animation-delay: .3s"></span><span class="blab" style="left: 78%; top: 20%">#801</span>
+<span class="blip w" style="left: 22%; top: 34%; animation-delay: 2.6s"></span><span class="blab" style="left: 6%; top: 27%">#796</span>
+<span class="blip" style="left: 64%; top: 78%; animation-delay: 1.5s"></span><span class="blab" style="left: 68%; top: 82%">PR 805</span>
+<div class="core"><svg viewBox="0 0 100 100" width="20" height="20" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center">
+<span class="mono" style="font-size: 10px; letter-spacing: .2em; color: #818CF8">ESCANEANDO EL REPO · 3 SEÑALES</span>
+<h2 style="margin: 0; font-size: 19px; font-weight: 600; color: #f8fafc">Ya estoy mirando. ¿Por dónde arrancamos?</h2>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; width: 100%">
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Proponga el plan para esta misión</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>¿Qué le falta al brief?</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Resuma lo que pasó mientras no estaba</button>
+</div>
+</div>
+<div style="padding: 8px 12px 12px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid #4f52c9; border-radius: 10px; background: #0b1220; box-shadow: 0 0 0 3px rgba(99,102,241,.15)">
+<span style="flex-grow: 1; font-size: 13.5px; line-height: 30px; color: #6b7389">Escríbale a Fluke…</span>
+<button aria-label="Enviar" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: #6366F1; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

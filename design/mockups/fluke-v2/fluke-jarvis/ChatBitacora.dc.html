@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Chat: bitácora</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'JetBrains Mono',monospace}
+.ref{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:5px;font:500 12px/1.6 'JetBrains Mono',monospace;vertical-align:1px;text-decoration:none}
+.ref.pr{background:rgba(99,102,241,.16);color:#c7d2fe;box-shadow:inset 0 0 0 1px rgba(129,140,248,.35)}
+.ref.warn{background:rgba(251,191,36,.12);color:#fcd34d;box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
+.ref.ok{background:rgba(52,211,153,.12);color:#6ee7b7;box-shadow:inset 0 0 0 1px rgba(52,211,153,.3)}
+.ref i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.act{border:1px solid #3b4766;border-radius:7px;padding:6px 11px;background:transparent;color:#e2e8f0;font-size:12.5px}
+.act:hover{border-color:#818CF8;background:#151c3a}
+.act.primary{border-color:transparent;background:#6366F1;color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(129,140,248,.55)}50%{box-shadow:0 0 0 6px rgba(129,140,248,0)}}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 980px; height: 900px; box-sizing: border-box; overflow: hidden; background: #111a2c; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0">
+<div style="height: 100%; display: flex; justify-content: center; padding: 28px 40px; box-sizing: border-box">
+<div style="position: relative; width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 22px; padding-left: 34px">
+<span aria-hidden="true" style="position: absolute; left: 10px; top: 6px; bottom: 0; width: 1px; background: linear-gradient(#26304a, #3b4766 30%, #4f52c9)"></span>
+<div style="position: relative; display: flex; align-items: center; gap: 10px; padding: 2px 0">
+<span style="position: absolute; left: -26px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: #3b4766; box-shadow: 0 0 0 3px #111a2c"></span>
+<button class="mono" style="display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #6b7389; font-size: 11px"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l10 7-10 7z"></path></svg>1 eventos de la app · 13:41</button>
+
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 8px"><span style="position: absolute; left: -29px; top: 3px; width: 11px; height: 11px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px #111a2c"></span>
+<span class="mono" style="font-size: 10.5px; letter-spacing: .12em; color: #6ee7b7">FLUKE · 13:48 · DISEÑO APROBADO</span>
+<p style="margin: 0; font-size: 14.5px; line-height: 1.65; color: #e2e8f0">El diseño del botón "Mergear" quedó <b style="color: #fff; font-weight: 600">aprobado y cerrado</b>. Ahora el Analyst debería crear el issue de implementación a partir del artefacto; si no aparece en unos minutos, avisame y lo revisamos.</p>
+</div>
+<div style="position: relative; display: flex; align-items: center; gap: 10px; padding: 2px 0">
+<span style="position: absolute; left: -26px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: #3b4766; box-shadow: 0 0 0 3px #111a2c"></span>
+<button class="mono" style="display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #6b7389; font-size: 11px"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l10 7-10 7z"></path></svg>3 eventos de la app · 13:50 – 14:02</button>
+<a class="ref pr" href="#">#796</a><a class="ref pr" href="#">artefacto</a>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 8px"><span style="position: absolute; left: -29px; top: 3px; width: 11px; height: 11px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 0 3px #111a2c, 0 0 10px #FBBF24"></span>
+<span class="mono" style="font-size: 10.5px; letter-spacing: .12em; color: #fcd34d">FLUKE · 14:05 · CONFLICTOS</span>
+<p style="margin: 0; font-size: 14.5px; line-height: 1.65; color: #e2e8f0">El <a class="ref warn" href="#"><i></i>PR 815</a>, el botón de merge desde la UI, ya tiene conflictos con la rama base recién abierto. Va a necesitar un rebase antes del review; podés pedírselo al developer con un follow-up.</p>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 8px"><span style="position: absolute; left: -29px; top: 3px; width: 11px; height: 11px; border-radius: 50%; box-sizing: border-box; border: 2px solid #c7d2fe; background: #111a2c; box-shadow: 0 0 0 3px #111a2c"></span>
+<span class="mono" style="font-size: 10.5px; letter-spacing: .12em; color: #c7d2fe">USTED · 14:06</span>
+<p style="margin: 0; padding: 10px 14px; border-radius: 0 10px 10px 10px; background: #1a2246; box-shadow: inset 2px 0 0 #818CF8; font-size: 14.5px; line-height: 1.6; color: #eef0ff">Dale, pedile el rebase. ¿Y el issue de implementación ya apareció?</p>
+</div>
+<div style="position: relative; display: flex; align-items: center; gap: 10px; padding: 2px 0">
+<span style="position: absolute; left: -26px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: #3b4766; box-shadow: 0 0 0 3px #111a2c"></span>
+<button class="mono" style="display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #6b7389; font-size: 11px"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5l10 7-10 7z"></path></svg>20 eventos de la app · 14:06 – 14:31</button>
+<span class="mono" style="font-size: 11px; color: #4f5872">12 de CI · 5 de review · 3 de workers</span>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 10px"><span style="position: absolute; left: -29px; top: 3px; animation: pulse 2s ease-out infinite; width: 11px; height: 11px; border-radius: 50%; background: #818CF8; box-shadow: 0 0 0 3px #111a2c, 0 0 10px #818CF8"></span>
+<span class="mono" style="font-size: 10.5px; letter-spacing: .12em; color: #a5b4fc">FLUKE · AHORA</span>
+<p style="margin: 0; font-size: 14.5px; line-height: 1.65; color: #f8fafc">Cerraste la misión de merge desde la UI, pero su <a class="ref warn" href="#"><i></i>PR 815</a> sigue abierto, en revisión y con conflictos. Si querés que llegue a mergearse, habría que mandarle un rebase al developer; si no, cerrar el PR.</p>
+<div style="display: flex; gap: 8px"><button class="act primary">Pedir rebase al developer</button><button class="act">Cerrar el PR</button></div>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":980,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

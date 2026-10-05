@@ -19,8 +19,9 @@ interface ChatUserMessageProps {
   onEdit?: () => void;
   onReset?: () => void;
   isGreyed?: boolean;
-  /** `bubble`: right-aligned chat bubble with labelled hover actions. */
-  variant?: 'card' | 'bubble';
+  /** `bubble`: right-aligned chat bubble with labelled hover actions;
+   * `line`: plain text with a brand rule on its left (Fluke's chat). */
+  variant?: 'card' | 'bubble' | 'line';
   renderMarkdown: (props: ChatUserMessageRenderProps) => ReactNode;
 }
 
@@ -47,19 +48,26 @@ export function ChatUserMessage({
 }: ChatUserMessageProps) {
   const { t } = useTranslation('tasks');
 
-  if (variant === 'bubble') {
+  if (variant === 'bubble' || variant === 'line') {
     const answers = parseAnswers(content);
     const action =
       'flex items-center gap-1 rounded-md px-2 py-1 text-xs text-low hover:bg-secondary hover:text-normal [&>svg]:size-icon-xs';
     return (
       <div
         className={cn(
-          'group flex flex-col items-end gap-1.5',
+          'group flex flex-col gap-1.5',
+          variant === 'line' ? 'items-start' : 'items-end',
           isGreyed && 'pointer-events-none opacity-50',
           className
         )}
       >
-        <div className="max-w-[78%] rounded-2xl rounded-br-sm border border-border-strong bg-secondary px-4 py-3 text-high">
+        <div
+          className={
+            variant === 'line'
+              ? 'border-l-2 border-brand-on-surface pl-3.5 text-high'
+              : 'max-w-[78%] rounded-2xl rounded-br-sm border border-border-strong bg-secondary px-4 py-3 text-high'
+          }
+        >
           {answers ? (
             <dl className="m-0 flex flex-col gap-2">
               {answers.map(({ question, answer }) => (

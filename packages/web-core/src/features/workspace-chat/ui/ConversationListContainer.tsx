@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent,
 } from 'react';
 import { SpinnerIcon } from '@phosphor-icons/react';
@@ -22,8 +23,14 @@ import { useScrollCommandExecutor } from '../model/useScrollCommandExecutor';
 
 import DisplayConversationEntry from './DisplayConversationEntry';
 import { useIsAssistantChat } from '../model/contexts/AssistantChatContext';
-import { isSilentReply } from '@/features/director/lib/events';
-import { FlukeMark } from '@/features/director/ui/FlukeMark';
+import {
+  eventLines,
+  isEventsBatch,
+  isSilentReply,
+  stripFlukeContext,
+} from '@/features/director/lib/events';
+import { FlukeOrbParts } from '@/features/director/ui/MissionRing';
+import { FlukeTelemetry } from '@/features/director/ui/FlukeTelemetry';
 import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
 import { useEntriesActions } from '../model/contexts/EntriesContext';
@@ -54,6 +61,8 @@ interface ConversationListProps {
   repos?: RepoWithTargetBranch[];
   onAtBottomChange?: (atBottom: boolean) => void;
   sessionScopeId?: string;
+  /** Replaces the default empty state (Fluke greets instead). */
+  emptyState?: React.ReactNode;
 }
 
 export interface ConversationListHandle {
@@ -168,18 +177,58 @@ function entryTimestamp(entry: DisplayEntry): string | null {
   return entry.type === 'NORMALIZED_ENTRY' ? entry.content.timestamp : null;
 }
 
-function AssistantTurnHeader({ timestamp }: { timestamp: string | null }) {
+/** A batch of app events Fluke received: its lines, else null. */
+function eventsBatchLines(entry: DisplayEntry): string[] | null {
+  if (
+    entry.type !== 'NORMALIZED_ENTRY' ||
+    entry.content.entry_type.type !== 'user_message'
+  )
+    return null;
+  const content = stripFlukeContext(entry.content.content);
+  return isEventsBatch(content) ? eventLines(content) : null;
+}
+
+/**
+ * Fluke's chat (design option C, "transmisión"): who and when sit in a
+ * margin column. The latest turn shows the live orb and "now" instead.
+ */
+function TurnMargin({
+  timestamp,
+  you = false,
+  now = false,
+  live = false,
+}: {
+  timestamp: string | null;
+  you?: boolean;
+  now?: boolean;
+  live?: boolean;
+}) {
   const { t } = useTranslation('common');
+  if (now) {
+    return (
+      <div className="flex flex-col items-end gap-1.5 pt-0.5">
+        <span
+          className="fluke-orb"
+          data-state={live ? 'working' : 'idle'}
+          style={{ '--orb-size': '26px' } as CSSProperties}
+        >
+          <FlukeOrbParts markSize={11} />
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-brand-on-surface">
+          {t('director.now')}
+        </span>
+      </div>
+    );
+  }
   return (
-    <div className="mb-2.5 flex items-center gap-2">
-      <span className="flex size-6 items-center justify-center rounded-full bg-brand text-on-brand">
-        <FlukeMark size={12} />
-      </span>
-      <span className="text-sm font-semibold text-high">
-        {t('director.name')}
-      </span>
+    <div className="flex flex-col items-end gap-1 pt-1 font-mono text-[10.5px] leading-none">
+      {you && (
+        <span className="uppercase tracking-[0.1em] text-brand-on-surface">
+          {t('director.you')}
+        </span>
+      )}
       {timestamp && (
-        <span className="text-xs text-low">
+        <span className="text-low/80">
           {new Date(timestamp).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
@@ -194,7 +243,13 @@ export const ConversationList = forwardRef<
   ConversationListHandle,
   ConversationListProps
 >(function ConversationList(
-{ attempt, repos: reposProp = [], onAtBottomChange, sessionScopeId },
+  {
+    attempt,
+    repos: reposProp = [],
+    onAtBottomChange,
+    sessionScopeId,
+    emptyState,
+  },
   ref
 ) {
   const { t } = useTranslation('common');
@@ -429,7 +484,6 @@ export const ConversationList = forwardRef<
     }
   };
 
-
   const { isFirstTurn, isLoadingHistory } = useConversationHistory({
     attempt,
     onTimelineUpdated,
@@ -444,37 +498,84 @@ export const ConversationList = forwardRef<
   );
 
   const assistant = useIsAssistantChat();
-  const turnStarts = useMemo(() => {
-    const starts = new Set<number>();
-    if (!assistant) return starts;
+  // Fluke's chat: which rows open a turn, which runs of app-event batches
+  // merge into one telemetry line, and where the latest turn starts.
+  const flukeLayout = useMemo(() => {
+    const turnStarts = new Set<number>();
+    const events = new Map<number, string[]>();
+    const merged = new Set<number>();
+    let latestFrom = Infinity;
+    if (!assistant) return { turnStarts, events, merged, latestFrom };
     let pending = true;
+    let runHead = -1;
     conversationRows.forEach((row, i) => {
-      if (row.isUserMessage) pending = true;
-      else if (pending && opensAssistantTurn(row.entry)) {
-        starts.add(i);
+      const lines = eventsBatchLines(row.entry);
+      if (lines) {
+        if (runHead >= 0) {
+          events.get(runHead)!.push(...lines);
+          merged.add(i);
+        } else {
+          runHead = i;
+          events.set(i, [...lines]);
+        }
+        pending = true;
+        return;
+      }
+      const opens = opensAssistantTurn(row.entry);
+      if (row.isUserMessage || opens) runHead = -1;
+      if (row.isUserMessage) {
+        pending = true;
+        latestFrom = Infinity;
+      } else if (pending && opens) {
+        turnStarts.add(i);
         pending = false;
+        latestFrom = i;
       }
     });
-    return starts;
+    return { turnStarts, events, merged, latestFrom };
   }, [assistant, conversationRows]);
 
   // Assistant chat: fixed rhythm (28px between turns, 10px inside one);
-  // rows that render nothing collapse instead of leaving gaps.
+  // rows that render nothing collapse instead of leaving gaps. Option C:
+  // a margin column, the latest turn large, earlier ones faded.
   const renderRow = (row: ConversationRow, index: number) => {
-    const content = renderRowContent(row.entry, attempt, resetAction, repos);
-    if (!assistant) return content;
+    if (!assistant)
+      return renderRowContent(row.entry, attempt, resetAction, repos);
+    const { turnStarts, events, merged, latestFrom } = flukeLayout;
+    if (merged.has(index)) return <div className="hidden" />;
+    const lines = events.get(index);
     const opensTurn = turnStarts.has(index);
+    const isUser = row.isUserMessage && !lines;
+    const now = index >= latestFrom;
     return (
       <div
         className={cn(
-          'px-4 [&:has(>div:empty)]:hidden',
-          row.isUserMessage || opensTurn ? 'pt-7' : 'pt-2.5'
+          'grid grid-cols-[56px_minmax(0,1fr)] gap-x-4 px-4 [&:has(>div:last-child>div:empty)]:hidden',
+          isUser || opensTurn || lines ? 'pt-7' : 'pt-2.5'
         )}
       >
-        {opensTurn && (
-          <AssistantTurnHeader timestamp={entryTimestamp(row.entry)} />
-        )}
-        {content}
+        <div>
+          {(isUser || opensTurn) && (
+            <TurnMargin
+              timestamp={entryTimestamp(row.entry)}
+              you={isUser}
+              now={opensTurn && now}
+              live={hasRunningProcess}
+            />
+          )}
+        </div>
+        <div
+          className={cn(
+            'min-w-0',
+            !isUser && !lines && (now ? 'fluke-tx-now' : 'fluke-tx-past')
+          )}
+        >
+          {lines ? (
+            <FlukeTelemetry lines={lines} />
+          ) : (
+            renderRowContent(row.entry, attempt, resetAction, repos)
+          )}
+        </div>
       </div>
     );
   };
@@ -838,6 +939,11 @@ export const ConversationList = forwardRef<
   return (
     <ApprovalFormProvider>
       <div className="relative h-full overflow-hidden">
+        {/* Fluke's empty state is a fixed layer over the list, not part of
+            the scroll: nothing to move with the wheel. */}
+        {showEmptyState && emptyState && (
+          <div className="absolute inset-0 overflow-hidden">{emptyState}</div>
+        )}
         {showLoader && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <SpinnerIcon className="size-6 animate-spin text-low" />
@@ -884,7 +990,7 @@ export const ConversationList = forwardRef<
             </div>
           )}
 
-          {showEmptyState && (
+          {showEmptyState && !emptyState && (
             <div className="flex min-h-full items-center justify-center px-double py-12">
               <ChatEmptyState
                 title={t('conversation.emptyTitle', {

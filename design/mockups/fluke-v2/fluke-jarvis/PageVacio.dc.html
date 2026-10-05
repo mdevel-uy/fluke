@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fluke en página, misión nueva</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.orb{position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.orb .core{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8b8ff8 0%,#6366F1 55%,#4338CA 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(99,102,241,.6)}
+.orb .arc{position:absolute;inset:2px;border-radius:50%;border:2px solid transparent;border-top-color:#818CF8;animation:spin 1.1s cubic-bezier(.5,.1,.5,.9) infinite}
+.orb .arc2{position:absolute;inset:-2px;border-radius:50%;border:1px solid transparent;border-bottom-color:rgba(165,180,252,.6);animation:spin 2.4s linear infinite reverse}
+.orb .dash{position:absolute;inset:-6px;border-radius:50%;border:1px dashed rgba(129,140,248,.3);animation:spin 18s linear infinite}
+.mrow{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:#d6dbe5;text-align:left}
+.mrow:hover{background:#151f36}
+.mrow.sel{background:#1a2246;color:#fff}
+.mrow.sel::before{content:"";position:absolute;left:-6px;top:8px;bottom:8px;width:3px;border-radius:2px;background:#818CF8;box-shadow:0 0 8px #818CF8}
+.ring{position:relative;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring i{width:20px;height:20px;border-radius:50%;background:#0b1220;display:flex;align-items:center;justify-content:center;font:500 8.5px/1 'JetBrains Mono',monospace;font-style:normal;color:#c7cdda}
+.live{position:absolute;inset:-2px;border-radius:50%;border:1.5px solid transparent;border-top-color:#a5b4fc;animation:spin 1.4s linear infinite}
+.sec{font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.14em;padding:14px 10px 6px}
+.meta{font:400 10.5px/1 'JetBrains Mono',monospace;color:#8b93a7}
+.step{display:flex;gap:12px}
+.step .rail{display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0}
+.step .node{width:12px;height:12px;border-radius:50%;box-sizing:border-box;flex-shrink:0;margin-top:3px}
+.step .line{flex-grow:1;width:1px;background:#26304a;margin:4px 0}
+.icon-btn{width:30px;height:30px;border:0;border-radius:6px;background:transparent;color:#8b93a7;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{background:#1b2540;color:#e2e8f0}
+.scan{position:relative;overflow:hidden}
+.scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#818CF8,transparent);animation:scan 4s ease-in-out infinite}
+.ph{border-radius:6px;background:#141d30}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes scan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(129,140,248,.6)}50%{box-shadow:0 0 0 5px rgba(129,140,248,0)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+.big{position:relative;width:220px;height:220px;display:flex;align-items:center;justify-content:center}
+.big .core{position:relative;z-index:2;width:92px;height:92px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8b8ff8 0%,#6366F1 55%,#4338CA 100%);color:#fff;display:flex;align-items:center;justify-content:center;animation:breathe 4s ease-in-out infinite}
+.big .r{position:absolute;border-radius:50%;box-sizing:border-box}
+.big .r1{inset:48px;border:1px solid rgba(129,140,248,.4)}
+.big .r2{inset:22px;border:1px dashed rgba(129,140,248,.3);animation:spin 24s linear infinite}
+.big .r3{inset:0;border:2px solid transparent;border-top-color:#818CF8;border-right-color:rgba(129,140,248,.2);animation:spin 9s linear infinite}
+.big .tk{position:absolute;inset:8px;animation:spin 24s linear infinite reverse}
+.big .tk i{position:absolute;left:50%;width:2px;height:7px;margin-left:-1px;background:#a5b4fc;border-radius:1px}
+.chip{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #2b3550;border-radius:10px;background:#0f1828;color:#d6dbe5;font-size:13.5px;text-align:left}
+.chip:hover{border-color:#4f52c9;background:#151c3a;color:#fff}
+.chip svg{flex-shrink:0;color:#818CF8}
+.sk{border:1px dashed #2b3550;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:#5f6880}
+@keyframes breathe{0%,100%{transform:scale(1);box-shadow:0 0 0 1px rgba(165,180,252,.35),0 0 32px rgba(99,102,241,.5)}50%{transform:scale(1.05);box-shadow:0 0 0 1px rgba(165,180,252,.55),0 0 64px rgba(99,102,241,.8)}}
+</style>
+</helmet>
+<div style="width: 100%; height: 900px; box-sizing: border-box; display: flex; background: #0C1424; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0; overflow: hidden">
+<div aria-hidden="true" style="width: 48px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 14px; background: #0a111f; border-right: 1px solid #1a2338">
+<span class="ph" style="width: 22px; height: 22px"></span><span class="ph" style="width: 22px; height: 22px"></span><span style="width: 22px; height: 22px; border-radius: 6px; background: #312e81; box-shadow: 0 0 0 1px #6366F1"></span><span class="ph" style="width: 22px; height: 22px"></span>
+</div>
+<nav aria-label="Misiones" style="width: 264px; flex-shrink: 0; display: flex; flex-direction: column; background: #0b1220; border-right: 1px solid #1f2940">
+<div style="display: flex; align-items: center; gap: 8px; padding: 14px 14px 6px">
+<span style="flex-grow: 1; font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a5b4fc">MISIONES</span>
+<button class="icon-btn" aria-label="Nueva misión" title="Nueva misión"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+<button style="display: flex; align-items: center; gap: 8px; margin: 0 12px; padding: 7px 10px; border: 1px solid #26304a; border-radius: 8px; background: #0e1525; color: #8b93a7; font-size: 12.5px; text-align: left">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<span style="flex-grow: 1">Cambiar foco</span>
+<kbd style="font: 400 10px/1 'JetBrains Mono', monospace; padding: 2px 4px; border: 1px solid #2b3550; border-radius: 4px">Ctrl K</kbd>
+</button>
+<div style="display: flex; flex-direction: column; padding: 0 8px; flex-grow: 1">
+<span class="sec" style="color: #FBBF24">LO ESPERAN · 2</span>
+<button class="mrow"><span class="ring" style="background: conic-gradient(#818CF8 0 20%, #26304a 0)"><i>MP</i><span class="live"></span></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Merge de PRs aprobados</span><span class="meta">Ejecutando · 1 de 5</span></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,.8); flex-shrink: 0"></span></button>
+<button class="mrow"><span class="ring" style="background: conic-gradient(#818CF8 0 60%, #26304a 0)"><i>BM</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Botón Mergear en la card</span><span class="meta">En revisión · diseño</span></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,.8); flex-shrink: 0"></span></button>
+<span class="sec" style="color: #818CF8">EN CURSO</span>
+<button class="mrow sel"><span class="ring" style="background: #2f3a55"><i>NM</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px">Nueva misión</span><span class="meta">Borrador</span></span></button>
+<button class="mrow"><span class="ring" style="background: conic-gradient(#818CF8 0 33%, #26304a 0)"><i>DI</i><span class="live"></span></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px">Dashboard de impacto v2</span><span class="meta">Planificando · 2 de 6</span></span></button>
+<button class="mrow"><span class="ring" style="background: conic-gradient(#34d399 0 100%, #26304a 0)"><i>LC</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px">Login de Claude con Enter</span><span class="meta">Completa · 3 de 3</span></span></button>
+<span class="sec" style="color: #5f6880">SIEMPRE</span>
+<button class="mrow"><span style="width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #8b8ff8, #6366F1 55%, #4338CA); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg viewBox="0 0 100 100" width="12" height="12" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></span><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px">Fluke (general)</span><span class="meta">Avisos de la app</span></span></button>
+</div>
+<div style="display: flex; flex-direction: column; padding: 4px 8px 10px; border-top: 1px solid #1f2940">
+<button aria-expanded="true" style="display: flex; align-items: center; gap: 6px; padding: 10px 10px 6px; border: 0; background: transparent; color: #8b93a7; font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .14em; text-align: left"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg><span style="flex-grow: 1">ARCHIVADAS · 14</span></button>
+<button class="mrow" style="opacity: .6"><span class="ring" style="background: #26304a"><i>SM</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Settings de merge por repo</span><span class="meta">Cerrada · 4 de 4</span></span></button>
+<button class="mrow" style="opacity: .6"><span class="ring" style="background: #26304a"><i>PC</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Prompt cache visible</span><span class="meta">Cerrada · 2 de 2</span></span></button>
+<button class="mrow" style="opacity: .6"><span class="ring" style="background: #26304a"><i>NX</i></span><span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Fluke Nexus</span><span class="meta">Cerrada · 6 de 6</span></span></button>
+<a href="#archivadas" style="padding: 6px 10px 0; font: 400 11px/1 'JetBrains Mono', monospace; color: #8b93a7">Ver las 14</a>
+</div>
+</nav>
+<section aria-label="Conversación" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+<header class="scan" style="display: flex; align-items: center; gap: 14px; padding: 16px 20px 14px">
+<div class="orb"><div class="dash"></div><div class="core"><svg viewBox="0 0 100 100" width="15" height="15" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></div></div>
+<div style="display: flex; flex-direction: column; gap: 7px; min-width: 0; flex-grow: 1">
+<h1 style="margin: 0; font-size: 19px; font-weight: 600; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Nueva misión</h1>
+<span style="font: 400 10.5px/1 'JetBrains Mono', monospace; letter-spacing: .12em; color: #818CF8">BORRADOR · FLUKE › ISSUES</span>
+</div>
+<button class="icon-btn" aria-label="Anclar como columna" title="Anclar como columna"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 10.76V6h6v4.76l2 3.24H7z"></path><path d="M8 3h8"></path></svg></button>
+<button class="icon-btn" aria-label="Volver al panel flotante" title="Volver al panel flotante"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"></path><path d="M20 10h-6V4"></path><path d="M14 10l7-7"></path><path d="M3 21l7-7"></path></svg></button>
+</header>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; border-top: 1px solid #1f2940; background: radial-gradient(ellipse at 50% 40%, rgba(99,102,241,.10), transparent 60%)">
+<div style="width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 24px; box-sizing: border-box">
+<div class="big"><div class="r r3"></div><div class="r r2"></div><div class="r r1"></div><div class="tk"><i style="top: 0"></i><i style="bottom: 0"></i></div><div class="core"><svg viewBox="0 0 100 100" width="36" height="36" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></div></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<span style="font: 500 10.5px/1 'JetBrains Mono', monospace; letter-spacing: .22em; color: #818CF8">EN LÍNEA · MISIÓN NUEVA</span>
+<h2 style="margin: 0; font-size: 28px; font-weight: 600; color: #f8fafc">¿Qué quiere lograr?</h2>
+<p style="margin: 0; max-width: 400px; font-size: 14px; line-height: 1.6; color: #9aa3b5">Cuénteme el objetivo. Yo armo el brief, pregunto lo que falte y pongo a trabajar al equipo.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%">
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Proponga el plan para esta misión</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>¿Qué le falta al brief?</button>
+<button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>Resuma lo que pasó mientras no estaba</button>
+</div>
+</div>
+</div>
+<div style="display: flex; justify-content: center; padding: 10px 24px 20px">
+<div style="width: 100%; max-width: 680px; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid #4f52c9; border-radius: 12px; background: #0b1220; box-shadow: 0 0 0 3px rgba(99,102,241,.15)">
+<label for="ask-page" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Escríbale a Fluke</label>
+<input id="ask-page" placeholder="Escríbale a Fluke…" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #e2e8f0; font: 400 14px/32px 'IBM Plex Sans', sans-serif">
+<button class="icon-btn" aria-label="Hablar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+<button aria-label="Enviar" style="width: 32px; height: 32px; border: 0; border-radius: 8px; background: #6366F1; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></button>
+</div>
+</div>
+</section>
+<aside aria-label="Plan y brief" style="width: 360px; flex-shrink: 0; display: flex; flex-direction: column; gap: 22px; padding: 20px; box-sizing: border-box; background: #0e1525; border-left: 1px solid #1f2940; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a5b4fc">BRIEF</span>
+<span class="meta">borrador vacío</span>
+</div>
+<p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: #8b93a7">Se completa solo mientras conversan. Cuando esté listo, se lo pido para aprobar.</p>
+<div style="display: flex; flex-direction: column; gap: 4px"><span class="meta" style="letter-spacing: .1em">OBJETIVO</span><div class="sk">Qué quiere lograr</div></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span class="meta" style="letter-spacing: .1em">ALCANCE</span><div class="sk">Qué entra y qué no</div></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><span class="meta" style="letter-spacing: .1em">CRITERIO DE ACEPTACIÓN</span><div class="sk">Cómo sabemos que está hecho</div></div>
+</div>
+<div style="height: 1px; background: #1f2940"></div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a5b4fc">PLAN</span>
+<p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: #5f6880">Aparece cuando apruebe el brief: el Analyst lo parte en issues.</p>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

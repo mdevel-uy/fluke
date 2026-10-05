@@ -4,7 +4,6 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   Check,
   ChevronUp,
-  Command,
   FolderClosed,
   GitBranch,
   HardDrive,
@@ -55,7 +54,6 @@ import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useConcurrencyStatus } from '@/shared/hooks/useConcurrencyStatus';
-import { CommandBarDialog } from '@/shared/dialogs/command-bar/CommandBarDialog';
 import { SettingsDialog } from '@/shared/dialogs/settings/SettingsDialog';
 
 interface StatusBarContainerProps {
@@ -525,12 +523,6 @@ export function StatusBarContainer({
             .join(' · ')}
         </StatusBarItem>
       )}
-      <StatusBarItem
-        onClick={() => CommandBarDialog.show()}
-        aria-label="Command bar"
-      >
-        <Command size={11} strokeWidth={1.75} aria-hidden />K
-      </StatusBarItem>
     </StatusBar>
   );
 }

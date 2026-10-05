@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Panel de Fluke por voz</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#a5b4fc}a:hover{color:#c7d2fe}
+button{font-family:inherit;cursor:pointer}
+.rail-btn{position:relative;width:40px;height:40px;border-radius:50%;border:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.rail-btn:focus-visible{outline:2px solid #818CF8;outline-offset:2px}
+.ring{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ring-in{width:28px;height:28px;border-radius:50%;background:#111a2c;display:flex;align-items:center;justify-content:center;font:500 10px/1 'JetBrains Mono',monospace;color:#c7cdda}
+.sel .ring-in{background:#1e2650;color:#fff}
+.sel::before{content:"";position:absolute;left:-8px;top:8px;bottom:8px;width:3px;border-radius:2px;background:#818CF8;box-shadow:0 0 8px #818CF8}
+.dot{position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#FBBF24;box-shadow:0 0 0 2px #0b1220,0 0 8px rgba(251,191,36,.8)}
+.live{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;border-top-color:#a5b4fc;animation:spin 1.4s linear infinite}
+.icon-btn{width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:#8b93a7;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{background:#1b2540;color:#e2e8f0}
+.vorb{position:relative;width:150px;height:150px;display:flex;align-items:center;justify-content:center}
+.vorb .core{position:relative;z-index:2;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8b8ff8 0%,#6366F1 55%,#4338CA 100%);color:#fff;display:flex;align-items:center;justify-content:center;animation:breathe 1.6s ease-in-out infinite}
+.vorb .halo{position:absolute;inset:30px;border-radius:50%;border:1px solid rgba(129,140,248,.5);animation:ping 1.6s ease-out infinite}
+.vorb .halo2{animation-delay:.8s}
+.vorb .bars{position:absolute;inset:0}
+.vorb .bars span{position:absolute;left:50%;top:50%;width:2px;margin-left:-1px;border-radius:1px;background:#a5b4fc;transform-origin:50% 0;animation:rbar 1.1s ease-in-out infinite}
+.word-dim{color:#6b7389}
+.caret{display:inline-block;width:2px;height:18px;margin-left:2px;background:#a5b4fc;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{transform:scale(1);box-shadow:0 0 0 1px rgba(165,180,252,.4),0 0 24px rgba(99,102,241,.55)}50%{transform:scale(1.07);box-shadow:0 0 0 1px rgba(165,180,252,.6),0 0 44px rgba(99,102,241,.85)}}
+@keyframes ping{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+@keyframes rbar{0%,100%{height:6px}50%{height:16px}}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 440px; height: 720px; box-sizing: border-box; background: #0C1424; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #e2e8f0; display: flex">
+<aside aria-label="Fluke" style="flex-grow: 1; display: flex; flex-direction: column; background: #0e1525; border: 1px solid #3a4470; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px rgba(99,102,241,.25), 0 0 40px rgba(99,102,241,.18), 0 24px 60px rgba(0,0,0,.5)">
+<header style="display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; border-bottom: 1px solid #1f2940">
+<div style="display: flex; flex-direction: column; gap: 5px; min-width: 0; flex-grow: 1">
+<span style="font-size: 14px; font-weight: 600; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Merge de PRs aprobados desde la UI</span>
+<span style="display: flex; align-items: center; gap: 6px; font: 400 10px/1 'JetBrains Mono', monospace; letter-spacing: .12em; color: #f87171"><span style="width: 6px; height: 6px; border-radius: 50%; background: #f87171; box-shadow: 0 0 6px #f87171"></span>MICRÓFONO ABIERTO · 00:07</span>
+</div>
+<button class="icon-btn" aria-label="Anclar como columna"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 10.76V6h6v4.76l2 3.24H7z"></path><path d="M8 3h8"></path></svg></button>
+<button class="icon-btn" aria-label="Minimizar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+</header>
+<div style="display: flex; flex-grow: 1; min-height: 0">
+<nav aria-label="Misiones" style="width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; border-right: 1px solid #1f2940; background: #0b1220">
+<button class="rail-btn" aria-label="Fluke (general)"><span class="ring" style="background: #2b3550"><span class="ring-in">F</span></span></button>
+<button class="rail-btn sel" aria-label="Merge de PRs aprobados desde la UI"><span class="ring" style="background: conic-gradient(#818CF8 0 20%, #26304a 0)"><span class="ring-in">MP</span></span><span class="dot"></span></button>
+<button class="rail-btn" aria-label="Botón Mergear en la card"><span class="ring" style="background: conic-gradient(#818CF8 0 60%, #26304a 0)"><span class="ring-in">BM</span></span><span class="dot"></span></button>
+<button class="rail-btn" aria-label="Dashboard de impacto v2"><span class="ring" style="background: conic-gradient(#818CF8 0 33%, #26304a 0)"><span class="ring-in">DI</span></span><span class="live"></span></button>
+</nav>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 18px 16px 14px; box-sizing: border-box">
+<span style="font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .18em; color: #a5b4fc">ESCUCHANDO</span>
+<div class="vorb" style="margin-top: 10px">
+<div class="halo"></div><div class="halo halo2"></div>
+<div class="bars"><sc-for list="{{bars}}" as="b" hint-placeholder-count="36"><span style="{{b.style}}"></span></sc-for></div>
+<div class="core"><svg viewBox="0 0 100 100" width="24" height="24" aria-hidden="true"><path d="M50,86 C26,77 6,53 4,21 C3,12 11,10 19,18 C36,36 47,57 50,70 C53,57 64,36 81,18 C89,10 97,12 96,21 C94,53 74,77 50,86 Z" fill="currentColor"></path></svg></div>
+</div>
+<p aria-live="polite" style="margin: 14px 0 0; font-size: 18px; line-height: 1.45; text-align: center; color: #f1f5f9">Mergeá el 805 y seguí con el issue dos, <span class="word-dim">pero antes fijate si</span><span class="caret"></span></p>
+<div style="flex-grow: 1"></div>
+<div style="align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid #4a3d17; border-radius: 10px; background: #17160f">
+<span style="font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .14em; color: #FBBF24">FLUKE VA A HACER · CONFIRMACIÓN</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f1e7c9"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="12" r="2.5"></circle><path d="M6 8.5v7"></path><path d="M8.3 7.2 15.7 10.8"></path></svg>Mergear PR 805 (squash) y borrar la rama</span>
+<span style="font-size: 12px; color: #b8a77a">Diga "confirmo" o toque. Las acciones que no se deshacen siempre piden confirmación.</span>
+</div>
+</div>
+</div>
+<div style="display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; border-top: 1px solid #1f2940; background: #0b1220">
+<button class="icon-btn" aria-label="Escribir en lugar de hablar" title="Escribir" style="width: 40px; height: 40px; border: 1px solid #2b3550; border-radius: 50%"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"></path></svg></button>
+<button aria-label="Cerrar el micrófono" title="Cerrar el micrófono" style="width: 56px; height: 56px; border: 0; border-radius: 50%; background: #6366F1; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 4px rgba(99,102,241,.25), 0 0 24px rgba(99,102,241,.6)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+<button class="icon-btn" aria-label="Terminar la conversación por voz" title="Terminar" style="width: 40px; height: 40px; border: 1px solid #4b2a33; border-radius: 50%; color: #f87171"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const n = 36;
+    return {
+      bars: Array.from({ length: n }, (_, i) => ({
+        style: 'transform: rotate(' + (i * 360 / n) + 'deg) translateY(44px); animation-delay: -' + ((i * 37) % 11) / 10 + 's; opacity: ' + (0.45 + ((i * 13) % 5) / 10)
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

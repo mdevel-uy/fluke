@@ -33,7 +33,6 @@ import {
   PencilSimpleIcon,
   ArrowUpIcon,
   HighlighterIcon,
-  ListIcon,
   MegaphoneIcon,
   QuestionIcon,
   ArrowsLeftRightIcon,
@@ -388,21 +387,6 @@ export const Actions = {
       await ProjectsGuideDialog.show();
     },
   } satisfies GlobalActionDefinition,
-
-  OpenCommandBar: {
-    id: 'open-command-bar',
-    label: 'Open Command Bar',
-    icon: ListIcon,
-    shortcut: '{mod} K',
-    requiresTarget: ActionTargetType.NONE,
-    execute: async () => {
-      // Dynamic import to avoid circular dependency (pages.ts imports Actions)
-      const { CommandBarDialog } = await import(
-        '@/shared/dialogs/command-bar/CommandBarDialog'
-      );
-      CommandBarDialog.show();
-    },
-  },
 
   // === Diff View Actions ===
   ToggleDiffViewMode: {
@@ -1573,8 +1557,6 @@ export const NavbarActionGroups = {
     Actions.ToggleChangesMode,
     Actions.ToggleLogsMode,
     Actions.ToggleRightSidebar,
-    NavbarDivider,
-    Actions.OpenCommandBar,
   ] as NavbarItem[],
 };
 

@@ -561,3 +561,261 @@ html {
     background-color: hsl(var(--md-surface-dim, 0 0% 7%));
   }
 }
+
+/* Fluke's collapsed button: a breathing core with HUD rings. State comes
+   from data-state: idle (slow), working (counter-spinning arcs), alert
+   (amber arc plus an echo while missions wait on the user). */
+.fluke-orb {
+  --orb-accent: var(--brand-on-surface);
+  position: relative;
+  display: flex;
+  width: var(--orb-size, 52px);
+  height: var(--orb-size, 52px);
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+.fluke-orb[data-state='alert'] {
+  --orb-accent: var(--_warning);
+}
+.fluke-orb-core {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: calc(var(--orb-size, 52px) * 0.77);
+  height: calc(var(--orb-size, 52px) * 0.77);
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: hsl(var(--text-on-brand));
+  background: radial-gradient(
+    circle at 35% 30%,
+    #8b8ff8 0%,
+    #6366f1 55%,
+    #4338ca 100%
+  );
+  animation: fluke-orb-breathe 4s ease-in-out infinite;
+}
+.fluke-orb:hover .fluke-orb-core {
+  filter: brightness(1.12);
+}
+.fluke-orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.fluke-orb-ring-arc {
+  border: 2px solid transparent;
+  border-top-color: hsl(var(--orb-accent));
+  border-right-color: hsl(var(--orb-accent) / 0.25);
+  opacity: 0.6;
+  animation: fluke-orb-spin 9s linear infinite;
+}
+.fluke-orb-ring-dash {
+  inset: -4px;
+  border: 1px dashed hsl(var(--orb-accent) / 0.35);
+  animation: fluke-orb-spin 18s linear infinite;
+}
+.fluke-orb-ring-echo {
+  inset: 2px;
+  border: 1px solid hsl(var(--orb-accent) / 0.45);
+  opacity: 0;
+}
+.fluke-orb[data-state='working'] .fluke-orb-ring-arc {
+  opacity: 1;
+  animation: fluke-orb-spin 1.1s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+}
+.fluke-orb[data-state='working'] .fluke-orb-ring-dash {
+  border-style: solid;
+  border-color: transparent;
+  border-bottom-color: hsl(var(--orb-accent) / 0.7);
+  animation: fluke-orb-spin 2.4s linear infinite reverse;
+}
+.fluke-orb[data-state='alert'] .fluke-orb-core {
+  animation-duration: 2.4s;
+}
+.fluke-orb[data-state='alert'] .fluke-orb-ring-arc {
+  opacity: 1;
+  animation-duration: 3s;
+}
+.fluke-orb[data-state='alert'] .fluke-orb-ring-echo {
+  animation: fluke-orb-ping 2.4s ease-out infinite;
+}
+@keyframes fluke-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fluke-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgb(165 180 252 / 0.35),
+      0 0 16px rgb(99 102 241 / 0.45);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow:
+      0 0 0 1px rgb(165 180 252 / 0.5),
+      0 0 28px rgb(99 102 241 / 0.7);
+  }
+}
+@keyframes fluke-orb-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fluke-orb *,
+  .fluke-orb {
+    animation: none !important;
+  }
+}
+
+/* Mission ring of Fluke's rail and lists: progress as a conic arc (set
+   --ring-progress, 0-100), an arc spinning while the agent runs. */
+.fluke-ring {
+  --ring-color: var(--brand-on-surface);
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: conic-gradient(
+    hsl(var(--ring-color)) 0 calc(var(--ring-progress, 0) * 1%),
+    hsl(var(--md-outline-variant)) 0
+  );
+}
+.fluke-ring[data-complete] {
+  --ring-color: var(--success);
+}
+.fluke-ring-live::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  border-top-color: hsl(var(--brand-secondary));
+  animation: fluke-orb-spin 1.4s linear infinite;
+}
+
+/* A thin brand light sweeping along the bottom edge of Fluke's headers. */
+.fluke-scan {
+  position: relative;
+  overflow: hidden;
+}
+.fluke-scan::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--brand-on-surface)),
+    transparent
+  );
+  animation: fluke-scan 3.5s ease-in-out infinite;
+}
+@keyframes fluke-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fluke-ring-live::after,
+  .fluke-scan::after {
+    animation: none !important;
+  }
+}
+
+/* The standby orb of an empty conversation: a slower breath and two HUD
+   ticks turning around it. */
+.fluke-orb-welcome .fluke-orb-core {
+  width: calc(var(--orb-size) * 0.43);
+  height: calc(var(--orb-size) * 0.43);
+  animation-duration: 5s;
+}
+/* Idle, the echo ring stays put as the middle HUD ring. */
+.fluke-orb-welcome .fluke-orb-ring-echo {
+  inset: 21%;
+  opacity: 1;
+}
+.fluke-orb-welcome .fluke-orb-ring-dash {
+  inset: 10%;
+}
+.fluke-orb-ticks {
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  animation: fluke-orb-spin 24s linear infinite reverse;
+}
+.fluke-orb-ticks::before,
+.fluke-orb-ticks::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  height: 7px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: hsl(var(--brand-secondary));
+}
+.fluke-orb-ticks::before {
+  top: 0;
+}
+.fluke-orb-ticks::after {
+  bottom: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fluke-orb-ticks {
+    animation: none !important;
+  }
+}
+
+/* Fluke's chat, option C: the latest turn reads large, earlier ones step
+   back (and come forward on hover); PR / issue links read as chips. */
+.fluke-tx-now .wysiwyg {
+  font-size: 19px;
+  line-height: 1.6;
+  color: hsl(var(--text-high));
+}
+.fluke-tx-past {
+  opacity: 0.62;
+  transition: opacity 0.15s;
+}
+.fluke-tx-past:hover {
+  opacity: 1;
+}
+.fluke-tx-past .wysiwyg {
+  font-size: 15px;
+  line-height: 1.7;
+}
+:is(.fluke-tx-now, .fluke-tx-past) a[href^='https://github.com/']
+{
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.78em;
+  line-height: 1.6;
+  vertical-align: 1px;
+  text-decoration: none;
+  color: hsl(var(--brand-secondary));
+  background: hsl(var(--brand) / 0.16);
+  box-shadow: inset 0 0 0 1px hsl(var(--brand-on-surface) / 0.35);
+}
