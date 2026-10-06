@@ -516,7 +516,7 @@ impl Codex {
     /// Floor version: `codex-protocol` / `codex-app-server-protocol` in
     /// Cargo.toml are built from the same tag. A newer installed Codex is
     /// used instead (its app-server protocol grows additively).
-    pub const PINNED_COMMAND: &'static str = "npx -y @openai/codex@0.124.0";
+    pub const PINNED_COMMAND: &'static str = "npx -y @openai/codex@0.158.0";
 
     pub fn base_command() -> &'static str {
         static CMD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -590,8 +590,10 @@ impl Codex {
             }
             None => None,
             Some(AskForApproval::UnlessTrusted) => Some(V2AskForApproval::UnlessTrusted),
-            Some(AskForApproval::OnFailure) => Some(V2AskForApproval::OnFailure),
-            Some(AskForApproval::OnRequest) => Some(V2AskForApproval::OnRequest),
+            // codex removed `on-failure`; `on-request` is its replacement
+            Some(AskForApproval::OnFailure | AskForApproval::OnRequest) => {
+                Some(V2AskForApproval::OnRequest)
+            }
             Some(AskForApproval::Never) => Some(V2AskForApproval::Never),
         };
 
@@ -626,7 +628,7 @@ impl Codex {
 
         let (model, is_fast) = resolve_model(self.model.as_deref());
         let service_tier = if is_fast {
-            Some(Some(ServiceTier::Fast))
+            Some(Some(ServiceTier::Fast.request_value().to_string()))
         } else {
             None
         };

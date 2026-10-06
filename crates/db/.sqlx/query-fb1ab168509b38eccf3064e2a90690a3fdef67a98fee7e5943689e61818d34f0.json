@@ -6,42 +6,90 @@
       {
         "name": "id!: Uuid",
         "ordinal": 0,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "execution_process_id!: Uuid",
         "ordinal": 1,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "execution_process_id"
+          }
+        }
       },
       {
         "name": "repo_id!: Uuid",
         "ordinal": 2,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "repo_id"
+          }
+        }
       },
       {
         "name": "before_head_commit",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "before_head_commit"
+          }
+        }
       },
       {
         "name": "after_head_commit",
         "ordinal": 4,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "after_head_commit"
+          }
+        }
       },
       {
         "name": "merge_commit",
         "ordinal": 5,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "merge_commit"
+          }
+        }
       },
       {
         "name": "created_at!: DateTime<Utc>",
         "ordinal": 6,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "created_at"
+          }
+        }
       },
       {
         "name": "updated_at!: DateTime<Utc>",
         "ordinal": 7,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "updated_at"
+          }
+        }
       }
     ],
     "parameters": {

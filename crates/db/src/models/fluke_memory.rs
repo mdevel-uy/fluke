@@ -49,9 +49,9 @@ impl FlukeMemory {
     }
 
     pub async fn list(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, Self>(&format!(
+        sqlx::query_as::<_, Self>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM fluke_memories m ORDER BY m.id"
-        ))
+        )))
         .fetch_all(pool)
         .await
     }
@@ -71,11 +71,11 @@ impl FlukeMemory {
         let Some(expr) = fts_query(query) else {
             return Ok(Vec::new());
         };
-        sqlx::query_as::<_, Self>(&format!(
+        sqlx::query_as::<_, Self>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM fluke_memories_fts f \
                JOIN fluke_memories m ON m.id = f.rowid \
               WHERE fluke_memories_fts MATCH ?1 ORDER BY f.rank LIMIT ?2"
-        ))
+        )))
         .bind(expr)
         .bind(limit)
         .fetch_all(pool)
@@ -84,10 +84,10 @@ impl FlukeMemory {
 
     /// The most used memories, the ones that keep mattering.
     pub async fn most_used(pool: &SqlitePool, limit: i64) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, Self>(&format!(
+        sqlx::query_as::<_, Self>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM fluke_memories m \
               ORDER BY m.uses DESC, m.id DESC LIMIT ?1"
-        ))
+        )))
         .bind(limit)
         .fetch_all(pool)
         .await
@@ -138,7 +138,10 @@ mod tests {
 
     #[test]
     fn fts_query_is_safe() {
-        assert_eq!(fts_query("¿y el \"logins\" OR*?"), Some("\"login\"*".into()));
+        assert_eq!(
+            fts_query("¿y el \"logins\" OR*?"),
+            Some("\"login\"*".into())
+        );
         assert_eq!(fts_query("a b"), None);
     }
 
@@ -151,9 +154,10 @@ mod tests {
             .unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-        let device = FlukeMemory::remember(&pool, "Prefiere device flow para los logins", "preference")
-            .await
-            .unwrap();
+        let device =
+            FlukeMemory::remember(&pool, "Prefiere device flow para los logins", "preference")
+                .await
+                .unwrap();
         // Same fact again: not duplicated.
         assert_eq!(
             FlukeMemory::remember(&pool, "prefiere DEVICE flow para los logins", "preference")
@@ -172,14 +176,24 @@ mod tests {
             .unwrap();
         assert_eq!(hits.iter().map(|m| m.id).collect::<Vec<_>>(), vec![device]);
         // Short common words also match, lower: the best match comes first.
-        let hits = FlukeMemory::relevant(&pool, "¿quién revisá los prs?", 5).await.unwrap();
+        let hits = FlukeMemory::relevant(&pool, "¿quién revisá los prs?", 5)
+            .await
+            .unwrap();
         assert_eq!(hits.first().map(|m| m.id), Some(review));
 
         FlukeMemory::mark_used(&pool, &[review]).await.unwrap();
-        assert_eq!(FlukeMemory::most_used(&pool, 1).await.unwrap()[0].id, review);
+        assert_eq!(
+            FlukeMemory::most_used(&pool, 1).await.unwrap()[0].id,
+            review
+        );
 
         assert!(FlukeMemory::forget(&pool, device).await.unwrap());
-        assert!(FlukeMemory::relevant(&pool, "login", 5).await.unwrap().is_empty());
+        assert!(
+            FlukeMemory::relevant(&pool, "login", 5)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(!FlukeMemory::forget(&pool, device).await.unwrap());
     }
 }

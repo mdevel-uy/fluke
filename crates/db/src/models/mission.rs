@@ -159,10 +159,12 @@ impl Mission {
     }
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
-        let row = sqlx::query_as::<_, MissionRow>(&format!("{MISSION_SELECT} WHERE m.id = ?1"))
-            .bind(id)
-            .fetch_optional(pool)
-            .await?;
+        let row = sqlx::query_as::<_, MissionRow>(sqlx::AssertSqlSafe(format!(
+            "{MISSION_SELECT} WHERE m.id = ?1"
+        )))
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
         Ok(row.map(Into::into))
     }
 
@@ -170,22 +172,23 @@ impl Mission {
         pool: &SqlitePool,
         session_id: Uuid,
     ) -> Result<Option<Self>, sqlx::Error> {
-        let row =
-            sqlx::query_as::<_, MissionRow>(&format!("{MISSION_SELECT} WHERE m.session_id = ?1"))
-                .bind(session_id)
-                .fetch_optional(pool)
-                .await?;
+        let row = sqlx::query_as::<_, MissionRow>(sqlx::AssertSqlSafe(format!(
+            "{MISSION_SELECT} WHERE m.session_id = ?1"
+        )))
+        .bind(session_id)
+        .fetch_optional(pool)
+        .await?;
         Ok(row.map(Into::into))
     }
 
     /// Todas las misiones de la instalación (el Director es global): la
     /// guardia de Fluke primero, después las abiertas y luego por actividad.
     pub async fn list(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, MissionRow>(&format!(
+        let rows = sqlx::query_as::<_, MissionRow>(sqlx::AssertSqlSafe(format!(
             "{MISSION_SELECT} \
              ORDER BY m.id IS (SELECT mission_id FROM fluke_guard WHERE id = 1) DESC, \
                       (m.status = 'closed'), m.updated_at DESC"
-        ))
+        )))
         .fetch_all(pool)
         .await?;
         Ok(rows.into_iter().map(Into::into).collect())
@@ -309,9 +312,9 @@ impl Mission {
     // ----- ítems del brief -------------------------------------------------
 
     pub async fn items(pool: &SqlitePool, id: Uuid) -> Result<Vec<MissionItem>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, ItemRow>(&format!(
+        let rows = sqlx::query_as::<_, ItemRow>(sqlx::AssertSqlSafe(format!(
             "{ITEM_SELECT} WHERE mission_id = ?1 ORDER BY position"
-        ))
+        )))
         .bind(id)
         .fetch_all(pool)
         .await?;
@@ -329,9 +332,9 @@ impl Mission {
         fields: &BTreeMap<String, String>,
     ) -> Result<MissionItem, sqlx::Error> {
         let existing = match item_id {
-            Some(item_id) => sqlx::query_as::<_, ItemRow>(&format!(
+            Some(item_id) => sqlx::query_as::<_, ItemRow>(sqlx::AssertSqlSafe(format!(
                 "{ITEM_SELECT} WHERE id = ?1 AND mission_id = ?2"
-            ))
+            )))
             .bind(item_id)
             .bind(id)
             .fetch_optional(pool)
@@ -391,10 +394,12 @@ impl Mission {
             .bind(id)
             .execute(pool)
             .await?;
-        let row = sqlx::query_as::<_, ItemRow>(&format!("{ITEM_SELECT} WHERE id = ?1"))
-            .bind(item_id)
-            .fetch_one(pool)
-            .await?;
+        let row = sqlx::query_as::<_, ItemRow>(sqlx::AssertSqlSafe(format!(
+            "{ITEM_SELECT} WHERE id = ?1"
+        )))
+        .bind(item_id)
+        .fetch_one(pool)
+        .await?;
         Ok(row.into())
     }
 

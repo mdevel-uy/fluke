@@ -54,9 +54,19 @@ pub fn fallback_models() -> Vec<ModelInfo> {
 }
 
 /// Reasoning efforts this build's Codex client can send (`ReasoningEffort`
-/// in the pinned `codex-protocol`). A newer Codex may offer more (`max`,
-/// `ultra`); they are left out of the picker until the protocol is bumped.
-const CLIENT_REASONING_EFFORTS: &[&str] = &["none", "minimal", "low", "medium", "high", "xhigh"];
+/// in the pinned `codex-protocol`). A newer Codex may offer more; they are
+/// left out of the picker until the protocol is bumped.
+const CLIENT_REASONING_EFFORTS: &[&str] = &[
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+    "persistent",
+];
 
 /// The account's models as Codex itself lists them (`model/list` on its
 /// app-server, the same request its own picker makes): the only source for a
@@ -93,8 +103,15 @@ pub async fn fetch_app_server_models(
     ];
     let exchange = async {
         for message in &messages {
-            stdin.write_all(format!("{message}
-").as_bytes()).await?;
+            stdin
+                .write_all(
+                    format!(
+                        "{message}
+"
+                    )
+                    .as_bytes(),
+                )
+                .await?;
         }
         stdin.flush().await?;
         while let Some(line) = lines.next_line().await? {
@@ -105,7 +122,9 @@ pub async fn fetch_app_server_models(
                 return Ok(reply);
             }
         }
-        Err(std::io::Error::other("codex app-server closed before answering"))
+        Err(std::io::Error::other(
+            "codex app-server closed before answering",
+        ))
     };
     let reply = tokio::time::timeout(APP_SERVER_TIMEOUT, exchange)
         .await
@@ -150,7 +169,10 @@ fn models_from_list_reply(reply: &serde_json::Value) -> Option<Vec<ModelInfo>> {
             for option in &mut reasoning_options {
                 option.is_default = Some(option.id.as_str()) == default_effort;
             }
-            let is_default = m.get("isDefault").and_then(|d| d.as_bool()).unwrap_or(false);
+            let is_default = m
+                .get("isDefault")
+                .and_then(|d| d.as_bool())
+                .unwrap_or(false);
             Some((
                 is_default,
                 ModelInfo {
@@ -360,7 +382,8 @@ mod tests {
             {"model": "gpt-6-sol", "displayName": "GPT-6-Sol", "hidden": false, "isDefault": true,
              "defaultReasoningEffort": "medium",
              "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"},
-                                           {"reasoningEffort": "xhigh"}, {"reasoningEffort": "ultra"}]},
+                                           {"reasoningEffort": "xhigh"}, {"reasoningEffort": "ultra"},
+                                           {"reasoningEffort": "turbo"}]},
             {"model": "internal", "displayName": "Hidden", "hidden": true, "isDefault": false,
              "supportedReasoningEfforts": []}
         ], "nextCursor": null}});
@@ -368,9 +391,18 @@ mod tests {
         let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
         assert_eq!(ids, ["gpt-6-sol", "gpt-5.5"]);
         assert_eq!(models[0].name, "GPT-6-Sol");
-        let efforts: Vec<&str> = models[0].reasoning_options.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(efforts, ["low", "medium", "xhigh"]);
-        assert!(models[0].reasoning_options.iter().any(|r| r.id == "medium" && r.is_default));
+        let efforts: Vec<&str> = models[0]
+            .reasoning_options
+            .iter()
+            .map(|r| r.id.as_str())
+            .collect();
+        assert_eq!(efforts, ["low", "medium", "xhigh", "ultra"]);
+        assert!(
+            models[0]
+                .reasoning_options
+                .iter()
+                .any(|r| r.id == "medium" && r.is_default)
+        );
     }
 
     #[test]

@@ -49,7 +49,9 @@ pub(crate) async fn ensure_electric_publications(
     for publication in publication_names {
         if !existing_publications.contains(publication) {
             let sql = format!("CREATE PUBLICATION {}", quote_ident(publication));
-            sqlx::query(&sql).execute(&mut *tx).await?;
+            sqlx::query(sqlx::AssertSqlSafe(sql))
+                .execute(&mut *tx)
+                .await?;
             created_publications.push(publication.clone());
         } else {
             skipped_publications.push(publication.clone());
@@ -120,7 +122,9 @@ pub(crate) async fn ensure_electric_publications(
             quote_ident(&entry.schema_name),
             quote_ident(&entry.table_name)
         );
-        sqlx::query(&sql).execute(&mut *tx).await?;
+        sqlx::query(sqlx::AssertSqlSafe(sql))
+            .execute(&mut *tx)
+            .await?;
     }
 
     if !missing_pairs.is_empty() {

@@ -111,7 +111,7 @@ async fn unstick_issue(
             let id = match id {
                 Some(id) => Some(id),
                 None => {
-                    sqlx::query_scalar(&format!(
+                    sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
                         "SELECT t.id FROM worker_tasks t
                       WHERE t.repo_id = ?1 AND t.status = 'failed'
                         AND {}
@@ -121,7 +121,7 @@ async fn unstick_issue(
                              WHERE d.repo_id = ?1 AND d.issue_number = ?2)
                       ORDER BY t.created_at DESC LIMIT 1",
                         worker_task::PR_GATE_KINDS_SQL
-                    ))
+                    )))
                     .bind(repo_id)
                     .bind(issue_number)
                     .fetch_optional(pool)

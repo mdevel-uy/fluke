@@ -291,9 +291,9 @@ impl Plan {
 
 impl PlanStep {
     pub async fn list(pool: &SqlitePool, workspace_id: Uuid) -> Result<Vec<Self>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, PlanStepRow>(&format!(
+        let rows = sqlx::query_as::<_, PlanStepRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {STEP_COLS} FROM plan_steps WHERE workspace_id = ?1 ORDER BY n ASC"
-        ))
+        )))
         .bind(workspace_id)
         .fetch_all(pool)
         .await?;
@@ -305,9 +305,9 @@ impl PlanStep {
         workspace_id: Uuid,
         n: i64,
     ) -> Result<Option<Self>, sqlx::Error> {
-        let row = sqlx::query_as::<_, PlanStepRow>(&format!(
+        let row = sqlx::query_as::<_, PlanStepRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {STEP_COLS} FROM plan_steps WHERE workspace_id = ?1 AND n = ?2"
-        ))
+        )))
         .bind(workspace_id)
         .bind(n)
         .fetch_optional(pool)
@@ -493,10 +493,10 @@ impl PlanStep {
 
 impl PlanStepRevision {
     pub async fn list(pool: &SqlitePool, workspace_id: Uuid) -> Result<Vec<Self>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, RevisionRow>(&format!(
+        let rows = sqlx::query_as::<_, RevisionRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {REV_COLS} FROM plan_step_revisions WHERE workspace_id = ?1
               ORDER BY created_at ASC"
-        ))
+        )))
         .bind(workspace_id)
         .fetch_all(pool)
         .await?;
@@ -510,9 +510,9 @@ impl PlanStepRevision {
                 .fetch_optional(pool)
                 .await?;
         let Some(ws) = ws else { return Ok(None) };
-        let row = sqlx::query_as::<_, RevisionRow>(&format!(
+        let row = sqlx::query_as::<_, RevisionRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {REV_COLS} FROM plan_step_revisions WHERE id = ?1"
-        ))
+        )))
         .bind(id)
         .fetch_one(pool)
         .await?;
@@ -525,11 +525,11 @@ impl PlanStepRevision {
         workspace_id: Uuid,
         n: i64,
     ) -> Result<Option<Self>, sqlx::Error> {
-        let row = sqlx::query_as::<_, RevisionRow>(&format!(
+        let row = sqlx::query_as::<_, RevisionRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {REV_COLS} FROM plan_step_revisions
               WHERE workspace_id = ?1 AND n = ?2 AND status IN ('requested', 'proposed')
               ORDER BY created_at DESC LIMIT 1"
-        ))
+        )))
         .bind(workspace_id)
         .bind(n)
         .fetch_optional(pool)
@@ -614,7 +614,7 @@ impl PlanStepRevision {
         pool: &SqlitePool,
         workspace_id: Uuid,
     ) -> Result<Vec<(Self, PlanStep)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, RevisionRow>(&format!(
+        let rows = sqlx::query_as::<_, RevisionRow>(sqlx::AssertSqlSafe(format!(
             "SELECT {REV_COLS} FROM plan_step_revisions r
               WHERE r.workspace_id = ?1 AND r.status = 'accepted'
                 AND (r.target_n != r.n OR EXISTS (
@@ -622,7 +622,7 @@ impl PlanStepRevision {
                        WHERE s.workspace_id = r.workspace_id AND s.n = r.target_n
                          AND s.state = 'active'))
               ORDER BY r.created_at ASC"
-        ))
+        )))
         .bind(workspace_id)
         .fetch_all(pool)
         .await?;

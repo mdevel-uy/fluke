@@ -6,7 +6,13 @@
       {
         "name": "after_head_commit",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_process_repo_states",
+            "name": "after_head_commit"
+          }
+        }
       }
     ],
     "parameters": {
