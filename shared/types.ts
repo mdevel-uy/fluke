@@ -640,6 +640,14 @@ export type AgentLoginResponse = { verification_uri: string | null, user_code: s
  */
 completed: boolean, };
 
+export type AgentTestRequest = { model: string | null, };
+
+export type AgentTestResponse = { ok: boolean, 
+/**
+ * The CLI's own error when `ok` is false.
+ */
+detail: string | null, };
+
 export type SetupStatusResponse = { 
 /**
  * A GitHub credential is on file (PAT, OAuth token, or authenticated
@@ -868,6 +876,15 @@ pr_state: string | null,
  * Mergeable state: "mergeable", "conflicting", "unknown", or null.
  */
 pr_mergeable: string | null, 
+/**
+ * Number of the most recent PR, or null when there is none.
+ */
+pr_number?: number | null, 
+/**
+ * CI rollup of the PR while it is open: "passing" | "failing" |
+ * "pending" | "none" | "unknown", or null when not polled yet.
+ */
+pr_ci_status?: string | null, 
 /**
  * Origin of the task: `"kanban"`, `"mission"` or `"milestone"`.
  */
@@ -1159,7 +1176,16 @@ export type MergeGate = { pr_number: number | null, workspace_id: string | null,
 /**
  * When the reviewer approved it. SQLite datetime string (UTC).
  */
-approved_at: string, };
+approved_at: string, 
+/**
+ * The PR's mergeable state, so the merge button can say why it is
+ * disabled (#798).
+ */
+pr_mergeable?: string | null, 
+/**
+ * The PR's CI rollup, same purpose.
+ */
+pr_ci_status?: string | null, };
 
 export type Ticket = { key: string, repo_id: string, 
 /**
