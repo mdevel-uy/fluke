@@ -1,22 +1,54 @@
 import { useEffect } from 'react';
+import { create } from 'zustand';
 import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 import { getCurrentHostId, useHostId } from '@/shared/providers/HostIdProvider';
 import { type AppErrorNotice, useDirectorStore } from './useDirectorStore';
 
+type AppErrorsState = Pick<
+  ReturnType<typeof useDirectorStore.getState>,
+  | 'appErrors'
+  | 'ignoredErrors'
+  | 'errorSession'
+  | 'setAppErrors'
+  | 'ignoreAppError'
+>;
+
+// Local UI notices survive remote navigation and the crash fallback mounting.
+export const useLocalAppErrorsStore = create<AppErrorsState>((set) => ({
+  appErrors: [],
+  ignoredErrors: [],
+  errorSession: null,
+  setAppErrors: (errorSession, appErrors) =>
+    set((s) => ({
+      errorSession,
+      appErrors,
+      ignoredErrors: s.errorSession === errorSession ? s.ignoredErrors : [],
+    })),
+  ignoreAppError: (fingerprint) =>
+    set((s) => ({
+      ignoredErrors: [...new Set([...s.ignoredErrors, fingerprint])],
+    })),
+}));
+
 /** Poll finite snapshots: relay signing and WebRTC buffer whole responses,
  * so an infinite SSE body would never reach their receiver. */
-export function useAppErrorsLive() {
-  const hostId = useHostId();
+export function useAppErrorsLive(scope: 'current' | 'local' = 'current') {
+  const selectedHostId = useHostId();
+  const hostId = scope === 'local' ? null : selectedHostId;
+  const store = scope === 'local' ? useLocalAppErrorsStore : useDirectorStore;
   useEffect(() => {
-    useDirectorStore.setState({
-      appErrors: [],
-      ignoredErrors: [],
-      errorSession: null,
-    });
+    if (scope === 'current')
+      store.setState({
+        appErrors: [],
+        ignoredErrors: [],
+        errorSession: null,
+      });
+    // Local snapshots have their own subscription, even with a remote host.
+    if (scope === 'current' && hostId === null) return;
     const controller = new AbortController();
     let retry: ReturnType<typeof setTimeout> | undefined;
     const dismissalRetry = setInterval(() => {
-      const { appErrors, ignoredErrors } = useDirectorStore.getState();
+      const { appErrors, ignoredErrors } = store.getState();
       for (const error of appErrors) {
         if (ignoredErrors.includes(error.fingerprint))
           void sendIgnore(error.fingerprint, hostId, controller.signal);
@@ -24,7 +56,7 @@ export function useAppErrorsLive() {
     }, 2_000);
     const poll = async () => {
       try {
-        await loadAppErrorsSnapshot(hostId, controller.signal);
+        await loadAppErrorsSnapshot(hostId, controller.signal, scope);
       } catch {
         // Transport failures are never reported by the reporter itself.
         // The next finite snapshot catches up from the session store.
@@ -38,12 +70,13 @@ export function useAppErrorsLive() {
       clearInterval(dismissalRetry);
       controller.abort();
     };
-  }, [hostId]);
+  }, [hostId, scope, store]);
 }
 
 export async function loadAppErrorsSnapshot(
   hostId: string | null,
-  signal: AbortSignal
+  signal: AbortSignal,
+  scope: 'current' | 'local' = 'current'
 ) {
   const request = new AbortController();
   const abort = () => request.abort();
@@ -77,7 +110,7 @@ export async function loadAppErrorsSnapshot(
     )
       throw new Error('Invalid error snapshot');
     if (!request.signal.aborted)
-      useDirectorStore
+      (scope === 'local' ? useLocalAppErrorsStore : useDirectorStore)
         .getState()
         .setAppErrors(snapshot.session_id, snapshot.errors.slice(0, 50));
   } finally {
@@ -101,7 +134,11 @@ async function sendIgnore(
   }
 }
 
-export function ignoreAppError(fingerprint: string) {
-  useDirectorStore.getState().ignoreAppError(fingerprint);
-  void sendIgnore(fingerprint, getCurrentHostId());
+export function ignoreAppError(
+  fingerprint: string,
+  scope: 'current' | 'local' = 'current'
+) {
+  const store = scope === 'local' ? useLocalAppErrorsStore : useDirectorStore;
+  store.getState().ignoreAppError(fingerprint);
+  void sendIgnore(fingerprint, scope === 'local' ? null : getCurrentHostId());
 }

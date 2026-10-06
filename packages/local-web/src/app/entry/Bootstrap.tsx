@@ -20,7 +20,7 @@ import {
   initAppErrorReporter,
   reportAppError,
 } from '@/shared/lib/appErrorReporter';
-import { CrashAppErrorBubbles } from '@/features/director/ui/DirectorRoot';
+import { CrashAppErrorBubbles } from '@/features/director/ui/AppErrorBubbles';
 
 initAppErrorReporter();
 
