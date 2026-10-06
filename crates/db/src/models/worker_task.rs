@@ -42,6 +42,10 @@ pub const FAILURE_KIND_INFRA: &str = "infra";
 /// person has to connect the provider, so the issue reads as blocked on a
 /// credential rather than as a plain failure.
 pub const FAILURE_KIND_PROVIDER: &str = "provider";
+/// GitHub rejected the push for lack of permission (token without the
+/// `workflow` scope, expired or missing auth): the person has to fix the
+/// credential, then retry. Reads as a `credential` blocker like `provider`.
+pub const FAILURE_KIND_CREDENTIAL: &str = "credential";
 
 /// `kind` value for author fix tasks dispatched by the orchestrator on a
 /// changes-requested review. These jump to the front of the author's queue
