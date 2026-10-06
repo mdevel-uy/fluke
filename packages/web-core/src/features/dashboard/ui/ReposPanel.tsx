@@ -8,7 +8,7 @@ import {
 } from '@/features/dashboard/model/dashboardMetrics';
 import { SectionTitle } from './parts/primitives';
 
-const CELL_CLASS: Record<string, string> = {
+export const CELL_CLASS: Record<string, string> = {
   done: 'bg-success',
   active: 'bg-brand',
   failed: 'bg-error',
@@ -16,9 +16,9 @@ const CELL_CLASS: Record<string, string> = {
   pending: 'bg-md-outline-variant',
 };
 
-type RepoState = 'running' | 'waiting' | 'paused' | 'idle';
+export type RepoState = 'running' | 'waiting' | 'paused' | 'idle';
 
-function repoState(repo: RepoOverview): RepoState {
+export function repoState(repo: RepoOverview): RepoState {
   if (repo.running > 0) return 'running';
   if (repo.milestone?.status === 'waiting' || repo.blocked > 0)
     return 'waiting';

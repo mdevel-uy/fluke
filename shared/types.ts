@@ -1213,7 +1213,16 @@ export type RepoOverview = { repo_id: string, name: string, milestone: RepoMiles
 /**
  * Latest task start or finish. SQLite datetime string (UTC).
  */
-last_activity: string | null, };
+last_activity: string | null, 
+/**
+ * Agent hours per day, the last [`ACTIVITY_DAYS`] days, oldest first
+ * (today last).
+ */
+activity: Array<number>, 
+/**
+ * Agent spend in this repo over the last 30 days.
+ */
+cost_30d: number, };
 
 export type PhaseChip = { 
 /**
