@@ -75,19 +75,48 @@ function AppErrorBubbles() {
       {visible.map((error) => (
         <section
           key={error.fingerprint}
-          className="rounded-lg border border-border/60 bg-primary p-3 shadow-overlay"
+          className={
+            error.lookup?.status === 'existing'
+              ? 'rounded-lg border border-border/40 bg-primary p-2 text-low'
+              : 'rounded-lg border border-border/60 bg-primary p-3 shadow-overlay'
+          }
         >
           <div className="flex items-start justify-between gap-3">
             <p className="text-label font-semibold text-high">
-              {t('director.appErrors.title')}
+              {t(
+                error.lookup?.status === 'existing'
+                  ? 'director.appErrors.existing'
+                  : error.lookup?.status === 'checking'
+                    ? 'director.appErrors.checking'
+                    : 'director.appErrors.title'
+              )}
             </p>
             <span className="shrink-0 font-mono text-label tabular-nums text-low">
               {t('director.appErrors.count', { count: error.count })}
             </span>
           </div>
-          <p className="mt-2 break-words text-body text-normal">
-            {error.message}
-          </p>
+          {error.lookup?.status === 'existing' ? (
+            <a
+              href={error.lookup.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 block text-label underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+            >
+              {t('director.appErrors.viewIssue')}
+            </a>
+          ) : (
+            <>
+              <p className="mt-2 break-words text-body text-normal">
+                {error.message}
+              </p>
+              {(error.lookup?.status === 'disabled' ||
+                error.lookup?.status === 'failed') && (
+                <p className="mt-2 text-label text-low">
+                  {t(`director.appErrors.${error.lookup.status}`)}
+                </p>
+              )}
+            </>
+          )}
           <button
             type="button"
             onClick={() => ignoreAppError(error.fingerprint)}

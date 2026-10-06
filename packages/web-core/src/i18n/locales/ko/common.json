@@ -1857,6 +1857,11 @@
   },
   "director": {
     "appErrors": {
+      "checking": "기존 보고 확인 중…",
+      "existing": "이미 보고된 오류입니다",
+      "viewIssue": "이슈 보기",
+      "disabled": "이 빌드에 GitHub 토큰이 없어 이슈 검색 및 생성이 비활성화되었습니다.",
+      "failed": "기존 보고를 확인할 수 없습니다. 이슈를 생성할 수 없습니다.",
       "title": "Fluke가 앱 오류를 감지했습니다",
       "count": "x {{count}}",
       "ignore": "무시"

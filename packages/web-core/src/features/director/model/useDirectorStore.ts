@@ -20,6 +20,9 @@ export interface AppErrorNotice {
   count: number;
   first_seen: number;
   last_seen: number;
+  lookup?:
+    | { status: 'checking' | 'missing' | 'disabled' | 'failed' }
+    | { status: 'existing'; url: string };
 }
 
 interface DirectorState {

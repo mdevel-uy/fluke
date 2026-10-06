@@ -2103,6 +2103,11 @@
   },
   "director": {
     "appErrors": {
+      "checking": "Checking for an existing report…",
+      "existing": "This error is already reported",
+      "viewIssue": "View issue",
+      "disabled": "Issue search and creation are disabled: this build has no GitHub token.",
+      "failed": "Could not verify existing reports. Issue creation is unavailable.",
       "title": "Fluke detected an app error",
       "count": "x {{count}}",
       "ignore": "Ignore"
