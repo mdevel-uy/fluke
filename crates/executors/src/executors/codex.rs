@@ -40,9 +40,16 @@ fn apply_director_session(params: &mut ThreadStartParams, env: &ExecutionEnv) {
     let Some(url) = env.get(DIRECTOR_MCP_URL_ENV) else {
         return;
     };
-    params.config.get_or_insert_with(HashMap::new).insert(
+    let config = params.config.get_or_insert_with(HashMap::new);
+    config.insert(
         "mcp_servers.fluke_director.url".to_string(),
         Value::String(url.clone()),
+    );
+    // Codex asks before running MCP tools, and with approval policy `never`
+    // that ask is an automatic denial: Fluke's own tools are trusted.
+    config.insert(
+        "mcp_servers.fluke_director.default_tools_approval_mode".to_string(),
+        Value::String("approve".to_string()),
     );
     if let Some(prompt) = env.get(DIRECTOR_PROMPT_ENV) {
         params.developer_instructions = Some(match params.developer_instructions.take() {
