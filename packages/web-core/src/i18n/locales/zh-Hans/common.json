@@ -1857,6 +1857,11 @@
   },
   "director": {
     "appErrors": {
+      "checking": "正在检查已有报告…",
+      "existing": "此错误已被报告",
+      "viewIssue": "查看议题",
+      "disabled": "此构建没有 GitHub 令牌，议题搜索和创建已禁用。",
+      "failed": "无法验证已有报告，暂不能创建议题。",
       "title": "Fluke 检测到应用错误",
       "count": "x {{count}}",
       "ignore": "忽略"

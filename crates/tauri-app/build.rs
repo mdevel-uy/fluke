@@ -1,5 +1,6 @@
 fn main() {
     println!("cargo:rerun-if-env-changed=SENTRY_DSN");
+    println!("cargo:rerun-if-env-changed=FLUKE_GITHUB_TOKEN");
     tauri_build::build();
 
     #[cfg(target_os = "windows")]

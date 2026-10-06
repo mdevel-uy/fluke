@@ -1869,6 +1869,11 @@
   },
   "director": {
     "appErrors": {
+      "checking": "Recherche d’un signalement existant…",
+      "existing": "Cette erreur est déjà signalée",
+      "viewIssue": "Voir le ticket",
+      "disabled": "La recherche et la création de tickets sont désactivées : cette version ne contient pas de jeton GitHub.",
+      "failed": "Impossible de vérifier les signalements existants. La création de tickets est indisponible.",
       "title": "Fluke a détecté une erreur de l’application",
       "count": "x {{count}}",
       "ignore": "Ignorer"

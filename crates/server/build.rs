@@ -11,6 +11,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=POSTHOG_API_ENDPOINT");
     println!("cargo:rerun-if-env-changed=VK_SHARED_API_BASE");
     println!("cargo:rerun-if-env-changed=SENTRY_DSN");
+    println!("cargo:rerun-if-env-changed=FLUKE_GITHUB_TOKEN");
     if env_file.exists() {
         println!("cargo:rerun-if-changed={}", env_file.display());
     }

@@ -66,6 +66,7 @@ p256 = { version = "0.13", features = ["pem", "pkcs8"] }
 web-push = { version = "0.10", default-features = false, features = ["hyper-client"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 tempfile = "3"
 rand = "0.8"
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
