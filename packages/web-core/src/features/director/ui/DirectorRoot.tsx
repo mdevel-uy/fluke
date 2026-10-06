@@ -58,6 +58,12 @@ export function DirectorRoot() {
   );
 }
 
+/** Crash fallback: keep polling local errors without the router/app providers. */
+export function CrashAppErrorBubbles() {
+  useAppErrorsLive();
+  return <AppErrorBubbles />;
+}
+
 function AppErrorBubbles() {
   const { t } = useTranslation('common');
   const errors = useDirectorStore((s) => s.appErrors);

@@ -16,6 +16,13 @@ import '@/shared/types/modals';
 import { queryClient } from '@/shared/lib/queryClient';
 import { isTauriApp } from '@/shared/lib/platform';
 import { initZoom, zoomIn, zoomOut, zoomReset } from '@/shared/lib/zoom';
+import {
+  initAppErrorReporter,
+  reportAppError,
+} from '@/shared/lib/appErrorReporter';
+import { CrashAppErrorBubbles } from '@/features/director/ui/DirectorRoot';
+
+initAppErrorReporter();
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
@@ -89,11 +96,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <PostHogProvider client={posthog}>
         <Sentry.ErrorBoundary
+          onError={(error, componentStack) => {
+            void reportAppError(error, { componentStack });
+          }}
           fallback={({ error, componentStack }) => (
-            <CrashScreen
-              error={error instanceof Error ? error : undefined}
-              componentStack={componentStack}
-            />
+            <>
+              <CrashScreen
+                error={error instanceof Error ? error : undefined}
+                componentStack={componentStack}
+              />
+              <CrashAppErrorBubbles />
+            </>
           )}
           showDialog
         >
