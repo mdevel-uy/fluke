@@ -36,7 +36,7 @@ members = [
     "crates/relay-tunnel-core",
     "crates/relay-webrtc",
 ]
-exclude = ["vendor/starlark", "crates/remote", "crates/relay-tunnel"]
+exclude = ["crates/remote", "crates/relay-tunnel"]
 
 [workspace.dependencies]
 tokio = { version = "1.0", features = ["full"] }
@@ -65,8 +65,11 @@ strip = true
 
 # codex-app-server-protocol depends on OpenAI's tungstenite forks (`proxy`
 # feature); mirror the codex workspace patches. Bump with the codex tag.
+# starlark: fork of 0.14.2 that does not enable serde_json/arbitrary_precision
+# (it unifies across the whole build and breaks f64 decoding inside
+# serde-buffered enums). Bump the rev when the codex tag changes the starlark version.
 [patch.crates-io]
-starlark = { path = "vendor/starlark" }
+starlark = { git = "https://github.com/mdevel-uy/starlark-rust", rev = "05e4cd893381b47a71d21103b700519ac399fe62" }
 tokio-tungstenite = { git = "https://github.com/openai-oss-forks/tokio-tungstenite", rev = "0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186" }
 tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "4fffad30fe373adbdcffab9545e9e9bf4f2fc19f" }
 
