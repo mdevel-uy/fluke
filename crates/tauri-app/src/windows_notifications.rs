@@ -39,6 +39,8 @@ pub fn show_notification(title: &str, body: &str, deeplink_path: Option<&str>) {
     let result = Toast::new(app_id())
         .title(title)
         .text1(body)
+        // The backend plays the sound when the user is needed.
+        .sound(None)
         .on_activated(move |_action| {
             if let Some(handle) = APP_HANDLE.get() {
                 if let Some(window) = handle.get_webview_window("main") {
