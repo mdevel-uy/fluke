@@ -39,3 +39,27 @@ CI/post-script execution, as are builds with and without `FLUKE_GITHUB_TOKEN`.
 No dependencies, lockfile changes or generated TypeScript types are added.
 
 Closes #658
+
+## PR #826 revision validation
+
+Scheduler tests now use isolated sessions, controlled transport futures and
+Tokio's paused clock (`test-util`, a dev-only feature of the existing dependency).
+They cover concurrent polls, cached missing/existing results, a four-second
+deadline including queue time, persistent failed results, disabled lookup and
+401/403/429 transport failures blocking queued/new searches for 60 seconds.
+Backoff is published before releasing the search gate on transport failure.
+
+The manual `.github/workflows/ci-mdev.yml` workflow now has an opt-in
+`app_error_validation` input. Run it on the PR branch **after these commits are
+pushed by the orchestrator**, with that input enabled. Its absent/present matrix
+runs `pnpm run check`, server and desktop builds, scheduler/query/parser tests,
+capture tests and build-token assertions. The present-token build uses an inert
+non-secret placeholder; the tests never contact GitHub. Each job summary records
+the exact checkout SHA and result. Link that workflow run in the PR as evidence;
+an unexecuted workflow is not successful validation.
+
+The workflow edit crosses the original issue territory to address the reviewer's
+explicit external-validation request. Existing snapshot-route and locale changes
+are the pipeline integration and i18n changes authorized by #658. No checks run
+in the agent worktree. No execution results for this revision are available yet:
+the workflow definition is only available on GitHub after the system pushes it.

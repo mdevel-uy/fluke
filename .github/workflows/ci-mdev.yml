@@ -3,7 +3,12 @@ name: CI (mdev)
 on:
   # Manual por ahora (sin créditos de Actions); antes: pull_request a mdev.
   # Corre sobre la rama que elijas en "Run workflow".
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      app_error_validation:
+        description: "Run #658 full checks and builds/tests with and without a build token"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,11 +16,75 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  NODE_VERSION: '20'
-  PNPM_VERSION: '10.13.1'
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.13.1"
   RUST_TOOLCHAIN: nightly-2025-12-04
 
 jobs:
+  app-errors:
+    if: ${{ inputs.app_error_validation }}
+    name: App errors (${{ matrix.token }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        token: [absent, present]
+    env:
+      SQLX_OFFLINE: "true"
+      CARGO_INCREMENTAL: "0"
+      EXPECT_FLUKE_GITHUB_TOKEN: ${{ matrix.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - name: System build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config clang libclang-dev cmake libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: app-errors-${{ matrix.token }}
+          cache-on-failure: "true"
+      - name: Configure build token
+        shell: bash
+        run: |
+          if [ '${{ matrix.token }}' = present ]; then
+            echo 'FLUKE_GITHUB_TOKEN=ci-read-only-placeholder' >> "$GITHUB_ENV"
+          else
+            unset FLUKE_GITHUB_TOKEN
+          fi
+      - run: pnpm install --frozen-lockfile
+      - name: Full acceptance typechecks
+        run: pnpm run check
+      - name: Build frontend assets for desktop embedding
+        run: pnpm --filter @vibe/local-web run build
+      - name: Build backend and desktop with token configuration
+        run: |
+          cargo build --locked -p server
+          cargo build --locked --manifest-path crates/tauri-app/Cargo.toml
+      - name: Query, parser and deterministic scheduler tests
+        run: "cargo test --locked -p services app_error_issues::tests::"
+      - name: Build token and capture tests
+        run: |
+          cargo test --locked -p utils github_token::tests::
+          cargo test --locked -p utils app_errors::tests::
+      - name: SHA-linked validation summary
+        if: always()
+        shell: bash
+        run: |
+          echo '## App error validation' >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Token configuration: ${{ matrix.token }} (present uses a non-secret test placeholder)' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Result: ${{ job.status }} — consult the steps above for individual checks.' >> "$GITHUB_STEP_SUMMARY"
+
   frontend:
     name: Frontend build & typecheck
     runs-on: ubuntu-24.04
@@ -56,9 +125,9 @@ jobs:
     name: Backend cargo check
     runs-on: ubuntu-24.04
     env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_NET_RETRY: '10'
-      RUSTUP_MAX_RETRIES: '10'
+      CARGO_INCREMENTAL: "0"
+      CARGO_NET_RETRY: "10"
+      RUSTUP_MAX_RETRIES: "10"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,7 +141,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: ci-mdev-backend
-          cache-on-failure: 'true'
+          cache-on-failure: "true"
 
       - name: cargo check -p server
         run: cargo check --locked -p server
@@ -86,9 +155,9 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-24.04
     env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_NET_RETRY: '10'
-      RUSTUP_MAX_RETRIES: '10'
+      CARGO_INCREMENTAL: "0"
+      CARGO_NET_RETRY: "10"
+      RUSTUP_MAX_RETRIES: "10"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,10 +171,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: ci-mdev-tests
-          cache-on-failure: 'true'
+          cache-on-failure: "true"
 
       - name: cargo test (crates propios)
         run: cargo test --locked -p licensing -p fluke-license -p heartbeat-protocol
 
       - name: cargo test (migración del data dir)
-        run: 'cargo test --locked -p utils assets::'
+        run: "cargo test --locked -p utils assets::"
