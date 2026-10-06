@@ -2102,6 +2102,11 @@
     "error": "The action could not be completed: {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke detected an app error",
+      "count": "x {{count}}",
+      "ignore": "Ignore"
+    },
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",
     "guard": {
