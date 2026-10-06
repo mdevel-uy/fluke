@@ -3,8 +3,8 @@ import { makeLocalApiRequest } from '@/shared/lib/localApiTransport';
 import { getCurrentHostId, useHostId } from '@/shared/providers/HostIdProvider';
 import { type AppErrorNotice, useDirectorStore } from './useDirectorStore';
 
-/** Summary snapshots, replayed on every reconnect; never report transport
- * failures here (that would recursively report failures of the reporter). */
+/** Poll finite snapshots: relay signing and WebRTC buffer whole responses,
+ * so an infinite SSE body would never reach their receiver. */
 export function useAppErrorsLive() {
   const hostId = useHostId();
   useEffect(() => {
@@ -14,7 +14,6 @@ export function useAppErrorsLive() {
       errorSession: null,
     });
     const controller = new AbortController();
-    let stopped = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const dismissalRetry = setInterval(() => {
       const { appErrors, ignoredErrors } = useDirectorStore.getState();
@@ -23,77 +22,68 @@ export function useAppErrorsLive() {
           void sendIgnore(error.fingerprint, hostId, controller.signal);
       }
     }, 2_000);
-    const listen = async () => {
+    const poll = async () => {
       try {
-        const response = await makeLocalApiRequest('/api/app-errors/stream', {
-          headers: { Accept: 'text/event-stream' },
-          hostScope: 'explicit',
-          hostId,
-          signal: controller.signal,
-        });
-        if (!response.ok || !response.body) throw new Error('No error stream');
-        const reader = response.body.getReader();
-        try {
-          const decoder = new TextDecoder();
-          let buffer = '';
-          while (!stopped) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder
-              .decode(value, { stream: true })
-              .replace(/\r\n/g, '\n');
-            const frames = buffer.split('\n\n');
-            buffer = frames.pop() ?? '';
-            for (const frame of frames) {
-              if (!frame.includes('event: app-errors')) continue;
-              const data = frame
-                .split('\n')
-                .filter((line) => line.startsWith('data:'))
-                .map((line) => line.slice(5).trimStart())
-                .join('\n');
-              const snapshot = JSON.parse(data) as {
-                session_id: string;
-                errors: AppErrorNotice[];
-              };
-              if (
-                typeof snapshot?.session_id !== 'string' ||
-                !Array.isArray(snapshot.errors) ||
-                !snapshot.errors.every(
-                  (error) =>
-                    typeof error?.fingerprint === 'string' &&
-                    /^fp-[0-9a-f]{12}$/.test(error.fingerprint) &&
-                    typeof error.message === 'string' &&
-                    Number.isSafeInteger(error.count) &&
-                    error.count > 0
-                )
-              )
-                continue;
-              if (stopped) break;
-              useDirectorStore
-                .getState()
-                .setAppErrors(
-                  snapshot.session_id,
-                  snapshot.errors.slice(0, 50)
-                );
-            }
-          }
-        } finally {
-          await reader.cancel().catch(() => {});
-          reader.releaseLock();
-        }
+        await loadAppErrorsSnapshot(hostId, controller.signal);
       } catch {
-        // Reconnect catches up from the backend's bounded session store.
+        // Transport failures are never reported by the reporter itself.
+        // The next finite snapshot catches up from the session store.
       }
-      if (!stopped) retry = setTimeout(() => void listen(), 2_000);
+      if (!controller.signal.aborted)
+        retry = setTimeout(() => void poll(), 1_000);
     };
-    void listen();
+    void poll();
     return () => {
-      stopped = true;
       clearTimeout(retry);
       clearInterval(dismissalRetry);
       controller.abort();
     };
   }, [hostId]);
+}
+
+export async function loadAppErrorsSnapshot(
+  hostId: string | null,
+  signal: AbortSignal
+) {
+  const request = new AbortController();
+  const abort = () => request.abort();
+  signal.addEventListener('abort', abort, { once: true });
+  if (signal.aborted) request.abort();
+  const timeout = setTimeout(abort, 4_000);
+  try {
+    const response = await makeLocalApiRequest('/api/app-errors', {
+      headers: { Accept: 'application/json' },
+      hostScope: 'explicit',
+      hostId,
+      signal: request.signal,
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error('No error snapshot');
+    const snapshot = (await response.json()) as {
+      session_id: string;
+      errors: AppErrorNotice[];
+    };
+    if (
+      typeof snapshot?.session_id !== 'string' ||
+      !Array.isArray(snapshot.errors) ||
+      !snapshot.errors.every(
+        (error) =>
+          typeof error?.fingerprint === 'string' &&
+          /^fp-[0-9a-f]{12}$/.test(error.fingerprint) &&
+          typeof error.message === 'string' &&
+          Number.isSafeInteger(error.count) &&
+          error.count > 0
+      )
+    )
+      throw new Error('Invalid error snapshot');
+    if (!request.signal.aborted)
+      useDirectorStore
+        .getState()
+        .setAppErrors(snapshot.session_id, snapshot.errors.slice(0, 50));
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', abort);
+  }
 }
 
 async function sendIgnore(

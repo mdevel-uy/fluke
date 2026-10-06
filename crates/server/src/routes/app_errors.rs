@@ -1,16 +1,11 @@
-//! Separate session SSE, using the same authenticated local API transport as
-//! Fluke events. Coalesces storms into at most one snapshot per second.
+//! Finite snapshots work through direct HTTP, relay response signing and
+//! WebRTC (both remote transports buffer the complete response body).
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path},
     http::StatusCode,
-    response::{
-        Sse,
-        sse::{Event, KeepAlive},
-    },
     routing::{get, post},
 };
-use futures_util::stream;
 use utils::app_errors::{self, ErrorContext, FrontendReport};
 
 use crate::DeploymentImpl;
@@ -18,7 +13,7 @@ use crate::DeploymentImpl;
 pub fn router() -> Router<DeploymentImpl> {
     Router::new()
         .route("/app-errors/report", post(report))
-        .route("/app-errors/stream", get(events))
+        .route("/app-errors", get(snapshot))
         .route("/app-errors/{fingerprint}/ignore", post(ignore))
         .layer(DefaultBodyLimit::max(32 * 1024))
 }
@@ -79,38 +74,58 @@ async fn ignore(Path(fingerprint): Path<String>) -> StatusCode {
     }
 }
 
-async fn events() -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>>
-{
+async fn snapshot() -> Json<serde_json::Value> {
     static SESSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     let session = SESSION.get_or_init(|| uuid::Uuid::new_v4().to_string());
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let stream = stream::unfold(
-        (interval, None),
-        move |(mut interval, mut revision)| async move {
-            loop {
-                interval.tick().await;
-                let (next, errors) = app_errors::snapshot();
-                if revision == Some(next) {
-                    continue;
-                }
-                revision = Some(next);
-                // The UI only needs summaries. Analysis context stays server-side.
-                if let Ok(event) = Event::default()
-                    .event("app-errors")
-                    .json_data(serde_json::json!({ "session_id": session, "errors": errors }))
-                {
-                    return Some((Ok(event), (interval, revision)));
-                }
-            }
-        },
-    );
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    let (_, errors) = app_errors::snapshot();
+    // Analysis context stays server-side; the response always ends, allowing
+    // relay signing and WebRTC to serialize it before delivering it to the UI.
+    Json(serde_json::json!({ "session_id": session, "errors": errors }))
 }
 
 #[cfg(test)]
 mod tests {
+    use axum::{body::to_bytes, response::IntoResponse};
+
     use super::*;
+
+    #[tokio::test]
+    async fn snapshots_end_for_whole_body_transports_and_include_updates() {
+        let message = "Finite snapshot transport test";
+        let location = "server finite-snapshot-test.rs:1";
+        let fingerprint = app_errors::fingerprint(message, location);
+        app_errors::record(message, location, "backend", ErrorContext::default());
+        let mut session = None;
+        for count in 1..=2 {
+            // Same complete-body operation required by relay response signing
+            // and WebRTC. An infinite SSE would time out instead of delivering.
+            let response = snapshot().await.into_response();
+            let bytes = tokio::time::timeout(
+                std::time::Duration::from_secs(1),
+                to_bytes(response.into_body(), 1024 * 1024),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let snapshot: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            let current = snapshot["session_id"].as_str().unwrap().to_owned();
+            if let Some(session) = &session {
+                assert_eq!(session, &current);
+            }
+            session = Some(current);
+            let error = snapshot["errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["fingerprint"] == fingerprint)
+                .unwrap();
+            assert_eq!(error["count"], count);
+            assert!(error.get("context").is_none());
+            if count == 1 {
+                app_errors::record(message, location, "backend", ErrorContext::default());
+            }
+        }
+    }
 
     #[tokio::test]
     async fn frontend_contract_validates_before_recording() {

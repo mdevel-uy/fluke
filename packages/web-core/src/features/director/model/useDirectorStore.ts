@@ -11,7 +11,7 @@ export type DirectorView = 'bubble' | 'panel';
 /** Missions the panel's dropdown lists: all open ones, or one group. */
 export type PickerFilter = 'all' | 'waiting' | 'working';
 
-/** Wire summaries from /api/app-errors/stream; fingerprints are backend-only. */
+/** Wire summaries from /api/app-errors; fingerprints are backend-only. */
 export interface AppErrorNotice {
   fingerprint: string;
   message: string;

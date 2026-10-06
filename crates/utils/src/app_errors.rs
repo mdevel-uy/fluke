@@ -4,11 +4,11 @@
 //! prefixed fp- and truncated to 12 hex digits. Message redacts UUIDs, numbers,
 //! timestamps, absolute paths and long identifiers. Location retains target,
 //! relative file/line, or matched route/status; filesystem prefixes are removed.
-//! POST /api/app-errors/report accepts FrontendReport. SSE at
-//! /api/app-errors/stream sends {session_id, errors: AppErrorSummary[]}.
-//! Analysis context is retained here, never exposed by the summary stream.
+//! POST /api/app-errors/report accepts FrontendReport. Finite GET snapshots at
+//! /api/app-errors send {session_id, errors: AppErrorSummary[]}.
+//! Analysis context is retained here, never exposed by the summary endpoint.
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{
         Arc, Mutex, OnceLock,
         atomic::{AtomicI64, AtomicU64, Ordering},
@@ -139,7 +139,6 @@ pub struct AppError {
     pub source: String,
     pub first_seen: i64,
     pub context: ErrorContext,
-    pub ignored: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -163,10 +162,26 @@ struct StoredError {
     counters: Arc<Counters>,
 }
 
+#[derive(Clone, Default)]
+struct StoreState {
+    active: Vec<Arc<StoredError>>,
+    // Memory policy: only 50 active contexts, 100 log lines and 50 distinct
+    // request errors. Explicit user dismissals retain exact 48-bit fingerprints
+    // for the session as u64 keys (8 bytes/key plus B-tree overhead), independently
+    // of active capacity. This small user-driven set grows only on Ignore, never
+    // on an error storm; it is released on restart. No probabilistic suppression
+    // or tombstone eviction can mute new errors or resurrect ignored errors.
+    ignored: Arc<BTreeSet<u64>>,
+}
+
+fn fingerprint_key(fingerprint: &str) -> Option<u64> {
+    u64::from_str_radix(fingerprint.strip_prefix("fp-")?, 16).ok()
+}
+
 pub struct Store {
     // The bounded list is published atomically. Repeats update only counters,
     // so readers and other captures never make a repetition disappear.
-    errors: ArcSwap<Vec<Arc<StoredError>>>,
+    state: ArcSwap<StoreState>,
     logs: Mutex<VecDeque<String>>,
     revision: AtomicU64,
 }
@@ -174,7 +189,7 @@ pub struct Store {
 impl Default for Store {
     fn default() -> Self {
         Self {
-            errors: ArcSwap::from_pointee(Vec::new()),
+            state: ArcSwap::from_pointee(StoreState::default()),
             logs: Mutex::new(VecDeque::new()),
             revision: AtomicU64::new(0),
         }
@@ -182,30 +197,49 @@ impl Default for Store {
 }
 
 impl Store {
-    fn repeat(&self, existing: &StoredError, now: i64) {
+    fn repeat(&self, existing: &StoredError, now: i64, occurrences: u64) {
         let _ =
             existing
                 .counters
                 .count
                 .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
-                    Some(count.saturating_add(1))
+                    Some(count.saturating_add(occurrences))
                 });
         existing
             .counters
             .last_seen
             .fetch_max(now, Ordering::Relaxed);
-        if !existing.error.ignored {
-            self.revision.fetch_add(1, Ordering::Release);
-        }
+        self.revision.fetch_add(1, Ordering::Release);
     }
 
-    fn record(&self, message: &str, location: &str, source: &str, mut context: ErrorContext) {
-        let fingerprint = fingerprint(message, location);
+    fn record(&self, message: &str, location: &str, source: &str, context: ErrorContext) {
         let now = chrono::Utc::now().timestamp_millis();
+        self.record_occurrences(message, location, source, context, (1, now, now));
+    }
+
+    fn record_occurrences(
+        &self,
+        message: &str,
+        location: &str,
+        source: &str,
+        mut context: ErrorContext,
+        (occurrences, first_seen, now): (u64, i64, i64),
+    ) {
+        let fingerprint = fingerprint(message, location);
+        let Some(key) = fingerprint_key(&fingerprint) else {
+            return;
+        };
         {
-            let current = self.errors.load();
-            if let Some(existing) = current.iter().find(|e| e.error.fingerprint == fingerprint) {
-                self.repeat(existing, now);
+            let current = self.state.load();
+            if current.ignored.contains(&key) {
+                return;
+            }
+            if let Some(existing) = current
+                .active
+                .iter()
+                .find(|e| e.error.fingerprint == fingerprint)
+            {
+                self.repeat(existing, now, occurrences);
                 return;
             }
         }
@@ -222,36 +256,35 @@ impl Store {
                 message: summary(message),
                 location: bounded(location),
                 source: source.into(),
-                first_seen: now,
+                first_seen,
                 context,
-                ignored: false,
             },
             counters: Arc::new(Counters {
-                count: AtomicU64::new(1),
+                count: AtomicU64::new(occurrences),
                 last_seen: AtomicI64::new(now),
             }),
         });
         // Only new fingerprints compete for publication. Bound retries as well
         // as memory under a storm of distinct errors; repeats take the fast path.
         for _ in 0..MAX_ERRORS {
-            let current = self.errors.load();
+            let current = self.state.load();
+            if current.ignored.contains(&key) {
+                return;
+            }
             if let Some(existing) = current
+                .active
                 .iter()
                 .find(|e| e.error.fingerprint == entry.error.fingerprint)
             {
-                self.repeat(existing, now);
+                self.repeat(existing, now, occurrences);
                 return;
             }
             let mut next = (**current).clone();
-            if next.len() == MAX_ERRORS {
-                // Ignored fingerprints remain session tombstones on overflow.
-                let Some(index) = next.iter().position(|e| !e.error.ignored) else {
-                    return;
-                };
-                next.remove(index);
+            if next.active.len() == MAX_ERRORS {
+                next.active.remove(0);
             }
-            next.push(entry.clone());
-            let previous = self.errors.compare_and_swap(&*current, Arc::new(next));
+            next.active.push(entry.clone());
+            let previous = self.state.compare_and_swap(&*current, Arc::new(next));
             if Arc::ptr_eq(&*current, &*previous) {
                 self.revision.fetch_add(1, Ordering::Release);
                 return;
@@ -262,10 +295,10 @@ impl Store {
     fn snapshot(&self) -> (u64, Vec<AppErrorSummary>) {
         let revision = self.revision.load(Ordering::Acquire);
         let errors = self
-            .errors
+            .state
             .load()
+            .active
             .iter()
-            .filter(|e| !e.error.ignored)
             .map(|entry| {
                 let e = &entry.error;
                 AppErrorSummary {
@@ -283,45 +316,21 @@ impl Store {
     }
 
     fn ignore(&self, fingerprint: &str) -> bool {
+        let Some(key) = fingerprint_key(fingerprint) else {
+            return false;
+        };
         for _ in 0..MAX_ERRORS {
-            let current = self.errors.load();
-            let mut next = (**current).clone();
-            let now = chrono::Utc::now().timestamp_millis();
-            let error = AppError {
-                fingerprint: fingerprint.to_owned(),
-                message: String::new(),
-                location: String::new(),
-                source: String::new(),
-                first_seen: now,
-                context: ErrorContext::default(),
-                ignored: true,
-            };
-            if let Some(index) = next.iter().position(|e| e.error.fingerprint == fingerprint) {
-                if next[index].error.ignored {
-                    return true;
-                }
-                // Replacing the entry atomically makes eviction race safely with
-                // Ignore. Keep shared counters but release analysis context.
-                next[index] = Arc::new(StoredError {
-                    error,
-                    counters: next[index].counters.clone(),
-                });
-            } else {
-                if next.len() == MAX_ERRORS {
-                    let Some(index) = next.iter().position(|e| !e.error.ignored) else {
-                        return true;
-                    };
-                    next.remove(index);
-                }
-                next.push(Arc::new(StoredError {
-                    error,
-                    counters: Arc::new(Counters {
-                        count: AtomicU64::new(0),
-                        last_seen: AtomicI64::new(now),
-                    }),
-                }));
+            let current = self.state.load();
+            if current.ignored.contains(&key) {
+                return true;
             }
-            let previous = self.errors.compare_and_swap(&*current, Arc::new(next));
+            let mut next = (**current).clone();
+            Arc::make_mut(&mut next.ignored).insert(key);
+            next.active
+                .retain(|entry| entry.error.fingerprint != fingerprint);
+            // Publish removal and session tombstone together: concurrent capture
+            // either precedes Ignore, or sees the tombstone and stays suppressed.
+            let previous = self.state.compare_and_swap(&*current, Arc::new(next));
             if Arc::ptr_eq(&*current, &*previous) {
                 self.revision.fetch_add(1, Ordering::Release);
                 return true;
@@ -364,8 +373,9 @@ pub fn ignore(fingerprint: &str) -> bool {
     store().ignore(fingerprint)
 }
 
-/// Execution domains are deliberately excluded by tracing target, including
-/// their spans. Infrastructure outside these domains still reports failures.
+/// Execution domains are deliberately excluded by tracing target and spans.
+/// Route modules and model error types are not execution domains: their SQLx
+/// and other infrastructure failures still report, even on agent-related URLs.
 pub fn excluded(target: &str) -> bool {
     if target == "app_errors::http_log" {
         return true;
@@ -376,10 +386,6 @@ pub fn excluded(target: &str) -> bool {
         "services::services::worker",
         "services::services::mission",
         "local_deployment::container",
-        "server::routes::execution_processes",
-        "server::routes::workers",
-        "server::routes::milestone_runs",
-        "server::routes::sessions",
     ]
     .iter()
     .any(|prefix| target.starts_with(prefix))
@@ -407,7 +413,13 @@ impl Visit for Fields {
 
 // Collect request errors until status is known. A 5xx has one canonical route
 // fingerprint, with the underlying event retained as analysis context.
-tokio::task_local! { pub static REQUEST_ERRORS: std::cell::RefCell<Vec<AppError>>; }
+pub struct BufferedError {
+    pub error: AppError,
+    pub count: u64,
+    pub last_seen: i64,
+}
+
+tokio::task_local! { pub static REQUEST_ERRORS: std::cell::RefCell<Vec<BufferedError>>; }
 tokio::task_local! { pub static REQUEST_EXECUTION_FAILURE: std::cell::Cell<bool>; }
 
 fn mark_execution_failure() {
@@ -418,24 +430,50 @@ fn capture(message: &str, location: &str, source: &str, context: ErrorContext) {
     let buffered = REQUEST_ERRORS
         .try_with(|errors| {
             let Ok(mut errors) = errors.try_borrow_mut() else {
-                return;
+                return false;
             };
-            if errors.len() < MAX_ERRORS {
-                errors.push(AppError {
-                    fingerprint: String::new(),
+            let fingerprint = fingerprint(message, location);
+            let now = chrono::Utc::now().timestamp_millis();
+            if let Some(existing) = errors
+                .iter_mut()
+                .find(|e| e.error.fingerprint == fingerprint)
+            {
+                existing.count = existing.count.saturating_add(1);
+                existing.last_seen = now;
+                return true;
+            }
+            if errors.len() == MAX_ERRORS {
+                errors.remove(0);
+            }
+            errors.push(BufferedError {
+                error: AppError {
+                    fingerprint,
                     message: bounded(message),
                     location: bounded(location),
                     source: source.into(),
-                    first_seen: 0,
+                    first_seen: now,
                     context: context.clone(),
-                    ignored: false,
-                });
-            }
+                },
+                count: 1,
+                last_seen: now,
+            });
+            true
         })
-        .is_ok();
+        .unwrap_or(false);
     if !buffered {
         record(message, location, source, context);
     }
+}
+
+pub fn flush_request_error(buffered: BufferedError) {
+    let error = buffered.error;
+    store().record_occurrences(
+        &error.message,
+        &error.location,
+        &error.source,
+        error.context,
+        (buffered.count, error.first_seen, buffered.last_seen),
+    );
 }
 
 pub struct AppErrorLayer;
@@ -482,7 +520,9 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AppErrorLayer {
         if let Some(scope) = ctx.event_scope(event) {
             for span in scope.from_root().take(16) {
                 if excluded(span.metadata().target()) {
-                    mark_execution_failure();
+                    if *meta.level() == tracing::Level::ERROR {
+                        mark_execution_failure();
+                    }
                     return;
                 }
                 if let Some(fields) = span.extensions().get::<Fields>() {
@@ -499,15 +539,11 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AppErrorLayer {
             .unwrap_or_else(|| meta.name().into());
         context.fields = fields.0;
         // Generic API conversion events carry the original failure domain.
-        if context.fields.get("error_type").is_some_and(|kind| {
-            [
-                "ExecutorError",
-                "ExecutionProcessError",
-                "ContainerError",
-                "CommandBuildError",
-            ]
-            .contains(&kind.as_str())
-        }) {
+        if context
+            .fields
+            .get("error_type")
+            .is_some_and(|kind| ["ExecutorError", "CommandBuildError"].contains(&kind.as_str()))
+        {
             mark_execution_failure();
             return;
         }
@@ -637,51 +673,46 @@ mod tests {
     #[test]
     fn repeats_ignore_and_bounds() {
         let store = Store::default();
-        store.record("failed 1", "server", "backend", ErrorContext::default());
-        let fingerprint = store.snapshot().1[0].fingerprint.clone();
-        assert!(store.ignore(&fingerprint));
-        store.record("failed 2", "server", "backend", ErrorContext::default());
-        assert!(store.snapshot().1.is_empty());
-        assert_eq!(
-            store.errors.load()[0]
-                .counters
-                .count
-                .load(Ordering::Relaxed),
-            2
-        );
-        for i in 0..100 {
-            store.record(
-                &format!("failure {}", (b'a' + i % 26) as char),
-                &format!("target{}", (b'a' + i / 26) as char),
-                "backend",
-                ErrorContext::default(),
-            );
-        }
-        assert_eq!(store.errors.load().len(), MAX_ERRORS);
-        assert!(
-            store
-                .errors
-                .load()
-                .iter()
-                .any(|e| e.error.fingerprint == fingerprint)
-        );
-        let fingerprints: Vec<_> = store
-            .snapshot()
-            .1
-            .iter()
-            .map(|e| e.fingerprint.clone())
-            .collect();
-        for fingerprint in fingerprints {
+        let mut ignored = Vec::new();
+        for i in 0..MAX_ERRORS {
+            let location = format!("server file.rs:{i}");
+            store.record("failure", &location, "backend", ErrorContext::default());
+            let fingerprint = fingerprint("failure", &location);
             assert!(store.ignore(&fingerprint));
+            ignored.push((location, fingerprint));
         }
+        assert!(store.snapshot().1.is_empty());
         store.record(
-            "new distinct failure",
+            "new independent failure",
             "new target",
             "backend",
             ErrorContext::default(),
         );
-        assert_eq!(store.errors.load().len(), MAX_ERRORS);
-        assert!(store.snapshot().1.is_empty());
+        assert_eq!(store.snapshot().1.len(), 1);
+        for (location, _) in &ignored {
+            store.record("failure", location, "backend", ErrorContext::default());
+        }
+        assert_eq!(store.snapshot().1.len(), 1);
+        assert_eq!(store.state.load().ignored.len(), MAX_ERRORS);
+        for i in 0..100 {
+            store.record(
+                "more failures",
+                &format!("server other.rs:{i}"),
+                "backend",
+                ErrorContext::default(),
+            );
+        }
+        assert_eq!(store.state.load().active.len(), MAX_ERRORS);
+        for (location, fingerprint) in ignored {
+            store.record("failure", &location, "backend", ErrorContext::default());
+            assert!(
+                !store
+                    .snapshot()
+                    .1
+                    .iter()
+                    .any(|e| e.fingerprint == fingerprint)
+            );
+        }
         for _ in 0..200 {
             store.log("previous warning");
         }
@@ -703,6 +734,42 @@ mod tests {
             }
         });
         assert_eq!(store.snapshot().1[0].count, 801);
+    }
+    #[test]
+    fn request_buffer_counts_repeats_and_caps_distinct_fingerprints() {
+        use tracing_subscriber::prelude::*;
+        let subscriber = tracing_subscriber::registry().with(AppErrorLayer);
+        REQUEST_ERRORS.sync_scope(std::cell::RefCell::new(Vec::new()), || {
+            tracing::subscriber::with_default(subscriber, || {
+                for _ in 0..120 {
+                    tracing::error!(target: "server", "Repeated request failure");
+                }
+            });
+            let errors = REQUEST_ERRORS.with(|errors| errors.take());
+            assert_eq!(errors.len(), 1);
+            assert_eq!(errors[0].count, 120);
+            let store = Store::default();
+            for buffered in errors {
+                let error = buffered.error;
+                store.record_occurrences(
+                    &error.message,
+                    &error.location,
+                    &error.source,
+                    error.context,
+                    (buffered.count, error.first_seen, buffered.last_seen),
+                );
+            }
+            assert_eq!(store.snapshot().1[0].count, 120);
+            for i in 0..100 {
+                capture(
+                    "Distinct request failure",
+                    &format!("server file.rs:{i}"),
+                    "backend",
+                    ErrorContext::default(),
+                );
+            }
+            REQUEST_ERRORS.with(|errors| assert_eq!(errors.borrow().len(), MAX_ERRORS));
+        });
     }
     #[test]
     fn layer_excludes_execution_and_keeps_context() {
@@ -727,8 +794,8 @@ mod tests {
             REQUEST_ERRORS.with(|errors| {
                 let errors = errors.borrow();
                 assert_eq!(errors.len(), 1);
-                assert_eq!(errors[0].context.fields["code"], "500");
-                assert_eq!(errors[0].context.spans[0]["request_id"], "abc");
+                assert_eq!(errors[0].error.context.fields["code"], "500");
+                assert_eq!(errors[0].error.context.spans[0]["request_id"], "abc");
             });
         });
     }
