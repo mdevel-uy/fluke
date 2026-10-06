@@ -82,7 +82,10 @@ mod tests {
              (id, worker_id, repo_id, position, title, prompt, status, completed_at) \
              VALUES (randomblob(16), randomblob(16), randomblob(16), 0, 't', 'p', '{status}', {completed_sql})"
         );
-        sqlx::query(&sql).execute(pool).await.expect("insert task");
+        sqlx::query(sqlx::AssertSqlSafe(sql))
+            .execute(pool)
+            .await
+            .expect("insert task");
     }
 
     #[tokio::test]

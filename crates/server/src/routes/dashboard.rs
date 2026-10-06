@@ -424,8 +424,8 @@ async fn repo_activity(
     let rows: Vec<(Uuid, i64, f64, f64)> = sqlx::query_as(
         "SELECT wr.repo_id,
                 CAST(julianday(date('now', 'localtime')) - julianday(date(ep.started_at, 'localtime')) AS INTEGER) AS ago,
-                SUM((julianday(COALESCE(ep.completed_at, datetime('now'))) - julianday(ep.started_at)) * 24.0),
-                SUM(COALESCE(ep.cost_usd, 0))
+                CAST(SUM((julianday(COALESCE(ep.completed_at, datetime('now'))) - julianday(ep.started_at)) * 24.0) AS REAL),
+                CAST(SUM(COALESCE(ep.cost_usd, 0)) AS REAL)
          FROM execution_processes ep
          JOIN sessions s ON s.id = ep.session_id
          JOIN workspace_repos wr ON wr.workspace_id = s.workspace_id

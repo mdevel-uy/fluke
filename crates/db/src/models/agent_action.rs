@@ -69,10 +69,10 @@ impl AgentAction {
         .execute(pool)
         .await?;
 
-        sqlx::query_as::<_, AgentAction>(&format!(
+        sqlx::query_as::<_, AgentAction>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM agent_actions
               WHERE task_id = ?1 AND seq = ?2"
-        ))
+        )))
         .bind(data.task_id)
         .bind(data.seq)
         .fetch_optional(pool)
@@ -84,11 +84,11 @@ impl AgentAction {
         pool: &SqlitePool,
         task_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, AgentAction>(&format!(
+        sqlx::query_as::<_, AgentAction>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM agent_actions
               WHERE task_id = ?1
               ORDER BY seq ASC"
-        ))
+        )))
         .bind(task_id)
         .fetch_all(pool)
         .await
@@ -101,11 +101,11 @@ impl AgentAction {
         pool: &SqlitePool,
         task_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, AgentAction>(&format!(
+        sqlx::query_as::<_, AgentAction>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM agent_actions
               WHERE task_id = ?1 AND status IN ('pending', 'failed')
               ORDER BY seq ASC"
-        ))
+        )))
         .bind(task_id)
         .fetch_all(pool)
         .await

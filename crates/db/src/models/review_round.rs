@@ -86,22 +86,24 @@ impl ReviewRound {
     }
 
     pub async fn find_by_id(pool: &SqlitePool, id: Uuid) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!("SELECT {COLS} FROM review_rounds WHERE id = ?1"))
-            .bind(id)
-            .fetch_optional(pool)
-            .await
+        sqlx::query_as::<_, ReviewRound>(sqlx::AssertSqlSafe(format!(
+            "SELECT {COLS} FROM review_rounds WHERE id = ?1"
+        )))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
     }
 
     pub async fn find_by_task_id(
         pool: &SqlitePool,
         task_id: Uuid,
     ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!(
+        sqlx::query_as::<_, ReviewRound>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM review_rounds
               WHERE task_id = ?1
               ORDER BY created_at DESC
               LIMIT 1"
-        ))
+        )))
         .bind(task_id)
         .fetch_optional(pool)
         .await
@@ -114,12 +116,12 @@ impl ReviewRound {
         repo_id: Uuid,
         pr_number: i64,
     ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!(
+        sqlx::query_as::<_, ReviewRound>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM review_rounds
               WHERE repo_id = ?1 AND pr_number = ?2 AND status = 'pending'
               ORDER BY created_at DESC
               LIMIT 1"
-        ))
+        )))
         .bind(repo_id)
         .bind(pr_number)
         .fetch_optional(pool)
@@ -174,13 +176,13 @@ impl ReviewRound {
         repo_id: Uuid,
         pr_number: i64,
     ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!(
+        sqlx::query_as::<_, ReviewRound>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM review_rounds
               WHERE repo_id = ?1 AND pr_number = ?2
                 AND kind = 'review' AND status = 'submitted'
               ORDER BY created_at DESC
               LIMIT 1"
-        ))
+        )))
         .bind(repo_id)
         .bind(pr_number)
         .fetch_optional(pool)
@@ -200,11 +202,11 @@ impl ReviewRound {
         head_sha: &str,
         exclude_id: Uuid,
     ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, ReviewRound>(&format!(
+        sqlx::query_as::<_, ReviewRound>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM review_rounds
               WHERE repo_id = ?1 AND pr_number = ?2 AND head_sha = ?3
                 AND status = 'pending' AND id != ?4"
-        ))
+        )))
         .bind(repo_id)
         .bind(pr_number)
         .bind(head_sha)

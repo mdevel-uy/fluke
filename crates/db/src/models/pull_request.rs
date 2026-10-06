@@ -110,11 +110,11 @@ impl PullRequest {
         repo_id: Uuid,
         pr_number: i64,
     ) -> Result<Option<PullRequest>, sqlx::Error> {
-        sqlx::query_as::<_, PullRequest>(&format!(
+        sqlx::query_as::<_, PullRequest>(sqlx::AssertSqlSafe(format!(
             "SELECT {PR_COLUMNS} FROM pull_requests p
               WHERE p.repo_id = ? AND p.pr_number = ?
               ORDER BY p.created_at DESC LIMIT 1"
-        ))
+        )))
         .bind(repo_id)
         .bind(pr_number)
         .fetch_optional(pool)
@@ -330,13 +330,13 @@ impl PullRequest {
         pool: &SqlitePool,
         workspace_id: Uuid,
     ) -> Result<Vec<PullRequest>, sqlx::Error> {
-        sqlx::query_as::<_, PullRequest>(&format!(
+        sqlx::query_as::<_, PullRequest>(sqlx::AssertSqlSafe(format!(
             "SELECT {PR_COLUMNS}
                FROM pull_requests p
                JOIN workspace_pull_requests l ON l.pull_request_id = p.id
               WHERE l.workspace_id = ?
               ORDER BY p.created_at DESC"
-        ))
+        )))
         .bind(workspace_id)
         .fetch_all(pool)
         .await
@@ -347,13 +347,13 @@ impl PullRequest {
         workspace_id: Uuid,
         repo_id: Uuid,
     ) -> Result<Vec<PullRequest>, sqlx::Error> {
-        sqlx::query_as::<_, PullRequest>(&format!(
+        sqlx::query_as::<_, PullRequest>(sqlx::AssertSqlSafe(format!(
             "SELECT {PR_COLUMNS}
                FROM pull_requests p
                JOIN workspace_pull_requests l ON l.pull_request_id = p.id
               WHERE l.workspace_id = ? AND p.repo_id = ?
               ORDER BY p.created_at DESC"
-        ))
+        )))
         .bind(workspace_id)
         .bind(repo_id)
         .fetch_all(pool)
@@ -383,14 +383,14 @@ impl PullRequest {
         pool: &SqlitePool,
         archived: bool,
     ) -> Result<HashMap<Uuid, PullRequest>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, LinkedPullRequest>(&format!(
+        let rows = sqlx::query_as::<_, LinkedPullRequest>(sqlx::AssertSqlSafe(format!(
             "SELECT l.workspace_id AS link_workspace_id, {PR_COLUMNS}
                FROM pull_requests p
                JOIN workspace_pull_requests l ON l.pull_request_id = p.id
                JOIN workspaces w ON w.id = l.workspace_id
               WHERE w.archived = ?
               ORDER BY p.created_at ASC"
-        ))
+        )))
         .bind(archived)
         .fetch_all(pool)
         .await?;

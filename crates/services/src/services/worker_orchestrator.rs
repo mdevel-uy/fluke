@@ -6207,6 +6207,8 @@ mod tests {
             ignore_missing: full.ignore_missing,
             locking: full.locking,
             no_tx: full.no_tx,
+            table_name: full.table_name.clone(),
+            create_schemas: full.create_schemas.clone(),
         };
         before.run(&pool).await.expect("run migrations before");
         let db = DBService { pool: pool.clone() };

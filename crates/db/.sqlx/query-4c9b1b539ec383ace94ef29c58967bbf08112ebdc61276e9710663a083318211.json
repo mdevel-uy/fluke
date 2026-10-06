@@ -6,42 +6,90 @@
       {
         "name": "id!: Uuid",
         "ordinal": 0,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "project_id!: Uuid",
         "ordinal": 1,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "project_id"
+          }
+        }
       },
       {
         "name": "title",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "title"
+          }
+        }
       },
       {
         "name": "description",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "description"
+          }
+        }
       },
       {
         "name": "status!: TaskStatus",
         "ordinal": 4,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "status"
+          }
+        }
       },
       {
         "name": "parent_workspace_id: Uuid",
         "ordinal": 5,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "parent_workspace_id"
+          }
+        }
       },
       {
         "name": "created_at!: DateTime<Utc>",
         "ordinal": 6,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "created_at"
+          }
+        }
       },
       {
         "name": "updated_at!: DateTime<Utc>",
         "ordinal": 7,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tasks",
+            "name": "updated_at"
+          }
+        }
       }
     ],
     "parameters": {

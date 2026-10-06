@@ -197,7 +197,7 @@ impl Codex {
                             .await
                             .ok()
                             .and_then(|r| r.config.service_tier)
-                            .map(|t| matches!(t, ServiceTier::Fast))
+                            .map(|t| ServiceTier::from_request_value(&t) == Some(ServiceTier::Fast))
                             .unwrap_or(false);
                         if status {
                             let message = if current_is_fast || session_fast {
@@ -231,7 +231,7 @@ impl Codex {
                         // Fork current session with new tier if one is active
                         if let Some(old_thread_id) = session_id {
                             let service_tier = if want_fast {
-                                Some(Some(ServiceTier::Fast))
+                                Some(Some(ServiceTier::Fast.request_value().to_string()))
                             } else {
                                 Some(None)
                             };
@@ -276,10 +276,13 @@ impl Codex {
                     message,
                     phase: None,
                     memory_citation: None,
+                    delivery: None,
+                    questions: None,
                 }),
                 Err(message) => EventMsg::Error(ErrorEvent {
                     message,
                     codex_error_info: None,
+                    misalignment: None,
                 }),
             }],
         )
@@ -340,6 +343,8 @@ pub async fn log_event_raw(log_writer: &LogWriter, message: String) -> Result<()
             message,
             phase: None,
             memory_citation: None,
+            delivery: None,
+            questions: None,
         }),
     )
     .await
@@ -407,7 +412,7 @@ async fn fetch_status_message(
     let global_fast = config_resp
         .as_ref()
         .and_then(|r| r.config.service_tier.as_ref())
-        .map(|t| matches!(t, ServiceTier::Fast))
+        .map(|t| ServiceTier::from_request_value(t) == Some(ServiceTier::Fast))
         .unwrap_or(false);
     if global_fast || session_fast {
         lines.push("- **Service Tier**: `fast ⚡`".to_string());
@@ -668,6 +673,7 @@ fn format_mcp_auth_status(status: &codex_app_server_protocol::McpAuthStatus) -> 
         codex_app_server_protocol::McpAuthStatus::NotLoggedIn => "not logged in",
         codex_app_server_protocol::McpAuthStatus::BearerToken => "bearer token",
         codex_app_server_protocol::McpAuthStatus::OAuth => "oauth",
+        codex_app_server_protocol::McpAuthStatus::Unknown => "unknown",
     }
 }
 

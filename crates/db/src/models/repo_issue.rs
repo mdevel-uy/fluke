@@ -190,7 +190,7 @@ impl RepoIssue {
             "DELETE FROM repo_issues WHERE repo_id = ?1 AND number NOT IN ({placeholders})"
         );
 
-        let mut q = sqlx::query(&sql).bind(repo_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(repo_id);
         for n in keep_numbers {
             q = q.bind(*n);
         }
