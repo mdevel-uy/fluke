@@ -16,7 +16,7 @@ export function RootRedirectPage() {
       return;
     }
 
-    appNavigation.goToWorkspaces({ replace: true });
+    appNavigation.goToDashboard({ replace: true });
   }, [appNavigation, config, loading]);
 
   return (
