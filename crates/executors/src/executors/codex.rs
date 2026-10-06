@@ -141,10 +141,15 @@ pub enum AskForApproval {
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum ReasoningEffort {
+    None,
+    Minimal,
     Low,
     Medium,
     High,
     Xhigh,
+    Max,
+    Ultra,
+    Persistent,
 }
 
 /// Model reasoning summary style
