@@ -96,41 +96,32 @@ async fn unstick_issue(
     let pool = &deployment.db().pool;
     let kick = match req.action.as_str() {
         "retry" => {
-            let id: Option<Uuid> = sqlx::query_scalar(
-                "SELECT t.id FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
-                  WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND t.status = 'failed'
-                    AND w.role <> 'reviewer'
-                  ORDER BY t.created_at DESC LIMIT 1",
+            let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number).await?;
+            let plan = issue_phases::load_issue_plan(
+                pool,
+                repo_id,
+                issue_number,
+                issue.as_ref().is_some_and(|i| i.state != "open"),
+                issue.as_ref().and_then(|i| i.body.as_deref()),
+                max_rounds(&deployment).await,
+                stuck_task_detector::threshold_minutes(),
             )
-            .bind(repo_id)
-            .bind(issue_number)
-            .fetch_optional(pool)
             .await?;
-            // The gates before the review run on the issue's PR: their tasks
-            // carry the PR number.
-            let id = match id {
-                Some(id) => Some(id),
-                None => {
-                    sqlx::query_scalar(&format!(
-                        "SELECT t.id FROM worker_tasks t
-                      WHERE t.repo_id = ?1 AND t.status = 'failed'
-                        AND {}
-                        AND t.issue_number IN (
-                            SELECT pr.pr_number FROM pull_requests pr
-                              JOIN worker_tasks d ON d.workspace_id = pr.workspace_id
-                             WHERE d.repo_id = ?1 AND d.issue_number = ?2)
-                      ORDER BY t.created_at DESC LIMIT 1",
-                        worker_task::PR_GATE_KINDS_SQL
-                    ))
-                    .bind(repo_id)
-                    .bind(issue_number)
-                    .fetch_optional(pool)
-                    .await?
-                }
-            }
-            .ok_or_else(|| ApiError::Conflict("No hay una fase fallida para reintentar".into()))?;
-            let task = WorkerTask::set_status(pool, id, worker_task::STATUS_QUEUED).await?;
-            vec![task.worker_id]
+            // Retry the phase shown in the drawer, rather than an older
+            // failure from a different phase or PR.
+            let id = plan
+                .blocker
+                .filter(|b| matches!(b.kind.as_str(), "failed" | "credential"))
+                .and_then(|b| b.task_id)
+                .ok_or_else(|| {
+                    ApiError::Conflict("No hay una fase fallida para reintentar".into())
+                })?;
+            let worker_id = WorkerTask::retry_failed_phase(pool, id)
+                .await?
+                .ok_or_else(|| {
+                    ApiError::Conflict("La fase ya no está fallida para reintentar".into())
+                })?;
+            vec![worker_id]
         }
         "back_to_tests" => {
             let issue = RepoIssue::find_by_repo_and_number(pool, repo_id, issue_number)

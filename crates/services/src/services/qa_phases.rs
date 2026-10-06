@@ -613,8 +613,10 @@ pub async fn read_gate_verdict(
     workspace_id: Uuid,
     task: &WorkerTask,
     gate: &Gate,
-) -> Option<(String, String)> {
-    let path = gate.verdict_path()?;
+) -> Result<Option<(String, String)>, sqlx::Error> {
+    let Some(path) = gate.verdict_path() else {
+        return Ok(None);
+    };
     let parsed = match worktree_path(pool, workspace_id).await {
         Some(root) => std::fs::read_to_string(root.join(&path))
             .ok()
@@ -629,15 +631,22 @@ pub async fn read_gate_verdict(
             format!("{} no dejó un veredicto válido en {path}.", gate.label()),
         ),
     };
-    if let Err(e) = WorkerTask::set_qa_result(pool, task.id, None, Some(&verdict)).await {
-        warn!(task_id = %task.id, "Failed to store gate verdict: {}", e);
-    }
-    if !reasons.trim().is_empty()
-        && let Err(e) = WorkerTask::record_deliverable(pool, task.id, Some(&reasons), None).await
-    {
-        warn!(task_id = %task.id, "Failed to store gate reasons: {}", e);
-    }
-    Some((verdict, reasons))
+    // Commit the verdict and terminal state together: a stopped gate must
+    // never be `done` with an error that Retry cannot find (#822).
+    sqlx::query(
+        "UPDATE worker_tasks SET qa_verdict = ?2,
+            status = CASE WHEN ?2 = 'error' THEN 'failed' ELSE 'done' END,
+            failure_reason = CASE WHEN ?2 = 'error' THEN ?3 ELSE NULL END,
+            failure_kind = NULL,
+            result_summary = CASE WHEN trim(?3) <> '' THEN ?3 ELSE result_summary END
+          WHERE id = ?1",
+    )
+    .bind(task.id)
+    .bind(&verdict)
+    .bind(&reasons)
+    .execute(pool)
+    .await?;
+    Ok(Some((verdict, reasons)))
 }
 
 /// After a gate with a verdict: pass → next gate or the review; fail → send

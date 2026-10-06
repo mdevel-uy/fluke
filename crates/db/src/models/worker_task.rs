@@ -940,6 +940,28 @@ impl WorkerTask {
             .ok_or(sqlx::Error::RowNotFound)
     }
 
+    /// Requeue the failed phase selected by the issue plan. Also accepts old
+    /// verdict gates stored as done without a valid verdict (#822). The
+    /// conditional update makes duplicate Retry requests harmless.
+    pub async fn retry_failed_phase(
+        pool: &SqlitePool,
+        id: Uuid,
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(&format!(
+            "UPDATE worker_tasks AS t
+                SET status = 'queued', failure_reason = NULL, failure_kind = NULL,
+                    qa_verdict = NULL
+              WHERE t.id = ?1 AND (t.status = 'failed' OR
+                (t.status = 'done' AND {} AND t.kind <> 'docs'
+                 AND COALESCE(t.qa_verdict, '') NOT IN ('pass', 'fail')))
+              RETURNING worker_id",
+            PR_GATE_KINDS_SQL
+        ))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Park a running task on the agent's question (`question` is JSON). A
     /// second question replaces the first. Only a task that is `in_progress`
     /// or already `waiting_user` can ask; returns false otherwise.

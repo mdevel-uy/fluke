@@ -436,7 +436,9 @@ pub fn build_phases(
             phase.state = match (r.status.as_str(), r.verdict.as_deref()) {
                 (_, Some("approve")) => "done",
                 (_, Some("request_changes")) => "changes",
-                ("failed", _) => "stuck",
+                ("failed", _) => reviewer
+                    .filter(|t| matches!(t.status.as_str(), "queued" | "in_progress"))
+                    .map_or("stuck", |t| task_state(&t.status)),
                 _ => "active",
             }
             .to_string();
@@ -1168,6 +1170,43 @@ mod tests {
         t.failure_reason = Some("exit 1".into());
         let b = blocker_of(&[t], &[], &[], None, None).0.unwrap();
         assert_eq!((b.kind.as_str(), b.message.as_str()), ("failed", "exit 1"));
+    }
+
+    #[test]
+    fn gate_error_blocker_identifies_the_task_to_retry() {
+        for status in ["done", "failed", "queued", "in_progress"] {
+            let dev = task(ROLE_DEVELOPER, None, "in_review");
+            let mut gate = task("qa", Some("qa_test"), status);
+            gate.qa_verdict = Some("error".into());
+            gate.result_summary = Some("Testing no dejó un veredicto válido".into());
+            let mut phases = add_qa_phases(
+                build_phases(&[dev.clone()], &[], &[], None, false),
+                &[],
+                Some(&[Gate::Testing]),
+                &[gate.clone()],
+            );
+            let blocker = pick_blocker(&mut phases, &[&dev, &gate], None, &[], 3, None, 30);
+            if matches!(status, "done" | "failed") {
+                let blocker = blocker.unwrap();
+                assert_eq!(blocker.kind, "failed");
+                assert_eq!(blocker.task_id, Some(gate.id));
+                assert_eq!(blocker.phase.as_deref(), Some("test-1"));
+            } else {
+                assert!(blocker.is_none(), "Retry must clear the visible failure");
+            }
+        }
+    }
+
+    #[test]
+    fn failed_review_round_tracks_its_retried_task() {
+        for status in ["failed", "queued", "in_progress"] {
+            let reviewer = task("reviewer", None, status);
+            let r = round("review", "failed", None, Some(reviewer.id));
+            let (blocker, phases) = blocker_of(&[], &[r], &[reviewer], None, None);
+            let review = phases.iter().find(|p| p.kind == "review").unwrap();
+            assert_eq!(review.state, task_state(status));
+            assert_eq!(blocker.is_some(), status == "failed");
+        }
     }
 
     #[test]
