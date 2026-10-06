@@ -8,6 +8,7 @@ use crate::{DeploymentImpl, middleware};
 
 pub mod agent_auth;
 pub mod agents;
+pub mod app_errors;
 pub mod approvals;
 pub mod attachments;
 pub mod ci_studio;
@@ -67,6 +68,7 @@ pub fn router(deployment: DeploymentImpl) -> IntoMakeService<Router> {
         .merge(github::router())
         .merge(plan::router())
         .merge(director::router())
+        .merge(app_errors::router())
         .merge(milestone_runs::router())
         .merge(issue_phases::router())
         .merge(ci_studio::router())

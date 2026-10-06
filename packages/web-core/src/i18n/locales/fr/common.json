@@ -1868,6 +1868,11 @@
     "error": "L'action n'a pas pu être effectuée : {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke a détecté une erreur de l’application",
+      "count": "x {{count}}",
+      "ignore": "Ignorer"
+    },
     "eventsBatch_one": "{{count}} événement de l'app",
     "eventsBatch_other": "{{count}} événements de l'app",
     "guard": {

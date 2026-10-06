@@ -11,7 +11,23 @@ export type DirectorView = 'bubble' | 'panel';
 /** Missions the panel's dropdown lists: all open ones, or one group. */
 export type PickerFilter = 'all' | 'waiting' | 'working';
 
+/** Wire summaries from /api/app-errors/stream; fingerprints are backend-only. */
+export interface AppErrorNotice {
+  fingerprint: string;
+  message: string;
+  source: string;
+  location: string;
+  count: number;
+  first_seen: number;
+  last_seen: number;
+}
+
 interface DirectorState {
+  appErrors: AppErrorNotice[];
+  errorSession: string | null;
+  ignoredErrors: string[];
+  setAppErrors: (session: string, errors: AppErrorNotice[]) => void;
+  ignoreAppError: (fingerprint: string) => void;
   view: DirectorView;
   /** Panel anchored as a column in the shell's right aside. */
   pinned: boolean;
@@ -37,6 +53,19 @@ interface DirectorState {
 export const useDirectorStore = create<DirectorState>()(
   persist(
     (set) => ({
+      appErrors: [],
+      errorSession: null,
+      ignoredErrors: [],
+      setAppErrors: (errorSession, appErrors) =>
+        set((s) => ({
+          errorSession,
+          appErrors,
+          ignoredErrors: s.errorSession === errorSession ? s.ignoredErrors : [],
+        })),
+      ignoreAppError: (fingerprint) =>
+        set((s) => ({
+          ignoredErrors: [...new Set([...s.ignoredErrors, fingerprint])],
+        })),
       view: 'bubble',
       pinned: false,
       focusId: null,
@@ -61,7 +90,12 @@ export const useDirectorStore = create<DirectorState>()(
     }),
     {
       name: 'director',
-      partialize: ({ picker: _picker, ...rest }) => rest,
+      partialize: ({ view, pinned, focusId, dismissed }) => ({
+        view,
+        pinned,
+        focusId,
+        dismissed,
+      }),
       version: 2,
       // v0 had an 'expanded' overlay view, now the /fluke page; v1 had tabs
       // (activeTab + openMissionIds), now a single focus.

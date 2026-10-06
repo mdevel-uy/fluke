@@ -47,7 +47,9 @@ async fn main() -> Result<(), ServerError> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(env_filter))
         .with(sentry_layer())
+        .with(utils::app_errors::AppErrorLayer)
         .init();
+    utils::app_errors::install_panic_hook();
 
     // Create asset directory if it doesn't exist
     if !asset_dir().exists() {

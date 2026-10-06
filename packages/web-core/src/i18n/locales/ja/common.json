@@ -1856,6 +1856,11 @@
     "error": "操作を完了できませんでした: {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke がアプリのエラーを検出しました",
+      "count": "x {{count}}",
+      "ignore": "無視"
+    },
     "eventsBatch_one": "アプリのイベント {{count}} 件",
     "eventsBatch_other": "アプリのイベント {{count}} 件",
     "guard": {
