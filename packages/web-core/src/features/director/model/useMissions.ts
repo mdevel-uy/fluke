@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { sendWithPending } from '@/features/workspace-chat/model/store/usePendingMessagesStore';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -169,14 +170,16 @@ export function useSendToDirector(mission: MissionDetail['mission'] | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (prompt: string) =>
-      sessionsApi.followUp(mission!.session_id, {
-        prompt,
-        // The server fixes the Director's executor and model.
-        executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
-        retry_process_id: null,
-        force_when_dirty: null,
-        perform_git_reset: null,
-      }),
+      sendWithPending(mission!.session_id, prompt, () =>
+        sessionsApi.followUp(mission!.session_id, {
+          prompt,
+          // The server fixes the Director's executor and model.
+          executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
+          retry_process_id: null,
+          force_when_dirty: null,
+          perform_git_reset: null,
+        })
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: missionKeys.all }),
   });
@@ -211,13 +214,15 @@ export function useTalkToFluke() {
       const sessionId =
         own?.session_id ??
         (await createMission.mutateAsync(repoId)).mission.session_id;
-      await sessionsApi.followUp(sessionId, {
-        prompt,
-        executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
-        retry_process_id: null,
-        force_when_dirty: null,
-        perform_git_reset: null,
-      });
+      await sendWithPending(sessionId, prompt, () =>
+        sessionsApi.followUp(sessionId, {
+          prompt,
+          executor_config: { executor: BaseCodingAgent.CLAUDE_CODE },
+          retry_process_id: null,
+          force_when_dirty: null,
+          perform_git_reset: null,
+        })
+      );
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: missionKeys.all }),

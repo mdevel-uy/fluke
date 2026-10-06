@@ -1986,13 +1986,14 @@ impl ContainerService for LocalContainerService {
         env.insert("VK_WORKSPACE_ID", workspace.id.to_string());
         env.insert("VK_WORKSPACE_BRANCH", &workspace.branch);
 
-        // Claude only. A mission session gets the Director's MCP and system
-        // prompt instead of the plan MCP; every other agent gets the plan
-        // MCP: it declares and walks its plan against this server, which
-        // renders it as a live graph.
+        // A mission session (Claude or Codex) gets the Director's MCP and
+        // system prompt; every other Claude session gets the plan MCP: it
+        // declares and walks its plan against this server, which renders it
+        // as a live graph.
+        let base_executor = executor_action.base_executor();
         if matches!(
-            executor_action.base_executor(),
-            Some(BaseCodingAgent::ClaudeCode)
+            base_executor,
+            Some(BaseCodingAgent::ClaudeCode | BaseCodingAgent::Codex)
         ) {
             let session_id = execution_process.session_id;
             if let Some(mission) =
@@ -2025,7 +2026,8 @@ impl ContainerService for LocalContainerService {
                         .await?,
                     );
                 }
-            } else if let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
+            } else if base_executor == Some(BaseCodingAgent::ClaudeCode)
+                && let Some(url) = utils::plan_mcp::url_for_workspace(&workspace.id.to_string())
             {
                 env.insert(utils::plan_mcp::PLAN_MCP_URL_ENV, url);
             }

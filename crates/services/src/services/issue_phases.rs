@@ -147,7 +147,11 @@ pub fn pick_blocker(
     if let Some(i) = phases.iter().rposition(|p| {
         task_of(p).is_some_and(|t| {
             t.status == "failed"
-                && t.failure_kind.as_deref() == Some(db::models::worker_task::FAILURE_KIND_PROVIDER)
+                && matches!(
+                    t.failure_kind.as_deref(),
+                    Some(db::models::worker_task::FAILURE_KIND_PROVIDER)
+                        | Some(db::models::worker_task::FAILURE_KIND_CREDENTIAL)
+                )
         })
     }) {
         let msg = phases[i].output.clone().unwrap_or_default();

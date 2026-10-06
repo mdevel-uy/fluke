@@ -14,6 +14,66 @@ use crate::{
     profile::ExecutorConfigs,
 };
 
+/// The agent CLI to run: the user's installed `bin` when it is at least the
+/// version of the `pinned` npx package (`npx -y pkg@X.Y.Z`), else the pinned
+/// package. The installed CLI is the one that writes the shared config
+/// (`~/.codex/config.toml`, …) and knows the account's newest models, so
+/// following it avoids an old pinned CLI choking on a newer config; never
+/// going below the pin keeps the version Fluke was built and tested against
+/// as the floor.
+///
+/// Resolved once per process (one `--version` call).
+/// ponytail: a CLI installed or upgraded while the server runs is picked up on restart.
+pub fn installed_or_pinned(
+    cache: &'static OnceLock<String>,
+    bin: &str,
+    pinned: &'static str,
+) -> &'static str {
+    cache.get_or_init(|| {
+        let floor = pinned.rsplit('@').next().unwrap_or_default();
+        match installed_version(bin) {
+            Some(v) if version_at_least(&v, floor) => {
+                tracing::info!("{bin}: using the installed CLI ({v}, pinned {floor})");
+                bin.to_string()
+            }
+            found => {
+                tracing::info!(
+                    "{bin}: using the pinned CLI {floor} (installed: {})",
+                    found.as_deref().unwrap_or("none")
+                );
+                pinned.to_string()
+            }
+        }
+    })
+}
+
+fn installed_version(bin: &str) -> Option<String> {
+    use workspace_utils::command_ext::NoWindowExt;
+    let path = workspace_utils::shell::resolve_executable_path_blocking(bin)?;
+    let out = std::process::Command::new(path)
+        .arg("--version")
+        .stdin(std::process::Stdio::null())
+        .no_window()
+        .output()
+        .ok()?;
+    parse_version(&String::from_utf8_lossy(&out.stdout)).map(str::to_string)
+}
+
+/// First `X.Y.Z` token: "codex-cli 0.158.0" → "0.158.0",
+/// "2.1.220 (Claude Code)" → "2.1.220".
+fn parse_version(text: &str) -> Option<&str> {
+    text.split(|c: char| c.is_whitespace() || c == '(' || c == ')')
+        .find(|t| t.split('.').count() == 3 && t.split('.').all(|p| p.parse::<u64>().is_ok()))
+}
+
+fn version_at_least(version: &str, floor: &str) -> bool {
+    let nums = |v: &str| -> Option<Vec<u64>> { v.split('.').map(|p| p.parse().ok()).collect() };
+    match (nums(version), nums(floor)) {
+        (Some(v), Some(f)) => v >= f,
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlashCommandCall<'a> {
     /// The command name in lowercase (without the leading slash)
@@ -150,5 +210,26 @@ pub async fn preload_global_executor_options_cache() {
 
     for base_agent in executors {
         spawn_global_cache_refresh_for_agent_with_configs(base_agent, configs.clone());
+    }
+}
+
+#[cfg(test)]
+mod cli_version_tests {
+    use super::{parse_version, version_at_least};
+
+    #[test]
+    fn parses_cli_version_output() {
+        assert_eq!(parse_version("codex-cli 0.158.0\n"), Some("0.158.0"));
+        assert_eq!(parse_version("2.1.220 (Claude Code)\n"), Some("2.1.220"));
+        assert_eq!(parse_version("no version here"), None);
+    }
+
+    #[test]
+    fn compares_numerically_not_lexically() {
+        assert!(version_at_least("0.158.0", "0.124.0"));
+        assert!(version_at_least("0.124.0", "0.124.0"));
+        assert!(!version_at_least("2.1.220", "2.1.280"));
+        assert!(version_at_least("2.10.0", "2.9.9"));
+        assert!(!version_at_least("garbage", "0.1.0"));
     }
 }

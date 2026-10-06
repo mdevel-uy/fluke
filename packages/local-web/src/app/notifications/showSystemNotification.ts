@@ -22,6 +22,8 @@ function showWebNotification(payload: NotificationPayload): void {
     const notification = new Notification(payload.title, {
       body: payload.body,
       tag: payload.id,
+      // The backend plays the sound when the user is needed.
+      silent: true,
     });
     notification.onclick = () => {
       try {

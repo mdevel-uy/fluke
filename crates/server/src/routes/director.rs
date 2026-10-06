@@ -70,6 +70,10 @@ async fn list_missions(
     State(deployment): State<DeploymentImpl>,
 ) -> Result<ResponseJson<ApiResponse<Vec<MissionSummary>>>, ApiError> {
     let pool = &deployment.db().pool;
+    // Fluke's standing conversation is always there to talk to, repos or not.
+    if let Err(e) = ensure_guard(&deployment).await {
+        tracing::warn!("Fluke's standing conversation could not be created: {e}");
+    }
     let guard = db::models::fluke_event::FlukeGuard::get(pool)
         .await?
         .map(|g| g.mission_id);
@@ -620,24 +624,41 @@ pub fn spawn_event_watcher(deployment: DeploymentImpl) {
     });
 }
 
-/// La misión de guardia; la crea (en el primer repo) si todavía no existe.
+/// La misión de guardia; la crea (en la carpeta propia de Fluke) si todavía
+/// no existe.
 async fn ensure_guard(
     deployment: &DeploymentImpl,
 ) -> Result<Option<db::models::fluke_event::FlukeGuard>, ApiError> {
-    use db::models::{fluke_event::FlukeGuard, repo::Repo};
+    use db::models::fluke_event::FlukeGuard;
     let pool = &deployment.db().pool;
     if let Some(guard) = FlukeGuard::get(pool).await?
         && Mission::find_by_id(pool, guard.mission_id).await?.is_some()
     {
         return Ok(Some(guard));
     }
-    let Some(repo) = Repo::list_all(pool).await?.into_iter().next() else {
-        return Ok(None);
-    };
-    let mission = new_mission_in(deployment, repo.id).await?;
+    let home = ensure_fluke_home(deployment).await?;
+    let mission = new_mission_in(deployment, home.id).await?;
     Mission::set_title(pool, mission.id, "Fluke").await?;
+    // It runs in Fluke's folder but belongs to no repo: it looks at all of them.
+    Mission::set_repo(pool, mission.id, None).await?;
     FlukeGuard::set(pool, mission.id).await?;
     Ok(FlukeGuard::get(pool).await?)
+}
+
+/// La carpeta propia de Fluke (`utils::assets::fluke_home_dir`): un repo con
+/// un commit inicial que Fluke crea la primera vez. Así su conversación
+/// arranca sin repos del user, o con todos rotos (sin commits, borrados).
+async fn ensure_fluke_home(
+    deployment: &DeploymentImpl,
+) -> Result<db::models::repo::Repo, ApiError> {
+    let path = utils::assets::fluke_home_dir();
+    if !path.join(".git").exists() {
+        deployment
+            .git()
+            .initialize_repo_with_main_branch(&path)
+            .map_err(|e| ApiError::BadRequest(format!("Could not create Fluke's folder: {e}")))?;
+    }
+    Ok(db::models::repo::Repo::find_or_create(&deployment.db().pool, &path, "Fluke").await?)
 }
 
 async fn deliver_events(deployment: &DeploymentImpl) -> Result<(), ApiError> {

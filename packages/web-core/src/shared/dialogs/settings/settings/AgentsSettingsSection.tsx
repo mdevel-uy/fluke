@@ -20,7 +20,10 @@ import { AgentIcon } from '@/shared/components/AgentIcon';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { useMachineProfiles } from '@/shared/hooks/useProfiles';
 import { useModelSelectorConfig } from '@/shared/hooks/useExecutorDiscovery';
-import { useWorkers } from '@/features/workers/model/useWorkers';
+import {
+  useUpdateWorker,
+  useWorkers,
+} from '@/features/workers/model/useWorkers';
 import { DisconnectProviderDialog } from '../DisconnectProviderDialog';
 import { ProviderAdvancedPanel } from './ProviderAdvancedPanel';
 import { useSettingsMachineClient } from './SettingsHostContext';
@@ -73,6 +76,7 @@ export function AgentsSettingsSection({
   const profiles = useMachineProfiles(machineClient);
   const { config, updateAndSaveConfig, reloadSystem } = useUserSystem();
   const { data: workers } = useWorkers();
+  const updateWorker = useUpdateWorker();
   const [error, setError] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState<{
     agent: BaseCodingAgent;
@@ -240,6 +244,24 @@ export function AgentsSettingsSection({
         noneConnected={!anyConnected}
       />
 
+      <FlukeCard
+        agent={defaultAgent}
+        name={defaultProvider?.name ?? ''}
+        models={defaultAgent ? models[defaultAgent] : undefined}
+        baseModel={defaultAgent ? baseModelName(defaultAgent) : null}
+        worker={(workers ?? []).find((w) => w.role === 'orchestrator')}
+        onChange={(w, model) =>
+          void run(
+            () =>
+              updateWorker.mutateAsync({
+                workerId: w,
+                data: { executor: model ? defaultAgent : null, model },
+              }),
+            t('settings.providers.errors.saveFailed')
+          )
+        }
+      />
+
       {error && (
         <div className="rounded-sm border border-error/50 bg-error/10 p-3 text-sm text-error">
           {error}
@@ -318,6 +340,82 @@ export function AgentsSettingsSection({
         />
       )}
     </div>
+  );
+}
+
+// Fluke's model lives on its orchestrator worker; the backend only honours
+// it when the worker is pinned to the default agent.
+function FlukeCard({
+  agent,
+  name,
+  models,
+  baseModel,
+  worker,
+  onChange,
+}: {
+  agent: BaseCodingAgent | null;
+  name: string;
+  models: ModelState | undefined;
+  baseModel: string | null;
+  worker:
+    | { id: string; executor?: BaseCodingAgent | null; model?: string | null }
+    | undefined;
+  onChange: (workerId: string, model: string | null) => void;
+}) {
+  const { t } = useTranslation(['settings', 'common']);
+  const supported =
+    agent === BaseCodingAgent.CLAUDE_CODE || agent === BaseCodingAgent.CODEX;
+  const modelList = models?.config?.models ?? [];
+  const current =
+    worker?.executor === agent && worker?.model ? worker.model : '';
+
+  return (
+    <article className="rounded-sm border border-border bg-panel">
+      <header className="flex items-center gap-3 px-4 py-3">
+        {agent && supported && (
+          <AgentIcon agent={agent} className="size-icon-lg shrink-0" />
+        )}
+        <span className="text-sm font-semibold text-high">
+          {t('settings.providers.fluke.title')}
+        </span>
+      </header>
+      <div className="border-t border-border px-4 py-3">
+        {supported ? (
+          <Row label={t('settings.providers.fluke.model')}>
+            <select
+              value={current}
+              disabled={!worker}
+              onChange={(e) =>
+                worker && onChange(worker.id, e.target.value || null)
+              }
+              aria-label={t('settings.providers.fluke.model')}
+              className="h-8 rounded-sm border border-border bg-panel px-2 text-sm text-high"
+            >
+              <option value="">
+                {t('settings.providers.fluke.same', {
+                  model: baseModel ?? '—',
+                })}
+              </option>
+              {current && !modelList.some((m) => m.id === current) && (
+                <option value={current}>{current}</option>
+              )}
+              {modelList.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-low">
+              {t('settings.providers.fluke.runsOn', { name })}
+            </p>
+          </Row>
+        ) : (
+          <p className="text-xs text-low">
+            {t('settings.providers.fluke.unsupported')}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -443,6 +541,13 @@ function ProviderCard({
   const [submitted, setSubmitted] = useState<{ error: string | null } | null>(
     null
   );
+  // "Connected" only means a credential is on disk; a test sends one real
+  // message through the agent's CLI and model.
+  const [test, setTest] = useState<
+    | { state: 'running' }
+    | { state: 'done'; ok: boolean; detail: string | null }
+    | null
+  >(null);
 
   const login = status.login;
   const pending = login?.state === 'pending';
@@ -523,6 +628,20 @@ function ProviderCard({
       'settings.providers.errors.cancelFailed',
       resetFlow
     );
+
+  const runTest = async () => {
+    setTest({ state: 'running' });
+    try {
+      const res = await agentAuthApi.test(id, { model: baseModel });
+      setTest({ state: 'done', ok: res.ok, detail: res.detail });
+    } catch (err) {
+      setTest({
+        state: 'done',
+        ok: false,
+        detail: errorText(err, t('settings.providers.test.failed', { name })),
+      });
+    }
+  };
 
   const openUrl = (url: string | null | undefined) => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -860,6 +979,38 @@ function ProviderCard({
           </div>
         )}
         {flow}
+        {connected && (
+          <Row label={t('settings.providers.connection')}>
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                variant="tertiary"
+                onClick={() => void runTest()}
+                disabled={test?.state === 'running'}
+                actionIcon={test?.state === 'running' ? 'spinner' : undefined}
+                value={t(
+                  test?.state === 'running'
+                    ? 'settings.providers.test.running'
+                    : 'settings.providers.test.action'
+                )}
+              />
+              {test?.state === 'done' && test.ok && (
+                <span className="text-xs text-success">
+                  {t('settings.providers.test.ok', { name })}
+                </span>
+              )}
+            </div>
+            {test?.state === 'done' && !test.ok ? (
+              <p role="alert" className="mt-1.5 text-xs text-error">
+                <b>{t('settings.providers.test.failed', { name })}</b>{' '}
+                {test.detail && <code>{test.detail}</code>}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-low">
+                {t('settings.providers.test.hint')}
+              </p>
+            )}
+          </Row>
+        )}
         <Row
           label={t('settings.providers.models.label', {
             count: modelList.length,

@@ -174,6 +174,23 @@ pub struct AgentLoginResponse {
     pub completed: bool,
 }
 
+/// `POST /api/agents/auth/{provider}/test` — the model the agent would run
+/// with (the provider's base model), if any.
+#[derive(Debug, Default, Deserialize, TS)]
+pub struct AgentTestRequest {
+    #[serde(default)]
+    pub model: Option<String>,
+}
+
+/// Outcome of a real one-line request through the same CLI the agents run:
+/// "connected" only means a credential is on disk, this says it works.
+#[derive(Debug, Serialize, TS)]
+pub struct AgentTestResponse {
+    pub ok: bool,
+    /// The CLI's own error when `ok` is false.
+    pub detail: Option<String>,
+}
+
 // ============================================================================
 // In-memory login state
 // ============================================================================
@@ -319,6 +336,7 @@ pub fn router() -> Router<DeploymentImpl> {
             post(post_login_submit),
         )
         .route("/agents/auth/{provider}/logout", post(post_logout))
+        .route("/agents/auth/{provider}/test", post(post_test))
 }
 
 // ============================================================================
@@ -482,6 +500,126 @@ async fn post_logout(
     // not immediately reappear after disconnecting.
     runtime().lock().await.progress.remove(&provider);
     Ok(ResponseJson(ApiResponse::success(())))
+}
+
+/// First run through `npx` downloads the pinned CLI, so be generous.
+const TEST_TIMEOUT: Duration = Duration::from_secs(180);
+const TEST_PROMPT: &str = "Reply with exactly one word: ok";
+
+/// Send one tiny prompt through the exact command the executor spawns (same
+/// pinned `npx` package, same stored credential, same base model), so a
+/// broken setup shows here instead of as a failed task: a credential that
+/// is on disk but rejected, or a `~/.codex/config.toml` model the account
+/// can't use.
+async fn post_test(
+    State(_deployment): State<DeploymentImpl>,
+    Path(provider): Path<String>,
+    ResponseJson(body): ResponseJson<AgentTestRequest>,
+) -> Result<ResponseJson<ApiResponse<AgentTestResponse>>, ApiError> {
+    let provider = AgentAuthProvider::from_slug(&provider)
+        .ok_or_else(|| ApiError::BadRequest(format!("Unknown provider {provider}")))?;
+    let model = body.model.filter(|m| !m.trim().is_empty());
+
+    let base = match provider {
+        AgentAuthProvider::ClaudeCode => executors::executors::claude::base_command(false),
+        AgentAuthProvider::Codex => executors::executors::codex::Codex::base_command(),
+        AgentAuthProvider::Gemini => executors::executors::gemini::Gemini::base_command(),
+    };
+    let mut parts = base.split_whitespace();
+    let program = parts.next().unwrap_or("npx");
+    let program = resolve_executable_path(program)
+        .await
+        .ok_or_else(|| ApiError::BadRequest(format!("`{program}` is not installed")))?;
+    let mut cmd = Command::new(program);
+    cmd.args(parts);
+    match provider {
+        AgentAuthProvider::ClaudeCode => {
+            cmd.args(["-p", TEST_PROMPT, "--output-format", "json"]);
+            if let Some(m) = &model {
+                cmd.args(["--model", m]);
+            }
+            if let Some(token) = executors::executors::claude::stored_claude_oauth_token() {
+                cmd.env(executors::executors::claude::CLAUDE_OAUTH_TOKEN_ENV, token);
+            }
+        }
+        AgentAuthProvider::Codex => {
+            cmd.args(["exec", "--skip-git-repo-check"]);
+            if let Some(m) = &model {
+                cmd.args(["--model", m]);
+            }
+            cmd.arg(TEST_PROMPT);
+        }
+        AgentAuthProvider::Gemini => {
+            cmd.args(["-p", TEST_PROMPT]);
+            if let Some(m) = &model {
+                cmd.args(["--model", m]);
+            }
+        }
+    }
+    cmd.current_dir(std::env::temp_dir())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .no_window();
+
+    let output = match tokio::time::timeout(TEST_TIMEOUT, cmd.output()).await {
+        Err(_) => {
+            return Ok(ResponseJson(ApiResponse::success(AgentTestResponse {
+                ok: false,
+                detail: Some(format!("No answer after {}s", TEST_TIMEOUT.as_secs())),
+            })));
+        }
+        Ok(result) => {
+            result.map_err(|e| ApiError::BadRequest(format!("Could not run the CLI: {e}")))?
+        }
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let ok = output.status.success()
+        && match provider {
+            // `-p` prints "Not logged in" and still exits 0: trust only the
+            // JSON result.
+            AgentAuthProvider::ClaudeCode => claude_test_ok(&stdout),
+            _ => true,
+        };
+    Ok(ResponseJson(ApiResponse::success(AgentTestResponse {
+        ok,
+        detail: (!ok).then(|| test_failure_detail(&format!("{stdout}\n{stderr}"))),
+    })))
+}
+
+fn claude_test_ok(stdout: &str) -> bool {
+    stdout.lines().rev().find_map(|line| {
+        let v: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+        (v.get("type")?.as_str()? == "result")
+            .then(|| v.get("is_error").and_then(|e| e.as_bool()) == Some(false))
+    }) == Some(true)
+}
+
+/// The most useful part of a failed run: the API's own `"message"` when an
+/// error JSON is printed, else the last lines (CLI errors often wrap, e.g.
+/// "Error loading config.toml: …" / "in `service_tier`").
+fn test_failure_detail(output: &str) -> String {
+    let lines: Vec<&str> = output
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let from_json = lines.iter().rev().find_map(|line| {
+        let json = &line[line.find('{')?..];
+        let v: serde_json::Value = serde_json::from_str(json).ok()?;
+        v.pointer("/error/message")
+            .or_else(|| v.get("message"))
+            .or_else(|| v.get("result"))
+            .and_then(|m| m.as_str())
+            .map(str::to_string)
+    });
+    let tail = lines[lines.len().saturating_sub(2)..].join(" ");
+    let detail = from_json
+        .or_else(|| (!tail.is_empty()).then_some(tail))
+        .unwrap_or_else(|| "The CLI failed without output".to_string());
+    detail.chars().take(400).collect()
 }
 
 // ============================================================================
@@ -1449,6 +1587,37 @@ async fn claude_logout() -> Result<(), ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_detail_prefers_the_api_error_message() {
+        let out = "hook: SessionStart\nERROR: {\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\"}}\n";
+        assert_eq!(
+            test_failure_detail(out),
+            "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account."
+        );
+        assert_eq!(
+            test_failure_detail("Not logged in · Please run /login\n\n"),
+            "Not logged in · Please run /login"
+        );
+        assert_eq!(
+            test_failure_detail(
+                "Error loading config.toml: unknown variant `default`, expected `fast` or `flex`\nin `service_tier`\n\n"
+            ),
+            "Error loading config.toml: unknown variant `default`, expected `fast` or `flex` in `service_tier`"
+        );
+        assert_eq!(test_failure_detail(""), "The CLI failed without output");
+    }
+
+    #[test]
+    fn claude_test_trusts_only_a_successful_result() {
+        assert!(claude_test_ok(
+            "{\"type\":\"result\",\"is_error\":false,\"result\":\"ok\"}"
+        ));
+        assert!(!claude_test_ok(
+            "{\"type\":\"result\",\"is_error\":true,\"result\":\"Invalid API key\"}"
+        ));
+        assert!(!claude_test_ok("Not logged in · Please run /login"));
+    }
 
     #[test]
     fn extracts_codex_verification_url() {

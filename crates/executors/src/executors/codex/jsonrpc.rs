@@ -201,9 +201,10 @@ impl JsonRpcPeer {
     where
         T: Serialize + Sync,
     {
-        let raw = serde_json::to_string(message)
+        let mut value = serde_json::to_value(message)
             .map_err(|err| ExecutorError::Io(io::Error::other(err.to_string())))?;
-        self.send_raw(&raw).await
+        drop_null_params(&mut value);
+        self.send_raw(&value.to_string()).await
     }
 
     pub async fn request<R, T>(
@@ -303,4 +304,35 @@ pub trait JsonRpcCallbacks: Send + Sync {
     ) -> Result<bool, ExecutorError>;
 
     async fn on_non_json(&self, _raw: &str) -> Result<(), ExecutorError>;
+}
+
+/// Omit `null` fields from a request's `params`. Absent and `null` mean the
+/// same to the server, but a newer Codex rejects some fields this pinned
+/// protocol always serializes (`permissionProfile: null` on `thread/start`
+/// since 0.15x), so sending only what is set keeps a newer Codex working.
+fn drop_null_params(message: &mut Value) {
+    if let Some(params) = message.get_mut("params").and_then(Value::as_object_mut) {
+        params.retain(|_, v| !v.is_null());
+    }
+}
+
+#[cfg(test)]
+mod drop_null_params_tests {
+    use super::*;
+
+    #[test]
+    fn only_null_params_are_dropped() {
+        let mut msg = serde_json::json!({
+            "id": 1, "method": "thread/start",
+            "params": {"model": "gpt-6-sol", "permissionProfile": null, "config": {"a": null}}
+        });
+        drop_null_params(&mut msg);
+        assert_eq!(
+            msg,
+            serde_json::json!({
+                "id": 1, "method": "thread/start",
+                "params": {"model": "gpt-6-sol", "config": {"a": null}}
+            })
+        );
+    }
 }

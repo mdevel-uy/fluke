@@ -106,11 +106,8 @@ async fn gh_cli_authenticated() -> bool {
 }
 
 async fn check_repo_added(deployment: &DeploymentImpl) -> bool {
-    match sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM repos")
-        .fetch_one(&deployment.db().pool)
-        .await
-    {
-        Ok(n) => n > 0,
+    match db::models::repo::Repo::list_all(&deployment.db().pool).await {
+        Ok(repos) => !repos.is_empty(),
         Err(e) => {
             tracing::warn!("setup-status: failed to count repos: {e}");
             false

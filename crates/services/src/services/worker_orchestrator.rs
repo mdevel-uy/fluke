@@ -2747,6 +2747,79 @@ async fn agent_result_text(pool: &sqlx::SqlitePool, execution_id: Option<Uuid>) 
 /// task whose work is already on the PR, and the head may have moved
 /// (reviewer edits), which would reject this safety-net push.
 ///
+/// How a rejected push reads to the person: the failure kind it maps to
+/// (`FAILURE_KIND_CREDENTIAL` shows as a `credential` blocker, `None` as a
+/// plain `failed` one) and the message stored as `failure_reason`.
+fn classify_push_error(err: &str, branch: &str) -> (Option<&'static str>, String) {
+    let lower = err.to_lowercase();
+    if lower.contains("workflow` scope") || lower.contains("workflow scope") {
+        return (
+            Some(worker_task::FAILURE_KIND_CREDENTIAL),
+            "GitHub rechazó el push: el token no tiene el permiso `workflow` (el cambio toca .github/workflows). Reconectá GitHub en Settings → GitHub y reintentá.".to_string(),
+        );
+    }
+    const AUTH: [&str; 5] = [
+        "403",
+        "permission denied",
+        "authentication failed",
+        "could not read username",
+        "invalid username or password",
+    ];
+    if AUTH.iter().any(|m| lower.contains(m)) {
+        return (
+            Some(worker_task::FAILURE_KIND_CREDENTIAL),
+            format!(
+                "GitHub rechazó el push de '{branch}' por permisos o autenticación. Reconectá GitHub en Settings → GitHub y reintentá. Detalle: {}",
+                push_error_line(err)
+            ),
+        );
+    }
+    if lower.contains("non-fast-forward") || lower.contains("fetch first") {
+        return (
+            None,
+            format!(
+                "El push de '{branch}' fue rechazado (non-fast-forward): la rama remota avanzó. Hay que integrar sus cambios y reintentar. Detalle: {}",
+                push_error_line(err)
+            ),
+        );
+    }
+    (
+        None,
+        format!("Falló el push de '{branch}': {}", push_error_line(err)),
+    )
+}
+
+/// The line that says why git refused (`! [remote rejected] …`), else the
+/// whole error, trimmed.
+fn push_error_line(err: &str) -> String {
+    let line = err
+        .lines()
+        .find(|l| l.contains("[remote rejected]") || l.contains("[rejected]"))
+        .unwrap_or(err.trim());
+    line.trim().chars().take(300).collect()
+}
+
+/// A task branch could not be pushed: fail the task with a readable reason.
+/// The `task.failed` status trigger raises the alert event for Fluke (repo,
+/// issue number, reason) and the issue shows a blocker. Callers must stop
+/// there: re-reviewing the stale PR would only ask for the same changes.
+async fn fail_task_on_push_error(
+    pool: &sqlx::SqlitePool,
+    task: &WorkerTask,
+    workspace_id: Uuid,
+    branch: &str,
+    err: &str,
+) -> Result<(), sqlx::Error> {
+    let (kind, mut msg) = classify_push_error(err, branch);
+    if let Ok(prs) = PullRequest::find_by_workspace_id(pool, workspace_id).await
+        && let Some(pr) = prs.first()
+    {
+        msg = format!("PR #{}: {msg}", pr.pr_number);
+    }
+    WorkerTask::set_failed_with_kind(pool, task.id, &msg, kind).await?;
+    Ok(())
+}
+
 /// Returns `true` only when this run's own commits reached the PR head (so
 /// downstream steps like the remediation summary comment gate on real
 /// progress), `false` otherwise. A successful push alone is not progress:
@@ -2821,9 +2894,17 @@ async fn push_follow_up_commits(
             warn!(
                 workspace_id = %workspace_id,
                 task_id = %task.id,
-                "Best-effort follow-up push failed: {}",
+                "Follow-up push failed: {}",
                 e
             );
+            let _ = fail_task_on_push_error(
+                pool,
+                task,
+                workspace_id,
+                &workspace.branch,
+                &e.to_string(),
+            )
+            .await;
             false
         }
     }
@@ -3335,12 +3416,24 @@ async fn on_developer_agent_finished(
                 false,
                 worker_pat.as_deref(),
             ) {
+                // Not best-effort: with the push rejected the PR is stale, and
+                // on_pr_open would re-review it into an endless loop.
                 warn!(
                     workspace_id = %workspace_id,
                     task_id = %task.id,
-                    "Best-effort push for already-recorded PR failed: {}",
+                    "Push for already-recorded PR failed: {}",
                     e
                 );
+                fail_task_on_push_error(
+                    pool,
+                    &task,
+                    workspace_id,
+                    &workspace.branch,
+                    &e.to_string(),
+                )
+                .await?;
+                archive_and_detach(db, container, workspace_id).await;
+                return Ok(());
             }
             info!(
                 workspace_id = %workspace_id,
@@ -3371,12 +3464,8 @@ async fn on_developer_agent_finished(
             workspace.branch,
             e
         );
-        WorkerTask::set_failed(
-            pool,
-            task.id,
-            &format!("Falló el push de '{}': {}", workspace.branch, e),
-        )
-        .await?;
+        fail_task_on_push_error(pool, &task, workspace_id, &workspace.branch, &e.to_string())
+            .await?;
         archive_and_detach(db, container, workspace_id).await;
         return Ok(());
     }
@@ -5489,6 +5578,26 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+
+    #[test]
+    fn push_errors_are_classified() {
+        use super::classify_push_error as c;
+        let wf = " ! [remote rejected] b -> b (refusing to allow an OAuth App to create or update workflow `.github/workflows/x.yml` without `workflow` scope)";
+        let (k, m) = c(wf, "b");
+        assert_eq!(k, Some("credential"));
+        assert!(m.contains("`workflow`"));
+        assert_eq!(
+            c("fatal: Authentication failed for 'x'", "b").0,
+            Some("credential")
+        );
+        assert_eq!(c("remote: Permission denied", "b").0, Some("credential"));
+        let (k, m) = c("! [rejected] b -> b (non-fast-forward)", "b");
+        assert_eq!(k, None);
+        assert!(m.contains("non-fast-forward"));
+        let (k, m) = c("! [remote rejected] b -> b (Internal Server Error)", "b");
+        assert_eq!(k, None);
+        assert!(m.contains("Internal Server Error"));
+    }
 
     use chrono::TimeZone;
     use db::models::{

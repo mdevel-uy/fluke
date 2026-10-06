@@ -829,18 +829,25 @@ pub async fn ensure_orchestrator(pool: &Pool) -> Result<Worker, sqlx::Error> {
     .await
 }
 
-/// El Director usa el executor global con el modelo de su worker. Las
-/// herramientas MCP sólo llegan con Claude Code, así que otro executor no
-/// sirve. Nunca en modo plan: necesita llamar a sus herramientas.
+/// El Director usa el executor global. Sus herramientas MCP y su system
+/// prompt le llegan a Claude Code y a Codex; otro executor no sirve. El
+/// modelo de su worker vale sólo para el executor de ese worker (un modelo
+/// de Claude no corre en Codex). Nunca en modo plan: necesita llamar a sus
+/// herramientas.
 pub fn executor_config(config: &Config, worker: &Worker) -> Result<ExecutorConfig, String> {
     let mut executor_config: ExecutorConfig = config.executor_profile.clone().into();
-    if executor_config.executor != BaseCodingAgent::ClaudeCode {
+    if !matches!(
+        executor_config.executor,
+        BaseCodingAgent::ClaudeCode | BaseCodingAgent::Codex
+    ) {
         return Err(format!(
-            "Fluke needs Claude Code as the coding agent (current: {})",
+            "Fluke runs on Claude Code or Codex; the default coding agent is {}. Choose one of those in Settings → Agents",
             executor_config.executor
         ));
     }
-    executor_config.model_id = worker.model.clone();
+    if worker.executor == Some(executor_config.executor) {
+        executor_config.model_id = worker.model.clone();
+    }
     executor_config.permission_policy = Some(PermissionPolicy::Auto);
     Ok(executor_config)
 }

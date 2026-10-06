@@ -36,6 +36,7 @@ import { cn } from '@/shared/lib/utils';
 import { ApprovalFormProvider } from '@/shared/hooks/ApprovalForm';
 import { ExecutionProcessesContext } from '@/shared/hooks/useExecutionProcessesContext';
 import { useEntriesActions } from '../model/contexts/EntriesContext';
+import { usePendingMessagesStore } from '../model/store/usePendingMessagesStore';
 import {
   useResetProcess,
   type UseResetProcessResult,
@@ -471,6 +472,44 @@ export const ConversationList = forwardRef<
       scriptOutputCache: scriptOutputCacheRef.current,
     });
 
+    // Sent messages whose process has not arrived yet: show them as user
+    // bubbles at the end; drop each once its process (created after the send)
+    // carries the same prompt.
+    for (const message of usePendingMessagesStore.getState().bySession[
+      attempt.session?.id ?? ''
+    ] ?? []) {
+      // ponytail: a prompt the server rewrites never matches; expire it.
+      const arrived =
+        Date.now() - message.createdAt > 60_000 ||
+        derivedEntries.entries.some(
+          (e) =>
+            e.patchKey.endsWith(':user') &&
+            e.type === 'NORMALIZED_ENTRY' &&
+            e.content.content === message.prompt &&
+            new Date(
+              pending.source.executionProcessState[e.executionProcessId]
+                ?.executionProcess.created_at as unknown as string
+            ).getTime() >=
+              message.createdAt - 5000
+        );
+      if (arrived) {
+        usePendingMessagesStore
+          .getState()
+          .remove(attempt.session?.id ?? '', message);
+        continue;
+      }
+      derivedEntries.entries.push({
+        type: 'NORMALIZED_ENTRY',
+        content: {
+          entry_type: { type: 'user_message' },
+          content: message.prompt,
+          timestamp: null,
+        },
+        patchKey: `pending:${message.createdAt}`,
+        executionProcessId: 'pending',
+      });
+    }
+
     setHasSetupScriptRun(derivedEntries.hasSetupScriptRun);
     setHasCleanupScriptRun(derivedEntries.hasCleanupScriptRun);
     setHasRunningProcess(derivedEntries.hasRunningProcess);
@@ -512,6 +551,17 @@ export const ConversationList = forwardRef<
       rafIdRef.current = requestAnimationFrame(flushPendingUpdate);
     }
   };
+
+  // A message was sent or dropped: rebuild the list from the last timeline.
+  const pendingMessages = usePendingMessagesStore(
+    (s) => s.bySession[attempt.session?.id ?? '']
+  );
+  useEffect(() => {
+    if (pendingUpdateRef.current && rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(flushPendingUpdate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flushPendingUpdate reads refs
+  }, [pendingMessages]);
 
   const { isFirstTurn, isLoadingHistory } = useConversationHistory({
     attempt,
@@ -567,10 +617,12 @@ export const ConversationList = forwardRef<
   // stops shrinking for ~12 frames once it started changing (1.2s if it never
   // changes, as in a short conversation; 4s at most), then fade it in.
   const [settledScope, setSettledScope] = useState<string | null>(null);
-  const settled = !assistant || settledScope === conversationScopeKey;
+  const timerSettled = !assistant || settledScope === conversationScopeKey;
+  // a pending message must show at once
+  const settled = timerSettled || !!pendingMessages?.length;
   const hasRows = conversationRows.length > 0;
   useEffect(() => {
-    if (!assistant || settled || loading || !hasRows) return;
+    if (timerSettled || loading || !hasRows) return;
     const el = tanstackScrollRef.current;
     const start = performance.now();
     let lastHeight = -1;
@@ -593,7 +645,7 @@ export const ConversationList = forwardRef<
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [assistant, settled, loading, hasRows, conversationScopeKey]);
+  }, [timerSettled, loading, hasRows, conversationScopeKey]);
 
   // Fluke's chat: which rows open a turn, which runs of app-event batches
   // merge into one telemetry line, and where the latest turn starts.
