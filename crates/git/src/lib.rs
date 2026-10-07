@@ -2342,14 +2342,12 @@ impl GitService {
     /// commit.
     ///
     /// When `pinned_sha` is `None` (fix-task path), returns the tip of
-    /// `pull/{pr_number}/head` (`FETCH_HEAD`) — the author's next push
+    /// `pull/{pr_number}/head` — the author's next push
     /// must fast-forward the PR head branch, so starting from the current
     /// tip is what we want.
     ///
     /// The refspec follows GitHub's convention for exposing PR heads. The
-    /// fetched commit lands on `FETCH_HEAD` and, as a stable local ref, on
-    /// `refs/remotes/{remote}/pr/{pr_number}` so subsequent lookups can
-    /// find it without re-fetching.
+    /// fetched commit lands on `refs/remotes/{remote}/pr/{pr_number}`.
     pub fn fetch_pr_head(
         &self,
         repo_path: &Path,
@@ -2364,13 +2362,14 @@ impl GitService {
         let cli = GitCli::new();
         cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
 
+        // Read the ref this fetch stored, not FETCH_HEAD: FETCH_HEAD is shared
+        // by the whole repo and a concurrent fetch overwrites it.
         let repo = self.open_repo(repo_path)?;
-        let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|e| {
-            GitServiceError::InvalidRepository(format!(
-                "FETCH_HEAD missing after fetching pull/{pr_number}/head: {e}"
-            ))
-        })?;
-        let tip = fetch_head.peel_to_commit()?.id().to_string();
+        let tip = repo
+            .find_reference(&format!("refs/remotes/{}/pr/{pr_number}", remote.name))?
+            .peel_to_commit()?
+            .id()
+            .to_string();
 
         let Some(pinned) = pinned_sha else {
             return Ok(tip);
@@ -2406,12 +2405,10 @@ impl GitService {
         let cli = GitCli::new();
         cli.fetch_with_refspec(repo_path, &remote.url, &refspec)?;
         let repo = self.open_repo(repo_path)?;
-        let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|e| {
-            GitServiceError::InvalidRepository(format!(
-                "FETCH_HEAD missing after fetching {branch}: {e}"
-            ))
-        })?;
-        Ok(fetch_head.peel_to_commit()?.id().to_string())
+        let tip = repo
+            .find_reference(&format!("refs/remotes/{}/{branch}", remote.name))?
+            .peel_to_commit()?;
+        Ok(tip.id().to_string())
     }
 
     /// Clone a repository to the specified directory
