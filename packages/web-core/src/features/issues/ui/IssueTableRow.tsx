@@ -169,7 +169,19 @@ export function IssueTableRow({
         )}
       </td>
       <td className="whitespace-nowrap px-3 text-sm text-normal">
-        {workerName ?? <span className="text-low">—</span>}
+        {workerName && linkedTask?.workspace_id ? (
+          <button
+            type="button"
+            onClick={handleViewTask}
+            aria-label={linkLabel}
+            title={linkLabel}
+            className="rounded-sm text-md-primary underline underline-offset-2 hover:text-high focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+          >
+            {workerName}
+          </button>
+        ) : (
+          (workerName ?? <span className="text-low">—</span>)
+        )}
       </td>
       <td className="overflow-hidden px-3 font-mono text-code text-normal">
         {branch ? (
@@ -187,7 +199,8 @@ export function IssueTableRow({
         <div
           className={cn(
             'flex items-center justify-end gap-1',
-            'opacity-0 focus-within:opacity-100 group-hover:opacity-100'
+            !linkedTask?.workspace_id &&
+              'opacity-0 focus-within:opacity-100 group-hover:opacity-100'
           )}
           onClick={(e) => e.stopPropagation()}
         >
