@@ -50,11 +50,18 @@ jobs:
       - name: Test web-core
         run: pnpm --filter @vibe/web-core run test
 
+      # The workspace's global Ajv 8 override breaks ESLint 8's Ajv 6 API.
+      # Keep the lint executable isolated, using the patched Ajv 6 release,
+      # while loading the project's existing config, parser and plugins.
+      - name: Setup compatible ESLint runtime
+        run: npm install --prefix "$RUNNER_TEMP/fluke-lint" --no-audit --no-fund eslint@8.57.1 ajv@6.14.0
+
       - name: Lint issue workspace access
         working-directory: packages/local-web
         run: >-
-          pnpm exec eslint
+          "$RUNNER_TEMP/fluke-lint/node_modules/.bin/eslint"
           --config .eslintrc.cjs
+          --resolve-plugins-relative-to .
           --parser-options '{"project":"../web-core/tsconfig.json"}'
           --max-warnings 0
           ../web-core/src/features/issues/ui/IssueTableRow.tsx
