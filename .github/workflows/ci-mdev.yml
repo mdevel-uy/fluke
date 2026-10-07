@@ -52,17 +52,30 @@ jobs:
 
       # The workspace's global Ajv 8 override breaks ESLint 8's Ajv 6 API.
       # Keep the lint executable isolated, using the patched Ajv 6 release,
-      # while loading the project's existing config, parser and plugins.
+      # Include plugins and parser: their ESLint peer also needs isolation.
       - name: Setup compatible ESLint runtime
-        run: npm install --prefix "$RUNNER_TEMP/fluke-lint" --no-audit --no-fund eslint@8.57.1 ajv@6.14.0
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { execFileSync } = require('node:child_process');
+          const { devDependencies } = require('./packages/local-web/package.json');
+          const lintDir = path.join(process.env.RUNNER_TEMP, 'fluke-lint');
+          const packages = Object.entries(devDependencies)
+            .filter(([name]) => name.includes('eslint') || name === 'typescript')
+            .map(([name, version]) => `${name}@${name === 'eslint' ? '8.57.1' : version}`);
+          execFileSync('npm', ['install', '--prefix', lintDir, '--no-audit', '--no-fund', ...packages, 'ajv@6.14.0'], { stdio: 'inherit' });
+          fs.copyFileSync('packages/local-web/.eslintrc.cjs', path.join(lintDir, '.eslintrc.cjs'));
+          NODE
 
       - name: Lint issue workspace access
         working-directory: packages/local-web
         run: >-
           "$RUNNER_TEMP/fluke-lint/node_modules/.bin/eslint"
-          --config .eslintrc.cjs
-          --resolve-plugins-relative-to .
-          --parser-options '{"project":"../web-core/tsconfig.json"}'
+          --no-eslintrc
+          --config "$RUNNER_TEMP/fluke-lint/.eslintrc.cjs"
+          --resolve-plugins-relative-to "$RUNNER_TEMP/fluke-lint"
+          --parser-options "{\"project\":\"$GITHUB_WORKSPACE/packages/web-core/tsconfig.json\"}"
           --max-warnings 0
           ../web-core/src/features/issues/ui/IssueTableRow.tsx
           ../web-core/src/features/issues/ui/plan/PlanCard.tsx
