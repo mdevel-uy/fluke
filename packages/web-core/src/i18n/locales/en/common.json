@@ -2151,6 +2151,11 @@
   },
   "director": {
     "appErrors": {
+      "existing": "Fluke · Already reported",
+      "checking": "Fluke · Checking existing reports…",
+      "viewIssue": "View existing issue",
+      "disabled": "Issue search and creation are disabled: no GitHub token was configured at build time.",
+      "failed": "Could not check existing reports. Issue creation is unavailable to avoid duplicates.",
       "title": "Fluke detected an app error",
       "count": "x {{count}}",
       "ignore": "Ignore"

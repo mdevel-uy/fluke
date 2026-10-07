@@ -13,6 +13,9 @@ export type PickerFilter = 'all' | 'waiting' | 'working';
 
 /** Wire summaries from /api/app-errors; fingerprints are backend-only. */
 export interface AppErrorNotice {
+  issue_lookup?:
+    | { state: 'checking' | 'missing' | 'disabled' | 'failed' }
+    | { state: 'existing'; url: string };
   fingerprint: string;
   message: string;
   source: string;

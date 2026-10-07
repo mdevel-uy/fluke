@@ -77,7 +77,7 @@ async fn ignore(Path(fingerprint): Path<String>) -> StatusCode {
 async fn snapshot() -> Json<serde_json::Value> {
     static SESSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     let session = SESSION.get_or_init(|| uuid::Uuid::new_v4().to_string());
-    let (_, errors) = app_errors::snapshot();
+    let (_, errors) = services::services::app_error_issues::snapshot();
     // Analysis context stays server-side; the response always ends, allowing
     // relay signing and WebRTC to serialize it before delivering it to the UI.
     Json(serde_json::json!({ "session_id": session, "errors": errors }))

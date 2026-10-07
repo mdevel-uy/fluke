@@ -1857,6 +1857,11 @@
   },
   "director": {
     "appErrors": {
+      "existing": "Fluke · 錯誤已回報",
+      "checking": "Fluke · 正在檢查既有回報…",
+      "viewIssue": "查看既有 Issue",
+      "disabled": "建置時未設定 GitHub 權杖，Issue 搜尋與建立已停用。",
+      "failed": "無法檢查既有回報。為避免重複，Issue 建立不可用。",
       "title": "Fluke 偵測到應用程式錯誤",
       "count": "x {{count}}",
       "ignore": "忽略"
