@@ -395,7 +395,12 @@ pub fn test_prompt(pr_number: i64, head_sha: &str) -> String {
         "Fase Testing del PR #{pr_number} (commit {head_sha}).\n\n\
          Validá el PR contra lo que promete el issue que cierra (`gh pr view {pr_number}`, \
          `gh pr diff {pr_number}`). Los checks (tests, typecheck, lint) los corre el CI: miralos con \
-         `gh pr checks {pr_number}` y si alguno falla es fail. No instales dependencias ni corras \
+         `gh pr checks {pr_number}` y si alguno falla es fail. Los checks de CI no son mandatorios: \
+         si el PR no tiene checks (incluido el mensaje `no checks reported` de ese comando), \
+         continuá evaluando el alcance del issue; no marques fail ni exijas agregar checks por \
+         esa ausencia. Si la evaluación cumple el alcance del issue, emití pass para avanzar a \
+         la fase siguiente. La ausencia de checks no es un pass automático ni equivale a checks \
+         fallidos o pendientes, ni a un error al consultar CI. No instales dependencias ni corras \
          builds, tests o typechecks vos: el worktree no tiene `node_modules` ni caché de build. \
          No modifiques código ni commitees.\n\n\
          Al terminar escribí tu veredicto en `{QA_JSON_RELATIVE_PATH}` con este formato exacto:\n\
@@ -684,7 +689,7 @@ pub async fn after_gate(
             };
             let prompt = format!(
                 "{who} el PR #{pr_number} y encontró problemas:\n\n{reasons}\n\n\
-                 Corregilos en esta misma rama y dejá los checks en verde."
+                 Corregilos en esta misma rama y, si hay checks de CI, dejalos en verde."
             );
             if worker_orchestrator::dispatch_remediation_follow_up(
                 db,
@@ -813,6 +818,19 @@ pub async fn finish_docs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn testing_prompt_allows_evaluation_without_ci_checks() {
+        let prompt = Gate::Testing.prompt(827, "PR sin checks", "head-without-checks");
+        assert!(prompt.contains("gh pr checks 827"));
+        assert!(prompt.contains("Los checks de CI no son mandatorios"));
+        assert!(prompt.contains("no checks reported"));
+        assert!(prompt.contains("no marques fail ni exijas agregar checks"));
+        assert!(prompt.contains("Si la evaluación cumple el alcance del issue, emití pass"));
+        assert!(prompt.contains("no es un pass automático"));
+        assert!(prompt.contains("si alguno falla es fail"));
+        assert!(prompt.contains(QA_JSON_RELATIVE_PATH));
+    }
 
     #[test]
     fn reads_the_plan_block() {
