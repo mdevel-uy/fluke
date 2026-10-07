@@ -78,6 +78,8 @@ Pequeñas, independientes, desbloquean todo lo demás.
 
 Valor visible de inmediato; funciona con los workers actuales, el "worker" de la card pasa a ser el perfil en F2.
 
+Las cards de Plan y las filas de Lista/grupos ofrecen acceso visible al workspace de la tarea activa cuando tiene `workspace_id`, sin seleccionar la issue ni modificar la lista lateral de Workspaces (#830).
+
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
 | 0 | **F1.1 Vista Plan: bandas por milestone** · #663 | L | Reemplaza `ExecutionPlanView` y pasa a ser el modo por defecto de `IssuesPage`. Agrupa por milestone de GitHub (decisión 7) y `wave:`; columnas, cards con estado, flechas, cajón sin milestone/wave. Absorbe el alcance de #652. |

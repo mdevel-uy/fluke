@@ -1,5 +1,9 @@
 name: Factory guards
 
+permissions:
+  contents: read
+  pull-requests: read
+
 # Checks deterministas sobre el diff del PR contra mdev.
 # Corre en < 1 min: solo diff + ls, sin build ni tests.
 #
@@ -18,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       pr:
-        description: "Número del PR a chequear"
+        description: 'Número del PR a chequear'
         required: true
         type: string
 

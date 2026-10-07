@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ExternalLink } from 'lucide-react';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IssueBlocker } from 'shared/types';
@@ -91,6 +93,7 @@ export function PlanCard({
   task,
 }: PlanCardProps) {
   const { t } = useTranslation('common');
+  const appNavigation = useAppNavigation();
   const tags = issue.labels
     .map((l) => l.name)
     .filter((name) => !isExecutionLabel(name) && name !== PM_DECISION_LABEL)
@@ -198,6 +201,23 @@ export function PlanCard({
                 ? t('issues.plan.card.prReview', { name: workerName })
                 : t('issues.plan.card.workerBranch', { name: workerName })}
         </div>
+      )}
+      {task?.workspace_id && (
+        <button
+          type="button"
+          aria-label={t('issues.taskLinked.openWorkspace')}
+          title={t('issues.taskLinked.openWorkspace')}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (task.workspace_id) {
+              appNavigation.goToWorkspace(task.workspace_id);
+            }
+          }}
+          className="inline-flex w-fit items-center gap-1.5 rounded-sm text-xs text-md-primary underline underline-offset-2 hover:text-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-md-primary"
+        >
+          <ExternalLink className="size-3.5" aria-hidden />
+          {t('issues.taskLinked.openWorkspace')}
+        </button>
       )}
       {designTask && <DesignApproval task={designTask} />}
       {state === 'stuck' && workerName && (

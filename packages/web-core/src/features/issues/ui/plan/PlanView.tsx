@@ -417,6 +417,7 @@ export function PlanView({
                   key={issue.id}
                   issue={issue}
                   state="approved"
+                  task={task}
                   currentWave={null}
                   workerName={workerNameFor(issue)}
                   selected={issue.id === selectedIssueId}
