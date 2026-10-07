@@ -99,6 +99,16 @@ Valor visible de inmediato; funciona con los workers actuales, el "worker" de la
 
 La fase más grande. Reusa el review loop actual: una ronda de review es una fase; `review_fix` es la vuelta a desarrollo.
 
+**Testing sin checks de CI (#827).** Los checks de CI no son mandatorios.
+Si el PR no tiene checks, incluido el mensaje `no checks reported` de
+`gh pr checks`, QA continúa evaluando el diff y el código contra el alcance y
+los criterios de aceptación del issue. No emite `fail` por esa ausencia ni
+exige agregar checks como condición para avanzar. Si la evaluación cumple,
+escribe `pass` en `.vk/qa.json` y el flujo continúa a la siguiente compuerta
+o al review. Esto no aprueba automáticamente un PR sin evaluación ni cambia
+el tratamiento de checks existentes fallidos o pendientes, errores al
+consultar CI o jobs que no pueden ejecutarse. QA no ejecuta checks locales.
+
 | Wave | Issue | Tamaño | Notas |
 |------|-------|--------|-------|
 | 0 | **F3.1 Modelo de fases** | L | `issue_plans(repo_id, issue_number, template, tdd, design, created_by)` y `issue_phases(id, plan_id, n, kind tdd|design|dev|test|review|merge|decision, round, state pending|active|waiting_user|changes|done|stuck|cut, profile_id, instance_id, task_id, started_at, finished_at, cost_usd)`. `plans.workspace_id` → `plans.phase_id` (el plan interno del dev cuelga de su fase). Un workspace por issue: `workspaces.issue_number` único por repo; las fases reusan la rama y el worktree. |
