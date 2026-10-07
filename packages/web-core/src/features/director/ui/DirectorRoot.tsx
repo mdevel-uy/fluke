@@ -180,17 +180,18 @@ function DirectorViews() {
     );
   }
   return createPortal(
-    view === 'panel' ? (
-      <aside
-        role="complementary"
-        aria-label="Fluke"
-        className="fixed bottom-[42px] right-7 z-[80] flex h-[min(680px,calc(100vh-128px))] w-[420px] max-w-[calc(100vw-3.5rem)] flex-col overflow-hidden rounded-[14px] border border-md-outline-variant bg-primary shadow-overlay ring-1 ring-brand/15"
-      >
-        <FlukePanel mode="floating" />
-      </aside>
-    ) : (
+    <>
+      {view === 'panel' && (
+        <aside
+          role="complementary"
+          aria-label="Fluke"
+          className="fixed bottom-[106px] right-7 z-[80] flex h-[min(680px,calc(100vh-192px))] w-[420px] max-w-[calc(100vw-3.5rem)] flex-col overflow-hidden rounded-[14px] border border-md-outline-variant bg-primary shadow-overlay ring-1 ring-brand/15"
+        >
+          <FlukePanel mode="floating" />
+        </aside>
+      )}
       <DirectorBubble />
-    ),
+    </>,
     document.body
   );
 }
@@ -277,13 +278,14 @@ const noticeKey = (m: MissionSummary) =>
   `${m.mission.id}:${m.mission.status}:${m.mission.pending_questions.length}`;
 
 /**
- * Collapsed Director: the app's mark, with an amber counter of missions
- * waiting on the user and a short card with actions.
+ * Director toggle: the app's mark, with an amber counter of missions
+ * waiting on the user and, when collapsed, a short card with actions.
  */
 function DirectorBubble() {
   const { t } = useTranslation('common');
   const { data: missions = [] } = useMissionList();
   const toggle = useDirectorStore((s) => s.toggle);
+  const panelOpen = useDirectorStore((s) => s.view === 'panel');
   const openMission = useDirectorStore((s) => s.openMission);
   const setView = useDirectorStore((s) => s.setView);
   const dismissed = useDirectorStore((s) => s.dismissed);
@@ -293,11 +295,11 @@ function DirectorBubble() {
   const waiting = missions.filter(isWaitingForUser);
   const notice = waiting.find((m) => !dismissed.includes(noticeKey(m)));
   const working = missions.some((m) => m.agent_running);
-  const label = t('director.open');
+  const label = t(panelOpen ? 'director.minimize' : 'director.open');
 
   return (
     <div className="fixed bottom-[42px] right-7 z-[80] flex flex-col items-end gap-2">
-      {notice && (
+      {!panelOpen && notice && (
         <div className="flex w-[280px] flex-col gap-2 rounded-lg border border-md-outline-variant bg-primary p-3 shadow-overlay">
           <div className="flex items-start gap-2">
             <p className="flex-1 text-xs text-normal">
@@ -340,6 +342,7 @@ function DirectorBubble() {
         type="button"
         onClick={toggle}
         aria-label={label}
+        aria-expanded={panelOpen}
         title={`${label} (Ctrl Shift I)`}
         data-state={waiting.length > 0 ? 'alert' : working ? 'working' : 'idle'}
         className="fluke-orb focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
