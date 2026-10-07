@@ -47,6 +47,20 @@ jobs:
       - name: Typecheck ui
         run: pnpm run ui:check
 
+      - name: Test web-core
+        run: pnpm --filter @vibe/web-core run test
+
+      - name: Lint issue workspace access
+        working-directory: packages/local-web
+        run: >-
+          pnpm exec eslint
+          --config .eslintrc.cjs
+          --parser-options '{"project":"../web-core/tsconfig.json"}'
+          --max-warnings 0
+          ../web-core/src/features/issues/ui/IssueTableRow.tsx
+          ../web-core/src/features/issues/ui/plan/PlanCard.tsx
+          ../web-core/src/features/issues/ui/plan/PlanView.tsx
+
       - name: Build local-web
         env:
           NODE_OPTIONS: --max-old-space-size=8192
