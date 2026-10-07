@@ -136,7 +136,9 @@ fn main() {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(env_filter))
         .with(sentry_layer())
+        .with(utils::app_errors::AppErrorLayer)
         .init();
+    utils::app_errors::install_panic_hook();
 
     // Shared token so we can tell the server to shut down when the app quits.
     let shutdown_token = Arc::new(CancellationToken::new());

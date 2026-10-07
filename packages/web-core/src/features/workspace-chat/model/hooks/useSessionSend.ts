@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { ExecutorConfig } from 'shared/types';
 import { sessionsApi } from '@/shared/lib/api';
 import { useCreateSession } from './useCreateSession';
+import { sendWithPending } from '../store/usePendingMessagesStore';
 
 interface UseSessionSendOptions {
   /** Session ID for existing sessions */
@@ -85,13 +86,15 @@ export function useSessionSend({
         if (!sessionId) return false;
         setIsSendingFollowUp(true);
         try {
-          await sessionsApi.followUp(sessionId, {
-            prompt: trimmed,
-            executor_config: executorConfig,
-            retry_process_id: null,
-            force_when_dirty: null,
-            perform_git_reset: null,
-          });
+          await sendWithPending(sessionId, trimmed, () =>
+            sessionsApi.followUp(sessionId, {
+              prompt: trimmed,
+              executor_config: executorConfig,
+              retry_process_id: null,
+              force_when_dirty: null,
+              perform_git_reset: null,
+            })
+          );
           return true;
         } catch (e: unknown) {
           const err = e as { message?: string };

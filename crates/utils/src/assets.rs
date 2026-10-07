@@ -21,6 +21,18 @@ pub fn asset_dir() -> std::path::PathBuf {
     // ✔ Windows → %APPDATA%\Example\MyApp
 }
 
+/// Fluke's own folder: a git repo it creates and owns, where its standing
+/// conversation runs so talking to Fluke never depends on the user's repos.
+/// It is registered as a repo (sessions need a worktree) but hidden from
+/// every repo listing.
+pub fn fluke_home_dir() -> std::path::PathBuf {
+    asset_dir().join("fluke-home")
+}
+
+pub fn is_fluke_home(path: &std::path::Path) -> bool {
+    path == fluke_home_dir()
+}
+
 pub fn prod_asset_dir_path() -> std::path::PathBuf {
     let dirs = |q: &str, org: &str, app: &str| {
         ProjectDirs::from(q, org, app)

@@ -130,7 +130,7 @@ pub async fn follow_up(
 
     // A mission session talks to the Director: its model is fixed, the
     // composer's executor selection does not apply.
-    if let Some(mission) =
+    let session = if let Some(mission) =
         db::models::mission::Mission::find_by_session_id(pool, session.id).await?
     {
         use services::services::director;
@@ -139,7 +139,33 @@ pub async fn follow_up(
             director::executor_config(&*deployment.config().read().await, &worker)
                 .map_err(ApiError::BadRequest)?;
         director::on_user_message(pool, &mission, &payload.prompt).await?;
-    }
+        // The default agent changed since this conversation started (Claude →
+        // Codex, …): a CLI session can't switch agents, so the mission goes
+        // on in a new session. Fluke's memory lives in the db and carries over.
+        let wanted = payload.executor_config.executor.to_string();
+        let used = ExecutionProcess::latest_executor_profile_for_session(pool, session.id)
+            .await?
+            .map(|profile| profile.executor.to_string())
+            .or_else(|| session.executor.clone());
+        if used.is_some_and(|used| used != wanted) {
+            let fresh = Session::create(
+                pool,
+                &CreateSession {
+                    executor: Some(wanted),
+                    name: session.name.clone(),
+                },
+                Uuid::new_v4(),
+                session.workspace_id,
+            )
+            .await?;
+            db::models::mission::Mission::set_session(pool, mission.id, fresh.id).await?;
+            fresh
+        } else {
+            session
+        }
+    } else {
+        session
+    };
 
     // Load workspace from session
     let workspace = Workspace::find_by_id(pool, session.workspace_id)

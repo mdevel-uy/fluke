@@ -1856,6 +1856,11 @@
     "error": "작업을 완료하지 못했습니다: {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke가 앱 오류를 감지했습니다",
+      "count": "x {{count}}",
+      "ignore": "무시"
+    },
     "eventsBatch_one": "앱 이벤트 {{count}}건",
     "eventsBatch_other": "앱 이벤트 {{count}}건",
     "guard": {

@@ -33,6 +33,15 @@ pub enum RepoError {
     NotFound,
 }
 
+/// Fluke's own folder is a repo only so its conversation has a worktree: it
+/// never shows up as one of the user's repos.
+fn without_fluke_home(repos: Vec<Repo>) -> Vec<Repo> {
+    repos
+        .into_iter()
+        .filter(|r| !utils::assets::is_fluke_home(&r.path))
+        .collect()
+}
+
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize, TS)]
 pub struct Repo {
     pub id: Uuid,
@@ -278,6 +287,7 @@ impl Repo {
         )
         .fetch_all(pool)
         .await
+        .map(without_fluke_home)
     }
 
     pub async fn list_by_recent_workspace_usage(
@@ -309,6 +319,7 @@ impl Repo {
         )
         .fetch_all(pool)
         .await
+        .map(without_fluke_home)
     }
 
     /// Returns the names of active (non-archived) workspaces that reference this repo.

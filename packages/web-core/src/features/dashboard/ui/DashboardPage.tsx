@@ -19,10 +19,26 @@ import { ProvidersPanel } from './ProvidersPanel';
 import { ImpactPanel } from './ImpactPanel';
 import { ValueActivityPanel } from './ValueActivityPanel';
 
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { cn } from '@/shared/lib/utils';
+import { DashboardNew } from './DashboardNew';
+
 /**
  * From what needs a person to what already happened: attention, repos, what
  * runs now, subscriptions, impact and cost, value and activity.
  */
+type DashboardView = 'new' | 'classic';
+
+const useDashboardViewStore = create<{
+  view: DashboardView;
+  setView: (view: DashboardView) => void;
+}>()(
+  persist((set) => ({ view: 'new', setView: (view) => set({ view }) }), {
+    name: 'dashboard-view',
+  })
+);
+
 export function DashboardPage() {
   const { t } = useTranslation('common');
   usePageTitle(t('dashboard.title'));
@@ -33,6 +49,7 @@ export function DashboardPage() {
   const autoIngest = useAutoIngestStore((s) => s.autoIngest);
   const setAutoIngest = useAutoIngestStore((s) => s.setAutoIngest);
   const appNavigation = useAppNavigation();
+  const { view, setView } = useDashboardViewStore();
   const hoursPerTicket =
     config?.default_hours_saved_per_task ?? DEFAULT_HOURS_PER_TASK;
 
@@ -45,6 +62,28 @@ export function DashboardPage() {
         }
         actions={
           <>
+            <div
+              role="group"
+              aria-label={t('dashboard.view.label')}
+              className="flex rounded-md border border-border p-0.5"
+            >
+              {(['new', 'classic'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    'rounded-sm px-2.5 py-1 text-xs',
+                    view === v
+                      ? 'bg-secondary text-high'
+                      : 'text-low hover:text-normal'
+                  )}
+                >
+                  {t(`dashboard.view.${v}`)}
+                </button>
+              ))}
+            </div>
             <PageHeaderToggle label={t('dashboard.autoIngest')}>
               <Switch
                 checked={autoIngest}
@@ -74,27 +113,31 @@ export function DashboardPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-container-padding py-5">
-          <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
-            <KpiStrip
-              data={data}
-              attentionCount={attention.items.length}
-              attentionSummary={attention.summary}
-              hoursPerTicket={hoursPerTicket}
-            />
-            <AttentionPanel items={attention.items} />
-            <MergeGatePanel tickets={data.tickets} />
-            <ReposPanel repos={data.overview.repos} />
-            <RunningPanel
-              overview={data.overview}
-              workspaceById={data.workspaceById}
-            />
-            {data.providers && <ProvidersPanel usage={data.providers} />}
-            <ImpactPanel tickets={data.tickets} />
-            <ValueActivityPanel
-              tickets={data.tickets}
-              events={data.feedEvents}
-            />
-          </div>
+          {view === 'new' ? (
+            <DashboardNew data={data} hoursPerTicket={hoursPerTicket} />
+          ) : (
+            <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-4">
+              <KpiStrip
+                data={data}
+                attentionCount={attention.items.length}
+                attentionSummary={attention.summary}
+                hoursPerTicket={hoursPerTicket}
+              />
+              <AttentionPanel items={attention.items} />
+              <MergeGatePanel tickets={data.tickets} />
+              <ReposPanel repos={data.overview.repos} />
+              <RunningPanel
+                overview={data.overview}
+                workspaceById={data.workspaceById}
+              />
+              {data.providers && <ProvidersPanel usage={data.providers} />}
+              <ImpactPanel tickets={data.tickets} />
+              <ValueActivityPanel
+                tickets={data.tickets}
+                events={data.feedEvents}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

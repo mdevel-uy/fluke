@@ -707,6 +707,13 @@
       "intro": "Conecta los proveedores que quieras usar. Cada worker puede elegir cualquier modelo de un proveedor conectado; el proveedor por defecto se usa cuando una tarea o un worker no elige uno.",
       "loading": "Comprobando agentes instalados…",
       "emptyState": "Todavía no hay agentes de código instalados en esta máquina.",
+      "fluke": {
+        "title": "Fluke (orquestador)",
+        "model": "Modelo de Fluke",
+        "same": "Igual que el modelo base ({{model}})",
+        "runsOn": "Fluke corre sobre el agente por defecto: {{name}}.",
+        "unsupported": "Fluke funciona con Claude Code o Codex. Elegí uno como agente por defecto."
+      },
       "defaultBar": {
         "label": "Proveedor por defecto",
         "none": "Sin proveedor por defecto",
@@ -740,6 +747,13 @@
       "cancel": "Cancelar",
       "retry": "Reintentar",
       "reconnect": "Reconectar",
+      "test": {
+        "action": "Probar conexión",
+        "running": "Probando…",
+        "ok": "{{name}} respondió: funciona.",
+        "failed": "{{name}} no respondió.",
+        "hint": "Manda un mensaje corto con el mismo CLI y modelo que usan tus agentes."
+      },
       "models": {
         "label": "Modelos ({{count}})",
         "loading": "Cargando modelos…",

@@ -406,6 +406,46 @@ pub struct RepoOverview {
     pub open_prs: i64,
     /// Latest task start or finish. SQLite datetime string (UTC).
     pub last_activity: Option<String>,
+    /// Agent hours per day, the last [`ACTIVITY_DAYS`] days, oldest first
+    /// (today last).
+    pub activity: Vec<f64>,
+    /// Agent spend in this repo over the last 30 days.
+    pub cost_30d: f64,
+}
+
+/// Days of the per-repo activity strip.
+const ACTIVITY_DAYS: i64 = 14;
+
+/// Per repo: agent hours by local day offset (0 = today) and 30-day spend, from
+/// coding-agent runs (a run counts for every repo of its workspace).
+async fn repo_activity(
+    pool: &SqlitePool,
+) -> Result<(HashMap<Uuid, Vec<f64>>, HashMap<Uuid, f64>), sqlx::Error> {
+    let rows: Vec<(Uuid, i64, f64, f64)> = sqlx::query_as(
+        "SELECT wr.repo_id,
+                CAST(julianday(date('now', 'localtime')) - julianday(date(ep.started_at, 'localtime')) AS INTEGER) AS ago,
+                CAST(SUM((julianday(COALESCE(ep.completed_at, datetime('now'))) - julianday(ep.started_at)) * 24.0) AS REAL),
+                CAST(SUM(COALESCE(ep.cost_usd, 0)) AS REAL)
+         FROM execution_processes ep
+         JOIN sessions s ON s.id = ep.session_id
+         JOIN workspace_repos wr ON wr.workspace_id = s.workspace_id
+         WHERE ep.run_reason = 'codingagent' AND ep.started_at >= date('now', '-29 days')
+         GROUP BY wr.repo_id, ago",
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut hours: HashMap<Uuid, Vec<f64>> = HashMap::new();
+    let mut cost: HashMap<Uuid, f64> = HashMap::new();
+    for (repo_id, ago, h, c) in rows {
+        *cost.entry(repo_id).or_default() += c;
+        if (0..ACTIVITY_DAYS).contains(&ago) {
+            hours
+                .entry(repo_id)
+                .or_insert_with(|| vec![0.0; ACTIVITY_DAYS as usize])
+                [(ACTIVITY_DAYS - 1 - ago) as usize] += h;
+        }
+    }
+    Ok((hours, cost))
 }
 
 #[derive(Debug, Serialize, TS)]
@@ -534,6 +574,7 @@ async fn get_overview(
         .map(|w| (w.id, w))
         .collect();
     let repos = Repo::list_all(pool).await?;
+    let (mut activity_hours, activity_cost) = repo_activity(pool).await?;
     let repo_name: HashMap<Uuid, String> = repos
         .iter()
         .map(|r| (r.id, r.display_name.clone()))
@@ -729,6 +770,10 @@ async fn get_overview(
             blocked: blockers.iter().filter(|b| b.repo_id == repo.id).count() as i64,
             open_prs: open_prs.get(&repo.id).copied().unwrap_or(0),
             last_activity,
+            activity: activity_hours
+                .remove(&repo.id)
+                .unwrap_or_else(|| vec![0.0; ACTIVITY_DAYS as usize]),
+            cost_30d: activity_cost.get(&repo.id).copied().unwrap_or(0.0),
         });
     }
     // Busy repos first, then by recent activity.

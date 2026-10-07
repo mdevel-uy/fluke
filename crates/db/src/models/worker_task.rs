@@ -42,6 +42,10 @@ pub const FAILURE_KIND_INFRA: &str = "infra";
 /// person has to connect the provider, so the issue reads as blocked on a
 /// credential rather than as a plain failure.
 pub const FAILURE_KIND_PROVIDER: &str = "provider";
+/// GitHub rejected the push for lack of permission (token without the
+/// `workflow` scope, expired or missing auth): the person has to fix the
+/// credential, then retry. Reads as a `credential` blocker like `provider`.
+pub const FAILURE_KIND_CREDENTIAL: &str = "credential";
 
 /// `kind` value for author fix tasks dispatched by the orchestrator on a
 /// changes-requested review. These jump to the front of the author's queue
@@ -947,7 +951,7 @@ impl WorkerTask {
         pool: &SqlitePool,
         id: Uuid,
     ) -> Result<Option<Uuid>, sqlx::Error> {
-        sqlx::query_scalar(&format!(
+        sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "UPDATE worker_tasks AS t
                 SET status = 'queued', failure_reason = NULL, failure_kind = NULL,
                     qa_verdict = NULL
@@ -956,7 +960,7 @@ impl WorkerTask {
                  AND COALESCE(t.qa_verdict, '') NOT IN ('pass', 'fail')))
               RETURNING worker_id",
             PR_GATE_KINDS_SQL
-        ))
+        )))
         .bind(id)
         .fetch_optional(pool)
         .await

@@ -66,7 +66,8 @@ pub fn base_command(claude_code_router: bool) -> &'static str {
     if claude_code_router {
         "npx -y @musistudio/claude-code-router@1.0.66 code"
     } else {
-        "npx -y @anthropic-ai/claude-code@2.1.280"
+        static CMD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        super::utils::installed_or_pinned(&CMD, "claude", "npx -y @anthropic-ai/claude-code@2.1.280")
     }
 }
 
@@ -336,7 +337,13 @@ impl ClaudeCode {
         {
             return Some(token.clone());
         }
-        workspace_utils::claude_credentials::subscription_access_token().await
+        if let Some(token) = workspace_utils::claude_credentials::subscription_access_token().await
+        {
+            return Some(token);
+        }
+        // Settings → Connect Claude stores its token apart from the CLI's
+        // credentials file; the agent runs with it, so it counts here too.
+        stored_claude_oauth_token()
     }
 
     /// Cache key for discovered options. Includes a fingerprint of the

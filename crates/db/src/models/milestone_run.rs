@@ -37,9 +37,9 @@ const COLUMNS: &str = "id, repo_id, milestone, status, step_mode, current_wave, 
 
 impl MilestoneRun {
     pub async fn list_by_repo(pool: &SqlitePool, repo_id: Uuid) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, MilestoneRun>(&format!(
+        sqlx::query_as::<_, MilestoneRun>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM milestone_runs WHERE repo_id = ?1 ORDER BY created_at ASC"
-        ))
+        )))
         .bind(repo_id)
         .fetch_all(pool)
         .await
@@ -47,9 +47,9 @@ impl MilestoneRun {
 
     /// Runs the engine has to look at on each sweep.
     pub async fn list_active(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, MilestoneRun>(&format!(
+        sqlx::query_as::<_, MilestoneRun>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM milestone_runs WHERE status IN ('running', 'waiting')"
-        ))
+        )))
         .fetch_all(pool)
         .await
     }
@@ -59,9 +59,9 @@ impl MilestoneRun {
         repo_id: Uuid,
         milestone: &str,
     ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, MilestoneRun>(&format!(
+        sqlx::query_as::<_, MilestoneRun>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM milestone_runs WHERE repo_id = ?1 AND milestone = ?2"
-        ))
+        )))
         .bind(repo_id)
         .bind(milestone)
         .fetch_optional(pool)

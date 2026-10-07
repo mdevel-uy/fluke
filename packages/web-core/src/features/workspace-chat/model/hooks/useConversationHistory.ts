@@ -159,7 +159,8 @@ export const useConversationHistory = ({
     return (
       executionProcesses?.current.filter(
         (p) =>
-          p.status === ExecutionProcessStatus.running &&
+          (p.status === ExecutionProcessStatus.running ||
+            p.status === ExecutionProcessStatus.queued) &&
           p.run_reason !== 'devserver'
       ) ?? []
     );

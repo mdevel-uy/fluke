@@ -6,7 +6,13 @@
       {
         "name": "executor_action!: sqlx::types::Json<ExecutorActionField>",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "execution_processes",
+            "name": "executor_action"
+          }
+        }
       }
     ],
     "parameters": {

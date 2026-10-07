@@ -335,9 +335,17 @@ pub trait ContainerService {
                 return;
             }
         };
-        self.notification_service()
-            .notify(&title, &message, Some(ctx.workspace.id))
-            .await;
+        // Sound only when the user is needed: a failed execution.
+        let failed = ctx.execution_process.status == ExecutionProcessStatus::Failed;
+        if failed {
+            self.notification_service()
+                .notify(&title, &message, Some(ctx.workspace.id))
+                .await;
+        } else {
+            self.notification_service()
+                .notify_silent(&title, &message, Some(ctx.workspace.id))
+                .await;
+        }
 
         // Web Push (issue #533): notificamos al navegador aunque esté cerrado.
         // Best-effort — `spawn_notify` es fire-and-forget y no puede afectar

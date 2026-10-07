@@ -45,8 +45,13 @@ pub struct Gemini {
 }
 
 impl Gemini {
+    pub fn base_command() -> &'static str {
+        static CMD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        super::utils::installed_or_pinned(&CMD, "gemini", "npx -y @google/gemini-cli@0.29.3")
+    }
+
     fn build_command_builder(&self) -> Result<CommandBuilder, CommandBuildError> {
-        let mut builder = CommandBuilder::new("npx -y @google/gemini-cli@0.29.3");
+        let mut builder = CommandBuilder::new(Self::base_command());
 
         if let Some(model) = &self.model {
             builder = builder.extend_params(["--model", model.as_str()]);

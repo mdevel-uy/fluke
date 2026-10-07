@@ -919,6 +919,54 @@
         "approval": "Approval requested for {{label}}",
         "failed": "Task {{label}} failed"
       }
+    },
+    "view": {
+      "label": "Dashboard view",
+      "new": "New",
+      "classic": "Classic"
+    },
+    "v2": {
+      "needsYou": "Needs you",
+      "projects": "Projects",
+      "agentsNow": "Agents now",
+      "resolved7d": "Resolved · 7d",
+      "queued": "In queue",
+      "spent30d": "Spent · 30d",
+      "saved30d": "Hours saved · 30d",
+      "waveOf": "wave {{wave}} of {{total}}",
+      "quietFor": "quiet for {{time}}",
+      "working_one": "{{count}} working",
+      "working_other": "{{count}} working",
+      "openPrs_one": "{{count}} PR open",
+      "openPrs_other": "{{count}} PRs open",
+      "blocked_one": "{{count}} blocked",
+      "blocked_other": "{{count}} blocked",
+      "pulse": "Pulse · last 2 weeks",
+      "pulseHint": "darker = more agent hours",
+      "pulseCell": "{{hours}} h · {{days}} days ago",
+      "workingNow": "Working now",
+      "nobodyWorking": "No agent is working right now.",
+      "inQueue_one": "{{count}} task in queue",
+      "inQueue_other": "{{count}} tasks in queue",
+      "spend": "Spend and subscriptions",
+      "kind": {
+        "question_one": "{{count}} agent asks",
+        "question_other": "{{count}} agents ask",
+        "approval_one": "{{count}} approval",
+        "approval_other": "{{count}} approvals",
+        "no_progress_one": "{{count}} stuck",
+        "no_progress_other": "{{count}} stuck",
+        "review_cap_one": "{{count}} out of review rounds",
+        "review_cap_other": "{{count}} out of review rounds",
+        "credential_one": "{{count}} credential missing",
+        "credential_other": "{{count}} credentials missing",
+        "failed_one": "{{count}} failed",
+        "failed_other": "{{count}} failed",
+        "conflict_one": "{{count}} conflict",
+        "conflict_other": "{{count}} conflicts",
+        "merge_one": "{{count}} PR to merge",
+        "merge_other": "{{count}} PRs to merge"
+      }
     }
   },
   "pilotReport": {
@@ -2102,6 +2150,11 @@
     "error": "The action could not be completed: {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke detected an app error",
+      "count": "x {{count}}",
+      "ignore": "Ignore"
+    },
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",
     "guard": {

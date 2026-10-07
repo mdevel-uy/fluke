@@ -230,7 +230,7 @@ async fn snapshot_database(pool: &SqlitePool) -> Result<TempSnapshot, ApiError> 
     // it never contains quotes in practice.
     let escaped = snapshot_path.display().to_string().replace('\'', "''");
     let sql = format!("VACUUM INTO '{escaped}'");
-    sqlx::query(&sql).execute(pool).await?;
+    sqlx::query(sqlx::AssertSqlSafe(sql)).execute(pool).await?;
     Ok(TempSnapshot(snapshot_path))
 }
 

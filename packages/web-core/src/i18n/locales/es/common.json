@@ -915,6 +915,54 @@
         "approval": "Aprobación pedida para {{label}}",
         "failed": "Falló {{label}}"
       }
+    },
+    "view": {
+      "label": "Vista del dashboard",
+      "new": "Nueva",
+      "classic": "Clásica"
+    },
+    "v2": {
+      "needsYou": "Te necesita",
+      "projects": "Proyectos",
+      "agentsNow": "Agentes ahora",
+      "resolved7d": "Resueltos · 7d",
+      "queued": "En cola",
+      "spent30d": "Gastado · 30d",
+      "saved30d": "Horas ahorradas · 30d",
+      "waveOf": "ola {{wave}} de {{total}}",
+      "quietFor": "quieto hace {{time}}",
+      "working_one": "{{count}} trabajando",
+      "working_other": "{{count}} trabajando",
+      "openPrs_one": "{{count}} PR abierto",
+      "openPrs_other": "{{count}} PRs abiertos",
+      "blocked_one": "{{count}} bloqueado",
+      "blocked_other": "{{count}} bloqueados",
+      "pulse": "Pulso · últimas 2 semanas",
+      "pulseHint": "más intenso = más horas de agente",
+      "pulseCell": "{{hours}} h · hace {{days}} días",
+      "workingNow": "Trabajando ahora",
+      "nobodyWorking": "Ningún agente está trabajando ahora.",
+      "inQueue_one": "{{count}} tarea en cola",
+      "inQueue_other": "{{count}} tareas en cola",
+      "spend": "Gasto y suscripciones",
+      "kind": {
+        "question_one": "{{count}} agente pregunta",
+        "question_other": "{{count}} agentes preguntan",
+        "approval_one": "{{count}} aprobación",
+        "approval_other": "{{count}} aprobaciones",
+        "no_progress_one": "{{count}} trabado",
+        "no_progress_other": "{{count}} trabados",
+        "review_cap_one": "{{count}} sin rondas de review",
+        "review_cap_other": "{{count}} sin rondas de review",
+        "credential_one": "{{count}} credencial falta",
+        "credential_other": "{{count}} credenciales faltan",
+        "failed_one": "{{count}} falló",
+        "failed_other": "{{count}} fallaron",
+        "conflict_one": "{{count}} conflicto",
+        "conflict_other": "{{count}} conflictos",
+        "merge_one": "{{count}} PR para mergear",
+        "merge_other": "{{count}} PRs para mergear"
+      }
     }
   },
   "pilotReport": {
@@ -2102,6 +2150,11 @@
     "error": "No se pudo completar la acción: {{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke detectó un error de la app",
+      "count": "x {{count}}",
+      "ignore": "Ignorar"
+    },
     "eventsBatch_one": "{{count}} evento de la app",
     "eventsBatch_other": "{{count}} eventos de la app",
     "guard": {

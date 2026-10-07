@@ -6,67 +6,145 @@
       {
         "name": "id",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "workspace_id: Uuid",
         "ordinal": 1,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "workspace_id"
+          }
+        }
       },
       {
         "name": "repo_id: Uuid",
         "ordinal": 2,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "repo_id"
+          }
+        }
       },
       {
         "name": "pr_url",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "pr_url"
+          }
+        }
       },
       {
         "name": "pr_number",
         "ordinal": 4,
-        "type_info": "Integer"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "pr_number"
+          }
+        }
       },
       {
         "name": "pr_status: MergeStatus",
         "ordinal": 5,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "pr_status"
+          }
+        }
       },
       {
         "name": "target_branch_name",
         "ordinal": 6,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "target_branch_name"
+          }
+        }
       },
       {
         "name": "merged_at: DateTime<Utc>",
         "ordinal": 7,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "merged_at"
+          }
+        }
       },
       {
         "name": "merge_commit_sha",
         "ordinal": 8,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "merge_commit_sha"
+          }
+        }
       },
       {
         "name": "created_at!: DateTime<Utc>",
         "ordinal": 9,
-        "type_info": "Datetime"
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "created_at"
+          }
+        }
       },
       {
         "name": "updated_at!: DateTime<Utc>",
         "ordinal": 10,
-        "type_info": "Datetime"
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "updated_at"
+          }
+        }
       },
       {
         "name": "synced_at: DateTime<Utc>",
         "ordinal": 11,
-        "type_info": "Datetime"
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "synced_at"
+          }
+        }
       },
       {
         "name": "pr_mergeable",
         "ordinal": 12,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pull_requests",
+            "name": "pr_mergeable"
+          }
+        }
       }
     ],
     "parameters": {

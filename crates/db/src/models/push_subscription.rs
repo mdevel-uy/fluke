@@ -55,9 +55,9 @@ impl PushSubscription {
         .execute(pool)
         .await?;
 
-        sqlx::query_as::<_, PushSubscription>(&format!(
+        sqlx::query_as::<_, PushSubscription>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM push_subscriptions WHERE endpoint = ?1"
-        ))
+        )))
         .bind(&data.endpoint)
         .fetch_optional(pool)
         .await?
@@ -65,9 +65,9 @@ impl PushSubscription {
     }
 
     pub async fn list_all(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as::<_, PushSubscription>(&format!(
+        sqlx::query_as::<_, PushSubscription>(sqlx::AssertSqlSafe(format!(
             "SELECT {COLS} FROM push_subscriptions ORDER BY created_at ASC"
-        ))
+        )))
         .fetch_all(pool)
         .await
     }

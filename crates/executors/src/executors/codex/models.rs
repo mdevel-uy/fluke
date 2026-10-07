@@ -53,6 +53,141 @@ pub fn fallback_models() -> Vec<ModelInfo> {
     )
 }
 
+/// Reasoning efforts this build's Codex client can send (`ReasoningEffort`
+/// in the pinned `codex-protocol`). A newer Codex may offer more; they are
+/// left out of the picker until the protocol is bumped.
+const CLIENT_REASONING_EFFORTS: &[&str] = &[
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+    "persistent",
+];
+
+/// The account's models as Codex itself lists them (`model/list` on its
+/// app-server, the same request its own picker makes): the only source for a
+/// ChatGPT login, and never stale. `program`/`args` start `codex app-server`.
+///
+/// The response is read as plain JSON, not the pinned protocol types, so a
+/// newer Codex that adds fields or enum values still yields a list.
+pub async fn fetch_app_server_models(
+    program: std::path::PathBuf,
+    args: Vec<String>,
+) -> Result<Vec<ModelInfo>, ModelsFetchError> {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use workspace_utils::command_ext::NoWindowExt;
+
+    let mut child = tokio::process::Command::new(program)
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true)
+        .no_window()
+        .spawn()
+        .map_err(|e| ModelsFetchError::Http(format!("could not start codex app-server: {e}")))?;
+    let mut stdin = child.stdin.take().expect("piped stdin");
+    let mut lines = BufReader::new(child.stdout.take().expect("piped stdout")).lines();
+
+    let messages = [
+        serde_json::json!({"id": 1, "method": "initialize", "params": {
+            "clientInfo": {"name": "fluke-codex-models", "title": null, "version": env!("CARGO_PKG_VERSION")},
+            "capabilities": {"experimentalApi": true}
+        }}),
+        serde_json::json!({"method": "initialized"}),
+        serde_json::json!({"id": 2, "method": "model/list", "params": {}}),
+    ];
+    let exchange = async {
+        for message in &messages {
+            stdin
+                .write_all(
+                    format!(
+                        "{message}
+"
+                    )
+                    .as_bytes(),
+                )
+                .await?;
+        }
+        stdin.flush().await?;
+        while let Some(line) = lines.next_line().await? {
+            let Ok(reply) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue;
+            };
+            if reply.get("id").and_then(|id| id.as_i64()) == Some(2) {
+                return Ok(reply);
+            }
+        }
+        Err(std::io::Error::other(
+            "codex app-server closed before answering",
+        ))
+    };
+    let reply = tokio::time::timeout(APP_SERVER_TIMEOUT, exchange)
+        .await
+        .map_err(|_| ModelsFetchError::Timeout)?
+        .map_err(|e| ModelsFetchError::Http(e.to_string()))?;
+    if let Some(error) = reply.get("error") {
+        return Err(ModelsFetchError::Api {
+            status: 0,
+            body: error.to_string(),
+        });
+    }
+    models_from_list_reply(&reply).ok_or_else(|| ModelsFetchError::Parse(reply.to_string()))
+}
+
+/// First run through `npx` may download the pinned CLI.
+const APP_SERVER_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// `{"result":{"data":[{model, displayName, hidden, supportedReasoningEfforts,
+/// defaultReasoningEffort, isDefault}, …]}}` → picker models, default first.
+fn models_from_list_reply(reply: &serde_json::Value) -> Option<Vec<ModelInfo>> {
+    let data = reply.pointer("/result/data")?.as_array()?;
+    let mut models: Vec<(bool, ModelInfo)> = data
+        .iter()
+        .filter(|m| !m.get("hidden").and_then(|h| h.as_bool()).unwrap_or(false))
+        .filter_map(|m| {
+            let id = m.get("model")?.as_str()?.to_string();
+            let name = m
+                .get("displayName")
+                .and_then(|n| n.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| display_for(&id));
+            let default_effort = m.get("defaultReasoningEffort").and_then(|e| e.as_str());
+            let mut reasoning_options = ReasoningOption::from_names(
+                m.get("supportedReasoningEfforts")
+                    .and_then(|e| e.as_array())
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.get("reasoningEffort")?.as_str())
+                    .filter(|e| CLIENT_REASONING_EFFORTS.contains(e))
+                    .map(str::to_string),
+            );
+            for option in &mut reasoning_options {
+                option.is_default = Some(option.id.as_str()) == default_effort;
+            }
+            let is_default = m
+                .get("isDefault")
+                .and_then(|d| d.as_bool())
+                .unwrap_or(false);
+            Some((
+                is_default,
+                ModelInfo {
+                    id,
+                    name,
+                    provider_id: None,
+                    reasoning_options,
+                },
+            ))
+        })
+        .collect();
+    models.sort_by_key(|(is_default, _)| !is_default);
+    Some(models.into_iter().map(|(_, m)| m).collect())
+}
+
 /// Keep only coding models usable by Codex: GPT-5+, o-series and `codex-*`,
 /// excluding audio/image/realtime/search variants, chat-tuned and `pro`
 /// models, and dated snapshots.
@@ -235,6 +370,40 @@ fn map_models(ids: impl IntoIterator<Item = String>) -> Vec<ModelInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn app_server_model_list_maps_to_picker_models() {
+        // Trimmed from a real `model/list` reply of Codex 0.158 (fields and
+        // effort values the pinned protocol doesn't know included).
+        let reply = serde_json::json!({"id": 2, "result": {"data": [
+            {"model": "gpt-5.5", "displayName": "GPT-5.5", "hidden": false, "isDefault": false,
+             "defaultReasoningEffort": "medium", "serviceTiers": [],
+             "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"}]},
+            {"model": "gpt-6-sol", "displayName": "GPT-6-Sol", "hidden": false, "isDefault": true,
+             "defaultReasoningEffort": "medium",
+             "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"},
+                                           {"reasoningEffort": "xhigh"}, {"reasoningEffort": "ultra"},
+                                           {"reasoningEffort": "turbo"}]},
+            {"model": "internal", "displayName": "Hidden", "hidden": true, "isDefault": false,
+             "supportedReasoningEfforts": []}
+        ], "nextCursor": null}});
+        let models = models_from_list_reply(&reply).unwrap();
+        let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, ["gpt-6-sol", "gpt-5.5"]);
+        assert_eq!(models[0].name, "GPT-6-Sol");
+        let efforts: Vec<&str> = models[0]
+            .reasoning_options
+            .iter()
+            .map(|r| r.id.as_str())
+            .collect();
+        assert_eq!(efforts, ["low", "medium", "xhigh", "ultra"]);
+        assert!(
+            models[0]
+                .reasoning_options
+                .iter()
+                .any(|r| r.id == "medium" && r.is_default)
+        );
+    }
 
     #[test]
     fn filters_non_coding_models() {

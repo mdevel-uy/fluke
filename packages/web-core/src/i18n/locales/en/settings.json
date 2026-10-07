@@ -707,6 +707,13 @@
       "intro": "Connect the providers you want to use. Each worker can choose any model from a connected provider; the default provider is used when a task or a worker does not choose one.",
       "loading": "Checking installed agents…",
       "emptyState": "No coding agents are installed on this machine yet.",
+      "fluke": {
+        "title": "Fluke (orchestrator)",
+        "model": "Fluke model",
+        "same": "Same as base model ({{model}})",
+        "runsOn": "Fluke runs on the default agent: {{name}}.",
+        "unsupported": "Fluke works with Claude Code or Codex. Choose one as the default agent."
+      },
       "defaultBar": {
         "label": "Default provider",
         "none": "No default provider",
@@ -740,6 +747,13 @@
       "cancel": "Cancel",
       "retry": "Retry",
       "reconnect": "Reconnect",
+      "test": {
+        "action": "Test connection",
+        "running": "Testing…",
+        "ok": "{{name}} answered: it works.",
+        "failed": "{{name}} didn't answer.",
+        "hint": "Sends one short message through the same CLI and model your agents use."
+      },
       "models": {
         "label": "Models ({{count}})",
         "loading": "Loading models…",

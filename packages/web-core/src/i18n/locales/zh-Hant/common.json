@@ -1856,6 +1856,11 @@
     "error": "無法完成操作：{{message}}"
   },
   "director": {
+    "appErrors": {
+      "title": "Fluke 偵測到應用程式錯誤",
+      "count": "x {{count}}",
+      "ignore": "忽略"
+    },
     "eventsBatch_one": "{{count}} 個應用程式事件",
     "eventsBatch_other": "{{count}} 個應用程式事件",
     "guard": {

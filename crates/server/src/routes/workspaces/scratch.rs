@@ -143,6 +143,15 @@ async fn resolve_target_branch(
         .git()
         .get_current_branch(&repo.path)
         .map_err(|err| {
+            // A fresh `git init`: the branch exists only by name, so there is
+            // nothing to branch a worktree from until the first commit.
+            if err.to_string().contains("UnbornBranch") {
+                return ApiError::BadRequest(format!(
+                    "Repo '{}' has no commits yet: make a first commit in {} and try again",
+                    repo.display_name,
+                    repo.path.display()
+                ));
+            }
             ApiError::BadRequest(format!(
                 "Unable to determine a target branch for repo '{}': {}",
                 repo.display_name, err

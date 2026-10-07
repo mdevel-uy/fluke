@@ -6,12 +6,24 @@
       {
         "name": "execution_id!: Uuid",
         "ordinal": 0,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "execution_processes",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "session_id!: Uuid",
         "ordinal": 1,
-        "type_info": "Blob"
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "execution_processes",
+            "name": "session_id"
+          }
+        }
       }
     ],
     "parameters": {

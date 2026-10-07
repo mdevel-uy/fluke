@@ -75,7 +75,7 @@ export function PhaseGraph({
       d: string;
       tone: keyof typeof ARROW_COLORS;
       dashed: boolean;
-      label?: [number, number, string];
+      label?: [number, number, string, string];
     }[]
   >([]);
 
@@ -119,6 +119,7 @@ export function PhaseGraph({
         label: [
           (x1 + x2) / 2,
           top - 40,
+          `↺ ${p.round}`,
           t('issues.plan.phases.loopLabel', { n: p.round }),
         ],
       });
@@ -185,8 +186,9 @@ export function PhaseGraph({
                   textAnchor="middle"
                   fill="rgb(139 92 246)"
                   fontSize={11}
-                  className="font-mono"
+                  className="pointer-events-auto font-mono"
                 >
+                  <title>{p.label[3]}</title>
                   {p.label[2]}
                 </text>
               )}

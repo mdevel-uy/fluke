@@ -97,15 +97,16 @@ impl NotificationService {
         }
     }
 
-    /// Like `notify`, opening `deeplink_path` (an app route) on click.
-    pub async fn notify_link(&self, title: &str, message: &str, deeplink_path: &str) {
-        let config = self.config.read().await.notifications.clone();
-
-        if config.sound_enabled {
-            Self::play_sound_notification(&config.sound_file).await;
+    /// Like `notify`, without the sound: for events that do not need the user.
+    pub async fn notify_silent(&self, title: &str, message: &str, workspace_id: Option<Uuid>) {
+        if self.config.read().await.notifications.push_enabled {
+            self.push_notifier.send(title, message, workspace_id).await;
         }
+    }
 
-        if config.push_enabled {
+    /// Like `notify_silent`, opening `deeplink_path` (an app route) on click.
+    pub async fn notify_link(&self, title: &str, message: &str, deeplink_path: &str) {
+        if self.config.read().await.notifications.push_enabled {
             self.push_notifier
                 .send_link(title, message, deeplink_path)
                 .await;

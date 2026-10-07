@@ -147,7 +147,11 @@ pub fn pick_blocker(
     if let Some(i) = phases.iter().rposition(|p| {
         task_of(p).is_some_and(|t| {
             t.status == "failed"
-                && t.failure_kind.as_deref() == Some(db::models::worker_task::FAILURE_KIND_PROVIDER)
+                && matches!(
+                    t.failure_kind.as_deref(),
+                    Some(db::models::worker_task::FAILURE_KIND_PROVIDER)
+                        | Some(db::models::worker_task::FAILURE_KIND_CREDENTIAL)
+                )
         })
     }) {
         let msg = phases[i].output.clone().unwrap_or_default();
@@ -255,14 +259,14 @@ pub async fn list_blockers(
     stuck_minutes: i64,
 ) -> Result<Vec<IssueBlockerEntry>, sqlx::Error> {
     // Gate tasks carry the PR number, not the issue's.
-    let candidates: Vec<i64> = sqlx::query_scalar(&format!(
+    let candidates: Vec<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT DISTINCT t.issue_number
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
           WHERE t.repo_id = ?1 AND t.issue_number IS NOT NULL
             AND w.role <> 'reviewer' AND (t.kind IS NULL OR NOT {})
             AND t.status IN ('in_progress', 'waiting_user', 'failed', 'in_review', 'approved')",
         worker_task::PR_GATE_KINDS_SQL
-    ))
+    )))
     .bind(repo_id)
     .fetch_all(pool)
     .await?;
@@ -647,12 +651,12 @@ pub async fn load_issue_plan(
             t.result_summary, t.failure_reason, t.cost_usd_total,
             w.name AS worker_name, w.role AS worker_role, t.qa_verdict,
             t.pending_question, t.failure_kind";
-    let tasks: Vec<TaskRow> = sqlx::query_as(&format!(
+    let tasks: Vec<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT {TASK_COLUMNS}
            FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
           WHERE t.repo_id = ?1 AND t.issue_number = ?2 AND w.role <> 'reviewer'
           ORDER BY t.created_at ASC"
-    ))
+    )))
     .bind(repo_id)
     .bind(issue_number)
     .fetch_all(pool)
@@ -700,11 +704,11 @@ pub async fn load_issue_plan(
 
     let mut reviewers = Vec::new();
     for id in rounds.iter().filter_map(|r| r.task_id) {
-        let row: Option<TaskRow> = sqlx::query_as(&format!(
+        let row: Option<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
             "SELECT {TASK_COLUMNS}
                FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
               WHERE t.id = ?1"
-        ))
+        )))
         .bind(id)
         .fetch_optional(pool)
         .await?;
@@ -731,14 +735,14 @@ pub async fn load_issue_plan(
     // Gate tasks carry the PR number.
     let gate_tasks: Vec<TaskRow> = match &pr {
         Some(p) => {
-            sqlx::query_as(&format!(
+            sqlx::query_as(sqlx::AssertSqlSafe(format!(
                 "SELECT {TASK_COLUMNS}
                    FROM worker_tasks t JOIN workers w ON w.id = t.worker_id
                   WHERE t.repo_id = ?1 AND t.issue_number = ?2
                     AND {}
                   ORDER BY t.created_at ASC",
                 worker_task::PR_GATE_KINDS_SQL
-            ))
+            )))
             .bind(repo_id)
             .bind(p.number)
             .fetch_all(pool)
