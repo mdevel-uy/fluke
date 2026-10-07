@@ -369,11 +369,7 @@ pub fn record(message: &str, location: &str, source: &str, context: ErrorContext
 }
 
 pub fn snapshot() -> (u64, Vec<AppErrorSummary>) {
-    let (revision, mut errors) = store().snapshot();
-    for error in &mut errors {
-        error.issue_lookup = crate::app_error_issues::lookup(&error.fingerprint);
-    }
-    (revision, errors)
+    store().snapshot()
 }
 pub fn ignore(fingerprint: &str) -> bool {
     store().ignore(fingerprint)

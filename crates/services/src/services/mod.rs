@@ -1,6 +1,7 @@
 pub mod agent_actions_drain;
 pub mod agent_actions_ingest;
 pub mod analytics;
+pub mod app_error_issues;
 pub mod approvals;
 pub mod auth;
 pub mod base_instructions;

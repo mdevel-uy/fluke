@@ -39,12 +39,22 @@ Only `missing` is eligible for C2's future create flow. `checking`, `failed`,
 `disabled`, and `existing` must never enable creation. Existing issues get a
 subtle notice with a link and the normal repetition counter; Ignore still works.
 
-Verification for infrastructure: run the utils unit tests and `pnpm run check`,
+Verification for infrastructure: run the services app_error_issues unit tests and `pnpm run check`,
 build with and without the variable, exercise an open matching issue, a recent
 closed match and an old closed match, and simulate 401/403/429/offline responses.
 Unit cases cover query scope, exact matches, the date window, incomplete and
-truncated results. No checks were run in the worker session.
+truncated results, concurrent lookup reservation, cached results across snapshots,
+timeout, task cancellation, backoff and exhausted search budget. All async
+cache tests use isolated session state and simulated futures, without GitHub.
+No checks were run in the worker session.
 
-PR: Closes #658. Adds a direct `reqwest` workspace dependency to utils (already
-used elsewhere); infrastructure should update Cargo.lock if necessary. No TS
-derives were added and shared generated types were not edited.
+PR: Closes #658. GitHub HTTP lookup lives in services, reusing its existing
+reqwest dependency. utils holds capture, the wire result and the build token.
+No dependencies or lockfile changes are needed. No TS derives were added and
+shared generated types were not edited.
+
+Territory crossings: `crates/server/src/routes/app_errors.rs` enriches the
+existing capture pipeline's snapshot with the service result. The seven
+`packages/web-core/src/i18n/locales/*/common.json` files supply the new notice
+strings; i18n keys are explicitly included in the issue's written territory.
+Bootstrap and the UI error reporter remain untouched.
