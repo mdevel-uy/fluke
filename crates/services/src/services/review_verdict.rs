@@ -37,6 +37,18 @@ pub type DiffLineMap = HashMap<String, Option<HashSet<i64>>>;
 /// verdict. Kept as a constant so the prompt template and the parser agree.
 pub const REVIEW_JSON_RELATIVE_PATH: &str = ".vk/review.json";
 
+pub const REVIEW_JSON_EXAMPLE: &str = r#"{"verdict":"request_changes","summary":"Corregir el manejo de errores.","items":[{"severity":"major","comment":"Preservar el error original para poder diagnosticarlo."}]}"#;
+
+/// Kept next to the validator; appended without replacing a profile's checklist.
+pub fn prompt_contract() -> String {
+    format!(
+        "[REVIEW DELIVERABLE]\nEscribí `{REVIEW_JSON_RELATIVE_PATH}` en la raíz del repo/worktree (donde vive `.git`); creá `.vk` si falta. Está permitido escribir este archivo de control aunque tu rol no modifique código. No lo commitees.\n\
+         Esquema: objeto JSON con `verdict` (string: `approve` o `request_changes`), `summary` (string no vacío), `items` (array opcional con approve, al menos un item con request_changes). Cada item requiere `comment` no vacío; `severity` es opcional: `blocker`, `major`, `minor` o `nit`. `path` es string opcional, `line` es entero opcional y requiere path no vacío. Omití line para comentarios fuera del diff; van al body.\n\
+         Ejemplo JSON válido (usá tu veredicto real, no copies el resultado):\n```json\n{REVIEW_JSON_EXAMPLE}\n```\n\
+         Archivo ausente, JSON inválido o esquema incorrecto son errores de entrega, no request_changes funcional. El sistema valida y publica la review; no ejecutes `gh pr review`."
+    )
+}
+
 pub const VERDICT_APPROVE: &str = "approve";
 pub const VERDICT_REQUEST_CHANGES: &str = "request_changes";
 
@@ -332,6 +344,39 @@ mod tests {
             })?;
         validate(&parsed)?;
         Ok(parsed)
+    }
+
+    #[test]
+    fn contract_example_is_accepted_by_the_file_validator() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".vk")).unwrap();
+        std::fs::write(
+            tmp.path().join(REVIEW_JSON_RELATIVE_PATH),
+            REVIEW_JSON_EXAMPLE,
+        )
+        .unwrap();
+        assert_eq!(
+            read_and_validate(tmp.path()).unwrap().verdict,
+            VERDICT_REQUEST_CHANGES
+        );
+        assert!(prompt_contract().contains(REVIEW_JSON_EXAMPLE));
+        assert!(
+            crate::services::quick_action_prompts::format_review_pr_prompt(836, "head")
+                .contains(&prompt_contract())
+        );
+    }
+
+    #[test]
+    fn contract_rejects_wrong_field_types() {
+        for raw in [
+            r#"{"verdict":true,"summary":"ok"}"#,
+            r#"{"verdict":"approve","summary":[]}"#,
+            r#"{"verdict":"approve","summary":"ok","items":{}}"#,
+            r#"{"verdict":"request_changes","summary":"fix","items":[{"comment":42}]}"#,
+            r#"{"verdict":"request_changes","summary":"fix","items":[{"comment":"fix","line":"42","path":"x"}]}"#,
+        ] {
+            assert!(v(raw).is_err(), "{raw}");
+        }
     }
 
     #[test]

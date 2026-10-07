@@ -275,3 +275,33 @@ Validación (patrón build-solo-en-docker): `docker compose build` por PR,
 tipos TS a mano si toca `shared/types.ts`, smoke E2E con un PR real:
 dev push → review request_changes → remediación consolidada → re-review →
 approve → badge verde → merge humano → done.
+
+
+## Contrato compartido de review (#836)
+
+`review_verdict::prompt_contract` describe el mismo esquema validado por
+`read_and_validate`. Lo usan el prompt de review y la composición final del
+worker Reviewer, sin reemplazar su soul ni checklist personalizados.
+
+El destino es `<repo-worktree>/.vk/review.json` (crear `.vk` si falta).
+Es un archivo de control permitido aun en roles que no modifican código;
+no se commitea. Se conserva el fallback a la raíz del workspace si el
+archivo falta en el repo; un archivo inválido en el repo no se sustituye
+por el fallback.
+
+Campos: verdict string `approve` o `request_changes`, summary string no
+vacío; items array opcional para approve, al menos uno para request_changes.
+Cada item requiere comment string no vacío. severity opcional admite
+blocker, major, minor o nit. path opcional es string; line opcional es entero
+y requiere path no vacío. Los campos opcionales de un item admiten null.
+Comentarios fuera del diff deben omitir line para ir al body. Ejemplo válido:
+
+```json
+{"verdict":"request_changes","summary":"Corregir el manejo de errores.","items":[{"severity":"major","comment":"Preservar el error original para poder diagnosticarlo."}]}
+```
+
+El ejemplo ilustra el formato, no determina el resultado funcional.
+Ausencia o formato inválido siguen fallando la entrega sin consumir ronda;
+un request_changes válido sigue el flujo existente. No se modifican las
+políticas de submit, presupuestos, escalación ni reconciliación (#605–607),
+y no se implementa reparación automática.

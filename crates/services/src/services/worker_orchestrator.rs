@@ -208,31 +208,7 @@ summary listing the issues you created.";
 /// analyst's plan-comment deliverable (promised by
 /// [`ANALYST_ROLE_INSTRUCTION`]) can also flow through the outbox instead
 /// of falling back to `gh issue comment`.
-pub const ANALYST_ACTIONS_JSON_CONTRACT: &str = r#"[AGENT ACTIONS — write operations go through `.vk/actions.json`, NOT `gh`]
-
-Do NOT execute the `gh` write commands that already have an outbox kind below (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue comment`, `gh issue edit`, `gh pr comment`). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo. GitHub writes without an outbox kind yet may keep using `gh` transitionally until a kind is added.
-
-`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. Below is every kind available to you — the drain also accepts `resolve_review_thread`, which belongs to the reviewer role and is not yours to declare:
-
-{
-  "actions": [
-    { "kind": "create_milestone", "title": "...", "description": "..." },
-    { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
-    { "kind": "comment_issue", "issue": "{{action[1].number}}", "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
-    { "kind": "add_labels", "issue": 456, "labels": ["feature:rss-v1", "wave:2"] },
-    { "kind": "update_issue", "issue": 456, "title": "new title (omit to leave unchanged)", "body": "new body (omit to leave unchanged)" },
-    { "kind": "close_issue", "issue": 456, "reason": "completed" },
-    { "kind": "comment_pr", "pr": 789, "body": "..." }
-  ]
-}
-
-Placeholders — reference the result of an earlier action by its 0-indexed position in the array:
-  * `{{action[N].number}}` — number of the resource created by action N (milestone number, issue number).
-  * `{{action[N].url}}` — URL of the resource created by action N.
-The `issue` field of `comment_issue` / `close_issue` / `add_labels` / `update_issue` and the `milestone` field of `create_issue` accept either a literal number (`"issue": 123`) or a `{{action[N].number}}` placeholder — use the placeholder to target an issue you create in the same run (e.g. the plan comment on your first created issue). `pr` is always a literal number.
-Only BACK references are allowed: `N` must be strictly less than the index of the action that uses the placeholder. Forward references and self-references fail the ingest.
-
-`labels` defaults to `[]` and `milestone` is optional (omit it or use `null` when the issue does not belong to a milestone). Emit the file only if you have write operations to declare; a run with no writes should leave `.vk/actions.json` absent."#;
+pub use super::agent_actions_ingest::ANALYST_ACTIONS_JSON_CONTRACT;
 
 /// Analyst-only appendix: the execution-label convention.
 ///
@@ -5560,6 +5536,12 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
          ---\n\n\
          {final_instruction}"
     );
+    if role == ROLE_REVIEWER {
+        prompt.push_str("\n\n");
+        prompt.push_str(&review_verdict::prompt_contract());
+    }
+    prompt.push_str("\n\n");
+    prompt.push_str(&agent_actions_ingest::prompt_contract());
     // Analyst-only appendix: declared write ops flow through `.vk/actions.json`,
     // not `gh`. Placed at the very end so the outbox contract wins any conflict
     // with earlier prompt text (soul / task prompt / role framing).
@@ -5578,6 +5560,21 @@ fn build_worker_prompt(soul: &str, task_prompt: &str, target_branch: &str, role:
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+
+    #[test]
+    fn custom_profiles_keep_content_and_receive_control_contracts() {
+        let soul = "Checklist personalizado: revisar permisos";
+        let task = "Alcance personalizado de esta tarea";
+        for role in [ROLE_DEVELOPER, ROLE_REVIEWER, ROLE_ANALYST, "security"] {
+            let prompt = build_worker_prompt(soul, task, "main", role);
+            assert!(prompt.contains(soul));
+            assert!(prompt.contains(task));
+            assert!(prompt.contains(&agent_actions_ingest::prompt_contract()));
+            if role == ROLE_REVIEWER {
+                assert!(prompt.contains(&review_verdict::prompt_contract()));
+            }
+        }
+    }
 
     #[test]
     fn push_errors_are_classified() {
@@ -5841,15 +5838,14 @@ mod tests {
         }
     }
 
-    /// The `.vk/actions.json` contract is analyst-only: no other role gets a
-    /// write-outbox to declare into, so leaking it would confuse them.
+    /// The analyst catalog stays role-specific; other roles get the common envelope.
     #[test]
-    fn actions_json_contract_is_analyst_only() {
+    fn analyst_actions_catalog_is_role_specific() {
         for role in [ROLE_DEVELOPER, ROLE_REVIEWER, ROLE_DESIGNER] {
             let prompt = build_worker_prompt("soul", "do it", "main", role);
             assert!(
-                !prompt.contains(".vk/actions.json"),
-                "role {role} must not receive the analyst actions.json contract"
+                prompt.contains(".vk/actions.json"),
+                "role {role} must receive the common actions.json contract"
             );
             assert!(
                 !prompt.contains("[AGENT ACTIONS"),
