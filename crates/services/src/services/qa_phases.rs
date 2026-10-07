@@ -49,6 +49,17 @@ use uuid::Uuid;
 use crate::services::{config::Config, container::ContainerService, worker_orchestrator};
 
 pub const QA_JSON_RELATIVE_PATH: &str = ".vk/qa.json";
+
+pub const GATE_JSON_EXAMPLE: &str = r#"{"verdict":"pass","reasons":""}"#;
+
+pub fn gate_prompt_contract(path: &str) -> String {
+    format!(
+        "[GATE DELIVERABLE]\nEscribí `{path}` en la raíz del repo/worktree (donde vive `.git`); creá `.vk` si falta. Está permitido escribir este archivo de control aunque tu rol no modifique código. No lo commitees.\n\
+         Esquema: objeto JSON con `verdict` (string: `pass` o `fail`) y `reasons` (string opcional, por defecto vacío). Para fail describí los hallazgos y cómo reproducirlos; no inventes un pass.\n\
+         Ejemplo JSON válido (usá tu resultado real):\n```json\n{GATE_JSON_EXAMPLE}\n```\n\
+         Archivo ausente, JSON inválido o esquema incorrecto son errores de entrega, no un fail funcional."
+    )
+}
 pub const TEMPLATE_TDD: &str = "tdd";
 pub const VERDICT_PASS: &str = "pass";
 pub const VERDICT_FAIL: &str = "fail";
@@ -391,6 +402,7 @@ pub fn arch_prompt(number: i64, title: &str, body: Option<&str>) -> String {
 }
 
 pub fn test_prompt(pr_number: i64, head_sha: &str) -> String {
+    let contract = gate_prompt_contract(QA_JSON_RELATIVE_PATH);
     format!(
         "Fase Testing del PR #{pr_number} (commit {head_sha}).\n\n\
          Validá el PR contra lo que promete el issue que cierra (`gh pr view {pr_number}`, \
@@ -398,8 +410,7 @@ pub fn test_prompt(pr_number: i64, head_sha: &str) -> String {
          `gh pr checks {pr_number}` y si alguno falla es fail. No instales dependencias ni corras \
          builds, tests o typechecks vos: el worktree no tiene `node_modules` ni caché de build. \
          No modifiques código ni commitees.\n\n\
-         Al terminar escribí tu veredicto en `{QA_JSON_RELATIVE_PATH}` con este formato exacto:\n\
-         {{\"verdict\": \"pass\" | \"fail\", \"reasons\": \"qué falló y cómo reproducirlo (vacío si pasa)\"}}"
+         {contract}"
     )
 }
 
@@ -416,14 +427,15 @@ pub fn pre_dev_prompt(name: &str, number: i64, title: &str, body: Option<&str>) 
 fn review_gate_prompt(gate: &Gate, pr_number: i64, head_sha: &str) -> String {
     let label = gate.label();
     let path = gate.verdict_path().unwrap_or_default();
+    let contract = gate_prompt_contract(&path);
     format!(
         "Fase {label} del PR #{pr_number} (commit {head_sha}).\n\n\
          Revisá el PR según tu rol (`gh pr view {pr_number}`, `gh pr diff {pr_number}`); el \
          worktree está en ese commit para que leas el código alrededor del diff. No modifiques \
          código ni commitees. No instales dependencias ni corras builds, tests o typechecks.\n\n\
-         Al terminar escribí tu veredicto en `{path}` con este formato exacto:\n\
-         {{\"verdict\": \"pass\" | \"fail\", \"reasons\": \"cada hallazgo con archivo, línea y la \
-         corrección propuesta; las sugerencias menores también van acá\"}}"
+         Registrá cada hallazgo con archivo, línea y corrección propuesta en reasons; \
+         las sugerencias menores también van acá.\n\n\
+         {contract}"
     )
 }
 
@@ -606,6 +618,14 @@ struct GateVerdict {
     reasons: String,
 }
 
+fn parse_gate_verdict(raw: &str) -> Result<GateVerdict, String> {
+    let verdict: GateVerdict = serde_json::from_str(raw).map_err(|e| e.to_string())?;
+    if verdict.verdict != VERDICT_PASS && verdict.verdict != VERDICT_FAIL {
+        return Err("`verdict` debe ser `pass` o `fail`.".to_string());
+    }
+    Ok(verdict)
+}
+
 /// Read and store the verdict of a gate task that just finished, before its
 /// worktree is archived. Returns `(verdict, reasons)`.
 pub async fn read_gate_verdict(
@@ -618,8 +638,7 @@ pub async fn read_gate_verdict(
     let parsed = match worktree_path(pool, workspace_id).await {
         Some(root) => std::fs::read_to_string(root.join(&path))
             .ok()
-            .and_then(|raw| serde_json::from_str::<GateVerdict>(&raw).ok())
-            .filter(|v| v.verdict == VERDICT_PASS || v.verdict == VERDICT_FAIL),
+            .and_then(|raw| parse_gate_verdict(&raw).ok()),
         None => None,
     };
     let (verdict, reasons) = match parsed {
@@ -813,6 +832,29 @@ pub async fn finish_docs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gate_contract_examples_use_the_completion_parser() {
+        let passed = parse_gate_verdict(GATE_JSON_EXAMPLE).unwrap();
+        assert_eq!(passed.verdict, VERDICT_PASS);
+        assert!(passed.reasons.is_empty());
+        assert!(parse_gate_verdict(r#"{"verdict":"fail","reasons":"Bug reproducible"}"#).is_ok());
+        assert!(parse_gate_verdict(r#"{"verdict":"pass"}"#).is_ok());
+        for raw in [
+            r#"{"verdict":"approve"}"#,
+            r#"{"reasons":"missing verdict"}"#,
+            r#"{"verdict":true}"#,
+            r#"{"verdict":"fail","reasons":[]}"#,
+            "not JSON",
+        ] {
+            assert!(parse_gate_verdict(raw).is_err(), "{raw}");
+        }
+        assert!(test_prompt(836, "head").contains(&gate_prompt_contract(QA_JSON_RELATIVE_PATH)));
+        let gate = Gate::review("security", "Checklist personalizado");
+        let prompt = gate.prompt(836, "title", "head");
+        assert!(prompt.contains("Checklist personalizado"));
+        assert!(prompt.contains(&gate_prompt_contract(".vk/security.json")));
+    }
 
     #[test]
     fn reads_the_plan_block() {

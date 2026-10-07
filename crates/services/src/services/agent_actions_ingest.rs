@@ -24,6 +24,46 @@ use uuid::Uuid;
 /// actions. Kept as a constant so prompt templates and this parser agree.
 pub const ACTIONS_JSON_RELATIVE_PATH: &str = ".vk/actions.json";
 
+pub const ACTIONS_JSON_EXAMPLE: &str =
+    r#"{"actions":[{"kind":"comment_pr","pr":123,"body":"Resumen de los cambios solicitados."}]}"#;
+
+/// Common envelope, also used by follow-ups which bypass worker prompt assembly.
+pub fn prompt_contract() -> String {
+    format!(
+        "[ACTIONS DELIVERABLE]\nPara las acciones autorizadas por tu tarea, escribí `{ACTIONS_JSON_RELATIVE_PATH}` en la raíz del repo/worktree (donde vive `.git`); creá `.vk` si falta. Está permitido escribir archivos de control aunque tu rol no modifique código. No los commitees. Este contrato no autoriza nuevas operaciones externas.\n\
+         Esquema canónico: objeto JSON con `actions` (array ordenado, por defecto vacío). También se acepta un array raíz por compatibilidad. Cada entrada tiene `kind` y los campos de su acción: `comment_pr` (pr entero, body string), `comment_issue` (issue, body string), `create_milestone` (title y description strings), `create_issue` (title y body strings, labels array de strings opcional, milestone string o null opcional), `close_issue` (issue, reason string), `resolve_review_thread` (pr entero, thread_id string), `add_labels` (issue, labels array de strings), `update_issue` (issue, title y/o body strings opcionales).\n\
+         `issue` acepta entero, string numérico o referencia `{{{{action[N].number}}}}`; milestone acepta string numérico o esa referencia. Referí acciones anteriores por índice base cero; el drain resuelve referencias y publica los efectos.\n\
+         Ejemplo JSON válido (reemplazá pr y body por los de tu tarea):\n```json\n{ACTIONS_JSON_EXAMPLE}\n```\n\
+         Sin acciones declaradas, dejá el archivo ausente: es un no-op válido. La existencia de este contrato no exige el archivo."
+    )
+}
+
+pub const ANALYST_ACTIONS_JSON_CONTRACT: &str = r#"[AGENT ACTIONS — write operations go through `.vk/actions.json`, NOT `gh`]
+
+Do NOT execute the `gh` write commands that already have an outbox kind below (`gh issue create`, `gh api …/milestones`, `gh issue close`, `gh issue comment`, `gh issue edit`, `gh pr comment`). Declare those operations in `.vk/actions.json` at the repo root — the orchestrator will execute them with the correct identity after your run ends. Read-only `gh` calls (`gh issue list`, `gh issue view`, `gh search`, `gh api` for GET) are still fair game for exploring the repo. GitHub writes without an outbox kind yet may keep using `gh` transitionally until a kind is added.
+
+`.vk/actions.json` is a JSON object with an ordered `actions` array. Each entry is one write, executed in the order you list. Below is every kind available to you — the drain also accepts `resolve_review_thread`, which belongs to the reviewer role and is not yours to declare:
+
+{
+  "actions": [
+    { "kind": "create_milestone", "title": "...", "description": "..." },
+    { "kind": "create_issue", "title": "...", "body": "...", "labels": ["P1", "backend"], "milestone": "{{action[0].number}}" },
+    { "kind": "comment_issue", "issue": "{{action[1].number}}", "body": "plan comment for the epic — open questions, scope, links to the issues you just created" },
+    { "kind": "add_labels", "issue": 456, "labels": ["feature:rss-v1", "wave:2"] },
+    { "kind": "update_issue", "issue": 456, "title": "new title (omit to leave unchanged)", "body": "new body (omit to leave unchanged)" },
+    { "kind": "close_issue", "issue": 456, "reason": "completed" },
+    { "kind": "comment_pr", "pr": 789, "body": "..." }
+  ]
+}
+
+Placeholders — reference the result of an earlier action by its 0-indexed position in the array:
+  * `{{action[N].number}}` — number of the resource created by action N (milestone number, issue number).
+  * `{{action[N].url}}` — URL of the resource created by action N.
+The `issue` field of `comment_issue` / `close_issue` / `add_labels` / `update_issue` accept either a literal number (`"issue": 123`), a numeric string or a `{{action[N].number}}` placeholder — use the placeholder to target an issue you create in the same run (e.g. the plan comment on your first created issue). `milestone` of `create_issue` accepts a numeric string or a placeholder, not a JSON integer. `pr` is always a literal number.
+Only BACK references are allowed: `N` must be strictly less than the index of the action that uses the placeholder. Forward references and self-references cannot be resolved by the drain.
+
+`labels` defaults to `[]` and `milestone` is optional (omit it or use `null` when the issue does not belong to a milestone). Emit the file only if you have write operations to declare; a run with no writes should leave `.vk/actions.json` absent."#;
+
 /// Reference to a GitHub issue: either a literal number or a
 /// `{{action[N].number}}` placeholder pointing at an earlier action of the
 /// same run (typically a `create_issue`). Untagged so the wire shape stays
@@ -151,6 +191,14 @@ struct ActionsFile {
     actions: Vec<serde_json::Value>,
 }
 
+/// Compatibility shape agreed in #834; both forms share element validation.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ActionsInput {
+    Object(ActionsFile),
+    Array(Vec<serde_json::Value>),
+}
+
 /// Cap on how much of the raw file travels into `failure_reason`. Enough to
 /// diagnose without the worktree (which is archived on failure), small enough
 /// to not flood the card/process view.
@@ -235,7 +283,7 @@ fn parse_actions_file(path: &Path) -> Result<Vec<AgentActionDeclaration>, Ingest
         path: path.to_path_buf(),
         message: e.to_string(),
     })?;
-    let file: ActionsFile =
+    let file: ActionsInput =
         serde_json::from_str(&raw).map_err(|e| IngestError::InvalidActions {
             reason: e.to_string(),
             raw_excerpt: raw_excerpt(&raw),
@@ -244,8 +292,12 @@ fn parse_actions_file(path: &Path) -> Result<Vec<AgentActionDeclaration>, Ingest
     // Element-wise validation: the error names the offending action by index
     // and declared kind, instead of a bare serde message that leaves the
     // human hunting through the whole file.
-    let mut actions = Vec::with_capacity(file.actions.len());
-    for (index, value) in file.actions.into_iter().enumerate() {
+    let values = match file {
+        ActionsInput::Object(file) => file.actions,
+        ActionsInput::Array(values) => values,
+    };
+    let mut actions = Vec::with_capacity(values.len());
+    for (index, value) in values.into_iter().enumerate() {
         let kind = value
             .get("kind")
             .and_then(|k| k.as_str())
@@ -307,6 +359,57 @@ pub async fn insert_all(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contract_examples_and_compatible_envelopes_use_the_file_validator() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(tmp.path(), ACTIONS_JSON_EXAMPLE);
+        let canonical = read_actions(tmp.path(), tmp.path()).unwrap();
+        let value: serde_json::Value = serde_json::from_str(ACTIONS_JSON_EXAMPLE).unwrap();
+        write_actions(tmp.path(), &value["actions"].to_string());
+        assert_eq!(read_actions(tmp.path(), tmp.path()).unwrap(), canonical);
+        assert!(prompt_contract().contains(ACTIONS_JSON_EXAMPLE));
+        assert!(
+            crate::services::quick_action_prompts::format_address_pr_comments_prompt(
+                123,
+                "https://github.com/acme/repo/pull/123",
+                Some("acme/repo"),
+                Some("Corregir el manejo de errores"),
+            )
+            .contains(&prompt_contract())
+        );
+
+        let start = ANALYST_ACTIONS_JSON_CONTRACT.find("{\n").unwrap();
+        let end = ANALYST_ACTIONS_JSON_CONTRACT.find("\n}").unwrap() + 2;
+        write_actions(tmp.path(), &ANALYST_ACTIONS_JSON_CONTRACT[start..end]);
+        assert_eq!(read_actions(tmp.path(), tmp.path()).unwrap().len(), 7);
+        for raw in ["{}", r#"{"actions":[]}"#, "[]"] {
+            write_actions(tmp.path(), raw);
+            assert!(read_actions(tmp.path(), tmp.path()).unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn both_envelopes_reject_invalid_action_fields_before_returning_any_actions() {
+        let tmp = tempfile::tempdir().unwrap();
+        for raw in ["null", "42", r#"{"actions":{}}"#] {
+            write_actions(tmp.path(), raw);
+            assert!(read_actions(tmp.path(), tmp.path()).is_err(), "{raw}");
+        }
+        for invalid in [
+            r#"{"kind":"comment_pr","pr":"123","body":"text"}"#,
+            r#"{"kind":"comment_pr","pr":123}"#,
+            r#"{"kind":"unknown"}"#,
+            r#"{"kind":"add_labels","issue":123,"labels":"bug"}"#,
+        ] {
+            let array = format!(r#"[{{"kind":"comment_pr","pr":123,"body":"valid"}},{invalid}]"#);
+            for raw in [array.clone(), format!(r#"{{"actions":{array}}}"#)] {
+                write_actions(tmp.path(), &raw);
+                let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+                assert!(err.to_string().contains("acción [1]"), "{err}");
+            }
+        }
+    }
 
     fn write_actions(dir: &Path, contents: &str) {
         std::fs::create_dir_all(dir.join(".vk")).unwrap();

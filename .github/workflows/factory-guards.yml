@@ -26,6 +26,10 @@ concurrency:
   group: factory-guards-${{ inputs.pr }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   factory-guards:
     name: Factory guards

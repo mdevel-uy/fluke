@@ -247,3 +247,49 @@ versionada es `docs/souls/*.md` (aplicada con `PATCH /api/workers/:id`,
 ver `docs/souls/README.md`), y su validación in-vivo (que ningún soul
 cargado en DB contenga instrucciones `gh` de escritura) queda cubierta por
 un issue de validación aparte.
+
+
+## Contrato compartido de actions (#836)
+
+`agent_actions_ingest::prompt_contract` vive junto al lector y al esquema
+serde de las acciones. La composición del worker lo agrega conservando
+soul y tarea personalizados; el follow-up de comentarios de PR también lo
+incluye porque puede evitar esa composición. El catálogo y las instrucciones
+específicas del Analyst siguen exclusivos de ese rol. El contrato no
+autoriza operaciones externas adicionales.
+
+Destino canónico: `<repo-worktree>/.vk/actions.json`; crear `.vk` y escribir
+archivos de control está permitido aunque el rol no modifique código.
+No se commitean. Se conserva el fallback a la raíz del workspace cuando no
+hay archivo en el repo.
+
+El formato canónico es un objeto con actions array ordenado (opcional,
+por defecto vacío). Ejemplo válido:
+
+```json
+{"actions":[{"kind":"comment_pr","pr":123,"body":"Resumen de los cambios solicitados."}]}
+```
+
+También se acepta el array raíz acordado por #834, con exactamente la misma
+validación por elemento. Esta entrega incluye esa compatibilidad mínima
+porque #834 no estaba integrado en la base; es el único solapamiento con
+su parser. Se conservan referencias `{{action[N].number}}`, strings numéricos
+en issue y los campos opcionales existentes. milestone es string o null,
+no entero JSON. Las referencias deben apuntar a acciones anteriores; el
+drain las resuelve y diagnostica las referencias irresolubles. El ingest
+valida el esquema, no promete resolver referencias.
+
+Sin declaraciones, el archivo ausente sigue siendo un no-op válido.
+`{}`, `{"actions":[]}` y `[]` también son no-ops; publicar el contrato no
+hace obligatorio el archivo. El parseo valida todos los elementos antes de
+devolver acciones: un elemento inválido no entrega una lista parcial.
+La persistencia transaccional y la idempotencia por task/seq se conservan,
+sin nuevas operaciones externas al construir o validar prompts.
+
+No se implementan reparación automática ni cambios en la política de
+fallo/continuidad del ingest: ese comportamiento permanece a cargo de #835
+y la reparación a cargo de #837. La base de esta entrega aún marca failed
+ante ingest ilegible; un merge de #835 debe conservar su continuidad y
+registro de evidencia. El contrato no introduce un gate adicional que
+pueda revertirlos. Tampoco modifica fallos/Retry (#822) ni Testing sin CI
+(#827). No hay cruces fuera de los archivos autorizados.

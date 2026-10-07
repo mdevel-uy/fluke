@@ -138,6 +138,7 @@ pub fn format_address_pr_comments_prompt(
     owner_repo: Option<&str>,
     comments_block: Option<&str>,
 ) -> String {
+    let contract = super::agent_actions_ingest::prompt_contract();
     let step1 = match comments_block {
         Some(block) => format!(
             "Los comentarios pendientes de review están abajo (comentarios generales del PR + \
@@ -176,7 +177,7 @@ pub fn format_address_pr_comments_prompt(
             de tu rama). Verificá el push con `git log origin/<rama-del-PR>`.\n\
          5. Cuando termines, dejá una acción `comment_pr` final en `.vk/actions.json`\n\
             con un resumen listando qué pedidos atendiste y cuáles quedaron abiertos\n\
-            con su razón, para que el reviewer pueda re-revisar rápido."
+            con su razón, para que el reviewer pueda re-revisar rápido.\n\n{contract}"
     )
 }
 
@@ -264,6 +265,7 @@ pub fn format_fix_ci_prompt(
 ///   API using the reviewer worker's PAT.
 /// - Invalid or missing JSON → task fails, ronda no cuenta.
 pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
+    let contract = super::review_verdict::prompt_contract();
     format!(
         "Revisá el PR #{pr_number} (commit `{head_sha}`) según tu checklist.\n\
          \n\
@@ -282,36 +284,7 @@ pub fn format_review_pr_prompt(pr_number: i64, head_sha: &str) -> String {
             puede no tener próxima. En un re-review, verificá lo que pediste \
             antes y lo que cambió; no abras objeciones nuevas sobre código que \
             ya estaba, salvo un blocker que se te pasó (decilo explícitamente).\n\
-         3. Escribí tu veredicto en `.vk/review.json` con este esquema exacto:\n\
-         \n\
-         ```json\n\
-         {{\n\
-           \"verdict\": \"approve\" | \"request_changes\",\n\
-           \"summary\": \"resumen del veredicto (2-5 líneas, va al body de la review)\",\n\
-           \"items\": [\n\
-             {{\n\
-               \"path\": \"crates/services/src/foo.rs\",  // opcional; sin path/line va al body\n\
-               \"line\": 42,                              // opcional; requiere path\n\
-               \"severity\": \"blocker|major|minor|nit\", // opcional\n\
-               \"comment\": \"texto del comentario\"\n\
-             }}\n\
-           ]\n\
-         }}\n\
-         ```\n\
-         \n\
-         Reglas del schema:\n\
-         - `items` es opcional con `approve` y obligatorio (≥1) con `request_changes`.\n\
-         - Cada item que apunte a una línea debe traer `path`; sin `path` el comentario \
-           va al body de la review (no inline).\n\
-         - `line` sólo sirve si esa línea aparece en el diff del PR (líneas nuevas o \
-           de contexto de los hunks). GitHub rechaza comments inline fuera del diff, \
-           así que si tu comentario refiere a código que el PR no toca (otro archivo, \
-           una línea vieja), omití `line` — o directamente `path` — y explicá la \
-           ubicación en el texto del comentario: irá al body de la review.\n\
-         - Escribí el archivo en la raíz del worktree (donde vive `.git`), \
-           no en un subdirectorio.\n\
-         - JSON inválido o `.vk/review.json` ausente = task fallada, la ronda no cuenta.\n\
-         \n\
+         3. {contract}\n\n\
          Terminá dejando SOLO ese archivo escrito — nada de commits, pushes ni PRs. \
          El sistema toma el archivo, valida el schema, arma la review y la somete a \
          GitHub con tu identidad. Si aprobás, la última actividad del PR queda tu \

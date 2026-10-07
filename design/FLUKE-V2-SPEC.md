@@ -182,3 +182,29 @@ Los datos del mockup (nombres de bots, referentes, textos de ejemplo de #657/#65
 1. D1 y D2 resueltas el 02-oct (decisiones 6 y 7).
 2. F0 y F1 ya están creados como milestones de GitHub con sus issues (F0: #626, #661, #662 · F1: #663 a #667), con `feature:` y `wave:` para que la vista actual los muestre.
 3. Con F1.1 mergeado, el resto del plan se ejecuta desde la vista Plan.
+
+
+## Contratos de entregables por fase (#836)
+
+Los prompts de Testing y de las compuertas personalizadas usan
+`qa_phases::gate_prompt_contract`, junto al parser que se usa al finalizar.
+Testing escribe `<repo-worktree>/.vk/qa.json`; cada compuerta escribe
+`<repo-worktree>/.vk/<slug>.json`. La fase Docs sigue entregando commits y
+no requiere un veredicto JSON.
+
+El objeto requiere `verdict` string (`pass` o `fail`); `reasons` es string
+opcional y por defecto vacío. Ejemplo válido:
+
+```json
+{"verdict":"pass","reasons":""}
+```
+
+Un fail funcional describe los hallazgos en reasons y sigue el flujo normal.
+Ausencia, JSON ilegible y esquema incorrecto siguen siendo error de entrega;
+no se transforman en un fail funcional ni en un pass. Escribir los archivos
+de control y crear `.vk` está permitido aunque el perfil no modifique código;
+no se commitean. Los contratos se agregan conservando soul, checklist y tarea
+personalizados. No hay nuevos checks locales ni cambios de política de CI.
+
+Esta ola unifica contratos y agrega regresiones para CI/post script. No añade
+reparaciones, reintentos ni detección automática (#837 y olas siguientes).
