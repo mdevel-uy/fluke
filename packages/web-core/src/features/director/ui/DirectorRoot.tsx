@@ -75,19 +75,48 @@ function AppErrorBubbles() {
       {visible.map((error) => (
         <section
           key={error.fingerprint}
-          className="rounded-lg border border-border/60 bg-primary p-3 shadow-overlay"
+          className={
+            error.issue_lookup?.state === 'existing' ||
+            error.issue_lookup?.state === 'checking'
+              ? 'rounded-lg border border-border/40 bg-primary p-2 text-low'
+              : 'rounded-lg border border-border/60 bg-primary p-3 shadow-overlay'
+          }
         >
           <div className="flex items-start justify-between gap-3">
             <p className="text-label font-semibold text-high">
-              {t('director.appErrors.title')}
+              {t(
+                error.issue_lookup?.state === 'existing'
+                  ? 'director.appErrors.existing'
+                  : error.issue_lookup?.state === 'checking'
+                    ? 'director.appErrors.checking'
+                    : 'director.appErrors.title'
+              )}
             </p>
             <span className="shrink-0 font-mono text-label tabular-nums text-low">
               {t('director.appErrors.count', { count: error.count })}
             </span>
           </div>
-          <p className="mt-2 break-words text-body text-normal">
-            {error.message}
-          </p>
+          {error.issue_lookup?.state !== 'checking' && (
+            <p className="mt-2 break-words text-body text-normal">
+              {error.message}
+            </p>
+          )}
+          {error.issue_lookup?.state === 'existing' && (
+            <a
+              href={error.issue_lookup.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-label text-brand underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+            >
+              {t('director.appErrors.viewIssue')}
+            </a>
+          )}
+          {(error.issue_lookup?.state === 'disabled' ||
+            error.issue_lookup?.state === 'failed') && (
+            <p className="mt-2 text-label text-low">
+              {t(`director.appErrors.${error.issue_lookup.state}`)}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => ignoreAppError(error.fingerprint)}

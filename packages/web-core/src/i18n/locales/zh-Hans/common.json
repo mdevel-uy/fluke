@@ -1857,6 +1857,11 @@
   },
   "director": {
     "appErrors": {
+      "existing": "Fluke · 错误已报告",
+      "checking": "Fluke · 正在检查已有报告…",
+      "viewIssue": "查看已有 Issue",
+      "disabled": "构建时未配置 GitHub 令牌，Issue 搜索和创建已禁用。",
+      "failed": "无法检查已有报告。为避免重复，Issue 创建不可用。",
       "title": "Fluke 检测到应用错误",
       "count": "x {{count}}",
       "ignore": "忽略"

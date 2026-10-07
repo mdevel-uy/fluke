@@ -1857,6 +1857,11 @@
   },
   "director": {
     "appErrors": {
+      "existing": "Fluke · 報告済みのエラー",
+      "checking": "Fluke · 既存の報告を確認中…",
+      "viewIssue": "既存のIssueを見る",
+      "disabled": "ビルド時のGitHubトークンがないため、Issueの検索と作成は無効です。",
+      "failed": "既存の報告を確認できませんでした。重複を防ぐためIssueの作成は利用できません。",
       "title": "Fluke がアプリのエラーを検出しました",
       "count": "x {{count}}",
       "ignore": "無視"

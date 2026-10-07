@@ -143,6 +143,7 @@ pub struct AppError {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AppErrorSummary {
+    pub issue_lookup: crate::app_error_issues::Lookup,
     pub fingerprint: String,
     pub message: String,
     pub location: String,
@@ -302,6 +303,7 @@ impl Store {
             .map(|entry| {
                 let e = &entry.error;
                 AppErrorSummary {
+                    issue_lookup: crate::app_error_issues::Lookup::Checking,
                     fingerprint: e.fingerprint.clone(),
                     message: e.message.clone(),
                     location: e.location.clone(),
@@ -367,7 +369,11 @@ pub fn record(message: &str, location: &str, source: &str, context: ErrorContext
 }
 
 pub fn snapshot() -> (u64, Vec<AppErrorSummary>) {
-    store().snapshot()
+    let (revision, mut errors) = store().snapshot();
+    for error in &mut errors {
+        error.issue_lookup = crate::app_error_issues::lookup(&error.fingerprint);
+    }
+    (revision, errors)
 }
 pub fn ignore(fingerprint: &str) -> bool {
     store().ignore(fingerprint)
