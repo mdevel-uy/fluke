@@ -159,6 +159,49 @@ Los mockups aprobados por Dani el 02-oct están en `design/mockups/fluke-v2/` y 
 
 Los datos del mockup (nombres de bots, referentes, textos de ejemplo de #657/#658) son de muestra; la estructura y los estados no.
 
+## Fases fallidas y Retry (#822)
+
+Una fase que terminó sin completar su trabajo aparece en rojo, con estado
+STUCK y un bloqueo de tipo `failed`. Abrí **Destrabar** para ver el motivo y
+pulsá **Retry**: vuelve a la cola la tarea de esa fase, con el mismo perfil,
+sin crear tareas manualmente. Mientras espera muestra pendiente; al arrancar,
+activa. Si vuelve a fallar, muestra el motivo del nuevo intento y permite
+volver a pulsar Retry. Dos clics concurrentes no encolan dos intentos.
+
+Testing necesita un veredicto `pass` o `fail` en `.vk/qa.json`. Un archivo
+ausente, ilegible, JSON inválido, un valor distinto o un worktree ausente
+produce `error` y una tarea `failed`. Lo mismo aplica a los gates de revisión
+con su archivo de veredicto. Retry también reconoce registros antiguos que
+quedaron `done` sin un veredicto válido. `fail` es un veredicto válido que pide
+correcciones al developer; los límites de rondas mantienen su política actual.
+Docs registra como fallo la imposibilidad de leer el worktree/HEAD, encontrar
+el workspace o la rama del PR, o hacer push. Un error de ejecución del agente
+(incluidos errores de proveedor) también deja una tarea fallida reintentable.
+Las rondas de Review fallidas se reintentan desde su tarea vinculada; durante
+el reintento la vista refleja el estado de la tarea, sin crear una ronda nueva.
+Preguntas pendientes, conflictos y límites de rondas conservan sus salidas.
+
+Evidencia de revisión para #822: `read_gate_verdict` guarda veredicto, motivo
+y estado terminal en una sola actualización; si la escritura falla, propaga
+el error y no archiva el worktree. Docs persiste el fallo antes de archivar.
+`retry_failed_phase` cambia a cola sólo una tarea fallida (o un gate antiguo
+sin veredicto válido); si otro clic ya cambió el estado, no vuelve a modificarla.
+La API usa el `task_id` del bloqueo mostrado, evitando reintentar un fallo
+anterior de otra fase. No se agregan recursos antes de validar ese estado.
+
+Cobertura de regresión agregada (ejecución delegada a CI/post script): Testing
+y Security sin worktree/veredicto, dos intentos fallidos con Retry entre ambos,
+doble Retry, limpieza del veredicto previo, gates antiguos con `error`/NULL,
+rechazo de gates completados con `pass`/`fail`, fallo de escritura del resultado
+sin dejar la tarea `done`, Docs fallido y estado visible
+de Testing y Review durante el reintento. No se ejecutaron checks locales.
+
+Verificación funcional pendiente en el entorno con la app: abrir el Plan de
+un issue con Testing sin `.vk/qa.json`, comprobar STUCK y el motivo, abrir
+Destrabar y pulsar Retry. Confirmar que arranca Testing y repetir el fallo
+para comprobar un segundo Retry. Repetir con un gate de revisión sin veredicto
+y con Docs cuyo push falla; comprobar que se reintenta la fase señalada.
+
 ## 8. Reglas transversales
 
 - **Cada issue es vertical** (migración + endpoint + tipos + UI), según el contrato del analista. Los "L" se parten por valor, no por capa.

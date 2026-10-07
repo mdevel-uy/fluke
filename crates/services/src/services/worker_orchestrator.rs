@@ -1729,16 +1729,25 @@ pub async fn on_agent_finished(
     let mut gate_verdict: Option<(String, String)> = None;
     let mut docs_outcome = None;
     if succeeded {
-        WorkerTask::set_status(pool, task.id, new_status).await?;
         match &gate {
             Some(qa_phases::Gate::Docs) => {
                 docs_outcome =
                     Some(qa_phases::finish_docs(db, container, workspace_id, &task, &worker).await);
+                match &docs_outcome {
+                    Some(qa_phases::DocsOutcome::Failed(reason)) => {
+                        WorkerTask::set_failed(pool, task.id, reason).await?;
+                    }
+                    _ => {
+                        WorkerTask::set_status(pool, task.id, new_status).await?;
+                    }
+                }
             }
             Some(g) => {
-                gate_verdict = qa_phases::read_gate_verdict(pool, workspace_id, &task, g).await;
+                gate_verdict = qa_phases::read_gate_verdict(pool, workspace_id, &task, g).await?;
             }
-            None => {}
+            None => {
+                WorkerTask::set_status(pool, task.id, new_status).await?;
+            }
         }
         // Persist what the run left behind BEFORE archiving the worktree:
         // the agent's final message for every non-developer role, plus — for
@@ -1809,7 +1818,6 @@ pub async fn on_agent_finished(
     match &docs_outcome {
         Some(qa_phases::DocsOutcome::Failed(reason)) => {
             warn!(task_id = %task.id, "Docs phase failed: {}", reason);
-            WorkerTask::set_failed_with_kind(pool, task.id, reason, None).await?;
         }
         Some(qa_phases::DocsOutcome::Unchanged) => {
             if let Err(e) = qa_phases::after_gate(
@@ -7400,6 +7408,135 @@ mod tests {
             0,
             "re-queued task no longer counts as an infra failure"
         );
+    }
+
+    #[tokio::test]
+    async fn gate_errors_remain_retryable_after_another_failed_attempt() {
+        use crate::services::qa_phases::Gate;
+
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "gate-error-retry").await;
+        let worker = insert_reviewer(&db, "gate-profile").await;
+        for gate in [Gate::Testing, Gate::review("security", "Security")] {
+            let task = append_reviewer_task_for_pr(&db, worker.id, repo.id, 822).await;
+            WorkerTask::set_kind(&db.pool, task.id, &gate.kind())
+                .await
+                .unwrap();
+            for _ in 0..2 {
+                WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_PROGRESS)
+                    .await
+                    .unwrap();
+                // Missing workspace/verdict is the same terminal error as an
+                // unreadable, malformed or unsupported verdict file.
+                let (verdict, reason) =
+                    qa_phases::read_gate_verdict(&db.pool, Uuid::new_v4(), &task, &gate)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                assert_eq!(verdict, qa_phases::VERDICT_ERROR);
+                let failed = WorkerTask::find_by_id(&db.pool, task.id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(failed.status, worker_task::STATUS_FAILED);
+                assert_eq!(failed.failure_reason.as_deref(), Some(reason.as_str()));
+                assert_eq!(
+                    WorkerTask::retry_failed_phase(&db.pool, task.id)
+                        .await
+                        .unwrap(),
+                    Some(worker.id)
+                );
+                assert_eq!(
+                    WorkerTask::retry_failed_phase(&db.pool, task.id)
+                        .await
+                        .unwrap(),
+                    None
+                );
+                let result: Option<String> =
+                    sqlx::query_scalar("SELECT qa_verdict FROM worker_tasks WHERE id = ?1")
+                        .bind(task.id)
+                        .fetch_one(&db.pool)
+                        .await
+                        .unwrap();
+                assert_eq!(result, None, "retry clears the previous verdict");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn retry_accepts_legacy_gate_errors_but_not_completed_gates() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "legacy-gate-retry").await;
+        let worker = insert_reviewer(&db, "legacy-gate-profile").await;
+        let task = append_reviewer_task_for_pr(&db, worker.id, repo.id, 822).await;
+        for kind in [
+            worker_task::KIND_QA_TEST,
+            worker_task::KIND_DOCS,
+            "gate:security",
+        ] {
+            WorkerTask::set_kind(&db.pool, task.id, kind).await.unwrap();
+            for verdict in [None, Some("error"), Some("pass"), Some("fail")] {
+                sqlx::query(
+                    "UPDATE worker_tasks SET status = 'done', qa_verdict = ?2 WHERE id = ?1",
+                )
+                .bind(task.id)
+                .bind(verdict)
+                .execute(&db.pool)
+                .await
+                .unwrap();
+                let eligible =
+                    kind != worker_task::KIND_DOCS && !matches!(verdict, Some("pass" | "fail"));
+                assert_eq!(
+                    WorkerTask::retry_failed_phase(&db.pool, task.id)
+                        .await
+                        .unwrap(),
+                    eligible.then_some(worker.id)
+                );
+            }
+            WorkerTask::set_failed(&db.pool, task.id, "phase error")
+                .await
+                .unwrap();
+            assert_eq!(
+                WorkerTask::retry_failed_phase(&db.pool, task.id)
+                    .await
+                    .unwrap(),
+                Some(worker.id)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn gate_result_write_failure_does_not_leave_a_done_task() {
+        let db = setup_test_db().await;
+        let (repo, _tmp) = insert_repo(&db, "gate-write-failure").await;
+        let worker = insert_reviewer(&db, "gate-write-profile").await;
+        let task = append_reviewer_task_for_pr(&db, worker.id, repo.id, 822).await;
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_IN_PROGRESS)
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TRIGGER reject_gate_result BEFORE UPDATE OF qa_verdict ON worker_tasks
+                     BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END",
+        )
+        .execute(&db.pool)
+        .await
+        .unwrap();
+        assert!(
+            qa_phases::read_gate_verdict(
+                &db.pool,
+                Uuid::new_v4(),
+                &task,
+                &qa_phases::Gate::Testing,
+            )
+            .await
+            .is_err()
+        );
+        let unchanged = WorkerTask::find_by_id(&db.pool, task.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(unchanged.status, worker_task::STATUS_IN_PROGRESS);
+        assert_eq!(unchanged.failure_reason, None);
     }
 
     #[test]
