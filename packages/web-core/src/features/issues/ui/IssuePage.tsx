@@ -175,6 +175,15 @@ export function IssuePage() {
           {wave !== null && <> / {t('issues.plan.wave', { n: wave })}</>}
         </nav>
         <span className="flex-1" />
+        {task?.workspace_id && (
+          <button
+            type="button"
+            onClick={() => appNavigation.goToWorkspace(task.workspace_id!)}
+            className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
+          >
+            {t('issues.taskLinked.openWorkspace')}
+          </button>
+        )}
         {task?.pr_url && (
           <a
             href={task.pr_url}
@@ -405,18 +414,6 @@ export function IssuePage() {
                     </b>
                     {workerName && <> · {workerName}</>}
                   </span>
-                  <span className="flex-1" />
-                  {task.workspace_id && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        appNavigation.goToWorkspace(task.workspace_id!)
-                      }
-                      className="inline-flex h-8 items-center rounded-md border border-md-outline-variant bg-md-surface-container px-3 text-[13px] text-high hover:border-md-on-surface-variant"
-                    >
-                      {t('issues.taskLinked.openWorkspace')}
-                    </button>
-                  )}
                 </>
               ) : (
                 <>

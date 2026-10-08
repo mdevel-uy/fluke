@@ -5,6 +5,7 @@ import {
   Archive,
   ArrowLeft,
   ExternalLink,
+  FolderOpen,
   Gavel,
   Loader2,
   Play,
@@ -19,6 +20,7 @@ import type { RepoIssue } from '@/features/issues/types';
 import type { WorkerTask } from '@/features/sprint/types';
 import { MarkdownPreview } from '@/shared/components/MarkdownPreview';
 import { useTheme, getResolvedTheme } from '@/shared/hooks/useTheme';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { cn } from '@/shared/lib/utils';
 import { IssueLabelChip } from './IssueLabelChip';
 import { AssignToAgentDialog } from './AssignToAgentDialog';
@@ -227,6 +229,7 @@ export function IssueDetailDrawer({
   const { t } = useTranslation('common');
   const { theme } = useTheme();
   const resolvedTheme = getResolvedTheme(theme);
+  const appNavigation = useAppNavigation();
 
   const [addingLabel, setAddingLabel] = useState(false);
   const [removingLabel, setRemovingLabel] = useState<string | null>(null);
@@ -450,6 +453,22 @@ export function IssueDetailDrawer({
                     )}
                   </div>
                 </div>
+
+                {/* Workspace access: visible whenever the task has one, even if the issue is closed */}
+                {linkedTask?.workspace_id && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      variant="tonal"
+                      size="sm"
+                      onClick={() =>
+                        appNavigation.goToWorkspace(linkedTask.workspace_id!)
+                      }
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      {t('issues.taskLinked.openWorkspace')}
+                    </Button>
+                  </div>
+                )}
 
                 {/* Actions */}
                 {issue.state === 'open' && (
