@@ -1809,11 +1809,16 @@ pub async fn on_agent_finished(
     }
 
     // Gate passed → next gate or review; failed → back to the developer.
-    if let (Some(g), Some((verdict, reasons))) = (&gate, &gate_verdict)
-        && let Err(e) =
+    if let (Some(g), Some((verdict, reasons))) = (&gate, &gate_verdict) {
+        if verdict == qa_phases::VERDICT_ERROR {
+            fail_gate_without_verdict(pool, task.id, reasons).await;
+        } else if let Err(e) =
             qa_phases::after_gate(config, db, container, &task, g, verdict, reasons).await
-    {
-        warn!(task_id = %task.id, "Failed to act on the gate verdict: {}", e);
+        {
+            warn!(task_id = %task.id, "Failed to act on the gate verdict: {}", e);
+            let msg = format!("No pude continuar el flujo tras la fase {}: {e}", g.label());
+            fail_gate_without_verdict(pool, task.id, &msg).await;
+        }
     }
     // Docs pushed → the PR monitor resumes the gates on the new head once its
     // CI is green; nothing to document → resume them now.
@@ -1863,6 +1868,15 @@ pub async fn on_agent_finished(
     }
 
     Ok(())
+}
+
+/// A gate that could not complete (no valid verdict, or the flow could not go
+/// on after it) is a failed phase: the plan shows it and Retry requeues it
+/// (#822). A DB error is logged so the worker's queue still advances.
+async fn fail_gate_without_verdict(pool: &sqlx::SqlitePool, task_id: Uuid, reason: &str) {
+    if let Err(e) = WorkerTask::set_failed_with_kind(pool, task_id, reason, None).await {
+        warn!(task_id = %task_id, "Failed to mark the gate as failed: {}", e);
+    }
 }
 
 /// Reviewer role, agent just finished: read `.vk/review.json`, validate it,
@@ -6312,6 +6326,75 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(ws_owner, daniel.id);
+    }
+
+    #[tokio::test]
+    async fn gate_without_valid_verdict_ends_failed_and_retryable() {
+        // #822: Testing finished without a valid `.vk/qa.json`. The task must
+        // be `failed` (visible in the plan, found by Retry), not `done`.
+        use crate::services::qa_phases::{self, Gate};
+
+        let db = setup_test_db().await;
+        let qa = qa_phases::profile_for(&db.pool, db::models::worker::ROLE_QA)
+            .await
+            .unwrap()
+            .expect("QA profile");
+        let (repo, _tmp) = insert_repo(&db, "gate-no-verdict-repo").await;
+        let ws = insert_workspace(&db).await;
+        let task = WorkerTask::append(
+            &db.pool,
+            qa.id,
+            &CreateWorkerTask {
+                repo_id: repo.id,
+                title: "Testing PR #50".to_string(),
+                prompt: "test".to_string(),
+                issue_number: Some(50),
+                skills: Vec::new(),
+                issue_labels: Vec::new(),
+                source: worker_task::SOURCE_KANBAN.to_string(),
+                territory_globs: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+        WorkerTask::set_kind(&db.pool, task.id, &Gate::Testing.kind())
+            .await
+            .unwrap();
+        WorkerTask::set_status(&db.pool, task.id, worker_task::STATUS_DONE)
+            .await
+            .unwrap();
+
+        let (verdict, reasons) =
+            qa_phases::read_gate_verdict(&db.pool, ws.id, &task, &Gate::Testing)
+                .await
+                .expect("a gate with a verdict file");
+        assert_eq!(verdict, qa_phases::VERDICT_ERROR);
+        fail_gate_without_verdict(&db.pool, task.id, &reasons).await;
+
+        let (status, reason, qa_verdict): (String, Option<String>, Option<String>) =
+            sqlx::query_as(
+                "SELECT status, failure_reason, qa_verdict FROM worker_tasks WHERE id = ?1",
+            )
+            .bind(task.id)
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+        assert_eq!(status, "failed");
+        assert_eq!(reason.as_deref(), Some(reasons.as_str()));
+        assert_eq!(qa_verdict.as_deref(), Some("error"));
+
+        // The query Retry uses for the gates of a PR finds it.
+        let found: Option<Uuid> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT t.id FROM worker_tasks t
+              WHERE t.repo_id = ?1 AND t.status = 'failed' AND {}
+                AND t.issue_number = 50",
+            worker_task::PR_GATE_KINDS_SQL
+        )))
+        .bind(repo.id)
+        .fetch_optional(&db.pool)
+        .await
+        .unwrap();
+        assert_eq!(found, Some(task.id));
     }
 
     #[tokio::test]
