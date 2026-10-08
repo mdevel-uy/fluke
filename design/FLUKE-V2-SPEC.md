@@ -91,6 +91,8 @@ Valor visible de inmediato; funciona con los workers actuales, el "worker" de la
 
 Acceso al workspace (#830): la card del Plan y el nombre del worker en la Lista/agrupadas abren `/workspaces/{id}` sin hover cuando la tarea activa tiene `workspace_id`.
 
+Acceso al workspace en el detalle (#831): el drawer (visible aunque la issue esté cerrada) y el encabezado de `/issues/{n}` (con cualquier pestaña activa) muestran "Abrir workspace" cuando la tarea de la issue tiene `workspace_id` (la activa o, si no hay, la última de la issue, así que una issue mergeada con tarea `done` también lo muestra); una tarea `queued` sin workspace no lo muestra.
+
 ### F2 — Perfiles en vez de workers
 
 | Wave | Issue | Tamaño | Notas |
