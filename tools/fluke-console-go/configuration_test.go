@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -20,7 +21,11 @@ func TestApplyModelUsesNewProviderAndKeepsProjectContext(t *testing.T) {
 	m := newModel(store, state, repo)
 	defer m.cleanup()
 	m.openConfig()
-	m.draft = [5]string{"claude", "claude", "sonnet", "[]", "3"}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.draft = [5]string{"claude", executable, "sonnet", "[]", "3"}
 	cmd := m.applyConfig()
 	if cmd == nil {
 		t.Fatal(m.notice)

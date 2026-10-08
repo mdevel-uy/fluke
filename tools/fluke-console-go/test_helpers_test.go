@@ -9,6 +9,11 @@ import (
 func testRepo(t *testing.T) string {
 	t.Helper()
 	repo := t.TempDir()
+	// Git reports resolved paths, including macOS's /var -> /private/var.
+	repo, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := git(repo, "init", "--initial-branch=main"); err != nil {
 		t.Fatal(err)
 	}

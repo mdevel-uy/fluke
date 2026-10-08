@@ -68,10 +68,14 @@ func validateTaskDependencies(state State, task Task) error {
 
 func dependencySamePath(a, b string) bool {
 	a, b = filepath.Clean(a), filepath.Clean(b)
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(a, b)
+	if a == b || runtime.GOOS == "windows" && strings.EqualFold(a, b) {
+		return true
 	}
-	return a == b
+	// Git resolves symlinks in repository and worktree paths. Compare existing
+	// filesystem objects too, so aliases such as /var on macOS remain valid.
+	left, leftErr := os.Stat(a)
+	right, rightErr := os.Stat(b)
+	return leftErr == nil && rightErr == nil && os.SameFile(left, right)
 }
 
 func dependencyGit(ctx context.Context, dir string, args ...string) (string, error) {
