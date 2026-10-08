@@ -446,6 +446,21 @@ export function IssuesPage() {
     [selectedIssue, activeTaskByIssueNumber]
   );
 
+  // Workspace access outlives the active task: same resolution as IssuePage
+  // (the active task, else the issue's latest one), so a merged issue whose
+  // task is `done` still links to its workspace.
+  const selectedIssueWorkspaceId = useMemo(() => {
+    if (!selectedIssue) return null;
+    if (selectedIssueLinkedTask) return selectedIssueLinkedTask.workspace_id;
+    return (
+      allTasks.find(
+        (task) =>
+          task.repo_id === selectedRepoId &&
+          task.issue_number === selectedIssue.number
+      )?.workspace_id ?? null
+    );
+  }, [selectedIssue, selectedIssueLinkedTask, allTasks, selectedRepoId]);
+
   const updateUrl = useCallback(
     (params: Partial<RawSearch>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -763,6 +778,7 @@ export function IssuesPage() {
         repoId={selectedRepoId ?? ''}
         availableLabels={availableLabels}
         linkedTask={selectedIssueLinkedTask}
+        workspaceId={selectedIssueWorkspaceId}
         onClose={handleCloseDrawer}
         onBack={handleBackFromDrawer}
         onAddLabel={handleAddLabel}

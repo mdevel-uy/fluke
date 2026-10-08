@@ -33,6 +33,8 @@ interface IssueDetailDrawerProps {
   repoId: string;
   availableLabels: IssueLabel[];
   linkedTask?: WorkerTask;
+  /** Workspace of the active task or, failing that, the issue's latest one. */
+  workspaceId?: string | null;
   onClose: () => void;
   /** Closes the drawer and brings the issue's group back into view. */
   onBack: () => void;
@@ -220,6 +222,7 @@ export function IssueDetailDrawer({
   repoId,
   availableLabels,
   linkedTask,
+  workspaceId,
   onClose,
   onBack,
   onAddLabel,
@@ -455,14 +458,15 @@ export function IssueDetailDrawer({
                 </div>
 
                 {/* Workspace access: visible whenever the task has one, even if the issue is closed */}
-                {linkedTask?.workspace_id && (
+                {workspaceId && (
                   <div className="flex items-center gap-2 pt-1">
                     <Button
                       variant="tonal"
                       size="sm"
-                      onClick={() =>
-                        appNavigation.goToWorkspace(linkedTask.workspace_id!)
-                      }
+                      onClick={() => {
+                        onClose();
+                        appNavigation.goToWorkspace(workspaceId);
+                      }}
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
                       {t('issues.taskLinked.openWorkspace')}
