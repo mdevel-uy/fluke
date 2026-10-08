@@ -169,7 +169,23 @@ export function IssueTableRow({
         )}
       </td>
       <td className="whitespace-nowrap px-3 text-sm text-normal">
-        {workerName ?? <span className="text-low">—</span>}
+        {workerName ? (
+          linkedTask?.workspace_id ? (
+            <button
+              type="button"
+              onClick={handleViewTask}
+              title={t('issues.taskLinked.openWorkspace')}
+              aria-label={`${t('issues.taskLinked.openWorkspace')}: ${workerName}`}
+              className="rounded-sm text-normal underline-offset-2 hover:text-high hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+            >
+              {workerName}
+            </button>
+          ) : (
+            workerName
+          )
+        ) : (
+          <span className="text-low">—</span>
+        )}
       </td>
       <td className="overflow-hidden px-3 font-mono text-code text-normal">
         {branch ? (
