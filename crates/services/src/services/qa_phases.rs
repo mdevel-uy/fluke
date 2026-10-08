@@ -181,7 +181,7 @@ impl Gate {
         }
     }
 
-    fn label(&self) -> &str {
+    pub fn label(&self) -> &str {
         match self {
             Gate::Docs => "Documentación",
             Gate::Testing => "Testing",
