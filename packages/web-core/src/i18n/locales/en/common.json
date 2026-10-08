@@ -2156,7 +2156,11 @@
     "appErrors": {
       "title": "Fluke detected an app error",
       "count": "x {{count}}",
-      "ignore": "Ignore"
+      "ignore": "Ignore",
+      "reportBug": "Report as bug",
+      "reporting": "Reporting…",
+      "issue": "Issue #{{number}}",
+      "retry": "Retry report"
     },
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",

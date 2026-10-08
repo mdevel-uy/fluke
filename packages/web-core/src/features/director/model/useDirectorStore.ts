@@ -20,12 +20,22 @@ export interface AppErrorNotice {
   count: number;
   first_seen: number;
   last_seen: number;
+  /** Set by the backend once the error was reported as a GitHub issue. */
+  issue?: { number: number; url: string };
 }
+
+/** Client-side state of "Report as bug" per fingerprint (not persisted). */
+export type BugReportState =
+  | { status: 'sending' }
+  | { status: 'created'; number: number; url: string }
+  | { status: 'failed'; message: string | null };
 
 interface DirectorState {
   appErrors: AppErrorNotice[];
   errorSession: string | null;
   ignoredErrors: string[];
+  bugReports: Record<string, BugReportState>;
+  setBugReport: (fingerprint: string, state: BugReportState) => void;
   setAppErrors: (session: string, errors: AppErrorNotice[]) => void;
   ignoreAppError: (fingerprint: string) => void;
   view: DirectorView;
@@ -56,11 +66,15 @@ export const useDirectorStore = create<DirectorState>()(
       appErrors: [],
       errorSession: null,
       ignoredErrors: [],
+      bugReports: {},
+      setBugReport: (fingerprint, state) =>
+        set((s) => ({ bugReports: { ...s.bugReports, [fingerprint]: state } })),
       setAppErrors: (errorSession, appErrors) =>
         set((s) => ({
           errorSession,
           appErrors,
           ignoredErrors: s.errorSession === errorSession ? s.ignoredErrors : [],
+          bugReports: s.errorSession === errorSession ? s.bugReports : {},
         })),
       ignoreAppError: (fingerprint) =>
         set((s) => ({

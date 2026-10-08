@@ -11,6 +11,7 @@ export function useAppErrorsLive() {
     useDirectorStore.setState({
       appErrors: [],
       ignoredErrors: [],
+      bugReports: {},
       errorSession: null,
     });
     const controller = new AbortController();
@@ -72,7 +73,10 @@ export async function loadAppErrorsSnapshot(
           /^fp-[0-9a-f]{12}$/.test(error.fingerprint) &&
           typeof error.message === 'string' &&
           Number.isSafeInteger(error.count) &&
-          error.count > 0
+          error.count > 0 &&
+          (error.issue === undefined ||
+            (Number.isSafeInteger(error.issue?.number) &&
+              typeof error.issue?.url === 'string'))
       )
     )
       throw new Error('Invalid error snapshot');
@@ -98,6 +102,48 @@ async function sendIgnore(
     );
   } catch {
     // The local dismissal hides it immediately; the live hook retries delivery.
+  }
+}
+
+/** Create a GitHub issue for the error. The backend is idempotent per
+ * fingerprint, so a double click or retry returns the same issue. The notice
+ * stays visible whatever happens; failures only set the card's state. */
+export async function reportAppErrorAsBug(fingerprint: string) {
+  const { bugReports, setBugReport } = useDirectorStore.getState();
+  if (bugReports[fingerprint]?.status === 'sending') return;
+  setBugReport(fingerprint, { status: 'sending' });
+  try {
+    const response = await makeLocalApiRequest(
+      `/api/app-errors/${encodeURIComponent(fingerprint)}/report-bug`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          screen: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+        }),
+        hostScope: 'explicit',
+        hostId: getCurrentHostId(),
+      }
+    );
+    const body = (await response.json().catch(() => null)) as {
+      number?: number;
+      url?: string;
+      message?: string;
+    } | null;
+    if (response.ok && body && Number.isSafeInteger(body.number) && body.url) {
+      setBugReport(fingerprint, {
+        status: 'created',
+        number: body.number as number,
+        url: body.url,
+      });
+    } else {
+      setBugReport(fingerprint, {
+        status: 'failed',
+        message: body?.message ?? null,
+      });
+    }
+  } catch {
+    setBugReport(fingerprint, { status: 'failed', message: null });
   }
 }
 

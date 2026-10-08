@@ -1859,7 +1859,11 @@
     "appErrors": {
       "title": "Fluke가 앱 오류를 감지했습니다",
       "count": "x {{count}}",
-      "ignore": "무시"
+      "ignore": "무시",
+      "reportBug": "버그로 신고",
+      "reporting": "신고 중…",
+      "issue": "Issue #{{number}}",
+      "retry": "다시 시도"
     },
     "eventsBatch_one": "앱 이벤트 {{count}}건",
     "eventsBatch_other": "앱 이벤트 {{count}}건",

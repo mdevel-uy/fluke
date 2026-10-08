@@ -1859,7 +1859,11 @@
     "appErrors": {
       "title": "Fluke 检测到应用错误",
       "count": "x {{count}}",
-      "ignore": "忽略"
+      "ignore": "忽略",
+      "reportBug": "报告为 Bug",
+      "reporting": "正在报告…",
+      "issue": "Issue #{{number}}",
+      "retry": "重试报告"
     },
     "eventsBatch_one": "{{count}} 个应用事件",
     "eventsBatch_other": "{{count}} 个应用事件",
