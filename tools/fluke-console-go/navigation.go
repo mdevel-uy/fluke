@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -13,14 +14,22 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 	if strings.HasPrefix(key, "alt+") && len(key) == 5 && key[4] >= '1' && key[4] <= '7' {
 		key = "f" + key[4:]
 	}
+	if m.home && !m.config && !m.githubOpen && !m.review.open && !m.projects.open && m.view == 0 && m.pane == 0 && len(m.state.Projects) > 0 && (key == "f2" || key == "f3" || key == "f4" || key == "f6" || key == "f7") {
+		m.repo = m.state.Projects[m.selected%len(m.state.Projects)]
+		m.selected, m.chatScroll = 0, 0
+	}
 	switch key {
 	case "f1", "f2", "f3", "f4":
 		m.closePanels()
 		m.view = int(key[1] - '1')
+		m.home = m.view == 0
+		if m.view == 1 && m.repo == "" {
+			m.home, m.view = true, 0
+			m.notice = localText("Create or open a project first: N / O.", "Primero creá o abrí un proyecto: N / O.")
+		}
 		m.selected = 0
 		m.pane = 0
 		if m.view == 0 {
-			m.pane = 1
 			for i, repo := range m.state.Projects {
 				if repo == m.repo {
 					m.selected = i
@@ -62,26 +71,50 @@ func (m *model) globalKey(key string) (bool, tea.Cmd) {
 		return true, nil
 	case "f6":
 		m.closePanels()
+		if m.repo == "" {
+			m.openConfig()
+			m.configSection = 1
+			return true, m.refreshGithubAuth()
+		}
 		m.githubOpen = true
 		return true, m.queryGithub(0, "")
 	case "f7":
 		if m.review.open {
-			m.review.open = false
-			m.review.generation++
 			return true, nil
+		}
+		task := Task{}
+		if m.view == 3 {
+			if index := m.selectedDecision(); index >= 0 {
+				for _, candidate := range m.projectTasks() {
+					if candidate.ID == m.state.Decisions[index].TaskID {
+						task = candidate
+						break
+					}
+				}
+			}
+		} else if m.view == 2 {
+			for _, candidate := range m.state.Tasks {
+				if w := m.terminalFor(candidate.ID); w != nil && len(m.terminals.Windows) > 0 && w == m.terminals.Windows[m.terminals.FocusedWindow] {
+					task = candidate
+					break
+				}
+			}
+		} else if tasks := m.projectTasks(); len(tasks) > 0 {
+			task = tasks[m.selected%len(tasks)]
+		}
+		if task.Repo != "" {
+			m.repo = task.Repo
 		}
 		m.closePanels()
-		tasks := m.projectTasks()
-		if len(tasks) == 0 {
-			m.notice = uiText("Todavía no hay tareas para revisar. F2 muestra el plan del proyecto.")
-			return true, nil
-		}
-		return true, m.review.start(tasks[m.selected%len(tasks)])
+		return true, m.review.start(task)
 	}
 	return false, nil
 }
 
 func (m *model) closePanels() {
+	if !m.projects.busy {
+		m.projects.open = false
+	}
 	m.closeWorkerMessage()
 	m.terminals.endMouse()
 	m.config = false
@@ -120,10 +153,16 @@ func (m *model) sessionSummary() (string, string) {
 		}
 		return uiText("NECESITA TU ATENCIÓN"), uiText("F3 abre la autorización o pregunta de la CLI")
 	case "working":
+		if !s.ReplyStarted.IsZero() {
+			return uiText("TRABAJANDO"), fmt.Sprintf(localText("Waiting for %s's reply · %ds · F3 opens the session", "Esperando la respuesta de %s · %ds · F3 abre la sesión"), s.Provider, int(time.Since(s.ReplyStarted).Seconds()))
+		}
 		return uiText("TRABAJANDO"), uiText("Fluke está procesando el pedido")
 	case "idle":
 		if s.ChatSending {
 			return uiText("ENVIANDO"), uiText("Tu mensaje está guardado y pendiente de entrega")
+		}
+		if !s.ReplyStarted.IsZero() {
+			return localText("AWAITING REPLY", "ESPERANDO RESPUESTA"), localText("CLI is idle; F3 shows its reply or any permission request", "La CLI está en espera; F3 muestra su respuesta o permisos pendientes")
 		}
 		return uiText("DISPONIBLE"), uiText("Fluke espera tu próximo mensaje")
 	default:
@@ -137,7 +176,7 @@ func configLabel(a *AgentConfig) string {
 	}
 	name := a.Model
 	if name == "" {
-		name = uiText("predeterminado")
+		name = localText("default", "predeterminado")
 	}
 	return fmt.Sprintf("%s / %s", a.Provider, name)
 }

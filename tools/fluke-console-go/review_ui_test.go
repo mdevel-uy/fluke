@@ -43,7 +43,7 @@ func TestReviewPanelGenerationAndScroll(t *testing.T) {
 }
 
 func TestReviewPanelSanitizesAndFits(t *testing.T) {
-	panel := reviewPanel{open: true, task: Task{Title: "Title\x1b[31mRED\x1b[0m\x07", Branch: "codex/fluke/t123"}, data: taskReview{
+	panel := reviewPanel{open: true, task: Task{ID: "t123", Title: "Title\x1b[31mRED\x1b[0m\x07", Branch: "codex/fluke/t123"}, data: taskReview{
 		Summary: "file | 2 ++", Status: "?? new.txt", Untracked: []string{"new.txt"},
 		Diff: "+safe\x1b]52;c;stolen\x07\n-deleted\n@@ hunk @@\n", Truncated: true,
 	}}

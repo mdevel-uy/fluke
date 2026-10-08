@@ -129,14 +129,14 @@ func (m *model) setupView() string {
 		body += "\n" + setupChoice(connected, !p.githubLocal) + "\n" + setupChoice(localText("Continue locally", "Seguir localmente"), p.githubLocal)
 		keys = localText("[Tab · ↑/↓] Choose  [Enter] Continue  [R] Refresh", "[Tab · ↑/↓] Elegir  [Enter] Seguir  [R] Actualizar")
 	case 4:
-		body = strong(localText("ONE REPOSITORY, ONE PROJECT", "UN REPOSITORIO, UN PROYECTO"), lime) + "\n" + wrap(localText("Open an existing Git repository. Fluke keeps its tasks, isolated worktrees and sessions together.", "Abrí un repositorio Git existente. Fluke mantiene juntas sus tareas, worktrees aislados y sesiones."), inside) + "\n\n"
+		body = strong(localText("YOUR FIRST PROJECT / OPTIONAL", "TU PRIMER PROYECTO / OPCIONAL"), lime) + "\n" + wrap(localText("Open a Git repository now, or leave this blank to start with the global overview. You can create and open projects there anytime.", "Abrí un repositorio Git ahora, o dejá esto vacío para comenzar en la vista global. Ahí podés crear y abrir proyectos cuando quieras."), inside) + "\n\n"
 		body += strong(localText("REPOSITORY PATH", "RUTA DEL REPOSITORIO"), cyan) + "\n" + wrap(p.repoDraft+"▌", inside) + "\n\n"
 		if p.repoBusy {
 			body += accent(localText("Checking repository…", "Comprobando repositorio…"), cyan)
 		} else {
 			body += accent(localText("~ and paths with spaces work here.", "Podés usar ~ y rutas con espacios."), muted)
 		}
-		keys = localText("[Enter] Open project  [Ctrl+U] Clear path", "[Enter] Abrir proyecto  [Ctrl+U] Limpiar ruta")
+		keys = localText("[Enter] Continue · blank skips  [Ctrl+U] Clear path", "[Enter] Seguir · vacío saltea  [Ctrl+U] Limpiar ruta")
 	case 5:
 		body = strong(localText("KEEP YOUR MACHINE RESPONSIVE", "QUE TU MÁQUINA SIGA ÁGIL"), lime) + "\n" + wrap(localText("Choose the maximum number of workers running at once, shared by every project.", "Elegí el máximo de workers simultáneos, compartido por todos los proyectos."), inside) + "\n\n"
 		body += strong(localText("WORKER LIMIT / ", "LÍMITE DE WORKERS / ")+p.limitDraft+"▌", pink) + "\n" + accent(fmt.Sprintf(localText("%d logical CPU cores detected", "%d núcleos lógicos de CPU detectados"), runtime.NumCPU()), muted) + "\n\n"
@@ -147,7 +147,11 @@ func (m *model) setupView() string {
 		if a := m.state.Orchestrator; a != nil {
 			body += strong(localText("ORCHESTRATOR   ", "ORQUESTADOR    "), cyan) + configLabel(a) + "\n"
 		}
-		body += strong(localText("PROJECT        ", "PROYECTO       "), cyan) + filepath.Base(m.repo) + "\n" + accent(wrap(m.repo, inside), muted) + "\n"
+		project := localText("Global overview · create or open projects later", "Vista global · creá o abrí proyectos después")
+		if m.repo != "" {
+			project = filepath.Base(m.repo) + "\n" + accent(wrap(m.repo, inside), muted)
+		}
+		body += strong(localText("PROJECTS       ", "PROYECTOS      "), cyan) + project + "\n"
 		github := localText("local work · connect later", "trabajo local · conectar después")
 		if !p.githubLocal && m.auth.Username != "" {
 			github = m.auth.Username

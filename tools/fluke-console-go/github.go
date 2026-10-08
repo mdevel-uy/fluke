@@ -31,6 +31,9 @@ type githubSnapshot struct {
 }
 type githubResult struct {
 	Repo       string
+	RemoteURL  string
+	RepoName   string
+	Number     int
 	Snapshot   githubSnapshot
 	Issue      *githubIssue
 	Acceptance string
@@ -95,12 +98,12 @@ func readGithub(repo string, number int, acceptance string) githubResult {
 	return readGithubContext(ctx, repo, number, acceptance)
 }
 func readGithubContext(ctx context.Context, repo string, number int, acceptance string) githubResult {
-	r := githubResult{Repo: repo, Acceptance: acceptance}
+	r := githubResult{Repo: repo, Number: number, Acceptance: acceptance}
 	fail := func(err error) githubResult { r.Snapshot.Error = err.Error(); return r }
 	if _, err := exec.LookPath("gh"); err != nil {
 		return fail(errors.New(uiText("instalá GitHub CLI (gh) y ejecutá gh auth login")))
 	}
-	remote, err := git(repo, "remote", "get-url", "origin")
+	remote, err := dependencyGit(ctx, repo, "remote", "get-url", "origin")
 	if err != nil {
 		return fail(errors.New(uiText("este repo no tiene un origin accesible; configurá git remote add origin URL")))
 	}
@@ -108,13 +111,24 @@ func readGithubContext(ctx context.Context, repo string, number int, acceptance 
 	if err != nil {
 		return fail(err)
 	}
+	r.RemoteURL, r.RepoName = remote, name
 	if err = ghJSON(ctx, repo, &r.Snapshot, "repo", "view", name, "--json", "nameWithOwner,url"); err != nil {
 		return fail(err)
+	}
+	if !strings.EqualFold(r.Snapshot.Name, name) || r.Snapshot.URL != "https://github.com/"+r.Snapshot.Name {
+		return fail(errors.New(localText("GitHub returned a different repository", "GitHub devolvió otro repositorio")))
 	}
 	if number > 0 {
 		issue := githubIssue{}
 		if err = ghJSON(ctx, repo, &issue, "issue", "view", strconv.Itoa(number), "--repo", name, "--json", "number,title,body,url"); err != nil {
 			return fail(err)
+		}
+		if issue.Number != number || issue.URL != r.Snapshot.URL+"/issues/"+strconv.Itoa(number) {
+			return fail(errors.New(localText("GitHub returned a different issue", "GitHub devolvió otra issue")))
+		}
+		current, err := dependencyGit(ctx, repo, "remote", "get-url", "origin")
+		if err != nil || current != remote {
+			return fail(errors.New(localText("origin changed during the query; refresh before importing", "origin cambió durante la consulta; actualizá antes de importar")))
 		}
 		issue.Title, issue.Body = ansi.Strip(issue.Title), ansi.Strip(issue.Body)
 		r.Issue = &issue
@@ -149,6 +163,9 @@ func (m *model) queryGithub(number int, acceptance string) tea.Cmd {
 func (m *model) receiveGithub(r githubResult) {
 	delete(m.githubCancel, r.Repo)
 	old := m.github[r.Repo]
+	if r.Snapshot.Error == "" && r.Issue != nil && (r.Number <= 0 || r.Issue.Number != r.Number || !strings.EqualFold(r.RepoName, r.Snapshot.Name) || r.Issue.URL != "https://github.com/"+r.Snapshot.Name+"/issues/"+strconv.Itoa(r.Number)) {
+		r.Snapshot.Error = localText("GitHub returned a different issue", "GitHub devolvió otra issue")
+	}
 	if r.Snapshot.Error != "" {
 		old.Loading, old.Error = false, r.Snapshot.Error
 		m.github[r.Repo] = old

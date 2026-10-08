@@ -6,13 +6,32 @@ sessions. Herdr and Tuios informed the research; neither is embedded.
 
 ## Linux / Omarchy
 
+### Build from GitHub
+
+The repository is private; cloning requires an account with access. Install
+Git and Go 1.26.6 or newer, then run:
+
+```sh
+git clone --branch codex/fluke-console-go https://github.com/mdevel-uy/fluke.git
+cd fluke/tools/fluke-console-go
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o fluke .
+./fluke --lang es
+```
+
+This builds only the Go console, without the web app or Rust backend. To use
+agents, install and authenticate Codex CLI or Claude Code. GitHub CLI (`gh`)
+is optional. Go is required to build, but not to run the resulting executable.
+
+### Install a prebuilt executable
+
 Install the Linux executable as `fluke` in a directory on your PATH:
 
 ```sh
 mkdir -p ~/.local/bin
 install -m755 ./fluke-console-linux-amd64 ~/.local/bin/fluke
-cd ~/your-project
 fluke
+# Or open one repository directly:
+fluke --repo ~/your-project
 ```
 
 Use the arm64 executable on an ARM machine. If `~/.local/bin` is not on PATH,
@@ -41,8 +60,9 @@ borders throughout setup; choices, input fields and authorization codes stay int
    access is only confirmed when a session starts.
 3. **GitHub:** connect with the device code, use an existing account, or continue
    locally. Connecting requires `gh`; provider credentials stay with the CLI.
-4. **Project:** select an existing Git repository. Paths with spaces and `~`
-   work. Fluke does not initialize, clone or alter a repository during selection.
+4. **First project (optional):** select an existing Git repository, or leave
+   the path blank to start with the global overview. Paths with spaces and `~`
+   work. Project selection does not change existing files.
 5. **Workers:** set the global concurrency limit, shared across all projects.
    Each worker owns one task; multiple workers handle different tasks.
 6. **Ready:** enter Fluke and describe your goal. No model session starts until
@@ -50,22 +70,43 @@ borders throughout setup; choices, input fields and authorization codes stay int
 
 Setup saves progress as you advance. Esc goes back; Ctrl+Q exits. Run
 `fluke --setup` to revisit setup, or `fluke --lang es` to select Spanish.
-Starting outside a Git repository opens project selection.
+With no `--repo`, Fluke opens the global overview after setup.
+
+## Create a project from scratch
+
+Press **F1 → N**, enter a name, then press Enter to edit the destination folder.
+Choose a folder that does not exist yet and press Enter again. Fluke creates
+the folder, initializes Git on `main` and makes an empty initial commit. It
+then opens the project's chat: describe what you want to build and agree on
+the goal before workers start. Existing folders are preserved. No repository
+is published to GitHub during creation.
+
+Press **F1 → O** to open an existing repository. In F1, arrows select a project;
+Enter opens its tasks and **C** opens its conversation. Other sessions keep
+running, and workers share one global concurrency limit.
 
 ## Everyday controls
 
-- **F1:** talk to Fluke and see the project overview.
-- **F2:** goal, plan, tasks and workers.
+- **F1:** all projects, create/open a project and global attention.
+- **F2:** selected project's goal, tasks, workers and conversation; Tab changes panel.
 - **F3:** inspect or talk directly to a worker session.
 - **F4:** decisions about product and scope.
 - **F5:** harness/model, worker limit and GitHub settings. Ctrl+E changes the UI
-  language; Ctrl+Enter applies a different model to the orchestrator.
+  language; Ctrl+Enter applies a different model to the current project's
+  orchestrator. From F1 it saves defaults without restarting background sessions.
 - **F6:** browse/import GitHub issues.
 - **F7:** inspect changes, accept a delivery, preview local integration or
   prepare/edit a draft pull request. Confirm before writing to Git/GitHub.
 - **Alt+1–Alt+7:** alternatives when the desktop reserves function keys.
 - **Ctrl+K:** command line; **Ctrl+X:** manage terminal windows;
   **Ctrl+Y:** copy the visible conversation, session or review.
+
+In chat, `:` is ordinary text; use Ctrl+K for commands. Ctrl+U clears the draft.
+F7 follows the selected task, the task linked to a decision in F4, or the
+focused worker in F3. A decision without a task opens an empty review.
+On smaller terminals, Tab in F4 switches between the decision and project chat.
+Messages whose delivery cannot be confirmed remain marked as uncertain:
+check the native session before resending them.
 
 In F2 select a task and press **m**, or use **Ctrl+X → m** on its F3 session,
 to write directly to that worker. The message editor saves your instruction

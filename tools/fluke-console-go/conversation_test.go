@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/hinshun/vt10x"
 	"os"
 	"path/filepath"
@@ -41,6 +42,9 @@ func TestQueuedChatFreesComposerWithoutErasingNextDraft(t *testing.T) {
 	// A second intentionally identical draft must survive the first send's ack.
 	m.chatDraft[repo] = "Continuá"
 	m.receiveChatSent(*m.orchestration[repo].PendingChat)
+	if m.orchestration[repo].ReplyStarted.IsZero() {
+		t.Fatal("missing reply wait after delivery")
+	}
 	if m.chatDraft[repo] != "Continuá" || m.state.Conversations[repo][0].Delivery != "sent" {
 		t.Fatal("confirmar el envío borró un borrador humano nuevo")
 	}
@@ -72,6 +76,9 @@ func TestConversationReportsAndQueuedInput(t *testing.T) {
 	_ = atomicJSON(filepath.Join(dir, "update.json"), report)
 	m.readOrchestratorMessages()
 	m.readOrchestratorMessages()
+	if !s.ReplyStarted.IsZero() {
+		t.Fatal("reply left the wait active")
+	}
 	if len(m.state.Conversations[repo]) != 1 || s.Notify {
 		t.Fatal("duplicate report / reply wakes itself")
 	}
@@ -125,5 +132,94 @@ func TestConversationReportsAndQueuedInput(t *testing.T) {
 	m.readOrchestratorMessages()
 	if len(m.state.Conversations[repo]) != 2 {
 		t.Fatal("malformed message changed transcript")
+	}
+}
+
+func TestPendingChatBecomesUncertainWhenSessionEnds(t *testing.T) {
+	for _, writing := range []bool{false, true} {
+		t.Run(fmt.Sprint(writing), func(t *testing.T) {
+			store, state, err := openStore(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.lock.Close()
+			repo := t.TempDir()
+			m := newModel(store, state, repo)
+			w := &terminalWindow{ID: "chat", screen: vt10x.New(vt10x.WithSize(80, 20))}
+			_, _ = w.screen.Write([]byte("\x1b]0;Action Required\x07"))
+			m.terminals.Windows = []*terminalWindow{w}
+			m.sessions["fluke:"+repo] = w.ID
+			s := &orchestratorSession{RunID: "run", Provider: "codex"}
+			m.orchestration[repo] = s
+			m.sendChat("Keep my request")
+			pending := *s.PendingChat
+			s.ChatWriting = writing
+			w.exited.Store(true)
+			if m.dispatchChats() != nil || s.PendingChat != nil || s.ChatSending || m.state.Conversations[repo][0].Delivery != "uncertain" {
+				t.Fatal("ended session retained pending delivery")
+			}
+			// A late successful write must not overwrite the uncertainty established on shutdown.
+			m.receiveChatSent(pending)
+			if m.state.Conversations[repo][0].Delivery != "uncertain" {
+				t.Fatal("late ack changed uncertainty")
+			}
+			data, err := os.ReadFile(filepath.Join(store.dir, "state.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), `"delivery": "uncertain"`) || !strings.Contains(string(data), "Keep my request") {
+				t.Fatal("uncertainty was not durable")
+			}
+		})
+	}
+}
+
+func TestChatDeliverySaveFailureCannotResend(t *testing.T) {
+	store, state, err := openStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.lock.Close()
+	repo := t.TempDir()
+	m := newModel(store, state, repo)
+	w := &terminalWindow{ID: "chat", screen: vt10x.New(vt10x.WithSize(80, 20))}
+	_, _ = w.screen.Write([]byte("\x1b]0;Action Required\x07"))
+	m.terminals.Windows = []*terminalWindow{w}
+	m.sessions["fluke:"+repo] = w.ID
+	s := &orchestratorSession{RunID: "run", Provider: "codex"}
+	m.orchestration[repo] = s
+	m.sendChat("Do not resend me")
+	pending := *s.PendingChat
+	file := filepath.Join(store.dir, "state.json")
+	if err = os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Mkdir(file, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if m.receiveChatSent(pending) || s.PendingChat == nil || !s.ChatWriting || m.state.Conversations[repo][0].Delivery != "pending" {
+		t.Fatal("save failure lost pending delivery")
+	}
+	_, _ = w.screen.Write([]byte("\x1b]0;Codex\x07"))
+	if m.dispatchChats() != nil {
+		t.Fatal("possibly sent chat dispatched again")
+	}
+	w.exited.Store(true)
+	if m.failPendingChat(repo) || s.PendingChat == nil {
+		t.Fatal("failed uncertain save discarded pending delivery")
+	}
+	m.state.Orchestrator = &AgentConfig{Provider: "codex", Executable: "codex"}
+	if m.startSession("", false) != nil || m.preparing {
+		t.Fatal("restart lost unpersisted delivery")
+	}
+	m.stop("fluke:" + repo)
+	if m.orchestration[repo] != s || m.terminalFor("fluke:"+repo) != w {
+		t.Fatal("stop discarded unpersisted delivery")
+	}
+	if err = os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if !m.failPendingChat(repo) || s.PendingChat != nil || m.state.Conversations[repo][0].Delivery != "uncertain" {
+		t.Fatal("uncertain persistence retry failed")
 	}
 }

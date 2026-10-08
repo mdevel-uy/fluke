@@ -47,6 +47,10 @@ func (p *reviewPanel) start(task Task) tea.Cmd {
 	p.lines = nil
 	p.integration, p.integrationLoading = nil, false
 	p.publication, p.publicationLoading, p.publicationEditing = nil, false, 0
+	if task.ID == "" {
+		p.loading = false
+		return nil
+	}
 	generation := p.generation
 	return func() tea.Msg {
 		data, err := inspectTaskChanges(task)
@@ -69,7 +73,7 @@ func (p *reviewPanel) receive(result taskReviewResult) {
 func (p *reviewPanel) key(key string, width, height int) tea.Cmd {
 	page := max(1, height-8)
 	switch key {
-	case "esc", "f7":
+	case "esc":
 		p.open = false
 		p.generation++
 	case "r":
@@ -102,6 +106,8 @@ func (p *reviewPanel) content(width int) []string {
 	p.lineWidth = width
 	plain := ""
 	switch {
+	case p.task.ID == "":
+		plain = localText("NO TASK TO REVIEW\n\nF2 shows the project plan.\nOnce a worker delivers, you can review its changes here.", "TODAVÍA NO HAY TAREAS PARA REVISAR\n\nF2 muestra el plan del proyecto.\nCuando haya una entrega, podés revisar sus cambios acá.")
 	case p.publicationLoading:
 		plain = p.publicationText()
 	case p.integrationLoading:
@@ -180,6 +186,9 @@ func (p *reviewPanel) view(width, height int) string {
 	end := min(len(lines), p.scroll+page)
 	header := accent(reviewText(p.task.Title), pink) + "\n" + accent(reviewText(p.task.Branch), muted)
 	header += "\n" + accent(fmt.Sprintf(uiText("[PgUp/PgDn] Leer  [r] Actualizar  [Esc] Volver  ·  %d–%d/%d"), p.scroll+1, end, len(lines)), cyan)
+	if p.task.ID == "" {
+		header = accent(localText("[F2] Open project  [Esc] Return", "[F2] Ver proyecto  [Esc] Volver"), cyan)
+	}
 	if p.task.Status == "awaiting_review" && !p.loading && p.err == nil {
 		header += accent(uiText("  [a] Aceptar  [c] Pedir cambios"), lime)
 	}

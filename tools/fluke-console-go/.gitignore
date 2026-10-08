@@ -1,6 +1,8 @@
 /fluke-console.exe
+/fluke-console-next.exe
 /fluke-console
 /fluke-console-linux-amd64
 /fluke-console-linux-arm64
 /fluke-console-darwin-arm64
 /captures/
+/context.json

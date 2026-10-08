@@ -58,7 +58,11 @@ func (m *model) brandHeader(tabs string) string {
 		strong(uiText("PROYECTO: ")+filepath.Base(m.repo), cyan) + accent("  ·  "+tailText(m.repo, max(1, infoWidth-ansi.StringWidth(filepath.Base(m.repo))-15)), muted),
 		workerCapacity(m.liveWorkers(), m.state.MaxWorkers, 8) + accent(fmt.Sprintf(uiText("   %d decisiones pendientes"), pending), attentionInk(pending)),
 	}
-	if m.state.PausedProjects[m.repo] {
+	if m.home {
+		info[0] = strong(localText("ALL YOUR PROJECTS, IN MOTION", "TODOS TUS PROYECTOS, EN MARCHA"), cyan)
+		info[1] = strong(fmt.Sprintf(localText("%d PROJECTS", "%d PROYECTOS"), len(m.state.Projects)), cyan) + accent(localText("  ·  [N] Create  [O] Open", "  ·  [N] Crear  [O] Abrir"), muted)
+	}
+	if !m.home && m.state.PausedProjects[m.repo] {
 		info[0] = strong(uiText("PROYECTO EN PAUSA"), amber) + accent(uiText("  /  FLUKE DISPONIBLE"), cyan)
 	}
 	lines := []string{accent("┌"+strings.Repeat("─", max(0, w-2))+"┐", cyan)}
@@ -112,14 +116,13 @@ func brandComposer(draft string, w int, focused bool) string {
 	if focused {
 		ink = cyan
 	}
-	prompt := draft
-	if prompt == "" {
-		prompt = accent(uiText("Hablá con Fluke…"), muted)
-	}
-	prompt = tailText(strings.ReplaceAll(prompt, "\n", " "), w-7)
+	prompt := tailText(strings.ReplaceAll(draft, "\n", " "), w-6)
 	input := strong("> ", ink) + prompt
 	if focused {
-		input += strong(" ▌", cyan)
+		input += strong("▌", cyan)
+	}
+	if draft == "" {
+		input += accent(tailText(uiText("Hablá con Fluke…"), w-6), muted)
 	}
 	return accent("┌"+strings.Repeat("─", w-2)+"┐", ink) + "\n" + accent("│", ink) + fit(" "+input, w-2, 1) + accent("│", ink) + "\n" + accent("└"+strings.Repeat("─", w-2)+"┘", ink)
 }
@@ -141,7 +144,13 @@ func tailText(s string, w int) string {
 	if w == 1 {
 		return "…"
 	}
-	return ansi.TruncateLeft(s, ansi.StringWidth(s)-w+1, "…")
+	cut := ansi.StringWidth(s) - w + 1
+	tail := ansi.TruncateLeft(s, cut, "…")
+	for ansi.StringWidth(tail) > w {
+		cut++
+		tail = ansi.TruncateLeft(s, cut, "…")
+	}
+	return tail
 }
 func shortBranch(s string) string {
 	return strings.TrimPrefix(s, "codex/fluke/")[:min(9, len(strings.TrimPrefix(s, "codex/fluke/")))]
