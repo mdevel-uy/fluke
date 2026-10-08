@@ -1871,7 +1871,24 @@
     "appErrors": {
       "title": "Fluke a détecté une erreur de l’application",
       "count": "x {{count}}",
-      "ignore": "Ignorer"
+      "ignore": "Ignorer",
+      "reportBug": "Signaler comme bug",
+      "reporting": "Signalement…",
+      "issue": "Issue #{{number}}",
+      "retry": "Réessayer",
+      "reportErrors": {
+        "auth": "Session GitHub absente ou expirée. Connectez-vous à GitHub dans les paramètres.",
+        "forbidden": "GitHub a refusé l’accès au dépôt.",
+        "not_found": "Dépôt introuvable ou accès refusé.",
+        "rejected": "GitHub a rejeté l’issue.",
+        "rate_limited": "Limite GitHub atteinte. Réessayez dans quelques minutes.",
+        "network": "Impossible de joindre GitHub. Vérifiez votre connexion.",
+        "gh_missing": "La CLI GitHub (gh) n’est pas installée.",
+        "gone": "Cette erreur n’est plus active.",
+        "unexpected": "Réponse inattendue de GitHub.",
+        "other": "Échec de la CLI GitHub",
+        "unknown": "Le signalement n’a pas pu être envoyé."
+      }
     },
     "eventsBatch_one": "{{count}} événement de l'app",
     "eventsBatch_other": "{{count}} événements de l'app",

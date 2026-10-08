@@ -1859,7 +1859,24 @@
     "appErrors": {
       "title": "Fluke 偵測到應用程式錯誤",
       "count": "x {{count}}",
-      "ignore": "忽略"
+      "ignore": "忽略",
+      "reportBug": "回報為 Bug",
+      "reporting": "回報中…",
+      "issue": "Issue #{{number}}",
+      "retry": "重試回報",
+      "reportErrors": {
+        "auth": "缺少 GitHub 工作階段或已過期。請在設定中登入 GitHub。",
+        "forbidden": "GitHub 拒絕存取該儲存庫。",
+        "not_found": "找不到儲存庫，或你沒有存取權限。",
+        "rejected": "GitHub 拒絕了該 issue。",
+        "rate_limited": "已達 GitHub 速率限制，請幾分鐘後重試。",
+        "network": "無法連線至 GitHub，請檢查網路。",
+        "gh_missing": "未安裝 GitHub CLI (gh)。",
+        "gone": "此錯誤已不再作用中。",
+        "unexpected": "GitHub 傳回非預期的回應。",
+        "other": "GitHub CLI 失敗",
+        "unknown": "無法傳送回報。"
+      }
     },
     "eventsBatch_one": "{{count}} 個應用程式事件",
     "eventsBatch_other": "{{count}} 個應用程式事件",

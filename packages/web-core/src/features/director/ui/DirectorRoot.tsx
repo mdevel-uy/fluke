@@ -16,7 +16,7 @@ import { useUiPreferencesStore } from '@/shared/stores/useUiPreferencesStore';
 import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 import { useCurrentAppDestination } from '@/shared/hooks/useCurrentAppDestination';
 import { isFlukeDestination } from '@/shared/lib/routes/appNavigation';
-import { useDirectorStore } from '../model/useDirectorStore';
+import { type AppErrorNotice, useDirectorStore } from '../model/useDirectorStore';
 import {
   isWaitingForUser,
   missionLabel,
@@ -40,7 +40,11 @@ import {
 import { FlukeFocusDialog } from './FlukeFocusDialog';
 import { FlukeOrbParts } from './MissionRing';
 import { useFlukeEventsLive } from '../model/useFlukeEventsLive';
-import { useAppErrorsLive, ignoreAppError } from '../model/useAppErrorsLive';
+import {
+  useAppErrorsLive,
+  ignoreAppError,
+  reportAppErrorAsBug,
+} from '../model/useAppErrorsLive';
 
 /**
  * The Director ("Fluke" in the UI), mounted once in the app shell: a floating
@@ -88,17 +92,85 @@ function AppErrorBubbles() {
           <p className="mt-2 break-words text-body text-normal">
             {error.message}
           </p>
-          <button
-            type="button"
-            onClick={() => ignoreAppError(error.fingerprint)}
-            className="mt-3 min-h-8 rounded-md border border-border/60 px-3 text-label text-normal hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
-          >
-            {t('director.appErrors.ignore')}
-          </button>
+          <AppErrorActions error={error} />
         </section>
       ))}
     </div>,
     document.body
+  );
+}
+
+const REPORT_ERROR_CODES = [
+  'auth',
+  'forbidden',
+  'not_found',
+  'rejected',
+  'rate_limited',
+  'network',
+  'gh_missing',
+  'gone',
+  'unexpected',
+  'other',
+];
+
+const APP_ERROR_BUTTON =
+  'min-h-8 rounded-md border border-border/60 px-3 text-label text-normal hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:opacity-60';
+
+function AppErrorActions({ error }: { error: AppErrorNotice }) {
+  const { t } = useTranslation('common');
+  const report = useDirectorStore((s) => s.bugReports[error.fingerprint]);
+  const created =
+    report?.status === 'created'
+      ? report
+      : error.issue
+        ? { number: error.issue.number, url: error.issue.url }
+        : null;
+  const sending = report?.status === 'sending';
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => ignoreAppError(error.fingerprint)}
+          className={APP_ERROR_BUTTON}
+        >
+          {t('director.appErrors.ignore')}
+        </button>
+        {created ? (
+          <a
+            href={created.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-label text-brand underline"
+          >
+            {t('director.appErrors.issue', { number: created.number })}
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => void reportAppErrorAsBug(error.fingerprint)}
+            className={APP_ERROR_BUTTON}
+          >
+            {sending
+              ? t('director.appErrors.reporting')
+              : report?.status === 'failed'
+                ? t('director.appErrors.retry')
+                : t('director.appErrors.reportBug')}
+          </button>
+        )}
+      </div>
+      {report?.status === 'failed' && (
+        <p role="alert" className="mt-2 break-words text-label text-error">
+          {t(
+            `director.appErrors.reportErrors.${REPORT_ERROR_CODES.includes(report.code) ? report.code : 'unknown'}`
+          )}
+          {report.code === 'other' && report.detail
+            ? ` (${report.detail})`
+            : null}
+        </p>
+      )}
+    </div>
   );
 }
 

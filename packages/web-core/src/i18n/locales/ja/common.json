@@ -1859,7 +1859,24 @@
     "appErrors": {
       "title": "Fluke がアプリのエラーを検出しました",
       "count": "x {{count}}",
-      "ignore": "無視"
+      "ignore": "無視",
+      "reportBug": "バグとして報告",
+      "reporting": "報告中…",
+      "issue": "Issue #{{number}}",
+      "retry": "再試行",
+      "reportErrors": {
+        "auth": "GitHub のセッションがないか期限切れです。設定で GitHub にサインインしてください。",
+        "forbidden": "GitHub がリポジトリへのアクセスを拒否しました。",
+        "not_found": "リポジトリが見つからないか、アクセス権がありません。",
+        "rejected": "GitHub が issue を拒否しました。",
+        "rate_limited": "GitHub のレート制限に達しました。数分後に再試行してください。",
+        "network": "GitHub に接続できません。接続を確認してください。",
+        "gh_missing": "GitHub CLI (gh) がインストールされていません。",
+        "gone": "このエラーはすでに無効です。",
+        "unexpected": "GitHub から予期しない応答がありました。",
+        "other": "GitHub CLI が失敗しました",
+        "unknown": "報告を送信できませんでした。"
+      }
     },
     "eventsBatch_one": "アプリのイベント {{count}} 件",
     "eventsBatch_other": "アプリのイベント {{count}} 件",

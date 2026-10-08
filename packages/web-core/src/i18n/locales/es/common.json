@@ -2156,7 +2156,24 @@
     "appErrors": {
       "title": "Fluke detectó un error de la app",
       "count": "x {{count}}",
-      "ignore": "Ignorar"
+      "ignore": "Ignorar",
+      "reportBug": "Reportar como bug",
+      "reporting": "Reportando…",
+      "issue": "Issue #{{number}}",
+      "retry": "Reintentar reporte",
+      "reportErrors": {
+        "auth": "Falta la sesión de GitHub o expiró. Iniciá sesión en Ajustes.",
+        "forbidden": "GitHub denegó el acceso al repositorio.",
+        "not_found": "No se encontró el repositorio o no tenés acceso.",
+        "rejected": "GitHub rechazó el issue.",
+        "rate_limited": "Se alcanzó el límite de GitHub. Probá de nuevo en unos minutos.",
+        "network": "No se pudo conectar con GitHub. Revisá tu conexión.",
+        "gh_missing": "La CLI de GitHub (gh) no está instalada.",
+        "gone": "Este error ya no está activo.",
+        "unexpected": "GitHub respondió de forma inesperada.",
+        "other": "Falló la CLI de GitHub",
+        "unknown": "No se pudo enviar el reporte."
+      }
     },
     "eventsBatch_one": "{{count}} evento de la app",
     "eventsBatch_other": "{{count}} eventos de la app",

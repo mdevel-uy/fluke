@@ -1859,7 +1859,24 @@
     "appErrors": {
       "title": "Fluke 检测到应用错误",
       "count": "x {{count}}",
-      "ignore": "忽略"
+      "ignore": "忽略",
+      "reportBug": "报告为 Bug",
+      "reporting": "正在报告…",
+      "issue": "Issue #{{number}}",
+      "retry": "重试报告",
+      "reportErrors": {
+        "auth": "缺少 GitHub 会话或已过期。请在设置中登录 GitHub。",
+        "forbidden": "GitHub 拒绝访问该仓库。",
+        "not_found": "未找到仓库，或你没有访问权限。",
+        "rejected": "GitHub 拒绝了该 issue。",
+        "rate_limited": "已达到 GitHub 速率限制，请几分钟后重试。",
+        "network": "无法连接 GitHub，请检查网络。",
+        "gh_missing": "未安装 GitHub CLI (gh)。",
+        "gone": "此错误已不再活动。",
+        "unexpected": "GitHub 返回了意外的响应。",
+        "other": "GitHub CLI 失败",
+        "unknown": "无法发送报告。"
+      }
     },
     "eventsBatch_one": "{{count}} 个应用事件",
     "eventsBatch_other": "{{count}} 个应用事件",

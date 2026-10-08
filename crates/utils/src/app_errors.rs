@@ -141,6 +141,13 @@ pub struct AppError {
     pub context: ErrorContext,
 }
 
+/// GitHub issue created from an app error, remembered per fingerprint.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ReportedIssue {
+    pub number: i64,
+    pub url: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct AppErrorSummary {
     pub fingerprint: String,
@@ -150,6 +157,9 @@ pub struct AppErrorSummary {
     pub count: u64,
     pub first_seen: i64,
     pub last_seen: i64,
+    /// Present once the user reported this error as a GitHub issue.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue: Option<ReportedIssue>,
 }
 
 struct Counters {
@@ -184,6 +194,9 @@ pub struct Store {
     state: ArcSwap<StoreState>,
     logs: Mutex<VecDeque<String>>,
     revision: AtomicU64,
+    // Issues created from errors, by fingerprint. Grows only on a user-triggered
+    // report; released on restart like the rest of the store.
+    reported: Mutex<BTreeMap<String, ReportedIssue>>,
 }
 
 impl Default for Store {
@@ -192,6 +205,7 @@ impl Default for Store {
             state: ArcSwap::from_pointee(StoreState::default()),
             logs: Mutex::new(VecDeque::new()),
             revision: AtomicU64::new(0),
+            reported: Mutex::new(BTreeMap::new()),
         }
     }
 }
@@ -292,27 +306,58 @@ impl Store {
         }
     }
 
+    fn summarize(
+        entry: &StoredError,
+        reported: &BTreeMap<String, ReportedIssue>,
+    ) -> AppErrorSummary {
+        let e = &entry.error;
+        AppErrorSummary {
+            fingerprint: e.fingerprint.clone(),
+            message: e.message.clone(),
+            location: e.location.clone(),
+            source: e.source.clone(),
+            count: entry.counters.count.load(Ordering::Relaxed),
+            first_seen: e.first_seen,
+            last_seen: entry.counters.last_seen.load(Ordering::Relaxed),
+            issue: reported.get(&e.fingerprint).cloned(),
+        }
+    }
+
+    fn reported_map(&self) -> BTreeMap<String, ReportedIssue> {
+        self.reported
+            .lock()
+            .map(|reported| reported.clone())
+            .unwrap_or_default()
+    }
+
     fn snapshot(&self) -> (u64, Vec<AppErrorSummary>) {
         let revision = self.revision.load(Ordering::Acquire);
+        let reported = self.reported_map();
         let errors = self
             .state
             .load()
             .active
             .iter()
-            .map(|entry| {
-                let e = &entry.error;
-                AppErrorSummary {
-                    fingerprint: e.fingerprint.clone(),
-                    message: e.message.clone(),
-                    location: e.location.clone(),
-                    source: e.source.clone(),
-                    count: entry.counters.count.load(Ordering::Relaxed),
-                    first_seen: e.first_seen,
-                    last_seen: entry.counters.last_seen.load(Ordering::Relaxed),
-                }
-            })
+            .map(|entry| Self::summarize(entry, &reported))
             .collect();
         (revision, errors)
+    }
+
+    fn find(&self, fingerprint: &str) -> Option<AppErrorSummary> {
+        let reported = self.reported_map();
+        self.state
+            .load()
+            .active
+            .iter()
+            .find(|entry| entry.error.fingerprint == fingerprint)
+            .map(|entry| Self::summarize(entry, &reported))
+    }
+
+    fn set_reported(&self, fingerprint: &str, issue: ReportedIssue) {
+        if let Ok(mut reported) = self.reported.lock() {
+            reported.insert(fingerprint.to_owned(), issue);
+            self.revision.fetch_add(1, Ordering::Release);
+        }
     }
 
     fn ignore(&self, fingerprint: &str) -> bool {
@@ -371,6 +416,16 @@ pub fn snapshot() -> (u64, Vec<AppErrorSummary>) {
 }
 pub fn ignore(fingerprint: &str) -> bool {
     store().ignore(fingerprint)
+}
+
+/// Active error by fingerprint (same shape as a snapshot entry).
+pub fn find(fingerprint: &str) -> Option<AppErrorSummary> {
+    store().find(fingerprint)
+}
+
+/// Remember the issue created for a fingerprint so repeats never duplicate it.
+pub fn set_reported(fingerprint: &str, issue: ReportedIssue) {
+    store().set_reported(fingerprint, issue)
 }
 
 /// Execution domains are deliberately excluded by tracing target and spans.

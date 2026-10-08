@@ -2156,7 +2156,24 @@
     "appErrors": {
       "title": "Fluke detected an app error",
       "count": "x {{count}}",
-      "ignore": "Ignore"
+      "ignore": "Ignore",
+      "reportBug": "Report as bug",
+      "reporting": "Reporting…",
+      "issue": "Issue #{{number}}",
+      "retry": "Retry report",
+      "reportErrors": {
+        "auth": "GitHub session missing or expired. Sign in to GitHub in Settings.",
+        "forbidden": "GitHub denied access to the repository.",
+        "not_found": "The repository was not found or you do not have access to it.",
+        "rejected": "GitHub rejected the issue.",
+        "rate_limited": "GitHub rate limit reached. Try again in a few minutes.",
+        "network": "Could not reach GitHub. Check your connection.",
+        "gh_missing": "The GitHub CLI (gh) is not installed.",
+        "gone": "This error is no longer active.",
+        "unexpected": "GitHub answered with an unexpected response.",
+        "other": "GitHub CLI failed",
+        "unknown": "The report could not be sent."
+      }
     },
     "eventsBatch_one": "{{count}} app event",
     "eventsBatch_other": "{{count}} app events",
