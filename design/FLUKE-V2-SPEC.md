@@ -87,6 +87,8 @@ Valor visible de inmediato; funciona con los workers actuales, el "worker" de la
 | 2 | **F1.4 Play por milestone (orquestador)** · #666 | L | Tabla `milestone_runs`. Play encola la wave actual sin `pm:decision`; avanza cuando todos los de la wave están `done` (PR mergeado, merge humano); frena en `pm:decision` y en fallas; step mode; pausa; Reiniciar; Ejecutar todas; slots en cabecera; actualización en vivo. Hasta F2 asigna al developer con la cola más corta. |
 | 2 | **F1.5 Abrir el issue** · #667 | S | Ruta `/issues/$issueNumber` con cabecera y breadcrumb del mockup y el workspace de la tarea; card clickeable; "Abrir issue →" en el drawer; Ctrl+K por número. |
 
+Acceso al workspace (#830): la card del Plan y el nombre del worker en la Lista/agrupadas abren `/workspaces/{id}` sin hover cuando la tarea activa tiene `workspace_id`.
+
 ### F2 — Perfiles en vez de workers
 
 | Wave | Issue | Tamaño | Notas |

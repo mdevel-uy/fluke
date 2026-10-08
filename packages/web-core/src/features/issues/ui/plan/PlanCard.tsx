@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { phaseKindLabel } from '@/features/issues/lib/phaseLabel';
+import { ExternalLink } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IssueBlocker } from 'shared/types';
 import { cn } from '@/shared/lib/utils';
@@ -15,6 +16,7 @@ import type { WorkerTask } from '@/features/sprint/types';
 import { DesignArtifactLinks } from '@/features/sprint/ui/DesignArtifactLinks';
 import { workersKeys } from '@/features/workers';
 import { workersApi } from '@/shared/lib/api';
+import { useAppNavigation } from '@/shared/hooks/useAppNavigation';
 
 /**
  * One issue inside a wave column of the Plan view
@@ -91,6 +93,8 @@ export function PlanCard({
   task,
 }: PlanCardProps) {
   const { t } = useTranslation('common');
+  const appNavigation = useAppNavigation();
+  const workspaceId = task?.workspace_id;
   const tags = issue.labels
     .map((l) => l.name)
     .filter((name) => !isExecutionLabel(name) && name !== PM_DECISION_LABEL)
@@ -197,6 +201,23 @@ export function PlanCard({
               : state === 'review'
                 ? t('issues.plan.card.prReview', { name: workerName })
                 : t('issues.plan.card.workerBranch', { name: workerName })}
+        </div>
+      )}
+      {workspaceId && (
+        <div className="flex">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              appNavigation.goToWorkspace(workspaceId);
+            }}
+            title={t('issues.taskLinked.openWorkspace')}
+            aria-label={t('issues.taskLinked.openWorkspace')}
+            className="inline-flex items-center gap-1 rounded-md border border-md-outline-variant bg-md-surface-container px-2 py-0.5 text-xs text-high hover:border-md-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-md-primary"
+          >
+            <ExternalLink className="size-3" strokeWidth={1.75} />
+            {t('issues.taskLinked.openWorkspace')}
+          </button>
         </div>
       )}
       {designTask && <DesignApproval task={designTask} />}
