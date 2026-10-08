@@ -395,7 +395,10 @@ pub fn test_prompt(pr_number: i64, head_sha: &str) -> String {
         "Fase Testing del PR #{pr_number} (commit {head_sha}).\n\n\
          Validá el PR contra lo que promete el issue que cierra (`gh pr view {pr_number}`, \
          `gh pr diff {pr_number}`). Los checks (tests, typecheck, lint) los corre el CI: miralos con \
-         `gh pr checks {pr_number}` y si alguno falla es fail. No instales dependencias ni corras \
+         `gh pr checks {pr_number}` y si alguno falla es fail. Los checks de CI no son mandatorios: \
+         si el PR no tiene ninguno (`gh pr checks` informa que no hay checks), no es un fallo ni un \
+         bloqueo; seguí evaluando el alcance del issue sobre el diff, no exijas agregar checks y \
+         resolvé el veredicto solo por esa evaluación. No instales dependencias ni corras \
          builds, tests o typechecks vos: el worktree no tiene `node_modules` ni caché de build. \
          No modifiques código ni commitees.\n\n\
          Al terminar escribí tu veredicto en `{QA_JSON_RELATIVE_PATH}` con este formato exacto:\n\
