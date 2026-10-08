@@ -30,6 +30,8 @@ complements: REVIEW-LOOP-SPEC.md (loop dev↔reviewer), AGENT-ACTIONS-SPEC.md (o
 | 5 | Pantallas Workspaces y Source control | **Un workspace por issue**, compartido por todas las fases. Se ve en las pestañas Código y Sesiones del issue. El rail queda en Fluke, Issues, Perfiles, Settings. |
 | 6 | Una fase que se tranca queda en la sesión | **Trancado visible**: card roja + contador global + banner en el issue + drawer "Destrabar" con la explicación de Fluke, lo intentado, la pregunta del agente y salidas alternativas. |
 
+**Fase fallida y Retry (#822).** Toda fase que no puede completarse queda con la tarea en `failed`: el agente termina con error, Docs no logra publicar, o una compuerta (Testing, revisión de seguridad, etc.) no deja un veredicto válido en `.vk/*.json`, o Fluke no puede continuar el flujo tras el veredicto. Se reconoce en el plan del issue porque la fase aparece en rojo con el motivo y el botón Destrabar. En el drawer, "Reintentar" vuelve a encolar la última fase fallida sin crear tareas a mano; si el reintento vuelve a fallar, la fase sigue marcada como fallida y se puede reintentar de nuevo.
+
 ## 2. Estado del código que condiciona el plan
 
 Verificado el 02-oct en `main`:

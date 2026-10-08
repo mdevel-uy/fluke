@@ -1809,11 +1809,18 @@ pub async fn on_agent_finished(
     }
 
     // Gate passed → next gate or review; failed → back to the developer.
-    if let (Some(g), Some((verdict, reasons))) = (&gate, &gate_verdict)
-        && let Err(e) =
+    if let (Some(g), Some((verdict, reasons))) = (&gate, &gate_verdict) {
+        if verdict == qa_phases::VERDICT_ERROR {
+            // No valid verdict: the phase could not complete. Mark it failed
+            // so the plan shows it and Retry can requeue it (#822).
+            WorkerTask::set_failed_with_kind(pool, task.id, reasons, None).await?;
+        } else if let Err(e) =
             qa_phases::after_gate(config, db, container, &task, g, verdict, reasons).await
-    {
-        warn!(task_id = %task.id, "Failed to act on the gate verdict: {}", e);
+        {
+            warn!(task_id = %task.id, "Failed to act on the gate verdict: {}", e);
+            let msg = format!("No pude continuar el flujo tras la fase {}: {e}", g.label());
+            WorkerTask::set_failed_with_kind(pool, task.id, &msg, None).await?;
+        }
     }
     // Docs pushed → the PR monitor resumes the gates on the new head once its
     // CI is green; nothing to document → resume them now.
