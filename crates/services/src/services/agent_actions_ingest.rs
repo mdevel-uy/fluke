@@ -145,10 +145,25 @@ impl AgentActionDeclaration {
 /// Envelope for `.vk/actions.json`. Actions stay as raw JSON here so each
 /// element can be validated individually — a per-element failure then names
 /// the offending action (index + kind) instead of a bare serde message.
+///
+/// The canonical form is the object; a bare root array is accepted as read
+/// tolerance, since only the analyst is told the envelope (#834).
 #[derive(Debug, Clone, Deserialize)]
-struct ActionsFile {
-    #[serde(default)]
-    actions: Vec<serde_json::Value>,
+#[serde(untagged)]
+enum ActionsFile {
+    Envelope {
+        #[serde(default)]
+        actions: Vec<serde_json::Value>,
+    },
+    Bare(Vec<serde_json::Value>),
+}
+
+impl ActionsFile {
+    fn into_actions(self) -> Vec<serde_json::Value> {
+        match self {
+            Self::Envelope { actions } | Self::Bare(actions) => actions,
+        }
+    }
 }
 
 /// Cap on how much of the raw file travels into `failure_reason`. Enough to
@@ -244,8 +259,9 @@ fn parse_actions_file(path: &Path) -> Result<Vec<AgentActionDeclaration>, Ingest
     // Element-wise validation: the error names the offending action by index
     // and declared kind, instead of a bare serde message that leaves the
     // human hunting through the whole file.
-    let mut actions = Vec::with_capacity(file.actions.len());
-    for (index, value) in file.actions.into_iter().enumerate() {
+    let raw_actions = file.into_actions();
+    let mut actions = Vec::with_capacity(raw_actions.len());
+    for (index, value) in raw_actions.into_iter().enumerate() {
         let kind = value
             .get("kind")
             .and_then(|k| k.as_str())
@@ -410,6 +426,111 @@ mod tests {
         write_actions(tmp.path(), r#"{"actions":[]}"#);
         let actions = read_actions(tmp.path(), tmp.path()).unwrap();
         assert!(actions.is_empty());
+    }
+
+    const SAMPLE_ACTIONS: &str = r#"[
+        {"kind":"create_issue","title":"t","body":"b"},
+        {"kind":"comment_issue","issue":"{{action[0].number}}","body":"plan"},
+        {"kind":"comment_pr","pr":7,"body":"resumen"}
+    ]"#;
+
+    fn as_json(actions: &[AgentActionDeclaration]) -> Vec<serde_json::Value> {
+        actions
+            .iter()
+            .map(|a| serde_json::to_value(a).unwrap())
+            .collect()
+    }
+
+    /// Issue #834: a bare root array must read the same as the envelope.
+    #[test]
+    fn bare_array_parses_same_actions_in_same_order_as_object() {
+        let wrapped = tempfile::tempdir().unwrap();
+        write_actions(
+            wrapped.path(),
+            &format!(r#"{{"actions":{SAMPLE_ACTIONS}}}"#),
+        );
+        let bare = tempfile::tempdir().unwrap();
+        write_actions(bare.path(), SAMPLE_ACTIONS);
+
+        let from_object = read_actions(wrapped.path(), wrapped.path()).unwrap();
+        let from_array = read_actions(bare.path(), bare.path()).unwrap();
+        assert_eq!(from_array.len(), 3);
+        assert_eq!(as_json(&from_array), as_json(&from_object));
+        assert_eq!(from_array[0].kind_str(), "create_issue");
+        assert_eq!(from_array[1].kind_str(), "comment_issue");
+        assert_eq!(from_array[2].kind_str(), "comment_pr");
+    }
+
+    #[test]
+    fn bare_array_single_comment_pr_parses() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(tmp.path(), r#"[{"kind":"comment_pr","pr":342,"body":"ok"}]"#);
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 1);
+        match &actions[0] {
+            AgentActionDeclaration::CommentPr { pr, body } => {
+                assert_eq!(*pr, 342);
+                assert_eq!(body, "ok");
+            }
+            other => panic!("expected CommentPr, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_forms_are_valid_noops() {
+        for contents in [r#"{"actions":[]}"#, "{}", "[]", "  [ ]\n"] {
+            let tmp = tempfile::tempdir().unwrap();
+            write_actions(tmp.path(), contents);
+            let actions = read_actions(tmp.path(), tmp.path())
+                .unwrap_or_else(|e| panic!("{contents:?} must be a no-op, got {e}"));
+            assert!(actions.is_empty(), "{contents:?}");
+        }
+    }
+
+    #[test]
+    fn non_object_non_array_root_is_invalid_with_excerpt() {
+        for contents in [r#""hola""#, "42"] {
+            let tmp = tempfile::tempdir().unwrap();
+            write_actions(tmp.path(), contents);
+            let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+            match &err {
+                IngestError::InvalidActions { raw_excerpt, .. } => {
+                    assert_eq!(raw_excerpt, contents);
+                }
+                other => panic!("expected InvalidActions, got {other:?}"),
+            }
+            assert!(err.to_string().contains("Contenido declarado"));
+        }
+    }
+
+    #[test]
+    fn bare_array_invalid_element_names_index_and_kind() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"[
+                {"kind":"comment_issue","issue":1,"body":"ok"},
+                {"kind":"comment_pr","pr":"{{action[0].number}}","body":"x"}
+            ]"#,
+        );
+        let err = read_actions(tmp.path(), tmp.path()).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("acción [1]") && msg.contains("`comment_pr`"),
+            "error must name the offending action: {msg}"
+        );
+        assert!(msg.contains("Contenido declarado"), "{msg}");
+    }
+
+    #[test]
+    fn object_with_unknown_keys_still_parses() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_actions(
+            tmp.path(),
+            r#"{"version":1,"note":"x","actions":[{"kind":"comment_pr","pr":1,"body":"b"}]}"#,
+        );
+        let actions = read_actions(tmp.path(), tmp.path()).unwrap();
+        assert_eq!(actions.len(), 1);
     }
 
     #[test]
