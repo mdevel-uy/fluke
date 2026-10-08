@@ -1,0 +1,216 @@
+name: Fluke Console Release
+
+on:
+  push:
+    tags: ['console-v*']
+  pull_request:
+    paths:
+      - 'tools/fluke-console-go/**'
+      - '.github/workflows/release-console.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (X.Y.Z or X.Y.Z-beta.N)'
+        default: '0.1.0-beta.1'
+        required: true
+        type: string
+      dry_run:
+        description: 'Build and test only; do not create a release'
+        default: true
+        type: boolean
+      publish_npm:
+        description: 'Publish npm using the configured trusted publisher'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: console-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      npm_tag: ${{ steps.version.outputs.npm_tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - id: version
+        name: Validate version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import { releaseVersion } from './tools/fluke-console-go/distribution/release.mjs';
+          const tagged = process.env.GITHUB_REF.startsWith('refs/tags/console-v');
+          const version = releaseVersion(tagged ? process.env.GITHUB_REF.slice('refs/tags/console-v'.length) : process.env.REQUESTED_VERSION);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nnpm_tag=${version.includes('-') ? 'beta' : 'latest'}\n`);
+          JS
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            goos: linux
+          - runner: macos-15
+            goos: darwin
+          - runner: windows-2025
+            goos: windows
+    runs-on: ${{ matrix.runner }}
+    env:
+      CGO_ENABLED: '0'
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/fluke-console-go/go.mod
+          cache-dependency-path: tools/fluke-console-go/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Test on the native runner
+        working-directory: tools/fluke-console-go
+        run: go test -count=1 -timeout 10m ./...
+      - name: Test distribution scripts
+        run: node --test tools/fluke-console-go/distribution/distribution.test.mjs
+      - name: Build both architectures
+        env:
+          TARGET_OS: ${{ matrix.goos }}
+        run: |
+          node tools/fluke-console-go/distribution/build.mjs $env:TARGET_OS amd64 dist/console-binaries $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tools/fluke-console-go/distribution/build.mjs $env:TARGET_OS arm64 dist/console-binaries $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        shell: pwsh
+      - name: Smoke test native executable
+        shell: pwsh
+        env:
+          TARGET_OS: ${{ matrix.goos }}
+        run: |
+          $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'amd64' }
+          $extension = if ($env:TARGET_OS -eq 'windows') { '.exe' } else { '' }
+          & "./dist/console-binaries/fluke-console-$($env:TARGET_OS)-$arch$extension" --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-${{ matrix.goos }}
+          path: dist/console-binaries/*
+          if-no-files-found: error
+
+  package:
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: console-*
+          path: dist/console-binaries
+          merge-multiple: true
+      - name: Prepare archives, npm package and checksums
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: node tools/fluke-console-go/distribution/package.mjs dist/console-binaries dist/console-release "$RELEASE_VERSION"
+      - name: Verify the actual npm installation
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          npm install --global --prefix "$RUNNER_TEMP/fluke-install" dist/console-release/*.tgz
+          "$RUNNER_TEMP/fluke-install/bin/fluke" --version | grep -F "Fluke Console $RELEASE_VERSION (linux/amd64)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-release
+          path: |
+            dist/console-release/*.tar.gz
+            dist/console-release/*.tgz
+            dist/console-release/checksums.txt
+          if-no-files-found: error
+
+  install-test:
+    needs: [validate, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: console-release
+          path: release
+      - name: Install and run the packaged CLI
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          $package = Get-ChildItem release/*.tgz | Select-Object -First 1
+          $prefix = Join-Path $env:RUNNER_TEMP 'fluke-install'
+          npm install --global --prefix $prefix $package.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $command = if ($IsWindows) { Join-Path $prefix 'fluke.cmd' } else { Join-Path $prefix 'bin/fluke' }
+          $version = & $command --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not $version.Contains("Fluke Console $($env:RELEASE_VERSION) (")) { throw "Unexpected version: $version" }
+          Write-Output $version
+
+  release:
+    needs: [validate, install-test]
+    if: startsWith(github.ref, 'refs/tags/console-v') || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: console-release
+          path: release
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          args=()
+          if [[ "$RELEASE_VERSION" == *-* ]]; then args+=(--prerelease --latest=false); fi
+          gh release create "console-v$RELEASE_VERSION" release/* \
+            --target "$TARGET_SHA" --title "Fluke Console $RELEASE_VERSION" \
+            --notes "Fluke Console for Windows, Linux and macOS (x64 and ARM64). Includes native executables, npm package and SHA256 checksums. Git is required; Codex/Claude and their logins are configured separately." \
+            "${args[@]}"
+
+  publish-npm:
+    needs: [validate, release]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm && !inputs.dry_run
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: console-release
+          path: release
+      - name: Publish through the npm trusted publisher
+        env:
+          NPM_TAG: ${{ needs.validate.outputs.npm_tag }}
+        run: npm publish release/*.tgz --access public --tag "$NPM_TAG" --provenance

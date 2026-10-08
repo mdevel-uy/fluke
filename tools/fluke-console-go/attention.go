@@ -80,6 +80,9 @@ func (m *model) nativeAttention(key, provider string) (string, bool) {
 	if detectAgentState(provider, title, screen) != "blocked" {
 		return "", false
 	}
+	if claudeTrustPending(provider, screen) {
+		return localText("Claude is waiting for folder trust confirmation", "Claude espera que confirmes la confianza de la carpeta"), true
+	}
 	if limit := providerLimitMessage(provider, screen); limit != "" {
 		return attentionSummary(limit), true
 	}

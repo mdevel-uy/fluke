@@ -44,6 +44,10 @@ are development builds, not a release tested on Omarchy.
 
 ## First launch
 
+The initial GitHub Releases/npm distribution pipeline is documented in
+[`distribution/README.md`](distribution/README.md). Installation from npm
+becomes available after the first package publication; it is not yet published.
+
 Fluke starts with its animated whale-tail logo and original pixel wordmark.
 Enter starts setup immediately. Ctrl+L switches English and
 Spanish. Discovery runs locally without installing tools or using inference.

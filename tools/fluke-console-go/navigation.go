@@ -148,6 +148,9 @@ func (m *model) sessionSummary() (string, string) {
 	title, screen := w.agentSignals()
 	switch detectAgentState(s.Provider, title, screen) {
 	case "blocked":
+		if claudeTrustPending(s.Provider, screen) {
+			return uiText("NECESITA TU ATENCIÓN"), localText("F3: Claude asks whether you trust this folder. Confirm or cancel in its session.", "F3: Claude pide confirmar si confiás en esta carpeta. Confirmá o cancelá en su sesión.")
+		}
 		if limit := providerLimitMessage(s.Provider, screen); limit != "" {
 			return uiText("NECESITA TU ATENCIÓN"), limit
 		}
