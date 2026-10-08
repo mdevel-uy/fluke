@@ -24,6 +24,7 @@ complements: REVIEW-LOOP-SPEC.md (loop dev↔reviewer), AGENT-ACTIONS-SPEC.md (o
 |---|-----|-------|
 | 1 | Workers con nombre, cola propia, soul y PAT cada uno | **Perfiles** (Fullstack, Backend, Frontend, Analyst, Reviewer, QA, Designer): plantillas. Instancias efímeras por fase. PAT por perfil, o el del usuario por defecto. Solo slots globales, ajustables en Settings. |
 | 2 | Plan de pasos atado al workspace del agente (`plans.workspace_id`) | **Plan de fases por issue**: TDD → desarrollo → testing → review → vueltas → merge. Tres niveles: Fluke elige la plantilla (¿diseño? ¿TDD?), el Analyst arma el flujo entre issues (waves), el dev arma el plan interno de su fase. |
+| 2b | (nota) Fase Testing y checks de CI | Los checks de CI **no son mandatorios**: un PR sin checks no bloquea Testing ni el avance del flujo. El tester evalúa el alcance del issue sobre el diff y no exige agregar checks; solo un check existente que falla cuenta como fail. |
 | 3 | Tabla de issues con agrupado opcional | **Issues centrado en milestones**: una banda por milestone con play, waves en columnas, compuertas `pm:decision`, drawer para decidir. |
 | 4 | `/analyst-desk`: pedidos directos al analista | **Solo Fluke**. Conversa, pregunta, arma el brief; con el brief aprobado encarga el despiece al perfil Analyst. |
 | 5 | Pantallas Workspaces y Source control | **Un workspace por issue**, compartido por todas las fases. Se ve en las pestañas Código y Sesiones del issue. El rail queda en Fluke, Issues, Perfiles, Settings. |
